@@ -1,0 +1,8 @@
+{
+    "name": "CHANGEME",
+    "author": "CHANGEME",
+    "version": "1.0.0",
+    "description": "This is a template for a mod",
+    "RepoUrl": "https://github.com/author/name",
+    "iconPath": "icon.png"
+}
