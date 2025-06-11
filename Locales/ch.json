@@ -1,0 +1,21 @@
+{
+    "Default": "預設設定組",
+    "WhatToSay": "模組載入時列印的資訊",
+    "Culture": "文化",
+    "Dialect": "話",
+    "Language": "語",
+    "OriginalCulture": "原生文化",
+    "EvolvedCulture": "派生文化",
+    "Family": "家",
+    "Country": "國",
+    "CountryLevel": "國家级别",
+    "City": "縣",
+    "Clan": "氏",
+    "Peerages": "爵位",
+    "empire_tab_name": "帝國模組",
+    "empire_tab_description": "此模組目前為遊戲提供了預設中文/英語語言範本",
+    "SetEmpire": "成為帝國",
+    "SetEmpire Description": "將當前國家的等級設置為帝國",
+    "ProvinceLayer": "省份",
+    "ProvinceLayer Description": "顯示省份"
+}

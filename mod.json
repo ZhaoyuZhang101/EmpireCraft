@@ -1,8 +1,8 @@
 {
-    "name": "CHANGEME",
-    "author": "CHANGEME",
-    "version": "1.0.0",
-    "description": "This is a template for a mod",
-    "RepoUrl": "https://github.com/author/name",
+    "name": "EMPIRECRAFT",
+    "author": "长明火_CHM",
+    "version": "0.0.1",
+    "description": "this is a mod for adding more feature about country rule",
+    "RepoUrl": "https://github.com/ZhaoyuZhang101/EmpireCraft",
     "iconPath": "icon.png"
 }

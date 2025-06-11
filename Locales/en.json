@@ -1,4 +1,21 @@
 {
     "Default": "Default Configure Group",
-    "WhatToSay": "What to say on mod loaded"
+    "WhatToSay": "What to say on mod loaded",
+    "Culture": "Culture",
+    "Dialect": "Dialect",
+    "Language": "ese ",
+    "OriginalCulture": "OriginalCulture",
+    "EvolvedCulture": "EvolvedCulture",
+    "Family": "Family",
+    "Country": " ",
+    "CountryLevel": "country level",
+    "City": "Xian",
+    "Clan": "Clan",
+    "Peerages": "Peerages",
+    "empire_tab_name": "Empire Mod",
+    "empire_tab_description": "This mod currently provides default Chinese/English language templates for the game",
+    "SetEmpire": "Become Empire",
+    "SetEmpire Description": "Set the level of the current country to Empire",
+    "ProvinceLayer": "Province",
+    "ProvinceLayer Description": "Show Province Layer"
 }

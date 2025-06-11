@@ -1,4 +1,21 @@
 {
     "Default": "默认设置组",
-    "WhatToSay": "模组加载时打印的信息"
+    "WhatToSay": "模组加载时打印的信息",
+    "Culture": "文化",
+    "Dialect": "话",
+    "Language": "语",
+    "OriginalCulture": "原生文化",
+    "EvolvedCulture": "派生文化",
+    "Family": "家",
+    "Country": "国",
+    "CountryLevel": "国家级别",
+    "City": "县",
+    "Clan": "氏",
+    "Peerages": "爵位",
+    "empire_tab_name": "帝国模组",
+    "empire_tab_description": "此模组目前为游戏提供了默认中文/英语语言模板",
+    "SetEmpire": "成为帝国",
+    "SetEmpire Description": "将当前国家的等级设置为帝国",
+    "ProvinceLayer": "省份",
+    "ProvinceLayer Description": "显示省份"
 }
