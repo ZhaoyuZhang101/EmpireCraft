@@ -7,8 +7,11 @@ using System;
 using System.Reflection;
 using EmpireCraft.Scripts.GamePatches;
 using NeoModLoader.General;
-using ExampleMod.UI;
 using System.IO;
+using EmpireCraft.Scripts.Layer;
+using static UnityEngine.Random;
+using EmpireCraft.Scripts.UI;
+using UnityEngine.PlayerLoop;
 
 namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
@@ -17,12 +20,22 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
     public static string HUMAN_CULTURE = "Huaxia";
     public static string ELF_CULTURE = "Western";
     public static string DWARF_CULTURE = "Youmu";
-    private ModDeclare _declare;
+    public static string OTHER_CULTURE = "Other";
+    public static EmpireManager EMPIRE_MANAGER;
+    public static Empire selected_empire = null;
+    public static MetaTypeAsset EMPIRE_METATYPE_ASSET;
+    public static ModDeclare _declare;
     private GameObject _modObject;
     public ModDeclare GetDeclaration()
     {
         return _declare;
     }
+
+    void Update ()
+    {
+
+    }
+
     public GameObject GetGameObject()
     {
         return _modObject;
@@ -45,7 +58,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", cultureName, cultureName + "ReligionNames.csv"));
 
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "ProvinceLevel", cultureName + "ProvinceLevel.csv"));
-        
+
         LogService.LogInfo("加载文化名称模板: " + cultureName);
     }
 
@@ -80,15 +93,16 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
                 }
             }
         }
+        if (ModClass.EMPIRE_MANAGER==null)
+        {
+            ModClass.EMPIRE_MANAGER = new EmpireManager();
+        }
         LoadUI();
     }
 
     public void LoadUI()
     {
         MainTab.Init();
-        // Load your mod's UI here
-        // For example, you can load a custom UI panel or window
-        // ExampleMod.UI.MainTab.Init(); // Initialize your custom UI tab
         LogService.LogInfo("帝国模组UI加载成功！！");
     }
 

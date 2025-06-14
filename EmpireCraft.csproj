@@ -22,6 +22,8 @@
 
     <ItemGroup>
       <PackageReference Include="Lib.Harmony" Version="2.3.6" />
+      <PackageReference Include="Microsoft.AspNet.SignalR.Core" Version="2.4.3" />
+      <PackageReference Include="System.Collections.NonGeneric" Version="4.3.0" />
     </ItemGroup>
     <ItemGroup>
         <Reference Include="Assembly-CSharp">

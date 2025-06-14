@@ -1,4 +1,5 @@
 using EmpireCraft.Scripts.Enums;
+using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,5 +25,10 @@ public static class ActorExtension
     public static void SetPeeragesLevel(this Actor actor, PeeragesLevel value)
     {
         _data.GetOrCreateValue(actor).peeragesLevel = value;
+    }
+
+    public static void removeExtensionData(this Actor actor) 
+    {
+        _data.Remove(actor);
     }
 }
