@@ -5,6 +5,8 @@ using NeoModLoader.General;
 using NeoModLoader.api;
 using System.Text.RegularExpressions;
 using System.Collections;
+using EmpireCraft.Scripts.HelperFunc;
+using System.Collections.Generic;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class ReligionPatch : GamePatch
@@ -46,7 +48,7 @@ public class ReligionPatch : GamePatch
     {
         string culturePath = ModPath + cultureName + "/";
         string religionNamePath = culturePath + String.Format("{0}ReligionNames.csv", cultureName);
-        ArrayList religionKeys = CulturePatch.getKeysFromPath(religionNamePath);
+        List<string> religionKeys = OnomasticsHelper.getKeysFromPath(religionNamePath);
         religion.data.name = LM.Get(religionKeys[UnityEngine.Random.Range(0, religionKeys.Count)].ToString());
         LogService.LogInfo(cultureName + "宗教名称: " + religion.data.name);
     }

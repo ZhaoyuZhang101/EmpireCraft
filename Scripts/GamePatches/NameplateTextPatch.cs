@@ -2,11 +2,14 @@
 using EmpireCraft.Scripts.GameClassExtensions;
 using HarmonyLib;
 using NeoModLoader.api;
+using NeoModLoader.utils;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
@@ -20,8 +23,30 @@ public class NameplateTextPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(EmpireNamePlateTextShow)));
     }
 
+    public static Transform AddIconToNamePlate(NameplateText plate, bool activate)
+    {
+        Transform exist = plate.gameObject.transform.Find("EmpireIcon");
+        if (!exist) 
+        {
+            Sprite sprite = SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/crown2.png");
+            GameObject CrownIcon = new GameObject("EmpireIcon", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+            var uiImage = CrownIcon.GetComponent<UnityEngine.UI.Image>();
+            uiImage.sprite = sprite;
+            uiImage.preserveAspect = true;
+            uiImage.rectTransform.localScale = new Vector3(0.4f,0.4f,1);
+            CrownIcon.transform.SetParent(plate.transform, false);
+            uiImage.rectTransform.localPosition = new Vector3(0, 30, 0);
+            CrownIcon.SetActive(activate);
+            return CrownIcon.transform;
+        }
+        exist.gameObject.SetActive(activate);
+        return exist;
+    }
+
     public static bool EmpireNamePlateTextShow(NameplateText __instance, Kingdom pMetaObject)
     {
+        AddIconToNamePlate(__instance, false);
+
         if (!PlayerConfig.dict["map_empire_layer"].boolVal)
         {
             return true;
@@ -32,6 +57,9 @@ public class NameplateTextPatch : GamePatch
         }
         if (pMetaObject.isEmpire())
         {
+            if (!__instance.showing)
+                __instance.setShowing(true);
+            AddIconToNamePlate(__instance, true);
             Clan kingClan = pMetaObject.getKingClan();
             string text = pMetaObject.GetEmpire().name + "  " + pMetaObject.GetEmpire().countPopulation();
             __instance.setupMeta(pMetaObject.data, pMetaObject.kingdomColor);

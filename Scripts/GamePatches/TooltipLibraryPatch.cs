@@ -44,7 +44,7 @@ public class TooltipLibraryPatch : GamePatch
         Empire pEmpire = ModClass.EMPIRE_MANAGER.get(tKingdom.GetEmpireID());
         pTooltip.setDescription(tKingdom.getMotto(), null);
         string tColorHex = tKingdom.getColor().color_text;
-        pTooltip.setTitle(pEmpire.name, LM.Get("EmpireText"), tColorHex);
+        pTooltip.setTitle(pEmpire.name, "EmpireText", tColorHex);
         int tAge = pEmpire.getAge();
         setIconValue(pTooltip, "i_age", (float)tAge, "", "");
         setIconValue(pTooltip, "i_population", (float)pEmpire.countPopulation(), "", "");
@@ -54,15 +54,15 @@ public class TooltipLibraryPatch : GamePatch
         {
             pValue = pEmpire.empire.king.getName();
         }
-        pTooltip.addLineText(LM.Get("emperor"), pValue, "#FE9900", false, true, 21);
+        pTooltip.addLineText("emperor", pValue, "#FE9900", false, true, 21);
         if (tKingdom.hasKing() && tKingdom.king.hasClan())
         {
-            pTooltip.addLineText(LM.Get("empire_clan"), tKingdom.king.clan.data.name, tKingdom.king.clan.getColor().color_text, false, true, 21);
+            pTooltip.addLineText("empire_clan", tKingdom.king.clan.data.name, tKingdom.king.clan.getColor().color_text, false, true, 21);
         }
-        pTooltip.addLineText(LM.Get("empire_capital"), pEmpire.empire.data.name, "#CC6CE7", false, true, 21);
-        pTooltip.addLineText(LM.Get("year_name"), "-", "#FE9900", false, true, 21);
+        pTooltip.addLineText("empire_capital", pEmpire.empire.data.name, "#CC6CE7", false, true, 21);
+        pTooltip.addLineText("year_name", "-", "#FE9900", false, true, 21);
         pTooltip.addLineBreak();
-        pTooltip.addLineText(LM.Get("current_selected_province"), pData.kingdom.data.name, pData.kingdom.getColor().color_text, false, true, 21);
+        pTooltip.addLineText("current_selected_province", pData.kingdom.data.name, pData.kingdom.getColor().color_text, false, true, 21);
         string color = tKingdom.getColor().color_text;
         string leaderName = "-";
         if (pData.kingdom.hasKing()) 
@@ -73,31 +73,31 @@ public class TooltipLibraryPatch : GamePatch
                 color = pData.kingdom.king.clan.getColor().color_text;
             }
         }
-        pTooltip.addLineText(LM.Get("province_leader"), leaderName, color, false, true, 21);
-        pTooltip.addLineText(LM.Get("province_level"), LM.Get("default_"+ pData.kingdom.GetCountryLevel().ToString()), tKingdom.getColor().color_text, false, true, 21);
+        pTooltip.addLineText("province_leader", leaderName, color, false, true, 21);
+        pTooltip.addLineText("province_level", LM.Get("default_"+ pData.kingdom.GetCountryLevel().ToString()), tKingdom.getColor().color_text, false, true, 21);
         pTooltip.addLineBreak();
         pTooltip.addLineIntText(
-            LM.Get("adults"),
+            "adults",
             pEmpire.countAdults(),
             null, true);
 
         pTooltip.addLineIntText(
-            LM.Get("children"),
+            "children",
             pEmpire.countChildren(),
             null, true);
 
         pTooltip.addLineIntText(
-            LM.Get("territory"),
+            "territory",
             pEmpire.countZones(),
             null, true);
 
         pTooltip.addLineIntText(
-            LM.Get("housed"),
+            "housed",
             pEmpire.countHoused(),
             null, true);
 
         pTooltip.addLineIntText(
-            LM.Get("deaths"),
+            "deaths",
             pEmpire.getTotalDeaths(),
             null, true);
     }

@@ -96,11 +96,11 @@ internal static class CreateEmpireButton
         }
         if (ModClass.EMPIRE_MANAGER.forceEmpire(Config.unity_A, Config.unity_B))
         {
-            ActionLibrary.showWhisperTip(LM.Get("unity_new_empire"));
+            ActionLibrary.showWhisperTip("unity_new_empire");
         }
         else
         {
-            ActionLibrary.showWhisperTip(LM.Get("unity_joined_empire"));
+            ActionLibrary.showWhisperTip("unity_joined_empire");
         }
         Config.unity_A.affectKingByPowers();
         Config.unity_A = null;
@@ -111,7 +111,7 @@ internal static class CreateEmpireButton
  
     public static bool selectKingdom(string pPowerID)
     {
-        WorldTip.showNow(LM.Get("empire_selected"), true, "top", 3f, "#F3961F");
+        WorldTip.showNow("empire_selected", true, "top", 3f, "#F3961F");
         Config.unity_A = null;
         Config.unity_B = null;
         return false;

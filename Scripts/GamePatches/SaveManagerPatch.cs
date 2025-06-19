@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Layer;
+using db;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class SaveManagerPatch : GamePatch
@@ -35,10 +36,11 @@ public class SaveManagerPatch : GamePatch
             return;
         }
         DataManager.SaveAll(pFolder);
-        
+
     }    
     public static void load_mod_data(SaveManager __instance, SavedMap pData, string pPath)
     {
+        DBManagerPatch.AllClear();
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         LogService.LogInfo("加载mod数据从 " + pPath);
         if (pData == null)

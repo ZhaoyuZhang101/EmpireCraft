@@ -15,11 +15,15 @@ public class EmpireData : MetaObjectData
 
     [DefaultValue(-1L)]
     public long founder_kingdom_id { get; set; } = -1L;
+    public long emperor { get; set; } = -1L;
+    public long empire_clan { get; set; } = -1L;
 
     public List<long> kingdoms;
+    public List<string> history_emperrors;
 
     public long empire;
 
     public double timestamp_member_joined;
+    public double timestamp_established_time;
 
 }

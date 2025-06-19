@@ -1,0 +1,90 @@
+﻿using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.Layer;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Threading.Tasks;
+using UnityEngine;
+using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
+
+namespace EmpireCraft.Scripts.GameClassExtensions;
+public static class ClanExtension
+{
+    public class ClanExtraData
+    {
+        public long id;
+        //历史国家
+        public string historical_empire_name;
+        //历史国家首都地
+        public Vector2 position;
+    }
+
+    public static ClanExtraData GetOrCreate(Clan a)
+    {
+        var ed = ExtensionManager<Clan, ClanExtraData>.GetOrCreate(a);
+        return ed;
+    }
+
+    public static void Clear()
+    {
+        ExtensionManager<Clan, ClanExtraData>.Clear();
+    }
+    public static bool syncData(this Clan a, ClanExtraData actorExtraData)
+    {
+        var ed = ExtensionManager<Clan, ClanExtraData>.GetOrCreate(a);
+        ed.id = actorExtraData.id;
+        ed.historical_empire_name = actorExtraData.historical_empire_name;
+        ed.position = actorExtraData.position;
+        return true;
+    }
+
+    public static ClanExtraData getExtraData(this Clan a)
+    {
+        ClanExtraData data = new ClanExtraData();
+        data.id = a.getID();
+        data.historical_empire_name = a.GetHistoryEmpireName();
+        data.position = a.GetHistoryEmpirePos();
+        return data;
+    }
+
+    public static bool HasHistoryEmpire(this Clan a)
+    {
+        string name = GetOrCreate(a).historical_empire_name;
+        return name != null && name!="";
+    }
+
+    public static void RecordHistoryEmpire(this Clan __instance, Empire empire)
+    {
+        Kingdom kingdom = empire.empire;
+        GetOrCreate(__instance).id = __instance.getID();
+        GetOrCreate(__instance).position = kingdom.capital.city_center;
+        GetOrCreate(__instance).historical_empire_name = empire.GetEmpireName();
+    }
+
+    public static void ClearHistoricalName(this Clan __instance)
+    {
+        GetOrCreate(__instance).id = __instance.getID();
+        GetOrCreate(__instance).historical_empire_name = "";
+    }
+
+    public static string GetHistoryEmpireName(this Clan __instance)
+    {
+        return GetOrCreate(__instance).historical_empire_name;
+    }    
+    public static void SetHistoryEmpireName(this Clan __instance, string name)
+    {
+        GetOrCreate(__instance).historical_empire_name = name;
+    }
+
+    public static Vector2 GetHistoryEmpirePos(this Clan __instance)
+    {
+        return GetOrCreate(__instance).position;
+    }    
+    public static void SetHistoryEmpirePos(this Clan __instance, Vector2 pos)
+    {
+        GetOrCreate(__instance).position = pos;
+    }
+
+}

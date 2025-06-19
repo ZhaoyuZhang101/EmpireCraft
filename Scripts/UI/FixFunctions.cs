@@ -80,7 +80,18 @@ public static class FixFunctions
             prefab.gameObject.SetActive(true);
         }
 
+        if (!obj.HasComponent<TipButton>())
+        {
+            obj._button.OnHover(delegate
+            {
+                TooltipData tooltipData = new TooltipData();
+                tooltipData.tip_name = god_power.getLocaleID();
+                tooltipData.tip_description = god_power.getDescriptionID();
+                Tooltip.show(obj, "normal", tooltipData);
+            });
+            obj._button.OnHoverOut(Tooltip.hideTooltip);
 
+        }
         obj.name = pGodPowerId;
         obj.icon.sprite = pIcon;
         obj.icon.overrideSprite = pIcon;
@@ -98,4 +109,5 @@ public static class FixFunctions
         obj.gameObject.SetActive(true);
         return obj;
     }
+
 }

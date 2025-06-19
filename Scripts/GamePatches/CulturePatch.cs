@@ -14,6 +14,7 @@ using System.Linq;
 using System.IO;
 using System.Drawing;
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.HelperFunc;
 namespace EmpireCraft.Scripts.GamePatches;
 
 public class CulturePatch : GamePatch
@@ -78,108 +79,85 @@ public class CulturePatch : GamePatch
                 insertCultureNameTemplate(culture, ModClass.DWARF_CULTURE);
                 break;
             default:
+                insertCultureNameTemplate(culture, ModClass.ELF_CULTURE);
                 break;
         }
     }
 
     public static void insertCultureNameTemplate(Culture culture, string cultureName)
     {
-        string culturePath = ModPath + cultureName + "/";
         OnomasticsData kindomData = culture.getOnomasticData(MetaType.Kingdom);
         OnomasticsData clanData = culture.getOnomasticData(MetaType.Clan);
         OnomasticsData familyData = culture.getOnomasticData(MetaType.Family);
         OnomasticsData CityData = culture.getOnomasticData(MetaType.City);
-        OnomasticsData UnitData = culture.getOnomasticData(MetaType.Unit);
+        OnomasticsData unitData = culture.getOnomasticData(MetaType.Unit);
+        
         kindomData.clearTemplateData();
         kindomData.groups.Clear();
-        OnomasticsType[] kindomTemplateData ={ 
-            OnomasticsType.group_1, OnomasticsType.space, OnomasticsType.group_3, OnomasticsType.group_4 
-        };
-        kindomData.setTemplateData(OnomasticsTypeExtensions.ToStringList(kindomTemplateData));
-        string countryNamePath = culturePath + String.Format("{0}CountryNames.csv", cultureName);
-        ArrayList countryNameKeys = getKeysFromPath(countryNamePath);
-        kindomData.setGroup("group_1", countryNameKeys.ToArray().Join(t => LM.Get((string)t), " "));
-        kindomData.setGroup("group_4", LM.Get("Country"));
 
-        CityData.clearTemplateData();
-        CityData.groups.Clear();
+
+        OnomasticsType[] kindomTemplateData ={ 
+            OnomasticsType.group_1, OnomasticsType.space, OnomasticsType.group_2
+        };
+        OnomasticsHelper.Configure(
+            kindomData,
+            cultureName,
+            kindomTemplateData,
+            (OnomasticsType.group_1.ToString(), "CountryNames", null),
+            (OnomasticsType.group_2.ToString(), null, LM.Get("Country"))
+            );
+
+
         OnomasticsType[] cityTemplateData = {
                     OnomasticsType.group_1, OnomasticsType.group_2, OnomasticsType.space, OnomasticsType.group_3
                 };
-        string cityName1Path = culturePath + String.Format("{0}CityNames1.csv", cultureName);
-        ArrayList cityName1Keys = getKeysFromPath(cityName1Path);
-        string cityName2Path = culturePath + String.Format("{0}CityNames2.csv", cultureName);
-        ArrayList cityName2Keys = getKeysFromPath(cityName2Path);
-        CityData.setTemplateData(OnomasticsTypeExtensions.ToStringList(cityTemplateData));
-        CityData.setGroup("group_1", cityName1Keys.ToArray().Join(t => LM.Get((string)t), " "));
-        CityData.setGroup("group_2", cityName2Keys.ToArray().Join(t => LM.Get((string)t), " "));
-        CityData.setGroup("group_3", LM.Get("City"));
+        OnomasticsHelper.Configure(
+            CityData,
+            cultureName,
+            cityTemplateData,
+            (OnomasticsType.group_1.ToString(), "CityNames1", null),
+            (OnomasticsType.group_2.ToString(), "CityNames2", null),
+            (OnomasticsType.group_3.ToString(), "CityNames3", null)
+            );
 
-        clanData.clearTemplateData();
-        clanData.groups.Clear();
         OnomasticsType[] clanTemplateData = {
                     OnomasticsType.group_1, OnomasticsType.space, OnomasticsType.group_2
                 };
-        string clanNamePath = culturePath + String.Format("{0}ClanNames.csv", cultureName);
-        ArrayList clanNameKeys = getKeysFromPath(clanNamePath);
-        clanData.setTemplateData(OnomasticsTypeExtensions.ToStringList(clanTemplateData));
-        clanData.setGroup("group_1", clanNameKeys.ToArray().Join(t => LM.Get((string)t), " "));
-        clanData.setGroup("group_2", LM.Get("Clan"));
 
-        familyData.clearTemplateData();
-        familyData.groups.Clear();
+        OnomasticsHelper.Configure(
+            clanData,
+            cultureName,
+            clanTemplateData,
+            (OnomasticsType.group_1.ToString(), "ClanNames", null),
+            (OnomasticsType.group_2.ToString(), null, LM.Get("Clan"))
+            );
+
         OnomasticsType[] familyTemplateData = {
                     OnomasticsType.group_1, OnomasticsType.space, OnomasticsType.group_2
                 };
-        string familyNamePath = culturePath + String.Format("{0}FamilyNames.csv", cultureName);
-        ArrayList familyNameKeys = getKeysFromPath(familyNamePath);
-        familyData.setTemplateData(OnomasticsTypeExtensions.ToStringList(familyTemplateData));
-        familyData.setGroup("group_1", clanNameKeys.ToArray().Join(t => LM.Get((string)t), " "));
-        familyData.setGroup("group_2", LM.Get("Family"));
 
-        UnitData.clearTemplateData();
-        UnitData.groups.Clear();
+        OnomasticsHelper.Configure(
+            familyData,
+            cultureName,
+            familyTemplateData,
+            (OnomasticsType.group_1.ToString(), "FamilyNames", null),
+            (OnomasticsType.group_2.ToString(), null, LM.Get("Family"))
+            );
+
+
         OnomasticsType[] unitTemplateData = {
                     OnomasticsType.group_1, OnomasticsType.sex_male, OnomasticsType.coin_flip, OnomasticsType.group_2, OnomasticsType.sex_male,
-                    OnomasticsType.group_3, OnomasticsType.sex_female, OnomasticsType.coin_flip, OnomasticsType.group_4,OnomasticsType.sex_female, 
+                    OnomasticsType.group_3, OnomasticsType.sex_female, OnomasticsType.coin_flip, OnomasticsType.group_4,OnomasticsType.sex_female
                 };
-        UnitData.setTemplateData(OnomasticsTypeExtensions.ToStringList(unitTemplateData));
-        string unitNameMale1Path = culturePath + String.Format("{0}UnitNamesMale1.csv", cultureName);
-        ArrayList unitNameMale1Keys = getKeysFromPath(unitNameMale1Path);
-        string unitNameMale2Path = culturePath + String.Format("{0}UnitNamesMale2.csv", cultureName);
-        ArrayList unitNameMale2Keys = getKeysFromPath(unitNameMale2Path);
-        string unitNameFemale1Path = culturePath + String.Format("{0}UnitNamesFemale1.csv", cultureName);
-        ArrayList unitNameFemale1Keys = getKeysFromPath(unitNameFemale1Path);
-        string unitNameFemale2Path = culturePath + String.Format("{0}UnitNamesFemale2.csv", cultureName);
-        ArrayList unitNameFemale2Keys = getKeysFromPath(unitNameFemale2Path);
-        UnitData.setGroup("group_1", unitNameMale1Keys.ToArray().Join(t => LM.Get((string)t), " "));
-        UnitData.setGroup("group_2", unitNameMale2Keys.ToArray().Join(t => LM.Get((string)t), " "));
-        UnitData.setGroup("group_3", unitNameFemale1Keys.ToArray().Join(t => LM.Get((string)t), " "));
-        UnitData.setGroup("group_4", unitNameFemale2Keys.ToArray().Join(t => LM.Get((string)t), " "));
-    }
+        OnomasticsHelper.Configure(
+            unitData,
+            cultureName,
+            unitTemplateData,
+            (OnomasticsType.group_1.ToString(), "UnitNamesMale1", null),
+            (OnomasticsType.group_2.ToString(), "UnitNamesMale2", null),
+            (OnomasticsType.group_3.ToString(), "UnitNamesFemale1", null),
+            (OnomasticsType.group_4.ToString(), "UnitNamesFemale2", null)
 
-    public static ArrayList getKeysFromPath(string path)
-    {
-        if (!File.Exists(path))
-        {
-            LogService.LogWarning("File not found: " + path);
-            return null;
-        }
-        else
-        {
-            string[] lines = File.ReadAllLines(path);
-            int index = 0;
-            ArrayList keys = new();
-            foreach (string line in lines)
-            {
-                string[] strings = line.Split(',');
-                if (index != 0)
-                {
-                    keys.Add(strings[0]);
-                }
-                index++;
-            }
-            return keys;
-        }
+            );
     }
 }

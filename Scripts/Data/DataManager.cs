@@ -18,6 +18,10 @@ using Newtonsoft.Json;
 using static UnityEngine.EventSystems.EventTrigger;
 using EmpireCraft.Scripts.Layer;
 using System.Threading.Tasks;
+using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
+using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
+using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
+using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 
 namespace EmpireCraft.Scripts.Data;
 
@@ -25,55 +29,52 @@ public static class DataManager
 {
     public static void LoadAll(string loadRootPath)
     {
-        string loadPath = Path.Combine(loadRootPath, "modData.json");
+        string loadPath = Path.Combine(loadRootPath, "EmpireCraftModData.json");
         LogService.LogInfo(loadPath);
         if (!File.Exists(loadPath))
         {
+            LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
         
         var json = File.ReadAllText(loadPath);
         var saveData = JsonConvert.DeserializeObject<SaveData>(json);
-        int restored = 0;
+
+
         if (saveData == null || saveData.actorsExtraData == null || saveData.actorsExtraData.Count == 0)
         {
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
-        //加载角色数据
-        foreach (ExtraActorData entry in saveData.actorsExtraData)
-        {
-            Actor[] actors = World.world.units.Where(a => a.isActor() && a.getID() == entry.actorId).ToArray();
-            if (actors != null && actors.Length > 0)
-            {
-                actors[0].SetPeeragesLevel(entry.peerage);
-                restored++;
-            }
-        }
-        //加载王国数据
-        foreach (ExtraKingdomData entry in saveData.kingdomExtraData)
-        {
-            Kingdom[] kingdoms = World.world.kingdoms.Where(a => a.getID() == entry.kingdomId).ToArray();
-            if (kingdoms != null && kingdoms.Length > 0)
-            {
-                kingdoms[0].SetCountryLevel(entry.kingdomLevel);
-                kingdoms[0].SetVassaledKingdomID(entry.vassaled_kingdom_id);
-                kingdoms[0].SetEmpireID(entry.empire_id);
-                kingdoms[0].SetTimestampEmpire(entry.timestamp_empire);
-                restored++;
-            }
-        }
+        var unitById = World.world.units.ToDictionary(u => u.getID());
+        var kingdomById = World.world.kingdoms.ToDictionary(k => k.getID());
+        var cityById = World.world.cities.ToDictionary(c => c.getID());
+        var clanById = World.world.clans.ToDictionary(c => c.getID());
+        var warById = World.world.wars.ToDictionary(w => w.getID());
 
-        //加载城市数据
-        foreach (ExtraCityData entry in saveData.cityExtraData)
-        {
-            City[] cities = World.world.cities.Where(a => a.getID() == entry.cityId).ToArray();
-            if (cities != null && cities.Length > 0)
-            {
-                cities[0].SetKingdomNames(entry.kingdomNames);
-                restored++;
-            }
-        }
+        // 批量同步
+        foreach (var entry in saveData.actorsExtraData)
+            if (unitById.TryGetValue(entry.id, out var actor))
+                if(actor.isActor())
+                {
+                    actor.syncData(entry);
+                }
+
+        foreach (var entry in saveData.kingdomExtraData)
+            if (kingdomById.TryGetValue(entry.id, out var kingdom))
+                kingdom.syncData(entry);
+
+        foreach (var entry in saveData.cityExtraData)
+            if (cityById.TryGetValue(entry.id, out var city))
+                city.syncData(entry);
+
+        foreach (var entry in saveData.clanExtraData)
+            if (clanById.TryGetValue(entry.id, out var clan))
+                clan.syncData(entry);
+
+        foreach (var entry in saveData.warExtraData)
+            if (warById.TryGetValue(entry.id, out var war))
+                war.syncData(entry);
 
         foreach (EmpireData empireData in saveData.empireDatas)
         {
@@ -86,47 +87,13 @@ public static class DataManager
     }
     public static void SaveAll(string saveRootPath)
     {
-        string savePath = Path.Combine(saveRootPath, "modData.json");
+        string savePath = Path.Combine(saveRootPath, "EmpireCraftModData.json");
         SaveData saveData = new SaveData();
-        saveData.actorsExtraData = new List<ExtraActorData>(World.world.units.Count);
-        saveData.cityExtraData = new List<ExtraCityData>(World.world.cities.Count);
+        saveData.actorsExtraData = World.world.units.Select(a=>a.getExtraData()).ToList();
+        saveData.cityExtraData = World.world.cities.Select(a => a.getExtraData()).ToList(); ;
+        saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.getExtraData()).ToList(); ;
+        saveData.warExtraData = World.world.wars.Select(a => a.getExtraData()).ToList(); ;
         saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
-        foreach (Actor actor in World.world.units.Where(a => a.isActor()))
-        {
-        var lvl = actor.GetPeeragesLevel();
-            ExtraActorData extraData = new ExtraActorData()
-            {
-                actorId = actor.getID(),
-                peerage = lvl
-            };
-            saveData.actorsExtraData.Add(extraData);
-        }
-
-        foreach (Kingdom kingdom in World.world.kingdoms)
-        {
-        var lvl = kingdom.GetCountryLevel();
-            ExtraKingdomData extraData2 = new ExtraKingdomData()
-            {
-                kingdomId = kingdom.getID(),
-                kingdomLevel = lvl,
-                vassaled_kingdom_id = kingdom.GetVassaledKingdomID(),
-                empire_id = kingdom.GetEmpireID(),
-                timestamp_empire = kingdom.GetTimestampEmpire()
-            };
-            saveData.kingdomExtraData.Add(extraData2);
-            
-        }
-        foreach (City city in World.world.cities)
-        {
-            var lvl = city.GetKingdomNames;
-            ExtraCityData extraData3 = new ExtraCityData()
-            {
-                cityId = city.getID(),
-                kingdomNames = city.GetKingdomNames()
-            };
-            saveData.cityExtraData.Add(extraData3);
-
-        }
         List<Empire> empireToRemove = new List<Empire>();
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)
         {

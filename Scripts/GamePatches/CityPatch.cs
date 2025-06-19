@@ -18,10 +18,6 @@ public class CityPatch : GamePatch
 
     public void Initialize()
     {
-        new Harmony(nameof(RemovePatchData)).Patch(
-            AccessTools.Method(typeof(City), nameof(City.destroyCity)),
-            prefix: new HarmonyMethod(GetType(), nameof(RemovePatchData))
-        );
 
         new Harmony(nameof(update_dirty_patch)).Patch(
             AccessTools.Method(typeof(City), nameof(City.setDirty)),
@@ -40,8 +36,4 @@ public class CityPatch : GamePatch
         __instance.kingdom.GetEmpire().setDirty();
     }
 
-    public static void RemovePatchData(City __instance)
-    {
-        __instance.removeExtensionData();
-    }
 }

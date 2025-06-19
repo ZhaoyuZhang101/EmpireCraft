@@ -29,17 +29,8 @@ public class ActorPatch: GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(set_actor_peerages)));
         new Harmony(nameof(add_child)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.addChild)),
             postfix: new HarmonyMethod(GetType(), nameof(add_child)));
-        new Harmony(nameof(RemovePatchData)).Patch(
-            AccessTools.Method(typeof(Actor), nameof(Actor.dieAndDestroy)),
-            prefix: new HarmonyMethod(GetType(), nameof(RemovePatchData))
-);
         LogService.LogInfo("角色姓名命名补丁加载成功");
     }
-    public static void RemovePatchData(Actor __instance)
-    {
-        __instance.removeExtensionData();
-    }
-
     public static void add_child(Actor __instance, BaseActorComponent pObject)
     {
 
@@ -47,6 +38,10 @@ public class ActorPatch: GamePatch
 
     public static void set_actor_peerages(Actor __instance)
     {
+        if (__instance.data==null)
+        {
+            return;
+        }
         __instance.SetPeeragesLevel(PeeragesLevel.peerages_6);
     }
 

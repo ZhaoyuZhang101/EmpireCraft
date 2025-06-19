@@ -11,22 +11,26 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace EmpireCraft.Scripts.GamePatches;
-public class KingdomWindowPatch: GamePatch
+public class UnitWindowPatch: GamePatch
 {
     public ModDeclare declare { get; set; }
     public void Initialize()
     {
         // UnitWindow类的补丁
         new Harmony(nameof(set_stats_rows)).Patch(
-            AccessTools.Method(typeof(KingdomWindow), nameof(KingdomWindow.showStatsRows)),
-            prefix: new HarmonyMethod(GetType(), nameof(set_stats_rows))
+            AccessTools.Method(typeof(UnitWindow), nameof(UnitWindow.showStatsRows)),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(set_stats_rows))
         );
-        LogService.LogInfo("王国窗口补丁加载成功");
+        LogService.LogInfo("角色窗口补丁加载成功");
     }
 
-    private static void set_stats_rows(KingdomWindow __instance)
+    private static void set_stats_rows(UnitWindow __instance)
     {
-        countryLevel country_level = __instance.meta_object.GetCountryLevel();
-        __instance.showStatRow(LM.Get("CountryLevel"), LM.Get("default_" + country_level.ToString()), MetaType.None, -1L, null, LM.Get("CountryLevel"), null);
+        PeeragesLevel peeragesLevel = __instance.actor.GetPeeragesLevel();
+        __instance.showStatRow("Peerages", LM.Get("default_" + peeragesLevel.ToString()), MetaType.None, -1L, null, LM.Get("Peerages"), null);
+        if (__instance.actor.HasTitle())
+        {
+            __instance.showStatRow("EmpireTitle", __instance.actor.GetTitle() , MetaType.None, -1L, null, LM.Get("Peerages"), null);
+        }
     }
 }

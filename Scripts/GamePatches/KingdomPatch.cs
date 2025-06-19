@@ -27,8 +27,9 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(Initialize_level)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.newCivKingdom)),
             postfix: new HarmonyMethod(GetType(), nameof(Initialize_level))
-        ); 
+        );         
     }
+
     public static void Initialize_level(Kingdom __instance, Actor pActor)
     {
         __instance.SetCountryLevel(Enums.countryLevel.countrylevel_2);
@@ -41,12 +42,10 @@ public class KingdomPatch : GamePatch
         if (empire == null) return; 
         if (__instance.isEmpire())
         {
-            empire.dissolve();
-            empire.Dispose();
+            empire.checkDisolve(__instance);
         }else
         {
             empire.leave(__instance);
         }
-        __instance.removeExtensionData();
     }
 }

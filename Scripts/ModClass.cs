@@ -12,6 +12,9 @@ using EmpireCraft.Scripts.Layer;
 using static UnityEngine.Random;
 using EmpireCraft.Scripts.UI;
 using UnityEngine.PlayerLoop;
+using EmpireCraft.Scripts.AI;
+using db;
+using EmpireCraft.Scripts.TipAndLog;
 
 namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
@@ -21,7 +24,9 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
     public static string ELF_CULTURE = "Western";
     public static string DWARF_CULTURE = "Youmu";
     public static string OTHER_CULTURE = "Other";
+    public static bool IS_CLEAR = false;
     public static EmpireManager EMPIRE_MANAGER;
+    public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
     public static Empire selected_empire = null;
     public static MetaTypeAsset EMPIRE_METATYPE_ASSET;
     public static ModDeclare _declare;
@@ -32,6 +37,15 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
     }
 
     void Update ()
+    {
+
+    }
+
+    void OnDestroy() 
+    {
+    }
+
+    void Start ()
     {
 
     }
@@ -98,6 +112,12 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
             ModClass.EMPIRE_MANAGER = new EmpireManager();
         }
         LoadUI();
+        LogService.LogInfo("加载帝国模组更多看法");
+        EmpireCraftOpinionAddition.init();
+        LogService.LogInfo("加载帝国模组更多政策行为");
+        EmpireCraftPlotsAddition.init();
+        LogService.LogInfo("加载帝国模组更多世界提示");
+        EmpireCraftWorldLogLibrary.init();
     }
 
     public void LoadUI()
@@ -119,25 +139,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
         loadCultureNameTemplate("Youmu");
         LM.ApplyLocale();
         // You can reload your mod here, such as reloading configs, reloading UI, etc.
-        Type[] patchTypes = Assembly.GetExecutingAssembly().GetTypes();
-        foreach (Type type in patchTypes)
-        {
-            if (type.GetInterface(nameof(GamePatch)) != null)
-            {
-                try
-                {
-                    GamePatch patch = (GamePatch)type.GetConstructor(new Type[] { }).Invoke(new object[] { });
-                    patch.declare = _declare; // Ensure the patch has the correct mod declaration
-                    patch.Initialize();
-                   
-                }
-                catch (Exception e)
-                {
-                    LogService.LogWarning("Failed to initialize patch: " + type.Name);
-                    LogService.LogWarning(e.ToString());
-                }
-            }
-        }
     }
 
     public string GetLocaleFilesDirectory(ModDeclare pModDeclare)

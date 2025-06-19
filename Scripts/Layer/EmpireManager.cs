@@ -1,4 +1,7 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+﻿using db;
+using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.TipAndLog;
+using HarmonyLib;
 using NeoModLoader.services;
 using Newtonsoft.Json.Linq;
 using System;
@@ -115,6 +118,11 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.createNewEmpire(pKingdom);
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
+        new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.name.Split(' ')[0])
+        {
+            location = pKingdom.location,
+            color_special1 = pKingdom.kingdomColor.getColorText()
+        }.add();
         LogService.LogInfo("创建帝国成功");
         return empire;
     }

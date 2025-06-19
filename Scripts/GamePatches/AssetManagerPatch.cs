@@ -24,6 +24,5 @@ public class AssetManagerPatch : GamePatch
 
     public static void add_empire_banners_lib_init(AssetManager __instance)
     {
-        __instance.add(new EmpireBannerLibrary(), "empire_banners_library");
     }
 }
