@@ -10,8 +10,6 @@ public class EmpireData : MetaObjectData
     public int banner_background_id { get; set; }
     public int banner_icon_id { get; set; }
     public bool has_year_name { get; set; }
-    public List<long> want_acuired_title { get; set; }
-    public List<long> owned_title { get; set; }
     public string founder_actor_name { get; set; }
     [DefaultValue(-1L)]
     public long founder_actor_id { get; set; } = -1L;
@@ -30,6 +28,7 @@ public class EmpireData : MetaObjectData
     public List<string> history_emperrors;
 
     public long empire;
+    public long original_capital;
 
     public double timestamp_member_joined;
     public double timestamp_established_time;

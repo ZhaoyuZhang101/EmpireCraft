@@ -1,9 +1,18 @@
 {
     "Default": [
         {
-            "Id": "WhatToSay",
+            "Id": "Title_Freeze_Toggle",
+            "Type": "SWITCH",
+            "IconPath": "ui/icons/iconHideUI",
+            "BoolVal": false,
+            "Callback": "ConfigActions:SwitchTitleFreezeCallBack"
+        },
+        {
+            "Id": "Title_Been_Destroy_Text",
             "Type": "TEXT",
-            "TextVal": "Hello World!"
+            "IconPath": "ui/icons/iconHideUI",
+            "TextVal": "100",
+            "Callback": "ConfigActions:TextTitleBeenDestroyCallBack"
         }
     ]
 }

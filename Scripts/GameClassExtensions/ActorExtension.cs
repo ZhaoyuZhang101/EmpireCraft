@@ -128,6 +128,23 @@ public static class ActorExtension
         return commonTitles.Count() < controledTitles.Count();
     }
 
+    public static List<KingdomTitle> titleCanBeDestroy(this Actor a)
+    {
+        List<KingdomTitle> titles = new List<KingdomTitle>();
+        foreach(long id in a.GetOwnedTitle())
+        {
+            if (ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(id))
+            {
+                KingdomTitle kt = ModClass.KINGDOM_TITLE_MANAGER.get(id);
+                if (Date.getYearsSince(kt.data.timestamp_been_controled) >= ModClass.TITLE_BEEN_DESTROY_TIME && kt.title_capital != a.kingdom.capital)
+                {
+                    titles.Add(kt);
+                }
+            }
+        }
+        return titles;
+    }
+
     public static List<KingdomTitle> takeTitle(this Actor a)
     {
         if (!a.isKing()) return null;
@@ -149,7 +166,7 @@ public static class ActorExtension
                 {
                     takedTitles.Add(t);
                     a.AddOwnedTitle(t);
-                    t.owner = a;
+                    t.data.timestamp_been_controled = World.world.getCurWorldTime();
                 }
             }
         }
@@ -165,6 +182,9 @@ public static class ActorExtension
     public static void AddOwnedTitle(this Actor a, KingdomTitle title)
     {
         var ed = ExtensionManager<Actor, ActorExtraData>.GetOrCreate(a);
+        if (ed == null) return;
+        if (title == null) return;
+        if (ed.owned_title==null) ed.owned_title = new List<long> { 0 };
         if (!ed.owned_title.Contains(title.data.id))
             ed.owned_title.Add(title.data.id);
             title.owner = a;

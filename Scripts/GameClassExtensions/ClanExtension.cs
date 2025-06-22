@@ -20,6 +20,7 @@ public static class ClanExtension
         public string historical_empire_name;
         //历史国家首都地
         public Vector2 position;
+        public long original_capital;
     }
 
     public static ClanExtraData GetOrCreate(Clan a)
@@ -66,6 +67,7 @@ public static class ClanExtension
         GetOrCreate(__instance).id = __instance.getID();
         GetOrCreate(__instance).position = kingdom.capital.city_center;
         GetOrCreate(__instance).historical_empire_name = empire.GetEmpireName();
+        GetOrCreate(__instance).original_capital = empire.original_capital.isAlive() ? empire.original_capital.data.id : -1L;
         LogService.LogInfo("记录家族历史帝国成功");
     }
 
@@ -78,6 +80,11 @@ public static class ClanExtension
     public static string GetHistoryEmpireName(this Clan __instance)
     {
         return GetOrCreate(__instance).historical_empire_name;
+    }   
+
+    public static City GetHistoryCapital(this Clan __instance)
+    {
+        return World.world.cities.get(GetOrCreate(__instance).original_capital);
     }    
     public static void SetHistoryEmpireName(this Clan __instance, string name)
     {

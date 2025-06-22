@@ -26,6 +26,8 @@ public class EmpireCraftWorldLogLibrary
     public static WorldLogAsset king_take_title_log;
     public static WorldLogAsset king_create_title_log;
     public static WorldLogAsset city_add_to_title_log;
+    public static WorldLogAsset become_kingdom_log;
+    public static WorldLogAsset destroy_title_log;
 
     public static void init()
     {
@@ -43,6 +45,19 @@ public class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$year_name$", 3);
             }
         });
+        become_kingdom_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(become_kingdom_log),
+            group = "EmperorQuest",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$title$", 2);
+                wl.updateText(ref pText, pMessage, "$kingdom$", 3);
+            }
+        });
         empire_war  = wl.add(new WorldLogAsset
         {
             id = nameof(empire_war),
@@ -53,6 +68,18 @@ public class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$empire$", 1);
                 wl.updateText(ref pText, pMessage, "$defencer$", 2);
+            }
+        });
+        destroy_title_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(destroy_title_log),
+            group= "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$king$", 1);
+                wl.updateText(ref pText, pMessage, "$title$", 2);
             }
         });
         king_take_title_log = wl.add(new WorldLogAsset
@@ -66,7 +93,7 @@ public class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$kingdom$", 1);
                 wl.updateText(ref pText, pMessage, "$king$", 2);
                 wl.updateText(ref pText, pMessage, "$title_name$", 3);
-            }
+            } 
         });
         king_create_title_log = wl.add(new WorldLogAsset
         {
@@ -76,7 +103,7 @@ public class EmpireCraftWorldLogLibrary
             color = Toolbox.color_log_warning,
             text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
             {
-                wl.updateText(ref pText, pMessage, "$kindom$", 1);
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
                 wl.updateText(ref pText, pMessage, "$king$", 2);
                 wl.updateText(ref pText, pMessage, "$title_name$", 3);
             }

@@ -15,7 +15,7 @@ public static class ExtensionManager<TKey, TData>
 
     public static TData GetOrCreate(TKey key)
     {
-        if (ModClass.IS_CLEAR) return null;
+        if (ModClass.IS_CLEAR) return default;
         var d = _table.GetOrCreateValue(key);
         return d;
     }

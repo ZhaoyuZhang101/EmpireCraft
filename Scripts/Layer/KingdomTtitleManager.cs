@@ -26,6 +26,12 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         return title;
     }
 
+    public bool checkTitleExist(long t) 
+    {
+        update(-1L);
+        return get(t) == null;
+    }
+
     public void AddCityToTitle(KingdomTitle pTitle, City pCity)
     {
         if (pTitle != null && pCity != null)

@@ -91,8 +91,9 @@ public static class DataManager
         }
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         ConfigData.speciesCulturePair = saveData.speciesCulturePair;
+        ModClass.IS_CLEAR = false;
 
-        
+
     }
     public static void SaveAll(string saveRootPath)
     {

@@ -27,6 +27,7 @@ public class Empire : MetaObject<EmpireData>
     public Clan empire_clan;
     public Actor emperor;
     public Vector3 capital_center;
+    public City original_capital;
     public EmpireCraftMapMode map_mode = EmpireCraftMapMode.Empire;
 
     public override MetaType meta_type
@@ -122,6 +123,7 @@ public class Empire : MetaObject<EmpireData>
             clan.newClan(this.empire.king, true);
             this.empire_clan = clan;
         }
+        this.original_capital = empire.capital;
         this.data.banner_icon_id = empire.data.banner_icon_id;
         this.data.banner_background_id = empire.data.banner_background_id;
         empire.SetCountryLevel(countryLevel.countrylevel_0);
@@ -129,6 +131,10 @@ public class Empire : MetaObject<EmpireData>
         this.capital_center = empire.capital.city_center;
         this.generateNewMetaObject();
         string empireName = empire.GetKingdomName();
+        if (empire.king.HasTitle())
+        {
+            empireName = empire.king.GetTitle();
+        }
         if (empire.getKingClan() != null)
         {
             if (empire.getKingClan().HasHistoryEmpire())
@@ -160,16 +166,15 @@ public class Empire : MetaObject<EmpireData>
     {
         float ax = Math.Abs(v.x);
         float ay = Math.Abs(v.y);
-
         if (ax > ay)
         {
             // 水平分量更大，向东或西
-            return LM.Get(v.x < capital_center.x ?"Eastern" : "Western");
+            return LM.Get(v.x > capital_center.x+5 ?"Eastern" : "Western");
         }
         else if (ay > ax)
         {
             // 垂直分量更大，向北或南
-            return LM.Get(v.y > capital_center.y ? "Northern" : "Southern");
+            return LM.Get(v.y > capital_center.y+5 ? "Northern" : "Southern");
         }
         else
         {
@@ -244,7 +249,7 @@ public class Empire : MetaObject<EmpireData>
         }
         if (newKingdom.getKingClan().HasHistoryEmpire())
         {
-            string empireName = String.Join(" ", GetDir(newKingdom.getKingClan().GetHistoryEmpirePos()), newKingdom.getKingClan().GetHistoryEmpireName());
+            string empireName = String.Join(" ", newEmpire.GetDir(newKingdom.getKingClan().GetHistoryEmpirePos()), newKingdom.getKingClan().GetHistoryEmpireName());
             newEmpire.SetEmpireName(empireName);
         }
         if (newKingdom.king.HasTitle())
@@ -253,7 +258,7 @@ public class Empire : MetaObject<EmpireData>
         }
         if (newKingdom.getKingClan() == empire_clan)
         {
-            newEmpire.SetEmpireName(GetDir(newKingdom.capital.city_center) + " " + GetEmpireName());
+            newEmpire.SetEmpireName(newEmpire.GetDir(newKingdom.capital.city_center) + " " + GetEmpireName());
         }
         if (newKingdom.king.hasClan())
         {
@@ -559,6 +564,7 @@ public class Empire : MetaObject<EmpireData>
         }
         this.data.emperor = this.emperor.data.id;
         this.data.empire = this.empire.data.id;
+        this.data.original_capital = this.original_capital.isAlive() ? this.original_capital.data.id : -1L;
         this.data.empire_clan = this.empire_clan==null?-1L:this.empire_clan.data.id;
     }
 
@@ -577,6 +583,7 @@ public class Empire : MetaObject<EmpireData>
         this.emperor = World.world.units.get(pData.emperor);
         this.empire = World.world.kingdoms.get(pData.empire);
         this.empire_clan = World.world.clans.get(pData.empire_clan);
+        this.original_capital = World.world.cities.get(pData.original_capital);
         this.recalculate();
     }
 

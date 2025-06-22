@@ -99,5 +99,9 @@ public static class EmpireCraftTooltipLibrary
         string pValue = title.HasOwner()?title.owner.getName():"-";
         pTooltip.addLineText("title_holder", pValue, "#FE9900", false, true, 21);
         pTooltip.addLineText("title_capital", title.title_capital.data.name, "#CC6CE7", false, true, 21);
+        if (title.isBeenControlled())
+        {
+            pTooltip.addLineText("title_been_controlled", city.kingdom.isEmpire() ? city.kingdom.GetEmpire().data.name: city.kingdom.data.name, "#CC6CE7", false, true, 21);
+        }
     }
 }

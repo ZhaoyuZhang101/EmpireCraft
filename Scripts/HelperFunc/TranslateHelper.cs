@@ -69,6 +69,17 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
+        public static void LogDestroyTitle(Kingdom kingdom, KingdomTitle title)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.destroy_title_log,
+                kingdom.king.data.name,
+                title.data.name)
+            {
+                color_special1 = kingdom.getColor()._colorText,
+                color_special2 = title.getColor()._colorText
+
+            }.add();
+        }
         public static void LogNewEmperor(Actor emperor, City city, string year_name)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.history_new_emperor,
@@ -104,6 +115,20 @@ namespace EmpireCraft.Scripts.HelperFunc
                     color_special1 = kingdom.getColor()._colorText,
                     color_special2 = kingdom.getColor()._colorText,
                     color_special3 = title.getColor()._colorText
+
+                }.add();
+        }
+
+        public static void LogBecomeKingdom(Kingdom kingdom,string title)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.become_kingdom_log,
+                kingdom.king.data.name,
+                title,
+                kingdom.data.name)
+                {
+                    color_special1 = kingdom.getColor()._colorText,
+                    color_special2 = kingdom.getColor()._colorText,
+                    color_special3 = kingdom.getColor()._colorText
 
                 }.add();
         }

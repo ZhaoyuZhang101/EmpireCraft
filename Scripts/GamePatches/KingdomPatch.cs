@@ -40,6 +40,7 @@ public class KingdomPatch : GamePatch
 
     public static void new_emperor(Kingdom __instance, Actor pActor, bool pNewKing = true)
     {
+
         if (__instance.HasTitle())
         {
             foreach (var title_id in __instance.GetOwnedTitle())
@@ -68,7 +69,7 @@ public class KingdomPatch : GamePatch
 
     public static void Initialize_level(Kingdom __instance, Actor pActor)
     {
-        __instance.SetCountryLevel(Enums.countryLevel.countrylevel_2);
+        __instance.SetCountryLevel(Enums.countryLevel.countrylevel_4);
         __instance.SetEmpireID(-1L);
         __instance.SetVassaledKingdomID(-1L);
     }

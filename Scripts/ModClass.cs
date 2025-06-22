@@ -32,9 +32,11 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
     public static bool IS_CLEAR = false;
     public static EmpireManager EMPIRE_MANAGER;
     public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
+    public static bool KINGDOM_TITLE_FREEZE = false;
     public static Empire selected_empire = null;
     public static MetaTypeAsset EMPIRE_METATYPE_ASSET;
     public static EmpireCraftMapMode CURRENT_MAP_MOD;
+    public static int TITLE_BEEN_DESTROY_TIME = 50;
     public static ModDeclare _declare;
     private GameObject _modObject;
     public ModDeclare GetDeclaration()
@@ -153,5 +155,10 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
     public string GetLocaleFilesDirectory(ModDeclare pModDeclare)
     {
         return pModDeclare.FolderPath + "/Locales/"; // Return the directory where your mod's locale files are located
+    }
+
+    public ModConfig GetConfig()
+    {
+        throw new NotImplementedException();
     }
 }

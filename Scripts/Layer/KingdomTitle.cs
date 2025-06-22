@@ -171,6 +171,32 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         return this.last_center;
     }
 
+    public bool isBeenControlled()
+    {
+        Kingdom kingdom = null;
+        foreach (City c in city_list)
+        {
+            if (c.isAlive()&&!c.isNeutral())
+            {
+                if (kingdom == null)
+                {
+                    kingdom = c.kingdom;
+                }else
+                {
+                    if(c.kingdom != kingdom)
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        kingdom = c.kingdom;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
     public override void save()
     {
         this.data.cities = new List<long>();

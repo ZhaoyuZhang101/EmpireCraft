@@ -116,6 +116,7 @@ public static class EmpireCraftNamePlateLibrary
 
     public static void showTextEmpire(NameplateText plateText, Kingdom pMetaObject)
     {
+        if (ModClass.IS_CLEAR) return;
         if (pMetaObject == null) return;
         if (!pMetaObject.isAlive()) return;
         Empire empire = pMetaObject.GetEmpire();
@@ -153,20 +154,29 @@ public static class EmpireCraftNamePlateLibrary
 
     public static void showTextTitle(NameplateText plateText, City capital)
     {
+        if (ModClass.IS_CLEAR) return;
         if (capital == null) return;
         if (!capital.hasTitle()) return;
-        plateText.setupMeta(capital.data, capital.GetTitle().getColor());
-        string text = capital.GetTitle().data.name;
-        plateText.setText(text, capital.GetTitle().GetCenter());
-        plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
-        plateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);
-        plateText._banner_kingdoms.winner_image.gameObject.SetActive(value: false);
-        plateText._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
-        plateText._banner_kingdoms.part_background.sprite = capital.GetTitle().getElementBackground();
-        plateText._banner_kingdoms.part_icon.sprite = capital.GetTitle().getElementIcon();
-        plateText._banner_kingdoms.part_background.color = capital.GetTitle().kingdomColor.getColorMain2();
-        plateText._banner_kingdoms.part_icon.color = capital.GetTitle().kingdomColor.getColorBanner();
-        plateText._show_banner_kingdom = true;
-        plateText.nano_object = capital;
+        try
+        {
+            plateText.setupMeta(capital.data, capital.GetTitle().getColor());
+            string text = capital.GetTitle().data.name;
+            plateText.setText(text, capital.GetTitle().GetCenter());
+            plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
+            plateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);
+            plateText._banner_kingdoms.winner_image.gameObject.SetActive(value: false);
+            plateText._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
+            plateText._banner_kingdoms.part_background.sprite = capital.GetTitle().getElementBackground();
+            plateText._banner_kingdoms.part_icon.sprite = capital.GetTitle().getElementIcon();
+            plateText._banner_kingdoms.part_background.color = capital.GetTitle().kingdomColor.getColorMain2();
+            plateText._banner_kingdoms.part_icon.color = capital.GetTitle().kingdomColor.getColorBanner();
+            plateText._show_banner_kingdom = true;
+            plateText.nano_object = capital;
+        }
+        catch (Exception e) 
+        {
+            return;
+        }
+
     }
 }

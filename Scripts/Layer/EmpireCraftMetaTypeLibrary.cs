@@ -22,6 +22,7 @@ public static class EmpireCraftMetaTypeLibrary
         MetaTypeLibrary ml = AssetManager.meta_type_library;
         ml.kingdom.drawn_zones = delegate
         {
+            if (ModClass.IS_CLEAR) return;
             if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Empire)
             {
                 foreach (Empire empire in ModClass.EMPIRE_MANAGER)
@@ -106,6 +107,7 @@ public static class EmpireCraftMetaTypeLibrary
         };
         ml.city.drawn_zones = delegate
         {
+            if (ModClass.IS_CLEAR) return;
             if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Title)
             {
                 foreach (KingdomTitle kingdomTitle in ModClass.KINGDOM_TITLE_MANAGER)

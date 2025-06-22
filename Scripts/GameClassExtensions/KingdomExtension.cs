@@ -239,7 +239,7 @@ public static class KingdomExtension
         }
         else
         {
-            kingdom.becomeKingdom();
+            kingdom.becomeKingdom(isNew:true);
         }
         ColorAsset ca = kingdom.getColorLibrary().getNextColor();
         kingdom.updateColor(ca);
@@ -247,18 +247,28 @@ public static class KingdomExtension
         GetOrCreate(kingdom).vassaled_kingdom_id = -1L;
     }
 
-    public static void becomeKingdom(this Kingdom kingdom)
+    public static string becomeKingdom(this Kingdom kingdom, bool isPlot=false, bool isNew=false)
     {
         countryLevel country_level = GetOrCreate(kingdom).country_level;
-        string culture = ConfigData.speciesCulturePair.TryGetValue(kingdom.species_id, out var name)?name:"default";
-        string country_level_string = $"{culture}_" + country_level.ToString();
-        string kingdomName = "";
-        if (kingdom.cities.Count > 0)
+        if (isPlot) 
         {
-            City city = kingdom.cities.GetRandom();
-            kingdomName = city.SelectKingdomName();
+            country_level = countryLevel.countrylevel_2;
+            kingdom.SetCountryLevel(country_level);
         }
-
+        string culture = ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out var name)?name:"default";
+        string kingdomName = "";
+        string country_level_string = $"{culture}_" + country_level.ToString();
+        if (!isNew)
+        {
+            kingdomName = kingdom.king.GetTitle();
+            if (kingdom.capital.hasTitle())
+            {
+                if (kingdom.capital.GetTitle().owner == kingdom.king)
+                {
+                    kingdomName = kingdom.capital.GetTitle().data.name;
+                }
+            }
+        }
         if (kingdomName == null || kingdomName == "")
         {
             kingdom.data.name = kingdom.GetKingdomName() + " " + LM.Get(country_level_string);
@@ -268,6 +278,22 @@ public static class KingdomExtension
             kingdom.data.name = kingdomName + " " + LM.Get(country_level_string);
             LogService.LogInfo("存在历史国家名称" + kingdomName);
         }
+        return kingdomName;
+    }
+
+    public static bool needToBecomeKingdom(this Kingdom k)
+    {
+        countryLevel cl = k.GetCountryLevel();
+        if (cl==countryLevel.countrylevel_0||cl==countryLevel.countrylevel_1||cl==countryLevel.countrylevel_2) return false;
+        if (k.isInEmpire())
+        {
+            Empire empire = k.GetEmpire();
+            if (empire.getEmpirePeriod() != EmpirePeriod.逐鹿群雄)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static countryLevel GetCountryLevel(this Kingdom kingdom)
@@ -284,7 +310,8 @@ public static class KingdomExtension
 
     public static void SetOwnedTitle(this Kingdom k, List<long> value)
     {
-        GetOrCreate(k).OwnedTitle = value;
+        GetOrCreate(k).OwnedTitle.Intersect(value).Select(t => ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(t) ? ModClass.KINGDOM_TITLE_MANAGER.get(t).data.timestamp_been_controled = World.world.getCurWorldTime():t);
+        GetOrCreate(k).OwnedTitle = GetOrCreate(k).OwnedTitle.Union(value).ToList();
     } 
 
     public static bool hasAnyControledTitle(this Kingdom kingdom)
