@@ -51,7 +51,7 @@ public static class OnomasticsHelper
             if (!string.IsNullOrEmpty(CharacterSetName) && !string.IsNullOrEmpty(cultureName))
             {
                 string ModPath = ModClass._declare.FolderPath + "/Locales/";
-                string culturePath = ModPath + cultureName + "/";
+                string culturePath = ModPath + $"Cultures/Culture_{cultureName}/";
                 string CharacterSetPath = culturePath + String.Format("{0}{1}.csv", cultureName, CharacterSetName);
                 var charaterSetKey = getKeysFromPath(CharacterSetPath);
                 content = string.Join(" ",

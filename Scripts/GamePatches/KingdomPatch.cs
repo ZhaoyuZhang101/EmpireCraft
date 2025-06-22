@@ -27,7 +27,43 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(Initialize_level)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.newCivKingdom)),
             postfix: new HarmonyMethod(GetType(), nameof(Initialize_level))
+        );           
+        new Harmony(nameof(new_emperor)).Patch(
+            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.setKing)),
+            prefix: new HarmonyMethod(GetType(), nameof(new_emperor))
+        );           
+        new Harmony(nameof(empror_left)).Patch(
+            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.removeKing)),
+            prefix: new HarmonyMethod(GetType(), nameof(empror_left))
         );         
+    }
+
+    public static void new_emperor(Kingdom __instance, Actor pActor, bool pNewKing = true)
+    {
+        if (__instance.HasTitle())
+        {
+            foreach (var title_id in __instance.GetOwnedTitle())
+            {
+                pActor.AddOwnedTitle(ModClass.KINGDOM_TITLE_MANAGER.get(title_id));
+            }
+        }
+        if (__instance.isEmpire())
+        {
+            __instance.GetEmpire().setEmperor(pActor);
+        }
+    }
+
+    public static void empror_left(Kingdom __instance)
+    {
+        if (__instance.king.HasTitle())
+        {
+            __instance.SetOwnedTitle(__instance.king.GetOwnedTitle());
+            __instance.king.ClearTitle();
+        }
+        if (__instance.isEmpire())
+        {
+            __instance.GetEmpire().EmperorLeft(__instance.king);
+        }
     }
 
     public static void Initialize_level(Kingdom __instance, Actor pActor)

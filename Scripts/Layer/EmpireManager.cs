@@ -1,5 +1,6 @@
 ﻿using db;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.TipAndLog;
 using HarmonyLib;
 using NeoModLoader.services;
@@ -40,28 +41,29 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public override void update(float pElapsed)
     {
         base.update(pElapsed);
-        foreach (Empire tAlliance in this)
+        foreach (Empire empire in this)
         {
-            if (!tAlliance.checkActive())
+            if (!empire.checkActive())
             {
-                this._to_dissolve.Add(tAlliance);
+                this._to_dissolve.Add(empire);
             }
             else
             {
-                tAlliance.update();
+                empire.update();
             }
         }
         foreach (Empire tAlliance2 in this._to_dissolve)
         {
-            this.dissolveAlliance(tAlliance2);
+            this.dissolveEmpire(tAlliance2);
         }
         this._to_dissolve.Clear();
     }
 
-    public void dissolveAlliance(Empire pEmpire)
+    public void dissolveEmpire(Empire pEmpire)
     {
         pEmpire.dissolve();
-        this.removeObject(pEmpire);
+        pEmpire.Dispose();
+        base.removeObject(pEmpire);
     }
 
     private List<Empire> _to_dissolve = new List<Empire>();
@@ -114,23 +116,19 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
     public Empire newEmpire(Kingdom pKingdom)
     {
-        Empire empire = base.newObjectFromID(pKingdom.id);
+        long id = OverallHelperFunc.IdGenerator.NextId();
+        Empire empire;
+        empire = base.newObjectFromID(id);
         empire.createNewEmpire(pKingdom);
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
-        new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.name.Split(' ')[0])
+        new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())
         {
             location = pKingdom.location,
             color_special1 = pKingdom.kingdomColor.getColorText()
         }.add();
         LogService.LogInfo("创建帝国成功");
         return empire;
-    }
-
-    public void disvolveEmpire(Empire empire)
-    {
-        empire.dissolve();
-        this.removeObject(empire);
     }
 
     public bool forceEmpire(Kingdom pKingdom1, Kingdom pKingdom2)

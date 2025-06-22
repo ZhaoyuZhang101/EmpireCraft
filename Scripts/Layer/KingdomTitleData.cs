@@ -17,9 +17,17 @@ public class KingdomTitleData: MetaObjectData
 
     [DefaultValue(-1L)]
     public long founder_kingdom_id { get; set; } = -1L;
+    public string original_actor_asset;
+    public long title_capital = -1L;
+
+    public double title_controled_rate = 0.9;
+
+    public long owner = -1L;
 
     public List<long> cities;
     public List<string> history_emperrors;
+
+    public double timestamp_been_controled;
 
     public double timestamp_established_time;
 }

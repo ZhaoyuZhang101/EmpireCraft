@@ -16,6 +16,9 @@ internal static class MainTab
     public const string EMPIRE_FORM_BUTTON = "empire_form_button";
     public const string EMPIRE_ENFEOFF_BUTTON = "empire_enfeoff_button";
     public const string EMPIRE_LIST_BUTTON = "empire_list_button";
+    public const string TITLE_CREATE_BUTTON = "empire_title_create_button";
+    public const string TITLE_ADD_BUTTON = "empire_title_add_button";
+    public const string TITLE_REMOVE_BUTTON = "empire_title_remove_button";
     public static PowersTab tab;
 
     public static void Init()
@@ -28,12 +31,15 @@ internal static class MainTab
         // 设置标签页的布局. 布局是一个字符串列表, 每个字符串是一个分类. 每个分类的名字不重要.
         tab.SetLayout(new List<string>()
         {
-            CREATE_EMPIRE_BUTTON,
             EMPIRE_LAYER_TOGGLE,
-            TITLE_LAYER_TOGGLE,
+            CREATE_EMPIRE_BUTTON,
             EMPIRE_ENFEOFF_BUTTON,
             EMPIRE_FORM_BUTTON,
-            EMPIRE_LIST_BUTTON
+            EMPIRE_LIST_BUTTON,
+            TITLE_LAYER_TOGGLE,
+            TITLE_CREATE_BUTTON,
+            TITLE_ADD_BUTTON,
+            TITLE_REMOVE_BUTTON
         });
         // Add buttons to the tab.
         // 向标签页添加按钮.
@@ -50,6 +56,8 @@ internal static class MainTab
             nameof(EmpireListWindow) + "Title");
         EmpireWindow.CreateWindow(nameof(EmpireWindow),
             nameof(EmpireWindow) + "Title");
+        KingdomTitleWindow.CreateWindow(nameof(KingdomTitleWindow),
+            nameof(KingdomTitleWindow) + "Title");
     }
 
     private static void _addButtons()
@@ -58,6 +66,21 @@ internal static class MainTab
         tab.AddPowerButton(CREATE_EMPIRE_BUTTON,
             PowerButtonCreator.CreateGodPowerButton("create_empire",
                 SpriteTextureLoader.getSprite("ui/icons/iconAlliance")));
+
+        CreateTitleButton.init();
+        tab.AddPowerButton(TITLE_CREATE_BUTTON,
+            PowerButtonCreator.CreateGodPowerButton("create_title",
+                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleCreate.png")));
+
+        AddTitleButton.init();
+        tab.AddPowerButton(TITLE_ADD_BUTTON,
+            PowerButtonCreator.CreateGodPowerButton("add_title",
+                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleAdd.png")));
+
+        RemoveTitleButton.init();
+        tab.AddPowerButton(TITLE_REMOVE_BUTTON,
+            PowerButtonCreator.CreateGodPowerButton("remove_title",
+                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleRemove.png")));
 
         EmpireLayerToggle.init();
         PowerButton pb = FixFunctions.CreateToggleButton("empire_layer",

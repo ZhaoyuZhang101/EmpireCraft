@@ -64,7 +64,7 @@ public static class FixFunctions
             });
         }
 
-        var prefab = ResourcesFinder.FindResource<PowerButton>("kingdom_layer");
+        var prefab = ResourcesFinder.FindResource<PowerButton>("history_log");
 
         bool found_active = prefab.gameObject.activeSelf;
         if (found_active)
@@ -78,19 +78,6 @@ public static class FixFunctions
         if (found_active)
         {
             prefab.gameObject.SetActive(true);
-        }
-
-        if (!obj.HasComponent<TipButton>())
-        {
-            obj._button.OnHover(delegate
-            {
-                TooltipData tooltipData = new TooltipData();
-                tooltipData.tip_name = god_power.getLocaleID();
-                tooltipData.tip_description = god_power.getDescriptionID();
-                Tooltip.show(obj, "normal", tooltipData);
-            });
-            obj._button.OnHoverOut(Tooltip.hideTooltip);
-
         }
         obj.name = pGodPowerId;
         obj.icon.sprite = pIcon;

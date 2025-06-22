@@ -50,19 +50,19 @@ internal static class CreateEmpireButton
         if (Config.unity_A == null)
         {
             Config.unity_A = kingdom;
-            ActionLibrary.showWhisperTip("unity_selected_first");
+            ActionLibrary.showWhisperTip("kingdom_selected_first");
             return false;
         }
         if (Config.whisper_B == null && Config.unity_A == kingdom)
         {
-            ActionLibrary.showWhisperTip("unity_cancelled");
+            ActionLibrary.showWhisperTip("kingdom_cancelled");
             Config.unity_A = null;
             Config.unity_B = null;
             return false;
         }
         if (Config.unity_A.isInEmpire() && kingdom.isInEmpire() && Config.unity_A.GetEmpire() == kingdom.GetEmpire())
         {
-            ActionLibrary.showWhisperTip("unity_cancelled");
+            ActionLibrary.showWhisperTip("kingdom_cancelled");
             Config.unity_A = null;
             Config.unity_B = null;
             return false;
@@ -75,17 +75,11 @@ internal static class CreateEmpireButton
         {
             return false;
         }
-        if (Config.unity_A.isEnemy(Config.unity_B))
-        {
-            ActionLibrary.showWhisperTip("unity_in_war");
-            Config.unity_B = null;
-            return false;
-        }
         if (Config.unity_A.isInEmpire())
         {
             if (Config.unity_A.GetEmpire() == Config.unity_B.GetEmpire())
             {
-                ActionLibrary.showWhisperTip("unity_cancelled");
+                ActionLibrary.showWhisperTip("kingdom_cancelled");
                 Config.unity_B = null;
                 return false;
             }

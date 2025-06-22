@@ -15,6 +15,7 @@ using System.IO;
 using System.Drawing;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Data;
 namespace EmpireCraft.Scripts.GamePatches;
 
 public class CulturePatch : GamePatch
@@ -64,23 +65,13 @@ public class CulturePatch : GamePatch
 
         string species = culture.data.creator_species_id;
         LogService.LogInfo("当前文化物种: " + species);
-        switch (species)
+        if (ConfigData.speciesCulturePair.TryGetValue(species, out var insertCulture))
         {
-            case "human":
-                insertCultureNameTemplate(culture, ModClass.HUMAN_CULTURE);
-                break;
-            case "orc":
-                insertCultureNameTemplate(culture, ModClass.ORC_CULTURE);
-                break;
-            case "elf":
-                insertCultureNameTemplate(culture, ModClass.ELF_CULTURE);
-                break;
-            case "dwarf":
-                insertCultureNameTemplate(culture, ModClass.DWARF_CULTURE);
-                break;
-            default:
-                insertCultureNameTemplate(culture, ModClass.ELF_CULTURE);
-                break;
+            insertCultureNameTemplate(culture, insertCulture);
+        }
+        else
+        {
+            insertCultureNameTemplate(culture, "Western");
         }
     }
 

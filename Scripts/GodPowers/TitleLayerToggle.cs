@@ -21,7 +21,6 @@ public static class TitleLayerToggle
             name = "title_layer",
             unselect_when_window = true,
             toggle_name = "map_title_layer",
-            force_map_mode = MetaType.City,
             toggle_action = toggleAction
         });
     }
@@ -29,21 +28,20 @@ public static class TitleLayerToggle
     [Hotfixable]
     private static void toggleAction(string pPower)
     {
-
-
-        LogService.LogInfo("点击了封号层级开关");
-        WorldTip.instance.showToolbarText(pPower);
         GodPower godPower = AssetManager.powers.get(pPower);
         PlayerOptionData playerOptionData = PlayerConfig.dict[godPower.toggle_name];
-        if (godPower.map_modes_switch)
+        if (!playerOptionData.boolVal)
         {
-            if (playerOptionData.boolVal)
-            {
-            }
-            else
-            {
-                WorldTip.instance.startHide();
-            }
+            EmpireLayerToggle.disableOtherPower(pPower);
+            PlayerConfig.dict["map_city_layer"].boolVal = true;
+            PlayerConfig.dict["map_empire_layer"].boolVal = false;
+            ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Title;
+        }
+        else
+        {
+            EmpireLayerToggle.disableOtherPower(pPower);
+            PlayerConfig.dict["map_city_layer"].boolVal = true;
+            ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
         }
     }
 }

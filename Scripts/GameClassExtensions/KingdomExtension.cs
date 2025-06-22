@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
+using EmpireCraft.Scripts.Data;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 
@@ -30,6 +31,7 @@ public static class KingdomExtension
         public string KingdomNamePre = "";
         public double timestamp_beFeifed = -1L;
         public double taxtRate = 0.1;
+        public List<long> OwnedTitle = new List<long>();
     }
 
     public static double GetTaxtRate(this Kingdom k)
@@ -74,6 +76,7 @@ public static class KingdomExtension
         ed.timestamp_empire = actorExtraData.timestamp_empire;
         ed.loyalty = actorExtraData.loyalty;
         ed.KingdomNamePre = actorExtraData.KingdomNamePre;
+        ed.OwnedTitle = actorExtraData.OwnedTitle;
         return true;
     }
 
@@ -97,6 +100,7 @@ public static class KingdomExtension
         ed.timestamp_empire = a.GetTimestampEmpire();
         ed.loyalty = a.GetLoyalty();
         ed.KingdomNamePre = GetOrCreate(a).KingdomNamePre;
+        ed.OwnedTitle = GetOrCreate(a).OwnedTitle;
         return ed;
     }
 
@@ -216,30 +220,21 @@ public static class KingdomExtension
 
     public static void empireLeave (this Kingdom kingdom, bool isLeave = true)
     {
+        LogService.LogInfo("离开帝国");
         countryLevel country_level = GetOrCreate(kingdom).country_level;
         if ((country_level != countryLevel.countrylevel_1||country_level!=countryLevel.countrylevel_0)&&isLeave)
         {
             string province_level_name = "provincelevel";
             string province_level_string = "";
             string level = "6";
-            switch (kingdom.species_id)
+            if (ConfigData.speciesCulturePair.TryGetValue(kingdom.species_id, out string culture))
             {
-                case "human":
-                    province_level_string = String.Join("_", ModClass.HUMAN_CULTURE, province_level_name, level);
-                    break;
-                case "orc":
-                    province_level_string = String.Join("_", ModClass.ORC_CULTURE, province_level_name, level);
-                    break;
-                case "elf":
-                    province_level_string = String.Join("_", ModClass.ELF_CULTURE, province_level_name, level);
-                    break;
-                case "dwarf":
-                    province_level_string = String.Join("_", ModClass.DWARF_CULTURE, province_level_name, level);
-                    break;
-                default:
-                    province_level_string = String.Join("_", ModClass.DWARF_CULTURE, province_level_name, level);
-                    break;
+                province_level_string = String.Join("_", culture, province_level_name, level);
+            } else
+            {
+                province_level_string = String.Join("_", "Western", province_level_name, level);
             }
+            kingdom.SetCountryLevel(countryLevel.countrylevel_5);
             kingdom.data.name = kingdom.GetKingdomName() + " " + LM.Get(province_level_string);
         }
         else
@@ -255,7 +250,8 @@ public static class KingdomExtension
     public static void becomeKingdom(this Kingdom kingdom)
     {
         countryLevel country_level = GetOrCreate(kingdom).country_level;
-        string country_level_string = "default_" + country_level.ToString();
+        string culture = ConfigData.speciesCulturePair.TryGetValue(kingdom.species_id, out var name)?name:"default";
+        string country_level_string = $"{culture}_" + country_level.ToString();
         string kingdomName = "";
         if (kingdom.cities.Count > 0)
         {
@@ -265,11 +261,11 @@ public static class KingdomExtension
 
         if (kingdomName == null || kingdomName == "")
         {
-            kingdom.data.name = kingdom.GetKingdomName() + " " + LM.Get(country_level_string) + LM.Get("Country");
+            kingdom.data.name = kingdom.GetKingdomName() + " " + LM.Get(country_level_string);
         }
         else
         {
-            kingdom.data.name = kingdomName + " " + LM.Get(country_level_string) + LM.Get("Country");
+            kingdom.data.name = kingdomName + " " + LM.Get(country_level_string);
             LogService.LogInfo("存在历史国家名称" + kingdomName);
         }
     }
@@ -279,10 +275,43 @@ public static class KingdomExtension
         return GetOrCreate(kingdom).country_level;
     }
 
+    public static List<long> GetOwnedTitle(this Kingdom k)
+    {
+        return GetOrCreate(k).OwnedTitle;
+    }
+
+    public static bool HasTitle(this Kingdom k) {  return GetOrCreate(k).OwnedTitle.Count()>0; }
+
+    public static void SetOwnedTitle(this Kingdom k, List<long> value)
+    {
+        GetOrCreate(k).OwnedTitle = value;
+    } 
+
+    public static bool hasAnyControledTitle(this Kingdom kingdom)
+    {
+        return kingdom.getControledTitle().Count()>0;
+    }
+
+    public static List<KingdomTitle> getControledTitle(this Kingdom kingdom)
+    {
+        List<KingdomTitle> controledTitles = new List<KingdomTitle>();
+        foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER)
+        {
+            var title_cities = title.city_list;
+            int commonCount = title_cities.Intersect(kingdom.cities).Count();
+            if (commonCount >= Math.Ceiling(title_cities.Count * title.data.title_controled_rate))
+            {
+                controledTitles.Add(title);
+            }
+        }
+        return controledTitles;
+    }
+
     public static void SetCountryLevel(this Kingdom kingdom, countryLevel value)
     {
         string kingdomOriginalName = kingdom.GetKingdomName();
-        string kingdomBack = LM.Get("default_" + value.ToString())+ LM.Get("Country");
+        string culture = ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out var a) ? a : "default";
+        string kingdomBack = LM.Get($"{culture}_" + value.ToString());
         kingdom.data.name = String.Join(" ", kingdomOriginalName, kingdomBack) ;
         GetOrCreate(kingdom).country_level = value;
     }    
@@ -305,23 +334,13 @@ public static class KingdomExtension
             string level = country_level.ToString().Split('_').Last();
             string province_level_name = "provincelevel";
             string province_level_string = "";
-            switch (kingdom.species_id)
+            if (ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out string culture))
             {
-                case "human":
-                    province_level_string = String.Join("_", ModClass.HUMAN_CULTURE, province_level_name, level);
-                    break;
-                case "orc":
-                    province_level_string = String.Join("_", ModClass.ORC_CULTURE, province_level_name, level);
-                    break;
-                case "elf":
-                    province_level_string = String.Join("_", ModClass.ELF_CULTURE, province_level_name, level);
-                    break;
-                case "dwarf":
-                    province_level_string = String.Join("_", ModClass.DWARF_CULTURE, province_level_name, level);
-                    break;
-                default:
-                    province_level_string = String.Join("_", ModClass.DWARF_CULTURE, province_level_name, level);
-                    break;
+                province_level_string = String.Join("_", culture, province_level_name, level);
+            }
+            else
+            {
+                province_level_string = String.Join("_", "Western", province_level_name, level);
             }
             foreach (City city in kingdom.cities)
             {

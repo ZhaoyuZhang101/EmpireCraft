@@ -1,4 +1,6 @@
-﻿using System;
+﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,10 +18,67 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     {
     }
 
-    public KingdomTitle newKingdomTitle(Actor pFounder)
+    public KingdomTitle newKingdomTitle(City city)
     {
-        KingdomTitle title = base.newObject();
-        title.newKingdomTitle(pFounder);
+        long id = OverallHelperFunc.IdGenerator.NextId();
+        KingdomTitle title = base.newObjectFromID(id);
+        title.newKingdomTitle(city);
         return title;
     }
+
+    public void AddCityToTitle(KingdomTitle pTitle, City pCity)
+    {
+        if (pTitle != null && pCity != null)
+        {
+            pTitle.addCity(pCity);
+        }
+    }
+    public bool forceTitle(City pCity1, City pCity2)
+    {
+        KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(pCity1.GetTitleID());
+        if (title == null)
+        {
+            title = ModClass.KINGDOM_TITLE_MANAGER.get(pCity2.GetTitleID());
+        }
+        bool result = false;
+        if (title == null)
+        {
+            title = this.newKingdomTitle(pCity1);
+            title.addCity(pCity2);
+            result = true;
+        }
+        else
+        {
+            title.addCity(pCity1);
+            title.addCity(pCity2);
+        }
+        return result;
+    }
+
+
+    public override void update(float pElapsed)
+    {
+        base.update(pElapsed);
+        foreach (KingdomTitle kt in this)
+        {
+            if (!kt.checkActive())
+            {
+                this._to_dissolve.Add(kt);
+            }
+        }
+        foreach (KingdomTitle kt in this._to_dissolve)
+        {
+            this.dissolveTitle(kt);
+        }
+        this._to_dissolve.Clear();
+    }
+
+    public void dissolveTitle(KingdomTitle pkt)
+    {
+        pkt.disolve();
+        pkt.Dispose();
+        this.removeObject(pkt);
+    }
+
+    private List<KingdomTitle> _to_dissolve = new List<KingdomTitle>();
 }

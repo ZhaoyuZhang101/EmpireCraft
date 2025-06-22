@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Collections;
 using EmpireCraft.Scripts.HelperFunc;
 using System.Collections.Generic;
+using EmpireCraft.Scripts.Data;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class ReligionPatch : GamePatch
@@ -25,29 +26,20 @@ public class ReligionPatch : GamePatch
     {
         string species = __instance.species_id;
         LogService.LogInfo("当前文化物种: " + species);
-        switch (species)
+        if (ConfigData.speciesCulturePair.TryGetValue(species, out string culture))
         {
-            case "human":
-                insertReligionNameTemplate(__instance, ModClass.HUMAN_CULTURE);
-                break;
-            case "orc":
-                insertReligionNameTemplate(__instance, ModClass.ORC_CULTURE);
-                break;
-            case "elf":
-                insertReligionNameTemplate(__instance, ModClass.ELF_CULTURE);
-                break;
-            case "dwarf":
-                insertReligionNameTemplate(__instance, ModClass.DWARF_CULTURE);
-                break;
-            default:
-                break;
+            insertReligionNameTemplate(__instance, culture);
+        }
+        else
+        {
+            insertReligionNameTemplate(__instance, "Western");
         }
 
     }
     public static void insertReligionNameTemplate(Religion religion, string cultureName)
     {
-        string culturePath = ModPath + cultureName + "/";
-        string religionNamePath = culturePath + String.Format("{0}ReligionNames.csv", cultureName);
+        string culturePath = ModPath + $"Cultures/Culture_{cultureName}/";
+        string religionNamePath = culturePath + $"{cultureName}ReligionNames.csv";
         List<string> religionKeys = OnomasticsHelper.getKeysFromPath(religionNamePath);
         religion.data.name = LM.Get(religionKeys[UnityEngine.Random.Range(0, religionKeys.Count)].ToString());
         LogService.LogInfo(cultureName + "宗教名称: " + religion.data.name);

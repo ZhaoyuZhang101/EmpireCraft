@@ -1,8 +1,11 @@
 ﻿using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.TipAndLog;
+using NeoModLoader.General;
 using NeoModLoader.services;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace EmpireCraft.Scripts.AI
@@ -19,7 +22,7 @@ namespace EmpireCraft.Scripts.AI
                 is_basic_plot = true,
                 min_level = 5,
                 money_cost = 30,
-                progress_needed = 30f,
+                progress_needed = 60f,
                 can_be_done_by_king = true,
                 check_is_possible = delegate (Actor pActor)
                 {
@@ -27,6 +30,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     if (kingdom.isEmpire()) return false;
                     if (kingdom.isInEmpire()) return false;
+                    ModClass.EMPIRE_MANAGER.update(-1L);
                     if (ModClass.EMPIRE_MANAGER.Select(e=>e.empire.getMainSubspecies()==kingdom.getMainSubspecies()).Count()>2) return false;
                     if ((kingdom.countCities() < 5)&&(!kingdom.isSupreme()&&World.world.kingdoms.Count()>=2)) return false;
                     return true;
@@ -41,8 +45,8 @@ namespace EmpireCraft.Scripts.AI
                 group_id = "diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
-                money_cost = 30,
-                progress_needed = 15f,
+                money_cost = 100,
+                progress_needed = 30f,
                 can_be_done_by_king = true,
                 check_is_possible = delegate (Actor pActor)
                 {
@@ -56,6 +60,119 @@ namespace EmpireCraft.Scripts.AI
                 },
                 
                 action = StartEnfeoff
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "emperor_year_name",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (!kingdom.isEmpire()) return false;
+                    if (!kingdom.isInEmpire()) return false;
+                    if (!kingdom.GetEmpire().isAllowToMakeYearName()) return false;
+                    if (kingdom.GetEmpire().hasYearName()) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    kingdom.GetEmpire().create_year_name();
+                    TranslateHelper.LogNewEmperor(pActor, kingdom.capital, kingdom.GetEmpire().data.year_name);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_get_title",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (!pActor.canTakeTitle()) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    List<KingdomTitle> titles = pActor.takeTitle();
+                    foreach(KingdomTitle title in titles)
+                    {
+                        TranslateHelper.LogKingTakeTitle(kingdom, title);
+                    }
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_create_title",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (kingdom.capital.hasTitle()) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(kingdom.capital);
+                    TranslateHelper.LogCreateTitle(kingdom, title);
+                    foreach(City c in kingdom.cities)
+                    {
+                        if (!c.hasTitle())
+                        {
+                            title.addCity(c);
+                            TranslateHelper.LogCityAddToTitle(c, title);
+                        }
+                    }
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_change_name",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (!pActor.canTakeTitle()) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    List<KingdomTitle> titles = pActor.takeTitle();
+                    foreach(KingdomTitle title in titles)
+                    {
+                        TranslateHelper.LogKingTakeTitle(kingdom, title);
+                    }
+                    return true;
+                }
             });
             AssetManager.plots_library.add(new PlotAsset
             {
@@ -98,25 +215,44 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     if (kingdom.isEmpire()) return false;
                     if (!kingdom.isInEmpire()) return false;
-                    if (pActor.HasTitle()) return false;
+                    if (pActor.HasCapitalTitle()) return false;
+                    if (!pActor.IsCapitalTitleBelongsToEmperor()) return false;
+                    if (kingdom.GetEmpire().emperor == null) return false; 
+                    if (kingdom.GetEmpire().emperor.GetOwnedTitle().Count()<=1) return false; 
                     if (pActor.GetPeeragesLevel()==PeeragesLevel.peerages_2) return false;
                     if (kingdom.countTotalWarriors()<kingdom.GetEmpire().countWarriors()- kingdom.countTotalWarriors()) return false;
                     return true;
                 },
                 action = delegate (Actor pActor) 
                 {
-                    string title = pActor.kingdom.capital.SelectKingdomName();
-                    title = (title==""||title==null)? pActor.kingdom.GetKingdomName() : title;
+                    Empire empire = pActor.kingdom.GetEmpire();
+                    Kingdom kingdom = pActor.kingdom;
+                    KingdomTitle kingdomTitle;
+                    if (kingdom.capital.hasTitle())
+                    {
+                        kingdomTitle = kingdom.capital.GetTitle();
+                        empire.emperor.removeTitle(kingdomTitle);
+                        TranslateHelper.LogPowerfulMinisterAcquireTitle(pActor, pActor.kingdom.GetEmpire(), kingdomTitle.data.name + LM.Get("King"));
+                    } else
+                    {
+                        kingdomTitle = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(kingdom.capital);
+                        TranslateHelper.LogCreateTitle(kingdom, kingdomTitle);
+                        foreach (City city in kingdom.cities)
+                        {
+                            if (!city.hasTitle())
+                            {
+                                kingdomTitle.addCity(city);
+                                TranslateHelper.LogCityAddToTitle(city, kingdomTitle);
+                            }
+                        }
+                    }
+                    pActor.AddOwnedTitle(kingdomTitle);
+
                     pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_2);
-                    pActor.SetTitle(title);
                     return true;
                 }
             });
             LogService.LogInfo($"目前加载{AssetManager.plots_library.getList().Count().ToString()}个政策");
-            foreach (var p in AssetManager.plots_library.list)
-            {
-                LogService.LogInfo(p.id);
-            }
             AssetManager.plots_library.linkAssets();
         }
 

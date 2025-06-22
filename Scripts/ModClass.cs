@@ -15,10 +15,15 @@ using UnityEngine.PlayerLoop;
 using EmpireCraft.Scripts.AI;
 using db;
 using EmpireCraft.Scripts.TipAndLog;
+using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.GodPowers;
+using EmpireCraft.Scripts.Data;
 
 namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
 {
+
+    public static Transform prefab_library;
     public static string ORC_CULTURE = "Youmu";
     public static string HUMAN_CULTURE = "Huaxia";
     public static string ELF_CULTURE = "Western";
@@ -29,6 +34,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
     public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
     public static Empire selected_empire = null;
     public static MetaTypeAsset EMPIRE_METATYPE_ASSET;
+    public static EmpireCraftMapMode CURRENT_MAP_MOD;
     public static ModDeclare _declare;
     private GameObject _modObject;
     public ModDeclare GetDeclaration()
@@ -36,18 +42,22 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
         return _declare;
     }
 
-    void Update ()
-    {
-
-    }
-
-    void OnDestroy() 
-    {
-    }
-
     void Start ()
     {
-
+        LogService.LogInfo("加载帝国模组更多看法");
+        EmpireCraftOpinionAddition.init();
+        LogService.LogInfo("加载帝国模组更多政策行为");
+        EmpireCraftPlotsAddition.init();
+        LogService.LogInfo("加载帝国模组更多世界提示");
+        EmpireCraftWorldLogLibrary.init();
+        LogService.LogInfo("加载帝国模组名牌");
+        EmpireCraftNamePlateLibrary.init();
+        LogService.LogInfo("加载帝国模组UI渲染");
+        EmpireCraftQuantumSpriteLibrary.init();
+        LogService.LogInfo("加载帝国模组地图层级渲染");
+        EmpireCraftMetaTypeLibrary.init();
+        LogService.LogInfo("加载帝国模组更多提示");
+        EmpireCraftTooltipLibrary.init();
     }
 
     public GameObject GetGameObject()
@@ -59,21 +69,26 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
         return "https://github.com/ZhaoyuZhang101/EmpireCraft";
     }
 
-    public void loadCultureNameTemplate(string cultureName)
+    public void loadCultureNameTemplate()
     {
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", cultureName, cultureName + "FamilyNames.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", cultureName, cultureName + "CountryNames.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", cultureName, cultureName + "CityNames1.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", cultureName, cultureName + "CityNames2.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", cultureName, cultureName + "UnitNamesMale1.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", cultureName, cultureName + "UnitNamesMale2.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", cultureName, cultureName + "UnitNamesFemale1.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", cultureName, cultureName + "UnitNamesFemale2.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", cultureName, cultureName + "ReligionNames.csv"));
-
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "ProvinceLevel", cultureName + "ProvinceLevel.csv"));
-
-        LogService.LogInfo("加载文化名称模板: " + cultureName);
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales","Cultures","CountryLevelNames.csv"));
+        foreach (string cultureName in ConfigData.speciesCulturePair.Values)
+        {
+            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "Culture_" + cultureName, cultureName + "FamilyNames.csv"));
+            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "Culture_" + cultureName, cultureName + "CountryNames.csv"));
+            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "Culture_" + cultureName, cultureName + "CityNames1.csv"));
+            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "Culture_" + cultureName, cultureName + "CityNames2.csv"));
+            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "Culture_" + cultureName, cultureName + "UnitNamesMale1.csv"));
+            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "Culture_" + cultureName, cultureName + "UnitNamesMale2.csv"));
+            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "Culture_" + cultureName, cultureName + "UnitNamesFemale1.csv"));
+            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "Culture_" + cultureName, cultureName + "UnitNamesFemale2.csv"));
+            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "Culture_" + cultureName, cultureName + "ReligionNames.csv"));
+            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "ProvinceLevel", cultureName + "ProvinceLevel.csv"));
+            LogService.LogInfo("加载文化名称模板: " + cultureName);
+        }
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName1.csv"));
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName2.csv"));
+        LogService.LogInfo("加载年号模板");
     }
 
     public void OnLoad(ModDeclare modDeclare, GameObject gameObject)
@@ -83,11 +98,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
         Config.isEditor = true; // Set this to true if you want to enable editor mode for your mod
         LogService.LogInfo("帝国模组加载成功！！");
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "CountryLevelNames.csv"));
         //加载文化名称模板
-        loadCultureNameTemplate("Huaxia");
-        loadCultureNameTemplate("Western");
-        loadCultureNameTemplate("Youmu");
+        loadCultureNameTemplate();
         LM.ApplyLocale(); // Apply the loaded locales to the game
         Type[] patchTypes = Assembly.GetExecutingAssembly().GetTypes();
         foreach (Type type in patchTypes)
@@ -111,13 +123,13 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
         {
             ModClass.EMPIRE_MANAGER = new EmpireManager();
         }
+        if (ModClass.KINGDOM_TITLE_MANAGER==null)
+        {
+            ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
+        }
+        prefab_library = new GameObject("PrefabLibrary").transform;
+        prefab_library.SetParent(transform);
         LoadUI();
-        LogService.LogInfo("加载帝国模组更多看法");
-        EmpireCraftOpinionAddition.init();
-        LogService.LogInfo("加载帝国模组更多政策行为");
-        EmpireCraftPlotsAddition.init();
-        LogService.LogInfo("加载帝国模组更多世界提示");
-        EmpireCraftWorldLogLibrary.init();
     }
 
     public void LoadUI()
@@ -133,10 +145,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
         LogService.LogInfo("帝国模组重新加载成功！！");
         
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "CountryLevelNames.csv"));
-        loadCultureNameTemplate("Huaxia");
-        loadCultureNameTemplate("Western");
-        loadCultureNameTemplate("Youmu");
+        loadCultureNameTemplate();
         LM.ApplyLocale();
         // You can reload your mod here, such as reloading configs, reloading UI, etc.
     }

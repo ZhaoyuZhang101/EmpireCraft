@@ -21,7 +21,6 @@ public static class EmpireLayerToggle
             name = "empire_layer",
             unselect_when_window = true,
             toggle_name = "map_empire_layer",
-            force_map_mode = MetaType.Kingdom,
             toggle_action = toggleAction
         });
     }
@@ -29,21 +28,37 @@ public static class EmpireLayerToggle
     [Hotfixable]
     private static void toggleAction(string pPower)
     {
-       
-
-        LogService.LogInfo("点击了帝国层级开关");
-        WorldTip.instance.showToolbarText(pPower);
         GodPower godPower = AssetManager.powers.get(pPower);
         PlayerOptionData playerOptionData = PlayerConfig.dict[godPower.toggle_name];
-        if (godPower.map_modes_switch)
+        if (!playerOptionData.boolVal)
         {
-            if (playerOptionData.boolVal)
+            disableOtherPower(pPower);
+            PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
+            PlayerConfig.dict["map_title_layer"].boolVal = false;
+            ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Empire;
+        }
+        else
+        {
+            disableOtherPower(pPower);
+            PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
+            ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
+        }
+    }
+
+    public static void disableOtherPower(string mainpPower)
+    {
+        for (int i = 0; i < AssetManager.powers.list.Count; i++)
+        {
+            GodPower cpower = AssetManager.powers.list[i];
+            if (cpower.map_modes_switch&&cpower.id != mainpPower)
             {
-            }
-            else
-            {
-                WorldTip.instance.startHide();
+                PlayerOptionData playerOptionData = PlayerConfig.dict[cpower.toggle_name];
+                if (playerOptionData.boolVal)
+                {
+                    playerOptionData.boolVal = false;
+                }
             }
         }
     }
+  
 }

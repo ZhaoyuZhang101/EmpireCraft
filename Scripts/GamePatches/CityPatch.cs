@@ -24,6 +24,19 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(update_dirty_patch))
         );
 
+        new Harmony(nameof(destroy_city)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.destroyCity)),
+            prefix: new HarmonyMethod(GetType(), nameof(destroy_city))
+        );
+
+    }
+
+    public static void destroy_city(City __instance)
+    {
+        if (__instance.hasTitle())
+        {
+            __instance.GetTitle().removeCity(__instance);
+        }
     }
 
     public static void update_dirty_patch(City __instance)
@@ -32,8 +45,14 @@ public class CityPatch : GamePatch
         {
             return;
         }
-        if (__instance.kingdom.GetEmpire() == null) return;
-        __instance.kingdom.GetEmpire().setDirty();
+        if (__instance.kingdom.GetEmpire() != null)
+        {
+            __instance.kingdom.GetEmpire().setDirty();
+        }
+        if (__instance.hasTitle())
+        {
+            __instance.GetTitle().setDirty();
+        }
     }
 
 }

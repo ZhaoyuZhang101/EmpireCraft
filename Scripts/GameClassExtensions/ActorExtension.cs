@@ -13,6 +13,8 @@ using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using NeoModLoader.General;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.TipAndLog;
+using EmpireCraft.Scripts.GodPowers;
+using EmpireCraft.Scripts.Layer;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 
@@ -25,6 +27,9 @@ public static class ActorExtension
         [JsonConverter(typeof(StringEnumConverter))]
         public PeeragesLevel peeragesLevel;
         public string title = "";
+        public List<long> titles = new List<long>();
+        public List<long> want_acuired_title = new List<long>();
+        public List<long> owned_title = new List<long>();
     }
 
     public static void SetTitle(this Actor a, string value)
@@ -33,8 +38,8 @@ public static class ActorExtension
         if (a.kingdom == null) return;
         if (a.kingdom.GetEmpire() == null) return;
         GetOrCreate(a).title = value + " " + TranslateHelper.GetPeerageTranslate(a.GetPeeragesLevel());
-        TranslateHelper.LogPowerfulMinisterAcquireTitle(a, a.kingdom.GetEmpire(), a.GetTitle());
     }
+
     public static void Clear()
     {
         ExtensionManager<Actor, ActorExtraData>.Clear();
@@ -42,14 +47,47 @@ public static class ActorExtension
 
     public static string GetTitle(this Actor a)
     {
-        return GetOrCreate(a).title;
+        if (!a.HasTitle()) return "";
+        if (!a.isKing()) return "";
+        if (a.kingdom == null) return "";
+        Kingdom kingdom = a.kingdom;
+        var ownedTitles = a.GetOwnedTitle();
+        var hasCapitalTitle = ownedTitles.Exists(t=>ModClass.KINGDOM_TITLE_MANAGER.get(t).title_capital == kingdom.capital);
+        if (hasCapitalTitle)
+        {
+            return kingdom.capital.GetTitle().data.name;
+        } else
+        {
+            return ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.FirstOrDefault()).data.name;
+        }
     }
     public static bool HasTitle(this Actor a)
     {
-        return GetOrCreate(a).title!="" && GetOrCreate(a).title != null;
+        return GetOrCreate(a).owned_title.Count>0;
     }
 
-    public static string GetTileName(this Actor a)
+    public static bool HasCapitalTitle(this Actor a)
+    {
+        if (a.kingdom.capital.hasTitle())
+        {
+            return a.GetOwnedTitle().Contains(a.kingdom.capital.GetTitle().data.id);
+        }
+        return false;
+    }
+
+    public static bool IsCapitalTitleBelongsToEmperor(this Actor a)
+    {
+        if (a.kingdom.isInEmpire())
+        {
+            if (a.kingdom.capital.hasTitle())
+            {
+                return a.kingdom.GetEmpire().emperor.GetOwnedTitle().Contains(a.kingdom.capital.GetTitle().data.id);
+            }
+        }
+        return false;
+    }
+
+    public static string GetTitleName(this Actor a)
     {
         string title = a.GetTitle();
         string[] titleParts = title.Split(' ');
@@ -64,6 +102,8 @@ public static class ActorExtension
         ed.id = actorExtraData.id;
         ed.peeragesLevel = actorExtraData.peeragesLevel;
         ed.title = actorExtraData.title;
+        ed.owned_title = actorExtraData.owned_title;
+        ed.want_acuired_title = actorExtraData.want_acuired_title;
         return true;
     }
 
@@ -73,7 +113,100 @@ public static class ActorExtension
         data.id = a.getID();
         data.peeragesLevel = a.GetPeeragesLevel();
         data.title = a.GetTitle();
+        data.want_acuired_title = a.GetAcquireTitle();
+        data.owned_title = a.GetOwnedTitle();
         return data;
+    }
+
+    public static bool canTakeTitle(this Actor a)
+    {
+        if (!a.isKing()) return false;
+        Kingdom kingdom = a.kingdom;
+        if (kingdom == null) return false;
+        List<long> controledTitles = kingdom.getControledTitle().FindAll(t=>!t.HasOwner()||!t.owner.isAlive()||!t.owner.isKing()).Select(t=>t.data.id).ToList();
+        var commonTitles = controledTitles.Intersect(a.GetOwnedTitle());
+        return commonTitles.Count() < controledTitles.Count();
+    }
+
+    public static List<KingdomTitle> takeTitle(this Actor a)
+    {
+        if (!a.isKing()) return null;
+        List<KingdomTitle> takedTitles = new List<KingdomTitle>();
+        Kingdom kingdom = a.kingdom;
+        List<KingdomTitle> titles = kingdom.getControledTitle();
+        foreach(KingdomTitle t in titles)
+        {
+            if(t.HasOwner()&&t.owner.isKing())
+            {
+                if (!a.GetAcquireTitle().Contains(t.id)&&t.owner.getID()!=a.getID()) 
+                {
+                    a.AddAcquireTitle(t);
+                }
+            }
+            else
+            {
+                if (!a.GetOwnedTitle().Contains(t.id)) 
+                {
+                    takedTitles.Add(t);
+                    a.AddOwnedTitle(t);
+                    t.owner = a;
+                }
+            }
+        }
+        return takedTitles;
+    }
+
+    public static void AddAcquireTitle(this Actor a, KingdomTitle title)
+    {
+        var ed = ExtensionManager<Actor, ActorExtraData>.GetOrCreate(a);
+        ed.want_acuired_title.Add(title.data.id);
+    }
+
+    public static void AddOwnedTitle(this Actor a, KingdomTitle title)
+    {
+        var ed = ExtensionManager<Actor, ActorExtraData>.GetOrCreate(a);
+        if (!ed.owned_title.Contains(title.data.id))
+            ed.owned_title.Add(title.data.id);
+            title.owner = a;
+    }
+
+    public static void removeTitle(this Actor a, KingdomTitle title)
+    {
+        var ed = ExtensionManager<Actor, ActorExtraData>.GetOrCreate(a);
+        if (a.GetOwnedTitle().Contains(title.data.id))
+        {
+            ed.owned_title.Remove(title.data.id);
+            title.owner = null;
+        }
+    }
+
+    public static List<long> GetAcquireTitle(this Actor a)
+    {
+        var ed = ExtensionManager<Actor, ActorExtraData>.GetOrCreate(a);
+        return ed.want_acuired_title;
+    }
+
+    public static List<long> GetOwnedTitle(this Actor a)
+    {
+        var ed = ExtensionManager<Actor, ActorExtraData>.GetOrCreate(a);
+        return ed.owned_title;
+    }
+
+    public static void ClearTitle(this Actor a)
+    {
+        var ed = ExtensionManager<Actor, ActorExtraData>.GetOrCreate(a);
+        ed.owned_title.Select(t=>ModClass.KINGDOM_TITLE_MANAGER.get(t).owner=null);
+        ed.owned_title.Clear();
+        ed.want_acuired_title.Clear();
+    }
+
+    public static bool isEmperor(this Actor a)
+    {
+        if (a.hasKingdom()) 
+        {
+            return a.kingdom.isEmpire();
+        }
+        return false;
     }
 
     public static ActorExtraData GetOrCreate(this Actor a)

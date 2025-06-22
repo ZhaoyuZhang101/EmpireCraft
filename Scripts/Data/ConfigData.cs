@@ -13,8 +13,25 @@ namespace EmpireCraft.Scripts.Data
     {
         [JsonIgnore]
         public static Empire CURRENT_SELECTED_EMPIRE;
-        // Token: 0x06002120 RID: 8480 RVA: 0x00118D18 File Offset: 0x00116F18
-        public static Dictionary<long, Empire> EMPIRE_DICT = new Dictionary<long, Empire>();
+        [JsonIgnore]
+        public static KingdomTitle CURRENT_SELECTED_TITLE;
+        [JsonIgnore]
+        public static City selected_cityA;
+        [JsonIgnore]
+        public static City selected_cityB;
+
+        public static List<string> yearNameSubspecies = new List<string>() 
+        {
+            "Human"
+        };
+        public static Dictionary<string, string> speciesCulturePair = new Dictionary<string, string>() 
+        {
+            {"human","Huaxia"},
+            {"elf", "Western" },
+            {"dwarf", "Youmu" },
+            {"orc", "Youmu" }
+        };
+        [JsonIgnore]
         public static Empire EMPIRE = null;
     }
 }

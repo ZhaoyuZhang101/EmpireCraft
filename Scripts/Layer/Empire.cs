@@ -25,6 +25,9 @@ public class Empire : MetaObject<EmpireData>
     private readonly List<TileZone> _zoneScratch = new();
     private readonly int avgCitiesPerKingdom = 3;
     public Clan empire_clan;
+    public Actor emperor;
+    public Vector3 capital_center;
+    public EmpireCraftMapMode map_mode = EmpireCraftMapMode.Empire;
 
     public override MetaType meta_type
     {
@@ -34,6 +37,32 @@ public class Empire : MetaObject<EmpireData>
         }
     }
 
+    public override long getTotalDeaths()
+    {
+        long deaths = 0;
+        foreach(Kingdom kingdom in kingdoms_hashset)
+        {
+            deaths += kingdom.getTotalDeaths();
+        }
+        return deaths;
+    }
+
+    public EmpirePeriod getEmpirePeriod()
+    {
+        int age = getAge();
+        if (age <= 50)
+            this.data.empirePeriod = EmpirePeriod.平和;
+        else if (age <= 100)
+            this.data.empirePeriod = EmpirePeriod.拓土扩业;
+        else if (age <= 150)
+            this.data.empirePeriod = EmpirePeriod.下降;
+        else if (age <= 200)
+            this.data.empirePeriod = EmpirePeriod.逐鹿群雄;
+        else
+            this.data.empirePeriod = EmpirePeriod.天命丧失;
+        return this.data.empirePeriod;
+    }
+
     public string GetEmpireName()
     {
         string[] nameParts = this.data.name.Split(' ');
@@ -41,24 +70,64 @@ public class Empire : MetaObject<EmpireData>
         return nameParts[nameParts.Length-2];
     }
 
+    public void setEmperor(Actor actor)
+    {
+        this.emperor = actor;
+        create_year_name();
+        TranslateHelper.LogNewEmperor(emperor, empire.capital, data.year_name);
+    }
+
+    public void EmperorLeft(Actor actor)
+    {
+        this.emperor = null;
+    }
+
+    public int getEmperorYear()
+    {
+        return Date.getYearsSince(this.data.newEmperor_timestamp) + 1;
+    }
+
+    public string getYearNameWithTime()
+    {
+        if (this.data.has_year_name)
+        {
+            if (this.empire.hasKing())
+            {
+                if (this.data.year_name != "" || this.data.year_name != null)
+                {
+                    return this.data.year_name + " " + getEmperorYear() + LM.Get("Year");
+                }
+            }
+        }
+        return "";
+    }
+
     public void createNewEmpire(Kingdom empire)
     {
+        if (ConfigData.speciesCulturePair != null) 
+        {
+            if (ConfigData.speciesCulturePair.TryGetValue(empire.getSpecies(), out string culture)) {
+                if (culture == "Huaxia")
+                {
+                    LogService.LogInfo("可以显示年号");
+                    this.data.has_year_name = true;
+                }
+            }
+        }
         this.empire = empire;
         if (this.empire.getKingClan() != null) this.empire_clan = this.empire.getKingClan();
         else 
         { 
             Clan clan = new Clan();
             clan.newClan(this.empire.king, true);
-            this.empire.king.setClan(clan);
             this.empire_clan = clan;
         }
         this.data.banner_icon_id = empire.data.banner_icon_id;
         this.data.banner_background_id = empire.data.banner_background_id;
         empire.SetCountryLevel(countryLevel.countrylevel_0);
         this.data.timestamp_established_time = World.world.getCurWorldTime();
+        this.capital_center = empire.capital.city_center;
         this.generateNewMetaObject();
-        //以帝国名称命名
-        LogService.LogInfo("帝国名称" + empire.name.Split(' ')[0] + " " + LM.Get("default_" + countryLevel.countrylevel_0.ToString()) + LM.Get("Country"));
         string empireName = empire.GetKingdomName();
         if (empire.getKingClan() != null)
         {
@@ -68,7 +137,23 @@ public class Empire : MetaObject<EmpireData>
             }
         }
         SetEmpireName(empireName);
+        create_year_name();
+        TranslateHelper.LogNewEmperor(empire.king, empire.capital, data.year_name);
         empire.getKingClan().RecordHistoryEmpire(this);
+    }
+    public bool isAllowToMakeYearName ()
+    {
+        return this.data.has_year_name;
+    }
+    public bool hasYearName()
+    {
+        return this.data.year_name != null && this.data.year_name != "";
+    }
+
+    public void create_year_name()
+    {
+        this.data.year_name = YearName.generateName();
+        this.data.newEmperor_timestamp = World.world.getCurWorldTime();
     }
 
     public string GetDir(Vector2 v)
@@ -79,12 +164,12 @@ public class Empire : MetaObject<EmpireData>
         if (ax > ay)
         {
             // 水平分量更大，向东或西
-            return LM.Get(v.x < empire_center.x ?"Eastern" : "Western");
+            return LM.Get(v.x < capital_center.x ?"Eastern" : "Western");
         }
         else if (ay > ax)
         {
             // 垂直分量更大，向北或南
-            return LM.Get(v.y < empire_center.y ? "Northern" : "Southern");
+            return LM.Get(v.y > capital_center.y ? "Northern" : "Southern");
         }
         else
         {
@@ -95,11 +180,16 @@ public class Empire : MetaObject<EmpireData>
 
     public void SetEmpireName(string name)
     {
-        this.data.name = name + " " + LM.Get("default_" + countryLevel.countrylevel_0.ToString()) + LM.Get("Country");
+        LogService.LogInfo($"当前成为帝国的种族{empire.species_id}");
+        string culture = ConfigData.speciesCulturePair.TryGetValue(empire.getSpecies(), out var a) ? a : "default";
+        this.data.name = name + " " + LM.Get($"{culture}_" + countryLevel.countrylevel_0.ToString());
     }
 
     public void checkDisolve(Kingdom mainKingdom)
     {
+        LogService.LogInfo("开始检测是否解散帝国");
+        this.kingdoms_hashset.Remove(mainKingdom);
+        mainKingdom.empireLeave(false);
         Kingdom heirEmpire = null;
         if (empire_clan.isAlive())
         {
@@ -117,10 +207,12 @@ public class Empire : MetaObject<EmpireData>
         }
         if (heirEmpire == null)
         {
-            dissolve();
-            Dispose();
+            LogService.LogInfo("解散帝国");
+            ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
             return;
         }
+        recalculate();
+        LogService.LogInfo("继承帝国");
         replaceEmpire(heirEmpire);
         return;
     }
@@ -145,11 +237,10 @@ public class Empire : MetaObject<EmpireData>
     public void replaceEmpire(Kingdom newKingdom)
     {
         Empire newEmpire = ModClass.EMPIRE_MANAGER.newEmpire(newKingdom);
-
+        newEmpire.SetEmpireName(newKingdom.GetKingdomName());
         if (newKingdom.capital.HasKingdomName()) 
         {
             SetEmpireName(newKingdom.capital.SelectKingdomName());
-            newKingdom.getKingClan().RecordHistoryEmpire(this);        
         }
         if (newKingdom.getKingClan().HasHistoryEmpire())
         {
@@ -158,26 +249,40 @@ public class Empire : MetaObject<EmpireData>
         }
         if (newKingdom.king.HasTitle())
         {
-            newEmpire.SetEmpireName(newKingdom.king.GetTileName());
-            newKingdom.getKingClan().RecordHistoryEmpire(this);
+            newEmpire.SetEmpireName(newKingdom.king.GetTitle());
         }
         if (newKingdom.getKingClan() == empire_clan)
         {
             newEmpire.SetEmpireName(GetDir(newKingdom.capital.city_center) + " " + GetEmpireName());
         }
-        newEmpire.SetEmpireName(newKingdom.GetKingdomName());
-        newKingdom.getKingClan().RecordHistoryEmpire(this);
-        TranslateHelper.LogMinistorAqcuireEmpire(newKingdom.king, newEmpire);
+        if (newKingdom.king.hasClan())
+        {
+            newKingdom.getKingClan().RecordHistoryEmpire(this);
+            newEmpire.empire_clan = newKingdom.getKingClan();
+        } 
+        else
+        {
+            Clan clan = World.world.clans.newClan(newKingdom.king, true);
+            newEmpire.empire_clan = clan;
 
-        foreach(Kingdom kingdom in kingdoms_hashset)
+        }
+        TranslateHelper.LogMinistorAqcuireEmpire(newKingdom.king, newEmpire);
+        foreach (Kingdom kingdom in kingdoms_hashset)
         {
             if (kingdom!=newKingdom&&(kingdom.GetCountryLevel()==countryLevel.countrylevel_0|| kingdom.GetCountryLevel() == countryLevel.countrylevel_1))
             {
                 kingdom.SetCountryLevel(countryLevel.countrylevel_4);
             }
-            newEmpire.join(kingdom);
+            newEmpire.kingdoms_hashset.Add(kingdom);
+            kingdom.empireJoin(newEmpire);
+            newEmpire.data.timestamp_member_joined = World.world.getCurWorldTime();
+            
         }
-        dissolve();
+        newEmpire.create_year_name();
+        newEmpire.recalculate();
+        TranslateHelper.LogNewEmperor(newKingdom.king, newKingdom.capital, newEmpire.data.year_name);
+
+        this.kingdoms_hashset.Clear();
         Dispose();
     }
     public sealed override void setDefaultValues()
@@ -380,26 +485,33 @@ public class Empire : MetaObject<EmpireData>
         }
     }
 
-    // Token: 0x06001124 RID: 4388 RVA: 0x000C7748 File Offset: 0x000C5948
     public bool checkActive()
     {
         bool tChanged = false;
         List<Kingdom> tKingdoms = this.kingdoms_list;
-        for (int i = tKingdoms.Count - 1; i >= 0; i--)
+        if (tKingdoms.Count<=0)
         {
-            Kingdom tKingdom = tKingdoms[i];
-            if (!tKingdom.isAlive())
+            return false;
+        }
+        List<Kingdom> remove_tKingdoms = new List<Kingdom>();
+        foreach( Kingdom k in tKingdoms )
+        {
+            if (!k.isAlive()||k==null)
             {
-                this.leave(tKingdom, false);
-                this.kingdoms_list.RemoveAt(i);
+                remove_tKingdoms.Add(k);
                 tChanged = true;
             }
+        }
+        foreach (Kingdom k in remove_tKingdoms)
+        {
+            this.leave(k, false);
+            this.kingdoms_list.Remove(k);
         }
         if (tChanged)
         {
             this.recalculate();
         }
-        return this.kingdoms_list.Count >= 2;
+        return this.kingdoms_list.Count >= 1;
     }
 
     // Token: 0x06001125 RID: 4389 RVA: 0x000C77B4 File Offset: 0x000C59B4
@@ -410,7 +522,7 @@ public class Empire : MetaObject<EmpireData>
             kingdom.empireLeave();
         }
         this.kingdoms_hashset.Clear();
-        ModClass.EMPIRE_MANAGER.removeObject(this);
+
     }
 
     // Token: 0x06001126 RID: 4390 RVA: 0x000C7810 File Offset: 0x000C5A10
@@ -445,8 +557,9 @@ public class Empire : MetaObject<EmpireData>
                 this.data.kingdoms.Add(tKingdom.id);
             }
         }
-        this.data.empire = this.empire.id;
-        this.data.empire_clan = this.empire_clan==null?-1L:this.empire_clan.getID();
+        this.data.emperor = this.emperor.data.id;
+        this.data.empire = this.empire.data.id;
+        this.data.empire_clan = this.empire_clan==null?-1L:this.empire_clan.data.id;
     }
 
     // Token: 0x0600112B RID: 4395 RVA: 0x000C7CCC File Offset: 0x000C5ECC
@@ -461,6 +574,7 @@ public class Empire : MetaObject<EmpireData>
                 this.kingdoms_hashset.Add(tKingdom);
             }
         }
+        this.emperor = World.world.units.get(pData.emperor);
         this.empire = World.world.kingdoms.get(pData.empire);
         this.empire_clan = World.world.clans.get(pData.empire_clan);
         this.recalculate();
@@ -686,7 +800,13 @@ public class Empire : MetaObject<EmpireData>
         }
         return tResult;
     }
-
+    public void calculateDoesHaveTitle ()
+    {
+        foreach(KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER)
+        {
+            var title_cities = title.city_list;
+        }
+    }
     // Token: 0x06001134 RID: 4404 RVA: 0x000C7ED5 File Offset: 0x000C60D5
     public static bool isSame(Alliance pAlliance1, Alliance pAlliance2)
     {
@@ -944,13 +1064,14 @@ public class Empire : MetaObject<EmpireData>
                     cl = countryLevel.countrylevel_4;
                     pl = PeeragesLevel.peerages_4;
                 }
-                newKingdom = capital.makeOwnKingdom(king);
+                newKingdom = setEnfeoff(capital, king);
                 foreach (var city in region)
                 {
                     city.joinAnotherKingdom(newKingdom);
                 }
                 newKingdom.setCapital(capital);
                 newKingdom.data.name = capital.data.name;
+                LogService.LogInfo($"{capital.GetCityName()}");
                 newKingdom.SetCountryLevel(cl);
                 newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
                 king.SetPeeragesLevel(pl);
@@ -960,13 +1081,31 @@ public class Empire : MetaObject<EmpireData>
                     color_special1 = this.empire.kingdomColor.getColorText()
                 }.add();
                 this.join(newKingdom, true, false);
+                WorldLog.logNewKingdom(newKingdom);
             }
         }
         
     }
 
+
+
+    public Kingdom setEnfeoff(City capital, Actor king)
+    {
+        Kingdom pKingdom = capital.kingdom;
+        capital.removeFromCurrentKingdom();
+        capital.removeLeader();
+        Kingdom kingdom = World.world.kingdoms.makeNewCivKingdom(king, pLog:false);
+        capital.newForceKingdomEvent(base.units, capital._boats, kingdom, null);
+        capital.setKingdom(kingdom);
+        capital.switchedKingdom();
+        kingdom.copyMetasFromOtherKingdom(pKingdom);
+        kingdom.setCityMetas(capital);
+        return kingdom;
+    }
+
     public void SelectAndInspect()
     {
+        ConfigData.CURRENT_SELECTED_EMPIRE = this;
         ScrollWindow.showWindow(nameof(EmpireWindow));
     }
 
@@ -994,7 +1133,6 @@ public class Empire : MetaObject<EmpireData>
         this.kingdoms_list.Clear();
         this.kingdoms_hashset.Clear();
         this.empire = null;
-        ModClass.EMPIRE_MANAGER.removeObject(this);
     }
 
     // Token: 0x040022FF RID: 8959

@@ -51,8 +51,77 @@ namespace EmpireCraft.Scripts.HelperFunc
                 empire.GetEmpireName(),
                 title)
             {
-                color_special1 = minister.kingdom.getColor().getColorText(),
-                color_special2 = empire.empire.getColor().getColorText()
+                color_special1 = minister.kingdom.getColor()._colorText,
+                color_special2 = empire.empire.getColor()._colorText
+
+            }.add();
+        }
+        public static void LogCreateTitle(Kingdom kingdom, KingdomTitle title)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.king_create_title_log,
+                kingdom.data.name,
+                kingdom.king.data.name,
+                title.data.name)
+            {
+                color_special1 = kingdom.getColor()._colorText,
+                color_special2 = kingdom.getColor()._colorText,
+                color_special3 = title.getColor()._colorText
+
+            }.add();
+        }
+        public static void LogNewEmperor(Actor emperor, City city, string year_name)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.history_new_emperor,
+                emperor.data.name,
+                city.GetCityName(),
+                year_name)
+            {
+                color_special1 = emperor.kingdom.getColor()._colorText,
+                color_special2 = emperor.kingdom.getColor()._colorText,
+                color_special3 = emperor.kingdom.getColor()._colorText
+
+            }.add();
+        }
+        public static void LogCityAddToTitle(City city, KingdomTitle title)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.city_add_to_title_log,
+                city.data.name,
+                title.data.name)
+            {
+                color_special1 = city.getColor()._colorText,
+                color_special2 = title.getColor()._colorText
+
+            }.add();
+        }
+
+        public static void LogKingTakeTitle(Kingdom kingdom,KingdomTitle title)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.king_take_title_log,
+                kingdom.data.name,
+                kingdom.king.getName(),
+                title.data.name)
+                {
+                    color_special1 = kingdom.getColor()._colorText,
+                    color_special2 = kingdom.getColor()._colorText,
+                    color_special3 = title.getColor()._colorText
+
+                }.add();
+        }
+        /// <summary>
+        /// 新年号
+        ///     $empire$ → 帝国名
+        ///     $emperor$ → 皇帝名
+        ///     $year_name$ → 年号
+        /// </summary>
+        public static void LogEmperorCreateNewYearName(Actor minister, Empire empire, string title)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_powerful_minister_aquire_title,
+                minister.data.name,
+                empire.GetEmpireName(),
+                title)
+            {
+                color_special1 = minister.kingdom.getColor()._colorText,
+                color_special2 = empire.empire.getColor()._colorText
 
             }.add();
         }
@@ -70,7 +139,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 minister.name,
                 new_empire.GetEmpireName())
             {
-                color_special1 = minister.getColor()._colorText,
+                color_special1 = minister.kingdom.getColor()._colorText,
                 color_special2 = new_empire.empire.getColor()._colorText,
             }.add();
         }

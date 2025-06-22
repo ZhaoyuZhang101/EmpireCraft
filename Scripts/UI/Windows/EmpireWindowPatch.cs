@@ -30,28 +30,28 @@ public class EmpireWindowPatch : GamePatch
 
     public void Initialize()
     {
-        KingdomListElement = PrefabHelper.FindPrefabByName("list_element_kingdom");
-        new Harmony(nameof(empire_window_show)).Patch(AccessTools.Method(typeof(KingdomWindow), nameof(KingdomWindow.startShowingWindow)),
-            prefix: new HarmonyMethod(GetType(), nameof(empire_window_show)));
-        new Harmony(nameof(apply_input_name)).Patch(AccessTools.Method(typeof(KingdomWindow), nameof(KingdomWindow.applyInputName)),
-            prefix: new HarmonyMethod(GetType(), nameof(apply_input_name)));
-        new Harmony(nameof(set_stats_rows)).Patch(
-            AccessTools.Method(typeof(KingdomWindow), nameof(KingdomWindow.showStatsRows)),
-            prefix: new HarmonyMethod(GetType(), nameof(set_stats_rows))
-        );
+        //KingdomListElement = PrefabHelper.FindPrefabByName("list_element_kingdom");
+        //new Harmony(nameof(empire_window_show)).Patch(AccessTools.Method(typeof(KingdomWindow), nameof(KingdomWindow.startShowingWindow)),
+        //    prefix: new HarmonyMethod(GetType(), nameof(empire_window_show)));
+        //new Harmony(nameof(apply_input_name)).Patch(AccessTools.Method(typeof(KingdomWindow), nameof(KingdomWindow.applyInputName)),
+        //    prefix: new HarmonyMethod(GetType(), nameof(apply_input_name)));
+        //new Harmony(nameof(set_stats_rows)).Patch(
+        //    AccessTools.Method(typeof(KingdomWindow), nameof(KingdomWindow.showStatsRows)),
+        //    prefix: new HarmonyMethod(GetType(), nameof(set_stats_rows))
+        //);
     }
 
 
 
     public static bool empire_window_show(KingdomWindow __instance)
     {
-        if (_kingdomItems != null)
-            ClearKingdomItems();
-        if (PlayerConfig.dict["map_empire_layer"].boolVal && __instance.meta_object.isInEmpire())
-        {
-            initializeEmpireWindow(__instance);
-            return false;
-        }
+        //if (_kingdomItems != null)
+        //    ClearKingdomItems();
+        //if (PlayerConfig.dict["map_empire_layer"].boolVal && __instance.meta_object.isInEmpire())
+        //{
+        //    initializeEmpireWindow(__instance);
+        //    return false;
+        //}
         return true;
     }
 
@@ -120,7 +120,7 @@ public class EmpireWindowPatch : GamePatch
     public static void loadNameInput(KingdomWindow window)
     {
         Empire empire = window.meta_object.GetEmpire();
-        window._name_input.setText(empire.name);
+        window._name_input.setText(empire.data.name);
         ColorAsset tColorAsset = empire.getColor();
         if (tColorAsset != null)
         {

@@ -3,6 +3,7 @@ using System;
 using NeoModLoader.services;
 using NeoModLoader.General;
 using NeoModLoader.api;
+using EmpireCraft.Scripts.GameClassExtensions;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class LaunguagePatch : GamePatch
@@ -17,6 +18,6 @@ public class LaunguagePatch : GamePatch
 
     private static void set_Language_name(Language __instance, Actor pActor)
     {
-        __instance.data.name = pActor.kingdom.name.Split(' ')[0]+ LM.Get("Language") + pActor.city.name.Split(' ')[0] + LM.Get("Dialect");
+        __instance.data.name = pActor.kingdom.GetKingdomName()+ LM.Get("Language") + pActor.city.GetCityName() + LM.Get("Dialect");
     }
 }

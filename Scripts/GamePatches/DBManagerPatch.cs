@@ -27,7 +27,7 @@ public class DBManagerPatch:GamePatch
 
     public static void on_application_quit(DBManager __instance)
     {
-        AllClear();
+        //AllClear();
     }
 
     public static void AllClear()
@@ -38,6 +38,9 @@ public class DBManagerPatch:GamePatch
         KingdomExtension.Clear();
         WarExtension.Clear();
         ModClass.EMPIRE_MANAGER.clear();
+        ModClass.KINGDOM_TITLE_MANAGER.clear();
         LogService.LogInfo("清空所有Mod数据");
+        DBInserter.quitting();
+        DBManager.closeDB();
     }
 }

@@ -44,6 +44,11 @@ public static class CityExtension
         data.title_id = a.GetTitleID();
         return data;
     }
+
+    public static bool hasTitle(this City c)
+    {
+        return GetOrCreate(c).title_id!=-1L;
+    }
     public static void Clear()
     {
         ExtensionManager<City, CityExtraData>.Clear();

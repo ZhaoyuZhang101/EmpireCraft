@@ -35,8 +35,3 @@ public static class OnomasticsTypeExtensions
         return typeList.Select(x => x.ToString()).ToArray();
     }
 }
-
-public static class EmpireCraftMetaType
-{
-    public static MetaType Empire = (MetaType)500;
-}

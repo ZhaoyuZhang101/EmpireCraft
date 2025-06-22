@@ -1,54 +1,43 @@
-﻿using EmpireCraft.Scripts;
-using EmpireCraft.Scripts.GameClassExtensions;
-using EmpireCraft.Scripts.GamePatches;
-using EmpireCraft.Scripts.Layer;
-using HarmonyLib;
-using NeoModLoader.api;
+﻿using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.General;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using UnityEngine;
 
-public class TooltipLibraryPatch : GamePatch
+namespace EmpireCraft.Scripts.Layer;
+public static class EmpireCraftTooltipLibrary
 {
-    public ModDeclare declare { get; set; }
-
-    public void Initialize()
+    public static void init()
     {
-        new Harmony(nameof(add_empire_tool_tip)).Patch(
-            AccessTools.Method(typeof(TooltipLibrary), nameof(TooltipLibrary.showKingdom)),
-            prefix: new HarmonyMethod(GetType(), nameof(add_empire_tool_tip))
-        );
-    }
-
-    public static bool add_empire_tool_tip(TooltipLibrary __instance, Tooltip pTooltip, string pType, TooltipData pData)
-    {
-        if (PlayerConfig.dict["map_empire_layer"].boolVal && pData.kingdom.isInEmpire())
+        TooltipLibrary tl = AssetManager.tooltips;
+        tl.add(new TooltipAsset
         {
-            showEmpireToolTip(pTooltip, pType, pData);
-            return false;
-        }
-        return true;
+            id = "empire",
+            prefab_id = "tooltips/tooltip_kingdom",
+            callback = showEmpireToolTip
+        });
+        tl.add(new TooltipAsset
+        {
+            id = "kingdom_title",
+            prefab_id = "tooltips/tooltip_city",
+            callback = showKingdomTitleToolTip
+        });
     }
-
     public static void showEmpireToolTip(Tooltip pTooltip, string pType, TooltipData pData)
     {
         pTooltip.clear();
-        pTooltip.clearTextRows();
-        pTooltip.clearStats();
         Kingdom tKingdom = pData.kingdom.GetEmpire().empire;
+        if (tKingdom == null) return;
         Empire pEmpire = ModClass.EMPIRE_MANAGER.get(tKingdom.GetEmpireID());
         pTooltip.setDescription(tKingdom.getMotto(), null);
         string tColorHex = tKingdom.getColor().color_text;
         pTooltip.setTitle(pEmpire.name, "EmpireText", tColorHex);
         int tAge = pEmpire.getAge();
-        setIconValue(pTooltip, "i_age", (float)tAge, "", "");
-        setIconValue(pTooltip, "i_population", (float)pEmpire.countPopulation(), "", "");
-        setIconValue(pTooltip, "i_army", (float)pEmpire.countWarriors(), "", "");
+        AssetManager.tooltips.setIconValue(pTooltip, "i_age", (float)tAge, "", "");
+        AssetManager.tooltips.setIconValue(pTooltip, "i_population", (float)pEmpire.countPopulation(), "", "");
+        AssetManager.tooltips.setIconValue(pTooltip, "i_army", (float)pEmpire.countWarriors(), "", "");
         string pValue = "-";
         if (pEmpire.empire.hasKing())
         {
@@ -65,8 +54,8 @@ public class TooltipLibraryPatch : GamePatch
         pTooltip.addLineText("current_selected_province", pData.kingdom.data.name, pData.kingdom.getColor().color_text, false, true, 21);
         string color = tKingdom.getColor().color_text;
         string leaderName = "-";
-        if (pData.kingdom.hasKing()) 
-        { 
+        if (pData.kingdom.hasKing())
+        {
             leaderName = pData.kingdom.king.name;
             if (pData.kingdom.king.hasClan())
             {
@@ -74,7 +63,7 @@ public class TooltipLibraryPatch : GamePatch
             }
         }
         pTooltip.addLineText("province_leader", leaderName, color, false, true, 21);
-        pTooltip.addLineText("province_level", LM.Get("default_"+ pData.kingdom.GetCountryLevel().ToString()), tKingdom.getColor().color_text, false, true, 21);
+        pTooltip.addLineText("province_level", LM.Get("default_" + pData.kingdom.GetCountryLevel().ToString()), tKingdom.getColor().color_text, false, true, 21);
         pTooltip.addLineBreak();
         pTooltip.addLineIntText(
             "adults",
@@ -95,17 +84,20 @@ public class TooltipLibraryPatch : GamePatch
             "housed",
             pEmpire.countHoused(),
             null, true);
-
-        pTooltip.addLineIntText(
-            "deaths",
-            pEmpire.getTotalDeaths(),
-            null, true);
     }
-    public static void setIconValue(Tooltip pTooltip, string pName, float pMainVal, string pEnding = "", string pColor = "")
+    public static void showKingdomTitleToolTip(Tooltip pTooltip, string pType, TooltipData pData)
     {
-        Transform tTransform = pTooltip.transform.FindRecursive(pName);
-        StatsIcon component = tTransform.GetComponent<StatsIcon>();
-        component.enable_animation = false;
-        component.setValue(pMainVal, pEnding, pColor, false);
+        pTooltip.clear();
+        City city = pData.city;
+        KingdomTitle title = city.GetTitle();
+        pTooltip.setDescription(LM.Get("kingdom_title_description"), null);
+        string tColorHex = title.getColor().color_text;
+        pTooltip.setTitle(title.data.name, "KingdomTitleWindowTitle", tColorHex);
+        int tAge = title.getAge();
+        AssetManager.tooltips.setIconValue(pTooltip, "i_age", (float)tAge, "", "");
+        AssetManager.tooltips.setIconValue(pTooltip, "i_population", (float)title.countPopulation(), "", "");
+        string pValue = title.HasOwner()?title.owner.getName():"-";
+        pTooltip.addLineText("title_holder", pValue, "#FE9900", false, true, 21);
+        pTooltip.addLineText("title_capital", title.title_capital.data.name, "#CC6CE7", false, true, 21);
     }
 }

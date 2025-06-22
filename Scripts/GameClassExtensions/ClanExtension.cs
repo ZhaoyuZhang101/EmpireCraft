@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
+using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,10 +58,15 @@ public static class ClanExtension
 
     public static void RecordHistoryEmpire(this Clan __instance, Empire empire)
     {
+        if (empire == null) return;
         Kingdom kingdom = empire.empire;
+        if (kingdom == null) return;
+        if (!kingdom.hasCapital()) return;
+        kingdom.capital.updateCityCenter();
         GetOrCreate(__instance).id = __instance.getID();
         GetOrCreate(__instance).position = kingdom.capital.city_center;
         GetOrCreate(__instance).historical_empire_name = empire.GetEmpireName();
+        LogService.LogInfo("记录家族历史帝国成功");
     }
 
     public static void ClearHistoricalName(this Clan __instance)

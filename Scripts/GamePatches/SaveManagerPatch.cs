@@ -40,8 +40,8 @@ public class SaveManagerPatch : GamePatch
     }    
     public static void load_mod_data(SaveManager __instance, SavedMap pData, string pPath)
     {
-        DBManagerPatch.AllClear();
         ModClass.EMPIRE_MANAGER = new EmpireManager();
+        ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         LogService.LogInfo("加载mod数据从 " + pPath);
         if (pData == null)
         {
