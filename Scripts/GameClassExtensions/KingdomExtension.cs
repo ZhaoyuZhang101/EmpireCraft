@@ -306,7 +306,12 @@ public static class KingdomExtension
         return GetOrCreate(k).OwnedTitle;
     }
 
-    public static bool HasTitle(this Kingdom k) {  return GetOrCreate(k).OwnedTitle.Count()>0; }
+    public static bool HasTitle(this Kingdom k) 
+    {
+        if (k == null) return false;
+        if (GetOrCreate(k)==null) return false;
+        return GetOrCreate(k).OwnedTitle.Count()>0; 
+    }
 
     public static void SetOwnedTitle(this Kingdom k, List<long> value)
     {
@@ -349,6 +354,8 @@ public static class KingdomExtension
 
     public static bool isInEmpire(this Kingdom kingdom)
     {
+        if (kingdom == null) return false;
+        if (GetOrCreate(kingdom) == null) return false;
         return GetOrCreate(kingdom).empireID != -1L;
     }
 

@@ -52,7 +52,7 @@ public static class ActorExtension
         if (a.kingdom == null) return "";
         Kingdom kingdom = a.kingdom;
         var ownedTitles = a.GetOwnedTitle();
-        var hasCapitalTitle = ownedTitles.Exists(t=>ModClass.KINGDOM_TITLE_MANAGER.get(t).title_capital == kingdom.capital);
+        var hasCapitalTitle = ownedTitles.Exists(t=> ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(t)?ModClass.KINGDOM_TITLE_MANAGER.get(t).title_capital == kingdom.capital:false);
         if (hasCapitalTitle)
         {
             return kingdom.capital.GetTitle().data.name;
@@ -136,6 +136,7 @@ public static class ActorExtension
             if (ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(id))
             {
                 KingdomTitle kt = ModClass.KINGDOM_TITLE_MANAGER.get(id);
+                if (kt == null) continue;
                 if (Date.getYearsSince(kt.data.timestamp_been_controled) >= ModClass.TITLE_BEEN_DESTROY_TIME && kt.title_capital != a.kingdom.capital)
                 {
                     titles.Add(kt);
@@ -208,6 +209,7 @@ public static class ActorExtension
 
     public static List<long> GetOwnedTitle(this Actor a)
     {
+        if (a == null) return null;
         var ed = ExtensionManager<Actor, ActorExtraData>.GetOrCreate(a);
         return ed.owned_title;
     }

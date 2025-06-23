@@ -169,7 +169,7 @@ public class Empire : MetaObject<EmpireData>
         if (ax > ay)
         {
             // 水平分量更大，向东或西
-            return LM.Get(v.x > capital_center.x+5 ?"Eastern" : "Western");
+            return LM.Get(v.x < capital_center.x-5 ?"Eastern" : "Western");
         }
         else if (ay > ax)
         {
@@ -1045,8 +1045,17 @@ public class Empire : MetaObject<EmpireData>
             if (region.Count > 0)
             {
                 City capital = region.GetRandom();
-                var RoyalCandidates = empire.getKingClan().getUnits();
-                var SatisfiedCandidates = RoyalCandidates.TakeWhile(c => c.isActor() &&c.isAlive()&& c.isAdult() && c.getID() != empire.getID() && !c.isKing());
+                List<Actor> SatisfiedCandidates = new List<Actor>();
+                if (empire.getKingClan()!=null)
+                {
+                    var RoyalCandidates = empire.getKingClan().getUnits();
+                    SatisfiedCandidates = RoyalCandidates.TakeWhile(c => c.isActor() && c.isAlive() && c.isAdult() && c.getID() != empire.getID() && !c.isKing()).ToList();
+                }
+                else
+                {
+                    SatisfiedCandidates = new List<Actor>();
+                }
+
                 Kingdom newKingdom;
                 Actor king;
                 countryLevel cl = countryLevel.countrylevel_1;

@@ -25,16 +25,6 @@ public class SaveManagerPatch : GamePatch
             AccessTools.Method(typeof(SaveManager), nameof(SaveManager.loadData)),
             postfix: new HarmonyMethod(GetType(), nameof(load_mod_data))
         );        
-        new Harmony(nameof(load_world)).Patch(
-            AccessTools.Method(typeof(SaveManager), nameof(SaveManager.loadWorld)),
-            postfix: new HarmonyMethod(GetType(), nameof(load_world))
-        );
-    }
-
-    public static void load_world(SaveManager __instance)
-    {
-        ModClass.IS_CLEAR = true;
-        DBManagerPatch.AllClear();
     }
 
     public static void save_mod_data(SaveManager __instance, string pFolder, bool pCompress)

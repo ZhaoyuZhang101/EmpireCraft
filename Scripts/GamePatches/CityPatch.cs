@@ -41,6 +41,7 @@ public class CityPatch : GamePatch
 
     public static void update_dirty_patch(City __instance)
     {
+        if (ModClass.IS_CLEAR) return;
         if (__instance.kingdom == null) 
         {
             return;
