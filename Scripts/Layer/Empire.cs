@@ -164,17 +164,17 @@ public class Empire : MetaObject<EmpireData>
 
     public string GetDir(Vector2 v)
     {
-        float ax = Math.Abs(v.x);
-        float ay = Math.Abs(v.y);
+        float ax = Math.Abs(v.x- capital_center.x);
+        float ay = Math.Abs(v.y- capital_center.y);
         if (ax > ay)
         {
             // 水平分量更大，向东或西
-            return LM.Get(v.x < capital_center.x-5 ?"Eastern" : "Western");
+            return LM.Get(capital_center.x > v.x ?"Eastern" : "Western");
         }
         else if (ay > ax)
         {
             // 垂直分量更大，向北或南
-            return LM.Get(v.y > capital_center.y+5 ? "Northern" : "Southern");
+            return LM.Get(capital_center.y < v.y ? "Northern" : "Southern");
         }
         else
         {
@@ -185,7 +185,7 @@ public class Empire : MetaObject<EmpireData>
 
     public void SetEmpireName(string name)
     {
-        LogService.LogInfo($"当前成为帝国的种族{empire.species_id}");
+        LogService.LogInfo($"当前成为帝国的种族{empire.getSpecies()}");
         string culture = ConfigData.speciesCulturePair.TryGetValue(empire.getSpecies(), out var a) ? a : "default";
         this.data.name = name + " " + LM.Get($"{culture}_" + countryLevel.countrylevel_0.ToString());
     }
@@ -258,7 +258,7 @@ public class Empire : MetaObject<EmpireData>
         }
         if (newKingdom.getKingClan() == empire_clan)
         {
-            newEmpire.SetEmpireName(newEmpire.GetDir(newKingdom.capital.city_center) + " " + GetEmpireName());
+            newEmpire.SetEmpireName(newEmpire.GetDir(this.empire_center) + " " + GetEmpireName());
         }
         if (newKingdom.king.hasClan())
         {
@@ -553,6 +553,8 @@ public class Empire : MetaObject<EmpireData>
         {
             return;
         }
+        if (this.empire == null) return;
+        if (this.empire.data == null) return;
         LogService.LogInfo("存储数据中" + this.name + this.id);
         this.data.kingdoms = new List<long>();
         foreach (Kingdom tKingdom in this.kingdoms_hashset)
@@ -562,10 +564,21 @@ public class Empire : MetaObject<EmpireData>
                 this.data.kingdoms.Add(tKingdom.id);
             }
         }
-        this.data.emperor = this.emperor.data.id;
+        if (this.emperor != null)
+            this.data.emperor = this.emperor.data.id;
+        else
+            this.data.emperor = -1L;
         this.data.empire = this.empire.data.id;
         this.data.original_capital = this.original_capital.isAlive() ? this.original_capital.data.id : -1L;
-        this.data.empire_clan = this.empire_clan==null?-1L:this.empire_clan.data.id;
+        try
+        {
+            this.data.empire_clan = this.empire_clan == null ? -1L : this.empire_clan.data.id;
+        }
+        catch
+        {
+            this.data.empire_clan = -1L;
+        }
+
     }
 
     // Token: 0x0600112B RID: 4395 RVA: 0x000C7CCC File Offset: 0x000C5ECC

@@ -20,7 +20,7 @@ using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.Data;
 
 namespace EmpireCraft.Scripts;
-public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
+public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigurable
 {
 
     public static Transform prefab_library;
@@ -60,6 +60,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
         EmpireCraftMetaTypeLibrary.init();
         LogService.LogInfo("加载帝国模组更多提示");
         EmpireCraftTooltipLibrary.init();
+        World.world._list_meta_main_managers.Add(EMPIRE_MANAGER);
+        World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER);
     }
 
     public GameObject GetGameObject()
@@ -129,6 +131,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
         {
             ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         }
+
         prefab_library = new GameObject("PrefabLibrary").transform;
         prefab_library.SetParent(transform);
         LoadUI();
@@ -159,6 +162,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable
 
     public ModConfig GetConfig()
     {
-        throw new NotImplementedException();
+        return new ModConfig(_declare.FolderPath + "/default_config.json", true);
     }
 }

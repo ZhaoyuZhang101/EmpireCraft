@@ -199,6 +199,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
 
     public override void save()
     {
+        if (this.data == null) return;
         this.data.cities = new List<long>();
         foreach (City city in city_list_hash)
         {

@@ -1,4 +1,5 @@
-﻿using EmpireCraft.Scripts.Enums;
+﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GamePatches;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -13,6 +14,18 @@ using System.Threading.Tasks;
 namespace EmpireCraft.Scripts.HelperFunc;
 public static class OnomasticsHelper
 {
+    public static List<string> AllCivSpecies = new List<string>() 
+    {
+        "human", "orc","elf","dwarf","civ_necromancer","civ_alien",
+        "civ_druid","civ_bee","civ_beetle","civ_evil_mage","civ_white_mage",
+        "civ_bandit","civ_demon","civ_cold_one","civ_angle","civ_snowman",
+        "civ_garlic_man","civ_lemon_man","civ_acid_gentleman","civ_crystal_golem",
+        "civ_candy_man","civ_liliar","civ_greg","civ_cat","civ_dog","civ_chicken",
+        "civ_rabbit","civ_monkey","civ_fox","civ_sheep","civ_cow","civ_armadillo",
+        "civ_wolf","civ_bear","civ_rhino","civ_buffalo","civ_hyena","civ_rat",
+        "civ_alpaca","civ_capybara","civ_goat","civ_scorpion","civ_crab",
+        "civ_penguin","civ_turtle","civ_crocodile","civ_snake","civ_frog","civ_piranha",
+    };
     /// <summary>
     /// 通用载入命名模板并分组
     /// </summary>
@@ -92,4 +105,25 @@ public static class OnomasticsHelper
             return keys;
         }
     }
+
+    public static void LoadSpeciesCulturePair() 
+    {
+        string culturesPath = Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures");
+        if (!Directory.Exists(culturesPath))
+        {
+            // 如果目录不存在，直接返回空列表
+            return;
+        }
+        var dirs = Directory.EnumerateDirectories(culturesPath, "Culture_*", SearchOption.TopDirectoryOnly)
+                    .Select(path => Path.GetFileName(path))  // 只要文件夹名，不要完整路径
+                    .ToList();
+        foreach (var cultureFolderName in dirs) 
+        {
+            var species = cultureFolderName.Split('_')[2];
+            var culture = cultureFolderName.Split('_')[1];
+            if (AllCivSpecies.Contains(species))
+                ConfigData.speciesCulturePair.Add(species, culture);
+        }
+    }
+
 }

@@ -227,7 +227,7 @@ public static class KingdomExtension
             string province_level_name = "provincelevel";
             string province_level_string = "";
             string level = "6";
-            if (ConfigData.speciesCulturePair.TryGetValue(kingdom.species_id, out string culture))
+            if (ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out string culture))
             {
                 province_level_string = String.Join("_", culture, province_level_name, level);
             } else

@@ -19,7 +19,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 {
     public EmpireManager() 
     {
-        this.type_id = "empire";
+        this.type_id = "kingdom";
     }
 
     public override void updateDirtyUnits()
@@ -35,6 +35,10 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     {
         LogService.LogInfo("禁止游戏的存档功能影响mod数据");
         return null;
+    }
+
+    public override void startCollectHistoryData()
+    {
     }
 
 

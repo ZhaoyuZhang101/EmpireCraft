@@ -52,6 +52,7 @@ public static class ActorExtension
         if (a.kingdom == null) return "";
         Kingdom kingdom = a.kingdom;
         var ownedTitles = a.GetOwnedTitle();
+        if (ownedTitles == null) return "";
         var hasCapitalTitle = ownedTitles.Exists(t=> ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(t)?ModClass.KINGDOM_TITLE_MANAGER.get(t).title_capital == kingdom.capital:false);
         if (hasCapitalTitle)
         {
@@ -77,6 +78,10 @@ public static class ActorExtension
 
     public static bool IsCapitalTitleBelongsToEmperor(this Actor a)
     {
+        if (!a.hasKingdom()) return false;
+        if (a.kingdom.GetEmpire() == null) return false;
+        if (a.kingdom.GetEmpire().emperor.GetOwnedTitle()==null) return false;
+        if (a.kingdom.capital.GetTitle()==null) return false;
         if (a.kingdom.isInEmpire())
         {
             if (a.kingdom.capital.hasTitle())

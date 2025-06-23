@@ -98,45 +98,43 @@ public static class DataManager
     public static void SaveAll(string saveRootPath)
     {
         string savePath = Path.Combine(saveRootPath, "EmpireCraftModData.json");
-        Task.Run(() =>
+        SaveData saveData = new SaveData();
+        saveData.actorsExtraData = World.world.units.Select(a=>a.getExtraData()).ToList();
+        saveData.cityExtraData = World.world.cities.Select(a => a.getExtraData()).ToList(); ;
+        saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.getExtraData()).ToList(); ;
+        saveData.warExtraData = World.world.wars.Select(a => a.getExtraData()).ToList(); ;
+        saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
+        saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
+        ModClass.EMPIRE_MANAGER.update(-1L);
+        ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
         {
-            SaveData saveData = new SaveData();
-            saveData.actorsExtraData = World.world.units.Select(a=>a.getExtraData()).ToList();
-            saveData.cityExtraData = World.world.cities.Select(a => a.getExtraData()).ToList(); ;
-            saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.getExtraData()).ToList(); ;
-            saveData.warExtraData = World.world.wars.Select(a => a.getExtraData()).ToList(); ;
-            saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
-            saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
-            foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+            if (empire != null)
             {
-                if (empire != null)
+                if (empire.data != null)
                 {
-                    if (empire.data != null)
-                    {
-                        empire.save();
-                        saveData.empireDatas.Add(empire.data);
-                    }
+                    empire.save();
+                    saveData.empireDatas.Add(empire.data);
                 }
             }
-            foreach (KingdomTitle kt in ModClass.KINGDOM_TITLE_MANAGER)
+        }
+        foreach (KingdomTitle kt in ModClass.KINGDOM_TITLE_MANAGER)
+        {
+            if (kt != null)
             {
-                if (kt != null)
+                if (kt.data != null)
                 {
-                    if (kt.data != null)
-                    {
-                        kt.save();
-                        saveData.kingdomTitleDatas.Add(kt.data);
-                    }
+                    kt.save();
+                    saveData.kingdomTitleDatas.Add(kt.data);
                 }
             }
-            saveData.yearNameSubspecies = ConfigData.yearNameSubspecies;
-            saveData.speciesCulturePair = ConfigData.speciesCulturePair;
+        }
+        saveData.yearNameSubspecies = ConfigData.yearNameSubspecies;
+        saveData.speciesCulturePair = ConfigData.speciesCulturePair;
 
-            string json = JsonConvert.SerializeObject(saveData, Formatting.Indented);
-
-            File.WriteAllText(savePath, json);
-            LogService.LogInfo("存档完成");
-        });
-        
+        string json = JsonConvert.SerializeObject(saveData, Formatting.Indented);
+        LogService.LogInfo("" + saveData.actorsExtraData.Count());
+        File.WriteAllText(savePath, json);
+        LogService.LogInfo("存档完成");
     }
 }

@@ -18,10 +18,10 @@ public class DBManagerPatch:GamePatch
     public void Initialize()
     {
 
-        new Harmony(nameof(on_application_quit)).Patch(
-            AccessTools.Method(typeof(DBManager), nameof(DBManager.OnApplicationQuit)),
-            prefix: new HarmonyMethod(GetType(), nameof(on_application_quit))
-        );
+        // new Harmony(nameof(on_application_quit)).Patch(
+        //     AccessTools.Method(typeof(DBManager), nameof(DBManager.OnApplicationQuit)),
+        //     prefix: new HarmonyMethod(GetType(), nameof(on_application_quit))
+        // );
 
         //new Harmony(nameof(on_quit)).Patch(
         //    AccessTools.Method(typeof(DBManager), nameof(DBManager.clearAndClose)),
