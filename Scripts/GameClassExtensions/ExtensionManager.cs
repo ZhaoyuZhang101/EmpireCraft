@@ -8,21 +8,32 @@ using System.Text;
 using System.Threading.Tasks;
 
 public static class ExtensionManager<TKey, TData>
-    where TKey : class
+    where TKey : NanoObject
     where TData : class, new()
 {
     private static ConditionalWeakTable<TKey, TData> _table = new();
 
-    public static TData GetOrCreate(TKey key)
+    public static TData GetOrCreate(TKey key, bool isSave=false)
     {
-        if (ModClass.IS_CLEAR) return default;
-        var d = _table.GetOrCreateValue(key);
+        if (isSave)
+        {
+            if (key == null) return null;
+            if (_table.TryGetValue(key, out TData data))
+            {
+                return data;
+            } else
+            {
+                return null;
+            }
+        }
+        if (key == null) return default;
+        TData d = _table.GetOrCreateValue(key);
         return d;
+
     }
 
     public static bool Remove(TKey key)
     {
-        if (ModClass.IS_CLEAR) return true;
         return _table.Remove(key);
     }
 

@@ -1,6 +1,7 @@
 ﻿using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.General.UI.Tab;
+using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -206,7 +207,15 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
             this.data.cities.Add(city.data.id);
         }
         this.data.title_capital = this.title_capital.data.id;
-        this.data.owner = this.owner == null ? -1L : this.owner.data.id;
+        try
+        {
+            this.data.owner = this.owner == null ? -1L : this.owner.data.id;
+        }
+        catch
+        {
+            this.data.owner = -1L;
+        }
+
     }
 
     public List<TileZone> allZones()
@@ -304,17 +313,15 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
 
     public override void loadData(KingdomTitleData pData)
     {
-        loadData(pData);
+        base.loadData(pData);
         this.city_list_hash.Clear();
         this.city_list.Clear();
-        foreach(long city_id in pData.cities)
+        foreach (long city_id in pData.cities)
         {
             this.city_list_hash.Add(World.world.cities.get(city_id));
         }
         this.title_capital = World.world.cities.get(this.data.title_capital);
         this.city_list.AddRange(this.city_list_hash);
-        ActorAsset actorAsset = getActorAsset();
-        asset = AssetManager.kingdoms.get(actorAsset.kingdom_id_civilization);
         this.owner = this.data.owner == -1L? null:World.world.units.get(this.data.owner);
     }
 }

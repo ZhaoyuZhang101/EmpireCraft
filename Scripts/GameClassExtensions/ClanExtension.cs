@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
@@ -22,11 +23,16 @@ public static class ClanExtension
         public Vector2 position;
         public long original_capital;
     }
-
-    public static ClanExtraData GetOrCreate(Clan a)
+    public static ClanExtraData GetOrCreate(Clan a, bool isSave = false)
     {
-        var ed = ExtensionManager<Clan, ClanExtraData>.GetOrCreate(a);
+        var ed = ExtensionManager<Clan, ClanExtraData>.GetOrCreate(a, isSave);
         return ed;
+    }
+
+    public static void RemoveExtraData(this Clan a)
+    {
+        if (a == null) return;
+        ExtensionManager<Clan, ClanExtraData>.Remove(a);
     }
 
     public static void Clear()
@@ -35,15 +41,16 @@ public static class ClanExtension
     }
     public static bool syncData(this Clan a, ClanExtraData actorExtraData)
     {
-        var ed = ExtensionManager<Clan, ClanExtraData>.GetOrCreate(a);
+        var ed = GetOrCreate(a);
         ed.id = actorExtraData.id;
         ed.historical_empire_name = actorExtraData.historical_empire_name;
         ed.position = actorExtraData.position;
         return true;
     }
 
-    public static ClanExtraData getExtraData(this Clan a)
+    public static ClanExtraData getExtraData(this Clan a, bool isSave = false)
     {
+        if (GetOrCreate(a, isSave) == null) return null;
         ClanExtraData data = new ClanExtraData();
         data.id = a.getID();
         data.historical_empire_name = a.GetHistoryEmpireName();

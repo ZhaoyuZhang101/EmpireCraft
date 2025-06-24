@@ -196,18 +196,21 @@ public class Empire : MetaObject<EmpireData>
         this.kingdoms_hashset.Remove(mainKingdom);
         mainKingdom.empireLeave(false);
         Kingdom heirEmpire = null;
-        if (empire_clan.isAlive())
+        if (empire_clan != null)
         {
-            foreach (Kingdom kingdom in kingdoms_hashset)
+            if (empire_clan.isAlive())
             {
-                if (kingdom.getKingClan()!= null)
-                    if (kingdom.getKingClan().getID() == empire_clan.getID())
-                    {
-                        if (heirEmpire == null || kingdom.countTotalWarriors() > heirEmpire.countTotalWarriors())
+                foreach (Kingdom kingdom in kingdoms_hashset)
+                {
+                    if (kingdom.getKingClan() != null)
+                        if (kingdom.getKingClan().getID() == empire_clan.getID())
                         {
-                            heirEmpire = kingdom;
+                            if (heirEmpire == null || kingdom.countTotalWarriors() > heirEmpire.countTotalWarriors())
+                            {
+                                heirEmpire = kingdom;
+                            }
                         }
-                    }
+                }
             }
         }
         if (heirEmpire == null)

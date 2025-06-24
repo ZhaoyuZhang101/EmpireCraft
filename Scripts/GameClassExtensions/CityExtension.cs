@@ -23,21 +23,22 @@ public static class CityExtension
         public string kingdom_names = "";
         public long title_id = -1L;
     }
-    public static CityExtraData GetOrCreate(this City a)
+    public static CityExtraData GetOrCreate(this City a, bool isSave=false)
     {
-        var ed = ExtensionManager<City, CityExtraData>.GetOrCreate(a);
+        var ed = ExtensionManager < City, CityExtraData>.GetOrCreate(a, isSave);
         return ed;
     } 
     public static bool syncData(this City a, CityExtraData actorExtraData)
     {
-        var ed = ExtensionManager<City, CityExtraData>.GetOrCreate(a);
+        var ed = GetOrCreate(a);
         ed.id = actorExtraData.id;
         ed.kingdom_names = actorExtraData.kingdom_names;
         ed.title_id = actorExtraData.title_id;
         return true;
     }
-    public static CityExtraData getExtraData(this City a)
+    public static CityExtraData getExtraData(this City a, bool isSave = false)
     {
+        if (GetOrCreate(a, isSave) == null) return null;
         CityExtraData data = new CityExtraData();
         data.id = a.getID();
         data.kingdom_names = a.GetKingdomNames();
@@ -47,6 +48,8 @@ public static class CityExtension
 
     public static bool hasTitle(this City c)
     {
+        if (c == null) return false;
+        if (GetOrCreate(c)==null) return false; 
         return GetOrCreate(c).title_id!=-1L;
     }
     public static void Clear()
@@ -66,13 +69,13 @@ public static class CityExtension
 
     public static KingdomTitle GetTitle(this City c)
     {
-        var ed = ExtensionManager<City, CityExtraData>.GetOrCreate(c);
+        var ed = GetOrCreate(c);
         return ed.title_id==-1L?null:ModClass.KINGDOM_TITLE_MANAGER.get(ed.title_id);
     }
 
     public static void SetTitle(this City c, KingdomTitle title)
     {
-        var ed = ExtensionManager<City, CityExtraData>.GetOrCreate(c);
+        var ed = GetOrCreate(c);
         ed.title_id = title.getID();
     }
 
@@ -81,6 +84,11 @@ public static class CityExtension
         GetOrCreate(c).title_id = -1L;
     }
 
+    public static void RemoveExtraData(this City c)
+    {
+        if (c == null) return;
+        ExtensionManager<City, CityExtraData>.Remove(c);
+    }
 
     public static string GetCityName(this City city)
     {

@@ -25,6 +25,24 @@ public class SaveManagerPatch : GamePatch
             AccessTools.Method(typeof(SaveManager), nameof(SaveManager.loadData)),
             postfix: new HarmonyMethod(GetType(), nameof(load_mod_data))
         );        
+        new Harmony(nameof(clear_data)).Patch(
+            AccessTools.Method(typeof(MapBox), nameof(MapBox.startTheGame)),
+            prefix: new HarmonyMethod(GetType(), nameof(clear_data))
+        );         
+        new Harmony(nameof(last_gc)).Patch(
+            AccessTools.Method(typeof(MapBox), nameof(MapBox.lastGC)),
+            postfix: new HarmonyMethod(GetType(), nameof(last_gc))
+        );        
+    }
+
+    public static void last_gc(MapBox __instance)
+    {
+        ModClass.IS_CLEAR = false;
+    }
+    public static void clear_data(MapBox __instance, bool pForceGenerate)
+    {
+        ModClass.IS_CLEAR = true;
+        DBManagerPatch.AllClear();
     }
 
     public static void save_mod_data(SaveManager __instance, string pFolder, bool pCompress)
@@ -40,6 +58,8 @@ public class SaveManagerPatch : GamePatch
     }    
     public static void load_mod_data(SaveManager __instance, SavedMap pData, string pPath)
     {
+        ModClass.IS_CLEAR = true;
+
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         LogService.LogInfo("加载mod数据从 " + pPath);
@@ -60,5 +80,6 @@ public class SaveManagerPatch : GamePatch
                 LogService.LogError("加载mod数据失败: " + ex.Message);
             }
         }, "LOADING EMPIRE MOD DATA", false, 0.001f);
+        ModClass.IS_CLEAR = false;
     }
 }

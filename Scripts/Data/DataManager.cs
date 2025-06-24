@@ -39,70 +39,72 @@ public static class DataManager
         
         var json = File.ReadAllText(loadPath);
         var saveData = JsonConvert.DeserializeObject<SaveData>(json);
-
+        LogService.LogInfo("初始化模组数据模板");
 
         if (saveData == null || saveData.actorsExtraData == null || saveData.actorsExtraData.Count == 0)
         {
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
+        List<string> a = new List<string>();
         var unitById = World.world.units.ToDictionary(u => u.getID());
         var kingdomById = World.world.kingdoms.ToDictionary(k => k.getID());
         var cityById = World.world.cities.ToDictionary(c => c.getID());
         var clanById = World.world.clans.ToDictionary(c => c.getID());
         var warById = World.world.wars.ToDictionary(w => w.getID());
+        LogService.LogInfo("准备各项数据");
 
         // 批量同步
         foreach (var entry in saveData.actorsExtraData)
-            if (unitById.TryGetValue(entry.id, out var actor))
-                if(actor.isActor())
-                {
-                    actor.syncData(entry);
-                }
-
+            if (unitById.TryGetValue(entry.id, out Actor actor))
+                if(actor != null)
+                    if(actor.isActor())
+                    {
+                        actor.syncData(entry);
+                    }
+        LogService.LogInfo("同步角色数据");
         foreach (var entry in saveData.kingdomExtraData)
             if (kingdomById.TryGetValue(entry.id, out var kingdom))
                 kingdom.syncData(entry);
-
+        LogService.LogInfo("同步国家数据");
         foreach (var entry in saveData.cityExtraData)
             if (cityById.TryGetValue(entry.id, out var city))
                 city.syncData(entry);
-
+        LogService.LogInfo("同步城市数据");
         foreach (var entry in saveData.clanExtraData)
             if (clanById.TryGetValue(entry.id, out var clan))
                 clan.syncData(entry);
-
+        LogService.LogInfo("同步氏族数据");
         foreach (var entry in saveData.warExtraData)
             if (warById.TryGetValue(entry.id, out var war))
                 war.syncData(entry);
-
+        LogService.LogInfo("同步战争数据");
         foreach (EmpireData empireData in saveData.empireDatas)
         {
             Empire empire = new Empire();
             empire.loadData(empireData);
             ModClass.EMPIRE_MANAGER.addObject(empire);
         }
-
+        LogService.LogInfo("同步帝国数据");
         foreach (KingdomTitleData kingdomTitleData in saveData.kingdomTitleDatas)
         {
             KingdomTitle kt = new KingdomTitle();
             kt.loadData(kingdomTitleData);
             ModClass.KINGDOM_TITLE_MANAGER.addObject(kt);
         }
+        LogService.LogInfo("同步法理数据");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         ConfigData.speciesCulturePair = saveData.speciesCulturePair;
-        ModClass.IS_CLEAR = false;
-
 
     }
     public static void SaveAll(string saveRootPath)
     {
         string savePath = Path.Combine(saveRootPath, "EmpireCraftModData.json");
         SaveData saveData = new SaveData();
-        saveData.actorsExtraData = World.world.units.Select(a=>a.getExtraData()).ToList();
-        saveData.cityExtraData = World.world.cities.Select(a => a.getExtraData()).ToList(); ;
-        saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.getExtraData()).ToList(); ;
-        saveData.warExtraData = World.world.wars.Select(a => a.getExtraData()).ToList(); ;
+        saveData.actorsExtraData = World.world.units.Select(a=>a.getExtraData(true)).Where(ed=>ed!=null).ToList();
+        saveData.cityExtraData = World.world.cities.Select(a => a.getExtraData(true)).Where(ed => ed != null).ToList(); ;
+        saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.getExtraData(true)).Where(ed => ed != null).ToList(); ;
+        saveData.warExtraData = World.world.wars.Select(a => a.getExtraData(true)).Where(ed => ed != null).ToList(); ;
         saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
         saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
         ModClass.EMPIRE_MANAGER.update(-1L);
@@ -134,6 +136,9 @@ public static class DataManager
 
         string json = JsonConvert.SerializeObject(saveData, Formatting.Indented);
         LogService.LogInfo("" + saveData.actorsExtraData.Count());
+        LogService.LogInfo("" + saveData.warExtraData.Count());
+        LogService.LogInfo("" + saveData.kingdomExtraData.Count());
+        LogService.LogInfo("" + saveData.cityExtraData.Count());
         File.WriteAllText(savePath, json);
         LogService.LogInfo("存档完成");
     }

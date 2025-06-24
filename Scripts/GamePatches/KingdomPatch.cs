@@ -21,7 +21,7 @@ public class KingdomPatch : GamePatch
     public void Initialize()
     {
         new Harmony(nameof(RemovePatchData)).Patch(
-            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.clear)),
+            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(RemovePatchData))
         );         
         new Harmony(nameof(Initialize_level)).Patch(
@@ -35,35 +35,53 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(empror_left)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.removeKing)),
             prefix: new HarmonyMethod(GetType(), nameof(empror_left))
+        );               
+        new Harmony(nameof(removeData)).Patch(
+            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
+            prefix: new HarmonyMethod(GetType(), nameof(removeData))
         );         
+    }
+
+    public static void removeData(Kingdom __instance)
+    {
+        if (__instance == null)
+        {
+            return;
+        }
+        __instance.RemoveExtraData();
     }
 
     public static void new_emperor(Kingdom __instance, Actor pActor, bool pNewKing = true)
     {
-
-        if (__instance.HasTitle())
+        if (!ModClass.IS_CLEAR)
         {
-            foreach (var title_id in __instance.GetOwnedTitle())
+            if (__instance.HasTitle())
             {
-                pActor.AddOwnedTitle(ModClass.KINGDOM_TITLE_MANAGER.get(title_id));
+                foreach (var title_id in __instance.GetOwnedTitle())
+                {
+                    pActor.AddOwnedTitle(ModClass.KINGDOM_TITLE_MANAGER.get(title_id));
+                }
             }
-        }
-        if (__instance.isEmpire())
-        {
-            __instance.GetEmpire().setEmperor(pActor);
+            if (__instance.isEmpire())
+            {
+                __instance.GetEmpire().setEmperor(pActor);
+            }
         }
     }
 
     public static void empror_left(Kingdom __instance)
     {
-        if (__instance.king.HasTitle())
+        if (!ModClass.IS_CLEAR)
         {
-            __instance.SetOwnedTitle(__instance.king.GetOwnedTitle());
-            __instance.king.ClearTitle();
-        }
-        if (__instance.isEmpire())
-        {
-            __instance.GetEmpire().EmperorLeft(__instance.king);
+            if (__instance.king.HasTitle())
+            {
+                __instance.SetOwnedTitle(__instance.king.GetOwnedTitle());
+                __instance.king.ClearTitle();
+            }
+            if (__instance.isEmpire())
+            {
+                __instance.GetEmpire().EmperorLeft(__instance.king);
+            }
         }
     }
 
@@ -76,11 +94,12 @@ public class KingdomPatch : GamePatch
     public static void RemovePatchData(Kingdom __instance)
     {
         Empire empire = __instance.GetEmpire();
-        if (empire == null) return; 
+        if (empire == null) return;
         if (__instance.isEmpire())
         {
             empire.checkDisolve(__instance);
-        }else
+        }
+        else
         {
             empire.leave(__instance);
         }

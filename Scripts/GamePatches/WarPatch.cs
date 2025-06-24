@@ -28,7 +28,17 @@ public class WarPatch
             AccessTools.Method(typeof(WarManager), nameof(WarManager.endWar)),
             prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(end_war))
         );
+        // UnitWindow类的补丁
+        new Harmony(nameof(removeData)).Patch(
+            AccessTools.Method(typeof(War), nameof(War.Dispose)),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(removeData))
+        );
         LogService.LogInfo("战争补丁加载成功");
+    }
+
+    public static void removeData(War __instance)
+    {
+        __instance.RemoveExtraData();
     }
 
     public static bool start_new_war(DiplomacyManager __instance, Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pAsset, bool pLog, ref War __result)

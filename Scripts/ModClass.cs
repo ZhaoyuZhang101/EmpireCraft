@@ -29,7 +29,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static string ELF_CULTURE = "Western";
     public static string DWARF_CULTURE = "Youmu";
     public static string OTHER_CULTURE = "Other";
-    public static bool IS_CLEAR = false;
+    public static bool IS_CLEAR = true;
     public static EmpireManager EMPIRE_MANAGER;
     public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
     public static bool KINGDOM_TITLE_FREEZE = false;
@@ -62,6 +62,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftTooltipLibrary.init();
         World.world._list_meta_main_managers.Add(EMPIRE_MANAGER);
         World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER);
+        IS_CLEAR = false;
     }
 
     public GameObject GetGameObject()

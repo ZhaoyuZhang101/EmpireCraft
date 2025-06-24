@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using EmpireCraft.Scripts.GameClassExtensions;
+using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -19,7 +20,15 @@ public class ClanPatch : GamePatch
             AccessTools.Method(typeof(Clan), nameof(Clan.newClan)),
             postfix: new HarmonyMethod(GetType(), nameof(set_clan_name))
         );
+        new Harmony(nameof(removeData)).Patch(
+            AccessTools.Method(typeof(Clan), nameof(Clan.Dispose)),
+            postfix: new HarmonyMethod(GetType(), nameof(removeData))
+        );
         LogService.LogInfo("氏族命名补丁加载成功");
+    }
+    public static void removeData(Clan __instance)
+    {
+        __instance.RemoveExtraData();
     }
 
     public static void set_clan_name(Clan __instance, Actor pFounder, bool pAddDefaultTraits)

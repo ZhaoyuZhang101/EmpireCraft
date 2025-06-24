@@ -18,15 +18,15 @@ public class DBManagerPatch:GamePatch
     public void Initialize()
     {
 
-        // new Harmony(nameof(on_application_quit)).Patch(
-        //     AccessTools.Method(typeof(DBManager), nameof(DBManager.OnApplicationQuit)),
-        //     prefix: new HarmonyMethod(GetType(), nameof(on_application_quit))
-        // );
+        new Harmony(nameof(on_quit)).Patch(
+            AccessTools.Method(typeof(DBManager), nameof(DBManager.clearAndClose)),
+            prefix: new HarmonyMethod(GetType(), nameof(on_quit))
+        );
 
-        //new Harmony(nameof(on_quit)).Patch(
-        //    AccessTools.Method(typeof(DBManager), nameof(DBManager.clearAndClose)),
-        //    prefix: new HarmonyMethod(GetType(), nameof(on_quit))
-        //);
+        new Harmony(nameof(on_application_quit)).Patch(
+            AccessTools.Method(typeof(DBManager), nameof(DBManager.OnApplicationQuit)),
+            prefix: new HarmonyMethod(GetType(), nameof(on_application_quit))
+        );
         LogService.LogInfo("DBManagerPatch加载成功");
     }
 
@@ -39,7 +39,6 @@ public class DBManagerPatch:GamePatch
     public static void on_quit(DBManager __instance)
     {
         ModClass.IS_CLEAR = true;
-        AllClear();
     }
 
     public static void AllClear()
@@ -49,8 +48,6 @@ public class DBManagerPatch:GamePatch
         ClanExtension.Clear();
         KingdomExtension.Clear();
         WarExtension.Clear();
-        ModClass.EMPIRE_MANAGER.clear();
-        ModClass.KINGDOM_TITLE_MANAGER.clear();
         LogService.LogInfo("清空所有Mod数据");
     }
 }

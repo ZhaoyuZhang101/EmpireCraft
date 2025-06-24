@@ -33,7 +33,6 @@ public static class KingdomExtension
         public double taxtRate = 0.1;
         public List<long> OwnedTitle = new List<long>();
     }
-
     public static double GetTaxtRate(this Kingdom k)
     {
         return GetOrCreate(k).taxtRate;
@@ -61,14 +60,20 @@ public static class KingdomExtension
             k.SetLoyalty(k.GetLoyalty() + 50);
         }
     }
-    public static KingdomExtraData GetOrCreate(this Kingdom a)
+
+    public static void RemoveExtraData(this Kingdom a)
     {
-        var ed = ExtensionManager<Kingdom, KingdomExtraData>.GetOrCreate(a);
+        if (a == null) return;
+        ExtensionManager<Kingdom, KingdomExtraData>.Remove(a);
+    }
+    public static KingdomExtraData GetOrCreate(this Kingdom a, bool isSave = false)
+    {
+        var ed = ExtensionManager<Kingdom, KingdomExtraData>.GetOrCreate(a, isSave);
         return ed;
     }
     public static bool syncData(this Kingdom a, KingdomExtraData actorExtraData)
     {
-        var ed = ExtensionManager<Kingdom, KingdomExtraData>.GetOrCreate(a);
+        var ed = GetOrCreate(a);
         ed.id = actorExtraData.id;
         ed.country_level = actorExtraData.country_level;
         ed.vassaled_kingdom_id = actorExtraData.vassaled_kingdom_id;
@@ -90,8 +95,9 @@ public static class KingdomExtension
         GetOrCreate(k).timestamp_beFeifed = v;
     }
 
-    public static KingdomExtraData getExtraData(this Kingdom a)
+    public static KingdomExtraData getExtraData(this Kingdom a, bool isSave = false)
     {
+        if (GetOrCreate(a, isSave) == null) return null;
         KingdomExtraData ed = new KingdomExtraData();
         ed.id = a.getID();
         ed.country_level = a.GetCountryLevel();
