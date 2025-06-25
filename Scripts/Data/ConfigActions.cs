@@ -16,5 +16,9 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.TITLE_BEEN_DESTROY_TIME = int.Parse(time);
         }
+        public static void saveFreezeCallBack(bool on)
+        {
+            ModClass.SAVE_FREEZE = on;
+        }
     }
 }

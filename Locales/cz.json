@@ -46,6 +46,8 @@
     "territory": "地域面积",
     "housed": "房屋数量",
     "deaths": "累计死亡",
+    "save_freeze_toggle_Text": "关闭保存功能",
+    "save_freeze_toggle_Text Description": "鉴于存档会使游戏卡顿，且目前物理解决此问题，因此提供这个关闭保存功能，如需存档请在mod设置里面开启这个功能（务必）",
     "founded": "建国时间",
     "past_kings": "历代国王",
     "king": "国王",

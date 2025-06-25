@@ -19,7 +19,7 @@ public class SaveManagerPatch : GamePatch
     {
         new Harmony(nameof(save_mod_data)).Patch(
             AccessTools.Method(typeof(SaveManager), nameof(SaveManager.saveMapData)),
-            postfix: new HarmonyMethod(GetType(), nameof(save_mod_data))
+            prefix: new HarmonyMethod(GetType(), nameof(save_mod_data))
         );        
         new Harmony(nameof(load_mod_data)).Patch(
             AccessTools.Method(typeof(SaveManager), nameof(SaveManager.loadData)),
@@ -45,15 +45,21 @@ public class SaveManagerPatch : GamePatch
         DBManagerPatch.AllClear();
     }
 
-    public static void save_mod_data(SaveManager __instance, string pFolder, bool pCompress)
+    public static bool save_mod_data(SaveManager __instance, string pFolder, bool pCompress)
     {
+        if (ModClass.SAVE_FREEZE)
+        {
+            LogService.LogInfo("Mod数据保存被冻结，无法保存");
+            return false;
+        }
         LogService.LogInfo("保存mod数据到 " + pFolder);
         if (string.IsNullOrEmpty(pFolder))
         {
             LogService.LogError("保存路径为空，无法保存mod数据");
-            return;
+            return true;
         }
         DataManager.SaveAll(pFolder);
+        return true;
 
     }    
     public static void load_mod_data(SaveManager __instance, SavedMap pData, string pPath)

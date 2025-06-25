@@ -12,27 +12,16 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
 {
     public KingdomTitleManager()
     {
-        this.type_id = "city";
+        this.type_id = "kingdomTitle";
     }
 
     public override void updateDirtyUnits()
     {
     }
-    public override void loadFromSave(List<KingdomTitleData> pList)
-    {
-        LogService.LogInfo("禁止游戏的读取功能影响mod数据");
-    }
-
-    public override List<KingdomTitleData> save(List<KingdomTitle> pList = null)
-    {
-        LogService.LogInfo("禁止游戏的存档功能影响mod数据");
-        return null;
-    }
 
     public override void startCollectHistoryData()
     {
     }
-
     public KingdomTitle newKingdomTitle(City city)
     {
         long id = OverallHelperFunc.IdGenerator.NextId();

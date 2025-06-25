@@ -19,28 +19,16 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 {
     public EmpireManager() 
     {
-        this.type_id = "kingdom";
+        this.type_id = "empire";
     }
 
     public override void updateDirtyUnits()
     {
     }
 
-    public override void loadFromSave(List<EmpireData> pList)
-    {
-        LogService.LogInfo("禁止游戏的读取功能影响mod数据");
-    }
-
-    public override List<EmpireData> save(List<Empire> pList = null)
-    {
-        LogService.LogInfo("禁止游戏的存档功能影响mod数据");
-        return null;
-    }
-
     public override void startCollectHistoryData()
     {
     }
-
 
     public override void update(float pElapsed)
     {

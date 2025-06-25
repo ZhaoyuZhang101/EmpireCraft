@@ -22,7 +22,7 @@ using EmpireCraft.Scripts.Data;
 namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigurable
 {
-
+    public static bool SAVE_FREEZE = false;
     public static Transform prefab_library;
     public static string ORC_CULTURE = "Youmu";
     public static string HUMAN_CULTURE = "Huaxia";
@@ -39,6 +39,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static int TITLE_BEEN_DESTROY_TIME = 50;
     public static ModDeclare _declare;
     private GameObject _modObject;
+    public static ModConfig modConfig;
     public ModDeclare GetDeclaration()
     {
         return _declare;
@@ -60,8 +61,11 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftMetaTypeLibrary.init();
         LogService.LogInfo("加载帝国模组更多提示");
         EmpireCraftTooltipLibrary.init();
+        EmpireCraftHistoryDataLibrary.init();
         World.world._list_meta_main_managers.Add(EMPIRE_MANAGER);
         World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER);
+        World.world.list_all_sim_managers.Add(EMPIRE_MANAGER);    
+        World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);    
         IS_CLEAR = false;
     }
 
@@ -136,6 +140,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         prefab_library = new GameObject("PrefabLibrary").transform;
         prefab_library.SetParent(transform);
         LoadUI();
+        modConfig = new ModConfig(_declare.FolderPath + "/default_config.json", true);
     }
 
     public void LoadUI()
@@ -163,6 +168,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     public ModConfig GetConfig()
     {
-        return new ModConfig(_declare.FolderPath + "/default_config.json", true);
+        return modConfig;
     }
 }
