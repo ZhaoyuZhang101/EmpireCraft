@@ -27,16 +27,16 @@ public class ActorPatch: GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(set_actor_culture)));
         new Harmony(nameof(set_actor_peerages)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setDefaultValues)),
             postfix: new HarmonyMethod(GetType(), nameof(set_actor_peerages)));
-        new Harmony(nameof(add_child)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.addChild)),
-            postfix: new HarmonyMethod(GetType(), nameof(add_child)));
+        //new Harmony(nameof(add_child)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.addChild)),
+        //    postfix: new HarmonyMethod(GetType(), nameof(add_child)));
         new Harmony(nameof(removeData)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.Dispose)),
             postfix: new HarmonyMethod(GetType(), nameof(removeData)));
         LogService.LogInfo("角色姓名命名补丁加载成功");
     }
-    public static void add_child(Actor __instance, BaseActorComponent pObject)
-    {
+    //public static void add_child(Actor __instance, BaseActorComponent pObject)
+    //{
 
-    }    
+    //}    
     public static void removeData(Actor __instance)
     {
         __instance.RemoveExtraData();

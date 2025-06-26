@@ -24,8 +24,6 @@ public static class TitleLayerToggle
             toggle_action = toggleAction
         });
     }
-
-    [Hotfixable]
     private static void toggleAction(string pPower)
     {
         GodPower godPower = AssetManager.powers.get(pPower);

@@ -45,7 +45,6 @@ public class CulturePatch : GamePatch
         LogService.LogInfo("当前文化名称: " + __instance.culture.data.name);
     }
 
-    [Hotfixable]
     private static void set_culture_name(Culture __instance, Actor pActor)
     {
         __instance.data.name = pActor.kingdom.name.Split(' ')[0] + "-" + pActor.city.name.Split(' ')[0] + LM.Get("Culture");
@@ -53,13 +52,11 @@ public class CulturePatch : GamePatch
         setDefaultNameTemplate(__instance);
 
     }
-    [Hotfixable]
     private static void clone_culture_name(Culture __instance)
     {
         __instance.data.name = __instance.data.creator_kingdom_name.Split(' ')[0]+"-"+ __instance.data.creator_city_name.Split(' ')[0]+ LM.Get("EvolvedCulture");
         LogService.LogInfo("当前文化名称: " + __instance.data.name);
     }
-    [Hotfixable]
     private static void setDefaultNameTemplate(Culture culture)
     {
 

@@ -25,7 +25,6 @@ public static class EmpireLayerToggle
         });
     }
 
-    [Hotfixable]
     private static void toggleAction(string pPower)
     {
         GodPower godPower = AssetManager.powers.get(pPower);

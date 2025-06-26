@@ -21,7 +21,6 @@ namespace EmpireCraft.Scripts.UI.Windows
         public KingdomTitle title { get; set; }
         public TextInput titleNameInput;
         public AutoVertLayoutGroup layout;
-        [Hotfixable]
         protected override void Init()
         {
             layout = this.BeginVertGroup(pSpacing: 5, pPadding: new RectOffset(0, 0, 0, 0));

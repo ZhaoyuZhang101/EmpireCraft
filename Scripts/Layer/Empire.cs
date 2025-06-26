@@ -782,6 +782,18 @@ public class Empire : MetaObject<EmpireData>
         return tResult;
     }
 
+    public List<City> AllCities()
+    {
+        List<City> tResult = new List<City>();
+        List<Kingdom> tKingdoms = this.kingdoms_list;
+        for (int i = 0; i < tKingdoms.Count; i++)
+        {
+            Kingdom tKingdom = tKingdoms[i];
+            tResult.AddRange(tKingdom.cities);
+        }
+        return tResult;
+    }
+
 
     public int countCities()
     {

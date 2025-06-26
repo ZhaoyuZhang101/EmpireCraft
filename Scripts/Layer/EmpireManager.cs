@@ -33,22 +33,27 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public override void update(float pElapsed)
     {
         base.update(pElapsed);
-        foreach (Empire empire in this)
+        using (IEnumerator<Empire> enumerator = GetEnumerator())
         {
-            if (!empire.checkActive())
+            while (enumerator.MoveNext())
             {
-                this._to_dissolve.Add(empire);
-            }
-            else
-            {
-                empire.update();
+                Empire current = enumerator.Current;
+                current.clearCursorOver();
+                if (!current.checkActive())
+                {
+                    _to_dissolve.Add(current);
+                }
+                else
+                {
+                    current.update();
+                }
             }
         }
-        foreach (Empire tAlliance2 in this._to_dissolve)
+        foreach (Empire item in _to_dissolve)
         {
-            this.dissolveEmpire(tAlliance2);
+            dissolveEmpire(item);
         }
-        this._to_dissolve.Clear();
+        _to_dissolve.Clear();
     }
 
     public void dissolveEmpire(Empire pEmpire)
@@ -63,15 +68,6 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public override void clear()
     {
         base.clear();
-    }
-
-    public Sprite[] getIconsList()
-    {
-        if (this._cached_banner_icons == null)
-        {
-            this._cached_banner_icons = SpriteTextureLoader.getSpriteList("kingdoms/icons/");
-        }
-        return this._cached_banner_icons;
     }
 
     public List<TileZone> GetAllZones()
@@ -90,13 +86,15 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         return zones;
     }
 
-    public Sprite[] getBackgroundsList()
+    public override void addObject(Empire pObject)
     {
-        if (this._cached_banner_backgrounds == null)
-        {
-            this._cached_banner_backgrounds = SpriteTextureLoader.getSpriteList("kingdoms/backgrounds/");
-        }
-        return this._cached_banner_backgrounds;
+        base.addObject(pObject);
+        World.world.zone_calculator?.setDrawnZonesDirty();
+    }
+    public override void removeObject(Empire pKingdom)
+    {
+        base.removeObject(pKingdom);
+        World.world.zone_calculator?.setDrawnZonesDirty();
     }
 
     // Token: 0x0400230C RID: 8972
@@ -110,7 +108,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     {
         long id = OverallHelperFunc.IdGenerator.NextId();
         Empire empire;
-        empire = base.newObjectFromID(id);
+        empire = newObjectFromID(id);
         empire.createNewEmpire(pKingdom);
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
@@ -143,5 +141,22 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             empire.join(pKingdom2, true, true);
         }
         return result;
+    }
+    public Sprite[] getBackgroundsList()
+    {
+        if (_cached_banner_backgrounds == null)
+        {
+            _cached_banner_backgrounds = SpriteTextureLoader.getSpriteList("alliances/backgrounds/");
+        }
+        return _cached_banner_backgrounds;
+    }
+
+    public Sprite[] getIconsList()
+    {
+        if (_cached_banner_icons == null)
+        {
+            _cached_banner_icons = SpriteTextureLoader.getSpriteList("alliances/icons/");
+        }
+        return _cached_banner_icons;
     }
 }

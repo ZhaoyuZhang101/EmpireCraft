@@ -91,7 +91,6 @@ public class EmpireWindowPatch : GamePatch
         }
         return true;
     }
-    [Hotfixable]
     public static void initializeEmpireWindow(KingdomWindow window)
     {
 

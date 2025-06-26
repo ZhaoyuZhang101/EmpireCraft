@@ -47,25 +47,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     void Start ()
     {
-        LogService.LogInfo("加载帝国模组更多看法");
-        EmpireCraftOpinionAddition.init();
-        LogService.LogInfo("加载帝国模组更多政策行为");
-        EmpireCraftPlotsAddition.init();
-        LogService.LogInfo("加载帝国模组更多世界提示");
-        EmpireCraftWorldLogLibrary.init();
-        LogService.LogInfo("加载帝国模组名牌");
-        EmpireCraftNamePlateLibrary.init();
-        LogService.LogInfo("加载帝国模组UI渲染");
-        EmpireCraftQuantumSpriteLibrary.init();
-        LogService.LogInfo("加载帝国模组地图层级渲染");
-        EmpireCraftMetaTypeLibrary.init();
-        LogService.LogInfo("加载帝国模组更多提示");
-        EmpireCraftTooltipLibrary.init();
-        EmpireCraftHistoryDataLibrary.init();
-        World.world._list_meta_main_managers.Add(EMPIRE_MANAGER);
-        World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER);
-        World.world.list_all_sim_managers.Add(EMPIRE_MANAGER);    
-        World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);    
+
         IS_CLEAR = false;
     }
 
@@ -128,19 +110,31 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 }
             }
         }
-        if (ModClass.EMPIRE_MANAGER==null)
-        {
-            ModClass.EMPIRE_MANAGER = new EmpireManager();
-        }
-        if (ModClass.KINGDOM_TITLE_MANAGER==null)
-        {
-            ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
-        }
 
         prefab_library = new GameObject("PrefabLibrary").transform;
         prefab_library.SetParent(transform);
         LoadUI();
         modConfig = new ModConfig(_declare.FolderPath + "/default_config.json", true);
+
+        LogService.LogInfo("加载帝国模组更多看法");
+        EmpireCraftOpinionAddition.init();
+        LogService.LogInfo("加载帝国模组更多政策行为");
+        EmpireCraftPlotsAddition.init();
+        LogService.LogInfo("加载帝国模组更多世界提示");
+        EmpireCraftWorldLogLibrary.init();
+        LogService.LogInfo("加载帝国模组名牌");
+        EmpireCraftNamePlateLibrary.init();
+        LogService.LogInfo("加载帝国模组UI渲染");
+        EmpireCraftQuantumSpriteLibrary.init();
+        LogService.LogInfo("加载帝国模组地图层级渲染");
+        EmpireCraftMetaTypeLibrary.init();
+        LogService.LogInfo("加载帝国模组更多提示");
+        EmpireCraftTooltipLibrary.init();
+        EmpireCraftHistoryDataLibrary.init();
+        World.world._list_meta_main_managers.Add(EMPIRE_MANAGER = new EmpireManager());
+        World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER = new KingdomTitleManager());
+        World.world.list_all_sim_managers.Add(EMPIRE_MANAGER);
+        World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);
     }
 
     public void LoadUI()
@@ -150,7 +144,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     }
 
 
-    [Hotfixable]
     public void Reload()
     {
         LogService.LogInfo("帝国模组重新加载成功！！");

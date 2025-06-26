@@ -35,7 +35,6 @@ namespace EmpireCraft.Scripts.UI.Windows
             "i_cities", "i_kingdoms", "i_age", "i_renown", "i_deaths", "i_members"
         };
         Dictionary<string, Text> infosTrans = new Dictionary<string, Text>();
-        [Hotfixable]
         protected override void Init()
         {
             ListPool = new ListPool<GameObject>();
@@ -138,7 +137,6 @@ namespace EmpireCraft.Scripts.UI.Windows
         public override void OnFirstEnable()
         {
         }
-        [Hotfixable]
         public override void OnNormalEnable()
         {
             empire = ConfigData.CURRENT_SELECTED_EMPIRE;
