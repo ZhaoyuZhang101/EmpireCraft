@@ -68,6 +68,13 @@
     "add_title_description": "将选择的城市加入到指定的法理头衔中",
     "main_subspecies": "主体族群",
     "founder_species": "开国族群",
+
+
+    "title_name": "头衔名称",
+    "open_year_name": "开启年号",
+    "empire_name": "帝国名称",
+    "empire_cotroled_kingdoms": "帝国势力",
+
     "past_emperors": "君主世系",
     "empire_list_window": "帝国列表",
     "empire_list_window_description": "显示所有目前已有的帝国",

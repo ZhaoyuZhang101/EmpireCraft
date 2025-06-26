@@ -16,6 +16,7 @@ using NeoModLoader.services;
 using UnityEngine.UI;
 using EmpireCraft.Scripts.HelperFunc;
 using UnityEngine.Pool;
+using NeoModLoader.General;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
@@ -43,7 +44,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             AutoVertLayoutGroup vertLayout = this.BeginVertGroup(new Vector2(75, 30), pSpacing:3);
             //名称输入栏
             SimpleText empireText = Instantiate(SimpleText.Prefab, null);
-            empireText.Setup("帝国名称: ", TextAnchor.MiddleCenter, new Vector2(40, 15));
+            string empireName = LM.Get("empire_name");
+            empireText.Setup($"{empireName}: ", TextAnchor.MiddleCenter, new Vector2(40, 15));
             empireText.background.enabled = false;
   
             empireNameInput = Instantiate(TextInput.Prefab, null);
@@ -56,7 +58,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             //年号按钮
             AutoVertLayoutGroup vertLayout2 = this.BeginVertGroup(new Vector2(75, 30), pSpacing: 3);
             SimpleText ToggleText = Instantiate(SimpleText.Prefab, null);
-            ToggleText.Setup("开启年号", TextAnchor.MiddleCenter, new Vector2(30, 15));
+            string open_year_name = LM.Get("open_year_name");
+            ToggleText.Setup($"{open_year_name}: ", TextAnchor.MiddleCenter, new Vector2(30, 15));
             ToggleText.background.enabled = false;
             year_name_button = Instantiate(SimpleButton.Prefab, null);
             year_name_button.Setup(ToggleYearName, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"));
@@ -69,7 +72,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             AddChild(TopLayout.gameObject);
 
             SimpleText kingdomsText = Instantiate(SimpleText.Prefab, null);
-            kingdomsText.Setup("帝国势力范围", TextAnchor.MiddleCenter, new Vector2(40, 15));
+            string empire_cotroled_kingdoms = LM.Get("empire_cotroled_kingdoms");
+            kingdomsText.Setup($"{empire_cotroled_kingdoms}", TextAnchor.MiddleCenter, new Vector2(40, 15));
             kingdomsText.background.enabled = false;
 
             //国家列表

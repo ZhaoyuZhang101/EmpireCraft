@@ -12,6 +12,7 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Data;
 using NeoModLoader.api.attributes;
 using EmpireCraft.Scripts.HelperFunc;
+using NeoModLoader.General;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
@@ -26,7 +27,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             layout = this.BeginVertGroup(pSpacing: 5, pPadding: new RectOffset(0, 0, 0, 0));
             //名称输入栏
             SimpleText empireText = Instantiate(SimpleText.Prefab, null);
-            empireText.Setup("头衔名称: ", TextAnchor.MiddleCenter, new Vector2(40, 15));
+            string title_name = LM.Get("title_name");
+            empireText.Setup($"{title_name}: ", TextAnchor.MiddleCenter, new Vector2(40, 15));
             empireText.background.enabled = false;
 
             titleNameInput = Instantiate(TextInput.Prefab, null);
