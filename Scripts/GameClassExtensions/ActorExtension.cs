@@ -51,11 +51,15 @@ public static class ActorExtension
         ExtensionManager<Actor, ActorExtraData>.Clear();
     }
 
-    public static bool canAcuireTitle(this Actor a)
+    public static bool canAcquireTitle(this Actor a)
     {
         if (a.isKing())
         {
             Kingdom k = a.kingdom;
+            if (k.isInEmpire())
+            {
+                if (k.GetEmpire().getEmpirePeriod()!=EmpirePeriod.逐鹿群雄 && k.GetEmpire().getEmpirePeriod() != EmpirePeriod.天命丧失) return false;
+            }
             foreach (City city in k.cities)
             {
                 if (city.hasTitle())
@@ -63,7 +67,13 @@ public static class ActorExtension
                     KingdomTitle title = city.GetTitle();
                     if (!a.GetOwnedTitle().Contains(title.data.id))
                     {
-                        return true;
+                        foreach(City tCity in title.city_list)
+                        {
+                            if (tCity.kingdom != k && tCity.kingdom.countTotalWarriors()<k.countTotalWarriors())
+                            {
+                                return true;
+                            }
+                        }
                     }
                 }
             }
@@ -71,7 +81,7 @@ public static class ActorExtension
         return false;
     }
 
-    public static List<KingdomTitle> getAcuireTitle(this Actor a)
+    public static List<KingdomTitle> getAcquireTitle(this Actor a)
     {
         List<KingdomTitle> titles = new();
         if (a.isKing())
@@ -105,11 +115,14 @@ public static class ActorExtension
             var hasCapitalTitle = ownedTitles.Exists(t => ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(t) ? ModClass.KINGDOM_TITLE_MANAGER.get(t).title_capital == kingdom.capital : false);
             if (hasCapitalTitle)
             {
+                kingdom.SetMainTitle(kingdom.capital.GetTitle());
                 return kingdom.capital.GetTitle().data.name;
             }
             else
             {
-                return ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.FirstOrDefault()).data.name;
+                KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.FirstOrDefault());
+                kingdom.SetMainTitle(title);
+                return title.data.name;
             }
         }
         catch {
@@ -266,6 +279,10 @@ public static class ActorExtension
                 {
                     a.kingdom.data.name = a.kingdom.capital.name;
                     a.kingdom.becomeKingdom();
+                }
+                if (a.kingdom.GetMainTitle() == title)
+                {
+                    a.kingdom.RemoveMainTitle();
                 }
             }
             ed.owned_title.Remove(title.data.id);

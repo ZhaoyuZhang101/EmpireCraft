@@ -29,6 +29,8 @@ public class EmpireCraftWorldLogLibrary
     public static WorldLogAsset become_kingdom_log;
     public static WorldLogAsset destroy_title_log;
     public static WorldLogAsset history_kingdom_attack_for_title;
+    public static WorldLogAsset history_kingdom_change_capital_to_title;
+    public static WorldLogAsset history_kingdom_join_empire;
 
     public static void init()
     {
@@ -81,6 +83,31 @@ public class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$king$", 1);
                 wl.updateText(ref pText, pMessage, "$title$", 2);
+            }
+        });
+        history_kingdom_change_capital_to_title = wl.add(new WorldLogAsset
+        {
+            id = nameof(history_kingdom_change_capital_to_title),
+            group= "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$title$", 2);
+                wl.updateText(ref pText, pMessage, "$city$", 3);
+            }
+        });
+        history_kingdom_join_empire = wl.add(new WorldLogAsset
+        {
+            id = nameof(history_kingdom_join_empire),
+            group= "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$empire$", 2);
             }
         });
         king_take_title_log = wl.add(new WorldLogAsset

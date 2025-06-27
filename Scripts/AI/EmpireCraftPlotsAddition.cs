@@ -90,7 +90,7 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.add(new PlotAsset
             {
-                id = "king_acuire_title",
+                id = "king_acquire_title",
                 path_icon = "TitleAcquire.png",
                 group_id = "diplomacy",
                 is_basic_plot = true,
@@ -101,21 +101,22 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.isKing()) return false;
-                    if (!pActor.canAcuireTitle()) return false;
+                    if (!pActor.canAcquireTitle()) return false;
+                    if (kingdom.getWars().Count() > 0) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
                 {
                     Kingdom kingdom = pActor.kingdom;
-                    List<KingdomTitle> titles = pActor.getAcuireTitle();
+                    List<KingdomTitle> titles = pActor.getAcquireTitle();
                     if (titles.Count() <= 0) return false;
                     foreach (KingdomTitle title in titles)
                     {
-                        if (title.HasOwner())
+                        foreach(City city in title.city_list)
                         {
-                            if (title.owner.isKing() && !title.owner.isEmperor())
+                            if (!kingdom.cities.Contains(city))
                             {
-                                Kingdom targetKingdom = title.owner.kingdom;
+                                Kingdom targetKingdom = city.kingdom;
                                 if (kingdom.countTotalWarriors() > targetKingdom.countTotalWarriors())
                                 {
                                     War war = World.world.diplomacy.startWar(kingdom, targetKingdom, WarTypeLibrary.normal);
@@ -206,6 +207,60 @@ namespace EmpireCraft.Scripts.AI
                     {
                         TranslateHelper.LogKingTakeTitle(kingdom, title);
                     }
+                    return true;
+                }
+            }); 
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_change_capital_title",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    if (pActor == null) return false;
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (!pActor.kingdom.HasMainTitle()) return false;
+                    if (pActor.kingdom.GetMainTitle().title_capital==kingdom.capital) return false;
+                    if (!kingdom.cities.Contains(pActor.kingdom.GetMainTitle().title_capital)) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    kingdom.setCapital(kingdom.GetMainTitle().title_capital);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_join_empire",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    if (pActor == null) return false;
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (kingdom.HasTitle()) return false;
+                    if (kingdom.isEmpire()) return false;
+                    if (kingdom.isInEmpire()) return false;
+                    if (kingdom.GetEmpiresCanbeJoined().Count() <= 0) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    kingdom.GetEmpiresCanbeJoined().FirstOrDefault().join(kingdom);
+                    TranslateHelper.LogKingdomJoinEmpire(kingdom, kingdom.GetEmpire());
                     return true;
                 }
             });

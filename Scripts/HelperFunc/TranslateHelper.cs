@@ -93,6 +93,30 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
+        public static void LogKingdomChangeCapitalToTitle(Kingdom kingdom,KingdomTitle title)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.history_kingdom_change_capital_to_title,
+                kingdom.data.name,
+                title.data.name,
+                kingdom.capital.data.name)
+            {
+                color_special1 = kingdom.getColor()._colorText,
+                color_special2 = title.getColor()._colorText,
+                color_special3 = kingdom.getColor()._colorText
+
+            }.add();
+        }
+        public static void LogKingdomJoinEmpire(Kingdom kingdom,Empire empire)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.history_kingdom_join_empire,
+                kingdom.data.name,
+                empire.data.name)
+            {
+                color_special1 = kingdom.getColor()._colorText,
+                color_special2 = empire.getColor()._colorText
+
+            }.add();
+        }
         public static void LogNewEmperor(Actor emperor, City city, string year_name)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.history_new_emperor,

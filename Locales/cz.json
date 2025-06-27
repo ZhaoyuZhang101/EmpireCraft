@@ -135,6 +135,8 @@
     "plot_empire_year_name": "颁布年号",
     "plot_kingdom_create_title": "创建法理",
     "plot_kingdom_get_title": "获取法理",
+    "plot_king_acquire_title": "发动法理战争",
+    "plot_kingdom_change_capital_title": "迁都",
 
 
     "history_new_empire": "$title$ $actor$ 在 $place$ 称帝，定国号 $name$，定都$place$",
@@ -145,5 +147,7 @@
     "history_change_capital": "$actor$ 决定迁都，新都为$place$",
     "history_refund_empire": "帝国首都沦陷,然众臣拥立新帝，于$place$，重建帝国",
     "history_back_to_original_capital": "$actor$不负众望，最终克复$place$，还于旧都。",
-    "history_kingdom_attack_for_title": "$attacker$ 发动了对 $defender$ 的战争，试图获取 $title$ 的法理"
+    "history_kingdom_attack_for_title": "$attacker$ 发动了对 $defender$ 的战争，试图获取 $title$ 的法理",
+    "history_kingdom_change_capital_to_title": "$kingdom$ 迁都至 $title$ 的法理首都 $city$",
+    "history_kingdom_join_empire": "$kingdom$ 已臣服于 $empire$"
 }

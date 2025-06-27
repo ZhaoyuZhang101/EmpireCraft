@@ -47,9 +47,9 @@ public static class KingdomExtension
         k.SetKingdomName(k.capital.GetCityName());
     }
 
-    public static void GetMainTitle(this Kingdom k)
+    public static KingdomTitle GetMainTitle(this Kingdom k)
     {
-        ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id);
+        return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id);
     }
 
     public static bool HasMainTitle(this Kingdom k)
@@ -233,6 +233,28 @@ public static class KingdomExtension
     public static double GetTimestampEmpire(this Kingdom kingdom)
     {
         return GetOrCreate(kingdom).timestamp_empire;
+    }
+
+    public static List<Empire> GetEmpiresCanbeJoined(this Kingdom kingdom)
+    {
+        List<Empire> empires = new List<Empire>();
+        if (kingdom == null) return empires;
+        if (ModClass.EMPIRE_MANAGER == null) return empires;
+        foreach(City city in kingdom.cities)
+        {
+            foreach(Kingdom k in city.neighbours_kingdoms)
+            {
+                if (k != kingdom)
+                {
+                    if (k.isInEmpire())
+                    {
+                        if (kingdom.isOpinionTowardsKingdomGood(k.GetEmpire().empire))
+                            empires.Add(k.GetEmpire());
+                    }
+                }
+            }
+        }
+        return empires;
     }
 
     public static void empireJoin(this Kingdom kingdom, Empire pEmpire)
