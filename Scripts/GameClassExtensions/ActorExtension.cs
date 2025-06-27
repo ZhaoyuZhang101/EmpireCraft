@@ -51,6 +51,47 @@ public static class ActorExtension
         ExtensionManager<Actor, ActorExtraData>.Clear();
     }
 
+    public static bool canAcuireTitle(this Actor a)
+    {
+        if (a.isKing())
+        {
+            Kingdom k = a.kingdom;
+            foreach (City city in k.cities)
+            {
+                if (city.hasTitle())
+                {
+                    KingdomTitle title = city.GetTitle();
+                    if (!a.GetOwnedTitle().Contains(title.data.id))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public static List<KingdomTitle> getAcuireTitle(this Actor a)
+    {
+        List<KingdomTitle> titles = new();
+        if (a.isKing())
+        {
+            Kingdom k = a.kingdom;
+            foreach (City city in k.cities)
+            {
+                if (city.hasTitle())
+                {
+                    KingdomTitle title = city.GetTitle();
+                    if (!titles.Contains(title)&&!a.GetOwnedTitle().Contains(title.data.id))
+                    {
+                        titles.Add(title);
+                    }
+                }
+            }
+        }
+        return titles;
+    }
+
     public static string GetTitle(this Actor a)
     {
         if (!a.HasTitle()) return "";

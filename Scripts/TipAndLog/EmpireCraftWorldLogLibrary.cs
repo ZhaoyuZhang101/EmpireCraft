@@ -28,6 +28,7 @@ public class EmpireCraftWorldLogLibrary
     public static WorldLogAsset city_add_to_title_log;
     public static WorldLogAsset become_kingdom_log;
     public static WorldLogAsset destroy_title_log;
+    public static WorldLogAsset history_kingdom_attack_for_title;
 
     public static void init()
     {
@@ -129,6 +130,19 @@ public class EmpireCraftWorldLogLibrary
             text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$empire$", 1);
+            }
+        });
+        history_kingdom_attack_for_title = wl.add(new WorldLogAsset
+        {
+            id = nameof(history_kingdom_attack_for_title),
+            group= "emperors",
+            path_icon = "TitleAcquire.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$attacker$", 1);
+                wl.updateText(ref pText, pMessage, "$defender$", 2);
+                wl.updateText(ref pText, pMessage, "$title$", 3);
             }
         });
         become_new_empire_log = wl.add(new WorldLogAsset

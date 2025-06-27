@@ -80,6 +80,19 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
+        public static void LogKingdomAcquireTitle(Kingdom attacker, Kingdom defender, KingdomTitle title)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.history_kingdom_attack_for_title,
+                attacker.data.name,
+                defender.data.name,
+                title.data.name)
+            {
+                color_special1 = attacker.getColor()._colorText,
+                color_special2 = defender.getColor()._colorText,
+                color_special3 = title.getColor()._colorText
+
+            }.add();
+        }
         public static void LogNewEmperor(Actor emperor, City city, string year_name)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.history_new_emperor,

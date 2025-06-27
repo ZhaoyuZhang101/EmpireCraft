@@ -70,9 +70,16 @@ public class WarPatch
             }.add();
             foreach (var kingdom in pAttacker.GetEmpire().kingdoms_hashset)
             {
-                if (kingdom.isOpinionTowardsKingdomGood(pAttacker)&&kingdom!=pDefender)
+                if (kingdom.isOpinionTowardsKingdomGood(pAttacker) && kingdom != pDefender)
                 {
                     war.joinAttackers(kingdom);
+                    if (kingdom.hasAlliance())
+                    {
+                        if (kingdom.getAlliance().hasKingdom(pDefender))
+                        {
+                            kingdom.allianceLeave(kingdom.getAlliance());
+                        }
+                    }
                 }
             }
         }

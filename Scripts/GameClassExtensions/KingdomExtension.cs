@@ -31,7 +31,30 @@ public static class KingdomExtension
         public string KingdomNamePre = "";
         public double timestamp_beFeifed = -1L;
         public double taxtRate = 0.1;
+        public long main_title_id = -1L;
         public List<long> OwnedTitle = new List<long>();
+    }
+
+    public static void SetMainTitle(this Kingdom k, KingdomTitle title)
+    {
+        GetOrCreate(k).main_title_id = title.id;
+        k.SetKingdomName(title.data.name);
+    }
+
+    public static void RemoveMainTitle(this Kingdom k)
+    {
+        GetOrCreate(k).main_title_id = -1L;
+        k.SetKingdomName(k.capital.GetCityName());
+    }
+
+    public static void GetMainTitle(this Kingdom k)
+    {
+        ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id);
+    }
+
+    public static bool HasMainTitle(this Kingdom k)
+    {
+        return GetOrCreate(k).main_title_id != -1L;
     }
     public static double GetTaxtRate(this Kingdom k)
     {
@@ -272,6 +295,7 @@ public static class KingdomExtension
                 if (kingdom.capital.GetTitle().owner == kingdom.king)
                 {
                     kingdomName = kingdom.capital.GetTitle().data.name;
+                    kingdom.SetMainTitle(kingdom.capital.GetTitle());
                 }
             }
         }

@@ -144,5 +144,6 @@
     "history_name_previous_emperor": "$actor$ 追封了先帝$actor$, 定谥号$shihao$, 庙号$miaohao$",
     "history_change_capital": "$actor$ 决定迁都，新都为$place$",
     "history_refund_empire": "帝国首都沦陷,然众臣拥立新帝，于$place$，重建帝国",
-    "history_back_to_original_capital": "$actor$不负众望，最终克复$place$，还于旧都。"
+    "history_back_to_original_capital": "$actor$不负众望，最终克复$place$，还于旧都。",
+    "history_kingdom_attack_for_title": "$attacker$ 发动了对 $defender$ 的战争，试图获取 $title$ 的法理"
 }

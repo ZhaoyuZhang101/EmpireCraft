@@ -90,6 +90,46 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.add(new PlotAsset
             {
+                id = "king_acuire_title",
+                path_icon = "TitleAcquire.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (!pActor.canAcuireTitle()) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    List<KingdomTitle> titles = pActor.getAcuireTitle();
+                    if (titles.Count() <= 0) return false;
+                    foreach (KingdomTitle title in titles)
+                    {
+                        if (title.HasOwner())
+                        {
+                            if (title.owner.isKing() && !title.owner.isEmperor())
+                            {
+                                Kingdom targetKingdom = title.owner.kingdom;
+                                if (kingdom.countTotalWarriors() > targetKingdom.countTotalWarriors())
+                                {
+                                    War war = World.world.diplomacy.startWar(kingdom, targetKingdom, WarTypeLibrary.normal);
+                                    TranslateHelper.LogKingdomAcquireTitle(kingdom, targetKingdom, title);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    return false;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
                 id = "kingdom_destroy_title",
                 path_icon = "EmperorQuest.png",
                 group_id = "diplomacy",
