@@ -38,13 +38,11 @@ public static class KingdomExtension
     public static void SetMainTitle(this Kingdom k, KingdomTitle title)
     {
         GetOrCreate(k).main_title_id = title.id;
-        k.SetKingdomName(title.data.name);
     }
 
     public static void RemoveMainTitle(this Kingdom k)
     {
         GetOrCreate(k).main_title_id = -1L;
-        k.SetKingdomName(k.capital.GetCityName());
     }
 
     public static KingdomTitle GetMainTitle(this Kingdom k)

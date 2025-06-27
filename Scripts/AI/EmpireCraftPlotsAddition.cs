@@ -3,6 +3,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.TipAndLog;
+using NCMS.Extensions;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using System.Collections.Generic;
@@ -233,6 +234,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     kingdom.setCapital(kingdom.GetMainTitle().title_capital);
+                    TranslateHelper.LogKingdomChangeCapitalToTitle(kingdom, kingdom.GetMainTitle());
                     return true;
                 }
             });
@@ -260,6 +262,8 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     kingdom.GetEmpiresCanbeJoined().FirstOrDefault().join(kingdom);
+                    kingdom.SetCountryLevel(countryLevel.countrylevel_4);
+                    kingdom.getWars().ForEach(war => war.endForSides(WarWinner.Nobody));
                     TranslateHelper.LogKingdomJoinEmpire(kingdom, kingdom.GetEmpire());
                     return true;
                 }

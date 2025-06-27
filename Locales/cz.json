@@ -137,6 +137,7 @@
     "plot_kingdom_get_title": "获取法理",
     "plot_king_acquire_title": "发动法理战争",
     "plot_kingdom_change_capital_title": "迁都",
+    "plot_kingdom_join_empire": "加入帝国",
 
 
     "history_new_empire": "$title$ $actor$ 在 $place$ 称帝，定国号 $name$，定都$place$",

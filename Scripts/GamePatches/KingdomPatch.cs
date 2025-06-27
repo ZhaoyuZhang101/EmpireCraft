@@ -39,7 +39,7 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(removeData))
-        );         
+        );      
     }
 
     public static void removeData(Kingdom __instance)
