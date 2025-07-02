@@ -37,16 +37,24 @@ public static class KingdomExtension
 
     public static void SetMainTitle(this Kingdom k, KingdomTitle title)
     {
+        title.main_kingdom = k;
         GetOrCreate(k).main_title_id = title.id;
     }
 
     public static void RemoveMainTitle(this Kingdom k)
     {
+        if (ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(GetOrCreate(k).main_title_id))
+        {
+            ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id).main_kingdom = null;
+        }
         GetOrCreate(k).main_title_id = -1L;
     }
 
     public static KingdomTitle GetMainTitle(this Kingdom k)
     {
+        if (k == null) return null;
+        if (GetOrCreate(k) == null) return null;
+        if (GetOrCreate(k).main_title_id == -1L) return null;
         return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id);
     }
 
@@ -269,7 +277,6 @@ public static class KingdomExtension
 
     public static void empireLeave (this Kingdom kingdom, bool isLeave = true)
     {
-        LogService.LogInfo("离开帝国");
         countryLevel country_level = GetOrCreate(kingdom).country_level;
         if ((country_level != countryLevel.countrylevel_1||country_level!=countryLevel.countrylevel_0)&&isLeave)
         {
@@ -326,7 +333,6 @@ public static class KingdomExtension
         else
         {
             kingdom.data.name = kingdomName + " " + LM.Get(country_level_string);
-            LogService.LogInfo("存在历史国家名称" + kingdomName);
         }
         return kingdomName;
     }
@@ -365,7 +371,6 @@ public static class KingdomExtension
 
     public static void SetOwnedTitle(this Kingdom k, List<long> value)
     {
-        GetOrCreate(k).OwnedTitle.Intersect(value).Select(t => ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(t) ? ModClass.KINGDOM_TITLE_MANAGER.get(t).data.timestamp_been_controled = World.world.getCurWorldTime():t);
         GetOrCreate(k).OwnedTitle = GetOrCreate(k).OwnedTitle.Union(value).ToList();
     } 
 
@@ -431,7 +436,6 @@ public static class KingdomExtension
                 city.AddKingdomName(kingdom.name.Split(' ')[0]);
             }
             string province_name = kingdom.capital.GetCityName() + " " + LM.Get(province_level_string);
-            LogService.LogInfo(String.Format("国家{0}已转变为省份：{1}", kingdom.name, province_name));
             kingdom.data.name = province_name;
             GetOrCreate(kingdom).vassaled_kingdom_id = value;
         } else

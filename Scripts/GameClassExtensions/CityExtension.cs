@@ -70,6 +70,7 @@ public static class CityExtension
     public static KingdomTitle GetTitle(this City c)
     {
         var ed = GetOrCreate(c);
+        if (ed == null) return null;
         return ed.title_id==-1L?null:ModClass.KINGDOM_TITLE_MANAGER.get(ed.title_id);
     }
 
@@ -128,7 +129,6 @@ public static class CityExtension
         if (!GetOrCreate(city).kingdom_names.Contains(kingdomName))
         {
             GetOrCreate(city).kingdom_names = String.Join(" ", GetOrCreate(city).kingdom_names,kingdomName);
-            LogService.LogInfo("添加历史帝国名称"+ GetOrCreate(city).kingdom_names);
         }
     }
     public static string SelectKingdomName(this City city)

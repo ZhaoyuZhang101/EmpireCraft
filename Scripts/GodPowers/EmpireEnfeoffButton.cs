@@ -21,7 +21,7 @@ public static class EmpireEnfeoffButton
         if (!pTile.hasCity()) return false;
         if (!pTile.zone_city.kingdom.isInEmpire()) return false;
         pTile.zone_city.kingdom.GetEmpire().AutoEnfeoff();
-        ActionLibrary.showWhisperTip("分封天下");
+        ActionLibrary.showWhisperTip("start_enfeoff");
         return true;
     }
 }

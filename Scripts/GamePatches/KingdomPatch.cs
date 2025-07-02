@@ -39,7 +39,7 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(removeData))
-        );      
+        );  
     }
 
     public static void removeData(Kingdom __instance)
@@ -47,6 +47,13 @@ public class KingdomPatch : GamePatch
         if (__instance == null)
         {
             return;
+        }
+        if (__instance.HasMainTitle())
+        {
+            if (__instance.GetMainTitle() != null)
+            {
+                __instance.GetMainTitle().main_kingdom = null;
+            }
         }
         __instance.RemoveExtraData();
     }
@@ -80,7 +87,7 @@ public class KingdomPatch : GamePatch
             }
             if (__instance.isEmpire())
             {
-                __instance.GetEmpire().EmperorLeft(__instance.king);
+                __instance.GetEmpire().EmperorLeft(__instance);
             }
         }
     }

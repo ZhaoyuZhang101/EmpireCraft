@@ -85,7 +85,6 @@ public static class FixFunctions
         obj.open_window_id = null;
         obj.type = PowerButtonType.Special;
         obj.transform.Find("ToggleIcon").GetComponent<ToggleIcon>().updateIcon(option.boolVal);
-        LogService.LogInfo($"Set {obj.name} toggle to {option.boolVal}");
         // More settings for it
 
         var transform = obj.transform;

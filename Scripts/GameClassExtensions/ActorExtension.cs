@@ -65,6 +65,11 @@ public static class ActorExtension
                 if (city.hasTitle())
                 {
                     KingdomTitle title = city.GetTitle();
+                    if (title == null) continue;
+                    if (title.data == null) 
+                    {
+                        ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
+                    }
                     if (!a.GetOwnedTitle().Contains(title.data.id))
                     {
                         foreach(City tCity in title.city_list)
@@ -210,7 +215,7 @@ public static class ActorExtension
             {
                 KingdomTitle kt = ModClass.KINGDOM_TITLE_MANAGER.get(id);
                 if (kt == null) continue;
-                if (Date.getYearsSince(kt.data.timestamp_been_controled) >= ModClass.TITLE_BEEN_DESTROY_TIME && kt.title_capital != a.kingdom.capital)
+                if (Date.getYearsSince(kt.data.timestamp_been_controled) >= ModClass.TITLE_BEEN_DESTROY_TIME && kt != a.kingdom.GetMainTitle())
                 {
                     titles.Add(kt);
                 }
@@ -227,6 +232,11 @@ public static class ActorExtension
         List<KingdomTitle> titles = kingdom.getControledTitle();
         foreach(KingdomTitle t in titles)
         {
+            if (t.main_kingdom!=null)
+            {
+                t.main_kingdom.RemoveMainTitle();
+                t.main_kingdom = null;
+            }
             if(t.HasOwner()&&t.owner.isEmperor())
             {
                 if (!a.GetAcquireTitle().Contains(t.id)&&t.owner.getID()!=a.getID()) 
@@ -244,7 +254,6 @@ public static class ActorExtension
                         t.owner.removeTitle(t);
                     }
                     a.AddOwnedTitle(t);
-                    t.data.timestamp_been_controled = World.world.getCurWorldTime();
                 }
             }
         }
@@ -278,13 +287,14 @@ public static class ActorExtension
                 if (a.kingdom.GetKingdomName()==title.data.name)
                 {
                     a.kingdom.data.name = a.kingdom.capital.name;
-                    a.kingdom.becomeKingdom();
+                    a.kingdom.empireLeave(true);
                 }
                 if (a.kingdom.GetMainTitle() == title)
                 {
                     a.kingdom.RemoveMainTitle();
                 }
             }
+            a.kingdom.GetOwnedTitle().Remove(title.data.id);
             ed.owned_title.Remove(title.data.id);
             title.owner = null;
         }

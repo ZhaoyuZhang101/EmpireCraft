@@ -21,11 +21,11 @@ public class AlliancePatch : GamePatch
         );
     }
 
-    private bool can_join(Alliance __instance, Kingdom pKingdom, ref bool __result)
+    public static bool can_join(Alliance __instance, Kingdom pKingdom, ref bool __result)
     {
         if (pKingdom.isInEmpire())
         {
-            if (pKingdom.GetEmpire().getEmpirePeriod() == EmpirePeriod.天命丧失 || pKingdom.GetEmpire().getEmpirePeriod() == EmpirePeriod.逐鹿群雄)
+            if (pKingdom.GetEmpire().getEmpirePeriod() != EmpirePeriod.天命丧失 && pKingdom.GetEmpire().getEmpirePeriod() != EmpirePeriod.逐鹿群雄)
             {
                 __result = false;
                 return false; // 阻止原方法执行

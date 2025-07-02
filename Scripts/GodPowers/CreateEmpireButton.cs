@@ -113,7 +113,11 @@ internal static class CreateEmpireButton
 
     public static void CreateEmpire(Kingdom kingdom, Kingdom JoinKingdom)
     {
-        
+        if (kingdom == null || JoinKingdom == null)
+        {
+            Debug.LogError("CreateEmpire: Kingdom is null");
+            return;
+        }
         Empire empire = ModClass.EMPIRE_MANAGER.newEmpire(kingdom);
         empire.join(JoinKingdom);
         

@@ -30,13 +30,13 @@ public static class DataManager
     public static void LoadAll(string loadRootPath)
     {
         string loadPath = Path.Combine(loadRootPath, "EmpireCraftModData.json");
+        PlayerConfig.dict["prevent_city_destroy"].boolVal = false;
         LogService.LogInfo(loadPath);
         if (!File.Exists(loadPath))
         {
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
-        
         var json = File.ReadAllText(loadPath);
         var saveData = JsonConvert.DeserializeObject<SaveData>(json);
         LogService.LogInfo("初始化模组数据模板");
@@ -81,20 +81,28 @@ public static class DataManager
         LogService.LogInfo("同步战争数据");
         foreach (EmpireData empireData in saveData.empireDatas)
         {
+            if (empireData == null) continue;
             Empire empire = new Empire();
             empire.loadData(empireData);
             ModClass.EMPIRE_MANAGER.addObject(empire);
         }
+        ModClass.EMPIRE_MANAGER.update(-1L);
         LogService.LogInfo("同步帝国数据");
         foreach (KingdomTitleData kingdomTitleData in saveData.kingdomTitleDatas)
         {
             KingdomTitle kt = new KingdomTitle();
             kt.loadData(kingdomTitleData);
+            kt.isBeenControlled();
             ModClass.KINGDOM_TITLE_MANAGER.addObject(kt);
         }
+        ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
         LogService.LogInfo("同步法理数据");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         ConfigData.speciesCulturePair = saveData.speciesCulturePair;
+        LogService.LogInfo("同步历史数据");
+        ModClass.ALL_HISTORY_DATA = saveData.all_history ?? new Dictionary<long, List<EmpireCraftHistory>>();
+        ConfigData.PREVENT_CITY_DESTROY = saveData.prevent_city_destroy;
+        PlayerConfig.dict["prevent_city_destroy"].boolVal = saveData.prevent_city_destroy;
 
     }
     public static void SaveAll(string saveRootPath)
@@ -133,7 +141,8 @@ public static class DataManager
         }
         saveData.yearNameSubspecies = ConfigData.yearNameSubspecies;
         saveData.speciesCulturePair = ConfigData.speciesCulturePair;
-
+        saveData.all_history = ModClass.ALL_HISTORY_DATA;
+        saveData.prevent_city_destroy = ConfigData.PREVENT_CITY_DESTROY;
         string json = JsonConvert.SerializeObject(saveData, Formatting.Indented);
         LogService.LogInfo("" + saveData.actorsExtraData.Count());
         LogService.LogInfo("" + saveData.warExtraData.Count());

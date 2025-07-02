@@ -34,6 +34,7 @@ public static class EmpireCraftMetaTypeLibrary
                 }
                 foreach (var k in World.world.kingdoms)
                 {
+                    if (k==null) continue;
                     if (!k.isInEmpire())
                         zone_manager.drawForKingdom(k);
                 }
@@ -205,6 +206,8 @@ public static class EmpireCraftMetaTypeLibrary
 
     public static void drawZoneEmpire(TileZone pZone)
     {
+        if (pZone == null) return;
+        if (pZone.city == null) return;
         Empire empire = pZone.city.kingdom.GetEmpire();
         if (empire == null) return;
 

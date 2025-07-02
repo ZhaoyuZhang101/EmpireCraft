@@ -20,6 +20,7 @@ public static class CreateTitleButton
     {
         if (pTile.hasCity())
         {
+
             ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(pTile.zone_city);
         }
         return true;

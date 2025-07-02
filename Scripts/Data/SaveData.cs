@@ -25,4 +25,6 @@ public class SaveData
     public List<KingdomTitleData> kingdomTitleDatas = new List<KingdomTitleData>();
     public List<string> yearNameSubspecies = new List<string>();
     public Dictionary<string, string> speciesCulturePair = new Dictionary<string, string>();
+    public Dictionary<long, List<EmpireCraftHistory>> all_history;
+    public bool prevent_city_destroy = false;
 }

@@ -80,6 +80,27 @@ public static class EmpireCraftOpinionAddition
         });
         opl.add(new OpinionAsset
         {
+            id = "opinion_empire_clan_been_changed",
+            translation_key = "opinion_empire_clan_been_changed",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                int result = 0;
+                if ( pMain.isInEmpire()&&pTarget.isInEmpire())
+                {
+                    if (!pMain.isEmpire()&&pTarget.isEmpire())
+                    {
+                        if (pMain.GetEmpire().data.original_royal_been_changed)
+                        {
+                            result = -100;
+                        }
+                    }
+                }
+
+                return result;
+            }
+        });
+        opl.add(new OpinionAsset
+        {
             id = "opinion_different_empire_with_other_subspecies",
             translation_key_negative = "opinion_different_empire_with_other_subspecies",
             calc = delegate (Kingdom pMain, Kingdom pTarget)

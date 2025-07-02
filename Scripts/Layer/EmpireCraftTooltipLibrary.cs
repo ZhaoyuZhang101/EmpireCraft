@@ -30,26 +30,40 @@ public static class EmpireCraftTooltipLibrary
         pTooltip.clear();
         Kingdom tKingdom = pData.kingdom.GetEmpire().empire;
         if (tKingdom == null) return;
+        pTooltip.setSpeciesIcon(tKingdom.getSpeciesIcon());
+        string color_text = tKingdom.kingdomColor.color_text;
+        pTooltip.transform.FindRecursive("Stats").gameObject.SetActive(value: true);
+        KingdomBanner[] array = pTooltip.transform.FindAllRecursive<KingdomBanner>();
+        for (int i = 0; i < array.Length; i++)
+        {
+            array[i].load(tKingdom);
+        }
         Empire pEmpire = ModClass.EMPIRE_MANAGER.get(tKingdom.GetEmpireID());
         pTooltip.setDescription(tKingdom.getMotto(), null);
         string tColorHex = tKingdom.getColor().color_text;
         pTooltip.setTitle(pEmpire.name, "EmpireText", tColorHex);
         int tAge = pEmpire.getAge();
-        AssetManager.tooltips.setIconValue(pTooltip, "i_age", (float)tAge, "", "");
-        AssetManager.tooltips.setIconValue(pTooltip, "i_population", (float)pEmpire.countPopulation(), "", "");
-        AssetManager.tooltips.setIconValue(pTooltip, "i_army", (float)pEmpire.countWarriors(), "", "");
+        AssetManager.tooltips.setIconValue(pTooltip, "i_age", (float)tAge);
+        AssetManager.tooltips.setIconValue(pTooltip, "i_population", (float)pEmpire.countPopulation());
+        AssetManager.tooltips.setIconValue(pTooltip, "i_army", (float)pEmpire.countWarriors());
         string pValue = "-";
-        if (pEmpire.empire.hasKing())
+        if (pEmpire.emperor!=null)
         {
-            pValue = pEmpire.empire.king.getName();
+            if (pEmpire.emperor.isAlive())
+            {
+                pValue = pEmpire.emperor.getName();
+            }
         }
         pTooltip.addLineText("emperor", pValue, "#FE9900", false, true, 21);
-        if (tKingdom.hasKing() && tKingdom.king.hasClan())
+        if (pEmpire.empire_clan!=null)
         {
-            pTooltip.addLineText("empire_clan", tKingdom.king.clan.data.name, tKingdom.king.clan.getColor().color_text, false, true, 21);
+            if (pEmpire.empire_clan.isAlive())
+            {
+                pTooltip.addLineText("empire_clan", pEmpire.empire_clan.data.name, pEmpire.empire_clan.getColor().color_text, false, true, 21);
+            }
         }
         pTooltip.addLineText("empire_capital", pEmpire.empire.data.name, "#CC6CE7", false, true, 21);
-        pTooltip.addLineText("year_name", "-", "#FE9900", false, true, 21);
+        pTooltip.addLineText("year_name", pEmpire.data.year_name, "#FE9900", false, true, 21);
         pTooltip.addLineBreak();
         pTooltip.addLineText("current_selected_province", pData.kingdom.data.name, pData.kingdom.getColor().color_text, false, true, 21);
         string color = tKingdom.getColor().color_text;
@@ -94,14 +108,15 @@ public static class EmpireCraftTooltipLibrary
         string tColorHex = title.getColor().color_text;
         pTooltip.setTitle(title.data.name, "KingdomTitleWindowTitle", tColorHex);
         int tAge = title.getAge();
-        AssetManager.tooltips.setIconValue(pTooltip, "i_age", (float)tAge, "", "");
-        AssetManager.tooltips.setIconValue(pTooltip, "i_population", (float)title.countPopulation(), "", "");
+        AssetManager.tooltips.setIconValue(pTooltip, "i_age", (float)tAge);
+        AssetManager.tooltips.setIconValue(pTooltip, "i_population", (float)title.countPopulation());
         string pValue = title.HasOwner()?title.owner.getName():"-";
         pTooltip.addLineText("title_holder", pValue, "#FE9900", false, true, 21);
         pTooltip.addLineText("title_capital", title.title_capital.data.name, "#CC6CE7", false, true, 21);
         if (title.isBeenControlled())
         {
             pTooltip.addLineText("title_been_controlled", city.kingdom.isEmpire() ? city.kingdom.GetEmpire().data.name: city.kingdom.data.name, "#CC6CE7", false, true, 21);
+            pTooltip.addLineText("title_been_controled_year", $"{title.GetTitleBeenControlledYear()}{LM.Get("Year")}", tColorHex, false, true, 21);
         }
     }
 }

@@ -23,6 +23,8 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     private readonly List<TileZone> _zoneScratch = new();
     public KingdomAsset asset;
     public City title_capital;
+    public Kingdom control_kingdom;
+    public Kingdom main_kingdom;
 
     public Actor owner;
     public ColorAsset kingdomColor => getColor();
@@ -32,6 +34,13 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         {
             return MetaType.None;
         }
+    }
+
+    public int GetTitleBeenControlledYear()
+    {
+        if (this.data == null) return 0;
+        if (this.data.timestamp_been_controled <= 0) return 0;
+        return Date.getYearsSince(this.data.timestamp_been_controled);
     }
     public void newKingdomTitle(City city)
     {
@@ -186,6 +195,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
                 {
                     if(c.kingdom != kingdom)
                     {
+                        this.data.timestamp_been_controled = -1L;
                         return false;
                     }
                     else
@@ -194,6 +204,11 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
                     }
                 }
             }
+        }
+        if (control_kingdom!=kingdom)
+        {
+            data.timestamp_been_controled = World.world.getCurWorldTime();
+            control_kingdom = kingdom;
         }
         return true;
     }
@@ -214,6 +229,22 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         catch
         {
             this.data.owner = -1L;
+        }
+        if (main_kingdom!=null)
+        {
+            if (main_kingdom.data == null)
+            {
+                main_kingdom = null;
+                this.data.main_kingdom = -1L;
+            } else
+            {
+                this.data.main_kingdom = main_kingdom.data.id;
+            }
+
+        }
+        else
+        {
+            this.data.main_kingdom = -1L;
         }
 
     }
@@ -241,7 +272,10 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
                 oldTitle.removeCity(city);
             }
             city.SetTitle(this);
-            this.city_list_hash.Add(city);
+            if (!this.city_list_hash.Contains(city))
+            {
+                this.city_list_hash.Add(city);
+            }
             recalculate();
         }
     }
@@ -252,11 +286,19 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         city.RemoveTitle();
         this.city_list_hash.Remove(city);
         this.recalculate();
+        if (this.city_list_hash.Count <= 0)
+        {
+            ModClass.KINGDOM_TITLE_MANAGER.dissolveTitle(this);
+        }
     }
     // Token: 0x06001124 RID: 4388 RVA: 0x000C7748 File Offset: 0x000C5948
     public bool checkActive()
     {
         bool tChanged = false;
+        if (this.data == null)
+        {
+            return false;
+        }
         List<City> cities = this.city_list;
         if (cities.Count <= 0)
         {
@@ -323,6 +365,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         this.title_capital = World.world.cities.get(this.data.title_capital);
         this.city_list.AddRange(this.city_list_hash);
         this.owner = this.data.owner == -1L? null:World.world.units.get(this.data.owner);
+        this.main_kingdom = this.data.main_kingdom == -1L ? null : World.world.kingdoms.get(this.data.main_kingdom);
     }
 }
 

@@ -64,6 +64,15 @@ public class Empire : MetaObject<EmpireData>
         return this.data.empirePeriod;
     }
 
+    public bool isAllowToMakeWar()
+    {
+        if (this.data.empirePeriod == EmpirePeriod.逐鹿群雄 || this.data.empirePeriod == EmpirePeriod.天命丧失)
+        {
+            return true;
+        }
+        return false;
+    }
+
     public string GetEmpireName()
     {
         string[] nameParts = this.data.name.Split(' ');
@@ -71,16 +80,107 @@ public class Empire : MetaObject<EmpireData>
         return nameParts[nameParts.Length-2];
     }
 
-    public void setEmperor(Actor actor)
+    public void setEmperor(Actor actor, bool isNew=false)
     {
         this.emperor = actor;
         create_year_name();
         TranslateHelper.LogNewEmperor(emperor, empire.capital, data.year_name);
+        if (!isNew)
+        {
+            if (this.emperor.clan != this.empire_clan)
+            {
+                this.data.original_royal_been_changed = true;
+                this.data.original_royal_been_changed_timestamp = World.world.getCurWorldTime();
+            }
+
+            this.data.currentHistory = new EmpireCraftHistory
+            {
+                id = actor.data.id,
+                empire_name = this.GetEmpireName(),
+                year_name = data.year_name,
+                emperor = actor.getName(),
+                miaohao_name = "",
+                shihao_name = "",
+                descriptions = new List<string>(),
+                cities = new List<string>()
+            };
+        }
+        this.RecordHistory(EmpireHistoryType.新皇登基, new Dictionary<string, string>()
+        {
+            ["actor"] = actor.getName(),
+            ["place"] = this.empire.capital.GetCityName(),
+            ["year_name"] = this.data.year_name
+        });
     }
 
-    public void EmperorLeft(Actor actor)
+    public void EmperorLeft(Kingdom kingdom)
     {
-        this.emperor = null;
+        if (data.currentHistory == null)
+        {
+            data.currentHistory = new EmpireCraftHistory
+            {
+                id = this.emperor.data.id,
+                year_name = data.year_name,
+                emperor = this.emperor.getName(),
+                empire_name = this.GetEmpireName(),
+                miaohao_name = "",
+                shihao_name = "",
+                descriptions = new List<string>(),
+                cities = new List<string>()
+            };
+        }
+        if (this.emperor.isAlive())
+        {
+            this.RecordHistory(EmpireHistoryType.皇帝退位, new Dictionary<string, string>()
+            {
+                ["year_name"] = data.year_name,
+                ["actor"] = this.emperor.getName()
+            });
+        }
+        else
+        {
+            this.RecordHistory(EmpireHistoryType.皇帝驾崩, new Dictionary<string, string>()
+            {
+                ["year_name"] = data.year_name,
+                ["actor"] = this.emperor.getName()
+            });
+        }
+        data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
+        data.history.Add(data.currentHistory);
+        data.currentHistory = null;
+        emperor = null;
+    }
+    public bool 是否需要追封()
+    {
+        if (this.data.history.Count > 0)
+        {
+            foreach (EmpireCraftHistory cHistory in this.data.history)
+            {
+                Actor actor = World.world.units.get(cHistory.id);
+                if (cHistory != null && cHistory.emperor != null && cHistory.emperor != "")
+                {
+                    if (cHistory.miaohao_name==null||cHistory.miaohao_name == "")
+                    {
+                        if (actor != null)
+                        {
+                            if (!actor.isAlive())
+                            {
+                                return true;
+                            }
+                            else
+                            {
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     public int getEmperorYear()
@@ -92,7 +192,7 @@ public class Empire : MetaObject<EmpireData>
     {
         if (this.data.has_year_name)
         {
-            if (this.empire.hasKing())
+            if (this.emperor!=null)
             {
                 if (this.data.year_name != "" || this.data.year_name != null)
                 {
@@ -110,7 +210,6 @@ public class Empire : MetaObject<EmpireData>
             if (ConfigData.speciesCulturePair.TryGetValue(empire.getSpecies(), out string culture)) {
                 if (culture == "Huaxia")
                 {
-                    LogService.LogInfo("可以显示年号");
                     this.data.has_year_name = true;
                 }
             }
@@ -143,10 +242,44 @@ public class Empire : MetaObject<EmpireData>
             }
         }
         SetEmpireName(empireName);
-        create_year_name();
+        this.data.currentHistory = new EmpireCraftHistory
+        {
+            id = empire.king.data.id,
+            year_name = data.year_name,
+            emperor = empire.king.getName(),
+            empire_name = this.GetEmpireName(),
+            is_first = true,
+            miaohao_name = "",
+            shihao_name = "",
+            descriptions = new List<string>(),
+            cities = new List<string>()
+        };
+        this.RecordHistory(EmpireHistoryType.称帝建业, new Dictionary<string, string>()
+        {
+            ["actor"] = empire.king.getName(),
+            ["place"] = empire.capital.GetCityName(),
+            ["name"] = GetEmpireName(),
+            ["place"] = empire.capital.GetCityName()
+        });
+        setEmperor(empire.king, true);
         TranslateHelper.LogNewEmperor(empire.king, empire.capital, data.year_name);
         empire.getKingClan().RecordHistoryEmpire(this);
     }
+    public bool canSetTitleToPreviousEmperor()
+    {
+        if (this.data.history.Count > 0)
+        {
+            foreach(EmpireCraftHistory cHistory in this.data.history)
+            {
+                if (cHistory != null && cHistory.emperor != null && cHistory.emperor != "" && !World.world.units.get(cHistory.id).isAlive())
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public bool isAllowToMakeYearName ()
     {
         return this.data.has_year_name;
@@ -174,7 +307,7 @@ public class Empire : MetaObject<EmpireData>
         else if (ay > ax)
         {
             // 垂直分量更大，向北或南
-            return LM.Get(capital_center.y < v.y ? "Northern" : "Southern");
+            return LM.Get(capital_center.y > v.y ? "Northern" : "Southern");
         }
         else
         {
@@ -185,14 +318,12 @@ public class Empire : MetaObject<EmpireData>
 
     public void SetEmpireName(string name)
     {
-        LogService.LogInfo($"当前成为帝国的种族{empire.getSpecies()}");
         string culture = ConfigData.speciesCulturePair.TryGetValue(empire.getSpecies(), out var a) ? a : "default";
         this.data.name = name + " " + LM.Get($"{culture}_" + countryLevel.countrylevel_0.ToString());
     }
 
     public void checkDisolve(Kingdom mainKingdom)
     {
-        LogService.LogInfo("开始检测是否解散帝国");
         this.kingdoms_hashset.Remove(mainKingdom);
         mainKingdom.empireLeave(false);
         Kingdom heirEmpire = null;
@@ -215,12 +346,10 @@ public class Empire : MetaObject<EmpireData>
         }
         if (heirEmpire == null)
         {
-            LogService.LogInfo("解散帝国");
             ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
             return;
         }
         recalculate();
-        LogService.LogInfo("继承帝国");
         replaceEmpire(heirEmpire);
         return;
     }
@@ -245,6 +374,7 @@ public class Empire : MetaObject<EmpireData>
     public void replaceEmpire(Kingdom newKingdom)
     {
         Empire newEmpire = ModClass.EMPIRE_MANAGER.newEmpire(newKingdom);
+        newEmpire.data.history.InsertRange(0, this.data.history);
         newEmpire.SetEmpireName(newKingdom.GetKingdomName());
         if (newKingdom.capital.HasKingdomName()) 
         {
@@ -558,7 +688,6 @@ public class Empire : MetaObject<EmpireData>
         }
         if (this.empire == null) return;
         if (this.empire.data == null) return;
-        LogService.LogInfo("存储数据中" + this.name + this.id);
         this.data.kingdoms = new List<long>();
         foreach (Kingdom tKingdom in this.kingdoms_hashset)
         {
@@ -715,8 +844,12 @@ public class Empire : MetaObject<EmpireData>
                 }
             }
         }
-
         pKingdom.empireLeave();
+        if (pKingdom==this.empire)
+        {
+            dissolve();
+            Dispose();
+        }
         if (countKingdoms()<=0)
         {
             dissolve();
@@ -1115,7 +1248,6 @@ public class Empire : MetaObject<EmpireData>
                 }
                 newKingdom.setCapital(capital);
                 newKingdom.data.name = capital.data.name;
-                LogService.LogInfo($"{capital.GetCityName()}");
                 newKingdom.SetCountryLevel(cl);
                 newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
                 king.SetPeeragesLevel(pl);
@@ -1177,6 +1309,10 @@ public class Empire : MetaObject<EmpireData>
         this.kingdoms_list.Clear();
         this.kingdoms_hashset.Clear();
         this.empire = null;
+        if (!ModClass.ALL_HISTORY_DATA.ContainsKey(this.data.id))
+        {
+            ModClass.ALL_HISTORY_DATA.Add(this.data.id, this.data.history);
+        }
     }
 
     // Token: 0x040022FF RID: 8959

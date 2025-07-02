@@ -54,7 +54,6 @@ namespace EmpireCraft.Scripts.GamePatches
                         Kingdom newKingdom = pMainKingdom.GetEmpire().setEnfeoff(item, leader);
                         newKingdom.setCapital(item);
                         newKingdom.data.name = item.data.name;
-                        LogService.LogInfo($"{item.GetCityName()}");
                         newKingdom.SetCountryLevel(cl);
                         newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
                         leader.SetPeeragesLevel(pl);

@@ -9,6 +9,8 @@ public enum EmpireHistoryType
 {
     称帝建业,
     新皇登基,
+    皇帝驾崩,
+    皇帝退位,
     权臣摄政,
     臣服于帝国,
     追封先帝,

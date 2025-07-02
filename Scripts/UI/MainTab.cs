@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.UI.Windows;
+using NCMS.Utils;
 using NeoModLoader.api;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Tab;
@@ -10,15 +11,9 @@ namespace EmpireCraft.Scripts.UI;
 
 internal static class MainTab
 {
-    public const string CREATE_EMPIRE_BUTTON = "create_empire_button";
-    public const string EMPIRE_LAYER_TOGGLE = "empire_layer_toggle";
-    public const string TITLE_LAYER_TOGGLE = "title_layer_toggle";
-    public const string EMPIRE_FORM_BUTTON = "empire_form_button";
-    public const string EMPIRE_ENFEOFF_BUTTON = "empire_enfeoff_button";
-    public const string EMPIRE_LIST_BUTTON = "empire_list_button";
-    public const string TITLE_CREATE_BUTTON = "empire_title_create_button";
-    public const string TITLE_ADD_BUTTON = "empire_title_add_button";
-    public const string TITLE_REMOVE_BUTTON = "empire_title_remove_button";
+    public const string KINGDOM_TITLE_GROUP = "kingdom_title_group";
+    public const string EMPIRE_GROUP = "empire_layer_group";
+    public const string EMPIRE_FUNCTIONS = "empire_function_group";
     public static PowersTab tab;
 
     public static void Init()
@@ -31,15 +26,9 @@ internal static class MainTab
         // 设置标签页的布局. 布局是一个字符串列表, 每个字符串是一个分类. 每个分类的名字不重要.
         tab.SetLayout(new List<string>()
         {
-            EMPIRE_LAYER_TOGGLE,
-            CREATE_EMPIRE_BUTTON,
-            EMPIRE_ENFEOFF_BUTTON,
-            EMPIRE_FORM_BUTTON,
-            EMPIRE_LIST_BUTTON,
-            TITLE_LAYER_TOGGLE,
-            TITLE_CREATE_BUTTON,
-            TITLE_ADD_BUTTON,
-            TITLE_REMOVE_BUTTON
+            KINGDOM_TITLE_GROUP,
+            EMPIRE_GROUP,
+            EMPIRE_FUNCTIONS
         });
         // Add buttons to the tab.
         // 向标签页添加按钮.
@@ -62,48 +51,54 @@ internal static class MainTab
 
     private static void _addButtons()
     {
-        CreateEmpireButton.init();
-        tab.AddPowerButton(CREATE_EMPIRE_BUTTON,
-            PowerButtonCreator.CreateGodPowerButton("create_empire",
-                SpriteTextureLoader.getSprite("ui/icons/iconAlliance")));
+        TitleLayerToggle.init();
+        PowerButton pb0 = FixFunctions.CreateToggleButton("title_layer",
+                 SpriteTextureLoader.getSprite("ui/icons/iconCity"));
+        tab.AddPowerButton(KINGDOM_TITLE_GROUP, pb0);
 
         CreateTitleButton.init();
-        tab.AddPowerButton(TITLE_CREATE_BUTTON,
+        tab.AddPowerButton(KINGDOM_TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_title",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleCreate.png")));
 
         AddTitleButton.init();
-        tab.AddPowerButton(TITLE_ADD_BUTTON,
+        tab.AddPowerButton(KINGDOM_TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("add_title",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleAdd.png")));
 
         RemoveTitleButton.init();
-        tab.AddPowerButton(TITLE_REMOVE_BUTTON,
+        tab.AddPowerButton(KINGDOM_TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_title",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleRemove.png")));
+
+
 
         EmpireLayerToggle.init();
         PowerButton pb = FixFunctions.CreateToggleButton("empire_layer",
                  SpriteTextureLoader.getSprite("ui/icons/iconKingdom"));
-        pb.name = "empire_layer";
-        tab.AddPowerButton(EMPIRE_LAYER_TOGGLE, pb);
+        tab.AddPowerButton(EMPIRE_GROUP, pb);
 
-        TitleLayerToggle.init();
-        pb = FixFunctions.CreateToggleButton("title_layer",
-                 SpriteTextureLoader.getSprite("ui/icons/iconCity"));
-        tab.AddPowerButton(TITLE_LAYER_TOGGLE, pb);
-
-        EmpireEnfeoffButton.init();
-        tab.AddPowerButton(EMPIRE_ENFEOFF_BUTTON, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));
+        CreateEmpireButton.init();
+        tab.AddPowerButton(EMPIRE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("create_empire",
+                SpriteTextureLoader.getSprite("ui/icons/iconAlliance")));
 
         EmpireFormButton.init();
-        tab.AddPowerButton(EMPIRE_FORM_BUTTON,
+        tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("empire_form",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ChineseCrown.png")));
 
-        tab.AddPowerButton(EMPIRE_LIST_BUTTON, PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
+        EmpireEnfeoffButton.init();
+        tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
+                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));
+
+
+        tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
             SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png")));
 
+        PreventCityDestroyToggle.init();
+        PowerButton pb2 = FixFunctions.CreateToggleButton("prevent_city_destroy",
+                 SpriteTextureLoader.getSprite("ui/icons/iconCity"));
+        tab.AddPowerButton(EMPIRE_FUNCTIONS, pb2);
     }
 }

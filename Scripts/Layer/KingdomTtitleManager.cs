@@ -33,7 +33,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     public bool checkTitleExist(long t) 
     {
         update(-1L);
-        return get(t) == null;
+        return get(t) != null;
     }
 
     public void AddCityToTitle(KingdomTitle pTitle, City pCity)

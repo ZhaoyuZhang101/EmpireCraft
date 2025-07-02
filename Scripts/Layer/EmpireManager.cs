@@ -21,7 +21,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     {
         this.type_id = "empire";
     }
-
+    public bool _dirty_cities = false;
     public override void updateDirtyUnits()
     {
     }
@@ -117,7 +117,6 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             location = pKingdom.location,
             color_special1 = pKingdom.kingdomColor.getColorText()
         }.add();
-        LogService.LogInfo("创建帝国成功");
         return empire;
     }
 

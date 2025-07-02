@@ -60,38 +60,42 @@ public class WarPatch
             return false;
         }
         War war = World.world.wars.newWar(pAttacker, pDefender, pAsset);
-        if (pAttacker.isEmpire())
+        if (pDefender.isInEmpire() || pAttacker.isInEmpire())
         {
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_war, pAttacker.GetEmpire().name, pDefender.name)
+            if (pAttacker.isEmpire())
             {
-                location = pAttacker.location,
-                color_special1 = pAttacker.kingdomColor.getColorText(),
-                color_special2 = pDefender.kingdomColor.getColorText()
-            }.add();
-            foreach (var kingdom in pAttacker.GetEmpire().kingdoms_hashset)
-            {
-                if (kingdom.isOpinionTowardsKingdomGood(pAttacker) && kingdom != pDefender)
+                new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_war, pAttacker.GetEmpire().name, pDefender.name)
                 {
-                    war.joinAttackers(kingdom);
-                    if (kingdom.hasAlliance())
+                    location = pAttacker.location,
+                    color_special1 = pAttacker.kingdomColor.getColorText(),
+                    color_special2 = pDefender.kingdomColor.getColorText()
+                }.add();
+                foreach (var kingdom in pAttacker.GetEmpire().kingdoms_hashset)
+                {
+                    if (kingdom.isOpinionTowardsKingdomGood(pAttacker) && kingdom != pDefender)
                     {
-                        if (kingdom.getAlliance().hasKingdom(pDefender))
+                        war.joinAttackers(kingdom);
+                        if (kingdom.hasAlliance())
                         {
-                            kingdom.allianceLeave(kingdom.getAlliance());
+                            if (kingdom.getAlliance().hasKingdom(pDefender))
+                            {
+                                kingdom.allianceLeave(kingdom.getAlliance());
+                            }
                         }
                     }
                 }
             }
-        }
-        if (pDefender.isInEmpire()) 
-        {
-            foreach (var kingdom in pDefender.GetEmpire().kingdoms_hashset)
+            if (pDefender.isInEmpire())
             {
-                if (kingdom.isOpinionTowardsKingdomGood(pDefender)&& kingdom != pAttacker)
+                foreach (var kingdom in pDefender.GetEmpire().kingdoms_hashset)
                 {
-                    war.joinDefenders(kingdom);
+                    if (kingdom.isOpinionTowardsKingdomGood(pDefender) && kingdom != pAttacker)
+                    {
+                        war.joinDefenders(kingdom);
+                    }
                 }
             }
+            return false;
         }
         return true;
     }

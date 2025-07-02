@@ -1,4 +1,5 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.General;
@@ -28,7 +29,16 @@ public class ClanPatch : GamePatch
     }
     public static void removeData(Clan __instance)
     {
-        __instance.RemoveExtraData();
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+        {
+            if (empire.empire_clan == __instance)
+            {
+                empire.empire_clan = null;
+                empire.data.original_royal_been_changed = true;
+                empire.data.original_royal_been_changed_timestamp = World.world.getCurWorldTime();
+            }
+        }
+            __instance.RemoveExtraData();
     }
 
     public static void set_clan_name(Clan __instance, Actor pFounder, bool pAddDefaultTraits)

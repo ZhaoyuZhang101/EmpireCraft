@@ -18,6 +18,7 @@ using EmpireCraft.Scripts.TipAndLog;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.Data;
+using System.Collections.Generic;
 
 namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigurable
@@ -40,6 +41,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static ModDeclare _declare;
     private GameObject _modObject;
     public static ModConfig modConfig;
+    public static Dictionary<long, List<EmpireCraftHistory>> ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
     public ModDeclare GetDeclaration()
     {
         return _declare;
@@ -79,7 +81,12 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         }
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName1.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName2.csv"));
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "MiaoHaoPrefixes.csv"));
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "MiaoHaoSuffixes.csv"));
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "ShiHao.csv"));
         LogService.LogInfo("加载年号模板");
+        LogService.LogInfo("加载谥号模板");
+        LogService.LogInfo("加载庙号模板");
     }
 
     public void OnLoad(ModDeclare modDeclare, GameObject gameObject)

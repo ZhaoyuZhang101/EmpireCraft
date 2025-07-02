@@ -26,6 +26,7 @@ public class KingdomTitleData: MetaObjectData
 
     public List<long> cities;
     public List<string> history_emperrors;
+    public long main_kingdom { get; set; } = -1L;
 
     public double timestamp_been_controled;
 

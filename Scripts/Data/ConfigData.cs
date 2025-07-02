@@ -16,6 +16,8 @@ namespace EmpireCraft.Scripts.Data
         [JsonIgnore]
         public static KingdomTitle CURRENT_SELECTED_TITLE;
         [JsonIgnore]
+        public static EmpireCraftHistory CURRENT_SELECTED_HISTORY;
+        [JsonIgnore]
         public static City selected_cityA;
         [JsonIgnore]
         public static City selected_cityB;
@@ -33,5 +35,6 @@ namespace EmpireCraft.Scripts.Data
         };
         [JsonIgnore]
         public static Empire EMPIRE = null;
+        public static bool PREVENT_CITY_DESTROY = false;
     }
 }

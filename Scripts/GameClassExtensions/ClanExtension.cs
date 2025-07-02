@@ -75,7 +75,6 @@ public static class ClanExtension
         GetOrCreate(__instance).position = kingdom.capital.city_center;
         GetOrCreate(__instance).historical_empire_name = empire.GetEmpireName();
         GetOrCreate(__instance).original_capital = empire.original_capital.isAlive() ? empire.original_capital.data.id : -1L;
-        LogService.LogInfo("记录家族历史帝国成功");
     }
 
     public static void ClearHistoricalName(this Clan __instance)

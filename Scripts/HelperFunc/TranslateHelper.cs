@@ -45,7 +45,6 @@ namespace EmpireCraft.Scripts.HelperFunc
         /// </summary>
         public static void LogPowerfulMinisterAcquireTitle(Actor minister, Empire empire, string title)
         {
-            LogService.LogInfo("记录大臣获取称号: " + title + " " + minister.data.name + " " + empire.GetEmpireName());
             new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_powerful_minister_aquire_title,
                 minister.data.name,
                 empire.GetEmpireName(),
@@ -217,6 +216,20 @@ namespace EmpireCraft.Scripts.HelperFunc
             {
                 color_special1 = clan.getColor()._colorText,
                 color_special2 = empire.empire.getColor()._colorText
+            }.add();
+        }
+        /// <summary>
+        /// 记录“追封先帝”
+        ///     $actor$ -> 在任皇帝
+        ///     $name$ → 被追封人姓名
+        /// </summary>
+        public static void LogEmpeorNamingPreviousEmperor(Actor actor, string name)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.emperor_posthumous_name,
+                actor.data.name, name)
+            {
+                color_special1 = actor.kingdom.getColor()._colorText,
+                color_special2 = actor.kingdom.getColor()._colorText
             }.add();
         }
     }
