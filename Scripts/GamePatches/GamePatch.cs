@@ -1,4 +1,6 @@
-﻿using NeoModLoader.api;
+﻿using EmpireCraft.Scripts.Data;
+using NeoModLoader.api;
+using NeoModLoader.General;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,16 +17,21 @@ namespace EmpireCraft.Scripts.GamePatches
 
     public static class HelperFunc
     {
-        public static string getFamilyName(string pName)
+        public static string getFamilyName(this Family family, ActorSex sex = ActorSex.None, bool needSexTag = false)
         {
-            string[] namePart = pName.Split(' ');
-            if (namePart.Length >= 2)
+
+            var nameParts = family.data.name.Split(' ');
+            if (ConfigData.speciesCulturePair.TryGetValue(family.data.species_id, out var culture))
             {
-                return namePart[namePart.Length - 2];
-            } else
-            {
-                return namePart[0];
+                if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
+                {
+                    if (nameParts.Length - 1 >= setting.Family.name_pos)
+                    {
+                        return needSexTag?nameParts[setting.Family.name_pos]+LM.Get($"{culture}_sex_post{sex.ToString()}"): nameParts[setting.Family.name_pos];
+                    }
+                }
             }
+            return needSexTag ? nameParts[0]+ LM.Get($"{culture}_sex_post{sex.ToString()}"): nameParts[0];
         }
     }
 }

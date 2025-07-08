@@ -94,7 +94,7 @@ public class KingdomPatch : GamePatch
 
     public static void Initialize_level(Kingdom __instance, Actor pActor)
     {
-        __instance.SetCountryLevel(Enums.countryLevel.countrylevel_4);
+        __instance.SetCountryLevel(Enums.countryLevel.countrylevel_3);
         __instance.SetEmpireID(-1L);
         __instance.SetVassaledKingdomID(-1L);
     }

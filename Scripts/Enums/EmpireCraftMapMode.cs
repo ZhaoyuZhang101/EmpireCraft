@@ -10,6 +10,7 @@ namespace EmpireCraft.Scripts.Enums
     {
         Empire,
         Title,
+        Province,
         None
     }
 }

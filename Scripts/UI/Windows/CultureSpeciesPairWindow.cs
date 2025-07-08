@@ -16,7 +16,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
 {
     protected override void Init()
     {
-        foreach (var civSpecies in OnomasticsHelper.AllCivSpecies)
+        foreach (var civSpecies in ConfigData.AllCivSpecies)
         {
             // Create a horizontal layout group for each civSpecies
             AutoHoriLayoutGroup pairGroup = this.BeginHoriGroup(pSpacing:3);

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EmpireCraft.Scripts.Layer;
+namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftHistoryDataLibrary
 {
     public static void init()

@@ -12,9 +12,11 @@
     <ItemGroup>
       <Compile Include="Locales\Cultures\MiaoHaoPrefixes.csv" />
       <Compile Include="Locales\Cultures\MiaoHaoSuffixes.csv" />
+      <Compile Include="Locales\Cultures\NameSexPost.csv" />
       <Compile Include="Locales\Cultures\ShiHao.csv" />
       <Compile Include="Locales\Cultures\YearName1.csv" />
       <Compile Include="Locales\Cultures\YearName2.csv" />
+      <Compile Include="Locales\MeritLevelNames.csv" />
     </ItemGroup>
 
     <ItemGroup>
@@ -30,6 +32,7 @@
     <ItemGroup>
       <PackageReference Include="Lib.Harmony" Version="2.3.6" />
       <PackageReference Include="Microsoft.AspNet.SignalR.Core" Version="2.4.3" />
+      <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
       <PackageReference Include="System.Collections.NonGeneric" Version="4.3.0" />
     </ItemGroup>
     <ItemGroup>
@@ -56,5 +59,9 @@
     <ItemGroup>
       <Folder Include="GameResources\ui\icons\" />
     </ItemGroup>
+    <ItemGroup>
+      <None Include="Scripts\HelperFunc\BeaurauSystem.cs" />
+    </ItemGroup>
+    <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>
 
 </Project>

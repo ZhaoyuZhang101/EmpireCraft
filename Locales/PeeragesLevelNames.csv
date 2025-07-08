@@ -7,3 +7,15 @@ default_peerages_3,公,Duke,公
 default_peerages_4,侯,Marquis,侯
 default_peerages_5,伯,Count,伯
 default_peerages_6,无,none,无
+
+huaxia_peerage_0,天子
+huaxia_peerage_1,亲王
+huaxia_peerage_2,郡王
+huaxia_peerage_2_1,国公
+huaxia_peerage_2_2,嗣王
+huaxia_peerage_3,开国郡公
+huaxia_peerage_4,开国县公
+huaxia_peerage_5,开国侯
+huaxia_peerage_6,开国伯
+huaxia_peerage_7,开国子
+huaxia_peerage_8,开国男

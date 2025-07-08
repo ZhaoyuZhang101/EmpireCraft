@@ -14,26 +14,14 @@ using System.Threading.Tasks;
 namespace EmpireCraft.Scripts.HelperFunc;
 public static class OnomasticsHelper
 {
-    public static List<string> AllCivSpecies = new List<string>() 
-    {
-        "human", "orc","elf","dwarf","civ_necromancer","civ_alien",
-        "civ_druid","civ_bee","civ_beetle","civ_evil_mage","civ_white_mage",
-        "civ_bandit","civ_demon","civ_cold_one","civ_angle","civ_snowman",
-        "civ_garlic_man","civ_lemon_man","civ_acid_gentleman","civ_crystal_golem",
-        "civ_candy_man","civ_liliar","civ_greg","civ_cat","civ_dog","civ_chicken",
-        "civ_rabbit","civ_monkey","civ_fox","civ_sheep","civ_cow","civ_armadillo",
-        "civ_wolf","civ_bear","civ_rhino","civ_buffalo","civ_hyena","civ_rat",
-        "civ_alpaca","civ_capybara","civ_goat","civ_scorpion","civ_crab",
-        "civ_penguin","civ_turtle","civ_crocodile","civ_snake","civ_frog","civ_piranha",
-    };
     /// <summary>
     /// 通用载入命名模板并分组
     /// </summary>
     /// <param name="data">要操作的 OnomasticsData 即命名模板数据 </param>
     /// <param name="cultureName">文化名称， 可为null，但一旦输入需要创建相应的文件至Locales目录下
-    /// 比如"模组根目录/Locales/"文化名称""
+    /// 比如"模组根目录/Locales/Cultures/"Culture_文化名称""
     /// 同时也要创建对应的文字集文件需为.csv格式
-    /// 比如我的文化是华夏，我的名字集合是姓氏集，那就目录就应该是这样子的"模组根目录/Locales/华夏/姓氏集.csv"</param>
+    /// 比如我的文化是华夏，我的名字集合是姓氏集，那就目录就应该是这样子的"模组根目录/Locales/Culture/Culture_华夏/姓氏集.csv"</param>
     /// <param name="template">分组顺序，用 OnomasticsType 枚举定义</param>
     /// <param name="groups">
     ///     每个元组里：
@@ -103,26 +91,6 @@ public static class OnomasticsHelper
                 index++;
             }
             return keys;
-        }
-    }
-
-    public static void LoadSpeciesCulturePair() 
-    {
-        string culturesPath = Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures");
-        if (!Directory.Exists(culturesPath))
-        {
-            // 如果目录不存在，直接返回空列表
-            return;
-        }
-        var dirs = Directory.EnumerateDirectories(culturesPath, "Culture_*", SearchOption.TopDirectoryOnly)
-                    .Select(path => Path.GetFileName(path))  // 只要文件夹名，不要完整路径
-                    .ToList();
-        foreach (var cultureFolderName in dirs) 
-        {
-            var species = cultureFolderName.Split('_')[2];
-            var culture = cultureFolderName.Split('_')[1];
-            if (AllCivSpecies.Contains(species))
-                ConfigData.speciesCulturePair.Add(species, culture);
         }
     }
 

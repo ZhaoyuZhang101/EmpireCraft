@@ -20,6 +20,10 @@ public class SaveManagerPatch : GamePatch
         new Harmony(nameof(save_mod_data)).Patch(
             AccessTools.Method(typeof(SaveManager), nameof(SaveManager.saveMapData)),
             prefix: new HarmonyMethod(GetType(), nameof(save_mod_data))
+        );       
+        new Harmony(nameof(loadActors)).Patch(
+            AccessTools.Method(typeof(SaveManager), nameof(SaveManager.loadActors)),
+            postfix: new HarmonyMethod(GetType(), nameof(loadActors))
         );        
         new Harmony(nameof(load_mod_data)).Patch(
             AccessTools.Method(typeof(SaveManager), nameof(SaveManager.loadData)),
@@ -33,6 +37,11 @@ public class SaveManagerPatch : GamePatch
             AccessTools.Method(typeof(MapBox), nameof(MapBox.lastGC)),
             postfix: new HarmonyMethod(GetType(), nameof(last_gc))
         );        
+    }
+    public static void loadActors(SaveManager __instance)
+    {
+        ActorPatch.startSessionMonth = Date.getMonthsSince(World.world.getCurSessionTime());
+        ActorPatch.isReadyToSet = true;
     }
 
     public static void last_gc(MapBox __instance)
@@ -65,9 +74,11 @@ public class SaveManagerPatch : GamePatch
     public static void load_mod_data(SaveManager __instance, SavedMap pData, string pPath)
     {
         ModClass.IS_CLEAR = true;
-
+        ActorPatch.startSessionMonth = Date.getMonthsSince(World.world.getCurSessionTime());
+        ActorPatch.isReadyToSet = false;
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
+        ModClass.PROVINCE_MANAGER = new ProvinceManager();
         LogService.LogInfo("加载mod数据从 " + pPath);
         if (pData == null)
         {

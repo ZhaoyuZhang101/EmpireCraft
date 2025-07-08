@@ -3,9 +3,9 @@ using EmpireCraft.Scripts;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.HelperFunc;
-using EmpireCraft.Scripts.TipAndLog;
 using EmpireCraft.Scripts.UI.Windows;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -29,6 +29,8 @@ public class Empire : MetaObject<EmpireData>
     public Vector3 capital_center;
     public City original_capital;
     public EmpireCraftMapMode map_mode = EmpireCraftMapMode.Empire;
+    public List<Actor> exam_pass_persons = new List<Actor>();
+    public List<Province> province_list = new List<Province>();
 
     public override MetaType meta_type
     {
@@ -64,6 +66,20 @@ public class Empire : MetaObject<EmpireData>
         return this.data.empirePeriod;
     }
 
+    public void StartEmpireExam()
+    {
+        this.data.last_exam_timestamp = World.world.getCurWorldTime();
+    }
+
+    public int GetLastExamYear()
+    {
+        return Date.getYearsSince(this.data.last_exam_timestamp);
+    }
+
+    public string getCulture()
+    {
+        return ConfigData.speciesCulturePair.TryGetValue(empire.getSpecies(), out var culture) ? culture : "";
+    }
     public bool isAllowToMakeWar()
     {
         if (this.data.empirePeriod == EmpirePeriod.逐鹿群雄 || this.data.empirePeriod == EmpirePeriod.天命丧失)
@@ -203,8 +219,20 @@ public class Empire : MetaObject<EmpireData>
         return "";
     }
 
+    public ArmySystemType getArmyType()
+    {
+        return this.data.armySystemType;
+    }
+
+    public void setArmyType(ArmySystemType type)
+    {
+        this.data.armySystemType = type;
+    }
+
     public void createNewEmpire(Kingdom empire)
     {
+        this.data.armySystemType = ArmySystemType.募兵制;
+        this.StartEmpireExam();
         if (ConfigData.speciesCulturePair != null) 
         {
             if (ConfigData.speciesCulturePair.TryGetValue(empire.getSpecies(), out string culture)) {
@@ -225,9 +253,9 @@ public class Empire : MetaObject<EmpireData>
         this.original_capital = empire.capital;
         this.data.banner_icon_id = empire.data.banner_icon_id;
         this.data.banner_background_id = empire.data.banner_background_id;
-        empire.SetCountryLevel(countryLevel.countrylevel_0);
         this.data.timestamp_established_time = World.world.getCurWorldTime();
         this.capital_center = empire.capital.city_center;
+        empire.SetCountryLevel(countryLevel.countrylevel_0);
         this.generateNewMetaObject();
         string empireName = empire.GetKingdomName();
         if (empire.king.HasTitle())
@@ -291,7 +319,7 @@ public class Empire : MetaObject<EmpireData>
 
     public void create_year_name()
     {
-        this.data.year_name = YearName.generateName();
+        this.data.year_name = YearNameHelper.generateName();
         this.data.newEmperor_timestamp = World.world.getCurWorldTime();
     }
 
@@ -314,6 +342,11 @@ public class Empire : MetaObject<EmpireData>
             // 两者相等或都为 0，判定为“中间”
             return LM.Get("Later");
         }
+    }
+
+    public bool isRoyalBeenChanged()
+    {
+        return data.original_royal_been_changed;
     }
 
     public void SetEmpireName(string name)
@@ -395,14 +428,14 @@ public class Empire : MetaObject<EmpireData>
         }
         if (newKingdom.king.hasClan())
         {
-            newKingdom.getKingClan().RecordHistoryEmpire(this);
+            newKingdom.getKingClan().RecordHistoryEmpire(newEmpire);
             newEmpire.empire_clan = newKingdom.getKingClan();
-        } 
+        }
         else
         {
             Clan clan = World.world.clans.newClan(newKingdom.king, true);
             newEmpire.empire_clan = clan;
-
+            clan.RecordHistoryEmpire(newEmpire);
         }
         TranslateHelper.LogMinistorAqcuireEmpire(newKingdom.king, newEmpire);
         foreach (Kingdom kingdom in kingdoms_hashset)
@@ -696,6 +729,21 @@ public class Empire : MetaObject<EmpireData>
                 this.data.kingdoms.Add(tKingdom.id);
             }
         }
+        foreach(Province province in this.province_list)
+        {
+            if (province!=null)
+            {
+                this.data.province_list.Add(province.id);
+            }
+        }
+
+        foreach(Actor actor in this.exam_pass_persons)
+        {
+            if (actor!=null)
+            {
+                this.data.exam_pass_persons.Add(actor.getID());
+            }
+        }
         if (this.emperor != null)
             this.data.emperor = this.emperor.data.id;
         else
@@ -729,6 +777,19 @@ public class Empire : MetaObject<EmpireData>
         this.empire = World.world.kingdoms.get(pData.empire);
         this.empire_clan = World.world.clans.get(pData.empire_clan);
         this.original_capital = World.world.cities.get(pData.original_capital);
+        foreach(long personId in this.data.exam_pass_persons)
+        {
+            Actor actor = World.world.units.get(personId);
+            this.exam_pass_persons.Add(actor);
+        }
+        foreach(long provinceID in this.data.province_list)
+        {
+            Province p = ModClass.PROVINCE_MANAGER.get(provinceID);
+            if (p != null)
+            {
+                this.province_list.Add(p);
+            }
+        }
         this.recalculate();
     }
 
@@ -1203,6 +1264,7 @@ public class Empire : MetaObject<EmpireData>
                 }
             }
             region = region.FindAll(c => c.getID() != empire.capital.getID());
+            empire.getMaxCities();
             if (region.Count > 0)
             {
                 City capital = region.GetRandom();
@@ -1218,7 +1280,9 @@ public class Empire : MetaObject<EmpireData>
                 }
 
                 Kingdom newKingdom;
+                Province province;
                 Actor king;
+                bool flag = true;
                 countryLevel cl = countryLevel.countrylevel_1;
                 PeeragesLevel pl = PeeragesLevel.peerages_1;
                 if (SatisfiedCandidates.Count() > 0)
@@ -1238,29 +1302,55 @@ public class Empire : MetaObject<EmpireData>
                 else
                 {
                     king = capital.hasLeader()?capital.leader:capital.getUnits().FirstOrDefault();
-                    cl = countryLevel.countrylevel_4;
-                    pl = PeeragesLevel.peerages_4;
+                    cl = countryLevel.countrylevel_3;
+                    pl = PeeragesLevel.peerages_3;
                 }
-                newKingdom = setEnfeoff(capital, king);
-                foreach (var city in region)
+                if (flag)
                 {
-                    city.joinAnotherKingdom(newKingdom);
+                    newKingdom = setEnfeoff(capital, king);
+                    foreach (var city in region)
+                    {
+                        city.joinAnotherKingdom(newKingdom);
+                    }
+                    newKingdom.setCapital(capital);
+                    newKingdom.data.name = capital.data.name;
+                    newKingdom.SetCountryLevel(cl);
+                    newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
+                    king.SetPeeragesLevel(pl);
+                    new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_enfeoff_log, this.name)
+                    {
+                        location = this.empire.location,
+                        color_special1 = this.empire.kingdomColor.getColorText()
+                    }.add();
+                    this.join(newKingdom, true, false);
+                    WorldLog.logNewKingdom(newKingdom);
+                } else
+                {
+                    province = ModClass.PROVINCE_MANAGER.newProvince(capital);
+                    foreach (var city in region)
+                    {
+                        if (city!=capital)
+                        {
+                            province.addCity(city);
+                        }
+                    }
+                    LogService.LogInfo($"省份{province.data.name}已建立,包含城市{province.city_list.ToString()}");
                 }
-                newKingdom.setCapital(capital);
-                newKingdom.data.name = capital.data.name;
-                newKingdom.SetCountryLevel(cl);
-                newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
-                king.SetPeeragesLevel(pl);
-                new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_enfeoff_log, this.name)
-                {
-                    location = this.empire.location,
-                    color_special1 = this.empire.kingdomColor.getColorText()
-                }.add();
-                this.join(newKingdom, true, false);
-                WorldLog.logNewKingdom(newKingdom);
             }
         }
         
+    }
+
+    public bool isNeedToSetProvince()
+    {
+        foreach(City city in empire.cities)
+        {
+            if (!city.hasProvince())
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
 
@@ -1285,25 +1375,21 @@ public class Empire : MetaObject<EmpireData>
         ScrollWindow.showWindow(nameof(EmpireWindow));
     }
 
-    // Token: 0x0600113F RID: 4415 RVA: 0x000C80B0 File Offset: 0x000C62B0
     public override Actor getRandomUnit()
     {
         return this.kingdoms_list.GetRandom<Kingdom>().getRandomUnit();
     }
 
-    // Token: 0x06001140 RID: 4416 RVA: 0x000C80C2 File Offset: 0x000C62C2
     public Sprite getBackgroundSprite()
     {
         return World.world.alliances.getBackgroundsList()[this.data.banner_background_id];
     }
 
-    // Token: 0x06001141 RID: 4417 RVA: 0x000C80DF File Offset: 0x000C62DF
     public Sprite getIconSprite()
     {
         return empire.getSpriteIcon();
     }
 
-    // Token: 0x06001142 RID: 4418 RVA: 0x000C80FC File Offset: 0x000C62FC
     public override void Dispose()
     {
         this.kingdoms_list.Clear();
@@ -1315,14 +1401,77 @@ public class Empire : MetaObject<EmpireData>
         }
     }
 
-    // Token: 0x040022FF RID: 8959
     public List<Kingdom> kingdoms_list = new List<Kingdom>();
-
-    // Token: 0x04002300 RID: 8960
     public HashSet<Kingdom> kingdoms_hashset = new HashSet<Kingdom>();
 
     public Kingdom empire;
 
-    // Token: 0x04002301 RID: 8961
     public int power;
+}
+
+public static class ProvinceDivider
+{
+    public static List<Province> DivideIntoProvince(this Empire empire)
+    {
+        List<City> cities = empire.empire.cities;
+        int maxProvinceNum = empire.data.max_province_city_num;
+        var result = new List<Province>();
+        if (cities == null || cities.Count == 0) return result;
+        var remaining = new List<City>(cities);
+
+        if (remaining.Count <= maxProvinceNum)
+        {
+            return result;
+        }
+
+        while (remaining.Count > maxProvinceNum)
+        {
+            var a = remaining[0];
+            Province province = ModClass.PROVINCE_MANAGER.newProvince(a);
+            if (a.isCapitalCity())
+            {
+                province.province_capital = a;
+                province.SetDirectRule();
+            }
+            remaining.Remove(a);
+            var neareast = a.neighbours_cities;
+            int rest = maxProvinceNum-1;
+            foreach (City c in neareast) 
+            {
+                if (rest == 0) break;
+                if (c.kingdom==empire.empire)
+                {
+                    if (c.isCapitalCity())
+                    {
+                        province.province_capital = c;
+                        province.SetDirectRule();
+                    }
+                    province.addCity(c);
+                    remaining.Remove(c);
+                    rest--;
+                }
+            }
+            result.Add(province);
+        }
+        if (remaining.Count>0)
+        {
+            Province province = ModClass.PROVINCE_MANAGER.newProvince(remaining.GetRandom());
+            LogService.LogInfo(province.data.name);
+            foreach (City c in remaining) 
+            {
+                if (c.hasProvince()) continue;
+
+                if (c.isCapitalCity())
+                {
+                    province.province_capital = c;
+                    province.SetDirectRule();
+                }
+                LogService.LogInfo(c.data.name);
+                province.addCity(c);
+            }
+            result.Add(province);
+        }
+        empire.province_list = result;
+        return result;
+    }
 }

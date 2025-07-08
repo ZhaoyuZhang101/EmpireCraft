@@ -1,18 +1,12 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
-using EmpireCraft.Scripts.GamePatches;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Windows;
-using JetBrains.Annotations;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using NeoModLoader.services;
 using UnityEngine;
 
-namespace EmpireCraft.Scripts.Layer;
+namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftMetaTypeLibrary
 {
     public static ZoneCalculator zone_manager;
@@ -34,8 +28,24 @@ public static class EmpireCraftMetaTypeLibrary
                 }
                 foreach (var k in World.world.kingdoms)
                 {
-                    if (k==null) continue;
+                    if (k == null) continue;
                     if (!k.isInEmpire())
+                        zone_manager.drawForKingdom(k);
+                }
+            }
+            else if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
+            {
+                foreach (Province province in ModClass.PROVINCE_MANAGER)
+                {
+                    if (province != null)
+                    {
+                        drawnForProvince(province);
+                    }
+                }
+                foreach (var k in World.world.kingdoms)
+                {
+                    if (k == null) continue;
+                    if (!k.isEmpire())
                         zone_manager.drawForKingdom(k);
                 }
             }
@@ -76,6 +86,19 @@ public static class EmpireCraftMetaTypeLibrary
                     return true;
                 }
             }
+            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
+            {
+                if (pTile.hasCity())
+                {
+                    if (pTile.zone_city.hasProvince())
+                    {
+                        ConfigData.CURRENT_SELECTED_PROVINCE = pTile.zone_city.GetProvince();
+                        LogService.LogInfo("open province window");
+                        return true;
+                    }
+
+                }
+            }
             MetaType.Kingdom.getAsset().selectAndInspect(kingdom);
             return true;
         };
@@ -103,8 +126,49 @@ public static class EmpireCraftMetaTypeLibrary
                     return true;
                 }
             }
+            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
+            {
+                if (city.hasProvince())
+                {
+                    tooltip_province_action(city.GetProvince());
+                    return true;
+                }
+            }
             kingdom.meta_type_asset.cursor_tooltip_action(kingdom);
             return true;
+        };
+        ml.kingdom.check_cursor_highlight = delegate (WorldTile pTile, QuantumSpriteAsset pAsset)
+        {
+            bool flag = PlayerConfig.optionBoolEnabled("highlight_kingdom_enemies");
+            Color color = pAsset.color;
+            City city = pTile.zone.city;
+            if (!city.isRekt())
+            {
+                if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
+                {
+                    if (city.hasProvince())
+                    {
+                        Province province = city.GetProvince();
+                        if (province != null)
+                        {
+                            foreach (City c in province.city_list)
+                            {
+                                QuantumSpriteLibrary.colorZones(pAsset, c.zones, color);
+                            }
+                            return;
+                        }
+                    }
+                }
+                for (int i = 0; i < city.kingdom.cities.Count; i++)
+                {
+                    City city2 = city.kingdom.cities[i];
+                    QuantumSpriteLibrary.colorZones(pAsset, city2.zones, color);
+                }
+                if (flag)
+                {
+                    QuantumSpriteLibrary.colorEnemies(pAsset, city.kingdom);
+                }
+            }
         };
         ml.city.drawn_zones = delegate
         {
@@ -176,10 +240,20 @@ public static class EmpireCraftMetaTypeLibrary
 
     public static void drawnForTitle(KingdomTitle kt)
     {
-        foreach(TileZone tz in kt.allZones())
+        foreach (TileZone tz in kt.allZones())
         {
             zone_manager.drawBegin();
             drawZoneKingdomTitle(tz);
+            zone_manager.drawEnd(tz);
+        }
+    }
+
+    public static void drawnForProvince(Province p)
+    {
+        foreach (TileZone tz in p.allZones())
+        {
+            zone_manager.drawBegin();
+            drawZoneProvince(tz);
             zone_manager.drawEnd(tz);
         }
     }
@@ -196,12 +270,12 @@ public static class EmpireCraftMetaTypeLibrary
     }
     public static void drawForEmpire(Empire empire)
     {
-        foreach(TileZone tz in empire.allZones())
+        foreach (TileZone tz in empire.allZones())
         {
             zone_manager.drawBegin();
             drawZoneEmpire(tz);
             zone_manager.drawEnd(tz);
-        }   
+        }
     }
 
     public static void drawZoneEmpire(TileZone pZone)
@@ -240,6 +314,42 @@ public static class EmpireCraftMetaTypeLibrary
                 {
                     colorBorderInsideAlpha = zone_manager.color_clear;
                 }
+            }
+        }
+        zone_manager.applyMetaColorsToZone(pZone, ref colorBorderInsideAlpha, ref colorMain, pUp, pDown, pLeft, pRight);
+    }
+
+    public static void drawZoneProvince(TileZone pZone)
+    {
+        Province p = pZone.city.GetProvince();
+        if (p == null) return;
+
+        bool pUp = isBorderColor_Province(pZone.zone_up, p, true);
+        bool pDown = isBorderColor_Province(pZone.zone_down, p, false);
+        bool pLeft = isBorderColor_Province(pZone.zone_left, p, false);
+        bool pRight = isBorderColor_Province(pZone.zone_right, p, true);
+        int num = -1;
+        if (p != null)
+        {
+            num = p.GetHashCode();
+        }
+        int num2 = zone_manager.generateIdForDraw(zone_manager._mode_asset, num, pUp, pDown, pLeft, pRight);
+        if (pZone.last_drawn_id == num2 && pZone.last_drawn_hashcode == num)
+        {
+            return;
+        }
+        pZone.last_drawn_id = num2;
+        pZone.last_drawn_hashcode = num;
+        Color32 colorBorderInsideAlpha = Toolbox.color_clear;
+        Color32 colorMain = Toolbox.color_clear;
+        if (p != null)
+        {
+            ColorAsset color = p.getColor();
+            colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
+            colorMain = color.getColorMain2();
+            if (zone_manager.shouldBeClearColor())
+            {
+                colorBorderInsideAlpha = zone_manager.color_clear;
             }
         }
         zone_manager.applyMetaColorsToZone(pZone, ref colorBorderInsideAlpha, ref colorMain, pUp, pDown, pLeft, pRight);
@@ -305,6 +415,18 @@ public static class EmpireCraftMetaTypeLibrary
         return titleOnZone == null || titleOnZone != pKingdomTitle;
     }
 
+    public static bool isBorderColor_Province(TileZone pZone, Province province, bool pCheckFriendly = false)
+    {
+        if (pZone == null)
+        {
+            return true;
+        }
+        if (pZone.city == null) return true;
+        if (!pZone.city.hasProvince()) return true;
+        Province titleOnZone = pZone.city.GetProvince();
+        return titleOnZone == null || titleOnZone != province;
+    }
+
     public static void tooltip_empire_action(Kingdom kingdom)
     {
         if (!kingdom.isRekt())
@@ -313,6 +435,20 @@ public static class EmpireCraftMetaTypeLibrary
             Tooltip.show(kingdom, "empire", new TooltipData
             {
                 kingdom = kingdom,
+                tooltip_scale = 0.7f,
+                is_sim_tooltip = true
+            });
+        }
+    }
+
+    public static void tooltip_province_action(Province province)
+    {
+        if (!province.isRekt())
+        {
+            Tooltip.hideTooltip(province, pOnlySimObjects: true, "province");
+            Tooltip.show(province, "province", new TooltipData
+            {
+                city = province.province_capital,
                 tooltip_scale = 0.7f,
                 is_sim_tooltip = true
             });

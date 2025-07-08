@@ -34,6 +34,7 @@ public static class EmpireLayerToggle
             disableOtherPower(pPower);
             PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
             PlayerConfig.dict["map_title_layer"].boolVal = false;
+            //PlayerConfig.dict["map_province_layer"].boolVal = false;
             ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Empire;
         }
         else

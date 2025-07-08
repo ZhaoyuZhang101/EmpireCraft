@@ -1,9 +1,9 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
-using EmpireCraft.Scripts.TipAndLog;
 using NCMS.Extensions;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -44,6 +44,28 @@ namespace EmpireCraft.Scripts.AI
                 
                 action = BecomeEmpireAndStartEnfeoff
             });
+            //AssetManager.plots_library.add(new PlotAsset
+            //{
+            //    id = "start_exam",
+            //    path_icon = "ChineseCrown.png",
+            //    group_id = "diplomacy",
+            //    is_basic_plot = true,
+            //    min_level = 5,
+            //    money_cost = 30,
+            //    progress_needed = 60f,
+            //    can_be_done_by_king = true,
+            //    check_is_possible = delegate (Actor pActor)
+            //    {
+            //        Kingdom kingdom = pActor.kingdom;
+            //        if (!pActor.isKing()) return false;
+            //        if (kingdom.hasEnemies()) return false;
+            //        if (!kingdom.isInEmpire()) return false;
+            //        if (!kingdom.isEmpire()) return false;
+            //        return true;
+            //    },
+                
+            //    action = startExam
+            //});
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "new_empire_royal",
@@ -61,7 +83,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isInEmpire()) return false;
                     if (!kingdom.isEmpire()) return false;
                     if (kingdom.hasEnemies()) return false;
-                    if (!kingdom.GetEmpire().data.original_royal_been_changed) return false;
+                    if (!kingdom.GetEmpire().isRoyalBeenChanged()) return false;
                     if (Date.getYearsSince(kingdom.GetEmpire().data.original_royal_been_changed_timestamp)<=5) return false;
                     return true;
                 },
@@ -113,7 +135,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isEmpire()) return false;
                     if (!kingdom.isInEmpire()) return false;
                     if (kingdom.hasEnemies()) return false;
-                    if (kingdom.countCities() < 3) return false;
+                    if (kingdom.cities.Count() <= pActor.kingdom.getMaxCities()) return false; 
+                    //if (!kingdom.GetEmpire().isNeedToSetProvince()) return false;
                     return true;
                 },
                 
@@ -634,6 +657,14 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
+                    if (warTarget.isInSameEmpire(pActor.kingdom))
+                    {
+                        Empire empire = warTarget.GetEmpire();
+                        if (!empire.isAllowToMakeWar())
+                        {
+                            return false;
+                        }
+                     }
                     Plot plot = World.world.plots.newPlot(pActor, pPlotAsset, pForced);
                     plot.target_kingdom = warTarget;
                     if (!plot.checkInitiatorAndTargets())
@@ -689,10 +720,17 @@ namespace EmpireCraft.Scripts.AI
             return true;
         }
 
+        private static bool startExam(Actor pActor)
+        {
+            //todo: 
+            return true;
+        }
+
         private static bool BecomeEmpireAndStartEnfeoff(Actor pActor)
         {
             Kingdom kingdom = pActor.kingdom;
             Empire empire = ModClass.EMPIRE_MANAGER.newEmpire(kingdom);
+            //empire.DivideIntoProvince();
             empire.AutoEnfeoff();
             return true;
         }
@@ -700,6 +738,7 @@ namespace EmpireCraft.Scripts.AI
         private static bool StartEnfeoff(Actor pActor)
         {
             Kingdom kingdom = pActor.kingdom;
+            //kingdom.GetEmpire().DivideIntoProvince();
             kingdom.GetEmpire().AutoEnfeoff();
             return true;
         }

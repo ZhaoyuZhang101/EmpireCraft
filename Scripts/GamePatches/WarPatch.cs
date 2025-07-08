@@ -1,7 +1,7 @@
 ﻿using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
-using EmpireCraft.Scripts.TipAndLog;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.services;
@@ -74,6 +74,13 @@ public class WarPatch
                 {
                     if (kingdom.isOpinionTowardsKingdomGood(pAttacker) && kingdom != pDefender)
                     {
+                        if (kingdom.getWars().Count()>=0)
+                        {
+                            foreach(War w in kingdom.getWars())
+                            {
+                                w.endForSides(WarWinner.Nobody);
+                            }
+                        }
                         war.joinAttackers(kingdom);
                         if (kingdom.hasAlliance())
                         {
@@ -91,6 +98,13 @@ public class WarPatch
                 {
                     if (kingdom.isOpinionTowardsKingdomGood(pDefender) && kingdom != pAttacker)
                     {
+                        if (kingdom.getWars().Count() >= 0)
+                        {
+                            foreach (War w in kingdom.getWars())
+                            {
+                                w.endForSides(WarWinner.Nobody);
+                            }
+                        }
                         war.joinDefenders(kingdom);
                     }
                 }

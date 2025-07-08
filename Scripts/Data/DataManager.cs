@@ -96,6 +96,13 @@ public static class DataManager
             ModClass.KINGDOM_TITLE_MANAGER.addObject(kt);
         }
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
+        foreach (ProvinceData provinceData in saveData.provinceDatas)
+        {
+            Province p = new Province();
+            p.loadData(provinceData);
+            ModClass.PROVINCE_MANAGER.addObject(p);
+        }
+        ModClass.PROVINCE_MANAGER.update(-1L);
         LogService.LogInfo("同步法理数据");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         ConfigData.speciesCulturePair = saveData.speciesCulturePair;
@@ -115,6 +122,7 @@ public static class DataManager
         saveData.warExtraData = World.world.wars.Select(a => a.getExtraData(true)).Where(ed => ed != null).ToList(); ;
         saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
         saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
+        saveData.provinceDatas = new List<ProvinceData>(ModClass.PROVINCE_MANAGER.Count);
         ModClass.EMPIRE_MANAGER.update(-1L);
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)
@@ -136,6 +144,17 @@ public static class DataManager
                 {
                     kt.save();
                     saveData.kingdomTitleDatas.Add(kt.data);
+                }
+            }
+        }
+        foreach(Province p in ModClass.PROVINCE_MANAGER)
+        {
+            if (p != null)
+            {
+                if (p.data!= null)
+                {
+                    p.save();
+                    saveData.provinceDatas.Add(p.data);
                 }
             }
         }

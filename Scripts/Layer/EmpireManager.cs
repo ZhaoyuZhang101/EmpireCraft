@@ -1,7 +1,7 @@
 ﻿using db;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
-using EmpireCraft.Scripts.TipAndLog;
 using HarmonyLib;
 using NeoModLoader.services;
 using Newtonsoft.Json.Linq;

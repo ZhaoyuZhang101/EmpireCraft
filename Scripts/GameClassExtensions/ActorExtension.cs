@@ -12,13 +12,18 @@ using EpPathFinding.cs;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using NeoModLoader.General;
 using EmpireCraft.Scripts.HelperFunc;
-using EmpireCraft.Scripts.TipAndLog;
 using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.Layer;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
+using EmpireCraft.Scripts.Data;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
-
+public class OfficeIdentity
+{
+    public 官职 官职 { get; set; } = 官职.无;
+    public 勋级 勋级 { get; set; } = 勋级.无;
+    public 散官 散官 { get; set; } = 散官.无;
+}
 public static class ActorExtension
 {
     public class ActorExtraData
@@ -27,10 +32,13 @@ public static class ActorExtension
         // 爵位  
         [JsonConverter(typeof(StringEnumConverter))]
         public PeeragesLevel peeragesLevel;
+        public PeerageType peerageType;
         public string title = "";
         public List<long> titles = new List<long>();
         public List<long> want_acuired_title = new List<long>();
         public List<long> owned_title = new List<long>();
+        public OfficeIdentity officeIdentity { get; set; }
+        public long provinceId { get; set; } = -1L;
     }
     public static void SetTitle(this Actor a, string value)
     {
@@ -38,6 +46,39 @@ public static class ActorExtension
         if (a.kingdom == null) return;
         if (a.kingdom.GetEmpire() == null) return;
         GetOrCreate(a).title = value + " " + TranslateHelper.GetPeerageTranslate(a.GetPeeragesLevel());
+    }
+
+    public static void SetPeerageType(this Actor a, PeerageType type)
+    {
+        GetOrCreate(a).peerageType = type;
+    } 
+
+    public static PeerageType GetPeerageType(this Actor a)
+    {
+        return GetOrCreate(a).peerageType;
+    }
+
+    public static long GetProvinceID(this Actor a)
+    {
+        if (a ==null)
+        {
+            return -1L;
+        }
+        return GetOrCreate(a).provinceId;
+    }
+    public static void SetProvinceID( this Actor a, long id)
+    {
+        if (a == null) return;
+        GetOrCreate(a).provinceId = id;
+    }
+    public static void RemoveProvinceID(this Actor a)
+    {
+        if (a == null) return;
+        GetOrCreate(a).provinceId = -1L;
+    }
+    public static bool isOfficer(this Actor a)
+    {
+        return GetOrCreate(a).provinceId != -1L;
     }
 
     public static void RemoveExtraData(this Actor a)
@@ -84,6 +125,25 @@ public static class ActorExtension
             }
         }
         return false;
+    }
+
+    public static string GetActorName(this Actor a)
+    {
+        if (a == null) return null;
+        if (a.name == null || a.name == "") return null;
+        string[] nameParts = a.name.Split(' ');
+
+        if (ConfigData.speciesCulturePair.TryGetValue(a.asset.id, out var culture))
+        {
+            if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
+            {
+                if (nameParts.Length - 1 >= setting.Unit.name_pos)
+                {
+                    return nameParts[setting.Unit.name_pos];
+                }
+            }
+        }
+        return nameParts[0];
     }
 
     public static List<KingdomTitle> getAcquireTitle(this Actor a)
@@ -181,6 +241,9 @@ public static class ActorExtension
         ed.title = actorExtraData.title;
         ed.owned_title = actorExtraData.owned_title;
         ed.want_acuired_title = actorExtraData.want_acuired_title;
+        ed.officeIdentity = actorExtraData.officeIdentity;
+        ed.provinceId = actorExtraData.provinceId;
+        ed.peerageType = actorExtraData.peerageType;
         return true;
     }
 
@@ -193,7 +256,36 @@ public static class ActorExtension
         data.title = a.GetTitle();
         data.want_acuired_title = a.GetAcquireTitle();
         data.owned_title = a.GetOwnedTitle();
+        data.officeIdentity = GetOrCreate(a).officeIdentity;
+        data.provinceId = GetOrCreate(a).provinceId;
+        data.peerageType = GetOrCreate(a).peerageType;
         return data;
+    }
+
+    public static (double wen, double wu) CalculateAbility(this Actor a)
+    {
+        double diplomacy = a.stats["diplomacy"];
+        double stewardship = a.stats["stewardship"];
+        double intelligence = a.stats["intelligence"];
+        double warfare = a.stats["warfare"];
+        double mana = a.stats["mana"];
+        double stamina = a.stats["stamina"];
+        double skill_spell = a.stats["skill_spell"];
+        double skill_combat = a.stats["skill_combat"];
+        double range = a.stats["range"];
+        double damage = a.stats["damage"];
+        double scale = a.stats["scale"];
+        double offspring = a.stats["offspring"];
+        double mass = a.stats["mass"];
+        double throwing_range = a.stats["throwing_range"];
+        double lifespan = a.stats["lifespan"];
+        double mass_2 = a.stats["mass_2"];
+        double armor = a.stats["armor"];
+        double attack_speed = a.stats["attack_speed"];
+
+        double KnowladgeAbility = diplomacy * 2 + stewardship + intelligence * 5 + lifespan;
+        double FightAbility = stamina + warfare + attack_speed + lifespan + armor + +throwing_range + damage * 5;
+        return (KnowladgeAbility, FightAbility);
     }
 
     public static bool canTakeTitle(this Actor a)

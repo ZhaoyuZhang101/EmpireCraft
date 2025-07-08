@@ -19,7 +19,68 @@ public class DiplomacyManagerPatch : GamePatch
             AccessTools.Method(typeof(DiplomacyHelpers), nameof(DiplomacyHelpers.getWarTarget)),
             prefix: new HarmonyMethod(GetType(), nameof(get_war_target))
         );
+
+        new Harmony(nameof(get_alliance_target)).Patch(
+            AccessTools.Method(typeof(DiplomacyHelpers), nameof(DiplomacyHelpers.getAllianceTarget)),
+            prefix: new HarmonyMethod(GetType(), nameof(get_alliance_target))
+        );
     }
+
+    public static bool get_alliance_target(Kingdom pKingdomStarter, ref Kingdom __result)
+    {
+        if (pKingdomStarter.isSupreme())
+        {
+            __result = null;
+            return false;
+        }
+        using ListPool<Kingdom> listPool = World.world.wars.getNeutralKingdoms(pKingdomStarter, pOnlyWithoutWars: true, pOnlyWithoutAlliances: true);
+        if (listPool.Count == 0)
+        {
+            __result = null;
+            return false;
+        }
+        foreach (Kingdom item in listPool.LoopRandom())
+        {
+            if (item.hasKing() && !item.isSupreme() && !item.king.hasPlot() && pKingdomStarter.isOpinionTowardsKingdomGood(item) && item.getRenown() >= PlotsLibrary.alliance_create.min_renown_kingdom)
+            {
+                if (item == null) continue;
+                bool flag = false;
+                if (pKingdomStarter.cities.Count <= 2 && item.cities.Count <= 2 && !pKingdomStarter.hasNearbyKingdoms() && !item.hasNearbyKingdoms())
+                {
+                    flag = true;
+                }
+                if (!flag && DiplomacyHelpers.areKingdomsClose(item, pKingdomStarter))
+                {
+                    flag = true;
+                }
+                if (pKingdomStarter.isInEmpire())
+                {
+                    if (item.isInSameEmpire(pKingdomStarter))
+                    {
+                        flag = true;
+                    } else
+                    {
+                        flag = false;
+                    }
+                    if (item.isInEmpire())
+                    {
+                        if (item.GetEmpire().isAllowToMakeWar())
+                        {
+                            flag = true;
+                        }
+                    }
+                }
+                if (flag)
+                {
+                    __result= item;
+                    return false;
+                }
+            }
+        }
+        __result = null;
+        return false;
+    }
+
     static bool get_war_target(Kingdom pInitiatorKingdom, ref Kingdom __result)
     {
         Kingdom tBestTarget = null;

@@ -7,13 +7,13 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace EmpireCraft.Scripts.Layer;
-public class EmpireCraftStatsRow: StatsRowsContainer
+namespace EmpireCraft.Scripts.UI;
+public class EmpireCraftStatsRow : StatsRowsContainer
 {
     public new void Awake()
     {
         KeyValueField pPrefab = Resources.Load<KeyValueField>("ui/KeyValueFieldStats");
-        _stats_pool = new ObjectPoolGenericMono<KeyValueField>(pPrefab, base.transform);
+        _stats_pool = new ObjectPoolGenericMono<KeyValueField>(pPrefab, transform);
     }
 
     public new void OnEnable()
@@ -22,7 +22,7 @@ public class EmpireCraftStatsRow: StatsRowsContainer
 
     public void tryToShowActor(string pTitle, long pID = -1L, string pName = null, Actor pObject = null, string pIconPath = null)
     {
-        Actor actor = ((pObject != null) ? pObject : World.world.units.get(pID));
+        Actor actor = pObject != null ? pObject : World.world.units.get(pID);
         if (!actor.isRekt())
         {
             showStatsMetaUnit(actor, pTitle, pIconPath);
@@ -42,10 +42,10 @@ public class EmpireCraftStatsRow: StatsRowsContainer
             pValue = pActor.getName();
             pValue += Toolbox.coloredGreyPart(pActor.getAge(), text, pUnit: true);
         }
-        showStatRowMeta(pTitle, pValue, text, MetaType.Unit, pActor?.getID() ?? (-1), pColorText: false, pIconPath);
+        showStatRowMeta(pTitle, pValue, text, MetaType.Unit, pActor?.getID() ?? -1, pColorText: false, pIconPath);
     }
 
-    public KeyValueField IShowStatsRow(string pId, object pValue, string pColor, MetaType pMetaType = MetaType.None, long pMetaId = -1L, bool pColorText = false, string pIconPath = null, string pTooltipId = null, TooltipDataGetter pTooltipData = null, bool pLocalize = true, UnityAction action=null)
+    public KeyValueField IShowStatsRow(string pId, object pValue, string pColor, MetaType pMetaType = MetaType.None, long pMetaId = -1L, bool pColorText = false, string pIconPath = null, string pTooltipId = null, TooltipDataGetter pTooltipData = null, bool pLocalize = true, UnityAction action = null)
     {
         KeyValueField field = showStatRow(pId, pValue, pColor, pMetaType, pMetaId, pColorText, pIconPath, pTooltipId, pTooltipData, pLocalize);
         field.on_click_value = action;

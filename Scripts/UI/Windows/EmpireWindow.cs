@@ -90,10 +90,16 @@ namespace EmpireCraft.Scripts.UI.Windows
             Vector2 buttonSize = new Vector2(25, 15);
             SimpleButton infosButton = Instantiate(SimpleButton.Prefab, null);
             infosButton.Setup(ShowList, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), LM.Get("empire_cotroled_kingdoms"), buttonSize);
+
             SimpleButton emperorsButton = Instantiate(SimpleButton.Prefab, null);
             emperorsButton.Setup(ShowEmperors, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), LM.Get("past_emperors"), buttonSize);
+
+            SimpleButton empireBeaurauButton = Instantiate(SimpleButton.Prefab, null);
+            empireBeaurauButton.Setup(ShowBeaurau, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), LM.Get("empire_beaurau"), buttonSize);
+
             selectGroup.AddChild(infosButton.gameObject);
             selectGroup.AddChild(emperorsButton.gameObject);
+            selectGroup.AddChild(empireBeaurauButton.gameObject);
             AddChild(selectGroup.gameObject);
 
 
@@ -204,6 +210,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             list_kingdoms.gameObject.SetActive(true);
             StartCoroutine(ShowKingdoms());
             list_kingdoms.GetLayoutGroup().CalculateLayoutInputVertical();
+        }
+        public void ShowBeaurau()
+        {
+            ScrollWindow.showWindow(nameof(EmpireBeaurauWindow));
         }
 
         public IEnumerator ShowKingdoms()

@@ -1,5 +1,4 @@
-﻿using EmpireCraft.Scripts.HelperFunc;
-using NeoModLoader.General;
+﻿using NeoModLoader.General;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,8 +6,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EmpireCraft.Scripts.Layer;
-public static class YearName
+namespace EmpireCraft.Scripts.HelperFunc;
+public static class YearNameHelper
 {
     public static string generateName()
     {

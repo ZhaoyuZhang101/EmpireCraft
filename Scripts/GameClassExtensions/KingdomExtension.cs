@@ -254,8 +254,12 @@ public static class KingdomExtension
                 {
                     if (k.isInEmpire())
                     {
-                        if (kingdom.isOpinionTowardsKingdomGood(k.GetEmpire().empire))
-                            empires.Add(k.GetEmpire());
+                        Empire empire = k.GetEmpire();
+                        if ((double)kingdom.cities.Count()<=((double)empire.AllCities().Count())/5)
+                        {
+                            if (kingdom.isOpinionTowardsKingdomGood(k.GetEmpire().empire))
+                                empires.Add(k.GetEmpire());
+                        }
                     }
                 }
             }
@@ -397,8 +401,9 @@ public static class KingdomExtension
     public static void SetCountryLevel(this Kingdom kingdom, countryLevel value)
     {
         string kingdomOriginalName = kingdom.GetKingdomName();
-        string culture = ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out var a) ? a : "default";
+        string culture = ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out var a) ? a : "Western";
         string kingdomBack = LM.Get($"{culture}_" + value.ToString());
+        
         kingdom.data.name = String.Join(" ", kingdomOriginalName, kingdomBack) ;
         GetOrCreate(kingdom).country_level = value;
     }    
@@ -423,19 +428,32 @@ public static class KingdomExtension
             string level = country_level.ToString().Split('_').Last();
             string province_level_name = "provincelevel";
             string province_level_string = "";
+            string preName;
+            string postName;
             if (ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out string culture))
             {
+                preName = String.Join("_", culture, "capital");
+                postName = String.Join("_", culture, "provincelevel", "0");
                 province_level_string = String.Join("_", culture, province_level_name, level);
             }
             else
             {
+                preName = String.Join("_", "Western", "capital");
+                postName = String.Join("_", "Western", "provincelevel", "0");
                 province_level_string = String.Join("_", "Western", province_level_name, level);
             }
             foreach (City city in kingdom.cities)
             {
                 city.AddKingdomName(kingdom.name.Split(' ')[0]);
             }
-            string province_name = kingdom.capital.GetCityName() + " " + LM.Get(province_level_string);
+            string province_name;
+            if (country_level == countryLevel.countrylevel_0)
+            {
+                province_name = LM.Get(preName) + " " + LM.Get(postName);
+            } else
+            {
+                province_name = kingdom.capital.GetCityName() + " " + LM.Get(province_level_string);
+            }
             kingdom.data.name = province_name;
             GetOrCreate(kingdom).vassaled_kingdom_id = value;
         } else

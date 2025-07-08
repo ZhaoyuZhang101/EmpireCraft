@@ -1,5 +1,7 @@
-﻿using EmpireCraft.Scripts.Enums;
+﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
+using NeoModLoader.General;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
@@ -27,6 +29,22 @@ public static class ClanExtension
     {
         var ed = ExtensionManager<Clan, ClanExtraData>.GetOrCreate(a, isSave);
         return ed;
+    }
+
+    public static string GetClanName(this Clan clan, ActorSex sex = ActorSex.None, bool hasSexPost = false)
+    {
+        var nameParts = clan.name.Split(' ');
+        if (ConfigData.speciesCulturePair.TryGetValue(clan.species_id, out var culture))
+        {
+            if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
+            {
+                if (nameParts.Length - 1 >= setting.Clan.name_pos)
+                {
+                    return hasSexPost ? nameParts[setting.Clan.name_pos] + LM.Get($"{culture}_sex_post_{sex.ToString()}"): nameParts[setting.Clan.name_pos];
+                }
+            }
+        }
+        return hasSexPost ? nameParts[0]+LM.Get($"{culture}_sex_post_{sex.ToString()}"): nameParts[0];
     }
 
     public static void RemoveExtraData(this Clan a)
@@ -72,7 +90,7 @@ public static class ClanExtension
         if (!kingdom.hasCapital()) return;
         kingdom.capital.updateCityCenter();
         GetOrCreate(__instance).id = __instance.getID();
-        GetOrCreate(__instance).position = kingdom.capital.city_center;
+        GetOrCreate(__instance).position = empire.original_capital.city_center;
         GetOrCreate(__instance).historical_empire_name = empire.GetEmpireName();
         GetOrCreate(__instance).original_capital = empire.original_capital.isAlive() ? empire.original_capital.data.id : -1L;
     }

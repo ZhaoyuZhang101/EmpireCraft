@@ -16,6 +16,7 @@ using System.Drawing;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Data;
+using System.Configuration;
 namespace EmpireCraft.Scripts.GamePatches;
 
 public class CulturePatch : GamePatch
@@ -64,88 +65,92 @@ public class CulturePatch : GamePatch
         LogService.LogInfo("当前文化物种: " + species);
         if (ConfigData.speciesCulturePair.TryGetValue(species, out var insertCulture))
         {
-            insertCultureNameTemplate(culture, insertCulture);
+            insertCultureTemplate(culture, insertCulture);
         }
         else
         {
-            insertCultureNameTemplate(culture, "Western");
+            insertCultureTemplate(culture, "Western");
         }
     }
 
-    public static void insertCultureNameTemplate(Culture culture, string cultureName)
+    public static void insertCultureTemplate(Culture culture, string cultureName)
     {
         OnomasticsData kindomData = culture.getOnomasticData(MetaType.Kingdom);
         OnomasticsData clanData = culture.getOnomasticData(MetaType.Clan);
         OnomasticsData familyData = culture.getOnomasticData(MetaType.Family);
         OnomasticsData CityData = culture.getOnomasticData(MetaType.City);
         OnomasticsData unitData = culture.getOnomasticData(MetaType.Unit);
-        
-        kindomData.clearTemplateData();
-        kindomData.groups.Clear();
 
 
-        OnomasticsType[] kindomTemplateData ={ 
-            OnomasticsType.group_1, OnomasticsType.space, OnomasticsType.group_2
-        };
+        if (!OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(cultureName, out Setting setting))
+        {
+            LogService.LogInfo($"文化：{cultureName}的配置不存在");
+            return;
+        }
+        FamilySetting familySetting = setting.Family;
+        UnitSetting unitSetting = setting.Unit;
+        KingdomSetting kingdomSetting = setting.Kingdom;
+        ClanSetting clanSetting = setting.Clan;
+        CitySetting citySetting = setting.City;
+
         OnomasticsHelper.Configure(
             kindomData,
             cultureName,
-            kindomTemplateData,
-            (OnomasticsType.group_1.ToString(), "CountryNames", null),
-            (OnomasticsType.group_2.ToString(), null, LM.Get("Country"))
+            kingdomSetting.rule,
+            setGroup(kingdomSetting.groups, cultureName)
             );
-
-
-        OnomasticsType[] cityTemplateData = {
-                    OnomasticsType.group_1, OnomasticsType.group_2, OnomasticsType.space, OnomasticsType.group_3
-                };
-        OnomasticsHelper.Configure(
-            CityData,
-            cultureName,
-            cityTemplateData,
-            (OnomasticsType.group_1.ToString(), "CityNames1", null),
-            (OnomasticsType.group_2.ToString(), "CityNames2", null),
-            (OnomasticsType.group_3.ToString(), "CityNames3", null)
-            );
-
-        OnomasticsType[] clanTemplateData = {
-                    OnomasticsType.group_1, OnomasticsType.space, OnomasticsType.group_2
-                };
-
-        OnomasticsHelper.Configure(
-            clanData,
-            cultureName,
-            clanTemplateData,
-            (OnomasticsType.group_1.ToString(), "ClanNames", null),
-            (OnomasticsType.group_2.ToString(), null, LM.Get("Clan"))
-            );
-
-        OnomasticsType[] familyTemplateData = {
-                    OnomasticsType.group_1, OnomasticsType.space, OnomasticsType.group_2
-                };
 
         OnomasticsHelper.Configure(
             familyData,
             cultureName,
-            familyTemplateData,
-            (OnomasticsType.group_1.ToString(), "FamilyNames", null),
-            (OnomasticsType.group_2.ToString(), null, LM.Get("Family"))
+            familySetting.rule,
+            setGroup(familySetting.groups, cultureName)
             );
 
+        OnomasticsHelper.Configure(
+            clanData,
+            cultureName,
+            clanSetting.rule,
+            setGroup(clanSetting.groups, cultureName)
+            );
 
-        OnomasticsType[] unitTemplateData = {
-                    OnomasticsType.group_1, OnomasticsType.sex_male, OnomasticsType.coin_flip, OnomasticsType.group_2, OnomasticsType.sex_male,
-                    OnomasticsType.group_3, OnomasticsType.sex_female, OnomasticsType.coin_flip, OnomasticsType.group_4,OnomasticsType.sex_female
-                };
         OnomasticsHelper.Configure(
             unitData,
             cultureName,
-            unitTemplateData,
-            (OnomasticsType.group_1.ToString(), "UnitNamesMale1", null),
-            (OnomasticsType.group_2.ToString(), "UnitNamesMale2", null),
-            (OnomasticsType.group_3.ToString(), "UnitNamesFemale1", null),
-            (OnomasticsType.group_4.ToString(), "UnitNamesFemale2", null)
-
+            unitSetting.rule,
+            setGroup(unitSetting.groups, cultureName)
             );
+
+        OnomasticsHelper.Configure(
+            CityData,
+            cultureName,
+            citySetting.rule,
+            setGroup(citySetting.groups, cultureName)
+            );
+
+    }
+
+    public static (string groupName, string CharacterSetName, string definedContent)[] setGroup(Dictionary<string, string> groupPair, string culture)
+    {
+        (string groupName, string CharacterSetName, string definedContent)[] groups = new (string groupName, string CharacterSetName, string definedContent)[0];
+        foreach (KeyValuePair<string, string> group in groupPair)
+        {
+            string key = group.Key;
+            string value = group.Value;
+
+            string ModPath = Path.Combine(ModClass._declare.FolderPath, "Locales");
+            string culturePath = Path.Combine(ModPath, "Cultures", $"Culture_{culture}");
+            string CharacterSetPath = Path.Combine(culturePath, String.Format("{0}{1}.csv", culture, value));
+            if (File.Exists(CharacterSetPath))
+            {
+                groups = groups.Append((key, value, null)).ToArray();
+            }
+            else
+            {
+                groups = groups.Append((key, null, LM.Get(value))).ToArray();
+            }
+
+        }
+        return groups;
     }
 }

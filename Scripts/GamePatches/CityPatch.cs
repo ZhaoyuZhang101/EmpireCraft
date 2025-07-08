@@ -10,6 +10,7 @@ using NeoModLoader.General;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO.Ports;
 using System.Linq;
 using System.Security.Policy;
@@ -74,10 +75,50 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.removeZone)),
             prefix: new HarmonyMethod(GetType(), nameof(removeZone))
         );
+
+        new Harmony(nameof(setLeader)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.setLeader)),
+            prefix: new HarmonyMethod(GetType(), nameof(setLeader))
+        );
     }
 
+    public static bool setLeader(City __instance, Actor pActor, bool pNew)
+    {
+        if (__instance.hasProvince())
+        {
+            if (__instance.GetProvince() != null)
+            {
+                if (__instance.GetProvince().officer!=null)
+                {
+                    if (__instance.GetProvince().officer == pActor)
+                    {
+                        return false ;
+                    }
+                }
+            }
+        }
+        if (pActor != null && __instance.kingdom.king != pActor)
+        {
+            __instance.leader = pActor;
+            __instance.leader.setProfession(UnitProfession.Leader);
+            CityData cityData = __instance.data;
+            long leaderID = (__instance.data.last_leader_id = pActor.data.id);
+            cityData.leaderID = leaderID;
+            if (pNew)
+            {
+                __instance.data.total_leaders++;
+                __instance.leader.changeHappiness("become_leader");
+                __instance.data.addRuler(pActor);
+            }
+        }
+        return false;
+    }
     public static bool joinAnotherKingdom(City __instance, Kingdom pNewSetKingdom, bool pCaptured = false, bool pRebellion = false)
     {
+        if (__instance.hasProvince())
+        {
+            __instance.GetProvince().removeCity(__instance);
+        }
         string pHappinessEvent = null;
         if (pCaptured)
         {
@@ -145,6 +186,10 @@ public class CityPatch : GamePatch
     }
     public static bool makeOwnKingdom(City __instance, Actor pActor, bool pRebellion, bool pFellApart, ref Kingdom __result)
     {
+        if (__instance.hasProvince())
+        {
+            __instance.GetProvince().removeCity(__instance);
+        }
         string pHappinessEvent = null;
         if (pRebellion)
         {
@@ -279,6 +324,10 @@ public class CityPatch : GamePatch
         if (__instance.hasTitle())
         {
             __instance.GetTitle().removeCity(__instance);
+        }
+        if (__instance.hasProvince()) 
+        {
+            __instance.GetProvince().removeCity(__instance);
         }
     }
     public static void removeData(City __instance)

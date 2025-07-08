@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace EmpireCraft.Scripts.TipAndLog;
+namespace EmpireCraft.Scripts.GameLibrary;
 public class EmpireCraftWorldLogLibrary
 {
     public static WorldLogAsset history_new_emperor;
@@ -74,13 +74,13 @@ public class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$kingdom$", 3);
             }
         });
-        empire_war  = wl.add(new WorldLogAsset
+        empire_war = wl.add(new WorldLogAsset
         {
             id = nameof(empire_war),
-            group= "emperors",
+            group = "emperors",
             path_icon = "crown2",
             color = Toolbox.color_log_warning,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$empire$", 1);
                 wl.updateText(ref pText, pMessage, "$defencer$", 2);
@@ -89,10 +89,10 @@ public class EmpireCraftWorldLogLibrary
         destroy_title_log = wl.add(new WorldLogAsset
         {
             id = nameof(destroy_title_log),
-            group= "emperors",
+            group = "emperors",
             path_icon = "EmperorQuest",
             color = Toolbox.color_log_warning,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$king$", 1);
                 wl.updateText(ref pText, pMessage, "$title$", 2);
@@ -101,10 +101,10 @@ public class EmpireCraftWorldLogLibrary
         history_kingdom_change_capital_to_title = wl.add(new WorldLogAsset
         {
             id = nameof(history_kingdom_change_capital_to_title),
-            group= "emperors",
+            group = "emperors",
             path_icon = "EmperorQuest",
             color = Toolbox.color_log_warning,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$kingdom$", 1);
                 wl.updateText(ref pText, pMessage, "$title$", 2);
@@ -114,10 +114,10 @@ public class EmpireCraftWorldLogLibrary
         history_kingdom_join_empire = wl.add(new WorldLogAsset
         {
             id = nameof(history_kingdom_join_empire),
-            group= "emperors",
+            group = "emperors",
             path_icon = "EmperorQuest",
             color = Toolbox.color_log_warning,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$kingdom$", 1);
                 wl.updateText(ref pText, pMessage, "$empire$", 2);
@@ -126,23 +126,23 @@ public class EmpireCraftWorldLogLibrary
         king_take_title_log = wl.add(new WorldLogAsset
         {
             id = nameof(king_take_title_log),
-            group= "emperors",
+            group = "emperors",
             path_icon = "MinistorAcquireEmpire",
             color = Toolbox.color_log_warning,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$kingdom$", 1);
                 wl.updateText(ref pText, pMessage, "$king$", 2);
                 wl.updateText(ref pText, pMessage, "$title_name$", 3);
-            } 
+            }
         });
         king_create_title_log = wl.add(new WorldLogAsset
         {
             id = nameof(king_create_title_log),
-            group= "emperors",
+            group = "emperors",
             path_icon = "EmperorQuest",
             color = Toolbox.color_log_warning,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$kingdom$", 1);
                 wl.updateText(ref pText, pMessage, "$king$", 2);
@@ -152,10 +152,10 @@ public class EmpireCraftWorldLogLibrary
         city_add_to_title_log = wl.add(new WorldLogAsset
         {
             id = nameof(city_add_to_title_log),
-            group= "emperors",
+            group = "emperors",
             path_icon = "EmperorQuest",
             color = Toolbox.color_log_warning,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$city$", 1);
                 wl.updateText(ref pText, pMessage, "$title_name$", 2);
@@ -164,10 +164,10 @@ public class EmpireCraftWorldLogLibrary
         empire_enfeoff_log = wl.add(new WorldLogAsset
         {
             id = nameof(empire_enfeoff_log),
-            group= "emperors",
+            group = "emperors",
             path_icon = "SplitAllUnderHeaven.png",
             color = Toolbox.color_log_good,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$empire$", 1);
             }
@@ -175,10 +175,10 @@ public class EmpireCraftWorldLogLibrary
         history_kingdom_attack_for_title = wl.add(new WorldLogAsset
         {
             id = nameof(history_kingdom_attack_for_title),
-            group= "emperors",
+            group = "emperors",
             path_icon = "TitleAcquire.png",
             color = Toolbox.color_log_good,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$attacker$", 1);
                 wl.updateText(ref pText, pMessage, "$defender$", 2);
@@ -188,10 +188,10 @@ public class EmpireCraftWorldLogLibrary
         become_new_empire_log = wl.add(new WorldLogAsset
         {
             id = nameof(become_new_empire_log),
-            group= "emperors",
+            group = "emperors",
             path_icon = "ChineseCrown.png",
             color = Toolbox.color_log_good,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$emperor$", 1);
                 wl.updateText(ref pText, pMessage, "$kingdom_name$", 2);
@@ -200,10 +200,10 @@ public class EmpireCraftWorldLogLibrary
         ministor_try_aqcuire_empire_log = wl.add(new WorldLogAsset
         {
             id = nameof(ministor_try_aqcuire_empire_log),
-            group= "emperors",
+            group = "emperors",
             path_icon = "MinistorAcquireEmpire.png",
             color = Toolbox.color_log_good,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$title$", 1);
                 wl.updateText(ref pText, pMessage, "$ministor$", 2);
@@ -213,10 +213,10 @@ public class EmpireCraftWorldLogLibrary
         powerful_minister_aquire_empire_war = wl.add(new WorldLogAsset
         {
             id = nameof(powerful_minister_aquire_empire_war),
-            group= "emperors",
+            group = "emperors",
             path_icon = "MinistorAcquireEmpire.png",
             color = Toolbox.color_log_good,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$title$", 1);
                 wl.updateText(ref pText, pMessage, "$ministor$", 2);
@@ -226,10 +226,10 @@ public class EmpireCraftWorldLogLibrary
         ministor_aqcuire_empire_log = wl.add(new WorldLogAsset
         {
             id = nameof(ministor_aqcuire_empire_log),
-            group= "emperors",
+            group = "emperors",
             path_icon = "ChineseCrown.png",
             color = Toolbox.color_log_good,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$title$", 1);
                 wl.updateText(ref pText, pMessage, "$ministor$", 2);
@@ -239,10 +239,10 @@ public class EmpireCraftWorldLogLibrary
         empire_powerful_minister_aquire_title = wl.add(new WorldLogAsset
         {
             id = nameof(empire_powerful_minister_aquire_title),
-            group= "emperors",
+            group = "emperors",
             path_icon = "MinistorAcquireTitle.png",
             color = Toolbox.color_log_good,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$ministor$", 1);
                 wl.updateText(ref pText, pMessage, "$empire$", 2);
@@ -252,10 +252,10 @@ public class EmpireCraftWorldLogLibrary
         restore_historcial_empire = wl.add(new WorldLogAsset
         {
             id = nameof(restore_historcial_empire),
-            group= "emperors",
+            group = "emperors",
             path_icon = "ChineseCrown.png",
             color = Toolbox.color_log_good,
-            text_replacer = delegate(WorldLogMessage pMessage, ref string pText)
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$clan$", 1);
                 wl.updateText(ref pText, pMessage, "$empire$", 2);

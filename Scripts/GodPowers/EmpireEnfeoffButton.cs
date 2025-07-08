@@ -1,4 +1,5 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GodPowers;
@@ -20,6 +21,7 @@ public static class EmpireEnfeoffButton
     {
         if (!pTile.hasCity()) return false;
         if (!pTile.zone_city.kingdom.isInEmpire()) return false;
+        //pTile.zone_city.kingdom.GetEmpire().DivideIntoProvince();
         pTile.zone_city.kingdom.GetEmpire().AutoEnfeoff();
         ActionLibrary.showWhisperTip("start_enfeoff");
         return true;

@@ -1,4 +1,5 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using System;
 using System.Collections.Generic;
@@ -6,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EmpireCraft.Scripts.Layer;
+namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftTooltipLibrary
 {
     public static void init()
@@ -23,6 +24,12 @@ public static class EmpireCraftTooltipLibrary
             id = "kingdom_title",
             prefab_id = "tooltips/tooltip_city",
             callback = showKingdomTitleToolTip
+        });
+        tl.add(new TooltipAsset
+        {
+            id = "province",
+            prefab_id = "tooltips/tooltip_city",
+            callback = showProvinceToolTip
         });
     }
     public static void showEmpireToolTip(Tooltip pTooltip, string pType, TooltipData pData)
@@ -43,11 +50,11 @@ public static class EmpireCraftTooltipLibrary
         string tColorHex = tKingdom.getColor().color_text;
         pTooltip.setTitle(pEmpire.name, "EmpireText", tColorHex);
         int tAge = pEmpire.getAge();
-        AssetManager.tooltips.setIconValue(pTooltip, "i_age", (float)tAge);
-        AssetManager.tooltips.setIconValue(pTooltip, "i_population", (float)pEmpire.countPopulation());
-        AssetManager.tooltips.setIconValue(pTooltip, "i_army", (float)pEmpire.countWarriors());
+        AssetManager.tooltips.setIconValue(pTooltip, "i_age", tAge);
+        AssetManager.tooltips.setIconValue(pTooltip, "i_population", pEmpire.countPopulation());
+        AssetManager.tooltips.setIconValue(pTooltip, "i_army", pEmpire.countWarriors());
         string pValue = "-";
-        if (pEmpire.emperor!=null)
+        if (pEmpire.emperor != null)
         {
             if (pEmpire.emperor.isAlive())
             {
@@ -55,7 +62,7 @@ public static class EmpireCraftTooltipLibrary
             }
         }
         pTooltip.addLineText("emperor", pValue, "#FE9900", false, true, 21);
-        if (pEmpire.empire_clan!=null)
+        if (pEmpire.empire_clan != null)
         {
             if (pEmpire.empire_clan.isAlive())
             {
@@ -108,15 +115,35 @@ public static class EmpireCraftTooltipLibrary
         string tColorHex = title.getColor().color_text;
         pTooltip.setTitle(title.data.name, "KingdomTitleWindowTitle", tColorHex);
         int tAge = title.getAge();
-        AssetManager.tooltips.setIconValue(pTooltip, "i_age", (float)tAge);
-        AssetManager.tooltips.setIconValue(pTooltip, "i_population", (float)title.countPopulation());
-        string pValue = title.HasOwner()?title.owner.getName():"-";
+        AssetManager.tooltips.setIconValue(pTooltip, "i_age", tAge);
+        AssetManager.tooltips.setIconValue(pTooltip, "i_population", title.countPopulation());
+        string pValue = title.HasOwner() ? title.owner.getName() : "-";
         pTooltip.addLineText("title_holder", pValue, "#FE9900", false, true, 21);
         pTooltip.addLineText("title_capital", title.title_capital.data.name, "#CC6CE7", false, true, 21);
         if (title.isBeenControlled())
         {
-            pTooltip.addLineText("title_been_controlled", city.kingdom.isEmpire() ? city.kingdom.GetEmpire().data.name: city.kingdom.data.name, "#CC6CE7", false, true, 21);
+            pTooltip.addLineText("title_been_controlled", city.kingdom.isEmpire() ? city.kingdom.GetEmpire().data.name : city.kingdom.data.name, "#CC6CE7", false, true, 21);
             pTooltip.addLineText("title_been_controled_year", $"{title.GetTitleBeenControlledYear()}{LM.Get("Year")}", tColorHex, false, true, 21);
         }
+    }
+    public static void showProvinceToolTip(Tooltip pTooltip, string pType, TooltipData pData)
+    {
+        pTooltip.clear();
+        City city = pData.city;
+        Province province = city.GetProvince();
+        pTooltip.setDescription(LM.Get("province_description"), null);
+        string tColorHex = province.getColor().color_text;
+        pTooltip.setTitle(province.data.name, "ProvinceWindowTitle", tColorHex);
+        int tAge = province.getAge();
+        AssetManager.tooltips.setIconValue(pTooltip, "i_age", tAge);
+        AssetManager.tooltips.setIconValue(pTooltip, "i_population", province.countPopulation());
+        pTooltip.addLineText("province_owner", province.empire.data.name, "#FE9900", false, true, 21);
+        pTooltip.addLineText("province_capital", province.province_capital.data.name, "#CC6CE7", false, true, 21);
+        if (province.officer != null)
+        {
+            pTooltip.addLineText("province_officer", province.officer.getName(), "#CC6CE7", false, true, 21);
+        }
+        pTooltip.addLineText("province_officers_num", province.data.history_officers.Count().ToString(), "#CC6CE7", false, true, 21);
+        pTooltip.addLineText("province_type", province.data.history_officers.Count().ToString(), "#CC6CE7", false, true, 21);
     }
 }

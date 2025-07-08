@@ -1,8 +1,8 @@
 ﻿using ai.behaviours;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Layer;
-using EmpireCraft.Scripts.TipAndLog;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.services;
@@ -49,20 +49,8 @@ namespace EmpireCraft.Scripts.GamePatches
                     if (pMainKingdom.isInEmpire()&&!pMainKingdom.isEmpire())
                     {
                         Empire empire = pMainKingdom.GetEmpire();
-                        countryLevel cl = countryLevel.countrylevel_4;
-                        PeeragesLevel pl = PeeragesLevel.peerages_4;
-                        Kingdom newKingdom = pMainKingdom.GetEmpire().setEnfeoff(item, leader);
-                        newKingdom.setCapital(item);
-                        newKingdom.data.name = item.data.name;
-                        newKingdom.SetCountryLevel(cl);
-                        newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
-                        leader.SetPeeragesLevel(pl);
-                        new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_enfeoff_log, empire.name)
-                        {
-                            location = empire.empire.location,
-                            color_special1 = empire.empire.kingdomColor.getColorText()
-                        }.add();
-                        empire.join(newKingdom, true, false);
+                        item.joinAnotherKingdom(empire.empire);
+                        //ModClass.PROVINCE_MANAGER.newProvince(item);
                         flag = true;
 
                     } else if (pMainKingdom.isInEmpire() && pMainKingdom.isEmpire())
@@ -70,7 +58,7 @@ namespace EmpireCraft.Scripts.GamePatches
                         item.makeOwnKingdom(leader, pRebellion: false, pFellApart: true).setKing(leader);
                         item.kingdom.data.name = item.data.name;
                         item.kingdom.empireLeave(true);
-                    } 
+                    }
                     else
                     {
                         item.makeOwnKingdom(leader, pRebellion: false, pFellApart: true).setKing(leader);
@@ -78,7 +66,6 @@ namespace EmpireCraft.Scripts.GamePatches
                         item.kingdom.empireLeave(true);
                         flag = true;
                     }
-
                 }
             }
             if (flag)

@@ -1,7 +1,7 @@
 ﻿using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Layer;
-using EmpireCraft.Scripts.TipAndLog;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using System;

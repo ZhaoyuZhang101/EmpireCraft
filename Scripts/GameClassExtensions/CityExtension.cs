@@ -22,18 +22,22 @@ public static class CityExtension
         public long id;
         public string kingdom_names = "";
         public long title_id = -1L;
+        public long province_id = -1L;
+        public long empire_core_id = -1L;
     }
     public static CityExtraData GetOrCreate(this City a, bool isSave=false)
     {
         var ed = ExtensionManager < City, CityExtraData>.GetOrCreate(a, isSave);
         return ed;
     } 
-    public static bool syncData(this City a, CityExtraData actorExtraData)
+    public static bool syncData(this City a, CityExtraData cityExtraData)
     {
         var ed = GetOrCreate(a);
-        ed.id = actorExtraData.id;
-        ed.kingdom_names = actorExtraData.kingdom_names;
-        ed.title_id = actorExtraData.title_id;
+        ed.id = cityExtraData.id;
+        ed.kingdom_names = cityExtraData.kingdom_names;
+        ed.title_id = cityExtraData.title_id;
+        ed.province_id = cityExtraData.province_id;
+        ed.empire_core_id = cityExtraData.empire_core_id;
         return true;
     }
     public static CityExtraData getExtraData(this City a, bool isSave = false)
@@ -43,7 +47,20 @@ public static class CityExtension
         data.id = a.getID();
         data.kingdom_names = a.GetKingdomNames();
         data.title_id = a.GetTitleID();
+        data.province_id = a.GetProvinceID();
+        data.empire_core_id = a.GetEmpireCoreID();
         return data;
+    }
+
+    public static long GetEmpireCoreID(this  City a)
+    {
+        return GetOrCreate(a).empire_core_id;
+    }
+
+    public static void SetEmpireCore(this City a, EmpireCore core)
+    {
+        if (core == null) return;
+        GetOrCreate(a).empire_core_id = core.id;
     }
 
     public static bool hasTitle(this City c)
@@ -51,6 +68,13 @@ public static class CityExtension
         if (c == null) return false;
         if (GetOrCreate(c)==null) return false; 
         return GetOrCreate(c).title_id!=-1L;
+    }
+
+    public static bool hasProvince(this City c)
+    {
+        if (c == null) return false;
+        if (GetOrCreate(c)==null) return false; 
+        return GetOrCreate(c).province_id!=-1L;
     }
     public static void Clear()
     {
@@ -60,6 +84,16 @@ public static class CityExtension
     public static long GetTitleID(this City c)
     {
         return GetOrCreate(c).title_id;
+    }
+
+    public static long GetProvinceID(this City c)
+    {
+        return GetOrCreate(c).province_id;
+    }
+
+    public static void SetProvinceID(this City c, long id)
+    {
+        GetOrCreate(c).province_id = id;
     }
 
     public static void SetTitleID(this City c, long id)
@@ -74,15 +108,32 @@ public static class CityExtension
         return ed.title_id==-1L?null:ModClass.KINGDOM_TITLE_MANAGER.get(ed.title_id);
     }
 
+    public static Province GetProvince(this City c)
+    {
+        var ed = GetOrCreate(c);
+        if (ed == null) return null;
+        return ed.province_id == -1L ? null : ModClass.PROVINCE_MANAGER.get(ed.province_id);
+    }
+
     public static void SetTitle(this City c, KingdomTitle title)
     {
         var ed = GetOrCreate(c);
         ed.title_id = title.getID();
     }
+    public static void SetProvince(this City c, Province province)
+    {
+        var ed = GetOrCreate(c);
+        ed.province_id = province.getID();
+    }
 
     public static void RemoveTitle(this City c)
     {
         GetOrCreate(c).title_id = -1L;
+    }
+
+    public static void RemoveProvince(this City c)
+    {
+        GetOrCreate(c).province_id = -1L;
     }
 
     public static void RemoveExtraData(this City c)
@@ -95,8 +146,18 @@ public static class CityExtension
     {
         if (city == null) return null;
         if (city.name == null || city.name == "") return null;
-
         string[] nameParts = city.name.Split(' ');
+
+        if (ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out var culture))
+        {
+            if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
+            {
+                if (nameParts.Length-1 >= setting.City.name_pos)
+                {
+                    return nameParts[setting.City.name_pos];
+                }
+            }
+        }
         if (nameParts.Length <= 2)
         {
             return nameParts[0];
@@ -105,6 +166,7 @@ public static class CityExtension
         {
             return nameParts[nameParts.Length - 2];
         }
+
     }
 
     public static string GetKingdomNames(this City city)

@@ -1,4 +1,5 @@
-﻿using EmpireCraft.Scripts.Enums;
+﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EpPathFinding.cs;
 using HarmonyLib;
@@ -12,13 +13,17 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace EmpireCraft.Scripts.GamePatches;
-public class ActorPatch: GamePatch
+public class ActorPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
+    public static int startSessionMonth { get; set; }
+    public static bool isReadyToSet = false;
     public void Initialize()
     {
+        ActorPatch.startSessionMonth = Date.getMonthsSince(World.world.getCurSessionTime());
+        ActorPatch.isReadyToSet = true;
         // Actor类的补丁
-        
+
         new Harmony(nameof(set_actor_family_name)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setFamily)),
             postfix: new HarmonyMethod(GetType(), nameof(set_actor_family_name)));
         new Harmony(nameof(set_actor_clan_name)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setClan)),
@@ -27,8 +32,6 @@ public class ActorPatch: GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(set_actor_culture)));
         new Harmony(nameof(set_actor_peerages)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setDefaultValues)),
             postfix: new HarmonyMethod(GetType(), nameof(set_actor_peerages)));
-        //new Harmony(nameof(add_child)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.addChild)),
-        //    postfix: new HarmonyMethod(GetType(), nameof(add_child)));
         new Harmony(nameof(removeData)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.Dispose)),
             postfix: new HarmonyMethod(GetType(), nameof(removeData)));
         LogService.LogInfo("角色姓名命名补丁加载成功");
@@ -44,7 +47,7 @@ public class ActorPatch: GamePatch
 
     public static void set_actor_peerages(Actor __instance)
     {
-        if (__instance.data==null)
+        if (__instance.data == null)
         {
             return;
         }
@@ -53,11 +56,26 @@ public class ActorPatch: GamePatch
 
     public static void set_actor_culture(Actor __instance, Culture pCulture)
     {
+        if (!isReadyToSet)
+        {
+            return;
+        }
         if (pCulture == null || __instance == null)
         {
             return;
         }
-
+        bool is_invert = false;
+        bool has_family_sex_post = false;
+        bool has_clan_sex_post = false;
+        if (ConfigData.speciesCulturePair.TryGetValue(__instance.asset.id, out var pair))
+        {
+            if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(pair, out Setting setting))
+            {
+                is_invert = setting.Unit.is_invert;
+                has_family_sex_post = setting.Family.has_sex_post;
+                has_clan_sex_post = setting.Clan.has_sex_post;
+            }
+        }
         if (__instance.hasCulture())
         {
             return;
@@ -68,21 +86,46 @@ public class ActorPatch: GamePatch
             if (__instance.hasClan())
             {
                 Actor[] parents = __instance.getParents().ToArray();
-                if (parents != null && parents.Any(t=>t.hasCulture()))
+                if (parents != null && parents.Any(t => t.hasCulture()))
                 {
                     Actor parent = parents.FirstOrDefault(t => t.hasCulture());
                     if (parent.hasClan())
                     {
-                        __instance.data.name = String.Join(" ", parent.clan.name.Split(' ')[0], firstName);
-                    } else
-                    {
-                        __instance.data.name = String.Join(" ", __instance.clan.name.Split(' ')[0], firstName);
+                        if (is_invert)
+                        {
+                            __instance.data.name = String.Join(" ", firstName, parent.clan.GetClanName(__instance.data.sex, has_clan_sex_post));
+                        }
+                        else
+                        {
+                            __instance.data.name = String.Join(" ", parent.clan.GetClanName(__instance.data.sex, has_clan_sex_post), firstName);
+                        }
+
                     }
-                } else
+                    else
+                    {
+                        if (is_invert)
+                        {
+                            __instance.data.name = String.Join(" ", firstName, __instance.clan.GetClanName(__instance.data.sex, has_clan_sex_post));
+                        }
+                        else
+                        {
+                            __instance.data.name = String.Join(" ", __instance.clan.GetClanName(__instance.data.sex, has_clan_sex_post), firstName);
+                        }
+                    }
+                }
+                else
                 {
                     __instance.clan.data.name = pCulture.getOnomasticData(MetaType.Clan).generateName();
-                    string familyName = __instance.clan.name.Split(' ')[0];
-                    __instance.data.name = String.Join(" ", familyName, firstName);
+                    string familyName = __instance.clan.GetClanName(__instance.data.sex, has_clan_sex_post);
+                    if (is_invert)
+                    {
+                        __instance.data.name = String.Join(" ", firstName, familyName);
+                    }
+                    else
+                    {
+                        __instance.data.name = String.Join(" ", familyName, firstName);
+                    }
+
                 }
 
             }
@@ -96,27 +139,62 @@ public class ActorPatch: GamePatch
                         Actor parent = parents.FirstOrDefault(t => t.hasCulture());
                         if (parent.hasFamily())
                         {
-                            __instance.data.name = String.Join(" ", HelperFunc.getFamilyName(parent.family.name), firstName);
+                            if (is_invert)
+                            {
+                                __instance.data.name = String.Join(" ", firstName, parent.family.getFamilyName(__instance.data.sex, has_family_sex_post));
+                            }
+                            else
+                            {
+                                __instance.data.name = String.Join(" ", parent.family.getFamilyName(__instance.data.sex, has_family_sex_post), firstName);
+                            }
+
                         }
                         else
                         {
-                            __instance.data.name = String.Join(" ", HelperFunc.getFamilyName(__instance.family.name), firstName);
+                            if (is_invert)
+                            {
+                                __instance.data.name = String.Join(" ", firstName, __instance.family.getFamilyName(__instance.data.sex, has_family_sex_post));
+                            }
+                            else
+                            {
+                                __instance.data.name = String.Join(" ", __instance.family.getFamilyName(__instance.data.sex, has_family_sex_post), firstName);
+                            }
+
                         }
                     }
                     else
                     {
                         foreach (Actor parent in __instance.getParents())
                         {
-                            if (parent.data.name != null) 
+                            if (parent.data.name != null)
                             {
-                                parent.data.name = String.Join(" ", HelperFunc.getFamilyName(__instance.family.name),
-                                    parent.data.name.Split(' ')[parent.data.name.Split(' ').Length-1]);
+                                if (is_invert)
+                                {
+                                    parent.data.name = String.Join(" ",
+                                        parent.GetActorName(),
+                                        __instance.family.getFamilyName(__instance.data.sex, has_family_sex_post));
+                                }
+                                else
+                                {
+                                    parent.data.name = String.Join(" ", __instance.family.getFamilyName(__instance.data.sex, has_family_sex_post),
+                                        parent.GetActorName());
+                                }
+
                             }
                         }
-                        string familyName = HelperFunc.getFamilyName(__instance.family.name);
-                        __instance.data.name = String.Join(" ", familyName, firstName);
+                        string familyName = __instance.family.getFamilyName(__instance.data.sex, has_family_sex_post);
+                        if (is_invert)
+                        {
+                            __instance.data.name = String.Join(" ", firstName, familyName);
+                        }
+                        else
+                        {
+                            __instance.data.name = String.Join(" ", familyName, firstName);
+                        }
+
                     }
-                } else
+                }
+                else
                 {
                     __instance.data.name = firstName;
                 }
@@ -124,8 +202,17 @@ public class ActorPatch: GamePatch
         }
     }
 
+    public static int Getmonth()
+    {
+        return Date.getMonthsSince(World.world.getCurSessionTime()) - startSessionMonth;
+    }
+
     public static void set_actor_clan_name(Actor __instance, Clan pObject)
     {
+        if (!isReadyToSet)
+        {
+            return;
+        }
         if (pObject == null || __instance == null)
         {
             return;
@@ -136,7 +223,7 @@ public class ActorPatch: GamePatch
             {
                 return;
             }
-            string cityName = __instance.city.name.Split(' ')[0];
+            string cityName = __instance.city.GetCityName();
             string clanName = pObject.name.Split(' ')[0];
             string familyEnd = LM.Get("Family");
             if (__instance.family == null)
@@ -152,22 +239,44 @@ public class ActorPatch: GamePatch
         if (!pObject.data.name.EndsWith(LM.Get("Clan")) && pObject.data.name.Contains(LM.Get("Clan")))
         {
             pObject.data.name = pObject.data.name.Substring(0, pObject.data.name.Length - 2);
-        } else if (!pObject.data.name.EndsWith(LM.Get("Clan")) && !pObject.data.name.Contains(LM.Get("Clan")))
+        }
+        else if (!pObject.data.name.EndsWith(LM.Get("Clan")) && !pObject.data.name.Contains(LM.Get("Clan")))
         {
             if (__instance.hasCulture())
             {
                 pObject.data.name = __instance.culture.getOnomasticData(MetaType.Clan).generateName();
-            } else
+            }
+            else
             {
                 pObject.data.name = string.Join(" ", pObject.data.name, LM.Get("Clan"));
+            }
+        }
+        bool is_invert = false;
+        bool has_family_sex_post = false;
+        bool has_clan_sex_post = false;
+        if (ConfigData.speciesCulturePair.TryGetValue(__instance.asset.id, out var pair))
+        {
+            if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(pair, out Setting setting))
+            {
+                is_invert = setting.Unit.is_invert;
+                has_family_sex_post = setting.Family.has_sex_post;
+                has_clan_sex_post = setting.Clan.has_sex_post;
             }
         }
         if (__instance.data.name == null || __instance.data.name == "")
         {
             if (__instance.hasCulture())
             {
-                __instance.data.name = pObject.name.Split(' ')[0] + " " +
-                    __instance.culture.getOnomasticData(MetaType.Unit).generateName(__instance.isSexMale() ? ActorSex.Male : ActorSex.Female);
+                if (is_invert)
+                {
+                    __instance.data.name = __instance.culture.getOnomasticData(MetaType.Unit).generateName(__instance.isSexMale() ? ActorSex.Male : ActorSex.Female) + " " + pObject.GetClanName(__instance.data.sex, has_clan_sex_post);
+                }
+                else
+                {
+                    __instance.data.name = pObject.GetClanName(__instance.data.sex, has_clan_sex_post) + " " +
+                        __instance.culture.getOnomasticData(MetaType.Unit).generateName(__instance.isSexMale() ? ActorSex.Male : ActorSex.Female);
+                }
+
             }
             return;
         }
@@ -176,17 +285,37 @@ public class ActorPatch: GamePatch
         {
             string firstName = __instance.data.name.Split(' ')[1];
             string familyName = __instance.data.name.Split(' ')[0];
-            __instance.data.name = string.Join(" ", pObject.data.name.Split(' ')[0], firstName);
+            if (is_invert)
+            {
+                __instance.data.name = string.Join(" ", firstName, pObject.GetClanName(__instance.data.sex, has_clan_sex_post));
+            }
+            else
+            {
+                __instance.data.name = string.Join(" ", pObject.GetClanName(__instance.data.sex, has_clan_sex_post), firstName);
+            }
+
         }
         else
         {
-            __instance.data.name = string.Join(" ", pObject.data.name.Split(' ')[0], __instance.data.name);
+            if (is_invert)
+            {
+                __instance.data.name = string.Join(" ", __instance.data.name, pObject.GetClanName(__instance.data.sex, has_clan_sex_post));
+            }
+            else
+            {
+                __instance.data.name = string.Join(" ", pObject.GetClanName(__instance.data.sex, has_clan_sex_post), __instance.data.name);
+            }
+
 
         }
     }
 
-    public static void set_actor_family_name(Actor __instance,Family pObject)
+    public static void set_actor_family_name(Actor __instance, Family pObject)
     {
+        if (!isReadyToSet)
+        {
+            return;
+        }
         if (__instance.hasClan())
         {
             if (__instance.city == null)
@@ -201,19 +330,39 @@ public class ActorPatch: GamePatch
                 return;
             }
             pObject.data.name = string.Join(" ", cityName, clanName, familyName);
-        } else {
+        }
+        else
+        {
             if (pObject == null)
             {
                 return;
             }
-
+            bool is_invert = false;
+            bool has_family_sex_post = false;
+            bool has_clan_sex_post = false;
+            if (ConfigData.speciesCulturePair.TryGetValue(__instance.asset.id, out var pair))
+            {
+                if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(pair, out Setting setting))
+                {
+                    is_invert = setting.Unit.is_invert;
+                    has_family_sex_post = setting.Family.has_sex_post;
+                    has_clan_sex_post = setting.Clan.has_sex_post;
+                }
+            }
             if (__instance.data.name == null || __instance.data.name == "")
             {
                 if (__instance.hasCulture())
                 {
-                    // Fix: Replace the invalid negative index with a valid index.  
-                    __instance.data.name = HelperFunc.getFamilyName(pObject.name) + " " + 
-                        __instance.culture.getOnomasticData(MetaType.Unit).generateName(__instance.isSexMale()?ActorSex.Male:ActorSex.Female);
+                    if (is_invert)
+                    {
+                        __instance.data.name = __instance.culture.getOnomasticData(MetaType.Unit).generateName(__instance.isSexMale() ? ActorSex.Male : ActorSex.Female) + " " +
+                         pObject.getFamilyName(__instance.data.sex, has_family_sex_post);
+                    }
+                    else
+                    {
+                        __instance.data.name = pObject.getFamilyName(__instance.data.sex, has_family_sex_post) + " " +
+                               __instance.culture.getOnomasticData(MetaType.Unit).generateName(__instance.isSexMale() ? ActorSex.Male : ActorSex.Female);
+                    }
                 }
                 return;
             }
@@ -222,7 +371,15 @@ public class ActorPatch: GamePatch
             {
                 return;
             }
-            __instance.data.name = string.Join(" ", HelperFunc.getFamilyName(pObject.name), __instance.data.name);
+            if (is_invert)
+            {
+                __instance.data.name = string.Join(" ", __instance.data.name, pObject.getFamilyName(__instance.data.sex, has_family_sex_post));
+            }
+            else
+            {
+                __instance.data.name = string.Join(" ", pObject.getFamilyName(__instance.data.sex, has_family_sex_post), __instance.data.name);
+            }
+
         }
     }
 }
