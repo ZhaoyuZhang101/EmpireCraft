@@ -77,7 +77,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 LM.LoadLocales(dir);
             }
             LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "ProvinceLevel", cultureName + "ProvinceLevel.csv"));
-            LogService.LogInfo("加载文化名称模板: " + cultureName);
+            LogService.LogInfo("Add culture template: " + cultureName);
         }
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "CountryLevelNames.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName1.csv"));
@@ -85,7 +85,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "MiaoHaoPrefixes.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "MiaoHaoSuffixes.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "ShiHao.csv"));
-        LogService.LogInfo("加载年号模板");
+        LogService.LogInfo("add year name template");
         LogService.LogInfo("加载谥号模板");
         LogService.LogInfo("加载庙号模板");
     }
@@ -95,8 +95,11 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         _declare = modDeclare;
         _modObject = gameObject;
         Config.isEditor = true; // Set this to true if you want to enable editor mode for your mod
-        LogService.LogInfo("帝国模组加载成功！！");
+        LogService.LogInfo("EmpireCraft Load Finished！！");
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "HonoraryOfficial.csv"));
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "MeritLevel.csv"));
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "OfficialType.csv"));
         //加载文化名称模板
         loadCultureNameTemplate();
         LM.ApplyLocale(); // Apply the loaded locales to the game
@@ -139,6 +142,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         LogService.LogInfo("加载帝国模组更多提示");
         EmpireCraftTooltipLibrary.init();
         EmpireCraftHistoryDataLibrary.init();
+        ActorTraitLibraryExtension.init();
+        ActorTraitGroupLibraryExtension.init();
         World.world._list_meta_main_managers.Add(EMPIRE_MANAGER = new EmpireManager());
         World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER = new KingdomTitleManager());
         World.world._list_meta_main_managers.Add(PROVINCE_MANAGER = new ProvinceManager());
@@ -156,13 +161,13 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     {
         BeaurauSystem.init();
         MainTab.Init();
-        LogService.LogInfo("帝国模组UI加载成功！！");
+        LogService.LogInfo("EmpireCraftUI Load Finish！！");
     }
 
 
     public void Reload()
     {
-        LogService.LogInfo("帝国模组重新加载成功！！");
+        LogService.LogInfo("EmpireCraft Reload Finish！！");
         
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
         loadCultureNameTemplate();

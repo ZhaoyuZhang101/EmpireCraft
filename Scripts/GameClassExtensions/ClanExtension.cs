@@ -19,9 +19,8 @@ public static class ClanExtension
     public class ClanExtraData
     {
         public long id;
-        //历史国家
         public string historical_empire_name;
-        //历史国家首都地
+        //Historical empire position
         public Vector2 position;
         public long original_capital;
     }

@@ -27,6 +27,7 @@ public class Province : MetaObject<ProvinceData>
     public City province_capital;
     public Empire empire;
     public Actor officer;
+    public List<Actor> exam_pass_persons = new List<Actor>();
     public ColorAsset kingdomColor => getColor();
     public override MetaType meta_type
     {
@@ -100,44 +101,13 @@ public class Province : MetaObject<ProvinceData>
         this.officer = null;
         this.data.name = city.GetCityName();
         this.data.history_officers = new List<string> { };
+        this.exam_pass_persons = new List<Actor>();
         SetProvinceLevel(provinceLevel);
         recalculate();
         SetOfficer(city.leader);
         city.removeLeader();
     }
 
-    public bool selectOfficerFromCityClan(City city)
-    {
-        if (city.getRoyalClan() != null)
-        {
-            Actor nominate = null;
-            foreach (Actor a in city.getRoyalClan().units)
-            {
-                if (!a.isOfficer())
-                {
-                    if (nominate == null)
-                    {
-                        nominate = a;
-                    }
-                    else
-                    {
-                        var nominateAbility = nominate.CalculateAbility();
-                        var aAbility = a.CalculateAbility();
-                        if ((aAbility.wen + aAbility.wu) > (nominateAbility.wen + nominateAbility.wu))
-                        {
-                            nominate = a;
-                        }
-                    }
-                }
-            }
-            if (nominate != null)
-            {
-                this.SetOfficer(nominate);
-                return true;
-            }
-        }
-        return false;
-    }
 
     public bool HasOfficer()
     {
@@ -270,7 +240,30 @@ public class Province : MetaObject<ProvinceData>
         {
             this.data.officer = -1L;
         }
+        foreach (Actor actor in exam_pass_persons)
+        {
+            if (actor == null) continue;
+            if (actor.isAlive())
+            {
+                this.data.exam_pass_persons.Add(actor.getID());
+            }
+        }
         this.data.empire = this.empire.getID();
+    }
+
+    public void AddExamPassPerson(Actor a)
+    {
+        if (a == null) return;
+        if (exam_pass_persons == null)
+        {
+            exam_pass_persons = new List<Actor>();
+        }
+        exam_pass_persons.Add(a);
+    }
+
+    public List<Actor> GetExamPassPersons()
+    {
+        return exam_pass_persons;
     }
 
     public List<TileZone> allZones()
@@ -288,6 +281,7 @@ public class Province : MetaObject<ProvinceData>
 
     public void addCity(City city)
     {
+        if (this.city_list.Contains(city)) return;
         if (city != null)
         {
             if (city.hasProvince())
@@ -386,6 +380,18 @@ public class Province : MetaObject<ProvinceData>
 
     }
 
+    public bool canStartExam()
+    {
+        foreach(City city in this.city_list)
+        {
+            if (city.GetExamPassPersons().Count()<=0)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public void disolve()
     {
         foreach (City city in city_list_hash)
@@ -402,6 +408,10 @@ public class Province : MetaObject<ProvinceData>
         foreach (long city_id in pData.cities)
         {
             this.city_list_hash.Add(World.world.cities.get(city_id));
+        }
+        foreach(long id in pData.exam_pass_persons)
+        {
+            this.exam_pass_persons.Add(World.world.units.get(id));
         }
         this.province_capital = World.world.cities.get(this.data.province_capital);
         this.city_list.AddRange(this.city_list_hash);

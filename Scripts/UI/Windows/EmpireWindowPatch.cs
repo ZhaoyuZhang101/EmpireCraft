@@ -157,31 +157,5 @@ public class EmpireWindowPatch : GamePatch
         window.showStatRow("past_emperors", tKingdom.data.total_kings, MetaType.None, -1L, "iconKingdomList", "past_rulers", new TooltipDataGetter(window.getTooltipPastRulers));
         Actor tHeir = SuccessionTool.findNextHeir(tKingdom, tKingdom.king);
         window.tryToShowActor("heir", -1L, null, tHeir, "iconChildren");
-
-        //if (tKingdom.hasKing())
-        //{
-        //    if (tKingdom.king.s_personality != null)
-        //    {
-        //        window.showStatRow("creature_statistics_personality", tKingdom.king.s_personality.getTranslatedName(), MetaType.None, -1L, "actor_traits/iconStupid", null, null);
-        //    }
-        //    int tKingRuleAge = Date.getYearsSince(tKingdom.data.timestamp_king_rule);
-        //    window.showStatRow("kingdom_statistics_king_ruled", tKingRuleAge, MetaType.None, -1L, "iconClock", null, null);
-        //    window.showStatRow("ruler_money", tKingdom.king.money, "#43FF43", MetaType.None, -1L, false, "iconMoney", null, null, true);
-        //}
-        //string tTributeText = tKingdom.getTaxRateTribute().ToString("0%");
-        //window.showStatRow("tribute", tTributeText, "#43FF43", MetaType.None, -1L, false, "kingdom_traits/kingdom_trait_tax_rate_tribute_high", null, null, true);
-        //window.tryToShowMetaAlliance("alliance", -1L, null, tKingdom.getAlliance());
-        //window.tryToShowMetaCity("kingdom_statistics_capital", -1L, null, tKingdom.capital, "iconKingdom");
-        //string pTitle = "empire_clan";
-        //long pID = -1L;
-        //string pName = null;
-        //Actor king = tKingdom.king;
-        //window.tryToShowMetaClan(pTitle, pID, pName, (king != null) ? king.clan : null);
-        //window.tryToShowMetaCulture("culture", -1L, null, tKingdom.culture);
-        //window.tryToShowMetaLanguage("language", -1L, null, tKingdom.language);
-        //window.tryToShowMetaReligion("religion", -1L, null, tKingdom.religion);
-        //window.tryToShowMetaSubspecies("main_subspecies", -1L, null, tKingdom.getMainSubspecies());
-        //window.tryToShowMetaSpecies("founder_species", tKingdom.getFounderSpecies().id);
-        //window.showSplitPopulationBySubspecies(window.meta_object.units);
     }
 }

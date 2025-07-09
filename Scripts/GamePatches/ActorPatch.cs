@@ -36,10 +36,6 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(removeData)));
         LogService.LogInfo("角色姓名命名补丁加载成功");
     }
-    //public static void add_child(Actor __instance, BaseActorComponent pObject)
-    //{
-
-    //}    
     public static void removeData(Actor __instance)
     {
         __instance.RemoveExtraData();

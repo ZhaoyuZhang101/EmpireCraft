@@ -24,7 +24,7 @@ namespace EmpireCraft.Scripts.Data
         [JsonIgnore]
         public static City selected_cityB;
 
-        //这里的种族名称可以提供参考，涵盖了游戏中所有的种族
+        //this coverd all civ species in the game
         public static List<string> AllCivSpecies = new List<string>()
     {
             "human", "orc","elf","dwarf","civ_necromancer","civ_alien",
@@ -41,13 +41,18 @@ namespace EmpireCraft.Scripts.Data
         {
             "Human"
         };
-        //此处的设定将种族与文化绑定在一起。
+        // this part bind culture and species togather.
         public static Dictionary<string, string> speciesCulturePair = new Dictionary<string, string>() 
         {
             {"human","Western"},
             {"elf", "Huaxia" },
             {"dwarf", "Western" },
             {"orc", "Youmu" }
+        };
+        //Already Prepared Cultures
+        public static List<string> currentExistCulture = new List<string>()
+        {
+            "Western","Huaxia","Youmu"
         };
         [JsonIgnore]
         public static Empire EMPIRE = null;

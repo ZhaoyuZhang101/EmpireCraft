@@ -62,23 +62,23 @@ public static class DataManager
                     {
                         actor.syncData(entry);
                     }
-        LogService.LogInfo("同步角色数据");
+        LogService.LogInfo("Sync Actor Data");
         foreach (var entry in saveData.kingdomExtraData)
             if (kingdomById.TryGetValue(entry.id, out var kingdom))
                 kingdom.syncData(entry);
-        LogService.LogInfo("同步国家数据");
+        LogService.LogInfo("Sync Kingdom Data");
         foreach (var entry in saveData.cityExtraData)
             if (cityById.TryGetValue(entry.id, out var city))
                 city.syncData(entry);
-        LogService.LogInfo("同步城市数据");
+        LogService.LogInfo("Sync City Data");
         foreach (var entry in saveData.clanExtraData)
             if (clanById.TryGetValue(entry.id, out var clan))
                 clan.syncData(entry);
-        LogService.LogInfo("同步氏族数据");
+        LogService.LogInfo("Sync Clan Data");
         foreach (var entry in saveData.warExtraData)
             if (warById.TryGetValue(entry.id, out var war))
                 war.syncData(entry);
-        LogService.LogInfo("同步战争数据");
+        LogService.LogInfo("Sync War Data");
         foreach (EmpireData empireData in saveData.empireDatas)
         {
             if (empireData == null) continue;
@@ -87,7 +87,7 @@ public static class DataManager
             ModClass.EMPIRE_MANAGER.addObject(empire);
         }
         ModClass.EMPIRE_MANAGER.update(-1L);
-        LogService.LogInfo("同步帝国数据");
+        LogService.LogInfo("Sync Empire Data");
         foreach (KingdomTitleData kingdomTitleData in saveData.kingdomTitleDatas)
         {
             KingdomTitle kt = new KingdomTitle();
@@ -103,10 +103,10 @@ public static class DataManager
             ModClass.PROVINCE_MANAGER.addObject(p);
         }
         ModClass.PROVINCE_MANAGER.update(-1L);
-        LogService.LogInfo("同步法理数据");
+        LogService.LogInfo("Sync Titles Data");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         ConfigData.speciesCulturePair = saveData.speciesCulturePair;
-        LogService.LogInfo("同步历史数据");
+        LogService.LogInfo("Sync history Data");
         ModClass.ALL_HISTORY_DATA = saveData.all_history ?? new Dictionary<long, List<EmpireCraftHistory>>();
         ConfigData.PREVENT_CITY_DESTROY = saveData.prevent_city_destroy;
         PlayerConfig.dict["prevent_city_destroy"].boolVal = saveData.prevent_city_destroy;
@@ -168,6 +168,6 @@ public static class DataManager
         LogService.LogInfo("" + saveData.kingdomExtraData.Count());
         LogService.LogInfo("" + saveData.cityExtraData.Count());
         File.WriteAllText(savePath, json);
-        LogService.LogInfo("存档完成");
+        LogService.LogInfo("Save Finished");
     }
 }

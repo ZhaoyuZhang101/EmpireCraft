@@ -121,7 +121,7 @@ public class Empire : MetaObject<EmpireData>
                 cities = new List<string>()
             };
         }
-        this.RecordHistory(EmpireHistoryType.新皇登基, new Dictionary<string, string>()
+        this.RecordHistory(EmpireHistoryType.new_emperor_history, new Dictionary<string, string>()
         {
             ["actor"] = actor.getName(),
             ["place"] = this.empire.capital.GetCityName(),
@@ -147,7 +147,7 @@ public class Empire : MetaObject<EmpireData>
         }
         if (this.emperor.isAlive())
         {
-            this.RecordHistory(EmpireHistoryType.皇帝退位, new Dictionary<string, string>()
+            this.RecordHistory(EmpireHistoryType.emperor_left_history, new Dictionary<string, string>()
             {
                 ["year_name"] = data.year_name,
                 ["actor"] = this.emperor.getName()
@@ -155,7 +155,7 @@ public class Empire : MetaObject<EmpireData>
         }
         else
         {
-            this.RecordHistory(EmpireHistoryType.皇帝驾崩, new Dictionary<string, string>()
+            this.RecordHistory(EmpireHistoryType.emperor_die_history, new Dictionary<string, string>()
             {
                 ["year_name"] = data.year_name,
                 ["actor"] = this.emperor.getName()
@@ -166,7 +166,7 @@ public class Empire : MetaObject<EmpireData>
         data.currentHistory = null;
         emperor = null;
     }
-    public bool 是否需要追封()
+    public bool isNeedToSetPosthumous()
     {
         if (this.data.history.Count > 0)
         {
@@ -282,7 +282,7 @@ public class Empire : MetaObject<EmpireData>
             descriptions = new List<string>(),
             cities = new List<string>()
         };
-        this.RecordHistory(EmpireHistoryType.称帝建业, new Dictionary<string, string>()
+        this.RecordHistory(EmpireHistoryType.new_empire_history, new Dictionary<string, string>()
         {
             ["actor"] = empire.king.getName(),
             ["place"] = empire.capital.GetCityName(),
@@ -329,17 +329,14 @@ public class Empire : MetaObject<EmpireData>
         float ay = Math.Abs(v.y- capital_center.y);
         if (ax > ay)
         {
-            // 水平分量更大，向东或西
             return LM.Get(capital_center.x > v.x ?"Eastern" : "Western");
         }
         else if (ay > ax)
         {
-            // 垂直分量更大，向北或南
             return LM.Get(capital_center.y > v.y ? "Northern" : "Southern");
         }
         else
         {
-            // 两者相等或都为 0，判定为“中间”
             return LM.Get("Later");
         }
     }
@@ -1228,6 +1225,34 @@ public class Empire : MetaObject<EmpireData>
         yield break;
     }
 
+    public void AddExamPassPerson(Actor a)
+    {
+        if (a == null) return;
+        if (exam_pass_persons == null)
+        {
+            exam_pass_persons = new List<Actor>();
+        }
+        exam_pass_persons.Add(a);
+    }
+
+    public List<Actor> GetExamPassPersons()
+    {
+        return exam_pass_persons;
+    }
+    public bool canStartExam()
+    {
+        foreach(Province p in province_list)
+        {
+            if (p == null) continue;
+            if (p.exam_pass_persons.Count()<=0)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
     public void AutoEnfeoff()
     {
         var allCities = this.empire.cities;
@@ -1239,19 +1264,16 @@ public class Empire : MetaObject<EmpireData>
         var unassigned = new HashSet<City>(allCities);
         while (unassigned.Count > 0)
         {
-            // 3.1 随机取一个种子城市
             var seed = unassigned.First();
             var region = new List<City> { seed };
             unassigned.Remove(seed);
 
-            // 3.2 用队列做 BFS，一直扩张到 avgSize 或者没有相邻新城
             var queue = new Queue<City>();
             queue.Enqueue(seed);
 
             while (queue.Count > 0 && region.Count < avgCitiesPerKingdom)
             {
                 var curr = queue.Dequeue();
-                // neighbours_cities(curr) 返回所有与 curr 直接相邻的城市
                 foreach (var nei in curr.neighbours_cities)
                 {
                     if (unassigned.Contains(nei))
@@ -1334,7 +1356,7 @@ public class Empire : MetaObject<EmpireData>
                             province.addCity(city);
                         }
                     }
-                    LogService.LogInfo($"省份{province.data.name}已建立,包含城市{province.city_list.ToString()}");
+                    LogService.LogInfo($"Province {province.data.name} has been build, include {province.city_list.Count()} cities");
                 }
             }
         }
@@ -1421,6 +1443,11 @@ public static class ProvinceDivider
 
         if (remaining.Count <= maxProvinceNum)
         {
+            Province province = ModClass.PROVINCE_MANAGER.newProvince(empire.empire.capital);
+            foreach(City city in remaining)
+            {
+                province.addCity(city);
+            }
             return result;
         }
 

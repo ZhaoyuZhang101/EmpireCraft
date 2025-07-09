@@ -28,7 +28,7 @@ public class ProvinceManager : MetaSystemManager<Province, ProvinceData>
         Province province = base.newObjectFromID(id);
         province.newProvince(city);
         province.updateColor(province.empire.getColor());
-        LogService.LogInfo($"新省份{province.data.name}");
+        LogService.LogInfo($"new province{province.data.name}");
         return province;
     }
 

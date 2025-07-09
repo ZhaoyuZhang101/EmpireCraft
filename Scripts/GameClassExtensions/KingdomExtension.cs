@@ -266,7 +266,6 @@ public static class KingdomExtension
         }
         return empires;
     }
-
     public static void empireJoin(this Kingdom kingdom, Empire pEmpire)
     {
         kingdom.SetVassaledKingdomID(pEmpire.empire.id);

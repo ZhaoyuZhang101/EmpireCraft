@@ -30,12 +30,12 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
     public GameObject _itemPrefab;
     protected override void Init()
     {
-        BackgroundTransform.AddComponent<RectMask2D>();
-        RectTransform division_panel = UIHelper.CreateUIPanel("Division_Panel", BackgroundTransform);
-        division_panel.AddComponent<DragContent>();
-        var builder = new TreeLayoutBuilder(division_panel, SimpleButton.Prefab);
-        empireOffice = BeaurauSystem.empireOffice;
-        builder.Build(empireOffice);
+        //BackgroundTransform.AddComponent<RectMask2D>();
+        //RectTransform division_panel = UIHelper.CreateUIPanel("Division_Panel", BackgroundTransform);
+        //division_panel.AddComponent<DragContent>();
+        //var builder = new TreeLayoutBuilder(division_panel, SimpleButton.Prefab);
+        //empireOffice = BeaurauSystem.empireOffice;
+        //builder.Build(empireOffice);
     }
 
     public override void OnNormalEnable()

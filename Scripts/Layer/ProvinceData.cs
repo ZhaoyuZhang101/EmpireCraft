@@ -14,7 +14,8 @@ public class ProvinceData : MetaObjectData
     public string founder_actor_name { get; set; }
     [DefaultValue(-1L)]
     public long founder_actor_id { get; set; } = -1L;
-    public provinceLevel provinceLevel;
+    public provinceLevel provinceLevel = provinceLevel.provincelevel_3;
+    public OfficialLevel officialLevel = OfficialLevel.officiallevel_3;
 
 
     [DefaultValue(-1L)]
@@ -24,6 +25,7 @@ public class ProvinceData : MetaObjectData
     public long province_capital = -1L;
     public List<long> cities;
     public List<string> history_officers;
+    public List<long> exam_pass_persons;
     public bool isDirectRule = true;
     public long empire { get; set; } = -1L;
 

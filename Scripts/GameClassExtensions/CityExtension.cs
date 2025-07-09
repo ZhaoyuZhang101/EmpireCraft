@@ -24,6 +24,7 @@ public static class CityExtension
         public long title_id = -1L;
         public long province_id = -1L;
         public long empire_core_id = -1L;
+        public List<long> exam_pass_person;
     }
     public static CityExtraData GetOrCreate(this City a, bool isSave=false)
     {
@@ -38,6 +39,7 @@ public static class CityExtension
         ed.title_id = cityExtraData.title_id;
         ed.province_id = cityExtraData.province_id;
         ed.empire_core_id = cityExtraData.empire_core_id;
+        ed.exam_pass_person = cityExtraData.exam_pass_person;
         return true;
     }
     public static CityExtraData getExtraData(this City a, bool isSave = false)
@@ -49,9 +51,30 @@ public static class CityExtension
         data.title_id = a.GetTitleID();
         data.province_id = a.GetProvinceID();
         data.empire_core_id = a.GetEmpireCoreID();
+        data.exam_pass_person = a.GetExamPassPersonIDs();
         return data;
     }
+    public static void AddExamPassPerson(this City c, Actor a)
+    {
+        if (a == null) return;
+        if (GetOrCreate(c).exam_pass_person == null)
+        {
+            GetOrCreate(c).exam_pass_person = new List<long>();
+        }
+        GetOrCreate(c).exam_pass_person.Add(a.getID());
+    }
 
+    public static List<Actor> GetExamPassPersons(this City a)
+    {
+        List<Actor> list = GetOrCreate(a).exam_pass_person.Select<long, Actor> (id=>World.world.units.get(id)).ToList();
+        return list;
+    }
+
+    public static List<long> GetExamPassPersonIDs(this City c)
+    {
+        return GetOrCreate(c).exam_pass_person;
+    }
+ 
     public static long GetEmpireCoreID(this  City a)
     {
         return GetOrCreate(a).empire_core_id;

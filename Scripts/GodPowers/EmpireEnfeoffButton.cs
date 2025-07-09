@@ -21,8 +21,8 @@ public static class EmpireEnfeoffButton
     {
         if (!pTile.hasCity()) return false;
         if (!pTile.zone_city.kingdom.isInEmpire()) return false;
-        //pTile.zone_city.kingdom.GetEmpire().DivideIntoProvince();
-        pTile.zone_city.kingdom.GetEmpire().AutoEnfeoff();
+        pTile.zone_city.kingdom.GetEmpire().DivideIntoProvince();
+        //pTile.zone_city.kingdom.GetEmpire().AutoEnfeoff();
         ActionLibrary.showWhisperTip("start_enfeoff");
         return true;
     }

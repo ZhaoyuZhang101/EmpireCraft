@@ -2,9 +2,7 @@
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 using Newtonsoft.Json;
-using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -17,7 +15,7 @@ public static class BeaurauSystem
     public static Office empireOffice;
     public static void init()
     {
-        readFromJson();
+        //readFromJson();
     }
 
     public static void readFromJson()
@@ -40,7 +38,7 @@ public static class BeaurauSystem
             }
         }
         empireOffice = roots[0];
-        PrintTree(roots);
+        //PrintTree(roots);
     }
 
     public static void adjust(Empire empire, Office office)
@@ -51,14 +49,14 @@ public static class BeaurauSystem
         }
     }
 
-    public static void PrintTree(IEnumerable<Office> nodes, int depth = 0)
-    {
-        foreach (var node in nodes)
-        {
-            LogService.LogInfo($"{new string(' ', depth * 2)}- {node.Name} ({node.Leader})");
-            PrintTree(node.Children, depth + 1);
-        }
-    }
+    //public static void PrintTree(IEnumerable<Office> nodes, int depth = 0)
+    //{
+    //    foreach (var node in nodes)
+    //    {
+    //        LogService.LogInfo($"{new string(' ', depth * 2)}- {node.Name} ({node.Leader})");
+    //        PrintTree(node.Children, depth + 1);
+    //    }
+    //}
 }
 
 public class Peerage
@@ -74,11 +72,6 @@ public class Office
 {
     public string Id;
     public string Name { get; set; }
-    [DefaultValue(BeaurauLevel.无)]
-    public BeaurauLevel? Level { get; set; }
-    [DefaultValue(官职.无)]
-    public 官职 Leader { get; set; }
-    public List<官职> SecondLeader { get; set; }
     public string Description { get; set; }
     public string IconPath { get; set; }
     public string ParentId { get; set; }

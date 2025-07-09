@@ -16,13 +16,16 @@ using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.Layer;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using EmpireCraft.Scripts.Data;
+using System.Configuration;
+using static EmpireCraft.Scripts.HelperFunc.ExamSystem;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 public class OfficeIdentity
 {
-    public 官职 官职 { get; set; } = 官职.无;
-    public 勋级 勋级 { get; set; } = 勋级.无;
-    public 散官 散官 { get; set; } = 散官.无;
+    public OfficialLevel officialLevel { get; set; }
+    public int meritLevel { get; set; }
+    public int honoraryOfficial { get; set; }
+    public PeerageType peerageType { get; set; }
 }
 public static class ActorExtension
 {
@@ -37,7 +40,7 @@ public static class ActorExtension
         public List<long> titles = new List<long>();
         public List<long> want_acuired_title = new List<long>();
         public List<long> owned_title = new List<long>();
-        public OfficeIdentity officeIdentity { get; set; }
+        public OfficeIdentity officeIdentity { get; set; } = null;
         public long provinceId { get; set; } = -1L;
     }
     public static void SetTitle(this Actor a, string value)
@@ -70,6 +73,37 @@ public static class ActorExtension
     {
         if (a == null) return;
         GetOrCreate(a).provinceId = id;
+    }
+    public static void SetProvince( this Actor a, Province province)
+    {
+        if (a == null) return;
+        GetOrCreate(a).provinceId = province.getID();
+        if (GetOrCreate(a).officeIdentity == null)
+        {
+            GetOrCreate(a).officeIdentity = new OfficeIdentity();
+            GetOrCreate(a).officeIdentity.honoraryOfficial = 8;
+            GetOrCreate(a).officeIdentity.meritLevel = 10;
+            GetOrCreate(a).officeIdentity.officialLevel = OfficialLevel.officiallevel_3;
+            GetOrCreate(a).peerageType = PeerageType.Civil;
+        } else
+        {
+            GetOrCreate(a).officeIdentity.officialLevel = OfficialLevel.officiallevel_3;
+        }
+
+
+    }
+    public static OfficeIdentity GetIdentity( this Actor a)
+    {
+        if (a == null) return null;
+        if (GetOrCreate(a).officeIdentity == null)
+        {
+            GetOrCreate(a).officeIdentity = new OfficeIdentity();
+            GetOrCreate(a).officeIdentity.honoraryOfficial = 8;
+            GetOrCreate(a).officeIdentity.meritLevel = 10;
+        }
+        return GetOrCreate(a).officeIdentity;
+
+
     }
     public static void RemoveProvinceID(this Actor a)
     {
@@ -107,7 +141,7 @@ public static class ActorExtension
                 {
                     KingdomTitle title = city.GetTitle();
                     if (title == null) continue;
-                    if (title.data == null) 
+                    if (title.data == null)
                     {
                         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
                     }
@@ -125,6 +159,32 @@ public static class ActorExtension
             }
         }
         return false;
+    }
+
+    public static void UpgradeOfficial(this Actor a)
+    {
+        if (GetOrCreate(a).officeIdentity==null)
+        {
+            return;
+        } else
+        {
+            OfficeIdentity identity = GetOrCreate(a).officeIdentity;
+            if (identity.meritLevel<=0)
+            {
+                identity.meritLevel = 0;
+            } else
+            {
+                identity.meritLevel -= 1;
+            }
+            if (identity.honoraryOfficial<=0)
+            {
+                identity.honoraryOfficial = 0;
+            } else
+            {
+                identity.honoraryOfficial -= 1;
+            }
+            GetOrCreate(a).officeIdentity = identity;
+        }
     }
 
     public static string GetActorName(this Actor a)
@@ -262,30 +322,47 @@ public static class ActorExtension
         return data;
     }
 
-    public static (double wen, double wu) CalculateAbility(this Actor a)
-    {
-        double diplomacy = a.stats["diplomacy"];
-        double stewardship = a.stats["stewardship"];
-        double intelligence = a.stats["intelligence"];
-        double warfare = a.stats["warfare"];
-        double mana = a.stats["mana"];
-        double stamina = a.stats["stamina"];
-        double skill_spell = a.stats["skill_spell"];
-        double skill_combat = a.stats["skill_combat"];
-        double range = a.stats["range"];
-        double damage = a.stats["damage"];
-        double scale = a.stats["scale"];
-        double offspring = a.stats["offspring"];
-        double mass = a.stats["mass"];
-        double throwing_range = a.stats["throwing_range"];
-        double lifespan = a.stats["lifespan"];
-        double mass_2 = a.stats["mass_2"];
-        double armor = a.stats["armor"];
-        double attack_speed = a.stats["attack_speed"];
 
-        double KnowladgeAbility = diplomacy * 2 + stewardship + intelligence * 5 + lifespan;
-        double FightAbility = stamina + warfare + attack_speed + lifespan + armor + +throwing_range + damage * 5;
-        return (KnowladgeAbility, FightAbility);
+    public static bool isCityPass(this Actor a)
+    {
+        foreach(ActorTrait trait in a.traits)
+        {
+            if (trait.group_id== "EmpireExam")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static bool isProvincePass(this Actor a)
+    {
+        foreach (ActorTrait trait in a.traits)
+        {
+            if (trait.group_id == "EmpireExam")
+            {
+                if (trait.id == "gongshi" || trait.id == "jingshi")
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static bool isEmpirePass(this Actor a)
+    {
+        foreach (ActorTrait trait in a.traits)
+        {
+            if (trait.group_id == "EmpireExam")
+            {
+                if (trait.id == "jingshi")
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public static bool canTakeTitle(this Actor a)

@@ -80,6 +80,20 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.setLeader)),
             prefix: new HarmonyMethod(GetType(), nameof(setLeader))
         );
+
+        new Harmony(nameof(removeLeader)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.removeLeader)),
+            prefix: new HarmonyMethod(GetType(), nameof(removeLeader))
+        );
+    }
+
+    public static void removeLeader(City __instance)
+    {
+        OfficeIdentity identity = __instance.leader.GetIdentity();
+        if (identity != null)
+        {
+            identity.officialLevel = OfficialLevel.officiallevel_4;
+        }
     }
 
     public static bool setLeader(City __instance, Actor pActor, bool pNew)
@@ -99,6 +113,9 @@ public class CityPatch : GamePatch
         }
         if (pActor != null && __instance.kingdom.king != pActor)
         {
+            OfficeIdentity identity = pActor.GetIdentity();
+            identity.peerageType = PeerageType.Civil;
+            identity.officialLevel = OfficialLevel.officiallevel_4;
             __instance.leader = pActor;
             __instance.leader.setProfession(UnitProfession.Leader);
             CityData cityData = __instance.data;

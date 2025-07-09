@@ -7,14 +7,14 @@ using System.Threading.Tasks;
 namespace EmpireCraft.Scripts.Enums;
 public enum EmpireHistoryType
 {
-    称帝建业,
-    新皇登基,
-    皇帝驾崩,
-    皇帝退位,
-    权臣摄政,
-    臣服于帝国,
-    追封先帝,
-    迁都,
-    还于旧都,
-    另立朝廷
+    new_empire_history,
+    new_emperor_history,
+    emperor_die_history,
+    emperor_left_history,
+    powerful_minister_history,
+    join_empire_history,
+    give_posthumous_to_previous_emperor_history,
+    change_capital_history,
+    back_to_original_capital_history,
+    rebuild_empire_history
 }

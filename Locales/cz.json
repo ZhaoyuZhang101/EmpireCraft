@@ -77,6 +77,11 @@
     "add_title_description": "将选择的城市加入到指定的法理头衔中",
     "main_subspecies": "主体族群",
     "founder_species": "开国族群",
+    "add_province": "将选中的城市添加至省份",
+    "add_province_description": "将选中的城市添加至省份",
+    "province_layer": "省份层级",
+    "province_layer_description": "显示省份",
+    "EmpireExamGroup": "科举",
 
 
     "title_name": "头衔名称",

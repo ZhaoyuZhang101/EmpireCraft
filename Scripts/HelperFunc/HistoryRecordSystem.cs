@@ -17,34 +17,34 @@ public static class HistoryRecordSystem
         string id = "";
         switch (type) 
         {
-            case EmpireHistoryType.称帝建业:
+            case EmpireHistoryType.new_empire_history:
                 id = "history_new_empire";
                 break;
-            case EmpireHistoryType.新皇登基:
+            case EmpireHistoryType.new_emperor_history:
                 id = "history_new_emperor";
                 break;
-            case EmpireHistoryType.皇帝驾崩:
+            case EmpireHistoryType.emperor_die_history:
                 id = "histroy_empire_die";
                 break;
-            case EmpireHistoryType.皇帝退位:
+            case EmpireHistoryType.emperor_left_history:
                 id = "histroy_empire_left";
                 break;
-            case EmpireHistoryType.权臣摄政:
+            case EmpireHistoryType.powerful_minister_history:
                 id = "history_powerful_ministor";
                 break;
-            case EmpireHistoryType.追封先帝:
+            case EmpireHistoryType.give_posthumous_to_previous_emperor_history:
                 id = "history_name_previous_emperor";
                 break;
-            case EmpireHistoryType.臣服于帝国:
+            case EmpireHistoryType.join_empire_history:
                 id = "histroy_be_vassal";
                 break;
-            case EmpireHistoryType.迁都:
+            case EmpireHistoryType.change_capital_history:
                 id = "history_change_capital";
                 break;
-            case EmpireHistoryType.还于旧都:
+            case EmpireHistoryType.back_to_original_capital_history:
                 id = "history_back_to_original_capital";
                 break;
-            case EmpireHistoryType.另立朝廷:
+            case EmpireHistoryType.rebuild_empire_history:
                 id = "history_refund_empire";
                 break;
             default:

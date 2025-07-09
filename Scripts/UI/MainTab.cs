@@ -104,25 +104,25 @@ internal static class MainTab
                  SpriteTextureLoader.getSprite("ui/icons/iconCity"));
         tab.AddPowerButton(EMPIRE_FUNCTIONS, pb2);
 
-        //ProvinceLayerToggle.init();
-        //PowerButton pb3 = FixFunctions.CreateToggleButton("province_layer",
-        //         SpriteTextureLoader.getSprite("ui/icons/iconCity"));
-        //tab.AddPowerButton(PROVINCE_GROUP, pb3);
+        ProvinceLayerToggle.init();
+        PowerButton pb3 = FixFunctions.CreateToggleButton("province_layer",
+                 SpriteTextureLoader.getSprite("ui/icons/iconCity"));
+        tab.AddPowerButton(PROVINCE_GROUP, pb3);
 
-        //CreateProvinceButton.init();
-        //tab.AddPowerButton(PROVINCE_GROUP,
-        //    PowerButtonCreator.CreateGodPowerButton("create_province",
-        //        SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleCreate.png")));
+        CreateProvinceButton.init();
+        tab.AddPowerButton(PROVINCE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("create_province",
+                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleCreate.png")));
 
-        //AddProvinceButton.init();
-        //tab.AddPowerButton(PROVINCE_GROUP,
-        //    PowerButtonCreator.CreateGodPowerButton("add_province",
-        //        SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleAdd.png")));
+        AddProvinceButton.init();
+        tab.AddPowerButton(PROVINCE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("add_province",
+                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleAdd.png")));
 
-        //RemoveProvinceButton.init();
-        //tab.AddPowerButton(PROVINCE_GROUP,
-        //    PowerButtonCreator.CreateGodPowerButton("remove_province",
-        //        SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleRemove.png")));
+        RemoveProvinceButton.init();
+        tab.AddPowerButton(PROVINCE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("remove_province",
+                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleRemove.png")));
 
 
 

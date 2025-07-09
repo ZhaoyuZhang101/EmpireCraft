@@ -34,6 +34,8 @@ public class EmpireData : MetaObjectData
     public List<long> kingdoms;
     public List<string> history_emperrors;
 
+    public bool is_allow_normal_to_exam = true; 
+
     public long empire;
     public long original_capital;
 
