@@ -1,6 +1,7 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
 using EpPathFinding.cs;
 using HarmonyLib;
 using NeoModLoader.api;
@@ -38,6 +39,15 @@ public class ActorPatch : GamePatch
     }
     public static void removeData(Actor __instance)
     {
+        if (__instance.isOfficer())
+        {
+            long id = __instance.GetProvinceID();
+            Province province = ModClass.PROVINCE_MANAGER.get(id);
+            if (province != null) 
+            {
+                province.RemoveOfficer();
+            }
+        }
         __instance.RemoveExtraData();
     }
 
@@ -47,6 +57,11 @@ public class ActorPatch : GamePatch
         {
             return;
         }
+        if (__instance.data.custom_data_string == null)
+        {
+            __instance.data.custom_data_string = new CustomDataContainer<string> ();
+        }
+        __instance.data.custom_data_string[CustomDataType.empirecraft_history_record.ToString()] = "";
         __instance.SetPeeragesLevel(PeeragesLevel.peerages_6);
     }
 
@@ -227,6 +242,17 @@ public class ActorPatch : GamePatch
                 return;
             }
             __instance.family.data.name = string.Join(" ", cityName, clanName, familyEnd);
+            if (__instance.family.data.custom_data_bool == null)
+            {
+                __instance.family.data.custom_data_bool = new CustomDataContainer<bool>();
+            }
+            if (__instance.family.data.custom_data_bool.TryGetValue("has_city_pre", out bool has_city_pre))
+            {
+                has_city_pre = true;
+            } else
+            {
+                __instance.family.data.custom_data_bool["has_city_pre"] = true;
+            }
         }
         if (pObject == null)
         {
@@ -318,14 +344,27 @@ public class ActorPatch : GamePatch
             {
                 return;
             }
-            string cityName = __instance.city.name.Split(' ')[0];
-            string clanName = __instance.clan.name.Split(' ')[0];
+            string cityName = __instance.city.GetCityName();
+            string clanName = __instance.clan.GetClanName();
             string familyName = LM.Get("Family");
             if (pObject == null)
             {
                 return;
             }
             pObject.data.name = string.Join(" ", cityName, clanName, familyName);
+            if (__instance.family.data.custom_data_bool == null)
+            {
+                __instance.family.data.custom_data_bool = new CustomDataContainer<bool>();
+            }
+            if (__instance.family.data.custom_data_bool.TryGetValue("has_city_pre", out bool has_city_pre))
+            {
+                has_city_pre = true;
+            }
+            else
+            {
+                __instance.family.data.custom_data_bool["has_city_pre"] = true;
+            }
+
         }
         else
         {

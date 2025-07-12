@@ -13,6 +13,20 @@ public class CultureRule
 {
     public string name;
     public Setting setting;
+    public BeareauConfig beaurau_config;
+}
+public class BeareauConfig
+{
+    public List<OfficeConfig> CoreOffice;
+    public List<OfficeConfig> Divisions;
+}
+
+public class OfficeConfig
+{
+    public string name;
+    public OfficialLevel type;
+    public string description;
+    public string pre;
 }
 
 public class Setting
@@ -65,6 +79,7 @@ public class CitySetting
 public static class OnomasticsRule
 {
     public static Dictionary<string, Setting> ALL_CULTURE_RULE = new Dictionary<string, Setting>();
+    public static Dictionary<string, BeareauConfig> ALL_CULTURE_CONFIG = new Dictionary<string, BeareauConfig>();
     public static void ReadSetting()
     {
         string settingPath = Path.Combine(ModClass._declare.FolderPath, "CultureRulesConfig.json");
@@ -73,11 +88,7 @@ public static class OnomasticsRule
         foreach (CultureRule cultureRule in cultureRules)
         {
             ALL_CULTURE_RULE.Add(cultureRule.name, cultureRule.setting);
-            foreach(OnomasticsType type in cultureRule.setting.Unit.rule)
-            {
-                LogService.LogInfo(type.ToString());
-            }
-
+            ALL_CULTURE_CONFIG.Add(cultureRule.name, cultureRule.beaurau_config);
         }
     }
 }

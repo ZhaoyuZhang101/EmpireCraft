@@ -402,8 +402,9 @@ public static class KingdomExtension
         string kingdomOriginalName = kingdom.GetKingdomName();
         string culture = ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out var a) ? a : "Western";
         string kingdomBack = LM.Get($"{culture}_" + value.ToString());
-        
-        kingdom.data.name = String.Join(" ", kingdomOriginalName, kingdomBack) ;
+
+        kingdom.data.name = String.Join(" ", kingdomOriginalName, kingdomBack);
+
         GetOrCreate(kingdom).country_level = value;
     }    
     public static long GetVassaledKingdomID(this Kingdom kingdom)
@@ -445,11 +446,8 @@ public static class KingdomExtension
             {
                 city.AddKingdomName(kingdom.name.Split(' ')[0]);
             }
-            string province_name;
-            if (country_level == countryLevel.countrylevel_0)
-            {
-                province_name = LM.Get(preName) + " " + LM.Get(postName);
-            } else
+            string province_name = kingdom.data.name;
+            if (country_level != countryLevel.countrylevel_0)
             {
                 province_name = kingdom.capital.GetCityName() + " " + LM.Get(province_level_string);
             }

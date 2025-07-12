@@ -15,6 +15,7 @@ using System.Drawing;
 using System.Linq;
 using System.Net.NetworkInformation;
 using UnityEngine;
+using UnityEngine.Pool;
 namespace EmpireCraft.Scripts.Layer;
 // Token: 0x0200023B RID: 571
 public class Empire : MetaObject<EmpireData>
@@ -26,10 +27,10 @@ public class Empire : MetaObject<EmpireData>
     private readonly int avgCitiesPerKingdom = 3;
     public Clan empire_clan;
     public Actor emperor;
+    public Actor Heir;
     public Vector3 capital_center;
     public City original_capital;
     public EmpireCraftMapMode map_mode = EmpireCraftMapMode.Empire;
-    public List<Actor> exam_pass_persons = new List<Actor>();
     public List<Province> province_list = new List<Province>();
 
     public override MetaType meta_type
@@ -38,6 +39,31 @@ public class Empire : MetaObject<EmpireData>
         {
             return MetaType.None;
         }
+    }
+
+    public bool isNeedToExam()
+    {
+        if (data.last_exam_timestamp == -1L) 
+        {
+            return true;
+        } else
+        {
+            if (Date.getYearsSince(data.last_exam_timestamp)>=4)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public bool isNeedToOfficeExam()
+    {
+        if (data.last_exam_timestamp == -1L) return true;
+        if (Date.getYearsSince(data.last_office_exam_timestamp)>=1)
+        {
+            return true;
+        }
+        return false;
     }
 
     public override long getTotalDeaths()
@@ -96,9 +122,155 @@ public class Empire : MetaObject<EmpireData>
         return nameParts[nameParts.Length-2];
     }
 
+    //内阁官员选拔机制
+    public void InerOfficeSet()
+    {
+        SelectMinister();
+        SelectGeneral();
+        SelectDivisions();
+        SelectCoreOffices();
+        if (data.centerOffice.Minister==data.centerOffice.General&& data.centerOffice.General.actor_id!= -1L)
+        {
+            data.centerOffice.GreaterGeneral = data.centerOffice.Minister;
+            Actor actor = World.world.units.get(data.centerOffice.GreaterGeneral.actor_id);
+            if (actor != null) 
+            {
+                actor.UpgradeOfficial(true, 0);
+                actor.UpgradeOfficial(false, 0);
+                actor.ChangeOfficialLevel(OfficialLevel.officiallevel_1);
+                actor.SetPeerageType(PeerageType.Both);
+            }
+        }
+    }
+    public void SetOfficeBase(OfficeObject obj, PeerageType peerageType, string require_trait_id, int meritLevel, int honoraryOfficial, OfficialLevel officialLevel)
+    {
+        long id = obj.actor_id;
+        Actor actor = World.world.units.get(id);
+        if (actor == null || id == -1L)
+        {
+            ListPool<Actor> pool = new ListPool<Actor>();
+            ListPool<Actor> pool2 = new ListPool<Actor>();
+            ListPool<Actor> pool3 = new ListPool<Actor>();
+            foreach (Kingdom kingdom in kingdoms_list)
+            {
+                foreach (Actor potential in kingdom.units)
+                {
+                    if (potential != null)
+                    {
+                        if (potential.isUnitFitToRule() && potential.hasTrait("officer"))
+                        {
+                            OfficeIdentity identity = potential.GetIdentity(this);
+                            if (identity.honoraryOfficial <= 2 && identity.peerageType == peerageType)
+                            {
+                                pool.Add(potential);
+                            }
+                        }
+                        if (potential.hasClan() && !potential.isOfficer())
+                        {
+                            if (potential.clan == empire.getKingClan())
+                            {
+                                pool2.Add(potential);
+                            }
+                        }
+                        if (potential.hasTrait(require_trait_id) && !potential.isOfficer())
+                        {
+                            pool3.Add(potential);
+                        }
+                    }
+                }
+            }
+            bool flag = false;
+            Actor final = null;
+            if (pool.Count > 0)
+            {
+                final = pool.First();
+                flag = true;
+            }
+            else if (pool2.Count > 0)
+            {
+                if (empire.hasCulture())
+                {
+                    final = ListSorters.getUnitSortedByAgeAndTraits(pool2, empire.culture);
+                }
+                else
+                {
+                    pool2.Sort(ListSorters.sortUnitByAgeOldFirst);
+                    final = pool2.First();
+                }
+                OfficeIdentity identity = new OfficeIdentity();
+                identity.init(this, final);
+                identity.peerageType = peerageType;
+                identity.meritLevel = meritLevel;
+                identity.honoraryOfficial = honoraryOfficial;
+                final.SetIdentity(identity, false);
+                flag = true;
+            }
+            else if (pool3.Count > 0)
+            {
+                if (empire.hasCulture())
+                {
+                    final = ListSorters.getUnitSortedByAgeAndTraits(pool3, empire.culture);
+                } else
+                {
+                    pool3.Sort(ListSorters.sortUnitByAgeOldFirst);
+                    final = pool3.First();
+                }
+                OfficeIdentity identity = new OfficeIdentity();
+                identity.init(this, final);
+                identity.peerageType = peerageType;
+                identity.meritLevel = meritLevel;
+                identity.honoraryOfficial = honoraryOfficial;
+                final.SetIdentity(identity, false);
+                flag = true;
+            }
+            if (flag)
+            {
+                obj.SetActor(final);
+                obj.timestamp = World.world.getCurWorldTime();
+                final.ChangeOfficialLevel(officialLevel);
+                LogService.LogInfo($"{final.data.name}出任:{obj.level.ToString()}");
+            }
+        } else if (actor!=null)
+        {
+            if (obj.GetOnTime()>=16)
+            {
+                obj.RemoveActor();
+            }
+        }
+    }
+    //设置宰相
+    public void SelectMinister()
+    {
+        SetOfficeBase(this.data.centerOffice.Minister, PeerageType.Civil, "jingshi", 3, 2, OfficialLevel.officiallevel_2);
+    }
+    //设置将军
+    public void SelectGeneral()
+    {
+        SetOfficeBase(this.data.centerOffice.General, PeerageType.Military, "jingshi", 3, 2, OfficialLevel.officiallevel_3);
+    }
+    //设置三省
+    public void SelectCoreOffices()
+    {
+        foreach(var office in this.data.centerOffice.CoreOffices)
+        {
+            SetOfficeBase(office.Value, PeerageType.Civil, "jingshi", 5, 4, office.Value.level);
+        }
+    }
+    //设置六部
+    public void SelectDivisions()
+    {
+        foreach (var office in this.data.centerOffice.Divisions)
+        {
+            SetOfficeBase(office.Value, PeerageType.Civil, "gongshi",7, 6, office.Value.level);
+        }
+    }
+
+
     public void setEmperor(Actor actor, bool isNew=false)
     {
         this.emperor = actor;
+        this.emperor.SetEmpire(this);
+        this.Heir = null;
         create_year_name();
         TranslateHelper.LogNewEmperor(emperor, empire.capital, data.year_name);
         if (!isNew)
@@ -131,13 +303,15 @@ public class Empire : MetaObject<EmpireData>
 
     public void EmperorLeft(Kingdom kingdom)
     {
+        if (this.emperor == null) return;
+        if (this.emperor.data == null) return;
         if (data.currentHistory == null)
         {
             data.currentHistory = new EmpireCraftHistory
             {
                 id = this.emperor.data.id,
                 year_name = data.year_name,
-                emperor = this.emperor.getName(),
+                emperor = this.emperor.data.name,
                 empire_name = this.GetEmpireName(),
                 miaohao_name = "",
                 shihao_name = "",
@@ -150,7 +324,7 @@ public class Empire : MetaObject<EmpireData>
             this.RecordHistory(EmpireHistoryType.emperor_left_history, new Dictionary<string, string>()
             {
                 ["year_name"] = data.year_name,
-                ["actor"] = this.emperor.getName()
+                ["actor"] = this.emperor.data.name
             });
         }
         else
@@ -158,9 +332,10 @@ public class Empire : MetaObject<EmpireData>
             this.RecordHistory(EmpireHistoryType.emperor_die_history, new Dictionary<string, string>()
             {
                 ["year_name"] = data.year_name,
-                ["actor"] = this.emperor.getName()
+                ["actor"] = this.emperor.data.name
             });
         }
+        this.emperor.RemoveEmpire();
         data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
         data.history.Add(data.currentHistory);
         data.currentHistory = null;
@@ -231,6 +406,8 @@ public class Empire : MetaObject<EmpireData>
 
     public void createNewEmpire(Kingdom empire)
     {
+        this.data.heir_type = EmpireHeirLawType.eldest_son;
+        this.data.last_exam_timestamp = World.world.getCurWorldTime();
         this.data.armySystemType = ArmySystemType.募兵制;
         this.StartEmpireExam();
         if (ConfigData.speciesCulturePair != null) 
@@ -243,6 +420,7 @@ public class Empire : MetaObject<EmpireData>
             }
         }
         this.empire = empire;
+        empire.SetCountryLevel(countryLevel.countrylevel_0);
         if (this.empire.getKingClan() != null) this.empire_clan = this.empire.getKingClan();
         else 
         { 
@@ -255,7 +433,6 @@ public class Empire : MetaObject<EmpireData>
         this.data.banner_background_id = empire.data.banner_background_id;
         this.data.timestamp_established_time = World.world.getCurWorldTime();
         this.capital_center = empire.capital.city_center;
-        empire.SetCountryLevel(countryLevel.countrylevel_0);
         this.generateNewMetaObject();
         string empireName = empire.GetKingdomName();
         if (empire.king.HasTitle())
@@ -292,6 +469,7 @@ public class Empire : MetaObject<EmpireData>
         setEmperor(empire.king, true);
         TranslateHelper.LogNewEmperor(empire.king, empire.capital, data.year_name);
         empire.getKingClan().RecordHistoryEmpire(this);
+        empire.data.name = this.data.name;
     }
     public bool canSetTitleToPreviousEmperor()
     {
@@ -734,18 +912,19 @@ public class Empire : MetaObject<EmpireData>
             }
         }
 
-        foreach(Actor actor in this.exam_pass_persons)
-        {
-            if (actor!=null)
-            {
-                this.data.exam_pass_persons.Add(actor.getID());
-            }
-        }
         if (this.emperor != null)
             this.data.emperor = this.emperor.data.id;
         else
             this.data.emperor = -1L;
         this.data.empire = this.empire.data.id;
+        if (this.Heir!=null)
+        {
+            this.data.Heir = this.Heir.data.id;
+        }
+        else
+        {
+            this.data.Heir = -1L;
+        }
         this.data.original_capital = this.original_capital.isAlive() ? this.original_capital.data.id : -1L;
         try
         {
@@ -774,12 +953,14 @@ public class Empire : MetaObject<EmpireData>
         this.empire = World.world.kingdoms.get(pData.empire);
         this.empire_clan = World.world.clans.get(pData.empire_clan);
         this.original_capital = World.world.cities.get(pData.original_capital);
-        foreach(long personId in this.data.exam_pass_persons)
-        {
-            Actor actor = World.world.units.get(personId);
-            this.exam_pass_persons.Add(actor);
-        }
-        foreach(long provinceID in this.data.province_list)
+        this.Heir = World.world.units.get(pData.Heir);
+        this.recalculate();
+    }
+
+    public void syncProvince()
+    {
+        this.province_list = new List<Province>();
+        foreach (long provinceID in this.data.province_list)
         {
             Province p = ModClass.PROVINCE_MANAGER.get(provinceID);
             if (p != null)
@@ -787,7 +968,6 @@ public class Empire : MetaObject<EmpireData>
                 this.province_list.Add(p);
             }
         }
-        this.recalculate();
     }
 
     // Token: 0x06001128 RID: 4392 RVA: 0x000C7890 File Offset: 0x000C5A90
@@ -1129,6 +1309,11 @@ public class Empire : MetaObject<EmpireData>
         }
     }
 
+    public void StartExam()
+    {
+
+    }
+
     public Vector3 GetEmpireCenter()
     {
         if (!this._units_dirty)
@@ -1223,33 +1408,6 @@ public class Empire : MetaObject<EmpireData>
             num = i;
         }
         yield break;
-    }
-
-    public void AddExamPassPerson(Actor a)
-    {
-        if (a == null) return;
-        if (exam_pass_persons == null)
-        {
-            exam_pass_persons = new List<Actor>();
-        }
-        exam_pass_persons.Add(a);
-    }
-
-    public List<Actor> GetExamPassPersons()
-    {
-        return exam_pass_persons;
-    }
-    public bool canStartExam()
-    {
-        foreach(Province p in province_list)
-        {
-            if (p == null) continue;
-            if (p.exam_pass_persons.Count()<=0)
-            {
-                return false;
-            }
-        }
-        return true;
     }
 
 
@@ -1435,7 +1593,7 @@ public static class ProvinceDivider
 {
     public static List<Province> DivideIntoProvince(this Empire empire)
     {
-        List<City> cities = empire.empire.cities;
+        List<City> cities = empire.empire.cities.FindAll(a=>!a.hasProvince());
         int maxProvinceNum = empire.data.max_province_city_num;
         var result = new List<Province>();
         if (cities == null || cities.Count == 0) return result;
@@ -1443,10 +1601,41 @@ public static class ProvinceDivider
 
         if (remaining.Count <= maxProvinceNum)
         {
-            Province province = ModClass.PROVINCE_MANAGER.newProvince(empire.empire.capital);
-            foreach(City city in remaining)
+            while (remaining.Count > 0)
             {
-                province.addCity(city);
+                var a = remaining[0];
+                Province p = null;
+                bool assigned = false;
+
+                var neighbors = a.neighbours_cities.ToList();
+                foreach (var c in neighbors)
+                {
+                    if (!c.kingdom.isInSameEmpire(empire.empire)) continue; 
+                    if (c.hasProvince() && c.GetProvince().city_list.Count < maxProvinceNum)
+                    {
+                        c.GetProvince().addCity(a);
+                        assigned = true;
+                    }
+                    else if (!c.hasProvince())
+                    {
+                        if (p == null)
+                            p = ModClass.PROVINCE_MANAGER.newProvince(a);
+                        p.addCity(c);
+                        assigned = true;
+                    }
+
+                    if (assigned)
+                        break;
+                }
+
+                // 2) 如果都没合并上，那就给自己单独一个省
+                if (!assigned)
+                {
+                    ModClass.PROVINCE_MANAGER.newProvince(a);
+                }
+
+                // 3) 无论如何，移除已处理的 a
+                remaining.RemoveAt(0);
             }
             return result;
         }

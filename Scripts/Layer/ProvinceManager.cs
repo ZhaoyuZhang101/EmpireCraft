@@ -28,6 +28,10 @@ public class ProvinceManager : MetaSystemManager<Province, ProvinceData>
         Province province = base.newObjectFromID(id);
         province.newProvince(city);
         province.updateColor(province.empire.getColor());
+        if(city.isCapitalCity())
+        {
+            province.SetDirectRule();
+        }
         LogService.LogInfo($"new province{province.data.name}");
         return province;
     }

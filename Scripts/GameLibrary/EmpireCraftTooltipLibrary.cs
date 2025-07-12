@@ -1,4 +1,5 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using System;
@@ -132,18 +133,32 @@ public static class EmpireCraftTooltipLibrary
         City city = pData.city;
         Province province = city.GetProvince();
         pTooltip.setDescription(LM.Get("province_description"), null);
-        string tColorHex = province.getColor().color_text;
+        string tColorHex = province.empire.empire.getColor().color_text;
         pTooltip.setTitle(province.data.name, "ProvinceWindowTitle", tColorHex);
         int tAge = province.getAge();
         AssetManager.tooltips.setIconValue(pTooltip, "i_age", tAge);
         AssetManager.tooltips.setIconValue(pTooltip, "i_population", province.countPopulation());
         pTooltip.addLineText("province_owner", province.empire.data.name, "#FE9900", false, true, 21);
         pTooltip.addLineText("province_capital", province.province_capital.data.name, "#CC6CE7", false, true, 21);
+        string officer_name = "-";
         if (province.officer != null)
         {
-            pTooltip.addLineText("province_officer", province.officer.getName(), "#CC6CE7", false, true, 21);
+            if (province.officer.isAlive())
+            {
+                officer_name = province.officer.data.name;
+            }
         }
+        pTooltip.addLineText("province_officer", officer_name, "#CC6CE7", false, true, 21);
         pTooltip.addLineText("province_officers_num", province.data.history_officers.Count().ToString(), "#CC6CE7", false, true, 21);
-        pTooltip.addLineText("province_type", province.data.history_officers.Count().ToString(), "#CC6CE7", false, true, 21);
+        ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out string culture);
+        string provinceType = "";
+        if (culture != null)
+        {
+            provinceType = LM.Get($"{culture}_{province.data.provinceLevel.ToString()}");
+        } else
+        {
+            provinceType = LM.Get($"Western_{province.data.provinceLevel.ToString()}");
+        }
+        pTooltip.addLineText("province_type", provinceType, "#CC6CE7", false, true, 21);
     }
 }

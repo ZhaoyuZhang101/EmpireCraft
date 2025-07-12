@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace EmpireCraft.Scripts.GameLibrary;
-public class EmpireCraftWorldLogLibrary
+public static class EmpireCraftWorldLogLibrary
 {
     public static WorldLogAsset history_new_emperor;
     public static WorldLogAsset empire_powerful_minister_aquire_title;
@@ -32,6 +32,8 @@ public class EmpireCraftWorldLogLibrary
     public static WorldLogAsset history_kingdom_change_capital_to_title;
     public static WorldLogAsset history_kingdom_join_empire;
     public static WorldLogAsset emperor_posthumous_name;
+    public static WorldLogAsset province_change_to_kingdom_log;
+    public static WorldLogAsset new_jingshi_log;
 
     public static void init()
     {
@@ -47,6 +49,30 @@ public class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$place$", 2);
                 wl.updateText(ref pText, pMessage, "$year_name$", 3);
+            }
+        });
+        province_change_to_kingdom_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(province_change_to_kingdom_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$province$", 1);
+                wl.updateText(ref pText, pMessage, "$province_level$", 2);
+            }
+        });
+        new_jingshi_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(new_jingshi_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$actor$", 2);
             }
         });
         emperor_posthumous_name = wl.add(new WorldLogAsset

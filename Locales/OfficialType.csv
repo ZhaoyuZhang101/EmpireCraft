@@ -1,7 +1,13 @@
 ﻿key,cz,en,ch
+
 Huaxia_officiallevel_0,天子,Sovereign,天子
 Huaxia_officiallevel_1,天策上将,Sovereign,天策上将
 Huaxia_officiallevel_2,宰相,High Minister,宰相
-Huaxia_officiallevel_3,观察使,Prefect,观察使
-Huaxia_officiallevel_4,州牧,Magistrate,州牧
-Huaxia_officiallevel_5,无,None,無
+Huaxia_officiallevel_3,大将军,Great General,大将軍
+Huaxia_officiallevel_4,中书令,ZhongshuLing, 中书令
+Huaxia_officiallevel_5,尚书令,ShangshuLing, 尚书令
+Huaxia_officiallevel_6,门下侍中,MenxiaShizhong, 门下侍中
+Huaxia_officiallevel_7,尚书,ShangShu, 尚书
+Huaxia_officiallevel_8,观察使,Prefect,观察使
+Huaxia_officiallevel_9,刺史,Magistrate,刺史
+Huaxia_officiallevel_10,无,None,無

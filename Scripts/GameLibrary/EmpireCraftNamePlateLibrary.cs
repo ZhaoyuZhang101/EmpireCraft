@@ -83,7 +83,7 @@ public static class EmpireCraftNamePlateLibrary
         NameplateAsset asset3 = new NameplateAsset
         {
             id = "plate_province",
-            path_sprite = "ui/nameplates/nameplate_city",
+            path_sprite = "ui/nameplates/nameplate_province",
             padding_left = 26,
             padding_right = 26,
             padding_top = -2,
@@ -220,7 +220,7 @@ public static class EmpireCraftNamePlateLibrary
         if (!capital.hasProvince()) return;
         try
         {
-            plateText.setupMeta(capital.data, capital.GetEmpire().empire.getColor());
+            plateText.setupMeta(capital.data, capital.kingdom.getColor());
             string text = capital.GetProvince().data.name;
             plateText.setText(text, capital.city_center);
             plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);

@@ -3,6 +3,7 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Windows;
+using EpPathFinding.cs;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -93,6 +94,7 @@ public static class EmpireCraftMetaTypeLibrary
                     if (pTile.zone_city.hasProvince())
                     {
                         ConfigData.CURRENT_SELECTED_PROVINCE = pTile.zone_city.GetProvince();
+                        ScrollWindow.showWindow(nameof(ProvinceWindow));
                         LogService.LogInfo("open province window");
                         return true;
                     }

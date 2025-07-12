@@ -1,4 +1,5 @@
-﻿using EmpireCraft.Scripts.Enums;
+﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Layer;
@@ -65,6 +66,33 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = kingdom.getColor()._colorText,
                 color_special2 = kingdom.getColor()._colorText,
                 color_special3 = title.getColor()._colorText
+
+            }.add();
+        }
+        public static void LogProvinceChangeToKingdom(Province province, provinceLevel level)
+        {
+            string level_pre = ConfigData.speciesCulturePair.TryGetValue(province.empire.empire.getSpecies(), out string culture) ? culture : "Western";
+
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.province_change_to_kingdom_log,
+                province.data.name,
+                LM.Get(String.Join("_", level_pre, level.ToString()))
+                )
+            {
+                color_special1 = province.empire.getColor()._colorText,
+                color_special2 = province.empire.getColor()._colorText
+
+            }.add();
+        }
+        public static void LogNewJingShi(Empire empire, Actor actor)
+        {
+
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.new_jingshi_log,
+                empire.data.name,
+                actor.data.name
+                )
+            {
+                color_special1 = empire.empire.getColor()._colorText,
+                color_special2 = empire.empire.getColor()._colorText
 
             }.add();
         }

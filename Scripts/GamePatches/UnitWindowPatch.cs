@@ -1,19 +1,24 @@
-﻿using EmpireCraft.Scripts.Enums;
+﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.General;
+using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class UnitWindowPatch: GamePatch
 {
     public ModDeclare declare { get; set; }
+    public Actor actor { get; set; }
     public void Initialize()
     {
         // UnitWindow类的补丁
@@ -21,16 +26,92 @@ public class UnitWindowPatch: GamePatch
             AccessTools.Method(typeof(UnitWindow), nameof(UnitWindow.showStatsRows)),
             prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(set_stats_rows))
         );
+        // UnitWindow类的补丁
+        new Harmony(nameof(OnEnable)).Patch(
+            AccessTools.Method(typeof(UnitWindow), nameof(UnitWindow.OnEnable)),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(OnEnable))
+        );
         LogService.LogInfo("角色窗口补丁加载成功");
+    }
+
+    public static void OnEnable(UnitWindow __instance)
+    { 
+        //if (__instance.transform.Find("historyRecordButton")==null)
+        //{
+        //    SimpleButton simpleButton = GameObject.Instantiate(SimpleButton.Prefab, __instance.transform);
+        //    simpleButton.Setup(OpenHistoryRecordWindow, SpriteTextureLoader.getSprite("EmperorQuest"));
+        //}
+    }
+
+    public static void OpenHistoryRecordWindow()
+    {
+        LogService.LogInfo($"OpenHistoryRecordWindow");
     }
 
     private static void set_stats_rows(UnitWindow __instance)
     {
+        Actor actor = __instance.actor;
         PeeragesLevel peeragesLevel = __instance.actor.GetPeeragesLevel();
-        __instance.showStatRow("Peerages", LM.Get("default_" + peeragesLevel.ToString()), MetaType.None, -1L, null, LM.Get("Peerages"), null);
+        __instance.showStatRow("Peerages", LM.Get("default_" + peeragesLevel.ToString()), MetaType.Unit, -1L);
         if (__instance.actor.HasTitle())
         {
-            __instance.showStatRow("EmpireTitle", __instance.actor.GetTitle() , MetaType.None, -1L, null, LM.Get("Peerages"), null);
+            __instance.showStatRow("EmpireTitle", __instance.actor.GetTitle(), MetaType.Unit, -1L, pTooltipData: getTooltipAllTitles);
         }
+        if (__instance.actor.isOfficer())
+        {
+            if(actor.city.kingdom.isInEmpire())
+            {
+                Empire empire = actor.city.kingdom.GetEmpire();
+                OfficeIdentity identity = __instance.actor.GetIdentity(empire);
+                string culture = "Huaxia";
+                //if (ConfigData.speciesCulturePair.TryGetValue(actor.data.asset_id, out string val))
+                //{
+                //    culture = val;
+                //}
+                string EmpireMeritString = String.Join("_", culture, "meritlevel", identity.meritLevel);
+                string EmpireHonoraryOfficialString = String.Join("_", culture, "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
+                string EmpireOfficialLevelString = String.Join("_", culture,identity.officialLevel.ToString());
+                if (identity.officialLevel==OfficialLevel.officiallevel_9)
+                {
+                    EmpireOfficialLevelString = actor.city.data.name + LM.Get(EmpireOfficialLevelString);
+                }
+                if (identity.officialLevel == OfficialLevel.officiallevel_8)
+                {
+                    long province_id = actor.GetProvinceID();
+                    Province province = ModClass.PROVINCE_MANAGER.get(province_id);
+                    if (province != null)
+                    {
+                        EmpireOfficialLevelString = province.data.name + LM.Get(EmpireOfficialLevelString);
+                    }
+                }
+                if (identity.officialLevel == OfficialLevel.officiallevel_7)
+                {
+                    OfficeObject officeObject = empire.data.centerOffice.Divisions.Values.ToList().Find(a => a.actor_id == actor.getID());
+                    if (officeObject != null)
+                    {
+                        EmpireOfficialLevelString = LM.Get(officeObject.pre) + LM.Get(EmpireOfficialLevelString);
+                    }
+                }
+                __instance.showStatRow("EmpireMerit", LM.Get(EmpireMeritString));
+                __instance.showStatRow("EmpireHonoraryOfficial", LM.Get(EmpireHonoraryOfficialString));
+                __instance.showStatRow("OfficialLevel", LM.Get(EmpireOfficialLevelString));
+            }
+
+        }
+    }
+
+    public static TooltipData getTooltipAllTitles()
+    {
+        Actor actor = SelectedUnit.unit;
+        CustomDataContainer<string> customDataContainer = new CustomDataContainer<string>();
+        foreach(long title in actor.GetOwnedTitle())
+        {
+            customDataContainer.dict.Add(title.ToString(), ModClass.KINGDOM_TITLE_MANAGER.get(title).data.name);
+        }
+        return new TooltipData
+        {
+            tip_name = "all_titles",
+            custom_data_string = customDataContainer
+        };
     }
 }

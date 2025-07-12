@@ -1,6 +1,4 @@
 ﻿using NeoModLoader.api;
-using NeoModLoader.api.attributes;
-using NeoModLoader.General.UI.Tab;
 using UnityEngine;
 using NeoModLoader.services;
 using System;
@@ -9,18 +7,14 @@ using EmpireCraft.Scripts.GamePatches;
 using NeoModLoader.General;
 using System.IO;
 using EmpireCraft.Scripts.Layer;
-using static UnityEngine.Random;
 using EmpireCraft.Scripts.UI;
-using UnityEngine.PlayerLoop;
-using EmpireCraft.Scripts.AI;
-using db;
 using EmpireCraft.Scripts.Enums;
-using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.Data;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.GameLibrary;
 using System.Linq;
+using EmpireCraft.Scripts.AI;
 
 namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigurable
@@ -103,8 +97,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         //加载文化名称模板
         loadCultureNameTemplate();
         LM.ApplyLocale(); // Apply the loaded locales to the game
-        Type[] patchTypes = Assembly.GetExecutingAssembly().GetTypes();
-        foreach (Type type in patchTypes)
+        Type[] types = Assembly.GetExecutingAssembly().GetTypes();
+        foreach (Type type in types)
         {
             if (type.GetInterface(nameof(GamePatch)) != null)
             {
@@ -126,24 +120,18 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         prefab_library.SetParent(transform);
         LoadUI();
         modConfig = new ModConfig(_declare.FolderPath + "/default_config.json", true);
-
-        LogService.LogInfo("加载帝国模组更多看法");
-        EmpireCraftOpinionAddition.init();
-        LogService.LogInfo("加载帝国模组更多政策行为");
-        EmpireCraftPlotsAddition.init();
         LogService.LogInfo("加载帝国模组更多世界提示");
         EmpireCraftWorldLogLibrary.init();
-        LogService.LogInfo("加载帝国模组名牌");
         EmpireCraftNamePlateLibrary.init();
-        LogService.LogInfo("加载帝国模组UI渲染");
-        EmpireCraftQuantumSpriteLibrary.init();
-        LogService.LogInfo("加载帝国模组地图层级渲染");
+        EmpireCraftActorTraitLibrary.init();
         EmpireCraftMetaTypeLibrary.init();
-        LogService.LogInfo("加载帝国模组更多提示");
-        EmpireCraftTooltipLibrary.init();
         EmpireCraftHistoryDataLibrary.init();
-        ActorTraitLibraryExtension.init();
-        ActorTraitGroupLibraryExtension.init();
+        EmpireCraftBehaviourTaskKingdomLibrary.init();
+        EmpireCraftActorTraitGroupLibrary.init();
+        EmpireCraftTooltipLibrary.init();
+        EmpireCraftOpinionAddition.init();
+        EmpireCraftPlotsAddition.init();
+        EmpireCraftQuantumSpriteLibrary.init();
         World.world._list_meta_main_managers.Add(EMPIRE_MANAGER = new EmpireManager());
         World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER = new KingdomTitleManager());
         World.world._list_meta_main_managers.Add(PROVINCE_MANAGER = new ProvinceManager());
@@ -159,7 +147,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     public void LoadUI()
     {
-        BeaurauSystem.init();
         MainTab.Init();
         LogService.LogInfo("EmpireCraftUI Load Finish！！");
     }

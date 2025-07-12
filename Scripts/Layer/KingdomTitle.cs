@@ -329,7 +329,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         if (tChanged)
         {
             this.recalculate();
-        }
+        } 
         return this.city_list.Count >= 1;
     }
     public void recalculate()

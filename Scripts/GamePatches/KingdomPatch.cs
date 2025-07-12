@@ -1,4 +1,6 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+﻿using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
 using NeoModLoader.api;
@@ -8,6 +10,7 @@ using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -39,7 +42,36 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(removeData))
-        );  
+        );            
+        new Harmony(nameof(getMaxCities)).Patch(
+            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.getMaxCities)),
+            prefix: new HarmonyMethod(GetType(), nameof(getMaxCities))
+        );
+    }
+
+    public static bool getMaxCities(Kingdom __instance, ref int __result)
+    {
+        int num = __instance.getActorAsset().civ_base_cities;
+        if (__instance.hasKing())
+        {
+            num += (int)__instance.king.stats["cities"];
+        }
+        if (__instance.isEmpire())
+        {
+            foreach (Province province in __instance.GetEmpire().province_list)
+            {
+                if (province.HasOfficer())
+                {
+                    num += (int)province.officer.stats["cities"];
+                }
+            }
+        }
+        if (num < 1)
+        {
+            num = 1;
+        }
+        __result = num;
+        return false;
     }
 
     public static void removeData(Kingdom __instance)
@@ -69,9 +101,40 @@ public class KingdomPatch : GamePatch
                     pActor.AddOwnedTitle(ModClass.KINGDOM_TITLE_MANAGER.get(title_id));
                 }
             }
+
+            if (__instance.HasMainTitle())
+            {
+                if (__instance.isInEmpire() && !__instance.isEmpire())
+                {
+                    if (pActor.clan == __instance.GetEmpire().empire_clan)
+                    {
+                        pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_1);
+                    } else
+                    {
+                        pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_2);
+                    }
+
+                } else if (!__instance.isInEmpire())
+                {
+                    pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_1);
+                }
+            }
             if (__instance.isEmpire())
             {
                 __instance.GetEmpire().setEmperor(pActor);
+            } else if (__instance.isInEmpire()&&!__instance.isEmpire())
+            {
+                Empire empire = __instance.GetEmpire();
+                OfficeIdentity identity = pActor.GetIdentity(empire);
+                if (identity == null)
+                {
+                    identity = new OfficeIdentity();
+                    identity.init(empire, pActor);
+                    pActor.SetIdentity(identity, true);
+                }
+                pActor.ChangeOfficialLevel(OfficialLevel.officiallevel_8);
+                pActor.SetIdentityType(PeerageType.Military);
+                pActor.addTrait("officer");
             }
         }
     }
@@ -88,6 +151,10 @@ public class KingdomPatch : GamePatch
             if (__instance.isEmpire())
             {
                 __instance.GetEmpire().EmperorLeft(__instance);
+            }
+            if (__instance.isInEmpire() && !__instance.isEmpire())
+            {
+                __instance.king.GetIdentity(__instance.GetEmpire()).ChangeOfficialLevel(Enums.OfficialLevel.officiallevel_10);
             }
         }
     }

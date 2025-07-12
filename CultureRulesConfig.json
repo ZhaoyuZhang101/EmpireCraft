@@ -6,12 +6,12 @@
                 "groups": {
                     "group_1": "CityNames1",
                     "group_2": "CityNames2"
-                     //这里的group后面的名称可以随意制定，
+                    //这里的group后面的名称可以随意制定，
                     // 但是需要在对应文化的文件夹中创建同名的.csv文件且带上文化前缀，比如这里的group_1绑定的是叫做CityNames1的词库
                     //如果我的文化是Huaxia，那么就应该在Cultures/Culture_Huaxia/的目录下创建一个名为HuaxiaCityNames1.csv的文件，并且写入对应词库
                 },
                 "rule": [ "group_1", "group_2" ], // 此处为字库组的组合规则
-                "name_pos": 0 
+                "name_pos": 0
                 //这里的name_pos代表了名字的位置，比如常见的城市名称组合为XX市，
                 // 其中XX就是它的名字，人物姓名也是如此，王XX，XX就是他的名字
                 //而在此模组中一般是利用空格来区分姓与名，或者城市后缀，因此name_pos就用来指定全称的哪一部分为他的有效名称，
@@ -45,8 +45,16 @@
                     "group_4": "UnitNamesFemale2"
                 },
                 "rule": [
-                    "group_1","sex_male","coin_flip", "group_2","sex_male",
-                    "group_3","sex_female","coin_flip","group_4","sex_female"
+                    "group_1",
+                    "sex_male",
+                    "coin_flip",
+                    "group_2",
+                    "sex_male",
+                    "group_3",
+                    "sex_female",
+                    "coin_flip",
+                    "group_4",
+                    "sex_female"
                     //这里的规则词条与游戏中的文化模板里面提供的是一致的，参考文化模板的规则即可，
                     // 但是词条需要使用Scripts/Enums/OnomasticsType.cs中提供的，当然也可以自己添加，
                     // 前提是需要和游戏源代码里面使用的一致，而不是游戏里面显示的，其他的词条作者还没有补全，
@@ -63,6 +71,66 @@
                 "rule": [ "group_1" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [
+                {
+                    "name": "ZhongshuSheng",
+                    "type": "officiallevel_4",
+                    "pre": "",
+                    "description": ""
+                },
+                {
+                    "name": "MenxiaSheng",
+                    "type": "officiallevel_6",
+                    "pre": "",
+                    "description": ""
+                },
+                {
+                    "name": "ShangshuSheng",
+                    "type": "officiallevel_5",
+                    "pre": "",
+                    "description": ""
+                }
+            ],
+            "Divisions": [
+                {
+                    "name": "Li3bu_division",
+                    "type": "officiallevel_7",
+                    "pre": "Li3bu_division",
+                    "description": ""
+                },
+                {
+                    "name": "Libu_division",
+                    "type": "officiallevel_7",
+                    "pre": "Libu_division",
+                    "description": ""
+                },
+                {
+                    "name": "Gongbu_division",
+                    "type": "officiallevel_7",
+                    "pre": "Gongbu_division",
+                    "description": ""
+                },
+                {
+                    "name": "Bingbu_division",
+                    "type": "officiallevel_7",
+                    "pre": "Bingbu_division",
+                    "description": ""
+                },
+                {
+                    "name": "Xingbu_division",
+                    "type": "officiallevel_7",
+                    "pre": "Xingbu_division",
+                    "description": ""
+                },
+                {
+                    "name": "Hubu_division",
+                    "type": "officiallevel_7",
+                    "pre": "Hubu_division",
+                    "description": ""
+                }
+            ]
         }
     },
     {
@@ -124,6 +192,10 @@
                 "rule": [ "group_1" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
         }
     },
     {
@@ -185,6 +257,10 @@
                 "rule": [ "group_1" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
         }
     }
 ]

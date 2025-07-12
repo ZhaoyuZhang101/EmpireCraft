@@ -1,4 +1,5 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
@@ -7,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace EmpireCraft.Scripts.AI;
-public static class EmpireCraftOpinionAddition
+public class EmpireCraftOpinionAddition
 {
     public static void init()
     {

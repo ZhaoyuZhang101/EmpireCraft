@@ -49,7 +49,10 @@ internal static class MainTab
             nameof(EmpireWindow) + "Title");
         KingdomTitleWindow.CreateWindow(nameof(KingdomTitleWindow),
             nameof(KingdomTitleWindow) + "Title");
-        EmpireBeaurauWindow.CreateAndInit(nameof(EmpireBeaurauWindow));
+        ProvinceWindow.CreateWindow(nameof(ProvinceWindow),
+            nameof(ProvinceWindow) + "Title");
+        EmpireBeaurauWindow.CreateWindow(nameof(EmpireBeaurauWindow),
+            nameof(EmpireBeaurauWindow) + "Title");
     }
 
     private static void _addButtons()

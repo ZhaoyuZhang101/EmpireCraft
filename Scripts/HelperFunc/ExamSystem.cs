@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using NCMS.Extensions;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.services;
 using System;
@@ -8,15 +9,17 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Unity.Profiling.LowLevel;
 
 namespace EmpireCraft.Scripts.HelperFunc;
 public static class ExamSystem
 {
     public enum ExamType
     {
-        City,
-        Province,
-        Empire
+        City, //乡试
+        Province, //会试
+        Empire, //殿试
+        Office //官员晋级
     }
     public static void startExam(ExamType type, NanoObject nano)
     {
@@ -35,7 +38,6 @@ public static class ExamSystem
                 break;
         }
     }
-
     public static void cityExamPrepare(NanoObject nano)
     {
         City city = (City)nano;
@@ -43,15 +45,17 @@ public static class ExamSystem
         foreach(Actor actor in city.units)
         {
             double mark = 0;
-            if (actor.isCityPass()) continue;
             if (!actor.isAdult()) continue;
             if (actor.isOfficer()) continue;
             if (actor.isCityLeader()) continue;
             if (actor.isKing()) continue;
             if (actor.hasArmy()) continue;
-
+            if (actor.intelligence < 15) continue;
+            if (actor.hasTrait("jingshi")) continue;
+            if (actor.hasTrait("juren")) continue;
+            if (actor.hasTrait("gongshi")) continue;
             if (city.kingdom.GetEmpire().data.is_allow_normal_to_exam)
-            {
+            { 
                 mark = actor.startCityExam();
             } else
             {
@@ -66,26 +70,49 @@ public static class ExamSystem
             }
         }
         var sorted = MarksData.OrderByDescending(kv=>kv.Value).ToList();
-        if (sorted.Count()>0)
+        //LogService.LogInfo($"参加{city.data.name}乡试有{sorted.Count}人");
+        int takeNum = 3;
+        if (city.GetExamPassPersonIDs().Count()< takeNum)
         {
-            sorted.First().Key.addTrait("juren");
-            //LogService.LogInfo($"{}");
+            takeNum -= city.GetExamPassPersonIDs().Count();
+        } else
+        {
+            takeNum = 1;
+        }
+        if (sorted.Count()> takeNum)
+        {
+            sorted.Take(takeNum).ForEach(item=>item.Key.addTrait("juren"));
+            //LogService.LogInfo($"{takeNum}人中举");
+        } else
+        {
+            sorted.ForEach(item => item.Key.addTrait("juren"));
+            //LogService.LogInfo($"{sorted.Count}人中举");
         }
     }
     public static void provinceExamPrepare(NanoObject nano)
     {
         Province province = (Province)nano;
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
-        foreach (Actor actor in province.exam_pass_persons)
+        foreach(City city in province.city_list)
         {
-            if (actor == null) continue;
-            double mark = actor.startProvinceExam();
-            MarksData.Add(actor, mark);
+            foreach (Actor actor in city.units.FindAll(a => a.hasTrait("juren")))
+            {
+                double mark = actor.startProvinceExam();
+                MarksData.Add(actor, mark);
+            }
         }
         var sorted = MarksData.OrderByDescending(kv => kv.Value).ToList();
-        if (sorted.Count() > 0)
+        //LogService.LogInfo($"参加{province.data.name}会试有{sorted.Count}人");
+        int takeNum = 1;
+        if (sorted.Count() > takeNum)
         {
-            sorted.First().Key.addTrait("gongshi");
+            sorted.Take(takeNum).ForEach(item => item.Key.addTrait("gongshi"));
+            //LogService.LogInfo($"{takeNum}人成为贡士");
+        }
+        else
+        {
+            sorted.ForEach(item => item.Key.addTrait("gongshi"));
+            //LogService.LogInfo($"{sorted.Count()}人成为贡士");
         }
 
     }
@@ -94,16 +121,33 @@ public static class ExamSystem
     {
         Empire empire = (Empire)nano;
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
-        foreach (Actor actor in empire.exam_pass_persons)
+        foreach (Province province in empire.province_list) 
         {
-            double mark = actor.startEmpireExam();
-            MarksData.Add(actor, mark);
+            foreach (Actor actor in province.allGongshi())
+            {
+                if (!MarksData.TryGetValue(actor, out double m))
+                {
+                    double mark = actor.startEmpireExam();
+                    MarksData.Add(actor, mark);
+                }
+            }
         }
         var sorted = MarksData.OrderByDescending(kv => kv.Value).ToList();
-        if (sorted.Count() > 0)
+        //LogService.LogInfo($"参加{empire.data.name}殿试有{sorted.Count}人");
+        int takeNum = 1;
+        if (sorted.Count() > takeNum)
         {
-            sorted.First().Key.addTrait("jingshi");
-            sorted.First().Key.data.favorite = true;
+            sorted.Take(takeNum).ForEach(item => { 
+                item.Key.addTrait("jingshi");
+
+            });
+        }
+        else
+        {
+            sorted.ForEach(item => {
+                item.Key.addTrait("jingshi");
+            });
+            //LogService.LogInfo($"{sorted.Count()}人成为进士");
         }
     }
 

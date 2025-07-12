@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using UnityEngine.Assertions.Must;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 
@@ -61,7 +62,26 @@ public static class CityExtension
         {
             GetOrCreate(c).exam_pass_person = new List<long>();
         }
-        GetOrCreate(c).exam_pass_person.Add(a.getID());
+        List<long> list = GetOrCreate(c).exam_pass_person;
+        list.Add(a.getID());
+        GetOrCreate(c).exam_pass_person = list;
+    }
+    public static void RemoveExamPassPerson(this City c, Actor a)
+    {
+        if (c == null) return;
+        if (a == null) return;
+        if (a.data == null) return;
+        long id = a.data.id;
+        if (GetOrCreate(c).exam_pass_person == null)
+        {
+            GetOrCreate(c).exam_pass_person = new List<long>();
+        }
+        if (GetOrCreate(c).exam_pass_person.Count <= 0) return;
+        if (GetOrCreate(c).exam_pass_person.Contains(id))
+        {
+            GetOrCreate(c).exam_pass_person.Remove(id);
+        }
+        
     }
 
     public static List<Actor> GetExamPassPersons(this City a)
@@ -72,6 +92,10 @@ public static class CityExtension
 
     public static List<long> GetExamPassPersonIDs(this City c)
     {
+        if (GetOrCreate(c).exam_pass_person== null)
+        {
+            GetOrCreate(c).exam_pass_person = new List<long> {0};
+        }
         return GetOrCreate(c).exam_pass_person;
     }
  

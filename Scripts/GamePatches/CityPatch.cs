@@ -89,10 +89,21 @@ public class CityPatch : GamePatch
 
     public static void removeLeader(City __instance)
     {
-        OfficeIdentity identity = __instance.leader.GetIdentity();
-        if (identity != null)
+        if (__instance.leader!=null)
         {
-            identity.officialLevel = OfficialLevel.officiallevel_4;
+            if (__instance.kingdom.isInEmpire())
+            {
+                Empire empire = __instance.kingdom.GetEmpire();
+                __instance.leader.ChangeOfficialLevel(OfficialLevel.officiallevel_10);
+            }
+            else
+            {
+                __instance.leader.RemoveIdentity();
+                if (__instance.leader.hasTrait("officer"))
+                {
+                    __instance.leader.removeTrait("officer");
+                }
+            }
         }
     }
 
@@ -113,9 +124,21 @@ public class CityPatch : GamePatch
         }
         if (pActor != null && __instance.kingdom.king != pActor)
         {
-            OfficeIdentity identity = pActor.GetIdentity();
-            identity.peerageType = PeerageType.Civil;
-            identity.officialLevel = OfficialLevel.officiallevel_4;
+            if (__instance.kingdom.isInEmpire())
+            {
+                Empire empire = __instance.kingdom.GetEmpire();
+                OfficeIdentity identity = pActor.GetIdentity(empire);
+                if (identity==null)
+                {
+                    identity = new OfficeIdentity();
+                    identity.init(empire, pActor);
+                    pActor.SetIdentity(identity, true);
+                }
+                pActor.ChangeOfficialLevel(OfficialLevel.officiallevel_9);
+                pActor.SetIdentityType();
+                pActor.addTrait("officer");
+            }
+
             __instance.leader = pActor;
             __instance.leader.setProfession(UnitProfession.Leader);
             CityData cityData = __instance.data;

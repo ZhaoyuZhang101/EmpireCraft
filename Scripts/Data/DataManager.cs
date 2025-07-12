@@ -30,14 +30,16 @@ public static class DataManager
     public static void LoadAll(string loadRootPath)
     {
         string loadPath = Path.Combine(loadRootPath, "EmpireCraftModData.json");
+        string cleanPath = loadPath.Replace('\\', '/');
+        cleanPath = Path.Combine(cleanPath.Split('/'));
         PlayerConfig.dict["prevent_city_destroy"].boolVal = false;
-        LogService.LogInfo(loadPath);
-        if (!File.Exists(loadPath))
+        LogService.LogInfo(cleanPath);
+        if (!File.Exists(cleanPath))
         {
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
-        var json = File.ReadAllText(loadPath);
+        var json = File.ReadAllText(cleanPath);
         var saveData = JsonConvert.DeserializeObject<SaveData>(json);
         LogService.LogInfo("初始化模组数据模板");
 
@@ -103,6 +105,10 @@ public static class DataManager
             ModClass.PROVINCE_MANAGER.addObject(p);
         }
         ModClass.PROVINCE_MANAGER.update(-1L);
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+        {
+            empire.syncProvince();
+        }
         LogService.LogInfo("Sync Titles Data");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         ConfigData.speciesCulturePair = saveData.speciesCulturePair;
@@ -115,6 +121,8 @@ public static class DataManager
     public static void SaveAll(string saveRootPath)
     {
         string savePath = Path.Combine(saveRootPath, "EmpireCraftModData.json");
+        savePath = savePath.Replace('\\', '/');
+        savePath = Path.Combine(savePath.Split('/'));
         SaveData saveData = new SaveData();
         saveData.actorsExtraData = World.world.units.Select(a=>a.getExtraData(true)).Where(ed=>ed!=null).ToList();
         saveData.cityExtraData = World.world.cities.Select(a => a.getExtraData(true)).Where(ed => ed != null).ToList(); ;

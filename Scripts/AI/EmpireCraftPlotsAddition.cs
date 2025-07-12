@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
+using static System.Collections.Specialized.BitVector32;
 
 namespace EmpireCraft.Scripts.AI
 {
@@ -36,7 +37,6 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom.isInEmpire()) return false;
                     if (kingdom.hasEnemies()) return false;
                     if (!kingdom.HasMainTitle()) return false; //if a kingdom has main title then it could become a empire
-                    if (pActor.GetOwnedTitle().Count() <= 1) return false; //at least two titles to become an empire
                     ModClass.EMPIRE_MANAGER.update(-1L);
                     if (ModClass.EMPIRE_MANAGER.Select(e=>e.empire.getMainSubspecies()==kingdom.getMainSubspecies()).Count()>2) return false;
                     return true;
@@ -46,68 +46,37 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.add(new PlotAsset
             {
-                id = "start_city_exam",
-                path_icon = "ChineseCrown.png",
+                id = "province_change_to_kingdom",
+                path_icon = "EmperorQuest.png",
                 group_id = "diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
-                money_cost = 30,
-                progress_needed = 60f,
-                can_be_done_by_king = true,
-                check_is_possible = delegate (Actor pActor)
-                {
-                    Kingdom kingdom = pActor.kingdom;
-                    if (!pActor.isCityLeader()) return false;
-                    if (kingdom.hasEnemies()) return false;
-                    if (!kingdom.isInEmpire()) return false;
-                    if (pActor.city.GetExamPassPersonIDs().Count()>0) return false;
-                    return true;
-                },
-
-                action = startCityExam
-            });
-            AssetManager.plots_library.add(new PlotAsset
-            {
-                id = "start_province_exam",
-                path_icon = "ChineseCrown.png",
-                group_id = "diplomacy",
-                is_basic_plot = true,
-                min_level = 5,
-                money_cost = 30,
-                progress_needed = 60f,
-                can_be_done_by_king = true,
+                progress_needed = 15f,
+                can_be_done_by_leader = true,
                 check_is_possible = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.isOfficer()) return false;
-                    if (kingdom.hasEnemies()) return false;
-                    if (!kingdom.isInEmpire()) return false;
-                    if (!pActor.city.GetProvince().canStartExam()) return false;
+                    LogService.LogInfo("是官员");
+                    Province province = ModClass.PROVINCE_MANAGER.get(pActor.GetProvinceID());
+                    if (province == null) return false;
+                    LogService.LogInfo("找到省份");
+                    if (!province.needToBecomeKingdom()) return false;
+                    LogService.LogInfo("满足成为军镇的条件");
                     return true;
                 },
-
-                action = startProvinceExam
-            });
-            AssetManager.plots_library.add(new PlotAsset
-            {
-                id = "start_empire_exam",
-                path_icon = "ChineseCrown.png",
-                group_id = "diplomacy",
-                is_basic_plot = true,
-                min_level = 5,
-                money_cost = 30,
-                progress_needed = 60f,
-                can_be_done_by_king = true,
-                check_is_possible = delegate (Actor pActor)
+                check_should_continue = delegate (Actor actor)
                 {
-                    Kingdom kingdom = pActor.kingdom;
-                    if (!pActor.isEmperor()) return false;
-                    if (kingdom.hasEnemies()) return false;
-                    if (!kingdom.isInEmpire()) return false;
-                    if (!kingdom.GetEmpire().canStartExam()) return false;
+                    if (!actor.isOfficer()) return false;
                     return true;
                 },
-                action = startEmpireExam
+                action = delegate (Actor pActor)
+                {
+                    if (!pActor.isOfficer()) return false;
+                    Province province = ModClass.PROVINCE_MANAGER.get(pActor.GetProvinceID());
+                    province.becomeKingdom();
+                    return true;
+                }
             });
             AssetManager.plots_library.add(new PlotAsset
             {
@@ -118,7 +87,6 @@ namespace EmpireCraft.Scripts.AI
                 min_level = 5,
                 money_cost = 30,
                 progress_needed = 60f,
-                can_be_done_by_king = true,
                 check_is_possible = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
@@ -178,8 +146,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isEmpire()) return false;
                     if (!kingdom.isInEmpire()) return false;
                     if (kingdom.hasEnemies()) return false;
-                    if (kingdom.cities.Count() <= pActor.kingdom.getMaxCities()) return false; 
-                    //if (!kingdom.GetEmpire().isNeedToSetProvince()) return false;
+                    if (!kingdom.GetEmpire().isNeedToSetProvince()) return false;
                     return true;
                 },
                 
@@ -403,6 +370,7 @@ namespace EmpireCraft.Scripts.AI
                     if (pActor == null) return false;
                     if (!pActor.isKing()) return false;
                     if (!pActor.canTakeTitle()) return false;
+                    if (pActor.kingdom.getWars().Count() > 0) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
@@ -471,7 +439,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     kingdom.SetCountryLevel(countryLevel.countrylevel_4);
-                    kingdom.GetEmpiresCanbeJoined().FirstOrDefault().join(kingdom);
+                    kingdom.GetEmpiresCanbeJoined().First().join(kingdom);
                     kingdom.getWars().ForEach(war => war.endForSides(WarWinner.Nobody));
                     TranslateHelper.LogKingdomJoinEmpire(kingdom, kingdom.GetEmpire());
                     return true;
@@ -762,28 +730,6 @@ namespace EmpireCraft.Scripts.AI
             }
             return true;
         }
-
-        private static bool startCityExam(Actor pActor)
-        {
-            //todo: CityExam
-            ExamSystem.startExam(ExamSystem.ExamType.City, pActor.city);
-            return true;
-        }
-
-        private static bool startProvinceExam(Actor pActor)
-        {
-            //todo: ProvinceExam
-            ExamSystem.startExam(ExamSystem.ExamType.Province, pActor.city.GetProvince());
-            return true;
-        }
-
-        private static bool startEmpireExam(Actor pActor)
-        {
-            //todo: EmpireExam
-            ExamSystem.startExam(ExamSystem.ExamType.Empire, pActor.city.kingdom.GetEmpire());
-            return true;
-        }
-
         private static bool BecomeEmpireAndStartEnfeoff(Actor pActor)
         {
             Kingdom kingdom = pActor.kingdom;

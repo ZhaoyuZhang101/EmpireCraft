@@ -94,7 +94,7 @@ public class SaveManagerPatch : GamePatch
             }
             catch (Exception ex)
             {
-                LogService.LogError("加载mod数据失败: " + ex.Message);
+                LogService.LogError("加载mod数据失败: " + ex.ToString());
             }
         }, "LOADING EMPIRE MOD DATA", false, 0.001f);
         ModClass.IS_CLEAR = false;

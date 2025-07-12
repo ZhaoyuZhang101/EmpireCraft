@@ -14,7 +14,8 @@ public enum PeeragesLevel
 public enum PeerageType
 {
     Civil,
-    Military
+    Military,
+    Both
 }
 
 public enum countryLevel
@@ -47,7 +48,12 @@ public enum OfficialLevel
     officiallevel_2,
     officiallevel_3,
     officiallevel_4,
-    officiallevel_5
+    officiallevel_5,
+    officiallevel_6,
+    officiallevel_7,
+    officiallevel_8,
+    officiallevel_9,
+    officiallevel_10,
 }
 
 public enum HonoraryOfficial

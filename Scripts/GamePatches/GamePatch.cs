@@ -21,6 +21,16 @@ namespace EmpireCraft.Scripts.GamePatches
         {
 
             var nameParts = family.data.name.Split(' ');
+            bool has_city_pre = false;
+            if (family.data.custom_data_bool==null)
+            {
+                family.data.custom_data_bool = new CustomDataContainer<bool>();
+            }
+            family.data.custom_data_bool.TryGetValue("has_city_pre", out has_city_pre);
+            if (has_city_pre)
+            {
+                nameParts = nameParts.Skip(1).ToArray();
+            }
             if (ConfigData.speciesCulturePair.TryGetValue(family.data.species_id, out var culture))
             {
                 if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
