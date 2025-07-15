@@ -23,7 +23,7 @@ using System.Numerics;
 namespace EmpireCraft.Scripts.GameClassExtensions;
 public class OfficeIdentity
 {
-    public OfficialLevel officialLevel { get; set; }
+    public OfficialLevel officialLevel { get; set; } = OfficialLevel.officiallevel_10;
     public int meritLevel { get; set; }
     public int honoraryOfficial { get; set; }
     public PeerageType peerageType { get; set; }
@@ -38,6 +38,21 @@ public class OfficeIdentity
         actor_id = actor.data.id;
         OfficePerformance = 100;
         empireExamLevels = new List<EmpireExamLevel>();
+
+        if (officialLevel == OfficialLevel.officiallevel_10)
+        {
+            performanceEvents = null;
+        }
+        else
+        {
+            performanceEvents = new PerformanceEvents();
+            performanceEvents.init(empire, actor);
+        }
+    }
+    public void resetEmpire(Empire empire, Actor actor)
+    {
+        empire_id = empire.data.id;
+        actor_id = actor.data.id;
     }
     public void ChangeOfficialLevel(OfficialLevel level)
     {
@@ -124,7 +139,14 @@ public static class ActorExtension
             return ModClass.EMPIRE_MANAGER.get(GetOrCreate(a).empire_id);
         }
     }
-
+    public static void editRenown(this Actor a, int value)
+    {
+        a.data.renown += value;
+        if (value <= 0)
+        {
+            a.data.renown = 0;
+        }
+    }
     public static void AddOfficeExamLevel(this Actor actor, EmpireExamLevel level)
     {
         if (GetOrCreate(actor).officeIdentity!=null)
@@ -250,6 +272,20 @@ public static class ActorExtension
             GetOrCreate(a).officeIdentity.honoraryOfficial = 8;
             GetOrCreate(a).officeIdentity.meritLevel = 10;
         }
+        GetOrCreate(a).officeIdentity.resetEmpire(empire, a);
+        if (GetOrCreate(a).officeIdentity.officialLevel!=OfficialLevel.officiallevel_10)
+        {
+            if (GetOrCreate(a).officeIdentity.performanceEvents == null)
+            {
+                GetOrCreate(a).officeIdentity.performanceEvents = new PerformanceEvents();
+                GetOrCreate(a).officeIdentity.performanceEvents.init(empire, a);
+
+            } else
+            {
+                GetOrCreate(a).officeIdentity.performanceEvents.init(empire, a);
+            }
+
+        } 
         return GetOrCreate(a).officeIdentity;
     }
 
@@ -317,6 +353,12 @@ public static class ActorExtension
         if (indentity == null) return false;
         if (indentity.officialLevel == OfficialLevel.officiallevel_10) return false;
         return true;
+    }
+
+    public static bool canGrabAlliance(this Actor a)
+    {
+
+        return false;
     }
 
     public static void RemoveExtraData(this Actor a)
@@ -401,10 +443,25 @@ public static class ActorExtension
                 {
                     identity.honoraryOfficial = direct;
                 }
-                LogService.LogInfo("升官");
+                //LogService.LogInfo("升官");
+                a.data.renown += 5;
             }
             GetOrCreate(a).officeIdentity = identity;
         }
+    }
+
+    public static bool isEmpireHeir(this Actor a)
+    {
+        if (a == null) return false;
+        foreach(Empire empire in ModClass.EMPIRE_MANAGER)
+        {
+            if (empire.Heir == null) continue;
+            if(empire.Heir.getID()==a.getID())
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void DegradeOfficial(this Actor a)
@@ -432,6 +489,13 @@ public static class ActorExtension
                 identity.honoraryOfficial += 1;
             }
             LogService.LogInfo("贬官");
+            if(a.data.renown>=5)
+            {
+                a.data.renown -= 5;
+            } else
+            {
+                a.data.renown = 0;
+            }
             GetOrCreate(a).officeIdentity = identity;
         }
     }
@@ -494,7 +558,7 @@ public static class ActorExtension
             }
             else
             {
-                KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.FirstOrDefault());
+                KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
                 kingdom.SetMainTitle(title);
                 return title.data.name;
             }
@@ -505,6 +569,8 @@ public static class ActorExtension
     }
     public static bool HasTitle(this Actor a)
     {
+        if(a == null) return false;
+        if(GetOrCreate(a).owned_title==null) return false;
         return GetOrCreate(a).owned_title.Count>0;
     }
 

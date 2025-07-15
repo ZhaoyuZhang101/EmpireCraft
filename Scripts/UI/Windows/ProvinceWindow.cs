@@ -22,7 +22,6 @@ namespace EmpireCraft.Scripts.UI.Windows
         public TextInput provinceNameInput;
         public AutoVertLayoutGroup layout1;
         public AutoVertLayoutGroup layout2;
-        public PrefabUnitElement pl;
         protected override void Init()
         {
             layout1 = this.BeginVertGroup(pSpacing: 5, pPadding: new RectOffset(0, 0, 0, 0));
@@ -38,15 +37,6 @@ namespace EmpireCraft.Scripts.UI.Windows
             layout1.AddChild(empireText.gameObject);
             layout1.AddChild(provinceNameInput.gameObject);
             AddChild(layout1.gameObject);
-
-            layout2 = this.BeginVertGroup();
-            SimpleText provinceOfficer = Instantiate(SimpleText.Prefab);
-            provinceOfficer.Setup("province_leader");
-            GameObject unitListElement = PrefabHelper.FindPrefabByName("list_element_favorites");
-            GameObject inst = GameObject.Instantiate(unitListElement);
-            pl = inst.GetComponent<PrefabUnitElement>();
-
-
         }
 
         private void name_change(string arg0)
@@ -56,17 +46,9 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         public override void OnNormalEnable()
         {
-            pl.gameObject.SetActive(false);
+
             province = ConfigData.CURRENT_SELECTED_PROVINCE;
             provinceNameInput.input.text = province.data.name;
-            if (province.HasOfficer())
-            {
-                pl.gameObject.SetActive(true);
-                pl.show(province.officer);
-            } else
-            {
-                pl.gameObject.SetActive(false);
-            }
         }
     }
 }

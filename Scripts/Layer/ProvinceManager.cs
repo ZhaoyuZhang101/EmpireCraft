@@ -22,11 +22,11 @@ public class ProvinceManager : MetaSystemManager<Province, ProvinceData>
     public override void startCollectHistoryData()
     {
     }
-    public Province newProvince(City city)
+    public Province newProvince(City city, string name="")
     {
         long id = OverallHelperFunc.IdGenerator.NextId();
         Province province = base.newObjectFromID(id);
-        province.newProvince(city);
+        province.newProvince(city, name: name);
         province.updateColor(province.empire.getColor());
         if(city.isCapitalCity())
         {

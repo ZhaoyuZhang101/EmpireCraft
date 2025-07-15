@@ -22,5 +22,11 @@ public static class EmpireCraftActorTraitGroupLibrary
             name = "EmpireOfficeGroup",
             color = "#5EFFFF"
         });
+        lib.add(new ActorTraitGroupAsset
+        {
+            id = "EmpireArmy",
+            name = "EmpireArmyGroup",
+            color = "#5EFFFF"
+        });
     }
 }

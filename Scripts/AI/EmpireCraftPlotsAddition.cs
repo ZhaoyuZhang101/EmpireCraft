@@ -10,6 +10,7 @@ using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using static System.Collections.Specialized.BitVector32;
 
@@ -37,8 +38,9 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom.isInEmpire()) return false;
                     if (kingdom.hasEnemies()) return false;
                     if (!kingdom.HasMainTitle()) return false; //if a kingdom has main title then it could become a empire
+                    if (!kingdom.isSupreme()) return false;
                     ModClass.EMPIRE_MANAGER.update(-1L);
-                    if (ModClass.EMPIRE_MANAGER.Select(e=>e.empire.getMainSubspecies()==kingdom.getMainSubspecies()).Count()>2) return false;
+                    if (ModClass.EMPIRE_MANAGER.Select(e=>e.empire.getMainSubspecies()==kingdom.getMainSubspecies()).Count()>1) return false;
                     return true;
                 },
                 
@@ -57,12 +59,10 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.isOfficer()) return false;
-                    LogService.LogInfo("是官员");
+                    if (pActor.isKing()) return false;
                     Province province = ModClass.PROVINCE_MANAGER.get(pActor.GetProvinceID());
                     if (province == null) return false;
-                    LogService.LogInfo("找到省份");
                     if (!province.needToBecomeKingdom()) return false;
-                    LogService.LogInfo("满足成为军镇的条件");
                     return true;
                 },
                 check_should_continue = delegate (Actor actor)
@@ -75,6 +75,307 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isOfficer()) return false;
                     Province province = ModClass.PROVINCE_MANAGER.get(pActor.GetProvinceID());
                     province.becomeKingdom();
+                    province.occupied_cities.Clear();
+                    if (pActor.data.renown>=20)
+                    {
+                        pActor.data.renown -= 20;
+                    }
+                    
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "empire_move_back_to_capital",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isEmperor()) return false;
+                    if (!pActor.isKing()) return false;
+                    if (!kingdom.isEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    if (empire == null) return false;
+                    if (empire.original_capital==kingdom.capital) return false;
+                    return true;
+                },
+                check_should_continue = delegate (Actor actor)
+                {
+                    Kingdom kingdom = actor.kingdom;
+                    if (!actor.isEmperor()) return false;
+                    if (!actor.isKing()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    if (empire == null) return false;
+                    if (empire.original_capital == kingdom.capital) return false;
+                    return true;
+                },
+                action = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    Empire empire = kingdom.GetEmpire();
+                    if (empire == null) return false;
+                    kingdom.setCapital(empire.original_capital);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "emperor_take_armed_province",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                progress_needed = 15f,
+                can_be_done_by_leader = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if(!pActor.isEmperor()) return false;
+                    Empire empire = pActor.kingdom.GetEmpire();
+                    if (!empire.canTakeArmedProvince()) return false;
+                    return true;
+                },
+                check_should_continue = delegate (Actor actor)
+                {
+                    if (!actor.isEmperor()) return false;
+                    Empire empire = actor.kingdom.GetEmpire();
+                    if (!empire.canTakeArmedProvince()) return false;
+                    return true;
+                },
+                action = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    Empire empire = kingdom.GetEmpire();
+                    foreach(Kingdom kingdom2 in empire.kingdoms_hashset)
+                    {
+                        if (!kingdom2.isBorder()&& empire.empire.getRenown() >= kingdom2.getRenown()*2)
+                        {
+                            kingdom2.ChangeToProvince(empire);
+                            empire.addRenown(-kingdom2.getRenown());
+                        }
+                    }
+                    
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "powerful_minister_controled_empire",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                progress_needed = 30f,
+                can_be_done_by_leader = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!kingdom.isInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    if(!pActor.isOfficer()) return false;
+                    if (pActor.isEmperor()) return false;
+                    if (empire.emperor == null) return false;
+                    if (!empire.emperor.isUnitFitToRule()) return false;
+                    if (empire.emperor.isAdult()) return false;
+                    if (pActor.GetIdentity(empire).officialLevel != OfficialLevel.officiallevel_2 && pActor.GetIdentity(empire).officialLevel != OfficialLevel.officiallevel_3) return false;
+                    if (pActor.renown < empire.emperor.renown) return false; 
+                    return true;
+                },
+                check_should_continue = delegate (Actor actor)
+                {
+                    if (!actor.isOfficer()) return false;
+                    return true;
+                },
+                action = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    Empire empire = kingdom.GetEmpire();
+                    if(pActor.GetIdentity(empire)==null)
+                    {
+                        OfficeIdentity identity = new OfficeIdentity();
+                        identity.init(empire, pActor);
+                        identity.peerageType = PeerageType.Both;
+                        identity.meritLevel = 1;
+                        identity.honoraryOfficial = 1;
+                        pActor.SetIdentity(identity, false);
+                    } else
+                    {
+                        pActor.GetIdentity(empire).peerageType = PeerageType.Both;
+                        pActor.GetIdentity(empire).meritLevel = 1;
+                        pActor.GetIdentity(empire).honoraryOfficial = 1;
+                    }
+                    empire.data.centerOffice.General.SetActor(pActor);
+                    empire.data.centerOffice.Minister.SetActor(pActor);
+                    TranslateHelper.LogControledEmpire(pActor, empire);
+                    pActor.editRenown(300);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "powerful_minister_replace_empire",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                progress_needed = 60f,
+                can_be_done_by_leader = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!kingdom.isInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    if(!pActor.isOfficer()) return false;
+                    if (pActor.isEmperor()) return false;
+                    if (empire.emperor == null) return false;
+                    if (!empire.emperor.isUnitFitToRule()) return false;
+                    if (pActor.GetIdentity(empire).officialLevel != OfficialLevel.officiallevel_1) return false;
+                    if (!pActor.HasTitle()) return false;
+                    if (pActor.renown < empire.emperor.renown) return false; 
+                    return true;
+                },
+                check_should_continue = delegate (Actor actor)
+                {
+                    if (!actor.isOfficer()) return false;
+                    return true;
+                },
+                action = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    Empire empire = kingdom.GetEmpire();
+                    kingdom.setKing(pActor);
+                    pActor.setKingdom(kingdom);
+                    empire.replaceEmpire(kingdom);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "powerful_minister_take_city",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                progress_needed = 60f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!kingdom.isInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    if(!pActor.isOfficer()) return false;
+                    if (!pActor.isKing()) return false;
+                    if (pActor.renown < empire.empire.getRenown()/10) return false; 
+                    return true;
+                },
+                check_should_continue = delegate (Actor actor)
+                {
+                    if (!actor.isOfficer()) return false;
+                    if(!actor.isKing()) return false;
+                    if(!actor.isEmperor()) return false;
+                    return true;
+                },
+                action = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    Empire empire = kingdom.GetEmpire();
+                    foreach(City city in kingdom.cities)
+                    {
+                        if (city.neighbours_cities.Count>0)
+                        {
+                            foreach(City city2 in city.neighbours_cities)
+                            {
+                                if(city2.kingdom.isInEmpire()&&city2.kingdom!=kingdom)
+                                {
+                                    city2.joinAnotherKingdom(kingdom);
+                                    pActor.editRenown(-(empire.empire.getRenown() / 10));
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    return false;
+                }
+            });
+            //AssetManager.plots_library.add(new PlotAsset
+            //{
+            //    id = "officer_grab_alliance",
+            //    path_icon = "EmperorQuest.png",
+            //    group_id = "diplomacy",
+            //    is_basic_plot = true,
+            //    min_level = 5,
+            //    progress_needed = 15f,
+            //    can_be_done_by_leader = true,
+            //    check_is_possible = delegate (Actor pActor)
+            //    {
+            //        Kingdom kingdom = pActor.kingdom;
+            //        if (!kingdom.isInEmpire()) return false;
+            //        Empire empire = kingdom.GetEmpire();
+            //        if(!pActor.isOfficer()) return false;
+            //        if (pActor.data.renown <= empire.emperor.data.renown) return false; 
+            //        return true;
+            //    },
+            //    check_should_continue = delegate (Actor actor)
+            //    {
+            //        if (!actor.isOfficer()) return false;
+            //        return true;
+            //    },
+            //    action = delegate (Actor pActor)
+            //    {
+            //        Kingdom kingdom = pActor.kingdom;
+            //        Empire empire = kingdom.GetEmpire();
+            //        foreach (Kingdom kingdom2 in empire.kingdoms_hashset)
+            //        {
+
+            //        }
+                    
+            //        return true;
+            //    }
+            //});
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "emperor_set_armed_province",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                progress_needed = 15f,
+                can_be_done_by_leader = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    if (!pActor.isEmperor()) return false;
+                    Kingdom kingdom = pActor.kingdom;
+                    Empire empire = pActor.kingdom.GetEmpire();
+                    if (empire == null) return false;
+                    if (!empire.isNeedToSetArmedProvince()) return false;
+                    return true;
+                },
+                check_should_continue = delegate (Actor actor)
+                {
+                    if (!actor.isEmperor()) return false;
+                    Kingdom kingdom = actor.kingdom;
+                    Empire empire = actor.kingdom.GetEmpire();
+                    if (empire == null) return false;
+                    if (!empire.isNeedToSetArmedProvince()) return false;
+                    return true;
+                },
+                action = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!kingdom.isInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    foreach (Province province in empire.province_list)
+                    {
+                        if (province.isBorderProvince()&&!province.data.is_set_to_country)
+                        {
+                            province.becomeKingdom();
+                        }
+                    }
                     return true;
                 }
             });
@@ -283,6 +584,46 @@ namespace EmpireCraft.Scripts.AI
                                     return true;
                                 }
                             }
+                        }
+                    }
+                    return false;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "emperor_get_back_province",
+                path_icon = "TitleAcquire.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isEmperor()) return false;
+                    Empire empire = pActor.kingdom.GetEmpire();
+                    if (!empire.isNeedToGetBackProvince()) return false;
+                    if (kingdom.getWars().Count() > 0) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    Empire empire = kingdom.GetEmpire();
+                    foreach(Province province in empire.province_list)
+                    {
+                        if (province.occupied_cities.Count() <=0) continue;
+                        foreach(var cityPair in province.occupied_cities)
+                        {
+                            City city = cityPair.Key;
+                            Kingdom target = city.kingdom;
+                            if (target ==  null) continue;
+                            if (target==kingdom) continue;
+                            War war = World.world.diplomacy.startWar(kingdom, target, WarTypeLibrary.normal);
+                            war.data.name = LM.Get("emperor_get_back_province");
+                            TranslateHelper.LogEmpireGetBackLand(empire, province);
+                            return true;
                         }
                     }
                     return false;
@@ -555,28 +896,29 @@ namespace EmpireCraft.Scripts.AI
                 is_basic_plot = true,
                 min_level = 5,
                 progress_needed = 30f,
+                can_be_done_by_leader = true,
                 can_be_done_by_king = true,
                 requires_diplomacy = true,
                 check_is_possible = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!DiplomacyHelpers.isWarNeeded(kingdom)) return false;
-                    if (!pActor.isKing()) return false;
-                    if (kingdom.isEmpire()) return false;
+                    if (!pActor.isKing()&&!pActor.isOfficer()) return false;
                     if (!kingdom.isInEmpire()) return false;
-                    if (pActor.HasCapitalTitle()) return false;
-                    if (!pActor.IsCapitalTitleBelongsToEmperor()) return false;
-                    if (kingdom.GetEmpire().emperor == null) return false; 
-                    if (kingdom.GetEmpire().emperor.GetOwnedTitle().Count()<=1) return false; 
+                    if (pActor.HasTitle()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    if (empire.emperor == null) return false; 
+                    if (empire.emperor.GetOwnedTitle().Count()<=1) return false; 
                     if (pActor.GetPeeragesLevel()==PeeragesLevel.peerages_2) return false;
-                    if (kingdom.countTotalWarriors()<kingdom.GetEmpire().countWarriors()- kingdom.countTotalWarriors()) return false;
+                    if (pActor.GetIdentity(empire) == null) return false;
+                    if (pActor.GetIdentity(empire).officialLevel!=OfficialLevel.officiallevel_1) return false;
+
                     return true;
                 },
                 check_should_continue = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!kingdom.isAlive()) return false;
-                    if (kingdom.isEmpire()) return false;
                     if (!kingdom.isInEmpire()) return false;
                     if (kingdom.GetEmpire().emperor == null) return false;
                     return true;
@@ -584,30 +926,20 @@ namespace EmpireCraft.Scripts.AI
                 action = delegate (Actor pActor) 
                 {
                     Empire empire = pActor.kingdom.GetEmpire();
-                    Kingdom kingdom = pActor.kingdom;
-                    KingdomTitle kingdomTitle;
-                    if (kingdom.capital.hasTitle())
+                    City city = pActor.city;
+                    
+                    foreach(long title_id in empire.emperor.GetOwnedTitle())
                     {
-                        kingdomTitle = kingdom.capital.GetTitle();
-                        empire.emperor.removeTitle(kingdomTitle);
-                        TranslateHelper.LogPowerfulMinisterAcquireTitle(pActor, pActor.kingdom.GetEmpire(), kingdomTitle.data.name + LM.Get("King"));
-                    } else
-                    {
-                        kingdomTitle = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(kingdom.capital);
-                        TranslateHelper.LogCreateTitle(kingdom, kingdomTitle);
-                        foreach (City city in kingdom.cities)
+                        KingdomTitle kingdomTitle = ModClass.KINGDOM_TITLE_MANAGER.get(title_id);
+                        if (empire.empire.GetMainTitle()!= kingdomTitle)
                         {
-                            if (!city.hasTitle())
-                            {
-                                kingdomTitle.addCity(city);
-                                TranslateHelper.LogCityAddToTitle(city, kingdomTitle);
-                            }
+                            pActor.AddOwnedTitle(kingdomTitle);
+                            pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_2);
+                            TranslateHelper.LogPowerfulMinisterAcquireTitle(pActor, pActor.kingdom.GetEmpire(), kingdomTitle.data.name + LM.Get("King"));
+                            return true;
                         }
                     }
-                    pActor.AddOwnedTitle(kingdomTitle);
-
-                    pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_2);
-                    return true;
+                    return false;
                 }
             });
             AssetManager.plots_library.add(new PlotAsset
@@ -654,7 +986,7 @@ namespace EmpireCraft.Scripts.AI
                     }
                     if (kingdom.isInEmpire())
                     {
-                        if (!kingdom.isEmpire()&&!kingdom.GetEmpire().isAllowToMakeWar())
+                        if (!kingdom.GetEmpire().isAllowToMakeWar())
                         {
                             return false;
                         }
@@ -663,7 +995,17 @@ namespace EmpireCraft.Scripts.AI
                 },
                 try_to_start_advanced = delegate (Actor pActor, PlotAsset pPlotAsset, bool pForced)
                 {
-                    Kingdom warTarget = DiplomacyHelpers.getWarTarget(pActor.kingdom);
+  
+                    Kingdom kingdom = pActor.kingdom;
+                    Kingdom warTarget;
+                    if (kingdom.isEmpire())
+                    {
+                        warTarget = getWarTarget(kingdom);
+                    } else
+                    {
+                        warTarget = DiplomacyHelpers.getWarTarget(pActor.kingdom);
+                    }
+                    
                     if (warTarget == null)
                     {
                         return false;
@@ -676,6 +1018,10 @@ namespace EmpireCraft.Scripts.AI
                             return false;
                         }
                      }
+                    if (!kingdom.isNeighbourWith(warTarget))
+                    {
+                        return false;
+                    }
                     Plot plot = World.world.plots.newPlot(pActor, pPlotAsset, pForced);
                     plot.target_kingdom = warTarget;
                     if (!plot.checkInitiatorAndTargets())
@@ -745,6 +1091,22 @@ namespace EmpireCraft.Scripts.AI
             kingdom.GetEmpire().DivideIntoProvince();
             //kingdom.GetEmpire().AutoEnfeoff();
             return true;
+        }
+
+        public static Kingdom getWarTarget(Kingdom pInitiatorKingdom)
+        {
+            Kingdom result = null;
+            Empire empire = pInitiatorKingdom.GetEmpire();
+            float num = float.MaxValue;
+            int num2 = pInitiatorKingdom.countTotalWarriors();
+            foreach(Kingdom tKingdom in World.world.kingdoms)
+            {
+                if(!tKingdom.isInSameEmpire(pInitiatorKingdom)&&!pInitiatorKingdom.isOpinionTowardsKingdomGood(tKingdom)&&empire.isNeighbourWith(tKingdom))
+                {
+                    result = tKingdom;
+                }
+            }
+            return result;
         }
 
     }

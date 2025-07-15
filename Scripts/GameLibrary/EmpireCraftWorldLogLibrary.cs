@@ -30,10 +30,13 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset destroy_title_log;
     public static WorldLogAsset history_kingdom_attack_for_title;
     public static WorldLogAsset history_kingdom_change_capital_to_title;
+    public static WorldLogAsset history_empire_get_back_land;
     public static WorldLogAsset history_kingdom_join_empire;
     public static WorldLogAsset emperor_posthumous_name;
     public static WorldLogAsset province_change_to_kingdom_log;
     public static WorldLogAsset new_jingshi_log;
+    public static WorldLogAsset cotrolled_country_log;
+    public static WorldLogAsset become_greater_general;
 
     public static void init()
     {
@@ -49,6 +52,42 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$place$", 2);
                 wl.updateText(ref pText, pMessage, "$year_name$", 3);
+            }
+        });
+        become_greater_general = wl.add(new WorldLogAsset
+        {
+            id = nameof(become_greater_general),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+            }
+        });
+        history_empire_get_back_land = wl.add(new WorldLogAsset
+        {
+            id = nameof(history_empire_get_back_land),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$place$", 2);
+            }
+        });
+        cotrolled_country_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(cotrolled_country_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$empire$", 2);
             }
         });
         province_change_to_kingdom_log = wl.add(new WorldLogAsset

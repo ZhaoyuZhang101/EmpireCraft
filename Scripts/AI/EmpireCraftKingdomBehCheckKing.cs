@@ -36,18 +36,38 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
             if (pKingdom.isEmpire())
             {
                 Empire empire = pKingdom.GetEmpire();
-                if (empire.Heir!=null)
+                if (empire.Heir!=null&&empire.Heir.isAlive())
                 {
                     actor = empire.Heir;
-                    if (actor.isCityLeader())
+                    if (actor.isUnitFitToRule())
                     {
-                        actor.city.removeLeader();
+                        if (actor.isCityLeader())
+                        {
+                            actor.city.removeLeader();
+                        }
+                        if (actor.isOfficer())
+                        {
+                            actor.RemoveIdentity();
+                            actor.SetPeeragesLevel(0);
+                        }
+                        pKingdom.setKing(actor);
                     }
-                    pKingdom.setKing(actor);
-                    empire.setEmperor(actor);
+
                 } else
                 {
                     actor = findEmprorFromRoyalClan(pKingdom);
+                    if (actor!=null&&actor.isUnitFitToRule())
+                    {
+                        if (actor.isCityLeader())
+                        {
+                            actor.city.removeLeader();
+                        }
+                        if (actor.isOfficer())
+                        {
+                            actor.RemoveIdentity();
+                            actor.SetPeeragesLevel(0);
+                        }
+                    }
                 }
             } else
             {
@@ -107,22 +127,10 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
         LogService.LogInfo("当前氏族人数：" + clan.units.Count().ToString());
         List<Actor> maleRoyals = clan.units.FindAll(a => a != null && a.isSexMale());
         List<Actor> femaleRoyals = clan.units.FindAll(a => a != null && a.isSexFemale());
-        List<Actor> child = pKingdom.units.FindAll(a => a != null && !a.isAdult() && a.getParents().Count() <= 0);
         if (maleRoyals.Count() > 0)
         {
             actor = maleRoyals.FirstOrDefault();
             pKingdom.setKing(actor);
-        }
-        else if (child.Count() > 0)
-        {
-            actor = child.FirstOrDefault();
-            actor.setClan(clan);
-            pKingdom.setKing(actor);
-            LogService.LogInfo($"{empire.data.name}皇族没有子嗣，于是大臣们从民间找来一个孤儿，自称是某个皇族的私生子，遂继承皇位");
-            if (child.Count() > 0)
-            {
-                child.FirstOrDefault().setClan(clan);
-            }
         }
         else if (femaleRoyals.Count() > 0)
         {

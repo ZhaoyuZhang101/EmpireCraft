@@ -35,7 +35,90 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(set_actor_peerages)));
         new Harmony(nameof(removeData)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.Dispose)),
             postfix: new HarmonyMethod(GetType(), nameof(removeData)));
-        LogService.LogInfo("角色姓名命名补丁加载成功");
+        new Harmony(nameof(setArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setArmy)),
+            postfix: new HarmonyMethod(GetType(), nameof(setArmy)));
+        new Harmony(nameof(removeFromArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.removeFromArmy)),
+            prefix: new HarmonyMethod(GetType(), nameof(removeFromArmy)));
+        new Harmony(nameof(setKingdom)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setKingdom)),
+            prefix: new HarmonyMethod(GetType(), nameof(setKingdom)));
+        LogService.LogInfo("角色补丁加载成功");
+    }
+    public static void setKingdom(Actor __instance, Kingdom pKingdomToSet)
+    {
+        if (__instance.city == null) return;
+        if (__instance.city.kingdom == null) return;
+        if (!pKingdomToSet.isInEmpire())
+        {
+            if (__instance.hasArmy())
+            {
+                if (__instance.city.kingdom.isInEmpire())
+                {
+                    if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_2)
+                    {
+                        if (__instance.hasTrait("empireArmedProvinceSoldier"))
+                        {
+                            __instance.removeTrait("empireArmedProvinceSoldier");
+                        }
+                    }
+                    if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_0)
+                    {
+                        if (__instance.hasTrait("empireSoldier"))
+                        {
+                            __instance.removeTrait("empireSoldier");
+                        }
+
+                    }
+                }
+            }
+        }
+    }
+    public static void setArmy(Actor __instance, Army pObject)
+    {
+        if (__instance.city == null) return;
+        if (__instance.city.kingdom == null) return;
+        if(__instance.city.kingdom.isInEmpire())
+        {
+            if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_2)
+            {
+                if(!__instance.hasTrait("empireArmedProvinceSoldier")) 
+                {
+                    __instance.addTrait("empireArmedProvinceSoldier");
+                }
+            }
+            if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_0)
+            {
+                if (!__instance.hasTrait("empireSoldier"))
+                {
+                    __instance.addTrait("empireSoldier");
+                }
+            }
+        }
+    }
+
+    public static void removeFromArmy(Actor __instance)
+    {
+        if(__instance.hasArmy())
+        {
+            if (__instance.city.kingdom.isInEmpire())
+            {
+                if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_2)
+                {
+                    if (__instance.hasTrait("empireArmedProvinceSoldier"))
+                    {
+                        __instance.removeTrait("empireArmedProvinceSoldier");
+                    }
+                }
+                if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_0)
+                {
+                    if (__instance.hasTrait("empireSoldier")) 
+                    {
+                        __instance.removeTrait("empireSoldier");
+                    }
+                    
+                }
+            }
+        }
+
     }
     public static void removeData(Actor __instance)
     {

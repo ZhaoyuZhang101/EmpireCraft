@@ -3,8 +3,8 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Windows;
-using EpPathFinding.cs;
 using NeoModLoader.services;
+using System.Drawing;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameLibrary;
@@ -40,7 +40,10 @@ public static class EmpireCraftMetaTypeLibrary
                 {
                     if (province != null)
                     {
-                        drawnForProvince(province);
+                        if(!province.data.is_set_to_country)
+                        {
+                            drawnForProvince(province);
+                        }
                     }
                 }
                 foreach (var k in World.world.kingdoms)
@@ -142,7 +145,7 @@ public static class EmpireCraftMetaTypeLibrary
         ml.kingdom.check_cursor_highlight = delegate (WorldTile pTile, QuantumSpriteAsset pAsset)
         {
             bool flag = PlayerConfig.optionBoolEnabled("highlight_kingdom_enemies");
-            Color color = pAsset.color;
+            UnityEngine.Color color = pAsset.color;
             City city = pTile.zone.city;
             if (!city.isRekt())
             {
@@ -238,6 +241,73 @@ public static class EmpireCraftMetaTypeLibrary
             city.meta_type_asset.cursor_tooltip_action(city);
             return true;
         };
+
+        ml.culture.dynamic_zones = delegate
+        {
+
+        };
+        ml.culture.drawn_zones = delegate
+        {
+            foreach (City city in World.world.cities)
+            {
+                drawnForCulture(city);
+            }
+        };
+        ml.culture.check_cursor_tooltip = delegate (WorldTile pTile)
+        {
+            if(!pTile.zone.hasCity()) return false;
+            if (!pTile.zone.city.hasCulture()) return false;
+            Culture culture = pTile.zone.city.culture;
+            if(culture == null) return false;
+            if (culture.isRekt())
+            {
+                return false;
+            }
+            culture.meta_type_asset.cursor_tooltip_action(culture);
+            return true;
+        };
+        ml.culture.click_action_zone = delegate (WorldTile pTile, string pPower)
+        {
+            if (pTile == null)
+            {
+                return false;
+            }
+            Culture culture = pTile.zone.city.culture;
+            if (culture == null) return false;
+            if (culture.isRekt())
+            {
+                return false;
+            }
+            Config.selected_culture = culture;
+            ScrollWindow.showWindow("culture");
+            return true;
+        };
+        ml.culture.check_cursor_highlight = delegate (WorldTile pTile, QuantumSpriteAsset pAsset)
+        {
+            UnityEngine.Color color = pAsset.color;
+            if (pTile.zone.hasCity())
+            {
+                Culture culture = null;
+                if (pTile.zone.city.hasCulture())
+                {
+                    culture = pTile.zone.city.culture;
+                }
+                if (culture == null) return;
+                if (!culture.isRekt())
+                {
+                    for (int i = 0; i < culture.cities.Count; i++)
+                    {
+                        City city = culture.cities[i];
+                        QuantumSpriteLibrary.colorZones(pAsset, city.zones, color);
+                    }
+                }
+            }
+
+        };
+        ml.family.dynamic_zones = delegate
+        {
+
+        };
     }
 
     public static void drawnForTitle(KingdomTitle kt)
@@ -267,6 +337,17 @@ public static class EmpireCraftMetaTypeLibrary
             TileZone pZone = city.zones[i];
             zone_manager.drawBegin();
             zone_manager.drawZoneCity(pZone);
+            zone_manager.drawEnd(pZone);
+        }
+    }
+
+    public static void drawnForCulture(City city)
+    {
+        for (int i = 0; i < city.zones.Count; i++)
+        {
+            TileZone pZone = city.zones[i];
+            zone_manager.drawBegin();
+            drawZoneCulture(pZone);
             zone_manager.drawEnd(pZone);
         }
     }
@@ -324,6 +405,8 @@ public static class EmpireCraftMetaTypeLibrary
     public static void drawZoneProvince(TileZone pZone)
     {
         Province p = pZone.city.GetProvince();
+        Empire empire = p.empire;
+        Kingdom mainKingdom = empire.empire;
         if (p == null) return;
 
         bool pUp = isBorderColor_Province(pZone.zone_up, p, true);
@@ -346,9 +429,14 @@ public static class EmpireCraftMetaTypeLibrary
         Color32 colorMain = Toolbox.color_clear;
         if (p != null)
         {
-            ColorAsset color = p.getColor();
+            ColorAsset color = mainKingdom.getColor();
             colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
             colorMain = color.getColorMain2();
+            if(p.empire.empire!=pZone.city.kingdom)
+            {
+                colorMain.r += 5;
+                colorMain.a -= 5;
+            }
             if (zone_manager.shouldBeClearColor())
             {
                 colorBorderInsideAlpha = zone_manager.color_clear;
@@ -469,6 +557,61 @@ public static class EmpireCraftMetaTypeLibrary
                 is_sim_tooltip = true
             });
         }
+    }
+    public static void drawZoneCulture(TileZone pZone)
+    {
+        Culture p = pZone.city.culture;
+        if (p == null) return;
+
+        bool pUp = isBorderColor_cultures(pZone.zone_up, p);
+        bool pDown = isBorderColor_cultures(pZone.zone_down, p);
+        bool pLeft = isBorderColor_cultures(pZone.zone_left, p);
+        bool pRight = isBorderColor_cultures(pZone.zone_right, p);
+        int num = -1;
+        if (p != null)
+        {
+            num = p.GetHashCode();
+        }
+        int num2 = zone_manager.generateIdForDraw(zone_manager._mode_asset, num, pUp, pDown, pLeft, pRight);
+        if (pZone.last_drawn_id == num2 && pZone.last_drawn_hashcode == num)
+        {
+            return;
+        }
+        pZone.last_drawn_id = num2;
+        pZone.last_drawn_hashcode = num;
+        Color32 colorBorderInsideAlpha = Toolbox.color_clear;
+        Color32 colorMain = Toolbox.color_clear;
+        if (p != null)
+        {
+            ColorAsset color = p.getColor();
+            colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
+            colorMain = color.getColorMain2();
+            if (zone_manager.shouldBeClearColor())
+            {
+                colorBorderInsideAlpha = zone_manager.color_clear;
+            }
+        }
+        zone_manager.applyMetaColorsToZone(pZone, ref colorBorderInsideAlpha, ref colorMain, pUp, pDown, pLeft, pRight);
+    }
+
+    private static bool isBorderColor_cultures(TileZone pZone, Culture pCulture)
+    {
+        if (pZone == null)
+        {
+            return true;
+        }
+        City city = pZone.city;
+        if (city != null)
+        {
+            if (city.hasCulture()) 
+            {
+                if (city.culture==pCulture)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
 }

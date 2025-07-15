@@ -23,6 +23,7 @@ public class KingdomTitleData: MetaObjectData
     public double title_controled_rate = 0.9;
 
     public long owner = -1L;
+    public string province_name { get; set; }
 
     public List<long> cities;
     public List<string> history_emperrors;

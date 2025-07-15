@@ -157,7 +157,23 @@ public class CityPatch : GamePatch
     {
         if (__instance.hasProvince())
         {
-            __instance.GetProvince().removeCity(__instance);
+            Province province = __instance.GetProvince();
+            if (!province.empire.empire.isInSameEmpire(pNewSetKingdom))
+            {
+                if (!province.occupied_cities.ContainsKey(__instance))
+                {
+                    province.occupied_cities.Add(__instance, World.world.getCurWorldTime());
+                } else
+                {
+                    province.occupied_cities[__instance] = World.world.getCurWorldTime();
+                }
+            } else
+            {
+                if (province.occupied_cities.ContainsKey(__instance))
+                {
+                    province.occupied_cities.Remove(__instance);
+                }
+            }
         }
         string pHappinessEvent = null;
         if (pCaptured)
@@ -228,7 +244,19 @@ public class CityPatch : GamePatch
     {
         if (__instance.hasProvince())
         {
-            __instance.GetProvince().removeCity(__instance);
+            if(__instance.GetProvince().occupied_cities.ContainsKey(__instance))
+            {
+                __instance.GetProvince().occupied_cities[__instance] = World.world.getCurWorldTime();
+            }
+            else
+            {
+                __instance.GetProvince().occupied_cities.Add(__instance, World.world.getCurWorldTime());
+            }
+            if(pRebellion)
+            {
+                Empire empire = __instance.GetProvince().empire;
+                empire.addRenown(-(empire.empire.getRenown() / 2));
+            }
         }
         string pHappinessEvent = null;
         if (pRebellion)
@@ -266,7 +294,6 @@ public class CityPatch : GamePatch
             int v = Date.getYearsSince(__instance.data.created_time);
             if (v >= 1)
             {
-                // 如果城市创建时间超过12个月，则不允许被摧毁
                 if (__instance.isAlive())
                 {
                     if (__instance.units.Count()<=1)
@@ -278,7 +305,10 @@ public class CityPatch : GamePatch
         }
         if (__instance.hasTitle())
         {
-            __instance.GetTitle().isBeenControlled();
+            if (__instance.GetTitle() != null)
+            {
+                __instance.GetTitle().isBeenControlled();
+            }
         }
     }
     public static bool removeObject(CitiesManager __instance, City pObject)
@@ -344,6 +374,14 @@ public class CityPatch : GamePatch
 
     public static void setKingdom(City __instance, Kingdom pKingdom)
     {
+        Kingdom oldKingdom = __instance.kingdom;
+        if (oldKingdom != null) 
+        {
+            if (oldKingdom.isProvince())
+            {
+                oldKingdom.checkLostProvince();
+            }
+        }
         if (__instance.hasTitle())
         {
             __instance.GetTitle().isBeenControlled();
@@ -368,6 +406,13 @@ public class CityPatch : GamePatch
         if (__instance.hasProvince()) 
         {
             __instance.GetProvince().removeCity(__instance);
+            if (__instance.GetProvince() == null) return;
+            if (__instance.GetProvince().occupied_cities == null) return;
+            if (__instance.GetProvince().occupied_cities.ContainsKey(__instance))
+            {
+                __instance.GetProvince().occupied_cities.Remove(__instance);
+            }
+
         }
     }
     public static void removeData(City __instance)

@@ -28,6 +28,18 @@ public class EmpireCraftKingdomBehCheckHeir: BehaviourActionKingdom
                         LogService.LogInfo($"当前皇室继承人:{son.data.name}");
                     }
                 }
+            } else
+            {
+                if (empire.isNeedToEducateHeir())
+                {
+                    Random rand = new Random();
+                    double i = rand.NextDouble();
+                    if (i>0.3)
+                    {
+                        empire.Heir.data.renown += 5;
+                    }
+
+                }
             }
             return BehResult.Continue;
         }

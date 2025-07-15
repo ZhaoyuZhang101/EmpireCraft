@@ -123,6 +123,7 @@ public static class ExamSystem
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
         foreach (Province province in empire.province_list) 
         {
+            if (province.IsTotalVassaled()) continue;
             foreach (Actor actor in province.allGongshi())
             {
                 if (!MarksData.TryGetValue(actor, out double m))

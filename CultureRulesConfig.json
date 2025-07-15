@@ -27,7 +27,8 @@
                 },
                 "rule": [ "group_1", "space", "group_2" ],
                 "name_pos": 0,
-                "has_sex_post": false //是否存在姓名后缀，有些文化的姓氏存在阴阳词性，在这里设置为true，并且在Locales/Cultures/NameSexPost.csv中配置好后，人物的姓名就会显示词性
+                "has_sex_post": false, //是否存在姓名后缀，有些文化的姓氏存在阴阳词性，在这里设置为true，并且在Locales/Cultures/NameSexPost.csv中配置好后，人物的姓名就会显示词性
+                "use_local_as_lastname": false
             },
             "Family": {
                 "groups": {
@@ -35,7 +36,8 @@
                     "group_2": "Family"
                 },
                 "rule": [ "group_1", "space", "group_2" ],
-                "has_sex_post": false // 同上
+                "has_sex_post": false, // 同上
+                "use_local_as_lastname": false
             },
             "Unit": {
                 "groups": {
@@ -152,7 +154,8 @@
                 },
                 "rule": [ "group_1", "space", "group_2" ],
                 "name_pos": 0,
-                "has_sex_post": false
+                "has_sex_post": false,
+                "use_local_as_lastname": false
             },
             "Family": {
                 "groups": {
@@ -160,7 +163,8 @@
                     "group_2": "Family"
                 },
                 "rule": [ "group_1", "space", "group_2" ],
-                "has_sex_post": false
+                "has_sex_post": false,
+                "use_local_as_lastname": false
             },
             "Unit": {
                 "groups": {
@@ -217,7 +221,8 @@
                 },
                 "rule": [ "group_1", "space", "group_2" ],
                 "name_pos": 0,
-                "has_sex_post": false
+                "has_sex_post": false,
+                "use_local_as_lastname": false
             },
             "Family": {
                 "groups": {
@@ -225,7 +230,8 @@
                     "group_2": "Family"
                 },
                 "rule": [ "group_1", "space", "group_2" ],
-                "has_sex_post": false
+                "has_sex_post": false,
+                "use_local_as_lastname": false
             },
             "Unit": {
                 "groups": {
@@ -261,6 +267,412 @@
         "beaurau_config": {
             "CoreOffice": [],
             "Divisions": []
+        }
+    },
+    {
+        "name": "Roma",
+        "setting": {
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "Clan"
+                },
+                "rule": [ "group_1", "space", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "Family"
+                },
+                "rule": [ "group_1", "space", "group_2" ],
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        }
+    },
+    {
+        "name": "Frankish",
+        "setting": {
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1",
+                    "group_2": "CityNames2",
+                    "group_3": "CityNames3"
+                },
+                "rule": [ "group_1", "group_2", "space", "group_3" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "Clan",
+                    "group_3": "MiddenClanNames"
+                },
+                "rule": [
+                    "group_3",
+                    "coin_flip",
+                    "group_1",
+                    "space",
+                    "group_2"
+                ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "Family"
+                },
+                "rule": [ "group_1", "space", "group_2" ],
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        }
+    },
+    {
+        "name": "Germanic",
+        "setting": {
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1",
+                    "group_2": "CityNames2",
+                    "group_3": "CityNames3"
+                },
+                "rule": [ "group_1", "group_2", "space", "group_3" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "Clan",
+                    "group_3": "MiddenClanNames"
+                },
+                "rule": [
+                    "group_3",
+                    "coin_flip",
+                    "group_1",
+                    "space",
+                    "group_2"
+                ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "Family"
+                },
+                "rule": [ "group_1", "space", "group_2" ],
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        }
+    },
+    {
+        "name": "Slavonic",
+        "setting": {
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "Clan"
+                },
+                "rule": [ "group_1", "space", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": true,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "Family"
+                },
+                "rule": [ "group_1", "space", "group_2" ],
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        }
+    },
+    {
+        "name": "Arab",
+        "setting": {
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1",
+                    "group_2": "CityNames2"
+                },
+                "rule": [ "group_1", "coin_flip", "group_2" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames1",
+                    "group_2": "ClanNames2",
+                    "group_3": "Clan"
+                },
+                "rule": [ "group_1", "coin_flip", "group_2", "space", "group_3" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "ClanNames1",
+                    "group_2": "ClanNames2",
+                    "group_3": "Family"
+                },
+                "rule": [ "group_1", "coin_flip", "group_2", "space", "group_3" ],
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames1",
+                    "group_2": "CountryNames2"
+                },
+                "rule": [ "group_1", "coin_flip", "group_2" ],
+                "name_pos": 0
+            }
+        }
+    },
+    {
+        "name": "Japan",
+        "setting": {
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1",
+                    "group_2": "CityNames2",
+                    "group_3": "CityNames3"
+                },
+                "rule": [ "group_1", "group_2" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "Clan"
+                },
+                "rule": [ "group_1", "space", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "Family"
+                },
+                "rule": [ "group_1", "space", "group_2" ],
+                "has_sex_post": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesMale2",
+                    "group_3": "UnitNamesFemale1",
+                    "group_4": "UnitNamesFemale2"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_male",
+                    "coin_flip",
+                    "group_3",
+                    "sex_female",
+                    "group_4",
+                    "sex_female",
+                    "coin_flip"
+                ],
+                "name_pos": 1,
+                "is_invert": false
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        }
+    },
+    {
+        "name": "Kosher",
+        "setting": {
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1",
+                    "group_2": "CityNames2"
+                },
+                "rule": [ "group_1", "group_2" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "Clan"
+                },
+                "rule": [
+                    "group_1",
+                    "space",
+                    "group_2"
+                ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "Family"
+                },
+                "rule": [ "group_1", "space", "group_2" ],
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
         }
     }
 ]

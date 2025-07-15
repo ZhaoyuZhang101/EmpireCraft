@@ -1,4 +1,5 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using System;
 using System.Collections.Generic;
@@ -55,6 +56,36 @@ public static class EmpireCraftQuantumSpriteLibrary
                 pQSprite.setSharedMat(LibraryMaterials.instance.mat_minis);
             },
             default_amount = 10
+        }); 
+        AssetManager.quantum_sprites.add(new QuantumSpriteAsset
+        {
+            id = "city_line",
+            id_prefab = "p_mapArrow_line",
+            base_scale = 0.5f,
+            draw_call = drawCityLine,
+            render_map = true,
+            render_gameplay = true,
+            color = new Color(0.4f, 0.4f, 1f, 0.9f)
+        });
+        AssetManager.quantum_sprites.add(new QuantumSpriteAsset
+        {
+            id = "empire_line",
+            id_prefab = "p_mapArrow_line",
+            base_scale = 0.5f,
+            draw_call = drawKingdomLine,
+            render_map = true,
+            render_gameplay = true,
+            color = new Color(0.4f, 0.4f, 1f, 0.9f)
+        });
+        AssetManager.quantum_sprites.add(new QuantumSpriteAsset
+        {
+            id = "province_line",
+            id_prefab = "p_mapArrow_line",
+            base_scale = 0.5f,
+            draw_call = drawProvinceLine,
+            render_map = true,
+            render_gameplay = true,
+            color = new Color(0.4f, 0.4f, 1f, 0.9f)
         });
     }
 
@@ -76,6 +107,7 @@ public static class EmpireCraftQuantumSpriteLibrary
             for (int i= 0; i < provinces.Count; i++)
             {
                 Province province = provinces[i];
+                if (province.IsTotalVassaled()) continue;
                 Actor officer = province.officer;
                 if (!officer.isRekt() && !officer.isInMagnet() && !officer.isKing() && officer.current_zone.visible)
                 {
@@ -135,5 +167,61 @@ public static class EmpireCraftQuantumSpriteLibrary
 
             }
         }
+
+    }
+
+    private static void drawCityLine(QuantumSpriteAsset pAsset)
+    {
+        if (!InputHelpers.mouseSupported || World.world.isBusyWithUI() || !World.world.isSelectedPower("add_title"))
+        {
+            return;
+        }
+        City unity_A = ConfigData.selected_cityA;
+        if (unity_A == null)
+        {
+            return;
+        }
+        Vector2 mousePos = World.world.getMousePos();
+        Color pColor = unity_A.getColor().getColorMain2();
+        QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, unity_A.getTile().posV, mousePos, ref pColor);
+    }
+
+
+    private static void drawKingdomLine(QuantumSpriteAsset pAsset)
+    {
+        if (!InputHelpers.mouseSupported || World.world.isBusyWithUI() || !World.world.isSelectedPower("create_empire"))
+        {
+            return;
+        }
+        Kingdom unity_A = Config.unity_A;
+        if (unity_A == null)
+        {
+            return;
+        }
+        Vector2 mousePos = World.world.getMousePos();
+        foreach (City city in unity_A.cities)
+        {
+            Color pColor = city.getColor().getColorMain2();
+            QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, city.getTile().posV, mousePos, ref pColor);
+        }
+
+    }
+
+
+    private static void drawProvinceLine(QuantumSpriteAsset pAsset)
+    {
+        if (!InputHelpers.mouseSupported || World.world.isBusyWithUI() || !World.world.isSelectedPower("create_province"))
+        {
+            return;
+        }
+        City unity_A = ConfigData.selected_cityA;
+        if (unity_A == null)
+        {
+            return;
+        }
+        Vector2 mousePos = World.world.getMousePos();
+        Color pColor = unity_A.getColor().getColorMain2();
+        QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, unity_A.getTile().posV, mousePos, ref pColor);
+
     }
 }

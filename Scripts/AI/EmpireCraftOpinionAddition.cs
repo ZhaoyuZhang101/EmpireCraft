@@ -74,7 +74,7 @@ public class EmpireCraftOpinionAddition
                 int result = 0;
                 if (pMain.isInSameEmpire(pTarget))
                 {
-                    result = 20;
+                    result = 50;
                 }
                 return result;
             }
@@ -92,7 +92,7 @@ public class EmpireCraftOpinionAddition
                     {
                         if (pMain.GetEmpire().data.original_royal_been_changed)
                         {
-                            result = -100;
+                            result = -200;
                         }
                     }
                 }

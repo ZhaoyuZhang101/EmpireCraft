@@ -15,13 +15,21 @@ Huaxia_countrylevel_4,州,Province,州
 Huaxia_countrylevel_5,邑,Region,邑
 Huaxia_countrylevel_6,邑,Region,邑
 
-Western_countrylevel_0,帝国,Empire,帝國
+Western_countrylevel_0,至高王国,United Kingdom,至高王國
 Western_countrylevel_1,亲王国,Principality,親王國
 Western_countrylevel_2,王国,Kingdom,王國
 Western_countrylevel_3,公国,Duchy,公國
 Western_countrylevel_4,侯国,Marquisate,侯國
 Western_countrylevel_5,伯国,County,伯國
 Western_countrylevel_6,国,Territory,國
+
+Frankish_countrylevel_0,帝国,Empire,帝國
+Frankish_countrylevel_1,王国,Kingdom,王國
+Frankish_countrylevel_2,大公国,Grand Duchy,大公國
+Frankish_countrylevel_3,公国,Duchy,公國
+Frankish_countrylevel_4,侯国,Marquisate,侯國
+Frankish_countrylevel_5,伯国,County,伯國
+Frankish_countrylevel_6,骑士团,Knights,騎士團
 
 Youmu_countrylevel_0,可汗兀鲁思,KhaanUlus,可汗兀露絲
 Youmu_countrylevel_1,兀鲁思,Ulus,兀露絲
@@ -32,8 +40,8 @@ Youmu_countrylevel_5,那颜领,Noyanate,那顏領
 Youmu_countrylevel_6,部,Territory,部
 
 Slavonic_countrylevel_0,沙皇国,Tsardom,沙皇國
-Slavonic_countrylevel_1,大公国,Grand-Principality,大公國
-Slavonic_countrylevel_2,王国,Kraljevstvo,王國
+Slavonic_countrylevel_1,亲王国,Kraljevstvo,親王國
+Slavonic_countrylevel_2,大公国,Grand Principality,大公國
 Slavonic_countrylevel_3,公国,Principality,公國
 Slavonic_countrylevel_4,边疆区,Margraviate,邊疆區
 Slavonic_countrylevel_5,伯爵领,Earldom,伯爵領
@@ -47,10 +55,42 @@ Roma_countrylevel_4,边疆区,Limes,邊疆區
 Roma_countrylevel_5,市辖区,Territorium,市轄區
 Roma_countrylevel_6,领地,Barony,領地
 
-Japan_countrylevel_0,御国,Mikado-no-Kuni,禦國
-Japan_countrylevel_1,宫家御领,Miyake-Goryo,宮家禦領
+Japan_countrylevel_0,御国,Mikado no Kuni,禦國
+Japan_countrylevel_1,宫家御领,Miyake Goryo,宮家禦領
 Japan_countrylevel_2,国造,Kuni,國造
 Japan_countrylevel_3,领国,Domain,領國
-Japan_countrylevel_4,国持众领,Shugos-Province,國持眾領
+Japan_countrylevel_4,国持众领,Shugos Province,國持眾領
 Japan_countrylevel_5,小大名领,District,小大名領
 Japan_countrylevel_6,知行所,Chigyo,知行所
+
+Arab_countrylevel_0,哈里发国,Caliphate,哈裡發國
+Arab_countrylevel_1,沙阿国,Shahate,沙阿國
+Arab_countrylevel_2,苏丹国,Sultanate,苏丹國
+Arab_countrylevel_3,埃米尔国,Emirate,埃米爾國
+Arab_countrylevel_4,谢赫国,Sheikhate,謝赫國
+Arab_countrylevel_5,贝伊领,Bey Territory,貝伊領
+Arab_countrylevel_6,部落,Tribe,部落
+
+Germanic_countrylevel_0,教皇国,Papal States,教皇國
+Germanic_countrylevel_1,枢机领,Cardinalatus,樞機領
+Germanic_countrylevel_2,教国,Ecclesiastical,教國
+Germanic_countrylevel_3,代牧区,Administratio,代牧區
+Germanic_countrylevel_4,宗主教座,Archidioecesis,宗主教座
+Germanic_countrylevel_5,教区,Dioecesis,教區
+Germanic_countrylevel_6,教团,Order,教團
+
+Germanic_countrylevel_0,教皇国,Papal States,教皇國
+Germanic_countrylevel_1,枢机领,Cardinalatus,樞機領
+Germanic_countrylevel_2,教国,Ecclesiastical,教國
+Germanic_countrylevel_3,代牧区,Administratio,代牧區
+Germanic_countrylevel_4,宗主教座,Archidioecesis,宗主教座
+Germanic_countrylevel_5,教区,Dioecesis,教區
+Germanic_countrylevel_6,教团,Order,教團
+
+Kosher_countrylevel_0,统一王国,United Kingdom,統一王國
+Kosher_countrylevel_1,王国,Kingdom,王國
+Kosher_countrylevel_2,王国,Kingdom,王國
+Kosher_countrylevel_3,国,State,國
+Kosher_countrylevel_4,氏族领地,Clan Territory,氏族領地
+Kosher_countrylevel_5,逃城,Arei Miklat,逃城
+Kosher_countrylevel_6,圣殿,Beit HaMikdash,聖殿

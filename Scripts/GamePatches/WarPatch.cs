@@ -2,6 +2,7 @@
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.services;
@@ -124,6 +125,52 @@ public class WarPatch
             __instance.warStateChanged();
             pWar.endForSides(pWinner);
             pWar.data.died_time = World.world.getCurWorldTime();
+            Kingdom aKingdom = null;
+            Kingdom dKingdom = null;
+            aKingdom = pWar.getMainAttacker();
+            dKingdom = pWar.getMainDefender();
+            if (pWinner == WarWinner.Attackers)
+            {
+                if (aKingdom.isEmpire())
+                {
+                    Empire empire = aKingdom.GetEmpire();
+                    if (empire.emperor != null)
+                    {
+                        empire.emperor.editRenown(30);
+                    }
+                    empire.addRenown(30);
+                }
+                if (dKingdom.isEmpire())
+                {
+                    Empire empire = dKingdom.GetEmpire();
+                    if (empire.emperor != null)
+                    {
+                        empire.emperor.editRenown(-50);
+                    }
+                    empire.addRenown(-50);
+                }
+            } else if (pWinner == WarWinner.Defenders)
+            {
+                if (dKingdom.isEmpire())
+                {
+                    Empire empire = dKingdom.GetEmpire();
+                    if (empire.emperor!=null)
+                    {
+                        empire.emperor.editRenown(30);
+
+                    }
+                    empire.addRenown(30);
+                }
+                if (aKingdom.isEmpire())
+                {
+                    Empire empire = aKingdom.GetEmpire();
+                    if (empire.emperor != null)
+                    {
+                        empire.emperor.editRenown(-50);
+                    }
+                    empire.addRenown(-50);
+                }
+            }
             if (pWar.GetEmpireWarType() == EmpireWarType.AquireEmpire)
             {
                 if (pWinner == WarWinner.Attackers)

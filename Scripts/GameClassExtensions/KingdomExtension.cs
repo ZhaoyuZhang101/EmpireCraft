@@ -33,6 +33,7 @@ public static class KingdomExtension
         public double taxtRate = 0.1;
         public long main_title_id = -1L;
         public List<long> OwnedTitle = new List<long>();
+        public long provinceID = -1L;
     }
 
     public static void SetMainTitle(this Kingdom k, KingdomTitle title)
@@ -48,6 +49,21 @@ public static class KingdomExtension
             ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id).main_kingdom = null;
         }
         GetOrCreate(k).main_title_id = -1L;
+    }
+
+    public static void SetProvince(this Kingdom k, Province province)
+    {
+        GetOrCreate(k).provinceID = province.id;
+    }
+
+    public static Province GetProvince(this Kingdom k)
+    {
+        return ModClass.PROVINCE_MANAGER.get(GetOrCreate(k).provinceID);
+    }
+
+    public static long GetProvinceID(this Kingdom k)
+    {
+        return GetOrCreate(k).provinceID;
     }
 
     public static KingdomTitle GetMainTitle(this Kingdom k)
@@ -111,6 +127,7 @@ public static class KingdomExtension
         ed.loyalty = actorExtraData.loyalty;
         ed.KingdomNamePre = actorExtraData.KingdomNamePre;
         ed.OwnedTitle = actorExtraData.OwnedTitle;
+        ed.provinceID = actorExtraData.provinceID;
         return true;
     }
 
@@ -136,6 +153,7 @@ public static class KingdomExtension
         ed.loyalty = a.GetLoyalty();
         ed.KingdomNamePre = GetOrCreate(a).KingdomNamePre;
         ed.OwnedTitle = GetOrCreate(a).OwnedTitle;
+        ed.provinceID = a.GetProvinceID();
         return ed;
     }
 
@@ -395,6 +413,115 @@ public static class KingdomExtension
             }
         }
         return controledTitles;
+    }
+
+    public static bool isNeighbourWith(this Kingdom kingdom, Kingdom target)
+    {
+        if(kingdom.isEmpire())
+        {
+            Empire empire = kingdom.GetEmpire();
+            return empire.isNeighbourWith(target);
+        }
+        foreach(City city in kingdom.cities)
+        {
+            if (city.neighbours_kingdoms.Contains(target))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static bool isBorder(this Kingdom kingdom)
+    {
+        if(kingdom.isEmpire()) return false;
+        foreach(City city in kingdom.cities)
+        {
+            if (city.neighbours_kingdoms.Count > 0)
+            {
+                foreach(Kingdom kingdom2 in city.neighbours_kingdoms)
+                {
+                    if (!kingdom2.isInSameEmpire(kingdom))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    public static void RemoveProvince(this Kingdom k)
+    {
+        GetOrCreate(k).provinceID = -1L;
+    }
+
+    public static bool isProvince(this Kingdom k)
+    {
+        return ModClass.PROVINCE_MANAGER.get(GetOrCreate(k).provinceID) != null;
+    }
+
+    public static void checkLostProvince(this Kingdom k)
+    {
+        Province province = k.GetProvince();
+        if (province == null) return;
+        bool flag = false;
+        foreach(City city in province.city_list)
+        {
+            if (k.cities.Contains(city))
+            {
+                flag = true;
+                break;
+            }
+        }
+        if (!flag)
+        {
+            province.data.is_set_to_country = false;
+            k.RemoveProvince();
+        }
+        
+    }
+
+    public static void ChangeToProvince(this Kingdom kingdom, Empire empire)
+    {
+        Province province = null;
+        if (kingdom.isProvince())
+        {
+            province = kingdom.GetProvince();
+            if (province != null) 
+            {
+                province.data.is_set_to_country = false;
+            }
+        }
+        ListPool<City> listPool = new ListPool<City>();
+        foreach(City city in kingdom.cities)
+        {
+            if (!city.hasProvince())
+            {
+                if (province!=null)
+                {
+                    province.addCity(city);
+                } else
+                {
+                    listPool.Add(city);
+                }
+            }
+        }
+        if (listPool.Count > 0)
+        {
+            Province province2 = ModClass.PROVINCE_MANAGER.newProvince(listPool[0]);
+            province2.data.is_set_to_country = false;
+            province2.data.name = kingdom.GetKingdomName();
+            province2.SetProvinceLevel(provinceLevel.provincelevel_3);
+            foreach (City city in listPool)
+            {
+                if (city != listPool[0])
+                {
+                    province2.addCity(city);
+                }
+                city.joinAnotherKingdom(empire.empire);
+            }
+        }
+
     }
 
     public static void SetCountryLevel(this Kingdom kingdom, countryLevel value)

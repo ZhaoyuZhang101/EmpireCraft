@@ -21,7 +21,10 @@ public class EmpireCraftKingdomBehCheckOfficer : BehaviourActionKingdom
                 {
                     foreach (Province province in empire.province_list)
                     {
-                        province.JudgeOfficer();
+                        if (!province.IsTotalVassaled())
+                        {
+                            province.JudgeOfficer();
+                        }
                     }
                 }
             }

@@ -52,6 +52,7 @@ public class FamilySetting
     public OnomasticsType[] rule;
     public int name_pos;
     public bool has_sex_post;
+    public bool use_local_as_lastname;
 }
 
 public class ClanSetting
@@ -60,6 +61,7 @@ public class ClanSetting
     public OnomasticsType[] rule;
     public int name_pos;
     public bool has_sex_post;
+    public bool use_local_as_lastname;
 }
 
 public class KingdomSetting
@@ -80,6 +82,7 @@ public static class OnomasticsRule
 {
     public static Dictionary<string, Setting> ALL_CULTURE_RULE = new Dictionary<string, Setting>();
     public static Dictionary<string, BeareauConfig> ALL_CULTURE_CONFIG = new Dictionary<string, BeareauConfig>();
+    public static List<CultureRule> ALL_CULTUREs = new List<CultureRule>();
     public static void ReadSetting()
     {
         string settingPath = Path.Combine(ModClass._declare.FolderPath, "CultureRulesConfig.json");

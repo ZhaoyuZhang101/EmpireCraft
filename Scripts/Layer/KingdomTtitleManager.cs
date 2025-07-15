@@ -53,7 +53,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         bool result = false;
         if (title == null)
         {
-            title = this.newKingdomTitle(pCity1);
+            title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(pCity1);
             title.addCity(pCity2);
             result = true;
         }

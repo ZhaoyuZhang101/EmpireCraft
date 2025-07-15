@@ -27,10 +27,7 @@ internal static class MainTab
         // 设置标签页的布局. 布局是一个字符串列表, 每个字符串是一个分类. 每个分类的名字不重要.
         tab.SetLayout(new List<string>()
         {
-            KINGDOM_TITLE_GROUP,
             EMPIRE_GROUP,
-            EMPIRE_FUNCTIONS,
-            PROVINCE_GROUP
         });
         // Add buttons to the tab.
         // 向标签页添加按钮.
@@ -45,6 +42,8 @@ internal static class MainTab
     {
         EmpireListWindow.CreateWindow(nameof(EmpireListWindow),
             nameof(EmpireListWindow) + "Title");
+        CultureSpeciesPairWindow.CreateWindow(nameof(CultureSpeciesPairWindow),
+            nameof(CultureSpeciesPairWindow) + "Title");
         EmpireWindow.CreateWindow(nameof(EmpireWindow),
             nameof(EmpireWindow) + "Title");
         KingdomTitleWindow.CreateWindow(nameof(KingdomTitleWindow),
@@ -53,6 +52,8 @@ internal static class MainTab
             nameof(ProvinceWindow) + "Title");
         EmpireBeaurauWindow.CreateWindow(nameof(EmpireBeaurauWindow),
             nameof(EmpireBeaurauWindow) + "Title");
+        ChangeUnitWindow.CreateWindow(nameof(ChangeUnitWindow),
+            nameof(ChangeUnitWindow) + "Title");
     }
 
     private static void _addButtons()
@@ -60,20 +61,20 @@ internal static class MainTab
         TitleLayerToggle.init();
         PowerButton pb0 = FixFunctions.CreateToggleButton("title_layer",
                  SpriteTextureLoader.getSprite("ui/icons/iconCity"));
-        tab.AddPowerButton(KINGDOM_TITLE_GROUP, pb0);
+        tab.AddPowerButton(EMPIRE_GROUP, pb0);
 
         CreateTitleButton.init();
-        tab.AddPowerButton(KINGDOM_TITLE_GROUP,
+        tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_title",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleCreate.png")));
 
         AddTitleButton.init();
-        tab.AddPowerButton(KINGDOM_TITLE_GROUP,
+        tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("add_title",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleAdd.png")));
 
         RemoveTitleButton.init();
-        tab.AddPowerButton(KINGDOM_TITLE_GROUP,
+        tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_title",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleRemove.png")));
 
@@ -105,29 +106,35 @@ internal static class MainTab
         PreventCityDestroyToggle.init();
         PowerButton pb2 = FixFunctions.CreateToggleButton("prevent_city_destroy",
                  SpriteTextureLoader.getSprite("ui/icons/iconCity"));
-        tab.AddPowerButton(EMPIRE_FUNCTIONS, pb2);
+        tab.AddPowerButton(EMPIRE_GROUP, pb2);
 
         ProvinceLayerToggle.init();
         PowerButton pb3 = FixFunctions.CreateToggleButton("province_layer",
                  SpriteTextureLoader.getSprite("ui/icons/iconCity"));
-        tab.AddPowerButton(PROVINCE_GROUP, pb3);
+        tab.AddPowerButton(EMPIRE_GROUP, pb3);
 
         CreateProvinceButton.init();
-        tab.AddPowerButton(PROVINCE_GROUP,
+        tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_province",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleCreate.png")));
 
         AddProvinceButton.init();
-        tab.AddPowerButton(PROVINCE_GROUP,
+        tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("add_province",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleAdd.png")));
 
         RemoveProvinceButton.init();
-        tab.AddPowerButton(PROVINCE_GROUP,
+        tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_province",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleRemove.png")));
 
+        tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateWindowButton("culture_list", nameof(CultureSpeciesPairWindow),
+            SpriteTextureLoader.getSprite("ui/icons/iconCulture")));
 
 
+        ActorCreateKingdom.init();
+        tab.AddPowerButton(EMPIRE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("actor_create_kingdom",
+               SpriteTextureLoader.getSprite("ui/icons/iconKingdom")));
     }
 }

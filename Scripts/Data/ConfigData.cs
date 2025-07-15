@@ -20,6 +20,8 @@ namespace EmpireCraft.Scripts.Data
         [JsonIgnore]
         public static EmpireCraftHistory CURRENT_SELECTED_HISTORY;
         [JsonIgnore]
+        public static string CURRENT_SELECTED_OFFICE;
+        [JsonIgnore]
         public static City selected_cityA;
         [JsonIgnore]
         public static City selected_cityB;
@@ -44,15 +46,40 @@ namespace EmpireCraft.Scripts.Data
         // this part bind culture and species togather.
         public static Dictionary<string, string> speciesCulturePair = new Dictionary<string, string>() 
         {
-            {"human","Western"},
+            {"human","Frankish"},
             {"elf", "Huaxia" },
-            {"dwarf", "Western" },
-            {"orc", "Youmu" }
+            {"dwarf", "Slavonic" },
+            {"orc", "Youmu" },
+
+            {"civ_wolf", "Roma" },
+            {"civ_cow", "Roma" },
+            {"civ_liliar", "Roma" },
+            {"civ_crystal_golem", "Roma" },
+
+            {"civ_candy_man", "Japan" },
+            {"civ_acid_gentleman", "Japan" },
+            {"civ_monkey", "Japan" },
+            {"civ_frog", "Japan" },
+
+            {"civ_cat", "Arab" },
+            {"civ_scorpion", "Arab" },
+            {"civ_goat", "Arab" },
+            {"civ_crab", "Arab" },
+
+            {"civ_rabbit", "Germanic" },
+            {"civ_chicken", "Germanic" },
+            {"civ_dog", "Germanic" },
+            {"civ_piranha", "Germanic" },
+
+            {"civ_sheep", "Kosher" },
+            {"civ_hyena", "Kosher" },
+            {"civ_rat", "Kosher" },
+            {"civ_snake", "Kosher" }
         };
         //Already Prepared Cultures
         public static List<string> currentExistCulture = new List<string>()
         {
-            "Western","Huaxia","Youmu"
+            "Western","Huaxia","Youmu","Frankish","Slavonic", "Roma", "Japan", "Arab", "Germanic","Kosher"
         };
         [JsonIgnore]
         public static Empire EMPIRE = null;

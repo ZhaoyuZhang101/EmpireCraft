@@ -37,7 +37,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     AutoGridLayoutGroup divisionsGroup;
 
     AutoVertLayoutGroup provincesSpace;
-    AutoVertLayoutGroup provincesGroup;
+    AutoGridLayoutGroup provincesGroup;
     [Header("UI Prefab & 根容器")]
     public GameObject _itemPrefab;
     public List<GameObject> pool = new List<GameObject>();
@@ -106,10 +106,17 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         //省级部门
         SimpleText provinceTitle = Instantiate(SimpleText.Prefab);
         provinceTitle.Setup(LM.Get("province"), TextAnchor.MiddleCenter);
-
-        provincesGroup = this.BeginVertGroup();
-
         provincesSpace.AddChild(provinceTitle.gameObject);
+
+        provincesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 50));
+        foreach (Province province in _empire.province_list)
+        {
+            if(!province.data.is_set_to_country)
+            {
+                SetProvinceView(province, ref provincesGroup);
+            }
+        }
+
         provincesSpace.AddChild(provincesGroup.gameObject);
 
         AddChild(provincesSpace.gameObject);
@@ -161,70 +168,28 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         pool.Clear();
     }
 
-    public void actorClick(Actor actor)
-    {
-        if (actor != null) 
-        {
-            ActionLibrary.openUnitWindow(actor);
-        }
-        LogService.LogInfo("点击角色");
-    }
-
     public void SetCenterOfficeView(string name, OfficeObject officeObject, ref AutoGridLayoutGroup parent)
     {
         AutoHoriLayoutGroup officePositionGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
 
         //右边头像
-        AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:5, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 20));
+        AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:12, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 20));
 
         SimpleText title = Instantiate(SimpleText.Prefab);
         title.Setup(LM.Get(name)+$"({officeObject.history_officers.Count})", TextAnchor.MiddleCenter, new Vector2(30, 10));
         title.background.enabled = false;
-        UnitAvatarLoader pPrefab = Resources.Load<UnitAvatarLoader>("ui/AvatarLoaderFramed");
-        UnitAvatarLoader unit_loader = GameObject.Instantiate<UnitAvatarLoader>(pPrefab);
-        Transform frame = unit_loader.transform.Find("frame");
-        Actor actor = World.world.units.get(officeObject.actor_id);
-        if (frame != null)
-        {
 
-            Button button = frame.gameObject.AddComponent<Button>();
 
-            button.onClick.AddListener(() => {
-                Debug.Log("Frame按钮被点击");
-                actorClick(actor);
-            });
-
-            button.interactable = true;
-
-            // 如果需要改变按钮的视觉效果
-            ColorBlock colors = button.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(0.9f, 0.9f, 0.9f);
-            colors.pressedColor = new Color(0.8f, 0.8f, 0.8f);
-            button.colors = colors;
-        }
-        else
-        {
-            Debug.LogError("找不到frame对象！");
-        }
-        if (actor != null)
-        {
-            unit_loader._actor_image.gameObject.SetActive(true);
-            unit_loader.load(actor);
-        } else
-        {
-            unit_loader._actor_image.gameObject.SetActive(false);
-        }
+        SimpleButton clickframe = UIHelper.CreateAvatarView(officeObject.actor_id);
 
         SimpleButton changeAvatar = Instantiate(SimpleButton.Prefab);
-        changeAvatar.Setup(() => ChangeOfficer(name), SpriteTextureLoader.getSprite("ui/changeOfficer"), pSize: new Vector2(20, 10));
+        changeAvatar.Setup(() => ChangeOfficer(officeObject), SpriteTextureLoader.getSprite("ui/changeOfficer"), pSize: new Vector2(20, 10));
 
         avatarLayoutGroup.AddChild(title.gameObject);
-        avatarLayoutGroup.AddChild(unit_loader.gameObject);
+        avatarLayoutGroup.AddChild(clickframe.gameObject);
         avatarLayoutGroup.AddChild(changeAvatar.gameObject);
         avatarLayoutGroup.transform.localPosition = Vector3.zero;
         officePositionGroup.AddChild(avatarLayoutGroup.gameObject);
-
 
         //左边信息栏
         AutoVertLayoutGroup leftVertGroup = this.BeginVertGroup(pAlignment: TextAnchor.UpperCenter);
@@ -250,8 +215,80 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
         pool.Add(officePositionGroup.gameObject);
     }
-
-    private void ChangeOfficer(string name)
+    public void SetProvinceView(Province province, ref AutoGridLayoutGroup parent)
     {
+        AutoHoriLayoutGroup provinceGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
+
+        //右边头像
+        AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:12, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 20));
+
+        SimpleText title = Instantiate(SimpleText.Prefab);
+        string text = province.data.name + $"({province.data.history_officers.Count})";
+        if (province.IsTotalVassaled()) 
+        {
+            text = LM.Get("provinceVassaled") + "|" + text;
+        }
+        title.Setup(text, TextAnchor.MiddleCenter, new Vector2(30, 10));
+        title.background.enabled = false;
+
+        long actor_id = -1L;
+        if (province.officer != null)
+        {
+            actor_id = province.officer.getID();
+        } else
+        {
+            actor_id = -1L;
+        }
+        SimpleButton clickframe = UIHelper.CreateAvatarView(actor_id);
+
+        SimpleButton changeAvatar = Instantiate(SimpleButton.Prefab);
+        changeAvatar.Setup(() => ChangeOfficer(province:province), SpriteTextureLoader.getSprite("ui/changeOfficer"), pSize: new Vector2(20, 10));
+
+        avatarLayoutGroup.AddChild(title.gameObject);
+        avatarLayoutGroup.AddChild(clickframe.gameObject);
+        avatarLayoutGroup.AddChild(changeAvatar.gameObject);
+        avatarLayoutGroup.transform.localPosition = Vector3.zero;
+        provinceGroup.AddChild(avatarLayoutGroup.gameObject);
+
+        //左边信息栏
+        AutoVertLayoutGroup leftVertGroup = this.BeginVertGroup(pAlignment: TextAnchor.UpperCenter);
+
+        SimpleText nameText = GameObject.Instantiate(SimpleText.Prefab);
+        nameText.Setup($"{LM.Get("i_name")}: {(province.officer == null ? "-" : province.officer.data.name)}", pSize: new Vector2(50, 10));
+
+        SimpleText levelText = GameObject.Instantiate(SimpleText.Prefab);
+        levelText.Setup($"{LM.Get("OfficialLevel")}: {LM.Get(String.Join("_", culture, province.data.officialLevel.ToString()))}", pSize: new Vector2(50, 10));
+
+        SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
+        timeText.Setup($"{LM.Get("i_on_office_time")}: {province.GetNewOfficerOnTime()}", pSize: new Vector2(50, 10));
+
+
+        leftVertGroup.AddChild(nameText.gameObject);
+        leftVertGroup.AddChild(levelText.gameObject);
+        leftVertGroup.AddChild(timeText.gameObject);
+        leftVertGroup.transform.localPosition = Vector3.zero;
+        provinceGroup.AddChild(leftVertGroup.gameObject);
+
+        parent.AddChild(provinceGroup.gameObject);
+        LogService.LogInfo($"加载官位{province.data.name}");
+
+        pool.Add(provinceGroup.gameObject);
+    }
+
+    private void ChangeOfficer(OfficeObject o=null, Province province=null)
+    {
+        if (o != null)
+        {
+            ConfigData.CURRENT_SELECTED_OFFICE = o.name;
+            ConfigData.CURRENT_SELECTED_PROVINCE = null;
+            LogService.LogInfo($"撤换{o.name}");
+            ScrollWindow.showWindow(nameof(ChangeUnitWindow));
+        }
+        else if (province !=null)
+        {
+            ConfigData.CURRENT_SELECTED_OFFICE = "";
+            ConfigData.CURRENT_SELECTED_PROVINCE = province;
+            ScrollWindow.showWindow(nameof(ChangeUnitWindow));
+        }
     }
 }

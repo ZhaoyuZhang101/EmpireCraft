@@ -24,34 +24,37 @@ public class PerformanceEvent
         double minDouble = 0;
         double maxDouble = performance_add_on;
         double randomDouble = rand.NextDouble() * (maxDouble - minDouble) + minDouble;
-        LogService.LogInfo(actor.data.name+eventType.ToString());
         actor.GetIdentity(empire).OfficePerformance += randomDouble;
         return actor.GetIdentity(empire).OfficePerformance;
     }
 }
 public class PerformanceEvents
 {
-    public Dictionary<string, PerformanceEvent> events;
+    public Dictionary<string, PerformanceEvent> events = null;
     [JsonIgnore]
     public Empire empire { get; set; }
     [JsonIgnore]
     public Actor actor { get; set; }
-
     public void init(Empire empire, Actor actor)
     {
         this.empire = empire;
         this.actor = actor;
         string filePath = Path.Combine(ModClass._declare.FolderPath, "Scripts", "Data", "PerformanceData.json");
-        if (File.Exists(filePath))
+        if (events == null)
         {
-            string text = File.ReadAllText(filePath);
-            events = JsonConvert.DeserializeObject<Dictionary<string, PerformanceEvent>>(text);
-            CalculateRate();
+            if (File.Exists(filePath))
+            {
+                string text = File.ReadAllText(filePath);
+                events = JsonConvert.DeserializeObject<Dictionary<string, PerformanceEvent>>(text);
+            }
+            else
+            {
+                LogService.LogInfo($"未发现绩效事件文件{filePath}");
+            }
         }
-        else
-        {
-            LogService.LogInfo($"未发现绩效事件文件{filePath}");
-        }
+        CalculateRate();
+
+
     }
     public double GetEmpirePerformance(Empire empire)
     {
@@ -154,13 +157,17 @@ public class PerformanceEvents
         {
             double weight = pair.Value.trigger_rate;
             bool flag = false;
-            if (pair.Value.official_levels==null)
+            if (pair.Value.official_levels == null)
             {
                 flag = true;
-            } else if (pair.Value.official_levels.Count==0)
+            } else if (pair.Value.official_levels.Count == 0)
             {
                 flag = true;
-            } else if (pair.Value.official_levels.Contains(actor.GetIdentity(empire).officialLevel))
+            } else if (actor.GetIdentity(empire)==null) 
+            {
+                flag = false;
+            }
+            else if (pair.Value.official_levels.Contains(actor.GetIdentity(empire).officialLevel))
             {
                 flag = true;
             }

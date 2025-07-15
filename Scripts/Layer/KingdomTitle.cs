@@ -56,6 +56,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         this.data.original_actor_asset = city.kingdom.king.asset.id;
         this.owner = null;
         string name = city.SelectKingdomName();
+        data.province_name = title_capital.GetCityName();
         if (name != null&& name != "") 
         {
             this.data.name = name;
@@ -320,11 +321,11 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         }
         if (this.title_capital==null)
         {
-            this.title_capital = city_list.FirstOrDefault();
+            this.title_capital = city_list.First();
         }
         if (!this.title_capital.isAlive())
         {
-            this.title_capital = city_list.FirstOrDefault();
+            this.title_capital = city_list.First();
         }
         if (tChanged)
         {
@@ -366,6 +367,10 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         this.city_list.AddRange(this.city_list_hash);
         this.owner = this.data.owner == -1L? null:World.world.units.get(this.data.owner);
         this.main_kingdom = this.data.main_kingdom == -1L ? null : World.world.kingdoms.get(this.data.main_kingdom);
+        if(pData.province_name==""||pData.province_name==null)
+        {
+            pData.province_name = title_capital.GetCityName();
+        } 
     }
 }
 

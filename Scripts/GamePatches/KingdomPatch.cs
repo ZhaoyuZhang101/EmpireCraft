@@ -60,7 +60,7 @@ public class KingdomPatch : GamePatch
         {
             foreach (Province province in __instance.GetEmpire().province_list)
             {
-                if (province.HasOfficer())
+                if (province.HasOfficer()&&!province.IsTotalVassaled())
                 {
                     num += (int)province.officer.stats["cities"];
                 }
@@ -85,6 +85,15 @@ public class KingdomPatch : GamePatch
             if (__instance.GetMainTitle() != null)
             {
                 __instance.GetMainTitle().main_kingdom = null;
+            }
+        }
+        if(__instance.isProvince())
+        {
+            Province province = __instance.GetProvince();
+            if (province != null)
+            {
+                province.data.is_set_to_country = false;
+                province.SetProvinceLevel(provinceLevel.provincelevel_3);
             }
         }
         __instance.RemoveExtraData();
@@ -154,7 +163,18 @@ public class KingdomPatch : GamePatch
             }
             if (__instance.isInEmpire() && !__instance.isEmpire())
             {
-                __instance.king.GetIdentity(__instance.GetEmpire()).ChangeOfficialLevel(Enums.OfficialLevel.officiallevel_10);
+                if (__instance.king != null)
+                {
+                    try
+                    {
+                        __instance.king.GetIdentity(__instance.GetEmpire()).ChangeOfficialLevel(Enums.OfficialLevel.officiallevel_10);
+                    }
+                    catch
+                    {
+                        return;
+                    }
+                    
+                }
             }
         }
     }

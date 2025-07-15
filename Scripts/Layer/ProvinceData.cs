@@ -19,8 +19,9 @@ public class ProvinceData : MetaObjectData
     [DefaultValue(-1L)]
     public long founder_actor_id { get; set; } = -1L;
     public provinceLevel provinceLevel = provinceLevel.provincelevel_3;
-    public OfficialLevel officialLevel = OfficialLevel.officiallevel_3;
-
+    public OfficialLevel officialLevel = OfficialLevel.officiallevel_8;
+    public Dictionary<long, double> occupied_cities = new Dictionary<long, double>();
+    public bool is_set_to_country { get; set; }
 
     [DefaultValue(-1L)]
     public long founder_empire_id { get; set; } = -1L;

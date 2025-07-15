@@ -3,6 +3,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using NeoModLoader.General;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
@@ -91,7 +92,7 @@ public static class EmpireCraftNamePlateLibrary
             {
                 foreach (Province province in ModClass.PROVINCE_MANAGER)
                 {
-                    if (province != null && isWithinCamera(province.GetCenter()))
+                    if (province != null && isWithinCamera(province.GetCenter())&&!province.data.is_set_to_country)
                     {
                         NameplateText npt = prepareNext(pManager, pAsset, 37, 12, 39, 11);
                         showTextProvince(npt, province.province_capital);
@@ -110,6 +111,41 @@ public static class EmpireCraftNamePlateLibrary
             },
         };
         map_modes_nameplates.Add(EmpireCraftMapMode.Province, asset3);
+
+        NameplateAsset asset4 = new NameplateAsset
+        {
+            id = "plate_culture",
+            path_sprite = "ui/nameplates/nameplate_culture",
+            padding_left = 11,
+            padding_right = 13,
+            map_mode = MetaType.Culture,
+            action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
+            {
+                ListPool<Culture> c = new ListPool<Culture>();
+                foreach(City city in World.world.cities)
+                {
+                    if (city.hasCulture())
+                    {
+                        if (!c.Contains(city.culture))
+                        {
+                            c.Add(city.culture);
+                        }
+                    }
+                }
+                foreach(Culture culture in c) 
+                {
+                    if (culture.cities.Count>0)
+                    {
+                        NameplateText nameplateText = pManager.prepareNext(pAsset);
+                        nameplateText.showTextCulture(culture, culture.cities[0].city_center);
+                    }
+                }
+            }
+        };
+        AssetManager.nameplates_library.dict.Remove("Culture");
+        AssetManager.nameplates_library.map_modes_nameplates[asset4.map_mode] = asset4;
+        AssetManager.nameplates_library.dict["Culture"] = asset4;
+
     }
 
 
@@ -156,14 +192,6 @@ public static class EmpireCraftNamePlateLibrary
         if (empire == null) return;
         plateText.setupMeta(pMetaObject.data, pMetaObject.getColor());
         string text = empire.data.name + "  " + empire.countPopulation();
-        if (DebugConfig.isOn(DebugOption.ShowWarriorsCityText))
-        {
-            text = text + " | " + pMetaObject.countTotalWarriors() + "/" + pMetaObject.countWarriorsMax();
-        }
-        if (DebugConfig.isOn(DebugOption.ShowCityWeaponsText))
-        {
-            text = text + " | w" + pMetaObject.countWeapons();
-        }
         if (empire.isAllowToMakeYearName())
         {
             if (empire.hasYearName())
@@ -171,6 +199,7 @@ public static class EmpireCraftNamePlateLibrary
                 text = empire.data.name + " " + empire.getYearNameWithTime() + "  " + empire.countPopulation();
             }
         }
+        text = text + " | " + pMetaObject.countTotalWarriors() + "/" + pMetaObject.countWarriorsMax();
         plateText.setText(text, pMetaObject.GetEmpire().GetEmpireCenter());
         plateText.priority_population = pMetaObject.units.Count;
         plateText.showSpecies(pMetaObject.getSpriteIcon());
@@ -193,7 +222,7 @@ public static class EmpireCraftNamePlateLibrary
         try
         {
             plateText.setupMeta(capital.data, capital.GetTitle().getColor());
-            string text = capital.GetTitle().data.name;
+            string text = capital.GetTitle().data.name + " | " + capital.GetTitle().data.province_name;
             plateText.setText(text, capital.GetTitle().GetCenter());
             plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
             plateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);
@@ -221,7 +250,12 @@ public static class EmpireCraftNamePlateLibrary
         try
         {
             plateText.setupMeta(capital.data, capital.kingdom.getColor());
-            string text = capital.GetProvince().data.name;
+            Province province = capital.GetProvince();
+            string text = province.data.name+"|"+province.empire.GetEmpireName();
+            if (province.IsTotalVassaled())
+            {
+                text = LM.Get("provinceVassaled") + "|" + text;
+            }
             plateText.setText(text, capital.city_center);
             plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
             plateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);

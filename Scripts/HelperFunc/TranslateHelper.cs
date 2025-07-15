@@ -120,6 +120,41 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
+        public static void LogEmpireGetBackLand(Empire empire, Province province)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.history_empire_get_back_land,
+                empire.data.name,
+                province.data.name
+                )
+            {
+                color_special1 = empire.getColor()._colorText,
+                color_special2 = empire.getColor()._colorText
+
+            }.add();
+        }
+        public static void LogBecomeGreaterGeneral(Actor actor, Empire empire)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.become_greater_general,
+                actor.data.name,empire.data.name
+                )
+            {
+                color_special1 = actor.getColor()._colorText,
+                color_special2 = empire.getColor()._colorText
+
+            }.add();
+        }
+        public static void LogControledEmpire(Actor actor, Empire empire)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.cotrolled_country_log,
+                empire.data.name,
+                empire.data.name
+                )
+            {
+                color_special1 = empire.getColor()._colorText,
+                color_special2 = empire.getColor()._colorText
+
+            }.add();
+        }
         public static void LogKingdomChangeCapitalToTitle(Kingdom kingdom,KingdomTitle title)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.history_kingdom_change_capital_to_title,

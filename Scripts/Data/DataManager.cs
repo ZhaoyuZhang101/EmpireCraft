@@ -59,12 +59,13 @@ public static class DataManager
         // 批量同步
         foreach (var entry in saveData.actorsExtraData)
             if (unitById.TryGetValue(entry.id, out Actor actor))
-                if(actor != null)
-                    if(actor.isActor())
+                if (actor != null)
+                    if (actor.isActor())
                     {
                         actor.syncData(entry);
                     }
         LogService.LogInfo("Sync Actor Data");
+
         foreach (var entry in saveData.kingdomExtraData)
             if (kingdomById.TryGetValue(entry.id, out var kingdom))
                 kingdom.syncData(entry);
@@ -90,6 +91,7 @@ public static class DataManager
         }
         ModClass.EMPIRE_MANAGER.update(-1L);
         LogService.LogInfo("Sync Empire Data");
+
         foreach (KingdomTitleData kingdomTitleData in saveData.kingdomTitleDatas)
         {
             KingdomTitle kt = new KingdomTitle();
@@ -109,6 +111,8 @@ public static class DataManager
         {
             empire.syncProvince();
         }
+
+
         LogService.LogInfo("Sync Titles Data");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         ConfigData.speciesCulturePair = saveData.speciesCulturePair;

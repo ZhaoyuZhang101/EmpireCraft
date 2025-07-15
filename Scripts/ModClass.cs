@@ -15,6 +15,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.GameLibrary;
 using System.Linq;
 using EmpireCraft.Scripts.AI;
+using EmpireCraft.Scripts.GodPowers;
 
 namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigurable
@@ -43,6 +44,63 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     {
 
         IS_CLEAR = false;
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.I))
+        {
+            EmpireLayerToggle.disableOtherPower("empire_layer");
+            if (PlayerConfig.dict["map_title_layer"].boolVal)
+            {
+                PlayerConfig.dict["map_city_layer"].boolVal = false;
+                PlayerConfig.dict["map_title_layer"].boolVal = false;
+                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
+            } else
+            {
+                PlayerConfig.dict["map_title_layer"].boolVal = true;
+                PlayerConfig.dict["map_city_layer"].boolVal = true;
+                PlayerConfig.dict["map_province_layer"].boolVal = false;
+                PlayerConfig.dict["map_empire_layer"].boolVal = false;
+                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Title;
+            }
+        }
+        if (Input.GetKeyDown(KeyCode.O))
+        {
+            EmpireLayerToggle.disableOtherPower("province_layer");
+            if (PlayerConfig.dict["map_province_layer"].boolVal)
+            {
+                PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
+                PlayerConfig.dict["map_province_layer"].boolVal = false;
+                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
+            }
+            else
+            {
+                PlayerConfig.dict["map_province_layer"].boolVal = true;
+                PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
+                PlayerConfig.dict["map_title_layer"].boolVal = false;
+                PlayerConfig.dict["map_empire_layer"].boolVal = false;
+                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Province;
+            }
+        }
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            EmpireLayerToggle.disableOtherPower("empire_layer");
+            if (PlayerConfig.dict["map_empire_layer"].boolVal)
+            {
+                PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
+                PlayerConfig.dict["map_empire_layer"].boolVal = false;
+                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
+            }
+            else
+            {
+                PlayerConfig.dict["map_empire_layer"].boolVal = true;
+                PlayerConfig.dict["map_title_layer"].boolVal = false;
+                PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
+                PlayerConfig.dict["map_province_layer"].boolVal = false;
+                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Empire;
+            }
+        }
     }
 
     public GameObject GetGameObject()
@@ -139,9 +197,9 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);
         World.world.list_all_sim_managers.Add(PROVINCE_MANAGER);
         CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-        //PlayerConfig.dict["map_province_layer"].boolVal = false;
         PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
         PlayerConfig.dict["map_title_layer"].boolVal = false;
+        PlayerConfig.dict["map_empire_layer"].boolVal = false;
         OnomasticsRule.ReadSetting();
     }
 

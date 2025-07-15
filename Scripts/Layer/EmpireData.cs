@@ -34,6 +34,7 @@ public class EmpireData : MetaObjectData
     public List<EmpireCraftHistory> history = new List<EmpireCraftHistory>();
     public EmpireCraftHistory currentHistory {  get; set; }
     public EmpirePeriod empirePeriod {  get; set; }
+    public bool is_been_controled { get; set; } = false;
 
     public ArmySystemType armySystemType { get; set; }
 
@@ -61,6 +62,7 @@ public class EmpireData : MetaObjectData
     public double last_office_exam_timestamp { get; set; } = -1L;
 
     public List<long> province_list = new List<long>();
+    public double last_educate_timestamp { get; set; } = -1L;
 
 }
 
@@ -92,6 +94,7 @@ public class EmpireCore
 
 public class OfficeObject
 {
+    public string name { get; set; }
     public double timestamp { get; set; }
     public OfficialLevel level { get; set; }
     public long actor_id { get; set; }
@@ -99,8 +102,9 @@ public class OfficeObject
     public bool is_place { get; set; } = false;
 
     public List<string> history_officers = new List<string>();
-    public OfficeObject(OfficialLevel level, long actor_id, string pre="")
+    public OfficeObject(string name, OfficialLevel level, long actor_id, string pre="")
     {
+        this.name = name;
         this.level = level;
         this.timestamp = World.world.getCurWorldTime();
         this.actor_id = actor_id;
@@ -146,23 +150,23 @@ public class OfficeObject
 
 public class CenterOffice
 {
-    public OfficeObject GreaterGeneral { get; set; } = new OfficeObject(OfficialLevel.officiallevel_1, -1L);//天策上将
-    public OfficeObject Minister { get; set; } = new OfficeObject(OfficialLevel.officiallevel_2, -1L);//宰相
-    public OfficeObject General { get; set; } = new OfficeObject(OfficialLevel.officiallevel_3, -1L);//大将军
+    public OfficeObject GreaterGeneral { get; set; } = new OfficeObject("GreaterGeneral",OfficialLevel.officiallevel_1, -1L);//天策上将
+    public OfficeObject Minister { get; set; } = new OfficeObject("Minister",OfficialLevel.officiallevel_2, -1L);//宰相
+    public OfficeObject General { get; set; } = new OfficeObject("General", OfficialLevel.officiallevel_3, -1L);//大将军
 
     public Dictionary<string, OfficeObject> CoreOffices { get; set; } = new Dictionary<string, OfficeObject>();
 
     public Dictionary<string, OfficeObject> Divisions { get; set; } = new Dictionary<string, OfficeObject>();
-    public CenterOffice(string species_id="Huaxia")
+    public CenterOffice(string culture="Huaxia")
     {
-        BeareauConfig config = OnomasticsRule.ALL_CULTURE_CONFIG[species_id];
+        BeareauConfig config = OnomasticsRule.ALL_CULTURE_CONFIG[culture];
         foreach(OfficeConfig oc in config.CoreOffice)
         {
-            this.CoreOffices[oc.name] = new OfficeObject(oc.type, -1L, oc.pre);
+            this.CoreOffices[oc.name] = new OfficeObject(oc.name, oc.type, -1L, oc.pre);
         }
         foreach(OfficeConfig oc in config.Divisions)
         {
-            this.Divisions[oc.name] = new OfficeObject(oc.type, -1L, oc.pre);
+            this.Divisions[oc.name] = new OfficeObject(oc.name, oc.type, -1L, oc.pre);
         }
     }
 

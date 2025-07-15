@@ -1,9 +1,17 @@
-﻿using System;
+﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Layer;
+using NeoModLoader.General;
+using NeoModLoader.General.UI.Prefabs;
+using NeoModLoader.General.UI.Window.Layout;
+using NeoModLoader.services;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.HelperFunc;
@@ -79,5 +87,52 @@ public static class UIHelper
         img.color = new Color(0, 0, 0, 0);
 
         return rt;
+    }
+    public static void actorClick(Actor actor)
+    {
+        if (actor != null)
+        {
+            ActionLibrary.openUnitWindow(actor);
+        }
+        LogService.LogInfo("点击角色");
+    }
+
+    public static SimpleButton CreateAvatarView(long actor_id)
+    {
+        UnitAvatarLoader pPrefab = Resources.Load<UnitAvatarLoader>("ui/AvatarLoaderFramed");
+        UnitAvatarLoader unit_loader = GameObject.Instantiate<UnitAvatarLoader>(pPrefab);
+        SimpleButton clickframe = GameObject.Instantiate(SimpleButton.Prefab);
+        RectTransform rt = clickframe.GetComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+        clickframe.Icon.raycastTarget = true;
+
+        Actor actor = World.world.units.get(actor_id);
+        clickframe.Setup(() => actorClick(actor), SpriteTextureLoader.getSprite(""), pSize: new Vector2(30, 30));
+        clickframe.Background.color = new Color(0, 0, 0, 0.0f);
+        clickframe.Icon.color = new Color(0, 0, 0, 0.0f);
+        if (actor != null)
+        {
+            unit_loader._actor_image.gameObject.SetActive(true);
+            unit_loader.load(actor);
+        }
+        else
+        {
+            unit_loader._actor_image.gameObject.SetActive(false);
+        }
+        unit_loader.transform.SetParent(clickframe.transform);
+        unit_loader.transform.SetAsLastSibling();
+        unit_loader.transform.localScale = new Vector2(1.2f, 1.2f);
+        return clickframe;
+    }
+    public static SimpleButton CreateToggleButton(UnityAction action)
+    {
+        SimpleButton year_name_button = GameObject.Instantiate(SimpleButton.Prefab, null);
+        year_name_button.Setup(action, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"));
+        year_name_button.Background.enabled = false;
+        year_name_button.SetSize(new Vector2(15, 15));
+        return year_name_button;
     }
 }
