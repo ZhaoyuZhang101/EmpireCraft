@@ -1,7 +1,7 @@
 <h1 align="center">
   <img src="icon.png" alt="logo" width="150">
   <br/>
-  ModTemplate
+  EmpireCraft
 </h1>
 
 # 帝国模组
