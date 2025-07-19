@@ -37,6 +37,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset new_jingshi_log;
     public static WorldLogAsset cotrolled_country_log;
     public static WorldLogAsset become_greater_general;
+    public static WorldLogAsset join_empire_war_log;
 
     public static void init()
     {
@@ -63,7 +64,19 @@ public static class EmpireCraftWorldLogLibrary
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
-                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$empire$", 2);
+            }
+        });
+        join_empire_war_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(join_empire_war_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$empire$", 2);
             }
         });
         history_empire_get_back_land = wl.add(new WorldLogAsset

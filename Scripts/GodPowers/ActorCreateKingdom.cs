@@ -26,7 +26,11 @@ public static class ActorCreateKingdom
         {
             return false;
         }
-        actor.buildCityAndStartCivilization();
+        Kingdom obj = World.world.kingdoms.makeNewCivKingdom(actor);
+        City city = World.world.cities.buildFirstCivilizationCity(actor);
+        actor.createDefaultCultureAndLanguageAndClan(city.name);
+        obj.setUnitMetas(actor);
+        city.setUnitMetas(actor);
         return true;
     }
 

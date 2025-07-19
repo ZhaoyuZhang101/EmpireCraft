@@ -1,4 +1,5 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
 using NeoModLoader.api;
@@ -9,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class ClanPatch : GamePatch
@@ -38,15 +40,63 @@ public class ClanPatch : GamePatch
                 empire.data.original_royal_been_changed_timestamp = World.world.getCurWorldTime();
             }
         }
-            __instance.RemoveExtraData();
+            __instance.RemoveExtraData<Clan, ClanExtraData>();
     }
 
     public static void set_clan_name(Clan __instance, Actor pFounder, bool pAddDefaultTraits)
     {
-        if (pFounder.data.name.Split(' ').Length > 1)
+        if (pFounder.GetModName().hasFamilyName(pFounder))
         {
-            string familyName = pFounder.data.name.Split(' ')[0];
-            __instance.data.name = familyName + " " + LM.Get("Clan");
+            __instance.data.name = pFounder.GetModName().familyName+ "\u200A" + LM.Get("Clan");
+            if (pFounder.hasFamily())
+            {
+                string clanName = __instance.GetClanName();
+                string familyEnd = LM.Get("Family");
+                if (pFounder.city != null)
+                {
+                    string cityName = pFounder.city.GetCityName();
+                    pFounder.family.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
+                    OverallHelperFunc.SetFamilyCityPre(pFounder.family);
+                }
+                else
+                {
+                    if (!pFounder.family.HasBeenSetBefored())
+                    {
+                        pFounder.family.data.name = string.Join("\u200A", clanName, familyEnd);
+                        OverallHelperFunc.SetFamilyCityPre(pFounder.family, false);
+                    }
+                }
+            }
+        } else
+        {
+            if (pFounder.hasCulture())
+            {
+                __instance.data.name = pFounder.culture.getOnomasticData(MetaType.Clan).generateName();
+                pFounder.SetFamilyName(__instance.GetClanName());
+                if (pFounder.hasFamily())
+                {
+                    string clanName = __instance.GetClanName();
+                    string familyEnd = LM.Get("Family");
+                    if (pFounder.city != null)
+                    {
+                        string cityName = pFounder.city.GetCityName();
+                        pFounder.family.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
+                        OverallHelperFunc.SetFamilyCityPre(pFounder.family);
+                    }
+                    else
+                    {
+                        if (!pFounder.family.HasBeenSetBefored())
+                        {
+                            pFounder.family.data.name = string.Join("\u200A", clanName, familyEnd);
+                            OverallHelperFunc.SetFamilyCityPre(pFounder.family, false);
+                        }
+                    }
+                }
+            }
+        }
+        if (pFounder.GetModName().has_whole_name(pFounder))
+        {
+            pFounder.GetModName().SetName(pFounder);
         }
     }
 }

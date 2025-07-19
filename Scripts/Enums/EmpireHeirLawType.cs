@@ -10,6 +10,6 @@ namespace EmpireCraft.Scripts.Enums
     {
         eldest_son, //长嗣
         smallest_son, //幼子
-        brother, //兄弟
+        brother //兄弟
     }
 }

@@ -16,6 +16,7 @@ using EmpireCraft.Scripts.GameLibrary;
 using System.Linq;
 using EmpireCraft.Scripts.AI;
 using EmpireCraft.Scripts.GodPowers;
+using Newtonsoft.Json;
 
 namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigurable
@@ -48,7 +49,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.I))
+        if (Input.GetKeyDown(KeyCode.C))
         {
             EmpireLayerToggle.disableOtherPower("empire_layer");
             if (PlayerConfig.dict["map_title_layer"].boolVal)
@@ -65,7 +66,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Title;
             }
         }
-        if (Input.GetKeyDown(KeyCode.O))
+        if (Input.GetKeyDown(KeyCode.V))
         {
             EmpireLayerToggle.disableOtherPower("province_layer");
             if (PlayerConfig.dict["map_province_layer"].boolVal)
@@ -83,7 +84,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Province;
             }
         }
-        if (Input.GetKeyDown(KeyCode.P))
+        if (Input.GetKeyDown(KeyCode.B))
         {
             EmpireLayerToggle.disableOtherPower("empire_layer");
             if (PlayerConfig.dict["map_empire_layer"].boolVal)
@@ -201,6 +202,17 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         PlayerConfig.dict["map_title_layer"].boolVal = false;
         PlayerConfig.dict["map_empire_layer"].boolVal = false;
         OnomasticsRule.ReadSetting();
+
+        string path = Path.Combine(ModClass._declare.FolderPath, "CultureSpeciesPairPlayerConfig.json");
+        if (File.Exists(path))
+        {
+            string content = File.ReadAllText(path);
+            ConfigData.speciesCulturePair = JsonConvert.DeserializeObject<Dictionary<string, string>>(content);
+        }
+        else
+        {
+            LogService.LogInfo("用户文化配置不存在，启用默认配置");
+        }
     }
 
     public void LoadUI()

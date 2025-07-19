@@ -6,6 +6,7 @@ using NeoModLoader.General;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Numerics;
@@ -106,19 +107,17 @@ public class Province : MetaObject<ProvinceData>
     }
     public void updateOccupied()
     {
-        foreach (City city in city_list)
+        foreach (City city in city_list.ToList()) // 防止并发修改
         {
-            if(city.kingdom.isInEmpire())
+            if (!city.isAlive()) continue;
+            bool isInEmpire = city.kingdom?.isInEmpire() ?? false;
+            Empire cityEmpire = city.kingdom?.GetEmpire();
+
+            if (isInEmpire && cityEmpire == this.empire)
             {
-                Empire empire = city.kingdom.GetEmpire();
-                if (empire!=this.empire)
-                {
-                    AddOccupiedCity(city);
-                } else
-                {
-                    RemoveOccupiedCity(city);
-                }
-            } else
+                RemoveOccupiedCity(city);
+            }
+            else
             {
                 AddOccupiedCity(city);
             }
@@ -127,20 +126,14 @@ public class Province : MetaObject<ProvinceData>
 
     public void AddOccupiedCity(City city)
     {
-        if (this.occupied_cities.ContainsKey(city))
-        {
-            this.occupied_cities[city] = World.world.getCurSessionTime();
-        } else
-        {
-            this.occupied_cities.Add(city, World.world.getCurSessionTime());
-        }
+        // 单次字典访问
+        this.occupied_cities[city] = World.world.getCurSessionTime();
     }
+
     public void RemoveOccupiedCity(City city)
     {
-        if (this.occupied_cities.ContainsKey(city))
-        {
-            this.occupied_cities.Remove(city);
-        }
+        // 更简洁的移除方式
+        this.occupied_cities.Remove(city);
     }
 
     public List<Actor> allGongshi()
@@ -194,10 +187,38 @@ public class Province : MetaObject<ProvinceData>
         officer.UpgradeOfficial(direct: 6);
         officer.addTrait("officer");
         officer.SetProvinceID(this.getID());
+        officer.joinCity(province_capital);
+        officer.goTo(province_capital._city_tile);
         this.data.history_officers.Add(actor.getName());
         this.data.new_officer_timestamp = World.world.getCurWorldTime();
     }
 
+    public void checkCanbeTranfered()
+    {
+        bool flag = true;
+        foreach (var item in occupied_cities)
+        {
+            int time = Date.getYearsSince(item.Value);
+            if (time < 50) 
+            {
+                flag = false;
+            }
+        }
+        if (!flag) return;
+        foreach (City city in city_list) 
+        {
+            if (city.isRekt()) continue;
+            if (city.hasKingdom())
+            {
+                Kingdom kingdom = city.kingdom;
+                if (kingdom.isRekt()) continue;
+                if (!kingdom.isEmpire()) continue;
+                this.joinAnotherEmpire(kingdom.GetEmpire());
+                return;
+            }
+
+        }
+    }
     public void JudgeOfficer()
     {
         ListPool<Actor> gongActors = new ListPool<Actor>();
@@ -326,7 +347,8 @@ public class Province : MetaObject<ProvinceData>
 
     public string GetProvinceName()
     {
-        return this.data.name.Split(' ')[0];
+        string[] namePart = this.data.name.Split('\u200A');
+        return namePart[0].Split(' ').Last();
     }
 
     public void SetProvinceLevel(provinceLevel provincelevel)
@@ -342,7 +364,7 @@ public class Province : MetaObject<ProvinceData>
         {
             province_level_string = String.Join("_", "Western", province_level_name, level);
         }
-        this.data.name = this.GetProvinceName() + ' ' + LM.Get(province_level_string);
+        this.data.name = this.GetProvinceName() + '\u200A' + LM.Get(province_level_string);
         this.data.provinceLevel = provincelevel;
     }
 
@@ -361,39 +383,75 @@ public class Province : MetaObject<ProvinceData>
             preName = String.Join("_", "Western", "capital");
             postName = String.Join("_", "Western", "provincelevel", "0");
         }
-        this.data.name = LM.Get(preName) + " " + LM.Get(postName);
+        this.data.name = LM.Get(preName) + "\u200A" + LM.Get(postName);
     }
 
     public void newProvince(City city, provinceLevel provinceLevel=provinceLevel.provincelevel_3, string name="")
     {
-        this.data.isDirectRule = false;
-        this.empire = city.kingdom.GetEmpire();
-        this.data.provinceLevel = provinceLevel;
-        this.addCity(city);
-
-        this.asset = AssetManager.kingdoms.get(city.kingdom.king.asset.kingdom_id_civilization);
-        this.updateColor(getColorLibrary().getNextColor());
-        this.province_capital = city;
-        this.data.founder_actor_id = city.kingdom.king.getID();
-        this.data.founder_actor_name = city.kingdom.king.getName();
-        this.data.created_time = World.world.getCurWorldTime();
-        this.data.banner_icon_id = city.kingdom.data.banner_icon_id;
-        this.data.banner_background_id = city.kingdom.data.banner_background_id;
-        this.data.original_actor_asset = city.kingdom.king.asset.id;
-        this.data.color_id = empire.empire.data.color_id;
-        this.officer = null;
-        this.data.is_set_to_country = false;
-        if (name == "")
+        if (city == null || city.kingdom == null || city.kingdom.king == null)
         {
-            this.data.name = city.GetCityName();
-        } else
-        {
-            this.data.name = name;
+            LogService.LogError("Cannot create province - invalid city, kingdom or king reference");
+            return;
         }
-        this.data.history_officers = new List<string> { };
-        SetProvinceLevel(provinceLevel);
-        recalculate();
-        this.empire.province_list.Add(this);
+
+        try
+        {
+            // 初始化基础属性
+            this.data.isDirectRule = false;
+            this.data.provinceLevel = provinceLevel;
+            this.data.created_time = World.world.getCurWorldTime();
+            this.data.history_officers = new List<string>();
+            this.data.is_set_to_country = false;
+            this.officer = null;
+
+            // 设置帝国关联
+            this.empire = city.kingdom.GetEmpire();
+            if (this.empire == null)
+            {
+                LogService.LogError($"No empire found for kingdom {city.kingdom.name}");
+                return;
+            }
+
+            // 添加城市
+            this.addCity(city);
+            this.province_capital = city;
+
+            // 设置名称
+            this.data.name = string.IsNullOrEmpty(name) ? city.GetCityName() : name;
+
+            // 设置资产和外观
+            var kingdomAsset = empire.empire.asset;
+            this.asset = kingdomAsset ?? throw new InvalidOperationException("Kingdom asset not found");
+
+            // 设置旗帜和颜色
+            this.data.banner_icon_id = city.kingdom.data.banner_icon_id;
+            this.data.banner_background_id = city.kingdom.data.banner_background_id;
+            this.updateColor(getColorLibrary().getNextColor());
+
+            // 设置创始人信息
+            this.data.founder_actor_id = city.kingdom.king.getID();
+            this.data.founder_actor_name = city.kingdom.king.getName();
+            this.data.original_actor_asset = city.kingdom.king.asset.id;
+            this.data.color_id = empire.empire?.data?.color_id ?? 0; // 默认颜色ID
+
+            // 设置省份等级
+            SetProvinceLevel(provinceLevel);
+
+            // 添加到帝国省份列表
+            if (this.empire.province_list == null)
+            {
+                this.empire.province_list = new List<Province>();
+            }
+            this.empire.province_list.Add(this);
+
+            // 重新计算
+            recalculate();
+        }
+        catch (Exception ex)
+        {
+            LogService.LogError($"Error creating new province: {ex}");
+            throw; // 或者根据业务需求处理
+        }
     }
 
 
@@ -528,12 +586,25 @@ public class Province : MetaObject<ProvinceData>
         {
             this.data.officer = -1L;
         }
-
-        foreach(var pair in this.occupied_cities)
+        if (this.occupied_cities != null)
         {
-            if (!this.data.occupied_cities.ContainsKey( pair.Key.getID()))
+            if (this.occupied_cities.Count > 0)
             {
-                this.data.occupied_cities.Add(pair.Key.getID(), pair.Value);
+                foreach (var pair in this.occupied_cities)
+                {
+                    try
+                    {
+                        if (!this.data.occupied_cities.ContainsKey(pair.Key.getID()))
+                        {
+                            this.data.occupied_cities.Add(pair.Key.getID(), pair.Value);
+                        }
+                    } catch
+                    {
+                        LogService.LogInfo("城市数据无，跳过存储。");
+                        continue;
+                    }
+
+                }
             }
         }
         this.data.empire = this.empire.getID();
@@ -665,25 +736,10 @@ public class Province : MetaObject<ProvinceData>
         if (this.empire == null) return;
         if (this.empire.province_list != null)
         {
-            if (this.empire.province_list.Contains(this))
-            {
-                this.empire.province_list.Remove(this);
-            }
+            this.empire.province_list.Remove(this);
         }
 
 
-    }
-
-    public bool canStartExam()
-    {
-        foreach(City city in this.city_list)
-        {
-            if (city.GetExamPassPersons().Count()<=0)
-            {
-                return false;
-            }
-        }
-        return true;
     }
 
     public void disolve()
@@ -715,20 +771,37 @@ public class Province : MetaObject<ProvinceData>
         }
         return (!this.data.isDirectRule&& officer.renown>=emperorRenown);
     }
+    public bool isKingdom()
+    {
+        return this.data.provinceLevel == provinceLevel.provincelevel_2||this.data.provinceLevel==provinceLevel.provincelevel_1;
+    }
 
-    public Kingdom becomeKingdom()
+    public void joinAnotherEmpire (Empire newEmpire)
+    {
+        this.empire.province_list.Remove(this);
+        newEmpire.province_list.Add(this);
+        this.empire = newEmpire;
+        updateOccupied();
+    }
+
+    public int TotolLoyalty()
+    {
+        int loyalty = 0;
+        foreach(City city in city_list_hash)
+        {
+            loyalty += city.getLoyalty();
+        }
+        return loyalty;
+    }
+    public Kingdom becomeKingdom(bool is_independent=false, Actor leader=null)
     {
         SetProvinceLevel(provinceLevel.provincelevel_2);
         Kingdom pKingdom = this.empire.empire;
-        Kingdom kingdom = World.world.kingdoms.makeNewCivKingdom(this.officer, pLog: false);
+        Kingdom kingdom = province_capital.makeOwnKingdom(leader==null?officer:leader);
         foreach (City city in city_list_hash)
         {
-            city.removeFromCurrentKingdom();
-            city.newForceKingdomEvent(base.units, city._boats, kingdom, null);
-            city.setKingdom(kingdom);
-            city.switchedKingdom();
-            kingdom.setCityMetas(city);
-            this.officer.joinCity(city);
+            if (city == province_capital) continue;
+            city.joinAnotherKingdom(kingdom);
             if (city.hasProvince())
             {
                 Province province = city.GetProvince();
@@ -741,12 +814,14 @@ public class Province : MetaObject<ProvinceData>
                 }
             }
         }
-        kingdom.SetCountryLevel(countryLevel.countrylevel_2);
-        kingdom.SetProvince(this);
-        this.empire.join(kingdom);
-        kingdom.copyMetasFromOtherKingdom(pKingdom);
-        TranslateHelper.LogProvinceChangeToKingdom(this, provinceLevel.provincelevel_2);
-        this.data.is_set_to_country = true;
+        if (!is_independent)
+        {
+            kingdom.SetCountryLevel(countryLevel.countrylevel_2);
+            kingdom.SetProvince(this);
+            this.empire.join(kingdom);
+            TranslateHelper.LogProvinceChangeToKingdom(this, provinceLevel.provincelevel_2);
+            this.data.is_set_to_country = true;
+        }
         kingdom.data.name = this.data.name;
         return kingdom;
     }

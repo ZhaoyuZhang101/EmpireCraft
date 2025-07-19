@@ -3,6 +3,7 @@ using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
+using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,22 +48,29 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             foreach (var empire in ModClass.EMPIRE_MANAGER)
             {
-                GameObject KingdomListElement = PrefabHelper.FindPrefabByName("list_element_kingdom");
-                GameObject inst = GameObject.Instantiate(KingdomListElement);
-                KingdomListElement kl = inst.GetComponent<KingdomListElement>();
-                kl.kingdomName.text = empire.name;
-                kl.textAge.text = empire.getAge().ToString();
-                kl.textPopulation.text = empire.countUnits().ToString();
-                kl.textArmy.text = empire.countWarriors().ToString();
-                kl.textCities.text = empire.countCities().ToString();
-                kl.textZones.text = empire.countZones().ToString();
-                kl.avatarLoader.load(empire.empire.king);
-                kl.meta_object = empire.empire;
-                kl.loadBanner();
-                inst.name = "list_element_kingdom";
-                inst.SetActive(true);
-                TopLayout.AddChild(inst);
-                ListPool.Add(inst);
+                try
+                {
+                    GameObject lek = PrefabHelper.FindPrefabByName("list_element_kingdom");
+                    GameObject inst = GameObject.Instantiate(lek);
+                    KingdomListElement kl = inst.GetComponent<KingdomListElement>();
+                    kl.kingdomName.text = empire.name;
+                    kl.textAge.text = empire.getAge().ToString();
+                    kl.textPopulation.text = empire.countUnits().ToString();
+                    kl.textArmy.text = empire.countWarriors().ToString();
+                    kl.textCities.text = empire.countCities().ToString();
+                    kl.textZones.text = empire.countZones().ToString();
+                    kl.avatarLoader.load(empire.empire.king);
+                    kl.meta_object = empire.empire;
+                    kl.loadBanner();
+                    inst.name = "list_element_kingdom";
+                    inst.SetActive(true);
+                    TopLayout.AddChild(inst);
+                    ListPool.Add(inst);
+                } catch 
+                {
+                    LogService.LogInfo("帝国列表生成失败");
+                    continue;
+                }
             }
         }
     }

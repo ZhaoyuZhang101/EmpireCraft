@@ -115,6 +115,14 @@ public static class UIHelper
         clickframe.Icon.color = new Color(0, 0, 0, 0.0f);
         if (actor != null)
         {
+            clickframe.Button.OnHover(() =>
+            {
+                actor.showTooltip(unit_loader);
+            });
+            clickframe.Button.OnHoverOut(() =>
+            {
+                Tooltip.hideTooltip();
+            });
             unit_loader._actor_image.gameObject.SetActive(true);
             unit_loader.load(actor);
         }

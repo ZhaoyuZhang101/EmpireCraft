@@ -18,9 +18,8 @@ namespace EmpireCraft.Scripts.GameClassExtensions;
 
 public static class CityExtension
 {
-    public class CityExtraData
+    public class CityExtraData: ExtraDataBase
     {
-        public long id;
         public string kingdom_names = "";
         public long title_id = -1L;
         public long province_id = -1L;
@@ -29,66 +28,9 @@ public static class CityExtension
     }
     public static CityExtraData GetOrCreate(this City a, bool isSave=false)
     {
-        var ed = ExtensionManager < City, CityExtraData>.GetOrCreate(a, isSave);
+        var ed = a.GetOrCreate< City, CityExtraData>(isSave);
         return ed;
     } 
-    public static bool syncData(this City a, CityExtraData cityExtraData)
-    {
-        var ed = GetOrCreate(a);
-        ed.id = cityExtraData.id;
-        ed.kingdom_names = cityExtraData.kingdom_names;
-        ed.title_id = cityExtraData.title_id;
-        ed.province_id = cityExtraData.province_id;
-        ed.empire_core_id = cityExtraData.empire_core_id;
-        ed.exam_pass_person = cityExtraData.exam_pass_person;
-        return true;
-    }
-    public static CityExtraData getExtraData(this City a, bool isSave = false)
-    {
-        if (GetOrCreate(a, isSave) == null) return null;
-        CityExtraData data = new CityExtraData();
-        data.id = a.getID();
-        data.kingdom_names = a.GetKingdomNames();
-        data.title_id = a.GetTitleID();
-        data.province_id = a.GetProvinceID();
-        data.empire_core_id = a.GetEmpireCoreID();
-        data.exam_pass_person = a.GetExamPassPersonIDs();
-        return data;
-    }
-    public static void AddExamPassPerson(this City c, Actor a)
-    {
-        if (a == null) return;
-        if (GetOrCreate(c).exam_pass_person == null)
-        {
-            GetOrCreate(c).exam_pass_person = new List<long>();
-        }
-        List<long> list = GetOrCreate(c).exam_pass_person;
-        list.Add(a.getID());
-        GetOrCreate(c).exam_pass_person = list;
-    }
-    public static void RemoveExamPassPerson(this City c, Actor a)
-    {
-        if (c == null) return;
-        if (a == null) return;
-        if (a.data == null) return;
-        long id = a.data.id;
-        if (GetOrCreate(c).exam_pass_person == null)
-        {
-            GetOrCreate(c).exam_pass_person = new List<long>();
-        }
-        if (GetOrCreate(c).exam_pass_person.Count <= 0) return;
-        if (GetOrCreate(c).exam_pass_person.Contains(id))
-        {
-            GetOrCreate(c).exam_pass_person.Remove(id);
-        }
-        
-    }
-
-    public static List<Actor> GetExamPassPersons(this City a)
-    {
-        List<Actor> list = GetOrCreate(a).exam_pass_person.Select<long, Actor> (id=>World.world.units.get(id)).ToList();
-        return list;
-    }
 
     public static List<long> GetExamPassPersonIDs(this City c)
     {
@@ -183,17 +125,11 @@ public static class CityExtension
         GetOrCreate(c).province_id = -1L;
     }
 
-    public static void RemoveExtraData(this City c)
-    {
-        if (c == null) return;
-        ExtensionManager<City, CityExtraData>.Remove(c);
-    }
-
     public static string GetCityName(this City city)
     {
         if (city == null) return null;
         if (city.name == null || city.name == "") return null;
-        string[] nameParts = city.name.Split(' ');
+        string[] nameParts = city.name.Split('\u200A');
 
         if (ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out var culture))
         {
@@ -201,19 +137,11 @@ public static class CityExtension
             {
                 if (nameParts.Length-1 >= setting.City.name_pos)
                 {
-                    return nameParts[setting.City.name_pos];
+                    return nameParts[setting.City.name_pos].Split(' ').Last();
                 }
             }
         }
-        if (nameParts.Length <= 2)
-        {
-            return nameParts[0];
-        }
-        else
-        {
-            return nameParts[nameParts.Length - 2];
-        }
-
+        return nameParts[0].Split(' ').Last();
     }
 
     public static string GetKingdomNames(this City city)
@@ -237,12 +165,12 @@ public static class CityExtension
     {
         if (!GetOrCreate(city).kingdom_names.Contains(kingdomName))
         {
-            GetOrCreate(city).kingdom_names = String.Join(" ", GetOrCreate(city).kingdom_names,kingdomName);
+            GetOrCreate(city).kingdom_names = String.Join("\u200A", GetOrCreate(city).kingdom_names,kingdomName);
         }
     }
     public static string SelectKingdomName(this City city)
     {
-        return GetOrCreate(city).kingdom_names.Split(' ').GetRandom();
+        return GetOrCreate(city).kingdom_names.Split('\u200A').GetRandom();
     }
 
     public static bool HasKingdomName(this City city) 

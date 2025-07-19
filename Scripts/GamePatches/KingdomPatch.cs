@@ -14,6 +14,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
@@ -96,7 +97,7 @@ public class KingdomPatch : GamePatch
                 province.SetProvinceLevel(provinceLevel.provincelevel_3);
             }
         }
-        __instance.RemoveExtraData();
+        __instance.RemoveExtraData<Kingdom, KingdomExtraData>();
     }
 
     public static void new_emperor(Kingdom __instance, Actor pActor, bool pNewKing = true)

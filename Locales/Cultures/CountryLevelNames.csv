@@ -24,8 +24,8 @@ Western_countrylevel_5,伯国,County,伯國
 Western_countrylevel_6,国,Territory,國
 
 Frankish_countrylevel_0,帝国,Empire,帝國
-Frankish_countrylevel_1,王国,Kingdom,王國
-Frankish_countrylevel_2,大公国,Grand Duchy,大公國
+Frankish_countrylevel_1,亲王国,Principality,親王國
+Frankish_countrylevel_2,王国,Kingdom,王國
 Frankish_countrylevel_3,公国,Duchy,公國
 Frankish_countrylevel_4,侯国,Marquisate,侯國
 Frankish_countrylevel_5,伯国,County,伯國
@@ -94,3 +94,11 @@ Kosher_countrylevel_3,国,State,國
 Kosher_countrylevel_4,氏族领地,Clan Territory,氏族領地
 Kosher_countrylevel_5,逃城,Arei Miklat,逃城
 Kosher_countrylevel_6,圣殿,Beit HaMikdash,聖殿
+
+Viking_countrylevel_0,至高王国,United Kingdom,至高王國
+Viking_countrylevel_1,亲王国,Principality,親王國
+Viking_countrylevel_2,王国,Kingdom,王國
+Viking_countrylevel_3,公国,Duchy,公國
+Viking_countrylevel_4,侯国,Marquisate,侯國
+Viking_countrylevel_5,伯国,County,伯國
+Viking_countrylevel_6,国,Territory,國

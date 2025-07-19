@@ -40,7 +40,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     AutoGridLayoutGroup provincesGroup;
     [Header("UI Prefab & 根容器")]
     public GameObject _itemPrefab;
-    public List<GameObject> pool = new List<GameObject>();
+    public ListPool<GameObject> pool = new ListPool<GameObject>();
     protected override void Init()
     {
     }
@@ -109,6 +109,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         provincesSpace.AddChild(provinceTitle.gameObject);
 
         provincesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 50));
+        _empire.province_list = _empire.province_list.Distinct().ToList();
         foreach (Province province in _empire.province_list)
         {
             if(!province.data.is_set_to_country)
@@ -137,33 +138,34 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     }
     public void Clear()
     {
-        if (topOfficeSpace!=null)
-        {
-            topOfficeSpace.gameObject.SetActive(false);
-            Destroy(topOfficeSpace);
-        }
-        if (coreOfficeSpace != null) 
-        {
-            coreOfficeSpace.gameObject.SetActive(false);
-            Destroy(coreOfficeSpace);
-        }
-        if (divisionsSpace != null)
-        {
-            divisionsSpace.gameObject.SetActive(false);
-            Destroy(divisionsSpace);
-        }
-        if (provincesSpace != null)
-        {
-            provincesSpace.gameObject.SetActive(false);
-            Destroy(provincesSpace);
-        }
+
         if (pool == null) return;
-        float deleteTime = 0.2f;
+        float deleteTime = 0.1f;
         foreach (GameObject go in pool)
         {
             go.SetActive(false);
             Destroy(go, deleteTime);
-            deleteTime += 0.2f;
+            deleteTime += 0.1f;
+        }
+        if (topOfficeSpace != null)
+        {
+            topOfficeSpace.gameObject.SetActive(false);
+            Destroy(topOfficeSpace, deleteTime);
+        }
+        if (coreOfficeSpace != null)
+        {
+            coreOfficeSpace.gameObject.SetActive(false);
+            Destroy(coreOfficeSpace, deleteTime);
+        }
+        if (divisionsSpace != null)
+        {
+            divisionsSpace.gameObject.SetActive(false);
+            Destroy(divisionsSpace, deleteTime);
+        }
+        if (provincesSpace != null)
+        {
+            provincesSpace.gameObject.SetActive(false);
+            Destroy(provincesSpace, deleteTime);
         }
         pool.Clear();
     }

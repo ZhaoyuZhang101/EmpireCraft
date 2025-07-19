@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using static UnityEngine.UI.CanvasScaler;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -39,7 +40,7 @@ public class WarPatch
 
     public static void removeData(War __instance)
     {
-        __instance.RemoveExtraData();
+        __instance.RemoveExtraData<War, WarExtraData>();
     }
 
     public static bool start_new_war(DiplomacyManager __instance, Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pAsset, bool pLog, ref War __result)

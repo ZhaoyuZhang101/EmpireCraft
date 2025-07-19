@@ -13,9 +13,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Ports;
 using System.Linq;
+using System.Numerics;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
+using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
@@ -155,24 +157,34 @@ public class CityPatch : GamePatch
     }
     public static bool joinAnotherKingdom(City __instance, Kingdom pNewSetKingdom, bool pCaptured = false, bool pRebellion = false)
     {
+        // 参数检查
+        if (__instance == null || pNewSetKingdom == null)
+        {
+            return false;
+        }
+
         if (__instance.hasProvince())
         {
             Province province = __instance.GetProvince();
-            if (!province.empire.empire.isInSameEmpire(pNewSetKingdom))
+            bool isSameEmpire = province?.empire?.empire?.isInSameEmpire(pNewSetKingdom) ?? false;
+            bool isCurrentlyOccupied = province?.occupied_cities?.ContainsKey(__instance) ?? false;
+            double currentTime = World.world.getCurWorldTime();
+
+            // 不同帝国时标记为占领
+            if (!isSameEmpire)
             {
-                if (!province.occupied_cities.ContainsKey(__instance))
+                if (province.occupied_cities == null)
                 {
-                    province.occupied_cities.Add(__instance, World.world.getCurWorldTime());
-                } else
-                {
-                    province.occupied_cities[__instance] = World.world.getCurWorldTime();
+                    province.occupied_cities = new Dictionary<City, double>();
                 }
-            } else
+
+                province.occupied_cities[__instance] = currentTime;
+                return true;
+            }
+            // 同一帝国时移除占领状态
+            else if (isCurrentlyOccupied)
             {
-                if (province.occupied_cities.ContainsKey(__instance))
-                {
-                    province.occupied_cities.Remove(__instance);
-                }
+                province.occupied_cities.Remove(__instance);
             }
         }
         string pHappinessEvent = null;
@@ -189,7 +201,6 @@ public class CityPatch : GamePatch
             World.world.map_stats.citiesRebelled++;
             pHappinessEvent = "just_rebelled";
         }
-
         Kingdom pKingdom = __instance.kingdom;
         __instance.removeFromCurrentKingdom();
         if (pNewSetKingdom.isInEmpire()&&pCaptured&&!pKingdom.isEmpire())
@@ -216,7 +227,31 @@ public class CityPatch : GamePatch
 
         return true;
     }
+    private static void UpdateCityOccupationStatus(Province province, City city)
+    {
+        double currentTime = World.world.getCurWorldTime();
 
+        if (province.occupied_cities == null)
+        {
+            province.occupied_cities = new Dictionary<City, double>();
+        }
+
+        // 简化字典操作
+        province.occupied_cities[city] = currentTime;
+    }
+
+    private static void ApplyRebellionPenalty(Province province)
+    {
+        Empire empire = province.empire;
+        if (empire != null && empire.empire != null)
+        {
+            int renownLoss = empire.empire.getRenown() / 2;
+            empire.addRenown(-renownLoss);
+
+            // 可选：添加日志记录
+            LogService.LogInfo($"Empire {empire.name} lost {renownLoss} renown due to rebellion");
+        }
+    }
     public static bool addZone(City __instance, TileZone pZone)
     {
         if (!__instance.zones.Contains(pZone))
@@ -242,22 +277,11 @@ public class CityPatch : GamePatch
     }
     public static bool makeOwnKingdom(City __instance, Actor pActor, bool pRebellion, bool pFellApart, ref Kingdom __result)
     {
-        if (__instance.hasProvince())
+        if (__instance == null || pActor == null)
         {
-            if(__instance.GetProvince().occupied_cities.ContainsKey(__instance))
-            {
-                __instance.GetProvince().occupied_cities[__instance] = World.world.getCurWorldTime();
-            }
-            else
-            {
-                __instance.GetProvince().occupied_cities.Add(__instance, World.world.getCurWorldTime());
-            }
-            if(pRebellion)
-            {
-                Empire empire = __instance.GetProvince().empire;
-                empire.addRenown(-(empire.empire.getRenown() / 2));
-            }
+            return false;
         }
+
         string pHappinessEvent = null;
         if (pRebellion)
         {
@@ -280,9 +304,27 @@ public class CityPatch : GamePatch
         kingdom.setCityMetas(__instance);
         if (pRebellion) 
         {
-            kingdom.data.name = __instance.GetCityName() + " " + LM.Get("Rebellion");
+            kingdom.data.name = __instance.GetCityName() + "\u200A" + LM.Get("Rebellion");
         }
         __result = kingdom;
+
+        if (__instance.hasProvince())
+        {
+            Province province = __instance.GetProvince();
+            if (province == null)
+            {
+                return true;
+            }
+
+            // 更新占领状态
+            UpdateCityOccupationStatus(province, __instance);
+
+            // 处理叛乱惩罚
+            if (pRebellion)
+            {
+                ApplyRebellionPenalty(province);
+            }
+        }
         return false;
     }
 
@@ -417,6 +459,6 @@ public class CityPatch : GamePatch
     }
     public static void removeData(City __instance)
     {
-        __instance.RemoveExtraData();
+        __instance.RemoveExtraData<City, CityExtraData>();
     }
 }

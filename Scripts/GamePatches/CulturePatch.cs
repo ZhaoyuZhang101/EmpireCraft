@@ -17,6 +17,7 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Data;
 using System.Configuration;
+using EmpireCraft.Scripts.GameClassExtensions;
 namespace EmpireCraft.Scripts.GamePatches;
 
 public class CulturePatch : GamePatch
@@ -40,22 +41,22 @@ public class CulturePatch : GamePatch
         if (pCultureName != null)
             __instance.kingdom.data.name = __instance.culture.getOnomasticData(MetaType.Kingdom).generateName();
             __instance.city.data.name = __instance.culture.getOnomasticData(MetaType.City).generateName();
-            __instance.language.data.name = __instance.kingdom.name.Split(' ')[0] + LM.Get("Language") + __instance.city.name.Split(' ')[0] + LM.Get("Dialect");
-        __instance.culture.data.name = __instance.kingdom.name.Split(' ')[0] + "-" + LM.Get("OriginalCulture");
+            __instance.language.data.name = __instance.kingdom.GetKingdomName() + LM.Get("Language") + __instance.city.GetCityName() + LM.Get("Dialect");
+        __instance.culture.data.name = __instance.kingdom.GetKingdomName() + "-" + LM.Get("OriginalCulture");
             __instance.culture.data.creator_city_name = __instance.city.data.name;
         LogService.LogInfo("当前文化名称: " + __instance.culture.data.name);
     }
 
     private static void set_culture_name(Culture __instance, Actor pActor)
     {
-        __instance.data.name = pActor.kingdom.name.Split(' ')[0] + "-" + pActor.city.name.Split(' ')[0] + LM.Get("Culture");
+        __instance.data.name = pActor.kingdom.GetKingdomName() + "-" + pActor.city.GetCityName() + LM.Get("Culture");
         LogService.LogInfo("当前文化名称: " + __instance.data.name);
         setDefaultNameTemplate(__instance);
 
     }
     private static void clone_culture_name(Culture __instance)
     {
-        __instance.data.name = __instance.data.creator_kingdom_name.Split(' ')[0]+"-"+ __instance.data.creator_city_name.Split(' ')[0]+ LM.Get("EvolvedCulture");
+        __instance.data.name = __instance.data.creator_kingdom_name.Split('\u200A')[0].Split(' ').Last()+"-"+ __instance.data.creator_city_name.Split('\u200A')[0].Split(' ').Last()+ LM.Get("EvolvedCulture");
         LogService.LogInfo("当前文化名称: " + __instance.data.name);
     }
     private static void setDefaultNameTemplate(Culture culture)
@@ -63,14 +64,8 @@ public class CulturePatch : GamePatch
 
         string species = culture.data.creator_species_id;
         LogService.LogInfo("当前文化物种: " + species);
-        if (ConfigData.speciesCulturePair.TryGetValue(species, out var insertCulture))
-        {
-            insertCultureTemplate(culture, insertCulture);
-        }
-        else
-        {
-            insertCultureTemplate(culture, "Western");
-        }
+        string insertCulture = OverallHelperFunc.GetCultureFromSpecies(species);
+        insertCultureTemplate(culture, insertCulture);
     }
 
     public static void insertCultureTemplate(Culture culture, string cultureName)

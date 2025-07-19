@@ -1,13 +1,28 @@
 ﻿key,cz
 
-Huaxia_meritlevel_0, 上柱国
-Huaxia_meritlevel_1, 柱国
-Huaxia_meritlevel_2, 上户军
-Huaxia_meritlevel_3, 户军
-Huaxia_meritlevel_4, 上轻车都尉
-Huaxia_meritlevel_5, 轻车都尉
-Huaxia_meritlevel_6, 上骑都尉
-Huaxia_meritlevel_7, 骑都尉
-Huaxia_meritlevel_8, 骁骑尉
-Huaxia_meritlevel_9, 飞骑尉
-Huaxia_meritlevel_10, 武骑尉
+Huaxia_meritlevel_Military_0, 上柱国
+Huaxia_meritlevel_Military_1, 柱国
+Huaxia_meritlevel_Military_2, 上护军
+Huaxia_meritlevel_Military_3, 护军
+Huaxia_meritlevel_Military_4, 上轻车都尉
+Huaxia_meritlevel_Military_5, 轻车都尉
+Huaxia_meritlevel_Military_6, 上骑都尉
+Huaxia_meritlevel_Military_7, 骑都尉
+Huaxia_meritlevel_Military_8, 骁骑尉
+Huaxia_meritlevel_Military_9, 飞骑尉
+Huaxia_meritlevel_Military_10, 武骑尉
+
+Huaxia_meritlevel_Both_0, 上柱国
+Huaxia_meritlevel_Both_1, 柱国
+
+Huaxia_meritlevel_Civil_0, 上柱国
+Huaxia_meritlevel_Civil_1, 柱国
+Huaxia_meritlevel_Civil_2, 正治上卿
+Huaxia_meritlevel_Civil_3, 正治卿
+Huaxia_meritlevel_Civil_4, 资治尹
+Huaxia_meritlevel_Civil_5, 资治少尹
+Huaxia_meritlevel_Civil_6, 赞治尹
+Huaxia_meritlevel_Civil_7, 赞治少尹
+Huaxia_meritlevel_Civil_8, 修正庶尹
+Huaxia_meritlevel_Civil_9, 协正庶尹
+Huaxia_meritlevel_Civil_10, -

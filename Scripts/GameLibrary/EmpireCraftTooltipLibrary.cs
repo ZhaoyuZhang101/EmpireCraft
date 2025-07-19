@@ -32,6 +32,40 @@ public static class EmpireCraftTooltipLibrary
             prefab_id = "tooltips/tooltip_city",
             callback = showProvinceToolTip
         });
+        tl.add(new TooltipAsset
+        {
+            id = "actor_officer",
+            prefab_id = "tooltips/tooltip_actor",
+            callback = showOfficer
+        });
+        tl.add(new TooltipAsset
+        {
+            id = "actor_emperor",
+            prefab_id = "tooltips/tooltip_actor",
+            callback = showEmperor
+        });
+        tl.add(new TooltipAsset
+        {
+            id = "all_titles",
+            callback = showTitleList
+        });
+    }
+    public static void showTitleList(Tooltip pTooltip, string pType, TooltipData pData)
+    {
+        Actor actor = pData.actor;
+        pTooltip.name.text = pData.tip_name.Localize();
+        if (actor == null || !actor.isAlive())
+        {
+            return;
+        }
+        List<KingdomTitle> titles = actor.GetOwnedTitle().Select(id=>ModClass.KINGDOM_TITLE_MANAGER.get(id)).ToList();
+        foreach (var title in titles)
+        {
+            if (title == null) continue;
+            string text = title.data.name;
+            float num = Date.getYearsSince(title.data.timestamp_been_controled);
+            pTooltip.addLineText(text, $"{num}", null, pPercent: false, pLocalize: false);
+        }
     }
     public static void showEmpireToolTip(Tooltip pTooltip, string pType, TooltipData pData)
     {
@@ -160,5 +194,15 @@ public static class EmpireCraftTooltipLibrary
             provinceType = LM.Get($"Western_{province.data.provinceLevel.ToString()}");
         }
         pTooltip.addLineText("province_type", provinceType, "#CC6CE7", false, true, 21);
+    }
+
+    private static void showOfficer(Tooltip pTooltip, string pType, TooltipData pData)
+    {
+        AssetManager.tooltips.showActor("actor_officer", pTooltip, pData);
+    }
+
+    private static void showEmperor(Tooltip pTooltip, string pType, TooltipData pData)
+    {
+        AssetManager.tooltips.showActor("actor_emperor", pTooltip, pData);
     }
 }

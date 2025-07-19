@@ -54,6 +54,7 @@ public class EmpireData : MetaObjectData
 
     public double timestamp_member_joined;
     public double timestamp_established_time;
+    public double timestamp_invite_war_cool_down;
     public CenterOffice centerOffice { get; set; } = new CenterOffice();
     public double newEmperor_timestamp { get; set; }
 
@@ -101,8 +102,11 @@ public class OfficeObject
     public string pre { get; set; } = "";
     public bool is_place { get; set; } = false;
 
+    [JsonIgnore]
+    public Action setOfficeAction { get; set; }
+
     public List<string> history_officers = new List<string>();
-    public OfficeObject(string name, OfficialLevel level, long actor_id, string pre="")
+    public OfficeObject(string name, OfficialLevel level, long actor_id, string pre = "", Action action = null)
     {
         this.name = name;
         this.level = level;
@@ -110,15 +114,14 @@ public class OfficeObject
         this.actor_id = actor_id;
         this.pre = pre;
         history_officers = new List<string> {};
+        this.setOfficeAction = action;
     }
 
     public void SetActor (Actor actor)
     {
         this.actor_id = actor.getID();
         this.timestamp = World.world.getCurWorldTime();
-
     }
-
     public Actor GetActor()
     {
         return World.world.units.get(actor_id);
@@ -162,7 +165,9 @@ public class CenterOffice
         BeareauConfig config = OnomasticsRule.ALL_CULTURE_CONFIG[culture];
         foreach(OfficeConfig oc in config.CoreOffice)
         {
+
             this.CoreOffices[oc.name] = new OfficeObject(oc.name, oc.type, -1L, oc.pre);
+
         }
         foreach(OfficeConfig oc in config.Divisions)
         {

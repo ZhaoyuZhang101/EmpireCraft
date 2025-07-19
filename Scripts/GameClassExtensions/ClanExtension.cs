@@ -2,37 +2,29 @@
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
-using NeoModLoader.services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
-using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
-using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
-
 namespace EmpireCraft.Scripts.GameClassExtensions;
 public static class ClanExtension
 {
-    public class ClanExtraData
+    public class ClanExtraData:ExtraDataBase
     {
-        public long id;
         public string historical_empire_name;
         //Historical empire position
-        public Vector2 position;
+        public float x = -1L;
+        public float y = -1L;
         public long original_capital;
     }
+
+
     public static ClanExtraData GetOrCreate(Clan a, bool isSave = false)
     {
-        var ed = ExtensionManager<Clan, ClanExtraData>.GetOrCreate(a, isSave);
+        var ed = a.GetOrCreate<Clan, ClanExtraData>(isSave);
         return ed;
     }
 
     public static string GetClanName(this Clan clan, ActorSex sex = ActorSex.None, bool hasSexPost = false)
     {
-        var nameParts = clan.name.Split(' ');
+        var nameParts = clan.name.Split('\u200A');
         if (ConfigData.speciesCulturePair.TryGetValue(clan.species_id, out var culture))
         {
             if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
@@ -44,35 +36,6 @@ public static class ClanExtension
             }
         }
         return hasSexPost ? nameParts[0]+LM.Get($"{culture}_sex_post_{sex.ToString()}"): nameParts[0];
-    }
-
-    public static void RemoveExtraData(this Clan a)
-    {
-        if (a == null) return;
-        ExtensionManager<Clan, ClanExtraData>.Remove(a);
-    }
-
-    public static void Clear()
-    {
-        ExtensionManager<Clan, ClanExtraData>.Clear();
-    }
-    public static bool syncData(this Clan a, ClanExtraData actorExtraData)
-    {
-        var ed = GetOrCreate(a);
-        ed.id = actorExtraData.id;
-        ed.historical_empire_name = actorExtraData.historical_empire_name;
-        ed.position = actorExtraData.position;
-        return true;
-    }
-
-    public static ClanExtraData getExtraData(this Clan a, bool isSave = false)
-    {
-        if (GetOrCreate(a, isSave) == null) return null;
-        ClanExtraData data = new ClanExtraData();
-        data.id = a.getID();
-        data.historical_empire_name = a.GetHistoryEmpireName();
-        data.position = a.GetHistoryEmpirePos();
-        return data;
     }
 
     public static bool HasHistoryEmpire(this Clan a)
@@ -89,7 +52,8 @@ public static class ClanExtension
         if (!kingdom.hasCapital()) return;
         kingdom.capital.updateCityCenter();
         GetOrCreate(__instance).id = __instance.getID();
-        GetOrCreate(__instance).position = empire.original_capital.city_center;
+        GetOrCreate(__instance).x = empire.original_capital.city_center.x;
+        GetOrCreate(__instance).y = empire.original_capital.city_center.y;
         GetOrCreate(__instance).historical_empire_name = empire.GetEmpireName();
         GetOrCreate(__instance).original_capital = empire.original_capital.isAlive() ? empire.original_capital.data.id : -1L;
     }
@@ -116,11 +80,12 @@ public static class ClanExtension
 
     public static Vector2 GetHistoryEmpirePos(this Clan __instance)
     {
-        return GetOrCreate(__instance).position;
+        return new Vector2(GetOrCreate(__instance).x, GetOrCreate(__instance).y);
     }    
     public static void SetHistoryEmpirePos(this Clan __instance, Vector2 pos)
     {
-        GetOrCreate(__instance).position = pos;
+        GetOrCreate(__instance).x = pos.x;
+        GetOrCreate(__instance).y = pos.y;
     }
 
 }

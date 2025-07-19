@@ -5,6 +5,7 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Windows;
 using NeoModLoader.services;
 using System.Drawing;
+using System.Linq;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameLibrary;
@@ -36,7 +37,7 @@ public static class EmpireCraftMetaTypeLibrary
             }
             else if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
             {
-                foreach (Province province in ModClass.PROVINCE_MANAGER)
+                foreach (Province province in ModClass.PROVINCE_MANAGER.ToList())
                 {
                     if (province != null)
                     {
@@ -405,10 +406,15 @@ public static class EmpireCraftMetaTypeLibrary
     public static void drawZoneProvince(TileZone pZone)
     {
         Province p = pZone.city.GetProvince();
+        if (p == null) return;
         Empire empire = p.empire;
         Kingdom mainKingdom = empire.empire;
-        if (p == null) return;
-
+        if (!mainKingdom.isAlive())
+        {
+            ModClass.PROVINCE_MANAGER.dissolveProvince(p);
+            ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
+            return;
+        }
         bool pUp = isBorderColor_Province(pZone.zone_up, p, true);
         bool pDown = isBorderColor_Province(pZone.zone_down, p, false);
         bool pLeft = isBorderColor_Province(pZone.zone_left, p, false);

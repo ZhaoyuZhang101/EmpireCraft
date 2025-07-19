@@ -25,6 +25,7 @@ public class EmpireCraftKingdomBehCheckExam: BehaviourActionKingdom
                 }
                 foreach(Province province in empire.province_list)
                 {
+                    province.updateOccupied();
                     if(!province.IsTotalVassaled())
                     {
                         ExamSystem.startExam(ExamSystem.ExamType.Province, province);

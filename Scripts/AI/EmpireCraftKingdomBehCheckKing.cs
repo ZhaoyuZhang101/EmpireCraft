@@ -164,6 +164,7 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
 
         foreach (City item in listPool.LoopRandom())
         {
+            if (!item.isRekt()) continue;
             Actor leader = item.leader;
             if (leader != null && leader.isAlive())
             {
@@ -185,6 +186,8 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
 
     public void checkShatteredCrownEvent(Kingdom pMainKingdom, Actor pMainKing, Clan pRoyalClan)
     {
+        if (pMainKingdom == null) return;
+        if (!pMainKingdom.isAlive()) return;
         if (!isRebellionsEnabled() || pRoyalClan == null)
         {
             return;

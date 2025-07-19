@@ -69,6 +69,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     public override void update(float pElapsed)
     {
         base.update(pElapsed);
+        if (this.Count <= 0) return;
         foreach (KingdomTitle kt in this)
         {
             if (!kt.checkActive())

@@ -64,6 +64,7 @@ public class ModBehaviourTaskKingdomLibrary : BehaviourTaskKingdomLibrary
         t.addBeh(new EmpireCraftKingdomBehCheckExam());
         t.addBeh(new EmpireCraftKingdomBehCheckHeir());
         t.addBeh(new EmpireCraftKingdomBehCheckInerOffice());
+        t.addBeh(new EmpireCraftKingdomBehCheckPlots());
         t.addBeh(new KingdomBehRandomWait());
     }
 

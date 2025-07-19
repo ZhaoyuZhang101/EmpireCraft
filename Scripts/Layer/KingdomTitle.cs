@@ -319,13 +319,16 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
             city.RemoveTitle();
             this.city_list.Remove(city);
         }
-        if (this.title_capital==null)
+        if (city_list.Count > 0)
         {
-            this.title_capital = city_list.First();
-        }
-        if (!this.title_capital.isAlive())
-        {
-            this.title_capital = city_list.First();
+            if (this.title_capital == null)
+            {
+                this.title_capital = city_list.First();
+            }
+            if (!this.title_capital.isAlive())
+            {
+                this.title_capital = city_list.First();
+            }
         }
         if (tChanged)
         {

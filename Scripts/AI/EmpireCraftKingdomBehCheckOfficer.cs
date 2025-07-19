@@ -15,8 +15,12 @@ public class EmpireCraftKingdomBehCheckOfficer : BehaviourActionKingdom
         if (pKingdom.isEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
-            if (empire != null) 
+            if (!empire.isRekt()) 
             {
+                if (empire.isNeedToSetProvince())
+                {
+                    empire.DivideIntoProvince();
+                }
                 if (empire.province_list.Count>0)
                 {
                     foreach (Province province in empire.province_list)
@@ -24,6 +28,9 @@ public class EmpireCraftKingdomBehCheckOfficer : BehaviourActionKingdom
                         if (!province.IsTotalVassaled())
                         {
                             province.JudgeOfficer();
+                        } else
+                        {
+                            province.checkCanbeTranfered();
                         }
                     }
                 }

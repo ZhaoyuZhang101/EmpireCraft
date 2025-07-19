@@ -120,8 +120,10 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
-        public static void LogEmpireGetBackLand(Empire empire, Province province)
+        public static void LogEmpireGetBackLand(Kingdom empire, Province province)
         {
+            if (empire == null) return;
+            if (!empire.isAlive()) return;
             new WorldLogMessage(EmpireCraftWorldLogLibrary.history_empire_get_back_land,
                 empire.data.name,
                 province.data.name
@@ -146,11 +148,23 @@ namespace EmpireCraft.Scripts.HelperFunc
         public static void LogControledEmpire(Actor actor, Empire empire)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.cotrolled_country_log,
-                empire.data.name,
+                actor.data.name,
                 empire.data.name
                 )
             {
                 color_special1 = empire.getColor()._colorText,
+                color_special2 = empire.getColor()._colorText
+
+            }.add();
+        }
+        public static void LogJoinEmpireWar(Kingdom kingdom, Empire empire)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.join_empire_war_log,
+                kingdom.data.name,
+                empire.data.name
+                )
+            {
+                color_special1 = kingdom.getColor()._colorText,
                 color_special2 = empire.getColor()._colorText
 
             }.add();
@@ -220,7 +234,9 @@ namespace EmpireCraft.Scripts.HelperFunc
 
         public static void LogBecomeKingdom(Kingdom kingdom,string title)
         {
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.become_kingdom_log,
+            if (kingdom != null&&title!=null) 
+            {
+                new WorldLogMessage(EmpireCraftWorldLogLibrary.become_kingdom_log,
                 kingdom.king.data.name,
                 title,
                 kingdom.data.name)
@@ -230,6 +246,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                     color_special3 = kingdom.getColor()._colorText
 
                 }.add();
+            }
+
         }
         /// <summary>
         /// 新年号

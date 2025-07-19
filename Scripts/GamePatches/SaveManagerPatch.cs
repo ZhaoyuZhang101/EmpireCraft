@@ -9,6 +9,10 @@ using System.Threading.Tasks;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Layer;
 using db;
+using System.Collections;
+using UnityEngine;
+using Newtonsoft.Json;
+using System.IO;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class SaveManagerPatch : GamePatch
@@ -61,13 +65,14 @@ public class SaveManagerPatch : GamePatch
             LogService.LogInfo("Mod数据保存被冻结，无法保存");
             return false;
         }
+        DataManager.SaveAll(pFolder);
         LogService.LogInfo("保存mod数据到 " + pFolder);
+
         if (string.IsNullOrEmpty(pFolder))
         {
             LogService.LogError("保存路径为空，无法保存mod数据");
             return true;
         }
-        DataManager.SaveAll(pFolder);
         return true;
 
     }    
@@ -79,6 +84,7 @@ public class SaveManagerPatch : GamePatch
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         ModClass.PROVINCE_MANAGER = new ProvinceManager();
+
         LogService.LogInfo("加载mod数据从 " + pPath);
         if (pData == null)
         {

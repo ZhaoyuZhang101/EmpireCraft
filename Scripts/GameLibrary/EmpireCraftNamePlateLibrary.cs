@@ -196,7 +196,7 @@ public static class EmpireCraftNamePlateLibrary
         {
             if (empire.hasYearName())
             {
-                text = empire.data.name + " " + empire.getYearNameWithTime() + "  " + empire.countPopulation();
+                text = empire.data.name + "\u200A" + empire.getYearNameWithTime() + "\u200A" + empire.countPopulation();
             }
         }
         text = text + " | " + pMetaObject.countTotalWarriors() + "/" + pMetaObject.countWarriorsMax();

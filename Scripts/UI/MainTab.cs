@@ -60,23 +60,23 @@ internal static class MainTab
     {
         TitleLayerToggle.init();
         PowerButton pb0 = FixFunctions.CreateToggleButton("title_layer",
-                 SpriteTextureLoader.getSprite("ui/icons/iconCity"));
+                 SpriteTextureLoader.getSprite("ui/icons/iconTitleLayer.png"));
         tab.AddPowerButton(EMPIRE_GROUP, pb0);
 
         CreateTitleButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_title",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleCreate.png")));
+                  SpriteTextureLoader.getSprite("ui/icons/iconCreateTitle.png")));
 
         AddTitleButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("add_title",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleAdd.png")));
+                SpriteTextureLoader.getSprite("ui/icons/iconAddTitle.png")));
 
         RemoveTitleButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_title",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleRemove.png")));
+                SpriteTextureLoader.getSprite("ui/icons/iconRemoveTitle.png")));
 
 
 

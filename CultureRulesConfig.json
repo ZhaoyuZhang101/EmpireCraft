@@ -18,14 +18,15 @@
                 // 比如模组中常见的XX 市，在这个组合下，name_pos就是0，
                 // 如果有特殊的名称比如“钢铁 德莱尔”，这里德莱尔为有效名称，name_pos就应该是1，
                 //另外，上面的组合规则也相应的设置好，比如一个城市的命名规则中是由两个有效名称词库的随机组合加一个随机后缀组成那么
-                // 规则就应该是 ["group_1", "group_2", "space", "group_3"] 最终显示的效果就是: xx x。 
+                // 规则就应该是 ["group_1", "group_2", "space", "group_3"] 最终显示的效果就是: xx x。 //
             },
             "Clan": {
                 "groups": {
                     "group_1": "ClanNames",
-                    "group_2": "Clan"
+                    "group_2": "\u200A",
+                    "group_3": "Clan"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_2", "group_3" ],
                 "name_pos": 0,
                 "has_sex_post": false, //是否存在姓名后缀，有些文化的姓氏存在阴阳词性，在这里设置为true，并且在Locales/Cultures/NameSexPost.csv中配置好后，人物的姓名就会显示词性
                 "use_local_as_lastname": false
@@ -33,9 +34,11 @@
             "Family": {
                 "groups": {
                     "group_1": "FamilyNames",
-                    "group_2": "Family"
+                    "group_2": "\u200A",
+                    "group_3": "Family"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
                 "has_sex_post": false, // 同上
                 "use_local_as_lastname": false
             },
@@ -142,17 +145,19 @@
                 "groups": {
                     "group_1": "CityNames1",
                     "group_2": "CityNames2",
-                    "group_3": "CityNames3"
+                    "group_3": "\u200A",
+                    "group_4": "CityNames3"
                 },
-                "rule": [ "group_1", "group_2", "space", "group_3" ],
+                "rule": [ "group_1", "group_2", "group_3", "group_4" ],
                 "name_pos": 0
             },
             "Clan": {
                 "groups": {
                     "group_1": "ClanNames",
-                    "group_2": "Clan"
+                    "group_2": "Clan",
+                    "group_3": "\u200A"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_3", "group_2" ],
                 "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
@@ -160,9 +165,11 @@
             "Family": {
                 "groups": {
                     "group_1": "FamilyNames",
-                    "group_2": "Family"
+                    "group_2": "Family",
+                    "group_3": "\u200A"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_3", "group_2" ],
+                "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
             },
@@ -183,7 +190,8 @@
                     "sex_female",
                     "coin_flip",
                     "group_4",
-                    "sex_female"
+                    "sex_female",
+                    "space"
                 ],
                 "name_pos": 0,
                 "is_invert": true
@@ -209,17 +217,19 @@
                 "groups": {
                     "group_1": "CityNames1",
                     "group_2": "CityNames2",
-                    "group_3": "CityNames3"
+                    "group_3": "\u200A",
+                    "group_4": "CityNames3"
                 },
-                "rule": [ "group_1", "group_2", "space", "group_3" ],
+                "rule": [ "group_1", "group_2", "group_3", "group_4" ],
                 "name_pos": 0
             },
             "Clan": {
                 "groups": {
                     "group_1": "ClanNames",
-                    "group_2": "Clan"
+                    "group_2": "\u200A",
+                    "group_3": "Clan"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_2", "group_3" ],
                 "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
@@ -227,9 +237,11 @@
             "Family": {
                 "groups": {
                     "group_1": "FamilyNames",
-                    "group_2": "Family"
+                    "group_2": "\u200A",
+                    "group_3": "Family"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
             },
@@ -282,9 +294,10 @@
             "Clan": {
                 "groups": {
                     "group_1": "ClanNames",
-                    "group_2": "Clan"
+                    "group_2": "\u200A",
+                    "group_3": "Clan"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_2", "group_3" ],
                 "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
@@ -292,9 +305,11 @@
             "Family": {
                 "groups": {
                     "group_1": "FamilyNames",
-                    "group_2": "Family"
+                    "group_2": "\u200A",
+                    "group_3": "Family"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
             },
@@ -307,7 +322,8 @@
                     "group_1",
                     "sex_male",
                     "group_2",
-                    "sex_female"
+                    "sex_female",
+                    "space"
                 ],
                 "name_pos": 0,
                 "is_invert": true
@@ -329,22 +345,24 @@
                 "groups": {
                     "group_1": "CityNames1",
                     "group_2": "CityNames2",
-                    "group_3": "CityNames3"
+                    "group_3": "\u200A",
+                    "group_4": "CityNames3"
                 },
-                "rule": [ "group_1", "group_2", "space", "group_3" ],
+                "rule": [ "group_1", "group_2", "group_3", "group_4" ],
                 "name_pos": 0
             },
             "Clan": {
                 "groups": {
                     "group_1": "ClanNames",
                     "group_2": "Clan",
-                    "group_3": "MiddenClanNames"
+                    "group_3": "MiddenClanNames",
+                    "group_4": "\u200A"
                 },
                 "rule": [
                     "group_3",
                     "coin_flip",
                     "group_1",
-                    "space",
+                    "group_4",
                     "group_2"
                 ],
                 "name_pos": 0,
@@ -354,9 +372,11 @@
             "Family": {
                 "groups": {
                     "group_1": "FamilyNames",
-                    "group_2": "Family"
+                    "group_2": "\u200A",
+                    "group_3": "Family"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
             },
@@ -369,7 +389,8 @@
                     "group_1",
                     "sex_male",
                     "group_2",
-                    "sex_female"
+                    "sex_female",
+                    "space"
                 ],
                 "name_pos": 0,
                 "is_invert": true
@@ -391,22 +412,24 @@
                 "groups": {
                     "group_1": "CityNames1",
                     "group_2": "CityNames2",
-                    "group_3": "CityNames3"
+                    "group_3": "\u200A",
+                    "group_4": "CityNames3"
                 },
-                "rule": [ "group_1", "group_2", "space", "group_3" ],
+                "rule": [ "group_1", "group_2", "group_3", "group_4" ],
                 "name_pos": 0
             },
             "Clan": {
                 "groups": {
                     "group_1": "ClanNames",
                     "group_2": "Clan",
-                    "group_3": "MiddenClanNames"
+                    "group_3": "MiddenClanNames",
+                    "group_4": "\u200A"
                 },
                 "rule": [
                     "group_3",
                     "coin_flip",
                     "group_1",
-                    "space",
+                    "group_4",
                     "group_2"
                 ],
                 "name_pos": 0,
@@ -416,9 +439,11 @@
             "Family": {
                 "groups": {
                     "group_1": "FamilyNames",
-                    "group_2": "Family"
+                    "group_2": "\u200A",
+                    "group_3": "Family"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
             },
@@ -431,7 +456,8 @@
                     "group_1",
                     "sex_male",
                     "group_2",
-                    "sex_female"
+                    "sex_female",
+                    "space"
                 ],
                 "name_pos": 0,
                 "is_invert": true
@@ -459,9 +485,10 @@
             "Clan": {
                 "groups": {
                     "group_1": "ClanNames",
-                    "group_2": "Clan"
+                    "group_2": "\u200A",
+                    "group_3": "Clan"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_2", "group_2" ],
                 "name_pos": 0,
                 "has_sex_post": true,
                 "use_local_as_lastname": false
@@ -469,9 +496,11 @@
             "Family": {
                 "groups": {
                     "group_1": "FamilyNames",
-                    "group_2": "Family"
+                    "group_2": "\u200A",
+                    "group_3": "Family"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
             },
@@ -484,7 +513,8 @@
                     "group_1",
                     "sex_male",
                     "group_2",
-                    "sex_female"
+                    "sex_female",
+                    "space"
                 ],
                 "name_pos": 0,
                 "is_invert": true
@@ -514,9 +544,10 @@
                 "groups": {
                     "group_1": "ClanNames1",
                     "group_2": "ClanNames2",
-                    "group_3": "Clan"
+                    "group_3": "Clan",
+                    "group_4": "\u200A"
                 },
-                "rule": [ "group_1", "coin_flip", "group_2", "space", "group_3" ],
+                "rule": [ "group_1", "coin_flip", "group_2", "group_4", "group_3" ],
                 "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
@@ -525,9 +556,11 @@
                 "groups": {
                     "group_1": "ClanNames1",
                     "group_2": "ClanNames2",
-                    "group_3": "Family"
+                    "group_3": "Family",
+                    "group_4": "\u200A"
                 },
-                "rule": [ "group_1", "coin_flip", "group_2", "space", "group_3" ],
+                "rule": [ "group_1", "coin_flip", "group_2", "group_4", "group_3" ],
+                "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
             },
@@ -540,7 +573,8 @@
                     "group_1",
                     "sex_male",
                     "group_2",
-                    "sex_female"
+                    "sex_female",
+                    "space"
                 ],
                 "name_pos": 0,
                 "is_invert": true
@@ -571,19 +605,24 @@
             "Clan": {
                 "groups": {
                     "group_1": "ClanNames",
-                    "group_2": "Clan"
+                    "group_2": "Clan",
+                    "group_3": "\u200A"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_3", "group_2" ],
                 "name_pos": 0,
-                "has_sex_post": false
+                "has_sex_post": false,
+                "use_local_as_lastname": false
             },
             "Family": {
                 "groups": {
                     "group_1": "FamilyNames",
-                    "group_2": "Family"
+                    "group_2": "Family",
+                    "group_3": "\u200A"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
-                "has_sex_post": false
+                "rule": [ "group_1", "group_3", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
             },
             "Unit": {
                 "groups": {
@@ -631,11 +670,12 @@
             "Clan": {
                 "groups": {
                     "group_1": "ClanNames",
-                    "group_2": "Clan"
+                    "group_2": "Clan",
+                    "group_3": "\u200A"
                 },
                 "rule": [
                     "group_1",
-                    "space",
+                    "group_3",
                     "group_2"
                 ],
                 "name_pos": 0,
@@ -645,9 +685,11 @@
             "Family": {
                 "groups": {
                     "group_1": "FamilyNames",
-                    "group_2": "Family"
+                    "group_2": "Family",
+                    "group_3": "\u200A"
                 },
-                "rule": [ "group_1", "space", "group_2" ],
+                "rule": [ "group_1", "group_3", "group_2" ],
+                "name_pos": 0,
                 "has_sex_post": false,
                 "use_local_as_lastname": false
             },
@@ -660,7 +702,8 @@
                     "group_1",
                     "sex_male",
                     "group_2",
-                    "sex_female"
+                    "sex_female",
+                    "space"
                 ],
                 "name_pos": 0,
                 "is_invert": true
@@ -671,6 +714,74 @@
                     "group_1": "CountryNames"
                 },
                 "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        }
+    },
+    {
+        "name": "Viking",
+        "setting": {
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1",
+                    "group_2": "CityNames2",
+                    "group_3": "\u200A",
+                    "group_4": "CityNames3"
+                },
+                "rule": [ "group_1", "group_3", "group_2", "group_4" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "Clan",
+                    "group_3": "\u200A"
+                },
+                "rule": [
+                    "group_1",
+                    "group_3",
+                    "group_2"
+                ],
+                "name_pos": 0,
+                "has_sex_post": true,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "Family",
+                    "group_3": "\u200A"
+                },
+                "rule": [ "group_1", "group_3", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": true,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1",
+                    "group_3": "UnitNickNames"
+                },
+                "rule": [
+                    "group_3",
+                    "coin_flip",
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female",
+                    "space"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames1",
+                    "group_2": "CountryNames2"
+                },
+                "rule": [ "group_1", "group_2" ],
                 "name_pos": 0
             }
         }

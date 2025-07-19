@@ -53,9 +53,10 @@ public class UnitWindowPatch: GamePatch
         Actor actor = __instance.actor;
         PeeragesLevel peeragesLevel = __instance.actor.GetPeeragesLevel();
         __instance.showStatRow("Peerages", LM.Get("default_" + peeragesLevel.ToString()), MetaType.Unit, -1L);
-        if (__instance.actor.HasTitle())
+        if (__instance.actor.HasTitle()&&__instance.actor.isKing())
         {
-            __instance.showStatRow("EmpireTitle", __instance.actor.GetTitle(), MetaType.Unit, -1L, pTooltipData: getTooltipAllTitles);
+            string value = __instance.actor.kingdom.HasMainTitle() ? __instance.actor.kingdom.GetMainTitle().data.name: __instance.actor.GetTitle();
+            __instance.showStatRow("EmpireTitle", value, MetaType.None, -1L, pTooltipId: "all_titles",  pTooltipData: getTooltipAllTitles);
         }
         if (__instance.actor.isOfficer())
         {
@@ -68,7 +69,7 @@ public class UnitWindowPatch: GamePatch
                 //{
                 //    culture = val;
                 //}
-                string EmpireMeritString = String.Join("_", culture, "meritlevel", identity.meritLevel);
+                string EmpireMeritString = String.Join("_", culture, "meritlevel", identity.peerageType, identity.meritLevel);
                 string EmpireHonoraryOfficialString = String.Join("_", culture, "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
                 string EmpireOfficialLevelString = String.Join("_", culture,identity.officialLevel.ToString());
                 if (identity.officialLevel==OfficialLevel.officiallevel_9)
@@ -103,15 +104,11 @@ public class UnitWindowPatch: GamePatch
     public static TooltipData getTooltipAllTitles()
     {
         Actor actor = SelectedUnit.unit;
-        CustomDataContainer<string> customDataContainer = new CustomDataContainer<string>();
-        foreach(long title in actor.GetOwnedTitle())
-        {
-            customDataContainer.dict.Add(title.ToString(), ModClass.KINGDOM_TITLE_MANAGER.get(title).data.name);
-        }
         return new TooltipData
         {
             tip_name = "all_titles",
-            custom_data_string = customDataContainer
+            tip_description = "all_titles_description",
+            actor = actor
         };
     }
 }

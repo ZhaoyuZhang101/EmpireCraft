@@ -9,6 +9,11 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
+using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
+using static EmpireCraft.Scripts.GameClassExtensions.FamilyExtension;
+using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
+using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class DBManagerPatch:GamePatch
@@ -43,11 +48,11 @@ public class DBManagerPatch:GamePatch
 
     public static void AllClear()
     {
-        ActorExtension.Clear();
-        CityExtension.Clear();
-        ClanExtension.Clear();
-        KingdomExtension.Clear();
-        WarExtension.Clear();
+        ExtensionBase.Clear<Actor, ActorExtraData>();
+        ExtensionBase.Clear<Family, FamilyExtraData>();
+        ExtensionBase.Clear<War, WarExtraData>();
+        ExtensionBase.Clear<Kingdom, KingdomExtraData>();
+        ExtensionBase.Clear<City, CityExtraData>();
         LogService.LogInfo("清空所有Mod数据");
     }
 }

@@ -33,26 +33,30 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public override void update(float pElapsed)
     {
         base.update(pElapsed);
-        using (IEnumerator<Empire> enumerator = GetEnumerator())
+
+        // 创建集合副本进行遍历
+        List<Empire> empiresToProcess = new List<Empire>(this);
+
+        foreach (Empire current in empiresToProcess)
         {
-            while (enumerator.MoveNext())
+            current.clearCursorOver();
+
+            if (!current.checkActive())
             {
-                Empire current = enumerator.Current;
-                current.clearCursorOver();
-                if (!current.checkActive())
-                {
-                    _to_dissolve.Add(current);
-                }
-                else
-                {
-                    current.update();
-                }
+                _to_dissolve.Add(current);
+            }
+            else
+            {
+                current.update();
             }
         }
+
+        // 处理需要解散的帝国
         foreach (Empire item in _to_dissolve)
         {
             dissolveEmpire(item);
         }
+
         _to_dissolve.Clear();
     }
 

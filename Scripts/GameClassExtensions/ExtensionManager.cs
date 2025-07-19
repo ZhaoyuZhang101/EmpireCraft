@@ -11,7 +11,7 @@ public static class ExtensionManager<TKey, TData>
     where TKey : NanoObject
     where TData : class, new()
 {
-    private static ConditionalWeakTable<TKey, TData> _table = new();
+    public static ConditionalWeakTable<TKey, TData> _table = new();
 
     public static TData GetOrCreate(TKey key, bool isSave=false)
     {
@@ -30,6 +30,11 @@ public static class ExtensionManager<TKey, TData>
         TData d = _table.GetOrCreateValue(key);
         return d;
 
+    }
+    public static void Update(TKey key, TData data)
+    {
+        _table.Remove(key);
+        _table.Add(key, data);
     }
 
     public static bool Remove(TKey key)

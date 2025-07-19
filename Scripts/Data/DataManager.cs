@@ -1,27 +1,16 @@
-﻿using System;
+﻿
 using System.IO;
-using NeoModLoader.api;
-using NeoModLoader.api.attributes;
-using NeoModLoader.General.UI.Tab;
-using UnityEngine;
 using NeoModLoader.services;
-using System.Reflection;
-using EmpireCraft.Scripts.GamePatches;
-using NeoModLoader.General;
-using EmpireCraft.Scripts.UI;
 using System.Linq;
-using EmpireCraft.Scripts.GameClassExtensions;
-using EmpireCraft.Scripts.Enums;
-using System.Collections;
 using System.Collections.Generic;
 using Newtonsoft.Json;
-using static UnityEngine.EventSystems.EventTrigger;
 using EmpireCraft.Scripts.Layer;
-using System.Threading.Tasks;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
+using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
+using db;
 
 namespace EmpireCraft.Scripts.Data;
 
@@ -30,16 +19,14 @@ public static class DataManager
     public static void LoadAll(string loadRootPath)
     {
         string loadPath = Path.Combine(loadRootPath, "EmpireCraftModData.json");
-        string cleanPath = loadPath.Replace('\\', '/');
-        cleanPath = Path.Combine(cleanPath.Split('/'));
         PlayerConfig.dict["prevent_city_destroy"].boolVal = false;
-        LogService.LogInfo(cleanPath);
-        if (!File.Exists(cleanPath))
+        LogService.LogInfo(loadPath);
+        if (!File.Exists(loadPath))
         {
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
-        var json = File.ReadAllText(cleanPath);
+        var json = File.ReadAllText(loadPath);
         var saveData = JsonConvert.DeserializeObject<SaveData>(json);
         LogService.LogInfo("初始化模组数据模板");
 
@@ -58,29 +45,34 @@ public static class DataManager
 
         // 批量同步
         foreach (var entry in saveData.actorsExtraData)
+        {
             if (unitById.TryGetValue(entry.id, out Actor actor))
-                if (actor != null)
-                    if (actor.isActor())
-                    {
-                        actor.syncData(entry);
-                    }
+                actor.SyncData<Actor, ActorExtraData>(entry);
+        }
         LogService.LogInfo("Sync Actor Data");
-
-        foreach (var entry in saveData.kingdomExtraData)
-            if (kingdomById.TryGetValue(entry.id, out var kingdom))
-                kingdom.syncData(entry);
-        LogService.LogInfo("Sync Kingdom Data");
         foreach (var entry in saveData.cityExtraData)
+        {
             if (cityById.TryGetValue(entry.id, out var city))
-                city.syncData(entry);
+                city.SyncData<City, CityExtraData>(entry);
+        }
         LogService.LogInfo("Sync City Data");
+        foreach (var entry in saveData.kingdomExtraData)
+        {
+            if (kingdomById.TryGetValue(entry.id, out var kingdom))
+                kingdom.SyncData<Kingdom, KingdomExtraData>(entry);
+        }
+        LogService.LogInfo("Sync Kingdom Data");
         foreach (var entry in saveData.clanExtraData)
+        {
             if (clanById.TryGetValue(entry.id, out var clan))
-                clan.syncData(entry);
+                clan.SyncData<Clan, ClanExtraData>(entry);
+        }
         LogService.LogInfo("Sync Clan Data");
         foreach (var entry in saveData.warExtraData)
+        {
             if (warById.TryGetValue(entry.id, out var war))
-                war.syncData(entry);
+                war.SyncData<War, WarExtraData>(entry);
+        }
         LogService.LogInfo("Sync War Data");
         foreach (EmpireData empireData in saveData.empireDatas)
         {
@@ -98,6 +90,7 @@ public static class DataManager
             kt.loadData(kingdomTitleData);
             kt.isBeenControlled();
             ModClass.KINGDOM_TITLE_MANAGER.addObject(kt);
+
         }
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
         foreach (ProvinceData provinceData in saveData.provinceDatas)
@@ -115,23 +108,20 @@ public static class DataManager
 
         LogService.LogInfo("Sync Titles Data");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
-        ConfigData.speciesCulturePair = saveData.speciesCulturePair;
         LogService.LogInfo("Sync history Data");
         ModClass.ALL_HISTORY_DATA = saveData.all_history ?? new Dictionary<long, List<EmpireCraftHistory>>();
         ConfigData.PREVENT_CITY_DESTROY = saveData.prevent_city_destroy;
         PlayerConfig.dict["prevent_city_destroy"].boolVal = saveData.prevent_city_destroy;
-
     }
     public static void SaveAll(string saveRootPath)
     {
         string savePath = Path.Combine(saveRootPath, "EmpireCraftModData.json");
-        savePath = savePath.Replace('\\', '/');
-        savePath = Path.Combine(savePath.Split('/'));
         SaveData saveData = new SaveData();
-        saveData.actorsExtraData = World.world.units.Select(a=>a.getExtraData(true)).Where(ed=>ed!=null).ToList();
-        saveData.cityExtraData = World.world.cities.Select(a => a.getExtraData(true)).Where(ed => ed != null).ToList(); ;
-        saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.getExtraData(true)).Where(ed => ed != null).ToList(); ;
-        saveData.warExtraData = World.world.wars.Select(a => a.getExtraData(true)).Where(ed => ed != null).ToList(); ;
+        saveData.actorsExtraData = World.world.units.Select(a=>a.GetExtraData<Actor, ActorExtraData>(true)).Where(ed=>ed!=null).ToList();
+        saveData.cityExtraData = World.world.cities.Select(a => a.GetExtraData<City, CityExtraData>(true)).Where(ed => ed != null).ToList(); ;
+        saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.GetExtraData<Kingdom, KingdomExtraData>(true)).Where(ed => ed != null).ToList(); ;
+        saveData.warExtraData = World.world.wars.Select(a => a.GetExtraData<War, WarExtraData>(true)).Where(ed => ed != null).ToList(); ;
+        saveData.clanExtraData = World.world.clans.Select(a => a.GetExtraData<Clan, ClanExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
         saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
         saveData.provinceDatas = new List<ProvinceData>(ModClass.PROVINCE_MANAGER.Count);
@@ -139,41 +129,23 @@ public static class DataManager
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)
         {
-            if (empire != null)
-            {
-                if (empire.data != null)
-                {
-                    empire.save();
-                    saveData.empireDatas.Add(empire.data);
-                }
-            }
+            empire.save();
+            saveData.empireDatas.Add(empire.data);
         }
         foreach (KingdomTitle kt in ModClass.KINGDOM_TITLE_MANAGER)
         {
-            if (kt != null)
-            {
-                if (kt.data != null)
-                {
-                    kt.save();
-                    saveData.kingdomTitleDatas.Add(kt.data);
-                }
-            }
+            kt.save();
+            saveData.kingdomTitleDatas.Add(kt.data);
         }
         foreach(Province p in ModClass.PROVINCE_MANAGER)
         {
-            if (p != null)
-            {
-                if (p.data!= null)
-                {
-                    p.save();
-                    saveData.provinceDatas.Add(p.data);
-                }
-            }
+            p.save();
+            saveData.provinceDatas.Add(p.data);
         }
         saveData.yearNameSubspecies = ConfigData.yearNameSubspecies;
-        saveData.speciesCulturePair = ConfigData.speciesCulturePair;
         saveData.all_history = ModClass.ALL_HISTORY_DATA;
         saveData.prevent_city_destroy = ConfigData.PREVENT_CITY_DESTROY;
+
         string json = JsonConvert.SerializeObject(saveData, Formatting.Indented);
         LogService.LogInfo("" + saveData.actorsExtraData.Count());
         LogService.LogInfo("" + saveData.warExtraData.Count());
