@@ -109,7 +109,11 @@ public class Province : MetaObject<ProvinceData>
     {
         foreach (City city in city_list.ToList()) // 防止并发修改
         {
-            if (!city.isAlive()) continue;
+            if (!city.isAlive())
+            {
+                RemoveOccupiedCity(city);
+                continue;
+            }
             bool isInEmpire = city.kingdom?.isInEmpire() ?? false;
             Empire cityEmpire = city.kingdom?.GetEmpire();
 
@@ -121,6 +125,18 @@ public class Province : MetaObject<ProvinceData>
             {
                 AddOccupiedCity(city);
             }
+        }
+        ListPool<City> city_need_to_remove = new ListPool<City>();
+        foreach(City city in occupied_cities.Keys)
+        {
+            if (!city_list.Contains(city))
+            {
+                city_need_to_remove.Add(city);
+            }
+        }
+        foreach(City city1 in city_need_to_remove)
+        {
+            occupied_cities.Remove(city1);
         }
     }
 
@@ -388,70 +404,56 @@ public class Province : MetaObject<ProvinceData>
 
     public void newProvince(City city, provinceLevel provinceLevel=provinceLevel.provincelevel_3, string name="")
     {
-        if (city == null || city.kingdom == null || city.kingdom.king == null)
+        // 初始化基础属性
+        this.data.isDirectRule = false;
+        this.data.provinceLevel = provinceLevel;
+        this.data.created_time = World.world.getCurWorldTime();
+        this.data.history_officers = new List<string>();
+        this.data.is_set_to_country = false;
+        this.officer = null;
+
+        // 设置帝国关联
+        this.empire = city.kingdom.GetEmpire();
+        if (this.empire == null)
         {
-            LogService.LogError("Cannot create province - invalid city, kingdom or king reference");
+            LogService.LogError($"No empire found for kingdom {city.kingdom.name}");
             return;
         }
 
-        try
+        // 添加城市
+        this.addCity(city);
+        this.province_capital = city;
+
+        // 设置名称
+        this.data.name = string.IsNullOrEmpty(name) ? city.GetCityName() : name;
+
+        // 设置资产和外观
+        var kingdomAsset = empire.empire.asset;
+        this.asset = kingdomAsset ?? throw new InvalidOperationException("Kingdom asset not found");
+
+        // 设置旗帜和颜色
+        this.data.banner_icon_id = city.kingdom.data.banner_icon_id;
+        this.data.banner_background_id = city.kingdom.data.banner_background_id;
+        this.updateColor(getColorLibrary().getNextColor());
+
+        // 设置创始人信息
+        this.data.founder_actor_id = city.kingdom.king.getID();
+        this.data.founder_actor_name = city.kingdom.king.getName();
+        this.data.original_actor_asset = city.kingdom.king.asset.id;
+        this.data.color_id = empire.empire?.data?.color_id ?? 0; // 默认颜色ID
+
+        // 设置省份等级
+        SetProvinceLevel(provinceLevel);
+
+        // 添加到帝国省份列表
+        if (this.empire.province_list == null)
         {
-            // 初始化基础属性
-            this.data.isDirectRule = false;
-            this.data.provinceLevel = provinceLevel;
-            this.data.created_time = World.world.getCurWorldTime();
-            this.data.history_officers = new List<string>();
-            this.data.is_set_to_country = false;
-            this.officer = null;
-
-            // 设置帝国关联
-            this.empire = city.kingdom.GetEmpire();
-            if (this.empire == null)
-            {
-                LogService.LogError($"No empire found for kingdom {city.kingdom.name}");
-                return;
-            }
-
-            // 添加城市
-            this.addCity(city);
-            this.province_capital = city;
-
-            // 设置名称
-            this.data.name = string.IsNullOrEmpty(name) ? city.GetCityName() : name;
-
-            // 设置资产和外观
-            var kingdomAsset = empire.empire.asset;
-            this.asset = kingdomAsset ?? throw new InvalidOperationException("Kingdom asset not found");
-
-            // 设置旗帜和颜色
-            this.data.banner_icon_id = city.kingdom.data.banner_icon_id;
-            this.data.banner_background_id = city.kingdom.data.banner_background_id;
-            this.updateColor(getColorLibrary().getNextColor());
-
-            // 设置创始人信息
-            this.data.founder_actor_id = city.kingdom.king.getID();
-            this.data.founder_actor_name = city.kingdom.king.getName();
-            this.data.original_actor_asset = city.kingdom.king.asset.id;
-            this.data.color_id = empire.empire?.data?.color_id ?? 0; // 默认颜色ID
-
-            // 设置省份等级
-            SetProvinceLevel(provinceLevel);
-
-            // 添加到帝国省份列表
-            if (this.empire.province_list == null)
-            {
-                this.empire.province_list = new List<Province>();
-            }
-            this.empire.province_list.Add(this);
-
-            // 重新计算
-            recalculate();
+            this.empire.province_list = new List<Province>();
         }
-        catch (Exception ex)
-        {
-            LogService.LogError($"Error creating new province: {ex}");
-            throw; // 或者根据业务需求处理
-        }
+        this.empire.province_list.Add(this);
+
+        // 重新计算
+        recalculate();
     }
 
 

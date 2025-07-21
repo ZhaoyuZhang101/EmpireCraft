@@ -25,6 +25,8 @@ public static class CityExtension
         public long province_id = -1L;
         public long empire_core_id = -1L;
         public List<long> exam_pass_person;
+        public int MAX_POPULATION = 100;
+        public bool MAX_POPULATION_LIMIT = false;
     }
     public static CityExtraData GetOrCreate(this City a, bool isSave=false)
     {
@@ -32,6 +34,26 @@ public static class CityExtension
         return ed;
     } 
 
+    public static int GetMaxPopulation(this City c)
+    {
+        var ed = c.GetOrCreate();
+        return ed.MAX_POPULATION;
+    }
+    public static void SetMaxPopulation(this City c, int value)
+    {
+        var ed = c.GetOrCreate();
+        ed.MAX_POPULATION = value;
+    }
+    public static void OpenMaxPopulationLimit(this City c)
+    {
+        var ed = c.GetOrCreate();
+        ed.MAX_POPULATION_LIMIT = true;
+    }
+    public static void CloseMaxPopulationLimit(this City c)
+    {
+        var ed = c.GetOrCreate();
+        ed.MAX_POPULATION_LIMIT = false;
+    }
     public static List<long> GetExamPassPersonIDs(this City c)
     {
         if (GetOrCreate(c).exam_pass_person== null)

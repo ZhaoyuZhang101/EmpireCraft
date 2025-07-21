@@ -59,6 +59,7 @@ public class Name
 
     public void SetName(Actor actor)
     {
+        sex = actor.isSexMale() ? ActorSex.Male : ActorSex.Female;
         if (hasFamilyName(actor))
         {
             string cityName = "";
@@ -103,8 +104,15 @@ public class Name
                 real_family_name = familyName;
             }
             real_family_name = (use_local_as_family_name&&cityName!="") ? cityName : familyName;
-            real_family_name = real_family_name + (has_sex_post ? LM.Get($"{cultureName}_sex_post{sex.ToString()}") : "");
-            actor.data.name = is_invert ? firstName + "\u200A" + familyName : familyName + "\u200A" + firstName;
+            if (has_sex_post)
+            {
+                string post = LM.Get($"{cultureName}_sex_post_{sex.ToString()}");
+                if (!real_family_name.Contains(post))
+                {
+                    real_family_name += post;
+                }
+            }
+            actor.data.name = is_invert ? firstName + "\u200A" + real_family_name : real_family_name + "\u200A" + firstName;
         } else
         {
             if (hasFirstName(actor))
@@ -819,6 +827,7 @@ public static class ActorExtension
     {
         if (title == null) return;
         if (a == null) return;
+        if (title.data == null) return;
         var ed = GetOrCreate(a);
         if (a.GetOwnedTitle().Contains(title.data.id))
         {

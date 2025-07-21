@@ -134,10 +134,12 @@ public class Empire : MetaObject<EmpireData>
 
     public bool canTakeArmedProvince()
     {
+        bool flag = false;
         foreach(Kingdom kingdom in kingdoms_list)
         {
             if (kingdom == null) continue;
             if (!kingdom.isAlive()) continue;
+            if (kingdom.isRekt()) continue;
             try
             {
                 if (!kingdom.isBorder() && emperor.renown >= kingdom.king.renown * 2&&kingdom.countTotalWarriors()>=this.countWarriors()/5)
@@ -147,9 +149,14 @@ public class Empire : MetaObject<EmpireData>
             } catch
             {
                 LogService.LogInfo("国家实体已被销毁");
+                flag = true;
                 continue;
             }
 
+        }
+        if (flag)
+        {
+            ModClass.EMPIRE_MANAGER.update(-1L);
         }
         return false;
     }
@@ -1202,7 +1209,7 @@ public class Empire : MetaObject<EmpireData>
         List<Kingdom> remove_tKingdoms = new List<Kingdom>();
         foreach( Kingdom k in tKingdoms )
         {
-            if (!k.isAlive()||k==null)
+            if (k.isRekt())
             {
                 remove_tKingdoms.Add(k);
                 tChanged = true;
@@ -1210,7 +1217,10 @@ public class Empire : MetaObject<EmpireData>
         }
         foreach (Kingdom k in remove_tKingdoms)
         {
-            this.leave(k, false);
+            if (!k.isRekt())
+            {
+                this.leave(k, false);
+            }
             this.kingdoms_list.Remove(k);
         }
         if (tChanged)
@@ -1350,8 +1360,10 @@ public class Empire : MetaObject<EmpireData>
         UpdateProvinceStatus();
         foreach (Province province in province_list)
         {
+            if (province.isRekt()) continue;
             if(province.occupied_cities.Count > 0)
             {
+                LogService.LogInfo(province.data.name);
                 return true;
             }
         }
@@ -1360,9 +1372,49 @@ public class Empire : MetaObject<EmpireData>
 
     public void UpdateProvinceStatus()
     {
+        if (this.province_list == null) return;
+        ListPool<Province> invalid_province = new ListPool<Province> { };
         foreach (Province province in province_list)
         {
+            if (province.isRekt())
+            {
+                invalid_province.Add(province);
+            }
+            else
+            {
+                if (province.city_list.Count <= 0)
+                {
+                    invalid_province.Add(province);
+                }else
+                {
+                    foreach(City city in province.city_list)
+                    {
+                        if (city.isRekt())
+                        {
+                            invalid_province.Add(province);
+                            break;
+                        } else
+                        {
+                            if (city.hasProvince())
+                            {
+                                if (city.GetProvince()!=province)
+                                {
+                                    invalid_province.Add(province);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             province.updateOccupied();
+        }
+        foreach (Province province2 in invalid_province)
+        {
+            if (province2 == null) { this.province_list.Remove(province2); }
+            else
+            {
+                ModClass.PROVINCE_MANAGER.dissolveProvince(province2);
+            }
         }
     }
 
@@ -1923,6 +1975,7 @@ public static class ProvinceDivider
         Dictionary<KingdomTitle, Province> kpPair = new Dictionary<KingdomTitle, Province>();
         foreach (City city in cities) 
         {
+            if (city.isRekt()) continue;
             if (city.hasTitle())
             {
                 KingdomTitle title = city.GetTitle();

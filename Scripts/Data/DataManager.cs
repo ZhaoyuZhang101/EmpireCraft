@@ -129,18 +129,40 @@ public static class DataManager
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)
         {
-            empire.save();
-            saveData.empireDatas.Add(empire.data);
+            try
+            {
+                empire.save();
+                saveData.empireDatas.Add(empire.data);
+            } catch
+            {
+                LogService.LogInfo("存在帝国数据出错，跳过该帝国存档");
+            }
+
         }
         foreach (KingdomTitle kt in ModClass.KINGDOM_TITLE_MANAGER)
         {
-            kt.save();
-            saveData.kingdomTitleDatas.Add(kt.data);
+            try
+            {
+                kt.save();
+                saveData.kingdomTitleDatas.Add(kt.data);
+            } 
+            catch
+            {
+                LogService.LogInfo("存在头衔数据出错，跳过该头衔存档");
+            }
+
         }
         foreach(Province p in ModClass.PROVINCE_MANAGER)
         {
-            p.save();
-            saveData.provinceDatas.Add(p.data);
+            try
+            {
+                p.save();
+                saveData.provinceDatas.Add(p.data);
+            } catch
+            {
+                LogService.LogInfo("存在省份数据出错，跳过该省份存档");
+            }
+
         }
         saveData.yearNameSubspecies = ConfigData.yearNameSubspecies;
         saveData.all_history = ModClass.ALL_HISTORY_DATA;

@@ -197,10 +197,13 @@ public class ActorPatch : GamePatch
             }
             if (!flag&&__instance.hasClan())
             {
-                __instance.clan.data.name = pCulture.getOnomasticData(MetaType.Clan).generateName();
+                if (!__instance.clan.units.Any(p=>p.hasCulture()))
+                {
+                    __instance.clan.data.name = pCulture.getOnomasticData(MetaType.Clan).generateName();
+                }
                 if (__instance.hasFamily())
                 {
-                    __instance.family.data.name =__instance.city.data.name+ "\u200A" + pCulture.getOnomasticData(MetaType.Family).generateName();
+                    __instance.family.data.name = __instance.city.data.name + "\u200A" + __instance.clan.GetClanName() + "\u200A" + LM.Get("Family");
                     OverallHelperFunc.SetFamilyCityPre(__instance.family);
                 }
                 __instance.SetFamilyName(__instance.clan.GetClanName());

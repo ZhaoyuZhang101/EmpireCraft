@@ -31,8 +31,70 @@ public class UnitWindowPatch: GamePatch
             AccessTools.Method(typeof(UnitWindow), nameof(UnitWindow.OnEnable)),
             prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(OnEnable))
         );
+        // UnitWindow类的补丁
+        new Harmony(nameof(applyInputName)).Patch(
+            AccessTools.Method(typeof(UnitWindow), nameof(UnitWindow.applyInputName)),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(applyInputName))
+        );
         LogService.LogInfo("角色窗口补丁加载成功");
     }
+
+    public static bool applyInputName(UnitWindow __instance, string pInput)
+    {
+        if (!string.IsNullOrEmpty(pInput) && __instance.actor != null && __instance.actor.data != null)
+        {
+            LogService.LogInfo("角色改名触发");
+            __instance.actor.initializeActorName();
+            Name name = __instance.actor.GetModName();
+            bool invert = name.is_invert;
+            string[] namePart;
+            if (pInput.Contains("\u200A"))
+            {
+                namePart = pInput.Split('\u200A');
+            } else
+            {
+                namePart = pInput.Split(' ');
+            }
+            string firstName;
+            string familyName;
+            if (namePart.Length <= 1)
+            {
+                familyName = "";
+                if (namePart.Length == 1)
+                {
+                    firstName = namePart[0];
+                } else
+                {
+                    firstName = "";
+                }
+            } else
+            {
+                if (invert)
+                {
+                    firstName = namePart[0].Split(' ').Last();
+                    familyName = namePart[1].Split(' ').First();
+                }
+                else
+                {
+                    firstName = namePart[1].Split(' ').First();
+                    familyName = namePart[0].Split(' ').Last();
+                }
+            }
+            if (familyName != "")
+            {
+                LogService.LogInfo($"设置姓{familyName}");
+                __instance.actor.SetFamilyName(familyName);
+            }
+            if (firstName != "")
+            {
+                LogService.LogInfo($"设置名{firstName}");
+                __instance.actor.SetFirstName(firstName);
+            }
+            name.SetName(__instance.actor);
+        }
+        return false;
+    }
+
 
     public static void OnEnable(UnitWindow __instance)
     { 

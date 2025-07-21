@@ -501,7 +501,7 @@
                 },
                 "rule": [ "group_1", "group_2", "group_3" ],
                 "name_pos": 0,
-                "has_sex_post": false,
+                "has_sex_post": true,
                 "use_local_as_lastname": false
             },
             "Unit": {

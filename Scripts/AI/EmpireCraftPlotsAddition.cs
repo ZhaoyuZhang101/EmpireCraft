@@ -155,8 +155,11 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     Empire empire = kingdom.GetEmpire();
+                    if (empire == null ) return false;
+                    ModClass.EMPIRE_MANAGER.update(-1L);
                     foreach(Kingdom kingdom2 in empire.kingdoms_hashset)
                     {
+                        if (kingdom.isRekt()) continue;
                         if (!kingdom2.isBorder()&& empire.emperor.renown >= kingdom2.king.renown*2 && kingdom.countTotalWarriors() >= empire.countWarriors() / 5)
                         {
                             kingdom2.ChangeToProvince(empire);
@@ -185,6 +188,8 @@ namespace EmpireCraft.Scripts.AI
                     if (empire.emperor == null) return false;
                     if (!empire.emperor.isUnitFitToRule()) return false;
                     if (pActor.GetIdentity(empire).officialLevel != OfficialLevel.officiallevel_2 && pActor.GetIdentity(empire).officialLevel != OfficialLevel.officiallevel_3) return false;
+                    if (empire.data.centerOffice.Minister.actor_id != -1L && empire.data.centerOffice.General.actor_id != -1L) return false;
+                    if (empire.data.centerOffice.Minister.actor_id == empire.data.centerOffice.General.actor_id) return false;
                     if (pActor.renown < empire.emperor.renown) return false; 
                     return true;
                 },
@@ -1205,7 +1210,8 @@ namespace EmpireCraft.Scripts.AI
             if (kingdom == null) return false;
 
             Empire empire = kingdom.GetEmpire();
-            if (empire == null || !empire.isNeedToGetBackProvince()) return false;
+            if (empire == null) return false;
+            if(!empire.isNeedToGetBackProvince()) return false;
 
             return kingdom.getWars().Count() == 0;
         }

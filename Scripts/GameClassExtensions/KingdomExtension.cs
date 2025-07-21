@@ -502,6 +502,7 @@ public static class KingdomExtension
         ListPool<City> listPool = new ListPool<City>();
         foreach(City city in kingdom.cities)
         {
+            if (city.isRekt()) continue;
             if (!city.hasProvince())
             {
                 if (province!=null)
