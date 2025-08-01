@@ -1,7 +1,7 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
-using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window;

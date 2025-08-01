@@ -12,8 +12,11 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Numerics;
+using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -46,9 +49,19 @@ public class ActorPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(setKingdom)));
         new Harmony(nameof(showTooltip)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.showTooltip)),
             prefix: new HarmonyMethod(GetType(), nameof(showTooltip)));
+        new Harmony(nameof(setLover)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setLover)),
+            postfix: new HarmonyMethod(GetType(), nameof(setLover)));
         LogService.LogInfo("角色补丁加载成功");
     }
 
+    public static void setLover(Actor __instance, Actor pActor)
+    {
+        if(__instance.HasSpecificClan())
+        {
+            PersonalClanIdentity identity = __instance.GetPersonalIdentity();
+            identity.setLover(pActor, __instance.isMarriageMainActor());
+        }
+    }
     public static bool showTooltip(Actor __instance, object pUiObject)
     {
         string pType = (__instance.isEmperor()?"actor_emperor":(__instance.isKing() ? "actor_king" : ((!__instance.isCityLeader()) ? "actor" : (__instance.isOfficer()? "actor_officer": "actor_leader"))));
@@ -135,6 +148,12 @@ public class ActorPatch : GamePatch
             {
                 province.RemoveOfficer();
             }
+        }
+        if (__instance.HasSpecificClan())
+        {
+            PersonalClanIdentity pci = __instance.GetPersonalIdentity();
+            pci.is_alive = false;
+            pci.actor_id = -1L;
         }
         __instance.RemoveExtraData<Actor, ActorExtraData>();
     }

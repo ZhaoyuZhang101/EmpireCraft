@@ -100,6 +100,10 @@
     "EmpireOfficeGroup": "官僚等级",
     "i_name": "姓名",
     "i_on_office_time": "在任时长",
+    "current_actor": "当前角色",
+    "current_parent_generation": "直系长辈",
+    "current_same_generation": "直系同辈",
+    "current_children_generation": "直系子辈",
     "i_history_num": "历任官员数量",
 
     "title_name": "头衔名称",
@@ -145,6 +149,9 @@
     "CoreOffice": "中央部门",
     "Divisions": "下级部门",
     "EmpireBeaurauWindowTitle": "官僚管理界面",
+    "SpecificClanWindowTitle": "宗族",
+    "specific_clan": "宗族",
+    "specific_clan_description": "查看人物的族谱",
 
     "trait_libushangshu": "吏部尚书",
     "trait_xingbushangshu": "刑部尚书",
@@ -214,6 +221,17 @@
     "become_greater_general": "$actor$ 被加封为 $empire$ 的天策上将，开府仪同三司，上柱国！",
     "history_empire_get_back_land": "$actor$ 发动了收复 $place$ 的战争",
     "join_empire_war_log": "$kingdom$ 加入了 $empire$ 的战争",
+    "officer_build_specific_clan": "$actor$ 创建了 $clan_name$ 氏族谱",
+    "On": "开",
+    "Off": "关",
+    "population_limit_text": "开启开关设置人口限制",
+    "population_limit_title": "设置城市人口限制",
+
+    "city_setting": "城市设置",
+    "city_setting_description": "设置城市的基本配置，如人口限制等",
+    "AdditionalTab": "附加侧边按钮",
+    "AdditionalTab_description": "附加侧边按钮描述",
+    "AdditionalTab_description_2": "帝国盒子 by长明火",
 
 
     "Title_Freeze_Toggle": "冻结法理",

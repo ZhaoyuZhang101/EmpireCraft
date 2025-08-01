@@ -11,8 +11,8 @@ using NeoModLoader.General.UI.Prefabs;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Data;
 using NeoModLoader.api.attributes;
-using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.General;
+using EmpireCraft.Scripts.UI.Components;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {

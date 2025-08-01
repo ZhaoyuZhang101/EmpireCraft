@@ -207,6 +207,7 @@ public class Province : MetaObject<ProvinceData>
         officer.goTo(province_capital._city_tile);
         this.data.history_officers.Add(actor.getName());
         this.data.new_officer_timestamp = World.world.getCurWorldTime();
+        SpecificClanManager.CheckSpecificClan(actor);
     }
 
     public void checkCanbeTranfered()

@@ -25,12 +25,17 @@ public class AlliancePatch : GamePatch
     {
         if (pKingdom.isInEmpire())
         {
-            if (pKingdom.GetEmpire().getEmpirePeriod() != EmpirePeriod.天命丧失 && pKingdom.GetEmpire().getEmpirePeriod() != EmpirePeriod.逐鹿群雄)
+            __result = false;
+            return false; // 阻止原方法执行
+        }
+        foreach (Kingdom targetKingdom in __instance.kingdoms_hashset)
+        {
+            if (targetKingdom.isNeighbourWith(pKingdom) && pKingdom.isOpinionTowardsKingdomGood(targetKingdom))
             {
-                __result = false;
-                return false; // 阻止原方法执行
+                __result = true;
+                return true;
             }
         }
-        return true; // 允许原方法执行
+        return false; // 允许原方法执行
     }
 }

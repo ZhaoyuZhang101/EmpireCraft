@@ -18,6 +18,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using UnityEngine.Pool;
 using NeoModLoader.General;
 using System.Collections;
+using EmpireCraft.Scripts.UI.Components;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {

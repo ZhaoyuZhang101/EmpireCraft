@@ -1,5 +1,4 @@
-﻿using EmpireCraft.Scripts.HelperFunc;
-using NeoModLoader.api;
+﻿using NeoModLoader.api;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General;
 using System;
@@ -20,6 +19,7 @@ using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General.UI.Window;
 using UnityEngine.Pool;
 using NeoModLoader.services;
+using EmpireCraft.Scripts.UI.Components;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>

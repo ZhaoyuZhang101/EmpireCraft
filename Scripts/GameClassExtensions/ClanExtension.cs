@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using UnityEngine;
@@ -13,13 +14,35 @@ public static class ClanExtension
         public float x = -1L;
         public float y = -1L;
         public long original_capital;
+        public double specific_clan_id = -1L;
     }
 
 
-    public static ClanExtraData GetOrCreate(Clan a, bool isSave = false)
+    public static ClanExtraData GetOrCreate(this Clan a, bool isSave = false)
     {
         var ed = a.GetOrCreate<Clan, ClanExtraData>(isSave);
         return ed;
+    }
+    public static bool HasSpecificClan(this Clan a)
+    {
+        if (a == null) return false;
+        return a.GetOrCreate().specific_clan_id != -1L;
+    }
+    public static SpecificClan GetSpecificClan(this Clan a)
+    {
+        if (a == null) return null;
+        var ed = a.GetOrCreate();
+        return SpecificClanManager.Get(ed.specific_clan_id);
+    }
+    public static void SetSpecificClan(this Clan a, SpecificClan specificClan)
+    {
+        if (a == null) return;
+        a.GetOrCreate().specific_clan_id = specificClan.id;
+    }
+    public static void RemoveSpecificClan(this Clan a)
+    {
+        if (a == null) return;
+        a.GetOrCreate().specific_clan_id = -1L;
     }
 
     public static string GetClanName(this Clan clan, ActorSex sex = ActorSex.None, bool hasSexPost = false)

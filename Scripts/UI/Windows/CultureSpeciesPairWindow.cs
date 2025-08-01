@@ -1,7 +1,7 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GamePatches;
-using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window;
@@ -75,7 +75,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
     {
         if (!ConfigData.currentExistCulture.Contains(input)) 
         {
-            inputText.text.text = "";
+            inputText.input.text = "";
             return;
         }
         ConfigData.speciesCulturePair[civSpecies] = input;
@@ -97,7 +97,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
     {
         if (input=="")
         {
-            searchInput.text.text = LM.Get("input_species");
+            searchInput.input.text = LM.Get("input_species");
         }
         Clear();
         List<string> species = ConfigData.AllCivSpecies.FindAll(a=>a.Contains(input)||LM.Get(a).Contains(input));

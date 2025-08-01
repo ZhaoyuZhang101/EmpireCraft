@@ -38,6 +38,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset cotrolled_country_log;
     public static WorldLogAsset become_greater_general;
     public static WorldLogAsset join_empire_war_log;
+    public static WorldLogAsset officer_build_specific_clan;
 
     public static void init()
     {
@@ -53,6 +54,18 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$place$", 2);
                 wl.updateText(ref pText, pMessage, "$year_name$", 3);
+            }
+        });
+        officer_build_specific_clan = wl.add(new WorldLogAsset
+        {
+            id = nameof(officer_build_specific_clan),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$clan_name$", 2);
             }
         });
         become_greater_general = wl.add(new WorldLogAsset

@@ -41,6 +41,8 @@ public class DiplomacyManagerPatch : GamePatch
         }
         foreach (Kingdom item in listPool.LoopRandom())
         {
+            if (item.isInEmpire()) continue;
+            if (!item.isNeighbourWith(pKingdomStarter)) continue;
             if (item.hasKing() && !item.isSupreme() && !item.king.hasPlot() && pKingdomStarter.isOpinionTowardsKingdomGood(item) && item.getRenown() >= PlotsLibrary.alliance_create.min_renown_kingdom)
             {
                 if (item == null) continue;
@@ -53,23 +55,7 @@ public class DiplomacyManagerPatch : GamePatch
                 {
                     flag = true;
                 }
-                if (pKingdomStarter.isInEmpire())
-                {
-                    if (item.isInSameEmpire(pKingdomStarter))
-                    {
-                        flag = true;
-                    } else
-                    {
-                        flag = false;
-                    }
-                    if (item.isInEmpire())
-                    {
-                        if (item.GetEmpire().isAllowToMakeWar())
-                        {
-                            flag = true;
-                        }
-                    }
-                }
+
                 if (flag)
                 {
                     __result= item;

@@ -20,6 +20,9 @@ using System.Configuration;
 using static EmpireCraft.Scripts.HelperFunc.ExamSystem;
 using System.Numerics;
 using System.Text.RegularExpressions;
+using System.Runtime.Serialization;
+using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
+using System.Security.Principal;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 public class Name
@@ -211,6 +214,7 @@ public static class ActorExtension
         public OfficeIdentity officeIdentity { get; set; } = null;
         public long empire_id { get; set; } = -1L;
         public long provinceId { get; set; } = -1L;
+        public double personal_identity { get; set; } = -1L;
     }
     public static void SetTitle(this Actor a, string value)
     {
@@ -218,6 +222,97 @@ public static class ActorExtension
         if (a.kingdom == null) return;
         if (a.kingdom.GetEmpire() == null) return;
         GetOrCreate(a).title = value + "\u200A" + TranslateHelper.GetPeerageTranslate(a.GetPeeragesLevel());
+    }
+    public static SpecificClan GetSpecificClan(this Actor a)
+    {
+        if (a == null) return null;
+        var identity = a.GetPersonalIdentity();
+        return identity != null
+            ? identity._specificClan
+            : null;
+    }
+    public static PersonalClanIdentity GetPersonalIdentity(this Actor a)
+    {
+        if (a == null) return null;
+        var ed = a.GetOrCreate();
+        return SpecificClanManager.getPerson(ed.personal_identity);
+    }
+    public static void RemoveSpecificClan(this Actor a)
+    {
+        if (a == null) return;
+        var ed = a.GetOrCreate();
+        ed.personal_identity = -1L;
+    }
+    public static void SetPersonalIdentity(this Actor a, PersonalClanIdentity pci)
+    {
+        if (a == null) return;
+        var ed = GetOrCreate(a);
+        if (ed == null) return;
+        ed.personal_identity = pci.id;
+    }
+    public static void RemovePersonalIdentity(this Actor a)
+    {
+        if (a == null) return;
+        var ed = GetOrCreate(a);
+        if (ed == null) return;
+        ed.personal_identity = -1L;
+    }
+
+    public static bool isMarriageMainActor(this Actor actor)
+    {
+        if (actor == null) return false;
+        if (!actor.HasSpecificClan()) return false;
+        PersonalClanIdentity identity = actor.GetPersonalIdentity();
+        return (identity._specificClan.isMalePriority() && actor.isSexMale()) || (!identity._specificClan.isMalePriority() && actor.isSexFemale());
+    }
+    public static PersonalClanIdentity InitialPersonalIdentity(this Actor a, SpecificClan clan)
+    {
+        if (a == null) return null;
+        var ed = a.GetOrCreate();
+        PersonalClanIdentity pci = new PersonalClanIdentity(clan, a);
+        if (a.getParents().Count()>0)
+        {
+            foreach(Actor parent in a.getParents())
+            {
+                pci.setParent(parent);
+            }
+        }
+        if (a.getChildren().Count()>0)
+        {
+            foreach (Actor child in a.getChildren())
+            {
+                pci.addChild(child);
+            }
+        }
+        return pci;
+    }
+    public static Culture GetCulture(this Actor a)
+    {
+        if (a == null) return null;
+        if (a.hasCulture())
+        {
+            return a.culture;
+        } else
+        {
+            if (a.getParents().Count() > 0)
+            {
+                foreach(Actor parent in a.getParents())
+                {
+                    if (parent.hasCulture())
+                    {
+                        return parent.culture;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public static bool HasSpecificClan(this Actor a)
+    {
+        if (a == null) return false;
+        var ed = a.GetOrCreate();
+        return ed.personal_identity != -1L;
     }
 
     public static void SetEmpire(this Actor a, Empire empire)

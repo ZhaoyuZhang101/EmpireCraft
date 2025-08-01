@@ -2,7 +2,10 @@
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.UI.Components;
+using EmpireCraft.Scripts.UI.Windows;
 using HarmonyLib;
+using NCMS.Utils;
 using NeoModLoader.api;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
@@ -97,12 +100,30 @@ public class UnitWindowPatch: GamePatch
 
 
     public static void OnEnable(UnitWindow __instance)
-    { 
+    {
         //if (__instance.transform.Find("historyRecordButton")==null)
         //{
         //    SimpleButton simpleButton = GameObject.Instantiate(SimpleButton.Prefab, __instance.transform);
         //    simpleButton.Setup(OpenHistoryRecordWindow, SpriteTextureLoader.getSprite("EmperorQuest"));
         //}
+        ScrollWindow _window = ScrollWindow._current_window;
+        City city = Config.selected_city;
+        Transform space = __instance.tabs.transform.Find("space (1)");
+        if (space != null)
+        {
+            GameObject.Destroy(space.gameObject);
+        }
+        if (!__instance.tabs._tabs.Any(p => p.name == "specific_clan"))
+        {
+            SimpleWindowTab simpleWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            simpleWindowTab.Setup("specific_clan", __instance, action:(Actor) => ShowSpecificClan(__instance.actor));
+        }
+    }
+
+    private static void ShowSpecificClan(Actor actor)
+    {
+        ScrollWindow.showWindow(nameof(SpecificClanWindow));
+        LogService.LogInfo($"开启SpecificClanWindow");
     }
 
     public static void OpenHistoryRecordWindow()

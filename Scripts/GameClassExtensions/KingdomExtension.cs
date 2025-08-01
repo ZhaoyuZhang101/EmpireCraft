@@ -34,6 +34,48 @@ public static class KingdomExtension
         public long main_title_id = -1L;
         public List<long> OwnedTitle = new List<long>();
         public long provinceID = -1L;
+        public int independentValue = 100;
+    }
+    public static int GetIndependentValue(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        if (ed != null)
+        {
+            return ed.independentValue;
+        } else
+        {
+            return 100;
+        }
+    }
+    public static void SetIndependentValue(this Kingdom k, int value)
+    {
+        var ed = k.GetOrCreate();
+        ed.independentValue = value;
+    }
+
+    public static void AddIndependentValue(this Kingdom k, int addition)
+    {
+        var ed = k.GetOrCreate();
+        ed.independentValue += addition;
+        if (ed.independentValue < 0)
+        {
+            ed.independentValue = 0;
+        } else if (ed.independentValue > 100)
+        {
+            ed.independentValue = 100;
+        }
+    }
+
+    public static bool isIndependent(this Kingdom kingdom)
+    {
+        var ed = kingdom.GetOrCreate();
+        return ed.independentValue >= 100;
+    }
+
+    public static bool canBeTaken(this Kingdom kingdom)
+    {
+        var ed = kingdom.GetOrCreate();
+        return ed.independentValue <= 0;
     }
 
     public static void SetMainTitle(this Kingdom k, KingdomTitle title)

@@ -435,6 +435,8 @@ public class Empire : MetaObject<EmpireData>
                                 });
                                 this.province_list.Clear();
                                 start_province = province;
+                                string empireName = String.Join("\u200A", this.CalcDir(this.empire.capital.city_center, kingdom.capital.city_center), this.GetEmpireName());
+                                newEmpire.SetEmpireName(empireName);
                                 has_new_empire = true;
                                 break;
                             }
@@ -445,39 +447,21 @@ public class Empire : MetaObject<EmpireData>
             if (has_new_empire) 
             {
                 List<Province> provinces = new List<Province>();
-                startSplit(newEmpire, start_province, ref provinces, 0.7f);
-            }
-            this.addRenown(-(int)(renown * 0.5));
-            if (this.emperor.hasClan())
-            {
-                try
+                startSplit(newEmpire, start_province, ref provinces, 0.8f);
+                string nameEmpire = "" + this.emperor.culture?.getOnomasticData(MetaType.Kingdom).generateName();
+                if (this.emperor.hasClan())
                 {
                     if (this.emperor.clan.HasHistoryEmpire())
                     {
-                        string empireName = String.Join("\u200A", newEmpire.GetDir(this.emperor.clan.GetHistoryEmpirePos()), this.emperor.clan.GetHistoryEmpireName());
-                        newEmpire.SetEmpireName(empireName);
-                    } else
-                    {
-                        string name = actor.generateName(MetaType.Kingdom, empire.getID());
-                        this.empire.SetKingdomName(name.Split('\u200A')[0]);
-                        this.empire.generateNewMetaObject();
-                        this.SetEmpireName(name.Split('\u200A')[0]);
+                        nameEmpire = this.GetDir(this.emperor.clan.GetHistoryEmpirePos()) + "\u200A" + this.emperor.clan.GetHistoryEmpireName();
                     }
-                } catch
-                {
-                    string name = actor.generateName(MetaType.Kingdom, empire.getID());
-                    this.empire.SetKingdomName(name.Split('\u200A')[0]);
-                    this.empire.generateNewMetaObject();
-                    this.SetEmpireName(name.Split('\u200A')[0]);
                 }
-
-            }else
-            {
-                string name = actor.generateName(MetaType.Kingdom, empire.getID());
-                this.empire.SetKingdomName(name.Split('\u200A')[0]);
-                this.empire.generateNewMetaObject();
-                this.SetEmpireName(name.Split('\u200A')[0]);
+                if (nameEmpire!="")
+                {
+                    SetEmpireName(nameEmpire);
+                }
             }
+            this.addRenown(-(int)(renown * 0.5));
             this.empire_clan = this.emperor.clan;
         }
         if (emperor.isOfficer())
@@ -748,14 +732,18 @@ public class Empire : MetaObject<EmpireData>
         this.data.last_exam_timestamp = World.world.getCurWorldTime();
         this.data.armySystemType = ArmySystemType.募兵制;
         this.StartEmpireExam();
-        if (ConfigData.speciesCulturePair != null) 
-        {
-            if (ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out string culture)) {
-                if (culture == "Huaxia")
-                {
-                    this.data.has_year_name = true;
-                }
+        if (ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out string culture)) {
+            this.data.centerOffice = new CenterOffice(culture);
+            if (ConfigData.yearNameSubspecies.Contains(culture))
+            {
+                this.data.has_year_name = true;
+            } else
+            {
+                this.data.has_year_name = false;
             }
+        } else
+        {
+            this.data.centerOffice = new CenterOffice("Western");
         }
         this.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
         this.empire = kingdom;
@@ -870,6 +858,24 @@ public class Empire : MetaObject<EmpireData>
         else if (ay > ax)
         {
             return LM.Get(capital_center.y > v.y ? "Northern" : "Southern");
+        }
+        else
+        {
+            return LM.Get("Later");
+        }
+    }
+
+    public string CalcDir(Vector2 ori_v, Vector2 v)
+    {
+        float ax = Math.Abs(v.x- ori_v.x);
+        float ay = Math.Abs(v.y- ori_v.y);
+        if (ax > ay)
+        {
+            return LM.Get(ori_v.x > v.x ?"Eastern" : "Western");
+        }
+        else if (ay > ax)
+        {
+            return LM.Get(ori_v.y > v.y ? "Northern" : "Southern");
         }
         else
         {

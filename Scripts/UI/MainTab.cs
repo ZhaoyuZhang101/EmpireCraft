@@ -54,6 +54,8 @@ internal static class MainTab
             nameof(EmpireBeaurauWindow) + "Title");
         ChangeUnitWindow.CreateWindow(nameof(ChangeUnitWindow),
             nameof(ChangeUnitWindow) + "Title");
+        SpecificClanWindow.CreateWindow(nameof(SpecificClanWindow),
+            nameof(SpecificClanWindow) + "Title");
     }
 
     private static void _addButtons()

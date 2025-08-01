@@ -1,7 +1,7 @@
 ﻿using NeoModLoader.General.UI.Prefabs;
 using UnityEngine;
 using UnityEngine.UI;
-namespace EmpireCraft.Scripts.HelperFunc;
+namespace EmpireCraft.Scripts.UI.Components;
 
 /// <summary>
 ///     A simple text prefab. Documentation is coming soon.

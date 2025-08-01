@@ -36,6 +36,8 @@ public class EmpireCraftKingdomBehCheckPlots : BehaviourActionKingdom
                         List<Kingdom> opposites = war.getOppositeSideKingdom(pKingdom);
                         foreach (Kingdom empireKingdoms in empire.kingdoms_hashset)
                         {
+                            if (empireKingdoms == null) return;
+                            if (empireKingdoms.isRekt()) return;
                             if (!opposites.Contains(empireKingdoms) && pKingdom.getRenown() >= empireKingdoms.countTotalWarriors() && empireKingdoms.getWars().Count() <= 0)
                             {
                                 if (war.isAttacker(pKingdom))

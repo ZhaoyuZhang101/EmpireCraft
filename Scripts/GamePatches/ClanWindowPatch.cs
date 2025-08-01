@@ -1,12 +1,17 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.UI.Components;
 using HarmonyLib;
 using NeoModLoader.api;
+using NeoModLoader.api.attributes;
 using NeoModLoader.General;
+using NeoModLoader.General.UI.Prefabs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine.UI;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class ClanWindowPatch : GamePatch

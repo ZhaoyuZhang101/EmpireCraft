@@ -13,6 +13,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.HelperFunc;
 
 public class SaveData
 {
@@ -27,4 +28,5 @@ public class SaveData
     public List<string> yearNameSubspecies = new List<string>();
     public Dictionary<long, List<EmpireCraftHistory>> all_history;
     public bool prevent_city_destroy = false;
+    public List<SpecificClan> specificClans = new List<SpecificClan>();
 }

@@ -11,6 +11,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using db;
+using EmpireCraft.Scripts.HelperFunc;
 
 namespace EmpireCraft.Scripts.Data;
 
@@ -104,8 +105,7 @@ public static class DataManager
         {
             empire.syncProvince();
         }
-
-
+        SpecificClanManager._specificClans = saveData.specificClans;
         LogService.LogInfo("Sync Titles Data");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         LogService.LogInfo("Sync history Data");
@@ -167,7 +167,7 @@ public static class DataManager
         saveData.yearNameSubspecies = ConfigData.yearNameSubspecies;
         saveData.all_history = ModClass.ALL_HISTORY_DATA;
         saveData.prevent_city_destroy = ConfigData.PREVENT_CITY_DESTROY;
-
+        saveData.specificClans = SpecificClanManager._specificClans;
         string json = JsonConvert.SerializeObject(saveData, Formatting.Indented);
         LogService.LogInfo("" + saveData.actorsExtraData.Count());
         LogService.LogInfo("" + saveData.warExtraData.Count());
@@ -176,4 +176,5 @@ public static class DataManager
         File.WriteAllText(savePath, json);
         LogService.LogInfo("Save Finished");
     }
+
 }

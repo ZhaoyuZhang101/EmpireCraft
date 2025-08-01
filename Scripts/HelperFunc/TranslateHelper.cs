@@ -169,6 +169,19 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
+        public static void LogOfficerBuildSpecificClan(Actor actor, SpecificClan sc)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.officer_build_specific_clan,
+                actor.name,
+                sc.name
+                )
+            {
+                location = actor.current_position,
+                color_special1 = actor.kingdom.getColor()._colorText,
+                color_special2 = actor.clan.getColor()._colorText
+
+            }.add();
+        }
         public static void LogKingdomChangeCapitalToTitle(Kingdom kingdom,KingdomTitle title)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.history_kingdom_change_capital_to_title,

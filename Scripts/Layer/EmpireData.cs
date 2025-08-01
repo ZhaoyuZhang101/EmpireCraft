@@ -121,6 +121,11 @@ public class OfficeObject
     {
         this.actor_id = actor.getID();
         this.timestamp = World.world.getCurWorldTime();
+        if(!actor.hasCulture())
+        {
+            actor.setCulture(actor.kingdom.culture);
+        }
+        SpecificClanManager.CheckSpecificClan(actor);
     }
     public Actor GetActor()
     {

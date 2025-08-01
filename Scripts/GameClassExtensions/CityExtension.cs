@@ -1,18 +1,10 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
-using EpPathFinding.cs;
-using HarmonyLib;
-using NeoModLoader.services;
-using Newtonsoft.Json.Linq;
+using NeoModLoader.General.UI.Prefabs;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using UnityEngine.Assertions.Must;
-using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
-using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
+using Newtonsoft.Json;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 
@@ -27,12 +19,50 @@ public static class CityExtension
         public List<long> exam_pass_person;
         public int MAX_POPULATION = 100;
         public bool MAX_POPULATION_LIMIT = false;
+        [JsonIgnore]
+        public TextInput limitationNumber { get; set; }
+        [JsonIgnore]
+        public SimpleButton limitToggle { get; set; }
     }
     public static CityExtraData GetOrCreate(this City a, bool isSave=false)
     {
         var ed = a.GetOrCreate< City, CityExtraData>(isSave);
         return ed;
     } 
+
+    public static void SetLimitInput(this City c, TextInput input)
+    {
+        var ed = c.GetOrCreate();
+        ed.limitationNumber = input;
+    }
+
+    public static TextInput GetLimitInput(this City c)
+    {
+        var ed = c.GetOrCreate();
+        return ed.limitationNumber;
+    }
+
+    public static bool HasReachedPlayerPopLimit(this City c)
+    {
+        var ed = c.GetOrCreate(); 
+        if (c.getPopulationPeople()>c.GetMaxPopulation()&&c.GetMaxPopulationLimitStats())
+        {
+            return true;
+        }
+        return false;
+    }
+
+    public static void SetLimitToggle(this City c, SimpleButton limitToggle)
+    {
+        var ed = c.GetOrCreate();
+        ed.limitToggle = limitToggle;
+    }
+
+    public static SimpleButton GetLimitToggle(this City c)
+    {
+        var ed = c.GetOrCreate();
+        return ed.limitToggle;
+    }
 
     public static int GetMaxPopulation(this City c)
     {
@@ -48,6 +78,11 @@ public static class CityExtension
     {
         var ed = c.GetOrCreate();
         ed.MAX_POPULATION_LIMIT = true;
+    }
+    public static bool GetMaxPopulationLimitStats(this City c)
+    {
+        var ed = c.GetOrCreate();
+        return ed.MAX_POPULATION_LIMIT;
     }
     public static void CloseMaxPopulationLimit(this City c)
     {

@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using UnityEngine;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using static System.Collections.Specialized.BitVector32;
 
@@ -1020,7 +1021,7 @@ namespace EmpireCraft.Scripts.AI
                     return false;
                 }
             });
-            AssetManager.plots_library.add(new PlotAsset
+            AssetManager.plots_library.add(PlotsLibrary.new_war = new PlotAsset
             {
                 id = "new_war",
                 is_basic_plot = true,
@@ -1121,6 +1122,118 @@ namespace EmpireCraft.Scripts.AI
                     return true;
                 }
             });
+
+            PlotsLibrary.alliance_create.check_is_possible = delegate (Actor pActor)
+            {
+                Kingdom kingdom = pActor.kingdom;
+                if (kingdom.hasAlliance())
+                {
+                    return false;
+                }
+                if (kingdom.isInEmpire())
+                {
+                    return false;
+                }
+                if (kingdom.hasEnemies())
+                {
+                    return false;
+                }
+                if (kingdom.isSupreme())
+                {
+                    return false;
+                }
+                if (Date.getYearsSince(kingdom.data.timestamp_alliance) < SimGlobals.m.alliance_timeout)
+                {
+                    return false;
+                }
+                return !World.world.plots.isPlotTypeAlreadyRunning(pActor, PlotsLibrary.alliance_create);
+            };
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "alliance_join",
+                is_basic_plot = true,
+                path_icon = "plots/icons/plot_alliance_create",
+                group_id = "diplomacy",
+                min_level = 2,
+                money_cost = 5,
+                min_diplomacy = 5,
+                min_renown_kingdom = 50,
+                can_be_done_by_king = true,
+                check_target_alliance = true,
+                requires_diplomacy = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (kingdom.isSupreme())
+                    {
+                        return false;
+                    }
+                    if (kingdom.hasAlliance())
+                    {
+                        return false;
+                    }
+                    if (kingdom.isInEmpire())
+                    {
+                        return false;
+                    }
+                    if (kingdom.hasEnemies())
+                    {
+                        return false;
+                    }
+                    if (Date.getYearsSince(kingdom.data.timestamp_alliance) < SimGlobals.m.alliance_timeout)
+                    {
+                        return false;
+                    }
+                    return World.world.alliances.anyAlliances() ? true : false;
+                },
+                try_to_start_advanced = delegate (Actor pActor, PlotAsset pPlotAsset, bool pForced)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    _ = kingdom.power;
+                    Alliance alliance = null;
+                    foreach (Alliance item3 in World.world.alliances.list.LoopRandom())
+                    {
+                        if (!item3.hasWars())
+                        {
+                            if (pForced)
+                            {
+                                alliance = item3;
+                                break;
+                            }
+                            if (item3.canJoin(kingdom) && !item3.hasSupremeKingdom())
+                            {
+                                _ = item3.power;
+                                bool flag = false;
+                                if (kingdom.cities.Count <= 2 && !kingdom.hasNearbyKingdoms())
+                                {
+                                    flag = true;
+                                }
+                                if (!flag && item3.hasSharedBordersWithKingdom(kingdom))
+                                {
+                                    flag = true;
+                                }
+                                if (flag)
+                                {
+                                    alliance = item3;
+                                }
+                            }
+                        }
+                    }
+                    if (alliance == null)
+                    {
+                        return false;
+                    }
+                    Plot plot = World.world.plots.newPlot(pActor, pPlotAsset, pForced);
+                    plot.target_alliance = alliance;
+                    if (!plot.checkInitiatorAndTargets())
+                    {
+                        Debug.Log("tryPlotJoinAlliance is missing start requirements");
+                        return true;
+                    }
+                    pActor.setPlot(plot);
+                    return true;
+                }
+            });
             LogService.LogInfo($"Currently loaded{AssetManager.plots_library.getList().Count().ToString()} plots");
             AssetManager.plots_library.linkAssets();
         }
@@ -1152,6 +1265,15 @@ namespace EmpireCraft.Scripts.AI
         {
             Kingdom kingdom = pActor.kingdom;
             Empire empire = ModClass.EMPIRE_MANAGER.newEmpire(kingdom);
+            if (kingdom.hasAlliance())
+            {
+                foreach (Kingdom kingdom1 in kingdom.getAlliance().kingdoms_hashset) 
+                {
+                    kingdom1.SetCountryLevel(countryLevel.countrylevel_3);
+                    kingdom1.SetIndependentValue(50);
+                    empire.join(kingdom1);
+                }
+            }
             empire.DivideIntoProvince();
             //empire.AutoEnfeoff();
             return true;
