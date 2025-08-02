@@ -280,12 +280,12 @@ public class Empire : MetaObject<EmpireData>
             }
             bool flag = false;
             Actor final = null;
-            if (pool.Count > 0)
+            if (pool.Any())
             {
                 final = pool.First();
                 flag = true;
             }
-            else if (pool2.Count > 0)
+            else if (pool2.Any())
             {
                 if (empire.hasCulture())
                 {
@@ -304,7 +304,7 @@ public class Empire : MetaObject<EmpireData>
                 final.SetIdentity(identity, false);
                 flag = true;
             }
-            else if (pool3.Count > 0)
+            else if (pool3.Any())
             {
                 if (empire.hasCulture())
                 {
@@ -1660,14 +1660,14 @@ public class Empire : MetaObject<EmpireData>
         }
         using (ListPool<War> tWars = new ListPool<War>(this.getWars(false)))
         {
-            for (int i = 0; i < tWars.Count; i++)
+            for (int i = 0; i < tWars.Count(); i++)
             {
-                War tWar = tWars[i];
+                War tWar = tWars.ElementAt(i);
                 if (!tWar.hasEnded())
                 {
-                    for (int j = i + 1; j < tWars.Count; j++)
+                    for (int j = i + 1; j < tWars.Count(); j++)
                     {
-                        War tWar2 = tWars[j];
+                        War tWar2 = tWars.ElementAt(j);
                         if (!tWar2.hasEnded() && tWar.isSameAs(tWar2))
                         {
                             if (tWar.data.created_time < tWar2.data.created_time)

@@ -146,10 +146,11 @@ public static class UIHelper
         LogService.LogInfo("点击角色");
     }
 
-    public static SimpleButton CreateAvatarView(long actor_id)
+    public static SimpleButton CreateAvatarView(long actor_id, UnityAction action=null, bool show_frame=true)
     {
         UnitAvatarLoader pPrefab = Resources.Load<UnitAvatarLoader>("ui/AvatarLoaderFramed");
         UnitAvatarLoader unit_loader = UnityEngine.Object.Instantiate(pPrefab);
+        unit_loader._frame.gameObject.SetActive(show_frame);
         SimpleButton clickframe = UnityEngine.Object.Instantiate(SimpleButton.Prefab);
         RectTransform rt = clickframe.GetComponent<RectTransform>();
         rt.anchorMin = Vector2.zero;
@@ -159,7 +160,14 @@ public static class UIHelper
         clickframe.Icon.raycastTarget = true;
 
         Actor actor = World.world.units.get(actor_id);
-        clickframe.Setup(() => actorClick(actor), SpriteTextureLoader.getSprite(""), pSize: new Vector2(30, 30));
+        if (action == null)
+        {
+            clickframe.Setup(() => actorClick(actor), SpriteTextureLoader.getSprite(""), pSize: new Vector2(30, 30));
+        }
+        else
+        {
+            clickframe.Setup(action, SpriteTextureLoader.getSprite(""), pSize: new Vector2(30, 30));
+        }
         clickframe.Background.color = new Color(0, 0, 0, 0.0f);
         clickframe.Icon.color = new Color(0, 0, 0, 0.0f);
         if (actor != null)
@@ -183,6 +191,34 @@ public static class UIHelper
         unit_loader.transform.SetAsLastSibling();
         unit_loader.transform.localScale = new Vector2(1.2f, 1.2f);
         return clickframe;
+    }
+    /// <summary>
+    /// 在 personalGroup 下插入一个全铺满的 Image 背景，
+    /// 并保留所有其他子对象在它之上。
+    /// </summary>
+    public static void AddStretchBackground(this Transform personalGroup, Sprite bgSprite)
+    {
+        // 1. 给 personalGroup 的 GameObject 加 Image 组件
+        var go = personalGroup.gameObject;
+        var img = go.GetComponent<Image>();
+        if (img == null) img = go.AddComponent<Image>();
+
+        // 2. 指定你想要的 Sprite／9-slice 类型
+        img.sprite = bgSprite;
+        img.type   = Image.Type.Sliced;       // 如果是可拉伸的九宫图
+        img.color  = Color.white;             // 或者半透明：new Color(1,1,1,0.5f)
+
+        // 3. 确保这个 Image 处于所有子元素的最底层
+        img.transform.SetAsFirstSibling();
+
+        // 4. 把 RectTransform 拉伸铺满父容器
+        var rt = img.rectTransform;
+        rt.anchorMin    = Vector2.zero;
+        rt.anchorMax    = Vector2.one;
+        rt.offsetMin    = Vector2.zero;
+        rt.offsetMax    = Vector2.zero;
+        rt.pivot        = new Vector2(0.5f, 0.5f);
+        rt.localScale   = Vector3.one;
     }
     public static SimpleButton CreateToggleButton(UnityAction action)
     {

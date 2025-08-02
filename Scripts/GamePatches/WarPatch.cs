@@ -15,7 +15,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using static UnityEngine.UI.CanvasScaler;
 
 namespace EmpireCraft.Scripts.GamePatches;
-public class WarPatch
+public class WarPatch: GamePatch
 {
     public ModDeclare declare { get; set; }
     public void Initialize()
@@ -23,7 +23,7 @@ public class WarPatch
         // UnitWindow类的补丁
         new Harmony(nameof(start_new_war)).Patch(
             AccessTools.Method(typeof(DiplomacyManager), nameof(DiplomacyManager.startWar)),
-            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(start_new_war))
+            postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(start_new_war))
         );
         // UnitWindow类的补丁
         new Harmony(nameof(end_war)).Patch(
@@ -43,25 +43,8 @@ public class WarPatch
         __instance.RemoveExtraData<War, WarExtraData>();
     }
 
-    public static bool start_new_war(DiplomacyManager __instance, Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pAsset, bool pLog, ref War __result)
+    public static void start_new_war(DiplomacyManager __instance, Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pAsset, bool pLog, ref War __result)
     {
-        pLog = false;
-        if (pAsset.total_war)
-        {
-            __result = __instance.startTotalWar(pAttacker, pAsset);
-            return false;
-        }
-        if (pAttacker == pDefender)
-        {
-            __result = null;
-            return false;
-        }
-        if (World.world.wars.getWar(pAttacker, pDefender) != null)
-        {
-            __result = null;
-            return false;
-        }
-        War war = World.world.wars.newWar(pAttacker, pDefender, pAsset);
         if (pDefender.isInEmpire() || pAttacker.isInEmpire())
         {
             if (pAttacker.isEmpire())
@@ -83,7 +66,7 @@ public class WarPatch
                                 w.endForSides(WarWinner.Nobody);
                             }
                         }
-                        war.joinAttackers(kingdom);
+                        __result.joinAttackers(kingdom);
                         if (kingdom.hasAlliance())
                         {
                             if (kingdom.getAlliance().hasKingdom(pDefender))
@@ -107,13 +90,11 @@ public class WarPatch
                                 w.endForSides(WarWinner.Nobody);
                             }
                         }
-                        war.joinDefenders(kingdom);
+                        __result.joinDefenders(kingdom);
                     }
                 }
             }
-            return false;
         }
-        return true;
     }
 
     public static bool end_war(WarManager __instance, War pWar, WarWinner pWinner = WarWinner.Nobody)

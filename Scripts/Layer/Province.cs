@@ -291,19 +291,19 @@ public class Province : MetaObject<ProvinceData>
         if (officer == null)
         {
             Actor final = null;
-            if (jingActors.Count > 0)
+            if (jingActors.Any())
             {
                 final = jingActors.First();
                 jingActors.Remove(final);
                 SetOfficer(final);
             }
-            else if (gongActors.Count > 0)
+            else if (gongActors.Any())
             {
                 final = gongActors.First();
                 gongActors.Remove(final);
                 SetOfficer(final);
             }
-            else if (royalActors.Count > 0)
+            else if (royalActors.Any())
             {
                 royalActors.Sort(ListSorters.sortUnitByAgeOldFirst);
                 final = royalActors.First();

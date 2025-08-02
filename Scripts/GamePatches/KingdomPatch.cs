@@ -14,6 +14,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using EmpireCraft.Scripts.HelperFunc;
 using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -146,6 +147,7 @@ public class KingdomPatch : GamePatch
                 pActor.SetIdentityType(PeerageType.Military);
                 pActor.addTrait("officer");
             }
+            pActor.CheckSpecificClan();
         }
     }
 

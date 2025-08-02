@@ -556,15 +556,15 @@ public static class KingdomExtension
                 }
             }
         }
-        if (listPool.Count > 0)
+        if (listPool.Any())
         {
-            Province province2 = ModClass.PROVINCE_MANAGER.newProvince(listPool[0]);
+            Province province2 = ModClass.PROVINCE_MANAGER.newProvince(listPool.ElementAt(0));
             province2.data.is_set_to_country = false;
             province2.data.name = kingdom.GetKingdomName();
             province2.SetProvinceLevel(provinceLevel.provincelevel_3);
             foreach (City city in listPool)
             {
-                if (city != listPool[0])
+                if (city != listPool.ElementAt(0))
                 {
                     province2.addCity(city);
                 }

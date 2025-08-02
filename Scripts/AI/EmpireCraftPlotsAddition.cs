@@ -686,12 +686,13 @@ namespace EmpireCraft.Scripts.AI
                         {
                             if (kingdom.countTotalWarriors()> target.kingdom.countTotalWarriors())
                             {
+                                if (kingdom == target.kingdom) continue;
                                 War war = World.world.diplomacy.startWar(kingdom, target.kingdom, WarTypeLibrary.normal);
                                 war.data.name = LM.Get("emperor_get_back_province");
                                 TranslateHelper.LogEmpireGetBackLand(kingdom, target.province);
+                                break;
                             }
                         }
-
                         return true;
                     }
                     catch (Exception ex)

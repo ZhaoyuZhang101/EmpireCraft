@@ -34,7 +34,7 @@ public class DiplomacyManagerPatch : GamePatch
             return false;
         }
         using ListPool<Kingdom> listPool = World.world.wars.getNeutralKingdoms(pKingdomStarter, pOnlyWithoutWars: true, pOnlyWithoutAlliances: true);
-        if (listPool.Count == 0)
+        if (!listPool.Any())
         {
             __result = null;
             return false;

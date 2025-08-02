@@ -17,6 +17,7 @@ using System.Numerics;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.HelperFunc;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -153,6 +154,7 @@ public class CityPatch : GamePatch
                 __instance.data.addRuler(pActor);
             }
         }
+        pActor.CheckSpecificClan();
         return false;
     }
     public static bool joinAnotherKingdom(City __instance, Kingdom pNewSetKingdom, bool pCaptured = false, bool pRebellion = false)

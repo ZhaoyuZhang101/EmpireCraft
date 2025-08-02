@@ -132,23 +132,23 @@ namespace ai.behaviours
                 }
             }
             Actor result = null;
-            if (listPool.Count > 0)
+            if (listPool.Any())
             {
                 if (pCity.hasCulture())
                 {
                     return ListSorters.getUnitSortedByAgeAndTraits(listPool, pCity.culture);
                 }
                 listPool.Sort(ListSorters.sortUnitByAgeOldFirst);
-                return listPool[0];
+                return listPool.ElementAt(0);
             }
-            if (listPool2.Count > 0)
+            if (listPool2.Any())
             {
                 if (pCity.hasCulture())
                 {
                     return ListSorters.getUnitSortedByAgeAndTraits(listPool2, pCity.culture);
                 }
                 listPool2.Sort(ListSorters.sortUnitByAgeOldFirst);
-                return listPool2[0];
+                return listPool2.ElementAt(0);
             }
             return result;
         }

@@ -35,7 +35,7 @@ internal class CityBehBorderShrinkPatch : GamePatch
             return false;
         }
         using ListPool<TileZone> listPool = new ListPool<TileZone>(pCity.border_zones);
-        if (listPool.Count == 0)
+        if (!listPool.Any())
         {
             __result = BehResult.Stop;
             return false;

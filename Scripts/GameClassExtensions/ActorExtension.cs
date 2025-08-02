@@ -65,6 +65,7 @@ public class Name
         sex = actor.isSexMale() ? ActorSex.Male : ActorSex.Female;
         if (hasFamilyName(actor))
         {
+            string real_family_name;
             string cityName = "";
             if (use_local_as_family_name)
             {
@@ -88,7 +89,6 @@ public class Name
                     }
                 }
             }
-            string real_family_name = "";
             if (use_local_as_family_name && cityName != "")
             {
                 real_family_name = cityName;
@@ -102,9 +102,6 @@ public class Name
                     actor.family.data.name = real_family_name + "\u200A" + LM.Get("Family");
                     actor.family.SetFamilyCityPre(false);
                 }
-            } else
-            {
-                real_family_name = familyName;
             }
             real_family_name = (use_local_as_family_name&&cityName!="") ? cityName : familyName;
             if (has_sex_post)
@@ -116,6 +113,16 @@ public class Name
                 }
             }
             actor.data.name = is_invert ? firstName + "\u200A" + real_family_name : real_family_name + "\u200A" + firstName;
+            if (actor.HasSpecificClan())
+            {
+                PersonalClanIdentity identity = actor.GetPersonalIdentity();
+                identity.name = actor.name;
+                SpecificClan sc = identity._specificClan;
+                if (identity.id == sc.founder)
+                {
+                    sc.name = real_family_name;
+                }
+            }
         } else
         {
             if (hasFirstName(actor))
@@ -214,7 +221,7 @@ public static class ActorExtension
         public OfficeIdentity officeIdentity { get; set; } = null;
         public long empire_id { get; set; } = -1L;
         public long provinceId { get; set; } = -1L;
-        public double personal_identity { get; set; } = -1L;
+        public long personal_identity { get; set; } = -1L;
     }
     public static void SetTitle(this Actor a, string value)
     {
@@ -246,46 +253,28 @@ public static class ActorExtension
     public static void SetPersonalIdentity(this Actor a, PersonalClanIdentity pci)
     {
         if (a == null) return;
-        var ed = GetOrCreate(a);
-        if (ed == null) return;
+        var ed = a.GetOrCreate();
         ed.personal_identity = pci.id;
     }
     public static void RemovePersonalIdentity(this Actor a)
     {
         if (a == null) return;
         var ed = GetOrCreate(a);
-        if (ed == null) return;
         ed.personal_identity = -1L;
     }
 
-    public static bool isMarriageMainActor(this Actor actor)
-    {
-        if (actor == null) return false;
-        if (!actor.HasSpecificClan()) return false;
-        PersonalClanIdentity identity = actor.GetPersonalIdentity();
-        return (identity._specificClan.isMalePriority() && actor.isSexMale()) || (!identity._specificClan.isMalePriority() && actor.isSexFemale());
-    }
     public static PersonalClanIdentity InitialPersonalIdentity(this Actor a, SpecificClan clan)
     {
         if (a == null) return null;
         var ed = a.GetOrCreate();
         PersonalClanIdentity pci = new PersonalClanIdentity(clan, a);
-        if (a.getParents().Count()>0)
+        if (a.hasLover())
         {
-            foreach(Actor parent in a.getParents())
-            {
-                pci.setParent(parent);
-            }
-        }
-        if (a.getChildren().Count()>0)
-        {
-            foreach (Actor child in a.getChildren())
-            {
-                pci.addChild(child);
-            }
+            pci.setLover(a.lover);
         }
         return pci;
     }
+
     public static Culture GetCulture(this Actor a)
     {
         if (a == null) return null;
@@ -294,7 +283,7 @@ public static class ActorExtension
             return a.culture;
         } else
         {
-            if (a.getParents().Count() > 0)
+            if (a.getParents().Any())
             {
                 foreach(Actor parent in a.getParents())
                 {

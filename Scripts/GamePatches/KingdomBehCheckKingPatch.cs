@@ -37,7 +37,7 @@ namespace EmpireCraft.Scripts.GamePatches
                     listPool.Add(city);
                 }
             }
-            if (listPool.Count == 0)
+            if (!listPool.Any())
             {
                 return false;
             }

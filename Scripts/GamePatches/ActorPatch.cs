@@ -51,15 +51,39 @@ public class ActorPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(showTooltip)));
         new Harmony(nameof(setLover)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setLover)),
             postfix: new HarmonyMethod(GetType(), nameof(setLover)));
+        new Harmony(nameof(setParent)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setParent1)),
+            postfix: new HarmonyMethod(GetType(), nameof(setParent)));
+        new Harmony(nameof(setParent)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setParent2)),
+            postfix: new HarmonyMethod(GetType(), nameof(setParent)));
         LogService.LogInfo("角色补丁加载成功");
+    }
+
+    public static void setParent(Actor __instance, Actor pActor, bool pIncreaseChildren)
+    {
+        if (pActor.HasSpecificClan())
+        {
+            PersonalClanIdentity parent_identity = pActor.GetPersonalIdentity();
+            if (parent_identity.is_main)
+            {
+                if (pActor.hasClan())
+                {
+                    __instance.setClan(pActor.clan);
+                }
+
+                __instance.GetModName().familyName = pActor.GetModName().familyName;
+                __instance.GetModName().SetName(__instance);
+                parent_identity.addChild(__instance, true);
+            }
+        }
     }
 
     public static void setLover(Actor __instance, Actor pActor)
     {
+        if (pActor==null) return;
         if(__instance.HasSpecificClan())
         {
             PersonalClanIdentity identity = __instance.GetPersonalIdentity();
-            identity.setLover(pActor, __instance.isMarriageMainActor());
+            identity.setLover(pActor);
         }
     }
     public static bool showTooltip(Actor __instance, object pUiObject)
@@ -154,6 +178,7 @@ public class ActorPatch : GamePatch
             PersonalClanIdentity pci = __instance.GetPersonalIdentity();
             pci.is_alive = false;
             pci.actor_id = -1L;
+            pci.deathday = Date.getDate(World.world.getCurWorldTime());
         }
         __instance.RemoveExtraData<Actor, ActorExtraData>();
     }

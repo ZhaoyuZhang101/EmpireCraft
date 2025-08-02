@@ -14,7 +14,7 @@ public static class ClanExtension
         public float x = -1L;
         public float y = -1L;
         public long original_capital;
-        public double specific_clan_id = -1L;
+        public long specific_clan_id = -1L;
     }
 
 

@@ -46,7 +46,6 @@ public class UnitWindowPatch: GamePatch
     {
         if (!string.IsNullOrEmpty(pInput) && __instance.actor != null && __instance.actor.data != null)
         {
-            LogService.LogInfo("角色改名触发");
             __instance.actor.initializeActorName();
             Name name = __instance.actor.GetModName();
             bool invert = name.is_invert;
@@ -85,12 +84,10 @@ public class UnitWindowPatch: GamePatch
             }
             if (familyName != "")
             {
-                LogService.LogInfo($"设置姓{familyName}");
                 __instance.actor.SetFamilyName(familyName);
             }
             if (firstName != "")
             {
-                LogService.LogInfo($"设置名{firstName}");
                 __instance.actor.SetFirstName(firstName);
             }
             name.SetName(__instance.actor);

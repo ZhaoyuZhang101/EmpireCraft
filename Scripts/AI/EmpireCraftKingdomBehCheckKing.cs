@@ -157,7 +157,7 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
             }
         }
 
-        if (listPool.Count == 0)
+        if (!listPool.Any())
         {
             return;
         }
@@ -211,7 +211,7 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
             }
         }
 
-        if (listPool.Count == 0 || listPool2.Count == 0)
+        if (!listPool.Any() || !listPool2.Any())
         {
             return;
         }
@@ -222,7 +222,7 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
         listPool2.Shuffle();
         listPool.Shuffle();
         bool flag = false;
-        while (listPool2.Count > 0 && listPool.Count > 0)
+        while (listPool2.Any() && listPool.Any())
         {
             Actor actor = listPool.Pop();
             City city = listPool2.Pop();
@@ -240,7 +240,7 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
             flag = true;
         }
 
-        while (listPool2.Count > 0)
+        while (listPool2.Any())
         {
             City city2 = listPool2.Pop();
             Kingdom random = listPool3.GetRandom();

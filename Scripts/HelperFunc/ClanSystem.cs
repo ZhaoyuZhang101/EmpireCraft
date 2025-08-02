@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net.Mail;
 using System.Text;
 using System.Threading.Tasks;
+using NeoModLoader.General;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 
 namespace EmpireCraft.Scripts.HelperFunc;
@@ -26,21 +27,24 @@ public enum ClanRelation
     MIL,  //义母
     FIL,  //义母
     CHILD,  //孩子
+    LOV,  //爱人
+    COB,  //小妾
     NONE  //无
 }
 public class SpecificClan
 {
-    public double id { get; set; }
+    public long id { get; set; }
     public string name { get; set; }
     public double established_timestamp { get; set; }
-    public string founder { get; set; }
+    public long founder { get; set; }
     public SpecificClanType clan_sex_priority { get; set; }
 
-    private Dictionary<double, PersonalClanIdentity> _cache = new();
+    public Dictionary<long, PersonalClanIdentity> _cache = new();
+    [JsonIgnore]
     public int Count => _cache.Count;
-    public PersonalClanIdentity GetPerson(double id)
+    public PersonalClanIdentity GetPerson(long personId)
     {
-        if (_cache.TryGetValue(id, out var cached)) return cached;
+        if (_cache.TryGetValue(personId, out var cached)) return cached;
         return null;
     }
     public List<(ClanRelation, PersonalClanIdentity)> GetSiblingsWithRelation(PersonalClanIdentity identity)
@@ -52,9 +56,9 @@ public class SpecificClan
 
         if (father != null)
         {
-            foreach (var childId in father.children)
+            foreach (var child in GetChildren(father))
             {
-                var sibling = GetPerson(childId);
+                var sibling = child.Item2;
                 if (sibling != null && sibling.id != selfId)
                 {
                     if (sibling.mother == identity.mother)
@@ -66,9 +70,9 @@ public class SpecificClan
         }
         if (mother != null)
         {
-            foreach (var childId in mother.children)
+            foreach (var child in GetChildren(mother))
             {
-                var sibling = GetPerson(childId);
+                var sibling = child.Item2;
                 if (sibling != null && sibling.id != selfId)
                 {
                     if (sibling.father != identity.father)
@@ -76,33 +80,46 @@ public class SpecificClan
                 }
             }
         }
-        siblings.Add((ClanRelation.SELF, identity));
         return siblings;
     }
     public SpecificClan(Actor actor) 
     {
-        _cache = new Dictionary<double, PersonalClanIdentity>();
+        _cache = new Dictionary<long, PersonalClanIdentity>();
         Clan clan = actor.clan;
         id = IdGenerator.NextId();
         name = clan.GetClanName();
         established_timestamp = World.world.getCurWorldTime();
-        founder = actor.name;
         clan_sex_priority = judgeMalePriority(actor)? SpecificClanType.MalePriority:SpecificClanType.FemalePriority;
         addActor(actor);
-        LogService.LogInfo("1");
         if (actor.hasClan())
         {
-            foreach (Actor member in actor.clan.units.ToList())
+            foreach (var member in actor.clan.units.ToList())
             {
-                if (member.getID() == actor.getID()) continue;
-                addActor(actor);
-                LogService.LogInfo("2");
+                if (member != actor)
+                {
+                    addActor(member);
+                }
             }
         }
+        LogService.LogInfo("1");
         clan.SetSpecificClan(this);
+        SpecificClanManager._specificClans.Add(this);
+        founder = actor.GetPersonalIdentity().id;
+        LogService.LogInfo($"族谱加入成功{this.name}目前存在的族谱:{SpecificClanManager._specificClans.Count}");
+    }
+    
+    public List<(ClanRelation, PersonalClanIdentity)> GetChildren(PersonalClanIdentity identity)
+    {
+        var children = this
+            ._cache.Values
+            .Where(pci => pci.father == identity.id || pci.mother == identity.id)
+            .Select(pci => (ClanRelation.CHILD, pci))
+            .ToList();
+
+        return children;
     }
 
-    public bool judgeMalePriority(Actor actor)
+    private bool judgeMalePriority(Actor actor)
     {
         if (actor.hasCulture())
         {
@@ -123,44 +140,23 @@ public class SpecificClan
     }
     public void addActor(Actor actor, bool is_concubines= false)
     {
-        bool flag = false;
-        PersonalClanIdentity pci = null;
         if (!actor.HasSpecificClan())
         {
             LogService.LogInfo($"无{this.name}氏族身份，正在初始化{actor.name}的角色氏族身份");
-            pci = actor.InitialPersonalIdentity(this);
-            flag = true;
-        }
-        else
-        {
-            SpecificClan specificClan = actor.GetSpecificClan();
-            if (specificClan.id != id)
+            PersonalClanIdentity pci = actor.InitialPersonalIdentity(this);
+            pci.is_concubine = is_concubines;
+            if (pci.is_main)
             {
-                LogService.LogInfo($"角色{actor.name}已从{specificClan.name}氏族移除，并纳入{this.name}氏族");
-                specificClan.removeActor(actor);
-                pci = actor.InitialPersonalIdentity(this);
-                flag = true;
-            } else
-            {
-                LogService.LogInfo($"角色{actor.name}已纳入{this.name}氏族，无需加入");
-                pci = actor.GetPersonalIdentity();
-                flag = false;
+                if (actor.getChildren().Any())
+                {
+                    foreach (var child in actor.getChildren())
+                    {
+                        LogService.LogInfo($"<UNK>{this.name}<UNK>{child.name}<UNK>");
+                        pci.addChild(child, true);
+                    }
+                }
             }
         }
-        pci.is_concubine = is_concubines;
-        if (!flag) return;
-        if (pci != null)
-        {
-            if (_cache.ContainsKey(pci.id)) return;
-            _cache.Add(pci.id, pci);
-        } else
-        {
-            LogService.LogInfo("添加角色到族谱失败");
-        }
-    }
-    public void Initialize(Actor actor)
-    {
-
     }
     public void removeActor(Actor actor) 
     {
@@ -194,14 +190,13 @@ public static class SpecificClanManager
     public static SpecificClan newSpecificClan(Actor actor, bool show_log = true)
     {
         SpecificClan specificClan = new SpecificClan(actor);
-        Add(specificClan);
         if (show_log)
         {
             TranslateHelper.LogOfficerBuildSpecificClan(actor, specificClan);
         }
         return specificClan;
     }
-    public static PersonalClanIdentity getPerson(double identity_id)
+    public static PersonalClanIdentity getPerson(long identity_id)
     {
         foreach (var sc in _specificClans)
         {
@@ -212,32 +207,33 @@ public static class SpecificClanManager
         return null;
     }
 
-    public static void CheckSpecificClan(Actor actor, bool show_log = true)
+    public static List<(ClanRelation, PersonalClanIdentity)> getChildren(PersonalClanIdentity identity)
     {
-        if (actor == null) return;
+        var identityWithRelation = new List<(ClanRelation, PersonalClanIdentity)>();
+        foreach (var sc in _specificClans)
+        {
+            identityWithRelation.AddRange(sc.GetChildren(identity));
+        }
+        return identityWithRelation;
+    }
+
+    public static SpecificClan CheckSpecificClan(this Actor actor, bool show_log = true)
+    {
+        if (actor == null) return null;
         if (!actor.hasClan())
         {
             World.world.clans.newClan(actor, true);
+            LogService.LogInfo("新建氏族");
         }
         if (!actor.HasSpecificClan())
         {
-            newSpecificClan(actor, show_log);
+            LogService.LogInfo("新建宗族");
+            return newSpecificClan(actor, show_log);
         }
-    }
-    public static void Add(SpecificClan SC)
-    {
-        if (!_specificClans.Contains(SC))
-        {
-            _specificClans.Add(SC);
-            LogService.LogInfo($"族谱加入成功{SC.name}目前存在的族谱:{_specificClans.Count}");
-        } else
-        {
-            LogService.LogInfo($"族谱{SC.name}已存在:{_specificClans.Count}");
-        }
-        
+        return actor.GetSpecificClan();
     }
 
-    public static SpecificClan Get(double id)
+    public static SpecificClan Get(long id)
     {
         SpecificClan clan = _specificClans.Find(sc => sc.id == id);
         if (clan == null)
@@ -250,13 +246,13 @@ public static class SpecificClanManager
         }
 
     }
-    public static void Remove(SpecificClan SC)
+    public static void Remove(SpecificClan sc)
     {
-        foreach (SpecificClan sc in _specificClans.ToList())
+        foreach (SpecificClan sc2 in _specificClans.ToList())
         {
-            if (sc.id == SC.id)
+            if (sc2.id == sc.id)
             {
-                _specificClans.Remove(sc);
+                _specificClans.Remove(sc2);
                 return;
             }
         }
@@ -282,27 +278,28 @@ public static class SpecificClanManager
 
 public class PersonalClanIdentity
 {
-    public double id { get; set; }
-    public double specific_clan_id { get; set; }
+    public long id { get; set; }
+    public long specific_clan_id { get; set; }
     public long actor_id { get; set; }
     public string name { get; set; }
     [JsonIgnore]
     public SpecificClan _specificClan;
     public ActorSex sex { get; set; }
-    public double birthday { get; set; }
-    public double death_day { get; set; }
+    public string birthday { get; set; }
+    public string deathday { get; set; }
+    [JsonIgnore]
+    public Actor _actor => World.world.units.get(actor_id);
     public bool is_alive { get; set; }
     public bool is_concubine {  get; set; } = false; //是否是小妾/男宠（当小妾/男宠无自身宗族时，会加入丈夫/妻子氏族并标记为小妾/男宠身份）
-    public bool is_main { get; set; } = false; //在婚姻关系中是否为主要角色（对于爱人来说是嫁/入赘，还是娶/招亲）
+    public bool is_main { get; set; } = true; //在婚姻关系中是否为主要角色（对于爱人来说是嫁/入赘，还是娶/招亲）
     public int age { get; set; }
     public int generation { get; set; }
-    public double mother { get; set; } = -1L; //母亲
-    public double father { get; set; } = -1L; //父亲
-    public double father_in_law { get; set; } = -1L; //义父
-    public double mother_in_law { get; set; } = -1L; //义母
-    public (double specific_clan, double identity) lover = (-1L, -1L); //正妻/正夫
-    public List<(double specific_clan, double identity)> concubines = new();
-    public List<double> children { get; set; } = new List<double>();
+    public long mother { get; set; } = -1L; //母亲
+    public long father { get; set; } = -1L; //父亲
+    public long father_in_law { get; set; } = -1L; //义父
+    public long mother_in_law { get; set; } = -1L; //义母
+    public (long specific_clan, long identity) lover = (-1L, -1L); //正妻/正夫
+    public List<(long specific_clan, long identity)> concubines = new(); //小妾/情人
     
     public PersonalClanIdentity (SpecificClan specificClan, Actor a)
     {
@@ -312,25 +309,47 @@ public class PersonalClanIdentity
         this.specific_clan_id = specificClan.id;
         this.age = a.getAge();
         this.name = a.getName();
-        this.birthday = a.data.created_time;
+        this.birthday = a.getBirthday();
         this.sex = a.data.sex;
         this.generation = 0;
         this._specificClan = specificClan;
         a.SetPersonalIdentity (this);
+        specificClan._cache.Add(this.id, this);
     }
 
-    public void setLover(Actor actor, bool is_main_in_marriage)
+    public bool hasLover()
     {
-        SpecificClanManager.CheckSpecificClan(actor, false);
-        SpecificClan lsc = actor.GetSpecificClan();
-        PersonalClanIdentity lpci = actor.GetPersonalIdentity();
-        this.lover.specific_clan = lsc.id;
-        this.lover.identity = lpci.id;
-        this.is_main = is_main_in_marriage;
+        return lover != (-1L, -1L);
+    }
 
-        lpci.lover.specific_clan = this.specific_clan_id;
-        lpci.lover.identity = this.id;
-        lpci.is_main = !is_main_in_marriage;
+    public string getDeathday()
+    {
+        if ( String.IsNullOrEmpty(deathday))
+        {
+            return LM.Get("until_now");
+        }
+        return deathday;
+    }
+
+    private bool judgeMarriageMain(Actor actor)
+    {
+        return (_specificClan.isMalePriority() && actor.isSexMale()) || (!_specificClan.isMalePriority() && actor.isSexFemale());
+    }
+
+    public void setLover(Actor actor)
+    {
+        if (actor == null) return;
+        if (this.lover!= (-1L, -1L)) return;
+        actor.CheckSpecificClan(false);
+        PersonalClanIdentity lpci = actor.GetPersonalIdentity();
+        if (lpci == null) return;
+        lover.specific_clan = lpci.specific_clan_id;
+        lover.identity = lpci.id;
+        is_main = judgeMarriageMain(_actor);
+
+        lpci.lover.specific_clan = specific_clan_id;
+        lpci.lover.identity = id;
+        lpci.is_main = !judgeMarriageMain(_actor);
     }
     public void addConcubines(Actor actor)
     {
@@ -339,36 +358,51 @@ public class PersonalClanIdentity
         this.concubines.Add((this.specific_clan_id, actor.GetPersonalIdentity().id));
     }
 
-    public void setParent(Actor actor)
+    public void setParent(PersonalClanIdentity identity)
     {
-        
-        if (!actor.HasSpecificClan())
+        if (identity==null) return; 
+        if (identity.sex==ActorSex.Male)
         {
-            _specificClan.addActor(actor);
-            LogService.LogInfo("5");
-        }
-        PersonalClanIdentity pci = actor.GetPersonalIdentity();
-        if (actor.isSexMale())
-        {
-            this.father = pci.id;
+            father = identity.id;
+            LogService.LogInfo($"设置父{identity.name}");
         } else
         {
-            this.mother = pci.id;
+            mother = identity.id;
+            LogService.LogInfo($"设置母{identity.name}");
         }
-        this.generation = pci.generation + 1;
+        generation = identity.generation + 1;
     }
 
-    public void addChild(Actor actor)
+    public void addChild(Actor actor, bool isNeedSetParentBoth=false)
     {
-        if (!actor.HasSpecificClan())
-        {
-            actor.InitialPersonalIdentity(_specificClan);
-        }
         PersonalClanIdentity pci = actor.GetPersonalIdentity();
-        if (!children.Contains(pci.id))
+        if (pci==null)
         {
-            children.Add(pci.id);
+            pci = actor.InitialPersonalIdentity(_specificClan);
         }
+
+        if (isNeedSetParentBoth)
+        {
+            if (actor.getParents().Any())
+            {
+                LogService.LogInfo($"添加子嗣，找到父母{actor.getParents().Count()}");
+                foreach (var parent in actor.getParents().ToList())
+                {
+                    parent.CheckSpecificClan(false);
+                    PersonalClanIdentity pIdentity = parent.GetPersonalIdentity();
+                    pci.setParent(pIdentity);
+                }
+            }
+            else
+            {
+                pci.setParent(this);
+            }
+        }
+        else
+        {
+            pci.setParent(this);
+        }
+        LogService.LogInfo($"子嗣名称{pci.name}");
         pci.generation = this.generation + 1;
         _specificClan.addActor(actor);
         LogService.LogInfo("5");

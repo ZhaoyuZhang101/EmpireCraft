@@ -25,10 +25,10 @@ public class BabyHelperPatch : GamePatch
             AccessTools.Method(typeof(BabyHelper), nameof(BabyHelper.canMakeBabies)),
             prefix: new HarmonyMethod(GetType(), nameof(canMakeBabies))
         );
-        new Harmony(nameof(makeBaby)).Patch(
-            AccessTools.Method(typeof(BabyMaker), nameof(BabyMaker.makeBaby)),
-            postfix: new HarmonyMethod(GetType(), nameof(makeBaby))
-        );
+        //new Harmony(nameof(makeBaby)).Patch(
+        //    AccessTools.Method(typeof(BabyMaker), nameof(BabyMaker.makeBaby)),
+        //    postfix: new HarmonyMethod(GetType(), nameof(makeBaby))
+        //);
     }
 
     public static SpecificClan getSpecificClanToJoin(Actor actor)
@@ -51,17 +51,38 @@ public class BabyHelperPatch : GamePatch
         return null;
     }
 
-    public static void makeBaby(Actor pParent1, Actor pParent2, ActorSex pForcedSexType, bool pCloneTraits, int pMutationRate, WorldTile pTile, bool pAddToFamily, bool pJoinFamily, ref Actor __result)
-    {
-        SpecificClan specificClan = getSpecificClanToJoin(pParent1);
-        if (specificClan == null)
-        {
-            specificClan = getSpecificClanToJoin(pParent2);
-        }
-        if (specificClan == null) return;
-        specificClan.addActor(__result);
-        LogService.LogInfo("3");
-    }
+    //public static void makeBaby(Actor pParent1, Actor pParent2, ActorSex pForcedSexType, bool pCloneTraits, int pMutationRate, WorldTile pTile, bool pAddToFamily, bool pJoinFamily, ref Actor __result)
+    //{
+    //    Actor main_parent = null;
+    //    SpecificClan specificClan = getSpecificClanToJoin(pParent1);
+    //    main_parent = pParent1;
+    //    LogService.LogInfo($"父母1{pParent1.name}");
+    //    if (specificClan == null)
+    //    {
+    //        if (pParent2 != null)
+    //        {
+    //            specificClan = getSpecificClanToJoin(pParent2);
+    //            main_parent = pParent2;
+    //            LogService.LogInfo($"父母2{pParent2.name}");
+    //        }
+    //    }
+    //    if (main_parent != null) 
+    //    {
+    //        if (main_parent.hasCulture())
+    //        {
+    //            __result.setCulture(main_parent.culture);
+    //        }
+    //        if (main_parent.hasClan())
+    //        {
+    //            __result.setClan(main_parent.clan);
+    //        }
+
+    //    }
+
+    //    if (specificClan == null) return;
+    //    specificClan.addActor(__result);
+    //    LogService.LogInfo($"{__result.name}出生");
+    //}
 
     public static bool isMetaLimitsReached(Actor pActor, ref bool __result)
     {

@@ -40,7 +40,7 @@ public class ClanPatch : GamePatch
                 empire.data.original_royal_been_changed_timestamp = World.world.getCurWorldTime();
             }
         }
-            __instance.RemoveExtraData<Clan, ClanExtraData>();
+        __instance.RemoveExtraData<Clan, ClanExtraData>();
     }
 
     public static void set_clan_name(Clan __instance, Actor pFounder, bool pAddDefaultTraits)
