@@ -113,7 +113,7 @@ public class UnitWindowPatch: GamePatch
         if (!__instance.tabs._tabs.Any(p => p.name == "specific_clan"))
         {
             SimpleWindowTab simpleWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-            simpleWindowTab.Setup("specific_clan", __instance, action:(Actor) => ShowSpecificClan(__instance.actor));
+            simpleWindowTab.Setup("specific_clan", __instance, action:(Actor) => ShowSpecificClan(__instance.actor), sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
         }
     }
 

@@ -138,10 +138,9 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         last_search_content = content;
         Clear();
         showTopPart();
-        List<PersonalClanIdentity> result = OverallHelperFunc.SearchPersonalClanIdentityHelper(content, _sc._cache.Values.ToList());
-        var resultWithRelation = result.Select(id => (SpecificClanManager.CalcRelation(_identity, id), id));
+        List<(ClanRelation, PersonalClanIdentity)> result = OverallHelperFunc.SearchPersonalClanIdentityHelper(content, SpecificClanManager.findAllRelations(_identity));
         string title = "title_search_result";
-        ShowSpaceBase(title, resultWithRelation.ToList());
+        ShowSpaceBase(title, result);
     }
 
     [Hotfixable]

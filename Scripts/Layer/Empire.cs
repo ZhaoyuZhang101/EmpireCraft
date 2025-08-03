@@ -435,7 +435,7 @@ public class Empire : MetaObject<EmpireData>
                                 });
                                 this.province_list.Clear();
                                 start_province = province;
-                                string empireName = String.Join("\u200A", this.CalcDir(this.empire.capital.city_center, kingdom.capital.city_center), this.GetEmpireName());
+                                string empireName = String.Join("\u200A", this.CalcDir(kingdom.capital.city_center, this.empire.capital.city_center), this.GetEmpireName());
                                 newEmpire.SetEmpireName(empireName);
                                 has_new_empire = true;
                                 break;

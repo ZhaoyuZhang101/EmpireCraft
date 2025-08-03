@@ -103,16 +103,16 @@ namespace EmpireCraft.Scripts.HelperFunc
             }
             return actorsPool;
         }
-    public static List<PersonalClanIdentity> SearchPersonalClanIdentityHelper(string content, List<PersonalClanIdentity> cIdentities)
+    public static List<(ClanRelation, PersonalClanIdentity)> SearchPersonalClanIdentityHelper(string content, List<(ClanRelation, PersonalClanIdentity)> cIdentities)
         {
-            List<PersonalClanIdentity> identityPool = new List<PersonalClanIdentity>();
+            List<(ClanRelation, PersonalClanIdentity)> identityPool = new List<(ClanRelation, PersonalClanIdentity)>();
             if (content == "")
             {
                 return cIdentities;
             }
-            foreach (PersonalClanIdentity  cIdentity in cIdentities)
+            foreach (var cIdentity in cIdentities)
             {
-                string culture = ConfigData.speciesCulturePair.TryGetValue(cIdentity.species, out string culturePair)? culturePair:"Western";
+                string culture = ConfigData.speciesCulturePair.TryGetValue(cIdentity.Item2.species, out string culturePair)? culturePair:"Western";
                 string merit = "";
                 string honoraryOfficial = "";
                 string PeeragesLevel = "";
@@ -121,11 +121,11 @@ namespace EmpireCraft.Scripts.HelperFunc
                 string cityName = "";
                 string provinceName = "";
                 string officer = "";
-                string name = cIdentity.name;
+                string name = cIdentity.Item2.name;
                 string educationLevel = "";
-                if (cIdentity.is_alive)
+                if (cIdentity.Item2.is_alive)
                 {
-                    Actor actor = cIdentity._actor;
+                    Actor actor = cIdentity.Item2._actor;
                     OfficeIdentity identity = actor.GetIdentity(actor.city.GetEmpire());
                     kingdomName = actor.kingdom.name;
                     cityName = actor.city.name;
@@ -147,14 +147,14 @@ namespace EmpireCraft.Scripts.HelperFunc
                 }
                 else
                 {
-                    merit = cIdentity.merit + LM.Get(cIdentity.merit);
-                    honoraryOfficial = cIdentity.honoraryOfficial + LM.Get(cIdentity.honoraryOfficial);
-                    PeeragesLevel = cIdentity.PeeragesLevel + LM.Get(cIdentity.PeeragesLevel);
-                    officialLevel = cIdentity.officialLevel + LM.Get(cIdentity.officialLevel);
-                    kingdomName = cIdentity.kingdomName;
-                    cityName = cIdentity.cityName;
-                    provinceName = cIdentity.provinceName;
-                    educationLevel = cIdentity.educationLevel + string.Join("/", cIdentity.educationLevel.Split('/').Select(c=>LM.Get(c)));;
+                    merit = cIdentity.Item2.merit + LM.Get(cIdentity.Item2.merit);
+                    honoraryOfficial = cIdentity.Item2.honoraryOfficial + LM.Get(cIdentity.Item2.honoraryOfficial);
+                    PeeragesLevel = cIdentity.Item2.PeeragesLevel + LM.Get(cIdentity.Item2.PeeragesLevel);
+                    officialLevel = cIdentity.Item2.officialLevel + LM.Get(cIdentity.Item2.officialLevel);
+                    kingdomName = cIdentity.Item2.kingdomName;
+                    cityName = cIdentity.Item2.cityName;
+                    provinceName = cIdentity.Item2.provinceName;
+                    educationLevel = cIdentity.Item2.educationLevel + string.Join("/", cIdentity.Item2.educationLevel.Split('/').Select(c=>LM.Get(c)));;
                 }
                 List<string> searchContent = new List<string>()
                 {

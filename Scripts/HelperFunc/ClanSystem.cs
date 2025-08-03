@@ -410,15 +410,46 @@ public static class SpecificClanManager
         return specificClan;
     }
 
+    public static List<(ClanRelation, PersonalClanIdentity)> findAllRelations(PersonalClanIdentity self)
+    {
+        List<(ClanRelation, PersonalClanIdentity)> pre = new List<(ClanRelation, PersonalClanIdentity)>();
+        foreach (var sc in _specificClans)
+        {
+            foreach (var identity in sc._cache.Values)
+            {
+                ClanRelation relation = CalcRelation(self, identity);
+                if (relation != ClanRelation.NONE)
+                {
+                    pre.Add((relation, identity));
+                }
+            }
+        }
+        foreach (var sc in _specificClans)
+        {
+            if (sc.id==self.specific_clan_id)
+            {            
+                foreach (var identity in sc._cache.Values)
+                {
+                    ClanRelation relation = CalcRelation(self, identity);
+                    if (!pre.Contains((relation, identity)))
+                    {
+                        pre.Add((relation, identity));
+                    }
+                }
+                break;
+            }
+
+        }
+        return pre;
+    }
+
     public static ClanRelation CalcRelation(PersonalClanIdentity self, PersonalClanIdentity target)
     {
         if (self == null || target == null) return ClanRelation.NONE;
-        // 不同氏族直接无关系
-        if (self.specific_clan_id != target.specific_clan_id) return ClanRelation.NONE;
         // 同一个人
         if (self.id == target.id) return ClanRelation.SELF;
 
-        var clan = SpecificClanManager.Get(self.specific_clan_id);
+        var clan = Get(self.specific_clan_id);
         if (clan == null) return ClanRelation.NONE;
 
         // 配偶
@@ -436,7 +467,7 @@ public static class SpecificClanManager
         if (self.mother_in_law == target.id) return ClanRelation.MIL;
 
         // 子女
-        foreach (var (rel, pci) in clan.GetChildren(self))
+        foreach (var (rel, pci) in getChildren(self))
             if (pci.id == target.id) return rel;
 
         // 兄弟姐妹
