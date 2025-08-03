@@ -31,6 +31,7 @@ public class OfficeConfig
 
 public class Setting
 {
+    public List<string> traits = new List<string>();
     public CitySetting City;
     public KingdomSetting Kingdom;
     public ClanSetting Clan;

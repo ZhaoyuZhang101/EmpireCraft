@@ -21,7 +21,6 @@ public static class DataManager
     {
         string loadPath = Path.Combine(loadRootPath, "EmpireCraftModData.json");
         PlayerConfig.dict["prevent_city_destroy"].boolVal = false;
-        LogService.LogInfo(loadPath);
         if (!File.Exists(loadPath))
         {
             LogService.LogInfo("没有找到任何保存数据。");
@@ -112,6 +111,7 @@ public static class DataManager
         ModClass.ALL_HISTORY_DATA = saveData.all_history ?? new Dictionary<long, List<EmpireCraftHistory>>();
         ConfigData.PREVENT_CITY_DESTROY = saveData.prevent_city_destroy;
         PlayerConfig.dict["prevent_city_destroy"].boolVal = saveData.prevent_city_destroy;
+        PlayerConfig.dict["switch_real_num"].boolVal = saveData.switch_real_num;
     }
     public static void SaveAll(string saveRootPath)
     {
@@ -168,6 +168,7 @@ public static class DataManager
         saveData.all_history = ModClass.ALL_HISTORY_DATA;
         saveData.prevent_city_destroy = ConfigData.PREVENT_CITY_DESTROY;
         saveData.specificClans = SpecificClanManager._specificClans;
+        saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
         string json = JsonConvert.SerializeObject(saveData, Formatting.Indented);
         LogService.LogInfo("" + saveData.actorsExtraData.Count());
         LogService.LogInfo("" + saveData.warExtraData.Count());

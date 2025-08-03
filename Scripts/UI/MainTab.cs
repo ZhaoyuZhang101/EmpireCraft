@@ -138,5 +138,10 @@ internal static class MainTab
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("actor_create_kingdom",
                SpriteTextureLoader.getSprite("ui/icons/iconKingdom")));
+        
+        SwitchRealNumButton.init();
+        PowerButton pb4 = FixFunctions.CreateToggleButton("real_num",
+            SpriteTextureLoader.getSprite("ui/realNumToggle"));
+        tab.AddPowerButton(EMPIRE_GROUP, pb4);
     }
 }

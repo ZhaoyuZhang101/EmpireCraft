@@ -55,7 +55,17 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(setParent)));
         new Harmony(nameof(setParent)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setParent2)),
             postfix: new HarmonyMethod(GetType(), nameof(setParent)));
+        new Harmony(nameof(setCity)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setCity)),
+            postfix: new HarmonyMethod(GetType(), nameof(setCity)));
         LogService.LogInfo("角色补丁加载成功");
+    }
+
+    public static void setCity(Actor __instance, City pCity)
+    {
+        if (pCity.HasReachedPlayerPopLimit())
+        {
+            __instance.setHealth(0);
+        }
     }
 
     public static void setParent(Actor __instance, Actor pActor, bool pIncreaseChildren)
@@ -179,6 +189,8 @@ public class ActorPatch : GamePatch
             pci.is_alive = false;
             pci.actor_id = -1L;
             pci.deathday = Date.getDate(World.world.getCurWorldTime());
+            pci.recordAllInfo();
+            pci._specificClan.checkDispose();
         }
         __instance.RemoveExtraData<Actor, ActorExtraData>();
     }
@@ -324,6 +336,17 @@ public class ActorPatch : GamePatch
         }
         __instance.initializeActorName();
         __instance.GetModName().SetName(__instance);
+        if (__instance.hasClan() && __instance.HasSpecificClan()&&__instance.getChildren().Any())
+        {
+            PersonalClanIdentity pci = __instance.GetPersonalIdentity();
+            if (pci.is_main)
+            {
+                foreach (var c in __instance.getChildren())
+                {
+                    c.setClan(pObject);
+                }
+            }
+        }
     }
 
     public static void set_actor_family_name(Actor __instance, Family pObject)
@@ -409,5 +432,29 @@ public class ActorPatch : GamePatch
         }
         __instance.initializeActorName();
         __instance.GetModName().SetName(__instance);
+        
+        if (__instance.HasSpecificClan())
+        {
+            PersonalClanIdentity pci = __instance.GetPersonalIdentity();
+            if (pci.is_main)
+            {
+                string clanName = pci._specificClan.name;
+                string familyEnd = LM.Get("Family");
+                if (__instance.city != null)
+                {
+                    string cityName = __instance.city.GetCityName();
+                    pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
+                    OverallHelperFunc.SetFamilyCityPre(pObject);
+                }
+                else
+                {
+                    if (!pObject.HasBeenSetBefored())
+                    {
+                        pObject.data.name = string.Join("\u200A", clanName, familyEnd);
+                        OverallHelperFunc.SetFamilyCityPre(pObject, false);
+                    }
+                }
+            }
+        }
     }
 }

@@ -44,8 +44,10 @@ public static class CityExtension
 
     public static bool HasReachedPlayerPopLimit(this City c)
     {
-        var ed = c.GetOrCreate(); 
-        if (c.getPopulationPeople()>c.GetMaxPopulation()&&c.GetMaxPopulationLimitStats())
+        if (c == null) return true;
+        var ed = c.GetOrCreate();
+        if (ed == null) return true;
+        if (c.getPopulationPeople()>ed.MAX_POPULATION&&ed.MAX_POPULATION_LIMIT)
         {
             return true;
         }

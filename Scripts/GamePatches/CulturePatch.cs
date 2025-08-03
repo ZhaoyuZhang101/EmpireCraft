@@ -52,7 +52,7 @@ public class CulturePatch : GamePatch
         __instance.data.name = pActor.kingdom.GetKingdomName() + "-" + pActor.city.GetCityName() + LM.Get("Culture");
         LogService.LogInfo("当前文化名称: " + __instance.data.name);
         setDefaultNameTemplate(__instance);
-
+        
     }
     private static void clone_culture_name(Culture __instance)
     {
@@ -87,6 +87,15 @@ public class CulturePatch : GamePatch
         KingdomSetting kingdomSetting = setting.Kingdom;
         ClanSetting clanSetting = setting.Clan;
         CitySetting citySetting = setting.City;
+        List<string> traits = setting.traits;
+        foreach (string trait in traits)
+        {
+            if (!culture.hasTrait(trait))
+            {
+                culture.addTrait(trait);
+            }
+        }
+
 
         OnomasticsHelper.Configure(
             kindomData,

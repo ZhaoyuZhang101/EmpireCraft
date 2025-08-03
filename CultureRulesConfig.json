@@ -2,6 +2,7 @@
     {
         "name": "Huaxia",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1",
@@ -141,6 +142,7 @@
     {
         "name": "Western",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1",
@@ -213,6 +215,7 @@
     {
         "name": "Youmu",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1",
@@ -284,6 +287,7 @@
     {
         "name": "Roma",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1"
@@ -341,6 +345,7 @@
     {
         "name": "Frankish",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1",
@@ -408,6 +413,7 @@
     {
         "name": "Germanic",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1",
@@ -475,6 +481,7 @@
     {
         "name": "Slavonic",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1"
@@ -532,6 +539,7 @@
     {
         "name": "Arab",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1",
@@ -593,6 +601,7 @@
     {
         "name": "Japan",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1",
@@ -659,6 +668,7 @@
     {
         "name": "Kosher",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1",
@@ -721,6 +731,7 @@
     {
         "name": "Viking",
         "setting": {
+            "traits": ["patriarchy"],
             "City": {
                 "groups": {
                     "group_1": "CityNames1",

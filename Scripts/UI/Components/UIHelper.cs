@@ -145,12 +145,11 @@ public static class UIHelper
         }
         LogService.LogInfo("点击角色");
     }
-
-    public static SimpleButton CreateAvatarView(long actor_id, UnityAction action=null, bool show_frame=true)
+    [Hotfixable]
+    public static SimpleButton CreateAvatarView(long actor_id, UnityAction action=null, bool is_alive=true)
     {
         UnitAvatarLoader pPrefab = Resources.Load<UnitAvatarLoader>("ui/AvatarLoaderFramed");
         UnitAvatarLoader unit_loader = UnityEngine.Object.Instantiate(pPrefab);
-        unit_loader._frame.gameObject.SetActive(show_frame);
         SimpleButton clickframe = UnityEngine.Object.Instantiate(SimpleButton.Prefab);
         RectTransform rt = clickframe.GetComponent<RectTransform>();
         rt.anchorMin = Vector2.zero;
@@ -187,38 +186,127 @@ public static class UIHelper
         {
             unit_loader._actor_image.gameObject.SetActive(false);
         }
+        if (!is_alive)
+        {
+            unit_loader._actor_image.sprite = SpriteTextureLoader.getSprite("ui/deadIcon");
+            unit_loader._actor_image.transform.localScale = new Vector2(1, 1);
+            var rt1 = unit_loader._actor_image.rectTransform;            // shortcut for GetComponent<RectTransform>()
+            rt1.anchorMin       = new Vector2(0.5f, 0.5f);
+            rt1.anchorMax       = new Vector2(0.5f, 0.5f);
+            rt1.pivot           = new Vector2(0.5f, 0.5f);
+            rt1.anchoredPosition = Vector2.up*1;    // 正中央
+            rt1.localScale      = Vector3.one;      // 保持原始大小
+            unit_loader._actor_image.gameObject.SetActive(true);
+        }
         unit_loader.transform.SetParent(clickframe.transform);
         unit_loader.transform.SetAsLastSibling();
         unit_loader.transform.localScale = new Vector2(1.2f, 1.2f);
         return clickframe;
     }
+    public static TextInput generateTextInput(Transform parent, Vector2 size=default, Vector2 offset=default, string default_text = "", UnityAction<string> action = null, TextInput input=null)
+    {
+        Vector2 dSize = size==default?new Vector2(130, 15):size;
+        TextInput inputComp;
+        if (input == null)
+        {
+            inputComp = GameObject.Instantiate(TextInput.Prefab, parent);
+        }
+        else
+        {
+            inputComp = input;
+        }
+
+        if (action != null)
+        {
+            inputComp.Setup("", action);
+        }
+        inputComp.SetSize(dSize);
+        inputComp.input.textComponent.alignment = TextAnchor.MiddleCenter;
+        var rt1 = inputComp.input.GetComponent<RectTransform>();
+        rt1.sizeDelta = dSize;
+        if (offset != default)
+        {
+            inputComp.transform.localPosition = Vector3.up*offset.y+Vector3.left*offset.x;
+        }
+        inputComp.transform.SetAsLastSibling();
+        inputComp.input.text = default_text;
+
+        if (inputComp.input.placeholder == null)
+        {
+            inputComp.input.SetupPlaceholder(inputComp.text.font,"请输入您的内容", Color.gray);
+        }
+        
+        return inputComp;
+    }
+    public static void SetupPlaceholder(this InputField inputField, Font font, string placeholderText, Color color)
+    {
+        // 1. 创建 Placeholder 子物体
+        var go = new GameObject("Placeholder", typeof(RectTransform));
+        go.transform.SetParent(inputField.transform, false);
+
+        // 2. 拉伸整个区域
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+
+        // 3. 加 Text 组件做占位
+        var txt = go.AddComponent<Text>();
+        txt.font = font;
+        txt.text = placeholderText;
+        txt.color = color;
+        txt.alignment = TextAnchor.MiddleLeft;    // 根据你的需求调整
+        txt.fontStyle = FontStyle.Italic;
+
+        // 4. 把它赋给 InputField.placeholder
+        inputField.placeholder = txt;
+
+        // 5. （可选）为了风格一致，也可以把这个 Text 拖到 inputField.textComponent 的兄弟顺序下
+        go.transform.SetAsFirstSibling();
+    }
+    
     /// <summary>
     /// 在 personalGroup 下插入一个全铺满的 Image 背景，
     /// 并保留所有其他子对象在它之上。
     /// </summary>
-    public static void AddStretchBackground(this Transform personalGroup, Sprite bgSprite)
+    [Hotfixable]
+    public static void AddStretchBackground(this Transform personalGroup, Sprite bgSprite, Vector2 size=default, Vector2 offset=default)
     {
-        // 1. 给 personalGroup 的 GameObject 加 Image 组件
-        var go = personalGroup.gameObject;
-        var img = go.GetComponent<Image>();
-        if (img == null) img = go.AddComponent<Image>();
+        var text = bgSprite.texture;
+        var rect = bgSprite.rect;
+        var pivot = bgSprite.pivot;
+        float ppu = bgSprite.pixelsPerUnit;
+        var sliced = Sprite.Create(text, rect, pivot, ppu, 0, SpriteMeshType.FullRect, new Vector4(12, 24, 24, 12));
+        
+        // 1. 在 personalGroup 下建一个专用子物体做背景
+        var bgGO = new GameObject("Background", typeof(RectTransform));
+        bgGO.transform.SetParent(personalGroup, false);
 
-        // 2. 指定你想要的 Sprite／9-slice 类型
-        img.sprite = bgSprite;
-        img.type   = Image.Type.Sliced;       // 如果是可拉伸的九宫图
-        img.color  = Color.white;             // 或者半透明：new Color(1,1,1,0.5f)
+        // 2. 铺满父容器
+        var bgRT = bgGO.GetComponent<RectTransform>();
+        bgRT.anchorMin = Vector2.zero;
+        bgRT.anchorMax = Vector2.one;
+        bgRT.offsetMin = Vector2.zero;
+        bgRT.offsetMax = Vector2.zero;
+        bgRT.localScale = Vector3.one;
 
-        // 3. 确保这个 Image 处于所有子元素的最底层
-        img.transform.SetAsFirstSibling();
+        bgRT.sizeDelta = size==default?new Vector2(180, 40):new Vector2(size.x, size.y); 
+        
+        bgRT.position = offset==default?Vector3.right*260+Vector3.down*5:Vector3.right*offset.x+Vector3.down*offset.y;
 
-        // 4. 把 RectTransform 拉伸铺满父容器
-        var rt = img.rectTransform;
-        rt.anchorMin    = Vector2.zero;
-        rt.anchorMax    = Vector2.one;
-        rt.offsetMin    = Vector2.zero;
-        rt.offsetMax    = Vector2.zero;
-        rt.pivot        = new Vector2(0.5f, 0.5f);
-        rt.localScale   = Vector3.one;
+        // 3. Image + 9-slice
+        var img = bgGO.AddComponent<Image>();
+        img.sprite = sliced;
+        img.type   = Image.Type.Sliced;
+        img.color  = Color.white;
+
+        // 3.1 忽略父布局对它的控制
+        var le = bgGO.AddComponent<LayoutElement>();
+        le.ignoreLayout = true;
+
+        // 4. 保证在所有其他子物体下方
+        bgGO.transform.SetAsFirstSibling();
     }
     public static SimpleButton CreateToggleButton(UnityAction action)
     {

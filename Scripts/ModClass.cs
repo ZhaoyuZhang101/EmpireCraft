@@ -27,6 +27,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static EmpireManager EMPIRE_MANAGER;
     public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
     public static ProvinceManager PROVINCE_MANAGER;
+    public static bool REAL_NUM_SWITCH = false;
     public static bool KINGDOM_TITLE_FREEZE = false;
     public static Empire selected_empire = null;
     public static MetaTypeAsset EMPIRE_METATYPE_ASSET;
@@ -198,12 +199,13 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);
         World.world.list_all_sim_managers.Add(PROVINCE_MANAGER);
         CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-        PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
-        PlayerConfig.dict["map_title_layer"].boolVal = false;
-        PlayerConfig.dict["map_empire_layer"].boolVal = false;
+        // PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
+        // PlayerConfig.dict["map_title_layer"].boolVal = false;
+        // PlayerConfig.dict["map_empire_layer"].boolVal = false;
+        PlayerConfig.dict["switch_real_num"].boolVal = false;
         OnomasticsRule.ReadSetting();
 
-        string path = Path.Combine(ModClass._declare.FolderPath, "CultureSpeciesPairPlayerConfig.json");
+        string path = Path.Combine(_declare.FolderPath, "CultureSpeciesPairPlayerConfig.json");
         if (File.Exists(path))
         {
             string content = File.ReadAllText(path);

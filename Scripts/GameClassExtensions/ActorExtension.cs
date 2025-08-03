@@ -267,7 +267,10 @@ public static class ActorExtension
     {
         if (a == null) return null;
         var ed = a.GetOrCreate();
-        PersonalClanIdentity pci = new PersonalClanIdentity(clan, a);
+        PersonalClanIdentity pci = new PersonalClanIdentity();
+        pci.newPersonalClanIdentity(clan, a);
+        clan._cache.Add(pci.id, pci);
+        a.SetPersonalIdentity (pci);
         if (a.hasLover())
         {
             pci.setLover(a.lover);
@@ -474,6 +477,7 @@ public static class ActorExtension
         if (a == null) return null;
         if (a.city == null) return null;
         if (a.city.kingdom == null) return null;
+        if (empire == null) return null;
         if (GetOrCreate(a).officeIdentity == null)
         {
             GetOrCreate(a).officeIdentity = new OfficeIdentity();
@@ -687,7 +691,7 @@ public static class ActorExtension
             {
                 identity.honoraryOfficial += 1;
             }
-            LogService.LogInfo("贬官");
+            // LogService.LogInfo("贬官");
             if(a.data.renown>=5)
             {
                 a.data.renown -= 5;
