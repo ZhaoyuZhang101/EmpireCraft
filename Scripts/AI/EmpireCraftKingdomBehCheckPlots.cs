@@ -1,13 +1,11 @@
-﻿using ai.behaviours;
+﻿using System.Collections.Generic;
+using System.Linq;
+using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
-using NeoModLoader.services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
+namespace EmpireCraft.Scripts.AI;
 
 public class EmpireCraftKingdomBehCheckPlots : BehaviourActionKingdom
 {
@@ -15,19 +13,19 @@ public class EmpireCraftKingdomBehCheckPlots : BehaviourActionKingdom
     {
         if (pKingdom.isEmpire())
         {
-            checkJoinWar(pKingdom);
+            CheckJoinWar(pKingdom);
             return BehResult.Continue;
         }
         return BehResult.Continue;
     }
 
-    public void checkJoinWar(Kingdom pKingdom)
+    public void CheckJoinWar(Kingdom pKingdom)
     {
         Empire empire = pKingdom.GetEmpire();
-        if (!empire.canJoinWar()) return;
+        if (!empire.CanJoinWar()) return;
         if (!empire.isRekt())
         {
-            if (pKingdom.getWars().Count() > 0)
+            if (pKingdom.getWars().Any())
             {
                 foreach (War war in pKingdom.getWars())
                 {
@@ -48,7 +46,7 @@ public class EmpireCraftKingdomBehCheckPlots : BehaviourActionKingdom
                                 {
                                     war.joinDefenders(empireKingdoms);
                                 }
-                                empire.addRenown(empireKingdoms.countTotalWarriors());
+                                empire.AddRenown(empireKingdoms.countTotalWarriors());
                                 TranslateHelper.LogJoinEmpireWar(empireKingdoms, empire);
                                 empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
                                 return;

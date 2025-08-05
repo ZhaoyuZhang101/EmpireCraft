@@ -37,9 +37,9 @@ public class KingdomPatch : GamePatch
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.setKing)),
             prefix: new HarmonyMethod(GetType(), nameof(new_emperor))
         );           
-        new Harmony(nameof(empror_left)).Patch(
+        new Harmony(nameof(emperor_left)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.removeKing)),
-            prefix: new HarmonyMethod(GetType(), nameof(empror_left))
+            prefix: new HarmonyMethod(GetType(), nameof(emperor_left))
         );               
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
@@ -60,7 +60,7 @@ public class KingdomPatch : GamePatch
         }
         if (__instance.isEmpire())
         {
-            foreach (Province province in __instance.GetEmpire().province_list)
+            foreach (Province province in __instance.GetEmpire().ProvinceList)
             {
                 if (province.HasOfficer()&&!province.IsTotalVassaled())
                 {
@@ -105,11 +105,12 @@ public class KingdomPatch : GamePatch
     {
         if (!ModClass.IS_CLEAR)
         {
+            pActor.CheckSpecificClan();
             if (__instance.HasTitle())
             {
-                foreach (var title_id in __instance.GetOwnedTitle())
+                foreach (var titleID in __instance.GetOwnedTitle())
                 {
-                    pActor.AddOwnedTitle(ModClass.KINGDOM_TITLE_MANAGER.get(title_id));
+                    pActor.AddOwnedTitle(ModClass.KINGDOM_TITLE_MANAGER.get(titleID));
                 }
             }
 
@@ -117,7 +118,7 @@ public class KingdomPatch : GamePatch
             {
                 if (__instance.isInEmpire() && !__instance.isEmpire())
                 {
-                    if (pActor.clan == __instance.GetEmpire().empire_clan)
+                    if (pActor.clan == __instance.GetEmpire().EmpireClan)
                     {
                         pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_1);
                     } else
@@ -132,7 +133,7 @@ public class KingdomPatch : GamePatch
             }
             if (__instance.isEmpire())
             {
-                __instance.GetEmpire().setEmperor(pActor);
+                __instance.GetEmpire().NewEmperor(pActor);
             } else if (__instance.isInEmpire()&&!__instance.isEmpire())
             {
                 Empire empire = __instance.GetEmpire();
@@ -147,11 +148,10 @@ public class KingdomPatch : GamePatch
                 pActor.SetIdentityType(PeerageType.Military);
                 pActor.addTrait("officer");
             }
-            pActor.CheckSpecificClan();
         }
     }
 
-    public static void empror_left(Kingdom __instance)
+    public static void emperor_left(Kingdom __instance)
     {
         if (!ModClass.IS_CLEAR)
         {
@@ -194,7 +194,7 @@ public class KingdomPatch : GamePatch
         if (empire == null) return;
         if (__instance.isEmpire())
         {
-            empire.checkDisolve(__instance);
+            empire.CheckDissolve(__instance);
         }
         else
         {

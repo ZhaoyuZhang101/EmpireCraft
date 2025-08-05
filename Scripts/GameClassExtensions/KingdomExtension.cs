@@ -322,17 +322,12 @@ public static class KingdomExtension
 
     public static bool isEmpire(this Kingdom kingdom)
     {
-        try {
-            if (kingdom == null) return false;
-            if (kingdom.data == null) return false;
-            var extraData = GetOrCreate(kingdom);
-            if (extraData == null) return false;
+        if (kingdom == null) return false;
+        if (kingdom.data == null) return false;
+        var extraData = GetOrCreate(kingdom);
+        if (extraData == null) return false;
 
-            return extraData.vassaled_kingdom_id == kingdom.getID();
-        } catch (Exception e) {
-            LogService.LogInfo(e.Message);
-            return false; 
-        }
+        return extraData.vassaled_kingdom_id == kingdom.getID();
     }
 
     public static void empireLeave (this Kingdom kingdom, bool isLeave = true)
@@ -406,7 +401,7 @@ public static class KingdomExtension
         if (k.isInEmpire())
         {
             Empire empire = k.GetEmpire();
-            if (empire.getEmpirePeriod() != EmpirePeriod.逐鹿群雄)
+            if (empire.GetEmpirePeriod() != EmpirePeriod.逐鹿群雄)
             {
                 return false;
             }
@@ -436,24 +431,24 @@ public static class KingdomExtension
         GetOrCreate(k).OwnedTitle = GetOrCreate(k).OwnedTitle.Union(value).ToList();
     } 
 
-    public static bool hasAnyControledTitle(this Kingdom kingdom)
+    public static bool hasAnycontrolledTitle(this Kingdom kingdom)
     {
-        return kingdom.getControledTitle().Count()>0;
+        return kingdom.getcontrolledTitle().Count()>0;
     }
 
-    public static List<KingdomTitle> getControledTitle(this Kingdom kingdom)
+    public static List<KingdomTitle> getcontrolledTitle(this Kingdom kingdom)
     {
-        List<KingdomTitle> controledTitles = new List<KingdomTitle>();
+        List<KingdomTitle> controlledTitles = new List<KingdomTitle>();
         foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER)
         {
             var title_cities = title.city_list;
             int commonCount = title_cities.Intersect(kingdom.cities).Count();
-            if (commonCount >= Math.Ceiling(title_cities.Count * title.data.title_controled_rate))
+            if (commonCount >= Math.Ceiling(title_cities.Count * title.data.title_controlled_rate))
             {
-                controledTitles.Add(title);
+                controlledTitles.Add(title);
             }
         }
-        return controledTitles;
+        return controlledTitles;
     }
 
     public static Kingdom FindClosestKingdom (this Kingdom kingdom)
@@ -469,7 +464,7 @@ public static class KingdomExtension
         if(kingdom.isEmpire())
         {
             Empire empire = kingdom.GetEmpire();
-            return empire.isNeighbourWith(target);
+            return empire.IsNeighbourWith(target);
         }
         foreach(City city in kingdom.cities)
         {

@@ -69,7 +69,6 @@ namespace EmpireCraft.Scripts.UI.Windows
                 } catch 
                 {
                     LogService.LogInfo("帝国列表生成失败");
-                    continue;
                 }
             }
         }

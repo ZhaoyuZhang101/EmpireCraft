@@ -28,15 +28,15 @@ public class ReligionPatch : GamePatch
         LogService.LogInfo("当前文化物种: " + species);
         if (ConfigData.speciesCulturePair.TryGetValue(species, out string culture))
         {
-            insertReligionNameTemplate(__instance, culture);
+            InsertReligionNameTemplate(__instance, culture);
         }
         else
         {
-            insertReligionNameTemplate(__instance, "Western");
+            InsertReligionNameTemplate(__instance, "Western");
         }
 
     }
-    public static void insertReligionNameTemplate(Religion religion, string cultureName)
+    public static void InsertReligionNameTemplate(Religion religion, string cultureName)
     {
         string culturePath = ModPath + $"Cultures/Culture_{cultureName}/";
         string religionNamePath = culturePath + $"{cultureName}ReligionNames.csv";

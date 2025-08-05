@@ -17,8 +17,11 @@ public class CultureRule
 }
 public class BeareauConfig
 {
-    public List<OfficeConfig> CoreOffice;
-    public List<OfficeConfig> Divisions;
+    public OfficeConfig GreaterGeneral = new OfficeConfig();
+    public OfficeConfig Minister = new OfficeConfig();
+    public OfficeConfig General = new OfficeConfig();
+    public List<OfficeConfig> CoreOffice = new List<OfficeConfig>();
+    public List<OfficeConfig> Divisions = new List<OfficeConfig>();
 }
 
 public class OfficeConfig
@@ -27,6 +30,10 @@ public class OfficeConfig
     public OfficialLevel type;
     public string description;
     public string pre;
+    public int merit;
+    public int honorary;
+    public PeerageType peerage_type;
+    public List<string> require_traits = new List<string>();
 }
 
 public class Setting

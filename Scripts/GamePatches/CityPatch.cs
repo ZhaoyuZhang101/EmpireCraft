@@ -54,6 +54,11 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(removeObject))
         );
 
+        new Harmony(nameof(getPopulationMaximum)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.getPopulationMaximum)),
+            prefix: new HarmonyMethod(GetType(), nameof(getPopulationMaximum))
+        );
+
         new Harmony(nameof(city_update)).Patch(
             AccessTools.Method(typeof(City), nameof(City.update)),
             prefix: new HarmonyMethod(GetType(), nameof(city_update))
@@ -89,7 +94,16 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(removeLeader))
         );
     }
-
+    public static bool getPopulationMaximum(City __instance, ref int __result)
+    {
+        if (__instance.GetMaxPopulationLimitStats())
+        {
+            __result = __instance.GetMaxPopulation();
+            return false;
+        }
+        __result = WorldLawLibrary.world_law_civ_limit_population_100.isEnabled() && __instance.status.housing_total >= 100 ? 100 : __instance.status.housing_total;
+        return false;
+    }
     public static void removeLeader(City __instance)
     {
         if (__instance.leader!=null)
@@ -209,7 +223,7 @@ public class CityPatch : GamePatch
         {
             Empire empire = pNewSetKingdom.GetEmpire();
             // 如果新加入的王国是帝国的一部分，并且城市被占领，则将城市加入帝国
-            if (empire.getEmpirePeriod()!= EmpirePeriod.天命丧失&&empire.getEmpirePeriod() != EmpirePeriod.下降)
+            if (empire.GetEmpirePeriod()!= EmpirePeriod.天命丧失&&empire.GetEmpirePeriod() != EmpirePeriod.下降)
             {
                 pNewSetKingdom = pNewSetKingdom.GetEmpire().empire;
             }
@@ -248,7 +262,7 @@ public class CityPatch : GamePatch
         if (empire != null && empire.empire != null)
         {
             int renownLoss = empire.empire.getRenown() / 2;
-            empire.addRenown(-renownLoss);
+            empire.AddRenown(-renownLoss);
 
             // 可选：添加日志记录
             LogService.LogInfo($"Empire {empire.name} lost {renownLoss} renown due to rebellion");

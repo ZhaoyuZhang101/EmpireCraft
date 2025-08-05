@@ -12,35 +12,37 @@ using System.Linq;
 using NeoModLoader.api.attributes;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 {
-    public Actor _actor;
-    public string last_search_content = "";
-    public Dictionary<string, AutoVertLayoutGroup> _groups = new ();
-    public Dictionary<string, AutoHoriLayoutGroup> _hGroups = new ();
-    public SpecificClan _sc;
-    public PersonalClanIdentity _identity;
-    public TextInput clanInput;
+    Actor _actor;
+    private string _lastSearchContent = "";
+    private readonly Dictionary<string, AutoVertLayoutGroup> _groups = new ();
+    private readonly Dictionary<string, AutoHoriLayoutGroup> _hGroups = new ();
+    SpecificClan _sc;
+    PersonalClanIdentity _identity;
+    private TextInput _clanInput;
     protected override void Init()
     {
         this.layout.spacing = 3;
         this.layout.padding = new RectOffset(3, 3, 80, 3);
-        clanInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
-        clanInput.Setup("", changeClanName);
+        _clanInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
+        _clanInput.Setup("", ChangeClanName);
     }
 
-    public void changeClanName(string name)
+    public void ChangeClanName(string text)
     {
-        clanInput.input.text = name + "\u200A" + LM.Get("specific_clan");
-        _sc.name = name;
+        var namePart = text.Split('\u200A');
+        _clanInput.input.text = namePart[0] + "\u200A" + LM.Get("specific_clan");
+        _sc.name = namePart[0];
         foreach (var member in _sc._cache)
         {
             if (member.Value.is_alive)
             {
-                member.Value._actor.GetModName().familyName = name;
+                member.Value._actor.GetModName().familyName = text;
                 member.Value._actor.GetModName().SetName(member.Value._actor);
             }
 
@@ -48,7 +50,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
             {
                 if (clan.HasSpecificClan())
                 {
-                    clan.data.name = clan.data.name = name + "\u200A" + LM.Get("Clan");
+                    clan.data.name = clan.data.name = text + "\u200A" + LM.Get("Clan");
                 }
             }
         }
@@ -82,8 +84,9 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         showTopPart();
         ShowLoversActorSpace();
         ShowParentGenerationSpace();
-        ShowSameGenerationSpace();
         ShowChildrenGenerationSpace();
+        ShowGrandChildGenerationSpace();
+        ShowSameGenerationSpace();
         ShowSiblingChildGenerationSpace();
     }
     public void ShowFatherSideSpace()
@@ -97,17 +100,17 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public void ShowFatherGrandGeneration()
     {
         string title = "father_grand_generation";
-        ShowSpaceBase(title, _sc.GetFatherGrandGeneration(_identity));
+        ShowSpaceBase(title, SpecificClanManager.GetFatherGrandGeneration(_identity));
     }
     public void ShowFatherGreatGeneration()
     {
         string title = "father_great_generation";
-        ShowSpaceBase(title, _sc.GetFatherGreatGeneration(_identity));
+        ShowSpaceBase(title, SpecificClanManager.GetFatherGreatGeneration(_identity));
     }
     public void ShowFatherSameGeneration()
     {
         string title = "father_same_generation";
-        ShowSpaceBase(title, _sc.GetFatherSameGeneration(_identity));
+        ShowSpaceBase(title, SpecificClanManager.GetFatherSameGeneration(_identity));
     }
     public void ShowMotherSideSpace()
     {
@@ -120,25 +123,25 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public void ShowMotherGrandGeneration()
     {
         string title = "mother_grand_generation";
-        ShowSpaceBase(title, _sc.GetMotherGrandGeneration(_identity));
+        ShowSpaceBase(title, SpecificClanManager.GetMotherGrandGeneration(_identity));
     }
     public void ShowMotherGreatGeneration()
     {
         string title = "mother_great_generation";
-        ShowSpaceBase(title, _sc.GetMotherGreatGeneration(_identity));
+        ShowSpaceBase(title, SpecificClanManager.GetMotherGreatGeneration(_identity));
     }
     public void ShowMotherSameGeneration()
     {
         string title = "mother_same_generation";
-        ShowSpaceBase(title, _sc.GetMotherSameGeneration(_identity));
+        ShowSpaceBase(title, SpecificClanManager.GetMotherSameGeneration(_identity));
     }
 
     public void StartSearchActor(string content)
     {
-        last_search_content = content;
+        _lastSearchContent = content;
         Clear();
         showTopPart();
-        List<(ClanRelation, PersonalClanIdentity)> result = OverallHelperFunc.SearchPersonalClanIdentityHelper(content, SpecificClanManager.findAllRelations(_identity));
+        List<(ClanRelation, PersonalClanIdentity)> result = OverallHelperFunc.SearchPersonalClanIdentityHelper(content, SpecificClanManager.FindAllRelations(_identity));
         string title = "title_search_result";
         ShowSpaceBase(title, result);
     }
@@ -153,7 +156,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         topSearchSpace.AddChild(fatherSideButton.gameObject);
         
         //搜索框
-        TextInput relationSearchInput = UIHelper.generateTextInput(topSearchSpace.transform, action:StartSearchActor, default_text:last_search_content);
+        TextInput relationSearchInput = UIHelper.GenerateTextInput(topSearchSpace.transform, action:StartSearchActor, default_text:_lastSearchContent);
         
         SimpleButton motherSideButton = Instantiate(SimpleButton.Prefab);
         motherSideButton.Setup(ShowMotherSideSpace, null, "母系亲属", new Vector2(30, 15));
@@ -177,26 +180,26 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         
         _hGroups.Add("InitialSearchSpace", topSearchSpace);
     }
+    [Hotfixable]
     public void InitialTop()
     {
-
         var topActorSpace = ShowCurrentActorSpace();
         topActorSpace.transform.SetParent(this.transform.parent, false);
         
         var rt = topActorSpace.GetComponent<RectTransform>();
-        
-        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
-        
+
         rt.pivot = new Vector2(0.5f, 1f);
         
-        rt.anchoredPosition = Vector2.zero+Vector2.down*15+Vector2.left*68;
-        
+        rt.anchoredPosition = Vector2.zero;
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f); 
+        // 关闭拉伸，用 sizeDelta 定宽高
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
         rt.localScale = Vector3.one;
+        // 局部坐标归零（中心对中心）
+        rt.anchoredPosition = new Vector2(0, 10);
         topActorSpace.transform.SetAsLastSibling();
-        
-        var layout = this.transform.parent.GetComponent<VerticalLayoutGroup>();
-        if (layout != null)
-            layout.childAlignment = TextAnchor.MiddleCenter;
+        var le = topActorSpace.gameObject.AddComponent<LayoutElement>();
+        le.ignoreLayout = true;
         
         topActorSpace.transform.SetAsLastSibling();
 
@@ -204,15 +207,8 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 
     public void InitialTextInput()
     {
-        // clanInput.SetSize(new Vector2(130, 15));
-        // clanInput.input.textComponent.alignment = TextAnchor.MiddleCenter;
-        // var rt1 = clanInput.input.GetComponent<RectTransform>();
-        // rt1.sizeDelta = new Vector2(130, 15);
-        // clanInput.transform.localPosition = Vector3.up*152;
-        // clanInput.transform.SetAsLastSibling();
-        // clanInput.input.text = ;
         string text = _sc.name + "\u200A" + LM.Get("specific_clan");
-        UIHelper.generateTextInput(this.transform.parent.transform.parent, offset:new Vector2(0, 152), default_text:text, input:clanInput);
+        UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset:new Vector2(0, 152), default_text:text, input:_clanInput);
     }
 
     public AutoVertLayoutGroup ShowCurrentActorSpace()
@@ -221,7 +217,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         personalClanIdentities.Add((ClanRelation.SELF, _identity));
         return ShowSpaceBase("current_actor_generation", personalClanIdentities, true);
     }    
-    public AutoVertLayoutGroup ShowLoversActorSpace()
+    public void ShowLoversActorSpace()
     {
         List<(ClanRelation, PersonalClanIdentity)> personalClanIdentities = new List<(ClanRelation, PersonalClanIdentity)>();
         if (_identity.hasLover())
@@ -232,7 +228,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         {
             personalClanIdentities.Add((ClanRelation.COB, SpecificClanManager.getPerson(cob.identity)));
         }
-        return ShowSpaceBase("current_lovers_generation", personalClanIdentities);
+        ShowSpaceBase("current_lovers_generation", personalClanIdentities);
     }
     public void Clear()
     {
@@ -266,11 +262,17 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 
         return ShowSpaceBase("current_parent_generation", personalClanIdentities);
     }
+    public AutoVertLayoutGroup ShowGrandChildGenerationSpace()
+    {
+        List<(ClanRelation, PersonalClanIdentity)> grandChildrenWithRelations = SpecificClanManager.GetGrandChildren(_identity);
+        string title = "current_grand_children_generation";
+        return ShowSpaceBase("current_grand_children_generation", grandChildrenWithRelations);
+    }
 
     //显示直系同辈空间
     public AutoVertLayoutGroup ShowSameGenerationSpace()
     {
-        List<(ClanRelation, PersonalClanIdentity)> siblingsWithRelations = _sc.GetSiblingsWithRelation(_identity);
+        List<(ClanRelation, PersonalClanIdentity)> siblingsWithRelations = SpecificClanManager.GetSiblingsWithRelation(_identity);
         return ShowSpaceBase("current_same_generation", siblingsWithRelations);
     }
     //显示直系子辈空间
@@ -285,7 +287,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public AutoVertLayoutGroup ShowSiblingChildGenerationSpace()
     {
         List<(ClanRelation, PersonalClanIdentity)> personalClanIdentities = new List<(ClanRelation, PersonalClanIdentity)>();
-        personalClanIdentities.AddRange(_sc.GetSiblingChildGeneration(_identity));
+        personalClanIdentities.AddRange(SpecificClanManager.GetSiblingChildGeneration(_identity));
         return ShowSpaceBase("sibling_child_generation", personalClanIdentities);
     }
 
@@ -295,7 +297,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         var baseSpace = this.BeginVertGroup();
         if (is_single)
         {
-            AutoGridLayoutGroup baseActorGrid = this.BeginGridGroup(1);
+            AutoVertLayoutGroup baseActorGrid = this.BeginVertGroup();
             ShowMainInfo(baseActorGrid, relationthip[0].identity, relationthip[0].relation);
             baseSpace.AddChild(baseActorGrid.gameObject);
         }
@@ -330,6 +332,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         this._sc = actor_identity._specificClan;
         refreshAll();
     }
+    [Hotfixable]
     public void ShowPersonalInfo(AutoGridLayoutGroup parent, PersonalClanIdentity actor, ClanRelation relation = ClanRelation.NONE)
     {
         
@@ -338,7 +341,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         //右边头像
         AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:12, pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
         
-        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, () => ChangeActor(actor), is_alive:actor.is_alive);
+        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, () => ChangeActor(actor), pIsAlive:actor.is_alive);
         avatarLayoutGroup.AddChild(clickframe.gameObject);
         avatarLayoutGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(avatarLayoutGroup.gameObject);
@@ -356,13 +359,13 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         leftVertGroup.AddChild(timeText.gameObject);
         leftVertGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(leftVertGroup.gameObject);
-
+        personalGroup.transform.AddStretchBackground(SpriteTextureLoader.getSprite("ui/clanFrame"), size: new Vector2(100, 30));
         parent.AddChild(personalGroup.gameObject);
     }
-
-    public void ShowMainInfo(AutoGridLayoutGroup parent, PersonalClanIdentity actor, ClanRelation relation = ClanRelation.NONE)
+    [Hotfixable]
+    public void ShowMainInfo(AutoVertLayoutGroup parent, PersonalClanIdentity actor, ClanRelation relation = ClanRelation.NONE)
     {
-        AutoHoriLayoutGroup personalGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter, pSize:new Vector2(200, 60));
+        AutoHoriLayoutGroup personalGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter, pSize:new Vector2(200, 70));
 
         //左边信息栏
         AutoVertLayoutGroup leftVertGroup = this.BeginVertGroup(pAlignment: TextAnchor.UpperCenter);
@@ -390,7 +393,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         backToMain.Setup(refreshAll, null, LM.Get("i_back_to_main"), new Vector2(20,10));
 
 
-        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, is_alive:actor.is_alive);
+        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, pIsAlive:actor.is_alive);
 
         avatarLayoutGroup.AddChild(backToMain.gameObject);
         avatarLayoutGroup.AddChild(clickframe.gameObject);

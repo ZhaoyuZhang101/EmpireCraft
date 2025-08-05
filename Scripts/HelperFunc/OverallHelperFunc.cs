@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.General;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.HelperFunc
 {

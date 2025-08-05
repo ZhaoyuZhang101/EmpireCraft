@@ -33,9 +33,9 @@ public class ClanPatch : GamePatch
     {
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)
         {
-            if (empire.empire_clan == __instance)
+            if (empire.EmpireClan == __instance)
             {
-                empire.empire_clan = null;
+                empire.EmpireClan = null;
                 empire.data.original_royal_been_changed = true;
                 empire.data.original_royal_been_changed_timestamp = World.world.getCurWorldTime();
             }

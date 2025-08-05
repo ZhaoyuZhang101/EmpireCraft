@@ -88,7 +88,7 @@ public class ActorTextureSubAssetPatch : GamePatch
             case UnitProfession.Leader:
                 __result = __instance.texture_path_leader;
                 return false;
-            case UnitProfessionExtension.Ministor:
+            case UnitProfessionExtension.minister:
                 __result = texture_path_minister;
                 return false;
             case UnitProfessionExtension.Emperor:

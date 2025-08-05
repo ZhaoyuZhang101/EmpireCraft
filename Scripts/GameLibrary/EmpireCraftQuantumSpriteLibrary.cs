@@ -103,7 +103,7 @@ public static class EmpireCraftQuantumSpriteLibrary
             {
                 break;
             }
-            List<Province> provinces = empire.province_list;
+            List<Province> provinces = empire.ProvinceList;
             for (int i= 0; i < provinces.Count; i++)
             {
                 Province province = provinces[i];

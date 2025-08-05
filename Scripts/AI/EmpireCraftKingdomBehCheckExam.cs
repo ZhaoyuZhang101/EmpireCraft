@@ -17,13 +17,13 @@ public class EmpireCraftKingdomBehCheckExam: BehaviourActionKingdom
         if ( pKingdom.isEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
-            if (empire.isNeedToExam())
+            if (empire.IsNeedToExam())
             {
                 foreach(City city in empire.AllCities())
                 {
                     ExamSystem.startExam(ExamSystem.ExamType.City, city);
                 }
-                foreach(Province province in empire.province_list)
+                foreach(Province province in empire.ProvinceList)
                 {
                     province.updateOccupied();
                     if(!province.IsTotalVassaled())
@@ -34,7 +34,6 @@ public class EmpireCraftKingdomBehCheckExam: BehaviourActionKingdom
                 ExamSystem.startExam(ExamSystem.ExamType.Empire, empire);
                 empire.data.last_exam_timestamp = World.world.getCurWorldTime();
             }
-            return BehResult.Continue;
         }
         return BehResult.Continue;
     }

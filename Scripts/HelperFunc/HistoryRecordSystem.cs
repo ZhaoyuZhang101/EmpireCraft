@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.GameClassExtensions;
 
 namespace EmpireCraft.Scripts.HelperFunc;
 public static class HistoryRecordSystem
@@ -30,7 +31,7 @@ public static class HistoryRecordSystem
                 id = "histroy_empire_left";
                 break;
             case EmpireHistoryType.powerful_minister_history:
-                id = "history_powerful_ministor";
+                id = "history_powerful_minister";
                 break;
             case EmpireHistoryType.give_posthumous_to_previous_emperor_history:
                 id = "history_name_previous_emperor";
@@ -47,10 +48,8 @@ public static class HistoryRecordSystem
             case EmpireHistoryType.rebuild_empire_history:
                 id = "history_refund_empire";
                 break;
-            default:
-                break;
         }
-        if (id!=""||id!=null)
+        if (!string.IsNullOrEmpty(id))
         {
             string template = LM.Get(id);
             string replacedText = Regex.Replace(template, @"\$(\w+)\$", m =>
@@ -58,7 +57,30 @@ public static class HistoryRecordSystem
                 var key = m.Groups[1].Value;
                 return recordInfo.TryGetValue(key, out var v) ? v : m.Value;
             });
-            empire.data.currentHistory.descriptions.Add(empire.getYearNameWithTime()+ "_" + replacedText);
+            empire.data.currentHistory.descriptions.Add(empire.GetYearNameWithTime()+ "_" + replacedText);
         }
+    }
+    
+    public static void RecordNewEmperorHistory(this Empire empire, bool isNew)
+    {
+        //记录历史
+        empire.data.currentHistory = new EmpireCraftHistory
+        {
+            id = empire.Emperor.data.id,
+            empire_name = empire.GetEmpireName(),
+            year_name = empire.data.year_name,
+            emperor = empire.Emperor.getName(),
+            miaohao_name = "",
+            shihao_name = "",
+            descriptions = new List<string>(),
+            cities = new List<string>(),
+            is_first = isNew
+        };
+        empire.RecordHistory(EmpireHistoryType.new_emperor_history, new Dictionary<string, string>()
+        {
+            ["actor"] = empire.Emperor.getName(),
+            ["place"] = empire.empire.capital.GetCityName(),
+            ["year_name"] = empire.data.year_name,
+        });
     }
 }

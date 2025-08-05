@@ -39,8 +39,8 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     public int GetTitleBeenControlledYear()
     {
         if (this.data == null) return 0;
-        if (this.data.timestamp_been_controled <= 0) return 0;
-        return Date.getYearsSince(this.data.timestamp_been_controled);
+        if (this.data.timestamp_been_controlled <= 0) return 0;
+        return Date.getYearsSince(this.data.timestamp_been_controlled);
     }
     public void newKingdomTitle(City city)
     {
@@ -196,7 +196,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
                 {
                     if(c.kingdom != kingdom)
                     {
-                        this.data.timestamp_been_controled = -1L;
+                        this.data.timestamp_been_controlled = -1L;
                         return false;
                     }
                     else
@@ -208,7 +208,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         }
         if (control_kingdom!=kingdom)
         {
-            data.timestamp_been_controled = World.world.getCurWorldTime();
+            data.timestamp_been_controlled = World.world.getCurWorldTime();
             control_kingdom = kingdom;
         }
         return true;

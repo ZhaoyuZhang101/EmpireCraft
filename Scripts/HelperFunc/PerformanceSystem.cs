@@ -60,7 +60,7 @@ public class PerformanceEvents
     {
         //事件触发基数
         double performance_base = 0.0;
-        switch (empire.getEmpirePeriod())
+        switch (empire.GetEmpirePeriod())
         {
             case EmpirePeriod.平和:
                 performance_base = 0.2;

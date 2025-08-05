@@ -75,10 +75,10 @@ public static class ClanExtension
         if (!kingdom.hasCapital()) return;
         kingdom.capital.updateCityCenter();
         GetOrCreate(__instance).id = __instance.getID();
-        GetOrCreate(__instance).x = empire.original_capital.city_center.x;
-        GetOrCreate(__instance).y = empire.original_capital.city_center.y;
+        GetOrCreate(__instance).x = empire.OriginalCapital.city_center.x;
+        GetOrCreate(__instance).y = empire.OriginalCapital.city_center.y;
         GetOrCreate(__instance).historical_empire_name = empire.GetEmpireName();
-        GetOrCreate(__instance).original_capital = empire.original_capital.isAlive() ? empire.original_capital.data.id : -1L;
+        GetOrCreate(__instance).original_capital = empire.OriginalCapital.isAlive() ? empire.OriginalCapital.data.id : -1L;
     }
 
     public static void ClearHistoricalName(this Clan __instance)

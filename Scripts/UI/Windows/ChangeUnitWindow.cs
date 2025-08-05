@@ -183,28 +183,28 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
         {
             if (_empire.data.centerOffice.General.name == _key)
             {
-                _empire.data.centerOffice.General.SetActor(actor);
+                _empire.SetOfficer(_empire.data.centerOffice.General, actor);
             }
             if (_empire.data.centerOffice.GreaterGeneral.name == _key)
             {
-                _empire.data.centerOffice.GreaterGeneral.SetActor(actor);
+                _empire.SetOfficer(_empire.data.centerOffice.GreaterGeneral, actor);
             }
             if (_empire.data.centerOffice.Minister.name == _key)
             {
-                _empire.data.centerOffice.Minister.SetActor(actor);
+                _empire.SetOfficer(_empire.data.centerOffice.Minister, actor);
             }
             foreach (var pairs in _empire.data.centerOffice.CoreOffices)
             {
                 if (_key == pairs.Key)
                 {
-                    pairs.Value.SetActor(actor);
+                    _empire.SetOfficer(pairs.Value, actor);
                 }
             }
             foreach (var pairs in _empire.data.centerOffice.Divisions)
             {
                 if (_key == pairs.Key)
                 {
-                    pairs.Value.SetActor(actor);
+                    _empire.SetOfficer(pairs.Value, actor);
                 }
             }
         }

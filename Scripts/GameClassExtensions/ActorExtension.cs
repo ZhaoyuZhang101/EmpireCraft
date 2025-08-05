@@ -307,11 +307,6 @@ public static class ActorExtension
         return ed.personal_identity != -1L;
     }
 
-    public static void SetEmpire(this Actor a, Empire empire)
-    {
-        GetOrCreate(a).empire_id = empire.data.id;
-    }
-
     public static void RemoveEmpire(this Actor a)
     {
         GetOrCreate(a).empire_id = -1L;
@@ -472,6 +467,12 @@ public static class ActorExtension
         if (GetOrCreate(a).officeIdentity.officialLevel == OfficialLevel.officiallevel_10) return false;
         return true;
     }
+
+    public static bool hasOfficeIdentity(this Actor a)
+    {
+        if (a == null) return false;
+        return a.GetOrCreate().officeIdentity == null;
+    }
     public static OfficeIdentity GetIdentity( this Actor a, Empire empire)
     {
         if (a == null) return null;
@@ -582,7 +583,7 @@ public static class ActorExtension
             Kingdom k = a.kingdom;
             if (k.isInEmpire())
             {
-                if (k.GetEmpire().getEmpirePeriod()!=EmpirePeriod.逐鹿群雄 && k.GetEmpire().getEmpirePeriod() != EmpirePeriod.天命丧失) return false;
+                if (k.GetEmpire().GetEmpirePeriod()!=EmpirePeriod.逐鹿群雄 && k.GetEmpire().GetEmpirePeriod() != EmpirePeriod.天命丧失) return false;
             }
             foreach (City city in k.cities)
             {
@@ -778,24 +779,16 @@ public static class ActorExtension
         Kingdom kingdom = a.kingdom;
         var ownedTitles = a.GetOwnedTitle();
         if (ownedTitles == null) return "";
-        try
+        var hasCapitalTitle = ownedTitles.Exists(t => ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(t) ? ModClass.KINGDOM_TITLE_MANAGER.get(t).title_capital == kingdom.capital : false);
+        if (hasCapitalTitle)
         {
-            var hasCapitalTitle = ownedTitles.Exists(t => ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(t) ? ModClass.KINGDOM_TITLE_MANAGER.get(t).title_capital == kingdom.capital : false);
-            if (hasCapitalTitle)
-            {
-                kingdom.SetMainTitle(kingdom.capital.GetTitle());
-                return kingdom.capital.GetTitle().data.name;
-            }
-            else
-            {
-                KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
-                kingdom.SetMainTitle(title);
-                return title.data.name;
-            }
+            kingdom.SetMainTitle(kingdom.capital.GetTitle());
+            return kingdom.capital.GetTitle().data.name;
         }
-        catch {
-            return "";
-        }
+
+        KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
+        kingdom.SetMainTitle(title);
+        return title.data.name;
     }
     public static bool HasTitle(this Actor a)
     {
@@ -817,13 +810,13 @@ public static class ActorExtension
     {
         if (!a.hasKingdom()) return false;
         if (a.kingdom.GetEmpire() == null) return false;
-        if (a.kingdom.GetEmpire().emperor.GetOwnedTitle()==null) return false;
+        if (a.kingdom.GetEmpire().Emperor.GetOwnedTitle()==null) return false;
         if (a.kingdom.capital.GetTitle()==null) return false;
         if (a.kingdom.isInEmpire())
         {
             if (a.kingdom.capital.hasTitle())
             {
-                return a.kingdom.GetEmpire().emperor.GetOwnedTitle().Contains(a.kingdom.capital.GetTitle().data.id);
+                return a.kingdom.GetEmpire().Emperor.GetOwnedTitle().Contains(a.kingdom.capital.GetTitle().data.id);
             }
         }
         return false;
@@ -835,9 +828,9 @@ public static class ActorExtension
         if (!a.isKing()) return false;
         Kingdom kingdom = a.kingdom;
         if (kingdom == null) return false;
-        List<long> controledTitles = kingdom.getControledTitle().FindAll(t=>!t.owner.isEmperor()).Select(t=>t.data.id).ToList();
-        var commonTitles = controledTitles.Intersect(a.GetOwnedTitle());
-        return commonTitles.Count() < controledTitles.Count();
+        List<long> controlledTitles = kingdom.getcontrolledTitle().FindAll(t=>!t.owner.isEmperor()).Select(t=>t.data.id).ToList();
+        var commonTitles = controlledTitles.Intersect(a.GetOwnedTitle());
+        return commonTitles.Count() < controlledTitles.Count();
     }
 
     public static List<KingdomTitle> titleCanBeDestroy(this Actor a)
@@ -849,7 +842,7 @@ public static class ActorExtension
             {
                 KingdomTitle kt = ModClass.KINGDOM_TITLE_MANAGER.get(id);
                 if (kt == null) continue;
-                if (Date.getYearsSince(kt.data.timestamp_been_controled) >= ModClass.TITLE_BEEN_DESTROY_TIME && kt != a.kingdom.GetMainTitle())
+                if (Date.getYearsSince(kt.data.timestamp_been_controlled) >= ModClass.TITLE_BEEN_DESTROY_TIME && kt != a.kingdom.GetMainTitle())
                 {
                     titles.Add(kt);
                 }
@@ -863,7 +856,7 @@ public static class ActorExtension
         if (!a.isKing()) return null;
         List<KingdomTitle> takedTitles = new List<KingdomTitle>();
         Kingdom kingdom = a.kingdom;
-        List<KingdomTitle> titles = kingdom.getControledTitle();
+        List<KingdomTitle> titles = kingdom.getcontrolledTitle();
         foreach(KingdomTitle t in titles)
         {
             if (t.main_kingdom!=null)
@@ -972,6 +965,11 @@ public static class ActorExtension
     {
         if (a==null) return false;
         return GetOrCreate(a).empire_id!=-1L;
+    }
+
+    public static void SetEmpire(this Actor a, Empire empire)
+    {
+        a.GetOrCreate().empire_id = empire.data.id;
     }
 
     public static ActorExtraData GetOrCreate(this Actor a, bool isSave=false)

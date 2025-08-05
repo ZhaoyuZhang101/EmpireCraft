@@ -43,24 +43,19 @@ public class DiplomacyManagerPatch : GamePatch
         {
             if (item.isInEmpire()) continue;
             if (!item.isNeighbourWith(pKingdomStarter)) continue;
-            if (item.hasKing() && !item.isSupreme() && !item.king.hasPlot() && pKingdomStarter.isOpinionTowardsKingdomGood(item) && item.getRenown() >= PlotsLibrary.alliance_create.min_renown_kingdom)
+            if (!item.hasKing() || item.isSupreme() || item.king.hasPlot() ||
+                !pKingdomStarter.isOpinionTowardsKingdomGood(item) ||
+                item.getRenown() < PlotsLibrary.alliance_create.min_renown_kingdom) continue;
+            bool flag = false || pKingdomStarter.cities.Count <= 2 && item.cities.Count <= 2 && !pKingdomStarter.hasNearbyKingdoms() && !item.hasNearbyKingdoms();
+            if (!flag && DiplomacyHelpers.areKingdomsClose(item, pKingdomStarter))
             {
-                if (item == null) continue;
-                bool flag = false;
-                if (pKingdomStarter.cities.Count <= 2 && item.cities.Count <= 2 && !pKingdomStarter.hasNearbyKingdoms() && !item.hasNearbyKingdoms())
-                {
-                    flag = true;
-                }
-                if (!flag && DiplomacyHelpers.areKingdomsClose(item, pKingdomStarter))
-                {
-                    flag = true;
-                }
+                flag = true;
+            }
 
-                if (flag)
-                {
-                    __result= item;
-                    return false;
-                }
+            if (flag)
+            {
+                __result= item;
+                return false;
             }
         }
         __result = null;

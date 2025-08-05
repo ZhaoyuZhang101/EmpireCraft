@@ -20,7 +20,7 @@ public class KingdomTitleData: MetaObjectData
     public string original_actor_asset;
     public long title_capital = -1L;
 
-    public double title_controled_rate = 0.9;
+    public double title_controlled_rate = 0.9;
 
     public long owner = -1L;
     public string province_name { get; set; }
@@ -29,7 +29,7 @@ public class KingdomTitleData: MetaObjectData
     public List<string> history_emperrors;
     public long main_kingdom { get; set; } = -1L;
 
-    public double timestamp_been_controled;
+    public double timestamp_been_controlled;
 
     public double timestamp_established_time;
 }

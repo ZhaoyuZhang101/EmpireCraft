@@ -4,232 +4,217 @@ using NeoModLoader.General.UI.Window;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 using UnityEngine;
 using NeoModLoader.General.UI.Prefabs;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Data;
-using NeoModLoader.api.attributes;
-using UnityEngine.Assertions;
-using NeoModLoader.services;
+
 using UnityEngine.UI;
 using EmpireCraft.Scripts.HelperFunc;
-using UnityEngine.Pool;
+
 using NeoModLoader.General;
 using System.Collections;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.UI.Components;
+using NeoModLoader.api.attributes;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
     public class EmpireWindow : AutoLayoutWindow<EmpireWindow>
     {
-        AutoHoriLayoutGroup TopLayout;
-        AutoGridLayoutGroup GridLayout;
-        ListPool<GameObject> ListPool;
-        ListPool<GameObject> EmperorsPool;
-        ListPool<GameObject> historyPool;
-        TextInput empireNameInput;
-        SimpleButton year_name_button;
-        AutoVertLayoutGroup emperorsContainer;
-        Empire empire;
-        AutoVertLayoutGroup list_kingdom_container;
-        AutoVertLayoutGroup list_kingdoms;
-        AutoVertLayoutGroup EmperorsSpace;
-        AutoVertLayoutGroup PersonalHistory;
-        AutoVertLayoutGroup personalHistoryContainer;
-        EmpireCraftStatsRow statsRow;
+        private TextInput _empireNameInput;
+        private Empire _empire;
+        private readonly Dictionary<string, GameObject> _groups = new Dictionary<string, GameObject>();
+        public SimpleWindowTab kingdomsWindowTab;
+        public SimpleWindowTab pastEmperorsWindowTab;
+        public SimpleWindowTab bureauWindowTab;
 
-        List<string> infos = new List<string>()
+        private List<string> _infos = new List<string>()
         {
             "i_cities", "i_kingdoms", "i_age", "i_renown", "i_deaths", "i_members"
         };
-        Dictionary<string, Text> infosTrans = new Dictionary<string, Text>();
+
+        private Dictionary<string, Text> _infosTrans = new Dictionary<string, Text>();
+
         protected override void Init()
         {
-            this.GetLayoutGroup().spacing = 10;
-
-            ListPool = new ListPool<GameObject>();
-            EmperorsPool = new ListPool<GameObject>();
-            historyPool = new ListPool<GameObject>();
-            TopLayout = this.BeginHoriGroup(new Vector2(150, 30), pSpacing: 3);
-
-            AutoVertLayoutGroup vertLayout = this.BeginVertGroup(new Vector2(75, 30), pSpacing:3);
-            //名称输入栏
-            SimpleText empireText = Instantiate(SimpleText.Prefab, null);
-            string empireName = LM.Get("empire_name");
-            empireText.Setup($"{empireName}: ", TextAnchor.MiddleCenter, new Vector2(40, 15));
-            empireText.background.enabled = false;
-  
-            empireNameInput = Instantiate(TextInput.Prefab, null);
-            empireNameInput.Setup("", name_change);
-            empireNameInput.SetSize(new Vector2(90, 18));
-            vertLayout.AddChild(empireText.gameObject);
-            vertLayout.AddChild(empireNameInput.gameObject);
-            TopLayout.AddChild(vertLayout.gameObject);
-
-            //年号按钮
-            AutoVertLayoutGroup vertLayout2 = this.BeginVertGroup(new Vector2(75, 30), pSpacing: 3);
-            SimpleText ToggleText = Instantiate(SimpleText.Prefab, null);
-            string open_year_name = LM.Get("open_year_name");
-            ToggleText.Setup($"{open_year_name}: ", TextAnchor.MiddleCenter, new Vector2(30, 15));
-            ToggleText.background.enabled = false;
-            year_name_button = Instantiate(SimpleButton.Prefab, null);
-            year_name_button.Setup(ToggleYearName, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"));
-            year_name_button.Background.enabled = false;
-            year_name_button.SetSize(new Vector2(10, 10));
-            vertLayout2.AddChild(ToggleText.gameObject);
-            vertLayout2.AddChild(year_name_button.gameObject);
-            TopLayout.AddChild(vertLayout2.gameObject);
-
-            AddChild(TopLayout.gameObject);
-
-
-            //信息查看选择区
-            AutoHoriLayoutGroup selectGroup = this.BeginHoriGroup(new Vector2(150, 30), pSpacing: 3);
-            //信息查看按钮
-            Vector2 buttonSize = new Vector2(25, 15);
-            SimpleButton infosButton = Instantiate(SimpleButton.Prefab, null);
-            infosButton.Setup(ShowList, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), LM.Get("empire_cotroled_kingdoms"), buttonSize);
-
-            SimpleButton emperorsButton = Instantiate(SimpleButton.Prefab, null);
-            emperorsButton.Setup(ShowEmperors, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), LM.Get("past_emperors"), buttonSize);
-
-            SimpleButton empireBeaurauButton = Instantiate(SimpleButton.Prefab, null);
-            empireBeaurauButton.Setup(ShowBeaurau, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), LM.Get("empire_beaurau"), buttonSize);
-
-            selectGroup.AddChild(infosButton.gameObject);
-            selectGroup.AddChild(emperorsButton.gameObject);
-            selectGroup.AddChild(empireBeaurauButton.gameObject);
-            AddChild(selectGroup.gameObject);
-
-
-            //君主世系
-            EmperorsSpace = this.BeginVertGroup(pSpacing: 3);
-            //标题区
-            SimpleText emperorsText = Instantiate(SimpleText.Prefab, null);
-            string emperors = LM.Get("past_emperors");
-            emperorsText.Setup($"{emperors}", TextAnchor.MiddleCenter, new Vector2(40, 15));
-            emperorsText.background.enabled = false;
-            EmperorsSpace.AddChild(emperorsText.gameObject);
-            //查看区
-            emperorsContainer = this.BeginVertGroup();
-            emperorsContainer.AddComponent<EmpireCraftStatsRow>();
-            statsRow = emperorsContainer.GetComponent<EmpireCraftStatsRow>();
-            EmperorsSpace.AddChild(emperorsContainer.gameObject);
-            AddChild(EmperorsSpace.gameObject);
-            EmperorsSpace.gameObject.SetActive(false);
-
-
-            //势力范围
-            list_kingdoms = this.BeginVertGroup(pSpacing: 3);
-            //标题区
-            SimpleText kingdomsText = Instantiate(SimpleText.Prefab, null);
-            string empire_cotroled_kingdoms = LM.Get("empire_cotroled_kingdoms");
-            kingdomsText.Setup($"{empire_cotroled_kingdoms}", TextAnchor.MiddleCenter, new Vector2(40, 15));
-            kingdomsText.background.enabled = false;
-            list_kingdoms.AddChild(kingdomsText.gameObject);
-            //国家列表
-            list_kingdom_container = this.BeginVertGroup();
-            list_kingdom_container.AddChild(kingdomsText.gameObject);
-            list_kingdoms.AddChild(list_kingdom_container.gameObject);
-            AddChild(list_kingdoms.gameObject);
-            list_kingdoms.gameObject.SetActive(false);
-
-            //个人历史
-            PersonalHistory = this.BeginVertGroup(pSpacing: 3);
-            //标题区
-            SimpleText personalHistorysText = Instantiate(SimpleText.Prefab, null);
-            string empire_personal_history = LM.Get("empire_personal_history");
-            personalHistorysText.Setup($"{empire_personal_history}", TextAnchor.MiddleCenter, new Vector2(40, 15));
-            personalHistorysText.background.enabled = false;
-            PersonalHistory.AddChild(personalHistorysText.gameObject);
-            //个人历史列表
-            personalHistoryContainer = this.BeginVertGroup(pSpacing: 3);
-            PersonalHistory.AddChild(PersonalHistory.gameObject);
-
-
-        }
-
-        private void ToggleYearName()
-        {
-            empire = ConfigData.CURRENT_SELECTED_EMPIRE;
-            empire.data.has_year_name = !empire.data.has_year_name;
-            setToggle(empire.data.has_year_name);
-        }
-        public void setToggle (bool toggle)
-        {
-            if (toggle)
-            {
-                year_name_button.Icon.sprite = SpriteTextureLoader.getSprite("ui/toggle_open");
-            }
-            else
-            {
-                year_name_button.Icon.sprite = SpriteTextureLoader.getSprite("ui/toggle_close");
-            }
+            layout.spacing = 3;
+            layout.padding = new RectOffset(3, 3, 60, 3);
+            _empireNameInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
+            _empireNameInput.Setup("", name_change);
         }
         public void Clear()
         {
-            if (ListPool == null) return;
-            float deleteTime = 0.2f;
-            foreach (GameObject go in ListPool)
+            foreach (var container in _groups)
             {
-                go.SetActive(false);
-                Destroy(go, deleteTime);
-                deleteTime += 0.2f;
+                Destroy(container.Value);
             }
-            ListPool.Clear();
-
-            if (EmperorsPool == null) return;
-            deleteTime = 0.2f;
-            foreach (GameObject go in EmperorsPool)
+            _groups.Clear();
+        }
+        private void InitialTabButtons()
+        {
+            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_controlled_kingdoms"))
             {
-                go.SetActive(false);
-                Destroy(go, deleteTime);
-                deleteTime += 0.2f;
+                kingdomsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                kingdomsWindowTab.Setup("empire_controlled_kingdoms", this.ScrollWindowComponent, action:ShowKingdomList, sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
             }
-            EmperorsPool.Clear();
-
-            if (historyPool == null) return;
-            deleteTime = 0.2f;
-            foreach (GameObject go in historyPool)
+            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "past_emperors"))
             {
-                go.SetActive(false);
-                Destroy(go, deleteTime);
-                deleteTime += 0.2f;
+                pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                pastEmperorsWindowTab.Setup("past_emperors", this.ScrollWindowComponent, action:ShowEmperors, sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
             }
-            historyPool.Clear();
-
-            list_kingdoms.gameObject.SetActive(false);
-            EmperorsSpace.gameObject.SetActive(false);
-            PersonalHistory.gameObject.SetActive(false);
+            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_bureau"))
+            {
+                bureauWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                bureauWindowTab.Setup("empire_bureau", this.ScrollWindowComponent, action:ShowBureau, sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
+            }
+            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_setting"))
+            {
+                bureauWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                bureauWindowTab.Setup("empire_setting", this.ScrollWindowComponent, action:OpenEmpireSettingWindow);
+            }
         }
 
-        public void ShowList()
+        private void OpenEmpireSettingWindow(WindowMetaTab pArg0)
+        {
+            ScrollWindow.showWindow(nameof(EmpireSettingWindow));
+        }
+
+        public void ShowTopPart()
+        {
+            InitialTextInput();
+            InitialTopPartInfo();
+        }
+        //顶部信息栏
+        [Hotfixable]
+        private void InitialTopPartInfo()
+        {
+            //总容器
+            var topSpace = this.BeginHoriGroup();
+            topSpace.transform.AddStretchBackground(SpriteTextureLoader.getSprite("ui/clanFrame"), new Vector2(220, 55));
+            
+            //左侧信息栏
+            var leftPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
+            leftPart.AddTextIntoVertLayout($"{LM.Get("empire_clan")}: {(_empire.EmpireSpecificClan.name+ " " + LM.Get("Clan")).ColorString(_empire.EmpireSpecificClan.color)}");
+            leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire.data.history_emperrors.Count)}");
+            leftPart.AddTextIntoVertLayout($"{LM.Get("i_population")}: {_empire.countPopulation()}/{_empire.countMaxPopulation()}");
+            
+            var leftPart2 = topSpace.BeginVertGroup(pAlignment:TextAnchor.LowerCenter, pPadding: new RectOffset(0,0,6,0));
+            leftPart2.AddTextIntoVertLayout(LM.Get("empire_heir").ColorString(pColor:new Color(0.8f,0.0f,1f)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
+            leftPart2.AddActorViewIntoVertLayout(_empire.Heir);
+            
+            //中央信息栏
+            var centerPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.UpperCenter, pPadding: new RectOffset(0,0,0,4));
+            centerPart.AddTextIntoVertLayout(LM.Get("actor_emperor").ColorString(pColor:new Color(1,0.8f,0)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
+            centerPart.AddActorViewIntoVertLayout(_empire.Emperor);
+            
+            var rightPart2 = topSpace.BeginVertGroup(pAlignment:TextAnchor.LowerCenter, pPadding: new RectOffset(0,0,6,0));
+            rightPart2.AddTextIntoVertLayout(LM.Get("empire_lover").ColorString(pColor:new Color(1f,0.1f,0.5f)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
+            rightPart2.AddActorViewIntoVertLayout(_empire.Emperor?.lover);
+            
+            //右侧信息栏
+            var rightPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
+            rightPart.AddTextIntoVertLayout($"{LM.Get("official_students_num")}: " +
+                                            $"{_empire.GetMembersWithTrait("jingshi").Count.ToString().ColorString("#E16A54")}/" +
+                                            $"{_empire.GetMembersWithTrait("gongshi").Count.ToString().ColorString("#CB9DF0")}/" +
+                                            $"{_empire.GetMembersWithTrait("juren").Count.ToString()}".ColorString("#A2D2DF"));
+            rightPart.AddTextIntoVertLayout($"{_empire.GetYearNameWithTime().ColorString(pColor:_empire.getColor()._colorText)}");
+            rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.empire.getAge()}");
+            
+            topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 1));
+            
+            AddIntoGroup("top_space", topSpace.gameObject);
+        }
+
+        private void LeftEmperor()
+        {
+            throw new NotImplementedException();
+        }
+
+        private void InitialTextInput()
+        {
+            string text = _empire.GetEmpireName();
+            UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset:new Vector2(0, 152), default_text:text, input:_empireNameInput);
+        }
+        
+        //显示势力范围
+        public void ShowKingdomList(WindowMetaTab pArg0=null)
         {
             Clear();
-            list_kingdoms.gameObject.SetActive(true);
-            StartCoroutine(ShowKingdoms());
-            list_kingdoms.GetLayoutGroup().CalculateLayoutInputVertical();
+            InitialTopPartInfo();
+            var parent = CommonInitial("empire_controlled_kingdoms");
+            StartCoroutine(ShowKingdoms(parent));
         }
-        public void ShowBeaurau()
+        //显示君主世系
+        public void ShowEmperors(WindowMetaTab pArg0)
+        {
+            Clear();
+            InitialTopPartInfo();
+            var parent = CommonInitial("past_emperors");
+            parent.AddComponent<EmpireCraftStatsRow>();
+            EmpireCraftStatsRow statsRow = parent.GetComponent<EmpireCraftStatsRow>();
+            
+            string text = "";
+            foreach (EmpireCraftHistory history in _empire.data.history)
+            {
+                ListPastEmperor(statsRow, history);
+            }
+            text = _empire.GetEmpireName() + _empire.data.year_name + LM.Get("emperor");
+            statsRow.tryToShowActor("current_emperor", -1L, null, _empire.Emperor, "iconKings");
+            statsRow.IShowStatsRow("title_name", text, _empire.getColor().color_text);
+            StartCoroutine(statsRow.showRows());
+        }
+        //显示个人历史
+        public void ShowPersonalHistory()
+        {
+            Clear();
+            InitialTopPartInfo();
+            var parent = CommonInitial("empire_personal_history");
+            var currentHistory = ConfigData.CURRENT_SELECTED_HISTORY;
+            string text1 = "";
+            string text2 = "";
+            SimpleText titleText = Instantiate(SimpleText.Prefab, null);
+            text1 = currentHistory.emperor + "\n" + _empire.GetEmpireName() + currentHistory.year_name + LM.Get("emperor");
+            if (!string.IsNullOrEmpty(currentHistory.miaohao_name))
+            {
+                text2 =
+                    _empire.GetEmpireName() + LM.Get(currentHistory.miaohao_name) + LM.Get(currentHistory.miaohao_suffix) + "-" +
+                    _empire.GetEmpireName() + LM.Get(currentHistory.shihao_name) + LM.Get("emperor_suffix");
+            }
+            else
+            {
+                text2 = LM.Get("waiting_for_naming");
+            }
+            string text = text1 + "\n" + text2;
+            titleText.Setup(text, TextAnchor.MiddleCenter, new Vector2(50, 50));
+            titleText.background.enabled = false;
+            parent.AddChild(titleText.gameObject);
+            foreach (var d in currentHistory.descriptions)
+            {
+                ListHistoryDescriptions(d, parent);
+            }
+        }
+        //显示行政窗口
+        public void ShowBureau(WindowMetaTab pArg0)
         {
             ScrollWindow.showWindow(nameof(EmpireBeaurauWindow));
         }
 
-        public IEnumerator ShowKingdoms()
+        public IEnumerator ShowKingdoms(AutoVertLayoutGroup parent)
         {
-            foreach (var e in empire.kingdoms_list)
+            
+            foreach (var e in _empire.kingdoms_list)
             {
-                prepareKingdom(e);
+                PrepareKingdom(e, parent);
                 yield return CoroutineHelper.wait_for_next_frame;
             }
         }
 
-        public void prepareKingdom(Kingdom e)
+        public void PrepareKingdom(Kingdom e, AutoVertLayoutGroup parent)
         {
-            GameObject KingdomListElement = PrefabHelper.FindPrefabByName("list_element_kingdom");
-            GameObject inst = GameObject.Instantiate(KingdomListElement);
+            GameObject kingdomListElement = PrefabHelper.FindPrefabByName("list_element_kingdom");
+            GameObject inst = GameObject.Instantiate(kingdomListElement);
             KingdomListElement kl = inst.GetComponent<KingdomListElement>();
             kl.kingdomName.text = e.name;
             kl.textAge.text = e.getAge().ToString();
@@ -242,8 +227,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             kl.loadBanner();
             inst.name = "list_element_kingdom";
             inst.SetActive(true);
-            list_kingdom_container.AddChild(inst);
-            ListPool.Add(inst);
+            parent.AddChild(inst);
         }
 
         public override void OnFirstEnable()
@@ -251,100 +235,89 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
         public override void OnNormalEnable()
         {
-            empire = ConfigData.CURRENT_SELECTED_EMPIRE;
-            empireNameInput.input.text = empire.GetEmpireName();
-            setToggle(empire.data.has_year_name);
+            _empire = ConfigData.CURRENT_SELECTED_EMPIRE;
+            _empireNameInput.input.text = _empire.GetEmpireName();
             Clear();
-            ShowList();
+            InitialTabButtons();
+            ShowTopPart();
+            ShowKingdomList();
         }
 
-        public void ShowEmperors()
+        public void ListPastEmperor(EmpireCraftStatsRow statsRow, EmpireCraftHistory history)
         {
-            Clear();
-            EmperorsSpace.gameObject.SetActive(true);
-            string text = "";
-            string text1 = "";
-            string text2 = "";
-            foreach (EmpireCraftHistory history in empire.data.history)
+            if (string.IsNullOrEmpty(history.emperor))
             {
-                if (history.emperor == null || history.emperor == "")
-                {
-                    continue;
-                }
-                text1 = history.empire_name + history.year_name + LM.Get("emperor");
-                if (history.miaohao_name != "" && history.miaohao_name != null)
-                {
-                    text2 =
-                        history.empire_name + LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix) + "-" +
-                        history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
-                }
-                else
-                {
-                    text2 = LM.Get("waiting_for_naming");
-                }
-                statsRow.IShowStatsRow("past_emperor", history.emperor + $"(在位 {history.total_time}{LM.Get("Year")})", empire.getColor().color_text, pIconPath: "iconKings", action: () => OpenHistoryWindow(history));
-                statsRow.IShowStatsRow("title_name", text1, empire.getColor().color_text);
-                statsRow.IShowStatsRow("post_humous_name", text2, empire.getColor().color_text);
-                statsRow.IShowStatsRow("empty", "=======================================================================================", "#ffffff");
+                return;
             }
-            text = empire.GetEmpireName() + empire.data.year_name + LM.Get("emperor");
-            statsRow.tryToShowActor("current_emperor", -1L, null, empire.emperor, "iconKings");
-            statsRow.IShowStatsRow("title_name", text, empire.getColor().color_text);
-            StartCoroutine(statsRow.showRows());
-            EmperorsSpace.GetLayoutGroup().CalculateLayoutInputVertical();
-        }
-
-        public void OpenHistoryWindow(EmpireCraftHistory history)
-        {
-            ConfigData.CURRENT_SELECTED_HISTORY = history;
-            showPersonalHistory();
-        }
-
-        public void name_change(string name)
-        {
-            if (empire != null)
-            {
-                empire.SetEmpireName(name);
-            }
-        }
-
-        public void showPersonalHistory()
-        {
-            Clear();
-            var current_history = ConfigData.CURRENT_SELECTED_HISTORY;
-            string text1 = "";
-            string text2 = "";
-            PersonalHistory.gameObject.SetActive(true);
-            SimpleText titleText = Instantiate(SimpleText.Prefab, null);
-            text1 = current_history.emperor + "\n" + empire.GetEmpireName() + current_history.year_name + LM.Get("emperor");
-            if (current_history.miaohao_name != "" && current_history.miaohao_name != null)
+            var text1 = history.empire_name + history.year_name + LM.Get("emperor");
+            var text2 = "";
+            if (!string.IsNullOrEmpty(history.miaohao_name))
             {
                 text2 =
-                    empire.GetEmpireName() + LM.Get(current_history.miaohao_name) + LM.Get(current_history.miaohao_suffix) + "-" +
-                    empire.GetEmpireName() + LM.Get(current_history.shihao_name) + LM.Get("emperor_suffix");
+                    history.empire_name + LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix) + "-" +
+                    history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
             }
             else
             {
                 text2 = LM.Get("waiting_for_naming");
             }
-            string text = text1 + "\n" + text2;
-            titleText.Setup(text, TextAnchor.MiddleCenter, new Vector2(50, 50));
-            titleText.background.enabled = false;
-            personalHistoryContainer.AddChild(titleText.gameObject);
-            historyPool.Add(titleText.gameObject);
-            foreach (var d in current_history.descriptions)
+            statsRow.IShowStatsRow("past_emperor", history.emperor + $"(在位 {history.total_time}{LM.Get("Year")})", _empire.getColor().color_text, pIconPath: "iconKings", action: () => OpenHistoryWindow(history));
+            statsRow.IShowStatsRow("title_name", text1, _empire.getColor().color_text);
+            statsRow.IShowStatsRow("post_humous_name", text2, _empire.getColor().color_text);
+            statsRow.IShowStatsRow("empty", "=======================================================================================", "#ffffff");
+        }
+
+        public void OpenHistoryWindow(EmpireCraftHistory history)
+        {
+            ConfigData.CURRENT_SELECTED_HISTORY = history;
+            ShowPersonalHistory();
+        }
+
+        public void name_change(string name)
+        {
+            if (_empire != null)
             {
-                (string time, string describe) des = (d.Split('_')[0], d.Split('_')[1]);
-                SimpleText timeText = Instantiate(SimpleText.Prefab, null);
-                SimpleText describeText = Instantiate(SimpleText.Prefab, null);
-                timeText.Setup(des.time, TextAnchor.MiddleLeft, new Vector2(40, 10));
-                timeText.text.color = Color.blue;
-                describeText.Setup(des.describe, TextAnchor.MiddleLeft, new Vector2(200, 10));
-                personalHistoryContainer.AddChild(timeText.gameObject);
-                personalHistoryContainer.AddChild(describeText.gameObject);
-                historyPool.Add(timeText.gameObject);
-                historyPool.Add(describeText.gameObject);
+                _empire.SetEmpireName(name);
             }
+        }
+
+        public void ListHistoryDescriptions(string description, AutoVertLayoutGroup parent)
+        {
+            (string time, string describe) des = (description.Split('_')[0], description.Split('_')[1]);
+            SimpleText timeText = Instantiate(SimpleText.Prefab, null);
+            SimpleText describeText = Instantiate(SimpleText.Prefab, null);
+            timeText.Setup(des.time, TextAnchor.MiddleLeft, new Vector2(40, 10));
+            timeText.text.color = Color.blue;
+            describeText.Setup(des.describe, TextAnchor.MiddleLeft, new Vector2(200, 10));
+            parent.AddChild(timeText.gameObject);
+            parent.AddChild(describeText.gameObject);
+        }
+
+        public void AddIntoGroup(string title, GameObject obj)
+        {
+            if (!_groups.ContainsKey(title))
+            {
+                _groups.Add(title, obj);
+            }
+        }
+
+        private AutoVertLayoutGroup CommonInitial(string titleName)
+        {
+            
+            //通用显示区域
+            var container = this.BeginVertGroup(pSpacing: 3, pAlignment:TextAnchor.UpperCenter);
+            //标题区
+            SimpleText title = Instantiate(SimpleText.Prefab, null);
+            string empirePersonalHistory = LM.Get(titleName);
+            title.Setup($"{empirePersonalHistory}", TextAnchor.MiddleCenter, new Vector2(40, 15));
+            title.background.enabled = false;
+            container.AddChild(title.gameObject);
+            //内容区
+            var content = this.BeginVertGroup(pSpacing: 3);
+            container.AddChild(content.gameObject);
+            
+            AddIntoGroup(titleName, container.gameObject);
+            return content;
         }
     }
 }

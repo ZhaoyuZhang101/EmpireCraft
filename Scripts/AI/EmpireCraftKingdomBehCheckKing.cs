@@ -4,6 +4,7 @@ using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.HelperFunc;
 
 namespace EmpireCraft.Scripts.AI;
 
@@ -16,85 +17,47 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
             return BehResult.Continue;
         }
 
+        bool successEmpire = CheckEmpireKing(pKingdom);
+        if (successEmpire)
+        {
+            return BehResult.Continue;
+        }
         if (pKingdom.hasKing())
         {
             Actor king = pKingdom.king;
             if (king.isAlive())
             {
-                tryToGiveGoldenTooth(king);
-                checkClanCreation(king);
+                TryToGiveGoldenTooth(king);
+                king.CheckSpecificClan();
                 return BehResult.Continue;
             }
         }
-
         pKingdom.clearKingData();
         if (pKingdom.data.royal_clan_id != -1)
         {
-            Clan clan = BehaviourActionBase<Kingdom>.world.clans.get(pKingdom.data.royal_clan_id);
+            Clan clan = world.clans.get(pKingdom.data.royal_clan_id);
             bool flag = !clan.isRekt();
-            Actor actor;
-            if (pKingdom.isEmpire())
-            {
-                Empire empire = pKingdom.GetEmpire();
-                if (empire.Heir!=null&&empire.Heir.isAlive())
-                {
-                    actor = empire.Heir;
-                    if (actor.isUnitFitToRule())
-                    {
-                        if (actor.isCityLeader())
-                        {
-                            actor.city.removeLeader();
-                        }
-                        if (actor.isOfficer())
-                        {
-                            actor.RemoveIdentity();
-                            actor.SetPeeragesLevel(0);
-                        }
-                        pKingdom.setKing(actor);
-                    }
-
-                } else
-                {
-                    actor = findEmprorFromRoyalClan(pKingdom);
-                    if (actor!=null&&actor.isUnitFitToRule())
-                    {
-                        if (actor.isCityLeader())
-                        {
-                            actor.city.removeLeader();
-                        }
-                        if (actor.isOfficer())
-                        {
-                            actor.RemoveIdentity();
-                            actor.SetPeeragesLevel(0);
-                        }
-                    }
-                }
-            } else
-            {
-                actor = findKingFromRoyalClan(pKingdom);
-            }
+            Actor actor = null;
+            actor = FindKingFromRoyalClan(pKingdom);
             if (actor == null)
             {
-                if (!pKingdom.isEmpire())
+                if (pKingdom.countCities() == 1)
                 {
-                    if (pKingdom.countCities() == 1)
+                    if (pKingdom.capital != null && pKingdom.capital.hasLeader())
                     {
-                        if (pKingdom.capital != null && pKingdom.capital.hasLeader())
-                        {
-                            Actor leader = pKingdom.capital.leader;
-                            pKingdom.capital.removeLeader();
-                            pKingdom.setKing(leader);
-                        }
+                        Actor leader = pKingdom.capital.leader;
+                        pKingdom.capital.removeLeader();
+                        pKingdom.setKing(leader);
                     }
-                    else
-                    {
-                        checkKingdomChaos(pKingdom);
-                    }
+                }
+                else
+                {
+                    CheckKingdomChaos(pKingdom);
                 }
             }
             else if (pKingdom.hasCulture() && pKingdom.culture.hasTrait("shattered_crown") && flag)
             {
-                checkShatteredCrownEvent(pKingdom, actor, clan);
+                CheckShatteredCrownEvent(pKingdom, actor, clan);
             }
 
             if (!flag)
@@ -107,45 +70,29 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
             Actor kingFromLeaders = SuccessionTool.getKingFromLeaders(pKingdom);
             if (kingFromLeaders != null)
             {
-                makeKingAndMoveToCapital(pKingdom, kingFromLeaders);
+                MakeKingAndMoveToCapital(pKingdom, kingFromLeaders);
             }
             else
             {
-                checkKingdomChaos(pKingdom);
+                CheckKingdomChaos(pKingdom);
             }
         }
 
         return BehResult.Continue;
     }
 
-    public Actor findEmprorFromRoyalClan(Kingdom pKingdom)
+    private bool CheckEmpireKing(Kingdom pKingdom)
     {
-        Actor actor = null;
-        Clan clan = BehaviourActionBase<Kingdom>.world.clans.get(pKingdom.data.royal_clan_id);
-        if (clan == null) return actor;
-        Empire empire = pKingdom.GetEmpire();
-        LogService.LogInfo("当前氏族人数：" + clan.units.Count().ToString());
-        List<Actor> maleRoyals = clan.units.FindAll(a => a != null && a.isSexMale());
-        List<Actor> femaleRoyals = clan.units.FindAll(a => a != null && a.isSexFemale());
-        if (maleRoyals.Count() > 0)
-        {
-            actor = maleRoyals.FirstOrDefault();
-            pKingdom.setKing(actor);
-        }
-        else if (femaleRoyals.Count() > 0)
-        {
-            actor = femaleRoyals.FirstOrDefault();
-            pKingdom.setKing(actor);
-            if (actor.hasLover())
-            {
-                actor.lover.setClan(clan);
-                LogService.LogInfo($"{actor.data.name}继承皇位，其丈夫入赘 {clan.name}");
-            }
-        }
-        return actor;
+        if (pKingdom.hasKing()) return false;
+        if (!pKingdom.isEmpire()) return false;
+        var empire = pKingdom.GetEmpire();
+        if (empire.Heir.isRekt()) return false;
+        var actor = empire.Heir;
+        pKingdom.setKing(actor);
+        return true;
     }
 
-    public void checkKingdomChaos(Kingdom pMainKingdom)
+    public void CheckKingdomChaos(Kingdom pMainKingdom)
     {
         bool flag = false;
         using ListPool<City> listPool = new ListPool<City>(pMainKingdom.cities.Count);
@@ -156,7 +103,6 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
                 listPool.Add(city);
             }
         }
-
         if (!listPool.Any())
         {
             return;
@@ -184,11 +130,11 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
         }
     }
 
-    public void checkShatteredCrownEvent(Kingdom pMainKingdom, Actor pMainKing, Clan pRoyalClan)
+    public void CheckShatteredCrownEvent(Kingdom pMainKingdom, Actor pMainKing, Clan pRoyalClan)
     {
         if (pMainKingdom == null) return;
         if (!pMainKingdom.isAlive()) return;
-        if (!isRebellionsEnabled() || pRoyalClan == null)
+        if (!IsRebellionsEnabled() || pRoyalClan == null)
         {
             return;
         }
@@ -264,7 +210,7 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
         }
     }
 
-    public void checkClanCreation(Actor pActor)
+    public void CheckClanCreation(Actor pActor)
     {
         if (!pActor.hasClan())
         {
@@ -272,7 +218,7 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
         }
     }
 
-    public void tryToGiveGoldenTooth(Actor pActor)
+    public void TryToGiveGoldenTooth(Actor pActor)
     {
         if (pActor.getAge() > 45 && Randy.randomChance(0.05f))
         {
@@ -280,15 +226,15 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
         }
     }
 
-    public bool isRebellionsEnabled()
+    public bool IsRebellionsEnabled()
     {
         return WorldLawLibrary.world_law_rebellions.isEnabled();
     }
 
-    public Actor findKingFromRoyalClan(Kingdom pKingdom)
+    public Actor FindKingFromRoyalClan(Kingdom pKingdom)
     {
         Actor actor = SuccessionTool.getKingFromRoyalClan(pKingdom);
-        if (actor == null && pKingdom.hasCulture() && (pKingdom.culture.hasTrait("unbroken_chain") || !isRebellionsEnabled()))
+        if (actor == null && pKingdom.hasCulture() && (pKingdom.culture.hasTrait("unbroken_chain") || !IsRebellionsEnabled()))
         {
             actor = SuccessionTool.getKingFromLeaders(pKingdom);
         }
@@ -298,11 +244,11 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
             return null;
         }
 
-        makeKingAndMoveToCapital(pKingdom, actor);
+        MakeKingAndMoveToCapital(pKingdom, actor);
         return actor;
     }
 
-    public void makeKingAndMoveToCapital(Kingdom pKingdom, Actor pNewKing)
+    public void MakeKingAndMoveToCapital(Kingdom pKingdom, Actor pNewKing)
     {
         if (pNewKing.hasCity())
         {

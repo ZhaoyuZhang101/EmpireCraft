@@ -121,7 +121,7 @@ public static class ExamSystem
     {
         Empire empire = (Empire)nano;
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
-        foreach (Province province in empire.province_list) 
+        foreach (Province province in empire.ProvinceList) 
         {
             if (province.IsTotalVassaled()) continue;
             foreach (Actor actor in province.allGongshi())

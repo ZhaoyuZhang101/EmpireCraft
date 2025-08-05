@@ -12,6 +12,7 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
+using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -146,64 +147,61 @@ public static class UIHelper
         LogService.LogInfo("点击角色");
     }
     [Hotfixable]
-    public static SimpleButton CreateAvatarView(long actor_id, UnityAction action=null, bool is_alive=true)
+    public static SimpleButton CreateAvatarView(long actor_id, UnityAction action=null, bool pIsAlive=true)
     {
-        UnitAvatarLoader pPrefab = Resources.Load<UnitAvatarLoader>("ui/AvatarLoaderFramed");
-        UnitAvatarLoader unit_loader = UnityEngine.Object.Instantiate(pPrefab);
-        SimpleButton clickframe = UnityEngine.Object.Instantiate(SimpleButton.Prefab);
-        RectTransform rt = clickframe.GetComponent<RectTransform>();
+        UnitAvatarLoader pPrefab = Resources.Load<UnitAvatarLoader>($"ui/AvatarLoaderFramed");
+        SimpleButton clickFrame = UnityEngine.Object.Instantiate(SimpleButton.Prefab);
+        UnitAvatarLoader unitLoader = UnityEngine.Object.Instantiate(pPrefab, clickFrame.transform, true);
+        RectTransform rt = clickFrame.GetComponent<RectTransform>();
         rt.anchorMin = Vector2.zero;
         rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
-        clickframe.Icon.raycastTarget = true;
+        clickFrame.Icon.raycastTarget = true;
 
         Actor actor = World.world.units.get(actor_id);
         if (action == null)
         {
-            clickframe.Setup(() => actorClick(actor), SpriteTextureLoader.getSprite(""), pSize: new Vector2(30, 30));
+            clickFrame.Setup(() => actorClick(actor), SpriteTextureLoader.getSprite(""), pSize: new Vector2(30, 30));
         }
         else
         {
-            clickframe.Setup(action, SpriteTextureLoader.getSprite(""), pSize: new Vector2(30, 30));
+            clickFrame.Setup(action, SpriteTextureLoader.getSprite(""), pSize: new Vector2(30, 30));
         }
-        clickframe.Background.color = new Color(0, 0, 0, 0.0f);
-        clickframe.Icon.color = new Color(0, 0, 0, 0.0f);
+        clickFrame.Background.color = new Color(0, 0, 0, 0.0f);
+        clickFrame.Icon.color = new Color(0, 0, 0, 0.0f);
         if (actor != null)
         {
-            clickframe.Button.OnHover(() =>
+            clickFrame.Button.OnHover(() =>
             {
-                actor.showTooltip(unit_loader);
+                actor.showTooltip(unitLoader);
             });
-            clickframe.Button.OnHoverOut(() =>
-            {
-                Tooltip.hideTooltip();
-            });
-            unit_loader._actor_image.gameObject.SetActive(true);
-            unit_loader.load(actor);
+            clickFrame.Button.OnHoverOut(Tooltip.hideTooltip);
+            unitLoader._actor_image.gameObject.SetActive(true);
+            unitLoader.load(actor);
         }
         else
         {
-            unit_loader._actor_image.gameObject.SetActive(false);
+            unitLoader._actor_image.gameObject.SetActive(false);
         }
-        if (!is_alive)
+        if (!pIsAlive)
         {
-            unit_loader._actor_image.sprite = SpriteTextureLoader.getSprite("ui/deadIcon");
-            unit_loader._actor_image.transform.localScale = new Vector2(1, 1);
-            var rt1 = unit_loader._actor_image.rectTransform;            // shortcut for GetComponent<RectTransform>()
+            unitLoader._actor_image.sprite = SpriteTextureLoader.getSprite("ui/deadIcon");
+            unitLoader._actor_image.transform.localScale = new Vector2(1, 1);
+            var rt1 = unitLoader._actor_image.rectTransform;            // shortcut for GetComponent<RectTransform>()
             rt1.anchorMin       = new Vector2(0.5f, 0.5f);
             rt1.anchorMax       = new Vector2(0.5f, 0.5f);
             rt1.pivot           = new Vector2(0.5f, 0.5f);
             rt1.anchoredPosition = Vector2.up*1;    // 正中央
             rt1.localScale      = Vector3.one;      // 保持原始大小
-            unit_loader._actor_image.gameObject.SetActive(true);
+            unitLoader._actor_image.gameObject.SetActive(true);
         }
-        unit_loader.transform.SetParent(clickframe.transform);
-        unit_loader.transform.SetAsLastSibling();
-        unit_loader.transform.localScale = new Vector2(1.2f, 1.2f);
-        return clickframe;
+
+        unitLoader.transform.SetAsLastSibling();
+        unitLoader.transform.localScale = new Vector2(1.2f, 1.2f);
+        return clickFrame;
     }
-    public static TextInput generateTextInput(Transform parent, Vector2 size=default, Vector2 offset=default, string default_text = "", UnityAction<string> action = null, TextInput input=null)
+    public static TextInput GenerateTextInput(Transform parent, Vector2 size=default, Vector2 offset=default, string default_text = "", UnityAction<string> action = null, TextInput input=null)
     {
         Vector2 dSize = size==default?new Vector2(130, 15):size;
         TextInput inputComp;
@@ -228,15 +226,44 @@ public static class UIHelper
         {
             inputComp.transform.localPosition = Vector3.up*offset.y+Vector3.left*offset.x;
         }
-        inputComp.transform.SetAsLastSibling();
         inputComp.input.text = default_text;
 
         if (inputComp.input.placeholder == null)
         {
-            inputComp.input.SetupPlaceholder(inputComp.text.font,"请输入您的内容", Color.gray);
+            inputComp.input.SetupPlaceholder(inputComp.text.font,"请输入您的内容", Color.yellow);
         }
-        
+        inputComp.transform.SetAsLastSibling();
         return inputComp;
+    }
+
+    public static AutoVertLayoutGroup AddActorViewIntoVertLayout(this AutoVertLayoutGroup layout, Actor actor, SimpleButton button=null)
+    {
+        AutoVertLayoutGroup avatarLayoutGroup = layout.BeginVertGroup(new Vector2(30, 30), pSpacing:15, pAlignment: TextAnchor.MiddleCenter);
+
+        long id = actor?.getID() ?? -1L;
+        SimpleButton clickFrame = CreateAvatarView(id, pIsAlive:true);
+        if (button != null)
+        {
+            avatarLayoutGroup.AddChild(button.gameObject);
+        }
+        avatarLayoutGroup.AddChild(clickFrame.gameObject);
+        avatarLayoutGroup.transform.localPosition = Vector3.zero;
+        return avatarLayoutGroup;
+    }
+    public static void AddTextIntoVertLayout(this AutoVertLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default)
+    {
+        SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab, layout.transform);
+        timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
+        if (hideBackground)
+        {
+            timeText.background.enabled = false;
+        }
+    }
+
+    public static void AddButtonIntoVertLayout(this AutoVertLayoutGroup layout, string buttonID, string text="", UnityAction action=null, Sprite icon=null, Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false)
+    {
+        AdvancedButton button = GameObject.Instantiate(AdvancedButton.Prefab, layout.transform);
+        button.Setup(buttonID, action, icon, text, size, backgroundSprite:background, isToggle:isToggle,  showTip:showTip);
     }
     public static void SetupPlaceholder(this InputField inputField, Font font, string placeholderText, Color color)
     {
@@ -285,15 +312,18 @@ public static class UIHelper
 
         // 2. 铺满父容器
         var bgRT = bgGO.GetComponent<RectTransform>();
-        bgRT.anchorMin = Vector2.zero;
-        bgRT.anchorMax = Vector2.one;
-        bgRT.offsetMin = Vector2.zero;
-        bgRT.offsetMax = Vector2.zero;
+        bgRT.anchorMin = bgRT.anchorMax = new Vector2(0.5f, 0.5f);
+        // 关闭拉伸，用 sizeDelta 定宽高
+        bgRT.offsetMin = bgRT.offsetMax = Vector2.zero;
         bgRT.localScale = Vector3.one;
-
-        bgRT.sizeDelta = size==default?new Vector2(180, 40):new Vector2(size.x, size.y); 
+        bgRT.sizeDelta = size == default
+            ? new Vector2(200, 60)
+            : new Vector2(size.x, size.y);
         
-        bgRT.position = offset==default?Vector3.right*260+Vector3.down*5:Vector3.right*offset.x+Vector3.down*offset.y;
+        // 局部坐标归零（中心对中心）
+        bgRT.anchoredPosition = offset == default 
+            ? Vector2.zero 
+            : new Vector2(offset.x, -offset.y);
 
         // 3. Image + 9-slice
         var img = bgGO.AddComponent<Image>();
@@ -315,6 +345,28 @@ public static class UIHelper
         year_name_button.Background.enabled = false;
         year_name_button.SetSize(new Vector2(15, 15));
         return year_name_button;
+    }
+
+    public static void AdjustTopPart(this GameObject gObj, Transform windowRoot, Vector2 offset=default)
+    {
+        gObj.transform.SetParent(windowRoot.parent, false);
+            
+        var rt = gObj.GetComponent<RectTransform>();
+
+        rt.pivot = new Vector2(0.5f, 1f);
+        
+        rt.anchoredPosition = Vector2.zero;
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f); 
+        // 关闭拉伸，用 sizeDelta 定宽高
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        rt.localScale = Vector3.one;
+        // 局部坐标归零（中心对中心）
+        rt.anchoredPosition = offset==default?new Vector2(0, 10):offset;
+        gObj.transform.SetAsLastSibling();
+        var le = gObj.gameObject.AddComponent<LayoutElement>();
+        le.ignoreLayout = true;
+        
+        gObj.transform.SetAsLastSibling();
     }
 
 }

@@ -110,10 +110,10 @@ public class UnitWindowPatch: GamePatch
         {
             GameObject.Destroy(space.gameObject);
         }
-        if (!__instance.tabs._tabs.Any(p => p.name == "specific_clan"))
+        if (__instance.tabs._tabs.All(p => p.name != "specific_clan"))
         {
             SimpleWindowTab simpleWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-            simpleWindowTab.Setup("specific_clan", __instance, action:(Actor) => ShowSpecificClan(__instance.actor), sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
+            simpleWindowTab.Setup("specific_clan", __instance.scroll_window, action:(_) => ShowSpecificClan(__instance.actor), sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
         }
     }
 

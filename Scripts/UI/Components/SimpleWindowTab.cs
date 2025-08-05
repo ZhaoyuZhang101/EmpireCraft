@@ -25,7 +25,7 @@ public class SimpleWindowTab : APrefab<SimpleWindowTab>
         _tab = transform.GetComponent<WindowMetaTab>();
     }
 
-    public void Setup(string pName, StatsWindow window, List<Transform> contents = null, Sprite sprite = null, UnityAction<WindowMetaTab> action=null)
+    public void Setup(string pName, ScrollWindow window, List<Transform> contents = null, Sprite sprite = null, UnityAction<WindowMetaTab> action=null)
     {
         name = pName;
         _tab = transform.GetComponent<WindowMetaTab>();
@@ -43,7 +43,7 @@ public class SimpleWindowTab : APrefab<SimpleWindowTab>
             _tab.tab_elements = contents;
             foreach (Transform t in contents)
             {
-                t.SetParent(window.scroll_window.transform_content);
+                t.SetParent(window.transform_content);
                 t.gameObject.SetActive(true);
                 t.localPosition = Vector3.zero;
             }

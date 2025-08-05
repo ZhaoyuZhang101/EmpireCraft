@@ -101,8 +101,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     if (empire == null) return false;
-                    if (empire.original_capital==kingdom.capital) return false;
-                    if (empire.original_capital.kingdom!=kingdom) return false;
+                    if (empire.OriginalCapital==kingdom.capital) return false;
+                    if (empire.OriginalCapital.kingdom!=kingdom) return false;
                     return true;
                 },
                 check_should_continue = delegate (Actor actor)
@@ -112,8 +112,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!actor.isKing()) return false;
                     Empire empire = kingdom.GetEmpire();
                     if (empire == null) return false;
-                    if (empire.original_capital == kingdom.capital) return false;
-                    if (empire.original_capital.kingdom != kingdom) return false;
+                    if (empire.OriginalCapital == kingdom.capital) return false;
+                    if (empire.OriginalCapital.kingdom != kingdom) return false;
                     return true;
                 },
                 action = delegate (Actor pActor)
@@ -121,7 +121,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     Empire empire = kingdom.GetEmpire();
                     if (empire == null) return false;
-                    kingdom.setCapital(empire.original_capital);
+                    kingdom.setCapital(empire.OriginalCapital);
                     return true;
                 }
             });
@@ -141,7 +141,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     Empire empire = pActor.kingdom.GetEmpire();
                     if (empire == null) return false;
-                    if (!empire.canTakeArmedProvince()) return false;
+                    if (!empire.CanTakeArmedProvince()) return false;
                     return true;
                 },
                 check_should_continue = delegate (Actor actor)
@@ -149,7 +149,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!actor.isEmperor()) return false;
                     if (!actor.isKing()) return false;
                     Empire empire = actor.kingdom.GetEmpire();
-                    if (!empire.canTakeArmedProvince()) return false;
+                    if (!empire.CanTakeArmedProvince()) return false;
                     return true;
                 },
                 action = delegate (Actor pActor)
@@ -161,10 +161,10 @@ namespace EmpireCraft.Scripts.AI
                     foreach(Kingdom kingdom2 in empire.kingdoms_hashset)
                     {
                         if (kingdom.isRekt()) continue;
-                        if (!kingdom2.isBorder()&& empire.emperor.renown >= kingdom2.king.renown*2 && kingdom.countTotalWarriors() >= empire.countWarriors() / 5)
+                        if (!kingdom2.isBorder()&& empire.Emperor.renown >= kingdom2.king.renown*2 && kingdom.countTotalWarriors() >= empire.countWarriors() / 5)
                         {
                             kingdom2.ChangeToProvince(empire);
-                            empire.emperor.addRenown(-kingdom2.king.renown);
+                            empire.Emperor.addRenown(-kingdom2.king.renown);
                         }
                     }
                     return true;
@@ -172,7 +172,7 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.add(new PlotAsset
             {
-                id = "powerful_minister_controled_empire",
+                id = "powerful_minister_controlled_empire",
                 path_icon = "EmperorQuest.png",
                 group_id = "diplomacy",
                 is_basic_plot = true,
@@ -186,12 +186,12 @@ namespace EmpireCraft.Scripts.AI
                     Empire empire = kingdom.GetEmpire();
                     if(!pActor.isOfficer()) return false;
                     if (pActor.isEmperor()) return false;
-                    if (empire.emperor == null) return false;
-                    if (!empire.emperor.isUnitFitToRule()) return false;
+                    if (empire.Emperor == null) return false;
+                    if (!empire.Emperor.isUnitFitToRule()) return false;
                     if (pActor.GetIdentity(empire).officialLevel != OfficialLevel.officiallevel_2 && pActor.GetIdentity(empire).officialLevel != OfficialLevel.officiallevel_3) return false;
                     if (empire.data.centerOffice.Minister.actor_id != -1L && empire.data.centerOffice.General.actor_id != -1L) return false;
                     if (empire.data.centerOffice.Minister.actor_id == empire.data.centerOffice.General.actor_id) return false;
-                    if (pActor.renown < empire.emperor.renown) return false; 
+                    if (pActor.renown < empire.Emperor.renown) return false; 
                     return true;
                 },
                 check_should_continue = delegate (Actor actor)
@@ -203,23 +203,14 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     Empire empire = kingdom.GetEmpire();
-                    if(pActor.GetIdentity(empire)==null)
-                    {
-                        OfficeIdentity identity = new OfficeIdentity();
-                        identity.init(empire, pActor);
-                        identity.peerageType = PeerageType.Both;
-                        identity.meritLevel = 1;
-                        identity.honoraryOfficial = 1;
-                        pActor.SetIdentity(identity, false);
-                    } else
-                    {
-                        pActor.GetIdentity(empire).peerageType = PeerageType.Both;
-                        pActor.GetIdentity(empire).meritLevel = 1;
-                        pActor.GetIdentity(empire).honoraryOfficial = 1;
-                    }
-                    empire.data.centerOffice.General.SetActor(pActor);
-                    empire.data.centerOffice.Minister.SetActor(pActor);
-                    TranslateHelper.LogControledEmpire(pActor, empire);
+                    empire.SetOfficer(empire.data.centerOffice.General, pActor);
+                    empire.SetOfficer(empire.data.centerOffice.Minister, pActor);
+                    OfficeIdentity identity = pActor.GetIdentity(empire);
+                    identity.peerageType = PeerageType.Both;
+                    identity.meritLevel = 1;
+                    identity.honoraryOfficial = 1;
+                    pActor.SetIdentity(identity, false);
+                    TranslateHelper.LogcontrolledEmpire(pActor, empire);
                     pActor.editRenown(300);
                     return true;
                 }
@@ -240,11 +231,11 @@ namespace EmpireCraft.Scripts.AI
                     Empire empire = kingdom.GetEmpire();
                     if(!pActor.isOfficer()) return false;
                     if (pActor.isEmperor()) return false;
-                    if (empire.emperor == null) return false;
-                    if (!empire.emperor.isUnitFitToRule()) return false;
+                    if (empire.Emperor == null) return false;
+                    if (!empire.Emperor.isUnitFitToRule()) return false;
                     if (pActor.GetIdentity(empire).officialLevel != OfficialLevel.officiallevel_1) return false;
                     if (!pActor.HasTitle()) return false;
-                    if (pActor.renown < empire.emperor.renown) return false; 
+                    if (pActor.renown < empire.Emperor.renown) return false; 
                     return true;
                 },
                 check_should_continue = delegate (Actor actor)
@@ -362,7 +353,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     Empire empire = pActor.kingdom.GetEmpire();
                     if (empire == null) return false;
-                    if (!empire.isNeedToSetArmedProvince()) return false;
+                    if (!empire.IsNeedToSetArmedProvince()) return false;
                     return true;
                 },
                 check_should_continue = delegate (Actor actor)
@@ -371,7 +362,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = actor.kingdom;
                     Empire empire = actor.kingdom.GetEmpire();
                     if (empire == null) return false;
-                    if (!empire.isNeedToSetArmedProvince()) return false;
+                    if (!empire.IsNeedToSetArmedProvince()) return false;
                     return true;
                 },
                 action = delegate (Actor pActor)
@@ -379,7 +370,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (!kingdom.isInEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
-                    foreach (Province province in empire.province_list)
+                    foreach (Province province in empire.ProvinceList)
                     {
                         if (province.isBorderProvince()&&!province.data.is_set_to_country)
                         {
@@ -405,7 +396,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isInEmpire()) return false;
                     if (!kingdom.isEmpire()) return false;
                     if (kingdom.hasEnemies()) return false;
-                    if (!kingdom.GetEmpire().isRoyalBeenChanged()) return false;
+                    if (!kingdom.GetEmpire().IsRoyalBeenChanged()) return false;
                     if (Date.getYearsSince(kingdom.GetEmpire().data.original_royal_been_changed_timestamp)<=5) return false;
                     return true;
                 },
@@ -414,7 +405,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     Empire empire = kingdom.GetEmpire();
                     empire.data.original_royal_been_changed = false;
-                    empire.empire_clan = pActor.clan;
+                    empire.EmpireClan = pActor.clan;
                     if (ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out string culture))
                     {
                         if (culture == "Huaxia")
@@ -429,7 +420,7 @@ namespace EmpireCraft.Scripts.AI
                     }
                     pActor.clan.RecordHistoryEmpire(empire);
                     empire.data.created_time = World.world.getCurWorldTime();
-                    empire.emperor = pActor;
+                    empire.Emperor = pActor;
                     empire.RecordHistory(EmpireHistoryType.new_empire_history, new Dictionary<string, string>()
                     {
                         ["actor"] = pActor.getName(),
@@ -455,7 +446,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isEmperor()) return false;
                     if (!kingdom.isEmpire()) return false;
                     if (kingdom.hasEnemies()) return false;
-                    if (!kingdom.GetEmpire().isNeedToSetProvince()) return false;
+                    if (!kingdom.GetEmpire().IsNeedToSetProvince()) return false;
                     return true;
                 },
                 check_should_continue = delegate (Actor pActor)
@@ -469,7 +460,7 @@ namespace EmpireCraft.Scripts.AI
                     if (empire == null) return false;
                     if (!empire.isAlive()) return false;
                     if (kingdom.hasEnemies()) return false;
-                    if (!empire.isNeedToSetProvince()) return false;
+                    if (!empire.IsNeedToSetProvince()) return false;
                     return true;
                 },
                 action = StartEnfeoff
@@ -489,8 +480,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     if (!kingdom.isEmpire()) return false;
                     if (!kingdom.isInEmpire()) return false;
-                    if (!kingdom.GetEmpire().isAllowToMakeYearName()) return false;
-                    if (kingdom.GetEmpire().hasYearName()) return false;
+                    if (!kingdom.GetEmpire().IsAllowToMakeYearName()) return false;
+                    if (kingdom.GetEmpire().HasYearName()) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
@@ -549,7 +540,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     if (!kingdom.isEmpire()) return false;
                     if (!kingdom.isInEmpire()) return false;
-                    if (!kingdom.GetEmpire().isNeedToSetPosthumous()) return false;
+                    if (!kingdom.GetEmpire().IsNeedToSetPosthumous()) return false;
                     return true;
                 },
                 check_should_continue = delegate (Actor pActor)
@@ -560,7 +551,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isAlive()) return false;
                     if (!kingdom.isEmpire()) return false;
                     if (!kingdom.isInEmpire()) return false;
-                    if (kingdom.GetEmpire().emperor == null) return false;
+                    if (kingdom.GetEmpire().Emperor == null) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
@@ -589,7 +580,7 @@ namespace EmpireCraft.Scripts.AI
                                 cHistory.miaohao_suffix = names.miao.suf;
                                 kingdom.GetEmpire().RecordHistory(EmpireHistoryType.give_posthumous_to_previous_emperor_history, new Dictionary<string, string>
                                 {
-                                    ["actor"] = kingdom.GetEmpire().emperor.data.name,
+                                    ["actor"] = kingdom.GetEmpire().Emperor.data.name,
                                     ["actor2"] = cHistory.emperor,
                                     ["shihao"] = LM.Get(cHistory.shihao_name),
                                     ["miaohao"] = LM.Get(cHistory.miaohao_name) + LM.Get(cHistory.miaohao_suffix)
@@ -662,11 +653,11 @@ namespace EmpireCraft.Scripts.AI
                         if (kingdom == null) return false;
 
                         Empire empire = kingdom.GetEmpire();
-                        empire.province_list.ForEach(p => 
+                        empire.ProvinceList.ForEach(p => 
                         {
                             p.updateOccupied();
                         });
-                        var citiesToReclaim = empire.province_list
+                        var citiesToReclaim = empire.ProvinceList
                             .Where(p => p.occupied_cities.Count > 0)
                             .SelectMany(p => p.occupied_cities)
                             .Where(c => c.Key.kingdom != null && c.Key.kingdom != kingdom)
@@ -929,8 +920,8 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.add(new PlotAsset
             {
-                id = "ministor_acquire_empire",
-                path_icon = "MinistorAcquireEmpire.png",
+                id = "minister_acquire_empire",
+                path_icon = "ministerAcquireEmpire.png",
                 group_id = "diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -946,13 +937,9 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     if (kingdom.isEmpire()) return false;
                     if (!kingdom.isInEmpire()) return false;
-                    try
-                    {
-                        if (!pActor.HasTitle() || (pActor.hasClan() ? pActor.clan.getID() != kingdom.GetEmpire().empire_clan.getID() : true)) return false;
-                    } catch
-                    {
-                        return false;
-                    }
+                    if (!pActor.HasTitle() || (!pActor.hasClan() || pActor.clan.getID() != kingdom.GetEmpire().EmpireClan.getID())) return false;
+                    LogService.LogInfo("权臣索取帝国错误");
+                    return false;
 
                     if (kingdom.countTotalWarriors()<kingdom.GetEmpire().countWarriors()- kingdom.countTotalWarriors()) return false;
                     return true;
@@ -963,15 +950,15 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isAlive()) return false;
                     if (kingdom.isEmpire()) return false;
                     if (!kingdom.isInEmpire()) return false;
-                    if (kingdom.GetEmpire().emperor == null) return false;
+                    if (kingdom.GetEmpire().Emperor == null) return false;
                     return true;
                 },
-                action = ministor_acquire_empire
+                action = minister_acquire_empire
             });
             AssetManager.plots_library.add(new PlotAsset
             {
-                id = "ministor_acquire_title",
-                path_icon = "MinistorAcquireTitle.png",
+                id = "minister_acquire_title",
+                path_icon = "ministerAcquireTitle.png",
                 group_id = "diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -987,8 +974,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isInEmpire()) return false;
                     if (pActor.HasTitle()) return false;
                     Empire empire = kingdom.GetEmpire();
-                    if (empire.emperor == null) return false; 
-                    if (empire.emperor.GetOwnedTitle().Count()<=1) return false; 
+                    if (empire.Emperor == null) return false; 
+                    if (empire.Emperor.GetOwnedTitle().Count()<=1) return false; 
                     if (pActor.GetPeeragesLevel()==PeeragesLevel.peerages_2) return false;
                     if (pActor.GetIdentity(empire) == null) return false;
                     if (pActor.GetIdentity(empire).officialLevel!=OfficialLevel.officiallevel_1) return false;
@@ -1000,7 +987,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (!kingdom.isAlive()) return false;
                     if (!kingdom.isInEmpire()) return false;
-                    if (kingdom.GetEmpire().emperor == null) return false;
+                    if (kingdom.GetEmpire().Emperor == null) return false;
                     return true;
                 },
                 action = delegate (Actor pActor) 
@@ -1008,7 +995,7 @@ namespace EmpireCraft.Scripts.AI
                     Empire empire = pActor.kingdom.GetEmpire();
                     City city = pActor.city;
                     
-                    foreach(long title_id in empire.emperor.GetOwnedTitle())
+                    foreach(long title_id in empire.Emperor.GetOwnedTitle())
                     {
                         KingdomTitle kingdomTitle = ModClass.KINGDOM_TITLE_MANAGER.get(title_id);
                         if (empire.empire.GetMainTitle()!= kingdomTitle)
@@ -1066,7 +1053,7 @@ namespace EmpireCraft.Scripts.AI
                     }
                     if (kingdom.isInEmpire())
                     {
-                        if (!kingdom.GetEmpire().isAllowToMakeWar())
+                        if (!kingdom.GetEmpire().IsAllowToMakeWar())
                         {
                             return false;
                         }
@@ -1087,7 +1074,7 @@ namespace EmpireCraft.Scripts.AI
                     if (warTarget.isInSameEmpire(pActor.kingdom))
                     {
                         Empire empire = warTarget.GetEmpire();
-                        if (!empire.isAllowToMakeWar()&&warTarget==empire.empire)
+                        if (!empire.IsAllowToMakeWar()&&warTarget==empire.empire)
                         {
                             return false;
                         }
@@ -1204,11 +1191,7 @@ namespace EmpireCraft.Scripts.AI
                             if (item3.canJoin(kingdom) && !item3.hasSupremeKingdom())
                             {
                                 _ = item3.power;
-                                bool flag = false;
-                                if (kingdom.cities.Count <= 2 && !kingdom.hasNearbyKingdoms())
-                                {
-                                    flag = true;
-                                }
+                                bool flag = kingdom.cities.Count <= 2 && !kingdom.hasNearbyKingdoms();
                                 if (!flag && item3.hasSharedBordersWithKingdom(kingdom))
                                 {
                                     flag = true;
@@ -1233,16 +1216,57 @@ namespace EmpireCraft.Scripts.AI
                     }
                     pActor.setPlot(plot);
                     return true;
+                },
+                check_other_plots = PlotsLibrary.alliance_create.check_other_plots,
+                check_can_be_forced = (Actor pActor) => !pActor.kingdom.hasAlliance(),
+                check_should_continue = delegate(Actor pActor)
+                {
+                    Plot plot = pActor.plot;
+                    if (pActor.kingdom.hasAlliance())
+                    {
+                        return false;
+                    }
+                    if (!plot.target_alliance.isAlive())
+                    {
+                        return false;
+                    }
+                    if (!plot.target_alliance.canJoin(pActor.kingdom))
+                    {
+                        return false;
+                    }
+                    if (pActor.kingdom.hasEnemies())
+                    {
+                        return false;
+                    }
+                    return !plot.target_alliance.hasWars();
+                },
+                action = delegate(Actor pActor)
+                {
+                    Plot plot = pActor.plot;
+                    if (pActor.kingdom.hasAlliance())
+                    {
+                        return false;
+                    }
+                    if (!plot.target_alliance.isAlive())
+                    {
+                        return false;
+                    }
+                    plot.target_alliance.join(pActor.kingdom);
+                    if (pActor.kingdom.hasKing())
+                    {
+                        pActor.kingdom.king.leavePlot();
+                    }
+                    return true;
                 }
             });
             LogService.LogInfo($"Currently loaded{AssetManager.plots_library.getList().Count().ToString()} plots");
             AssetManager.plots_library.linkAssets();
         }
 
-        private static bool ministor_acquire_empire(Actor pActor)
+        private static bool minister_acquire_empire(Actor pActor)
         {
 
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.ministor_try_aqcuire_empire_log, pActor.GetTitle(), pActor.data.name, pActor.kingdom.GetEmpire().data.name)
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.minister_try_aqcuire_empire_log, pActor.GetTitle(), pActor.data.name, pActor.kingdom.GetEmpire().data.name)
             {
                 color_special1 = pActor.kingdom.getColor()._colorText,
                 color_special2 = pActor.kingdom.GetEmpire().empire.getColor()._colorText
@@ -1302,7 +1326,7 @@ namespace EmpireCraft.Scripts.AI
                 bool flag = false;
                 if (pInitiatorKingdom.isInEmpire())
                 {
-                    flag = pInitiatorKingdom.GetEmpire().isNeighbourWith(tKingdom);
+                    flag = pInitiatorKingdom.GetEmpire().IsNeighbourWith(tKingdom);
                 } else
                 {
                     flag = pInitiatorKingdom.isNeighbourWith(tKingdom);

@@ -21,8 +21,8 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset empire_war;
     public static WorldLogAsset empire_enfeoff_log;
     public static WorldLogAsset become_new_empire_log;
-    public static WorldLogAsset ministor_try_aqcuire_empire_log;
-    public static WorldLogAsset ministor_aqcuire_empire_log;
+    public static WorldLogAsset minister_try_aqcuire_empire_log;
+    public static WorldLogAsset minister_aqcuire_empire_log;
     public static WorldLogAsset king_take_title_log;
     public static WorldLogAsset king_create_title_log;
     public static WorldLogAsset city_add_to_title_log;
@@ -218,7 +218,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(king_take_title_log),
             group = "emperors",
-            path_icon = "MinistorAcquireEmpire",
+            path_icon = "ministerAcquireEmpire",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -288,16 +288,16 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$kingdom_name$", 2);
             }
         });
-        ministor_try_aqcuire_empire_log = wl.add(new WorldLogAsset
+        minister_try_aqcuire_empire_log = wl.add(new WorldLogAsset
         {
-            id = nameof(ministor_try_aqcuire_empire_log),
+            id = nameof(minister_try_aqcuire_empire_log),
             group = "emperors",
-            path_icon = "MinistorAcquireEmpire.png",
+            path_icon = "ministerAcquireEmpire.png",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$title$", 1);
-                wl.updateText(ref pText, pMessage, "$ministor$", 2);
+                wl.updateText(ref pText, pMessage, "$minister$", 2);
                 wl.updateText(ref pText, pMessage, "$empire_name$", 3);
             }
         });
@@ -305,25 +305,25 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(powerful_minister_aquire_empire_war),
             group = "emperors",
-            path_icon = "MinistorAcquireEmpire.png",
+            path_icon = "ministerAcquireEmpire.png",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$title$", 1);
-                wl.updateText(ref pText, pMessage, "$ministor$", 2);
+                wl.updateText(ref pText, pMessage, "$minister$", 2);
                 wl.updateText(ref pText, pMessage, "$kingdom_name$", 3);
             }
         });
-        ministor_aqcuire_empire_log = wl.add(new WorldLogAsset
+        minister_aqcuire_empire_log = wl.add(new WorldLogAsset
         {
-            id = nameof(ministor_aqcuire_empire_log),
+            id = nameof(minister_aqcuire_empire_log),
             group = "emperors",
             path_icon = "ChineseCrown.png",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$title$", 1);
-                wl.updateText(ref pText, pMessage, "$ministor$", 2);
+                wl.updateText(ref pText, pMessage, "$minister$", 2);
                 wl.updateText(ref pText, pMessage, "$new_empire_name$", 3);
             }
         });
@@ -331,11 +331,11 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empire_powerful_minister_aquire_title),
             group = "emperors",
-            path_icon = "MinistorAcquireTitle.png",
+            path_icon = "ministerAcquireTitle.png",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
-                wl.updateText(ref pText, pMessage, "$ministor$", 1);
+                wl.updateText(ref pText, pMessage, "$minister$", 1);
                 wl.updateText(ref pText, pMessage, "$empire$", 2);
                 wl.updateText(ref pText, pMessage, "$title$", 3);
             }

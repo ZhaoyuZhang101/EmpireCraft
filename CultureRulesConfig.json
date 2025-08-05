@@ -79,24 +79,66 @@
             }
         },
         "beaurau_config": {
+            "GreaterGeneral": {
+                "name": "GreaterGeneral",
+                "type": "officiallevel_1",
+                "pre": "",
+                "description": "",
+                "merit": 0,
+                "honorary": 0,
+                "peerage_type": "Both",
+                "require_traits": ["jingshi"]
+            },
+            "Minister": {
+                "name": "Minister",
+                "type": "officiallevel_2",
+                "pre": "",
+                "description": "",
+                "merit": 2,
+                "honorary": 3,
+                "peerage_type": "Civil",
+                "require_traits": ["jingshi"]
+            },
+            "General": {
+                "name": "General",
+                "type": "officiallevel_3",
+                "pre": "",
+                "description": "",
+                "merit": 2,
+                "honorary": 3,
+                "peerage_type": "Military",
+                "require_traits": ["jingshi"]
+            },
             "CoreOffice": [
                 {
                     "name": "ZhongshuSheng",
                     "type": "officiallevel_4",
                     "pre": "",
-                    "description": ""
+                    "description": "",
+                    "merit": 5,
+                    "honorary": 4,
+                    "peerage_type": "Civil",
+                    "require_traits": ["jingshi"]
                 },
                 {
                     "name": "MenxiaSheng",
                     "type": "officiallevel_6",
                     "pre": "",
-                    "description": ""
+                    "description": "",
+                    "merit": 5,
+                    "honorary": 4,
+                    "peerage_type": "Civil",
+                    "require_traits": ["jingshi"]
                 },
                 {
                     "name": "ShangshuSheng",
                     "type": "officiallevel_5",
                     "pre": "",
-                    "description": ""
+                    "description": "",
+                    "merit": 5,
+                    "honorary": 4,
+                    "peerage_type": "Civil",
+                    "require_traits": ["jingshi"]
                 }
             ],
             "Divisions": [
@@ -104,37 +146,61 @@
                     "name": "Li3bu_division",
                     "type": "officiallevel_7",
                     "pre": "Li3bu_division",
-                    "description": ""
+                    "description": "",
+                    "merit": 7,
+                    "honorary": 6,
+                    "peerage_type": "Civil",
+                    "require_traits": ["gongshi"]
                 },
                 {
                     "name": "Libu_division",
                     "type": "officiallevel_7",
                     "pre": "Libu_division",
-                    "description": ""
+                    "description": "",
+                    "merit": 7,
+                    "honorary": 6,
+                    "peerage_type": "Civil",
+                    "require_traits": ["gongshi"]
                 },
                 {
                     "name": "Gongbu_division",
                     "type": "officiallevel_7",
                     "pre": "Gongbu_division",
-                    "description": ""
+                    "description": "",
+                    "merit": 7,
+                    "honorary": 6,
+                    "peerage_type": "Civil",
+                    "require_traits": ["gongshi"]
                 },
                 {
                     "name": "Bingbu_division",
                     "type": "officiallevel_7",
                     "pre": "Bingbu_division",
-                    "description": ""
+                    "description": "",
+                    "merit": 7,
+                    "honorary": 6,
+                    "peerage_type": "Civil",
+                    "require_traits": ["gongshi"]
                 },
                 {
                     "name": "Xingbu_division",
                     "type": "officiallevel_7",
                     "pre": "Xingbu_division",
-                    "description": ""
+                    "description": "",
+                    "merit": 7,
+                    "honorary": 6,
+                    "peerage_type": "Civil",
+                    "require_traits": ["gongshi"]
                 },
                 {
                     "name": "Hubu_division",
                     "type": "officiallevel_7",
                     "pre": "Hubu_division",
-                    "description": ""
+                    "description": "",
+                    "merit": 7,
+                    "honorary": 6,
+                    "peerage_type": "Civil",
+                    "require_traits": ["gongshi"]
                 }
             ]
         }
@@ -340,6 +406,10 @@
                 "rule": [ "group_1" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
         }
     },
     {
@@ -408,6 +478,10 @@
                 "rule": [ "group_1" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
         }
     },
     {
@@ -476,6 +550,10 @@
                 "rule": [ "group_1" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
         }
     },
     {
@@ -534,6 +612,10 @@
                 "rule": [ "group_1" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
         }
     },
     {
@@ -596,6 +678,10 @@
                 "rule": [ "group_1", "coin_flip", "group_2" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
         }
     },
     {
@@ -663,6 +749,10 @@
                 "rule": [ "group_1" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
         }
     },
     {
@@ -726,6 +816,10 @@
                 "rule": [ "group_1" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
         }
     },
     {
@@ -795,6 +889,10 @@
                 "rule": [ "group_1", "group_2" ],
                 "name_pos": 0
             }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
         }
     }
 ]

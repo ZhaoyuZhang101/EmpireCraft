@@ -108,12 +108,12 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public Sprite[] _cached_banner_icons;
 
 
-    public Empire newEmpire(Kingdom pKingdom)
+    public Empire newEmpire(Kingdom pKingdom, bool isSplit = false)
     {
         long id = OverallHelperFunc.IdGenerator.NextId();
         Empire empire;
         empire = newObjectFromID(id);
-        empire.createNewEmpire(pKingdom);
+        empire.CreateNewEmpire(pKingdom, isSplit);
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
         new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())

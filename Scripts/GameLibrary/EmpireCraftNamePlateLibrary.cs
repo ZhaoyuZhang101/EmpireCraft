@@ -17,7 +17,7 @@ using UnityEngine.UI;
 namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftNamePlateLibrary
 {
-    public static string additionNum => ModClass.REAL_NUM_SWITCH ? ",000" : "";
+    public static string additionNum => ModClass.REAL_NUM_SWITCH ? "k" : "";
     public static Dictionary<EmpireCraftMapMode, NameplateAsset> map_modes_nameplates = new Dictionary<EmpireCraftMapMode, NameplateAsset>();
     public static void init()
     {
@@ -364,11 +364,11 @@ public static class EmpireCraftNamePlateLibrary
         if (empire == null) return;
         plateText.setupMeta(pMetaObject.data, pMetaObject.getColor());
         string text = empire.data.name + "  " + empire.countPopulation()+additionNum;
-        if (empire.isAllowToMakeYearName())
+        if (empire.IsAllowToMakeYearName())
         {
-            if (empire.hasYearName())
+            if (empire.HasYearName())
             {
-                text = empire.data.name + "\u200A" + empire.getYearNameWithTime() + "\u200A" + empire.countPopulation();
+                text = empire.data.name + "\u200A" + empire.GetYearNameWithTime() + "\u200A" + empire.countPopulation();
             }
         }
 
@@ -411,7 +411,7 @@ public static class EmpireCraftNamePlateLibrary
         }
         catch (Exception e)
         {
-            return;
+            LogService.LogInfo(e.Message);
         }
 
     }
@@ -442,7 +442,6 @@ public static class EmpireCraftNamePlateLibrary
         catch (Exception e)
         {
             LogService.LogInfo(e.ToString());
-            return;
         }
     }
 }

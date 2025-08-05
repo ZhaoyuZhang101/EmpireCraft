@@ -48,7 +48,7 @@ public class CityWindowPatch : GamePatch
         if (!_window.tabs._tabs.Any(p => p.name == "city_setting"))
         {
             SimpleWindowTab simpleWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-            simpleWindowTab.Setup("city_setting", _window, CreateCitySettingContent());
+            simpleWindowTab.Setup("city_setting", _window.scroll_window, CreateCitySettingContent());
             if (city.GetMaxPopulationLimitStats())
             {
                 limitToggle.Text.text = LM.Get("On");

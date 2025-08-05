@@ -4,11 +4,10 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Mail;
-using System.Text;
-using System.Threading.Tasks;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
+using UnityEngine;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 
 namespace EmpireCraft.Scripts.HelperFunc;
@@ -52,6 +51,11 @@ public enum ClanRelation
     SBB,   //侄子
     SGG,   //外甥女
     SGB,   //外甥
+    SDGB,  //外孙
+    SDGG,  //外孙女
+    SSGB,  //孙子
+    SSGG,  //孙女
+    FAR,   //远亲
     NONE   //无
 }
 public class SpecificClan
@@ -61,6 +65,13 @@ public class SpecificClan
     public double established_timestamp { get; set; }
     public long founder { get; set; }
     public SpecificClanType clan_sex_priority { get; set; }
+    public string color { get; set; } = (new Color(0.7f, 0.8f, 0.7f)).ToHexString();
+    public long capital_city_id { get; set; }
+    public string empire_name { get; set; }
+    public float capital_city_pos_x { get; set; }
+    public float capital_city_pos_y { get; set; }
+    [JsonIgnore]
+    public List<PersonalClanIdentity> all_valid_members => _cache.Values.ToList().FindAll(i=>i.CanHeir(i));
 
     public Dictionary<long, PersonalClanIdentity> _cache = new();
     [JsonIgnore]
@@ -72,54 +83,14 @@ public class SpecificClan
         if (_cache.TryGetValue(personId, out var cached)) return cached;
         return null;
     }
-    public List<(ClanRelation, PersonalClanIdentity)> GetSiblingsWithRelation(PersonalClanIdentity identity)
-    {
-        var siblings = new List<(ClanRelation, PersonalClanIdentity)>();
-        PersonalClanIdentity father = SpecificClanManager.getPerson(identity.father);
-        PersonalClanIdentity mother = SpecificClanManager.getPerson(identity.mother);
-        var selfId = identity.id;
 
-        if (father != null)
-        {
-            foreach (var child in SpecificClanManager.getChildren(father))
-            {
-                var sibling = child.Item2;
-                if (sibling != null && sibling.id != selfId)
-                {
-                    if (sibling.mother == identity.mother)
-                        siblings.Add((ClanRelation.SFSM, sibling)); // 同父同母
-                    else
-                        siblings.Add((ClanRelation.DFSM, sibling)); // 同父异母
-                }
-            }
-        }
-        if (mother != null)
-        {
-            foreach (var child in SpecificClanManager.getChildren(mother))
-            {
-                var sibling = child.Item2;
-                if (sibling != null && sibling.id != selfId)
-                {
-                    if (sibling.father != identity.father)
-                        siblings.Add((ClanRelation.SFDM, sibling)); // 同母异父
-                }
-            }
-        }
-        return siblings;
-    }
-
-    public void newSpecificClan(Actor actor)
+    public void RecordHistoryEmpire(Empire empire, City capital)
     {
-        _cache = new Dictionary<long, PersonalClanIdentity>();
-        Clan clan = actor.clan;
-        id = IdGenerator.NextId();
-        name = clan.GetClanName();
-        established_timestamp = World.world.getCurWorldTime();
-        clan_sex_priority = judgeMalePriority(actor)? SpecificClanType.MalePriority:SpecificClanType.FemalePriority;
-        clan.SetSpecificClan(this);
-        LogService.LogInfo($"族谱加入成功{this.name}目前存在的族谱:{SpecificClanManager._specificClans.Count}");
+        empire_name = empire.GetEmpireName();
+        capital_city_id = capital.getID();
+        capital_city_pos_x = capital.city_center.x;
+        capital_city_pos_y = capital.city_center.y;
     }
-    
     public List<(ClanRelation, PersonalClanIdentity)> GetChildren(PersonalClanIdentity identity)
     {
         var children = this
@@ -131,183 +102,18 @@ public class SpecificClan
         return children;
     }
 
-    public List<(ClanRelation relation, PersonalClanIdentity pci)> GetFatherGrandGeneration(PersonalClanIdentity identity)
+    public void newSpecificClan(Actor actor)
     {
-        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (identity == null) return relatives;
-        // —— 1. 父系祖父母 ——
-        var father = get(identity.father);
-        if (father != null)
-        {
-            if (father.father > 0)
-            {
-                var pgf = get(father.father);
-                if (pgf != null) relatives.Add((ClanRelation.FGF, pgf));
-            }
-            if (father.mother > 0)
-            {
-                var pgm = get(father.mother);
-                if (pgm != null) relatives.Add((ClanRelation.FGM, pgm));
-            }
-        }
-        return relatives;
+        _cache = new Dictionary<long, PersonalClanIdentity>();
+        Clan clan = actor.clan;
+        id = IdGenerator.NextId();
+        name = clan.GetClanName();
+        established_timestamp = World.world.getCurWorldTime();
+        clan_sex_priority = judgeMalePriority(actor) ? SpecificClanType.MalePriority : SpecificClanType.FemalePriority;
+        clan.SetSpecificClan(this);
+        color = ColorSelector.NextColor();
     }
 
-    public List<(ClanRelation relation, PersonalClanIdentity pci)> GetMotherGrandGeneration(PersonalClanIdentity identity)
-    {
-        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (identity == null) return relatives;
-        // —— 2. 母系祖父母 ——
-        var mother = get(identity.mother);
-        if (mother != null)
-        {
-            if (mother.father > 0)
-            {
-                var mgf = get(mother.father);
-                if (mgf != null) relatives.Add((ClanRelation.MGF, mgf));
-            }
-            if (mother.mother > 0)
-            {
-                var mgm = get(mother.mother);
-                if (mgm != null) relatives.Add((ClanRelation.MGM, mgm));
-            }
-        }
-        return relatives;
-    }
-
-    public List<(ClanRelation relation, PersonalClanIdentity pci)> GetFatherGreatGeneration(PersonalClanIdentity identity)
-    {
-        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (identity == null) return relatives;
-        var clan = identity._specificClan;
-        if (clan == null) return relatives;
-        var father = get(identity.father);
-        // —— 3. 父系伯叔 & 姑（father的兄弟姐妹） ——
-        if (father != null && father.father > 0)
-        {
-            var members = GetSiblingsWithRelation(father);
-            foreach (var rPci in members)
-            {
-                // 男性 -> 伯叔（FUNC），女性 -> 姑（FANT）
-                if (rPci.Item2.sex == ActorSex.Male) 
-                    relatives.Add((ClanRelation.FUNC, rPci.Item2));
-                else 
-                    relatives.Add((ClanRelation.FANT, rPci.Item2));
-            }
-        }
-        return relatives;
-    }
-
-    public List<(ClanRelation relation, PersonalClanIdentity pci)> GetMotherGreatGeneration(PersonalClanIdentity identity)
-    {
-        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (identity == null) return relatives;
-        var clan = identity._specificClan;
-        if (clan == null) return relatives;
-        var mother = get(identity.mother);
-        // —— 4. 母系舅 & 姨（mother的兄弟姐妹） ——
-        if (mother != null && mother.father > 0)
-        {
-            var members = GetSiblingsWithRelation(mother);
-            foreach (var rPci in members)
-            {
-                // 男性 -> 舅舅（MUNC），女性 -> 姨（MANT）
-                if (rPci.Item2.sex == ActorSex.Male) 
-                    relatives.Add((ClanRelation.MUNC, rPci.Item2));
-                else 
-                    relatives.Add((ClanRelation.MANT, rPci.Item2));
-            }
-        }
-        return relatives;
-    }
-
-    public List<(ClanRelation relation, PersonalClanIdentity pci)> GetFatherSameGeneration(PersonalClanIdentity identity)
-    {
-        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (identity == null) return relatives;
-        var clan = identity._specificClan;
-        if (clan == null) return relatives;
-        var father = get(identity.father);
-        // —— 5. 堂兄弟／姐妹（父系哥哥弟弟的子女） ——
-        if (father != null && father.father > 0)
-        {
-            var fSiblings = GetSiblingsWithRelation(father);
-            foreach (var rPci in fSiblings)
-            {
-                var kids = SpecificClanManager.getChildren(rPci.Item2);
-                foreach (var rPciKid in kids)
-                {
-                    // 性别决定男表/女表
-                    if (rPciKid.Item2.sex == ActorSex.Male) 
-                        relatives.Add((ClanRelation.FSIBB, rPciKid.Item2));
-                    else 
-                        relatives.Add((ClanRelation.FSIBG, rPciKid.Item2));
-                }
-
-            }
-        }
-        return relatives;
-    }
-
-    public List<(ClanRelation relation, PersonalClanIdentity pci)> GetMotherSameGeneration(PersonalClanIdentity identity)
-    {
-        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (identity == null) return relatives;
-        var clan = identity._specificClan;
-        if (clan == null) return relatives;
-        var mother = get(identity.mother);
-        // —— 6. 表兄弟／姐妹（母系姐舅的子女） ——
-        if (mother != null && mother.father > 0)
-        {
-            var mSiblings = GetSiblingsWithRelation(mother);
-            foreach (var rPci in mSiblings)
-            {
-                var kids = SpecificClanManager.getChildren(rPci.Item2);
-                foreach (var rPciKid in kids)
-                {
-
-                    if (rPciKid.Item2.sex == ActorSex.Male)
-                        relatives.Add((ClanRelation.MSIBB, rPciKid.Item2));
-                    else
-                        relatives.Add((ClanRelation.MSIBG, rPciKid.Item2));
-                }
-            }
-        }
-        return relatives;
-    }
-
-    public List<(ClanRelation relation, PersonalClanIdentity pci)> GetSiblingChildGeneration(PersonalClanIdentity identity)
-    {
-        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (identity == null) return relatives;
-
-        // 先拿到所有兄弟姐妹
-        var siblings = GetSiblingsWithRelation(identity);
-        foreach (var (sibRel, sibPci) in siblings)
-        {
-            if (sibPci == null) continue;
-
-            // 再拿兄弟/姐妹的孩子
-            var kids = SpecificClanManager.getChildren(sibPci);
-            foreach (var (_, childPci) in kids)
-            {
-                if (childPci == null) continue;
-
-                ClanRelation r;
-                // 兄（Male） -> 侄子/侄女
-                if (sibPci.sex == ActorSex.Male)
-                    r = childPci.sex == ActorSex.Male ? ClanRelation.SBB : ClanRelation.SBG;
-                // 姐（Female） -> 外甥/外甥女
-                else
-                    r = childPci.sex == ActorSex.Male ? ClanRelation.SGB : ClanRelation.SGG;
-
-                relatives.Add((r, childPci));
-            }
-        }
-
-        return relatives;
-    }
-    
     private bool judgeMalePriority(Actor actor)
     {
         if (actor.hasCulture())
@@ -410,9 +216,11 @@ public static class SpecificClanManager
         return specificClan;
     }
 
-    public static List<(ClanRelation, PersonalClanIdentity)> findAllRelations(PersonalClanIdentity self)
+    public static List<(ClanRelation, PersonalClanIdentity)> FindAllRelations(PersonalClanIdentity self)
     {
         List<(ClanRelation, PersonalClanIdentity)> pre = new List<(ClanRelation, PersonalClanIdentity)>();
+        List<(ClanRelation, PersonalClanIdentity)> post = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (self == null) return pre;
         foreach (var sc in _specificClans)
         {
             foreach (var identity in sc._cache.Values)
@@ -423,26 +231,274 @@ public static class SpecificClanManager
                     pre.Add((relation, identity));
                 }
             }
-        }
-        foreach (var sc in _specificClans)
-        {
             if (sc.id==self.specific_clan_id)
             {            
                 foreach (var identity in sc._cache.Values)
                 {
-                    ClanRelation relation = CalcRelation(self, identity);
-                    if (!pre.Contains((relation, identity)))
+                    if (identity.id != self.id)
                     {
-                        pre.Add((relation, identity));
+                        ClanRelation relation = CalcRelation(self, identity);
+                        post.Add((relation, identity));
                     }
                 }
                 break;
             }
-
         }
-        return pre;
+        return pre.Union(post).ToList();
+    }
+    public static List<(ClanRelation, PersonalClanIdentity)> GetSiblingsWithRelation(PersonalClanIdentity identity)
+    {
+        var siblings = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (identity == null) return siblings;
+        PersonalClanIdentity father = getPerson(identity.father);
+        PersonalClanIdentity mother = getPerson(identity.mother);
+        var selfId = identity.id;
+
+        if (father != null)
+        {
+            foreach (var child in SpecificClanManager.getChildren(father))
+            {
+                var sibling = child.Item2;
+                if (sibling != null && sibling.id != selfId)
+                {
+                    if (sibling.mother == identity.mother)
+                        siblings.Add((ClanRelation.SFSM, sibling)); // 同父同母
+                    else
+                        siblings.Add((ClanRelation.DFSM, sibling)); // 同父异母
+                }
+            }
+        }
+        if (mother != null)
+        {
+            foreach (var child in SpecificClanManager.getChildren(mother))
+            {
+                var sibling = child.Item2;
+                if (sibling != null && sibling.id != selfId)
+                {
+                    if (sibling.father != identity.father)
+                        siblings.Add((ClanRelation.SFDM, sibling)); // 同母异父
+                }
+            }
+        }
+        return siblings;
+    }    
+    
+    public static List<(ClanRelation, PersonalClanIdentity)> GetGrandChildren(PersonalClanIdentity identity)
+    {
+        var grandChildrenResult = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (identity == null) return grandChildrenResult;
+        var children = SpecificClanManager.getChildren(identity);
+        foreach (var child in children)
+        {
+            var grandChildren = SpecificClanManager.getChildren(child.Item2);
+            foreach (var grandChild in grandChildren)
+            {
+                if (!grandChildrenResult.Contains(grandChild))
+                {
+                    if (child.Item2.is_main)
+                    {
+                        if (grandChild.Item2.isMale())
+                        {
+                            grandChildrenResult.Add((ClanRelation.SSGB, grandChild.Item2));
+                        }
+                        else
+                        {
+                            grandChildrenResult.Add((ClanRelation.SSGG, grandChild.Item2));
+                        }
+                    }
+                    else
+                    {
+                        if (grandChild.Item2.isMale())
+                        {
+                            grandChildrenResult.Add((ClanRelation.SDGB, grandChild.Item2));
+                        }
+                        else
+                        {
+                            grandChildrenResult.Add((ClanRelation.SDGG, grandChild.Item2));
+                        }
+                    }
+                }
+            }
+        }
+        return grandChildrenResult;
     }
 
+    public static List<(ClanRelation relation, PersonalClanIdentity pci)> GetFatherGrandGeneration(PersonalClanIdentity identity)
+    {
+        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (identity == null) return relatives;
+        // —— 1. 父系祖父母 ——
+        var father = getPerson(identity.father);
+        if (father != null)
+        {
+            if (father.father > 0)
+            {
+                var pgf = getPerson(father.father);
+                if (pgf != null) relatives.Add((ClanRelation.FGF, pgf));
+            }
+            if (father.mother > 0)
+            {
+                var pgm = getPerson(father.mother);
+                if (pgm != null) relatives.Add((ClanRelation.FGM, pgm));
+            }
+        }
+        return relatives;
+    }
+
+    public static List<(ClanRelation relation, PersonalClanIdentity pci)> GetMotherGrandGeneration(PersonalClanIdentity identity)
+    {
+        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (identity == null) return relatives;
+        // —— 2. 母系祖父母 ——
+        var mother = getPerson(identity.mother);
+        if (mother != null)
+        {
+            if (mother.father > 0)
+            {
+                var mgf = getPerson(mother.father);
+                if (mgf != null) relatives.Add((ClanRelation.MGF, mgf));
+            }
+            if (mother.mother > 0)
+            {
+                var mgm = getPerson(mother.mother);
+                if (mgm != null) relatives.Add((ClanRelation.MGM, mgm));
+            }
+        }
+        return relatives;
+    }
+
+    public static List<(ClanRelation relation, PersonalClanIdentity pci)> GetFatherGreatGeneration(PersonalClanIdentity identity)
+    {
+        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (identity == null) return relatives;
+        var clan = identity._specificClan;
+        if (clan == null) return relatives;
+        var father = getPerson(identity.father);
+        // —— 3. 父系伯叔 & 姑（father的兄弟姐妹） ——
+        if (father != null && father.father > 0)
+        {
+            var members = GetSiblingsWithRelation(father);
+            foreach (var rPci in members)
+            {
+                // 男性 -> 伯叔（FUNC），女性 -> 姑（FANT）
+                if (rPci.Item2.sex == ActorSex.Male) 
+                    relatives.Add((ClanRelation.FUNC, rPci.Item2));
+                else 
+                    relatives.Add((ClanRelation.FANT, rPci.Item2));
+            }
+        }
+        return relatives;
+    }
+
+    public static List<(ClanRelation relation, PersonalClanIdentity pci)> GetMotherGreatGeneration(PersonalClanIdentity identity)
+    {
+        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (identity == null) return relatives;
+        var clan = identity._specificClan;
+        if (clan == null) return relatives;
+        var mother = getPerson(identity.mother);
+        // —— 4. 母系舅 & 姨（mother的兄弟姐妹） ——
+        if (mother != null && mother.father > 0)
+        {
+            var members = GetSiblingsWithRelation(mother);
+            foreach (var rPci in members)
+            {
+                // 男性 -> 舅舅（MUNC），女性 -> 姨（MANT）
+                if (rPci.Item2.sex == ActorSex.Male) 
+                    relatives.Add((ClanRelation.MUNC, rPci.Item2));
+                else 
+                    relatives.Add((ClanRelation.MANT, rPci.Item2));
+            }
+        }
+        return relatives;
+    }
+
+    public static List<(ClanRelation relation, PersonalClanIdentity pci)> GetFatherSameGeneration(PersonalClanIdentity identity)
+    {
+        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (identity == null) return relatives;
+        var clan = identity._specificClan;
+        if (clan == null) return relatives;
+        var father = getPerson(identity.father);
+        // —— 5. 堂兄弟／姐妹（父系哥哥弟弟的子女） ——
+        if (father != null && father.father > 0)
+        {
+            var fSiblings = GetSiblingsWithRelation(father);
+            foreach (var rPci in fSiblings)
+            {
+                var kids = SpecificClanManager.getChildren(rPci.Item2);
+                foreach (var rPciKid in kids)
+                {
+                    // 性别决定男表/女表
+                    if (rPciKid.Item2.sex == ActorSex.Male) 
+                        relatives.Add((ClanRelation.FSIBB, rPciKid.Item2));
+                    else 
+                        relatives.Add((ClanRelation.FSIBG, rPciKid.Item2));
+                }
+
+            }
+        }
+        return relatives;
+    }
+
+    public static List<(ClanRelation relation, PersonalClanIdentity pci)> GetMotherSameGeneration(PersonalClanIdentity identity)
+    {
+        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (identity == null) return relatives;
+        var clan = identity._specificClan;
+        if (clan == null) return relatives;
+        var mother = getPerson(identity.mother);
+        // —— 6. 表兄弟／姐妹（母系姐舅的子女） ——
+        if (mother != null && mother.father > 0)
+        {
+            var mSiblings = GetSiblingsWithRelation(mother);
+            foreach (var rPci in mSiblings)
+            {
+                var kids = SpecificClanManager.getChildren(rPci.Item2);
+                foreach (var rPciKid in kids)
+                {
+
+                    if (rPciKid.Item2.sex == ActorSex.Male)
+                        relatives.Add((ClanRelation.MSIBB, rPciKid.Item2));
+                    else
+                        relatives.Add((ClanRelation.MSIBG, rPciKid.Item2));
+                }
+            }
+        }
+        return relatives;
+    }
+
+    public static List<(ClanRelation relation, PersonalClanIdentity pci)> GetSiblingChildGeneration(PersonalClanIdentity identity)
+    {
+        var relatives = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (identity == null) return relatives;
+
+        // 先拿到所有兄弟姐妹
+        var siblings = GetSiblingsWithRelation(identity);
+        foreach (var (sibRel, sibPci) in siblings)
+        {
+            if (sibPci == null) continue;
+
+            // 再拿兄弟/姐妹的孩子
+            var kids = SpecificClanManager.getChildren(sibPci);
+            foreach (var (_, childPci) in kids)
+            {
+                if (childPci == null) continue;
+
+                ClanRelation r;
+                // 兄（Male） -> 侄子/侄女
+                if (sibPci.sex == ActorSex.Male)
+                    r = childPci.sex == ActorSex.Male ? ClanRelation.SBB : ClanRelation.SBG;
+                // 姐（Female） -> 外甥/外甥女
+                else
+                    r = childPci.sex == ActorSex.Male ? ClanRelation.SGB : ClanRelation.SGG;
+
+                relatives.Add((r, childPci));
+            }
+        }
+
+        return relatives;
+    }
     public static ClanRelation CalcRelation(PersonalClanIdentity self, PersonalClanIdentity target)
     {
         if (self == null || target == null) return ClanRelation.NONE;
@@ -471,29 +527,32 @@ public static class SpecificClanManager
             if (pci.id == target.id) return rel;
 
         // 兄弟姐妹
-        foreach (var (rel, pci) in clan.GetSiblingsWithRelation(self))
+        foreach (var (rel, pci) in GetSiblingsWithRelation(self))
             if (pci.id == target.id) return rel;
 
         // 侄/外甥辈
-        foreach (var (rel, pci) in clan.GetSiblingChildGeneration(self))
+        foreach (var (rel, pci) in GetSiblingChildGeneration(self))
             if (pci.id == target.id) return rel;
 
         // 祖父母辈
-        foreach (var (rel, pci) in clan.GetFatherGrandGeneration(self))
+        foreach (var (rel, pci) in GetFatherGrandGeneration(self))
             if (pci.id == target.id) return rel;
-        foreach (var (rel, pci) in clan.GetMotherGrandGeneration(self))
+        foreach (var (rel, pci) in GetMotherGrandGeneration(self))
             if (pci.id == target.id) return rel;
 
         // 叔伯（姑舅）辈
-        foreach (var (rel, pci) in clan.GetFatherGreatGeneration(self))
+        foreach (var (rel, pci) in GetFatherGreatGeneration(self))
             if (pci.id == target.id) return rel;
-        foreach (var (rel, pci) in clan.GetMotherGreatGeneration(self))
+        foreach (var (rel, pci) in GetMotherGreatGeneration(self))
             if (pci.id == target.id) return rel;
 
         // 堂/表兄弟姐妹辈
-        foreach (var (rel, pci) in clan.GetFatherSameGeneration(self))
+        foreach (var (rel, pci) in GetFatherSameGeneration(self))
             if (pci.id == target.id) return rel;
-        foreach (var (rel, pci) in clan.GetMotherSameGeneration(self))
+        foreach (var (rel, pci) in GetMotherSameGeneration(self))
+            if (pci.id == target.id) return rel;
+        //孙辈
+        foreach (var (rel, pci) in GetGrandChildren(self))
             if (pci.id == target.id) return rel;
 
         // 最终默认无关系
@@ -531,13 +590,10 @@ public static class SpecificClanManager
     public static List<(ClanRelation, PersonalClanIdentity)> getChildren(PersonalClanIdentity identity)
     {
         var identityWithRelation = new List<(ClanRelation, PersonalClanIdentity)>();
-        foreach (var sc in _specificClans)
+        if (identity ==null)  return identityWithRelation;
+        foreach (var kids in _specificClans.Select(sc => sc.GetChildren(identity)).Where(kids => kids.Any()))
         {
-            var kids = sc.GetChildren(identity);
-            if (kids.Any())
-            {
-                return kids.ToList();
-            }
+            return kids.ToList();
         }
         return identityWithRelation;
     }
@@ -620,7 +676,8 @@ public class PersonalClanIdentity
     public bool is_alive { get; set; }
     public bool is_concubine {  get; set; } = false; //是否是小妾/男宠（当小妾/男宠无自身宗族时，会加入丈夫/妻子氏族并标记为小妾/男宠身份）
     public bool is_main { get; set; } = true; //在婚姻关系中是否为主要角色（对于爱人来说是嫁/入赘，还是娶/招亲）
-    public int age { get; set; }
+    [JsonIgnore]
+    public int age => is_alive?_actor.getAge():0;
     [JsonIgnore] public string isMainText => hasLover()?(is_main ? "i_first" : "i_second"):"i_none_lover";
     public int generation { get; set; }
     public long mother { get; set; } = -1L; //母亲
@@ -636,11 +693,12 @@ public class PersonalClanIdentity
         is_alive = true;
         actor_id = a.getID();
         specific_clan_id = specificClan.id;
-        age = a.getAge();
         name = a.getName();
         birthday = a.getBirthday();
         sex = a.data.sex;
         species = a.asset.id;
+        is_main = true;
+        culture = ConfigData.speciesCulturePair.TryGetValue(species, out string culturePair)? culturePair:"Western";
         generation = 0;
     }
 
@@ -684,10 +742,16 @@ public class PersonalClanIdentity
         }
         return deathday;
     }
-
-    private bool judgeMarriageMain()
+    
+    public bool IsHeirPriority()
     {
         return (_specificClan.isMalePriority() && this.sex == ActorSex.Male) || (!_specificClan.isMalePriority() && this.sex == ActorSex.Female);
+    }
+
+    public bool CanHeir(PersonalClanIdentity identity)
+    {
+        if (identity == null) return false;
+        return is_main && IsHeirPriority()&&is_alive&&identity.specific_clan_id==specific_clan_id&&identity.id!=id;
     }
 
     public void setLover(Actor actor)
@@ -699,11 +763,11 @@ public class PersonalClanIdentity
         if (lpci == null) return;
         lover.specific_clan = lpci.specific_clan_id;
         lover.identity = lpci.id;
-        is_main = judgeMarriageMain();
+        is_main = IsHeirPriority();
 
         lpci.lover.specific_clan = specific_clan_id;
         lpci.lover.identity = id;
-        lpci.is_main = !judgeMarriageMain();
+        lpci.is_main = !IsHeirPriority();
     }
     public void addConcubines(Actor actor)
     {

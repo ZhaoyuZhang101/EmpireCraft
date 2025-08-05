@@ -72,11 +72,14 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         topOfficeSpace.AddChild(topOfficeTitle.gameObject);
 
         topOfficeGroup1 = this.BeginGridGroup(1, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 50));
-        SetCenterOfficeView(String.Join("_",culture, "officiallevel_1"), _empire.data.centerOffice.GreaterGeneral, ref topOfficeGroup1);
-
+        OfficeObject obj = _empire.data.centerOffice.GreaterGeneral;
+        SetCenterOfficeView(obj.name, obj, ref topOfficeGroup1);
+        
         topOfficeGroup2 = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 50));
-        SetCenterOfficeView(String.Join("_", culture, "officiallevel_2"), _empire.data.centerOffice.Minister, ref topOfficeGroup2);
-        SetCenterOfficeView(String.Join("_", culture, "officiallevel_3"), _empire.data.centerOffice.General, ref topOfficeGroup2);
+        obj = _empire.data.centerOffice.Minister;
+        SetCenterOfficeView(obj.name, obj, ref topOfficeGroup2);
+        obj = _empire.data.centerOffice.General;
+        SetCenterOfficeView(obj.name, obj, ref topOfficeGroup2);
 
         topOfficeSpace.AddChild(topOfficeGroup1.gameObject);
         topOfficeSpace.AddChild(topOfficeGroup2.gameObject);
@@ -109,8 +112,8 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         provincesSpace.AddChild(provinceTitle.gameObject);
 
         provincesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 50));
-        _empire.province_list = _empire.province_list.Distinct().ToList();
-        foreach (Province province in _empire.province_list)
+        _empire.ProvinceList = _empire.ProvinceList.Distinct().ToList();
+        foreach (Province province in _empire.ProvinceList)
         {
             if(!province.data.is_set_to_country)
             {
@@ -176,7 +179,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
         //右边头像
         AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:12, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 20));
-
+        LogService.LogInfo($"官职名称{name}");
         SimpleText title = Instantiate(SimpleText.Prefab);
         title.Setup(LM.Get(name)+$"({officeObject.history_officers.Count})", TextAnchor.MiddleCenter, new Vector2(30, 10));
         title.background.enabled = false;

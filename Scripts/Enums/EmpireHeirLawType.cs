@@ -8,8 +8,11 @@ namespace EmpireCraft.Scripts.Enums
 {
     public enum EmpireHeirLawType
     {
-        eldest_son, //长嗣
-        smallest_son, //幼子
-        brother //兄弟
+        eldest_child, //长嗣
+        smallest_child, //幼子
+        siblings, //直系同辈
+        grand_child_generation, //直系孙辈
+        random, //随机
+        none
     }
 }

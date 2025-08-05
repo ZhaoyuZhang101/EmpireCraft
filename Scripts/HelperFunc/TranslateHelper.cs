@@ -28,12 +28,12 @@ namespace EmpireCraft.Scripts.HelperFunc
             }.add();
         }
 
-        public static void LogMinistorTryAqcuireEmpire(Actor ministor, Empire empire)
+        public static void LogministerTryAqcuireEmpire(Actor minister, Empire empire)
         {
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.ministor_try_aqcuire_empire_log, ministor.GetTitle(), ministor.name, empire.name)
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.minister_try_aqcuire_empire_log, minister.GetTitle(), minister.name, empire.name)
             {
-                color_special1 = ministor.getColor()._colorText,
-                color_special2 = ministor.getColor()._colorText,
+                color_special1 = minister.getColor()._colorText,
+                color_special2 = minister.getColor()._colorText,
                 color_special3 = empire.getColor()._colorText,
             }.add();
         }
@@ -145,7 +145,7 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
-        public static void LogControledEmpire(Actor actor, Empire empire)
+        public static void LogcontrolledEmpire(Actor actor, Empire empire)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.cotrolled_country_log,
                 actor.data.name,
@@ -287,9 +287,9 @@ namespace EmpireCraft.Scripts.HelperFunc
         ///     $minister$ → 大臣名
         ///     $empire$ → 新帝国名
         /// </summary>
-        public static void LogMinistorAqcuireEmpire(Actor minister, Empire new_empire)
+        public static void LogministerAqcuireEmpire(Actor minister, Empire new_empire)
         {
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.ministor_aqcuire_empire_log,
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.minister_aqcuire_empire_log,
                 minister.GetTitle(),
                 minister.name,
                 new_empire.GetEmpireName())

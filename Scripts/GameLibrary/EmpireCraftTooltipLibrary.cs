@@ -63,7 +63,7 @@ public static class EmpireCraftTooltipLibrary
         {
             if (title == null) continue;
             string text = title.data.name;
-            float num = Date.getYearsSince(title.data.timestamp_been_controled);
+            float num = Date.getYearsSince(title.data.timestamp_been_controlled);
             pTooltip.addLineText(text, $"{num}", null, pPercent: false, pLocalize: false);
         }
     }
@@ -89,23 +89,23 @@ public static class EmpireCraftTooltipLibrary
         AssetManager.tooltips.setIconValue(pTooltip, "i_population", pEmpire.countPopulation());
         AssetManager.tooltips.setIconValue(pTooltip, "i_army", pEmpire.countWarriors());
         string pValue = "-";
-        if (pEmpire.emperor != null)
+        if (pEmpire.Emperor != null)
         {
-            if (pEmpire.emperor.isAlive())
+            if (pEmpire.Emperor.isAlive())
             {
-                pValue = pEmpire.emperor.getName();
+                pValue = pEmpire.Emperor.getName();
             }
         }
         pTooltip.addLineText("emperor", pValue, "#FE9900", false, true, 21);
-        if (pEmpire.empire_clan != null)
+        if (pEmpire.EmpireClan != null)
         {
-            if (pEmpire.empire_clan.isAlive())
+            if (pEmpire.EmpireClan.isAlive())
             {
-                pTooltip.addLineText("empire_clan", pEmpire.empire_clan.data.name, pEmpire.empire_clan.getColor().color_text, false, true, 21);
+                pTooltip.addLineText("empire_clan", pEmpire.EmpireClan.data.name, pEmpire.EmpireClan.getColor().color_text, false, true, 21);
             }
         }
         pTooltip.addLineText("empire_capital", pEmpire.empire.data.name, "#CC6CE7", false, true, 21);
-        pTooltip.addLineText("year_name", pEmpire.data.year_name, "#FE9900", false, true, 21);
+        pTooltip.addLineText("year_name", pEmpire.HasYearName()?pEmpire.data.year_name:pEmpire.Emperor.GetModName().firstName??"无", "#FE9900", false, true, 21);
         pTooltip.addLineBreak();
         pTooltip.addLineText("current_selected_province", pData.kingdom.data.name, pData.kingdom.getColor().color_text, false, true, 21);
         string color = tKingdom.getColor().color_text;
@@ -158,7 +158,7 @@ public static class EmpireCraftTooltipLibrary
         if (title.isBeenControlled())
         {
             pTooltip.addLineText("title_been_controlled", city.kingdom.isEmpire() ? city.kingdom.GetEmpire().data.name : city.kingdom.data.name, "#CC6CE7", false, true, 21);
-            pTooltip.addLineText("title_been_controled_year", $"{title.GetTitleBeenControlledYear()}{LM.Get("Year")}", tColorHex, false, true, 21);
+            pTooltip.addLineText("title_been_controlled_year", $"{title.GetTitleBeenControlledYear()}{LM.Get("Year")}", tColorHex, false, true, 21);
         }
     }
     public static void showProvinceToolTip(Tooltip pTooltip, string pType, TooltipData pData)

@@ -31,6 +31,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="DoTween" Version="1.0.0" />
       <PackageReference Include="Lib.Harmony" Version="2.3.6" />
       <PackageReference Include="Microsoft.AspNet.SignalR.Core" Version="2.4.3" />
       <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
@@ -69,6 +70,9 @@
     </ItemGroup>
     <ItemGroup>
       <None Include="Scripts\HelperFunc\BeaurauSystem.cs" />
+    </ItemGroup>
+    <ItemGroup>
+      <Folder Include="GameResources\ui\buttons\" />
     </ItemGroup>
     <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>
 

@@ -148,32 +148,29 @@ public static class EmpireCraftMetaTypeLibrary
             bool flag = PlayerConfig.optionBoolEnabled("highlight_kingdom_enemies");
             UnityEngine.Color color = pAsset.color;
             City city = pTile.zone.city;
-            if (!city.isRekt())
+            if (city.isRekt()) return;
+            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
             {
-                if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
+                if (city.hasProvince())
                 {
-                    if (city.hasProvince())
+                    Province province = city.GetProvince();
+                    if (province != null)
                     {
-                        Province province = city.GetProvince();
-                        if (province != null)
+                        foreach (City c in province.city_list)
                         {
-                            foreach (City c in province.city_list)
-                            {
-                                QuantumSpriteLibrary.colorZones(pAsset, c.zones, color);
-                            }
-                            return;
+                            QuantumSpriteLibrary.colorZones(pAsset, c.zones, color);
                         }
+                        return;
                     }
                 }
-                for (int i = 0; i < city.kingdom.cities.Count; i++)
-                {
-                    City city2 = city.kingdom.cities[i];
-                    QuantumSpriteLibrary.colorZones(pAsset, city2.zones, color);
-                }
-                if (flag)
-                {
-                    QuantumSpriteLibrary.colorEnemies(pAsset, city.kingdom);
-                }
+            }
+            foreach (var city2 in city.kingdom.cities)
+            {
+                QuantumSpriteLibrary.colorZones(pAsset, city2.zones, color);
+            }
+            if (flag)
+            {
+                QuantumSpriteLibrary.colorEnemies(pAsset, city.kingdom);
             }
         };
         ml.city.drawn_zones = delegate

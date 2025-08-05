@@ -236,6 +236,7 @@ public class Province : MetaObject<ProvinceData>
 
         }
     }
+
     public void JudgeOfficer()
     {
         ListPool<Actor> gongActors = new ListPool<Actor>();
@@ -271,9 +272,9 @@ public class Province : MetaObject<ProvinceData>
                 {
                     if(this.empire!=null)
                     {
-                        if (this.empire.emperor!=null)
+                        if (this.empire.Emperor!=null)
                         {
-                            if (this.officer.renown > this.empire.emperor.renown)
+                            if (this.officer.renown > this.empire.Emperor.renown)
                             {
                                 this.data.new_officer_timestamp = World.world.getCurWorldTime();
                                 flag = true;
@@ -447,11 +448,11 @@ public class Province : MetaObject<ProvinceData>
         SetProvinceLevel(provinceLevel);
 
         // 添加到帝国省份列表
-        if (this.empire.province_list == null)
+        if (this.empire.ProvinceList == null)
         {
-            this.empire.province_list = new List<Province>();
+            this.empire.ProvinceList = new List<Province>();
         }
-        this.empire.province_list.Add(this);
+        this.empire.ProvinceList.Add(this);
 
         // 重新计算
         recalculate();
@@ -737,9 +738,9 @@ public class Province : MetaObject<ProvinceData>
         this.city_list.Clear();
         this.city_list_hash.Clear();
         if (this.empire == null) return;
-        if (this.empire.province_list != null)
+        if (this.empire.ProvinceList != null)
         {
-            this.empire.province_list.Remove(this);
+            this.empire.ProvinceList.Remove(this);
         }
 
 
@@ -761,9 +762,9 @@ public class Province : MetaObject<ProvinceData>
         {
             officerRenown = this.officer.renown;
         } 
-        if (this.empire.emperor!=null)
+        if (this.empire.Emperor!=null)
         {
-            emperorRenown = this.empire.emperor.renown;
+            emperorRenown = this.empire.Emperor.renown;
         }
         if(this.occupied_cities!=null)
         {
@@ -781,8 +782,8 @@ public class Province : MetaObject<ProvinceData>
 
     public void joinAnotherEmpire (Empire newEmpire)
     {
-        this.empire.province_list.Remove(this);
-        newEmpire.province_list.Add(this);
+        this.empire.ProvinceList.Remove(this);
+        newEmpire.ProvinceList.Add(this);
         this.empire = newEmpire;
         updateOccupied();
     }

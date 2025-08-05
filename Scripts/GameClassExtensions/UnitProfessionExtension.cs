@@ -10,5 +10,5 @@ public class UnitProfessionExtension
     public const UnitProfession Emperor = (UnitProfession)100;
     public const UnitProfession Officer = (UnitProfession)101;
     public const UnitProfession General = (UnitProfession)102;
-    public const UnitProfession Ministor = (UnitProfession)103;
+    public const UnitProfession minister = (UnitProfession)103;
 }
