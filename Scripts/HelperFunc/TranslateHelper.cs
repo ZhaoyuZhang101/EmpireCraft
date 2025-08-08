@@ -262,6 +262,20 @@ namespace EmpireCraft.Scripts.HelperFunc
             }
 
         }
+
+        public static void LogKingChooseHeir(Kingdom kingdom,string relation, Actor pActor)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.king_choose_heir_log,
+            kingdom.GetKingdomName(),
+            relation,
+            pActor.data.name)
+            {
+                color_special1 = kingdom.getColor()._colorText,
+                color_special3 = kingdom.getColor()._colorText
+
+            }.add();
+
+        }
         /// <summary>
         /// 新年号
         ///     $empire$ → 帝国名

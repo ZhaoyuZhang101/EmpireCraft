@@ -563,9 +563,9 @@ public static class ActorExtension
     public static bool isOfficer(this Actor a)
     {
         if (a == null) return false;
-        OfficeIdentity indentity = GetOrCreate(a).officeIdentity;
-        if (indentity == null) return false;
-        if (indentity.officialLevel == OfficialLevel.officiallevel_10) return false;
+        OfficeIdentity identity = GetOrCreate(a).officeIdentity;
+        if (identity == null) return false;
+        if (identity.officialLevel == OfficialLevel.officiallevel_10) return false;
         return true;
     }
 
@@ -657,15 +657,30 @@ public static class ActorExtension
     public static bool isEmpireHeir(this Actor a)
     {
         if (a == null) return false;
+        if (a.data == null) return false;
         foreach(Empire empire in ModClass.EMPIRE_MANAGER)
         {
-            if (empire.Heir == null) continue;
-            if(empire.Heir.getID()==a.getID())
+            if (!empire.HasHeir()) continue;
+            if(empire.data.Heir==a.data.id)
             {
                 return true;
             }
         }
         return false;
+    }
+
+    public static Empire getHeirEmpire(this Actor a)
+    {
+        if (a == null) return null;
+        foreach(Empire empire in ModClass.EMPIRE_MANAGER)
+        {
+            if (empire.Heir == null) continue;
+            if(empire.Heir.getID()==a.getID())
+            {
+                return empire;
+            }
+        }
+        return null;
     }
 
     public static void DegradeOfficial(this Actor a)
@@ -707,7 +722,7 @@ public static class ActorExtension
     public static string GetActorName(this Actor a)
     {
         if (a == null) return null;
-        if (a.name == null || a.name == "") return null;
+        if (string.IsNullOrEmpty(a.name)) return null;
         string[] nameParts = a.name.Split('\u200A');
 
         if (ConfigData.speciesCulturePair.TryGetValue(a.asset.id, out var culture))
@@ -810,13 +825,13 @@ public static class ActorExtension
     {
         if (!a.hasKingdom()) return false;
         if (a.kingdom.GetEmpire() == null) return false;
-        if (a.kingdom.GetEmpire().Emperor.GetOwnedTitle()==null) return false;
+        if (a.kingdom.GetEmpire().emperor.GetOwnedTitle()==null) return false;
         if (a.kingdom.capital.GetTitle()==null) return false;
         if (a.kingdom.isInEmpire())
         {
             if (a.kingdom.capital.hasTitle())
             {
-                return a.kingdom.GetEmpire().Emperor.GetOwnedTitle().Contains(a.kingdom.capital.GetTitle().data.id);
+                return a.kingdom.GetEmpire().emperor.GetOwnedTitle().Contains(a.kingdom.capital.GetTitle().data.id);
             }
         }
         return false;
@@ -898,10 +913,10 @@ public static class ActorExtension
         var ed = GetOrCreate(a);
         if (ed == null) return;
         if (title == null) return;
-        if (ed.owned_title==null) ed.owned_title = new List<long> { 0 };
-        if (!ed.owned_title.Contains(title.data.id))
-            ed.owned_title.Add(title.data.id);
-            title.owner = a;
+        ed.owned_title ??= new List<long> { 0 };
+        if (ed.owned_title.Contains(title.data.id)) return;
+        ed.owned_title.Add(title.data.id);
+        title.owner = a;
     }
 
     public static void removeTitle(this Actor a, KingdomTitle title)
@@ -956,7 +971,7 @@ public static class ActorExtension
     public static void ClearTitle(this Actor a)
     {
         var ed = GetOrCreate(a);
-        ed.owned_title.Select(t=>ModClass.KINGDOM_TITLE_MANAGER.get(t).owner=null);
+        ed.owned_title.Select(t=>ModClass.KINGDOM_TITLE_MANAGER.get(t)!.owner=null);
         ed.owned_title.Clear();
         ed.want_acuired_title.Clear();
     }

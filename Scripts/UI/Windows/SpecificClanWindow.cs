@@ -38,20 +38,13 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         var namePart = text.Split('\u200A');
         _clanInput.input.text = namePart[0] + "\u200A" + LM.Get("specific_clan");
         _sc.name = namePart[0];
-        foreach (var member in _sc._cache)
+        foreach (var member in _sc._cache.Where(member => member.Value.is_alive))
         {
-            if (member.Value.is_alive)
+            member.Value._actor.GetModName().familyName = namePart[0];
+            member.Value._actor.GetModName().SetName(member.Value._actor);
+            if (member.Value._actor.hasClan())
             {
-                member.Value._actor.GetModName().familyName = text;
-                member.Value._actor.GetModName().SetName(member.Value._actor);
-            }
-
-            foreach (var clan in World.world.clans)
-            {
-                if (clan.HasSpecificClan())
-                {
-                    clan.data.name = clan.data.name = text + "\u200A" + LM.Get("Clan");
-                }
+                member.Value._actor.clan.data.name = namePart[0] + "\u200A" + LM.Get("Clan");
             }
         }
         LogService.LogInfo("changing clan name");
@@ -61,7 +54,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
-        this._actor = SelectedUnit.unit;
+        _actor = SelectedUnit.unit;
         
         LogService.LogInfo($"选择角色的名称为{this._actor.name}");
         if (this._actor == null) return;

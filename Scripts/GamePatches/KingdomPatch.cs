@@ -64,7 +64,7 @@ public class KingdomPatch : GamePatch
             {
                 if (province.HasOfficer()&&!province.IsTotalVassaled())
                 {
-                    num += (int)province.officer.stats["cities"];
+                    num += (int)province.Officer.stats["cities"];
                 }
             }
         }
@@ -105,6 +105,13 @@ public class KingdomPatch : GamePatch
     {
         if (!ModClass.IS_CLEAR)
         {
+            if (__instance.HasHeir())
+            {
+                if (__instance.GetHeir() == pActor)
+                {
+                    __instance.RemoveHeir();
+                }
+            }
             pActor.CheckSpecificClan();
             if (__instance.HasTitle())
             {
@@ -118,14 +125,9 @@ public class KingdomPatch : GamePatch
             {
                 if (__instance.isInEmpire() && !__instance.isEmpire())
                 {
-                    if (pActor.clan == __instance.GetEmpire().EmpireClan)
-                    {
-                        pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_1);
-                    } else
-                    {
-                        pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_2);
-                    }
-
+                    pActor.SetPeeragesLevel(pActor.GetSpecificClan() == __instance.GetEmpire().EmpireSpecificClan
+                        ? Enums.PeeragesLevel.peerages_1
+                        : Enums.PeeragesLevel.peerages_2);
                 } else if (!__instance.isInEmpire())
                 {
                     pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_1);
@@ -150,7 +152,6 @@ public class KingdomPatch : GamePatch
             }
         }
     }
-
     public static void emperor_left(Kingdom __instance)
     {
         if (!ModClass.IS_CLEAR)
@@ -164,20 +165,16 @@ public class KingdomPatch : GamePatch
             {
                 __instance.GetEmpire().EmperorLeft(__instance);
             }
-            if (__instance.isInEmpire() && !__instance.isEmpire())
+
+            if (!__instance.isInEmpire() || __instance.isEmpire()) return;
+            if (!__instance.hasKing()) return;
+            try
             {
-                if (__instance.king != null)
-                {
-                    try
-                    {
-                        __instance.king.GetIdentity(__instance.GetEmpire()).ChangeOfficialLevel(Enums.OfficialLevel.officiallevel_10);
-                    }
-                    catch
-                    {
-                        return;
-                    }
-                    
-                }
+                __instance.king.GetIdentity(__instance.GetEmpire()).ChangeOfficialLevel(Enums.OfficialLevel.officiallevel_10);
+            }
+            catch
+            {
+                // ignored
             }
         }
     }

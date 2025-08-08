@@ -22,6 +22,7 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
         {
             return BehResult.Continue;
         }
+        
         if (pKingdom.hasKing())
         {
             Actor king = pKingdom.king;
@@ -33,50 +34,57 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
             }
         }
         pKingdom.clearKingData();
-        if (pKingdom.data.royal_clan_id != -1)
+        if (pKingdom.HasHeir())
         {
-            Clan clan = world.clans.get(pKingdom.data.royal_clan_id);
-            bool flag = !clan.isRekt();
-            Actor actor = null;
-            actor = FindKingFromRoyalClan(pKingdom);
-            if (actor == null)
-            {
-                if (pKingdom.countCities() == 1)
-                {
-                    if (pKingdom.capital != null && pKingdom.capital.hasLeader())
-                    {
-                        Actor leader = pKingdom.capital.leader;
-                        pKingdom.capital.removeLeader();
-                        pKingdom.setKing(leader);
-                    }
-                }
-                else
-                {
-                    CheckKingdomChaos(pKingdom);
-                }
-            }
-            else if (pKingdom.hasCulture() && pKingdom.culture.hasTrait("shattered_crown") && flag)
-            {
-                CheckShatteredCrownEvent(pKingdom, actor, clan);
-            }
-
-            if (!flag)
-            {
-                pKingdom.data.royal_clan_id = -1L;
-            }
+            var heir = pKingdom.GetHeir();
+            MakeKingAndMoveToCapital(pKingdom, heir);
+            return BehResult.Continue;
         }
-        else
-        {
-            Actor kingFromLeaders = SuccessionTool.getKingFromLeaders(pKingdom);
-            if (kingFromLeaders != null)
-            {
-                MakeKingAndMoveToCapital(pKingdom, kingFromLeaders);
-            }
-            else
-            {
-                CheckKingdomChaos(pKingdom);
-            }
-        }
+        
+        // if (pKingdom.data.royal_clan_id != -1)
+        // {
+        //     Clan clan = world.clans.get(pKingdom.data.royal_clan_id);
+        //     bool flag = !clan.isRekt();
+        //     Actor actor = null;
+        //     actor = FindKingFromRoyalClan(pKingdom);
+        //     if (actor == null)
+        //     {
+        //         if (pKingdom.countCities() == 1)
+        //         {
+        //             if (pKingdom.capital != null && pKingdom.capital.hasLeader())
+        //             {
+        //                 Actor leader = pKingdom.capital.leader;
+        //                 pKingdom.capital.removeLeader();
+        //                 pKingdom.setKing(leader);
+        //             }
+        //         }
+        //         else
+        //         {
+        //             CheckKingdomChaos(pKingdom);
+        //         }
+        //     }
+        //     else if (pKingdom.hasCulture() && pKingdom.culture.hasTrait("shattered_crown") && flag)
+        //     {
+        //         CheckShatteredCrownEvent(pKingdom, actor, clan);
+        //     }
+        //
+        //     if (!flag)
+        //     {
+        //         pKingdom.data.royal_clan_id = -1L;
+        //     }
+        // }
+        // else
+        // {
+        //     Actor kingFromLeaders = SuccessionTool.getKingFromLeaders(pKingdom);
+        //     if (kingFromLeaders != null)
+        //     {
+        //         MakeKingAndMoveToCapital(pKingdom, kingFromLeaders);
+        //     }
+        //     else
+        //     {
+        //         CheckKingdomChaos(pKingdom);
+        //     }
+        // }
 
         return BehResult.Continue;
     }
@@ -86,7 +94,7 @@ public class EmpireCraftKingdomBehCheckKing : BehaviourActionKingdom
         if (pKingdom.hasKing()) return false;
         if (!pKingdom.isEmpire()) return false;
         var empire = pKingdom.GetEmpire();
-        if (empire.Heir.isRekt()) return false;
+        if (!empire.HasHeir()) return true;
         var actor = empire.Heir;
         pKingdom.setKing(actor);
         return true;

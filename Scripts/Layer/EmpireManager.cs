@@ -110,9 +110,11 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
     public Empire newEmpire(Kingdom pKingdom, bool isSplit = false)
     {
+        if (pKingdom == null) return null;
+        if (pKingdom.data == null) return null;
+        if (!pKingdom.isAlive()) return null;
         long id = OverallHelperFunc.IdGenerator.NextId();
-        Empire empire;
-        empire = newObjectFromID(id);
+        var empire = newObjectFromID(id);
         empire.CreateNewEmpire(pKingdom, isSplit);
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());

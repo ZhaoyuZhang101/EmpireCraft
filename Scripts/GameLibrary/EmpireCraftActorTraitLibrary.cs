@@ -123,7 +123,7 @@ public static class EmpireCraftActorTraitLibrary
     private static bool pass_city_exam(NanoObject pTarget, BaseAugmentationAsset pTrait)
     {
         Actor actor = (Actor)pTarget;
-        actor.data.renown += 5;
+        actor.data.renown += 10;
         return true;
     }
 
@@ -134,7 +134,7 @@ public static class EmpireCraftActorTraitLibrary
         {
             actor.removeTrait("juren");
         }
-        actor.data.renown += 5;
+        actor.data.renown += 20;
         return true;
     }
 
@@ -145,7 +145,7 @@ public static class EmpireCraftActorTraitLibrary
         {
             actor.removeTrait("gongshi");
         }
-        actor.data.renown += 5;
+        actor.data.renown += 100;
         if (actor.kingdom.GetEmpire()==null) return true;
         TranslateHelper.LogNewJingShi(actor.kingdom.GetEmpire(), actor);
         return true;

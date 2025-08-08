@@ -11,6 +11,7 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
+using JetBrains.Annotations;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.Layer;
@@ -27,7 +28,7 @@ public class Province : MetaObject<ProvinceData>
     public City province_capital;
     public Empire empire;
     public Dictionary<City, double> occupied_cities = new Dictionary<City, double>();
-    public Actor officer;
+    public Actor Officer => World.world.units.get(data.Officer);
     public ColorAsset kingdomColor => getColor();
     public override MetaType meta_type
     {
@@ -161,53 +162,53 @@ public class Province : MetaObject<ProvinceData>
         }
         return list;
     }
-
+    
     public void SetOfficer(Actor actor)
     {
         if (actor == null) return;
 
-        if (officer != null) 
+        if (Officer != null) 
         {
-            officer.RemoveProvinceID();
-            officer = null;
+            Officer.RemoveProvinceID();
+            RemoveOfficer();
         }
-        officer = actor;
-        if (officer.isCityLeader())
+        data.Officer = actor.getID();
+        if (actor.isCityLeader())
         {
-            officer.city.removeLeader();
+            actor.city.removeLeader();
         }
-        if (officer.city!=province_capital)
+        if (actor.city!=province_capital)
         {
             if (occupied_cities.ContainsKey(province_capital))
             {
                 foreach (City city in city_list)
                 {
                     if (occupied_cities.ContainsKey(city)) continue;
-                    officer.setCity(city);
+                    actor.setCity(city);
                     break;
                 }
             } else
             {
-                officer.setCity(province_capital);
+                actor.setCity(province_capital);
             }
         }
-        OfficeIdentity identity = officer.GetIdentity(empire);
+        OfficeIdentity identity = actor.GetIdentity(empire);
         if (identity == null)
         {
             identity = new OfficeIdentity();
-            identity.init(empire, officer);
-            officer.SetIdentity(identity, true);
+            identity.init(empire, actor);
+            actor.SetIdentity(identity, true);
         }
-        officer.SetIdentityType();
-        officer.ChangeOfficialLevel(OfficialLevel.officiallevel_8);
-        officer.UpgradeOfficial(direct: 6);
-        officer.addTrait("officer");
-        officer.SetProvinceID(this.getID());
-        officer.joinCity(province_capital);
-        officer.goTo(province_capital._city_tile);
+        actor.SetIdentityType();
+        actor.ChangeOfficialLevel(OfficialLevel.officiallevel_8);
+        actor.UpgradeOfficial(direct: 6);
+        actor.addTrait("officer");
+        actor.SetProvinceID(this.getID());
+        actor.joinCity(province_capital);
+        actor.goTo(province_capital._city_tile);
         this.data.history_officers.Add(actor.getName());
         this.data.new_officer_timestamp = World.world.getCurWorldTime();
-        SpecificClanManager.CheckSpecificClan(actor);
+        actor.CheckSpecificClan();
     }
 
     public void checkCanbeTranfered()
@@ -266,19 +267,19 @@ public class Province : MetaObject<ProvinceData>
         if (GetNewOfficerOnTime() >= 16)
         {
             bool flag = false;
-            if(this.officer!=null)
+            if(this.HasOfficer())
             {
-                if(this.officer.isUnitFitToRule())
+                if(this.Officer.isUnitFitToRule())
                 {
                     if(this.empire!=null)
                     {
-                        if (this.empire.Emperor!=null)
+                        if (this.empire.HasEmperor())
                         {
-                            if (this.officer.renown > this.empire.Emperor.renown)
+                            if (this.Officer.renown > this.empire.emperor.renown)
                             {
                                 this.data.new_officer_timestamp = World.world.getCurWorldTime();
                                 flag = true;
-                                LogService.LogInfo(this.officer.data.name + "连任成功");
+                                LogService.LogInfo(this.Officer.data.name + "连任成功");
                             }
                         }
                     }
@@ -289,7 +290,7 @@ public class Province : MetaObject<ProvinceData>
                 RemoveOfficer(true);
             }
         }
-        if (officer == null)
+        if (!HasOfficer())
         {
             Actor final = null;
             if (jingActors.Any())
@@ -330,7 +331,7 @@ public class Province : MetaObject<ProvinceData>
                     }
                     else
                     {
-                        officer = null;
+                       RemoveOfficer();
                     }
                 }
             }
@@ -350,17 +351,17 @@ public class Province : MetaObject<ProvinceData>
 
     public void RemoveOfficer(bool is_retire = false)
     {
-        if (officer != null)
+        if (HasOfficer())
         {
-            officer.RemoveProvinceID();
-            officer.SetIdentityType();
-            officer.ChangeOfficialLevel(OfficialLevel.officiallevel_10);
+            Officer.RemoveProvinceID();
+            Officer.SetIdentityType();
+            Officer.ChangeOfficialLevel(OfficialLevel.officiallevel_10);
             if (is_retire)
             {
-                officer.addTrait("officerLeave");
+                Officer.addTrait("officerLeave");
             }
         }
-        officer = null;
+        this.data.Officer = -1L;
     }
 
     public string GetProvinceName()
@@ -412,7 +413,7 @@ public class Province : MetaObject<ProvinceData>
         this.data.created_time = World.world.getCurWorldTime();
         this.data.history_officers = new List<string>();
         this.data.is_set_to_country = false;
-        this.officer = null;
+        RemoveOfficer();
 
         // 设置帝国关联
         this.empire = city.kingdom.GetEmpire();
@@ -461,9 +462,8 @@ public class Province : MetaObject<ProvinceData>
 
     public bool HasOfficer()
     {
-        if (this.officer == null) return false;
-        if (!this.officer.isAlive()) return false;
-        return true;
+        if (data.Officer == -1L) return false;
+        return !Officer.isRekt();
     }
 
     public override ColorAsset getColor()
@@ -582,14 +582,6 @@ public class Province : MetaObject<ProvinceData>
             this.data.cities.Add(city.data.id);
         }
         this.data.province_capital = this.province_capital.getID();
-        try
-        {
-            this.data.officer = this.officer == null ? -1L : this.officer.data.id;
-        }
-        catch
-        {
-            this.data.officer = -1L;
-        }
         if (this.occupied_cities != null)
         {
             if (this.occupied_cities.Count > 0)
@@ -760,11 +752,11 @@ public class Province : MetaObject<ProvinceData>
         int emperorRenown = 0;
         if(this.HasOfficer())
         {
-            officerRenown = this.officer.renown;
+            officerRenown = this.Officer.renown;
         } 
-        if (this.empire.Emperor!=null)
+        if (this.empire.HasEmperor())
         {
-            emperorRenown = this.empire.Emperor.renown;
+            emperorRenown = this.empire.emperor.renown;
         }
         if(this.occupied_cities!=null)
         {
@@ -773,7 +765,7 @@ public class Province : MetaObject<ProvinceData>
                 return false;
             }
         }
-        return (!this.data.isDirectRule&& officer.renown>=emperorRenown);
+        return (!this.data.isDirectRule&& Officer.renown>=emperorRenown);
     }
     public bool isKingdom()
     {
@@ -801,7 +793,7 @@ public class Province : MetaObject<ProvinceData>
     {
         SetProvinceLevel(provinceLevel.provincelevel_2);
         Kingdom pKingdom = this.empire.empire;
-        Kingdom kingdom = province_capital.makeOwnKingdom(leader==null?officer:leader);
+        Kingdom kingdom = province_capital.makeOwnKingdom(leader==null?Officer:leader);
         foreach (City city in city_list_hash)
         {
             if (city == province_capital) continue;
@@ -841,17 +833,7 @@ public class Province : MetaObject<ProvinceData>
         }
         this.province_capital = World.world.cities.get(this.data.province_capital);
         recalculate();
-        if (this.data.officer != -1L)
-        {
-            Actor actor = World.world.units.get(this.data.officer);
-            if (actor != null) {
-                this.officer = actor;
-                LogService.LogInfo($"检测到官员{actor.data.name}");
-            } else
-            {
-                this.data.officer = -1L;
-            }
-        }
+
         foreach (var pair in pData.occupied_cities)
         {
             long id = pair.Key;

@@ -9,17 +9,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.HelperFunc;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 
 public static class KingdomExtension
 {
+    private static readonly SemaphoreSlim _sem = new SemaphoreSlim(Environment.ProcessorCount);
     public class KingdomExtraData: ExtraDataBase
     {
         [JsonConverter(typeof(StringEnumConverter))]
@@ -32,9 +35,15 @@ public static class KingdomExtension
         public double timestamp_beFeifed = -1L;
         public double taxtRate = 0.1;
         public long main_title_id = -1L;
+        public long heirID = -1L;
+        [JsonIgnore]
+        public Actor Heir => World.world.units.get(heirID);
+        [JsonIgnore]
+        public Task<(Actor, string)> _calcTask;
         public List<long> OwnedTitle = new List<long>();
         public long provinceID = -1L;
         public int independentValue = 100;
+        public bool is_need_to_choose_heir = false;
     }
     public static int GetIndependentValue(this Kingdom k)
     {
@@ -46,6 +55,29 @@ public static class KingdomExtension
         {
             return 100;
         }
+    }
+
+    public static bool CalcHeirFinished(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        return ed._calcTask == null;
+    }
+
+    public static void SetCalcHeirTask(this Kingdom k, Task<(Actor, string)> calcTask)
+    {
+        var ed = k.GetOrCreate();
+        ed._calcTask = calcTask;
+    }
+
+    public static Task<(Actor pActor, string relation)> GetCalcHeirTask(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        return ed._calcTask;
+    }
+    public static void RemoveCalcHeirStatus(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        ed._calcTask = null;
     }
     public static void SetIndependentValue(this Kingdom k, int value)
     {
@@ -66,13 +98,162 @@ public static class KingdomExtension
         }
     }
 
-    public static bool isIndependent(this Kingdom kingdom)
+    public static Actor GetHeir(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        return ed.Heir;
+    }
+    public static void RemoveHeir(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        ed.heirID = -1L;
+    }
+    public static bool HasHeir(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        if (ed.heirID == -1L) return false;
+        return !ed.Heir.isRekt();
+    }
+
+    public static void SetHeir(this Kingdom k, Actor pActor)
+    {
+        var ed = k.GetOrCreate();
+        ed.heirID = pActor.getID();
+    }
+
+    // 异步 CalcHeir，按优先级依次尝试
+    public static async Task<(Actor pActor, string relation)> CalcHeirAsync(this Kingdom k)
+    {
+        await _sem.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            // 定义所有策略的调用
+            var strategies = new[]
+            {
+                () => k.CheckHeirAsync(null),
+                () => k.CheckHeirAsync(EmpireHeirLawType.siblings),
+                () => k.CheckHeirAsync(EmpireHeirLawType.grand_child_generation),
+                () => k.CheckHeirAsync(EmpireHeirLawType.random),
+                () => k.CheckHeirAsync(EmpireHeirLawType.officer),
+            };
+
+            foreach (var strategy in strategies)
+            {
+                var heir = await strategy().ConfigureAwait(false);
+                if (heir.actor != null)
+                {
+                    return heir;
+                }
+            }
+
+            // 都没有找到 heir 就直接返回
+            return (null, null);
+        }
+        finally
+        {
+            _sem.Release();
+        }
+    }
+    private static Task<(Actor actor, string relation)> CheckHeirAsync(this Kingdom k, EmpireHeirLawType? secondSelection = null)
+    {
+        // 如果 CheckHeir 本身是 CPU 密集型，就用 Task.Run 包裹
+        return Task.Run(() => secondSelection == null
+            ? k.CheckHeir()
+            : k.CheckHeir(secondSelection: secondSelection.Value));
+    }
+
+    private static (Actor actor, string relation) CheckHeir(this Kingdom k, EmpireHeirLawType secondSelection=EmpireHeirLawType.eldest_child, PersonalClanIdentity pActor = null)
+    {
+        if (k == null) return (null, "");
+        Actor actor = null;
+        PersonalClanIdentity pci = pActor??k.king?.GetPersonalIdentity();
+        List<(ClanRelation, PersonalClanIdentity)> children = SpecificClanManager.getChildren(pci).FindAll(a=>a.Item2.CanHeir(pci));
+        children.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>.Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
+        var relationText = secondSelection.ToString();
+        switch (secondSelection)
+        {
+            case EmpireHeirLawType.eldest_child:
+                if (children.Any())
+                {
+                    actor = children.Last().Item2._actor; // Assuming eldest is the last after sorting by age
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.3f, 0.2f));
+                    
+                }
+                break;
+            case EmpireHeirLawType.smallest_child:
+                if (children.Any())
+                {
+                    actor = children.First().Item2._actor; // Assuming youngest is the first after sorting by age
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.5f, 0.1f, 0.7f));
+                }
+                break;
+            case EmpireHeirLawType.siblings:
+                // Logic for selecting a brother heir can be added here
+                List<(ClanRelation, PersonalClanIdentity)> brothers = SpecificClanManager.GetSiblingsWithRelation(pci).FindAll(a=>a.Item2.CanHeir(pci));
+                brothers.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>
+                    .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
+                if (brothers.Any())
+                {
+                    actor = brothers.Last().Item2._actor;
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.2f, 0.3f, 0.9f));
+                }
+                break;
+            case EmpireHeirLawType.grand_child_generation:
+                List<(ClanRelation, PersonalClanIdentity)> grandChildren = SpecificClanManager.GetGrandChildren(pci);
+                grandChildren = grandChildren.FindAll(c=>c.Item2.CanHeir(pci));
+                grandChildren.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>
+                    .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
+                if (grandChildren.Any())
+                {
+                    actor = grandChildren.Last().Item2._actor;
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.1f, 0.9f));
+                }
+                break;
+            case EmpireHeirLawType.random:
+                List<(ClanRelation, PersonalClanIdentity)> randomClanMember = SpecificClanManager.FindAllRelations(pci);
+                randomClanMember = randomClanMember.FindAll(c=>c.Item2.CanHeir(pci));
+                randomClanMember.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>
+                    .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
+                if (randomClanMember.Any())
+                {
+                    actor = randomClanMember.Last().Item2._actor;
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.6f, 0.9f));
+                }
+                break;
+            case EmpireHeirLawType.officer:
+                if (k.cities.Any())
+                {
+                    actor = k.cities.ToList().Find(c => c?.hasLeader()??false)?.leader;
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(1.0f, 1.0f, 1.0f));
+                }
+                break;
+        }
+        return (actor, relationText);
+    }
+    public static bool IsIndependent(this Kingdom kingdom)
     {
         var ed = kingdom.GetOrCreate();
         return ed.independentValue >= 100;
     }
 
-    public static bool canBeTaken(this Kingdom kingdom)
+    public static void NeedToChooseHeir(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        ed.is_need_to_choose_heir = true;
+    }
+
+    public static bool IsNeedToChooseHeir(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        return ed.is_need_to_choose_heir;
+    }
+
+    public static void ChooseHeirFinished(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        ed.is_need_to_choose_heir = false;
+    }
+    public static bool CanBeTaken(this Kingdom kingdom)
     {
         var ed = kingdom.GetOrCreate();
         return ed.independentValue <= 0;
@@ -88,7 +269,7 @@ public static class KingdomExtension
     {
         if (ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(GetOrCreate(k).main_title_id))
         {
-            ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id).main_kingdom = null;
+            ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id)!.main_kingdom = null;
         }
         GetOrCreate(k).main_title_id = -1L;
     }
@@ -194,7 +375,7 @@ public static class KingdomExtension
     public static string GetKingdomName(this Kingdom kingdom)
     {
         if (kingdom == null) return null;
-        if (kingdom.name == null||kingdom.name == "") return null;
+        if (string.IsNullOrEmpty(kingdom.name)) return null;
 
         string[] nameParts = kingdom.name.Split('\u200A');
         if (nameParts.Length <= 2)

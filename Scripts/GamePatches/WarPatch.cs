@@ -61,7 +61,7 @@ public class WarPatch: GamePatch
                 return false;
             }
         }
-        else if (!__instance.main_defender.isAlive())
+        else if (__instance.main_defender.isRekt())
         {
             __instance.lostWar(__instance.main_defender);
             return false;
@@ -79,9 +79,8 @@ public class WarPatch: GamePatch
                 return false;
             }
         }
-        for (int i = 0; i < __instance._list_attackers.Count; i++)
+        foreach (var kingdom in __instance._list_attackers)
         {
-            Kingdom kingdom = __instance._list_attackers[i];
             if (!kingdom.isAlive())
             {
                 __instance.lostWar(kingdom);
@@ -192,18 +191,18 @@ public class WarPatch: GamePatch
                 if (aKingdom.isEmpire())
                 {
                     Empire empire = aKingdom.GetEmpire();
-                    if (empire.Emperor != null)
+                    if (empire.HasEmperor())
                     {
-                        empire.Emperor.editRenown(30);
+                        empire.emperor.editRenown(30);
                     }
                     empire.AddRenown(30);
                 }
                 if (dKingdom.isEmpire())
                 {
                     Empire empire = dKingdom.GetEmpire();
-                    if (empire.Emperor != null)
+                    if (empire.HasEmperor())
                     {
-                        empire.Emperor.editRenown(-50);
+                        empire.emperor.editRenown(-50);
                     }
                     empire.AddRenown(-50);
                 }
@@ -212,9 +211,9 @@ public class WarPatch: GamePatch
                 if (dKingdom.isEmpire())
                 {
                     Empire empire = dKingdom.GetEmpire();
-                    if (empire.Emperor!=null)
+                    if (empire.HasEmperor())
                     {
-                        empire.Emperor.editRenown(30);
+                        empire.emperor.editRenown(30);
 
                     }
                     empire.AddRenown(30);
@@ -222,9 +221,9 @@ public class WarPatch: GamePatch
                 if (aKingdom.isEmpire())
                 {
                     Empire empire = aKingdom.GetEmpire();
-                    if (empire.Emperor != null)
+                    if (empire.HasEmperor())
                     {
-                        empire.Emperor.editRenown(-50);
+                        empire.emperor.editRenown(-50);
                     }
                     empire.AddRenown(-50);
                 }
@@ -234,7 +233,7 @@ public class WarPatch: GamePatch
                 if (pWinner == WarWinner.Attackers)
                 {
                     Kingdom kingdom = pWar.getMainAttacker();
-                    kingdom.GetEmpire().replaceEmpire(kingdom);
+                    kingdom.GetEmpire().ReplaceEmpire(kingdom);
                     TranslateHelper.LogministerAqcuireEmpire(kingdom.king, kingdom.GetEmpire());
                     return false;
                 }

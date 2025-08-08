@@ -183,6 +183,11 @@ public class ActorPatch : GamePatch
                 province.RemoveOfficer();
             }
         }
+
+        if (__instance.isEmpireHeir())
+        {
+            __instance.getHeirEmpire().SelectHeir(__instance.GetPersonalIdentity());
+        }
         if (__instance.HasSpecificClan())
         {
             PersonalClanIdentity pci = __instance.GetPersonalIdentity();
@@ -229,7 +234,7 @@ public class ActorPatch : GamePatch
         bool flag = false;
         if (!__instance.GetModName().hasFamilyName(__instance))
         {
-            if (__instance.getParents().Count()>0)
+            if (__instance.getParents().Any())
             {
                 if (__instance.getParents().Any(p => p.GetModName().hasFamilyName(p)))
                 {
@@ -240,7 +245,7 @@ public class ActorPatch : GamePatch
                     }
                     else if (__instance.hasFamily() && __instance.family.units.Any(p => p.isParentOf(__instance)))
                     {
-                        __instance.SetFamilyName(__instance.family.getFamilyName());
+                        __instance.SetFamilyName(__instance.family.GetFamilyName());
                         flag = true;
                     }
                     else
@@ -251,32 +256,43 @@ public class ActorPatch : GamePatch
                     }
                 }
             }
-            if (!flag&&__instance.hasClan())
+
+            switch (flag)
             {
-                if (!__instance.clan.units.Any(p=>p.hasCulture()))
+                case false when __instance.hasClan():
                 {
-                    __instance.clan.data.name = pCulture.getOnomasticData(MetaType.Clan).generateName();
+                    if (!__instance.clan.units.Any(p=>p.hasCulture()))
+                    {
+                        __instance.clan.data.name = pCulture.getOnomasticData(MetaType.Clan).generateName();
+                    }
+                    if (__instance.hasFamily())
+                    {
+                        if (__instance.hasCity())
+                        {
+                            __instance.family.data.name = __instance.city.data.name + "\u200A" + __instance.clan.GetClanName() + "\u200A" + LM.Get("Family");
+                            __instance.family.SetFamilyCityPre();
+                        }
+                        else
+                        {
+                            __instance.family.data.name = __instance.clan.GetClanName() + "\u200A" + LM.Get("Family");
+                            __instance.family.SetFamilyCityPre(false);
+                        }
+                    }
+                    __instance.SetFamilyName(__instance.clan.GetClanName());
+                    break;
                 }
-                if (__instance.hasFamily())
-                {
-                    __instance.family.data.name = __instance.city.data.name + "\u200A" + __instance.clan.GetClanName() + "\u200A" + LM.Get("Family");
-                    OverallHelperFunc.SetFamilyCityPre(__instance.family);
-                }
-                __instance.SetFamilyName(__instance.clan.GetClanName());
-            } else
-            {
-                if (!flag&&__instance.hasFamily())
+                case false when __instance.hasFamily():
                 {
                     if (!__instance.family.HasBeenSetBefored())
                     {
                         __instance.family.data.name = pCulture.getOnomasticData(MetaType.Family).generateName();
-                        OverallHelperFunc.SetFamilyCityPre(__instance.family, false);
-                        __instance.SetFamilyName(__instance.family.getFamilyName());
+                        __instance.family.SetFamilyCityPre(false);
+                        __instance.SetFamilyName(__instance.family.GetFamilyName());
                     }
-                    
+
+                    break;
                 }
             }
-
         }
         __instance.GetModName().SetName(__instance);
     }
@@ -314,7 +330,7 @@ public class ActorPatch : GamePatch
                 if (!__instance.family.HasBeenSetBefored())
                 {
                     __instance.family.data.name = string.Join("\u200A", clanName, familyEnd);
-                    OverallHelperFunc.SetFamilyCityPre(__instance.family, false);
+                    __instance.family.SetFamilyCityPre(false);
                 }
             }
         }
@@ -367,7 +383,7 @@ public class ActorPatch : GamePatch
                     string cityName = __instance.city.GetCityName();
                     pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
                     OverallHelperFunc.SetFamilyCityPre(pObject);
-                    __instance.SetFamilyName(pObject.getFamilyName());
+                    __instance.SetFamilyName(pObject.GetFamilyName());
                 }
                 else
                 {
@@ -375,7 +391,7 @@ public class ActorPatch : GamePatch
                     {
                         pObject.data.name = string.Join("\u200A", clanName, familyEnd);
                         OverallHelperFunc.SetFamilyCityPre(pObject, false);
-                        __instance.SetFamilyName(pObject.getFamilyName());
+                        __instance.SetFamilyName(pObject.GetFamilyName());
                     }
                 }
                 __instance.initializeActorName();
@@ -403,7 +419,7 @@ public class ActorPatch : GamePatch
                         OverallHelperFunc.SetFamilyCityPre(pObject, false);
                     }
                 }
-                __instance.SetFamilyName(pObject.getFamilyName());
+                __instance.SetFamilyName(pObject.GetFamilyName());
                 __instance.GetModName().SetName(__instance);
                 return;
             }
@@ -425,10 +441,10 @@ public class ActorPatch : GamePatch
                 if (!pObject.HasBeenSetBefored())
                 {
                     pObject.data.name = __instance.culture.getOnomasticData(MetaType.Family).generateName();
-                    OverallHelperFunc.SetFamilyCityPre(pObject, false);
+                    pObject.SetFamilyCityPre(false);
                 }
             }
-            __instance.SetFamilyName(pObject.getFamilyName());
+            __instance.SetFamilyName(pObject.GetFamilyName());
         }
         __instance.initializeActorName();
         __instance.GetModName().SetName(__instance);
@@ -444,14 +460,14 @@ public class ActorPatch : GamePatch
                 {
                     string cityName = __instance.city.GetCityName();
                     pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
-                    OverallHelperFunc.SetFamilyCityPre(pObject);
+                    pObject.SetFamilyCityPre();
                 }
                 else
                 {
                     if (!pObject.HasBeenSetBefored())
                     {
                         pObject.data.name = string.Join("\u200A", clanName, familyEnd);
-                        OverallHelperFunc.SetFamilyCityPre(pObject, false);
+                        pObject.SetFamilyCityPre(false);
                     }
                 }
             }

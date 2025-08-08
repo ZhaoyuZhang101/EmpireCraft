@@ -13,9 +13,12 @@ public class EmpireCraftKingdomBehCheckOfficer : BehaviourActionKingdom
             Empire empire = pKingdom.GetEmpire();
             if (!empire.isRekt()) 
             {
-                if (empire.IsNeedToSetProvince())
+                if (empire.HasEmperor()&&!empire.hasWars())
                 {
-                    empire.DivideIntoProvince();
+                    if (empire.IsNeedToSetProvince())
+                    {
+                        empire.DivideIntoProvince();
+                    }
                 }
                 if (empire.ProvinceList.Any())
                 {

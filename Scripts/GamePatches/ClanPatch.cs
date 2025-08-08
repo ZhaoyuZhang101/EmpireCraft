@@ -31,15 +31,6 @@ public class ClanPatch : GamePatch
     }
     public static void removeData(Clan __instance)
     {
-        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
-        {
-            if (empire.EmpireClan == __instance)
-            {
-                empire.EmpireClan = null;
-                empire.data.original_royal_been_changed = true;
-                empire.data.original_royal_been_changed_timestamp = World.world.getCurWorldTime();
-            }
-        }
         __instance.RemoveExtraData<Clan, ClanExtraData>();
     }
 
@@ -56,14 +47,14 @@ public class ClanPatch : GamePatch
                 {
                     string cityName = pFounder.city.GetCityName();
                     pFounder.family.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
-                    OverallHelperFunc.SetFamilyCityPre(pFounder.family);
+                    pFounder.family.SetFamilyCityPre();
                 }
                 else
                 {
                     if (!pFounder.family.HasBeenSetBefored())
                     {
                         pFounder.family.data.name = string.Join("\u200A", clanName, familyEnd);
-                        OverallHelperFunc.SetFamilyCityPre(pFounder.family, false);
+                        pFounder.family.SetFamilyCityPre(false);
                     }
                 }
             }
@@ -81,14 +72,14 @@ public class ClanPatch : GamePatch
                     {
                         string cityName = pFounder.city.GetCityName();
                         pFounder.family.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
-                        OverallHelperFunc.SetFamilyCityPre(pFounder.family);
+                        pFounder.family.SetFamilyCityPre();
                     }
                     else
                     {
                         if (!pFounder.family.HasBeenSetBefored())
                         {
                             pFounder.family.data.name = string.Join("\u200A", clanName, familyEnd);
-                            OverallHelperFunc.SetFamilyCityPre(pFounder.family, false);
+                            pFounder.family.SetFamilyCityPre(false);
                         }
                     }
                 }

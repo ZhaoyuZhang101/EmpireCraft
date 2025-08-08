@@ -130,9 +130,9 @@ public class CityPatch : GamePatch
         {
             if (__instance.GetProvince() != null)
             {
-                if (__instance.GetProvince().officer!=null)
+                if (__instance.GetProvince().HasOfficer())
                 {
-                    if (__instance.GetProvince().officer == pActor)
+                    if (__instance.GetProvince().Officer == pActor)
                     {
                         return false ;
                     }

@@ -2,11 +2,8 @@
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftTooltipLibrary
@@ -89,23 +86,20 @@ public static class EmpireCraftTooltipLibrary
         AssetManager.tooltips.setIconValue(pTooltip, "i_population", pEmpire.countPopulation());
         AssetManager.tooltips.setIconValue(pTooltip, "i_army", pEmpire.countWarriors());
         string pValue = "-";
-        if (pEmpire.Emperor != null)
+        if (pEmpire.HasEmperor())
         {
-            if (pEmpire.Emperor.isAlive())
+            if (pEmpire.emperor.isAlive())
             {
-                pValue = pEmpire.Emperor.getName();
+                pValue = pEmpire.emperor.name;
             }
         }
         pTooltip.addLineText("emperor", pValue, "#FE9900", false, true, 21);
-        if (pEmpire.EmpireClan != null)
+        if (pEmpire.EmpireSpecificClan != null)
         {
-            if (pEmpire.EmpireClan.isAlive())
-            {
-                pTooltip.addLineText("empire_clan", pEmpire.EmpireClan.data.name, pEmpire.EmpireClan.getColor().color_text, false, true, 21);
-            }
+            pTooltip.addLineText("empire_clan", pEmpire.EmpireSpecificClan.name, pEmpire.EmpireSpecificClan.color, false, true, 21);
         }
         pTooltip.addLineText("empire_capital", pEmpire.empire.data.name, "#CC6CE7", false, true, 21);
-        pTooltip.addLineText("year_name", pEmpire.HasYearName()?pEmpire.data.year_name:pEmpire.Emperor.GetModName().firstName??"无", "#FE9900", false, true, 21);
+        pTooltip.addLineText("year_name", pEmpire.HasYearName()?pEmpire.data.year_name:pEmpire.emperor.GetModName().firstName??"无", "#FE9900", false, true, 21);
         pTooltip.addLineBreak();
         pTooltip.addLineText("current_selected_province", pData.kingdom.data.name, pData.kingdom.getColor().color_text, false, true, 21);
         string color = tKingdom.getColor().color_text;
@@ -175,11 +169,11 @@ public static class EmpireCraftTooltipLibrary
         pTooltip.addLineText("province_owner", province.empire.data.name, "#FE9900", false, true, 21);
         pTooltip.addLineText("province_capital", province.province_capital.data.name, "#CC6CE7", false, true, 21);
         string officer_name = "-";
-        if (province.officer != null)
+        if (province.HasOfficer())
         {
-            if (province.officer.isAlive())
+            if (province.Officer.isAlive())
             {
-                officer_name = province.officer.data.name;
+                officer_name = province.Officer.data.name;
             }
         }
         pTooltip.addLineText("province_officer", officer_name, "#CC6CE7", false, true, 21);

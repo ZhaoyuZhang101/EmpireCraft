@@ -19,7 +19,6 @@ public class EmpireCraftKingdomBehCheckInerOffice: BehaviourActionKingdom
             Empire empire = pKingdom.GetEmpire();
             empire.InerOfficeSet();
             empire.StartCalcOfficePerformance();
-            return BehResult.Continue;
         }
         return BehResult.Continue;
     }

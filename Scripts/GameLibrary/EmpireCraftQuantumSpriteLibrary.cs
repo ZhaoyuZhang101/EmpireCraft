@@ -108,7 +108,7 @@ public static class EmpireCraftQuantumSpriteLibrary
             {
                 Province province = provinces[i];
                 if (province.IsTotalVassaled()) continue;
-                Actor officer = province.officer;
+                Actor officer = province.Officer;
                 if (!officer.isRekt() && !officer.isInMagnet() && !officer.isKing() && officer.current_zone.visible)
                 {
                     Vector3 pPos = officer.current_position;

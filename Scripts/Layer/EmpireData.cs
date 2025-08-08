@@ -12,6 +12,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using NeoModLoader.General;
 
 // Token: 0x0200023D RID: 573
 public class EmpireData : MetaObjectData
@@ -28,6 +29,7 @@ public class EmpireData : MetaObjectData
     public bool original_royal_been_changed { get; set; } = false;
     public double original_royal_been_changed_timestamp { get; set; }
     public string founder_actor_name { get; set; }
+    public bool is_need_to_check_futher_heir { get; set; } = false;
     [DefaultValue(-1L)]
     public long founder_actor_id { get; set; } = -1L;
     public string founder_kingdom_name { get; set; }
@@ -144,7 +146,7 @@ public class OfficeObject
         }
         timestamp = World.world.getCurWorldTime();
         actor.ChangeOfficialLevel(level);
-        SpecificClanManager.CheckSpecificClan(actor);
+        actor.CheckSpecificClan();
     }
     public Actor GetActor()
     {

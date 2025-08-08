@@ -18,15 +18,12 @@ namespace EmpireCraft.Scripts.GamePatches
 
     public static class HelperFunc
     {
-        public static string getFamilyName(this Family family)
+        public static string GetFamilyName(this Family family)
         {
 
             var nameParts = family.name.Split('\u200A');
-            if (family.data.custom_data_bool==null)
-            {
-                family.data.custom_data_bool = new CustomDataContainer<bool>();
-            }
-            bool has_city_pre = false;
+            family.data.custom_data_bool ??= new CustomDataContainer<bool>();
+            var has_city_pre = false;
             if (family.data.custom_data_bool.Keys.Contains("has_city_pre"))
             {
                 has_city_pre = family.data.custom_data_bool["has_city_pre"];
