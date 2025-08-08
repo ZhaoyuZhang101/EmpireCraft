@@ -181,26 +181,26 @@ public class CityPatch : GamePatch
 
         if (__instance.hasProvince())
         {
-            Province province = __instance.GetProvince();
-            bool isSameEmpire = province?.empire?.empire?.isInSameEmpire(pNewSetKingdom) ?? false;
-            bool isCurrentlyOccupied = province?.occupied_cities?.ContainsKey(__instance) ?? false;
+            ModObject modObject = __instance.GetProvince();
+            bool isSameEmpire = modObject?.empire?.empire?.isInSameEmpire(pNewSetKingdom) ?? false;
+            bool isCurrentlyOccupied = modObject?.occupied_cities?.ContainsKey(__instance) ?? false;
             double currentTime = World.world.getCurWorldTime();
 
             // 不同帝国时标记为占领
             if (!isSameEmpire)
             {
-                if (province.occupied_cities == null)
+                if (modObject.occupied_cities == null)
                 {
-                    province.occupied_cities = new Dictionary<City, double>();
+                    modObject.occupied_cities = new Dictionary<City, double>();
                 }
 
-                province.occupied_cities[__instance] = currentTime;
+                modObject.occupied_cities[__instance] = currentTime;
                 return true;
             }
             // 同一帝国时移除占领状态
             else if (isCurrentlyOccupied)
             {
-                province.occupied_cities.Remove(__instance);
+                modObject.occupied_cities.Remove(__instance);
             }
         }
         string pHappinessEvent = null;
@@ -243,7 +243,7 @@ public class CityPatch : GamePatch
 
         return true;
     }
-    private static void UpdateCityOccupationStatus(Province province, City city)
+    private static void UpdateCityOccupationStatus(ModObject province, City city)
     {
         double currentTime = World.world.getCurWorldTime();
 
@@ -256,7 +256,7 @@ public class CityPatch : GamePatch
         province.occupied_cities[city] = currentTime;
     }
 
-    private static void ApplyRebellionPenalty(Province province)
+    private static void ApplyRebellionPenalty(ModObject province)
     {
         Empire empire = province.empire;
         if (empire != null && empire.empire != null)
@@ -326,19 +326,19 @@ public class CityPatch : GamePatch
 
         if (__instance.hasProvince())
         {
-            Province province = __instance.GetProvince();
-            if (province == null)
+            ModObject modObject = __instance.GetProvince();
+            if (modObject == null)
             {
                 return true;
             }
 
             // 更新占领状态
-            UpdateCityOccupationStatus(province, __instance);
+            UpdateCityOccupationStatus(modObject, __instance);
 
             // 处理叛乱惩罚
             if (pRebellion)
             {
-                ApplyRebellionPenalty(province);
+                ApplyRebellionPenalty(modObject);
             }
         }
         return false;

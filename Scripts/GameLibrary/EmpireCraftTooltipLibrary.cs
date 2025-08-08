@@ -159,33 +159,33 @@ public static class EmpireCraftTooltipLibrary
     {
         pTooltip.clear();
         City city = pData.city;
-        Province province = city.GetProvince();
+        ModObject modObject = city.GetProvince();
         pTooltip.setDescription(LM.Get("province_description"), null);
-        string tColorHex = province.empire.empire.getColor().color_text;
-        pTooltip.setTitle(province.data.name, "ProvinceWindowTitle", tColorHex);
-        int tAge = province.getAge();
+        string tColorHex = modObject.empire.empire.getColor().color_text;
+        pTooltip.setTitle(modObject.data.name, "ProvinceWindowTitle", tColorHex);
+        int tAge = modObject.getAge();
         AssetManager.tooltips.setIconValue(pTooltip, "i_age", tAge);
-        AssetManager.tooltips.setIconValue(pTooltip, "i_population", province.countPopulation());
-        pTooltip.addLineText("province_owner", province.empire.data.name, "#FE9900", false, true, 21);
-        pTooltip.addLineText("province_capital", province.province_capital.data.name, "#CC6CE7", false, true, 21);
+        AssetManager.tooltips.setIconValue(pTooltip, "i_population", modObject.countPopulation());
+        pTooltip.addLineText("province_owner", modObject.empire.data.name, "#FE9900", false, true, 21);
+        pTooltip.addLineText("province_capital", modObject.province_capital.data.name, "#CC6CE7", false, true, 21);
         string officer_name = "-";
-        if (province.HasOfficer())
+        if (modObject.HasOfficer())
         {
-            if (province.Officer.isAlive())
+            if (modObject.Officer.isAlive())
             {
-                officer_name = province.Officer.data.name;
+                officer_name = modObject.Officer.data.name;
             }
         }
         pTooltip.addLineText("province_officer", officer_name, "#CC6CE7", false, true, 21);
-        pTooltip.addLineText("province_officers_num", province.data.history_officers.Count().ToString(), "#CC6CE7", false, true, 21);
+        pTooltip.addLineText("province_officers_num", modObject.data.history_officers.Count().ToString(), "#CC6CE7", false, true, 21);
         ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out string culture);
         string provinceType = "";
         if (culture != null)
         {
-            provinceType = LM.Get($"{culture}_{province.data.provinceLevel.ToString()}");
+            provinceType = LM.Get($"{culture}_{modObject.data.provinceLevel.ToString()}");
         } else
         {
-            provinceType = LM.Get($"Western_{province.data.provinceLevel.ToString()}");
+            provinceType = LM.Get($"Western_{modObject.data.provinceLevel.ToString()}");
         }
         pTooltip.addLineText("province_type", provinceType, "#CC6CE7", false, true, 21);
     }

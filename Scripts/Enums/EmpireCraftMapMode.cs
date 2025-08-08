@@ -6,11 +6,9 @@ using System.Threading.Tasks;
 
 namespace EmpireCraft.Scripts.Enums
 {
-    public enum EmpireCraftMapMode
+    public enum ModMapMode
     {
-        Empire,
-        Title,
-        Province,
+        ModObject, //此处为你的自定义层级名称
         None
     }
 }

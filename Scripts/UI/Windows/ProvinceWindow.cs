@@ -18,7 +18,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 {
     public class ProvinceWindow : AutoLayoutWindow<ProvinceWindow>
     {
-        public Province province { get; set; }
+        public ModObject ModObject { get; set; }
         public TextInput provinceNameInput;
         public AutoVertLayoutGroup layout1;
         public AutoVertLayoutGroup layout2;
@@ -41,14 +41,14 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void name_change(string arg0)
         {
-            province.data.name = arg0;
+            ModObject.data.name = arg0;
         }
 
         public override void OnNormalEnable()
         {
 
-            province = ConfigData.CURRENT_SELECTED_PROVINCE;
-            provinceNameInput.input.text = province.data.name;
+            ModObject = ConfigData.CurrentSelectedModObject;
+            provinceNameInput.input.text = ModObject.data.name;
         }
     }
 }

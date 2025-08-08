@@ -30,17 +30,11 @@ public static class ProvinceLayerToggle
         PlayerOptionData playerOptionData = PlayerConfig.dict[godPower.toggle_name];
         if (!playerOptionData.boolVal)
         {
-            EmpireLayerToggle.disableOtherPower(pPower);
-            PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
-            PlayerConfig.dict["map_empire_layer"].boolVal = false;
-            PlayerConfig.dict["map_title_layer"].boolVal = false;
             ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Province;
         }
         else
         {
-            EmpireLayerToggle.disableOtherPower(pPower);
-            PlayerConfig.dict["map_empire_layer"].boolVal = true;
-            ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Empire;
+            ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
         }
     }
 }

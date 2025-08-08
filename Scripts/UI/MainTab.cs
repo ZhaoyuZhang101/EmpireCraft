@@ -117,12 +117,12 @@ internal static class MainTab
                  SpriteTextureLoader.getSprite("ui/icons/iconCity"));
         tab.AddPowerButton(EMPIRE_GROUP, pb3);
 
-        CreateProvinceButton.init();
+        CreateModObjectButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_province",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleCreate.png")));
 
-        AddProvinceButton.init();
+        AddModObjectButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("add_province",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleAdd.png")));

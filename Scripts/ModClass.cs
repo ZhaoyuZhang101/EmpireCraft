@@ -24,19 +24,13 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static bool SAVE_FREEZE = false;
     public static Transform prefab_library;
     public static bool IS_CLEAR = true;
-    public static EmpireManager EMPIRE_MANAGER;
-    public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
-    public static ProvinceManager PROVINCE_MANAGER;
+    public static ModObjectManager MOD_OBJECT_MANAGER;
+    public static ModObjectManager ModObjectManager;
     public static bool REAL_NUM_SWITCH = false;
-    public static bool KINGDOM_TITLE_FREEZE = false;
-    public static Empire selected_empire = null;
-    public static MetaTypeAsset EMPIRE_METATYPE_ASSET;
     public static EmpireCraftMapMode CURRENT_MAP_MOD;
-    public static int TITLE_BEEN_DESTROY_TIME = 50;
     public static ModDeclare _declare;
     private GameObject _modObject;
     public static ModConfig modConfig;
-    public static Dictionary<long, List<EmpireCraftHistory>> ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
     public ModDeclare GetDeclaration()
     {
         return _declare;
@@ -189,15 +183,15 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftBehaviourTaskKingdomLibrary.init();
         EmpireCraftActorTraitGroupLibrary.init();
         EmpireCraftTooltipLibrary.init();
-        EmpireCraftOpinionAddition.init();
-        EmpireCraftPlotsAddition.init();
+        ModOpinionAddition.init();
+        ModPlotsAddition.init();
         EmpireCraftQuantumSpriteLibrary.init();
         World.world._list_meta_main_managers.Add(EMPIRE_MANAGER = new EmpireManager());
         World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER = new KingdomTitleManager());
-        World.world._list_meta_main_managers.Add(PROVINCE_MANAGER = new ProvinceManager());
+        World.world._list_meta_main_managers.Add(ModObjectManager = new ModObjectManager());
         World.world.list_all_sim_managers.Add(EMPIRE_MANAGER);
         World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);
-        World.world.list_all_sim_managers.Add(PROVINCE_MANAGER);
+        World.world.list_all_sim_managers.Add(ModObjectManager);
         CURRENT_MAP_MOD = EmpireCraftMapMode.None;
         // PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
         // PlayerConfig.dict["map_title_layer"].boolVal = false;

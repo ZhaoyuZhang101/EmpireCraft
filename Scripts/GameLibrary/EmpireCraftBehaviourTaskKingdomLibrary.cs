@@ -26,7 +26,7 @@ public class ModBehaviourTaskKingdomLibrary : BehaviourTaskKingdomLibrary
 {
     public override void init()
     {
-        LogService.LogInfo("初始化帝国模组王国逻辑");
+        LogService.LogInfo("初始化模组王国逻辑");
         _ = Application.version;
         BehaviourTaskKingdom obj = new BehaviourTaskKingdom
         {
@@ -59,12 +59,7 @@ public class ModBehaviourTaskKingdomLibrary : BehaviourTaskKingdomLibrary
         t = obj4;
         add(pAsset);
         t.addBeh(new KingdomBehCheckCapital());
-        t.addBeh(new EmpireCraftKingdomBehCheckKing());
-        t.addBeh(new EmpireCraftKingdomBehCheckOfficer());
-        t.addBeh(new EmpireCraftKingdomBehCheckExam());
-        t.addBeh(new EmpireCraftKingdomBehCheckHeir());
-        t.addBeh(new EmpireCraftKingdomBehCheckInerOffice());
-        t.addBeh(new EmpireCraftKingdomBehCheckPlots());
+        t.addBeh(new ModKingdomBehCheckSomething());
         t.addBeh(new KingdomBehRandomWait());
     }
 
@@ -76,7 +71,7 @@ public class ModBehaviourTaskCityLibrary : BehaviourTaskCityLibrary
 {
     public override void init()
     {
-        LogService.LogInfo("初始化帝国模组城市逻辑");
+        LogService.LogInfo("初始化模组城市逻辑");
         _ = Application.version;
         BehaviourTaskCity obj = new BehaviourTaskCity
         {
@@ -118,7 +113,7 @@ public class ModBehaviourTaskCityLibrary : BehaviourTaskCityLibrary
         pAsset = obj5;
         t = obj5;
         add(pAsset);
-        t.addBeh(new EmpireCraftCityBehCheckLeader());
+        t.addBeh(new ModCityBehCheckSomething());
         t.addBeh(new CityBehRandomWait(0.1f));
         t.addBeh(new CityBehCheckAttackZone());
         t.addBeh(new CityBehRandomWait(0.1f));

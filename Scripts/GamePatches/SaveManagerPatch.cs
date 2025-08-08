@@ -83,7 +83,7 @@ public class SaveManagerPatch : GamePatch
         ActorPatch.isReadyToSet = false;
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
-        ModClass.PROVINCE_MANAGER = new ProvinceManager();
+        ModClass.ModObjectManager = new ModObjectManager();
 
         LogService.LogInfo("加载mod数据从 " + pPath);
         if (pData == null)

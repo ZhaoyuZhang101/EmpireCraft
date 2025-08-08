@@ -92,7 +92,7 @@ public static class EmpireCraftNamePlateLibrary
             padding_top = -2,
             action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
             {
-                foreach (Province province in ModClass.PROVINCE_MANAGER)
+                foreach (ModObject province in ModClass.ModObjectManager)
                 {
                     if (province != null && isWithinCamera(province.GetCenter())&&!province.data.is_set_to_country)
                     {
@@ -424,9 +424,9 @@ public static class EmpireCraftNamePlateLibrary
         try
         {
             plateText.setupMeta(capital.data, capital.kingdom.getColor());
-            Province province = capital.GetProvince();
-            string text = province.data.name+"|"+province.empire.GetEmpireName();
-            if (province.IsTotalVassaled())
+            ModObject modObject = capital.GetProvince();
+            string text = modObject.data.name+"|"+modObject.empire.GetEmpireName();
+            if (modObject.IsTotalVassaled())
             {
                 text = LM.Get("provinceVassaled") + "|" + text;
             }

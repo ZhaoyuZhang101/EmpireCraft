@@ -10,18 +10,8 @@ public static class FamilyExtension
 {
     public class FamilyExtraData : ExtraDataBase
     {
-        public bool is_culture_applied { get; set; } = false;
+        // todo: 添加需要存储的家庭数据
     }
-    public static void ApplyCulture(this Family family)
-    {
-        family.GetOrCreate().is_culture_applied = true;
-    }
-
-    public static bool HasCultureApplied(this Family family)
-    {
-        return family.GetOrCreate().is_culture_applied;
-    }
-
     public static FamilyExtraData GetOrCreate(this Family family, bool isSave=false)
     {
         return family.GetOrCreate<Family, FamilyExtraData>(isSave);

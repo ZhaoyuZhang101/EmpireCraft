@@ -159,10 +159,10 @@ public class UnitWindowPatch: GamePatch
                 if (identity.officialLevel == OfficialLevel.officiallevel_8)
                 {
                     long province_id = actor.GetProvinceID();
-                    Province province = ModClass.PROVINCE_MANAGER.get(province_id);
-                    if (province != null)
+                    ModObject modObject = ModClass.ModObjectManager.get(province_id);
+                    if (modObject != null)
                     {
-                        EmpireOfficialLevelString = province.data.name + LM.Get(EmpireOfficialLevelString);
+                        EmpireOfficialLevelString = modObject.data.name + LM.Get(EmpireOfficialLevelString);
                     }
                 }
                 if (identity.officialLevel == OfficialLevel.officiallevel_7)

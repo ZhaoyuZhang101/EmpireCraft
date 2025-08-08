@@ -37,24 +37,20 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(set_actor_clan_name)));
         new Harmony(nameof(set_actor_culture)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setCulture)),
             prefix: new HarmonyMethod(GetType(), nameof(set_actor_culture)));
-        new Harmony(nameof(set_actor_peerages)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setDefaultValues)),
-            postfix: new HarmonyMethod(GetType(), nameof(set_actor_peerages)));
-        new Harmony(nameof(removeData)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.Dispose)),
-            postfix: new HarmonyMethod(GetType(), nameof(removeData)));
-        new Harmony(nameof(setArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setArmy)),
-            postfix: new HarmonyMethod(GetType(), nameof(setArmy)));
-        new Harmony(nameof(removeFromArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.removeFromArmy)),
-            prefix: new HarmonyMethod(GetType(), nameof(removeFromArmy)));
-        new Harmony(nameof(setKingdom)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setKingdom)),
-            prefix: new HarmonyMethod(GetType(), nameof(setKingdom)));
-        new Harmony(nameof(showTooltip)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.showTooltip)),
-            prefix: new HarmonyMethod(GetType(), nameof(showTooltip)));
-        new Harmony(nameof(setLover)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setLover)),
-            postfix: new HarmonyMethod(GetType(), nameof(setLover)));
-        new Harmony(nameof(setParent)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setParent1)),
-            postfix: new HarmonyMethod(GetType(), nameof(setParent)));
-        new Harmony(nameof(setParent)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setParent2)),
-            postfix: new HarmonyMethod(GetType(), nameof(setParent)));
+        new Harmony(nameof(RemoveData)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.Dispose)),
+            postfix: new HarmonyMethod(GetType(), nameof(RemoveData)));
+        new Harmony(nameof(SetArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setArmy)),
+            postfix: new HarmonyMethod(GetType(), nameof(SetArmy)));
+        new Harmony(nameof(RemoveFromArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.removeFromArmy)),
+            prefix: new HarmonyMethod(GetType(), nameof(RemoveFromArmy)));
+        new Harmony(nameof(SetKingdom)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setKingdom)),
+            prefix: new HarmonyMethod(GetType(), nameof(SetKingdom)));
+        new Harmony(nameof(SetLover)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setLover)),
+            postfix: new HarmonyMethod(GetType(), nameof(SetLover)));
+        new Harmony(nameof(SetParent)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setParent1)),
+            postfix: new HarmonyMethod(GetType(), nameof(SetParent)));
+        new Harmony(nameof(SetParent)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setParent2)),
+            postfix: new HarmonyMethod(GetType(), nameof(SetParent)));
         new Harmony(nameof(setCity)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setCity)),
             postfix: new HarmonyMethod(GetType(), nameof(setCity)));
         LogService.LogInfo("角色补丁加载成功");
@@ -62,157 +58,43 @@ public class ActorPatch : GamePatch
 
     public static void setCity(Actor __instance, City pCity)
     {
-        if (pCity.HasReachedPlayerPopLimit())
-        {
-            __instance.setHealth(0);
-        }
+        // todo: 当角色加入城市时触发
     }
-
-    public static void setParent(Actor __instance, Actor pActor, bool pIncreaseChildren)
+    public static void SetParent(Actor __instance, Actor pActor, bool pIncreaseChildren)
     {
-        if (pActor.HasSpecificClan())
-        {
-            PersonalClanIdentity parent_identity = pActor.GetPersonalIdentity();
-            if (parent_identity.is_main)
-            {
-                if (pActor.hasClan())
-                {
-                    __instance.setClan(pActor.clan);
-                }
-
-                __instance.GetModName().familyName = pActor.GetModName().familyName;
-                __instance.GetModName().SetName(__instance);
-                parent_identity.addChild(__instance, true);
-            }
-        }
+        // todo: 当角色拥有父母时触发
     }
 
-    public static void setLover(Actor __instance, Actor pActor)
+    public static void SetLover(Actor __instance, Actor pActor)
     {
         if (pActor==null) return;
-        if(__instance.HasSpecificClan())
-        {
-            PersonalClanIdentity identity = __instance.GetPersonalIdentity();
-            identity.setLover(pActor);
-        }
+        // todo: 当角色拥有伴侣时触发
     }
-    public static bool showTooltip(Actor __instance, object pUiObject)
-    {
-        string pType = (__instance.isEmperor()?"actor_emperor":(__instance.isKing() ? "actor_king" : ((!__instance.isCityLeader()) ? "actor" : (__instance.isOfficer()? "actor_officer": "actor_leader"))));
-        Tooltip.show(pUiObject, pType, new TooltipData
-        {
-            actor = __instance
-        });
-        return false;
-    }
-    public static void setKingdom(Actor __instance, Kingdom pKingdomToSet)
+    public static void SetKingdom(Actor __instance, Kingdom pKingdomToSet)
     {
         if (__instance.city == null) return;
         if (__instance.city.kingdom == null) return;
-        if (!pKingdomToSet.isInEmpire())
-        {
-            if (__instance.hasArmy())
-            {
-                if (__instance.city.kingdom.isInEmpire())
-                {
-                    if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_2)
-                    {
-                        if (__instance.hasTrait("empireArmedProvinceSoldier"))
-                        {
-                            __instance.removeTrait("empireArmedProvinceSoldier");
-                        }
-                    }
-                    if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_0)
-                    {
-                        if (__instance.hasTrait("empireSoldier"))
-                        {
-                            __instance.removeTrait("empireSoldier");
-                        }
-
-                    }
-                }
-            }
-        }
+        // todo: 当角色加入王国时触发
     }
-    public static void setArmy(Actor __instance, Army pObject)
+    public static void SetArmy(Actor __instance, Army pObject)
     {
         if (__instance.city == null) return;
         if (__instance.city.kingdom == null) return;
-        if(__instance.city.kingdom.isInEmpire())
-        {
-            if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_2)
-            {
-                if(!__instance.hasTrait("empireArmedProvinceSoldier")) 
-                {
-                    __instance.addTrait("empireArmedProvinceSoldier");
-                }
-            }
-            if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_0)
-            {
-                if (!__instance.hasTrait("empireSoldier"))
-                {
-                    __instance.addTrait("empireSoldier");
-                }
-            }
-        }
+        // todo: 当角色加入军队时触发
     }
 
-    public static void removeFromArmy(Actor __instance)
+    public static void RemoveFromArmy(Actor __instance)
     {
-        if(__instance.hasArmy())
-        {
-            if (__instance.hasTrait("empireArmedProvinceSoldier"))
-            {
-                __instance.removeTrait("empireArmedProvinceSoldier");
-            }
-            if (__instance.hasTrait("empireSoldier")) 
-            {
-                __instance.removeTrait("empireSoldier");
-            }
-        }
-
+        if (__instance.city == null) return;
+        if (__instance.city.kingdom == null) return;
+        // todo: 当角色离开军队时触发
     }
-    public static void removeData(Actor __instance)
+    public static void RemoveData(Actor __instance)
     {
-        if (__instance.isOfficer())
-        {
-            long id = __instance.GetProvinceID();
-            Province province = ModClass.PROVINCE_MANAGER.get(id);
-            if (province != null) 
-            {
-                province.RemoveOfficer();
-            }
-        }
-
-        if (__instance.isEmpireHeir())
-        {
-            __instance.getHeirEmpire().SelectHeir(__instance.GetPersonalIdentity());
-        }
-        if (__instance.HasSpecificClan())
-        {
-            PersonalClanIdentity pci = __instance.GetPersonalIdentity();
-            pci.is_alive = false;
-            pci.actor_id = -1L;
-            pci.deathday = Date.getDate(World.world.getCurWorldTime());
-            pci.recordAllInfo();
-            pci._specificClan.checkDispose();
-        }
         __instance.RemoveExtraData<Actor, ActorExtraData>();
+        // todo: 当角色数据被清除时触发
     }
-
-    public static void set_actor_peerages(Actor __instance)
-    {
-        if (__instance.data == null)
-        {
-            return;
-        }
-        if (__instance.data.custom_data_string == null)
-        {
-            __instance.data.custom_data_string = new CustomDataContainer<string> ();
-        }
-        __instance.data.custom_data_string[CustomDataType.empirecraft_history_record.ToString()] = "";
-        __instance.SetPeeragesLevel(PeeragesLevel.peerages_6);
-    }
+    
 
     public static void set_actor_culture(Actor __instance, Culture pCulture)
     {
@@ -448,29 +330,5 @@ public class ActorPatch : GamePatch
         }
         __instance.initializeActorName();
         __instance.GetModName().SetName(__instance);
-        
-        if (__instance.HasSpecificClan())
-        {
-            PersonalClanIdentity pci = __instance.GetPersonalIdentity();
-            if (pci.is_main)
-            {
-                string clanName = pci._specificClan.name;
-                string familyEnd = LM.Get("Family");
-                if (__instance.city != null)
-                {
-                    string cityName = __instance.city.GetCityName();
-                    pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
-                    pObject.SetFamilyCityPre();
-                }
-                else
-                {
-                    if (!pObject.HasBeenSetBefored())
-                    {
-                        pObject.data.name = string.Join("\u200A", clanName, familyEnd);
-                        pObject.SetFamilyCityPre(false);
-                    }
-                }
-            }
-        }
     }
 }

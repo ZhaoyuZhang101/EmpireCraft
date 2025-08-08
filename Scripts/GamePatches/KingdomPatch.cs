@@ -60,7 +60,7 @@ public class KingdomPatch : GamePatch
         }
         if (__instance.isEmpire())
         {
-            foreach (Province province in __instance.GetEmpire().ProvinceList)
+            foreach (ModObject province in __instance.GetEmpire().ProvinceList)
             {
                 if (province.HasOfficer()&&!province.IsTotalVassaled())
                 {
@@ -91,11 +91,11 @@ public class KingdomPatch : GamePatch
         }
         if(__instance.isProvince())
         {
-            Province province = __instance.GetProvince();
-            if (province != null)
+            ModObject modObject = __instance.GetProvince();
+            if (modObject != null)
             {
-                province.data.is_set_to_country = false;
-                province.SetProvinceLevel(provinceLevel.provincelevel_3);
+                modObject.data.is_set_to_country = false;
+                modObject.SetProvinceLevel(provinceLevel.provincelevel_3);
             }
         }
         __instance.RemoveExtraData<Kingdom, KingdomExtraData>();

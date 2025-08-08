@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GodPowers;
 
-public static class CreateProvinceButton
+public static class CreateModObjectButton
 {
     public static void init()
     {
@@ -25,10 +25,10 @@ public static class CreateProvinceButton
             {
                 return false;
             }
-            Province province = ModClass.PROVINCE_MANAGER.newProvince(pTile.zone_city);
+            ModObject modObject = ModClass.ModObjectManager.newProvince(pTile.zone_city);
             if ( pTile.zone_city.isCapitalCity())
             {
-                province.SetDirectRule();
+                modObject.SetDirectRule();
             }
         }
         return true;

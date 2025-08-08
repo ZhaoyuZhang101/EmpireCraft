@@ -15,18 +15,9 @@ public static class WarExtension
 {
     public class WarExtraData: ExtraDataBase
     {
-        public EmpireWarType empireWarType = EmpireWarType.None;
-
+        // todo: 添加需要存储的战争数据
     }
-
-    public static void SetEmpireWarType(this War w, EmpireWarType type)
-    {
-        GetOrCreate(w).empireWarType = type;
-    }
-    public static EmpireWarType GetEmpireWarType(this War w)
-    {
-        return GetOrCreate(w).empireWarType;
-    }
+    
     public static WarExtraData GetOrCreate(this War a, bool isSave = false)
     {
         var ed = a.GetOrCreate<War, WarExtraData>(isSave);

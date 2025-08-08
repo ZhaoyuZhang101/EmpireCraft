@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GodPowers;
 
-public static class AddProvinceButton
+public static class AddModObjectButton
 {
     public static void init()
     {
@@ -75,10 +75,10 @@ public static class AddProvinceButton
             }
             if (ConfigData.selected_cityB.hasProvince())
             {
-                ModClass.PROVINCE_MANAGER.AddCityToProvince(ConfigData.selected_cityB.GetProvince(), ConfigData.selected_cityA);
+                ModClass.ModObjectManager.AddCityToProvince(ConfigData.selected_cityB.GetProvince(), ConfigData.selected_cityA);
             }
         }
-        if (ModClass.PROVINCE_MANAGER.forceProvince(ConfigData.selected_cityA, ConfigData.selected_cityB))
+        if (ModClass.ModObjectManager.forceProvince(ConfigData.selected_cityA, ConfigData.selected_cityB))
         {
             ActionLibrary.showWhisperTip("create_new_province");
         }

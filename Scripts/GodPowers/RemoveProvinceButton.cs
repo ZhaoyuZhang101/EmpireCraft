@@ -23,13 +23,13 @@ public static class RemoveProvinceButton
         {
             if (pTile.zone_city.hasProvince())
             {
-                Province province = pTile.zone_city.GetProvince();
-                if (province == null)
+                ModObject modObject = pTile.zone_city.GetProvince();
+                if (modObject == null)
                 {
                     pTile.zone_city.RemoveProvince();
                     return false;
                 }
-                province.removeCity(pTile.zone_city);
+                modObject.removeCity(pTile.zone_city);
             }
         }
         return true;

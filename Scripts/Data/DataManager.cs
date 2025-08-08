@@ -74,44 +74,14 @@ public static class DataManager
                 war.SyncData<War, WarExtraData>(entry);
         }
         LogService.LogInfo("Sync War Data");
-        foreach (EmpireData empireData in saveData.empireDatas)
-        {
-            if (empireData == null) continue;
-            Empire empire = new Empire();
-            empire.loadData(empireData);
-            ModClass.EMPIRE_MANAGER.addObject(empire);
-        }
-        ModClass.EMPIRE_MANAGER.update(-1L);
-        LogService.LogInfo("Sync Empire Data");
 
-        foreach (KingdomTitleData kingdomTitleData in saveData.kingdomTitleDatas)
+        foreach (ModObjectData pModObjectData in saveData.pModObjectDatas)
         {
-            KingdomTitle kt = new KingdomTitle();
-            kt.loadData(kingdomTitleData);
-            kt.isBeenControlled();
-            ModClass.KINGDOM_TITLE_MANAGER.addObject(kt);
-
+            ModObject p = new ModObject();
+            p.loadData(pModObjectData);
+            ModClass.ModObjectManager.addObject(p);
         }
-        ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
-        foreach (ProvinceData provinceData in saveData.provinceDatas)
-        {
-            Province p = new Province();
-            p.loadData(provinceData);
-            ModClass.PROVINCE_MANAGER.addObject(p);
-        }
-        ModClass.PROVINCE_MANAGER.update(-1L);
-        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
-        {
-            empire.syncProvince();
-        }
-        SpecificClanManager._specificClans = saveData.specificClans;
-        LogService.LogInfo("Sync Titles Data");
-        ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
-        LogService.LogInfo("Sync history Data");
-        ModClass.ALL_HISTORY_DATA = saveData.all_history ?? new Dictionary<long, List<EmpireCraftHistory>>();
-        ConfigData.PREVENT_CITY_DESTROY = saveData.prevent_city_destroy;
-        PlayerConfig.dict["prevent_city_destroy"].boolVal = saveData.prevent_city_destroy;
-        PlayerConfig.dict["switch_real_num"].boolVal = saveData.switch_real_num;
+        ModClass.ModObjectManager.update(-1L);
     }
     public static void SaveAll(string saveRootPath)
     {
@@ -122,53 +92,19 @@ public static class DataManager
         saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.GetExtraData<Kingdom, KingdomExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.warExtraData = World.world.wars.Select(a => a.GetExtraData<War, WarExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.clanExtraData = World.world.clans.Select(a => a.GetExtraData<Clan, ClanExtraData>(true)).Where(ed => ed != null).ToList(); ;
-        saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
-        saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
-        saveData.provinceDatas = new List<ProvinceData>(ModClass.PROVINCE_MANAGER.Count);
-        ModClass.EMPIRE_MANAGER.update(-1L);
-        ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
-        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+        
+        foreach(ModObject pModObject in ModClass.ModObjectManager)
         {
             try
             {
-                empire.save();
-                saveData.empireDatas.Add(empire.data);
+                pModObject.save();
+                saveData.pModObjectDatas.Add(pModObject.data);
             } catch
             {
-                LogService.LogInfo("存在帝国数据出错，跳过该帝国存档");
+                LogService.LogInfo("存在模组层级数据出错，跳过该存档");
             }
 
         }
-        foreach (KingdomTitle kt in ModClass.KINGDOM_TITLE_MANAGER)
-        {
-            try
-            {
-                kt.save();
-                saveData.kingdomTitleDatas.Add(kt.data);
-            } 
-            catch
-            {
-                LogService.LogInfo("存在头衔数据出错，跳过该头衔存档");
-            }
-
-        }
-        foreach(Province p in ModClass.PROVINCE_MANAGER)
-        {
-            try
-            {
-                p.save();
-                saveData.provinceDatas.Add(p.data);
-            } catch
-            {
-                LogService.LogInfo("存在省份数据出错，跳过该省份存档");
-            }
-
-        }
-        saveData.yearNameSubspecies = ConfigData.yearNameSubspecies;
-        saveData.all_history = ModClass.ALL_HISTORY_DATA;
-        saveData.prevent_city_destroy = ConfigData.PREVENT_CITY_DESTROY;
-        saveData.specificClans = SpecificClanManager._specificClans;
-        saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
         string json = JsonConvert.SerializeObject(saveData, Formatting.Indented);
         LogService.LogInfo("" + saveData.actorsExtraData.Count());
         LogService.LogInfo("" + saveData.warExtraData.Count());

@@ -21,7 +21,7 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
     AutoGridLayoutGroup autoGridLayoutGroup;
     Empire _empire;
     string _key;
-    Province _province;
+    ModObject _modObject;
     SimpleText title;
     ListPool<GameObject> _listPool;
     TextInput textInput;
@@ -123,11 +123,11 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
         base.OnNormalEnable();
         _empire = ConfigData.CURRENT_SELECTED_EMPIRE;
         _key = ConfigData.CURRENT_SELECTED_OFFICE;
-        _province = ConfigData.CURRENT_SELECTED_PROVINCE;
+        _modObject = ConfigData.CurrentSelectedModObject;
         string titleText = LM.Get(_key);
         if (_key == "")
         {
-            titleText = _province.data.name;
+            titleText = _modObject.data.name;
         }
         title.Setup(titleText, pAlignment:TextAnchor.MiddleCenter);
         List<Actor> listActor = new List<Actor>();
@@ -208,9 +208,9 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
                 }
             }
         }
-        else if (_province!=null)
+        else if (_modObject!=null)
         {
-            _province.SetOfficer(actor);
+            _modObject.SetOfficer(actor);
         }
         ScrollWindow.getCurrentWindow().clickBack();
     }

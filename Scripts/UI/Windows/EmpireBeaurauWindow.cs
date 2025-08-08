@@ -103,7 +103,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
         _provincesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 50));
         _empire.ProvinceList = _empire.ProvinceList.Distinct().ToList();
-        foreach (Province province in _empire.ProvinceList)
+        foreach (ModObject province in _empire.ProvinceList)
         {
             if(!province.data.is_set_to_country)
             {
@@ -210,7 +210,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
         _pool.Add(officePositionGroup.gameObject);
     }
-    public void SetProvinceView(Province province, ref AutoGridLayoutGroup parent)
+    public void SetProvinceView(ModObject province, ref AutoGridLayoutGroup parent)
     {
         AutoHoriLayoutGroup provinceGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
 
@@ -270,19 +270,19 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         _pool.Add(provinceGroup.gameObject);
     }
 
-    private void ChangeOfficer(OfficeObject o=null, Province province=null)
+    private void ChangeOfficer(OfficeObject o=null, ModObject province=null)
     {
         if (o != null)
         {
             ConfigData.CURRENT_SELECTED_OFFICE = o.name;
-            ConfigData.CURRENT_SELECTED_PROVINCE = null;
+            ConfigData.CurrentSelectedModObject = null;
             LogService.LogInfo($"撤换{o.name}");
             ScrollWindow.showWindow(nameof(ChangeUnitWindow));
         }
         else if (province !=null)
         {
             ConfigData.CURRENT_SELECTED_OFFICE = "";
-            ConfigData.CURRENT_SELECTED_PROVINCE = province;
+            ConfigData.CurrentSelectedModObject = province;
             ScrollWindow.showWindow(nameof(ChangeUnitWindow));
         }
     }

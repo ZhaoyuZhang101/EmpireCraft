@@ -22,12 +22,5 @@ public class SaveData
     public List<CityExtraData> cityExtraData = new List<CityExtraData>();
     public List<ClanExtraData> clanExtraData = new List<ClanExtraData>();
     public List<WarExtraData> warExtraData = new List<WarExtraData>();
-    public List<EmpireData> empireDatas = new List<EmpireData>();
-    public List<ProvinceData> provinceDatas = new List<ProvinceData>();
-    public List<KingdomTitleData> kingdomTitleDatas = new List<KingdomTitleData>();
-    public List<string> yearNameSubspecies = new List<string>();
-    public Dictionary<long, List<EmpireCraftHistory>> all_history;
-    public bool prevent_city_destroy = false;
-    public bool switch_real_num = false;
-    public List<SpecificClan> specificClans = new List<SpecificClan>();
+    public List<ModObjectData> pModObjectDatas = new List<ModObjectData>();
 }
