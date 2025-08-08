@@ -806,11 +806,7 @@ public class PersonalClanIdentity
 
     public void addChild(Actor actor, bool isNeedSetParentBoth=true)
     {
-        PersonalClanIdentity pci = actor.GetPersonalIdentity();
-        if (pci==null)
-        {
-            pci = actor.InitialPersonalIdentity(_specificClan);
-        }
+        PersonalClanIdentity pci = actor.GetPersonalIdentity() ?? actor.InitialPersonalIdentity(_specificClan);
 
         if (isNeedSetParentBoth)
         {
@@ -834,22 +830,20 @@ public class PersonalClanIdentity
         }
         pci.generation = this.generation + 1;
         _specificClan.addActor(actor);
-        if (_actor.isKing())
+        if (!_actor.isKing()) return;
+        if (_actor.hasCulture())
         {
-            if (_actor.hasCulture())
-            {
-                actor.SetFirstName(_actor.culture.getOnomasticData(MetaType.Unit).generateName());
-                actor.GetModName().SetName(actor);
-            }
-
-            if (_actor.kingdom.HasHeir())
-            {
-                if (_actor.kingdom.GetHeir().isChildOf(_actor))
-                {
-                    return;
-                }
-            }
-            _actor.kingdom.NeedToChooseHeir();
+            actor.SetFirstName(_actor.culture.getOnomasticData(MetaType.Unit).generateName(actor.data.sex));
+            actor.GetModName().SetName(actor);
         }
+
+        if (_actor.kingdom.HasHeir())
+        {
+            if (_actor.kingdom.GetHeir().isChildOf(_actor))
+            {
+                return;
+            }
+        }
+        _actor.kingdom.NeedToChooseHeir();
     }
 }
