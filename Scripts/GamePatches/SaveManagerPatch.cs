@@ -55,23 +55,16 @@ public class SaveManagerPatch : GamePatch
     public static void clear_data(MapBox __instance, bool pForceGenerate)
     {
         ModClass.IS_CLEAR = true;
-        DBManagerPatch.AllClear();
     }
 
     public static bool save_mod_data(SaveManager __instance, string pFolder, bool pCompress)
     {
-        if (ModClass.SAVE_FREEZE)
-        {
-            LogService.LogInfo("Mod数据保存被冻结，无法保存");
-            return false;
-        }
         DataManager.SaveAll(pFolder);
         LogService.LogInfo("保存mod数据到 " + pFolder);
 
         if (string.IsNullOrEmpty(pFolder))
         {
             LogService.LogError("保存路径为空，无法保存mod数据");
-            return true;
         }
         return true;
 
@@ -81,9 +74,7 @@ public class SaveManagerPatch : GamePatch
         ModClass.IS_CLEAR = true;
         ActorPatch.startSessionMonth = Date.getMonthsSince(World.world.getCurSessionTime());
         ActorPatch.isReadyToSet = false;
-        ModClass.EMPIRE_MANAGER = new EmpireManager();
-        ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
-        ModClass.ModObjectManager = new ModObjectManager();
+        ModClass.ModLayer_MANAGER = new ModLayerManager();
 
         LogService.LogInfo("加载mod数据从 " + pPath);
         if (pData == null)

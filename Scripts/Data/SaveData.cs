@@ -22,5 +22,5 @@ public class SaveData
     public List<CityExtraData> cityExtraData = new List<CityExtraData>();
     public List<ClanExtraData> clanExtraData = new List<ClanExtraData>();
     public List<WarExtraData> warExtraData = new List<WarExtraData>();
-    public List<ModObjectData> pModObjectDatas = new List<ModObjectData>();
+    public List<ModLayerData> pModLayerDatas = new List<ModLayerData>();
 }

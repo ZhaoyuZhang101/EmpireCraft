@@ -21,15 +21,12 @@ using Newtonsoft.Json;
 namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigurable
 {
-    public static bool SAVE_FREEZE = false;
     public static Transform prefab_library;
     public static bool IS_CLEAR = true;
-    public static ModObjectManager MOD_OBJECT_MANAGER;
-    public static ModObjectManager ModObjectManager;
-    public static bool REAL_NUM_SWITCH = false;
-    public static EmpireCraftMapMode CURRENT_MAP_MOD;
+    public static ModLayerManager ModLayer_MANAGER;
+    public static ModMapMode CURRENT_MAP_MOD;
     public static ModDeclare _declare;
-    private GameObject _modObject;
+    private GameObject _ModObject;
     public static ModConfig modConfig;
     public ModDeclare GetDeclaration()
     {
@@ -42,114 +39,22 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         IS_CLEAR = false;
     }
 
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.C))
-        {
-            EmpireLayerToggle.disableOtherPower("empire_layer");
-            if (PlayerConfig.dict["map_title_layer"].boolVal)
-            {
-                PlayerConfig.dict["map_city_layer"].boolVal = false;
-                PlayerConfig.dict["map_title_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-            } else
-            {
-                PlayerConfig.dict["map_title_layer"].boolVal = true;
-                PlayerConfig.dict["map_city_layer"].boolVal = true;
-                PlayerConfig.dict["map_province_layer"].boolVal = false;
-                PlayerConfig.dict["map_empire_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Title;
-            }
-        }
-        if (Input.GetKeyDown(KeyCode.V))
-        {
-            EmpireLayerToggle.disableOtherPower("province_layer");
-            if (PlayerConfig.dict["map_province_layer"].boolVal)
-            {
-                PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
-                PlayerConfig.dict["map_province_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-            }
-            else
-            {
-                PlayerConfig.dict["map_province_layer"].boolVal = true;
-                PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
-                PlayerConfig.dict["map_title_layer"].boolVal = false;
-                PlayerConfig.dict["map_empire_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Province;
-            }
-        }
-        if (Input.GetKeyDown(KeyCode.B))
-        {
-            EmpireLayerToggle.disableOtherPower("empire_layer");
-            if (PlayerConfig.dict["map_empire_layer"].boolVal)
-            {
-                PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
-                PlayerConfig.dict["map_empire_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-            }
-            else
-            {
-                PlayerConfig.dict["map_empire_layer"].boolVal = true;
-                PlayerConfig.dict["map_title_layer"].boolVal = false;
-                PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
-                PlayerConfig.dict["map_province_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Empire;
-            }
-        }
-    }
-
     public GameObject GetGameObject()
     {
-        return _modObject;
+        return _ModObject;
     }
     public string GetUrl()
     {
         return "https://github.com/ZhaoyuZhang101/EmpireCraft";
     }
 
-    public void loadCultureNameTemplate()
-    {
-        foreach (string cultureName in ConfigData.speciesCulturePair.Values)
-        {
-            string culturesPath = Path.Combine(_declare.FolderPath, "Locales", "Cultures", $"Culture_{cultureName}");
-            if (!Directory.Exists(culturesPath))
-            {
-                return;
-            }
-            var dirs = Directory.EnumerateFiles(culturesPath, "*.csv", SearchOption.AllDirectories)
-            .ToList();
-            foreach (var dir in dirs) 
-            {
-                LogService.LogInfo(dir);
-                LM.LoadLocales(dir);
-            }
-            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "ProvinceLevel", cultureName + "ProvinceLevel.csv"));
-            LogService.LogInfo("Add culture template: " + cultureName);
-        }
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "CountryLevelNames.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName1.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName2.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "MiaoHaoPrefixes.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "MiaoHaoSuffixes.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "ShiHao.csv"));
-        LogService.LogInfo("add year name template");
-        LogService.LogInfo("加载谥号模板");
-        LogService.LogInfo("加载庙号模板");
-    }
-
     public void OnLoad(ModDeclare modDeclare, GameObject gameObject)
     {
         _declare = modDeclare;
-        _modObject = gameObject;
+        _ModObject = gameObject;
         Config.isEditor = true; // Set this to true if you want to enable editor mode for your mod
-        LogService.LogInfo("EmpireCraft Load Finished！！");
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "HonoraryOfficial.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "MeritLevel.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "OfficialType.csv"));
+        LogService.LogInfo("SampleMod Load Finished！！");
         //加载文化名称模板
-        loadCultureNameTemplate();
         LM.ApplyLocale(); // Apply the loaded locales to the game
         Type[] types = Assembly.GetExecutingAssembly().GetTypes();
         foreach (Type type in types)
@@ -174,56 +79,32 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         prefab_library.SetParent(transform);
         LoadUI();
         modConfig = new ModConfig(_declare.FolderPath + "/default_config.json", true);
-        LogService.LogInfo("加载帝国模组更多世界提示");
+        LogService.LogInfo("加载模组更多世界提示");
         EmpireCraftWorldLogLibrary.init();
         EmpireCraftNamePlateLibrary.init();
-        EmpireCraftActorTraitLibrary.init();
         EmpireCraftMetaTypeLibrary.init();
-        EmpireCraftHistoryDataLibrary.init();
         EmpireCraftBehaviourTaskKingdomLibrary.init();
         EmpireCraftActorTraitGroupLibrary.init();
         EmpireCraftTooltipLibrary.init();
         ModOpinionAddition.init();
         ModPlotsAddition.init();
         EmpireCraftQuantumSpriteLibrary.init();
-        World.world._list_meta_main_managers.Add(EMPIRE_MANAGER = new EmpireManager());
-        World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER = new KingdomTitleManager());
-        World.world._list_meta_main_managers.Add(ModObjectManager = new ModObjectManager());
-        World.world.list_all_sim_managers.Add(EMPIRE_MANAGER);
-        World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);
-        World.world.list_all_sim_managers.Add(ModObjectManager);
-        CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-        // PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
-        // PlayerConfig.dict["map_title_layer"].boolVal = false;
-        // PlayerConfig.dict["map_empire_layer"].boolVal = false;
-        PlayerConfig.dict["switch_real_num"].boolVal = false;
-        OnomasticsRule.ReadSetting();
-
-        string path = Path.Combine(_declare.FolderPath, "CultureSpeciesPairPlayerConfig.json");
-        if (File.Exists(path))
-        {
-            string content = File.ReadAllText(path);
-            ConfigData.speciesCulturePair = JsonConvert.DeserializeObject<Dictionary<string, string>>(content);
-        }
-        else
-        {
-            LogService.LogInfo("用户文化配置不存在，启用默认配置");
-        }
+        World.world._list_meta_main_managers.Add(ModLayer_MANAGER = new ModLayerManager());
+        World.world.list_all_sim_managers.Add(ModLayer_MANAGER);
+        CURRENT_MAP_MOD = ModMapMode.None;
     }
 
     public void LoadUI()
     {
         MainTab.Init();
-        LogService.LogInfo("EmpireCraftUI Load Finish！！");
+        LogService.LogInfo("ModTemplateUI Load Finish！！");
     }
 
 
     public void Reload()
     {
-        LogService.LogInfo("EmpireCraft Reload Finish！！");
+        LogService.LogInfo("SampleMod Reload Finish！！");
         
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
-        loadCultureNameTemplate();
         LM.ApplyLocale();
         // You can reload your mod here, such as reloading configs, reloading UI, etc.
     }

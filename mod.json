@@ -1,8 +1,8 @@
 {
-    "name": "EMPIRECRAFT(帝国盒子)",
+    "name": "ModTemplate(预设模组模板)",
     "author": "长明火_CHM",
-    "version": "0.3.7",
-    "description": "这是一个添加更多国家功能的模组，提供诸如默认导入中文命名规则至游戏原版命名模板，帝国层级，省级，更加细致的宗族，爵位系统等，感谢大家的支持 （感谢华章提供的中文名词库以及订正）",
+    "version": "0.0.1",
+    "description": "这是一个通用模组模板。提供了一套完整的path，扩展数据，存档逻辑以及自定义层级，和UI模板。",
     "RepoUrl": "https://github.com/ZhaoyuZhang101/EmpireCraft",
     "iconPath": "icon.png"
 }

@@ -25,55 +25,18 @@ public class KingdomPatch : GamePatch
 
     public void Initialize()
     {
-        new Harmony(nameof(RemovePatchData)).Patch(
-            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
-            prefix: new HarmonyMethod(GetType(), nameof(RemovePatchData))
-        );         
-        new Harmony(nameof(Initialize_level)).Patch(
-            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.newCivKingdom)),
-            postfix: new HarmonyMethod(GetType(), nameof(Initialize_level))
-        );           
-        new Harmony(nameof(new_emperor)).Patch(
+        new Harmony(nameof(SetKing)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.setKing)),
-            prefix: new HarmonyMethod(GetType(), nameof(new_emperor))
+            prefix: new HarmonyMethod(GetType(), nameof(SetKing))
         );           
-        new Harmony(nameof(emperor_left)).Patch(
+        new Harmony(nameof(RemoveKing)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.removeKing)),
-            prefix: new HarmonyMethod(GetType(), nameof(emperor_left))
+            prefix: new HarmonyMethod(GetType(), nameof(RemoveKing))
         );               
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(removeData))
         );            
-        new Harmony(nameof(getMaxCities)).Patch(
-            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.getMaxCities)),
-            prefix: new HarmonyMethod(GetType(), nameof(getMaxCities))
-        );
-    }
-
-    public static bool getMaxCities(Kingdom __instance, ref int __result)
-    {
-        int num = __instance.getActorAsset().civ_base_cities;
-        if (__instance.hasKing())
-        {
-            num += (int)__instance.king.stats["cities"];
-        }
-        if (__instance.isEmpire())
-        {
-            foreach (ModObject province in __instance.GetEmpire().ProvinceList)
-            {
-                if (province.HasOfficer()&&!province.IsTotalVassaled())
-                {
-                    num += (int)province.Officer.stats["cities"];
-                }
-            }
-        }
-        if (num < 1)
-        {
-            num = 1;
-        }
-        __result = num;
-        return false;
     }
 
     public static void removeData(Kingdom __instance)
@@ -82,120 +45,15 @@ public class KingdomPatch : GamePatch
         {
             return;
         }
-        if (__instance.HasMainTitle())
-        {
-            if (__instance.GetMainTitle() != null)
-            {
-                __instance.GetMainTitle().main_kingdom = null;
-            }
-        }
-        if(__instance.isProvince())
-        {
-            ModObject modObject = __instance.GetProvince();
-            if (modObject != null)
-            {
-                modObject.data.is_set_to_country = false;
-                modObject.SetProvinceLevel(provinceLevel.provincelevel_3);
-            }
-        }
         __instance.RemoveExtraData<Kingdom, KingdomExtraData>();
     }
 
-    public static void new_emperor(Kingdom __instance, Actor pActor, bool pNewKing = true)
+    public static void SetKing(Kingdom __instance, Actor pActor, bool pNewKing = true)
     {
-        if (!ModClass.IS_CLEAR)
-        {
-            if (__instance.HasHeir())
-            {
-                if (__instance.GetHeir() == pActor)
-                {
-                    __instance.RemoveHeir();
-                }
-            }
-            pActor.CheckSpecificClan();
-            if (__instance.HasTitle())
-            {
-                foreach (var titleID in __instance.GetOwnedTitle())
-                {
-                    pActor.AddOwnedTitle(ModClass.KINGDOM_TITLE_MANAGER.get(titleID));
-                }
-            }
-
-            if (__instance.HasMainTitle())
-            {
-                if (__instance.isInEmpire() && !__instance.isEmpire())
-                {
-                    pActor.SetPeeragesLevel(pActor.GetSpecificClan() == __instance.GetEmpire().EmpireSpecificClan
-                        ? Enums.PeeragesLevel.peerages_1
-                        : Enums.PeeragesLevel.peerages_2);
-                } else if (!__instance.isInEmpire())
-                {
-                    pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_1);
-                }
-            }
-            if (__instance.isEmpire())
-            {
-                __instance.GetEmpire().NewEmperor(pActor);
-            } else if (__instance.isInEmpire()&&!__instance.isEmpire())
-            {
-                Empire empire = __instance.GetEmpire();
-                OfficeIdentity identity = pActor.GetIdentity(empire);
-                if (identity == null)
-                {
-                    identity = new OfficeIdentity();
-                    identity.init(empire, pActor);
-                    pActor.SetIdentity(identity, true);
-                }
-                pActor.ChangeOfficialLevel(OfficialLevel.officiallevel_8);
-                pActor.SetIdentityType(PeerageType.Military);
-                pActor.addTrait("officer");
-            }
-        }
+        // todo: 新国王上位时触发
     }
-    public static void emperor_left(Kingdom __instance)
+    public static void RemoveKing(Kingdom __instance)
     {
-        if (!ModClass.IS_CLEAR)
-        {
-            if (__instance.king.HasTitle())
-            {
-                __instance.SetOwnedTitle(__instance.king.GetOwnedTitle());
-                __instance.king.ClearTitle();
-            }
-            if (__instance.isEmpire())
-            {
-                __instance.GetEmpire().EmperorLeft(__instance);
-            }
-
-            if (!__instance.isInEmpire() || __instance.isEmpire()) return;
-            if (!__instance.hasKing()) return;
-            try
-            {
-                __instance.king.GetIdentity(__instance.GetEmpire()).ChangeOfficialLevel(Enums.OfficialLevel.officiallevel_10);
-            }
-            catch
-            {
-                // ignored
-            }
-        }
-    }
-
-    public static void Initialize_level(Kingdom __instance, Actor pActor)
-    {
-        __instance.SetCountryLevel(Enums.countryLevel.countrylevel_3);
-        __instance.SetEmpireID(-1L);
-        __instance.SetVassaledKingdomID(-1L);
-    }
-    public static void RemovePatchData(Kingdom __instance)
-    {
-        Empire empire = __instance.GetEmpire();
-        if (empire == null) return;
-        if (__instance.isEmpire())
-        {
-            empire.CheckDissolve(__instance);
-        }
-        else
-        {
-            empire.leave(__instance);
-        }
+        // todo: 国王退位时触发
     }
 }

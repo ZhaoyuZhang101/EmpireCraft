@@ -24,27 +24,7 @@ internal class CityBehBorderShrinkPatch : GamePatch
 
     public static bool execute(CityBehBorderShrink __instance, City pCity, ref BehResult __result)
     {
-        if (BehaviourActionBase<City>.world.getWorldTimeElapsedSince(pCity.timestamp_shrink) < SimGlobals.m.empty_city_borders_shrink_time)
-        {
-            __result = BehResult.Stop;
-            return false;
-        }
-        if (pCity.units.Count > 0||!ConfigData.PREVENT_CITY_DESTROY)
-        {
-            __result = BehResult.Stop;
-            return false;
-        }
-        using ListPool<TileZone> listPool = new ListPool<TileZone>(pCity.border_zones);
-        if (!listPool.Any())
-        {
-            __result = BehResult.Stop;
-            return false;
-        }
-        TileZone random = listPool.GetRandom();
-        pCity.removeZone(random);
-        pCity.timestamp_shrink = BehaviourActionBase<City>.world.getCurWorldTime();
-        __result = BehResult.Continue;
-
-        return false;
+        // todo: 当边界缩小时触发
+        return true;
     }
 }

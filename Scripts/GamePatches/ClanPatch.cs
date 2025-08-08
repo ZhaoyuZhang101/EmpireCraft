@@ -19,9 +19,9 @@ public class ClanPatch : GamePatch
 
     public void Initialize()
     {
-        new Harmony(nameof(set_clan_name)).Patch(
+        new Harmony(nameof(NewClan)).Patch(
             AccessTools.Method(typeof(Clan), nameof(Clan.newClan)),
-            postfix: new HarmonyMethod(GetType(), nameof(set_clan_name))
+            postfix: new HarmonyMethod(GetType(), nameof(NewClan))
         );
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(Clan), nameof(Clan.Dispose)),
@@ -34,60 +34,8 @@ public class ClanPatch : GamePatch
         __instance.RemoveExtraData<Clan, ClanExtraData>();
     }
 
-    public static void set_clan_name(Clan __instance, Actor pFounder, bool pAddDefaultTraits)
+    public static void NewClan(Clan __instance, Actor pFounder, bool pAddDefaultTraits)
     {
-        if (pFounder.GetModName().hasFamilyName(pFounder))
-        {
-            __instance.data.name = pFounder.GetModName().familyName+ "\u200A" + LM.Get("Clan");
-            if (pFounder.hasFamily())
-            {
-                string clanName = __instance.GetClanName();
-                string familyEnd = LM.Get("Family");
-                if (pFounder.city != null)
-                {
-                    string cityName = pFounder.city.GetCityName();
-                    pFounder.family.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
-                    pFounder.family.SetFamilyCityPre();
-                }
-                else
-                {
-                    if (!pFounder.family.HasBeenSetBefored())
-                    {
-                        pFounder.family.data.name = string.Join("\u200A", clanName, familyEnd);
-                        pFounder.family.SetFamilyCityPre(false);
-                    }
-                }
-            }
-        } else
-        {
-            if (pFounder.hasCulture())
-            {
-                __instance.data.name = pFounder.culture.getOnomasticData(MetaType.Clan).generateName();
-                pFounder.SetFamilyName(__instance.GetClanName());
-                if (pFounder.hasFamily())
-                {
-                    string clanName = __instance.GetClanName();
-                    string familyEnd = LM.Get("Family");
-                    if (pFounder.city != null)
-                    {
-                        string cityName = pFounder.city.GetCityName();
-                        pFounder.family.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
-                        pFounder.family.SetFamilyCityPre();
-                    }
-                    else
-                    {
-                        if (!pFounder.family.HasBeenSetBefored())
-                        {
-                            pFounder.family.data.name = string.Join("\u200A", clanName, familyEnd);
-                            pFounder.family.SetFamilyCityPre(false);
-                        }
-                    }
-                }
-            }
-        }
-        if (pFounder.GetModName().has_whole_name(pFounder))
-        {
-            pFounder.GetModName().SetName(pFounder);
-        }
+        // todo: 新氏族创建时触发
     }
 }

@@ -40,110 +40,31 @@ internal static class MainTab
 
     private static void _createWindows()
     {
-        EmpireListWindow.CreateWindow(nameof(EmpireListWindow),
-            nameof(EmpireListWindow) + "Title");
-        CultureSpeciesPairWindow.CreateWindow(nameof(CultureSpeciesPairWindow),
-            nameof(CultureSpeciesPairWindow) + "Title");
-        EmpireWindow.CreateWindow(nameof(EmpireWindow),
-            nameof(EmpireWindow) + "Title");
-        KingdomTitleWindow.CreateWindow(nameof(KingdomTitleWindow),
-            nameof(KingdomTitleWindow) + "Title");
-        ProvinceWindow.CreateWindow(nameof(ProvinceWindow),
-            nameof(ProvinceWindow) + "Title");
-        EmpireBeaurauWindow.CreateWindow(nameof(EmpireBeaurauWindow),
-            nameof(EmpireBeaurauWindow) + "Title");
-        ChangeUnitWindow.CreateWindow(nameof(ChangeUnitWindow),
-            nameof(ChangeUnitWindow) + "Title");
-        SpecificClanWindow.CreateWindow(nameof(SpecificClanWindow),
-            nameof(SpecificClanWindow) + "Title");
-        EmpireSettingWindow.CreateWindow(nameof(EmpireSettingWindow),
-            nameof(EmpireSettingWindow) + "Title");
+        ModLayerWindow.CreateWindow(nameof(ModLayerWindow),
+            nameof(ModLayerWindow) + "Title");
     }
 
     private static void _addButtons()
     {
-        TitleLayerToggle.init();
-        PowerButton pb0 = FixFunctions.CreateToggleButton("title_layer",
-                 SpriteTextureLoader.getSprite("ui/icons/iconTitleLayer.png"));
-        tab.AddPowerButton(EMPIRE_GROUP, pb0);
-
-        CreateTitleButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("create_title",
-                  SpriteTextureLoader.getSprite("ui/icons/iconCreateTitle.png")));
-
-        AddTitleButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("add_title",
-                SpriteTextureLoader.getSprite("ui/icons/iconAddTitle.png")));
-
-        RemoveTitleButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("remove_title",
-                SpriteTextureLoader.getSprite("ui/icons/iconRemoveTitle.png")));
-
-
-
-        EmpireLayerToggle.init();
-        PowerButton pb = FixFunctions.CreateToggleButton("empire_layer",
-                 SpriteTextureLoader.getSprite("ui/icons/iconKingdom"));
-        tab.AddPowerButton(EMPIRE_GROUP, pb);
-
-        CreateEmpireButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("create_empire",
-                SpriteTextureLoader.getSprite("ui/icons/iconAlliance")));
-
-        EmpireFormButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("empire_form",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ChineseCrown.png")));
-
-        EmpireEnfeoffButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));
-
-
-        tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
-            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png")));
-
-        PreventCityDestroyToggle.init();
-        PowerButton pb2 = FixFunctions.CreateToggleButton("prevent_city_destroy",
-                 SpriteTextureLoader.getSprite("ui/icons/iconCity"));
-        tab.AddPowerButton(EMPIRE_GROUP, pb2);
-
-        ProvinceLayerToggle.init();
-        PowerButton pb3 = FixFunctions.CreateToggleButton("province_layer",
+        ModLayerToggle.init();
+        PowerButton pb3 = FixFunctions.CreateToggleButton("ModLayer_layer",
                  SpriteTextureLoader.getSprite("ui/icons/iconCity"));
         tab.AddPowerButton(EMPIRE_GROUP, pb3);
 
-        CreateModObjectButton.init();
+        CreateModLayerButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("create_province",
+            PowerButtonCreator.CreateGodPowerButton("create_ModLayer",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleCreate.png")));
 
-        AddModObjectButton.init();
+        AddModLayerButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("add_province",
+            PowerButtonCreator.CreateGodPowerButton("add_ModLayer",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleAdd.png")));
 
-        RemoveProvinceButton.init();
+        RemoveModLayerButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("remove_province",
+            PowerButtonCreator.CreateGodPowerButton("remove_ModLayer",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleRemove.png")));
 
-        tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateWindowButton("culture_list", nameof(CultureSpeciesPairWindow),
-            SpriteTextureLoader.getSprite("ui/icons/iconCulture")));
-
-
-        ActorCreateKingdom.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("actor_create_kingdom",
-               SpriteTextureLoader.getSprite("ui/icons/iconKingdom")));
-        
-        SwitchRealNumButton.init();
-        PowerButton pb4 = FixFunctions.CreateToggleButton("real_num",
-            SpriteTextureLoader.getSprite("ui/realNumToggle"));
-        tab.AddPowerButton(EMPIRE_GROUP, pb4);
     }
 }

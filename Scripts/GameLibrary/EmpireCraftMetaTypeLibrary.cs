@@ -19,29 +19,33 @@ public static class EmpireCraftMetaTypeLibrary
         ml.kingdom.drawn_zones = delegate
         {
             if (ModClass.IS_CLEAR) return;
-        if (ModClass.CURRENT_MAP_MOD == ModMapMode.ModObject)
+            // todo: 当有更多地图模式的时候都可添加于此
+            switch (ModClass.CURRENT_MAP_MOD)
             {
-                foreach (ModObject pModObject in ModClass.ModObjectManager.ToList())
-                {
-                    if (pModObject != null)
+                case ModMapMode.ModLayer:
+                    foreach (ModLayer pModLayer in ModClass.ModLayer_MANAGER.ToList())
                     {
-                        drawnForModObject(pModObject);
+                        if (pModLayer != null)
+                        {
+                            drawnForModLayer(pModLayer);
+                        }
                     }
-                }
-                foreach (var k in World.world.kingdoms)
-                {
-                    if (k == null) continue;
-                    zone_manager.drawForKingdom(k);
-                }
+                    foreach (var c in World.world.cities)
+                    {
+                        if (c == null) continue;
+                        if (!c.IsInModLayer())
+                        {
+                            drawnForCity(c);
+                        }
+                    }
+                    return;
+                case ModMapMode.None:
+                    break;
             }
-            else
-            {
-                foreach (var k in World.world.kingdoms)
-                    zone_manager.drawForKingdom(k);
-            }
+            foreach (var k in World.world.kingdoms)
+                zone_manager.drawForKingdom(k);
             zone_manager.drawForKingdom(WildKingdomsManager.neutral);
         };
-
         ml.kingdom.click_action_zone = delegate (WorldTile pTile, string pPower)
         {
             if (pTile == null)
@@ -62,19 +66,24 @@ public static class EmpireCraftMetaTypeLibrary
             {
                 return false;
             }
-            if (ModClass.CURRENT_MAP_MOD == ModMapMode.ModObject)
+            
+            // todo: 当有更多地图模式的时候都可添加于此
+            switch (ModClass.CURRENT_MAP_MOD)
             {
-                if (pTile.hasCity())
-                {
-                    if (pTile.zone_city.hasProvince())
+                case ModMapMode.ModLayer:
+                    if (pTile.hasCity())
                     {
-                        ConfigData.CurrentSelectedModObject = pTile.zone_city.GetProvince();
-                        ScrollWindow.showWindow(nameof(ProvinceWindow));
-                        LogService.LogInfo("open province window");
-                        return true;
+                        if (pTile.zone_city.IsInModLayer())
+                        {
+                            ConfigData.CurrentSelectedModLayer = pTile.zone_city.GetModLayer();
+                            ScrollWindow.showWindow(nameof(ModLayerWindow));
+                            LogService.LogInfo("open ModLayer window");
+                            return true;
+                        }
                     }
-
-                }
+                    break;
+                case ModMapMode.None:
+                    break;
             }
             MetaType.Kingdom.getAsset().selectAndInspect(kingdom);
             return true;
@@ -86,32 +95,22 @@ public static class EmpireCraftMetaTypeLibrary
             {
                 return false;
             }
-            Kingdom kingdom = city.kingdom;
-            if (kingdom.isRekt())
+            
+            // todo: 当有更多地图模式的时候都可添加于此
+            switch (ModClass.CURRENT_MAP_MOD)
             {
-                return false;
+                case ModMapMode.ModLayer:
+                    if (city.IsInModLayer())
+                    {
+                        tooltip_ModLayer_action(city.GetModLayer());
+                        return true;
+                    }
+                    break;
+                case ModMapMode.None:
+                    break;
             }
-            if (kingdom.isNeutral())
-            {
-                return false;
-            }
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Empire)
-            {
-                if (kingdom.isInEmpire())
-                {
-                    tooltip_empire_action(kingdom);
-                    return true;
-                }
-            }
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
-            {
-                if (city.hasProvince())
-                {
-                    tooltip_province_action(city.GetProvince());
-                    return true;
-                }
-            }
-            kingdom.meta_type_asset.cursor_tooltip_action(kingdom);
+
+            city.meta_type_asset.cursor_tooltip_action(city);
             return true;
         };
         ml.kingdom.check_cursor_highlight = delegate (WorldTile pTile, QuantumSpriteAsset pAsset)
@@ -120,20 +119,26 @@ public static class EmpireCraftMetaTypeLibrary
             UnityEngine.Color color = pAsset.color;
             City city = pTile.zone.city;
             if (city.isRekt()) return;
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
+            
+            // todo: 当有更多地图模式的时候都可添加于此
+            switch (ModClass.CURRENT_MAP_MOD)
             {
-                if (city.hasProvince())
-                {
-                    ModObject modObject = city.GetProvince();
-                    if (modObject != null)
+                case ModMapMode.ModLayer:
+                    if (city.IsInModLayer())
                     {
-                        foreach (City c in modObject.city_list)
+                        ModLayer pModLayer = city.GetModLayer();
+                        if (pModLayer != null)
                         {
-                            QuantumSpriteLibrary.colorZones(pAsset, c.zones, color);
+                            foreach (City c in pModLayer.city_list)
+                            {
+                                QuantumSpriteLibrary.colorZones(pAsset, c.zones, color);
+                            }
+                            return;
                         }
-                        return;
                     }
-                }
+                    break;
+                case ModMapMode.None:
+                    break;
             }
             foreach (var city2 in city.kingdom.cities)
             {
@@ -146,36 +151,36 @@ public static class EmpireCraftMetaTypeLibrary
         };
     }
 
-    public static void drawnForModObject(ModObject p)
+    public static void drawnForModLayer(ModLayer p)
     {
         foreach (TileZone tz in p.allZones())
         {
             zone_manager.drawBegin();
-            drawZoneModObject(tz);
+            drawZoneModLayer(tz);
             zone_manager.drawEnd(tz);
         }
     }
-    public static void drawZoneModObject(TileZone pZone)
+
+    public static void drawnForCity(City city)
     {
-        ModObject p = pZone.city.GetProvince();
-        if (p == null) return;
-        Empire empire = p.empire;
-        Kingdom mainKingdom = empire.empire;
-        if (!mainKingdom.isAlive())
+        for (int i = 0; i < city.zones.Count; i++)
         {
-            ModClass.ModObjectManager.dissolveProvince(p);
-            ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
-            return;
+            TileZone pZone = city.zones[i];
+            zone_manager.drawBegin();
+            zone_manager.drawZoneCity(pZone);
+            zone_manager.drawEnd(pZone);
         }
-        bool pUp = isBorderColor_Province(pZone.zone_up, p, true);
-        bool pDown = isBorderColor_Province(pZone.zone_down, p, false);
-        bool pLeft = isBorderColor_Province(pZone.zone_left, p, false);
-        bool pRight = isBorderColor_Province(pZone.zone_right, p, true);
+    }
+    public static void drawZoneModLayer(TileZone pZone)
+    {
+        ModLayer pModLayer = pZone.city.GetModLayer();
+        if (pModLayer == null) return;
+        bool pUp =    isBorderColor_ModLayer(pZone.zone_up, pModLayer, true);
+        bool pDown =  isBorderColor_ModLayer(pZone.zone_down, pModLayer, false);
+        bool pLeft =  isBorderColor_ModLayer(pZone.zone_left, pModLayer, false);
+        bool pRight = isBorderColor_ModLayer(pZone.zone_right, pModLayer, true);
         int num = -1;
-        if (p != null)
-        {
-            num = p.GetHashCode();
-        }
+        num = pModLayer.GetHashCode();
         int num2 = zone_manager.generateIdForDraw(zone_manager._mode_asset, num, pUp, pDown, pLeft, pRight);
         if (pZone.last_drawn_id == num2 && pZone.last_drawn_hashcode == num)
         {
@@ -185,45 +190,37 @@ public static class EmpireCraftMetaTypeLibrary
         pZone.last_drawn_hashcode = num;
         Color32 colorBorderInsideAlpha = Toolbox.color_clear;
         Color32 colorMain = Toolbox.color_clear;
-        if (p != null)
+        ColorAsset color = pModLayer.getColor();
+        colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
+        colorMain = color.getColorMain2();
+        if (zone_manager.shouldBeClearColor())
         {
-            ColorAsset color = mainKingdom.getColor();
-            colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
-            colorMain = color.getColorMain2();
-            if(p.empire.empire!=pZone.city.kingdom)
-            {
-                colorMain.r += 5;
-                colorMain.a -= 5;
-            }
-            if (zone_manager.shouldBeClearColor())
-            {
-                colorBorderInsideAlpha = zone_manager.color_clear;
-            }
+            colorBorderInsideAlpha = zone_manager.color_clear;
         }
         zone_manager.applyMetaColorsToZone(pZone, ref colorBorderInsideAlpha, ref colorMain, pUp, pDown, pLeft, pRight);
     }
 
-    public static bool isBorderColor_Province(TileZone pZone, ModObject province, bool pCheckFriendly = false)
+    public static bool isBorderColor_ModLayer(TileZone pZone, ModLayer pModlayer, bool pCheckFriendly = false)
     {
         if (pZone == null)
         {
             return true;
         }
         if (pZone.city == null) return true;
-        if (!pZone.city.hasProvince()) return true;
-        ModObject titleOnZone = pZone.city.GetProvince();
-        return titleOnZone == null || titleOnZone != province;
+        if (!pZone.city.IsInModLayer()) return true;
+        ModLayer ModLayerOnZone = pZone.city.GetModLayer();
+        return ModLayerOnZone == null || ModLayerOnZone != pModlayer;
     }
     
 
-    public static void tooltip_province_action(ModObject province)
+    public static void tooltip_ModLayer_action(ModLayer pModLayer)
     {
-        if (!province.isRekt())
+        if (!pModLayer.isRekt())
         {
-            Tooltip.hideTooltip(province, pOnlySimObjects: true, "province");
-            Tooltip.show(province, "province", new TooltipData
+            Tooltip.hideTooltip(pModLayer, pOnlySimObjects: true, "ModLayer");
+            Tooltip.show(pModLayer, "ModLayer", new TooltipData
             {
-                city = province.province_capital,
+                city = pModLayer.CoreCity,
                 tooltip_scale = 0.7f,
                 is_sim_tooltip = true
             });

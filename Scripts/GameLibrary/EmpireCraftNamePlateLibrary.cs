@@ -17,139 +17,45 @@ using UnityEngine.UI;
 namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftNamePlateLibrary
 {
-    public static string additionNum => ModClass.REAL_NUM_SWITCH ? "k" : "";
-    public static Dictionary<EmpireCraftMapMode, NameplateAsset> map_modes_nameplates = new Dictionary<EmpireCraftMapMode, NameplateAsset>();
+    public static Dictionary<ModMapMode, NameplateAsset> map_modes_nameplates = new Dictionary<ModMapMode, NameplateAsset>();
     public static void init()
     {
+        //todo: 自定义层级铭牌的例子，可自行修改或删除
         NameplateAsset asset = new NameplateAsset
         {
-            id = "plate_empire",
+            id = "plate_ModLayer",
             path_sprite = "ui/nameplates/nameplate_empire",
             padding_left = 26,
             padding_right = 26,
             padding_top = -2,
             action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
             {
-                foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+                foreach (ModLayer pModLayer in ModClass.ModLayer_MANAGER)
                 {
-                    if (empire != null)
+                    if (pModLayer != null)
                     {
-                        if (empire.empire != null && isWithinCamera(empire.GetEmpireCenter()))
+                        if (pModLayer.CoreCity != null && isWithinCamera(pModLayer.GetCenter()))
                         {
                             NameplateText npt = prepareNext(pManager, pAsset, 37, 12, 39, 11);
-                            showTextEmpire(npt, empire.empire);
+                            ShowTextModLayer(npt, pModLayer.CoreCity);
                         }
-                    }
-                }
-                foreach (Kingdom kingdom in World.world.kingdoms)
-                {
-                    if (kingdom.hasCapital() && !kingdom.isInEmpire() && isWithinCamera(kingdom.capital.city_center))
-                    {
-                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library.plate_kingdom);
-                        showTextKingdom(nameplateText, kingdom);
-                    }
-
-                }
-            }
-        };
-        map_modes_nameplates.Add(EmpireCraftMapMode.Empire, asset);
-
-        NameplateAsset asset2 = new NameplateAsset
-        {
-            id = "plate_title",
-            path_sprite = "ui/nameplates/nameplate_city",
-            padding_left = 26,
-            padding_right = 26,
-            padding_top = -2,
-            action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
-            {
-                foreach (KingdomTitle kingdomTitle in ModClass.KINGDOM_TITLE_MANAGER)
-                {
-                    if (kingdomTitle != null && isWithinCamera(kingdomTitle.GetCenter()))
-                    {
-                        NameplateText npt = prepareNext(pManager, pAsset, 37, 12, 39, 11);
-                        showTextTitle(npt, kingdomTitle.title_capital);
                     }
                 }
                 foreach (City city in World.world.cities)
                 {
-                    if (!city.hasTitle() && isWithinCamera(city.city_center))
+                    if (!city.IsInModLayer() && isWithinCamera(city.city_center))
                     {
                         NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library.plate_city);
                         showTextCity(nameplateText, city);
                     }
-                }
-            },
-        };
-        map_modes_nameplates.Add(EmpireCraftMapMode.Title, asset2);
 
-        NameplateAsset asset3 = new NameplateAsset
-        {
-            id = "plate_province",
-            path_sprite = "ui/nameplates/nameplate_province",
-            padding_left = 26,
-            padding_right = 26,
-            padding_top = -2,
-            action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
-            {
-                foreach (ModObject province in ModClass.ModObjectManager)
-                {
-                    if (province != null && isWithinCamera(province.GetCenter())&&!province.data.is_set_to_country)
-                    {
-                        NameplateText npt = prepareNext(pManager, pAsset, 37, 12, 39, 11);
-                        showTextProvince(npt, province.province_capital);
-                    }
-                }
-                foreach (Kingdom kingdom in World.world.kingdoms)
-                {
-                    if (kingdom != null)
-                    {
-                        if (kingdom.hasCapital() && !kingdom.isEmpire() && isWithinCamera(kingdom.capital.city_center))
-                        {
-                            NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library.plate_kingdom);
-                            showTextKingdom(nameplateText, kingdom);
-                        }
-                    }
-                }
-            },
-        };
-        map_modes_nameplates.Add(EmpireCraftMapMode.Province, asset3);
-
-        NameplateAsset asset4 = new NameplateAsset
-        {
-            id = "plate_culture",
-            path_sprite = "ui/nameplates/nameplate_culture",
-            padding_left = 11,
-            padding_right = 13,
-            map_mode = MetaType.Culture,
-            action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
-            {
-                ListPool<Culture> c = new ListPool<Culture>();
-                foreach(City city in World.world.cities)
-                {
-                    if (city.hasCulture())
-                    {
-                        if (!c.Contains(city.culture))
-                        {
-                            c.Add(city.culture);
-                        }
-                    }
-                }
-                foreach(Culture culture in c) 
-                {
-                    if (culture.cities.Count>0)
-                    {
-                        NameplateText nameplateText = pManager.prepareNext(pAsset);
-                        nameplateText.showTextCulture(culture, culture.cities[0].city_center);
-                    }
                 }
             }
         };
-        AssetManager.nameplates_library.dict.Remove("Culture");
-        AssetManager.nameplates_library.map_modes_nameplates[asset4.map_mode] = asset4;
-        AssetManager.nameplates_library.dict["Culture"] = asset4;
+        map_modes_nameplates.Add(ModMapMode.ModLayer, asset);
         
-        
+
+        //todo: 覆盖原版铭牌的例子，可删除
         NameplateAsset asset5 = new NameplateAsset
         {
             id = "plate_city",
@@ -185,88 +91,14 @@ public static class EmpireCraftNamePlateLibrary
         AssetManager.nameplates_library.dict.Remove("City");
         AssetManager.nameplates_library.map_modes_nameplates[asset5.map_mode] = asset5;
         AssetManager.nameplates_library.dict["City"] = asset5;
-        
-        
-        NameplateAsset asset6 = new NameplateAsset
-        {
-            id = "plate_kingdom",
-            path_sprite = "ui/nameplates/nameplate_kingdom",
-            padding_left = 26,
-            padding_right = 26,
-            padding_top = -2,
-            map_mode = MetaType.Kingdom,
-            action_main = delegate(NameplateManager pManager, NameplateAsset pAsset)
-            {
-                foreach (Kingdom kingdom in World.world.kingdoms)
-                {
-                    if (kingdom.hasCapital() && isWithinCamera(kingdom.capital.city_center))
-                    {
-                        NameplateText  nameplateText = pManager.prepareNext(pAsset);
-                        showTextKingdom(nameplateText, kingdom);
-                    }
-                }
-                if (WildKingdomsManager.neutral.cities.Count > 0)
-                {
-                    foreach (City city in WildKingdomsManager.neutral.cities)
-                    {
-                        pManager.prepareNext(AssetManager.nameplates_library.plate_city).showTextCity(city);
-                    }
-                }
-            }
-        };
-        AssetManager.nameplates_library.dict.Remove("Kingdom");
-        AssetManager.nameplates_library.map_modes_nameplates[asset6.map_mode] = asset6;
-        AssetManager.nameplates_library.dict["Kingdom"] = asset6;
-    }
-    public static void showTextKingdom(NameplateText npt, Kingdom pMetaObject)
-    {
-        npt.setupMeta((MetaObjectData) pMetaObject.data, pMetaObject.kingdomColor);
-        string pNewText = $"{pMetaObject.name}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
-        int num;
-        if (DebugConfig.isOn(DebugOption.ShowWarriorsCityText))
-        {
-            string[] strArray = new string[5]
-            {
-                pNewText,
-                " | ",
-                null,
-                null,
-                null
-            };
-            num = pMetaObject.countTotalWarriors();
-            strArray[2] = num.ToString();
-            strArray[3] = "/";
-            num = pMetaObject.countWarriorsMax();
-            strArray[4] = num.ToString();
-            pNewText = string.Concat(strArray);
-        }
-        if (DebugConfig.isOn(DebugOption.ShowCityWeaponsText))
-        {
-            string str1 = pNewText;
-            num = pMetaObject.countWeapons();
-            string str2 = num.ToString();
-            pNewText = $"{str1} | w{str2}";
-        }
-        npt.setText(pNewText, (Vector3) pMetaObject.capital.city_center);
-        npt.priority_population = pMetaObject.units.Count;
-        npt.showSpecies(pMetaObject.getSpriteIcon());
-        npt._show_banner_kingdom = true;
-        npt._banner_kingdoms.load((NanoObject) pMetaObject);
-        Clan kingClan = pMetaObject.getKingClan();
-        if (kingClan != null)
-        {
-            npt._show_banner_clan = true;
-            npt._banner_clan.load((NanoObject) kingClan);
-        }
-        npt.nano_object = (NanoObject) pMetaObject;
     }
     public static void showTextCity(NameplateText npt, City pMetaObject)
     {
         npt.setupMeta(pMetaObject.data, pMetaObject.kingdom.getColor());
-        string text = pMetaObject.name + "  " + pMetaObject.getPopulationPeople()+additionNum;
+        string text = pMetaObject.name + "  " + pMetaObject.getPopulationPeople();
         if (DebugConfig.isOn(DebugOption.ShowWarriorsCityText))
         {
-            text = text + " | " + pMetaObject.countWarriors() + $"{additionNum}/" + pMetaObject.getMaxWarriors()+additionNum;
+            text = text + " | " + pMetaObject.countWarriors() + "/" + pMetaObject.getMaxWarriors();
             if (Config.isEditor)
             {
                 string text2 = "  :  " + (int)(pMetaObject.getArmyMaxMultiplier() * 100f) + "%";
@@ -355,93 +187,28 @@ public static class EmpireCraftNamePlateLibrary
         return pObject2.units.Count.CompareTo(pObject1.units.Count);
     }
 
-    public static void showTextEmpire(NameplateText plateText, Kingdom pMetaObject)
+    public static void ShowTextModLayer(NameplateText plateText, City pcity)
     {
         if (ModClass.IS_CLEAR) return;
-        if (pMetaObject == null) return;
-        if (!pMetaObject.isAlive()) return;
-        Empire empire = pMetaObject.GetEmpire();
-        if (empire == null) return;
-        plateText.setupMeta(pMetaObject.data, pMetaObject.getColor());
-        string text = empire.data.name + "  " + empire.countPopulation()+additionNum;
-        if (empire.IsAllowToMakeYearName())
-        {
-            if (empire.HasYearName())
-            {
-                text = empire.data.name + "\u200A" + empire.GetYearNameWithTime() + "\u200A" + empire.countPopulation();
-            }
-        }
+        if (pcity == null) return;
+        if (!pcity.isAlive()) return;
+        ModLayer pModLayer = pcity.GetModLayer();
+        if (pModLayer == null) return;
+        plateText.setupMeta(pcity.data, pcity.getColor());
+        // todo: 修改铭牌的显示的文字
+        string text = pModLayer.data.name;
 
-
-        text = text + " | " + pMetaObject.countTotalWarriors() + $"{additionNum}/" + pMetaObject.countWarriorsMax()+additionNum;
-        plateText.setText(text, pMetaObject.GetEmpire().GetEmpireCenter());
-        plateText.priority_population = pMetaObject.units.Count;
-        plateText.showSpecies(pMetaObject.getSpriteIcon());
+        text = text + "|" + "示例";
+        plateText.setText(text, pcity.city_center);
+        plateText.showSpecies(pcity.getSpriteIcon());
         plateText._show_banner_kingdom = true;
-        plateText._banner_kingdoms.load(pMetaObject);
-        Clan kingClan = pMetaObject.getKingClan();
+        plateText._banner_kingdoms.load(pcity.kingdom);
+        Clan kingClan = pcity.getRoyalClan();
         if (kingClan != null)
         {
             plateText._show_banner_clan = true;
             plateText._banner_clan.load(kingClan);
         }
-        plateText.nano_object = empire.empire;
-    }
-
-    public static void showTextTitle(NameplateText plateText, City capital)
-    {
-        if (ModClass.IS_CLEAR) return;
-        if (capital == null) return;
-        if (!capital.hasTitle()) return;
-        try
-        {
-            plateText.setupMeta(capital.data, capital.GetTitle().getColor());
-            string text = capital.GetTitle().data.name + " | " + capital.GetTitle().data.province_name;
-            plateText.setText(text, capital.GetTitle().GetCenter());
-            plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.winner_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.part_background.sprite = capital.GetTitle().getElementBackground();
-            plateText._banner_kingdoms.part_icon.sprite = capital.GetTitle().getElementIcon();
-            plateText._banner_kingdoms.part_background.color = capital.GetTitle().kingdomColor.getColorMain2();
-            plateText._banner_kingdoms.part_icon.color = capital.GetTitle().kingdomColor.getColorBanner();
-            plateText._show_banner_kingdom = true;
-            plateText.nano_object = capital;
-        }
-        catch (Exception e)
-        {
-            LogService.LogInfo(e.Message);
-        }
-
-    }
-
-    public static void showTextProvince(NameplateText plateText, City capital)
-    {
-        if (ModClass.IS_CLEAR) return;
-        if (capital == null) return;
-        if (!capital.hasProvince()) return;
-        try
-        {
-            plateText.setupMeta(capital.data, capital.kingdom.getColor());
-            ModObject modObject = capital.GetProvince();
-            string text = modObject.data.name+"|"+modObject.empire.GetEmpireName();
-            if (modObject.IsTotalVassaled())
-            {
-                text = LM.Get("provinceVassaled") + "|" + text;
-            }
-            plateText.setText(text, capital.city_center);
-            plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.winner_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
-            plateText._show_banner_kingdom = false;
-            plateText._show_banner_clan = false;
-            plateText.nano_object = capital;
-        }
-        catch (Exception e)
-        {
-            LogService.LogInfo(e.ToString());
-        }
+        plateText.nano_object = pcity;
     }
 }

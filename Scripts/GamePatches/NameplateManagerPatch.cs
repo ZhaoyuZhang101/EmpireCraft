@@ -36,7 +36,7 @@ public class NameplateManagerPatch : GamePatch
                 __instance.gameObject.SetActive(value: true);
             }
             NameplateAsset nameplateAsset;
-            if (ModClass.CURRENT_MAP_MOD != EmpireCraftMapMode.None)
+            if (ModClass.CURRENT_MAP_MOD != ModMapMode.None)
             {
                 nameplateAsset = EmpireCraftNamePlateLibrary.map_modes_nameplates[ModClass.CURRENT_MAP_MOD];
             } else
@@ -49,9 +49,8 @@ public class NameplateManagerPatch : GamePatch
         {
             __instance.updatePositions();
         }
-        for (int i = 0; i < __instance.active.Count; i++)
+        foreach (var nameplateText in __instance.active)
         {
-            NameplateText nameplateText = __instance.active[i];
             nameplateText.update(World.world.delta_time);
             nameplateText.checkActive();
         }

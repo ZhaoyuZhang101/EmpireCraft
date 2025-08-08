@@ -54,11 +54,6 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(removeObject))
         );
 
-        new Harmony(nameof(getPopulationMaximum)).Patch(
-            AccessTools.Method(typeof(City), nameof(City.getPopulationMaximum)),
-            prefix: new HarmonyMethod(GetType(), nameof(getPopulationMaximum))
-        );
-
         new Harmony(nameof(city_update)).Patch(
             AccessTools.Method(typeof(City), nameof(City.update)),
             prefix: new HarmonyMethod(GetType(), nameof(city_update))
@@ -94,384 +89,63 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(removeLeader))
         );
     }
-    public static bool getPopulationMaximum(City __instance, ref int __result)
-    {
-        if (__instance.GetMaxPopulationLimitStats())
-        {
-            __result = __instance.GetMaxPopulation();
-            return false;
-        }
-        __result = WorldLawLibrary.world_law_civ_limit_population_100.isEnabled() && __instance.status.housing_total >= 100 ? 100 : __instance.status.housing_total;
-        return false;
-    }
     public static void removeLeader(City __instance)
     {
-        if (__instance.leader!=null)
-        {
-            if (__instance.kingdom.isInEmpire())
-            {
-                Empire empire = __instance.kingdom.GetEmpire();
-                __instance.leader.ChangeOfficialLevel(OfficialLevel.officiallevel_10);
-            }
-            else
-            {
-                __instance.leader.RemoveIdentity();
-                if (__instance.leader.hasTrait("officer"))
-                {
-                    __instance.leader.removeTrait("officer");
-                }
-            }
-        }
+        // todo: 当领主被移除时触发
     }
 
     public static bool setLeader(City __instance, Actor pActor, bool pNew)
     {
-        if (__instance.hasProvince())
-        {
-            if (__instance.GetProvince() != null)
-            {
-                if (__instance.GetProvince().HasOfficer())
-                {
-                    if (__instance.GetProvince().Officer == pActor)
-                    {
-                        return false ;
-                    }
-                }
-            }
-        }
-        if (pActor != null && __instance.kingdom.king != pActor)
-        {
-            if (__instance.kingdom.isInEmpire())
-            {
-                Empire empire = __instance.kingdom.GetEmpire();
-                OfficeIdentity identity = pActor.GetIdentity(empire);
-                if (identity==null)
-                {
-                    identity = new OfficeIdentity();
-                    identity.init(empire, pActor);
-                    pActor.SetIdentity(identity, true);
-                }
-                pActor.ChangeOfficialLevel(OfficialLevel.officiallevel_9);
-                pActor.SetIdentityType();
-                pActor.addTrait("officer");
-            }
-
-            __instance.leader = pActor;
-            __instance.leader.setProfession(UnitProfession.Leader);
-            CityData cityData = __instance.data;
-            long leaderID = (__instance.data.last_leader_id = pActor.data.id);
-            cityData.leaderID = leaderID;
-            if (pNew)
-            {
-                __instance.data.total_leaders++;
-                __instance.leader.changeHappiness("become_leader");
-                __instance.data.addRuler(pActor);
-            }
-        }
-        pActor.CheckSpecificClan();
-        return false;
+        // todo: 设置新领主时触发
+        return true;
     }
     public static bool joinAnotherKingdom(City __instance, Kingdom pNewSetKingdom, bool pCaptured = false, bool pRebellion = false)
     {
-        // 参数检查
-        if (__instance == null || pNewSetKingdom == null)
-        {
-            return false;
-        }
-
-        if (__instance.hasProvince())
-        {
-            ModObject modObject = __instance.GetProvince();
-            bool isSameEmpire = modObject?.empire?.empire?.isInSameEmpire(pNewSetKingdom) ?? false;
-            bool isCurrentlyOccupied = modObject?.occupied_cities?.ContainsKey(__instance) ?? false;
-            double currentTime = World.world.getCurWorldTime();
-
-            // 不同帝国时标记为占领
-            if (!isSameEmpire)
-            {
-                if (modObject.occupied_cities == null)
-                {
-                    modObject.occupied_cities = new Dictionary<City, double>();
-                }
-
-                modObject.occupied_cities[__instance] = currentTime;
-                return true;
-            }
-            // 同一帝国时移除占领状态
-            else if (isCurrentlyOccupied)
-            {
-                modObject.occupied_cities.Remove(__instance);
-            }
-        }
-        string pHappinessEvent = null;
-        if (pCaptured)
-        {
-            World.world.game_stats.data.citiesConquered++;
-            World.world.map_stats.citiesConquered++;
-            pHappinessEvent = "was_conquered";
-        }
-
-        if (pRebellion)
-        {
-            World.world.game_stats.data.citiesRebelled++;
-            World.world.map_stats.citiesRebelled++;
-            pHappinessEvent = "just_rebelled";
-        }
-        Kingdom pKingdom = __instance.kingdom;
-        __instance.removeFromCurrentKingdom();
-        if (pNewSetKingdom.isInEmpire()&&pCaptured&&!pKingdom.isEmpire())
-        {
-            Empire empire = pNewSetKingdom.GetEmpire();
-            // 如果新加入的王国是帝国的一部分，并且城市被占领，则将城市加入帝国
-            if (empire.GetEmpirePeriod()!= EmpirePeriod.天命丧失&&empire.GetEmpirePeriod() != EmpirePeriod.下降)
-            {
-                pNewSetKingdom = pNewSetKingdom.GetEmpire().empire;
-            }
-        }
-        __instance.setKingdom(pNewSetKingdom);
-        __instance.newForceKingdomEvent(__instance.units, __instance._boats, pNewSetKingdom, pHappinessEvent);
-        __instance.switchedKingdom();
-        pNewSetKingdom.capturedFrom(pKingdom);
-        return false;
+        // todo: 城市加入其他王国时触发
+        return true;
     }
     public static bool removeZone(City __instance, TileZone pZone)
     {
-        if (ConfigData.PREVENT_CITY_DESTROY)
-        {
-            return false;
-        }
-
+        // todo: 城市移除区块时触发
         return true;
     }
-    private static void UpdateCityOccupationStatus(ModObject province, City city)
-    {
-        double currentTime = World.world.getCurWorldTime();
-
-        if (province.occupied_cities == null)
-        {
-            province.occupied_cities = new Dictionary<City, double>();
-        }
-
-        // 简化字典操作
-        province.occupied_cities[city] = currentTime;
-    }
-
-    private static void ApplyRebellionPenalty(ModObject province)
-    {
-        Empire empire = province.empire;
-        if (empire != null && empire.empire != null)
-        {
-            int renownLoss = empire.empire.getRenown() / 2;
-            empire.AddRenown(-renownLoss);
-
-            // 可选：添加日志记录
-            LogService.LogInfo($"Empire {empire.name} lost {renownLoss} renown due to rebellion");
-        }
-    }
+    
     public static bool addZone(City __instance, TileZone pZone)
     {
-        if (!__instance.zones.Contains(pZone))
-        {
-            if (pZone.city != null)
-            {
-                if (ConfigData.PREVENT_CITY_DESTROY)
-                {
-                    return false;
-                }
-                pZone.city.removeZone(pZone);
-            }
-            __instance.zones.Add(pZone);
-            pZone.setCity(__instance);
-            __instance.updateCityCenter();
-            if (World.world.city_zone_helper.city_place_finder.hasPossibleZones())
-            {
-                World.world.city_zone_helper.city_place_finder.setDirty();
-            }
-            __instance.setStatusDirty();
-        }
-        return false;
+        // todo: 城市增加区块时触发
+        return true;
     }
     public static bool makeOwnKingdom(City __instance, Actor pActor, bool pRebellion, bool pFellApart, ref Kingdom __result)
     {
-        if (__instance == null || pActor == null)
-        {
-            return false;
-        }
-
-        string pHappinessEvent = null;
-        if (pRebellion)
-        {
-            World.world.game_stats.data.citiesRebelled++;
-            World.world.map_stats.citiesRebelled++;
-            pHappinessEvent = "just_rebelled";
-        }
-        if (pFellApart)
-        {
-            pHappinessEvent = "kingdom_fell_apart";
-        }
-        Kingdom pKingdom = __instance.kingdom;
-        __instance.removeFromCurrentKingdom();
-        __instance.removeLeader();
-        Kingdom kingdom = World.world.kingdoms.makeNewCivKingdom(pActor);
-        __instance.newForceKingdomEvent(__instance.units, __instance._boats, kingdom, pHappinessEvent);
-        __instance.setKingdom(kingdom);
-        __instance.switchedKingdom();
-        kingdom.copyMetasFromOtherKingdom(pKingdom);
-        kingdom.setCityMetas(__instance);
-        if (pRebellion) 
-        {
-            kingdom.data.name = __instance.GetCityName() + "\u200A" + LM.Get("Rebellion");
-        }
-        __result = kingdom;
-
-        if (__instance.hasProvince())
-        {
-            ModObject modObject = __instance.GetProvince();
-            if (modObject == null)
-            {
-                return true;
-            }
-
-            // 更新占领状态
-            UpdateCityOccupationStatus(modObject, __instance);
-
-            // 处理叛乱惩罚
-            if (pRebellion)
-            {
-                ApplyRebellionPenalty(modObject);
-            }
-        }
-        return false;
+        // todo: 城市建立独立国家时触发
+        return true;
     }
 
 
     public static void city_update(City __instance, float pElapsed)
     {
-        if (ConfigData.PREVENT_CITY_DESTROY)
-        {
-            int v = Date.getYearsSince(__instance.data.created_time);
-            if (v >= 1)
-            {
-                if (__instance.isAlive())
-                {
-                    if (__instance.units.Count()<=1)
-                    {
-                        TransferUnits(__instance);
-                    }
-                }
-            }
-        }
-        if (__instance.hasTitle())
-        {
-            if (__instance.GetTitle() != null)
-            {
-                __instance.GetTitle().isBeenControlled();
-            }
-        }
+        // todo: 城市进程更新时触发
     }
     public static bool removeObject(CitiesManager __instance, City pObject)
     {
-        if (ConfigData.PREVENT_CITY_DESTROY)
-        {
-            int v = Date.getYearsSince(pObject.data.created_time);
-            if (v >= 1)
-            {
-                {
-                    TransferUnits(pObject);
-                    return false;
-                }
-            }
-        }
+        // todo: 城市实体被移除时触发
         return true;
-    }
-
-    public static void TransferUnits(City pCity)
-    {
-        double unitCount;
-        if (pCity.hasKingdom())
-        {
-            // 如果城市有王国，则将国家人口1/20的士兵单位转移到城市中
-            Kingdom kingdom = pCity.kingdom;
-            unitCount = Math.Ceiling(kingdom.getPopulationTotal() / 20.0f);
-            if (unitCount <= 0)
-            {
-                if (pCity.neighbours_kingdoms.Count() <=0)
-                {
-                    return;
-                }
-                pCity.joinAnotherKingdom(pCity.neighbours_kingdoms.GetRandom());
-                return;
-            }
-            Army pArmy;
-            if (kingdom.hasKing())
-            {
-                pArmy = World.world.armies.newArmy(kingdom.king, pCity);
-            } else
-            {
-                pArmy = World.world.armies.newArmy(kingdom.units.GetRandom(), pCity);
-            }
-            kingdom.units.FindAll(u => u.isWarrior()).ForEach(u =>
-            {
-                if (u.isAlive())
-                {
-                    u.setArmy(pArmy);
-                    u.setCity(pCity);
-                    unitCount--;
-                }
-            });
-        } else
-        {
-            if (pCity.neighbours_kingdoms.Count() <= 0)
-            {
-                return;
-            }
-            pCity.joinAnotherKingdom(pCity.neighbours_kingdoms.GetRandom());
-            return;
-        }
     }
 
     public static void setKingdom(City __instance, Kingdom pKingdom)
     {
-        Kingdom oldKingdom = __instance.kingdom;
-        if (oldKingdom != null) 
-        {
-            if (oldKingdom.isProvince())
-            {
-                oldKingdom.checkLostProvince();
-            }
-        }
-        if (__instance.hasTitle())
-        {
-            __instance.GetTitle().isBeenControlled();
-        }
+        // todo: 城市设置王国时触发
     }
 
     public static bool zone_steal(CityBehBorderSteal __instance, City pCity)
     {
-        if (ConfigData.PREVENT_CITY_DESTROY)
-        {
-            return false;
-        }
+        // todo: 城市窃取边境时触发
         return true;
     }
 
     public static void destroy_city(City __instance)
     {
-        if (__instance.hasTitle())
-        {
-            __instance.GetTitle().removeCity(__instance);
-        }
-        if (__instance.hasProvince()) 
-        {
-            __instance.GetProvince().removeCity(__instance);
-            if (__instance.GetProvince() == null) return;
-            if (__instance.GetProvince().occupied_cities == null) return;
-            if (__instance.GetProvince().occupied_cities.ContainsKey(__instance))
-            {
-                __instance.GetProvince().occupied_cities.Remove(__instance);
-            }
-
-        }
+        // todo: 城市毁灭时触发
     }
     public static void removeData(City __instance)
     {

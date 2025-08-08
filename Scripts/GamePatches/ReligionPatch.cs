@@ -17,31 +17,13 @@ public class ReligionPatch : GamePatch
     public void Initialize()
     {
         ModPath = declare.FolderPath + "/Locales/";
-        new Harmony(nameof(set_religion_name)).Patch(AccessTools.Method(typeof(Religion), nameof(Religion.newReligion)),
-        postfix: new HarmonyMethod(GetType(), nameof(set_religion_name)));
-        LogService.LogInfo("语言命名模板加载成功");
+        new Harmony(nameof(NewReligion)).Patch(AccessTools.Method(typeof(Religion), nameof(Religion.newReligion)),
+        postfix: new HarmonyMethod(GetType(), nameof(NewReligion)));
+        LogService.LogInfo("宗教补丁加载成功");
     }
 
-    private static void set_religion_name(Religion __instance, Actor pActor, WorldTile pTile, bool pAddDefaultTraits)
+    private static void NewReligion(Religion __instance, Actor pActor, WorldTile pTile, bool pAddDefaultTraits)
     {
-        string species = __instance.species_id;
-        LogService.LogInfo("当前文化物种: " + species);
-        if (ConfigData.speciesCulturePair.TryGetValue(species, out string culture))
-        {
-            InsertReligionNameTemplate(__instance, culture);
-        }
-        else
-        {
-            InsertReligionNameTemplate(__instance, "Western");
-        }
-
-    }
-    public static void InsertReligionNameTemplate(Religion religion, string cultureName)
-    {
-        string culturePath = ModPath + $"Cultures/Culture_{cultureName}/";
-        string religionNamePath = culturePath + $"{cultureName}ReligionNames.csv";
-        List<string> religionKeys = OnomasticsHelper.getKeysFromPath(religionNamePath);
-        religion.data.name = LM.Get(religionKeys[UnityEngine.Random.Range(0, religionKeys.Count)].ToString());
-        LogService.LogInfo(cultureName + "宗教名称: " + religion.data.name);
+        // todo: 创立宗教时触发
     }
 }

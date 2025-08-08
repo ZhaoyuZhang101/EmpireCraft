@@ -6,7 +6,7 @@ public class ModKingdomBehCheckSomething: BehaviourActionKingdom
 {
     public override BehResult execute(Kingdom pCity)
     {
-        //todo: 完善城市逻辑
+        //todo: 完善国家逻辑
         return BehResult.Continue;
     }
 }

@@ -75,13 +75,13 @@ public static class DataManager
         }
         LogService.LogInfo("Sync War Data");
 
-        foreach (ModObjectData pModObjectData in saveData.pModObjectDatas)
+        foreach (ModLayerData pModLayerData in saveData.pModLayerDatas)
         {
-            ModObject p = new ModObject();
-            p.loadData(pModObjectData);
-            ModClass.ModObjectManager.addObject(p);
+            ModLayer p = new ModLayer();
+            p.loadData(pModLayerData);
+            ModClass.ModLayer_MANAGER.addObject(p);
         }
-        ModClass.ModObjectManager.update(-1L);
+        ModClass.ModLayer_MANAGER.update(-1L);
     }
     public static void SaveAll(string saveRootPath)
     {
@@ -93,12 +93,12 @@ public static class DataManager
         saveData.warExtraData = World.world.wars.Select(a => a.GetExtraData<War, WarExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.clanExtraData = World.world.clans.Select(a => a.GetExtraData<Clan, ClanExtraData>(true)).Where(ed => ed != null).ToList(); ;
         
-        foreach(ModObject pModObject in ModClass.ModObjectManager)
+        foreach(ModLayer pModLayer in ModClass.ModLayer_MANAGER)
         {
             try
             {
-                pModObject.save();
-                saveData.pModObjectDatas.Add(pModObject.data);
+                pModLayer.save();
+                saveData.pModLayerDatas.Add(pModLayer.data);
             } catch
             {
                 LogService.LogInfo("存在模组层级数据出错，跳过该存档");
