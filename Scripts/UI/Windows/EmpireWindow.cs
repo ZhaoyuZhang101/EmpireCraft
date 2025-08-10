@@ -101,16 +101,16 @@ namespace EmpireCraft.Scripts.UI.Windows
             
             var leftPart2 = topSpace.BeginVertGroup(pAlignment:TextAnchor.LowerCenter, pPadding: new RectOffset(0,0,6,0));
             leftPart2.AddTextIntoVertLayout(LM.Get("empire_heir").ColorString(pColor:new Color(0.8f,0.0f,1f)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
-            leftPart2.AddActorViewIntoVertLayout(_empire.Heir);
+            leftPart2.AddActorViewIntoVertLayout(_empire.CoreKingdom.GetHeir());
             
             //中央信息栏
             var centerPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.UpperCenter, pPadding: new RectOffset(0,0,0,4));
-            centerPart.AddTextIntoVertLayout(LM.Get(_empire.HasEmperor()?_empire.emperor.isSexFemale()?"actor_emperor_G":"actor_emperor_B":"actor_emperor_B").ColorString(pColor:new Color(1,0.8f,0)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
-            centerPart.AddActorViewIntoVertLayout(_empire.emperor);
+            centerPart.AddTextIntoVertLayout(LM.Get(_empire.HasEmperor()?_empire.Emperor.isSexFemale()?"actor_emperor_G":"actor_emperor_B":"actor_emperor_B").ColorString(pColor:new Color(1,0.8f,0)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
+            centerPart.AddActorViewIntoVertLayout(_empire.Emperor);
             
             var rightPart2 = topSpace.BeginVertGroup(pAlignment:TextAnchor.LowerCenter, pPadding: new RectOffset(0,0,6,0));
-            rightPart2.AddTextIntoVertLayout(LM.Get(_empire.HasEmperor()?_empire.emperor.hasLover()?_empire.emperor.lover.isSexFemale()?"empire_lover_G":"empire_lover_B":"empire_lover_B":"empire_lover_B").ColorString(pColor:new Color(1f,0.1f,0.5f)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
-            rightPart2.AddActorViewIntoVertLayout(_empire.emperor?.lover);
+            rightPart2.AddTextIntoVertLayout(LM.Get(_empire.HasEmperor()?_empire.Emperor.hasLover()?_empire.Emperor.lover.isSexFemale()?"empire_lover_G":"empire_lover_B":"empire_lover_B":"empire_lover_B").ColorString(pColor:new Color(1f,0.1f,0.5f)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
+            rightPart2.AddActorViewIntoVertLayout(_empire.Emperor?.lover);
             
             //右侧信息栏
             var rightPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
@@ -119,7 +119,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                                             $"{_empire.GetMembersWithTrait("gongshi").Count.ToString().ColorString("#CB9DF0")}/" +
                                             $"{_empire.GetMembersWithTrait("juren").Count.ToString()}".ColorString("#A2D2DF"));
             rightPart.AddTextIntoVertLayout($"{_empire.GetYearNameWithTime().ColorString(pColor:_empire.getColor()._colorText)}");
-            rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.empire.getAge()}");
+            rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.CoreKingdom.getAge()}");
             
             topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 1));
             
@@ -156,7 +156,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 ListPastEmperor(statsRow, history);
             }
             text = _empire.GetEmpireName() + _empire.data.year_name + LM.Get("emperor");
-            statsRow.tryToShowActor("current_emperor", -1L, null, _empire.emperor, "iconKings");
+            statsRow.tryToShowActor("current_emperor", -1L, null, _empire.Emperor, "iconKings");
             statsRow.IShowStatsRow("title_name", text, _empire.getColor().color_text);
             StartCoroutine(statsRow.showRows());
         }

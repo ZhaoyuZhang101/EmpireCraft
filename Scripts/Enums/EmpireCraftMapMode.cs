@@ -4,13 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EmpireCraft.Scripts.Enums
+namespace EmpireCraft.Scripts.Enums;
+
+public enum EmpireCraftMapMode
 {
-    public enum EmpireCraftMapMode
-    {
-        Empire,
-        Title,
-        Province,
-        None
-    }
+    Empire,
+    Title,
+    Province,
+    None
 }

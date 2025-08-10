@@ -17,11 +17,6 @@ public class SuccessionToolPatch : GamePatch
 
     public static bool FindNextHeir(Kingdom pKingdom, Actor pExculdeActor, ref Actor __result)
     {
-        if (pKingdom.isEmpire())
-        {
-            __result = pKingdom.GetEmpire().Heir;
-            return false;
-        }
         __result = pKingdom.GetHeir();
         return false;
     }

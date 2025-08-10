@@ -59,8 +59,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                     kl.textArmy.text = empire.countWarriors().ToString();
                     kl.textCities.text = empire.countCities().ToString();
                     kl.textZones.text = empire.countZones().ToString();
-                    kl.avatarLoader.load(empire.empire.king);
-                    kl.meta_object = empire.empire;
+                    kl.avatarLoader.load(empire.CoreKingdom.king);
+                    kl.meta_object = empire.CoreKingdom;
                     kl.loadBanner();
                     inst.name = "list_element_kingdom";
                     inst.SetActive(true);

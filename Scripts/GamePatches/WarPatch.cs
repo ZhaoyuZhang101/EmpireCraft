@@ -193,7 +193,7 @@ public class WarPatch: GamePatch
                     Empire empire = aKingdom.GetEmpire();
                     if (empire.HasEmperor())
                     {
-                        empire.emperor.editRenown(30);
+                        empire.Emperor.editRenown(30);
                     }
                     empire.AddRenown(30);
                 }
@@ -202,7 +202,7 @@ public class WarPatch: GamePatch
                     Empire empire = dKingdom.GetEmpire();
                     if (empire.HasEmperor())
                     {
-                        empire.emperor.editRenown(-50);
+                        empire.Emperor.editRenown(-50);
                     }
                     empire.AddRenown(-50);
                 }
@@ -213,7 +213,7 @@ public class WarPatch: GamePatch
                     Empire empire = dKingdom.GetEmpire();
                     if (empire.HasEmperor())
                     {
-                        empire.emperor.editRenown(30);
+                        empire.Emperor.editRenown(30);
 
                     }
                     empire.AddRenown(30);
@@ -223,7 +223,7 @@ public class WarPatch: GamePatch
                     Empire empire = aKingdom.GetEmpire();
                     if (empire.HasEmperor())
                     {
-                        empire.emperor.editRenown(-50);
+                        empire.Emperor.editRenown(-50);
                     }
                     empire.AddRenown(-50);
                 }

@@ -213,7 +213,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public void ShowLoversActorSpace()
     {
         List<(ClanRelation, PersonalClanIdentity)> personalClanIdentities = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (_identity.hasLover())
+        if (_identity.HasLover())
         {
             personalClanIdentities.Add((ClanRelation.LOV, SpecificClanManager.getPerson(_identity.lover.identity)));
         }
@@ -272,7 +272,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public AutoVertLayoutGroup ShowChildrenGenerationSpace()
     {
         List<(ClanRelation, PersonalClanIdentity)> personalClanIdentities = new List<(ClanRelation, PersonalClanIdentity)>();
-        personalClanIdentities.AddRange(SpecificClanManager.getChildren(_identity));
+        personalClanIdentities.AddRange(SpecificClanManager.GetChildren(_identity));
         LogService.LogInfo("子嗣数量: "+ personalClanIdentities.Count.ToString());
         return ShowSpaceBase("current_children_generation", personalClanIdentities);
     }
@@ -346,7 +346,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         nameText.Setup($"<color=#FF4500>{(actor.is_alive?"":LM.Get("is_dead")+"-")}</color>{actor.name} ({LM.Get($"relation_{relation.ToString()}")}-{LM.Get(actor.isMainText)})", pSize: new Vector2(50, 10));
         
         SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
-        timeText.Setup($"{actor.birthday+"-"+actor.getDeathday()}", pSize: new Vector2(50, 10));
+        timeText.Setup($"{actor.birthday+"-"+actor.GetDeathday()}", pSize: new Vector2(50, 10));
 
         leftVertGroup.AddChild(nameText.gameObject);
         leftVertGroup.AddChild(timeText.gameObject);
@@ -370,7 +370,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         levelText.Setup(LM.Get($"relation_{relation.ToString()}"), pSize: new Vector2(50, 10));
 
         SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
-        timeText.Setup($"{actor.birthday+"-"+actor.getDeathday()}", pSize: new Vector2(50, 10));
+        timeText.Setup($"{actor.birthday+"-"+actor.GetDeathday()}", pSize: new Vector2(50, 10));
 
 
         leftVertGroup.AddChild(nameText.gameObject);

@@ -107,10 +107,7 @@ public class KingdomPatch : GamePatch
         {
             if (__instance.HasHeir())
             {
-                if (__instance.GetHeir() == pActor)
-                {
-                    __instance.RemoveHeir();
-                }
+                __instance.RemoveHeir();
             }
             pActor.CheckSpecificClan();
             if (__instance.HasTitle())
@@ -176,6 +173,7 @@ public class KingdomPatch : GamePatch
             {
                 // ignored
             }
+            __instance.NeedToChooseHeir();
         }
     }
 

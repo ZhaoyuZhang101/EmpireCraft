@@ -1,17 +1,12 @@
-﻿using ai.behaviours;
+﻿using System;
+using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
-using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
-using NeoModLoader.services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace EmpireCraft.Scripts.AI;
-public class EmpireCraftKingdomBehCheckInerOffice: BehaviourActionKingdom
+namespace EmpireCraft.Scripts.AI.KingdomAI;
+public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
 {
+    public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
     {
         if (pKingdom.isEmpire())
@@ -22,4 +17,5 @@ public class EmpireCraftKingdomBehCheckInerOffice: BehaviourActionKingdom
         }
         return BehResult.Continue;
     }
+
 }

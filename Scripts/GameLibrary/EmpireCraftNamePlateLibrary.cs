@@ -34,10 +34,10 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     if (empire != null)
                     {
-                        if (empire.empire != null && isWithinCamera(empire.GetEmpireCenter()))
+                        if (empire.CoreKingdom != null && isWithinCamera(empire.GetEmpireCenter()))
                         {
                             NameplateText npt = prepareNext(pManager, pAsset, 37, 12, 39, 11);
-                            showTextEmpire(npt, empire.empire);
+                            showTextEmpire(npt, empire.CoreKingdom);
                         }
                     }
                 }
@@ -385,7 +385,7 @@ public static class EmpireCraftNamePlateLibrary
             plateText._show_banner_clan = true;
             plateText._banner_clan.load(kingClan);
         }
-        plateText.nano_object = empire.empire;
+        plateText.nano_object = empire.CoreKingdom;
     }
 
     public static void showTextTitle(NameplateText plateText, City capital)

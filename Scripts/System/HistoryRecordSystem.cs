@@ -66,10 +66,10 @@ public static class HistoryRecordSystem
         //记录历史
         empire.data.currentHistory = new EmpireCraftHistory
         {
-            id = empire.emperor.getID(),
+            id = empire.Emperor.getID(),
             empire_name = empire.GetEmpireName(),
             year_name = empire.data.year_name,
-            emperor = empire.emperor.name,
+            emperor = empire.Emperor.name,
             miaohao_name = "",
             shihao_name = "",
             descriptions = new List<string>(),
@@ -78,8 +78,8 @@ public static class HistoryRecordSystem
         };
         empire.RecordHistory(EmpireHistoryType.new_emperor_history, new Dictionary<string, string>()
         {
-            ["actor"] = empire.emperor.name,
-            ["place"] = empire.empire.capital.GetCityName(),
+            ["actor"] = empire.Emperor.name,
+            ["place"] = empire.CoreKingdom.capital.GetCityName(),
             ["year_name"] = empire.data.year_name,
         });
     }

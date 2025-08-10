@@ -29,7 +29,6 @@ public class EmpireData : MetaObjectData
     public bool original_royal_been_changed { get; set; } = false;
     public double original_royal_been_changed_timestamp { get; set; }
     public string founder_actor_name { get; set; }
-    public bool is_need_to_check_futher_heir { get; set; } = false;
     [DefaultValue(-1L)]
     public long founder_actor_id { get; set; } = -1L;
     public string founder_kingdom_name { get; set; }
@@ -43,9 +42,6 @@ public class EmpireData : MetaObjectData
 
     [DefaultValue(-1L)]
     public long founder_kingdom_id { get; set; } = -1L;
-    public long emperor { get; set; } = -1L;
-    public long empire_clan { get; set; } = -1L;
-
     public List<long> kingdoms;
     public List<string> history_emperrors = new List<string>();
 

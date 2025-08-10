@@ -182,7 +182,7 @@ public class CityPatch : GamePatch
         if (__instance.hasProvince())
         {
             Province province = __instance.GetProvince();
-            bool isSameEmpire = province?.empire?.empire?.isInSameEmpire(pNewSetKingdom) ?? false;
+            bool isSameEmpire = province?.empire?.CoreKingdom?.isInSameEmpire(pNewSetKingdom) ?? false;
             bool isCurrentlyOccupied = province?.occupied_cities?.ContainsKey(__instance) ?? false;
             double currentTime = World.world.getCurWorldTime();
 
@@ -225,13 +225,14 @@ public class CityPatch : GamePatch
             // 如果新加入的王国是帝国的一部分，并且城市被占领，则将城市加入帝国
             if (empire.GetEmpirePeriod()!= EmpirePeriod.天命丧失&&empire.GetEmpirePeriod() != EmpirePeriod.下降)
             {
-                pNewSetKingdom = pNewSetKingdom.GetEmpire().empire;
+                pNewSetKingdom = pNewSetKingdom.GetEmpire().CoreKingdom;
             }
         }
         __instance.setKingdom(pNewSetKingdom);
         __instance.newForceKingdomEvent(__instance.units, __instance._boats, pNewSetKingdom, pHappinessEvent);
         __instance.switchedKingdom();
         pNewSetKingdom.capturedFrom(pKingdom);
+        World.world.zone_calculator.dirtyAndClear();
         return false;
     }
     public static bool removeZone(City __instance, TileZone pZone)
@@ -259,9 +260,9 @@ public class CityPatch : GamePatch
     private static void ApplyRebellionPenalty(Province province)
     {
         Empire empire = province.empire;
-        if (empire != null && empire.empire != null)
+        if (empire != null && empire.CoreKingdom != null)
         {
-            int renownLoss = empire.empire.getRenown() / 2;
+            int renownLoss = empire.CoreKingdom.getRenown() / 2;
             empire.AddRenown(-renownLoss);
 
             // 可选：添加日志记录

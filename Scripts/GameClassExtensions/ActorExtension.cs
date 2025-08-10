@@ -41,11 +41,11 @@ public class Name
     }
     public bool hasFamilyName(Actor actor)
     {
-        return familyName != "" && familyName != null;
+        return !string.IsNullOrEmpty(familyName);
     }
     public bool hasFirstName(Actor actor)
     {
-        return firstName != "" && firstName != null;
+        return !string.IsNullOrEmpty(firstName);
     }
     public bool hasCulture(Actor actor)
     {
@@ -79,7 +79,7 @@ public class Name
                         cityName = actor.current_tile.zone_city.name;
                     } else
                     {
-                        if (actor.getParents().Count()>0) 
+                        if (actor.getParents().Any()) 
                         {
                             if (actor.getParents().Any(a=>a.hasCity()))
                             {
@@ -226,17 +226,13 @@ public static class ActorExtension
     public static void SetTitle(this Actor a, string value)
     {
         if (a == null || value == null) return;
-        if (a.kingdom == null) return;
-        if (a.kingdom.GetEmpire() == null) return;
+        if (a.kingdom?.GetEmpire() == null) return;
         GetOrCreate(a).title = value + "\u200A" + TranslateHelper.GetPeerageTranslate(a.GetPeeragesLevel());
     }
     public static SpecificClan GetSpecificClan(this Actor a)
     {
-        if (a == null) return null;
-        var identity = a.GetPersonalIdentity();
-        return identity != null
-            ? identity._specificClan
-            : null;
+        var identity = a?.GetPersonalIdentity();
+        return identity?._specificClan;
     }
     public static PersonalClanIdentity GetPersonalIdentity(this Actor a)
     {
@@ -267,13 +263,13 @@ public static class ActorExtension
     {
         if (a == null) return null;
         var ed = a.GetOrCreate();
-        PersonalClanIdentity pci = new PersonalClanIdentity();
-        pci.newPersonalClanIdentity(clan, a);
+        var pci = new PersonalClanIdentity();
+        pci.NewPersonalClanIdentity(clan, a);
         clan._cache.Add(pci.id, pci);
         a.SetPersonalIdentity (pci);
         if (a.hasLover())
         {
-            pci.setLover(a.lover);
+            pci.SetLover(a.lover);
         }
         return pci;
     }
@@ -669,20 +665,6 @@ public static class ActorExtension
         return false;
     }
 
-    public static Empire getHeirEmpire(this Actor a)
-    {
-        if (a == null) return null;
-        foreach(Empire empire in ModClass.EMPIRE_MANAGER)
-        {
-            if (empire.Heir == null) continue;
-            if(empire.Heir.getID()==a.getID())
-            {
-                return empire;
-            }
-        }
-        return null;
-    }
-
     public static void DegradeOfficial(this Actor a)
     {
         if (GetOrCreate(a).officeIdentity==null)
@@ -825,13 +807,13 @@ public static class ActorExtension
     {
         if (!a.hasKingdom()) return false;
         if (a.kingdom.GetEmpire() == null) return false;
-        if (a.kingdom.GetEmpire().emperor.GetOwnedTitle()==null) return false;
+        if (a.kingdom.GetEmpire().Emperor.GetOwnedTitle()==null) return false;
         if (a.kingdom.capital.GetTitle()==null) return false;
         if (a.kingdom.isInEmpire())
         {
             if (a.kingdom.capital.hasTitle())
             {
-                return a.kingdom.GetEmpire().emperor.GetOwnedTitle().Contains(a.kingdom.capital.GetTitle().data.id);
+                return a.kingdom.GetEmpire().Emperor.GetOwnedTitle().Contains(a.kingdom.capital.GetTitle().data.id);
             }
         }
         return false;
@@ -843,7 +825,7 @@ public static class ActorExtension
         if (!a.isKing()) return false;
         Kingdom kingdom = a.kingdom;
         if (kingdom == null) return false;
-        List<long> controlledTitles = kingdom.getcontrolledTitle().FindAll(t=>!t.owner.isEmperor()).Select(t=>t.data.id).ToList();
+        List<long> controlledTitles = kingdom.getcontrolledTitle().FindAll(t=>!t.owner.IsEmperor()).Select(t=>t.data.id).ToList();
         var commonTitles = controlledTitles.Intersect(a.GetOwnedTitle());
         return commonTitles.Count() < controlledTitles.Count();
     }
@@ -879,7 +861,7 @@ public static class ActorExtension
                 t.main_kingdom.RemoveMainTitle();
                 t.main_kingdom = null;
             }
-            if(t.HasOwner()&&t.owner.isEmperor())
+            if(t.HasOwner()&&t.owner.IsEmperor())
             {
                 if (!a.GetAcquireTitle().Contains(t.id)&&t.owner.getID()!=a.getID()) 
                 {
@@ -927,7 +909,7 @@ public static class ActorExtension
         var ed = GetOrCreate(a);
         if (a.GetOwnedTitle().Contains(title.data.id))
         {
-            if (!a.isEmperor()&&a.isKing())
+            if (!a.IsEmperor()&&a.isKing())
             {
                 if (a.kingdom.GetKingdomName()==title.data.name)
                 {
@@ -976,7 +958,7 @@ public static class ActorExtension
         ed.want_acuired_title.Clear();
     }
 
-    public static bool isEmperor(this Actor a)
+    public static bool IsEmperor(this Actor a)
     {
         if (a==null) return false;
         return GetOrCreate(a).empire_id!=-1L;
