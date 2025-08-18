@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class CityWindowPatch : GamePatch
@@ -43,11 +44,11 @@ public class CityWindowPatch : GamePatch
         Transform space = _window.tabs.transform.Find("space (1)");
         if (space != null) 
         {
-            GameObject.Destroy(space.gameObject);
+            Object.Destroy(space.gameObject);
         }
         if (_window.tabs._tabs.All(p => p.name != "city_setting"))
         {
-            SimpleWindowTab simpleWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            SimpleWindowTab simpleWindowTab = Object.Instantiate(SimpleWindowTab.Prefab);
             simpleWindowTab.Setup("city_setting", _window.scroll_window, CreateCitySettingContent());
             if (city.GetMaxPopulationLimitStats())
             {

@@ -25,7 +25,7 @@ public class ProvinceData : MetaObjectData
 
     [DefaultValue(-1L)]
     public long founder_empire_id { get; set; } = -1L;
-    public long officer { get; set; } = -1L;
+    public long Officer { get; set; } = -1L;
     public string original_actor_asset;
     public long province_capital = -1L;
     public List<long> cities;

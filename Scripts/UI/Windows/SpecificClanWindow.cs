@@ -38,20 +38,13 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         var namePart = text.Split('\u200A');
         _clanInput.input.text = namePart[0] + "\u200A" + LM.Get("specific_clan");
         _sc.name = namePart[0];
-        foreach (var member in _sc._cache)
+        foreach (var member in _sc._cache.Where(member => member.Value.is_alive))
         {
-            if (member.Value.is_alive)
+            member.Value._actor.GetModName().familyName = namePart[0];
+            member.Value._actor.GetModName().SetName(member.Value._actor);
+            if (member.Value._actor.hasClan())
             {
-                member.Value._actor.GetModName().familyName = text;
-                member.Value._actor.GetModName().SetName(member.Value._actor);
-            }
-
-            foreach (var clan in World.world.clans)
-            {
-                if (clan.HasSpecificClan())
-                {
-                    clan.data.name = clan.data.name = text + "\u200A" + LM.Get("Clan");
-                }
+                member.Value._actor.clan.data.name = namePart[0] + "\u200A" + LM.Get("Clan");
             }
         }
         LogService.LogInfo("changing clan name");
@@ -61,7 +54,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
-        this._actor = SelectedUnit.unit;
+        _actor = SelectedUnit.unit;
         
         LogService.LogInfo($"选择角色的名称为{this._actor.name}");
         if (this._actor == null) return;
@@ -220,7 +213,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public void ShowLoversActorSpace()
     {
         List<(ClanRelation, PersonalClanIdentity)> personalClanIdentities = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (_identity.hasLover())
+        if (_identity.HasLover())
         {
             personalClanIdentities.Add((ClanRelation.LOV, SpecificClanManager.getPerson(_identity.lover.identity)));
         }
@@ -279,7 +272,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public AutoVertLayoutGroup ShowChildrenGenerationSpace()
     {
         List<(ClanRelation, PersonalClanIdentity)> personalClanIdentities = new List<(ClanRelation, PersonalClanIdentity)>();
-        personalClanIdentities.AddRange(SpecificClanManager.getChildren(_identity));
+        personalClanIdentities.AddRange(SpecificClanManager.GetChildren(_identity));
         LogService.LogInfo("子嗣数量: "+ personalClanIdentities.Count.ToString());
         return ShowSpaceBase("current_children_generation", personalClanIdentities);
     }
@@ -353,7 +346,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         nameText.Setup($"<color=#FF4500>{(actor.is_alive?"":LM.Get("is_dead")+"-")}</color>{actor.name} ({LM.Get($"relation_{relation.ToString()}")}-{LM.Get(actor.isMainText)})", pSize: new Vector2(50, 10));
         
         SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
-        timeText.Setup($"{actor.birthday+"-"+actor.getDeathday()}", pSize: new Vector2(50, 10));
+        timeText.Setup($"{actor.birthday+"-"+actor.GetDeathday()}", pSize: new Vector2(50, 10));
 
         leftVertGroup.AddChild(nameText.gameObject);
         leftVertGroup.AddChild(timeText.gameObject);
@@ -377,7 +370,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         levelText.Setup(LM.Get($"relation_{relation.ToString()}"), pSize: new Vector2(50, 10));
 
         SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
-        timeText.Setup($"{actor.birthday+"-"+actor.getDeathday()}", pSize: new Vector2(50, 10));
+        timeText.Setup($"{actor.birthday+"-"+actor.GetDeathday()}", pSize: new Vector2(50, 10));
 
 
         leftVertGroup.AddChild(nameText.gameObject);

@@ -386,9 +386,9 @@ public static class EmpireCraftMetaTypeLibrary
         Color32 colorMain = Toolbox.color_clear;
         if (empire != null)
         {
-            if (empire.empire.isAlive())
+            if (empire.CoreKingdom.isAlive())
             {
-                ColorAsset color = empire.empire.getColor();
+                ColorAsset color = empire.CoreKingdom.getColor();
                 colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
                 colorMain = color.getColorMain2();
                 if (zone_manager.shouldBeClearColor())
@@ -405,7 +405,7 @@ public static class EmpireCraftMetaTypeLibrary
         Province p = pZone.city.GetProvince();
         if (p == null) return;
         Empire empire = p.empire;
-        Kingdom mainKingdom = empire.empire;
+        Kingdom mainKingdom = empire.CoreKingdom;
         if (!mainKingdom.isAlive())
         {
             ModClass.PROVINCE_MANAGER.dissolveProvince(p);
@@ -435,7 +435,7 @@ public static class EmpireCraftMetaTypeLibrary
             ColorAsset color = mainKingdom.getColor();
             colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
             colorMain = color.getColorMain2();
-            if(p.empire.empire!=pZone.city.kingdom)
+            if(p.empire.CoreKingdom!=pZone.city.kingdom)
             {
                 colorMain.r += 5;
                 colorMain.a -= 5;

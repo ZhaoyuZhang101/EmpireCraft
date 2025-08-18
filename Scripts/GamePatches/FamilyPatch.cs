@@ -31,13 +31,13 @@ public class FamilyPatch : GamePatch
         Culture culture = null;
         if (pActor1 != null)
         {
-            if (pActor1.GetModName().hasFamilyName(pActor1))
+            if (pActor1.GetModName().HasFamilyName(pActor1))
             {
                 string cityName = pActor1.city.GetCityName();
                 string familyName = pActor1.GetModName().familyName;
                 string familyEnd = LM.Get("Family");
                 __instance.data.name = string.Join("\u200A", cityName, familyName, familyEnd);
-                OverallHelperFunc.SetFamilyCityPre(__instance);
+                __instance.SetFamilyCityPre();
             }
             else
             {
@@ -45,10 +45,10 @@ public class FamilyPatch : GamePatch
                 {
                     culture = pActor1.culture;
                     __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName();
-                    OverallHelperFunc.SetFamilyCityPre(__instance, false);
-                    if (!pActor1.GetModName().hasFamilyName(pActor1))
+                    __instance.SetFamilyCityPre(false);
+                    if (!pActor1.GetModName().HasFamilyName(pActor1))
                     {
-                        pActor1.SetFamilyName(__instance.getFamilyName());
+                        pActor1.SetFamilyName(__instance.GetFamilyName());
                     }
                     if (pActor1.GetModName().has_whole_name(pActor1))
                     {
@@ -60,9 +60,9 @@ public class FamilyPatch : GamePatch
                         {
                             pActor2.setCulture(culture);
                         }
-                        if (!pActor2.GetModName().hasFamilyName(pActor2))
+                        if (!pActor2.GetModName().HasFamilyName(pActor2))
                         {
-                            pActor2.SetFamilyName(__instance.getFamilyName());
+                            pActor2.SetFamilyName(__instance.GetFamilyName());
                         }
                         if (pActor2.GetModName().has_whole_name(pActor2))
                         {
@@ -75,45 +75,42 @@ public class FamilyPatch : GamePatch
 
         if (pActor2 != null)
         {
-            if (pActor2.GetModName().hasFamilyName(pActor2))
+            if (pActor2.GetModName().HasFamilyName(pActor2))
             {
                 string cityName = pActor2.city.GetCityName();
                 string familyName = pActor2.GetModName().familyName;
                 string familyEnd = LM.Get("Family");
                 __instance.data.name = string.Join("\u200A", cityName, familyName, familyEnd);
-                OverallHelperFunc.SetFamilyCityPre(__instance);
+                __instance.SetFamilyCityPre();
             }
             else
             {
-                if (pActor2.hasCulture())
+                if (!pActor2.hasCulture()) return;
+                culture = pActor2.culture;
+                __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName();
+                __instance.SetFamilyCityPre(false);
+                if (!pActor2.GetModName().HasFamilyName(pActor2))
                 {
-                    culture = pActor2.culture;
-                    __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName();
-                    OverallHelperFunc.SetFamilyCityPre(__instance, false);
-                    if (!pActor2.GetModName().hasFamilyName(pActor2))
-                    {
                         
-                        pActor2.SetFamilyName(__instance.getFamilyName());
-                    }
-                    if (pActor2.GetModName().has_whole_name(pActor2))
-                    {
-                        pActor2.GetModName().SetName(pActor2);
-                    }
-                    if (pActor1 != null)
-                    {
-                        if (!pActor1.hasCulture())
-                        {
-                            pActor1.setCulture(culture);
-                        }
-                        if (!pActor1.GetModName().hasFamilyName(pActor1))
-                        {
-                            pActor1.SetFamilyName(__instance.getFamilyName());
-                        }
-                        if (pActor1.GetModName().has_whole_name(pActor1))
-                        {
-                            pActor1.GetModName().SetName(pActor1);
-                        }
-                    }
+                    pActor2.SetFamilyName(__instance.GetFamilyName());
+                }
+                if (pActor2.GetModName().has_whole_name(pActor2))
+                {
+                    pActor2.GetModName().SetName(pActor2);
+                }
+
+                if (pActor1 == null) return;
+                if (!pActor1.hasCulture())
+                {
+                    pActor1.setCulture(culture);
+                }
+                if (!pActor1.GetModName().HasFamilyName(pActor1))
+                {
+                    pActor1.SetFamilyName(__instance.GetFamilyName());
+                }
+                if (pActor1.GetModName().has_whole_name(pActor1))
+                {
+                    pActor1.GetModName().SetName(pActor1);
                 }
             }
         }

@@ -9,116 +9,315 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.HelperFunc;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 
 public static class KingdomExtension
 {
+    public static readonly SemaphoreSlim _sem = new SemaphoreSlim(Environment.ProcessorCount);
     public class KingdomExtraData: ExtraDataBase
     {
         [JsonConverter(typeof(StringEnumConverter))]
-        public countryLevel country_level = countryLevel.countrylevel_4;
-        public long vassaled_kingdom_id = -1L;
-        public long empireID = -1L;
-        public double timestamp_empire = -1L;
+        public countryLevel CountryLevel = countryLevel.countrylevel_4;
+        public long VassaledKingdomID = -1L;
+        public long EmpireID = -1L;
+        public double TimestampEmpire = -1L;
         public int loyalty = 0;
         public string KingdomNamePre = "";
-        public double timestamp_beFeifed = -1L;
-        public double taxtRate = 0.1;
-        public long main_title_id = -1L;
+        public double TimestampBeFeifed = -1L;
+        public double TaxRate = 0.1;
+        public long MainTitleID = -1L;
+        public long HeirID = -1L;
+        [JsonIgnore]
+        public Actor Heir => World.world.units.get(HeirID);
+        [JsonIgnore]
+        public Task<(Actor, string)> CalcTask;
         public List<long> OwnedTitle = new List<long>();
-        public long provinceID = -1L;
-        public int independentValue = 100;
+        public long ProvinceID = -1L;
+        public int IndependentValue = 100;
+        public bool is_need_to_choose_heir = false;
     }
     public static int GetIndependentValue(this Kingdom k)
     {
         var ed = k.GetOrCreate();
         if (ed != null)
         {
-            return ed.independentValue;
+            return ed.IndependentValue;
         } else
         {
             return 100;
         }
     }
+
+    public static bool CalcHeirFinished(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        return ed.CalcTask == null;
+    }
+
+    public static Actor GetKing(this Kingdom k)
+    {
+        return k.king;
+    }
+
+    public static void SetCalcHeirTask(this Kingdom k, Task<(Actor, string)> calcTask)
+    {
+        var ed = k.GetOrCreate();
+        ed.CalcTask = calcTask;
+    }
+
+    public static Task<(Actor pActor, string relation)> GetCalcHeirTask(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        return ed.CalcTask;
+    }
+    public static void RemoveCalcHeirStatus(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        ed.CalcTask = null;
+    }
     public static void SetIndependentValue(this Kingdom k, int value)
     {
         var ed = k.GetOrCreate();
-        ed.independentValue = value;
+        ed.IndependentValue = value;
     }
 
     public static void AddIndependentValue(this Kingdom k, int addition)
     {
         var ed = k.GetOrCreate();
-        ed.independentValue += addition;
-        if (ed.independentValue < 0)
+        ed.IndependentValue += addition;
+        if (ed.IndependentValue < 0)
         {
-            ed.independentValue = 0;
-        } else if (ed.independentValue > 100)
+            ed.IndependentValue = 0;
+        } else if (ed.IndependentValue > 100)
         {
-            ed.independentValue = 100;
+            ed.IndependentValue = 100;
         }
     }
 
-    public static bool isIndependent(this Kingdom kingdom)
+    public static Actor GetHeir(this Kingdom k)
     {
-        var ed = kingdom.GetOrCreate();
-        return ed.independentValue >= 100;
+        LogService.LogInfo("获得继承人");
+        var ed = k.GetOrCreate();
+        return ed.Heir;
+    }
+    public static void RemoveHeir(this Kingdom k)
+    {
+        LogService.LogInfo("移除继承人");
+        var ed = k.GetOrCreate();
+        ed.HeirID = -1L;
+    }
+    public static bool HasHeir(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        if (ed.HeirID == -1L) return false;
+        return !ed.Heir.isRekt();
     }
 
-    public static bool canBeTaken(this Kingdom kingdom)
+    public static void SetHeir(this Kingdom k, Actor pActor)
+    {
+        var ed = k.GetOrCreate();
+        ed.HeirID = pActor.getID();
+    }
+    public static (Actor actor, string relation) CalcHeirCore(this Kingdom k)
+    {
+        var res = k.CheckHeir();
+        if (res.actor == null)
+        {
+            res = k.CheckHeir(EmpireHeirLawType.siblings);
+        }
+
+        if (res.actor == null)
+        {
+            res = k.CheckHeir(EmpireHeirLawType.grand_child_generation);
+        }
+
+        if (res.actor == null)
+        {
+            res = k.CheckHeir(EmpireHeirLawType.random);
+        }
+
+        if (res.actor == null)
+        {
+            res = k.CheckHeir(EmpireHeirLawType.officer);
+        }
+        if (res.actor != null)
+            return res;
+        return (null, null);
+    }
+
+    private static (Actor actor, string relation) CheckHeir(this Kingdom k, EmpireHeirLawType secondSelection=EmpireHeirLawType.eldest_child, PersonalClanIdentity pActor = null)
+    {
+        LogService.LogInfo("检查继承人");
+        if (k == null) return (null, "");
+        Actor actor = null;
+        var flag = k.isEmpire();
+        var logPreText = flag ? "Empire: " : "Kingdom: ";
+        PersonalClanIdentity pci = pActor??k.king?.GetPersonalIdentity();
+        List<(ClanRelation, PersonalClanIdentity)> children = SpecificClanManager.GetChildren(pci).FindAll(a=>a.Item2.CanHeir(pci));
+        children.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>.Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
+        var relationText = secondSelection.ToString();
+        switch (secondSelection)
+        {
+            case EmpireHeirLawType.eldest_child:
+                if (children.Any())
+                {
+                    actor = children.Last().Item2._actor; // Assuming eldest is the last after sorting by age
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.3f, 0.2f));
+                    LogService.LogInfo(logPreText + relationText);
+                }
+                break;
+            case EmpireHeirLawType.smallest_child:
+                if (children.Any())
+                {
+                    actor = children.First().Item2._actor; // Assuming youngest is the first after sorting by age
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.5f, 0.1f, 0.7f));
+                    LogService.LogInfo(logPreText + relationText);
+                }
+                break;
+            case EmpireHeirLawType.siblings:
+                // Logic for selecting a brother heir can be added here
+                List<(ClanRelation, PersonalClanIdentity)> brothers = SpecificClanManager.GetSiblingsWithRelation(pci).FindAll(a=>a.Item2.CanHeir(pci));
+                brothers.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>
+                    .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
+                if (brothers.Any())
+                {
+                    actor = brothers.Last().Item2._actor;
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.2f, 0.3f, 0.9f));
+                    LogService.LogInfo(logPreText + relationText);
+                }
+                break;
+            case EmpireHeirLawType.grand_child_generation:
+                List<(ClanRelation, PersonalClanIdentity)> grandChildren = SpecificClanManager.GetGrandChildren(pci);
+                grandChildren = grandChildren.FindAll(c=>c.Item2.CanHeir(pci));
+                grandChildren.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>
+                    .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
+                if (grandChildren.Any())
+                {
+                    actor = grandChildren.Last().Item2._actor;
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.1f, 0.9f));
+                    LogService.LogInfo(logPreText + relationText);
+                }
+                break;
+            case EmpireHeirLawType.random:
+                List<(ClanRelation, PersonalClanIdentity)> randomClanMember = SpecificClanManager.FindAllRelations(pci);
+                randomClanMember = randomClanMember.FindAll(c=>c.Item2.CanHeir(pci));
+                randomClanMember.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>
+                    .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
+                if (randomClanMember.Any())
+                {
+                    actor = randomClanMember.Last().Item2._actor;
+                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.6f, 0.9f));
+                    LogService.LogInfo(logPreText + relationText);
+                }
+                break;
+            case EmpireHeirLawType.officer:
+                if (flag)
+                {
+                    Empire empire = k.GetEmpire();
+                    actor = empire.data.centerOffice.Minister.GetActor() 
+                            ?? empire.data.centerOffice.General.GetActor()
+                            ?? empire.data.centerOffice.CoreOffices?.ToList().Find(a=>a.Value?.GetActor()!=null).Value?.GetActor()
+                            ?? empire.data.centerOffice.Divisions?.ToList().Find(a=>a.Value?.GetActor()!=null).Value?.GetActor()
+                            ?? empire.ProvinceList?.ToList().Find(p=>p.HasOfficer())?.Officer
+                            ?? k.capital?.leader;
+                    OfficeIdentity identity = actor?.GetIdentity(empire);
+                    var officeName = string.Join("_", actor?.GetPersonalIdentity()?.culture, identity?.officialLevel);
+                    relationText = LM.Get(officeName).ColorString(pColor:new Color(1.0f, 1.0f, 1.0f));
+                    LogService.LogInfo(logPreText + relationText);
+                }
+                else
+                {
+                    if (k.cities.Any())
+                    {
+                        actor = k.cities.ToList().Find(c => c?.hasLeader()??false)?.leader;
+                        relationText = LM.Get(relationText).ColorString(pColor:new Color(1.0f, 1.0f, 1.0f));
+                        LogService.LogInfo(logPreText + relationText);
+                    }
+                }
+                break;
+        }
+        return (actor, relationText);
+    }
+    public static bool IsIndependent(this Kingdom kingdom)
     {
         var ed = kingdom.GetOrCreate();
-        return ed.independentValue <= 0;
+        return ed.IndependentValue >= 100;
+    }
+
+    public static void NeedToChooseHeir(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        ed.is_need_to_choose_heir = !k.HasHeir();
+    }
+
+    public static bool IsNeedToChooseHeir(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        return ed.is_need_to_choose_heir;
+    }
+
+    public static void ChooseHeirFinished(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        ed.is_need_to_choose_heir = false;
+        LogService.LogInfo("检查王国继承人完毕");
+    }
+    public static bool CanBeTaken(this Kingdom kingdom)
+    {
+        var ed = kingdom.GetOrCreate();
+        return ed.IndependentValue <= 0;
     }
 
     public static void SetMainTitle(this Kingdom k, KingdomTitle title)
     {
         title.main_kingdom = k;
-        GetOrCreate(k).main_title_id = title.id;
+        GetOrCreate(k).MainTitleID = title.id;
     }
 
     public static void RemoveMainTitle(this Kingdom k)
     {
-        if (ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(GetOrCreate(k).main_title_id))
+        if (ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(GetOrCreate(k).MainTitleID))
         {
-            ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id).main_kingdom = null;
+            ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).MainTitleID)!.main_kingdom = null;
         }
-        GetOrCreate(k).main_title_id = -1L;
+        GetOrCreate(k).MainTitleID = -1L;
     }
 
     public static void SetProvince(this Kingdom k, Province province)
     {
-        GetOrCreate(k).provinceID = province.id;
+        GetOrCreate(k).ProvinceID = province.id;
     }
 
     public static Province GetProvince(this Kingdom k)
     {
-        return ModClass.PROVINCE_MANAGER.get(GetOrCreate(k).provinceID);
+        return ModClass.PROVINCE_MANAGER.get(GetOrCreate(k).ProvinceID);
     }
 
     public static long GetProvinceID(this Kingdom k)
     {
-        return GetOrCreate(k).provinceID;
+        return GetOrCreate(k).ProvinceID;
     }
 
     public static KingdomTitle GetMainTitle(this Kingdom k)
     {
         if (k == null) return null;
         if (GetOrCreate(k) == null) return null;
-        if (GetOrCreate(k).main_title_id == -1L) return null;
-        return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id);
+        if (GetOrCreate(k).MainTitleID == -1L) return null;
+        return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).MainTitleID);
     }
 
     public static bool HasMainTitle(this Kingdom k)
     {
-        return GetOrCreate(k).main_title_id != -1L;
+        return GetOrCreate(k).MainTitleID != -1L;
     }
 
     public static bool canBecomeEmpire(this Kingdom k)
@@ -150,16 +349,16 @@ public static class KingdomExtension
     }
     public static double GetTaxtRate(this Kingdom k)
     {
-        return GetOrCreate(k).taxtRate;
+        return GetOrCreate(k).TaxRate;
     }
 
     public static void SetTaxtRate(this Kingdom k, double value)
     {
-        GetOrCreate(k).taxtRate = value;
+        GetOrCreate(k).TaxRate = value;
     }
     public static void IncreaseTaxtRate (this Kingdom k)
     {
-        var t = GetOrCreate(k).taxtRate;
+        var t = GetOrCreate(k).TaxRate;
         if (t < 1.0)
         {
             t += 0.1;
@@ -168,7 +367,7 @@ public static class KingdomExtension
     }
     public static void DecreaseTaxtRate(this Kingdom k)
     {
-        var t = GetOrCreate(k).taxtRate;
+        var t = GetOrCreate(k).TaxRate;
         if (t > 0.1)
         {
             t -= 0.1;
@@ -183,18 +382,18 @@ public static class KingdomExtension
 
     public static double GetFiedTimestamp(this Kingdom k)
     {
-        return GetOrCreate(k).timestamp_beFeifed;
+        return GetOrCreate(k).TimestampBeFeifed;
     }
 
     public static void SetFiedTimestamp(this Kingdom k, double v)
     {
-        GetOrCreate(k).timestamp_beFeifed = v;
+        GetOrCreate(k).TimestampBeFeifed = v;
     }
 
     public static string GetKingdomName(this Kingdom kingdom)
     {
         if (kingdom == null) return null;
-        if (kingdom.name == null||kingdom.name == "") return null;
+        if (string.IsNullOrEmpty(kingdom.name)) return null;
 
         string[] nameParts = kingdom.name.Split('\u200A');
         if (nameParts.Length <= 2)
@@ -215,7 +414,7 @@ public static class KingdomExtension
         if (nameParts.Length <= 1)
         {
             kingdom.data.name = kingdom_name;
-            kingdom.SetCountryLevel(GetOrCreate(kingdom).country_level);
+            kingdom.SetCountryLevel(GetOrCreate(kingdom).CountryLevel);
         }
         else if (nameParts.Length == 2)
         {
@@ -230,7 +429,7 @@ public static class KingdomExtension
     {
         kingdom.data.name = String.Join(name_pre, kingdom.name);
         GetOrCreate(kingdom).KingdomNamePre = name_pre;
-        kingdom.SetCountryLevel(GetOrCreate(kingdom).country_level);
+        kingdom.SetCountryLevel(GetOrCreate(kingdom).CountryLevel);
     }
 
     public static bool isInSameEmpire(this Kingdom kingdom, Kingdom pKingdomTaget)
@@ -265,12 +464,12 @@ public static class KingdomExtension
 
     public static void SetEmpireID(this Kingdom kingdom, long value)
     {
-        GetOrCreate(kingdom).empireID = value;
+        GetOrCreate(kingdom).EmpireID = value;
     }
     public static long GetEmpireID(this Kingdom kingdom)
     {
         if (kingdom == null) return -1L;
-        return GetOrCreate(kingdom).empireID;
+        return GetOrCreate(kingdom).EmpireID;
     }    
     public static Empire GetEmpire(this Kingdom kingdom)
     {
@@ -281,11 +480,11 @@ public static class KingdomExtension
 
     public static void SetTimestampEmpire(this Kingdom kingdom, double value)
     {
-        GetOrCreate(kingdom).timestamp_empire = value;
+        GetOrCreate(kingdom).TimestampEmpire = value;
     }
     public static double GetTimestampEmpire(this Kingdom kingdom)
     {
-        return GetOrCreate(kingdom).timestamp_empire;
+        return GetOrCreate(kingdom).TimestampEmpire;
     }
 
     public static List<Empire> GetEmpiresCanbeJoined(this Kingdom kingdom)
@@ -304,7 +503,7 @@ public static class KingdomExtension
                         Empire empire = k.GetEmpire();
                         if ((double)kingdom.cities.Count()<=((double)empire.AllCities().Count())/5)
                         {
-                            if (kingdom.isOpinionTowardsKingdomGood(k.GetEmpire().empire))
+                            if (kingdom.isOpinionTowardsKingdomGood(k.GetEmpire().CoreKingdom))
                                 empires.Add(k.GetEmpire());
                         }
                     }
@@ -315,9 +514,9 @@ public static class KingdomExtension
     }
     public static void empireJoin(this Kingdom kingdom, Empire pEmpire)
     {
-        kingdom.SetVassaledKingdomID(pEmpire.empire.id);
-        GetOrCreate(kingdom).empireID = pEmpire.data.id;
-        GetOrCreate(kingdom).timestamp_empire = World.world.getCurWorldTime();
+        kingdom.SetVassaledKingdomID(pEmpire.CoreKingdom.id);
+        GetOrCreate(kingdom).EmpireID = pEmpire.data.id;
+        GetOrCreate(kingdom).TimestampEmpire = World.world.getCurWorldTime();
     }
 
     public static bool isEmpire(this Kingdom kingdom)
@@ -327,14 +526,14 @@ public static class KingdomExtension
         var extraData = GetOrCreate(kingdom);
         if (extraData == null) return false;
 
-        return extraData.vassaled_kingdom_id == kingdom.getID();
+        return extraData.VassaledKingdomID == kingdom.getID();
     }
 
     public static void empireLeave (this Kingdom kingdom, bool isLeave = true)
     {
         if (kingdom==null) return;
         if (GetOrCreate(kingdom) == null) return;
-        countryLevel country_level = GetOrCreate(kingdom).country_level;
+        countryLevel country_level = GetOrCreate(kingdom).CountryLevel;
         if ((country_level != countryLevel.countrylevel_1||country_level!=countryLevel.countrylevel_0)&&isLeave)
         {
             string province_level_name = "provincelevel";
@@ -356,13 +555,13 @@ public static class KingdomExtension
         }
         ColorAsset ca = kingdom.getColorLibrary().getNextColor();
         kingdom.updateColor(ca);
-        GetOrCreate(kingdom).empireID = -1L;
-        GetOrCreate(kingdom).vassaled_kingdom_id = -1L;
+        GetOrCreate(kingdom).EmpireID = -1L;
+        GetOrCreate(kingdom).VassaledKingdomID = -1L;
     }
 
     public static string becomeKingdom(this Kingdom kingdom, bool isPlot=false, bool isNew=false)
     {
-        countryLevel country_level = GetOrCreate(kingdom).country_level;
+        countryLevel country_level = GetOrCreate(kingdom).CountryLevel;
         if (isPlot) 
         {
             country_level = countryLevel.countrylevel_2;
@@ -411,7 +610,7 @@ public static class KingdomExtension
 
     public static countryLevel GetCountryLevel(this Kingdom kingdom)
     {
-        return GetOrCreate(kingdom).country_level;
+        return GetOrCreate(kingdom).CountryLevel;
     }
 
     public static List<long> GetOwnedTitle(this Kingdom k)
@@ -433,7 +632,7 @@ public static class KingdomExtension
 
     public static bool hasAnycontrolledTitle(this Kingdom kingdom)
     {
-        return kingdom.getcontrolledTitle().Count()>0;
+        return kingdom.getcontrolledTitle().Any();
     }
 
     public static List<KingdomTitle> getcontrolledTitle(this Kingdom kingdom)
@@ -496,12 +695,12 @@ public static class KingdomExtension
     }
     public static void RemoveProvince(this Kingdom k)
     {
-        GetOrCreate(k).provinceID = -1L;
+        GetOrCreate(k).ProvinceID = -1L;
     }
 
     public static bool isProvince(this Kingdom k)
     {
-        return ModClass.PROVINCE_MANAGER.get(GetOrCreate(k).provinceID) != null;
+        return ModClass.PROVINCE_MANAGER.get(GetOrCreate(k).ProvinceID) != null;
     }
 
     public static void checkLostProvince(this Kingdom k)
@@ -563,7 +762,7 @@ public static class KingdomExtension
                 {
                     province2.addCity(city);
                 }
-                city.joinAnotherKingdom(empire.empire);
+                city.joinAnotherKingdom(empire.CoreKingdom);
             }
         }
 
@@ -577,18 +776,18 @@ public static class KingdomExtension
 
         kingdom.data.name = String.Join("\u200A", kingdomOriginalName, kingdomBack);
 
-        GetOrCreate(kingdom).country_level = value;
+        GetOrCreate(kingdom).CountryLevel = value;
     }    
     public static long GetVassaledKingdomID(this Kingdom kingdom)
     {
-        return GetOrCreate(kingdom).vassaled_kingdom_id;
+        return GetOrCreate(kingdom).VassaledKingdomID;
     }
 
     public static bool isInEmpire(this Kingdom kingdom)
     {
         if (kingdom == null) return false;
         if (GetOrCreate(kingdom) == null) return false;
-        return GetOrCreate(kingdom).empireID != -1L;
+        return GetOrCreate(kingdom).EmpireID != -1L;
     }
 
     public static void SetVassaledKingdomID(this Kingdom kingdom, long value)
@@ -596,7 +795,7 @@ public static class KingdomExtension
         if (value !=-1L)
         {
             //设置国家归属后，将原国家标记为省份， 并依据王国等级决定省份等级
-            countryLevel country_level = GetOrCreate(kingdom).country_level;
+            countryLevel country_level = GetOrCreate(kingdom).CountryLevel;
             string level = country_level.ToString().Split('_').Last();
             string province_level_name = "provincelevel";
             string province_level_string = "";
@@ -624,7 +823,7 @@ public static class KingdomExtension
                 province_name = kingdom.capital.GetCityName() + "\u200A" + LM.Get(province_level_string);
             }
             kingdom.data.name = province_name;
-            GetOrCreate(kingdom).vassaled_kingdom_id = value;
+            GetOrCreate(kingdom).VassaledKingdomID = value;
         } else
         {
             kingdom.empireLeave(false);

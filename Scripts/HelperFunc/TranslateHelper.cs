@@ -21,10 +21,10 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
         public static void LogNewEmpire(Empire empire)
         {
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, empire.empire.king.name, empire.empire.data.name)
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, empire.CoreKingdom.king.name, empire.CoreKingdom.data.name)
             {
-                color_special1 = empire.empire.getColor().getColorText(),
-                color_special2 = empire.empire.getColor().getColorText(),
+                color_special1 = empire.CoreKingdom.getColor().getColorText(),
+                color_special2 = empire.CoreKingdom.getColor().getColorText(),
             }.add();
         }
 
@@ -52,7 +52,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 title)
             {
                 color_special1 = minister.kingdom.getColor()._colorText,
-                color_special2 = empire.empire.getColor()._colorText
+                color_special2 = empire.CoreKingdom.getColor()._colorText
 
             }.add();
         }
@@ -71,7 +71,7 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
         public static void LogProvinceChangeToKingdom(Province province, provinceLevel level)
         {
-            string level_pre = ConfigData.speciesCulturePair.TryGetValue(province.empire.empire.getSpecies(), out string culture) ? culture : "Western";
+            string level_pre = ConfigData.speciesCulturePair.TryGetValue(province.empire.CoreKingdom.getSpecies(), out string culture) ? culture : "Western";
 
             new WorldLogMessage(EmpireCraftWorldLogLibrary.province_change_to_kingdom_log,
                 province.data.name,
@@ -91,8 +91,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 actor.data.name
                 )
             {
-                color_special1 = empire.empire.getColor()._colorText,
-                color_special2 = empire.empire.getColor()._colorText
+                color_special1 = empire.CoreKingdom.getColor()._colorText,
+                color_special2 = empire.CoreKingdom.getColor()._colorText
 
             }.add();
         }
@@ -262,6 +262,20 @@ namespace EmpireCraft.Scripts.HelperFunc
             }
 
         }
+
+        public static void LogKingChooseHeir(Kingdom kingdom,string relation, Actor pActor)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.king_choose_heir_log,
+            kingdom.GetKingdomName(),
+            relation,
+            pActor.data.name)
+            {
+                color_special1 = kingdom.getColor()._colorText,
+                color_special3 = kingdom.getColor()._colorText
+
+            }.add();
+
+        }
         /// <summary>
         /// 新年号
         ///     $empire$ → 帝国名
@@ -276,7 +290,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 title)
             {
                 color_special1 = minister.kingdom.getColor()._colorText,
-                color_special2 = empire.empire.getColor()._colorText
+                color_special2 = empire.CoreKingdom.getColor()._colorText
 
             }.add();
         }
@@ -295,7 +309,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 new_empire.GetEmpireName())
             {
                 color_special1 = minister.kingdom.getColor()._colorText,
-                color_special2 = new_empire.empire.getColor()._colorText,
+                color_special2 = new_empire.CoreKingdom.getColor()._colorText,
             }.add();
         }
         /// <summary>
@@ -309,7 +323,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 empire.name)
             {
                 color_special1 = clan.getColor()._colorText,
-                color_special2 = empire.empire.getColor()._colorText
+                color_special2 = empire.CoreKingdom.getColor()._colorText
             }.add();
         }
         /// <summary>

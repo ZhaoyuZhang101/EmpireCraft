@@ -108,18 +108,18 @@ public static class EmpireCraftQuantumSpriteLibrary
             {
                 Province province = provinces[i];
                 if (province.IsTotalVassaled()) continue;
-                Actor officer = province.officer;
+                Actor officer = province.Officer;
                 if (!officer.isRekt() && !officer.isInMagnet() && !officer.isKing() && officer.current_zone.visible)
                 {
                     Vector3 pPos = officer.current_position;
                     pPos.y -= 3f;
-                    Sprite pSprite = (officer.has_attack_target ? _officer_sprite_angry : (officer.hasPlot() ? _officer_sprite_surprised : (empire.empire.hasEnemies() ? _officer_sprite_normal : ((!officer.isHappy()) ? _officer_sprite_sad : _officer_sprite_happy))));
+                    Sprite pSprite = (officer.has_attack_target ? _officer_sprite_angry : (officer.hasPlot() ? _officer_sprite_surprised : (empire.CoreKingdom.hasEnemies() ? _officer_sprite_normal : ((!officer.isHappy()) ? _officer_sprite_sad : _officer_sprite_happy))));
                     if (!pAsset.group_system.is_withing_active_index)
                     {
                         num++;
                     }
-                    QuantumSprite quantumSprite = QuantumSpriteLibrary.drawQuantumSprite(pAsset, pPos, null, empire.empire, empire.empire.capital);
-                    Sprite icon = DynamicSprites.getIcon(pSprite, empire.empire.getColor());
+                    QuantumSprite quantumSprite = QuantumSpriteLibrary.drawQuantumSprite(pAsset, pPos, null, empire.CoreKingdom, empire.CoreKingdom.capital);
+                    Sprite icon = DynamicSprites.getIcon(pSprite, empire.CoreKingdom.getColor());
                     quantumSprite.setSprite(icon);
                 }
             }
@@ -145,7 +145,7 @@ public static class EmpireCraftQuantumSpriteLibrary
                 Vector3 pPos = king.current_position;
                 pPos.y -= 3f;
                 Sprite pSprite;
-                if (king.isEmperor())
+                if (king.IsEmperor())
                 {
                     pSprite = (king.has_attack_target ? _emperor_sprite_angry : (king.hasPlot() ? _emperor_sprite_surprised : (kingdom.hasEnemies() ? _emperor_sprite_normal : _emperor_sprite_happy)));
                 } else if (kingdom.GetCountryLevel()==Enums.countryLevel.countrylevel_2 && kingdom.isInEmpire())

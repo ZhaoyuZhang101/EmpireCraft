@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace EmpireCraft.Scripts.AI;
-public class EmpireCraftOpinionAddition
+public abstract class EmpireCraftOpinionAddition
 {
     public static void init()
     {
