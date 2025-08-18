@@ -45,7 +45,7 @@ public class CityWindowPatch : GamePatch
         {
             GameObject.Destroy(space.gameObject);
         }
-        if (!_window.tabs._tabs.Any(p => p.name == "city_setting"))
+        if (_window.tabs._tabs.All(p => p.name != "city_setting"))
         {
             SimpleWindowTab simpleWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
             simpleWindowTab.Setup("city_setting", _window.scroll_window, CreateCitySettingContent());
