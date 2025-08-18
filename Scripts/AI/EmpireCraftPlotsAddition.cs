@@ -22,31 +22,30 @@ namespace EmpireCraft.Scripts.AI
     {
         public static void init()
         {
-            AssetManager.plots_library.add(new PlotAsset
-            {
-                id = "become_empire",
-                path_icon = "ChineseCrown.png",
-                group_id = "diplomacy",
-                is_basic_plot = true,
-                min_level = 1,
-                money_cost = 30,
-                priority = 999,
-                progress_needed = 60f,
-                can_be_done_by_king = true,
-                check_is_possible = delegate (Actor pActor)
-                {
-                    if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
-                    Kingdom kingdom = pActor.kingdom;
-                    if (!pActor.isKing()) return false;
-                    if (kingdom.isEmpire()) return false;
-                    if (kingdom.isInEmpire()) return false;
-                    if (!kingdom.HasMainTitle()) return false; //if a kingdom has main title then it could become an empire
-                    ModClass.EMPIRE_MANAGER.update(-1L);
-                    if (!kingdom.canBecomeEmpire()) return false;
-                    return true;
-                },
-                action = BecomeEmpireAndStartEnfeoff
-            });
+            // AssetManager.plots_library.add(new PlotAsset
+            // {
+            //     id = "become_empire",
+            //     path_icon = "ChineseCrown.png",
+            //     group_id = "diplomacy",
+            //     is_basic_plot = true,
+            //     min_level = 1,
+            //     money_cost = 30,
+            //     priority = 999,
+            //     progress_needed = 60f,
+            //     can_be_done_by_king = true,
+            //     check_is_possible = delegate (Actor pActor)
+            //     {
+            //         Kingdom kingdom = pActor.kingdom;
+            //         if (!pActor.isKing()) return false;
+            //         if (kingdom.isEmpire()) return false;
+            //         if (kingdom.isInEmpire()) return false;
+            //         if (!kingdom.HasMainTitle()) return false; //if a kingdom has main title then it could become an empire
+            //         ModClass.EMPIRE_MANAGER.update(-1L);
+            //         if (!kingdom.canBecomeEmpire()) return false;
+            //         return true;
+            //     },
+            //     action = BecomeEmpireAndStartEnfeoff
+            // });
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "province_change_to_kingdom",
@@ -102,7 +101,6 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     if (empire == null) return false;
-                    if (empire.OriginalCapital == null) return false;
                     if (empire.OriginalCapital==kingdom.capital) return false;
                     if (empire.OriginalCapital.kingdom!=kingdom) return false;
                     return true;
@@ -663,7 +661,7 @@ namespace EmpireCraft.Scripts.AI
                         var citiesToReclaim = empire.ProvinceList
                             .Where(p => p.occupied_cities.Count > 0)
                             .SelectMany(p => p.occupied_cities)
-                            .Where(c => c.Key.kingdom != null && c.Key.kingdom != kingdom&&!c.Key.kingdom.isNeutral())
+                            .Where(c => c.Key.kingdom != null && c.Key.kingdom != kingdom)
                             .ToList();
 
                         if (!citiesToReclaim.Any())
@@ -681,18 +679,8 @@ namespace EmpireCraft.Scripts.AI
                             if (kingdom.countTotalWarriors()> target.kingdom.countTotalWarriors())
                             {
                                 if (kingdom == target.kingdom) continue;
-                                if (target.kingdom.isNeutral())
-                                {
-                                    foreach (var city in target.province.city_list_hash)
-                                    {
-                                        city.joinAnotherKingdom(kingdom);
-                                    }
-                                }
-                                else
-                                {
-                                    War war = World.world.diplomacy.startWar(kingdom, target.kingdom, WarTypeLibrary.normal);
-                                    war.data.name = LM.Get("emperor_get_back_province");
-                                }
+                                War war = World.world.diplomacy.startWar(kingdom, target.kingdom, WarTypeLibrary.normal);
+                                war.data.name = LM.Get("emperor_get_back_province");
                                 TranslateHelper.LogEmpireGetBackLand(kingdom, target.province);
                                 break;
                             }
@@ -857,7 +845,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     if (pActor == null) return false;
                     Kingdom kingdom = pActor.kingdom;
-                    if (!kingdom.GetEmpiresCanbeJoined().Any()) return false;
+                    if (KingdomExtension.GetEmpiresCanbeJoined(kingdom).Count() <= 0) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
@@ -952,6 +940,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isInEmpire()) return false;
                     if (!pActor.HasTitle() || (!pActor.HasSpecificClan() || pActor.GetSpecificClan().id != kingdom.GetEmpire().EmpireSpecificClan.id)) return false;
                     LogService.LogInfo("权臣索取帝国错误");
+                    return false;
+
                     if (kingdom.countTotalWarriors()<kingdom.GetEmpire().countWarriors()- kingdom.countTotalWarriors()) return false;
                     return true;
                 },
@@ -1020,11 +1010,9 @@ namespace EmpireCraft.Scripts.AI
                     return false;
                 }
             });
-            AssetManager.plots_library.list.RemoveAll(a => a.id == "new_war");
-            AssetManager.plots_library.basic_plots.RemoveAll(a=>a.id=="new_war");
             AssetManager.plots_library.add(PlotsLibrary.new_war = new PlotAsset
             {
-                id = "empirecraft_war",
+                id = "new_war",
                 is_basic_plot = true,
                 path_icon = "plots/icons/plot_new_war",
                 group_id = "diplomacy",
@@ -1035,16 +1023,10 @@ namespace EmpireCraft.Scripts.AI
                 can_be_done_by_king = true,
                 check_target_kingdom = true,
                 requires_diplomacy = true,
-                unlocked_with_achievement = false,
                 check_is_possible = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!DiplomacyHelpers.isWarNeeded(kingdom))
-                    {
-                        return false;
-                    }
-
-                    if (ConfigData.IS_ORIGINAL_WAR_LOGIC)
                     {
                         return false;
                     }
@@ -1150,7 +1132,6 @@ namespace EmpireCraft.Scripts.AI
                 }
                 return !World.world.plots.isPlotTypeAlreadyRunning(pActor, PlotsLibrary.alliance_create);
             };
-            AssetManager.plots_library.list.RemoveAll(a => a.id == "alliance_join");
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "alliance_join",

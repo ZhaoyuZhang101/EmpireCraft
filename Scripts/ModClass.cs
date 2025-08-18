@@ -189,6 +189,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftActorTraitGroupLibrary.init();
         EmpireCraftTooltipLibrary.init();
         EmpireCraftOpinionAddition.init();
+        EmpireCraftBehaviourTaskLibrary.init();
         EmpireCraftPlotsAddition.init();
         EmpireCraftQuantumSpriteLibrary.init();
         EmpireCraftBehaviourTaskLibrary.init();
