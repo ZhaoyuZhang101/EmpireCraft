@@ -828,7 +828,7 @@ public static class ActorExtension
         if (!a.isKing()) return false;
         Kingdom kingdom = a.kingdom;
         if (kingdom == null) return false;
-        List<long> controlledTitles = kingdom.getcontrolledTitle().FindAll(t=>!t.owner.isEmperor()).Select(t=>t.data.id).ToList();
+        List<long> controlledTitles = kingdom.getcontrolledTitle().FindAll(t=>!t.owner.IsEmperor()).Select(t=>t.data.id).ToList();
         var commonTitles = controlledTitles.Intersect(a.GetOwnedTitle());
         return commonTitles.Count() < controlledTitles.Count();
     }
@@ -864,7 +864,7 @@ public static class ActorExtension
                 t.main_kingdom.RemoveMainTitle();
                 t.main_kingdom = null;
             }
-            if(t.HasOwner()&&t.owner.isEmperor())
+            if(t.HasOwner()&&t.owner.IsEmperor())
             {
                 if (!a.GetAcquireTitle().Contains(t.id)&&t.owner.getID()!=a.getID()) 
                 {
@@ -912,7 +912,7 @@ public static class ActorExtension
         var ed = GetOrCreate(a);
         if (a.GetOwnedTitle().Contains(title.data.id))
         {
-            if (!a.isEmperor()&&a.isKing())
+            if (!a.IsEmperor()&&a.isKing())
             {
                 if (a.kingdom.GetKingdomName()==title.data.name)
                 {
@@ -961,7 +961,7 @@ public static class ActorExtension
         ed.want_acuired_title.Clear();
     }
 
-    public static bool isEmperor(this Actor a)
+    public static bool IsEmperor(this Actor a)
     {
         if (a==null) return false;
         return GetOrCreate(a).empire_id!=-1L;

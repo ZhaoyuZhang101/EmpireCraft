@@ -79,7 +79,7 @@ public static class HistoryRecordSystem
         empire.RecordHistory(EmpireHistoryType.new_emperor_history, new Dictionary<string, string>()
         {
             ["actor"] = empire.Emperor.getName(),
-            ["place"] = empire.empire.capital.GetCityName(),
+            ["place"] = empire.CoreKingdom.capital.GetCityName(),
             ["year_name"] = empire.data.year_name,
         });
     }

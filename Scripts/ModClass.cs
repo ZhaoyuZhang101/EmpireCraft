@@ -186,10 +186,10 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftActorTraitLibrary.init();
         EmpireCraftMetaTypeLibrary.init();
         EmpireCraftHistoryDataLibrary.init();
-        EmpireCraftBehaviourTaskKingdomLibrary.init();
         EmpireCraftActorTraitGroupLibrary.init();
         EmpireCraftTooltipLibrary.init();
         EmpireCraftOpinionAddition.init();
+        EmpireCraftBehaviourTaskLibrary.init();
         EmpireCraftPlotsAddition.init();
         EmpireCraftQuantumSpriteLibrary.init();
         World.world._list_meta_main_managers.Add(EMPIRE_MANAGER = new EmpireManager());

@@ -256,7 +256,7 @@ public class Province : MetaObject<ProvinceData>
                 }
                 if (actor.isUnitFitToRule() && actor.hasClan() && actor.isAdult())
                 {
-                    if (actor.clan == empire.empire.getKingClan()&& !actor.isKing()&&!actor.isOfficer())
+                    if (actor.clan == empire.CoreKingdom.getKingClan()&& !actor.isKing()&&!actor.isOfficer())
                     {
                         royalActors.Add(actor);
                     }
@@ -374,7 +374,7 @@ public class Province : MetaObject<ProvinceData>
         string level = provincelevel.ToString().Split('_').Last();
         string province_level_name = "provincelevel";
         string province_level_string = "";
-        if (ConfigData.speciesCulturePair.TryGetValue(empire.empire.getSpecies(), out string culture))
+        if (ConfigData.speciesCulturePair.TryGetValue(empire.CoreKingdom.getSpecies(), out string culture))
         {
             province_level_string = String.Join("_", culture, province_level_name, level);
         }
@@ -392,7 +392,7 @@ public class Province : MetaObject<ProvinceData>
         this.data.isDirectRule = true;
         string preName;
         string postName;
-        if (ConfigData.speciesCulturePair.TryGetValue(empire.empire.getSpecies(),out string culture))
+        if (ConfigData.speciesCulturePair.TryGetValue(empire.CoreKingdom.getSpecies(),out string culture))
         {
             preName = String.Join("_", culture, "capital");
             postName = String.Join("_", culture, "provincelevel", "0");
@@ -430,7 +430,7 @@ public class Province : MetaObject<ProvinceData>
         this.data.name = string.IsNullOrEmpty(name) ? city.GetCityName() : name;
 
         // 设置资产和外观
-        var kingdomAsset = empire.empire.asset;
+        var kingdomAsset = empire.CoreKingdom.asset;
         this.asset = kingdomAsset ?? throw new InvalidOperationException("Kingdom asset not found");
 
         // 设置旗帜和颜色
@@ -442,7 +442,7 @@ public class Province : MetaObject<ProvinceData>
         this.data.founder_actor_id = city.kingdom.king.getID();
         this.data.founder_actor_name = city.kingdom.king.getName();
         this.data.original_actor_asset = city.kingdom.king.asset.id;
-        this.data.color_id = empire.empire?.data?.color_id ?? 0; // 默认颜色ID
+        this.data.color_id = empire.CoreKingdom?.data?.color_id ?? 0; // 默认颜色ID
 
         // 设置省份等级
         SetProvinceLevel(provinceLevel);
@@ -800,7 +800,7 @@ public class Province : MetaObject<ProvinceData>
     public Kingdom becomeKingdom(bool is_independent=false, Actor leader=null)
     {
         SetProvinceLevel(provinceLevel.provincelevel_2);
-        Kingdom pKingdom = this.empire.empire;
+        Kingdom pKingdom = this.empire.CoreKingdom;
         Kingdom kingdom = province_capital.makeOwnKingdom(leader==null?officer:leader);
         foreach (City city in city_list_hash)
         {

@@ -73,6 +73,7 @@
     </ItemGroup>
     <ItemGroup>
       <Folder Include="GameResources\ui\buttons\" />
+      <Folder Include="Scripts\AI\" />
     </ItemGroup>
     <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>
 

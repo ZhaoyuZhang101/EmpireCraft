@@ -1,11 +1,13 @@
-﻿using ai.behaviours;
+﻿using System;
+using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 
-namespace EmpireCraft.Scripts.AI;
+namespace EmpireCraft.Scripts.AI.KingdomAI;
 
-public class EmpireCraftKingdomBehCheckOfficer : BehaviourActionKingdom
+public class EmpireCraftKingdomBehCheckOfficer : GameAIKingdomBase
 {
+    public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
     {
         if (pKingdom.isEmpire())
@@ -13,9 +15,12 @@ public class EmpireCraftKingdomBehCheckOfficer : BehaviourActionKingdom
             Empire empire = pKingdom.GetEmpire();
             if (!empire.isRekt()) 
             {
-                if (empire.IsNeedToSetProvince())
+                if (empire.HasEmperor&&!empire.hasWars())
                 {
-                    empire.DivideIntoProvince();
+                    if (empire.IsNeedToSetProvince())
+                    {
+                        empire.DivideIntoProvince();
+                    }
                 }
                 if (empire.ProvinceList.Any())
                 {
@@ -31,7 +36,6 @@ public class EmpireCraftKingdomBehCheckOfficer : BehaviourActionKingdom
                     }
                 }
             }
-            return BehResult.Continue;
         }
         return BehResult.Continue;
     }

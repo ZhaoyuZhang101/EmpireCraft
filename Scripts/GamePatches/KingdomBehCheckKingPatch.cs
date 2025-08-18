@@ -49,7 +49,7 @@ namespace EmpireCraft.Scripts.GamePatches
                     if (pMainKingdom.isInEmpire()&&!pMainKingdom.isEmpire())
                     {
                         Empire empire = pMainKingdom.GetEmpire();
-                        item.joinAnotherKingdom(empire.empire);
+                        item.joinAnotherKingdom(empire.CoreKingdom);
                         //ModClass.PROVINCE_MANAGER.newProvince(item);
                         flag = true;
 

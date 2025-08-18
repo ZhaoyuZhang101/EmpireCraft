@@ -234,7 +234,7 @@ public class WarPatch: GamePatch
                 if (pWinner == WarWinner.Attackers)
                 {
                     Kingdom kingdom = pWar.getMainAttacker();
-                    kingdom.GetEmpire().replaceEmpire(kingdom);
+                    kingdom.GetEmpire().ReplaceEmpire(kingdom);
                     TranslateHelper.LogministerAqcuireEmpire(kingdom.king, kingdom.GetEmpire());
                     return false;
                 }

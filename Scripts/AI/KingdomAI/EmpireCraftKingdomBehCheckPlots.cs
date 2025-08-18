@@ -1,14 +1,16 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 
-namespace EmpireCraft.Scripts.AI;
+namespace EmpireCraft.Scripts.AI.KingdomAI;
 
-public class EmpireCraftKingdomBehCheckPlots : BehaviourActionKingdom
+public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
 {
+    public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
     {
         if (pKingdom.isEmpire())

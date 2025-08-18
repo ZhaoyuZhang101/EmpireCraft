@@ -98,7 +98,7 @@ public class ActorPatch : GamePatch
     }
     public static bool showTooltip(Actor __instance, object pUiObject)
     {
-        string pType = (__instance.isEmperor()?"actor_emperor":(__instance.isKing() ? "actor_king" : ((!__instance.isCityLeader()) ? "actor" : (__instance.isOfficer()? "actor_officer": "actor_leader"))));
+        string pType = (__instance.IsEmperor()?"actor_emperor":(__instance.isKing() ? "actor_king" : ((!__instance.isCityLeader()) ? "actor" : (__instance.isOfficer()? "actor_officer": "actor_leader"))));
         Tooltip.show(pUiObject, pType, new TooltipData
         {
             actor = __instance

@@ -35,6 +35,7 @@ public static class KingdomExtension
         public List<long> OwnedTitle = new List<long>();
         public long provinceID = -1L;
         public int independentValue = 100;
+        public long Heir = -1L;
     }
     public static int GetIndependentValue(this Kingdom k)
     {
@@ -46,6 +47,25 @@ public static class KingdomExtension
         {
             return 100;
         }
+    }
+
+    public static bool HasHeir(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        if (ed.Heir == -1L) return false;
+        return !World.world.units.get(ed.Heir).isRekt();
+    }
+
+    public static void SetHeir(this Kingdom k, Actor pActor)
+    {
+        var ed = k.GetOrCreate();
+        ed.Heir = pActor.getID();
+    }
+
+    public static Actor GetHeir(this Kingdom k)
+    {
+        var ed = k.GetOrCreate();
+        return World.world.units.get(ed.Heir);
     }
     public static void SetIndependentValue(this Kingdom k, int value)
     {
@@ -88,7 +108,7 @@ public static class KingdomExtension
     {
         if (ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(GetOrCreate(k).main_title_id))
         {
-            ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id).main_kingdom = null;
+            ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).main_title_id)!.main_kingdom = null;
         }
         GetOrCreate(k).main_title_id = -1L;
     }
@@ -304,7 +324,7 @@ public static class KingdomExtension
                         Empire empire = k.GetEmpire();
                         if ((double)kingdom.cities.Count()<=((double)empire.AllCities().Count())/5)
                         {
-                            if (kingdom.isOpinionTowardsKingdomGood(k.GetEmpire().empire))
+                            if (kingdom.isOpinionTowardsKingdomGood(k.GetEmpire().CoreKingdom))
                                 empires.Add(k.GetEmpire());
                         }
                     }
@@ -315,7 +335,7 @@ public static class KingdomExtension
     }
     public static void empireJoin(this Kingdom kingdom, Empire pEmpire)
     {
-        kingdom.SetVassaledKingdomID(pEmpire.empire.id);
+        kingdom.SetVassaledKingdomID(pEmpire.CoreKingdom.id);
         GetOrCreate(kingdom).empireID = pEmpire.data.id;
         GetOrCreate(kingdom).timestamp_empire = World.world.getCurWorldTime();
     }
@@ -563,7 +583,7 @@ public static class KingdomExtension
                 {
                     province2.addCity(city);
                 }
-                city.joinAnotherKingdom(empire.empire);
+                city.joinAnotherKingdom(empire.CoreKingdom);
             }
         }
 

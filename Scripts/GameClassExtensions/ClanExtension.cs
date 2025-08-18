@@ -70,7 +70,7 @@ public static class ClanExtension
     public static void RecordHistoryEmpire(this Clan __instance, Empire empire)
     {
         if (empire == null) return;
-        Kingdom kingdom = empire.empire;
+        Kingdom kingdom = empire.CoreKingdom;
         if (kingdom == null) return;
         if (!kingdom.hasCapital()) return;
         kingdom.capital.updateCityCenter();

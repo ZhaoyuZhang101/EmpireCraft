@@ -120,7 +120,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                                             $"{_empire.GetMembersWithTrait("gongshi").Count.ToString().ColorString("#CB9DF0")}/" +
                                             $"{_empire.GetMembersWithTrait("juren").Count.ToString()}".ColorString("#A2D2DF"));
             rightPart.AddTextIntoVertLayout($"{_empire.GetYearNameWithTime().ColorString(pColor:_empire.getColor()._colorText)}");
-            rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.empire.getAge()}");
+            rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.CoreKingdom.getAge()}");
             
             topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 1));
             
