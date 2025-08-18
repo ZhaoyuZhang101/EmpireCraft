@@ -39,15 +39,15 @@ public class Name
     {
         return firstName != "" && familyName != ""&&firstName!=null&&familyName!=null;
     }
-    public bool hasFamilyName(Actor actor)
+    public bool HasFamilyName(Actor actor)
     {
         return !string.IsNullOrEmpty(familyName);
     }
-    public bool hasFirstName(Actor actor)
+    public bool HasFirstName(Actor actor)
     {
         return !string.IsNullOrEmpty(firstName);
     }
-    public bool hasCulture(Actor actor)
+    public bool HasCulture(Actor actor)
     {
         return actor.hasCulture();
     }
@@ -63,7 +63,7 @@ public class Name
     public void SetName(Actor actor)
     {
         sex = actor.isSexMale() ? ActorSex.Male : ActorSex.Female;
-        if (hasFamilyName(actor))
+        if (HasFamilyName(actor))
         {
             string real_family_name;
             string cityName = "";
@@ -125,7 +125,7 @@ public class Name
             }
         } else
         {
-            if (hasFirstName(actor))
+            if (HasFirstName(actor))
             {
                 actor.data.name = firstName;
             }
@@ -648,21 +648,6 @@ public static class ActorExtension
             }
             GetOrCreate(a).officeIdentity = identity;
         }
-    }
-
-    public static bool isEmpireHeir(this Actor a)
-    {
-        if (a == null) return false;
-        if (a.data == null) return false;
-        foreach(Empire empire in ModClass.EMPIRE_MANAGER)
-        {
-            if (!empire.HasHeir()) continue;
-            if(empire.data.Heir==a.data.id)
-            {
-                return true;
-            }
-        }
-        return false;
     }
 
     public static void DegradeOfficial(this Actor a)

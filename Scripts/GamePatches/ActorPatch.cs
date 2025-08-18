@@ -221,17 +221,17 @@ public class ActorPatch : GamePatch
             return;
         }
         __instance.initializeActorName();
-        if (!__instance.GetModName().hasFirstName(__instance))
+        if (!__instance.GetModName().HasFirstName(__instance))
         {
             string firstName = pCulture.getOnomasticData(MetaType.Unit).generateName(__instance.isSexMale() ? ActorSex.Male : ActorSex.Female);
             __instance.SetFirstName(firstName);
         }
         bool flag = false;
-        if (!__instance.GetModName().hasFamilyName(__instance))
+        if (!__instance.GetModName().HasFamilyName(__instance))
         {
             if (__instance.getParents().Any())
             {
-                if (__instance.getParents().Any(p => p.GetModName().hasFamilyName(p)))
+                if (__instance.getParents().Any(p => p.GetModName().HasFamilyName(p)))
                 {
                     if (__instance.hasClan() && __instance.clan.units.Any(p => p.isParentOf(__instance)))
                     {
@@ -245,7 +245,7 @@ public class ActorPatch : GamePatch
                     }
                     else
                     {
-                        __instance.SetFamilyName(__instance.getParents().ToList().FindAll(p=>p.GetModName().hasFamilyName(p)).GetRandom().GetModName().familyName);
+                        __instance.SetFamilyName(__instance.getParents().ToList().FindAll(p=>p.GetModName().HasFamilyName(p)).GetRandom().GetModName().familyName);
 
                         flag = true;
                     }
@@ -305,7 +305,7 @@ public class ActorPatch : GamePatch
         {
             return;
         }
-        if (__instance.GetModName().hasFamilyName(__instance))
+        if (__instance.GetModName().HasFamilyName(__instance))
         {
             return;
         }
@@ -367,7 +367,7 @@ public class ActorPatch : GamePatch
         {
             return;
         }
-        if (__instance.GetModName().hasFamilyName(__instance))
+        if (__instance.GetModName().HasFamilyName(__instance))
         {
             if (__instance.hasClan())
             {
@@ -423,7 +423,7 @@ public class ActorPatch : GamePatch
         {
             if (pObject.units.Count>1)
             {
-                if (!pObject.units.Any(a=>a!=__instance&&a.GetModName().hasFamilyName(a)))
+                if (!pObject.units.Any(a=>a!=__instance&&a.GetModName().HasFamilyName(a)))
                 {
                     if (!pObject.HasBeenSetBefored())
                     {

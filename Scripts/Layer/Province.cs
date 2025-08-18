@@ -748,7 +748,7 @@ public class Province : MetaObject<ProvinceData>
         } 
         if (this.empire.HasEmperor())
         {
-            emperorRenown = this.empire.Emperor.renown;
+            emperorRenown = this.empire?.Emperor?.renown??99999;
         }
         if(this.occupied_cities!=null)
         {

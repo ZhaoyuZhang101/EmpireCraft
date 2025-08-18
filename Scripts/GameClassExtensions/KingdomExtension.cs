@@ -38,7 +38,6 @@ public static class KingdomExtension
         public long HeirID = -1L;
         [JsonIgnore]
         public Actor Heir => World.world.units.get(HeirID);
-
         [JsonIgnore]
         public Task<(Actor, string)> CalcTask;
         public List<long> OwnedTitle = new List<long>();
@@ -62,6 +61,11 @@ public static class KingdomExtension
     {
         var ed = k.GetOrCreate();
         return ed.CalcTask == null;
+    }
+
+    public static Actor GetKing(this Kingdom k)
+    {
+        return k.king;
     }
 
     public static void SetCalcHeirTask(this Kingdom k, Task<(Actor, string)> calcTask)
@@ -101,11 +105,13 @@ public static class KingdomExtension
 
     public static Actor GetHeir(this Kingdom k)
     {
+        LogService.LogInfo("获得继承人");
         var ed = k.GetOrCreate();
         return ed.Heir;
     }
     public static void RemoveHeir(this Kingdom k)
     {
+        LogService.LogInfo("移除继承人");
         var ed = k.GetOrCreate();
         ed.HeirID = -1L;
     }
@@ -121,56 +127,36 @@ public static class KingdomExtension
         var ed = k.GetOrCreate();
         ed.HeirID = pActor.getID();
     }
-
-    // 异步 CalcHeir，按优先级依次尝试
-    public static async Task<(Actor pActor, string relation)> CalcHeirAsync(this Kingdom k)
+    public static (Actor actor, string relation) CalcHeirCore(this Kingdom k)
     {
-        await _sem.WaitAsync().ConfigureAwait(false);
-        try
+        var res = k.CheckHeir();
+        if (res.actor == null)
         {
-            // 定义所有策略的调用
-            var strategies = new[]
-            {
-                () => k.CheckHeirAsync(null),
-                () => k.CheckHeirAsync(EmpireHeirLawType.siblings),
-                () => k.CheckHeirAsync(EmpireHeirLawType.grand_child_generation),
-                () => k.CheckHeirAsync(EmpireHeirLawType.random),
-                () => k.CheckHeirAsync(EmpireHeirLawType.officer),
-            };
+            res = k.CheckHeir(EmpireHeirLawType.siblings);
+        }
 
-            foreach (var strategy in strategies)
-            {
-                var heir = await strategy().ConfigureAwait(false);
-                if (heir.actor != null)
-                {
-                    return heir;
-                }
-            }
-            
-            // 都没有找到 heir 就直接返回
-            return (null, null);
-        }        
-        catch (Exception e)
+        if (res.actor == null)
         {
-            LogService.LogInfo(e.ToString());
-            // 都没有找到 heir 就直接返回
-            return (null, null);
+            res = k.CheckHeir(EmpireHeirLawType.grand_child_generation);
         }
-        finally
+
+        if (res.actor == null)
         {
-            _sem.Release();
+            res = k.CheckHeir(EmpireHeirLawType.random);
         }
-    }
-    private static Task<(Actor actor, string relation)> CheckHeirAsync(this Kingdom k, EmpireHeirLawType? secondSelection = null)
-    {
-        // 如果 CheckHeir 本身是 CPU 密集型，就用 Task.Run 包裹
-        return Task.Run(() => secondSelection == null
-            ? k.CheckHeir()
-            : k.CheckHeir(secondSelection: secondSelection.Value));
+
+        if (res.actor == null)
+        {
+            res = k.CheckHeir(EmpireHeirLawType.officer);
+        }
+        if (res.actor != null)
+            return res;
+        return (null, null);
     }
 
     private static (Actor actor, string relation) CheckHeir(this Kingdom k, EmpireHeirLawType secondSelection=EmpireHeirLawType.eldest_child, PersonalClanIdentity pActor = null)
     {
+        LogService.LogInfo("检查继承人");
         if (k == null) return (null, "");
         Actor actor = null;
         var flag = k.isEmpire();
@@ -646,7 +632,7 @@ public static class KingdomExtension
 
     public static bool hasAnycontrolledTitle(this Kingdom kingdom)
     {
-        return kingdom.getcontrolledTitle().Count()>0;
+        return kingdom.getcontrolledTitle().Any();
     }
 
     public static List<KingdomTitle> getcontrolledTitle(this Kingdom kingdom)

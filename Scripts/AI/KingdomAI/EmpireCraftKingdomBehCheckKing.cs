@@ -38,28 +38,6 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
     }
 
-    public bool IsRebellionsEnabled()
-    {
-        return WorldLawLibrary.world_law_rebellions.isEnabled();
-    }
-
-    public Actor FindKingFromRoyalClan(Kingdom pKingdom)
-    {
-        Actor actor = SuccessionTool.getKingFromRoyalClan(pKingdom);
-        if (actor == null && pKingdom.hasCulture() && (pKingdom.culture.hasTrait("unbroken_chain") || !IsRebellionsEnabled()))
-        {
-            actor = SuccessionTool.getKingFromLeaders(pKingdom);
-        }
-
-        if (actor == null)
-        {
-            return null;
-        }
-
-        MakeKingAndMoveToCapital(pKingdom, actor);
-        return actor;
-    }
-
     public void MakeKingAndMoveToCapital(Kingdom pKingdom, Actor pNewKing)
     {
         if (pNewKing.hasCity())

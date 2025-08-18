@@ -23,6 +23,7 @@ public class EmpireData : MetaObjectData
     public int banner_icon_id { get; set; }
     public int Mandate { get; set; } = 100; //正统
     public int Prestige { get; set; } = 100; //威望
+    public long Emperor { get; set; }
     public long Heir { get; set; } = -1L;
     public EmpireHeirLawType heir_type { get; set; }
     public int max_province_city_num { get; set; } = 3;

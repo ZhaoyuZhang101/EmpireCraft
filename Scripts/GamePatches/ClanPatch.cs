@@ -36,7 +36,7 @@ public class ClanPatch : GamePatch
 
     public static void set_clan_name(Clan __instance, Actor pFounder, bool pAddDefaultTraits)
     {
-        if (pFounder.GetModName().hasFamilyName(pFounder))
+        if (pFounder.GetModName().HasFamilyName(pFounder))
         {
             __instance.data.name = pFounder.GetModName().familyName+ "\u200A" + LM.Get("Clan");
             if (pFounder.hasFamily())

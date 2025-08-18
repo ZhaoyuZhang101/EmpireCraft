@@ -23,14 +23,7 @@ public class Empire : MetaObject<EmpireData>
     private Vector3 _empireCenter;
     private readonly List<TileZone> _zoneScratch = new();
     private readonly int _avgCitiesPerKingdom = 3;
-    public Actor Emperor
-    {
-        get
-        {
-            LogService.LogInfo("获取皇帝");
-            return CoreKingdom?.king;
-        }
-    }
+    public Actor Emperor => World.world.units.get(data.Emperor);
 
     private Vector3 _capitalCenter;
     public City OriginalCapital;
@@ -60,7 +53,32 @@ public class Empire : MetaObject<EmpireData>
         }
         return list;
     }
+
+    public void RemoveHeir()
+    {
+        this.data.Heir = -1L;
+    }
+
+    public Actor GetHeir()
+    {
+        return World.world.units.get(data.Heir);
+    }
+
+    public void SetHeir(Actor pActor)
+    {
+        data.Heir =  pActor.getID();
+    }
+
+    public void RemoveEmperor()
+    {
+        data.Emperor = -1L;
+    }
     
+    public void SetEmperor(Actor pActor)
+    {
+        data.Emperor = pActor.getID();
+    }
+
     public bool IsNeedToExam()
     {
         if (data.last_exam_timestamp == -1L) 
@@ -107,7 +125,8 @@ public class Empire : MetaObject<EmpireData>
 
     public bool HasEmperor()
     {
-        return CoreKingdom.hasKing();
+        if (data.Emperor == -1L) return false;
+        return !Emperor.isRekt();
     }
 
     public void StartCalcOfficePerformance()
@@ -195,6 +214,7 @@ public class Empire : MetaObject<EmpireData>
 
     public bool HasHeir()
     {
+        LogService.LogInfo("是否存在帝国继承人");
         return CoreKingdom.HasHeir();
     }
     public EmpirePeriod GetEmpirePeriod()
@@ -466,6 +486,7 @@ public class Empire : MetaObject<EmpireData>
     //新皇登基
     public void NewEmperor(Actor actor, bool isNew = false)
     {
+        LogService.LogInfo("设置皇帝");
         actor.CheckSpecificClan();
         SetEmperor(actor);
         actor.SetEmpire(this);
@@ -633,11 +654,7 @@ public class Empire : MetaObject<EmpireData>
         data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
         data.history.Add(data.currentHistory);
         data.currentHistory = null;
-    }
-    
-    public void SetEmperor(Actor pActor)
-    {
-        pActor.CheckSpecificClan();
+        RemoveEmperor();
     }
     
     public bool IsNeedToSetPosthumous()

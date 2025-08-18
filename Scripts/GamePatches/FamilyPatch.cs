@@ -31,7 +31,7 @@ public class FamilyPatch : GamePatch
         Culture culture = null;
         if (pActor1 != null)
         {
-            if (pActor1.GetModName().hasFamilyName(pActor1))
+            if (pActor1.GetModName().HasFamilyName(pActor1))
             {
                 string cityName = pActor1.city.GetCityName();
                 string familyName = pActor1.GetModName().familyName;
@@ -46,7 +46,7 @@ public class FamilyPatch : GamePatch
                     culture = pActor1.culture;
                     __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName();
                     __instance.SetFamilyCityPre(false);
-                    if (!pActor1.GetModName().hasFamilyName(pActor1))
+                    if (!pActor1.GetModName().HasFamilyName(pActor1))
                     {
                         pActor1.SetFamilyName(__instance.GetFamilyName());
                     }
@@ -60,7 +60,7 @@ public class FamilyPatch : GamePatch
                         {
                             pActor2.setCulture(culture);
                         }
-                        if (!pActor2.GetModName().hasFamilyName(pActor2))
+                        if (!pActor2.GetModName().HasFamilyName(pActor2))
                         {
                             pActor2.SetFamilyName(__instance.GetFamilyName());
                         }
@@ -75,7 +75,7 @@ public class FamilyPatch : GamePatch
 
         if (pActor2 != null)
         {
-            if (pActor2.GetModName().hasFamilyName(pActor2))
+            if (pActor2.GetModName().HasFamilyName(pActor2))
             {
                 string cityName = pActor2.city.GetCityName();
                 string familyName = pActor2.GetModName().familyName;
@@ -89,7 +89,7 @@ public class FamilyPatch : GamePatch
                 culture = pActor2.culture;
                 __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName();
                 __instance.SetFamilyCityPre(false);
-                if (!pActor2.GetModName().hasFamilyName(pActor2))
+                if (!pActor2.GetModName().HasFamilyName(pActor2))
                 {
                         
                     pActor2.SetFamilyName(__instance.GetFamilyName());
@@ -104,7 +104,7 @@ public class FamilyPatch : GamePatch
                 {
                     pActor1.setCulture(culture);
                 }
-                if (!pActor1.GetModName().hasFamilyName(pActor1))
+                if (!pActor1.GetModName().HasFamilyName(pActor1))
                 {
                     pActor1.SetFamilyName(__instance.GetFamilyName());
                 }

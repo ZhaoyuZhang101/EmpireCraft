@@ -105,6 +105,7 @@ public class KingdomPatch : GamePatch
     {
         if (!ModClass.IS_CLEAR)
         {
+            LogService.LogInfo("设置国王");
             if (__instance.HasHeir())
             {
                 __instance.RemoveHeir();

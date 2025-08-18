@@ -76,11 +76,12 @@ public class SpecificClan
     public Dictionary<long, PersonalClanIdentity> _cache = new();
     [JsonIgnore]
     public int Count => _cache.Values.ToList().FindAll(i=>i.is_alive).Count;
+    [JsonIgnore]
     public int CountTotal => _cache.Values.Count;
     public PersonalClanIdentity get(long id) => id > 0 ? SpecificClanManager.getPerson(id) : null;
     public PersonalClanIdentity GetPerson(long personId)
     {
-        if (_cache.TryGetValue(personId, out var cached)) return cached;
+        if (_cache?.TryGetValue(personId, out var cached)??false) return cached;
         return null;
     }
 
@@ -570,7 +571,10 @@ public static class SpecificClanManager
     }
     public static PersonalClanIdentity getPerson(long identity_id)
     {
-        foreach (var sc in _specificClans.ToList())
+        if (!_specificClans.Any()) return null;
+        var clans = _specificClans.ToArray();  
+
+        foreach (var sc in clans)
         {
             var pci = sc.GetPerson(identity_id);
             if (pci != null && pci.specific_clan_id == sc.id)
@@ -592,10 +596,11 @@ public static class SpecificClanManager
     public static List<(ClanRelation relation, PersonalClanIdentity id)> 
         GetChildren(PersonalClanIdentity identity)
     {
-        if (identity == null) 
+        if (identity == null || !_specificClans.Any()) 
             return new List<(ClanRelation, PersonalClanIdentity)>();
+        var clans = _specificClans.ToArray();  
 
-        foreach (var clan in _specificClans.ToList())
+        foreach (var clan in clans)
         {
             var kids = clan.GetChildren(identity);
             if (kids is { Count: > 0 })
