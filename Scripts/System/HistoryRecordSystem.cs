@@ -25,10 +25,10 @@ public static class HistoryRecordSystem
                 id = "history_new_emperor";
                 break;
             case EmpireHistoryType.emperor_die_history:
-                id = "histroy_empire_die";
+                id = "history_empire_die";
                 break;
             case EmpireHistoryType.emperor_left_history:
-                id = "histroy_empire_left";
+                id = "history_empire_left";
                 break;
             case EmpireHistoryType.powerful_minister_history:
                 id = "history_powerful_minister";
@@ -37,7 +37,7 @@ public static class HistoryRecordSystem
                 id = "history_name_previous_emperor";
                 break;
             case EmpireHistoryType.join_empire_history:
-                id = "histroy_be_vassal";
+                id = "history_be_vassal";
                 break;
             case EmpireHistoryType.change_capital_history:
                 id = "history_change_capital";

@@ -148,6 +148,7 @@ public class KingdomPatch : GamePatch
                 pActor.SetIdentityType(PeerageType.Military);
                 pActor.addTrait("officer");
             }
+            __instance.RemoveHeir();
         }
     }
 

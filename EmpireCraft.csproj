@@ -69,11 +69,11 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
-      <None Include="Scripts\HelperFunc\BeaurauSystem.cs" />
-    </ItemGroup>
-    <ItemGroup>
       <Folder Include="GameResources\ui\buttons\" />
       <Folder Include="Scripts\AI\" />
+    </ItemGroup>
+    <ItemGroup>
+      <None Include="Scripts\System\BeaurauSystem.cs" />
     </ItemGroup>
     <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>
 

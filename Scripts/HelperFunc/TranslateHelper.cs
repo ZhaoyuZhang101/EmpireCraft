@@ -69,6 +69,21 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
+        
+        public static void LogKingChooseHeir(Kingdom kingdom,string relation, Actor pActor)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.king_choose_heir_log,
+                kingdom.GetKingdomName(),
+                relation,
+                pActor.data.name)
+            {
+                color_special1 = kingdom.getColor()._colorText,
+                color_special3 = kingdom.getColor()._colorText
+
+            }.add();
+
+        }
+        
         public static void LogProvinceChangeToKingdom(Province province, provinceLevel level)
         {
             string level_pre = ConfigData.speciesCulturePair.TryGetValue(province.empire.CoreKingdom.getSpecies(), out string culture) ? culture : "Western";

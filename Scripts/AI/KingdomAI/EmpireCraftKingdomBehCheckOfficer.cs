@@ -15,7 +15,7 @@ public class EmpireCraftKingdomBehCheckOfficer : GameAIKingdomBase
             Empire empire = pKingdom.GetEmpire();
             if (!empire.isRekt()) 
             {
-                if (empire.HasEmperor&&!empire.hasWars())
+                if (empire.HasEmperor()&&!empire.hasWars())
                 {
                     if (empire.IsNeedToSetProvince())
                     {

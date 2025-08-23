@@ -26,6 +26,14 @@
     "i_population": "Population",
     "i_age": "Age",
 
+    "eldest_child":"Eldest Child",
+    "smallest_child":"Youngest Child",
+    "siblings":"Sibling",
+    "grand_child_generation":"Grand Child",
+    "random":"Random Clan Member",
+    "officer":"Officer",
+    "none":"Citizen",
+    
     "name": "Name",
     "post_humous_name": "Temple name/Posthumous name",
     "empty": "",
@@ -278,6 +286,7 @@
     "history_empire_get_back_land": "$actor$ waged a reconquest of $place$",
     "join_empire_war_log": "$kingdom$ joined $empire$'s war",
     "officer_build_specific_clan": "$actor$ created the $clan_name$ clan genealogy",
+    "king_choose_heir_log": "The king of $kingdom$ has choose $relation$ $actor$ as heir",
     "On": "On",
     "Off": "Off",
     "population_limit_text": "Enable Population Limit Toggle",

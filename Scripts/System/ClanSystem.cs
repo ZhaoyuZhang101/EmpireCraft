@@ -824,5 +824,6 @@ public class PersonalClanIdentity
         }
         pci.generation = this.generation + 1;
         _specificClan.addActor(actor);
+        actor.kingdom?.StartToChooseHeir();
     }
 }

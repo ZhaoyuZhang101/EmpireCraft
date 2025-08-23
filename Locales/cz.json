@@ -26,15 +26,23 @@
     "i_population": "人口",
     "i_age": "年龄",
 
+    "eldest_child":"长嗣",
+    "smallest_child":"幼子",
+    "siblings":"直系同辈",
+    "grand_child_generation":"孙辈",
+    "random":"氏族成员",
+    "officer":"官员",
+    "none":"公民",
+
     "name": "名称",
     "post_humous_name": "庙号/谥号",
     "empty": "",
     "until_now": "至今",
     "i_relationship": "亲属关系",
     "i_birth_to_death": "在世时间",
-    "relation_CHILDS": "儿子", 
-    "relation_CHILDD": "女儿", 
-    "relation_CHILD": "子嗣", 
+    "relation_CHILDS": "儿子",
+    "relation_CHILDD": "女儿",
+    "relation_CHILD": "子嗣",
     "relation_SFSM": "同父同母",
     "relation_DFSM": "异父同母",
     "relation_SFDM": "同父异母",
@@ -88,11 +96,13 @@
     "empire_clan": "皇室",
     "emperor": "皇帝",
     "actor_officer": "帝国官员",
+    "actor_emperor_B": "皇帝",
     "actor_emperor": "天子",
+    "actor_emperor_G": "女皇",
     "official_students_num": "学子",
-    "empire_heir": "太子",
-    "empire_lover": "皇后",
-    "past_emperor": "先帝",
+    "empire_heir": "继任者",
+    "empire_lover_B": "亲王",
+    "empire_lover_G": "皇后",
     "current_emperor": "在位皇帝",
     "waiting_for_naming": "暂无",
     "empire_personal_history": "个人历史",
@@ -154,15 +164,15 @@
     "current_grand_children_generation": "直系孙辈",
     "father_grand_generation": "父系祖辈",
     "mother_grand_generation": "母系祖辈",
-    
+
     "father_great_generation": "父系长辈",
     "mother_great_generation": "母系长辈",
-    
+
     "father_same_generation": "父系同辈",
     "mother_same_generation": "母系同辈",
-    
+
     "sibling_child_generation": "同辈子辈",
-    
+
     "i_history_num": "历任官员数量",
 
     "title_name": "头衔名称",
@@ -295,6 +305,7 @@
     "history_empire_get_back_land": "$actor$ 发动了收复 $place$ 的战争",
     "join_empire_war_log": "$kingdom$ 加入了 $empire$ 的战争",
     "officer_build_specific_clan": "$actor$ 创建了 $clan_name$ 氏族谱",
+    "king_choose_heir_log": "$kingdom$ 王 已选定其 $relation$ $actor$ 作为下一任接班人",
     "On": "开",
     "Off": "关",
     "population_limit_text": "开启开关设置人口限制",
@@ -437,9 +448,9 @@
     "history_new_empire": "$actor$ 在 $place$ 称帝，定国号 $name$，定都 $place$",
     "history_new_emperor": "$actor$ 在 $place$ 登基, 年号 $year_name$",
     "history_powerful_minister": "$title$ $actor$ 把持了朝政, $actor2$ 沦为了傀儡",
-    "histroy_be_vassal": "$title$ $actor$ 臣服于帝国",
-    "histroy_empire_die": "$year_name$ 皇帝 $actor$ 驾崩",
-    "histroy_empire_left": "$year_name$ 皇帝 $actor$ 退位",
+    "history_be_vassal": "$title$ $actor$ 臣服于帝国",
+    "history_empire_die": "$year_name$ 皇帝 $actor$ 驾崩",
+    "history_empire_left": "$year_name$ 皇帝 $actor$ 退位",
     "history_name_previous_emperor": "$actor$ 追封了先帝$actor2$, 定谥号$shihao$, 庙号$miaohao$",
     "history_change_capital": "$actor$ 决定迁都，新都为$place$",
     "history_refund_empire": "帝国首都沦陷,然众臣拥立新帝，于$place$，重建帝国",
@@ -450,6 +461,6 @@
 
     "opinion_empire_clan_been_changed": "帝国被篡位",
     "empire_bureau": "帝国行政",
-    
-    "format_past_emperor": "历经 {0} 帝" 
+
+    "format_past_emperor": "历经 {0} 帝"
 }

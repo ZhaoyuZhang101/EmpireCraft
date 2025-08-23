@@ -654,20 +654,6 @@ public static class ActorExtension
         }
     }
 
-    public static bool isEmpireHeir(this Actor a)
-    {
-        if (a == null) return false;
-        foreach(Empire empire in ModClass.EMPIRE_MANAGER)
-        {
-            if (empire.Heir == null) continue;
-            if(empire.Heir.getID()==a.getID())
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public static void DegradeOfficial(this Actor a)
     {
         if (GetOrCreate(a).officeIdentity==null)

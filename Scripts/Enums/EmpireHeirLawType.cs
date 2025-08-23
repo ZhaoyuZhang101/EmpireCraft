@@ -13,6 +13,7 @@ namespace EmpireCraft.Scripts.Enums
         siblings, //直系同辈
         grand_child_generation, //直系孙辈
         random, //随机
+        officer,
         none
     }
 }

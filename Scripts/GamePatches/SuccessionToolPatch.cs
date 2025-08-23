@@ -15,19 +15,15 @@ namespace EmpireCraft.Scripts.GamePatches
 
         public void Initialize()
         {
-            //new Harmony(nameof(findNextHeir)).Patch(
-            //    AccessTools.Method(typeof(SaveManager), nameof(SuccessionTool.findNextHeir)),
-            //    prefix: new HarmonyMethod(GetType(), nameof(findNextHeir)));
+            new Harmony(nameof(findNextHeir)).Patch(
+                AccessTools.Method(typeof(SuccessionTool), nameof(SuccessionTool.findNextHeir)),
+                prefix: new HarmonyMethod(GetType(), nameof(findNextHeir)));
         }
 
         public static bool findNextHeir(Kingdom pKingdom, Actor pExculdeActor, ref Actor __result)
         {
-            if (pKingdom.isEmpire())
-            {
-                __result = pKingdom.GetEmpire().Heir;
-                return false;
-            }
-            return true;
+            __result = pKingdom.GetHeir();
+            return false;
         }
     }
 }

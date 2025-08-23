@@ -845,7 +845,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     if (pActor == null) return false;
                     Kingdom kingdom = pActor.kingdom;
-                    if (KingdomExtension.GetEmpiresCanbeJoined(kingdom).Count() <= 0) return false;
+                    if (!kingdom.GetEmpiresCanbeJoined().Any()) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
