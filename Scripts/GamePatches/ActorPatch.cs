@@ -229,7 +229,7 @@ public class ActorPatch : GamePatch
         bool flag = false;
         if (!__instance.GetModName().hasFamilyName(__instance))
         {
-            if (__instance.getParents().Count()>0)
+            if (__instance.getParents().Any())
             {
                 if (__instance.getParents().Any(p => p.GetModName().hasFamilyName(p)))
                 {
@@ -260,7 +260,7 @@ public class ActorPatch : GamePatch
                 if (__instance.hasFamily())
                 {
                     __instance.family.data.name = __instance.city.data.name + "\u200A" + __instance.clan.GetClanName() + "\u200A" + LM.Get("Family");
-                    OverallHelperFunc.SetFamilyCityPre(__instance.family);
+                    __instance.family.SetFamilyCityPre();
                 }
                 __instance.SetFamilyName(__instance.clan.GetClanName());
             } else
@@ -270,7 +270,7 @@ public class ActorPatch : GamePatch
                     if (!__instance.family.HasBeenSetBefored())
                     {
                         __instance.family.data.name = pCulture.getOnomasticData(MetaType.Family).generateName();
-                        OverallHelperFunc.SetFamilyCityPre(__instance.family, false);
+                        __instance.family.SetFamilyCityPre(false);
                         __instance.SetFamilyName(__instance.family.getFamilyName());
                     }
                     

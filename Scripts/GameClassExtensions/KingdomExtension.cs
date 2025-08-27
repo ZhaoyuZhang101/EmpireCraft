@@ -174,7 +174,6 @@ public static class KingdomExtension
                 {
                     actor = children.First().Item2._actor; // Assuming eldest is the last after sorting by age
                     relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.3f, 0.2f));
-                    LogService.LogInfo(logPreText + relationText);
                 }
                 break;
             case EmpireHeirLawType.smallest_child:
@@ -182,7 +181,6 @@ public static class KingdomExtension
                 {
                     actor = children.Last().Item2._actor; // Assuming youngest is the first after sorting by age
                     relationText = LM.Get(relationText).ColorString(pColor:new Color(0.5f, 0.1f, 0.7f));
-                    LogService.LogInfo(logPreText + relationText);
                 }
                 break;
             case EmpireHeirLawType.siblings:
@@ -194,7 +192,6 @@ public static class KingdomExtension
                 {
                     actor = brothers.Last().Item2._actor;
                     relationText = LM.Get(relationText).ColorString(pColor:new Color(0.2f, 0.3f, 0.9f));
-                    LogService.LogInfo(logPreText + relationText);
                 }
                 break;
             case EmpireHeirLawType.grand_child_generation:
@@ -206,7 +203,6 @@ public static class KingdomExtension
                 {
                     actor = grandChildren.Last().Item2._actor;
                     relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.1f, 0.9f));
-                    LogService.LogInfo(logPreText + relationText);
                 }
                 break;
             case EmpireHeirLawType.random:
@@ -218,7 +214,6 @@ public static class KingdomExtension
                 {
                     actor = randomClanMember.Last().Item2._actor;
                     relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.6f, 0.9f));
-                    LogService.LogInfo(logPreText + relationText);
                 }
                 break;
             case EmpireHeirLawType.officer:
@@ -234,7 +229,6 @@ public static class KingdomExtension
                     OfficeIdentity identity = actor?.GetIdentity(empire);
                     var officeName = string.Join("_", actor?.GetPersonalIdentity()?.culture, identity?.officialLevel);
                     relationText = LM.Get(officeName).ColorString(pColor:new Color(1.0f, 1.0f, 1.0f));
-                    LogService.LogInfo(logPreText + relationText);
                 }
                 else
                 {
@@ -242,7 +236,6 @@ public static class KingdomExtension
                     {
                         actor = k.cities.ToList().Find(c => c?.hasLeader()??false)?.leader;
                         relationText = LM.Get(relationText).ColorString(pColor:new Color(1.0f, 1.0f, 1.0f));
-                        LogService.LogInfo(logPreText + relationText);
                     }
                 }
                 break;
@@ -271,7 +264,6 @@ public static class KingdomExtension
     {
         var ed = k.GetOrCreate();
         ed.is_need_to_choose_heir = false;
-        LogService.LogInfo("检查王国继承人完毕");
     }
     public static bool CanBeTaken(this Kingdom kingdom)
     {
