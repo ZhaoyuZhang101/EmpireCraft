@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Threading.Tasks;
 using ai.behaviours;
-using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
-using NeoModLoader.services;
+
+namespace EmpireCraft.Scripts.AI.KingdomAI;
 
 public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
 {
@@ -48,7 +47,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         }
         catch (Exception e)
         {
-            LogService.LogInfo($"CalcHeir 异常: {e}");
+            // LogService.LogInfo($"CalcHeir 异常: {e}");
         }
         finally
         {

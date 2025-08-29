@@ -101,6 +101,7 @@ namespace EmpireCraft.Scripts.Data
         };
         [JsonIgnore]
         public static Empire EMPIRE = null;
+        public static bool PREVENT_CITY_DESTROY = false;
         public static bool IS_ORIGINAL_WAR_LOGIC = false;
     }
 }

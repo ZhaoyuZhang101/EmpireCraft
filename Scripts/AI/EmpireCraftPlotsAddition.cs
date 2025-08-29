@@ -22,30 +22,30 @@ namespace EmpireCraft.Scripts.AI
     {
         public static void init()
         {
-            // AssetManager.plots_library.add(new PlotAsset
-            // {
-            //     id = "become_empire",
-            //     path_icon = "ChineseCrown.png",
-            //     group_id = "diplomacy",
-            //     is_basic_plot = true,
-            //     min_level = 1,
-            //     money_cost = 30,
-            //     priority = 999,
-            //     progress_needed = 60f,
-            //     can_be_done_by_king = true,
-            //     check_is_possible = delegate (Actor pActor)
-            //     {
-            //         Kingdom kingdom = pActor.kingdom;
-            //         if (!pActor.isKing()) return false;
-            //         if (kingdom.isEmpire()) return false;
-            //         if (kingdom.isInEmpire()) return false;
-            //         if (!kingdom.HasMainTitle()) return false; //if a kingdom has main title then it could become an empire
-            //         ModClass.EMPIRE_MANAGER.update(-1L);
-            //         if (!kingdom.canBecomeEmpire()) return false;
-            //         return true;
-            //     },
-            //     action = BecomeEmpireAndStartEnfeoff
-            // });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "become_empire",
+                path_icon = "ChineseCrown.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                money_cost = 30,
+                priority = 999,
+                progress_needed = 60f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (kingdom.isEmpire()) return false;
+                    if (kingdom.isInEmpire()) return false;
+                    if (!kingdom.HasMainTitle()) return false; //if a kingdom has main title then it could become an empire
+                    ModClass.EMPIRE_MANAGER.update(-1L);
+                    if (!kingdom.canBecomeEmpire()) return false;
+                    return true;
+                },
+                action = BecomeEmpireAndStartEnfeoff
+            });
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "province_change_to_kingdom",
@@ -1027,6 +1027,11 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!DiplomacyHelpers.isWarNeeded(kingdom))
+                    {
+                        return false;
+                    }
+
+                    if (ConfigData.IS_ORIGINAL_WAR_LOGIC)
                     {
                         return false;
                     }

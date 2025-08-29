@@ -316,6 +316,7 @@ public static class KingdomExtension
 
     public static bool canBecomeEmpire(this Kingdom k)
     {
+        if (!k.hasKing()) return false;
         // 基本条件检查
         if (k.isRekt() || k.isEmpire()) return false;
 

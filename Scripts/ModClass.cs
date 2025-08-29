@@ -200,9 +200,9 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);
         World.world.list_all_sim_managers.Add(PROVINCE_MANAGER);
         CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-        // PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
-        // PlayerConfig.dict["map_title_layer"].boolVal = false;
-        // PlayerConfig.dict["map_empire_layer"].boolVal = false;
+        PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
+        PlayerConfig.dict["map_title_layer"].boolVal = false;
+        PlayerConfig.dict["map_empire_layer"].boolVal = false;
         PlayerConfig.dict["switch_real_num"].boolVal = false;
         OnomasticsRule.ReadSetting();
 

@@ -96,7 +96,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             //左侧信息栏
             var leftPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
             leftPart.AddTextIntoVertLayout($"{LM.Get("empire_clan")}: {(_empire.EmpireSpecificClan?.name??""+ " " + LM.Get("Clan")).ColorString(_empire.EmpireSpecificClan?.color??"#FFFFFF")}");
-            leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire.data.history_emperrors.Count)}");
+            leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count??0)}");
             leftPart.AddTextIntoVertLayout($"{LM.Get("i_population")}: {_empire.countPopulation()}/{_empire.countMaxPopulation()}");
             
             var leftPart2 = topSpace.BeginVertGroup(pAlignment:TextAnchor.LowerCenter, pPadding: new RectOffset(0,0,6,0));
