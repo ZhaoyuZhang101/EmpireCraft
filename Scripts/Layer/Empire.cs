@@ -479,6 +479,7 @@ public class Empire : MetaObject<EmpireData>
             }
             SetEmpireName(nameEmpire);
             isNew = true;
+            data.history_emperrors.Clear();
         } 
         data.empire_specific_clan = currentSpecificClan.id;
         EmpireClan = actor.clan;
@@ -616,12 +617,13 @@ public class Empire : MetaObject<EmpireData>
             cities = new List<string>()
         };
         this.RecordHistory(
-            this.Emperor.isAlive() ? EmpireHistoryType.emperor_left_history : EmpireHistoryType.emperor_die_history,
+            Emperor.isAlive() ? EmpireHistoryType.emperor_left_history : EmpireHistoryType.emperor_die_history,
             new Dictionary<string, string>()
             {
                 ["year_name"] = data.year_name,
                 ["actor"] = this.Emperor.data.name
             });
+        data.history_emperrors.Add(Emperor?.name);
         this.Emperor.RemoveEmpire();
         data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
         data.history.Add(data.currentHistory);
@@ -711,6 +713,7 @@ public class Empire : MetaObject<EmpireData>
         if (kingdom == null) return;
         if (kingdom.data == null) return;
         if (!kingdom.isAlive()) return;
+        data.history_emperrors = new List<string>();
         data.heir_type = EmpireHeirLawType.eldest_child;
         data.last_exam_timestamp = World.world.getCurWorldTime();
         data.armySystemType = ArmySystemType.募兵制;
@@ -718,13 +721,7 @@ public class Empire : MetaObject<EmpireData>
         if (ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out string culture)) {
             LogService.LogInfo(culture);
             data.centerOffice = new CenterOffice(culture);
-            if (ConfigData.yearNameSubspecies.Contains(culture))
-            {
-                data.has_year_name = true;
-            } else
-            {
-                data.has_year_name = false;
-            }
+            data.has_year_name = ConfigData.yearNameSubspecies.Contains(culture);
         } else
         {
             LogService.LogInfo("Western");
