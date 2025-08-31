@@ -19,6 +19,7 @@ public class KingdomTitleData: MetaObjectData
     public long founder_kingdom_id { get; set; } = -1L;
     public string original_actor_asset;
     public long title_capital = -1L;
+    public bool is_allow_to_inherit = false;
 
     public double title_controlled_rate = 0.9;
 

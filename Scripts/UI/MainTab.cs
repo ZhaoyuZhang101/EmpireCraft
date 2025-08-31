@@ -107,11 +107,6 @@ internal static class MainTab
         tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
             SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png")));
 
-        PreventCityDestroyToggle.init();
-        PowerButton pb2 = FixFunctions.CreateToggleButton("prevent_city_destroy",
-                 SpriteTextureLoader.getSprite("ui/icons/iconCity"));
-        tab.AddPowerButton(EMPIRE_GROUP, pb2);
-
         ProvinceLayerToggle.init();
         PowerButton pb3 = FixFunctions.CreateToggleButton("province_layer",
                  SpriteTextureLoader.getSprite("ui/icons/iconCity"));

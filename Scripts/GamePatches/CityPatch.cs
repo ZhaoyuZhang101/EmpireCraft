@@ -17,6 +17,7 @@ using System.Numerics;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 
@@ -32,6 +33,16 @@ public class CityPatch : GamePatch
         new Harmony(nameof(destroy_city)).Patch(
             AccessTools.Method(typeof(City), nameof(City.destroyCity)),
             prefix: new HarmonyMethod(GetType(), nameof(destroy_city))
+        );
+
+        new Harmony(nameof(hasReachedWorldLawLimit)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.hasReachedWorldLawLimit)),
+            prefix: new HarmonyMethod(GetType(), nameof(hasReachedWorldLawLimit))
+        );
+        
+        new Harmony(nameof(getPopulationMaximum)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.getPopulationMaximum)),
+            prefix: new HarmonyMethod(GetType(), nameof(getPopulationMaximum))
         );
 
         new Harmony(nameof(removeData)).Patch(
@@ -52,11 +63,6 @@ public class CityPatch : GamePatch
         new Harmony(nameof(removeObject)).Patch(
             AccessTools.Method(typeof(CitiesManager), nameof(CitiesManager.removeObject)),
             prefix: new HarmonyMethod(GetType(), nameof(removeObject))
-        );
-
-        new Harmony(nameof(getPopulationMaximum)).Patch(
-            AccessTools.Method(typeof(City), nameof(City.getPopulationMaximum)),
-            prefix: new HarmonyMethod(GetType(), nameof(getPopulationMaximum))
         );
 
         new Harmony(nameof(city_update)).Patch(
@@ -101,7 +107,40 @@ public class CityPatch : GamePatch
             __result = __instance.GetMaxPopulation();
             return false;
         }
-        __result = WorldLawLibrary.world_law_civ_limit_population_100.isEnabled() && __instance.status.housing_total >= 100 ? 100 : __instance.status.housing_total;
+        // 先按住房量给一个基础上限
+        int cap = __instance.status.housing_total;
+
+        // 依次套用 20/50/100 三个世界法令的限制（哪个开了就取 min）
+        if (EmpireCraftWorldLawLibrary.world_law_civ_limit_population_20?.isEnabled() == true)
+            cap = Math.Min(cap, 20);
+
+        if (EmpireCraftWorldLawLibrary.world_law_civ_limit_population_50?.isEnabled() == true)
+            cap = Math.Min(cap, 50);
+
+        if (WorldLawLibrary.world_law_civ_limit_population_100?.isEnabled() == true)
+            cap = Math.Min(cap, 100);
+
+        __result = cap;
+        return false;
+    }
+    public static bool hasReachedWorldLawLimit(City __instance, ref bool __result)
+    {
+        if (WorldLawLibrary.world_law_civ_limit_population_100.isEnabled() && __instance.getPopulationPeople() >= 100)
+        {
+            __result = true;
+            return false;
+        }
+        if (EmpireCraftWorldLawLibrary.world_law_civ_limit_population_50.isEnabled() && __instance.getPopulationPeople() >= 50)
+        {
+            __result = true;
+            return false;
+        }
+        if (EmpireCraftWorldLawLibrary.world_law_civ_limit_population_20.isEnabled() && __instance.getPopulationPeople() >= 20)
+        {
+            __result = true;
+            return false;
+        }
+        __result = false;
         return false;
     }
     public static void removeLeader(City __instance)
@@ -236,7 +275,7 @@ public class CityPatch : GamePatch
     }
     public static bool removeZone(City __instance, TileZone pZone)
     {
-        if (ConfigData.PREVENT_CITY_DESTROY)
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
         {
             return false;
         }
@@ -274,7 +313,7 @@ public class CityPatch : GamePatch
         {
             if (pZone.city != null)
             {
-                if (ConfigData.PREVENT_CITY_DESTROY)
+                if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
                 {
                     return false;
                 }
@@ -347,20 +386,6 @@ public class CityPatch : GamePatch
 
     public static void city_update(City __instance, float pElapsed)
     {
-        if (ConfigData.PREVENT_CITY_DESTROY)
-        {
-            int v = Date.getYearsSince(__instance.data.created_time);
-            if (v >= 1)
-            {
-                if (__instance.isAlive())
-                {
-                    if (__instance.units.Count()<=1)
-                    {
-                        TransferUnits(__instance);
-                    }
-                }
-            }
-        }
         if (__instance.hasTitle())
         {
             if (__instance.GetTitle() != null)
@@ -371,63 +396,7 @@ public class CityPatch : GamePatch
     }
     public static bool removeObject(CitiesManager __instance, City pObject)
     {
-        if (ConfigData.PREVENT_CITY_DESTROY)
-        {
-            int v = Date.getYearsSince(pObject.data.created_time);
-            if (v >= 1)
-            {
-                {
-                    TransferUnits(pObject);
-                    return false;
-                }
-            }
-        }
         return true;
-    }
-
-    public static void TransferUnits(City pCity)
-    {
-        double unitCount;
-        if (pCity.hasKingdom())
-        {
-            // 如果城市有王国，则将国家人口1/20的士兵单位转移到城市中
-            Kingdom kingdom = pCity.kingdom;
-            unitCount = Math.Ceiling(kingdom.getPopulationTotal() / 20.0f);
-            if (unitCount <= 0)
-            {
-                if (pCity.neighbours_kingdoms.Count() <=0)
-                {
-                    return;
-                }
-                pCity.joinAnotherKingdom(pCity.neighbours_kingdoms.GetRandom());
-                return;
-            }
-            Army pArmy;
-            if (kingdom.hasKing())
-            {
-                pArmy = World.world.armies.newArmy(kingdom.king, pCity);
-            } else
-            {
-                pArmy = World.world.armies.newArmy(kingdom.units.GetRandom(), pCity);
-            }
-            kingdom.units.FindAll(u => u.isWarrior()).ForEach(u =>
-            {
-                if (u.isAlive())
-                {
-                    u.setArmy(pArmy);
-                    u.setCity(pCity);
-                    unitCount--;
-                }
-            });
-        } else
-        {
-            if (pCity.neighbours_kingdoms.Count() <= 0)
-            {
-                return;
-            }
-            pCity.joinAnotherKingdom(pCity.neighbours_kingdoms.GetRandom());
-            return;
-        }
     }
 
     public static void setKingdom(City __instance, Kingdom pKingdom)
@@ -448,7 +417,7 @@ public class CityPatch : GamePatch
 
     public static bool zone_steal(CityBehBorderSteal __instance, City pCity)
     {
-        if (ConfigData.PREVENT_CITY_DESTROY)
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
         {
             return false;
         }

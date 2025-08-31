@@ -23,6 +23,7 @@ using System.Text.RegularExpressions;
 using System.Runtime.Serialization;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using System.Security.Principal;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 public class Name
@@ -41,11 +42,11 @@ public class Name
     }
     public bool hasFamilyName(Actor actor)
     {
-        return familyName != "" && familyName != null;
+        return !string.IsNullOrEmpty(familyName);
     }
     public bool hasFirstName(Actor actor)
     {
-        return firstName != "" && firstName != null;
+        return !string.IsNullOrEmpty(firstName);
     }
     public bool hasCulture(Actor actor)
     {
@@ -213,8 +214,6 @@ public static class ActorExtension
         [JsonConverter(typeof(StringEnumConverter))]
         public PeeragesLevel peeragesLevel;
         public PeerageType peerageType;
-        public string title = "";
-        public List<long> titles = new List<long>();
         public List<long> want_acuired_title = new List<long>();
         public List<long> owned_title = new List<long>();
         public Name name;
@@ -222,13 +221,35 @@ public static class ActorExtension
         public long empire_id { get; set; } = -1L;
         public long provinceId { get; set; } = -1L;
         public long personal_identity { get; set; } = -1L;
+        public float death_rate = 0.0f;
     }
-    public static void SetTitle(this Actor a, string value)
+
+    public static bool NeedDead(this Actor a)
     {
-        if (a == null || value == null) return;
-        if (a.kingdom == null) return;
-        if (a.kingdom.GetEmpire() == null) return;
-        GetOrCreate(a).title = value + "\u200A" + TranslateHelper.GetPeerageTranslate(a.GetPeeragesLevel());
+        if (a == null) return false;
+
+        var data = a.GetOrCreate();
+        // 保险起见再夹紧一次（即使 ChangeDeathRate 已经做了）
+        float rate = Mathf.Clamp01(data.death_rate);
+
+        // 边界：0 一定不死；1 一定会死
+        if (rate <= 0f) return false;
+        if (rate >= 1f) return true;
+
+        // 概率判定（Unity）
+        return UnityEngine.Random.value < rate;
+    }
+
+    public static void ChangeDeathRate(this Actor a, float value)
+    {
+        a.GetOrCreate().death_rate += value;
+        if (a.GetOrCreate().death_rate <= 0.0f)
+        {
+            a.GetOrCreate().death_rate = 0.0f;
+        } else if (a.GetOrCreate().death_rate >= 1.0f)
+        {
+            a.GetOrCreate().death_rate = 1.0f;
+        }
     }
     public static SpecificClan GetSpecificClan(this Actor a)
     {
@@ -765,13 +786,6 @@ public static class ActorExtension
         Kingdom kingdom = a.kingdom;
         var ownedTitles = a.GetOwnedTitle();
         if (ownedTitles == null) return "";
-        var hasCapitalTitle = ownedTitles.Exists(t => ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(t) ? ModClass.KINGDOM_TITLE_MANAGER.get(t).title_capital == kingdom.capital : false);
-        if (hasCapitalTitle)
-        {
-            kingdom.SetMainTitle(kingdom.capital.GetTitle());
-            return kingdom.capital.GetTitle().data.name;
-        }
-
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
         kingdom.SetMainTitle(title);
         return title.data.name;
@@ -942,7 +956,7 @@ public static class ActorExtension
     public static void ClearTitle(this Actor a)
     {
         var ed = GetOrCreate(a);
-        ed.owned_title.Select(t=>ModClass.KINGDOM_TITLE_MANAGER.get(t).owner=null);
+        ed.owned_title.Select(t=>ModClass.KINGDOM_TITLE_MANAGER.get(t)!.owner=null);
         ed.owned_title.Clear();
         ed.want_acuired_title.Clear();
     }

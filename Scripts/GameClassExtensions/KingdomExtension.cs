@@ -34,11 +34,13 @@ public static class KingdomExtension
         public string KingdomNamePre = "";
         public double TimestampBeFeifed = -1L;
         public double TaxRate = 0.1;
-        public long MainTitleID = -1L;
         public long HeirID = -1L;
         [JsonIgnore]
         public Task<(Actor, string)> CalcTask;
+        //拥有法理
         public List<long> OwnedTitle = new List<long>();
+        //想要索取的法理
+        public List<long> WantedTitle = new List<long>();
         public long ProvinceID = -1L;
         public int IndependentValue = 100;
         public bool is_need_to_choose_heir = false;
@@ -271,19 +273,29 @@ public static class KingdomExtension
         return ed.IndependentValue <= 0;
     }
 
+    public static bool IsOwnedTitle(this Kingdom k, KingdomTitle title)
+    {
+        var ed = k.GetOrCreate();
+        return ed.OwnedTitle.Contains(title.id);
+    }
+
     public static void SetMainTitle(this Kingdom k, KingdomTitle title)
     {
         title.main_kingdom = k;
-        GetOrCreate(k).MainTitleID = title.id;
+        if (k.IsOwnedTitle(title))
+        {
+            k.GetOrCreate().OwnedTitle.Remove(title.id);
+            
+        }
+        k.GetOrCreate().OwnedTitle.Insert(0, title.id);
     }
 
     public static void RemoveMainTitle(this Kingdom k)
     {
-        if (ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(GetOrCreate(k).MainTitleID))
+        if (GetOrCreate(k).OwnedTitle.Any())
         {
-            ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).MainTitleID)!.main_kingdom = null;
+            k.GetOrCreate().OwnedTitle.RemoveAt(0);
         }
-        GetOrCreate(k).MainTitleID = -1L;
     }
 
     public static void SetProvince(this Kingdom k, Province province)
@@ -305,13 +317,13 @@ public static class KingdomExtension
     {
         if (k == null) return null;
         if (GetOrCreate(k) == null) return null;
-        if (GetOrCreate(k).MainTitleID == -1L) return null;
-        return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).MainTitleID);
+        if (!k.GetOrCreate().OwnedTitle.Any()) return null;
+        return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).OwnedTitle.First());
     }
 
     public static bool HasMainTitle(this Kingdom k)
     {
-        return GetOrCreate(k).MainTitleID != -1L;
+        return GetOrCreate(k).OwnedTitle.Any();
     }
 
     public static bool canBecomeEmpire(this Kingdom k)
@@ -403,7 +415,7 @@ public static class KingdomExtension
     public static void SetKingdomName(this Kingdom kingdom, string kingdom_name)
     {
         if (kingdom == null) return;
-        if (kingdom.name == null||kingdom.name == "") return;
+        if (string.IsNullOrEmpty(kingdom.name)) return;
 
         string[] nameParts = kingdom.name.Split('\u200A');
         if (nameParts.Length <= 1)
@@ -577,7 +589,7 @@ public static class KingdomExtension
                 }
             }
         }
-        if (kingdomName == null || kingdomName == "")
+        if (string.IsNullOrEmpty(kingdomName))
         {
             kingdom.data.name = kingdom.GetKingdomName() + "\u200A" + LM.Get(country_level_string);
         }
@@ -617,7 +629,7 @@ public static class KingdomExtension
     {
         if (k == null) return false;
         if (GetOrCreate(k)==null) return false;
-        return GetOrCreate(k).OwnedTitle.Count()>0; 
+        return GetOrCreate(k).OwnedTitle.Any(); 
     }
 
     public static void SetOwnedTitle(this Kingdom k, List<long> value)
