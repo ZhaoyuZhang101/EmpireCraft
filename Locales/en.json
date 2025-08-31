@@ -267,8 +267,8 @@
     "province_officers_num": "Number of Past Officials",
     "province_capital": "Provincial Capital",
     "title_holder": "Title Holder",
-    "prevent_city_destroy": "Prevent City Destruction Toggle",
-    "prevent_city_destroy_description": "When enabled, if a city's population falls below 1, the state will send troops to replenish population",
+    "empirecraft_law_prevent_city_destroy_title": "Prevent City Destruction Toggle",
+    "empirecraft_law_prevent_city_destroy_description": "When enabled, if a city's population falls below 1, the state will send troops to replenish population",
     "title_capital": "Title Capital",
     "EmpireListWindow": "Empire List",
     "emperor_suffix": "Emperor Suffix",
@@ -423,5 +423,14 @@
     "insert_all_culture_description": "Inject preset templates into existing cultures according to configuration",
     "all_titles": "All Titles",
     "all_titles_description": "All titles acquired by the current character",
-    "format_past_emperor_en": "Late Emperor: {0}"
+    "format_past_emperor_en": "Late Emperor: {0}",
+    "empirecraft_laws_tab_common_setting": "EmpireCraft Common Setting",
+    "empirecraft_law_realistic_age_title": "Realistic Age",
+    "empirecraft_law_realistic_age_description": "All Races' age will be same as the human.",
+    "world_law_civ_limit_population_50_title": "50 people",
+    "world_law_civ_limit_population_50_description": "Limit maximum population of settlements to 50",
+    "world_law_civ_limit_population_20_title": "20 people",
+    "world_law_civ_limit_population_20_description": "Limit maximum population of settlements to 20",
+    "empirecraft_law_ban_empire_title": "Ban Empire",
+    "empirecraft_law_ban_empire_description": "When enabled, empires will not be generated automatically in the game"
 }

@@ -16,6 +16,7 @@ using System.Numerics;
 using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.GameLibrary;
 using UnityEngine;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 
@@ -57,9 +58,33 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(setParent)));
         new Harmony(nameof(setCity)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setCity)),
             postfix: new HarmonyMethod(GetType(), nameof(setCity)));
+        new Harmony(nameof(actionLanded)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.actionLanded)),
+            postfix: new HarmonyMethod(GetType(), nameof(actionLanded)));
+        new Harmony(nameof(updateAge)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.updateAge)),
+            postfix: new HarmonyMethod(GetType(), nameof(updateAge)));
         LogService.LogInfo("角色补丁加载成功");
     }
+    public static void updateAge(Actor __instance)
+    {
+        if (__instance.age > 70)
+        {
+            __instance.ChangeDeathRate(0.01f);
+        }
 
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_realistic_age.isEnabled())
+        {
+            if (__instance.NeedDead())
+            {
+                LogService.LogInfo("给予死亡");
+                __instance.addTrait("death_mark");
+            } 
+        }
+    }
+
+    public static void actionLanded(Actor __instance)
+    {
+        __instance.setTask("do_mod_actor_beh");
+    }
     public static void setCity(Actor __instance, City pCity)
     {
         if (pCity.HasReachedPlayerPopLimit())
@@ -257,11 +282,22 @@ public class ActorPatch : GamePatch
                 {
                     __instance.clan.data.name = pCulture.getOnomasticData(MetaType.Clan).generateName();
                 }
-                if (__instance.hasFamily())
+
+                try
                 {
-                    __instance.family.data.name = __instance.city.data.name + "\u200A" + __instance.clan.GetClanName() + "\u200A" + LM.Get("Family");
-                    __instance.family.SetFamilyCityPre();
+                    if (__instance.hasFamily())
+                    {
+                        __instance.family.data.name = __instance.city?.data?.name ??
+                                                      "" + "\u200A" + __instance.clan?.GetClanName() + "\u200A" +
+                                                      LM.Get("Family");
+                        __instance.family.SetFamilyCityPre();
+                    }
                 }
+                catch (Exception e)
+                {
+                    LogService.LogInfo("设置姓名失败");
+                }
+
                 __instance.SetFamilyName(__instance.clan.GetClanName());
             } else
             {

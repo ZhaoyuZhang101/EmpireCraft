@@ -1336,10 +1336,15 @@ public class Empire : MetaObject<EmpireData>
         foreach (Province province in ProvinceList)
         {
             if (province.isRekt()) continue;
-            if(province.occupied_cities.Count > 0)
+            if(province.occupied_cities.Any())
             {
-                LogService.LogInfo(province.data.name);
-                return true;
+                foreach (var city in province.occupied_cities)
+                {
+                    if (!city.Key.isNeutral())
+                    {
+                        return true;
+                    }
+                }
             }
         }
         return false;

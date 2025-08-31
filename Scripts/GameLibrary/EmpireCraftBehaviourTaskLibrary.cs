@@ -9,15 +9,18 @@ public static class EmpireCraftBehaviourTaskLibrary
 {
     public static void init()
     {
+        //角色
         LogService.LogInfo("初始化帝国模组角色逻辑");
         BehaviourTaskActor obj = new BehaviourTaskActor()
         {
-            id = "do_mod_actor_beh"
+            id = "do_mod_actor_beh",
         };
         obj.ActorAIs(AssetManager.tasks_actor);
-        obj.addBeh(new BehRandomWait(pMax: 1f));
+        obj.addBeh(new BehRandomWait(0.1f));
         AssetManager.tasks_actor.add(obj);
+        AssetManager.job_actor.t.addTask("do_mod_actor_beh");
         
+        //城市
         LogService.LogInfo("初始化帝国模组城市逻辑");
         BehaviourTaskCity obj2 = new BehaviourTaskCity()
         {
@@ -26,7 +29,9 @@ public static class EmpireCraftBehaviourTaskLibrary
         obj2.CityAIs(AssetManager.tasks_city);
         obj2.addBeh(new CityBehRandomWait(0.1f));
         AssetManager.tasks_city.add(obj2);
+        AssetManager.job_city.t.addTask("do_mod_city_beh");
         
+        //国家
         LogService.LogInfo("初始化帝国模组王国逻辑");
         BehaviourTaskKingdom obj3 = new BehaviourTaskKingdom
         {
@@ -35,5 +40,6 @@ public static class EmpireCraftBehaviourTaskLibrary
         obj3.KingdomAIs(AssetManager.tasks_kingdom);
         obj3.addBeh(new KingdomBehRandomWait(0.1f));
         AssetManager.tasks_kingdom.add(obj3);
+        AssetManager.job_kingdom.t.addTask("do_mod_kingdom_beh");
     }
 }

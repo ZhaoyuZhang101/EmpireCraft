@@ -271,8 +271,8 @@
     "province_officers_num": "历任官员数量",
     "province_capital": "省会",
     "title_holder": "法理持有者",
-    "prevent_city_destroy": "防止城市摧毁开关",
-    "prevent_city_destroy_description": "开启后，当城市人口小于1时，国家会主动向城市通过军队的形式转入人口",
+    "empirecraft_law_prevent_city_destroy_title": "防止城市摧毁开关",
+    "empirecraft_law_prevent_city_destroy_description": "开启后，当城市人口小于1时，国家会主动向城市通过军队的形式转入人口",
     "title_capital": "法理首都",
     "EmpireListWindow": "帝国列表",
     "emperor_suffix": "帝",
@@ -462,5 +462,14 @@
     "opinion_empire_clan_been_changed": "帝国被篡位",
     "empire_bureau": "帝国行政",
 
-    "format_past_emperor": "历经 {0} 帝"
+    "format_past_emperor": "历经 {0} 帝",
+    "empirecraft_laws_tab_common_setting": "帝國盒子基礎設置",
+    "empirecraft_law_realistic_age_title": "真实年龄",
+    "empirecraft_law_realistic_age_description": "所有种族的年龄与现实人类一致",
+    "world_law_civ_limit_population_50_title": "五十人",
+    "world_law_civ_limit_population_50_description": "限制村镇最大人口数量为50",
+    "world_law_civ_limit_population_20_title": "二十人",
+    "world_law_civ_limit_population_20_description": "限制村镇最大人口数量为20",
+    "empirecraft_law_ban_empire_title": "禁止称帝",
+    "empirecraft_law_ban_empire_description": "开启后游戏中将不会自动产生帝国"
 }
