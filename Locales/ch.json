@@ -38,6 +38,8 @@
   "post_humous_name": "廟號/諡號",
   "empty": "",
   "until_now": "至今",
+  "father_relation": "父系亲属",
+  "mother_relation": "母系亲属",
   "i_relationship": "親屬關係",
   "i_birth_to_death": "在世時間",
   "relation_CHILDS": "兒子",

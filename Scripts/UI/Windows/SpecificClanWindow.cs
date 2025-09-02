@@ -38,20 +38,13 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         var namePart = text.Split('\u200A');
         _clanInput.input.text = namePart[0] + "\u200A" + LM.Get("specific_clan");
         _sc.name = namePart[0];
-        foreach (var member in _sc._cache)
+        foreach (var member in _sc._cache.Where(member => member.Value.is_alive))
         {
-            if (member.Value.is_alive)
+            member.Value._actor.GetModName().familyName = namePart[0];
+            member.Value._actor.GetModName().SetName(member.Value._actor);
+            if (member.Value._actor.hasClan())
             {
-                member.Value._actor.GetModName().familyName = text;
-                member.Value._actor.GetModName().SetName(member.Value._actor);
-            }
-
-            foreach (var clan in World.world.clans)
-            {
-                if (clan.HasSpecificClan())
-                {
-                    clan.data.name = clan.data.name = text + "\u200A" + LM.Get("Clan");
-                }
+                member.Value._actor.clan.data.name = namePart[0] + "\u200A" + LM.Get("Clan");
             }
         }
         LogService.LogInfo("changing clan name");
@@ -152,14 +145,14 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         var topSearchSpace = this.BeginHoriGroup();
         topSearchSpace.transform.SetParent(this.transform.parent, false);
         SimpleButton fatherSideButton = Instantiate(SimpleButton.Prefab);
-        fatherSideButton.Setup(ShowFatherSideSpace, null, "父系亲属", new Vector2(30, 15));
+        fatherSideButton.Setup(ShowFatherSideSpace, null, LM.Get("father_relation"), new Vector2(30, 15));
         topSearchSpace.AddChild(fatherSideButton.gameObject);
         
         //搜索框
         TextInput relationSearchInput = UIHelper.GenerateTextInput(topSearchSpace.transform, action:StartSearchActor, default_text:_lastSearchContent);
         
         SimpleButton motherSideButton = Instantiate(SimpleButton.Prefab);
-        motherSideButton.Setup(ShowMotherSideSpace, null, "母系亲属", new Vector2(30, 15));
+        motherSideButton.Setup(ShowMotherSideSpace, null, LM.Get("mother_relation"), new Vector2(30, 15));
         topSearchSpace.AddChild(motherSideButton.gameObject);
         
         var rt = topSearchSpace.GetComponent<RectTransform>();
