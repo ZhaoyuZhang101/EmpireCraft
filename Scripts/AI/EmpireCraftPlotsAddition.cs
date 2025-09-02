@@ -102,6 +102,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.isEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     if (empire == null) return false;
+                    if (empire.OriginalCapital == null) return false;
                     if (empire.OriginalCapital==kingdom.capital) return false;
                     if (empire.OriginalCapital.kingdom!=kingdom) return false;
                     return true;

@@ -1286,7 +1286,7 @@ public class Empire : MetaObject<EmpireData>
         else
             this.data.emperor = -1L;
         this.data.empire = this.CoreKingdom.data.id;
-        this.data.original_capital = this.OriginalCapital.isAlive() ? this.OriginalCapital.data.id : -1L;
+        this.data.original_capital = !this.OriginalCapital.isRekt() ? this.OriginalCapital.data.id : -1L;
         try
         {
             this.data.empire_clan = this.EmpireClan == null ? -1L : this.EmpireClan.data.id;
