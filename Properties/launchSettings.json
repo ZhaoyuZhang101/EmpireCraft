@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "EmpireCraft": {
+      "commandName": "Project",
+      "commandLineArgs": "csc -out:ModLauncher.exe Program.cs"
+    }
+  }
+}

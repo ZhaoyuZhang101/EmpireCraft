@@ -1,0 +1,675 @@
+key,cz,en,ch
+germanic_city_1,寂静之原,Silent Plain,寂靜之原
+germanic_city_2,绿溪村,Green Stream Village,綠溪村
+germanic_city_3,晨雾村,Morning Mist Village,晨霧村
+germanic_city_4,白羽村,White Feather Village,白羽村
+germanic_city_5,石丘村,Stone Hill Village,石丘村
+germanic_city_6,落松村,Falling Pine Village,落松村
+germanic_city_7,金雀村,Golden Sparrow Village,金雀村
+germanic_city_8,风铃村,Wind Bell Village,風鈴村
+germanic_city_9,银露村,Silver Dew Village,銀露村
+germanic_city_10,杉木村,Cedar Wood Village,杉木村
+germanic_city_11,鸦啼村,Crow Caw Village,鴉啼村
+germanic_city_12,古树村,Ancient Tree Village,古樹村
+germanic_city_13,幽泉村,Secluded Spring Village,幽泉村
+germanic_city_14,苍叶村,Pale Leaf Village,蒼葉村
+germanic_city_15,暮风村,Dusk Wind Village,暮風村
+germanic_city_16,岩岭村,Rock Ridge Village,岩嶺村
+germanic_city_17,雨鹿村,Rain Deer Village,雨鹿村
+germanic_city_18,晨歌村,Morning Song Village,晨歌村
+germanic_city_19,麦穗村,Wheat Ear Village,麥穗村
+germanic_city_20,碧泉村,Green Spring Village,碧泉村
+germanic_city_21,翠藤村,Emerald Vine Village,翠藤村
+germanic_city_22,灰石镇,Grey Stone Town,灰石鎮
+germanic_city_23,月光镇,Moonlight Town,月光鎮
+germanic_city_24,青湖镇,Blue Lake Town,青湖鎮
+germanic_city_25,雾谷镇,Fog Valley Town,霧谷鎮
+germanic_city_26,风歌镇,Wind Song Town,風歌鎮
+germanic_city_27,苍岭镇,Pale Ridge Town,蒼嶺鎮
+germanic_city_28,赤丘镇,Red Hill Town,赤丘鎮
+germanic_city_29,松影镇,Pine Shadow Town,松影鎮
+germanic_city_30,夜莺镇,Nightingale Town,夜鶯鎮
+germanic_city_31,铁铃镇,Iron Bell Town,鐵鈴鎮
+germanic_city_32,长溪镇,Long Stream Town,長溪鎮
+germanic_city_33,金橡镇,Golden Oak Town,金橡鎮
+germanic_city_34,落羽镇,Falling Feather Town,落羽鎮
+germanic_city_35,霜露镇,Frost Dew Town,霜露鎮
+germanic_city_36,雷泉镇,Thunder Spring Town,雷泉鎮
+germanic_city_37,影树镇,Shadow Tree Town,影樹鎮
+germanic_city_38,青雀镇,Blue Sparrow Town,青雀鎮
+germanic_city_39,暮云镇,Dusk Cloud Town,暮雲鎮
+germanic_city_40,星辉镇,Starlight Town,星輝鎮
+germanic_city_41,远歌镇,Distant Song Town,遠歌鎮
+germanic_city_42,白塔城,White Tower City,白塔城
+germanic_city_43,王冠城,Crown City,王冠城
+germanic_city_44,远星城,Distant Star City,遠星城
+germanic_city_45,黄金城,Golden City,黃金城
+germanic_city_46,雷鸣城,Thunder City,雷鳴城
+germanic_city_47,晨曦城,Dawn City,晨曦城
+germanic_city_48,落霞城,Sunset Glow City,落霞城
+germanic_city_49,古堡城,Ancient Castle City,古堡城
+germanic_city_50,风吟城,Wind Chant City,風吟城
+germanic_city_51,银湾城,Silver Bay City,銀灣城
+germanic_city_52,赤焰城,Red Flame City,赤焰城
+germanic_city_53,圣泉城,Holy Spring City,聖泉城
+germanic_city_54,铁壁城,Iron Wall City,鐵壁城
+germanic_city_55,日曜城,Sun Shine City,日曜城
+germanic_city_56,暮雪城,Dusk Snow City,暮雪城
+germanic_city_57,长川城,Long River City,長川城
+germanic_city_58,流光城,Flowing Light City,流光城
+germanic_city_59,白焰城,White Flame City,白焰城
+germanic_city_60,战旗城,War Banner City,戰旗城
+germanic_city_61,天幕城,Canopy City,天幕城
+germanic_city_62,风暴要塞,Storm Fortress,風暴要塞
+germanic_city_63,石拳要塞,Stone Fist Fortress,石拳要塞
+germanic_city_64,霜铁要塞,Frost Iron Fortress,霜鐵要塞
+germanic_city_65,雷霆堡垒,Thunder Fortress,雷霆堡壘
+germanic_city_66,赤山堡垒,Red Mountain Fortress,赤山堡壘
+germanic_city_67,黑岩堡垒,Black Rock Fortress,黑岩堡壘
+germanic_city_68,龙骨要塞,Dragon Bone Fortress,龍骨要塞
+germanic_city_69,暮霭堡垒,Dusk Mist Fortress,暮靄堡壘
+germanic_city_70,血月堡垒,Blood Moon Fortress,血月堡壘
+germanic_city_71,铁心堡垒,Iron Heart Fortress,鐵心堡壘
+germanic_city_72,烈阳堡垒,Blazing Sun Fortress,烈陽堡壘
+germanic_city_73,灰狼要塞,Grey Wolf Fortress,灰狼要塞
+germanic_city_74,圣盾要塞,Holy Shield Fortress,聖盾要塞
+germanic_city_75,破晓堡垒,Dawn Fortress,破曉堡壘
+germanic_city_76,深渊堡垒,Abyss Fortress,深淵堡壘
+germanic_city_77,落羽堡垒,Falling Feather Fortress,落羽堡壘
+germanic_city_78,寒影堡垒,Cold Shadow Fortress,寒影堡壘
+germanic_city_79,云峰要塞,Cloud Peak Fortress,雲峰要塞
+germanic_city_80,冰川堡垒,Glacier Fortress,冰川堡壘
+germanic_city_81,雄鹰堡垒,Eagle Fortress,雄鷹堡壘
+germanic_city_82,风语平原,Wind Whisper Plain,風語平原
+germanic_city_83,断崖谷,Cliff Valley,斷崖谷
+germanic_city_84,黑森林,Black Forest,黑森林
+germanic_city_85,龙息荒原,Dragon Breath Wasteland,龍息荒原
+germanic_city_86,星落丘陵,Star Fall Hills,星落丘陵
+germanic_city_87,落雪山脉,Falling Snow Mountains,落雪山脈
+germanic_city_88,赤焰荒野,Red Flame Wilderness,赤焰荒野
+germanic_city_89,铁杉岭,Iron Hemlock Ridge,鐵杉嶺
+germanic_city_90,云雾峰,Cloud Mist Peak,雲霧峰
+germanic_city_91,圣泉盆地,Holy Spring Basin,聖泉盆地
+germanic_city_92,孤影峡谷,Lone Shadow Valley,孤影峽谷
+germanic_city_93,雷霆山,Thunder Mountain,雷霆山
+germanic_city_94,晨曦河谷,Dawn River Valley,晨曦河谷
+germanic_city_95,落霞湖,Sunset Glow Lake,落霞湖
+germanic_city_96,银弓平原,Silver Bow Plain,銀弓平原
+germanic_city_97,赤峰丘陵,Red Peak Hills,赤峰丘陵
+germanic_city_98,隐雾密林,Hidden Mist Forest,隱霧密林
+germanic_city_99,黄金平原,Golden Plain,黃金平原
+germanic_city_100,北境荒野,North Wilderness,北境荒野
+germanic_city_101,荣耀之冠,Glory Crown,榮耀之冠
+germanic_city_102,王者之城,King City,王者之城
+germanic_city_103,荣耀堡,Glory Fortress,榮耀堡
+germanic_city_104,铁盾要塞,Iron Shield Fortress,鐵盾要塞
+germanic_city_105,白银之都,Silver Capital,白銀之都
+germanic_city_106,骑士广场,Knight Square,騎士廣場
+germanic_city_107,圣光教堂,Holy Light Church,聖光教堂
+germanic_city_108,金冠庄园,Golden Crown Manor,金冠莊園
+germanic_city_109,勇士之路,Warrior Path,勇士之路
+germanic_city_110,魔法学院,Magic Academy,魔法學院
+germanic_city_111,星辰钟楼,Star Clock Tower,星辰鐘樓
+germanic_city_112,贸易者码头,Trader Dock,貿易者碼頭
+germanic_city_113,风车镇,Windmill Town,風車鎮
+germanic_city_114,石桥村,Stone Bridge Village,石橋村
+germanic_city_115,誓言石,Oath Stone,誓言石
+germanic_city_116,王权之座,Throne Of Kings,王權之座
+germanic_city_117,光辉殿堂,Brilliant Hall,光輝殿堂
+germanic_city_118,荣耀之路,Glory Road,榮耀之路
+germanic_city_119,智慧之塔,Wisdom Tower,智慧之塔
+germanic_city_120,自由港,Freeport,自由港
+germanic_city_121,布兰德里郡,Brandy County,布蘭德里郡
+germanic_city_122,索尔滕城,Solton City,索爾滕城
+germanic_city_123,米尔霍姆镇,Milholm Town,米爾霍姆鎮
+germanic_city_124,贝尔温堡,Bellwin Fort,貝爾溫堡
+germanic_city_125,格里姆维克要塞,Grimvik Fortress,格里姆維克要塞
+germanic_city_126,艾尔斯福德村,Elsford Village,艾爾斯福德村
+germanic_city_127,洛森贝尔郡,Rosenbell County,洛森貝爾郡
+germanic_city_128,霍登斯托镇,Holdensto Town,霍登斯托鎮
+germanic_city_129,温彻里郡,Winchely County,溫徹里郡
+germanic_city_130,雷恩维克镇,Rennvik Town,雷恩維克鎮
+germanic_city_131,梅里桑镇,Merisang Town,梅里桑鎮
+germanic_city_132,塔兰维尔城,Talanville City,塔蘭維爾城
+germanic_city_133,费尔斯顿郡,Fearstone County,費爾斯頓郡
+germanic_city_134,德林霍尔堡,Dellinhall Fort,德林霍爾堡
+germanic_city_135,希尔布鲁克镇,Hillbrook Town,希爾布魯克鎮
+germanic_city_136,罗森达尔郡,Rosendahl County,羅森達爾郡
+germanic_city_137,格洛夫兰城,Gloverland City,格洛夫蘭城
+germanic_city_138,埃尔顿镇,Elton Town,埃爾頓鎮
+germanic_city_139,雷文瑞斯要塞,Ravenrise Fortress,雷文瑞斯要塞
+germanic_city_140,维尔茨镇,Wertz Town,維爾茨鎮
+germanic_city_141,布莱伍德郡,Brywood County,布萊伍德郡
+germanic_city_142,斯通克里克村,Stonecreek Village,斯通克里克村
+germanic_city_143,黑荆镇,Blackthorn Town,黑荊鎮
+germanic_city_144,艾尔达林堡,Eldarin Fort,艾爾達林堡
+germanic_city_145,诺瑟伍德镇,Northerwood Town,諾瑟伍德鎮
+germanic_city_146,林登瓦郡,Lindenwa County,林登瓦郡
+germanic_city_147,布莱梅尔城,Brymel City,布萊梅爾城
+germanic_city_148,古塔雷要塞,Gutare Fortress,古塔雷要塞
+germanic_city_149,霜石村,Froststone Village,霜石村
+germanic_city_150,霍尔默镇,Holmer Town,霍爾默鎮
+germanic_city_151,洛克斯福德郡,Roxford County,洛克斯福德郡
+germanic_city_152,希尔克雷斯特镇,Hillcrest Town,希爾克雷斯特鎮
+germanic_city_153,维斯特林要塞,Westling Fortress,維斯特林要塞
+germanic_city_154,瑞弗尔镇,Riverfall Town,瑞弗爾鎮
+germanic_city_155,格林洛克堡,Greenlock Fort,格林洛克堡
+germanic_city_156,奥克森郡,Oxen County,奧克森郡
+germanic_city_157,白水村,Whitewater Village,白水村
+germanic_city_158,洛瑟维克城,Rosevik City,洛瑟維克城
+germanic_city_159,达文霍尔堡,Davenhall Fort,達文霍爾堡
+germanic_city_160,赫尔斯滕镇,Holsten Town,赫爾斯滕鎮
+germanic_city_161,晨曦郡,Dawn County,晨曦郡
+germanic_city_162,东风镇,East Wind Town,東風鎮
+germanic_city_163,费林布鲁克村,Faringbrook Village,費林布魯克村
+germanic_city_164,布雷登瓦尔镇,Bradenwall Town,布雷登瓦爾鎮
+germanic_city_165,北崖堡,North Cliff Fort,北崖堡
+germanic_city_166,塔里恩要塞,Tarian Fortress,塔里恩要塞
+germanic_city_167,朗福德郡,Longford County,朗福德郡
+germanic_city_168,银杉镇,Silver Fir Town,銀杉鎮
+germanic_city_169,埃瑟里克城,Etheric City,埃瑟里克城
+germanic_city_170,梅维尔堡,Mayville Fort,梅維爾堡
+germanic_city_171,苍松郡,Pine County,蒼松郡
+germanic_city_172,奥尔韦克村,Orwick Village,奧爾韋克村
+germanic_city_173,铁丘镇,Iron Hill Town,鐵丘鎮
+germanic_city_174,雷格纳要塞,Regnar Fortress,雷格納要塞
+germanic_city_175,格洛克森镇,Grockson Town,格洛克森鎮
+germanic_city_176,哈文里郡,Havenly County,哈文里郡
+germanic_city_177,艾恩斯顿堡,Ironstone Fort,艾恩斯頓堡
+germanic_city_178,月溪村,Moonstream Village,月溪村
+germanic_city_179,高塔镇,High Tower Town,高塔鎮
+germanic_city_180,风息堡,Windrest Fort,風息堡
+germanic_city_181,黑石郡,Blackstone County,黑石郡
+germanic_city_182,希达里克镇,Hydaric Town,希達里克鎮
+germanic_city_183,格瑞斯维克城,Gracevik City,格瑞斯維克城
+germanic_city_184,赤峰堡,Red Peak Fort,赤峰堡
+germanic_city_185,绿藤镇,Green Vine Town,綠藤鎮
+germanic_city_186,蒙特维尔郡,Montville County,蒙特維爾郡
+germanic_city_187,雾泉村,Fog Spring Village,霧泉村
+germanic_city_188,布莱索姆镇,Brysome Town,布萊索姆鎮
+germanic_city_189,霜谷堡,Frost Valley Fort,霜谷堡
+germanic_city_190,银川郡,Silver River County,銀川郡
+germanic_city_191,阿德里奇镇,Adrich Town,阿德里奇鎮
+germanic_city_192,寂静岭堡,Silent Hill Fort,寂靜嶺堡
+germanic_city_193,塔格兰村,Tagran Village,塔格蘭村
+germanic_city_194,雷文布鲁克镇,Ravenbrook Town,雷文布魯克鎮
+germanic_city_195,瑟文霍尔郡,Sevenhall County,瑟文霍爾郡
+germanic_city_196,晨星堡,Morning Star Fort,晨星堡
+germanic_city_197,霍克斯通镇,Hawkstone Town,霍克斯通鎮
+germanic_city_198,戈德里克要塞,Godric Fortress,戈德里克要塞
+germanic_city_199,松林村,Pine Forest Village,松林村
+germanic_city_200,怀特里镇,Whitely Town,懷特里鎮
+germanic_city_201,风铃郡,Wind Bell County,風鈴郡
+germanic_city_202,拉克斯顿城,Laxton City,拉克斯頓城
+germanic_city_203,赤焰堡,Red Flame Fort,赤焰堡
+germanic_city_204,瓦伦郡,Warren County,瓦倫郡
+germanic_city_205,德林斯维尔镇,Dellinsville Town,德林斯維爾鎮
+germanic_city_206,艾维森堡,Ivison Fort,艾維森堡
+germanic_city_207,影雾村,Shadow Mist Village,影霧村
+germanic_city_208,西溪镇,West Stream Town,西溪鎮
+germanic_city_209,落霞堡,Sunset Glow Fort,落霞堡
+germanic_city_210,贝尔沃德郡,Bellward County,貝爾沃德郡
+germanic_city_211,雷霆要塞,Thunder Fortress,雷霆要塞
+germanic_city_212,莫格里斯镇,Morgris Town,莫格里斯鎮
+germanic_city_213,水晶湖村,Crystal Lake Village,水晶湖村
+germanic_city_214,灰崖堡,Grey Cliff Fort,灰崖堡
+germanic_city_215,北杉镇,North Fir Town,北杉鎮
+germanic_city_216,布雷克希尔郡,Blackhill County,布雷克希爾郡
+germanic_city_217,铁冠要塞,Iron Crown Fortress,鐵冠要塞
+germanic_city_218,斯通里奇村,Stonebridge Village,斯通里奇村
+germanic_city_219,艾本福德镇,Ebenford Town,艾本福德鎮
+germanic_city_220,晨曦堡,Dawn Fort,晨曦堡
+germanic_city_221,龙息郡,Dragon Breath County,龍息郡
+germanic_city_222,风暴崖堡,Storm Cliff Fort,風暴崖堡
+germanic_city_223,翠羽镇,Emerald Feather Town,翠羽鎮
+germanic_city_224,洛德斯特城,Lordest City,洛德斯特城
+germanic_city_225,灰雾村,Grey Mist Village,灰霧村
+germanic_city_226,寂光堡,Silent Light Fort,寂光堡
+germanic_city_227,苍鹭镇,Grey Heron Town,蒼鷺鎮
+germanic_city_228,瑞文克里夫郡,Ravencliff County,瑞文克里夫郡
+germanic_city_229,希望之丘,Hope Hill,希望之丘
+germanic_city_230,黎明之门,Dawn Gate,黎明之門
+germanic_city_231,钢铁堡垒,Steel Fortress,鋼鐵堡壘
+germanic_city_232,风之领域,Wind Realm,風之領域
+germanic_city_233,灰烬之地,Ash Land,灰燼之地
+germanic_city_234,龙息谷,Dragon Breath Valley,龍息谷
+germanic_city_235,魔法之塔,Magic Tower,魔法之塔
+germanic_city_236,永恒之森,Eternal Forest,永恆之森
+germanic_city_237,遗忘之城,Forbidden City,遺忘之城
+germanic_city_238,时光之河,Time River,時光之河
+germanic_city_239,星辰之渊,Star Abyss,星辰之淵
+germanic_city_240,暗影之境,Shadow Realm,暗影之境
+germanic_city_241,勇士之峰,Warrior Peak,勇士之峰
+germanic_city_242,神秘之岛,Mystic Island,神秘之島
+germanic_city_243,灵魂之井,Soul Well,靈魂之井
+germanic_city_244,守护者堡,Guardian Fort,守護者堡
+germanic_city_245,魔法师之谷,Mage Valley,魔法師之谷
+germanic_city_246,巫师之塔,Wizard Tower,巫師之塔
+germanic_city_247,炼金之城,Alchemy City,煉金之城
+germanic_city_248,秘术之域,Arcane Domain,秘術之域
+germanic_city_249,符文之地,Rune Land,符文之地
+germanic_city_250,魔法之源,Magic Source,魔法之源
+germanic_city_251,龙翼城,Dragon Wing City,龍翼城
+germanic_city_252,风暴之巅,Storm Peak,風暴之巔
+germanic_city_253,冰封之城,Icebound City,冰封之城
+germanic_city_254,火焰之域,Fire Domain,火焰之域
+germanic_city_255,雷霆之谷,Thunder Valley,雷霆之谷
+germanic_city_256,深渊之城,Abyss City,深淵之城
+germanic_city_257,幽暗之地,Gloomy Land,幽暗之地
+germanic_city_258,诅咒之森,Cursed Forest,詛咒之森
+germanic_city_259,亡灵之墓,Undead Tomb,亡靈之墓
+germanic_city_260,恶魔之渊,Demon Abyss,惡魔之淵
+germanic_city_261,圣光之城,Holy Light City,聖光之城
+germanic_city_262,神谕之厅,Oracle Hall,神諭之廳
+germanic_city_263,信仰之殿,Faith Temple,信仰之殿
+germanic_city_264,光明之境,Light Realm,光明之境
+germanic_city_265,神圣之谷,Sacred Valley,神聖之谷
+germanic_city_266,神迹之城,Divine City,神蹟之城
+germanic_city_267,天使之翼,Angel Wing,天使之翼
+germanic_city_268,圣洁之域,Pure Domain,聖潔之域
+germanic_city_269,神恩之港,Divine Favor Harbor,神恩之港
+germanic_city_270,神佑之镇,God Blessed Town,神佑之鎮
+germanic_city_271,神话之都,Myth City,神話之都
+germanic_city_272,传说之镇,Legend Town,傳說之鎮
+germanic_city_273,史诗之城,Epic City,史詩之城
+germanic_city_274,英雄之门,Hero Gate,英雄之門
+germanic_city_275,勇士之厅,Warrior Hall,勇士之廳
+germanic_city_276,冒险者之家,Adventurer Home,冒險者之家
+germanic_city_277,荣耀之厅,Glory Hall,榮耀之廳
+germanic_city_278,胜利之城,Victory City,勝利之城
+germanic_city_279,凯旋之门,Triumph Gate,凱旋之門
+germanic_city_280,荣耀之路,Glory Road,榮耀之路
+germanic_city_281,时光之都,Time Capital,時光之都
+germanic_city_282,岁月之城,Age City,歲月之城
+germanic_city_283,历史之镇,History Town,歷史之鎮
+germanic_city_284,文明之谷,Civilization Valley,文明之谷
+germanic_city_285,知识之城,Knowledge City,知識之城
+germanic_city_286,智慧之塔,Wisdom Tower,智慧之塔
+germanic_city_287,学术之院,Academy Institute,學術之院
+germanic_city_288,学者之街,Scholar Street,學者之街
+germanic_city_289,历史之馆,History Museum,歷史之館
+germanic_city_290,文化之都,Culture Capital,文化之都
+germanic_city_291,命运之轮,Wheel Of Fate,命運之輪
+germanic_city_292,宿命之城,Destiny City,宿命之城
+germanic_city_293,预言之谷,Prophecy Valley,預言之谷
+germanic_city_294,占卜之镇,Divination Town,占卜之鎮
+germanic_city_295,星辰之眼,Star Eye,星辰之眼
+germanic_city_296,月亮之门,Moon Gate,月亮之門
+germanic_city_297,太阳之城,Sun City,太陽之城
+germanic_city_298,星辰之塔,Star Tower,星辰之塔
+germanic_city_299,星界之城,Astral City,星界之城
+germanic_city_300,星辰之港,Star Harbor,星辰之港
+germanic_city_301,梦境之城,Dream City,夢境之城
+germanic_city_302,幻想之域,Fantasy Domain,幻想之域
+germanic_city_303,幻境之谷,Illusion Valley,幻境之谷
+germanic_city_304,梦境之门,Dream Gate,夢境之門
+germanic_city_305,幻象之城,Illusion City,幻象之城
+germanic_city_306,幻影之镇,Phantom Town,幻影之鎮
+germanic_city_307,梦境之街,Dream Street,夢境之街
+germanic_city_308,幻想之港,Fantasy Harbor,幻想之港
+germanic_city_309,幻境之都,Illusion Capital,幻境之都
+germanic_city_310,梦境之镇,Dream Town,夢境之鎮
+germanic_city_311,魔法之光,Magic Light,魔法之光
+germanic_city_312,魔导之城,Magus City,魔導之城
+germanic_city_313,魔法之泉,Magic Spring,魔法之泉
+germanic_city_314,魔导师之塔,Magister Tower,魔導師之塔
+germanic_city_315,魔法之森,Magic Forest,魔法之森
+germanic_city_316,魔法之谷,Magic Valley,魔法之谷
+germanic_city_317,魔法之河,Magic River,魔法之河
+germanic_city_318,魔法之峰,Magic Peak,魔法之峰
+germanic_city_319,魔法之街,Magic Street,魔法之街
+germanic_city_320,魔法之境,Magic Realm,魔法之境
+germanic_city_321,神秘之森,Mystic Forest,神秘之森
+germanic_city_322,神秘之城,Mystic City,神秘之城
+germanic_city_323,神秘之谷,Mystic Valley,神秘之谷
+germanic_city_324,神秘之河,Mystic River,神秘之河
+germanic_city_325,神秘之峰,Mystic Peak,神秘之峰
+germanic_city_326,神秘之街,Mystic Street,神秘之街
+germanic_city_327,神秘之境,Mystic Realm,神秘之境
+germanic_city_328,神秘之塔,Mystic Tower,神秘之塔
+germanic_city_329,神秘之域,Mystic Domain,神秘之域
+germanic_city_330,神秘之港,Mystic Harbor,神秘之港
+germanic_city_331,曙光城,Dawn City,曙光城
+germanic_city_332,星落城,Starfall City,星落城
+germanic_city_333,永夜城,Eternal Night City,永夜城
+germanic_city_334,白银城,Silver City,白銀城
+germanic_city_335,暗月城,Dark Moon City,暗月城
+germanic_city_336,烁金城,Gleaming Gold City,爍金城
+germanic_city_337,神圣城,Sacred City,神聖城
+germanic_city_338,狂风城,Gale City,狂風城
+germanic_city_339,血焰城,Blood Flame City,血焰城
+germanic_city_340,夜幕城,Nightfall City,夜幕城
+germanic_city_341,圣堂城,Sanctum City,聖堂城
+germanic_city_342,烈日城,Scorching Sun City,烈日城
+germanic_city_343,星河城,Starry River City,星河城
+germanic_city_344,晨曦城,Dawnbreak City,晨曦城
+germanic_city_345,星辉港,Starlight Harbor,星輝港
+germanic_city_346,烈阳谷,Blazing Sun Valley,烈陽谷
+germanic_city_347,暗影镇,Shadow Town,暗影鎮
+germanic_city_348,霜月城,Frost Moon City,霜月城
+germanic_city_349,烈焰堡,Blazing Fort,烈焰堡
+germanic_city_350,苍穹村,Vault Village,蒼穹村
+germanic_city_351,银影都,Silver Shadow Capital,銀影都
+germanic_city_352,红莲城,Crimson Lotus City,紅蓮城
+germanic_city_353,风暴街,Storm Street,風暴街
+germanic_city_354,圣火乡,Sacred Fire Township,聖火鄉
+germanic_city_355,黑石巢,Black Stone Nest,黑石巢
+germanic_city_356,白龙湾,White Dragon Bay,白龍灣
+germanic_city_357,神秘塔,Mystic Tower,神秘塔
+germanic_city_358,星辰市,Star City,星辰市
+germanic_city_359,苍狼丘,Grey Wolf Hill,蒼狼丘
+germanic_city_360,烈日丘,Scorching Sun Hill,烈日丘
+germanic_city_361,霜火村,Frost Fire Village,霜火村
+germanic_city_362,圣银城,Holy Silver City,聖銀城
+germanic_city_363,炎龙街,Fire Dragon Street,炎龍街
+germanic_city_364,破晓镇,Dawnbreak Town,破曉鎮
+germanic_city_365,青铜港,Bronze Harbor,青銅港
+germanic_city_366,魔翼城,Demon Wing City,魔翼城
+germanic_city_367,霞光苑,Rosy Glow Garden,霞光苑
+germanic_city_368,暮光城,Twilight City,暮光城
+germanic_city_369,钢铁村,Steel Village,鋼鐵村
+germanic_city_370,荣耀堡,Glory Keep,榮耀堡
+germanic_city_371,苍雷镇,Grey Thunder Town,蒼雷鎮
+germanic_city_372,白鹰谷,White Eagle Valley,白鷹谷
+germanic_city_373,灰雾岛,Grey Mist Island,灰霧島
+germanic_city_374,神圣镇,Sacred Town,神聖鎮
+germanic_city_375,银月堡,Silver Moon Fort,銀月堡
+germanic_city_376,光明城,Light City,光明城
+germanic_city_377,烈光村,Blazing Light Village,烈光村
+germanic_city_378,影之都,Shadow Capital,影之都
+germanic_city_379,星云镇,Nebula Town,星雲鎮
+germanic_city_380,烈焰林,Blazing Flame Forest,烈焰林
+germanic_city_381,霜影山,Frost Shadow Mountain,霜影山
+germanic_city_382,风之谷,Wind Valley,風之谷
+germanic_city_383,暗星乡,Dark Star Township,暗星鄉
+germanic_city_384,雷霆堡,Thunder Keep,雷霆堡
+germanic_city_385,星辰丘,Star Hill,星辰丘
+germanic_city_386,圣歌村,Holy Song Village,聖歌村
+germanic_city_387,火羽城,Fire Feather City,火羽城
+germanic_city_388,幽冥镇,Nether Town,幽冥鎮
+germanic_city_389,白光郡,White Light County,白光郡
+germanic_city_390,赤血街,Crimson Blood Street,赤血街
+germanic_city_391,暗夜城,Night City,暗夜城
+germanic_city_392,光辉港,Brilliant Harbor,光輝港
+germanic_city_393,幽影村,Ghost Shadow Village,幽影村
+germanic_city_394,荣耀谷,Glory Valley,榮耀谷
+germanic_city_395,苍星湾,Pale Star Bay,蒼星灣
+germanic_city_396,火焰镇,Flame Town,火焰鎮
+germanic_city_397,魂之城,Soul City,魂之城
+germanic_city_398,破碎岛,Shattered Island,破碎島
+germanic_city_399,白骨村,White Bone Village,白骨村
+germanic_city_400,暗影堡,Shadow Fort,暗影堡
+germanic_city_401,赤焰都,Red Flame Capital,赤焰都
+germanic_city_402,星辉乡,Starlight Township,星輝鄉
+germanic_city_403,苍穹塔,Vault Tower,蒼穹塔
+germanic_city_404,圣银岛,Holy Silver Island,聖銀島
+germanic_city_405,幽灵城,Ghost City,幽靈城
+germanic_city_406,青空镇,Blue Sky Town,青空鎮
+germanic_city_407,暴风港,Storm Harbor,暴風港
+germanic_city_408,霜寒村,Frost Chill Village,霜寒村
+germanic_city_409,白月丘,White Moon Hill,白月丘
+germanic_city_410,神之城,God City,神之城
+germanic_city_411,炎影镇,Fire Shadow Town,炎影鎮
+germanic_city_412,破晓堡,Dawnbreak Fort,破曉堡
+germanic_city_413,风之歌,Wind Song,風之歌
+germanic_city_414,霜银城,Frost Silver City,霜銀城
+germanic_city_415,苍鹰镇,Grey Eagle Town,蒼鷹鎮
+germanic_city_416,荣耀城,Glory City,榮耀城
+germanic_city_417,烈火乡,Blazing Fire Township,烈火鄉
+germanic_city_418,银星村,Silver Star Village,銀星村
+germanic_city_419,神秘城,Mystic City,神秘城
+germanic_city_420,碧空镇,Blue Sky Town,碧空鎮
+germanic_city_421,龙焰堡,Dragon Flame Fort,龍焰堡
+germanic_city_422,铁血村,Iron Blood Village,鐵血村
+germanic_city_423,幽灵湾,Ghost Bay,幽靈灣
+germanic_city_424,明亮街,Bright Street,明亮街
+germanic_city_425,龙息城,Dragon Breath City,龍息城
+germanic_city_426,暗影堡,Shadow Keep,暗影堡
+germanic_city_427,灰烬城,Ash City,灰燼城
+germanic_city_428,暴雷城,Storm Thunder City,暴雷城
+germanic_city_429,银霜城,Silver Frost City,銀霜城
+germanic_city_430,黎明城,Dawn City,黎明城
+germanic_city_431,绝境城,Desperate City,絕境城
+germanic_city_432,天启城,Apocalypse City,天啟城
+germanic_city_433,暗星城,Dark Star City,暗星城
+germanic_city_434,狼魂城,Wolf Spirit City,狼魂城
+germanic_city_435,苍月城,Pale Moon City,蒼月城
+germanic_city_436,灼光城,Blazing Light City,灼光城
+germanic_city_437,深渊城,Abyss City,深淵城
+germanic_city_438,净魂城,Pure Soul City,淨魂城
+germanic_city_439,光辉城,Brilliant City,光輝城
+germanic_city_440,远航城,Voyage City,遠航城
+germanic_city_441,冰狱城,Ice Prison City,冰獄城
+germanic_city_442,红石城,Red Stone City,紅石城
+germanic_city_443,霜语城,Frost Whisper City,霜語城
+germanic_city_444,狱火城,Prison Fire City,獄火城
+germanic_city_445,暗鸦城,Dark Crow City,暗鴉城
+germanic_city_446,幻梦城,Dream City,幻夢城
+germanic_city_447,暴雪城,Blizzard City,暴雪城
+germanic_city_448,狂啸城,Howling City,狂嘯城
+germanic_city_449,落羽城,Falling Feather City,落羽城
+germanic_city_450,陨星城,Falling Star City,隕星城
+germanic_city_451,破灭城,Ruin City,破滅城
+germanic_city_452,雷狱城,Thunder Prison City,雷獄城
+germanic_city_453,星陨城,Starfall City,星隕城
+germanic_city_454,银翼城,Silver Wing City,銀翼城
+germanic_city_455,烁灵城,Gleaming Spirit City,爍靈城
+germanic_city_456,白塔城,White Tower City,白塔城
+germanic_city_457,封印城,Seal City,封印城
+germanic_city_458,寂灭城,Silent Extinction City,寂滅城
+germanic_city_459,星骸城,Star Skeleton City,星骸城
+germanic_city_460,夜语城,Night Whisper City,夜語城
+germanic_city_461,冰心城,Ice Heart City,冰心城
+germanic_city_462,暗潮城,Dark Tide City,暗潮城
+germanic_city_463,烈风城,Gale Wind City,烈風城
+germanic_city_464,曼陀城,Mandrake City,曼陀城
+germanic_city_465,诅咒城,Curse City,詛咒城
+germanic_city_466,寂光城,Silent Light City,寂光城
+germanic_city_467,圣辉城,Sacred Brilliance City,聖輝城
+germanic_city_468,夜魅城,Night Charm City,夜魅城
+germanic_city_469,龙鳞城,Dragon Scale City,龍鱗城
+germanic_city_470,光陨城,Light Fall City,光隕城
+germanic_city_471,焚世城,World Burn City,焚世城
+germanic_city_472,蛇息城,Serpent Breath City,蛇息城
+germanic_city_473,魔灵城,Demon Spirit City,魔靈城
+germanic_city_474,幽光城,Gloomy Light City,幽光城
+germanic_city_475,禁忌城,Forbidden City,禁忌城
+germanic_city_476,圣冕城,Holy Crown City,聖冕城
+germanic_city_477,极光城,Aurora City,極光城
+germanic_city_478,狂魂城,Frenzied Soul City,狂魂城
+germanic_city_479,流焰城,Flowing Flame City,流焰城
+germanic_city_480,虚空城,Void City,虛空城
+germanic_city_481,辉耀城,Brilliant Glory City,輝耀城
+germanic_city_482,烬土城,Ash Land City,燼土城
+germanic_city_483,罪痕城,Sin Mark City,罪痕城
+germanic_city_484,邪月城,Evil Moon City,邪月城
+germanic_city_485,魂影城,Soul Shadow City,魂影城
+germanic_city_486,暗流城,Undercurrent City,暗流城
+germanic_city_487,圣盾城,Holy Shield City,聖盾城
+germanic_city_488,沧澜城,Canglan City,滄瀾城
+germanic_city_489,永恒城,Eternal City,永恆城
+germanic_city_490,苍魂城,Pale Soul City,蒼魂城
+germanic_city_491,堕落城,Fallen City,墮落城
+germanic_city_492,白羽城,White Feather City,白羽城
+germanic_city_493,银川城,Silver River City,銀川城
+germanic_city_494,蛇骨城,Serpent Bone City,蛇骨城
+germanic_city_495,狂战城,Berserker City,狂戰城
+germanic_city_496,日珥城,Solar Flare City,日珥城
+germanic_city_497,净光城,Pure Light City,淨光城
+germanic_city_498,暗翼城,Dark Wing City,暗翼城
+germanic_city_499,狂月城,Frenzied Moon City,狂月城
+germanic_city_500,虚灵城,Void Spirit City,虛靈城
+germanic_city_501,诡影城,Deceptive Shadow City,詭影城
+germanic_city_502,毁灭城,Destruction City,毀滅城
+germanic_city_503,炽羽城,Blazing Feather City,熾羽城
+germanic_city_504,幻影城,Phantom City,幻影城
+germanic_city_505,圣雪城,Holy Snow City,聖雪城
+germanic_city_506,星夜城,Starry Night City,星夜城
+germanic_city_507,烬空城,Ash Sky City,燼空城
+germanic_city_508,风暴之巅,Storm Peak,風暴之巔
+germanic_city_509,碧海港,Azure Sea Harbor,碧海港
+germanic_city_510,迷雾堡,Mist Fort,迷霧堡
+germanic_city_511,影刃镇,Shadow Blade Town,影刃鎮
+germanic_city_512,碎石城,Crushed Stone City,碎石城
+germanic_city_513,远征港,Expedition Harbor,遠征港
+germanic_city_514,龙焰市,Dragon Flame City,龍焰市
+germanic_city_515,钢铁之心,Steel Heart,鋼鐵之心
+germanic_city_516,晨曦之光,Dawn Light,晨曦之光
+germanic_city_517,黑曜镇,Obsidian Town,黑曜鎮
+germanic_city_518,银沙城,Silver Sand City,銀沙城
+germanic_city_519,星火堡,Star Fire Fort,星火堡
+germanic_city_520,破晓市,Dawnbreak City,破曉市
+germanic_city_521,远古港,Ancient Harbor,遠古港
+germanic_city_522,幽泉镇,Secluded Spring Town,幽泉鎮
+germanic_city_523,铁壁城,Iron Wall City,鐵壁城
+germanic_city_524,烈阳港,Blazing Sun Harbor,烈陽港
+germanic_city_525,幻影之门,Phantom Gate,幻影之門
+germanic_city_526,苍穹市,Vault City,蒼穹市
+germanic_city_527,砂岩城,Sandstone City,砂岩城
+germanic_city_528,冬狼堡,Winter Wolf Fort,冬狼堡
+germanic_city_529,影翼镇,Shadow Wing Town,影翼鎮
+germanic_city_530,雷鸣港,Thunder Harbor,雷鳴港
+germanic_city_531,绿洲城,Oasis City,綠洲城
+germanic_city_532,破浪市,Wave Breaker City,破浪市
+germanic_city_533,赤焰镇,Red Flame Town,赤焰鎮
+germanic_city_534,浮空城,Floating City,浮空城
+germanic_city_535,逐风港,Wind Chase Harbor,逐風港
+germanic_city_536,霜刃市,Frost Blade City,霜刃市
+germanic_city_537,晨星城,Morning Star City,晨星城
+germanic_city_538,暗影之谷,Shadow Valley,暗影之谷
+germanic_city_539,远航镇,Voyage Town,遠航鎮
+germanic_city_540,烈风堡,Gale Wind Fort,烈風堡
+germanic_city_541,银翼市,Silver Wing City,銀翼市
+germanic_city_542,星辰之眼,Star Eye,星辰之眼
+germanic_city_543,赤月港,Red Moon Harbor,赤月港
+germanic_city_544,暴风城,Stormwind City,暴風城
+germanic_city_545,碧波市,Azure Wave City,碧波市
+germanic_city_546,迷踪镇,Mysterious Trail Town,迷蹤鎮
+germanic_city_547,幽影之巢,Shadow Nest,幽影之巢
+germanic_city_548,石峰城,Stone Peak City,石峰城
+germanic_city_549,远星港,Distant Star Harbor,遠星港
+germanic_city_550,龙骨市,Dragon Bone City,龍骨市
+germanic_city_551,钢羽镇,Steel Feather Town,鋼羽鎮
+germanic_city_552,晨曦之城,Dawn City,晨曦之城
+germanic_city_553,暗月港,Dark Moon Harbor,暗月港
+germanic_city_554,银蹄市,Silver Hoof City,銀蹄市
+germanic_city_555,星火镇,Star Fire Town,星火鎮
+germanic_city_556,破碎之地,Shattered Land,破碎之地
+germanic_city_557,远行城,Journey City,遠行城
+germanic_city_558,幽谷镇,Secluded Valley Town,幽谷鎮
+germanic_city_559,铁锤港,Iron Hammer Harbor,鐵鎚港
+germanic_city_560,烈火市,Blazing Fire City,烈火市
+germanic_city_561,幻影之城,Phantom City,幻影之城
+germanic_city_562,苍狼港,Grey Wolf Harbor,蒼狼港
+germanic_city_563,砂砾市,Gravel City,砂礫市
+germanic_city_564,冬日城,Winter City,冬日城
+germanic_city_565,影歌镇,Shadow Song Town,影歌鎮
+germanic_city_566,雷霆市,Thunder City,雷霆市
+germanic_city_567,绿林港,Green Forest Harbor,綠林港
+germanic_city_568,破城堡,Broken Castle,破城堡
+germanic_city_569,赤石镇,Red Stone Town,赤石鎮
+germanic_city_570,浮影港,Floating Shadow Harbor,浮影港
+germanic_city_571,逐浪市,Wave Chaser City,逐浪市
+germanic_city_572,霜狼城,Frost Wolf City,霜狼城
+germanic_city_573,晨风镇,Morning Wind Town,晨風鎮
+germanic_city_574,暗影之城,Shadow City,暗影之城
+germanic_city_575,远望港,Lookout Harbor,遠望港
+germanic_city_576,烈焰镇,Blazing Flame Town,烈焰鎮
+germanic_city_577,银光市,Silver Light City,銀光市
+germanic_city_578,霜铁镇,Frost Iron Town,霜鐵鎮
+germanic_city_579,石溪村,Stone Stream Village,石溪村
+germanic_city_580,长风郡,Long Wind County,長風郡
+germanic_city_581,塔恩霍尔堡,Tarnhall Fort,塔恩霍爾堡
+germanic_city_582,格里芬镇,Griffin Town,格里芬鎮
+germanic_city_583,艾尔贝里郡,Elberry County,艾爾貝里郡
+germanic_city_584,晨雾堡,Morning Mist Fort,晨霧堡
+germanic_city_585,远星城,Distant Star City,遠星城
+germanic_city_586,维克兰镇,Viklan Town,維克蘭鎮
+germanic_city_587,落日郡,Sunset County,落日郡
+germanic_city_588,星辉镇,Starlight Town,星輝鎮
+germanic_city_589,铁杉村,Iron Hemlock Village,鐵杉村
+germanic_city_590,风语堡,Wind Whisper Fort,風語堡
+germanic_city_591,翡翠溪镇,Emerald Stream Town,翡翠溪鎮
+germanic_city_592,苍狼郡,Grey Wolf County,蒼狼郡
+germanic_city_593,晨曦港,Dawn Harbor,晨曦港
+germanic_city_594,雷洛克镇,Rellock Town,雷洛克鎮
+germanic_city_595,黑岩堡,Black Rock Fort,黑岩堡
+germanic_city_596,银泉村,Silver Spring Village,銀泉村
+germanic_city_597,圣光郡,Holy Light County,聖光郡
+germanic_city_598,黄金岭镇,Golden Ridge Town,黃金嶺鎮
+germanic_city_599,白羽堡,White Feather Fort,白羽堡
+germanic_city_600,北境郡,North County,北境郡
+germanic_city_601,晨风镇,Morning Wind Town,晨風鎮
+germanic_city_602,远川城,Distant River City,遠川城
+germanic_city_603,落松郡,Falling Pine County,落松郡
+germanic_city_604,赤焰堡,Red Flame Fort,赤焰堡
+germanic_city_605,云雾村,Cloud Mist Village,雲霧村
+germanic_city_606,狂澜镇,Raging Wave Town,狂瀾鎮
+germanic_city_607,落雪郡,Falling Snow County,落雪郡
+germanic_city_608,影风堡,Shadow Wind Fort,影風堡
+germanic_city_609,白橡镇,White Oak Town,白橡鎮
+germanic_city_610,苍影郡,Pale Shadow County,蒼影郡
+germanic_city_611,远征堡,Expedition Fort,遠征堡
+germanic_city_612,长夜村,Long Night Village,長夜村
+germanic_city_613,风暴镇,Storm Town,風暴鎮
+germanic_city_614,幽泉郡,Secluded Spring County,幽泉郡
+germanic_city_615,赤松堡,Red Pine Fort,赤松堡
+germanic_city_616,烈阳镇,Blazing Sun Town,烈陽鎮
+germanic_city_617,雷泽村,Thunder Marsh Village,雷澤村
+germanic_city_618,绿蔷郡,Green Rose County,綠薔郡
+germanic_city_619,辉光城,Brilliant Light City,輝光城
+germanic_city_620,霜月镇,Frost Moon Town,霜月鎮
+germanic_city_621,暗溪堡,Dark Stream Fort,暗溪堡
+germanic_city_622,灰林村,Grey Forest Village,灰林村
+germanic_city_623,月溪郡,Moon Stream County,月溪郡
+germanic_city_624,古塔镇,Ancient Tower Town,古塔鎮
+germanic_city_625,风霜堡,Wind Frost Fort,風霜堡
+germanic_city_626,赤湾村,Red Bay Village,赤灣村
+germanic_city_627,湖心郡,Lake Heart County,湖心郡
+germanic_city_628,铁锤镇,Iron Hammer Town,鐵鎚鎮
+germanic_city_629,影森堡,Shadow Forest Fort,影森堡
+germanic_city_630,晨光郡,Morning Light County,晨光郡
+germanic_city_631,落霞镇,Sunset Glow Town,落霞鎮
+germanic_city_632,星辰村,Star Village,星辰村
+germanic_city_633,破晓郡,Dawnbreak County,破曉郡
+germanic_city_634,战旗堡,War Banner Fort,戰旗堡
+germanic_city_635,雾岚镇,Fog Mist Town,霧嵐鎮
+germanic_city_636,银鹿村,Silver Deer Village,銀鹿村
+germanic_city_637,雷歌郡,Thunder Song County,雷歌郡
+germanic_city_638,深谷镇,Deep Valley Town,深谷鎮
+germanic_city_639,白石堡,White Stone Fort,白石堡
+germanic_city_640,赤环村,Red Ring Village,赤環村
+germanic_city_641,翠峰郡,Emerald Peak County,翠峰郡
+germanic_city_642,远山镇,Distant Mountain Town,遠山鎮
+germanic_city_643,风鸣堡,Wind Call Fort,風鳴堡
+germanic_city_644,霜叶村,Frost Leaf Village,霜葉村
+germanic_city_645,苍穹郡,Vault County,蒼穹郡
+germanic_city_646,金雀镇,Golden Sparrow Town,金雀鎮
+germanic_city_647,雷鸣堡,Thunder Fort,雷鳴堡
+germanic_city_648,落羽村,Falling Feather Village,落羽村
+germanic_city_649,星海之城,Star Sea City,星海之城
+germanic_city_650,水镜之城,Water Mirror City,水鏡之城
+germanic_city_651,风语之谷,Wind Whisper Valley,風語之谷
+germanic_city_652,雷鸣之巅,Thunder Peak,雷鳴之巔
+germanic_city_653,冰晶之域,Ice Crystal Domain,冰晶之域
+germanic_city_654,勇气之城,Courage City,勇氣之城
+germanic_city_655,智慧之都,Wisdom Capital,智慧之都
+germanic_city_656,和平之谷,Peace Valley,和平之谷
+germanic_city_657,坚韧之堡,Resilience Fort,堅韌之堡
+germanic_city_658,独角兽之谷,Unicorn Valley,獨角獸之谷
+germanic_city_659,凤羽之都,Phoenix Feather Capital,鳳羽之都
+germanic_city_660,青山之都,Green Mountain Capital,青山之都
+germanic_city_661,碧海之都,Azure Sea Capital,碧海之都
+germanic_city_662,湖畔之城,Lakeside City,湖畔之城
+germanic_city_663,金星之都,Golden Star Capital,金星之都
+germanic_city_664,翡翠之镇,Jade Town,翡翠之鎮
+germanic_city_665,钢铁之都,Steel Capital,鋼鐵之都
+germanic_city_666,黎明之都,Dawn Capital,黎明之都
+germanic_city_667,时光之镇,Time Town,時光之鎮
+germanic_city_668,希望之都,Hope Capital,希望之都
+germanic_city_669,自由之镇,Freedom Town,自由之鎮
+germanic_city_670,梦境之镇,Dream Town,夢境之鎮
+germanic_city_671,灵感之城,Inspiration City,靈感之城
+germanic_city_672,真理之镇,Truth Town,真理之鎮
+germanic_city_673,爱之都,Love Capital,愛之都
+germanic_city_674,和谐之都,Harmony Capital,和諧之都
