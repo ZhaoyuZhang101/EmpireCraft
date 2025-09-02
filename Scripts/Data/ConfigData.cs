@@ -39,12 +39,12 @@ namespace EmpireCraft.Scripts.Data
             "civ_alpaca","civ_capybara","civ_goat","civ_scorpion","civ_crab",
             "civ_penguin","civ_turtle","civ_crocodile","civ_snake","civ_frog","civ_piranha",
     };
-        public static List<string> yearNameSubspecies = new List<string>() 
+        public static List<string> yearNameSubspecies = new() 
         {
-            "Human"
+            "Huaxia", "Japan"
         };
         // this part bind culture and species togather.
-        public static Dictionary<string, string> speciesCulturePair = new Dictionary<string, string>()
+        public static Dictionary<string, string> speciesCulturePair = new()
         {
             // 法兰克
             {"human","Frankish"}, // 人类
@@ -101,6 +101,6 @@ namespace EmpireCraft.Scripts.Data
         };
         [JsonIgnore]
         public static Empire EMPIRE = null;
-        public static bool PREVENT_CITY_DESTROY = false;
+        public static bool IS_ORIGINAL_WAR_LOGIC = false;
     }
 }

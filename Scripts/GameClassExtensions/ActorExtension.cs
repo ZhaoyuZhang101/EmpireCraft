@@ -23,6 +23,7 @@ using System.Text.RegularExpressions;
 using System.Runtime.Serialization;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using System.Security.Principal;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 public class Name
@@ -39,15 +40,15 @@ public class Name
     {
         return firstName != "" && familyName != ""&&firstName!=null&&familyName!=null;
     }
-    public bool HasFamilyName(Actor actor)
+    public bool hasFamilyName(Actor actor)
     {
         return !string.IsNullOrEmpty(familyName);
     }
-    public bool HasFirstName(Actor actor)
+    public bool hasFirstName(Actor actor)
     {
         return !string.IsNullOrEmpty(firstName);
     }
-    public bool HasCulture(Actor actor)
+    public bool hasCulture(Actor actor)
     {
         return actor.hasCulture();
     }
@@ -63,7 +64,7 @@ public class Name
     public void SetName(Actor actor)
     {
         sex = actor.isSexMale() ? ActorSex.Male : ActorSex.Female;
-        if (HasFamilyName(actor))
+        if (hasFamilyName(actor))
         {
             string real_family_name;
             string cityName = "";
@@ -79,7 +80,7 @@ public class Name
                         cityName = actor.current_tile.zone_city.name;
                     } else
                     {
-                        if (actor.getParents().Any()) 
+                        if (actor.getParents().Count()>0) 
                         {
                             if (actor.getParents().Any(a=>a.hasCity()))
                             {
@@ -125,7 +126,7 @@ public class Name
             }
         } else
         {
-            if (HasFirstName(actor))
+            if (hasFirstName(actor))
             {
                 actor.data.name = firstName;
             }
@@ -213,8 +214,6 @@ public static class ActorExtension
         [JsonConverter(typeof(StringEnumConverter))]
         public PeeragesLevel peeragesLevel;
         public PeerageType peerageType;
-        public string title = "";
-        public List<long> titles = new List<long>();
         public List<long> want_acuired_title = new List<long>();
         public List<long> owned_title = new List<long>();
         public Name name;
@@ -222,17 +221,43 @@ public static class ActorExtension
         public long empire_id { get; set; } = -1L;
         public long provinceId { get; set; } = -1L;
         public long personal_identity { get; set; } = -1L;
+        public float death_rate = 0.0f;
     }
-    public static void SetTitle(this Actor a, string value)
+
+    public static bool NeedDead(this Actor a)
     {
-        if (a == null || value == null) return;
-        if (a.kingdom?.GetEmpire() == null) return;
-        GetOrCreate(a).title = value + "\u200A" + TranslateHelper.GetPeerageTranslate(a.GetPeeragesLevel());
+        if (a == null) return false;
+
+        var data = a.GetOrCreate();
+        // 保险起见再夹紧一次（即使 ChangeDeathRate 已经做了）
+        float rate = Mathf.Clamp01(data.death_rate);
+
+        // 边界：0 一定不死；1 一定会死
+        if (rate <= 0f) return false;
+        if (rate >= 1f) return true;
+
+        // 概率判定（Unity）
+        return UnityEngine.Random.value < rate;
+    }
+
+    public static void ChangeDeathRate(this Actor a, float value)
+    {
+        a.GetOrCreate().death_rate += value;
+        if (a.GetOrCreate().death_rate <= 0.0f)
+        {
+            a.GetOrCreate().death_rate = 0.0f;
+        } else if (a.GetOrCreate().death_rate >= 1.0f)
+        {
+            a.GetOrCreate().death_rate = 1.0f;
+        }
     }
     public static SpecificClan GetSpecificClan(this Actor a)
     {
-        var identity = a?.GetPersonalIdentity();
-        return identity?._specificClan;
+        if (a == null) return null;
+        var identity = a.GetPersonalIdentity();
+        return identity != null
+            ? identity._specificClan
+            : null;
     }
     public static PersonalClanIdentity GetPersonalIdentity(this Actor a)
     {
@@ -263,13 +288,13 @@ public static class ActorExtension
     {
         if (a == null) return null;
         var ed = a.GetOrCreate();
-        var pci = new PersonalClanIdentity();
-        pci.NewPersonalClanIdentity(clan, a);
+        PersonalClanIdentity pci = new PersonalClanIdentity();
+        pci.newPersonalClanIdentity(clan, a);
         clan._cache.Add(pci.id, pci);
         a.SetPersonalIdentity (pci);
         if (a.hasLover())
         {
-            pci.SetLover(a.lover);
+            pci.setLover(a.lover);
         }
         return pci;
     }
@@ -559,9 +584,9 @@ public static class ActorExtension
     public static bool isOfficer(this Actor a)
     {
         if (a == null) return false;
-        OfficeIdentity identity = GetOrCreate(a).officeIdentity;
-        if (identity == null) return false;
-        if (identity.officialLevel == OfficialLevel.officiallevel_10) return false;
+        OfficeIdentity indentity = GetOrCreate(a).officeIdentity;
+        if (indentity == null) return false;
+        if (indentity.officialLevel == OfficialLevel.officiallevel_10) return false;
         return true;
     }
 
@@ -689,7 +714,7 @@ public static class ActorExtension
     public static string GetActorName(this Actor a)
     {
         if (a == null) return null;
-        if (string.IsNullOrEmpty(a.name)) return null;
+        if (a.name == null || a.name == "") return null;
         string[] nameParts = a.name.Split('\u200A');
 
         if (ConfigData.speciesCulturePair.TryGetValue(a.asset.id, out var culture))
@@ -761,13 +786,6 @@ public static class ActorExtension
         Kingdom kingdom = a.kingdom;
         var ownedTitles = a.GetOwnedTitle();
         if (ownedTitles == null) return "";
-        var hasCapitalTitle = ownedTitles.Exists(t => ModClass.KINGDOM_TITLE_MANAGER.checkTitleExist(t) ? ModClass.KINGDOM_TITLE_MANAGER.get(t).title_capital == kingdom.capital : false);
-        if (hasCapitalTitle)
-        {
-            kingdom.SetMainTitle(kingdom.capital.GetTitle());
-            return kingdom.capital.GetTitle().data.name;
-        }
-
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
         kingdom.SetMainTitle(title);
         return title.data.name;
@@ -880,10 +898,10 @@ public static class ActorExtension
         var ed = GetOrCreate(a);
         if (ed == null) return;
         if (title == null) return;
-        ed.owned_title ??= new List<long> { 0 };
-        if (ed.owned_title.Contains(title.data.id)) return;
-        ed.owned_title.Add(title.data.id);
-        title.owner = a;
+        if (ed.owned_title==null) ed.owned_title = new List<long> { 0 };
+        if (!ed.owned_title.Contains(title.data.id))
+            ed.owned_title.Add(title.data.id);
+            title.owner = a;
     }
 
     public static void removeTitle(this Actor a, KingdomTitle title)

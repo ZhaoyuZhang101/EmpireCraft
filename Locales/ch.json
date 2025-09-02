@@ -25,7 +25,7 @@
   "Peerages": "爵位",
   "i_population": "人口",
   "i_age": "年龄",
-  
+
   "eldest_child":"长嗣",
   "smallest_child":"幼子",
   "siblings":"直系同辈",
@@ -33,11 +33,13 @@
   "random":"氏族成员",
   "officer":"官员",
   "none":"公民",
-  
+
   "name": "名稱",
   "post_humous_name": "廟號/諡號",
   "empty": "",
   "until_now": "至今",
+  "father_relation": "父系亲属",
+  "mother_relation": "母系亲属",
   "i_relationship": "親屬關係",
   "i_birth_to_death": "在世時間",
   "relation_CHILDS": "兒子",
@@ -270,8 +272,8 @@
   "province_officers_num": "歷任官員數量",
   "province_capital": "省會",
   "title_holder": "法理持有者",
-  "prevent_city_destroy": "防止城市摧毀開關",
-  "prevent_city_destroy_description": "開啟後，當城市人口小於1時，國家會主動向城市通過軍隊的形式轉入人口",
+  "empirecraft_law_prevent_city_destroy_title": "防止城市摧毀開關",
+  "empirecraft_law_prevent_city_destroy_description": "開啟後，當城市人口小於1時，國家會主動向城市通過軍隊的形式轉入人口",
   "title_capital": "法理首都",
   "EmpireListWindow": "帝國列表",
   "emperor_suffix": "帝",
@@ -421,10 +423,21 @@
   "plot_join_original_empire_info_base": "被佔領的省份獨立，重新回到原本的帝國",
   "plot_empire_move_back_to_capital": "還於舊都",
   "plot_empire_move_back_to_capital_base_info": "帝國重回曾今的首都",
+  "plot_empirecraft_war": "征伐",
+  "plot_empirecraft_war_base_info": "讨伐敌对国家",
   "emperor_get_back_province": "收復法理戰爭",
   "insert_all_culture": "注入文化",
   "insert_all_culture_description": "為當前地圖現有的文化按照設定的配置注入預設模板",
   "all_titles": "所有頭銜",
   "all_titles_description": "當前角色獲取的所有頭銜",
-  "format_past_emperor": "先帝: {0}"
+  "format_past_emperor": "先帝: {0}",
+  "empirecraft_laws_tab_common_setting": "帝國盒子基礎設置",
+  "empirecraft_law_realistic_age_title": "真實年齡",
+  "empirecraft_law_realistic_age_description": "所有種族的年齡與現實人類一致",
+  "world_law_civ_limit_population_50_title": "50個人",
+  "world_law_civ_limit_population_50_description": "限制村莊最大人口數為50",
+  "world_law_civ_limit_population_20_title": "20個人",
+  "world_law_civ_limit_population_20_description": "限制村莊最大人口數為20",
+  "empirecraft_law_ban_empire_title": "禁止稱帝",
+  "empirecraft_law_ban_empire_description": "開啟後遊戲中將不會自動產生帝國"
 }

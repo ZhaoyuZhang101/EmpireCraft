@@ -12,8 +12,8 @@ namespace EmpireCraft.Scripts.Enums
         smallest_child, //幼子
         siblings, //直系同辈
         grand_child_generation, //直系孙辈
-        random, //随机氏族成员
-        officer, //官员
+        random, //随机
+        officer,
         none
     }
 }

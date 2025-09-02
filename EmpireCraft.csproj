@@ -70,6 +70,7 @@
     </ItemGroup>
     <ItemGroup>
       <Folder Include="GameResources\ui\buttons\" />
+      <Folder Include="Scripts\AI\" />
     </ItemGroup>
     <ItemGroup>
       <None Include="Scripts\System\BeaurauSystem.cs" />

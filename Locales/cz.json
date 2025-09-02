@@ -25,7 +25,7 @@
     "Peerages": "爵位",
     "i_population": "人口",
     "i_age": "年龄",
-    
+
     "eldest_child":"长嗣",
     "smallest_child":"幼子",
     "siblings":"直系同辈",
@@ -33,16 +33,18 @@
     "random":"氏族成员",
     "officer":"官员",
     "none":"公民",
-    
+
     "name": "名称",
     "post_humous_name": "庙号/谥号",
     "empty": "",
     "until_now": "至今",
+    "father_relation": "父系亲属",
+    "mother_relation": "母系亲属",
     "i_relationship": "亲属关系",
     "i_birth_to_death": "在世时间",
-    "relation_CHILDS": "儿子", 
-    "relation_CHILDD": "女儿", 
-    "relation_CHILD": "子嗣", 
+    "relation_CHILDS": "儿子",
+    "relation_CHILDD": "女儿",
+    "relation_CHILD": "子嗣",
     "relation_SFSM": "同父同母",
     "relation_DFSM": "异父同母",
     "relation_SFDM": "同父异母",
@@ -164,15 +166,15 @@
     "current_grand_children_generation": "直系孙辈",
     "father_grand_generation": "父系祖辈",
     "mother_grand_generation": "母系祖辈",
-    
+
     "father_great_generation": "父系长辈",
     "mother_great_generation": "母系长辈",
-    
+
     "father_same_generation": "父系同辈",
     "mother_same_generation": "母系同辈",
-    
+
     "sibling_child_generation": "同辈子辈",
-    
+
     "i_history_num": "历任官员数量",
 
     "title_name": "头衔名称",
@@ -271,8 +273,8 @@
     "province_officers_num": "历任官员数量",
     "province_capital": "省会",
     "title_holder": "法理持有者",
-    "prevent_city_destroy": "防止城市摧毁开关",
-    "prevent_city_destroy_description": "开启后，当城市人口小于1时，国家会主动向城市通过军队的形式转入人口",
+    "empirecraft_law_prevent_city_destroy_title": "防止城市摧毁开关",
+    "empirecraft_law_prevent_city_destroy_description": "开启后，当城市人口小于1时，国家会主动向城市通过军队的形式转入人口",
     "title_capital": "法理首都",
     "EmpireListWindow": "帝国列表",
     "emperor_suffix": "帝",
@@ -448,9 +450,9 @@
     "history_new_empire": "$actor$ 在 $place$ 称帝，定国号 $name$，定都 $place$",
     "history_new_emperor": "$actor$ 在 $place$ 登基, 年号 $year_name$",
     "history_powerful_minister": "$title$ $actor$ 把持了朝政, $actor2$ 沦为了傀儡",
-    "histroy_be_vassal": "$title$ $actor$ 臣服于帝国",
-    "histroy_empire_die": "$year_name$ 皇帝 $actor$ 驾崩",
-    "histroy_empire_left": "$year_name$ 皇帝 $actor$ 退位",
+    "history_be_vassal": "$title$ $actor$ 臣服于帝国",
+    "history_empire_die": "$year_name$ 皇帝 $actor$ 驾崩",
+    "history_empire_left": "$year_name$ 皇帝 $actor$ 退位",
     "history_name_previous_emperor": "$actor$ 追封了先帝$actor2$, 定谥号$shihao$, 庙号$miaohao$",
     "history_change_capital": "$actor$ 决定迁都，新都为$place$",
     "history_refund_empire": "帝国首都沦陷,然众臣拥立新帝，于$place$，重建帝国",
@@ -461,6 +463,15 @@
 
     "opinion_empire_clan_been_changed": "帝国被篡位",
     "empire_bureau": "帝国行政",
-    
-    "format_past_emperor": "历经 {0} 帝" 
+
+    "format_past_emperor": "历经 {0} 帝",
+    "empirecraft_laws_tab_common_setting": "帝國盒子基礎設置",
+    "empirecraft_law_realistic_age_title": "真实年龄",
+    "empirecraft_law_realistic_age_description": "所有种族的年龄与现实人类一致",
+    "world_law_civ_limit_population_50_title": "五十人",
+    "world_law_civ_limit_population_50_description": "限制村镇最大人口数量为50",
+    "world_law_civ_limit_population_20_title": "二十人",
+    "world_law_civ_limit_population_20_description": "限制村镇最大人口数量为20",
+    "empirecraft_law_ban_empire_title": "禁止称帝",
+    "empirecraft_law_ban_empire_description": "开启后游戏中将不会自动产生帝国"
 }

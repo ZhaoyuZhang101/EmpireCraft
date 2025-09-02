@@ -18,37 +18,33 @@ namespace EmpireCraft.Scripts.UI.Windows
 {
     public class ProvinceWindow : AutoLayoutWindow<ProvinceWindow>
     {
-        public Province province { get; set; }
-        public TextInput provinceNameInput;
-        public AutoVertLayoutGroup layout1;
-        public AutoVertLayoutGroup layout2;
+        public Province _province { get; set; }
+        private TextInput _provinceNameInput;
+        private readonly Dictionary<string, GameObject> _groups = new Dictionary<string, GameObject>();
         protected override void Init()
         {
-            layout1 = this.BeginVertGroup(pSpacing: 5, pPadding: new RectOffset(0, 0, 0, 0));
-            //名称输入栏
-            SimpleText empireText = Instantiate(SimpleText.Prefab, null);
-            string province_name = LM.Get("province_name");
-            empireText.Setup($"{province_name}: ", TextAnchor.MiddleCenter, new Vector2(40, 15));
-            empireText.background.enabled = false;
-
-            provinceNameInput = Instantiate(TextInput.Prefab, null);
-            provinceNameInput.Setup("", name_change);
-            provinceNameInput.SetSize(new Vector2(90, 18));
-            layout1.AddChild(empireText.gameObject);
-            layout1.AddChild(provinceNameInput.gameObject);
-            AddChild(layout1.gameObject);
+            layout.spacing = 3;
+            layout.padding = new RectOffset(3, 3, 60, 3);
+            _provinceNameInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
+            _provinceNameInput.Setup("", name_change);
         }
-
-        private void name_change(string arg0)
-        {
-            province.data.name = arg0;
-        }
-
         public override void OnNormalEnable()
         {
-
-            province = ConfigData.CURRENT_SELECTED_PROVINCE;
-            provinceNameInput.input.text = province.data.name;
+            _province = ConfigData.CURRENT_SELECTED_PROVINCE;
+            _provinceNameInput.input.text = _province.data.name;
+            Clear();
+        }
+        public void Clear()
+        {
+            foreach (var container in _groups)
+            {
+                Destroy(container.Value);
+            }
+            _groups.Clear();
+        }
+        private void name_change(string arg0)
+        {
+            _province.data.name = arg0;
         }
     }
 }

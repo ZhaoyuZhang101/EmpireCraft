@@ -44,6 +44,27 @@ public class WarPatch: GamePatch
     }
     public static bool update(War __instance)
     {
+        if (__instance.main_attacker == null || __instance.main_defender == null)
+        {
+            foreach (var attacker in __instance._hashset_attackers)
+            {
+                if (!attacker.isRekt())
+                {
+                    attacker.madePeace(__instance);
+                }
+            }
+            __instance._hashset_attackers.Clear();
+            foreach (var defender in __instance._hashset_defenders)
+            {
+                if (!defender.isRekt())
+                {
+                    defender.madePeace(__instance);
+                }
+            }
+            __instance._hashset_defenders.Clear();
+            __instance.endForSides(WarWinner.Nobody);
+            return false;
+        }
         if (__instance.hasEnded())
         {
             return false;

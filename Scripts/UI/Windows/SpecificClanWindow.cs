@@ -145,14 +145,14 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         var topSearchSpace = this.BeginHoriGroup();
         topSearchSpace.transform.SetParent(this.transform.parent, false);
         SimpleButton fatherSideButton = Instantiate(SimpleButton.Prefab);
-        fatherSideButton.Setup(ShowFatherSideSpace, null, "父系亲属", new Vector2(30, 15));
+        fatherSideButton.Setup(ShowFatherSideSpace, null, LM.Get("father_relation"), new Vector2(30, 15));
         topSearchSpace.AddChild(fatherSideButton.gameObject);
         
         //搜索框
         TextInput relationSearchInput = UIHelper.GenerateTextInput(topSearchSpace.transform, action:StartSearchActor, default_text:_lastSearchContent);
         
         SimpleButton motherSideButton = Instantiate(SimpleButton.Prefab);
-        motherSideButton.Setup(ShowMotherSideSpace, null, "母系亲属", new Vector2(30, 15));
+        motherSideButton.Setup(ShowMotherSideSpace, null, LM.Get("mother_relation"), new Vector2(30, 15));
         topSearchSpace.AddChild(motherSideButton.gameObject);
         
         var rt = topSearchSpace.GetComponent<RectTransform>();

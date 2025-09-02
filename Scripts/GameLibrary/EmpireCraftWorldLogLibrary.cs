@@ -94,6 +94,19 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$empire$", 2);
             }
         });
+        king_choose_heir_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(king_choose_heir_log),
+            group = "kings",
+            path_icon = "ui/Icons/iconKings",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$relation$", 2);
+                wl.updateText(ref pText, pMessage, "$actor$", 3);
+            }
+        });
         join_empire_war_log = wl.add(new WorldLogAsset
         {
             id = nameof(join_empire_war_log),

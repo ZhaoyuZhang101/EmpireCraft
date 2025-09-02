@@ -26,7 +26,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
         pKingdom.clearKingData();
         if (!pKingdom.HasHeir()) return BehResult.Continue;
-        var heir = pKingdom.GetHeir();
+        var heir = pKingdom.GetHeir(); 
         MakeKingAndMoveToCapital(pKingdom, heir);
         return BehResult.Continue;
     }

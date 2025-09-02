@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.GameLibrary;
 
 namespace EmpireCraft.Scripts.GamePatches;
 internal class CityBehBorderShrinkPatch : GamePatch
@@ -29,7 +30,13 @@ internal class CityBehBorderShrinkPatch : GamePatch
             __result = BehResult.Stop;
             return false;
         }
-        if (pCity.units.Count > 0||!ConfigData.PREVENT_CITY_DESTROY)
+        if (pCity.units.Count > 0)
+        {
+            __result = BehResult.Stop;
+            return false;
+        }
+
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
         {
             __result = BehResult.Stop;
             return false;
