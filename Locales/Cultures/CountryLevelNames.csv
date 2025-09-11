@@ -8,12 +8,12 @@ default_countrylevel_5,伯国,County,伯國
 default_countrylevel_6,国,Territory,國
 
 Huaxia_countrylevel_0,朝,Dynasty,朝
-Huaxia_countrylevel_1,国,Kingdom,國
-Huaxia_countrylevel_2,国,Kingdom,國
-Huaxia_countrylevel_3,州,Province,州
-Huaxia_countrylevel_4,州,Province,州
-Huaxia_countrylevel_5,邑,Region,邑
-Huaxia_countrylevel_6,邑,Region,邑
+Huaxia_countrylevel_1,藩国,Kingdom,藩國
+Huaxia_countrylevel_2,军,Kingdom,軍
+Huaxia_countrylevel_3,道,Province,道
+Huaxia_countrylevel_4,国,Province,國
+Huaxia_countrylevel_5,羁縻州,Region,羁縻州
+Huaxia_countrylevel_6,羁縻县,Region,羁縻县
 
 Western_countrylevel_0,至高王国,United Kingdom,至高王國
 Western_countrylevel_1,亲王国,Principality,親王國
@@ -102,3 +102,4 @@ Viking_countrylevel_3,公国,Duchy,公國
 Viking_countrylevel_4,侯国,Marquisate,侯國
 Viking_countrylevel_5,伯国,County,伯國
 Viking_countrylevel_6,国,Territory,國
+

@@ -2,6 +2,8 @@
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
 
@@ -24,11 +26,20 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 return BehResult.Continue;
             }
         }
+
+        if (pKingdom.GetRegime().GetLeaderSelectMethod() == LeaderSelectMethod.Succession || pKingdom.GetRegime().GetLeaderSelectMethod()==LeaderSelectMethod.Exam)
+        {
+            ChooseKingFromHeir(pKingdom);
+        }
+        return BehResult.Continue;
+    }
+
+    public void ChooseKingFromHeir(Kingdom pKingdom)
+    {
         pKingdom.clearKingData();
-        if (!pKingdom.HasHeir()) return BehResult.Continue;
+        if (!pKingdom.HasHeir()) return;
         var heir = pKingdom.GetHeir(); 
         MakeKingAndMoveToCapital(pKingdom, heir);
-        return BehResult.Continue;
     }
     public void TryToGiveGoldenTooth(Actor pActor)
     {
@@ -37,7 +48,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
             pActor.addTrait("golden_tooth");
         }
     }
-
+    
     public void MakeKingAndMoveToCapital(Kingdom pKingdom, Actor pNewKing)
     {
         if (pNewKing.hasCity())

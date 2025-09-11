@@ -35,25 +35,6 @@ public static class EmpireCraftMetaTypeLibrary
                         zone_manager.drawForKingdom(k);
                 }
             }
-            else if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
-            {
-                foreach (Province province in ModClass.PROVINCE_MANAGER.ToList())
-                {
-                    if (province != null)
-                    {
-                        if(!province.data.is_set_to_country)
-                        {
-                            drawnForProvince(province);
-                        }
-                    }
-                }
-                foreach (var k in World.world.kingdoms)
-                {
-                    if (k == null) continue;
-                    if (!k.isEmpire())
-                        zone_manager.drawForKingdom(k);
-                }
-            }
             else
             {
                 foreach (var k in World.world.kingdoms)
@@ -91,20 +72,6 @@ public static class EmpireCraftMetaTypeLibrary
                     return true;
                 }
             }
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
-            {
-                if (pTile.hasCity())
-                {
-                    if (pTile.zone_city.hasProvince())
-                    {
-                        ConfigData.CURRENT_SELECTED_PROVINCE = pTile.zone_city.GetProvince();
-                        ScrollWindow.showWindow(nameof(ProvinceWindow));
-                        LogService.LogInfo("open province window");
-                        return true;
-                    }
-
-                }
-            }
             MetaType.Kingdom.getAsset().selectAndInspect(kingdom);
             return true;
         };
@@ -132,14 +99,6 @@ public static class EmpireCraftMetaTypeLibrary
                     return true;
                 }
             }
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
-            {
-                if (city.hasProvince())
-                {
-                    tooltip_province_action(city.GetProvince());
-                    return true;
-                }
-            }
             kingdom.meta_type_asset.cursor_tooltip_action(kingdom);
             return true;
         };
@@ -149,21 +108,6 @@ public static class EmpireCraftMetaTypeLibrary
             UnityEngine.Color color = pAsset.color;
             City city = pTile.zone.city;
             if (city.isRekt()) return;
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Province)
-            {
-                if (city.hasProvince())
-                {
-                    Province province = city.GetProvince();
-                    if (province != null)
-                    {
-                        foreach (City c in province.city_list)
-                        {
-                            QuantumSpriteLibrary.colorZones(pAsset, c.zones, color);
-                        }
-                        return;
-                    }
-                }
-            }
             foreach (var city2 in city.kingdom.cities)
             {
                 QuantumSpriteLibrary.colorZones(pAsset, city2.zones, color);
@@ -318,16 +262,6 @@ public static class EmpireCraftMetaTypeLibrary
         }
     }
 
-    public static void drawnForProvince(Province p)
-    {
-        foreach (TileZone tz in p.allZones())
-        {
-            zone_manager.drawBegin();
-            drawZoneProvince(tz);
-            zone_manager.drawEnd(tz);
-        }
-    }
-
     public static void drawnForCity(City city)
     {
         for (int i = 0; i < city.zones.Count; i++)
@@ -399,55 +333,6 @@ public static class EmpireCraftMetaTypeLibrary
         }
         zone_manager.applyMetaColorsToZone(pZone, ref colorBorderInsideAlpha, ref colorMain, pUp, pDown, pLeft, pRight);
     }
-
-    public static void drawZoneProvince(TileZone pZone)
-    {
-        Province p = pZone.city.GetProvince();
-        if (p == null) return;
-        Empire empire = p.empire;
-        Kingdom mainKingdom = empire.CoreKingdom;
-        if (!mainKingdom.isAlive())
-        {
-            ModClass.PROVINCE_MANAGER.dissolveProvince(p);
-            ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
-            return;
-        }
-        bool pUp = isBorderColor_Province(pZone.zone_up, p, true);
-        bool pDown = isBorderColor_Province(pZone.zone_down, p, false);
-        bool pLeft = isBorderColor_Province(pZone.zone_left, p, false);
-        bool pRight = isBorderColor_Province(pZone.zone_right, p, true);
-        int num = -1;
-        if (p != null)
-        {
-            num = p.GetHashCode();
-        }
-        int num2 = zone_manager.generateIdForDraw(zone_manager._mode_asset, num, pUp, pDown, pLeft, pRight);
-        if (pZone.last_drawn_id == num2 && pZone.last_drawn_hashcode == num)
-        {
-            return;
-        }
-        pZone.last_drawn_id = num2;
-        pZone.last_drawn_hashcode = num;
-        Color32 colorBorderInsideAlpha = Toolbox.color_clear;
-        Color32 colorMain = Toolbox.color_clear;
-        if (p != null)
-        {
-            ColorAsset color = mainKingdom.getColor();
-            colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
-            colorMain = color.getColorMain2();
-            if(p.empire.CoreKingdom!=pZone.city.kingdom)
-            {
-                colorMain.r += 5;
-                colorMain.a -= 5;
-            }
-            if (zone_manager.shouldBeClearColor())
-            {
-                colorBorderInsideAlpha = zone_manager.color_clear;
-            }
-        }
-        zone_manager.applyMetaColorsToZone(pZone, ref colorBorderInsideAlpha, ref colorMain, pUp, pDown, pLeft, pRight);
-    }
-
     public static void drawZoneKingdomTitle(TileZone pZone)
     {
         KingdomTitle kt = pZone.city.GetTitle();
@@ -508,18 +393,6 @@ public static class EmpireCraftMetaTypeLibrary
         return titleOnZone == null || titleOnZone != pKingdomTitle;
     }
 
-    public static bool isBorderColor_Province(TileZone pZone, Province province, bool pCheckFriendly = false)
-    {
-        if (pZone == null)
-        {
-            return true;
-        }
-        if (pZone.city == null) return true;
-        if (!pZone.city.hasProvince()) return true;
-        Province titleOnZone = pZone.city.GetProvince();
-        return titleOnZone == null || titleOnZone != province;
-    }
-
     public static void tooltip_empire_action(Kingdom kingdom)
     {
         if (!kingdom.isRekt())
@@ -528,20 +401,6 @@ public static class EmpireCraftMetaTypeLibrary
             Tooltip.show(kingdom, "empire", new TooltipData
             {
                 kingdom = kingdom,
-                tooltip_scale = 0.7f,
-                is_sim_tooltip = true
-            });
-        }
-    }
-
-    public static void tooltip_province_action(Province province)
-    {
-        if (!province.isRekt())
-        {
-            Tooltip.hideTooltip(province, pOnlySimObjects: true, "province");
-            Tooltip.show(province, "province", new TooltipData
-            {
-                city = province.province_capital,
                 tooltip_scale = 0.7f,
                 is_sim_tooltip = true
             });

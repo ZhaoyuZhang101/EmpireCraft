@@ -82,9 +82,9 @@ public static class GameAIMain
                 && typeof(GameAIActorBase).IsAssignableFrom(ty)
                 && ty.GetConstructor(Type.EmptyTypes) != null
             );
-
         foreach (var type in types)
         {
+            bool isReplace = false;
             var beh = (GameAIActorBase) Activator.CreateInstance(type);
             var id = beh.OriginalBeh.ToString().Split('.').Last();
             LogService.LogInfo("载入模组角色AI: " + beh.GetType().ToString().Split('.').Last());
@@ -96,9 +96,15 @@ public static class GameAIMain
                     {
                         LogService.LogInfo($"存在原版同类逻辑{id}，已覆盖");
                         bt.list.Remove(action);
+                        beh.create();
+                        beh.id = id;
+                        bt.list.Add(beh);
+                        isReplace = true;
                     }
                 }
             }
+
+            if (isReplace) continue;
             beh.create();
             t.addBeh(beh);
         }

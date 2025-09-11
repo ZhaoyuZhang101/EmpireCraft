@@ -11,6 +11,8 @@ using NeoModLoader.services;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.AI.KingdomAI;
+using EmpireCraft.Scripts.Regimes;
 using UnityEngine;
 using UnityEngine.Pool;
 using UnityEngine.UI;
@@ -20,8 +22,8 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
 {
     AutoGridLayoutGroup autoGridLayoutGroup;
     Empire _empire;
-    string _key;
-    Province _province;
+    OfficeObject _office;
+    Kingdom _kingdom;
     SimpleText title;
     ListPool<GameObject> _listPool;
     TextInput textInput;
@@ -73,12 +75,11 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
                     string officialLevel = "";
                     string kingdomName = actor.kingdom.name;
                     string cityName = actor.city.name;
-                    string provinceName = actor.city.hasProvince() ? actor.city.GetProvince()?.name : "";
                     string officer = actor.isOfficer() ? "officer" + LM.Get("actor_officer") : "";
                     string name = "";
                     int age = -1;
                     string educationLevel;
-                    OfficeIdentity identity = actor.GetIdentity(ConfigData.CURRENT_SELECTED_EMPIRE);
+                    OfficeIdentity identity = actor.GetIdentity();
                     if (identity!=null)
                     {
                         merit = string.Join("_", culture, "meritlevel", identity.peerageType.ToString(), identity.meritLevel);
@@ -96,9 +97,9 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
                     age = actor.getAge();
                     List<string> searchContent = new List<string>()
                     {
-                        merit, honoraryOfficial, officialLevel, PeeragesLevel, name, age.ToString(), educationLevel, kingdomName, cityName, provinceName, officer
+                        merit, honoraryOfficial, officialLevel, PeeragesLevel, name, age.ToString(), educationLevel, kingdomName, cityName, officer
                     };
-                    bool isSatisfied = searchContent.ToList().Any(t =>t.Contains(content))||(int.TryParse(content, out int num)?num>=age:false);
+                    bool isSatisfied = searchContent.ToList().Any(t =>t.Contains(content))||(int.TryParse(content, out int num) && num>=age);
                     if (isSatisfied) actorsPool.Add(actor);
                 }
             }
@@ -121,15 +122,8 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
     {
         Clear();
         base.OnNormalEnable();
-        _empire = ConfigData.CURRENT_SELECTED_EMPIRE;
-        _key = ConfigData.CURRENT_SELECTED_OFFICE;
-        _province = ConfigData.CURRENT_SELECTED_PROVINCE;
-        string titleText = LM.Get(_key);
-        if (_key == "")
-        {
-            titleText = _province.data.name;
-        }
-        title.Setup(titleText, pAlignment:TextAnchor.MiddleCenter);
+        _office = ConfigData.CURRENT_SELECTED_OFFICE;
+        title.Setup(_office.GetName(), pAlignment:TextAnchor.MiddleCenter);
         List<Actor> listActor = new List<Actor>();
         foreach (Kingdom kingdom in _empire.kingdoms_list)
         {
@@ -179,38 +173,32 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
 
     public void ChangeAvatar(Actor actor)
     {
-        if (_key!="")
+        if (_office!=null)
         {
-            if (_empire.data.centerOffice.General.name == _key)
+            if (_empire.data.centerOffice.General == _office)
             {
-                _empire.SetOfficer(_empire.data.centerOffice.General, actor);
+                EmpireCraftKingdomBehCheckInnerOffice.SetOfficer(_empire.data.centerOffice.General, actor);
             }
-            if (_empire.data.centerOffice.GreaterGeneral.name == _key)
+            foreach (var pair in _empire.data.centerOffice.CoreOffices)
             {
-                _empire.SetOfficer(_empire.data.centerOffice.GreaterGeneral, actor);
-            }
-            if (_empire.data.centerOffice.Minister.name == _key)
-            {
-                _empire.SetOfficer(_empire.data.centerOffice.Minister, actor);
-            }
-            foreach (var pairs in _empire.data.centerOffice.CoreOffices)
-            {
-                if (_key == pairs.Key)
+                if (_office == pair)
                 {
-                    _empire.SetOfficer(pairs.Value, actor);
+                    EmpireCraftKingdomBehCheckInnerOffice.SetOfficer(pair, actor);
                 }
             }
-            foreach (var pairs in _empire.data.centerOffice.Divisions)
+            foreach (var pair in _empire.data.centerOffice.Divisions)
             {
-                if (_key == pairs.Key)
+                if (_office == pair)
                 {
-                    _empire.SetOfficer(pairs.Value, actor);
+                    EmpireCraftKingdomBehCheckInnerOffice.SetOfficer(pair, actor);
                 }
             }
         }
-        else if (_province!=null)
+        else if (_kingdom!=null)
         {
-            _province.SetOfficer(actor);
+            _kingdom.setKing(actor);
+            actor.joinCity(_kingdom.capital);
+            actor.joinKingdom(_kingdom);
         }
         ScrollWindow.getCurrentWindow().clickBack();
     }

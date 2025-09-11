@@ -21,14 +21,10 @@ public static class CreateProvinceButton
     {
         if (pTile.hasCity())
         {
-            if (!pTile.zone_city.kingdom.isEmpire())
+            if (pTile.zone_city.kingdom.isEmpire())
             {
+                Kingdom kingdom = pTile.zone_city.makeOwnKingdom(pTile.zone_city.leader);
                 return false;
-            }
-            Province province = ModClass.PROVINCE_MANAGER.newProvince(pTile.zone_city);
-            if ( pTile.zone_city.isCapitalCity())
-            {
-                province.SetDirectRule();
             }
         }
         return true;

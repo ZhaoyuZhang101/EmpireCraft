@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 using DG.Tweening;
+using NeoModLoader.services;
+
 namespace EmpireCraft.Scripts.UI.Components;
 
 public class AdvancedButton:APrefab<AdvancedButton>
@@ -53,8 +55,8 @@ public class AdvancedButton:APrefab<AdvancedButton>
     {
         if (!Initialized) Init();
     }
-    public void Setup(string buttonID, UnityAction pClickAction, Sprite pIcon, string pText = null, Vector2 pSize = default,
-        bool isToggle=false, Sprite backgroundSprite=null, bool showTip = false)
+    public void Setup(string buttonID, UnityAction pClickAction, Sprite pIcon = null, string pText = null, Vector2 pSize = default,
+        bool isToggle=false, Sprite backgroundSprite=null, bool showTip = false, bool customIcon=false, int iconType = 0)
     {
         OriginalSetup(pClickAction, pIcon, pText, pSize,"normal", showTip);
         toggleStatus = false;
@@ -62,12 +64,10 @@ public class AdvancedButton:APrefab<AdvancedButton>
         {
             Background.sprite = backgroundSprite;
         }
-
-        buttonName = buttonID;
+        buttonName = customIcon?buttonID:"DefaultToggle"+iconType;
         
         if (isToggle)
         {
-            Button.onClick.AddListener(ChangeStatus);
             string spritePath = $"ui/buttons/{buttonName}";
             Sprite offSprite = SpriteTextureLoader.getSprite(spritePath + "Off");
             Icon.sprite = offSprite;
@@ -81,14 +81,13 @@ public class AdvancedButton:APrefab<AdvancedButton>
         }
     }
 
-    private void ChangeStatus()
+    public void SetStatus(bool val)
     {
         string spritePath = $"ui/buttons/{buttonName}";
         Sprite onSprite = SpriteTextureLoader.getSprite(spritePath + "On");
         Sprite offSprite = SpriteTextureLoader.getSprite(spritePath + "Off");
-        toggleStatus = !toggleStatus;
+        toggleStatus = val;
         Icon.sprite = toggleStatus ? onSprite : offSprite;
-        
     }
     
     

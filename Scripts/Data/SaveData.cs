@@ -14,6 +14,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.System;
 
 public class SaveData
 {
@@ -23,7 +24,6 @@ public class SaveData
     public List<ClanExtraData> clanExtraData = new List<ClanExtraData>();
     public List<WarExtraData> warExtraData = new List<WarExtraData>();
     public List<EmpireData> empireDatas = new List<EmpireData>();
-    public List<ProvinceData> provinceDatas = new List<ProvinceData>();
     public List<KingdomTitleData> kingdomTitleDatas = new List<KingdomTitleData>();
     public List<string> yearNameSubspecies = new List<string>();
     public Dictionary<long, List<EmpireCraftHistory>> all_history;

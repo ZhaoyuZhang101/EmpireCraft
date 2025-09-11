@@ -1,16 +1,17 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
-using NeoModLoader.services;
-using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
+using NeoModLoader.services;
+using Newtonsoft.Json;
 using UnityEngine;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 
-namespace EmpireCraft.Scripts.HelperFunc;
+namespace EmpireCraft.Scripts.System;
 public enum SpecificClanType
 {
     MalePriority,
@@ -184,8 +185,10 @@ public class SpecificClan
 
     public void checkDispose()
     {
-        if (Count <= 0)
+        if (!SnapshotPeople().ToList().FindAll(i=>i.is_alive).Any())
         {
+            dispose();
+            LogService.LogInfo(name+"家族 绝嗣, 清空宗族数据...");
             SpecificClanManager.RemoveClan(id);
         }
     }
@@ -685,7 +688,6 @@ public class PersonalClanIdentity
     public string officialLevel = "";
     public string kingdomName = "";
     public string cityName = "";
-    public string provinceName = "";
     public string educationLevel = "";
     public string culture = "";
     public string name { get; set; }
@@ -734,11 +736,10 @@ public class PersonalClanIdentity
         OfficeIdentity identity = null;
         if (actor.hasCity())
         {
-            identity = actor.GetIdentity(actor.city.GetEmpire()); 
+            identity = actor.GetIdentity(); 
         }
         kingdomName = actor.kingdom.name;
         cityName = actor.hasCity()?actor.city.name:"";
-        provinceName = actor.city.hasProvince() ? actor.city.GetProvince()?.name : "";
         if (identity!=null)
         {
             merit = string.Join("_", culture, "meritlevel", identity.peerageType.ToString(), identity.meritLevel);

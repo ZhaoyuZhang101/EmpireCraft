@@ -471,5 +471,45 @@
     "world_law_civ_limit_population_20_title": "Twenty People",
     "world_law_civ_limit_population_20_description": "Limit maximum town population to 20",
     "empirecraft_law_ban_empire_title": "Ban Founding Empires",
-    "empirecraft_law_ban_empire_description": "When enabled, empires will not be created automatically in the game"
+    "empirecraft_law_ban_empire_description": "When enabled, empires will not be created automatically in the game",
+
+    "toggle_allow_diplomacy": "Allow Diplomacy",
+    "toggle_allow_diplomacy_description": "When enabled, states/regions can freely form alliances or declare war.",
+
+    "toggle_allow_army": "Allow Army",
+    "toggle_allow_army_description": "When enabled, states/regions can maintain their own armies.",
+
+    "toggle_support_army_to_center": "Support Army to Central",
+    "toggle_support_army_to_center_description": "When enabled, states/regions will provide troops to the central authority.",
+
+    "option_tax_level": "Tax Level",
+
+    "option_tax_level0": "None",
+    "option_tax_level1": "Low",
+    "option_tax_level2": "Medium",
+    "option_tax_level3": "High",
+    "option_tax_level0_description": "",
+    "option_tax_level1_description": "",
+    "option_tax_level2_description": "",
+    "option_tax_level3_description": "",
+
+    "option_leader_select_method": "Succession System",
+
+    "option_leader_select_method0": "Clan Inheritance",
+    "option_leader_select_method1": "Official Appointment",
+    "option_leader_select_method2": "Election",
+    "option_leader_select_method0_description": "",
+    "option_leader_select_method1_description": "",
+    "option_leader_select_method2_description": "",
+
+    "option_religion_type": "Religion Level",
+
+    "option_religion_type0": "None",
+    "option_religion_type1": "Low",
+    "option_religion_type2": "Medium",
+    "option_religion_type3": "High",
+    "option_religion_type0_description": "",
+    "option_religion_type1_description": "",
+    "option_religion_type2_description": "",
+    "option_religion_type3_description": ""
 }

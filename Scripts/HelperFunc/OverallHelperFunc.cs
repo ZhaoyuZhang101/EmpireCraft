@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using UnityEngine;
 
@@ -73,12 +74,11 @@ namespace EmpireCraft.Scripts.HelperFunc
                     string officialLevel = "";
                     string kingdomName = actor.kingdom.name;
                     string cityName = actor.city.name;
-                    string provinceName = actor.city.hasProvince() ? actor.city.GetProvince()?.name : "";
                     string officer = actor.isOfficer() ? "officer" + LM.Get("actor_officer") : "";
                     string name = "";
                     int age = -1;
                     string educationLevel;
-                    OfficeIdentity identity = actor.GetIdentity(ConfigData.CURRENT_SELECTED_EMPIRE);
+                    OfficeIdentity identity = actor.GetIdentity();
                     if (identity!=null)
                     {
                         merit = string.Join("_", culture, "meritlevel", identity.peerageType.ToString(), identity.meritLevel);
@@ -96,9 +96,9 @@ namespace EmpireCraft.Scripts.HelperFunc
                     age = actor.getAge();
                     List<string> searchContent = new List<string>()
                     {
-                        merit, honoraryOfficial, officialLevel, PeeragesLevel, name, age.ToString(), educationLevel, kingdomName, cityName, provinceName, officer
+                        merit, honoraryOfficial, officialLevel, PeeragesLevel, name, age.ToString(), educationLevel, kingdomName, cityName, officer
                     };
-                    bool isSatisfied = searchContent.ToList().Any(t =>t.Contains(content))||(int.TryParse(content, out int num)?num>=age:false);
+                    bool isSatisfied = searchContent.ToList().Any(t =>t.Contains(content))||(int.TryParse(content, out int num) && num>=age);
                     if (isSatisfied) actorsPool.Add(actor);
                 }
             }
@@ -127,10 +127,9 @@ namespace EmpireCraft.Scripts.HelperFunc
                 if (cIdentity.Item2.is_alive)
                 {
                     Actor actor = cIdentity.Item2._actor;
-                    OfficeIdentity identity = actor.GetIdentity(actor.city.GetEmpire());
+                    OfficeIdentity identity = actor.GetIdentity();
                     kingdomName = actor.kingdom.name;
                     cityName = actor.city.name;
-                    provinceName = actor.city.hasProvince() ? actor.city.GetProvince()?.name : "";
                     officer = actor.isOfficer() ? "officer" + LM.Get("actor_officer") : "";
                     if (identity!=null)
                     {
@@ -154,7 +153,6 @@ namespace EmpireCraft.Scripts.HelperFunc
                     officialLevel = cIdentity.Item2.officialLevel + LM.Get(cIdentity.Item2.officialLevel);
                     kingdomName = cIdentity.Item2.kingdomName;
                     cityName = cIdentity.Item2.cityName;
-                    provinceName = cIdentity.Item2.provinceName;
                     educationLevel = cIdentity.Item2.educationLevel + string.Join("/", cIdentity.Item2.educationLevel.Split('/').Select(c=>LM.Get(c)));;
                 }
                 List<string> searchContent = new List<string>()

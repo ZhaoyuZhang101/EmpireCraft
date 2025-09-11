@@ -21,17 +21,16 @@ public static class RemoveProvinceButton
     {
         if (pTile.hasCity())
         {
-            if (pTile.zone_city.hasProvince())
+            if (pTile.zone_city.hasKingdom())
             {
-                Province province = pTile.zone_city.GetProvince();
-                if (province == null)
+                Kingdom kingdom = pTile.zone_city.kingdom;
+                foreach (var city in kingdom.cities)
                 {
-                    pTile.zone_city.RemoveProvince();
-                    return false;
+                    city.joinAnotherKingdom(kingdom.GetEmpire().CoreKingdom);
                 }
-                province.removeCity(pTile.zone_city);
+                return true;
             }
         }
-        return true;
+        return false;
     }
 }

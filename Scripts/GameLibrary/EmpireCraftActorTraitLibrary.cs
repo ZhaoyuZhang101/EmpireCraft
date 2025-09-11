@@ -105,8 +105,7 @@ public static class EmpireCraftActorTraitLibrary
         if(actor.city.kingdom == null) return false;
         if (actor.city.kingdom.isInEmpire())
         {
-            Empire empire = actor.city.kingdom.GetEmpire();
-            actor.GetIdentity(empire).ChangeOfficialLevel(Enums.OfficialLevel.officiallevel_10);
+            actor.GetIdentity().ChangeOfficialLevel(-1);
         }
         return true;
     }

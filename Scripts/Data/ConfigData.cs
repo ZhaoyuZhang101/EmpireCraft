@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.Regimes;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.Data
@@ -16,11 +17,9 @@ namespace EmpireCraft.Scripts.Data
         [JsonIgnore]
         public static KingdomTitle CURRENT_SELECTED_TITLE;
         [JsonIgnore]
-        public static Province CURRENT_SELECTED_PROVINCE;
-        [JsonIgnore]
         public static EmpireCraftHistory CURRENT_SELECTED_HISTORY;
         [JsonIgnore]
-        public static string CURRENT_SELECTED_OFFICE;
+        public static OfficeObject CURRENT_SELECTED_OFFICE;
         [JsonIgnore]
         public static City selected_cityA;
         [JsonIgnore]

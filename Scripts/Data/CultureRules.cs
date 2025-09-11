@@ -7,38 +7,20 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.Data;
 public class CultureRule
 {
     public string name;
     public Setting setting;
-    public BeareauConfig beaurau_config;
-}
-public class BeareauConfig
-{
-    public OfficeConfig GreaterGeneral = new OfficeConfig();
-    public OfficeConfig Minister = new OfficeConfig();
-    public OfficeConfig General = new OfficeConfig();
-    public List<OfficeConfig> CoreOffice = new List<OfficeConfig>();
-    public List<OfficeConfig> Divisions = new List<OfficeConfig>();
-}
-
-public class OfficeConfig
-{
-    public string name;
-    public OfficialLevel type;
-    public string description;
-    public string pre;
-    public int merit;
-    public int honorary;
-    public PeerageType peerage_type;
-    public List<string> require_traits = new List<string>();
 }
 
 public class Setting
 {
     public List<string> traits = new List<string>();
+    public RegimeType regime;
     public CitySetting City;
     public KingdomSetting Kingdom;
     public ClanSetting Clan;
@@ -89,7 +71,6 @@ public class CitySetting
 public static class OnomasticsRule
 {
     public static Dictionary<string, Setting> ALL_CULTURE_RULE = new Dictionary<string, Setting>();
-    public static Dictionary<string, BeareauConfig> ALL_CULTURE_CONFIG = new Dictionary<string, BeareauConfig>();
     public static List<CultureRule> ALL_CULTUREs = new List<CultureRule>();
     public static void ReadSetting()
     {
@@ -99,7 +80,6 @@ public static class OnomasticsRule
         foreach (CultureRule cultureRule in cultureRules)
         {
             ALL_CULTURE_RULE.Add(cultureRule.name, cultureRule.setting);
-            ALL_CULTURE_CONFIG.Add(cultureRule.name, cultureRule.beaurau_config);
         }
     }
 }

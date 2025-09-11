@@ -439,5 +439,45 @@
   "world_law_civ_limit_population_20_title": "20個人",
   "world_law_civ_limit_population_20_description": "限制村莊最大人口數為20",
   "empirecraft_law_ban_empire_title": "禁止稱帝",
-  "empirecraft_law_ban_empire_description": "開啟後遊戲中將不會自動產生帝國"
+  "empirecraft_law_ban_empire_description": "開啟後遊戲中將不會自動產生帝國",
+
+  "toggle_allow_diplomacy": "允許外交",
+  "toggle_allow_diplomacy_description": "開啟後國家/政區可自由結盟或開戰",
+
+  "toggle_allow_army": "允許軍隊",
+  "toggle_allow_army_description": "開啟後國家/政區可擁有自己的軍隊",
+
+  "toggle_support_army_to_center": "供給軍隊至中央",
+  "toggle_support_army_to_center_description": "開啟後國家/政區會給中央提供軍隊",
+
+  "option_tax_level": "稅收等級",
+
+  "option_tax_level0": "無",
+  "option_tax_level1": "低",
+  "option_tax_level2": "中",
+  "option_tax_level3": "高",
+  "option_tax_level0_description": "",
+  "option_tax_level1_description": "",
+  "option_tax_level2_description": "",
+  "option_tax_level3_description": "",
+
+  "option_leader_select_method": "繼承制度",
+
+  "option_leader_select_method0": "氏族繼承",
+  "option_leader_select_method1": "官員選拔",
+  "option_leader_select_method2": "票選",
+  "option_leader_select_method0_description": "",
+  "option_leader_select_method1_description": "",
+  "option_leader_select_method2_description": "",
+
+  "option_religion_type": "宗教等級",
+
+  "option_religion_type0": "無",
+  "option_religion_type1": "低",
+  "option_religion_type2": "中",
+  "option_religion_type3": "高",
+  "option_religion_type0_description": "",
+  "option_religion_type1_description": "",
+  "option_religion_type2_description": "",
+  "option_religion_type3_description": ""
 }

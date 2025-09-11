@@ -1,17 +1,10 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+﻿using System.Collections.Generic;
+using System.Linq;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using NCMS.Extensions;
-using NeoModLoader.General.UI.Prefabs;
-using NeoModLoader.services;
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Unity.Profiling.LowLevel;
 
-namespace EmpireCraft.Scripts.HelperFunc;
+namespace EmpireCraft.Scripts.System;
 public static class ExamSystem
 {
     public enum ExamType
@@ -33,8 +26,6 @@ public static class ExamSystem
                 break;
             case ExamType.Empire:
                 empireExamPrepare(nano);
-                break;
-            default:
                 break;
         }
     }
@@ -91,9 +82,9 @@ public static class ExamSystem
     }
     public static void provinceExamPrepare(NanoObject nano)
     {
-        Province province = (Province)nano;
+        Kingdom province = (Kingdom)nano;
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
-        foreach(City city in province.city_list)
+        foreach(City city in province.cities)
         {
             foreach (Actor actor in city.units.FindAll(a => a.hasTrait("juren")))
             {
@@ -121,9 +112,8 @@ public static class ExamSystem
     {
         Empire empire = (Empire)nano;
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
-        foreach (Province province in empire.ProvinceList) 
+        foreach (Kingdom province in empire.kingdoms_hashset) 
         {
-            if (province.IsTotalVassaled()) continue;
             foreach (Actor actor in province.allGongshi())
             {
                 if (!MarksData.TryGetValue(actor, out double m))

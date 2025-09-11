@@ -83,38 +83,6 @@ public static class EmpireCraftNamePlateLibrary
         };
         map_modes_nameplates.Add(EmpireCraftMapMode.Title, asset2);
 
-        NameplateAsset asset3 = new NameplateAsset
-        {
-            id = "plate_province",
-            path_sprite = "ui/nameplates/nameplate_province",
-            padding_left = 26,
-            padding_right = 26,
-            padding_top = -2,
-            action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
-            {
-                foreach (Province province in ModClass.PROVINCE_MANAGER)
-                {
-                    if (province != null && isWithinCamera(province.GetCenter())&&!province.data.is_set_to_country)
-                    {
-                        NameplateText npt = prepareNext(pManager, pAsset, 37, 12, 39, 11);
-                        showTextProvince(npt, province.province_capital);
-                    }
-                }
-                foreach (Kingdom kingdom in World.world.kingdoms)
-                {
-                    if (kingdom != null)
-                    {
-                        if (kingdom.hasCapital() && !kingdom.isEmpire() && isWithinCamera(kingdom.capital.city_center))
-                        {
-                            NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library.plate_kingdom);
-                            showTextKingdom(nameplateText, kingdom);
-                        }
-                    }
-                }
-            },
-        };
-        map_modes_nameplates.Add(EmpireCraftMapMode.Province, asset3);
-
         NameplateAsset asset4 = new NameplateAsset
         {
             id = "plate_culture",
@@ -414,34 +382,5 @@ public static class EmpireCraftNamePlateLibrary
             LogService.LogInfo(e.Message);
         }
 
-    }
-
-    public static void showTextProvince(NameplateText plateText, City capital)
-    {
-        if (ModClass.IS_CLEAR) return;
-        if (capital == null) return;
-        if (!capital.hasProvince()) return;
-        try
-        {
-            plateText.setupMeta(capital.data, capital.kingdom.getColor());
-            Province province = capital.GetProvince();
-            string text = province.data.name+"|"+province.empire.GetEmpireName();
-            if (province.IsTotalVassaled())
-            {
-                text = LM.Get("provinceVassaled") + "|" + text;
-            }
-            plateText.setText(text, capital.city_center);
-            plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.winner_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
-            plateText._show_banner_kingdom = false;
-            plateText._show_banner_clan = false;
-            plateText.nano_object = capital;
-        }
-        catch (Exception e)
-        {
-            LogService.LogInfo(e.ToString());
-        }
     }
 }
