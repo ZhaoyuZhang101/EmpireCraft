@@ -5,6 +5,8 @@ using ai;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.AI.CityAI;
 
@@ -23,37 +25,8 @@ public class EmpireCraftCityBehCheckLeader : GameAICityBase
         if (pCity.hasLeader())
         {
             Actor leader = pCity.leader;
-            if (!leader.hasClan())
-            {
-                world.clans.newClan(leader, pAddDefaultTraits: true);
-            }
-        }
-    }
-
-    public Actor TryGetPotentialOfficer(City pCity)
-    {
-        List<Actor> officersPool = new List<Actor>();
-        if (!pCity.kingdom.isEmpire()) return null;
-        Empire empire = pCity.kingdom.GetEmpire();
-        foreach (City city in empire.CoreKingdom.cities)
-        {
-            foreach (Actor unit in city.units)
-            {
-                if (unit.isUnitFitToRule() && !unit.isKing() && !unit.isCityLeader() && !unit.isOfficer())
-                {
-                    if (unit.hasTrait("gongshi")||unit.hasTrait("jingshi"))
-                    {
-                        officersPool.Add(unit);
-                    }
-                }
-            }
-        }
-        if (officersPool.Count > 0)
-        {
-            return officersPool.First();
-        } else
-        {
-            return null;
+            leader.CheckSpecificClan();
+            pCity.SetPersonalIdentity(leader?.GetPersonalIdentity());
         }
     }
 
@@ -64,10 +37,19 @@ public class EmpireCraftCityBehCheckLeader : GameAICityBase
             return;
         }
         Actor actor = null;
-        actor = TryGetPotentialOfficer(pCity);
-        if (actor==null)
+        Kingdom  kingdom = pCity.kingdom;
+        Regime regime = kingdom.GetRegime();
+        switch (regime.GetLeaderSelectMethod())
         {
-            actor = TryGetClanLeader(pCity);
+            case LeaderSelectMethod.Exam:
+                // actor = TryGetPotentialOfficer(pCity)??TryGetClanLeader(pCity)??TryGetProfessionCitizen(pCity);;
+                break;
+            case LeaderSelectMethod.Succession:
+                actor = TryGetHeir(pCity)??TryGetClanLeader(pCity)??TryGetProfessionCitizen(pCity);;
+                break;
+            case LeaderSelectMethod.Vote:
+                actor = TryGetClanLeader(pCity)??TryGetProfessionCitizen(pCity);
+                break;
         }
         if (actor != null)
         {
@@ -77,8 +59,11 @@ public class EmpireCraftCityBehCheckLeader : GameAICityBase
             }
             actor.joinCity(pCity);
             pCity.setLeader(actor, pNew: true);
-            return;
         }
+    }
+    public Actor TryGetProfessionCitizen(City pCity)
+    {
+        Actor actor = null;
         int num = 0;
         foreach (Actor unit in pCity.units)
         {
@@ -101,19 +86,46 @@ public class EmpireCraftCityBehCheckLeader : GameAICityBase
                 }
             }
         }
-        if (actor != null)
-        {
-            pCity.setLeader(actor, pNew: true);
-        }
+
+        return actor;
     }
 
+    private Actor TryGetHeir(City pCity)
+    {
+        PersonalClanIdentity personal = pCity.GetPersonalIdentity();
+        if (personal == null) return null;
+        List<(ClanRelation relation, PersonalClanIdentity identity)> relations = SpecificClanManager.FindAllRelations(personal);
+        
+        var heirs = relations.FindAll(r => r.relation == ClanRelation.CHILD&&r.identity.CanHeir(personal)).Select(r=>r.identity).ToList();
+        if (!heirs.Any())
+        {
+            heirs = relations.FindAll(r => r.relation is ClanRelation.SSGB or ClanRelation.SSGG&&r.identity.CanHeir(personal)).Select(r=>r.identity).ToList();
+        }
+
+        if (!heirs.Any())
+        {
+            heirs = relations.FindAll(r => r.relation is ClanRelation.SBB or ClanRelation.SBG&&r.identity.CanHeir(personal)).Select(r=>r.identity).ToList();
+        }
+
+        if (!heirs.Any())
+        {
+            heirs = relations.FindAll(r => r.relation is ClanRelation.FUNC or ClanRelation.FANT&&r.identity.CanHeir(personal)).Select(r=>r.identity).ToList();
+        }
+
+        if (!heirs.Any())
+        {
+            heirs = relations.FindAll(r=>r.identity.CanHeir(personal)).Select(r=>r.identity).ToList();
+        }
+        if (heirs.Any()) return heirs.First()._actor;
+        return null;
+    }
     private Actor TryGetClanLeader(City pCity)
     {
         Kingdom kingdom = pCity.kingdom;
         Clan clan = null;
         if (kingdom.data.royal_clan_id.hasValue())
         {
-            clan = BehaviourActionBase<City>.world.clans.get(kingdom.data.royal_clan_id);
+            clan = world.clans.get(kingdom.data.royal_clan_id);
         }
         using ListPool<Actor> listPool = new ListPool<Actor>();
         using ListPool<Actor> listPool2 = new ListPool<Actor>();

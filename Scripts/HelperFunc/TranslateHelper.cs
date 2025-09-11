@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.HelperFunc
 {
@@ -84,17 +85,15 @@ namespace EmpireCraft.Scripts.HelperFunc
 
         }
         
-        public static void LogProvinceChangeToKingdom(Province province, provinceLevel level)
+        public static void LogProvinceChangeToKingdom(Kingdom province, string name)
         {
-            string level_pre = ConfigData.speciesCulturePair.TryGetValue(province.empire.CoreKingdom.getSpecies(), out string culture) ? culture : "Western";
-
             new WorldLogMessage(EmpireCraftWorldLogLibrary.province_change_to_kingdom_log,
                 province.data.name,
-                LM.Get(String.Join("_", level_pre, level.ToString()))
+                name
                 )
             {
-                color_special1 = province.empire.getColor()._colorText,
-                color_special2 = province.empire.getColor()._colorText
+                color_special1 = province.getColor()._colorText,
+                color_special2 = province.getColor()._colorText
 
             }.add();
         }
@@ -132,20 +131,6 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = attacker.getColor()._colorText,
                 color_special2 = defender.getColor()._colorText,
                 color_special3 = title.getColor()._colorText
-
-            }.add();
-        }
-        public static void LogEmpireGetBackLand(Kingdom empire, Province province)
-        {
-            if (empire == null) return;
-            if (!empire.isAlive()) return;
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.history_empire_get_back_land,
-                empire.data.name,
-                province.data.name
-                )
-            {
-                color_special1 = empire.getColor()._colorText,
-                color_special2 = empire.getColor()._colorText
 
             }.add();
         }

@@ -4,6 +4,8 @@ using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General.UI.Prefabs;
 using System;
 using System.Collections.Generic;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using Newtonsoft.Json;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
@@ -21,15 +23,26 @@ public static class CityExtension
         public bool MAX_POPULATION_LIMIT = false;
         [JsonIgnore]
         public TextInput limitationNumber { get; set; }
+        public long personalIdentityId = -1L;
         [JsonIgnore]
         public SimpleButton limitToggle { get; set; }
+        public OfficeObject office { get; set; }
     }
     public static CityExtraData GetOrCreate(this City a, bool isSave=false)
     {
         var ed = a.GetOrCreate< City, CityExtraData>(isSave);
         return ed;
-    } 
+    }
 
+    public static PersonalClanIdentity GetPersonalIdentity(this City a)
+    {
+        return SpecificClanManager.getPerson(a.GetOrCreate().personalIdentityId);
+    }
+
+    public static void SetPersonalIdentity(this City a, PersonalClanIdentity personalId)
+    {
+        a.GetOrCreate().personalIdentityId = personalId?.id??-1L;
+    }
     public static void SetLimitInput(this City c, TextInput input)
     {
         var ed = c.GetOrCreate();
@@ -155,23 +168,12 @@ public static class CityExtension
         if (ed == null) return null;
         return ed.title_id==-1L?null:ModClass.KINGDOM_TITLE_MANAGER.get(ed.title_id);
     }
-
-    public static Province GetProvince(this City c)
-    {
-        var ed = GetOrCreate(c);
-        if (ed == null) return null;
-        return ed.province_id == -1L ? null : ModClass.PROVINCE_MANAGER.get(ed.province_id);
-    }
+    
 
     public static void SetTitle(this City c, KingdomTitle title)
     {
         var ed = GetOrCreate(c);
         ed.title_id = title.getID();
-    }
-    public static void SetProvince(this City c, Province province)
-    {
-        var ed = GetOrCreate(c);
-        ed.province_id = province.getID();
     }
 
     public static void RemoveTitle(this City c)
@@ -179,15 +181,10 @@ public static class CityExtension
         GetOrCreate(c).title_id = -1L;
     }
 
-    public static void RemoveProvince(this City c)
-    {
-        GetOrCreate(c).province_id = -1L;
-    }
-
     public static string GetCityName(this City city)
     {
         if (city == null) return null;
-        if (city.name == null || city.name == "") return null;
+        if (string.IsNullOrEmpty(city.name)) return null;
         string[] nameParts = city.name.Split('\u200A');
 
         if (ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out var culture))
@@ -234,7 +231,7 @@ public static class CityExtension
 
     public static bool HasKingdomName(this City city) 
     {
-        return GetOrCreate(city).kingdom_names == null || GetOrCreate(city).kingdom_names == "";
+        return string.IsNullOrEmpty(GetOrCreate(city).kingdom_names);
     }
 
 }

@@ -12,6 +12,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 
 // Token: 0x0200023D RID: 573
 public class EmpireData : MetaObjectData
@@ -37,8 +39,6 @@ public class EmpireData : MetaObjectData
     public EmpirePeriod empirePeriod {  get; set; }
     public bool is_been_controlled { get; set; } = false;
 
-    public ArmySystemType armySystemType { get; set; }
-
     [DefaultValue(-1L)]
     public long founder_kingdom_id { get; set; } = -1L;
     public long emperor { get; set; } = -1L;
@@ -56,7 +56,7 @@ public class EmpireData : MetaObjectData
     public double timestamp_member_joined;
     public double timestamp_established_time;
     public double timestamp_invite_war_cool_down;
-    public CenterOffice centerOffice { get; set; } = new CenterOffice();
+    public CenterOffice centerOffice { get; set; }
     public double newEmperor_timestamp { get; set; }
 
     public double last_exam_timestamp { get; set; } = -1L;
@@ -92,139 +92,4 @@ public class EmpireCore
     public bool hasPostHumous { get; set; }
     public long create_timestamp { get; set; }
     public List<long> cities;
-}
-
-public class OfficeObject
-{
-    public string name { get; set; }
-    public double timestamp { get; set; }
-    public OfficialLevel level { get; set; }
-    public long actor_id { get; set; }
-    public string pre { get; set; } = "";
-    public int merit { get; set; }
-    public int honorary { get; set; }
-    public PeerageType peerage_type { get; set; }
-    public List<string> require_traits { get; set; } = new List<string>();
-
-    [JsonIgnore]
-    public Action setOfficeAction { get; set; }
-
-    public List<string> history_officers = new List<string>();
-
-    public void InitialOffice(OfficeConfig config, Action action = null)
-    {
-        name = config.name;
-        LogService.LogInfo($"初始化官职名称{name}");
-        level = config.type;
-        timestamp = World.world.getCurWorldTime();
-        pre = config.pre;
-        merit = config.merit;
-        honorary = config.honorary;
-        require_traits = config.require_traits;
-        peerage_type = config.peerage_type;
-        history_officers = new List<string> {};
-        setOfficeAction = action;
-    }
-
-    public void SetActor (Actor actor, Empire empire)
-    {
-        OfficeIdentity identity = new OfficeIdentity();
-        identity.init(empire, actor);
-        identity.peerageType = peerage_type;
-        identity.meritLevel = merit;
-        identity.honoraryOfficial = honorary;
-        actor.SetIdentity(identity, false);
-        
-        actor_id = actor.getID();
-        timestamp = World.world.getCurWorldTime();
-        
-        if(!actor.hasCulture())
-        {
-            actor.setCulture(actor.kingdom.culture);
-        }
-        timestamp = World.world.getCurWorldTime();
-        actor.ChangeOfficialLevel(level);
-        SpecificClanManager.CheckSpecificClan(actor);
-    }
-    public Actor GetActor()
-    {
-        return World.world.units.get(actor_id);
-    }
-    public int GetOnTime()
-    {
-        if (this.actor_id == -1L)
-        {
-            return 0;
-        }
-        if (GetActor() == null)
-        {
-            return 0;
-        }
-        return Date.getYearsSince(this.timestamp);
-    }
-
-    public void RemoveActor()
-    {
-        Actor actor = World.world.units.get(actor_id);
-        if (actor!=null)
-        {
-            actor.addTrait("officerLeave");
-            this.history_officers.Add(actor.data.name);
-        }
-        this.actor_id = -1L;
-    }
-}
-
-public class CenterOffice
-{
-    public OfficeObject GreaterGeneral { get; set; }//天策上将
-    public OfficeObject Minister { get; set; }//宰相
-    public OfficeObject General { get; set; }//大将军
-
-    public Dictionary<string, OfficeObject> CoreOffices { get; set; } = new Dictionary<string, OfficeObject>();
-
-    public Dictionary<string, OfficeObject> Divisions { get; set; } = new Dictionary<string, OfficeObject>();
-    public CenterOffice(string culture="Huaxia")
-    {
-        BeareauConfig config = OnomasticsRule.ALL_CULTURE_CONFIG[culture];
-        GreaterGeneral = new OfficeObject();
-        GreaterGeneral.InitialOffice(config.GreaterGeneral);
-        Minister = new OfficeObject();
-        Minister.InitialOffice(config.Minister);
-        General = new OfficeObject();
-        General.InitialOffice(config.General);
-        foreach(OfficeConfig oc in config.CoreOffice)
-        {
-
-            this.CoreOffices[oc.name] = new OfficeObject();
-            this.CoreOffices[oc.name].InitialOffice(oc);
-
-        }
-        foreach(OfficeConfig oc in config.Divisions)
-        {
-            this.Divisions[oc.name] = new OfficeObject();
-            this.Divisions[oc.name].InitialOffice(oc);
-        }
-    }
-
-    public List<Actor> GetAllOfficers(Empire empire)
-    {
-        List<Actor> officers = new List<Actor>();
-        foreach(Kingdom kingdom in empire.kingdoms_list)
-        {
-            officers.AddRange(kingdom.units.ToList().FindAll(a=>a.hasTrait("officer")));
-        }
-        return officers;
-    }
-
-    public void add(ref List<long> list, long content)
-    {
-        if (content != -1L)
-        {
-            if (!list.Contains(content))
-            {
-                list.Add(content);
-            }
-        }
-    }
 }

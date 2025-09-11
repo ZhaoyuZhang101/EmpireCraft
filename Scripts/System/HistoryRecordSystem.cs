@@ -1,16 +1,11 @@
-﻿using EmpireCraft.Scripts.Enums;
+﻿using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
-using NeoModLoader.services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using EmpireCraft.Scripts.GameClassExtensions;
 
-namespace EmpireCraft.Scripts.HelperFunc;
+namespace EmpireCraft.Scripts.System;
 public static class HistoryRecordSystem
 {
     public static void RecordHistory(this Empire empire, EmpireHistoryType type, Dictionary<string, string> recordInfo)

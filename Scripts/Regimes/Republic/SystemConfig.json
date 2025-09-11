@@ -1,0 +1,101 @@
+{  
+  //共和
+  "Republic": {
+    "description": "现代制度，各级别官员由考试产生，同时，最高领导者由各个省份领导人票选产生",
+    "icon_url": "",
+    "options": {
+      "toggle_allow_diplomacy": [0],
+      "toggle_allow_army": [0],
+      "toggle_support_army_to_center": [1],
+      "option_tax_level": [2, 4],
+      "option_leader_select_method": [2, 3],
+      "option_religion_type": [0, 4]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [
+            "备选"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        },
+        {
+          "pre": "",
+          "type": 2,
+          "description": "",
+          "powers": [
+            "执行",
+            "拟定",
+            "礼仪",
+            "人事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        }
+      ]
+    },
+    "division": [
+      {
+        "pre": "finance_pre",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财务"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "require_traits": []
+      },
+      {
+        "pre": "defence_pre",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "require_traits": []
+      },
+      {
+        "pre": "law_pre",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "require_traits": []
+      },
+      {
+        "pre": "interior_pre",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "require_traits": []
+      },
+      {
+        "pre": "education_pre",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "教育"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "require_traits": []
+      }
+    ]
+  }
+}

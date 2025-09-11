@@ -19,6 +19,8 @@ using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -150,7 +152,7 @@ public class CityPatch : GamePatch
             if (__instance.kingdom.isInEmpire())
             {
                 Empire empire = __instance.kingdom.GetEmpire();
-                __instance.leader.ChangeOfficialLevel(OfficialLevel.officiallevel_10);
+                __instance.leader.ChangeOfficialLevel(-1);
             }
             else
             {
@@ -165,32 +167,19 @@ public class CityPatch : GamePatch
 
     public static bool setLeader(City __instance, Actor pActor, bool pNew)
     {
-        if (__instance.hasProvince())
-        {
-            if (__instance.GetProvince() != null)
-            {
-                if (__instance.GetProvince().officer!=null)
-                {
-                    if (__instance.GetProvince().officer == pActor)
-                    {
-                        return false ;
-                    }
-                }
-            }
-        }
         if (pActor != null && __instance.kingdom.king != pActor)
         {
             if (__instance.kingdom.isInEmpire())
             {
                 Empire empire = __instance.kingdom.GetEmpire();
-                OfficeIdentity identity = pActor.GetIdentity(empire);
+                OfficeIdentity identity = pActor.GetIdentity();
                 if (identity==null)
                 {
                     identity = new OfficeIdentity();
-                    identity.init(empire, pActor);
+                    identity.init(pActor);
                     pActor.SetIdentity(identity, true);
                 }
-                pActor.ChangeOfficialLevel(OfficialLevel.officiallevel_9);
+                pActor.ChangeOfficialLevel( 9);
                 pActor.SetIdentityType();
                 pActor.addTrait("officer");
             }
@@ -216,31 +205,6 @@ public class CityPatch : GamePatch
         if (__instance == null || pNewSetKingdom == null)
         {
             return false;
-        }
-
-        if (__instance.hasProvince())
-        {
-            Province province = __instance.GetProvince();
-            bool isSameEmpire = province?.empire?.CoreKingdom?.isInSameEmpire(pNewSetKingdom) ?? false;
-            bool isCurrentlyOccupied = province?.occupied_cities?.ContainsKey(__instance) ?? false;
-            double currentTime = World.world.getCurWorldTime();
-
-            // 不同帝国时标记为占领
-            if (!isSameEmpire)
-            {
-                if (province.occupied_cities == null)
-                {
-                    province.occupied_cities = new Dictionary<City, double>();
-                }
-
-                province.occupied_cities[__instance] = currentTime;
-                return true;
-            }
-            // 同一帝国时移除占领状态
-            else if (isCurrentlyOccupied)
-            {
-                province.occupied_cities.Remove(__instance);
-            }
         }
         string pHappinessEvent = null;
         if (pCaptured)
@@ -281,31 +245,6 @@ public class CityPatch : GamePatch
         }
 
         return true;
-    }
-    private static void UpdateCityOccupationStatus(Province province, City city)
-    {
-        double currentTime = World.world.getCurWorldTime();
-
-        if (province.occupied_cities == null)
-        {
-            province.occupied_cities = new Dictionary<City, double>();
-        }
-
-        // 简化字典操作
-        province.occupied_cities[city] = currentTime;
-    }
-
-    private static void ApplyRebellionPenalty(Province province)
-    {
-        Empire empire = province.empire;
-        if (empire != null && empire.CoreKingdom != null)
-        {
-            int renownLoss = empire.CoreKingdom.getRenown() / 2;
-            empire.AddRenown(-renownLoss);
-
-            // 可选：添加日志记录
-            LogService.LogInfo($"Empire {empire.name} lost {renownLoss} renown due to rebellion");
-        }
     }
     public static bool addZone(City __instance, TileZone pZone)
     {
@@ -362,24 +301,6 @@ public class CityPatch : GamePatch
             kingdom.data.name = __instance.GetCityName() + "\u200A" + LM.Get("Rebellion");
         }
         __result = kingdom;
-
-        if (__instance.hasProvince())
-        {
-            Province province = __instance.GetProvince();
-            if (province == null)
-            {
-                return true;
-            }
-
-            // 更新占领状态
-            UpdateCityOccupationStatus(province, __instance);
-
-            // 处理叛乱惩罚
-            if (pRebellion)
-            {
-                ApplyRebellionPenalty(province);
-            }
-        }
         return false;
     }
 
@@ -401,14 +322,6 @@ public class CityPatch : GamePatch
 
     public static void setKingdom(City __instance, Kingdom pKingdom)
     {
-        Kingdom oldKingdom = __instance.kingdom;
-        if (oldKingdom != null) 
-        {
-            if (oldKingdom.isProvince())
-            {
-                oldKingdom.checkLostProvince();
-            }
-        }
         if (__instance.hasTitle())
         {
             __instance.GetTitle().isBeenControlled();
@@ -429,17 +342,6 @@ public class CityPatch : GamePatch
         if (__instance.hasTitle())
         {
             __instance.GetTitle().removeCity(__instance);
-        }
-        if (__instance.hasProvince()) 
-        {
-            __instance.GetProvince().removeCity(__instance);
-            if (__instance.GetProvince() == null) return;
-            if (__instance.GetProvince().occupied_cities == null) return;
-            if (__instance.GetProvince().occupied_cities.ContainsKey(__instance))
-            {
-                __instance.GetProvince().occupied_cities.Remove(__instance);
-            }
-
         }
     }
     public static void removeData(City __instance)

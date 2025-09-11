@@ -15,6 +15,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -98,13 +100,6 @@ public class UnitWindowPatch: GamePatch
 
     public static void OnEnable(UnitWindow __instance)
     {
-        //if (__instance.transform.Find("historyRecordButton")==null)
-        //{
-        //    SimpleButton simpleButton = GameObject.Instantiate(SimpleButton.Prefab, __instance.transform);
-        //    simpleButton.Setup(OpenHistoryRecordWindow, SpriteTextureLoader.getSprite("EmperorQuest"));
-        //}
-        ScrollWindow _window = ScrollWindow._current_window;
-        City city = Config.selected_city;
         Transform space = __instance.tabs.transform.Find("space (1)");
         if (space != null)
         {
@@ -143,39 +138,31 @@ public class UnitWindowPatch: GamePatch
             if(actor.city.kingdom.isInEmpire())
             {
                 Empire empire = actor.city.kingdom.GetEmpire();
-                OfficeIdentity identity = __instance.actor.GetIdentity(empire);
-                string culture = "Huaxia";
-                //if (ConfigData.speciesCulturePair.TryGetValue(actor.data.asset_id, out string val))
-                //{
-                //    culture = val;
-                //}
-                string EmpireMeritString = String.Join("_", culture, "meritlevel", identity.peerageType, identity.meritLevel);
-                string EmpireHonoraryOfficialString = String.Join("_", culture, "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
-                string EmpireOfficialLevelString = String.Join("_", culture,identity.officialLevel.ToString());
-                if (identity.officialLevel==OfficialLevel.officiallevel_9)
+                OfficeIdentity identity = __instance.actor.GetIdentity();
+                if (empire.CoreKingdom.GetRegime().type == RegimeType.LvLing)
                 {
-                    EmpireOfficialLevelString = actor.city.data.name + LM.Get(EmpireOfficialLevelString);
+                    string empireMeritString = String.Join("_", "Huaxia", "meritlevel", identity.peerageType, identity.meritLevel);
+                    string empireHonoraryOfficialString = String.Join("_", "Huaxia", "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
+                    __instance.showStatRow("EmpireMerit", LM.Get(empireMeritString));
+                    __instance.showStatRow("EmpireHonoraryOfficial", LM.Get(empireHonoraryOfficialString));
                 }
-                if (identity.officialLevel == OfficialLevel.officiallevel_8)
+                string empireOfficialLevelString = String.Join("_",empire.CoreKingdom.GetRegime().type.ToString(), "empire", identity.officialLevel.ToString());
+                if (actor.isCityLeader())
                 {
-                    long province_id = actor.GetProvinceID();
-                    Province province = ModClass.PROVINCE_MANAGER.get(province_id);
-                    if (province != null)
-                    {
-                        EmpireOfficialLevelString = province.data.name + LM.Get(EmpireOfficialLevelString);
-                    }
+                    empireOfficialLevelString = actor.city.data.name + LM.Get(empireOfficialLevelString);
+                } else if (actor.isKing())
+                {
+                    empireOfficialLevelString = actor.kingdom.GetKingdomName() + LM.Get(empireOfficialLevelString);
                 }
-                if (identity.officialLevel == OfficialLevel.officiallevel_7)
+                else
                 {
-                    OfficeObject officeObject = empire.data.centerOffice.Divisions.Values.ToList().Find(a => a.actor_id == actor.getID());
+                    OfficeObject officeObject = empire.data.centerOffice.Divisions.ToList().Find(a => a.actor_id == actor.getID());
                     if (officeObject != null)
                     {
-                        EmpireOfficialLevelString = LM.Get(officeObject.pre) + LM.Get(EmpireOfficialLevelString);
+                        empireOfficialLevelString = LM.Get(officeObject.pre) + LM.Get(empireOfficialLevelString);
                     }
                 }
-                __instance.showStatRow("EmpireMerit", LM.Get(EmpireMeritString));
-                __instance.showStatRow("EmpireHonoraryOfficial", LM.Get(EmpireHonoraryOfficialString));
-                __instance.showStatRow("OfficialLevel", LM.Get(EmpireOfficialLevelString));
+                __instance.showStatRow("OfficialLevel", LM.Get(empireOfficialLevelString));
             }
 
         }

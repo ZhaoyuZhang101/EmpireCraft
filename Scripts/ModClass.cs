@@ -16,6 +16,8 @@ using EmpireCraft.Scripts.GameLibrary;
 using System.Linq;
 using EmpireCraft.Scripts.AI;
 using EmpireCraft.Scripts.GodPowers;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using Newtonsoft.Json;
 
 namespace EmpireCraft.Scripts;
@@ -26,7 +28,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static bool IS_CLEAR = true;
     public static EmpireManager EMPIRE_MANAGER;
     public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
-    public static ProvinceManager PROVINCE_MANAGER;
     public static bool REAL_NUM_SWITCH = false;
     public static bool KINGDOM_TITLE_FREEZE = false;
     public static Empire selected_empire = null;
@@ -62,30 +63,11 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
             {
                 PlayerConfig.dict["map_title_layer"].boolVal = true;
                 PlayerConfig.dict["map_city_layer"].boolVal = true;
-                PlayerConfig.dict["map_province_layer"].boolVal = false;
                 PlayerConfig.dict["map_empire_layer"].boolVal = false;
                 ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Title;
             }
         }
         if (Input.GetKeyDown(KeyCode.V))
-        {
-            EmpireLayerToggle.disableOtherPower("province_layer");
-            if (PlayerConfig.dict["map_province_layer"].boolVal)
-            {
-                PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
-                PlayerConfig.dict["map_province_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-            }
-            else
-            {
-                PlayerConfig.dict["map_province_layer"].boolVal = true;
-                PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
-                PlayerConfig.dict["map_title_layer"].boolVal = false;
-                PlayerConfig.dict["map_empire_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Province;
-            }
-        }
-        if (Input.GetKeyDown(KeyCode.B))
         {
             EmpireLayerToggle.disableOtherPower("empire_layer");
             if (PlayerConfig.dict["map_empire_layer"].boolVal)
@@ -99,7 +81,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 PlayerConfig.dict["map_empire_layer"].boolVal = true;
                 PlayerConfig.dict["map_title_layer"].boolVal = false;
                 PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
-                PlayerConfig.dict["map_province_layer"].boolVal = false;
                 ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Empire;
             }
         }
@@ -134,6 +115,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
             LogService.LogInfo("Add culture template: " + cultureName);
         }
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "CountryLevelNames.csv"));
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "KingdomRegimePost.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName1.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName2.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "MiaoHaoPrefixes.csv"));
@@ -194,12 +176,11 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftBehaviourTaskLibrary.init();
         EmpireCraftWorldLawGroupLibrary.init();
         EmpireCraftWorldLawLibrary.init();
+        RegimeManager.init();
         World.world._list_meta_main_managers.Add(EMPIRE_MANAGER = new EmpireManager());
         World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER = new KingdomTitleManager());
-        World.world._list_meta_main_managers.Add(PROVINCE_MANAGER = new ProvinceManager());
         World.world.list_all_sim_managers.Add(EMPIRE_MANAGER);
         World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);
-        World.world.list_all_sim_managers.Add(PROVINCE_MANAGER);
         CURRENT_MAP_MOD = EmpireCraftMapMode.None;
         PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
         PlayerConfig.dict["map_title_layer"].boolVal = false;

@@ -14,7 +14,10 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -29,10 +32,10 @@ public class KingdomPatch : GamePatch
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(RemovePatchData))
         );         
-        new Harmony(nameof(Initialize_level)).Patch(
+        new Harmony(nameof(newCivKingdom)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.newCivKingdom)),
-            postfix: new HarmonyMethod(GetType(), nameof(Initialize_level))
-        );           
+            postfix: new HarmonyMethod(GetType(), nameof(newCivKingdom))
+        );        
         new Harmony(nameof(new_emperor)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.setKing)),
             prefix: new HarmonyMethod(GetType(), nameof(new_emperor))
@@ -44,36 +47,7 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(removeData))
-        );            
-        new Harmony(nameof(getMaxCities)).Patch(
-            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.getMaxCities)),
-            prefix: new HarmonyMethod(GetType(), nameof(getMaxCities))
         );
-    }
-
-    public static bool getMaxCities(Kingdom __instance, ref int __result)
-    {
-        int num = __instance.getActorAsset().civ_base_cities;
-        if (__instance.hasKing())
-        {
-            num += (int)__instance.king.stats["cities"];
-        }
-        if (__instance.isEmpire())
-        {
-            foreach (Province province in __instance.GetEmpire().ProvinceList)
-            {
-                if (province.HasOfficer()&&!province.IsTotalVassaled())
-                {
-                    num += (int)province.officer.stats["cities"];
-                }
-            }
-        }
-        if (num < 1)
-        {
-            num = 1;
-        }
-        __result = num;
-        return false;
     }
 
     public static void removeData(Kingdom __instance)
@@ -89,15 +63,6 @@ public class KingdomPatch : GamePatch
                 __instance.GetMainTitle().main_kingdom = null;
             }
         }
-        if(__instance.isProvince())
-        {
-            Province province = __instance.GetProvince();
-            if (province != null)
-            {
-                province.data.is_set_to_country = false;
-                province.SetProvinceLevel(provinceLevel.provincelevel_3);
-            }
-        }
         __instance.RemoveExtraData<Kingdom, KingdomExtraData>();
     }
 
@@ -106,6 +71,7 @@ public class KingdomPatch : GamePatch
         if (!ModClass.IS_CLEAR)
         {
             pActor.CheckSpecificClan();
+            __instance.SetSpecificClan(pActor.GetSpecificClan());
             if (__instance.HasTitle())
             {
                 foreach (var titleID in __instance.GetOwnedTitle())
@@ -137,14 +103,14 @@ public class KingdomPatch : GamePatch
             } else if (__instance.isInEmpire()&&!__instance.isEmpire())
             {
                 Empire empire = __instance.GetEmpire();
-                OfficeIdentity identity = pActor.GetIdentity(empire);
+                OfficeIdentity identity = pActor.GetIdentity();
                 if (identity == null)
                 {
                     identity = new OfficeIdentity();
-                    identity.init(empire, pActor);
+                    identity.init(pActor);
                     pActor.SetIdentity(identity, true);
                 }
-                pActor.ChangeOfficialLevel(OfficialLevel.officiallevel_8);
+                pActor.ChangeOfficialLevel( 8);
                 pActor.SetIdentityType(PeerageType.Military);
                 pActor.addTrait("officer");
             }
@@ -171,7 +137,7 @@ public class KingdomPatch : GamePatch
                 {
                     try
                     {
-                        __instance.king.GetIdentity(__instance.GetEmpire()).ChangeOfficialLevel(Enums.OfficialLevel.officiallevel_10);
+                        __instance.king.GetIdentity().ChangeOfficialLevel(-1);
                     }
                     catch
                     {
@@ -183,11 +149,19 @@ public class KingdomPatch : GamePatch
         }
     }
 
-    public static void Initialize_level(Kingdom __instance, Actor pActor)
+    public static void newCivKingdom(Kingdom __instance, Actor pActor)
     {
-        __instance.SetCountryLevel(Enums.countryLevel.countrylevel_3);
+        __instance.SetLevel(4);
         __instance.SetEmpireID(-1L);
-        __instance.SetVassaledKingdomID(-1L);
+        if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(__instance.species_id, out Setting setting))
+        {
+            __instance.SetRegimeType(setting.regime);
+        }
+        else
+        {
+            __instance.SetRegimeType(RegimeType.Feudalism);
+        }
+        __instance.LoadRegime();
     }
     public static void RemovePatchData(Kingdom __instance)
     {

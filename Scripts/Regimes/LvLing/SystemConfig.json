@@ -1,0 +1,153 @@
+{
+  //律令制
+  "LvLing": {
+    "description": "中华文化圈传统制度，建立中央集权的官僚体系，如三省六部制，官员通过科举制度选拔",
+    "icon_url": "",
+    "options": {
+      "toggle_allow_diplomacy": [
+        0
+      ],
+      "toggle_allow_army": [
+        1
+      ],
+      "toggle_support_army_to_center": [
+        1
+      ],
+      "option_tax_level": [
+        1,
+        4
+      ],
+      "option_leader_select_method": [
+        1,
+        3
+      ],
+      "option_religion_type": [
+        0,
+        4
+      ]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [
+            "拟定"
+          ],
+          "merit": 5,
+          "honorary": 4,
+          "require_traits": [
+            "jingshi"
+          ]
+        },
+        {
+          "pre": "",
+          "type": 2,
+          "description": "",
+          "powers": [
+            "审核"
+          ],
+          "merit": 5,
+          "honorary": 4,
+          "require_traits": [
+            "jingshi"
+          ]
+        },
+        {
+          "pre": "",
+          "type": 3,
+          "description": "",
+          "powers": [
+            "执行"
+          ],
+          "merit": 5,
+          "honorary": 4,
+          "require_traits": [
+            "jingshi"
+          ]
+        }
+      ],
+      "division": [
+        {
+          "pre": "libu",
+          "type": 4,
+          "description": "",
+          "powers": [
+            "人事"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "require_traits": [
+            "gongshi"
+          ]
+        },
+        {
+          "pre": "gongbu",
+          "type": 4,
+          "description": "",
+          "powers": [
+            "建设"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "require_traits": [
+            "gongshi"
+          ]
+        },
+        {
+          "pre": "bingbu",
+          "type": 4,
+          "description": "",
+          "powers": [
+            "军事"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "require_traits": [
+            "gongshi"
+          ]
+        },
+        {
+          "pre": "li3bu",
+          "type": 4,
+          "description": "",
+          "powers": [
+            "礼仪"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "require_traits": [
+            "gongshi"
+          ]
+        },
+        {
+          "pre": "xingbu",
+          "type": 4,
+          "description": "",
+          "powers": [
+            "司法"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "require_traits": [
+            "gongshi"
+          ]
+        },
+        {
+          "pre": "hubu",
+          "type": 4,
+          "description": "",
+          "powers": [
+            "财政"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "require_traits": [
+            "gongshi"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -9,6 +9,7 @@ using NeoModLoader.General.UI.Window.Utils.Extensions;
 using NeoModLoader.services;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.api.attributes;
 using UnityEngine;
 using UnityEngine.Events;

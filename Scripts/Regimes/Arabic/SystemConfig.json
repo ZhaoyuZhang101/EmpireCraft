@@ -1,0 +1,58 @@
+{  
+  //阿拉伯
+  "Arabic": {
+    "description": "阿拉伯世俗政体，各个地区之间彼此独立，却又联合为一大帝国",
+    "icon_url": "",
+    "options": {
+      "toggle_allow_diplomacy": [1],
+      "toggle_allow_army": [1],
+      "toggle_support_army_to_center": [0],
+      "option_tax_level": [2, 4],
+      "option_leader_select_method": [0, 3],
+      "option_religion_type": [2, 4]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [
+            "执行",
+            "拟定",
+            "审核",
+            "财政"
+          ],
+          "merit": 5,
+          "honorary": 4,
+          "require_traits": []
+        },
+        {
+          "pre": "",
+          "type": 2,
+          "description": "",
+          "powers": [
+            "司法",
+            "人事"
+          ],
+          "merit": 5,
+          "honorary": 4,
+          "require_traits": []
+        },
+        {
+          "pre": "",
+          "type": 3,
+          "description": "",
+          "powers": [
+            "建设",
+            "军事"
+          ],
+          "merit": 5,
+          "honorary": 4,
+          "require_traits": []
+        }
+      ],
+      "division": []
+    }
+  }
+}

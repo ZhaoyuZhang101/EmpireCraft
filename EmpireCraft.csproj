@@ -13,11 +13,13 @@
       <Compile Include="Locales\Cultures\MiaoHaoPrefixes.csv" />
       <Compile Include="Locales\Cultures\MiaoHaoSuffixes.csv" />
       <Compile Include="Locales\Cultures\NameSexPost.csv" />
-      <Compile Include="Locales\OfficialType.csv" />
       <Compile Include="Locales\Cultures\ShiHao.csv" />
       <Compile Include="Locales\Cultures\YearName1.csv" />
       <Compile Include="Locales\Cultures\YearName2.csv" />
       <Compile Include="Locales\MeritLevel.csv" />
+      <Compile Remove="Scripts\Layer\Province.cs" />
+      <Compile Remove="Scripts\Layer\ProvinceData.cs" />
+      <Compile Remove="Scripts\Layer\ProvinceManager.cs" />
     </ItemGroup>
 
     <ItemGroup>
@@ -69,7 +71,10 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
-      <Folder Include="GameResources\ui\buttons\" />
+      <Folder Include="GameResources\civ\icons\Faudlism\Eastern\" />
+      <Folder Include="GameResources\civ\icons\Faudlism\MidEastern\" />
+      <Folder Include="GameResources\civ\icons\Faudlism\Western\" />
+      <Folder Include="GameResources\civ\icons\Republic\" />
       <Folder Include="Scripts\AI\" />
     </ItemGroup>
     <ItemGroup>

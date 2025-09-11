@@ -48,8 +48,6 @@ internal static class MainTab
             nameof(EmpireWindow) + "Title");
         KingdomTitleWindow.CreateWindow(nameof(KingdomTitleWindow),
             nameof(KingdomTitleWindow) + "Title");
-        ProvinceWindow.CreateWindow(nameof(ProvinceWindow),
-            nameof(ProvinceWindow) + "Title");
         EmpireBeaurauWindow.CreateWindow(nameof(EmpireBeaurauWindow),
             nameof(EmpireBeaurauWindow) + "Title");
         ChangeUnitWindow.CreateWindow(nameof(ChangeUnitWindow),
@@ -58,6 +56,8 @@ internal static class MainTab
             nameof(SpecificClanWindow) + "Title");
         EmpireSettingWindow.CreateWindow(nameof(EmpireSettingWindow),
             nameof(EmpireSettingWindow) + "Title");
+        RegimeWindow.CreateWindow(nameof(RegimeWindow),
+            "");
     }
 
     private static void _addButtons()
@@ -106,12 +106,7 @@ internal static class MainTab
 
         tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
             SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png")));
-
-        ProvinceLayerToggle.init();
-        PowerButton pb3 = FixFunctions.CreateToggleButton("province_layer",
-                 SpriteTextureLoader.getSprite("ui/icons/iconCity"));
-        tab.AddPowerButton(EMPIRE_GROUP, pb3);
-
+        
         CreateProvinceButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_province",

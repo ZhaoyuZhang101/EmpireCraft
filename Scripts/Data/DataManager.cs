@@ -12,6 +12,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using db;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.Data;
 
@@ -92,17 +93,6 @@ public static class DataManager
 
         }
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
-        foreach (ProvinceData provinceData in saveData.provinceDatas)
-        {
-            Province p = new Province();
-            p.loadData(provinceData);
-            ModClass.PROVINCE_MANAGER.addObject(p);
-        }
-        ModClass.PROVINCE_MANAGER.update(-1L);
-        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
-        {
-            empire.syncProvince();
-        }
         SpecificClanManager._specificClans = saveData.specificClans;
         LogService.LogInfo("Sync Titles Data");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
@@ -121,7 +111,6 @@ public static class DataManager
         saveData.clanExtraData = World.world.clans.Select(a => a.GetExtraData<Clan, ClanExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
         saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
-        saveData.provinceDatas = new List<ProvinceData>(ModClass.PROVINCE_MANAGER.Count);
         ModClass.EMPIRE_MANAGER.update(-1L);
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)
@@ -146,18 +135,6 @@ public static class DataManager
             catch
             {
                 LogService.LogInfo("存在头衔数据出错，跳过该头衔存档");
-            }
-
-        }
-        foreach(Province p in ModClass.PROVINCE_MANAGER)
-        {
-            try
-            {
-                p.save();
-                saveData.provinceDatas.Add(p.data);
-            } catch
-            {
-                LogService.LogInfo("存在省份数据出错，跳过该省份存档");
             }
 
         }

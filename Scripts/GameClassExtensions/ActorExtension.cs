@@ -17,12 +17,13 @@ using EmpireCraft.Scripts.Layer;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using EmpireCraft.Scripts.Data;
 using System.Configuration;
-using static EmpireCraft.Scripts.HelperFunc.ExamSystem;
+using static EmpireCraft.Scripts.System.ExamSystem;
 using System.Numerics;
 using System.Text.RegularExpressions;
 using System.Runtime.Serialization;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using System.Security.Principal;
+using EmpireCraft.Scripts.System;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
@@ -135,53 +136,44 @@ public class Name
 }
 public class OfficeIdentity
 {
-    public OfficialLevel officialLevel { get; set; } = OfficialLevel.officiallevel_10;
+    public int officialLevel { get; set; } = -1;
     public int meritLevel { get; set; }
     public int honoraryOfficial { get; set; }
     public PeerageType peerageType { get; set; }
     public double OfficePerformance { get; set; } = 100;
     public PerformanceEvents performanceEvents { get; set; }
     public List<EmpireExamLevel> empireExamLevels { get; set; } = new List<EmpireExamLevel>();
-    public long empire_id;
     public long actor_id;
-    public void init (Empire empire, Actor actor) 
+    public void init (Actor actor) 
     {
-        empire_id = empire.data.id;
         actor_id = actor.data.id;
         OfficePerformance = 100;
         empireExamLevels = new List<EmpireExamLevel>();
 
-        if (officialLevel == OfficialLevel.officiallevel_10)
+        if (officialLevel == -1)
         {
             performanceEvents = null;
         }
         else
         {
             performanceEvents = new PerformanceEvents();
-            performanceEvents.init(empire, actor);
+            performanceEvents.init(actor);
         }
     }
-    public void resetEmpire(Empire empire, Actor actor)
+    public void ChangeOfficialLevel(int level)
     {
-        empire_id = empire.data.id;
-        actor_id = actor.data.id;
-    }
-    public void ChangeOfficialLevel(OfficialLevel level)
-    {
-        Empire empire = ModClass.EMPIRE_MANAGER.get(empire_id);
         Actor actor = World.world.units.get(actor_id);
         officialLevel = level;
-        if (level == OfficialLevel.officiallevel_10)
+        if (level == -1)
         {
             performanceEvents = null;
         } else
         {
             performanceEvents = new PerformanceEvents();
-            performanceEvents.init(empire, actor);
+            performanceEvents.init(actor);
         }
     }
 }
-
 public enum PerformanceEventType
 {
     Irrigation_Project_Completed,
@@ -223,13 +215,11 @@ public static class ActorExtension
         public long personal_identity { get; set; } = -1L;
         public float death_rate = 0.0f;
     }
-
     public static bool NeedDead(this Actor a)
     {
         if (a == null) return false;
 
         var data = a.GetOrCreate();
-        // 保险起见再夹紧一次（即使 ChangeDeathRate 已经做了）
         float rate = Mathf.Clamp01(data.death_rate);
 
         // 边界：0 一定不死；1 一定会死
@@ -424,37 +414,7 @@ public static class ActorExtension
     {
         GetOrCreate(a).peerageType = type;
     }
-
-    public static long GetProvinceID(this Actor a)
-    {
-        if (a ==null)
-        {
-            return -1L;
-        }
-        return GetOrCreate(a).provinceId;
-    }
-    public static void SetProvinceID( this Actor a, long id)
-    {
-        if (a == null) return;
-        GetOrCreate(a).provinceId = id;
-    }
-    public static void SetProvince( this Actor a, Province province)
-    {
-        if (a == null) return;
-        GetOrCreate(a).provinceId = province.getID();
-        if (GetOrCreate(a).officeIdentity == null)
-        {
-            GetOrCreate(a).officeIdentity = new OfficeIdentity();
-            GetOrCreate(a).officeIdentity.init(province.empire, a);
-            GetOrCreate(a).officeIdentity.honoraryOfficial = 8;
-            GetOrCreate(a).officeIdentity.meritLevel = 10;
-            GetOrCreate(a).officeIdentity.officialLevel = OfficialLevel.officiallevel_8;
-            GetOrCreate(a).peerageType = PeerageType.Civil;
-        } else
-        {
-            GetOrCreate(a).officeIdentity.officialLevel = OfficialLevel.officiallevel_8;
-        }
-    }
+    
     public static void initializeActorName(this Actor a)
     {
         string culture_name = OverallHelperFunc.GetCultureFromSpecies(a.getActorAsset().id);
@@ -485,7 +445,7 @@ public static class ActorExtension
         if(a == null) return false;
         if (!a.hasTrait("officer")) return false;
         if (GetOrCreate(a).officeIdentity==null) return false;
-        if (GetOrCreate(a).officeIdentity.officialLevel == OfficialLevel.officiallevel_10) return false;
+        if (GetOrCreate(a).officeIdentity.officialLevel == -1) return false;
         return true;
     }
 
@@ -494,37 +454,35 @@ public static class ActorExtension
         if (a == null) return false;
         return a.GetOrCreate().officeIdentity == null;
     }
-    public static OfficeIdentity GetIdentity( this Actor a, Empire empire)
+    public static OfficeIdentity GetIdentity( this Actor a)
     {
         if (a == null) return null;
         if (a.city == null) return null;
         if (a.city.kingdom == null) return null;
-        if (empire == null) return null;
         if (GetOrCreate(a).officeIdentity == null)
         {
             GetOrCreate(a).officeIdentity = new OfficeIdentity();
-            GetOrCreate(a).officeIdentity.init(empire, a);
+            GetOrCreate(a).officeIdentity.init(a);
             GetOrCreate(a).officeIdentity.honoraryOfficial = 8;
             GetOrCreate(a).officeIdentity.meritLevel = 10;
         }
-        GetOrCreate(a).officeIdentity.resetEmpire(empire, a);
-        if (GetOrCreate(a).officeIdentity.officialLevel!=OfficialLevel.officiallevel_10)
+        if (GetOrCreate(a).officeIdentity.officialLevel!=-1)
         {
             if (GetOrCreate(a).officeIdentity.performanceEvents == null)
             {
                 GetOrCreate(a).officeIdentity.performanceEvents = new PerformanceEvents();
-                GetOrCreate(a).officeIdentity.performanceEvents.init(empire, a);
+                GetOrCreate(a).officeIdentity.performanceEvents.init(a);
 
             } else
             {
-                GetOrCreate(a).officeIdentity.performanceEvents.init(empire, a);
+                GetOrCreate(a).officeIdentity.performanceEvents.init(a);
             }
 
         } 
         return GetOrCreate(a).officeIdentity;
     }
 
-    public static void ChangeOfficialLevel(this Actor a, OfficialLevel level)
+    public static void ChangeOfficialLevel(this Actor a, int level)
     {
         if (a == null) return;
         if (a.city == null) return;
@@ -534,7 +492,7 @@ public static class ActorExtension
         if (GetOrCreate(a).officeIdentity==null) 
         {
             GetOrCreate(a).officeIdentity = new OfficeIdentity();
-            GetOrCreate(a).officeIdentity.init(empire, a);
+            GetOrCreate(a).officeIdentity.init(a);
             GetOrCreate(a).officeIdentity.honoraryOfficial = 8;
             GetOrCreate(a).officeIdentity.meritLevel = 10;
         }
@@ -546,12 +504,10 @@ public static class ActorExtension
         if (a == null) return;
         if (a.city == null) return;
         if (a.city.kingdom == null) return;
-        Empire empire = a.city.kingdom.GetEmpire();
-        if (empire == null) return;
         if (GetOrCreate(a).officeIdentity == null)
         {
             GetOrCreate(a).officeIdentity = new OfficeIdentity();
-            GetOrCreate(a).officeIdentity.init(empire, a);
+            GetOrCreate(a).officeIdentity.init(a);
             GetOrCreate(a).officeIdentity.honoraryOfficial = 8;
             GetOrCreate(a).officeIdentity.meritLevel = 10;
         }
@@ -586,7 +542,7 @@ public static class ActorExtension
         if (a == null) return false;
         OfficeIdentity indentity = GetOrCreate(a).officeIdentity;
         if (indentity == null) return false;
-        if (indentity.officialLevel == OfficialLevel.officiallevel_10) return false;
+        if (indentity.officialLevel == -1) return false;
         return true;
     }
 
@@ -632,7 +588,7 @@ public static class ActorExtension
         return false;
     }
 
-    public static void UpgradeOfficial(this Actor a, bool need_merit = false, int direct = -1)
+    public static void UpgradeOfficial(this Actor a, bool merit = false, int direct = -1)
     {
         if (GetOrCreate(a).officeIdentity==null)
         {
@@ -640,7 +596,7 @@ public static class ActorExtension
         } else
         {
             OfficeIdentity identity = GetOrCreate(a).officeIdentity;
-            if (need_merit)
+            if (merit)
             {
                 if (identity.meritLevel <= 0)
                 {

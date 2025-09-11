@@ -17,6 +17,8 @@ using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using UnityEngine;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 
@@ -138,16 +140,19 @@ public class ActorPatch : GamePatch
         {
             if (__instance.hasArmy())
             {
+                var regime = __instance.kingdom.GetRegime();
                 if (__instance.city.kingdom.isInEmpire())
                 {
-                    if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_2)
+                    if (regime.type==RegimeType.LvLing&&__instance.kingdom.GetLevel()==2)
                     {
                         if (__instance.hasTrait("empireArmedProvinceSoldier"))
                         {
                             __instance.removeTrait("empireArmedProvinceSoldier");
                         }
                     }
-                    if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_0)
+
+
+                    if ((new[]{RegimeType.LvLing, RegimeType.Feudalism}.Contains(regime.type))&&__instance.kingdom.GetLevel()==0)
                     {
                         if (__instance.hasTrait("empireSoldier"))
                         {
@@ -165,14 +170,14 @@ public class ActorPatch : GamePatch
         if (__instance.city.kingdom == null) return;
         if(__instance.city.kingdom.isInEmpire())
         {
-            if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_2)
+            if (__instance.kingdom.GetRegime().options["toggle_allow_army"][0]==1&&__instance.kingdom.GetRegime().options["toggle_allow_diplomacy"][0]==1&&__instance.kingdom.isInEmpire()&&!__instance.kingdom.isEmpire())
             {
                 if(!__instance.hasTrait("empireArmedProvinceSoldier")) 
                 {
                     __instance.addTrait("empireArmedProvinceSoldier");
                 }
             }
-            if (__instance.kingdom.GetCountryLevel() == countryLevel.countrylevel_0)
+            if (__instance.kingdom.isEmpire())
             {
                 if (!__instance.hasTrait("empireSoldier"))
                 {
@@ -199,15 +204,6 @@ public class ActorPatch : GamePatch
     }
     public static void removeData(Actor __instance)
     {
-        if (__instance.isOfficer())
-        {
-            long id = __instance.GetProvinceID();
-            Province province = ModClass.PROVINCE_MANAGER.get(id);
-            if (province != null) 
-            {
-                province.RemoveOfficer();
-            }
-        }
         if (__instance.HasSpecificClan())
         {
             PersonalClanIdentity pci = __instance.GetPersonalIdentity();

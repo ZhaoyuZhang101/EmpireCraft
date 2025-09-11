@@ -1,0 +1,20 @@
+key,cz
+
+Republic_republic, 共和国
+Republic_province, 省
+Republic_state, 州
+Republic_autonomous_prefecture,自治州
+
+Republic_officiallevel_0, 总统
+Republic_officiallevel_1, 副总统
+Republic_officiallevel_2, 国务卿
+Republic_officiallevel_3, 部长
+Republic_officiallevel_4, 议员
+Republic_officiallevel_5, 州长
+Republic_officiallevel_6, 市长
+
+finance_pre, 财政
+defence_pre, 国防
+law_pre, 司法
+interior_pre, 内务
+education_pre, 教育

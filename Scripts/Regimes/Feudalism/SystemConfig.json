@@ -1,0 +1,19 @@
+{
+  //中世纪封建
+  "Feudalism": {  
+    "description": "西方中世纪时的主流制度，各王国子嗣分封建国，也可通过联姻合并国家，各诸侯国之间彼此独立，拥有独立的军事权外交权",   
+    "icon_url": "",   
+    "options": {
+      "toggle_allow_diplomacy": [1],
+      "toggle_allow_army": [1],
+      "toggle_support_army_to_center": [1],
+      "option_tax_level": [1, 4],
+      "option_leader_select_method": [0, 3],
+      "option_religion_type": [2, 4]
+    },
+    "bureau_config": {
+      "cores": [],
+      "division": []
+    }
+  }
+}

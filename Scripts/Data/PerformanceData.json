@@ -4,35 +4,35 @@
         "is_good": true,
         "trigger_rate": 0.5,
         "performance_add_on": 15,
-        "official_levels": [ "officiallevel_9", "officiallevel_8" ]
+        "official_levels": [ 9, 8 ]
     },
     "Local_Rebellion_Suppressed": {
         "eventType": "Local_Rebellion_Suppressed",
         "is_good": true,
         "trigger_rate": 0.5,
         "performance_add_on": 15,
-        "official_levels": [ "officiallevel_9", "officiallevel_8" ]
+        "official_levels": [ 9, 8 ]
     },
     "Virtuous_Talent_Recommended": {
         "eventType": "Virtuous_Talent_Recommended",
         "is_good": true,
         "trigger_rate": 0.5,
         "performance_add_on": 15,
-        "official_levels": [ "officiallevel_9", "officiallevel_8" ]
+        "official_levels": [ 9, 8 ]
     },
     "Disaster_Relief_Conducted": {
         "eventType": "Disaster_Relief_Conducted",
         "is_good": true,
         "trigger_rate": 0.5,
         "performance_add_on": 15,
-        "official_levels": [ "officiallevel_9", "officiallevel_8" ]
+        "official_levels": [ 9, 8 ]
     },
     "Schools_Restored": {
         "eventType": "Schools_Restored",
         "is_good": true,
         "trigger_rate": 0.5,
         "performance_add_on": 15,
-        "official_levels": [ "officiallevel_9", "officiallevel_8" ]
+        "official_levels": [ 9, 8 ]
     },
 
     "Factionalism_Exposed": {
@@ -40,77 +40,78 @@
         "is_good": false,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_9", "officiallevel_8" ]
+        "official_levels": [ 9, 8 ]
     },
     "Negligence_in_Local_Affairs": {
         "eventType": "Negligence_in_Local_Affairs",
         "is_good": false,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_9", "officiallevel_8" ]
+        "official_levels": [ 9, 8 ]
     },
     "Excessive_Taxation_Imposed": {
         "eventType": "Excessive_Taxation_Imposed",
         "is_good": false,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_9", "officiallevel_8" ]
+        "official_levels": [ 9, 8 ]
     },
     "Corrupted_Performance_Reports": {
         "eventType": "Corrupted_Performance_Reports",
         "is_good": false,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_9", "officiallevel_8" ]
+        "official_levels": [ 9, 8 ]
     },
     "Refused_Imperial_Summons": {
         "eventType": "Refused_Imperial_Summons",
         "is_good": false,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_9", "officiallevel_8" ]
+        "official_levels": [ 9, 8 ]
     },
     "Administrative_Reform": {
         "eventType": "Administrative_Reform",
         "is_good": true,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_2", "officiallevel_4", "officiallevel_5", "officiallevel_6", "officiallevel_7" ]
+        "official_levels": [1,2,3,4,7]
     },
     "Legal_Code_Revision": {
         "eventType": "Legal_Code_Revision",
         "is_good": true,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_2", "officiallevel_4", "officiallevel_5", "officiallevel_6", "officiallevel_7" ]
+        "official_levels": [1,2,3,4,7]
+
     },
     "Policy_Championed_at_Court": {
         "eventType": "Policy_Championed_at_Court",
         "is_good": true,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_2", "officiallevel_4", "officiallevel_5", "officiallevel_6", "officiallevel_7" ]
+                "official_levels": [1,2,3,4,7]
     },
     "Talents_Recommended": {
         "eventType": "Talents_Recommended",
         "is_good": true,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_2", "officiallevel_4", "officiallevel_5", "officiallevel_6", "officiallevel_7" ]
+                "official_levels": [1,2,3,4,7]
     },
     "Corruption_Exposed": {
         "eventType": "Corruption_Exposed",
         "is_good": true,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_2", "officiallevel_4", "officiallevel_5", "officiallevel_6", "officiallevel_7" ]
+                "official_levels": [1,2,3,4,7]
     },
     "Factional_Infighting": {
         "eventType": "Factional_Infighting",
         "is_good": false,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_2", "officiallevel_4", "officiallevel_5", "officiallevel_6", "officiallevel_7" ]
+                "official_levels": [1,2,3,4,7]
     },
 
     "Examination_Manipulation": {
@@ -118,7 +119,7 @@
         "is_good": false,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_2", "officiallevel_4", "officiallevel_5", "officiallevel_6", "officiallevel_7" ]
+                "official_levels": [1,2,3,4,7]
     },
 
     "Neglect_of_Duty": {
@@ -126,7 +127,7 @@
         "is_good": false,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_2", "officiallevel_4", "officiallevel_5", "officiallevel_6", "officiallevel_7" ]
+                "official_levels": [1,2,3,4,7]
     },
 
     "Unpopular_Reforms": {
@@ -134,7 +135,7 @@
         "is_good": false,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_2", "officiallevel_4", "officiallevel_5", "officiallevel_6", "officiallevel_7" ]
+                "official_levels": [1,2,3,4,7]
     },
 
     "Misleading_the_Emperor": {
@@ -142,7 +143,7 @@
         "is_good": false,
         "trigger_rate": 0.5,
         "performance_add_on": -15,
-        "official_levels": [ "officiallevel_2", "officiallevel_4", "officiallevel_5", "officiallevel_6", "officiallevel_7" ]
+                "official_levels": [1,2,3,4,7]
     },
 
     "None": {

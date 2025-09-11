@@ -250,6 +250,21 @@ public static class UIHelper
         avatarLayoutGroup.transform.localPosition = Vector3.zero;
         return avatarLayoutGroup;
     }
+
+    public static AutoVertLayoutGroup AddActorViewIntoHoriLayout(this AutoHoriLayoutGroup layout, Actor actor, SimpleButton button=null)
+    {
+        AutoVertLayoutGroup avatarLayoutGroup = layout.BeginVertGroup(new Vector2(30, 30), pSpacing:15, pAlignment: TextAnchor.MiddleCenter);
+
+        long id = actor?.getID() ?? -1L;
+        SimpleButton clickFrame = CreateAvatarView(id, pIsAlive:true);
+        if (button != null)
+        {
+            avatarLayoutGroup.AddChild(button.gameObject);
+        }
+        avatarLayoutGroup.AddChild(clickFrame.gameObject);
+        avatarLayoutGroup.transform.localPosition = Vector3.zero;
+        return avatarLayoutGroup;
+    }
     public static void AddTextIntoVertLayout(this AutoVertLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default)
     {
         SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab, layout.transform);
@@ -259,11 +274,61 @@ public static class UIHelper
             timeText.background.enabled = false;
         }
     }
+    public static void AddTextIntoHoriLayout(this AutoHoriLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default)
+    {
+        SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab, layout.transform);
+        timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
+        if (hideBackground)
+        {
+            timeText.background.enabled = false;
+        }
+    }
 
-    public static void AddButtonIntoVertLayout(this AutoVertLayoutGroup layout, string buttonID, string text="", UnityAction action=null, Sprite icon=null, Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false)
+    public static AdvancedButton AddButtonIntoVertLayout(this AutoVertLayoutGroup layout, string buttonID, string text="", UnityAction action=null, Sprite icon=null, Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false)
     {
         AdvancedButton button = GameObject.Instantiate(AdvancedButton.Prefab, layout.transform);
         button.Setup(buttonID, action, icon, text, size, backgroundSprite:background, isToggle:isToggle,  showTip:showTip);
+        return button;
+    }    
+    public static AdvancedButton AddNormalOption(this Transform parent, AutoHoriLayoutGroup container, string title, UnityAction action, bool option, bool hasIcon=false, bool isOption=false, int index = -1, Vector2 size=default)
+    {
+        int toggleType;
+        if (!isOption)
+        {
+            toggleType = 1;
+            container.AddTextIntoHoriLayout(LM.Get(title), hideBackground:true);
+        }
+        else
+        {
+            toggleType = 0;
+        }
+        var button = container.AddButtonIntoHoriLayout(isOption?title+index:title, isToggle:true, size:size==default?new Vector2(15, 15):size, showTip:true, customIcon:hasIcon, iconType:toggleType);
+        button.Button.onClick.RemoveAllListeners();
+        button.Button.onClick.AddListener(action);
+        button.SetStatus(option);
+        button.Background.enabled = false;
+        container.transform.SetParent(parent);
+        return button;
+    }
+    public static List<AdvancedButton> AddMultipleOption(this Transform parent, AutoHoriLayoutGroup container, string title, UnityAction<string, int> action, int option, int num, bool hasIcon=false)
+    {
+        List<AdvancedButton> options = new List<AdvancedButton>();
+        container.AddTextIntoHoriLayout(LM.Get(title), hideBackground:true);
+        for (int i = 0; i < num; i++)
+        {
+            int index = i; 
+            var isOn = option == i;
+            var button = parent.AddNormalOption(container, title, ()=>action(title, index), isOn, hasIcon, true, index, size:new Vector2(10, 10));
+            options.Add(button);
+        }
+        return options;
+    }
+    public static AdvancedButton AddButtonIntoHoriLayout(this AutoHoriLayoutGroup layout, string buttonID, string text="", UnityAction action=null, Sprite icon=null, 
+        Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false, bool customIcon=false, int iconType=0)
+    {
+        AdvancedButton button = GameObject.Instantiate(AdvancedButton.Prefab, layout.transform);
+        button.Setup(buttonID, action, icon, text, size, backgroundSprite:background, isToggle:isToggle,  showTip:showTip, customIcon:customIcon, iconType:iconType);
+        return button;
     }
     public static void SetupPlaceholder(this InputField inputField, Font font, string placeholderText, Color color)
     {

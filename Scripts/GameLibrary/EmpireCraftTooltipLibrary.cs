@@ -28,12 +28,6 @@ public static class EmpireCraftTooltipLibrary
         });
         tl.add(new TooltipAsset
         {
-            id = "province",
-            prefab_id = "tooltips/tooltip_city",
-            callback = showProvinceToolTip
-        });
-        tl.add(new TooltipAsset
-        {
             id = "actor_officer",
             prefab_id = "tooltips/tooltip_actor",
             callback = showOfficer
@@ -118,8 +112,6 @@ public static class EmpireCraftTooltipLibrary
                 color = pData.kingdom.king.clan.getColor().color_text;
             }
         }
-        pTooltip.addLineText("province_leader", leaderName, color, false, true, 21);
-        pTooltip.addLineText("province_level", LM.Get("default_" + pData.kingdom.GetCountryLevel().ToString()), tKingdom.getColor().color_text, false, true, 21);
         pTooltip.addLineBreak();
         pTooltip.addLineIntText(
             "adults",
@@ -161,41 +153,6 @@ public static class EmpireCraftTooltipLibrary
             pTooltip.addLineText("title_been_controlled_year", $"{title.GetTitleBeenControlledYear()}{LM.Get("Year")}", tColorHex, false, true, 21);
         }
     }
-    public static void showProvinceToolTip(Tooltip pTooltip, string pType, TooltipData pData)
-    {
-        pTooltip.clear();
-        City city = pData.city;
-        Province province = city.GetProvince();
-        pTooltip.setDescription(LM.Get("province_description"), null);
-        string tColorHex = province.empire.CoreKingdom.getColor().color_text;
-        pTooltip.setTitle(province.data.name, "ProvinceWindowTitle", tColorHex);
-        int tAge = province.getAge();
-        AssetManager.tooltips.setIconValue(pTooltip, "i_age", tAge);
-        AssetManager.tooltips.setIconValue(pTooltip, "i_population", province.countPopulation());
-        pTooltip.addLineText("province_owner", province.empire.data.name, "#FE9900", false, true, 21);
-        pTooltip.addLineText("province_capital", province.province_capital.data.name, "#CC6CE7", false, true, 21);
-        string officer_name = "-";
-        if (province.officer != null)
-        {
-            if (province.officer.isAlive())
-            {
-                officer_name = province.officer.data.name;
-            }
-        }
-        pTooltip.addLineText("province_officer", officer_name, "#CC6CE7", false, true, 21);
-        pTooltip.addLineText("province_officers_num", province.data.history_officers.Count().ToString(), "#CC6CE7", false, true, 21);
-        ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out string culture);
-        string provinceType = "";
-        if (culture != null)
-        {
-            provinceType = LM.Get($"{culture}_{province.data.provinceLevel.ToString()}");
-        } else
-        {
-            provinceType = LM.Get($"Western_{province.data.provinceLevel.ToString()}");
-        }
-        pTooltip.addLineText("province_type", provinceType, "#CC6CE7", false, true, 21);
-    }
-
     private static void showOfficer(Tooltip pTooltip, string pType, TooltipData pData)
     {
         AssetManager.tooltips.showActor("actor_officer", pTooltip, pData);

@@ -65,7 +65,7 @@ public static class AddProvinceButton
         {
             return false;
         }
-        if (ConfigData.selected_cityA.hasProvince())
+        if (ConfigData.selected_cityA.hasKingdom())
         {
             if (ConfigData.selected_cityA.getTile() == ConfigData.selected_cityB.getTile())
             {
@@ -73,18 +73,10 @@ public static class AddProvinceButton
                 ConfigData.selected_cityB = null;
                 return false;
             }
-            if (ConfigData.selected_cityB.hasProvince())
+            if (ConfigData.selected_cityB.hasKingdom())
             {
-                ModClass.PROVINCE_MANAGER.AddCityToProvince(ConfigData.selected_cityB.GetProvince(), ConfigData.selected_cityA);
+                ConfigData.selected_cityA.joinAnotherKingdom(ConfigData.selected_cityB.kingdom);
             }
-        }
-        if (ModClass.PROVINCE_MANAGER.forceProvince(ConfigData.selected_cityA, ConfigData.selected_cityB))
-        {
-            ActionLibrary.showWhisperTip("create_new_province");
-        }
-        else
-        {
-            ActionLibrary.showWhisperTip("city_add_to_province");
         }
         ConfigData.selected_cityA = null;
         ConfigData.selected_cityB = null;
