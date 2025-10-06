@@ -45,16 +45,7 @@ public static class ExamSystem
             if (actor.hasTrait("jingshi")) continue;
             if (actor.hasTrait("juren")) continue;
             if (actor.hasTrait("gongshi")) continue;
-            if (city.kingdom.GetEmpire().data.is_allow_normal_to_exam)
-            { 
-                mark = actor.startCityExam();
-            } else
-            {
-                if (actor.hasClan())
-                {
-                    mark = actor.startCityExam();
-                }
-            }
+            mark = actor.startCityExam();
             if (mark > 0)
             {
                 MarksData.Add(actor, mark);

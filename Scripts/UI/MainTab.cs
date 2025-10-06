@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.UI.Windows;
 using NCMS.Utils;
@@ -62,8 +63,7 @@ internal static class MainTab
 
     private static void _addButtons()
     {
-        TitleLayerToggle.init();
-        PowerButton pb0 = FixFunctions.CreateToggleButton("title_layer",
+        PowerButton pb0 = FixFunctions.CreateLayerButton(MetaTypeExtension.KingdomTitle,
                  SpriteTextureLoader.getSprite("ui/icons/iconTitleLayer.png"));
         tab.AddPowerButton(EMPIRE_GROUP, pb0);
 
@@ -81,11 +81,8 @@ internal static class MainTab
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_title",
                 SpriteTextureLoader.getSprite("ui/icons/iconRemoveTitle.png")));
-
-
-
-        EmpireLayerToggle.init();
-        PowerButton pb = FixFunctions.CreateToggleButton("empire_layer",
+        
+        PowerButton pb = FixFunctions.CreateLayerButton(MetaTypeExtension.Empire,
                  SpriteTextureLoader.getSprite("ui/icons/iconKingdom"));
         tab.AddPowerButton(EMPIRE_GROUP, pb);
 
@@ -132,7 +129,7 @@ internal static class MainTab
                SpriteTextureLoader.getSprite("ui/icons/iconKingdom")));
         
         SwitchRealNumButton.init();
-        PowerButton pb4 = FixFunctions.CreateToggleButton("real_num",
+        PowerButton pb4 = PowerButtonCreator.CreateToggleButton("real_num",
             SpriteTextureLoader.getSprite("ui/realNumToggle"));
         tab.AddPowerButton(EMPIRE_GROUP, pb4);
     }

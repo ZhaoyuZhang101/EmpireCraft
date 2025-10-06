@@ -1,23 +1,26 @@
 key,cz
+LvLing_empire,朝
 LvLing_centre,京畿道
 LvLing_kingdom,藩国
 LvLing_jiedushi,军
 LvLing_province,道
 LvLing_jimizhou,羁縻州
 
-LvLing_officiallevel_0, 天子
-LvLing_officiallevel_1, 中书令
-LvLing_officiallevel_2, 尚书令
-LvLing_officiallevel_3, 门下侍中
-LvLing_officiallevel_4, 尚书
-LvLing_officiallevel_5, 王
-LvLing_officiallevel_6, 节度使
-LvLing_officiallevel_7, 观察使
-LvLing_officiallevel_8, 刺史
+LvLing_officiallevel_0,天子
+LvLing_officiallevel_1,中书令
+LvLing_officiallevel_2,尚书令
+LvLing_officiallevel_3,门下侍中
+LvLing_officiallevel_4,尚书
+LvLing_officiallevel_5,王
+LvLing_officiallevel_6,节度使
+LvLing_officiallevel_7,观察使
+LvLing_officiallevel_8,刺史
 
-libu, 吏部
-li3bu, 礼部
-gongbu, 工部
-xingbu, 刑部
-bingbu, 兵部
-hubu, 户部
+LvLing_city,县
+
+libu,吏部
+li3bu,礼部
+gongbu,工部
+xingbu,刑部
+bingbu,兵部
+hubu,户部

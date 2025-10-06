@@ -6,10 +6,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.Layer;
 public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleData>
 {
+    public Sprite[] _cached_banner_backgrounds;
+
+    public Sprite[] _cached_banner_icons;
     public KingdomTitleManager()
     {
         this.type_id = "kingdomTitle";
@@ -18,15 +22,32 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     public override void updateDirtyUnits()
     {
     }
+    public Sprite[] getBackgroundsList()
+    {
+        if (_cached_banner_backgrounds == null)
+        {
+            _cached_banner_backgrounds = SpriteTextureLoader.getSpriteList("kingdoms/backgrounds/");
+        }
+        return _cached_banner_backgrounds;
+    }
 
+    public Sprite[] getIconsList()
+    {
+        if (_cached_banner_icons == null)
+        {
+            _cached_banner_icons = SpriteTextureLoader.getSpriteList("kingdoms/icons/");
+        }
+        return _cached_banner_icons;
+    }
     public override void startCollectHistoryData()
     {
     }
-    public KingdomTitle newKingdomTitle(City city)
+    public KingdomTitle newKingdomTitle(City pCity)
     {
         long id = OverallHelperFunc.IdGenerator.NextId();
         KingdomTitle title = base.newObjectFromID(id);
-        title.newKingdomTitle(city);
+        title.newKingdomTitle(pCity);
+
         return title;
     }
 
@@ -80,15 +101,23 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         foreach (KingdomTitle kt in this._to_dissolve)
         {
             this.dissolveTitle(kt);
+            LogService.LogInfo("清空错误目标");
         }
         this._to_dissolve.Clear();
     }
 
     public void dissolveTitle(KingdomTitle pkt)
     {
-        pkt.disolve();
+        LogService.LogInfo("移除");
+        pkt.Dissolve();
         pkt.Dispose();
         this.removeObject(pkt);
+    }
+
+    public override void removeObject(KingdomTitle pObject)
+    {
+        base.removeObject(pObject);
+        LogService.LogInfo("移除头衔实体");
     }
 
     private List<KingdomTitle> _to_dissolve = new List<KingdomTitle>();

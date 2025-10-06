@@ -7,6 +7,7 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
 
@@ -16,15 +17,108 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         if (pKingdom.isRekt()) return BehResult.Continue;
-        var kingdomBack = LM.Get(SyncKingdomType(pKingdom).ToString());
-        pKingdom.data.name = string.Join("\u200A", pKingdom.GetKingdomName(), kingdomBack);
+        SyncKingdomStatus(pKingdom);
+        SyncOffice(pKingdom);
         return BehResult.Continue;
     }
+
+    private static void SyncOffice(Kingdom pKingdom)
+    {
+        OfficeObject office = pKingdom.GetOffice();
+        office.meta_object = pKingdom;
+        office.is_local = true;
+        if (pKingdom.isEmpire())
+        {
+            Empire empire = pKingdom.GetEmpire();
+            empire.data.centerOffice.SyncMetaObject(pKingdom);
+        }
+    }
+
+    private static void SyncKingdomStatus(Kingdom pKingdom)
+    {
+        //计算当前国家类别
+        KingdomType kingdomType = CalcKingdomType(pKingdom);
+        pKingdom.SetKingdomType(kingdomType);
+        if (pKingdom.isEmpire())
+        {
+            Empire empire = pKingdom.GetEmpire();
+            empire.SetEmpireName(empire.GetEmpireName());
+        }
+        //获取国家政体后同步国家官位
+        var regime = pKingdom.GetRegime();
+        CityType cityType = CalcCityType(pKingdom);
+        if (pKingdom.GetOffice()?.regimeType != regime.type)
+        {
+            BureauSetting setting = regime.bureau_config.kingdoms[kingdomType];
+            OfficeObject officeObject = new OfficeObject();
+            officeObject.InitialOffice(setting);
+            officeObject.regimeType = regime.type;
+            officeObject.meta_object = pKingdom;
+            officeObject.is_local = true;
+            if (officeObject.leader_select_method != LeaderSelectMethod.Default)
+            {
+                regime.SetLeaderSelectMethod(officeObject.leader_select_method);
+            }
+            pKingdom.SetOffice(officeObject);
+            foreach (var city in pKingdom.cities)
+            {
+                BureauSetting citySetting = regime.bureau_config.cities[cityType];
+                OfficeObject officeObject2 = new OfficeObject();
+                officeObject2.InitialOffice(citySetting);
+                officeObject2.regimeType = regime.type;
+                officeObject2.meta_object = city;
+                officeObject.is_local = true;
+                city.SetOffice(officeObject2);
+            }
+        }
+        var kingdomBack = LM.Get(kingdomType.ToString());
+        pKingdom.data.name = string.Join("\u200A", pKingdom.GetKingdomName(), kingdomBack);
+        foreach (var city in pKingdom.cities)
+        {
+            var cityBack = LM.Get(cityType.ToString());
+            city.data.name = string.Join("\u200A", city.GetCityName(), cityBack);
+        }
+    }
+
+    public static CityType CalcCityType(Kingdom kingdom)
+    {
+        Regime regime = kingdom.GetRegime();
+        if (regime == null)
+        {
+            LogService.LogInfo("国家政策为空");
+            return CityType.Feudalism_city;
+        }
+        KingdomType  kingdomType = kingdom.GetKingdomType();
+        switch (regime.type)
+        {
+            case RegimeType.Arabic:
+                return CityType.Arabic_city;
+            case RegimeType.Feudalism:
+                switch (kingdomType)
+                {
+                    case KingdomType.Feudalism_empire:
+                        return CityType.Feudalism_dirC;
+                    case KingdomType.Feudalism_papal_state:
+                        return CityType.Feudalism_religion_district;
+                    default:
+                        return CityType.Feudalism_city;
+                }
+            case RegimeType.LvLing:
+                return CityType.LvLing_city;
+            case RegimeType.Republic:
+                return CityType.Republic_city;
+            case RegimeType.ZhouFeudalism:
+                return CityType.ZhouFeudalism_city;
+            default:
+                return CityType.Feudalism_city;
+        }
+    }
+    
     //依据制度的不同选项动态调整国家后缀
-    public static KingdomType SyncKingdomType(Kingdom kingdom)
+    public static KingdomType CalcKingdomType(Kingdom kingdom)
     {
         var regime = kingdom.GetRegime();
-        if (kingdom.isInEmpire())
+        if (kingdom.IsInEmpire())
         {
             var empire = kingdom.GetEmpire();
             switch (regime.type)

@@ -14,9 +14,16 @@ public class EmpireCraftCityBehCheckOffice:GameAICityBase
         {
             
         }
+        SyncOffice(pCity);
         return BehResult.Continue;
+        
     }
-
+    private static void SyncOffice(City pCity)
+    {
+        OfficeObject office = pCity.GetOffice();
+        office.meta_object = pCity;
+        office.is_local = true;
+    }
     public void UpdateOffice(City pCity)
     {
         if (!pCity.hasKingdom()) return;

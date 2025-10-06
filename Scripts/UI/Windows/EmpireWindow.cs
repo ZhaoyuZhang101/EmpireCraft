@@ -16,6 +16,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.General;
 using System.Collections;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.api.attributes;
 
@@ -118,7 +119,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                                             $"{_empire.GetMembersWithTrait("jingshi").Count.ToString().ColorString("#E16A54")}/" +
                                             $"{_empire.GetMembersWithTrait("gongshi").Count.ToString().ColorString("#CB9DF0")}/" +
                                             $"{_empire.GetMembersWithTrait("juren").Count.ToString()}".ColorString("#A2D2DF"));
-            rightPart.AddTextIntoVertLayout($"{_empire.GetYearNameWithTime().ColorString(pColor:_empire.getColor()._colorText)}");
+            rightPart.AddTextIntoVertLayout($"{_empire.GetYearNameWithTime().ColorString(pColor:_empire.getColor()._color_text)}");
             rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.CoreKingdom.getAge()}");
             
             topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 1));
@@ -212,11 +213,11 @@ namespace EmpireCraft.Scripts.UI.Windows
             GameObject inst = GameObject.Instantiate(kingdomListElement);
             KingdomListElement kl = inst.GetComponent<KingdomListElement>();
             kl.kingdomName.text = e.name;
-            kl.textAge.text = e.getAge().ToString();
-            kl.textPopulation.text = e.countUnits().ToString();
-            kl.textArmy.text = e.countTotalWarriors().ToString();
-            kl.textCities.text = e.countCities().ToString();
-            kl.textZones.text = e.countZones().ToString();
+            kl.textAge._text.text = e.getAge().ToString();
+            kl.textPopulation._text.text = e.countUnits().ToString();
+            kl.textArmy._text.text = e.countTotalWarriors().ToString();
+            kl.textCities._text.text = e.countCities().ToString();
+            kl.textZones._text.text = e.countZones().ToString();
             kl.avatarLoader.load(e.king);
             kl.meta_object = e;
             kl.loadBanner();
@@ -230,7 +231,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
         public override void OnNormalEnable()
         {
-            _empire = ConfigData.CURRENT_SELECTED_EMPIRE;
+            _empire = EmpireCraftMetaTypeLibrary.selected_empire;
             _empireNameInput.input.text = _empire.GetEmpireName();
             Clear();
             InitialTabButtons();

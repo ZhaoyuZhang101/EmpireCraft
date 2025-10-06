@@ -1,479 +1,528 @@
-﻿using EmpireCraft.Scripts.Data;
-using EmpireCraft.Scripts.Enums;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Security.Policy;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Windows;
 using NeoModLoader.services;
-using System.Drawing;
-using System.Linq;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftMetaTypeLibrary
 {
-    public static ZoneCalculator zone_manager;
+    public static Empire selected_empire; 
+    public static KingdomTitle selected_kingdomTitle; 
+    public static MetaTypeAsset empire; 
+    public static MetaTypeAsset kingdomTitle; 
+    public static ZoneCalculator zone_manager => World.world.zone_calculator;
+
     public static void init()
     {
-        zone_manager = World.world.zone_calculator;
-        MetaTypeLibrary ml = AssetManager.meta_type_library;
-        ml.kingdom.drawn_zones = delegate
-        {
-            if (ModClass.IS_CLEAR) return;
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Empire)
-            {
-                foreach (Empire empire in ModClass.EMPIRE_MANAGER)
-                {
-                    if (empire != null)
-                    {
-                        drawForEmpire(empire);
-                    }
-                }
-                foreach (var k in World.world.kingdoms)
-                {
-                    if (k == null) continue;
-                    if (!k.isInEmpire())
-                        zone_manager.drawForKingdom(k);
-                }
-            }
-            else
-            {
-                foreach (var k in World.world.kingdoms)
-                    zone_manager.drawForKingdom(k);
-            }
-            zone_manager.drawForKingdom(WildKingdomsManager.neutral);
-        };
-
-        ml.kingdom.click_action_zone = delegate (WorldTile pTile, string pPower)
-        {
-            if (pTile == null)
-            {
-                return false;
-            }
-            City city = pTile.zone.city;
-            if (city.isRekt())
-            {
-                return false;
-            }
-            Kingdom kingdom = city.kingdom;
-            if (kingdom.isRekt())
-            {
-                return false;
-            }
-            if (kingdom.isNeutral())
-            {
-                return false;
-            }
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Empire)
-            {
-                if (kingdom.isInEmpire())
-                {
-                    ConfigData.CURRENT_SELECTED_EMPIRE = kingdom.GetEmpire();
-                    ScrollWindow.showWindow(nameof(EmpireWindow));
-                    return true;
-                }
-            }
-            MetaType.Kingdom.getAsset().selectAndInspect(kingdom);
-            return true;
-        };
-        ml.kingdom.check_cursor_tooltip = delegate (WorldTile pTile)
-        {
-            City city = pTile.zone.city;
-            if (city.isRekt())
-            {
-                return false;
-            }
-            Kingdom kingdom = city.kingdom;
-            if (kingdom.isRekt())
-            {
-                return false;
-            }
-            if (kingdom.isNeutral())
-            {
-                return false;
-            }
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Empire)
-            {
-                if (kingdom.isInEmpire())
-                {
-                    tooltip_empire_action(kingdom);
-                    return true;
-                }
-            }
-            kingdom.meta_type_asset.cursor_tooltip_action(kingdom);
-            return true;
-        };
-        ml.kingdom.check_cursor_highlight = delegate (WorldTile pTile, QuantumSpriteAsset pAsset)
-        {
-            bool flag = PlayerConfig.optionBoolEnabled("highlight_kingdom_enemies");
-            UnityEngine.Color color = pAsset.color;
-            City city = pTile.zone.city;
-            if (city.isRekt()) return;
-            foreach (var city2 in city.kingdom.cities)
-            {
-                QuantumSpriteLibrary.colorZones(pAsset, city2.zones, color);
-            }
-            if (flag)
-            {
-                QuantumSpriteLibrary.colorEnemies(pAsset, city.kingdom);
-            }
-        };
-        ml.city.drawn_zones = delegate
-        {
-            if (ModClass.IS_CLEAR) return;
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Title)
-            {
-                foreach (KingdomTitle kingdomTitle in ModClass.KINGDOM_TITLE_MANAGER)
-                {
-                    if (kingdomTitle != null)
-                    {
-                        drawnForTitle(kingdomTitle);
-                    }
-                }
-                foreach (var k in World.world.cities)
-                {
-                    if (!k.hasTitle())
-                        drawnForCity(k);
-                }
-            }
-            else
-            {
-                foreach (var k in World.world.cities)
-                    drawnForCity(k);
-            }
-        };
-        ml.city.click_action_zone = delegate (WorldTile pTile, string pPower)
-        {
-            if (pTile == null)
-            {
-                return false;
-            }
-            City city = pTile.zone.city;
-            if (city.isRekt())
-            {
-                return false;
-            }
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Title)
-            {
-                if (city.hasTitle())
-                {
-                    ConfigData.CURRENT_SELECTED_TITLE = city.GetTitle();
-                    ScrollWindow.showWindow(nameof(KingdomTitleWindow));
-                    return true;
-                }
-            }
-            Config.selected_city = city;
-            ScrollWindow.showWindow("city");
-            return true;
-        };
-        ml.city.check_cursor_tooltip = delegate (WorldTile pTile)
-        {
-            City city = pTile.zone.city;
-            if (city.isRekt())
-            {
-                return false;
-            }
-            if (ModClass.CURRENT_MAP_MOD == EmpireCraftMapMode.Title)
-            {
-                if (city.hasTitle())
-                {
-                    tooltip_title_action(city.GetTitle());
-                    return true;
-                }
-            }
-            city.meta_type_asset.cursor_tooltip_action(city);
-            return true;
-        };
-
-        ml.culture.dynamic_zones = delegate
-        {
-
-        };
-        ml.culture.drawn_zones = delegate
-        {
-            foreach (City city in World.world.cities)
-            {
-                drawnForCulture(city);
-            }
-        };
-        ml.culture.check_cursor_tooltip = delegate (WorldTile pTile)
-        {
-            if(!pTile.zone.hasCity()) return false;
-            if (!pTile.zone.city.hasCulture()) return false;
-            Culture culture = pTile.zone.city.culture;
-            if(culture == null) return false;
-            if (culture.isRekt())
-            {
-                return false;
-            }
-            culture.meta_type_asset.cursor_tooltip_action(culture);
-            return true;
-        };
-        ml.culture.click_action_zone = delegate (WorldTile pTile, string pPower)
-        {
-            if (pTile == null)
-            {
-                return false;
-            }
-            Culture culture = pTile.zone.city.culture;
-            if (culture == null) return false;
-            if (culture.isRekt())
-            {
-                return false;
-            }
-            Config.selected_culture = culture;
-            ScrollWindow.showWindow("culture");
-            return true;
-        };
-        ml.culture.check_cursor_highlight = delegate (WorldTile pTile, QuantumSpriteAsset pAsset)
-        {
-            UnityEngine.Color color = pAsset.color;
-            if (pTile.zone.hasCity())
-            {
-                Culture culture = null;
-                if (pTile.zone.city.hasCulture())
-                {
-                    culture = pTile.zone.city.culture;
-                }
-                if (culture == null) return;
-                if (!culture.isRekt())
-                {
-                    for (int i = 0; i < culture.cities.Count; i++)
-                    {
-                        City city = culture.cities[i];
-                        QuantumSpriteLibrary.colorZones(pAsset, city.zones, color);
-                    }
-                }
-            }
-
-        };
-        ml.family.dynamic_zones = delegate
-        {
-
-        };
+      AddEmpireMeta();
+      AddKingdomTitleMeta();
+      AssetManager.meta_type_library.linkAssets();
     }
 
-    public static void drawnForTitle(KingdomTitle kt)
+    public static void AddEmpireMeta()
     {
-        foreach (TileZone tz in kt.allZones())
+      MetaTypeAsset pAsset13 = new MetaTypeAsset();
+        pAsset13.id = "empire";
+        pAsset13.ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5);
+        pAsset13.window_name = "EmpireWindow";
+        pAsset13.power_tab_id = "selected_empire";
+        pAsset13.force_zone_when_selected = true;
+        pAsset13.set_icon_for_cancel_button = true;
+        pAsset13.icon_list = "iconKingdomList";
+        pAsset13.icon_single_path = "ui/icons/iconKingdom";
+        pAsset13.window_action_clear = (MetaTypeAction) (() => selected_empire = (Empire) null);
+        pAsset13.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) =>
         {
-            zone_manager.drawBegin();
-            drawZoneKingdomTitle(tz);
-            zone_manager.drawEnd(tz);
-        }
-    }
-
-    public static void drawnForCity(City city)
-    {
-        for (int i = 0; i < city.zones.Count; i++)
+	        pHistoryData.kingdom = selected_empire?.CoreKingdom; 
+        });
+        pAsset13.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => SelectedMetas.selected_kingdom = pHistoryData.kingdom);
+        pAsset13.has_dynamic_zones = true;
+        pAsset13.dynamic_zone_option = 2;
+        pAsset13.reports = new string[4]
         {
-            TileZone pZone = city.zones[i];
-            zone_manager.drawBegin();
-            zone_manager.drawZoneCity(pZone);
-            zone_manager.drawEnd(pZone);
-        }
-    }
-
-    public static void drawnForCulture(City city)
-    {
-        for (int i = 0; i < city.zones.Count; i++)
+          "happy",
+          "unhappy",
+          "many_children",
+          "many_homeless"
+        };
+        pAsset13.get_list = (MetaTypeListAction) (() => (IEnumerable<NanoObject>) ModClass.EMPIRE_MANAGER);
+        pAsset13.has_any = (MetaTypeListHasAction) (() => ModClass.EMPIRE_MANAGER.hasAny());
+        pAsset13.get_selected = (MetaSelectedGetter) (() => (NanoObject) selected_empire);
+        pAsset13.set_selected = (MetaSelectedSetter) (pElement => selected_empire = pElement as Empire);
+        pAsset13.get = (MetaGetter) (pId => (NanoObject) ModClass.EMPIRE_MANAGER.get(pId));
+        pAsset13.map_mode = MetaTypeExtension.Empire;
+        pAsset13.option_id = "map_Empire_layer";
+      
+        pAsset13.power_option_zone_id = "Empire_layer";
+        pAsset13.click_action_zone = new MetaZoneClickAction(inspectEmpire);
+        pAsset13.selected_tab_action_meta = new MetaTypeActionAsset(defaultClickActionZone);
+        pAsset13.check_unit_has_meta = (MetaCheckUnitWindowAction) (pActor => pActor.isKingdomCiv());
+        pAsset13.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (pActor => selected_empire = pActor.kingdom.GetEmpire());
+        pAsset13.draw_zones = (MetaZoneDrawAction) (pMetaTypeAsset =>
         {
-            TileZone pZone = city.zones[i];
-            zone_manager.drawBegin();
-            drawZoneCulture(pZone);
-            zone_manager.drawEnd(pZone);
-        }
-    }
-    public static void drawForEmpire(Empire empire)
-    {
-        foreach (TileZone tz in empire.allZones())
+	        switch (pMetaTypeAsset.getZoneOptionState())
+	        {
+		        case 0:
+              foreach (var kingdom in World.world.kingdoms)
+              { 
+                if (kingdom.IsInEmpire()) continue;
+                drawDefaultMeta(kingdom.meta_type_asset);
+              }
+              foreach (var kt in ModClass.EMPIRE_MANAGER)
+              {
+                foreach (City city in kt.getCities())
+                {
+                  foreach (TileZone zone in city.zones)
+                  {
+                    zone_manager.drawBegin();
+                    drawZoneEmpire(zone, 1);
+                    zone_manager.drawEnd(zone);
+                  }
+                }
+              }
+              drawForCities(pMetaTypeAsset, WildKingdomsManager.neutral.getCities(), getZoneDelegate(pMetaTypeAsset));
+			        break;
+		        case 1:
+			        foreach (var kt in ModClass.EMPIRE_MANAGER)
+			        {
+				        foreach (City city in kt.getCities())
+				        {
+					        foreach (TileZone zone in city.zones)
+					        {
+						        zone_manager.drawBegin();
+                    drawZoneEmpireWithKingdomBorder(zone, 1);
+						        zone_manager.drawEnd(zone);
+					        }
+				        }
+			        }
+			        break;
+		        case 2:
+			        drawDefaultFluid(pMetaTypeAsset);
+			        break;
+	        }
+        });
+        pAsset13.dynamic_zones = (MetaZoneDynamicAction) (() =>
         {
-            zone_manager.drawBegin();
-            drawZoneEmpire(tz);
-            zone_manager.drawEnd(tz);
-        }
-    }
-
-    public static void drawZoneEmpire(TileZone pZone)
-    {
-        if (pZone == null) return;
-        if (pZone.city == null) return;
-        Empire empire = pZone.city.kingdom.GetEmpire();
-        if (empire == null) return;
-
-        bool pUp = isBorderColor_Empire(pZone.zone_up, empire, true);
-        bool pDown = isBorderColor_Empire(pZone.zone_down, empire, false);
-        bool pLeft = isBorderColor_Empire(pZone.zone_left, empire, false);
-        bool pRight = isBorderColor_Empire(pZone.zone_right, empire, true);
-        int num = -1;
-        if (empire != null)
+          List<Actor> simpleList = World.world.units.getSimpleList();
+          double curWorldTime = World.world.getCurWorldTime();
+          int index = 0;
+          for (int count = simpleList.Count; index < count; ++index)
+          {
+            Actor actor = simpleList[index];
+            if (actor.asset.show_on_meta_layer)
+            {
+              TileZone zone = actor.current_tile.zone;
+              if (actor.hasCity())
+                if (actor.city?.kingdom?.GetEmpire()!=null)
+                  ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) actor.city.kingdom.GetEmpire(), curWorldTime);
+            }
+          }
+        });
+        pAsset13.check_cursor_highlight = (MetaZoneHighlightAction) ((pMetaTypeAsset, pTile, pQAsset) =>
         {
-            num = empire.GetHashCode();
-        }
-        int num2 = zone_manager.generateIdForDraw(zone_manager._mode_asset, num, pUp, pDown, pLeft, pRight);
-        if (pZone.last_drawn_id == num2 && pZone.last_drawn_hashcode == num)
+          Color color = pQAsset.color;
+          if (pMetaTypeAsset.getZoneOptionState() is 0 or 1)
+          {
+            City city11 = pTile.zone.city;
+            if (city11.isRekt())
+              return;
+            Kingdom kingdom11 = city11.kingdom;
+            if (kingdom11.isRekt()) return;
+            if (!kingdom11.IsInEmpire())
+              return;
+            foreach (City city12 in kingdom11.GetEmpire().AllCities())
+              QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
+          }
+          else
+            highlightDefault(pTile, pQAsset, color);
+        });
+        pAsset13.tile_get_metaobject = (MetaZoneGetMeta) ((pZone, pZoneOption) =>
         {
+          Kingdom kingdomOnZone = pZone.city?.kingdom;
+          if (kingdomOnZone==null)
+            return null;
+          return kingdomOnZone.IsInEmpire() ? kingdomOnZone.GetEmpire(): null;
+        });
+        pAsset13.tile_get_metaobject_0 = (MetaZoneGetMetaSimple) (pZone =>
+        {
+          Kingdom kingdom = pZone?.city?.kingdom;
+          return kingdom?.GetEmpire();
+        });
+        pAsset13.tile_get_metaobject_1 = (MetaZoneGetMetaSimple) (pZone => ZoneMetaDataVisualizer.getZoneMetaData(pZone).meta_object);
+        pAsset13.tile_get_metaobject_2 = (MetaZoneGetMetaSimple) (pZone => ZoneMetaDataVisualizer.getZoneMetaData(pZone).meta_object);
+        pAsset13.check_tile_has_meta = (MetaZoneTooltipAction) ((pZone, pAsset, pZoneOption) =>
+        {
+          IMetaObject metaObject = pAsset.tile_get_metaobject(pZone, pZoneOption);
+          return ((Empire) metaObject).isRekt();
+        });
+        pAsset13.check_cursor_tooltip = new MetaZoneTooltipAction(checkCursorTooltipDefault);
+        pAsset13.cursor_tooltip_action = (MetaTooltipShowAction) (pMeta =>
+        {
+          Empire pEmpire = pMeta as Empire;
+          if (pEmpire.isRekt())
             return;
-        }
-        pZone.last_drawn_id = num2;
-        pZone.last_drawn_hashcode = num;
-        Color32 colorBorderInsideAlpha = Toolbox.color_clear;
-        Color32 colorMain = Toolbox.color_clear;
-        if (empire != null)
+          string str = "empire";
+          Tooltip.hideTooltip((object) pEmpire, true, str);
+          Tooltip.show((object) pEmpire, str, new TooltipData()
+          {
+            kingdom = pEmpire.CoreKingdom,
+            tooltip_scale = 0.7f,
+            is_sim_tooltip = true
+          });
+        });
+        pAsset13.stat_hover = (MetaStatAction) ((pMetaId, pField) =>
         {
-            if (empire.CoreKingdom.isAlive())
-            {
-                ColorAsset color = empire.CoreKingdom.getColor();
-                colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
-                colorMain = color.getColorMain2();
-                if (zone_manager.shouldBeClearColor())
-                {
-                    colorBorderInsideAlpha = zone_manager.color_clear;
-                }
-            }
-        }
-        zone_manager.applyMetaColorsToZone(pZone, ref colorBorderInsideAlpha, ref colorMain, pUp, pDown, pLeft, pRight);
-    }
-    public static void drawZoneKingdomTitle(TileZone pZone)
-    {
-        KingdomTitle kt = pZone.city.GetTitle();
-        if (kt == null) return;
-
-        bool pUp = isBorderColor_KingdomTitle(pZone.zone_up, kt, true);
-        bool pDown = isBorderColor_KingdomTitle(pZone.zone_down, kt, false);
-        bool pLeft = isBorderColor_KingdomTitle(pZone.zone_left, kt, false);
-        bool pRight = isBorderColor_KingdomTitle(pZone.zone_right, kt, true);
-        int num = -1;
-        if (kt != null)
-        {
-            num = kt.GetHashCode();
-        }
-        int num2 = zone_manager.generateIdForDraw(zone_manager._mode_asset, num, pUp, pDown, pLeft, pRight);
-        if (pZone.last_drawn_id == num2 && pZone.last_drawn_hashcode == num)
-        {
+          Empire pObject = ModClass.EMPIRE_MANAGER.get(pMetaId);
+          if (pObject.isRekt())
             return;
-        }
-        pZone.last_drawn_id = num2;
-        pZone.last_drawn_hashcode = num;
-        Color32 colorBorderInsideAlpha = Toolbox.color_clear;
-        Color32 colorMain = Toolbox.color_clear;
-        if (kt != null)
+          Tooltip.show((object) pField, "empire", new TooltipData()
+          {
+            kingdom = pObject.CoreKingdom
+          });
+        });
+        pAsset13.stat_click = (MetaStatAction) ((pMetaId, _) =>
         {
-            ColorAsset color = kt.getColor();
-            colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
-            colorMain = color.getColorMain2();
-            if (zone_manager.shouldBeClearColor())
+          Empire pObject = ModClass.EMPIRE_MANAGER.get(pMetaId);
+          if (pObject.isRekt())
+            return;
+          selected_empire = pObject;
+          ScrollWindow.showWindow(nameof(EmpireWindow));
+        });
+        empire = AssetManager.meta_type_library.add(pAsset13);
+    }    
+    public static void AddKingdomTitleMeta()
+    {
+      MetaTypeAsset pAsset13 = new MetaTypeAsset();
+        pAsset13.id = "kingdomTitle";
+        pAsset13.ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5);
+        pAsset13.window_name = "KingdomTitleWindow";
+        pAsset13.power_tab_id = "selected_kingdomTitle";
+        pAsset13.force_zone_when_selected = true;
+        pAsset13.set_icon_for_cancel_button = true;
+        pAsset13.icon_list = "iconKingdomList";
+        pAsset13.icon_single_path = "ui/icons/iconKingdom";
+        pAsset13.window_action_clear = (MetaTypeAction) (() => selected_kingdomTitle = (KingdomTitle) null);
+        pAsset13.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) =>
+        {
+	        pHistoryData.city = selected_kingdomTitle?.title_capital; 
+        });
+        pAsset13.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => SelectedMetas.selected_city = pHistoryData.city);
+        pAsset13.has_dynamic_zones = true;
+        pAsset13.dynamic_zone_option = 2;
+        pAsset13.reports = new string[4]
+        {
+          "happy",
+          "unhappy",
+          "many_children",
+          "many_homeless"
+        };
+        pAsset13.get_list = (MetaTypeListAction) (() => (IEnumerable<NanoObject>) ModClass.KINGDOM_TITLE_MANAGER);
+        pAsset13.has_any = (MetaTypeListHasAction) (() => ModClass.KINGDOM_TITLE_MANAGER.hasAny());
+        pAsset13.get_selected = (MetaSelectedGetter) (() => (NanoObject) selected_kingdomTitle);
+        pAsset13.set_selected = (MetaSelectedSetter) (pElement => selected_kingdomTitle = pElement as KingdomTitle);
+        pAsset13.get = (MetaGetter) (pId => (NanoObject) ModClass.KINGDOM_TITLE_MANAGER.get(pId));
+        pAsset13.map_mode = MetaTypeExtension.KingdomTitle;
+        pAsset13.option_id = "map_KingdomTitle_layer";
+        pAsset13.power_option_zone_id = "KingdomTitle_layer";
+        pAsset13.click_action_zone = new MetaZoneClickAction(inspectKingdomTitle);
+        pAsset13.selected_tab_action_meta = new MetaTypeActionAsset(defaultClickActionZone);
+        pAsset13.check_unit_has_meta = (MetaCheckUnitWindowAction) (pActor => pActor.isKingdomCiv());
+        pAsset13.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (pActor => selected_kingdomTitle = pActor.city.GetTitle());
+        pAsset13.draw_zones = (MetaZoneDrawAction) (pMetaTypeAsset =>
+        {
+	        switch (pMetaTypeAsset.getZoneOptionState())
+	        {
+		        case 0:
+              foreach (var city in World.world.cities)
+              { 
+                if (city.hasTitle()) continue;
+                drawDefaultMeta(city.meta_type_asset);
+              }
+			        drawDefaultMeta(pMetaTypeAsset);
+              drawForCities(pMetaTypeAsset, WildKingdomsManager.neutral.getCities(), getZoneDelegate(pMetaTypeAsset));
+			        break;
+		        case 1:
+			        foreach (var kt in ModClass.KINGDOM_TITLE_MANAGER)
+			        {
+				        foreach (City city in kt.getCities())
+				        {
+					        foreach (TileZone zone in city.zones)
+					        {
+						        zone_manager.drawBegin();
+						        drawZoneKingdomTitleWithCityBorder(zone, 1);
+						        zone_manager.drawEnd(zone);
+					        }
+				        }
+			        }
+			        break;
+		        case 2:
+			        drawDefaultFluid(pMetaTypeAsset);
+			        break;
+	        }
+        });
+        pAsset13.dynamic_zones = (MetaZoneDynamicAction) (() =>
+        {
+          List<Actor> simpleList = World.world.units.getSimpleList();
+          double curWorldTime = World.world.getCurWorldTime();
+          int index = 0;
+          for (int count = simpleList.Count; index < count; ++index)
+          {
+            Actor actor = simpleList[index];
+            if (actor.asset.show_on_meta_layer)
             {
-                colorBorderInsideAlpha = zone_manager.color_clear;
+              TileZone zone = actor.current_tile.zone;
+              if (actor.hasCity())
+                if (actor.city.hasTitle())
+                  ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) actor.city.GetTitle(), curWorldTime);
+            }
+          }
+        });
+        pAsset13.check_cursor_highlight = (MetaZoneHighlightAction) ((pMetaTypeAsset, pTile, pQAsset) =>
+        {
+          Color color = pQAsset.color;
+          if (pMetaTypeAsset.getZoneOptionState() is 0 or 1)
+          {
+            City city11 = pTile.zone.city;
+            if (city11.isRekt())
+              return;
+            if (!city11.hasTitle())
+              return;
+            foreach (City city12 in city11.GetTitle().getCities())
+              QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
+          }
+          else
+            highlightDefault(pTile, pQAsset, color);
+        });
+        pAsset13.tile_get_metaobject = (MetaZoneGetMeta) ((pZone, pZoneOption) =>
+        {
+          City cityOnZone = pZone.city;
+          if (cityOnZone==null)
+            return null;
+          return cityOnZone.hasTitle() ? cityOnZone.GetTitle(): null;
+        });
+        pAsset13.tile_get_metaobject_0 = (MetaZoneGetMetaSimple) (pZone =>
+        {
+          City city = pZone.city;
+          return city?.GetTitle();
+        });
+        pAsset13.tile_get_metaobject_1 = (MetaZoneGetMetaSimple) (pZone => ZoneMetaDataVisualizer.getZoneMetaData(pZone).meta_object);
+        pAsset13.tile_get_metaobject_2 = (MetaZoneGetMetaSimple) (pZone => ZoneMetaDataVisualizer.getZoneMetaData(pZone).meta_object);
+        pAsset13.check_tile_has_meta = (MetaZoneTooltipAction) ((pZone, pAsset, pZoneOption) =>
+        {
+          IMetaObject metaObject = pAsset.tile_get_metaobject(pZone, pZoneOption);
+          return ((KingdomTitle) metaObject).isRekt();
+        });
+        pAsset13.check_cursor_tooltip = new MetaZoneTooltipAction(checkCursorTooltipDefault);
+        pAsset13.cursor_tooltip_action = (MetaTooltipShowAction) (pMeta =>
+        {
+          KingdomTitle kingdomTitle = pMeta as KingdomTitle;
+          if (kingdomTitle.isRekt())
+            return;
+          string str = "kingdomTitle";
+          Tooltip.hideTooltip((object) kingdomTitle, true, str);
+          Tooltip.show((object) kingdomTitle, str, new TooltipData()
+          {
+            city = kingdomTitle.title_capital,
+            tooltip_scale = 0.7f,
+            is_sim_tooltip = true
+          });
+        });
+        pAsset13.stat_hover = (MetaStatAction) ((pMetaId, pField) =>
+        {
+          KingdomTitle pObject = ModClass.KINGDOM_TITLE_MANAGER.get(pMetaId);
+          if (pObject.isRekt())
+            return;
+          Tooltip.show((object) pField, "kingdomTitle", new TooltipData()
+          {
+            city = pObject.title_capital
+          });
+        });
+        pAsset13.stat_click = (MetaStatAction) ((pMetaId, _) =>
+        {
+          KingdomTitle pObject = ModClass.KINGDOM_TITLE_MANAGER.get(pMetaId);
+          if (pObject.isRekt())
+            return;
+          selected_kingdomTitle = pObject;
+          ScrollWindow.showWindow(nameof(KingdomTitleWindow));
+        });
+        kingdomTitle = AssetManager.meta_type_library.add(pAsset13);
+    }
+    public static void defaultClickActionZone(MetaTypeAsset pMetaTypeAsset)
+    {
+	    switch (pMetaTypeAsset.map_mode)
+	    {
+		    case MetaTypeExtension.Empire:
+			    ScrollWindow.showWindow(nameof(EmpireWindow));
+			    break;
+		    case MetaTypeExtension.KingdomTitle:
+			    ScrollWindow.showWindow(nameof(KingdomTitleWindow));
+			    break;
+	    }
+    }  
+    public static void drawDefaultFluid(MetaTypeAsset pMetaTypeAsset)
+    {
+        foreach (ZoneMetaData pData in ZoneMetaDataVisualizer.zone_data_dict.Values)
+        {
+            if (pData.meta_object != null && pData.meta_object.isAlive())
+            {
+                zone_manager.drawBegin();
+                zone_manager.drawGenericFluid(pData, pMetaTypeAsset);
+                zone_manager.drawEnd(pData.zone);
             }
         }
-        zone_manager.applyMetaColorsToZone(pZone, ref colorBorderInsideAlpha, ref colorMain, pUp, pDown, pLeft, pRight);
+    }
+    public static bool inspectEmpire(WorldTile pTile = null, string pPower = null)
+    {
+      if (pTile == null)
+        return false;
+      if (!pTile.hasCity()) return false;
+      if (!pTile.zone_city.hasKingdom()) return false;
+      if (pTile.zone_city.kingdom.GetEmpire().isRekt()) return false;
+      Empire pEmpire = pTile.zone_city.kingdom.GetEmpire();
+      selected_empire = pEmpire;
+      ScrollWindow.showWindow(nameof(EmpireWindow));
+      return true;
+    }
+    public static bool inspectKingdomTitle(WorldTile pTile = null, string pPower = null)
+    {
+      if (pTile == null)
+        return false;
+      if (!pTile.hasCity()) return false;
+      if (!pTile.zone_city.hasTitle()) return false;
+      if (pTile.zone_city.GetTitle().isRekt()) return false;
+      KingdomTitle kt = pTile.zone_city.GetTitle();
+      selected_kingdomTitle = kt;
+      ScrollWindow.showWindow(nameof(KingdomTitleWindow));
+      return true;
+    }
+    public static void highlightDefault(WorldTile pTile, QuantumSpriteAsset pQAsset, Color pColorAnimated)
+    {
+      ZoneMetaData zoneMetaData = ZoneMetaDataVisualizer.getZoneMetaData(pTile.zone);
+      if (zoneMetaData.meta_object == null || !zoneMetaData.meta_object.isAlive())
+        return;
+      using (ListPool<TileZone> zonesWithMeta = ZoneMetaDataVisualizer.getZonesWithMeta(zoneMetaData.meta_object))
+        QuantumSpriteLibrary.colorZones(pQAsset, zonesWithMeta, pColorAnimated);
+    }
+    public static void drawDefaultMeta(MetaTypeAsset pMetaTypeAsset)
+    {
+      MetaZoneGetMetaSimple zoneDelegate = getZoneDelegate(pMetaTypeAsset);
+      foreach (Kingdom kingdom in (CoreSystemManager<Kingdom, KingdomData>) World.world.kingdoms)
+        drawForCities(pMetaTypeAsset, kingdom.getCities(), zoneDelegate);
     }
 
-    public static bool isBorderColor_Empire(TileZone pZone, Empire pEmpire, bool pCheckFriendly = false)
+    public static void drawForCities(
+      MetaTypeAsset pMetaTypeAsset,
+      IEnumerable<City> pListCities,
+      MetaZoneGetMetaSimple pZoneGetDelegate)
+    {
+      foreach (City pListCity in pListCities)
+        drawZonesForMeta(pListCity.meta_type_asset, pListCity.zones, pZoneGetDelegate);
+    }  
+
+    public static void drawForKingdoms(
+      MetaTypeAsset pMetaTypeAsset,
+      IEnumerable<Kingdom> pListKingdoms,
+      MetaZoneGetMetaSimple pZoneGetDelegate)
+    {
+      foreach (Kingdom pListKingdom in pListKingdoms)
+        foreach (City pListCity in pListKingdom.cities.ToList())
+          drawZonesForMeta(pListKingdom.meta_type_asset, pListCity.zones, pZoneGetDelegate);
+    }  
+    public static void drawZonesForMeta(
+      MetaTypeAsset pMetaTypeAsset,
+      List<TileZone> pZones,
+      MetaZoneGetMetaSimple pZoneGetDelegate)
+    {
+      foreach (TileZone pZone in pZones)
+      {
+        zone_manager.drawBegin();
+        zone_manager.drawZoneMeta(pZone, pMetaTypeAsset, pZoneGetDelegate);
+        zone_manager.drawEnd(pZone);
+      }
+    }
+    public static MetaZoneGetMetaSimple getZoneDelegate(MetaTypeAsset pMetaTypeAsset)
+    {
+      switch (pMetaTypeAsset.getZoneOptionState())
+      {
+        case 0:
+          return pMetaTypeAsset.tile_get_metaobject_0;
+        case 1:
+          return pMetaTypeAsset.tile_get_metaobject_1;
+        case 2:
+          return pMetaTypeAsset.tile_get_metaobject_2;
+        default:
+          return pMetaTypeAsset.tile_get_metaobject_2;
+      }
+    }
+    public static bool checkCursorTooltipDefault(TileZone pTile, MetaTypeAsset pAsset, int pZoneOption)
+    {
+      IMetaObject pType = pAsset.tile_get_metaobject(pTile, pZoneOption);
+      if (pType == null)
+        return false;
+      pAsset.cursor_tooltip_action(pType as NanoObject);
+      return true;
+    }
+    
+    public static void drawZoneEmpire(TileZone pZone, int pZoneOption)
+    {
+      Empire empireOnZone = getEmpireOnZone(pZone, pZoneOption);
+      bool pUp = isBorderColor_empire(pZone.zone_up, empireOnZone, pZoneOption);
+      bool pDown = isBorderColor_empire(pZone.zone_down, empireOnZone, pZoneOption);
+      bool pLeft = isBorderColor_empire(pZone.zone_left, empireOnZone, pZoneOption);
+      bool pRight = isBorderColor_empire(pZone.zone_right, empireOnZone, pZoneOption);
+      zone_manager.drawZoneMeta(empireOnZone, pZone, pUp, pDown, pLeft, pRight, empireOnZone.data, empire);
+    }
+    public static Empire getEmpireOnZone(TileZone pZone, int pZoneOption)
+    {
+	    return pZone.city?.kingdom?.GetEmpire();
+    } 
+    public static bool isBorderColor_empire(
+        TileZone pZone,
+        Empire pEmpire,
+        int pZoneOption,
+        bool pCheckFriendly = false)
     {
         if (pZone == null)
-        {
-            return true;
-        }
-        if (pZone.city == null) return true;
-        if (pZone.city.kingdom == null) return true;
-        Empire empireOnZone = pZone.city.kingdom.GetEmpire();
+          return true;
+        NanoObject empireOnZone = (NanoObject) pZone.city?.kingdom?.GetEmpire();
         return empireOnZone == null || empireOnZone != pEmpire;
     }
-
-    public static bool isBorderColor_KingdomTitle(TileZone pZone, KingdomTitle pKingdomTitle, bool pCheckFriendly = false)
-    {
-        if (pZone == null)
-        {
-            return true;
-        }
-        if (pZone.city == null) return true;
-        if (!pZone.city.hasTitle()) return true;
-        KingdomTitle titleOnZone = pZone.city.GetTitle();
-        return titleOnZone == null || titleOnZone != pKingdomTitle;
+    
+    public static void drawZoneKingdomTitleWithCityBorder(TileZone pZone, int pZoneOption)
+    { 
+	      City cityOnZone = pZone.city;
+        bool pUp = zone_manager.isBorderColor_cities(pZone.zone_up, cityOnZone);
+        bool pDown = zone_manager.isBorderColor_cities(pZone.zone_down, cityOnZone);
+        bool pLeft = zone_manager.isBorderColor_cities(pZone.zone_left, cityOnZone);
+        bool pRight = zone_manager.isBorderColor_cities(pZone.zone_right, cityOnZone);
+        KingdomTitle kt = cityOnZone.GetTitle();
+        zone_manager.drawZoneMeta(kt, pZone, pUp, pDown, pLeft, pRight, kt.data, kingdomTitle);
     }
-
-    public static void tooltip_empire_action(Kingdom kingdom)
+    
+    public static void drawZoneEmpireWithKingdomBorder(TileZone pZone, int pZoneOption)
     {
-        if (!kingdom.isRekt())
-        {
-            Tooltip.hideTooltip(kingdom, pOnlySimObjects: true, "empire");
-            Tooltip.show(kingdom, "empire", new TooltipData
-            {
-                kingdom = kingdom,
-                tooltip_scale = 0.7f,
-                is_sim_tooltip = true
-            });
-        }
+        Kingdom kingdomOnZone = pZone?.city?.kingdom;
+        if (kingdomOnZone == null) return;
+        bool pUp = isBorderColor_empire_kingdoms(pZone.zone_up, kingdomOnZone);
+        bool pDown = isBorderColor_empire_kingdoms(pZone.zone_down, kingdomOnZone);
+        bool pLeft = isBorderColor_empire_kingdoms(pZone.zone_left, kingdomOnZone);
+        bool pRight = isBorderColor_empire_kingdoms(pZone.zone_right, kingdomOnZone);
+        Empire pEmpire = kingdomOnZone.GetEmpire();
+        zone_manager.drawZoneMeta(pEmpire, pZone, pUp, pDown, pLeft, pRight, pEmpire.data, empire);
     }
-
-    public static void tooltip_title_action(KingdomTitle kingdomTitle)
+    
+    
+    public static bool isBorderColor_empire_kingdoms(
+      TileZone pZone,
+      Kingdom pKingdom)
     {
-        if (!kingdomTitle.isRekt())
-        {
-            Tooltip.hideTooltip(kingdomTitle, pOnlySimObjects: true, "kingdom_title");
-            Tooltip.show(kingdomTitle, "kingdom_title", new TooltipData
-            {
-                city = kingdomTitle.title_capital,
-                tooltip_scale = 0.7f,
-                is_sim_tooltip = true
-            });
-        }
-    }
-    public static void drawZoneCulture(TileZone pZone)
-    {
-        Culture p = pZone.city.culture;
-        if (p == null) return;
-
-        bool pUp = isBorderColor_cultures(pZone.zone_up, p);
-        bool pDown = isBorderColor_cultures(pZone.zone_down, p);
-        bool pLeft = isBorderColor_cultures(pZone.zone_left, p);
-        bool pRight = isBorderColor_cultures(pZone.zone_right, p);
-        int num = -1;
-        if (p != null)
-        {
-            num = p.GetHashCode();
-        }
-        int num2 = zone_manager.generateIdForDraw(zone_manager._mode_asset, num, pUp, pDown, pLeft, pRight);
-        if (pZone.last_drawn_id == num2 && pZone.last_drawn_hashcode == num)
-        {
-            return;
-        }
-        pZone.last_drawn_id = num2;
-        pZone.last_drawn_hashcode = num;
-        Color32 colorBorderInsideAlpha = Toolbox.color_clear;
-        Color32 colorMain = Toolbox.color_clear;
-        if (p != null)
-        {
-            ColorAsset color = p.getColor();
-            colorBorderInsideAlpha = color.getColorBorderInsideAlpha();
-            colorMain = color.getColorMain2();
-            if (zone_manager.shouldBeClearColor())
-            {
-                colorBorderInsideAlpha = zone_manager.color_clear;
-            }
-        }
-        zone_manager.applyMetaColorsToZone(pZone, ref colorBorderInsideAlpha, ref colorMain, pUp, pDown, pLeft, pRight);
-    }
-
-    private static bool isBorderColor_cultures(TileZone pZone, Culture pCulture)
-    {
-        if (pZone == null)
-        {
-            return true;
-        }
-        City city = pZone.city;
-        if (city != null)
-        {
-            if (city.hasCulture()) 
-            {
-                if (city.culture==pCulture)
-                {
-                    return false;
-                }
-            }
-        }
+      if (pZone == null)
         return true;
+      Kingdom kingdomOnZone = pZone.city?.kingdom;
+      return kingdomOnZone == null || kingdomOnZone != pKingdom;
     }
-
 }

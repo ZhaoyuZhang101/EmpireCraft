@@ -38,7 +38,7 @@ public class UnitWindowPatch: GamePatch
         );
         // UnitWindow类的补丁
         new Harmony(nameof(applyInputName)).Patch(
-            AccessTools.Method(typeof(UnitWindow), nameof(UnitWindow.applyInputName)),
+            AccessTools.Method(typeof(UnitWindow), nameof(UnitWindow.onNameChange)),
             prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(applyInputName))
         );
         LogService.LogInfo("角色窗口补丁加载成功");
@@ -135,7 +135,7 @@ public class UnitWindowPatch: GamePatch
         }
         if (__instance.actor.isOfficer())
         {
-            if(actor.city.kingdom.isInEmpire())
+            if(actor.city.kingdom.IsInEmpire())
             {
                 Empire empire = actor.city.kingdom.GetEmpire();
                 OfficeIdentity identity = __instance.actor.GetIdentity();

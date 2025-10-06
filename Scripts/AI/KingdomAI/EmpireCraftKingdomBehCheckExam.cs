@@ -29,13 +29,13 @@ public class EmpireCraftKingdomBehCheckExam: GameAIKingdomBase
                         ExamSystem.startExam(ExamSystem.ExamType.Province, province);
                     }
 
-                    ExamSystem.startExam(ExamSystem.ExamType.Empire, empire);
+                    ExamSystem.startExam(ExamSystem.ExamType.Empire, empire); 
                     empire.data.last_exam_timestamp = World.world.getCurWorldTime();
                 }
             }
             else
             {
-                if (pKingdom.isInEmpire())
+                if (!pKingdom.IsInEmpire())
                 {
                     foreach (City city in pKingdom.cities)
                     {

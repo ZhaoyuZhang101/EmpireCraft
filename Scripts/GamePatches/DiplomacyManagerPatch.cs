@@ -41,7 +41,7 @@ public class DiplomacyManagerPatch : GamePatch
         }
         foreach (Kingdom item in listPool.LoopRandom())
         {
-            if (item.isInEmpire()) continue;
+            if (item.IsInEmpire()) continue;
             if (!item.isNeighbourWith(pKingdomStarter)) continue;
             if (!item.hasKing() || item.isSupreme() || item.king.hasPlot() ||
                 !pKingdomStarter.isOpinionTowardsKingdomGood(item) ||

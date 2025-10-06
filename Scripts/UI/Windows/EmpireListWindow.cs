@@ -54,11 +54,11 @@ namespace EmpireCraft.Scripts.UI.Windows
                     GameObject inst = GameObject.Instantiate(lek);
                     KingdomListElement kl = inst.GetComponent<KingdomListElement>();
                     kl.kingdomName.text = empire.name;
-                    kl.textAge.text = empire.getAge().ToString();
-                    kl.textPopulation.text = empire.countUnits().ToString();
-                    kl.textArmy.text = empire.countWarriors().ToString();
-                    kl.textCities.text = empire.countCities().ToString();
-                    kl.textZones.text = empire.countZones().ToString();
+                    kl.textAge._text.text = empire.getAge().ToString();
+                    kl.textPopulation._text.text = empire.countUnits().ToString();
+                    kl.textArmy._text.text = empire.countWarriors().ToString();
+                    kl.textCities._text.text = empire.countCities().ToString();
+                    kl.textZones._text.text = empire.countZones().ToString();
                     kl.avatarLoader.load(empire.CoreKingdom.king);
                     kl.meta_object = empire.CoreKingdom;
                     kl.loadBanner();

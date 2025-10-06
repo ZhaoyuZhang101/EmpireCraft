@@ -111,15 +111,14 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public Empire newEmpire(Kingdom pKingdom, bool isSplit = false)
     {
         long id = OverallHelperFunc.IdGenerator.NextId();
-        Empire empire;
-        empire = newObjectFromID(id);
+        var empire = newObjectFromID(id);
         empire.CreateNewEmpire(pKingdom, isSplit);
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
         new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())
         {
             location = pKingdom.location,
-            color_special1 = pKingdom.kingdomColor.getColorText()
+            color_special1 = pKingdom.getColor().getColorText()
         }.add();
         return empire;
     }

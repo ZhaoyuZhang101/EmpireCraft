@@ -540,9 +540,9 @@ public static class ActorExtension
     public static bool isOfficer(this Actor a)
     {
         if (a == null) return false;
-        OfficeIdentity indentity = GetOrCreate(a).officeIdentity;
-        if (indentity == null) return false;
-        if (indentity.officialLevel == -1) return false;
+        OfficeIdentity identity = GetOrCreate(a).officeIdentity;
+        if (identity == null) return false;
+        if (identity.officialLevel == -1) return false;
         return true;
     }
 
@@ -553,12 +553,12 @@ public static class ActorExtension
     }
 
 
-    public static bool canAcquireTitle(this Actor a)
+    public static bool CanAcquireTitle(this Actor a)
     {
         if (a.isKing())
         {
             Kingdom k = a.kingdom;
-            if (k.isInEmpire())
+            if (k.IsInEmpire())
             {
                 if (k.GetEmpire().GetEmpirePeriod()!=EmpirePeriod.逐鹿群雄 && k.GetEmpire().GetEmpirePeriod() != EmpirePeriod.天命丧失) return false;
             }
@@ -725,7 +725,7 @@ public static class ActorExtension
             {
                 foreach (City city2 in city.neighbours_cities)
                 {
-                    if (city2.kingdom.isInEmpire() && city2.kingdom != kingdom && city2.kingdom.isEmpire() && !city2.isCapitalCity())
+                    if (city2.kingdom.IsInEmpire() && city2.kingdom != kingdom && city2.kingdom.isEmpire() && !city2.isCapitalCity())
                     {
                         return true;
                     }
@@ -743,8 +743,7 @@ public static class ActorExtension
         var ownedTitles = a.GetOwnedTitle();
         if (ownedTitles == null) return "";
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
-        kingdom.SetMainTitle(title);
-        return title.data.name;
+        return title?.data?.name??"";
     }
     public static bool HasTitle(this Actor a)
     {
@@ -768,7 +767,7 @@ public static class ActorExtension
         if (a.kingdom.GetEmpire() == null) return false;
         if (a.kingdom.GetEmpire().Emperor.GetOwnedTitle()==null) return false;
         if (a.kingdom.capital.GetTitle()==null) return false;
-        if (a.kingdom.isInEmpire())
+        if (a.kingdom.IsInEmpire())
         {
             if (a.kingdom.capital.hasTitle())
             {
@@ -784,7 +783,7 @@ public static class ActorExtension
         if (!a.isKing()) return false;
         Kingdom kingdom = a.kingdom;
         if (kingdom == null) return false;
-        List<long> controlledTitles = kingdom.getcontrolledTitle().FindAll(t=>!t.owner.IsEmperor()).Select(t=>t.data.id).ToList();
+        List<long> controlledTitles = kingdom.GetcontrolledTitle().FindAll(t=>!t.owner.IsEmperor()).Select(t=>t.data.id).ToList();
         var commonTitles = controlledTitles.Intersect(a.GetOwnedTitle());
         return commonTitles.Count() < controlledTitles.Count();
     }
@@ -812,7 +811,7 @@ public static class ActorExtension
         if (!a.isKing()) return null;
         List<KingdomTitle> takedTitles = new List<KingdomTitle>();
         Kingdom kingdom = a.kingdom;
-        List<KingdomTitle> titles = kingdom.getcontrolledTitle();
+        List<KingdomTitle> titles = kingdom.GetcontrolledTitle();
         foreach(KingdomTitle t in titles)
         {
             if (t.main_kingdom!=null)
@@ -834,7 +833,7 @@ public static class ActorExtension
                     takedTitles.Add(t);
                     if (t.HasOwner()) 
                     {
-                        t.owner.removeTitle(t);
+                        t.owner?.removeTitle(t);
                     }
                     a.AddOwnedTitle(t);
                 }
@@ -856,8 +855,10 @@ public static class ActorExtension
         if (title == null) return;
         if (ed.owned_title==null) ed.owned_title = new List<long> { 0 };
         if (!ed.owned_title.Contains(title.data.id))
+        {
             ed.owned_title.Add(title.data.id);
             title.owner = a;
+        }
     }
 
     public static void removeTitle(this Actor a, KingdomTitle title)
@@ -865,6 +866,7 @@ public static class ActorExtension
         if (title == null) return;
         if (a == null) return;
         if (title.data == null) return;
+        if (a.kingdom == null) return;
         var ed = GetOrCreate(a);
         if (a.GetOwnedTitle().Contains(title.data.id))
         {
@@ -873,7 +875,7 @@ public static class ActorExtension
                 if (a.kingdom.GetKingdomName()==title.data.name)
                 {
                     a.kingdom.data.name = a.kingdom.capital.name;
-                    a.kingdom.empireLeave(true);
+                    a.kingdom.empireLeave();
                 }
                 if (a.kingdom.GetMainTitle() == title)
                 {

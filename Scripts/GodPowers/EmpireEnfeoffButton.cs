@@ -20,7 +20,7 @@ public static class EmpireEnfeoffButton
     private static bool enfeoff_action(WorldTile pTile, string pPower)
     {
         if (!pTile.hasCity()) return false;
-        if (!pTile.zone_city.kingdom.isInEmpire()) return false;
+        if (!pTile.zone_city.kingdom.IsInEmpire()) return false;
         pTile.zone_city.kingdom.GetEmpire().AutoEnfeoff();
         ActionLibrary.showWhisperTip("start_enfeoff");
         return true;

@@ -23,7 +23,7 @@ public static class RemoveEmpireButton
         {
             if (pTile.zone_city.hasKingdom())
             {
-                if(pTile.zone_city.kingdom.isInEmpire())
+                if(pTile.zone_city.kingdom.IsInEmpire())
                 {
                     Empire empire = pTile.zone_city.kingdom.GetEmpire();
                     empire.leave(pTile.zone_city.kingdom);

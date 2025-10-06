@@ -22,7 +22,7 @@ internal static class CreateEmpireButton
         {
             id = "create_empire",
             name = "create_empire",
-            force_map_mode = MetaType.None,
+            force_map_mode = MetaTypeExtension.Empire,
             path_icon = "iconUnity",
             can_drag_map = true
         });
@@ -60,7 +60,7 @@ internal static class CreateEmpireButton
             Config.unity_B = null;
             return false;
         }
-        if (Config.unity_A.isInEmpire() && kingdom.isInEmpire() && Config.unity_A.GetEmpire() == kingdom.GetEmpire())
+        if (Config.unity_A.IsInEmpire() && kingdom.IsInEmpire() && Config.unity_A.GetEmpire() == kingdom.GetEmpire())
         {
             ActionLibrary.showWhisperTip("kingdom_cancelled");
             Config.unity_A = null;
@@ -75,7 +75,7 @@ internal static class CreateEmpireButton
         {
             return false;
         }
-        if (Config.unity_A.isInEmpire())
+        if (Config.unity_A.IsInEmpire())
         {
             if (Config.unity_A.GetEmpire() == Config.unity_B.GetEmpire())
             {
@@ -83,7 +83,7 @@ internal static class CreateEmpireButton
                 Config.unity_B = null;
                 return false;
             }
-            if (Config.unity_B.isInEmpire())
+            if (Config.unity_B.IsInEmpire())
             {
                 Config.unity_A.GetEmpire().leave(Config.unity_A, true);
             }

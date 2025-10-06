@@ -35,6 +35,8 @@ public class BureauSetting
     public List<OfficerPowerType> powers;
     public int merit;
     public int honorary;
+    public bool select_from_local;
+    public LeaderSelectMethod leader_select_method;
     public List<string> require_traits;
 }
 
@@ -42,6 +44,8 @@ public class BureauConfig
 {
     public List<BureauSetting> cores;
     public List<BureauSetting> division;
+    public Dictionary<KingdomType, BureauSetting> kingdoms;
+    public Dictionary<CityType, BureauSetting> cities;
 }
 public class OfficeObject
 {
@@ -50,24 +54,33 @@ public class OfficeObject
     public long actor_id { get; set; }
     public string pre { get; set; } = "";
     public int merit { get; set; }
+    public bool is_cabinet { get; set; } = false;//内阁
     public int honorary { get; set; }
+    [JsonIgnore]
+    public NanoObject meta_object { get; set; } = null;
+
+    public bool select_from_local { get; set; } = false;
+    public LeaderSelectMethod leader_select_method { get; set; }
     public bool is_local { get; set; } = false;
+    public RegimeType regimeType { get; set; }
     public List<string> require_traits { get; set; } = new List<string>();
     public List<string> history_officers = new List<string>();
-    public Regime regime { get; set; }
     public string GetName(NanoObject pNano = null)
     {
         pre = string.IsNullOrEmpty(pre) ? pre : LM.Get(pre);
         switch (pNano?.getType())
         {
-            case nameof(Kingdom):
+            case "kingdom":
                 pre = ((Kingdom)pNano).GetKingdomName();
+                LogService.LogInfo("国家");
                 break;
-            case nameof(City):
+            case "city":
                 pre = ((City)pNano).GetCityName();
+                LogService.LogInfo("城市");
                 break;
         }
-        var post = LM.Get(string.Join("_", regime.type, "officiallevel", officeType));
+        LogService.LogInfo(pNano?.getType());
+        var post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
         return pre + post;
     }
     public void InitialOffice(BureauSetting config, Action action = null)
@@ -78,6 +91,8 @@ public class OfficeObject
         merit = config.merit;
         honorary = config.honorary;
         require_traits = config.require_traits;
+        select_from_local = config.select_from_local;
+        leader_select_method = config.leader_select_method;
         history_officers = new List<string> {};
     }
 
@@ -96,9 +111,24 @@ public class OfficeObject
         {
             actor.setCulture(actor.kingdom.culture);
         }
-        timestamp = World.world.getCurWorldTime();
         actor.ChangeOfficialLevel(officeType);
         actor.CheckSpecificClan();
+        if (!is_local) return;
+        switch (meta_object.meta_type)
+        {
+            case MetaType.City:
+                City city =  (City)meta_object;
+                city.setLeader(actor, true);
+                actor.joinCity(city);
+                actor.goTo(city._city_tile);
+                break;
+            case MetaType.Kingdom:
+                Kingdom kingdom = (Kingdom)meta_object;
+                kingdom.setKing(actor); 
+                kingdom.capital.setLeader(actor, true);
+                actor.goTo(kingdom.capital._city_tile);
+                break;
+        }
     }
     public Actor GetActor()
     {
@@ -123,19 +153,18 @@ public class OfficeObject
         if (actor!=null)
         {
             actor.addTrait("officerLeave");
-            this.history_officers.Add(actor.data.name);
+            history_officers.Add(actor.data.name);
         }
-        this.actor_id = -1L;
+        actor_id = -1L;
     }
 }
 
 public class CenterOffice
 {
-    public List<OfficeObject> Ministers { get; set; } //内阁
     public OfficeObject General { get; set; } //大将军
     public List<OfficeObject> CoreOffices { get; set; } = new List<OfficeObject>();
     public List<OfficeObject> Divisions { get; set; } = new List<OfficeObject>();
-    public CenterOffice(Kingdom pKingdom)
+    public void Init(Kingdom pKingdom)
     {
         Regime pRegime = pKingdom.GetRegime();
         foreach (var core in pRegime.bureau_config.cores)
@@ -143,7 +172,9 @@ public class CenterOffice
 
             var o = new OfficeObject();
             o.InitialOffice(core);
-            o.regime = pRegime;
+            o.regimeType = pKingdom.GetRegime().type;
+            o.meta_object = pKingdom;
+            o.is_local = false;
             CoreOffices.Add(o);
         }
         foreach (var div in pRegime.bureau_config.division)
@@ -151,8 +182,24 @@ public class CenterOffice
 
             var o = new OfficeObject();
             o.InitialOffice(div);
-            o.regime = pRegime;
+            o.regimeType = pKingdom.GetRegime().type;
+            o.meta_object = pKingdom;
+            o.is_local = false;
             Divisions.Add(o);
+        }
+    }
+
+    public void SyncMetaObject(Kingdom pkingdom)
+    {
+        foreach (var office in CoreOffices)
+        {
+            office.meta_object =  pkingdom;
+            office.is_local = false;
+        }
+        foreach (var office in Divisions)
+        {
+            office.meta_object =  pkingdom;
+            office.is_local = false;
         }
     }
 

@@ -142,7 +142,7 @@ public class WarPatch: GamePatch
 
     public static void start_new_war(DiplomacyManager __instance, Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pAsset, bool pLog, ref War __result)
     {
-        if (pDefender.isInEmpire() || pAttacker.isInEmpire())
+        if (pDefender.IsInEmpire() || pAttacker.IsInEmpire())
         {
             if (pAttacker.isEmpire())
             {
@@ -174,7 +174,7 @@ public class WarPatch: GamePatch
                     }
                 }
             }
-            if (pDefender.isInEmpire())
+            if (pDefender.IsInEmpire())
             {
                 foreach (var kingdom in pDefender.GetEmpire().kingdoms_hashset)
                 {

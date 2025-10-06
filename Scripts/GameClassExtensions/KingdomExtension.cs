@@ -35,6 +35,7 @@ public static class KingdomExtension
         public int Level = 2;
         public Regime regime;
         public RegimeType regimeType;
+        public KingdomType kingdomType;
         public SpecificClan kingdomSpecificClan;
         [JsonIgnore]
         public Task<(Actor, string)> CalcTask;
@@ -51,6 +52,15 @@ public static class KingdomExtension
         public OfficeObject office;
     }
 
+    public static void SetKingdomType(this Kingdom k, KingdomType type)
+    {
+        k.GetOrCreate().kingdomType = type;
+    }
+
+    public static KingdomType GetKingdomType(this Kingdom k)
+    {
+        return k.GetOrCreate().kingdomType;
+    }
     public static void SetOffice(this Kingdom k, OfficeObject office)
     {
         k.GetOrCreate().office = office;
@@ -367,7 +377,7 @@ public static class KingdomExtension
     public static bool isInSameEmpire(this Kingdom kingdom, Kingdom pKingdomTaget)
     {
         if (kingdom == null) return false;
-        if (!kingdom.isInEmpire()||!pKingdomTaget.isInEmpire()) return false;
+        if (!kingdom.IsInEmpire()||!pKingdomTaget.IsInEmpire()) return false;
         return kingdom.GetEmpireID() == pKingdomTaget.GetEmpireID();
     }
     public static void SetLoyalty(this Kingdom kingdom, int value)
@@ -424,13 +434,14 @@ public static class KingdomExtension
         List<Empire> empires = new List<Empire>();
         if (kingdom == null) return empires;
         if (ModClass.EMPIRE_MANAGER == null) return empires;
+        if (!ModClass.EMPIRE_MANAGER.Any()) return empires;
         foreach(City city in kingdom.cities)
         {
             foreach(Kingdom k in city.neighbours_kingdoms)
             {
                 if (k != kingdom)
                 {
-                    if (k.isInEmpire())
+                    if (k.IsInEmpire())
                     {
                         Empire empire = k.GetEmpire();
                         if ((double)kingdom.cities.Count()<=((double)empire.AllCities().Count())/5)
@@ -464,8 +475,7 @@ public static class KingdomExtension
     {
         if (kingdom==null) return;
         if (GetOrCreate(kingdom) == null) return;
-        ColorAsset ca = kingdom.getColorLibrary().getNextColor();
-        kingdom.updateColor(ca);
+        kingdom.generateColor();
         GetOrCreate(kingdom).EmpireID = -1L;
     }
     public static int GetLevel(this Kingdom kingdom)
@@ -492,17 +502,17 @@ public static class KingdomExtension
 
     public static bool hasAnycontrolledTitle(this Kingdom kingdom)
     {
-        return kingdom.getcontrolledTitle().Any();
+        return kingdom.GetcontrolledTitle().Any();
     }
 
-    public static List<KingdomTitle> getcontrolledTitle(this Kingdom kingdom)
+    public static List<KingdomTitle> GetcontrolledTitle(this Kingdom kingdom)
     {
         List<KingdomTitle> controlledTitles = new List<KingdomTitle>();
         foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER)
         {
-            var title_cities = title.city_list;
-            int commonCount = title_cities.Intersect(kingdom.cities).Count();
-            if (commonCount >= Math.Ceiling(title_cities.Count * title.data.title_controlled_rate))
+            var titleCities = title.city_list;
+            int commonCount = titleCities.Intersect(kingdom.cities).Count();
+            if (commonCount >= Math.Ceiling(titleCities.Count * title.data.title_controlled_rate))
             {
                 controlledTitles.Add(title);
             }
@@ -560,10 +570,10 @@ public static class KingdomExtension
         GetOrCreate(kingdom).Level = value;
     }    
 
-    public static bool isInEmpire(this Kingdom kingdom)
+    public static bool IsInEmpire(this Kingdom kingdom)
     {
         if (kingdom == null) return false;
         if (GetOrCreate(kingdom) == null) return false;
-        return GetOrCreate(kingdom).EmpireID != -1L;
+        return ModClass.EMPIRE_MANAGER.get(GetOrCreate(kingdom).EmpireID)!=null;
     }
 }

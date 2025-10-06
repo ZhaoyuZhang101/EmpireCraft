@@ -47,31 +47,31 @@ public static class DataManager
         foreach (var entry in saveData.actorsExtraData)
         {
             if (unitById.TryGetValue(entry.id, out Actor actor))
-                actor.SyncData<Actor, ActorExtraData>(entry);
+                actor.SyncData(entry);
         }
         LogService.LogInfo("Sync Actor Data");
         foreach (var entry in saveData.cityExtraData)
         {
             if (cityById.TryGetValue(entry.id, out var city))
-                city.SyncData<City, CityExtraData>(entry);
+                city.SyncData(entry);
         }
         LogService.LogInfo("Sync City Data");
         foreach (var entry in saveData.kingdomExtraData)
         {
             if (kingdomById.TryGetValue(entry.id, out var kingdom))
-                kingdom.SyncData<Kingdom, KingdomExtraData>(entry);
+                kingdom.SyncData(entry);
         }
         LogService.LogInfo("Sync Kingdom Data");
         foreach (var entry in saveData.clanExtraData)
         {
             if (clanById.TryGetValue(entry.id, out var clan))
-                clan.SyncData<Clan, ClanExtraData>(entry);
+                clan.SyncData(entry);
         }
         LogService.LogInfo("Sync Clan Data");
         foreach (var entry in saveData.warExtraData)
         {
             if (warById.TryGetValue(entry.id, out var war))
-                war.SyncData<War, WarExtraData>(entry);
+                war.SyncData(entry);
         }
         LogService.LogInfo("Sync War Data");
         foreach (EmpireData empireData in saveData.empireDatas)

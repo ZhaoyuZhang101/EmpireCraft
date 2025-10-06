@@ -27,7 +27,7 @@ public static class EmpireCraftBehaviourTaskLibrary
             id = "do_mod_city_beh"
         };
         obj2.CityAIs(AssetManager.tasks_city);
-        obj2.addBeh(new CityBehRandomWait(0.1f));
+        obj2.addBeh(new CityBehRandomWait(0.5f));
         AssetManager.tasks_city.add(obj2);
         AssetManager.job_city.t.addTask("do_mod_city_beh");
         
@@ -38,7 +38,7 @@ public static class EmpireCraftBehaviourTaskLibrary
             id = "do_mod_kingdom_beh"
         };
         obj3.KingdomAIs(AssetManager.tasks_kingdom);
-        obj3.addBeh(new KingdomBehRandomWait(0.1f));
+        obj3.addBeh(new KingdomBehRandomWait(0.5f));
         AssetManager.tasks_kingdom.add(obj3);
         AssetManager.job_kingdom.t.addTask("do_mod_kingdom_beh");
     }

@@ -264,7 +264,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     private void ChangeOfficer(OfficeObject o=null, Kingdom province=null)
     {
         ConfigData.CURRENT_SELECTED_OFFICE = o;
-        Config.selected_kingdom = null;
+        SelectedMetas.selected_city = null;
         LogService.LogInfo($"撤换{o}");
         ScrollWindow.showWindow(nameof(ChangeUnitWindow));
     }

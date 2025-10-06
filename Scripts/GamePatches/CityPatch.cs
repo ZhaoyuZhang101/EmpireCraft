@@ -17,6 +17,7 @@ using System.Numerics;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
@@ -46,6 +47,11 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.getPopulationMaximum)),
             prefix: new HarmonyMethod(GetType(), nameof(getPopulationMaximum))
         );
+        
+        new Harmony(nameof(isArmyOverLimit)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.isArmyOverLimit)),
+            prefix: new HarmonyMethod(GetType(), nameof(isArmyOverLimit))
+        );
 
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(City), nameof(City.Dispose)),
@@ -63,7 +69,7 @@ public class CityPatch : GamePatch
         );
 
         new Harmony(nameof(removeObject)).Patch(
-            AccessTools.Method(typeof(CitiesManager), nameof(CitiesManager.removeObject)),
+            AccessTools.Method(typeof(CityManager), nameof(CityManager.removeObject)),
             prefix: new HarmonyMethod(GetType(), nameof(removeObject))
         );
 
@@ -101,6 +107,22 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.removeLeader)),
             prefix: new HarmonyMethod(GetType(), nameof(removeLeader))
         );
+    }
+
+    public static bool isArmyOverLimit(City __instance, ref bool __result)
+    {
+        if (__instance.kingdom.isEmpire())
+        {
+            __result = false;
+            return true;
+        }
+        if (__instance.status.warriors_current > __instance.status.warrior_slots)
+        {
+            __result = true;
+            return false;
+        }
+        __result = false;
+        return false; 
     }
     public static bool getPopulationMaximum(City __instance, ref int __result)
     {
@@ -149,7 +171,7 @@ public class CityPatch : GamePatch
     {
         if (__instance.leader!=null)
         {
-            if (__instance.kingdom.isInEmpire())
+            if (__instance.kingdom.IsInEmpire())
             {
                 Empire empire = __instance.kingdom.GetEmpire();
                 __instance.leader.ChangeOfficialLevel(-1);
@@ -169,7 +191,7 @@ public class CityPatch : GamePatch
     {
         if (pActor != null && __instance.kingdom.king != pActor)
         {
-            if (__instance.kingdom.isInEmpire())
+            if (__instance.kingdom.IsInEmpire())
             {
                 Empire empire = __instance.kingdom.GetEmpire();
                 OfficeIdentity identity = pActor.GetIdentity();
@@ -193,7 +215,7 @@ public class CityPatch : GamePatch
             {
                 __instance.data.total_leaders++;
                 __instance.leader.changeHappiness("become_leader");
-                __instance.data.addRuler(pActor);
+                __instance.addRuler(pActor);
             }
         }
         pActor.CheckSpecificClan();
@@ -222,7 +244,7 @@ public class CityPatch : GamePatch
         }
         Kingdom pKingdom = __instance.kingdom;
         __instance.removeFromCurrentKingdom();
-        if (pNewSetKingdom.isInEmpire()&&pCaptured&&!pKingdom.isEmpire())
+        if (pNewSetKingdom.IsInEmpire()&&pCaptured&&!pKingdom.isEmpire())
         {
             Empire empire = pNewSetKingdom.GetEmpire();
             // 如果新加入的王国是帝国的一部分，并且城市被占领，则将城市加入帝国
@@ -315,13 +337,23 @@ public class CityPatch : GamePatch
             }
         }
     }
-    public static bool removeObject(CitiesManager __instance, City pObject)
+    public static bool removeObject(CityManager __instance, City pObject)
     {
         return true;
     }
 
     public static void setKingdom(City __instance, Kingdom pKingdom)
     {
+        Regime regime = pKingdom.GetRegime();
+        if (regime != null)
+        {
+            CityType cityType = EmpireCraftKingdomBehCheckKingdomType.CalcCityType(pKingdom);
+            BureauSetting citySetting = regime.bureau_config.cities[cityType];
+            OfficeObject officeObject2 = new OfficeObject();
+            officeObject2.InitialOffice(citySetting);
+            officeObject2.regimeType = regime.type;
+            __instance.SetOffice(officeObject2);
+        }
         if (__instance.hasTitle())
         {
             __instance.GetTitle().isBeenControlled();

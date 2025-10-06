@@ -42,57 +42,59 @@ namespace EmpireCraft.Scripts.Data
         {
             "Huaxia", "Japan"
         };
-        // this part bind culture and species togather.
-        public static Dictionary<string, string> speciesCulturePair = new()
+        // this part bind culture and species together.
+
+        public static Dictionary<string, string> speciesCulturePair { get; set; } = new()
         {
             // 法兰克
-            {"human","Frankish"}, // 人类
+            { "human", "Frankish" }, // 人类
 
             // 华夏
-            {"elf", "Huaxia" }, // 精灵
+            { "elf", "Huaxia" }, // 精灵
 
             // 斯拉夫
-            {"dwarf", "Slavonic" }, // 矮人
+            { "dwarf", "Slavonic" }, // 矮人
 
             // 蒙古
-            {"orc", "Youmu" }, // 兽人
+            { "orc", "Youmu" }, // 兽人
 
             // 罗马
-            {"civ_wolf", "Roma" }, // 嚎利尔狼
-            {"civ_cow", "Roma" }, // 哞陶尔牛
-            {"civ_liliar", "Roma" }, // 露莉娅
-            {"civ_crystal_golem", "Roma" }, // 水晶戈仑
+            { "civ_wolf", "Roma" }, // 嚎利尔狼
+            { "civ_cow", "Roma" }, // 哞陶尔牛
+            { "civ_liliar", "Roma" }, // 露莉娅
+            { "civ_crystal_golem", "Roma" }, // 水晶戈仑
 
             // 日本
-            {"civ_lemon_man", "Japan" }, // 柠檬人
-            {"civ_acid_gentleman", "Japan" }, // 史莱姆绅士
-            {"civ_turtle", "Japan" }, // 龟托克
-            {"civ_frog", "Japan" }, // 狡爪狐
+            { "civ_lemon_man", "Japan" }, // 柠檬人
+            { "civ_acid_gentleman", "Japan" }, // 史莱姆绅士
+            { "civ_turtle", "Japan" }, // 龟托克
+            { "civ_frog", "Japan" }, // 狡爪狐
 
             // 阿拉伯
-            {"civ_cat", "Arab" }, // 喵莫夫
-            {"civ_scorpion", "Arab" }, // 斯克普蝎
-            {"civ_goat", "Arab" }, // 赫多山羊
-            {"civ_crab", "Arab" }, // 蟹布林
+            { "civ_cat", "Arab" }, // 喵莫夫
+            { "civ_scorpion", "Arab" }, // 斯克普蝎
+            { "civ_goat", "Arab" }, // 赫多山羊
+            { "civ_crab", "Arab" }, // 蟹布林
 
             // 日耳曼
-            {"civ_rabbit", "Germanic" }, // 霍珀兔
-            {"civ_chicken", "Germanic" }, // 喙爵鸡
-            {"civ_dog", "Germanic" }, // 巴克狗
-            {"civ_piranha", "Germanic" }, // 格纳珀鱼
+            { "civ_rabbit", "Germanic" }, // 霍珀兔
+            { "civ_chicken", "Germanic" }, // 喙爵鸡
+            { "civ_dog", "Germanic" }, // 巴克狗
+            { "civ_piranha", "Germanic" }, // 格纳珀鱼
 
             // 犹太
-            {"civ_sheep", "Kosher" }, // 巴阿金山羊
-            {"civ_hyena", "Kosher" }, // 戮爪鬣狗
-            {"civ_rat", "Kosher" }, // 尼布鼠
-            {"civ_snake", "Kosher" }, // 嘶诺克蛇
+            { "civ_sheep", "Kosher" }, // 巴阿金山羊
+            { "civ_hyena", "Kosher" }, // 戮爪鬣狗
+            { "civ_rat", "Kosher" }, // 尼布鼠
+            { "civ_snake", "Kosher" }, // 嘶诺克蛇
 
             // 维京
-            {"civ_penguin", "Viking" }, // 酷喙企鹅
-            {"civ_bear", "Viking" }, // 格兰特熊
-            {"civ_garlic_man", "Viking" }, // 蒜头人
-            {"civ_candy_man", "Viking" }, // 糖果人
+            { "civ_penguin", "Viking" }, // 酷喙企鹅
+            { "civ_bear", "Viking" }, // 格兰特熊
+            { "civ_garlic_man", "Viking" }, // 蒜头人
+            { "civ_candy_man", "Viking" }, // 糖果人
         };
+
         //Already Prepared Cultures
         public static List<string> currentExistCulture = new List<string>()
         {

@@ -3,6 +3,7 @@
   "LvLing": {
     "description": "中华文化圈传统制度，建立中央集权的官僚体系，如三省六部制，官员通过科举制度选拔",
     "icon_url": "",
+    "era_name": true,
     "options": {
       "toggle_allow_diplomacy": [
         0
@@ -37,6 +38,8 @@
           ],
           "merit": 5,
           "honorary": 4,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": [
             "jingshi"
           ]
@@ -50,6 +53,8 @@
           ],
           "merit": 5,
           "honorary": 4,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": [
             "jingshi"
           ]
@@ -63,6 +68,8 @@
           ],
           "merit": 5,
           "honorary": 4,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": [
             "jingshi"
           ]
@@ -78,6 +85,8 @@
           ],
           "merit": 7,
           "honorary": 6,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
@@ -91,6 +100,8 @@
           ],
           "merit": 7,
           "honorary": 6,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
@@ -104,6 +115,8 @@
           ],
           "merit": 7,
           "honorary": 6,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
@@ -117,6 +130,8 @@
           ],
           "merit": 7,
           "honorary": 6,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
@@ -130,6 +145,8 @@
           ],
           "merit": 7,
           "honorary": 6,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
@@ -143,11 +160,83 @@
           ],
           "merit": 7,
           "honorary": 6,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
         }
-      ]
+      ],
+      "kingdoms": {
+        "LvLing_centre":{
+          "pre": "",
+          "type": 0,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Succession",
+          "require_traits": []
+        },
+        "LvLing_kingdom":{
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Succession",
+          "require_traits": []
+        },
+        "LvLing_jiedushi":{
+          "pre": "",
+          "type": 6,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": ["gongshi", "jingshi"]
+        },
+        "LvLing_province":{
+          "pre": "",
+          "type": 7,
+          "description": "",
+          "powers": [],
+          "merit": 8,
+          "honorary": 7,
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": ["gongshi", "jingshi"]
+        },
+        "LvLing_jimizhou":{
+          "pre": "",
+          "type": 8,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": true,
+          "leader_select_method": "Succession",
+          "require_traits": []
+        }
+      },
+      "cities": {
+        "LvLing_city": {
+          "pre": "",
+          "type": 8,
+          "description": "",
+          "powers": [],
+          "merit": 9,
+          "honorary": 8,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": ["gongshi", "juren"]
+        }
+      }
     }
   }
 }

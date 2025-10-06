@@ -3,6 +3,7 @@
   "Arabic": {
     "description": "阿拉伯世俗政体，各个地区之间彼此独立，却又联合为一大帝国",
     "icon_url": "",
+    "era_name": false,
     "options": {
       "toggle_allow_diplomacy": [1],
       "toggle_allow_army": [1],
@@ -25,6 +26,8 @@
           ],
           "merit": 5,
           "honorary": 4,
+          "select_from_local": false,
+          "heir": false,
           "require_traits": []
         },
         {
@@ -37,6 +40,8 @@
           ],
           "merit": 5,
           "honorary": 4,
+          "select_from_local": false,
+          "heir": false,
           "require_traits": []
         },
         {
@@ -49,10 +54,71 @@
           ],
           "merit": 5,
           "honorary": 4,
+          "select_from_local": false,
+          "heir": false,
           "require_traits": []
         }
       ],
-      "division": []
+      "division": [],
+      "kingdoms": {
+        "Arabic_emirate": {
+          "pre": "",
+          "type": 4,
+          "description": "",
+          "powers": [],
+          "merit": 6,
+          "honorary": 5,
+          "select_from_local": false,
+          "heir": true,
+          "require_traits": []
+        },
+        "Arabic_province": {
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "heir": false,
+          "require_traits": []
+        },
+        "Arabic_sultanate": {
+          "pre": "",
+          "type": 6,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "heir": true,
+          "require_traits": []
+        },
+        "Arabic_caliphate": {
+          "pre": "",
+          "type": 0,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "heir": true,
+          "require_traits": []
+        }
+      },
+      "cities": {
+        "Arabic_city": {
+          "pre": "",
+          "type": 7,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "heir": true,
+          "require_traits": []
+        }
+      }
     }
   }
 }

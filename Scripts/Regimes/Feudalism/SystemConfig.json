@@ -2,7 +2,8 @@
   //中世纪封建
   "Feudalism": {  
     "description": "西方中世纪时的主流制度，各王国子嗣分封建国，也可通过联姻合并国家，各诸侯国之间彼此独立，拥有独立的军事权外交权",   
-    "icon_url": "",   
+    "icon_url": "",
+    "era_name": false,
     "options": {
       "toggle_allow_diplomacy": [1],
       "toggle_allow_army": [1],
@@ -13,7 +14,121 @@
     },
     "bureau_config": {
       "cores": [],
-      "division": []
+      "division": [],
+      "kingdoms": {
+        "Feudalism_grand_duchy": {
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Feudalism_kingdom": {
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Feudalism_duchy": {
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Feudalism_county": {
+          "pre": "",
+          "type": 7,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Feudalism_march": {
+          "pre": "",
+          "type": 6,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Feudalism_papal_state": {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Feudalism_empire": {
+          "pre": "",
+          "type": 0,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        }
+      },
+      "cities": {
+        "Feudalism_city": {
+          "pre": "",
+          "type": 8,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Feudalism_dirC": {
+          "pre": "",
+          "type": 4,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Feudalism_religion_district": {
+          "pre": "",
+          "type": 2,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        }
+      }
     }
   }
 }
