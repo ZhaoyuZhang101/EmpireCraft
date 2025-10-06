@@ -23,7 +23,7 @@ public class AlliancePatch : GamePatch
 
     public static bool can_join(Alliance __instance, Kingdom pKingdom, ref bool __result)
     {
-        if (pKingdom.isInEmpire())
+        if (pKingdom.IsInEmpire())
         {
             __result = false;
             return false; // 阻止原方法执行

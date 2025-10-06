@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NeoModLoader.services;
 using Newtonsoft.Json;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
@@ -24,9 +25,29 @@ public static class CityExtension
         [JsonIgnore]
         public TextInput limitationNumber { get; set; }
         public long personalIdentityId = -1L;
+        public bool is_choosing_heir = false;
         [JsonIgnore]
         public SimpleButton limitToggle { get; set; }
+        public CityType cityType { get; set; }
         public OfficeObject office { get; set; }
+    }
+    public static void SetCityType(this City c, CityType type)
+    {
+        c.GetOrCreate().cityType = type;
+    }
+
+    public static CityType GetCityType(this City c)
+    {
+        return c.GetOrCreate().cityType;
+    }
+    public static void SetOffice(this City c, OfficeObject off)
+    {
+        c.GetOrCreate().office = off;
+    }
+
+    public static OfficeObject GetOffice(this City c)
+    {
+        return c.GetOrCreate().office;
     }
     public static CityExtraData GetOrCreate(this City a, bool isSave=false)
     {
@@ -34,6 +55,20 @@ public static class CityExtension
         return ed;
     }
 
+    public static void StartChoosingHeir(this City c)
+    {
+        c.GetOrCreate().is_choosing_heir = true;
+    }
+
+    public static bool IsChoosingHeir(this City c)
+    {
+        return c.GetOrCreate().is_choosing_heir;
+    }
+
+    public static void EndChoosingHeir(this City c)
+    {
+        c.GetOrCreate().is_choosing_heir = false;
+    }
     public static PersonalClanIdentity GetPersonalIdentity(this City a)
     {
         return SpecificClanManager.getPerson(a.GetOrCreate().personalIdentityId);
@@ -178,6 +213,7 @@ public static class CityExtension
 
     public static void RemoveTitle(this City c)
     {
+        LogService.LogInfo("城市移除法理");
         GetOrCreate(c).title_id = -1L;
     }
 

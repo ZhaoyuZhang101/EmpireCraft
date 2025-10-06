@@ -45,7 +45,7 @@ public class ActorPatch : GamePatch
         new Harmony(nameof(removeData)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.Dispose)),
             postfix: new HarmonyMethod(GetType(), nameof(removeData)));
         new Harmony(nameof(setArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setArmy)),
-            postfix: new HarmonyMethod(GetType(), nameof(setArmy)));
+            prefix: new HarmonyMethod(GetType(), nameof(setArmy)));
         new Harmony(nameof(removeFromArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.removeFromArmy)),
             prefix: new HarmonyMethod(GetType(), nameof(removeFromArmy)));
         new Harmony(nameof(setKingdom)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setKingdom)),
@@ -56,8 +56,8 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(setLover)));
         new Harmony(nameof(setParent)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setParent1)),
             postfix: new HarmonyMethod(GetType(), nameof(setParent)));
-        new Harmony(nameof(setParent)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setParent2)),
-            postfix: new HarmonyMethod(GetType(), nameof(setParent)));
+        new Harmony(nameof(setParent2)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setParent2)),
+            postfix: new HarmonyMethod(GetType(), nameof(setParent2)));
         new Harmony(nameof(setCity)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setCity)),
             postfix: new HarmonyMethod(GetType(), nameof(setCity)));
         new Harmony(nameof(actionLanded)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.actionLanded)),
@@ -77,7 +77,6 @@ public class ActorPatch : GamePatch
         {
             if (__instance.NeedDead())
             {
-                LogService.LogInfo("给予死亡");
                 __instance.addTrait("death_mark");
             } 
         }
@@ -95,7 +94,26 @@ public class ActorPatch : GamePatch
         }
     }
 
-    public static void setParent(Actor __instance, Actor pActor, bool pIncreaseChildren)
+    public static void setParent(Actor __instance,Actor pParentActor, bool pIncreaseChildren)
+    {
+        if (pParentActor.HasSpecificClan())
+        {
+            PersonalClanIdentity parent_identity = pParentActor.GetPersonalIdentity();
+            if (parent_identity.is_main)
+            {
+                if (pParentActor.hasClan())
+                {
+                    __instance.setClan(pParentActor.clan);
+                }
+
+                __instance.GetModName().familyName = pParentActor.GetModName().familyName;
+                __instance.GetModName().SetName(__instance);
+                parent_identity.addChild(__instance, true);
+            }
+        }
+    }
+
+    public static void setParent2(Actor __instance, Actor pActor, bool pIncreaseChildren = true)
     {
         if (pActor.HasSpecificClan())
         {
@@ -136,12 +154,12 @@ public class ActorPatch : GamePatch
     {
         if (__instance.city == null) return;
         if (__instance.city.kingdom == null) return;
-        if (!pKingdomToSet.isInEmpire())
+        if (!pKingdomToSet.IsInEmpire())
         {
             if (__instance.hasArmy())
             {
                 var regime = __instance.kingdom.GetRegime();
-                if (__instance.city.kingdom.isInEmpire())
+                if (__instance.city.kingdom.IsInEmpire())
                 {
                     if (regime.type==RegimeType.LvLing&&__instance.kingdom.GetLevel()==2)
                     {
@@ -164,13 +182,14 @@ public class ActorPatch : GamePatch
             }
         }
     }
-    public static void setArmy(Actor __instance, Army pObject)
+    public static bool setArmy(Actor __instance, Army pObject)
     {
-        if (__instance.city == null) return;
-        if (__instance.city.kingdom == null) return;
-        if(__instance.city.kingdom.isInEmpire())
+        if (__instance.city == null) return false;
+        if (__instance.city.kingdom == null) return false;
+        if(__instance.city.kingdom.IsInEmpire())
         {
-            if (__instance.kingdom.GetRegime().options["toggle_allow_army"][0]==1&&__instance.kingdom.GetRegime().options["toggle_allow_diplomacy"][0]==1&&__instance.kingdom.isInEmpire()&&!__instance.kingdom.isEmpire())
+            Empire empire = __instance.city.kingdom.GetEmpire();
+            if (__instance.kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi)
             {
                 if(!__instance.hasTrait("empireArmedProvinceSoldier")) 
                 {
@@ -184,7 +203,29 @@ public class ActorPatch : GamePatch
                     __instance.addTrait("empireSoldier");
                 }
             }
+            else
+            {
+                Regime regime = __instance.kingdom.GetRegime();
+                if (regime.IsAllowSupportCenterArmy())
+                {
+                    if (__instance.city.status.warriors_current >= __instance.city.status.warrior_slots * 0.5f)
+                    {
+                        var capitalArmy = empire.CoreKingdom.capital.getArmy();
+                        var maxCapitalSlots = empire.getCities().ToList().Select(c => c.status.warrior_slots*0.5f).Sum();
+                        if (empire.CoreKingdom.capital.status.warriors_current < maxCapitalSlots)
+                        {
+                            LogService.LogInfo("转移至中央");
+                            __instance.setKingdom(empire.CoreKingdom);
+                            __instance.setCity(empire.CoreKingdom.capital);
+                            __instance.goTo(empire.CoreKingdom.capital._city_tile);
+                            __instance.setArmy(capitalArmy);
+                            return false;
+                        }
+                    }
+                }
+            }
         }
+        return true;
     }
 
     public static void removeFromArmy(Actor __instance)
@@ -340,13 +381,13 @@ public class ActorPatch : GamePatch
             {
                 string cityName = __instance.city.GetCityName();
                 __instance.family.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
-                OverallHelperFunc.SetFamilyCityPre(__instance.family);
+                __instance.family.SetFamilyCityPre();
             } else
             {
                 if (!__instance.family.HasBeenSetBefored())
                 {
                     __instance.family.data.name = string.Join("\u200A", clanName, familyEnd);
-                    OverallHelperFunc.SetFamilyCityPre(__instance.family, false);
+                    __instance.family.SetFamilyCityPre(false);
                 }
             }
         }
@@ -398,7 +439,7 @@ public class ActorPatch : GamePatch
                 {
                     string cityName = __instance.city.GetCityName();
                     pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
-                    OverallHelperFunc.SetFamilyCityPre(pObject);
+                    pObject.SetFamilyCityPre();
                     __instance.SetFamilyName(pObject.getFamilyName());
                 }
                 else
@@ -406,7 +447,7 @@ public class ActorPatch : GamePatch
                     if (!pObject.HasBeenSetBefored())
                     {
                         pObject.data.name = string.Join("\u200A", clanName, familyEnd);
-                        OverallHelperFunc.SetFamilyCityPre(pObject, false);
+                        pObject.SetFamilyCityPre(false);
                         __instance.SetFamilyName(pObject.getFamilyName());
                     }
                 }
@@ -425,14 +466,14 @@ public class ActorPatch : GamePatch
                 {
                     string cityName = __instance.city.GetCityName();
                     pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
-                    OverallHelperFunc.SetFamilyCityPre(pObject);
+                    pObject.SetFamilyCityPre();
                 }
                 else
                 {
                     if (!pObject.HasBeenSetBefored())
                     {
                         pObject.data.name = string.Join("\u200A", clanName, familyEnd);
-                        OverallHelperFunc.SetFamilyCityPre(pObject, false);
+                        pObject.SetFamilyCityPre(false);
                     }
                 }
                 __instance.SetFamilyName(pObject.getFamilyName());
@@ -449,7 +490,7 @@ public class ActorPatch : GamePatch
                     if (!pObject.HasBeenSetBefored())
                     {
                         pObject.data.name = __instance.culture.getOnomasticData(MetaType.Family).generateName();
-                        OverallHelperFunc.SetFamilyCityPre(pObject, false);
+                        pObject.SetFamilyCityPre(false);
                     }
                 }
             } else
@@ -457,7 +498,7 @@ public class ActorPatch : GamePatch
                 if (!pObject.HasBeenSetBefored())
                 {
                     pObject.data.name = __instance.culture.getOnomasticData(MetaType.Family).generateName();
-                    OverallHelperFunc.SetFamilyCityPre(pObject, false);
+                    pObject.SetFamilyCityPre(false);
                 }
             }
             __instance.SetFamilyName(pObject.getFamilyName());
@@ -476,14 +517,14 @@ public class ActorPatch : GamePatch
                 {
                     string cityName = __instance.city.GetCityName();
                     pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
-                    OverallHelperFunc.SetFamilyCityPre(pObject);
+                    pObject.SetFamilyCityPre();
                 }
                 else
                 {
                     if (!pObject.HasBeenSetBefored())
                     {
                         pObject.data.name = string.Join("\u200A", clanName, familyEnd);
-                        OverallHelperFunc.SetFamilyCityPre(pObject, false);
+                        pObject.SetFamilyCityPre(false);
                     }
                 }
             }

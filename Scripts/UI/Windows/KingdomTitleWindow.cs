@@ -10,6 +10,7 @@ using UnityEngine;
 using NeoModLoader.General.UI.Prefabs;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameLibrary;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
 using EmpireCraft.Scripts.UI.Components;
@@ -65,7 +66,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         public override void OnNormalEnable()
         {
-            title = ConfigData.CURRENT_SELECTED_TITLE;
+            title = EmpireCraftMetaTypeLibrary.selected_kingdomTitle;
             titleNameInput.input.text = title.data.name;
             provinceNameInput.input.text = title.data.province_name;
         }

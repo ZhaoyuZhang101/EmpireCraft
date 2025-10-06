@@ -7,6 +7,7 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using UnityEngine;
@@ -19,7 +20,12 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
-        if (pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir())  return BehResult.Continue;
+        Regime regime = pKingdom.GetRegime();
+        if (regime.GetLeaderSelectMethod()!=LeaderSelectMethod.Succession|| pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir())
+        {
+            return BehResult.Continue;
+        }
+
         if (pKingdom.CalcHeirFinished())
         {
             pKingdom.SetCalcHeirTask(ScheduleCalcHeirAsync(pKingdom));
@@ -158,8 +164,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 if (flag)
                 {
                     Empire empire = k.GetEmpire();
-                    actor = empire.data.centerOffice.Ministers?.ToList().Find(a=>a.GetActor()!=null).GetActor() 
-                            ?? empire.data.centerOffice.General.GetActor()
+                    actor = empire.data.centerOffice.General?.GetActor()
                             ?? empire.data.centerOffice.CoreOffices?.ToList().Find(a=>a?.GetActor()!=null)?.GetActor()
                             ?? empire.data.centerOffice.Divisions?.ToList().Find(a=>a?.GetActor()!=null)?.GetActor()
                             ?? empire.kingdoms_list?.ToList().Find(p=>p.hasKing())?.king

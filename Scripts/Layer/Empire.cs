@@ -9,6 +9,7 @@ using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NCMS;
@@ -35,16 +36,9 @@ public class Empire : MetaObject<EmpireData>
     public Actor Emperor;
     private Vector3 _capitalCenter;
     public City OriginalCapital;
-    public EmpireCraftMapMode MapMode = EmpireCraftMapMode.Empire;
     public　SpecificClan EmpireSpecificClan => SpecificClanManager.Get(data.empire_specific_clan);
     
-    public override MetaType meta_type
-    {
-        get
-        {
-            return MetaType.None;
-        }
-    }
+    public override MetaType meta_type => MetaTypeExtension.Empire;
 
     public bool HasEmperor()
     {
@@ -66,17 +60,27 @@ public class Empire : MetaObject<EmpireData>
         return list;
     }
 
+    public override IEnumerable<City> getCities()
+    {
+        var cities = new List<City>();
+        foreach (var kingdom in kingdoms_list)
+        {
+            cities.AddRange(kingdom.cities);
+        }
+
+        return cities;
+    }
+
     public bool IsNeedToExam()
     {
-        if (data.last_exam_timestamp == -1L) 
+        if (data.last_exam_timestamp <= 0) 
         {
             return true;
-        } else
+        }
+
+        if (Date.getYearsSince(data.last_exam_timestamp)>=4)
         {
-            if (Date.getYearsSince(data.last_exam_timestamp)>=4)
-            {
-                return true;
-            }
+            return true;
         }
         return false;
     }
@@ -100,7 +104,7 @@ public class Empire : MetaObject<EmpireData>
         return false;
     }
 
-    public override long getTotalDeaths()
+    public new long getTotalDeaths()
     {
         long deaths = 0;
         foreach(Kingdom kingdom in kingdoms_hashset)
@@ -349,13 +353,18 @@ public class Empire : MetaObject<EmpireData>
         data.heir_type = EmpireHeirLawType.eldest_child;
         data.last_exam_timestamp = World.world.getCurWorldTime();
         StartEmpireExam();
-        if (ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out string culture)) {
-            LogService.LogInfo(culture);
-            data.has_year_name = ConfigData.yearNameSubspecies.Contains(culture);
+        Regime regime = kingdom.GetRegime();
+        if (regime != null)
+        {
+            
+            data.has_year_name = regime.HasEraName();
+            LogService.LogInfo(regime.type.ToString());
+            LogService.LogInfo(regime.HasEraName().ToString());
         }
         data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
         CoreKingdom = kingdom;
-        data.centerOffice = new CenterOffice(CoreKingdom);
+        data.centerOffice = new CenterOffice();
+        data.centerOffice.Init(CoreKingdom);
         kingdom.SetLevel(0);
         if (CoreKingdom.getKingClan() != null) this.EmpireClan = this.CoreKingdom.getKingClan();
         else 
@@ -498,9 +507,9 @@ public class Empire : MetaObject<EmpireData>
 
     public void SetEmpireName(string name)
     {
-        string culture = ConfigData.speciesCulturePair.TryGetValue(CoreKingdom.getSpecies(), out var a) ? a : "default";
-        this.data.name = name + "\u200A" + LM.Get($"{culture}_" + countryLevel.countrylevel_0.ToString());
-        this.CoreKingdom.data.name = this.data.name;
+        Regime regime = CoreKingdom.GetRegime();
+        data.name = name + "\u200A" + LM.Get(regime.type == RegimeType.LvLing?"LvLing_empire":EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(CoreKingdom).ToString());
+        CoreKingdom.data.name = data.name;
     }
 
     public void CheckDissolve(Kingdom mainKingdom)
@@ -555,7 +564,7 @@ public class Empire : MetaObject<EmpireData>
     public void ReplaceEmpire(Kingdom newKingdom)
     {
         Empire newEmpire = ModClass.EMPIRE_MANAGER.newEmpire(newKingdom);
-        newEmpire.data.history.InsertRange(0, this.data.history);
+        newEmpire.data.history.InsertRange(0, data.history);
         newEmpire.SetEmpireName(newKingdom.GetKingdomName());
         if (newKingdom.capital.HasKingdomName()) 
         {
@@ -779,13 +788,13 @@ public class Empire : MetaObject<EmpireData>
 
     public void addFounder(Kingdom pKingdom)
     {
-        this.data.founder_kingdom_name = pKingdom.data.name;
-        this.data.founder_kingdom_id = pKingdom.getID();
-        EmpireData data = this.data;
+        data.founder_kingdom_name = pKingdom.data.name;
+        data.founder_kingdom_id = pKingdom.getID();
+        EmpireData empireData = data;
         Actor king = pKingdom.king;
-        data.founder_actor_name = ((king != null) ? king.getName() : null);
-        data.founder_actor_id = ((king != null) ? king.getID() : -1L);
-        this.join(pKingdom, true, true);
+        empireData.founder_actor_name = king?.getName();
+        empireData.founder_actor_id = king?.getID() ?? -1L;
+        join(pKingdom, true, true);
     }
 
     public void update()
@@ -913,15 +922,15 @@ public class Empire : MetaObject<EmpireData>
     }
 
     // Token: 0x06001128 RID: 4392 RVA: 0x000C7890 File Offset: 0x000C5A90
-    public bool join(Kingdom pKingdom, bool pRecalc = true, bool pForce = false)
+    public void join(Kingdom pKingdom, bool pRecalc = true, bool pForce = false)
     {
-        if (this.hasKingdom(pKingdom))
+        if (hasKingdom(pKingdom))
         {
-            return false;
+            return;
         }
         if (!pForce && !this.canJoin(pKingdom))
         {
-            return false;
+            return;
         }
         this.kingdoms_hashset.Add(pKingdom);
         pKingdom.empireJoin(this);
@@ -931,7 +940,6 @@ public class Empire : MetaObject<EmpireData>
         }
         this.data.timestamp_member_joined = World.world.getCurWorldTime();
         pKingdom.SetLoyalty(999);
-        return true;
     }
 
     public void leave(Kingdom pKingdom, bool pRecalc = true)
@@ -1358,7 +1366,7 @@ public class Empire : MetaObject<EmpireData>
                 new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_enfeoff_log, this.name)
                 {
                     location = this.CoreKingdom.location,
-                    color_special1 = this.CoreKingdom.kingdomColor.getColorText()
+                    color_special1 = this.CoreKingdom.getColor().getColorText()
                 }.add();
                 this.join(newKingdom, true, false);
                 WorldLog.logNewKingdom(newKingdom);

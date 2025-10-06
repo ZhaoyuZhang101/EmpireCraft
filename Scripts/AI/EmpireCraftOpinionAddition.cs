@@ -86,7 +86,7 @@ public abstract class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if ( pMain.isInEmpire()&&pTarget.isInEmpire())
+                if ( pMain.IsInEmpire()&&pTarget.IsInEmpire())
                 {
                     if (!pMain.isEmpire()&&pTarget.isEmpire())
                     {

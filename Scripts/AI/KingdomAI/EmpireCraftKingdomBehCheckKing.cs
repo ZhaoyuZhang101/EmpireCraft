@@ -26,11 +26,17 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 return BehResult.Continue;
             }
         }
-
-        if (pKingdom.GetRegime().GetLeaderSelectMethod() == LeaderSelectMethod.Succession || pKingdom.GetRegime().GetLeaderSelectMethod()==LeaderSelectMethod.Exam)
+        Regime regime = pKingdom.GetRegime();
+        if (regime.GetLeaderSelectMethod()==LeaderSelectMethod.Succession)
         {
-            ChooseKingFromHeir(pKingdom);
-        }
+            if (pKingdom.HasHeir())
+            {
+                ChooseKingFromHeir(pKingdom);  
+                return BehResult.Continue;
+            }
+        } 
+        OfficeObject office = pKingdom.GetOffice();
+        office.Select(pKingdom);
         return BehResult.Continue;
     }
 

@@ -33,9 +33,9 @@ namespace EmpireCraft.Scripts.HelperFunc
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.minister_try_aqcuire_empire_log, minister.GetTitle(), minister.name, empire.name)
             {
-                color_special1 = minister.getColor()._colorText,
-                color_special2 = minister.getColor()._colorText,
-                color_special3 = empire.getColor()._colorText,
+                color_special1 = minister.getColor()._color_text,
+                color_special2 = minister.getColor()._color_text,
+                color_special3 = empire.getColor()._color_text,
             }.add();
         }
 
@@ -52,8 +52,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 empire.GetEmpireName(),
                 title)
             {
-                color_special1 = minister.kingdom.getColor()._colorText,
-                color_special2 = empire.CoreKingdom.getColor()._colorText
+                color_special1 = minister.kingdom.getColor()._color_text,
+                color_special2 = empire.CoreKingdom.getColor()._color_text
 
             }.add();
         }
@@ -64,9 +64,9 @@ namespace EmpireCraft.Scripts.HelperFunc
                 kingdom.king.data.name,
                 title.data.name)
             {
-                color_special1 = kingdom.getColor()._colorText,
-                color_special2 = kingdom.getColor()._colorText,
-                color_special3 = title.getColor()._colorText
+                color_special1 = kingdom.getColor()._color_text,
+                color_special2 = kingdom.getColor()._color_text,
+                color_special3 = title.getColor()._color_text
 
             }.add();
         }
@@ -78,8 +78,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 relation,
                 pActor.data.name)
             {
-                color_special1 = kingdom.getColor()._colorText,
-                color_special3 = kingdom.getColor()._colorText
+                color_special1 = kingdom.getColor()._color_text,
+                color_special3 = kingdom.getColor()._color_text
 
             }.add();
 
@@ -92,8 +92,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 name
                 )
             {
-                color_special1 = province.getColor()._colorText,
-                color_special2 = province.getColor()._colorText
+                color_special1 = province.getColor()._color_text,
+                color_special2 = province.getColor()._color_text
 
             }.add();
         }
@@ -105,8 +105,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 actor.data.name
                 )
             {
-                color_special1 = empire.CoreKingdom.getColor()._colorText,
-                color_special2 = empire.CoreKingdom.getColor()._colorText
+                color_special1 = empire.CoreKingdom.getColor()._color_text,
+                color_special2 = empire.CoreKingdom.getColor()._color_text
 
             }.add();
         }
@@ -116,8 +116,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 kingdom.king.data.name,
                 title.data.name)
             {
-                color_special1 = kingdom.getColor()._colorText,
-                color_special2 = title.getColor()._colorText
+                color_special1 = kingdom.getColor()._color_text,
+                color_special2 = title.getColor()._color_text
 
             }.add();
         }
@@ -128,9 +128,9 @@ namespace EmpireCraft.Scripts.HelperFunc
                 defender.data.name,
                 title.data.name)
             {
-                color_special1 = attacker.getColor()._colorText,
-                color_special2 = defender.getColor()._colorText,
-                color_special3 = title.getColor()._colorText
+                color_special1 = attacker.getColor()._color_text,
+                color_special2 = defender.getColor()._color_text,
+                color_special3 = title.getColor()._color_text
 
             }.add();
         }
@@ -140,8 +140,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 actor.data.name,empire.data.name
                 )
             {
-                color_special1 = actor.getColor()._colorText,
-                color_special2 = empire.getColor()._colorText
+                color_special1 = actor.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text
 
             }.add();
         }
@@ -152,8 +152,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 empire.data.name
                 )
             {
-                color_special1 = empire.getColor()._colorText,
-                color_special2 = empire.getColor()._colorText
+                color_special1 = empire.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text
 
             }.add();
         }
@@ -164,8 +164,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 empire.data.name
                 )
             {
-                color_special1 = kingdom.getColor()._colorText,
-                color_special2 = empire.getColor()._colorText
+                color_special1 = kingdom.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text
 
             }.add();
         }
@@ -177,8 +177,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 )
             {
                 location = actor.current_position,
-                color_special1 = actor.kingdom.getColor()._colorText,
-                color_special2 = actor.clan.getColor()._colorText
+                color_special1 = actor.kingdom.getColor()._color_text,
+                color_special2 = actor.clan.getColor()._color_text
 
             }.add();
         }
@@ -189,9 +189,9 @@ namespace EmpireCraft.Scripts.HelperFunc
                 title.data.name,
                 kingdom.capital.data.name)
             {
-                color_special1 = kingdom.getColor()._colorText,
-                color_special2 = title.getColor()._colorText,
-                color_special3 = kingdom.getColor()._colorText
+                color_special1 = kingdom.getColor()._color_text,
+                color_special2 = title.getColor()._color_text,
+                color_special3 = kingdom.getColor()._color_text
 
             }.add();
         }
@@ -201,8 +201,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 kingdom.data.name,
                 empire.data.name)
             {
-                color_special1 = kingdom.getColor()._colorText,
-                color_special2 = empire.getColor()._colorText
+                color_special1 = kingdom.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text
 
             }.add();
         }
@@ -213,9 +213,9 @@ namespace EmpireCraft.Scripts.HelperFunc
                 city.GetCityName(),
                 year_name)
             {
-                color_special1 = emperor.kingdom.getColor()._colorText,
-                color_special2 = emperor.kingdom.getColor()._colorText,
-                color_special3 = emperor.kingdom.getColor()._colorText
+                color_special1 = emperor.kingdom.getColor()._color_text,
+                color_special2 = emperor.kingdom.getColor()._color_text,
+                color_special3 = emperor.kingdom.getColor()._color_text
 
             }.add();
         }
@@ -225,8 +225,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 city.data.name,
                 title.data.name)
             {
-                color_special1 = city.getColor()._colorText,
-                color_special2 = title.getColor()._colorText
+                color_special1 = city.getColor()._color_text,
+                color_special2 = title.getColor()._color_text
 
             }.add();
         }
@@ -238,9 +238,9 @@ namespace EmpireCraft.Scripts.HelperFunc
                 kingdom.king.getName(),
                 title.data.name)
                 {
-                    color_special1 = kingdom.getColor()._colorText,
-                    color_special2 = kingdom.getColor()._colorText,
-                    color_special3 = title.getColor()._colorText
+                    color_special1 = kingdom.getColor()._color_text,
+                    color_special2 = kingdom.getColor()._color_text,
+                    color_special3 = title.getColor()._color_text
 
                 }.add();
         }
@@ -254,9 +254,9 @@ namespace EmpireCraft.Scripts.HelperFunc
                 title,
                 kingdom.data.name)
                 {
-                    color_special1 = kingdom.getColor()._colorText,
-                    color_special2 = kingdom.getColor()._colorText,
-                    color_special3 = kingdom.getColor()._colorText
+                    color_special1 = kingdom.getColor()._color_text,
+                    color_special2 = kingdom.getColor()._color_text,
+                    color_special3 = kingdom.getColor()._color_text
 
                 }.add();
             }
@@ -275,8 +275,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 empire.GetEmpireName(),
                 title)
             {
-                color_special1 = minister.kingdom.getColor()._colorText,
-                color_special2 = empire.CoreKingdom.getColor()._colorText
+                color_special1 = minister.kingdom.getColor()._color_text,
+                color_special2 = empire.CoreKingdom.getColor()._color_text
 
             }.add();
         }
@@ -294,8 +294,8 @@ namespace EmpireCraft.Scripts.HelperFunc
                 minister.name,
                 new_empire.GetEmpireName())
             {
-                color_special1 = minister.kingdom.getColor()._colorText,
-                color_special2 = new_empire.CoreKingdom.getColor()._colorText,
+                color_special1 = minister.kingdom.getColor()._color_text,
+                color_special2 = new_empire.CoreKingdom.getColor()._color_text,
             }.add();
         }
         /// <summary>
@@ -308,8 +308,8 @@ namespace EmpireCraft.Scripts.HelperFunc
             new WorldLogMessage(EmpireCraftWorldLogLibrary.restore_historcial_empire,
                 empire.name)
             {
-                color_special1 = clan.getColor()._colorText,
-                color_special2 = empire.CoreKingdom.getColor()._colorText
+                color_special1 = clan.getColor()._color_text,
+                color_special2 = empire.CoreKingdom.getColor()._color_text
             }.add();
         }
         /// <summary>
@@ -322,8 +322,8 @@ namespace EmpireCraft.Scripts.HelperFunc
             new WorldLogMessage(EmpireCraftWorldLogLibrary.emperor_posthumous_name,
                 actor.data.name, name)
             {
-                color_special1 = actor.kingdom.getColor()._colorText,
-                color_special2 = actor.kingdom.getColor()._colorText
+                color_special1 = actor.kingdom.getColor()._color_text,
+                color_special2 = actor.kingdom.getColor()._color_text
             }.add();
         }
     }

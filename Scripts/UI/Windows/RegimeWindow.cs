@@ -55,8 +55,8 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         var kingSpace = this.BeginHoriGroup();
 
         var leftPart = kingSpace.BeginVertGroup();
-        leftPart.AddTextIntoVertLayout(_kingdom.king.name, hideBackground:true, TextAnchor.MiddleCenter);
-        leftPart.AddActorViewIntoVertLayout(_kingdom.king);
+        leftPart.AddTextIntoVertLayout(_kingdom?.king?.name??"", hideBackground:true, TextAnchor.MiddleCenter);
+        leftPart.AddActorViewIntoVertLayout(_kingdom?.king);
         
         var rightPart = kingSpace.BeginVertGroup();
         rightPart.AddTextIntoVertLayout("-");
@@ -184,7 +184,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
 
     public void InitialTextInput()
     {
-        _kingdom = Config.selected_kingdom;
+        _kingdom = SelectedMetas.selected_kingdom;
         var text = _kingdom.name;
         UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset:new Vector2(0, 152), default_text:text, input:_regimeInput);
     }
@@ -192,7 +192,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     public void ChangeKingdomName(string text)
     {
         var namePart = text.Split('\u200A');
-        _regimeInput.input.text = namePart[0] + "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.SyncKingdomType(_kingdom).ToString());
+        _regimeInput.input.text = namePart[0] + "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(_kingdom).ToString());
         LogService.LogInfo("changing clan name");
     }
 }

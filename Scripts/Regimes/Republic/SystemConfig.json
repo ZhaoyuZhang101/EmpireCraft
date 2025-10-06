@@ -3,6 +3,7 @@
   "Republic": {
     "description": "现代制度，各级别官员由考试产生，同时，最高领导者由各个省份领导人票选产生",
     "icon_url": "",
+    "era_name": false,
     "options": {
       "toggle_allow_diplomacy": [0],
       "toggle_allow_army": [0],
@@ -22,6 +23,8 @@
           ],
           "merit": -1,
           "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": []
         },
         {
@@ -36,66 +39,137 @@
           ],
           "merit": -1,
           "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
           "require_traits": []
         }
-      ]
-    },
-    "division": [
-      {
-        "pre": "finance_pre",
-        "type": 3,
-        "description": "",
-        "powers": [
-          "财务"
-        ],
-        "merit": -1,
-        "honorary": -1,
-        "require_traits": []
+      ],
+      "division": [
+        {
+          "pre": "finance_pre",
+          "type": 3,
+          "description": "",
+          "powers": [
+            "财政"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        {
+          "pre": "defence_pre",
+          "type": 3,
+          "description": "",
+          "powers": [
+            "军事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        {
+          "pre": "law_pre",
+          "type": 3,
+          "description": "",
+          "powers": [
+            "司法"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        {
+          "pre": "interior_pre",
+          "type": 3,
+          "description": "",
+          "powers": [
+            "人事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        {
+          "pre": "education_pre",
+          "type": 3,
+          "description": "",
+          "powers": [
+            "教育"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        }
+      ],
+      "kingdoms": {
+        "Republic_republic": {
+          "pre": "",
+          "type": 0,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Republic_province": {
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Republic_state": {
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "Republic_autonomous_prefecture": {
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        }
       },
-      {
-        "pre": "defence_pre",
-        "type": 3,
-        "description": "",
-        "powers": [
-          "军事"
-        ],
-        "merit": -1,
-        "honorary": -1,
-        "require_traits": []
-      },
-      {
-        "pre": "law_pre",
-        "type": 3,
-        "description": "",
-        "powers": [
-          "司法"
-        ],
-        "merit": -1,
-        "honorary": -1,
-        "require_traits": []
-      },
-      {
-        "pre": "interior_pre",
-        "type": 3,
-        "description": "",
-        "powers": [
-          "人事"
-        ],
-        "merit": -1,
-        "honorary": -1,
-        "require_traits": []
-      },
-      {
-        "pre": "education_pre",
-        "type": 3,
-        "description": "",
-        "powers": [
-          "教育"
-        ],
-        "merit": -1,
-        "honorary": -1,
-        "require_traits": []
+      "cities": {
+        "Republic_city": {
+          "pre": "",
+          "type": 6,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        }
       }
-    ]
+    }
   }
 }

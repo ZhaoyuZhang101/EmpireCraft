@@ -42,6 +42,20 @@ public enum KingdomType
 
     default_country_post //国
 }
+public enum CityType
+{
+    LvLing_city, //县
+    
+    ZhouFeudalism_city, //邑
+    
+    Arabic_city, //市
+    
+    Republic_city, //市
+    
+    Feudalism_city, //市
+    Feudalism_dirC, //帝国伯爵领
+    Feudalism_religion_district //教区
+}
 public enum TaxLevel
 {
     None,  //无
@@ -54,7 +68,8 @@ public enum LeaderSelectMethod
 {
     Succession,  //世袭
     Exam,        //考试
-    Vote         //投票   
+    Vote,        //投票   
+    Default
 }
 
 public enum RegimeType
@@ -79,6 +94,7 @@ public class Regime
     public RegimeType  type;
     public string description;
     public string icon_url;
+    public bool era_name;
     [JsonIgnore]
     public long control_kingdom_id;
     public Dictionary<string, int[]> options;
@@ -94,10 +110,15 @@ public class Regime
                 entry => entry.Key,
                 entry => (int[])entry.Value.Clone()
             ),
-            bureau_config = this.bureau_config
+            bureau_config = this.bureau_config,
+            era_name = this.era_name
         };
     }
 
+    public bool HasEraName()
+    {
+        return era_name;
+    }
     public TaxLevel GetTaxLevel()
     {
         return (TaxLevel)options["option_tax_level"][0];
@@ -113,14 +134,29 @@ public class Regime
         return (LeaderSelectMethod)options["option_leader_select_method"][0];
     }
 
+    public void SetLeaderSelectMethod(LeaderSelectMethod value)
+    {
+        options["option_leader_select_method"][0] = (int)value;
+    }
+
     public bool IsAllowDiplomacy()
     {
         return Convert.ToBoolean(options["toggle_allow_diplomacy"][0]);
     }
 
+    public void SetAllowDiplomacy(bool value)
+    {
+        options["toggle_allow_diplomacy"][0] = value?1:0;
+    }
+
     public bool IsAllowArmy()
     {
         return Convert.ToBoolean(options["toggle_allow_army"][0]);
+    }
+
+    public void SetAllowArmy(bool value)
+    {
+        options["toggle_allow_army"][0] = value?1:0;
     }
 
     public bool IsAllowSupportCenterArmy()

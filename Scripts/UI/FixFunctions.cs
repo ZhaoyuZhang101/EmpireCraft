@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using EmpireCraft.Scripts.GameClassExtensions;
 using JetBrains.Annotations;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
@@ -10,90 +11,91 @@ using UnityEngine.UI;
 namespace EmpireCraft.Scripts.UI;
 public static class FixFunctions
 {
-    public static PowerButton CreateToggleButton(string pGodPowerId, Sprite pIcon, [CanBeNull] Transform pParent = null,
-        Vector2 pLocalPosition = default, bool pNoAutoSetToggleAction = false)
+    public static PowerButton CreateLayerButton(MetaType mapType, Sprite pIcon, [CanBeNull] Transform pParent = null,
+        Vector2 pLocalPosition = default, int maxOption=3)
     {
-        GodPower god_power = AssetManager.powers.get(pGodPowerId);
-        if (god_power == null)
+        if (maxOption <= 0)
         {
-            LogService.LogError("Cannot find GodPower with id " + pGodPowerId);
-            return null;
+            LogService.LogError("错误，开关最大选项小于0");
+            maxOption = 1;
         }
-
-        void toggleOption(string pPower)
+        PowerLibrary powerLib = AssetManager.powers;
+        GodPower power = powerLib.add(new GodPower
         {
-            GodPower power = AssetManager.powers.get(pPower);
-            WorldTip.instance.showToolbarText(power);
-
-            if (!PlayerConfig.dict.TryGetValue(power.toggle_name, out var _option))
-            {
-                _option = new PlayerOptionData(power.toggle_name)
-                {
-                    boolVal = false
-                };
-                PlayerConfig.instance.data.add(_option);
-            }
-
-            _option.boolVal = !_option.boolVal;
-            if (_option.boolVal && power.map_modes_switch)
-                AssetManager.powers.disableAllOtherMapModes(pPower);
-            PlayerConfig.saveData();
-        }
-
-        if (god_power.toggle_action == null)
+            id = $"{mapType.ToMetaString()}_layer",
+            name = $"{mapType.ToMetaString()}_layer",
+            unselect_when_window = true,
+        });
+        power.tester_enabled = false;
+        power.map_modes_switch = true;
+        power.toggle_name = $"map_{mapType.ToMetaString()}_layer";
+        power.toggle_action = (PowerToggleAction) Delegate.Combine(power.toggle_action, new PowerToggleAction(powerLib.toggleOptionZone));
+        AssetManager.options_library.add(new OptionAsset()
         {
-            god_power.toggle_action = toggleOption;
-        }
-        else if (!pNoAutoSetToggleAction)
+            id = $"map_{mapType.ToMetaString()}_layer",
+            default_int = 0,
+            max_value = maxOption-1,
+            multi_toggle = maxOption>1,
+            type = OptionType.Bool,
+            locale_options_ids = AssetLibrary<OptionAsset>.a("ui_zone_mode_kingdoms", "ui_zone_mode_cities", "ui_zone_mode_units")
+        });
+        var option = PlayerConfig.instance.data.add(new PlayerOptionData(power.toggle_name)
         {
-            god_power.toggle_action = (PowerToggleAction)Delegate.Combine(god_power.toggle_action,
-                new PowerToggleAction(toggleOption));
-        }
+            boolVal = false,
+            intVal = 0
+        });
+        LogService.LogInfo("Map option added:"+power.toggle_name);
+        powerLib.linkAssets();
+        AssetManager.options_library.linkAssets();
+        var prefab = ResourcesFinder.FindResource<PowerButton>("subspecies_layer");
 
-        if (!PlayerConfig.dict.TryGetValue(god_power.toggle_name, out var option))
-        {
-            AssetManager.options_library.add(new OptionAsset()
-            {
-                id = god_power.toggle_name,
-                default_bool = false,
-                type = OptionType.Bool
-            });
-            option = PlayerConfig.instance.data.add(new PlayerOptionData(god_power.toggle_name)
-            {
-                boolVal = false
-            });
-        }
-
-        var prefab = ResourcesFinder.FindResource<PowerButton>("history_log");
-
-        bool found_active = prefab.gameObject.activeSelf;
-        if (found_active)
+        bool foundActive = prefab.gameObject.activeSelf;
+        if (foundActive)
         {
             prefab.gameObject.SetActive(false);
         }
 
-        PowerButton obj;
-        obj = pParent == null ? UnityEngine.Object.Instantiate(prefab) : UnityEngine.Object.Instantiate(prefab, pParent);
+        var obj = pParent == null ? UnityEngine.Object.Instantiate(prefab) : UnityEngine.Object.Instantiate(prefab, pParent);
 
-        if (found_active)
+        if (foundActive)
         {
             prefab.gameObject.SetActive(true);
         }
-        obj.name = pGodPowerId;
+        obj.name = $"{mapType.ToMetaString()}_layer";
         obj.icon.sprite = pIcon;
         obj.icon.overrideSprite = pIcon;
         obj.open_window_id = null;
         obj.type = PowerButtonType.Special;
-        obj.transform.Find("ToggleIcon").GetComponent<ToggleIcon>().updateIcon(option.boolVal);
-        // More settings for it
-
+        obj.transform.Find("ToggleIcon").GetComponent<ToggleIcon>()?.updateIcon(option.boolVal);
+        for(int i=0; i<maxOption; i++) {
+            obj.transform.Find($"toggle_{(i+1>=maxOption?0:i+1)}").GetComponent<ToggleIcon>()?.updateIconMultiToggle(true, option.intVal==i);
+        }
         var transform = obj.transform;
-
+        power.toggle_action = (PowerToggleAction) Delegate.Combine(power.toggle_action, new PowerToggleAction(p=>ChangeIcon(p, obj)));
         transform.localPosition = pLocalPosition;
         transform.localScale = Vector3.one;
-
+        
         obj.gameObject.SetActive(true);
+        obj.init();
         return obj;
     }
 
+    private static void ChangeIcon(string pPower, PowerButton obj)
+    {
+        OptionAsset option = AssetManager.powers.get(pPower).option_asset;
+        if (option.isActive())
+        {
+            LogService.LogInfo(option.current_int_value.ToString());
+            for (int i = 0; i < option.max_value+1; i++)
+            {
+                obj.transform.Find($"toggle_{(i+1>option.max_value?0:i+1)}").GetComponent<ToggleIcon>()?.updateIconMultiToggle(true, option.current_int_value==i);
+            }
+        }
+        else
+        {
+            obj.transform.Find("toggle_0").GetComponent<ToggleIcon>()?.updateIconMultiToggle(false, false);
+            obj.transform.Find("toggle_1").GetComponent<ToggleIcon>()?.updateIconMultiToggle(false, false);
+            obj.transform.Find("toggle_2").GetComponent<ToggleIcon>()?.updateIconMultiToggle(false, false);
+        }
+    }
 }

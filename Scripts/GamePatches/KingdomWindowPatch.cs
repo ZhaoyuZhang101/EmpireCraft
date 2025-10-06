@@ -1,4 +1,5 @@
 using System.Linq;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.UI.Components;
 using EmpireCraft.Scripts.UI.Windows;
 using HarmonyLib;
@@ -11,6 +12,7 @@ namespace EmpireCraft.Scripts.GamePatches;
 public class KingdomWindowPatch: GamePatch
 {
     public ModDeclare declare { get; set; }
+    public static Kingdom _kingdom  { get; set; }
     public void Initialize()
     {
         new Harmony(nameof(OnEnable)).Patch(
@@ -21,14 +23,17 @@ public class KingdomWindowPatch: GamePatch
 
     public static void OnEnable(KingdomWindow __instance)
     {
+        if (__instance.meta_type != MetaType.Kingdom) return;
+        _kingdom = SelectedMetas.selected_kingdom;
+        LogService.LogInfo(_kingdom.GetOffice().GetName(_kingdom));
         Transform space = __instance.tabs.transform.Find("space (1)");
         if (space != null)
         {
-            GameObject.Destroy(space.gameObject);
+            Object.Destroy(space.gameObject);
         }
         if (__instance.tabs._tabs.All(p => p.name != "regime"))
         {
-            SimpleWindowTab simpleWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            SimpleWindowTab simpleWindowTab = Object.Instantiate(SimpleWindowTab.Prefab);
             simpleWindowTab.Setup("regime", __instance.scroll_window, action:(_) => ShowRegime(), sprite:SpriteTextureLoader.getSprite("ui/regime"));
         }
     }

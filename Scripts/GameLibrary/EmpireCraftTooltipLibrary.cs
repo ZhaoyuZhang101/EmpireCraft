@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.Regimes;
 
 namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftTooltipLibrary
@@ -22,7 +23,7 @@ public static class EmpireCraftTooltipLibrary
         });
         tl.add(new TooltipAsset
         {
-            id = "kingdom_title",
+            id = "kingdomTitle",
             prefab_id = "tooltips/tooltip_city",
             callback = showKingdomTitleToolTip
         });
@@ -43,7 +44,138 @@ public static class EmpireCraftTooltipLibrary
             id = "all_titles",
             callback = showTitleList
         });
+        tl.add(new TooltipAsset
+        {
+            id = "kingdom",
+            prefab_id = "tooltips/tooltip_kingdom",
+            callback = showKingdom
+        });
+        tl.add(new TooltipAsset
+        {
+	        id = "actor_king",
+	        prefab_id = "tooltips/tooltip_actor",
+	        callback = showKing
+        });
+        tl.add(new TooltipAsset
+        {
+	        id = "actor",
+	        prefab_id = "tooltips/tooltip_actor",
+	        callback = showActorNormal
+        });
+        tl.add(new TooltipAsset
+        {
+	        id = "actor_leader",
+	        prefab_id = "tooltips/tooltip_actor",
+	        callback = showLeader
+        });
     }
+    
+    private static void showActorNormal(Tooltip pTooltip, string pType, TooltipData pData)
+    {
+	    AssetManager.tooltips.showActor("", pTooltip, pData);
+    }
+
+    private static void showLeader(Tooltip pTooltip, string pType, TooltipData pData)
+    {
+	    string subTitle = "";
+	    if (pData.actor.hasCity())
+	    {  
+		    City city = pData.actor.city;
+		    OfficeObject office = city.GetOffice();
+		    subTitle = office.GetName(city);
+	    }
+	    AssetManager.tooltips.showActor(string.IsNullOrEmpty(subTitle)?"village_statistics_leader":subTitle, pTooltip, pData);
+    }
+
+    private static void showKing(Tooltip pTooltip, string pType, TooltipData pData)
+    {
+	    string subTitle = "";
+	    if (pData.actor.hasKingdom())
+	    {
+		    Kingdom kingdom = pData.actor.kingdom;
+		    OfficeObject office = kingdom.GetOffice();
+		    subTitle = office.GetName(kingdom);
+	    }
+	    AssetManager.tooltips.showActor(string.IsNullOrEmpty(subTitle)?"village_statistics_king":subTitle, pTooltip, pData);
+    }
+	public static void showKingdom(Tooltip pTooltip, string pType, TooltipData pData)
+	{
+		Kingdom kingdom = pData.kingdom;
+		pTooltip.setSpeciesIcon(kingdom.getSpeciesIcon());
+		string color_text = kingdom.getColor().color_text;
+		KingdomType type = kingdom.GetKingdomType();
+		pTooltip.setTitle(kingdom.name, type.ToString(), kingdom.getColor().color_text);
+		pTooltip.transform.FindRecursive("Stats").gameObject.SetActive(value: true);
+		AssetManager.tooltips.setIconValue(pTooltip, "i_age", kingdom.getAge());
+		AssetManager.tooltips.setIconValue(pTooltip, "i_population", kingdom.getPopulationPeople());
+		AssetManager.tooltips.setIconValue(pTooltip, "i_army", kingdom.countTotalWarriors());
+		pTooltip.setDescription(kingdom.getMotto());
+		string pValue = "-";
+		if (kingdom.hasKing())
+		{
+			pValue = kingdom.king.getName();
+		}
+		pTooltip.addLineText("village_statistics_king", pValue, color_text);
+		if (kingdom.hasKing())
+		{
+			pTooltip.addLineIntText("ruler_money", kingdom.king.money);
+		}
+		pTooltip.addLineBreak();
+		pTooltip.addLineText("villages", kingdom.cities.Count.ToText() + "/" + kingdom.getMaxCities().ToText());
+		pTooltip.addLineIntText("adults", kingdom.countAdults());
+		pTooltip.addLineIntText("children", kingdom.countChildren());
+		pTooltip.addLineIntText("families", kingdom.countFamilies());
+		pTooltip.addLineIntText("happy", kingdom.countHappyUnits());
+		pTooltip.addLineBreak();
+		pTooltip.addLineIntText("food", kingdom.countTotalFood());
+		pTooltip.addLineBreak();
+		string pValue2 = "-";
+		if (kingdom.hasCapital())
+		{
+			pValue2 = kingdom.capital.name;
+		}
+		pTooltip.addLineText("kingdom_statistics_capital", pValue2, color_text);
+		if (kingdom.hasKing() && kingdom.king.hasClan())
+		{
+			pTooltip.addLineText("clan", kingdom.king.clan.data.name, kingdom.king.clan.getColor().color_text);
+		}
+		if (kingdom.hasCulture())
+		{
+			pTooltip.addLineText("culture", kingdom.culture.data.name, kingdom.culture.getColor().color_text);
+		}
+		if (kingdom.hasLanguage())
+		{
+			pTooltip.addLineText("language", kingdom.language.data.name, kingdom.language.getColor().color_text);
+		}
+		if (kingdom.hasReligion())
+		{
+			pTooltip.addLineText("religion", kingdom.religion.data.name, kingdom.religion.getColor().color_text);
+		}
+		Alliance alliance = kingdom.getAlliance();
+		if (alliance != null)
+		{
+			int yearsSince = Date.getYearsSince(kingdom.data.timestamp_alliance);
+			pTooltip.addLineText("alliance", alliance.data.name, alliance.getColor().color_text);
+			pTooltip.addLineIntText("kingdom_time_in_alliance", yearsSince, alliance.getColor().color_text);
+		}
+		pTooltip.addLineBreak();
+		pTooltip.addLineIntText("births", kingdom.getTotalBirths());
+		pTooltip.addLineIntText("deaths", kingdom.getTotalDeaths());
+		pTooltip.addLineIntText("kills", kingdom.getTotalKills());
+		pTooltip.addLineBreak();
+		pTooltip.addLineText("species", kingdom.getActorAsset().getTranslatedName());
+		KingdomBanner[] array = pTooltip.transform.FindAllRecursive<KingdomBanner>();
+		for (int i = 0; i < array.Length; i++)
+		{
+			array[i].load(kingdom);
+		}
+		TooltipKingdomTraitsRow componentInChildren = pTooltip.GetComponentInChildren<TooltipKingdomTraitsRow>(includeInactive: true);
+		if (componentInChildren != null)
+		{
+			componentInChildren.init(pTooltip, pData);
+		}
+		AssetManager.tooltips.showTabBannerTip(pTooltip, pData);
+	}
     public static void showTitleList(Tooltip pTooltip, string pType, TooltipData pData)
     {
         Actor actor = pData.actor;
@@ -64,7 +196,7 @@ public static class EmpireCraftTooltipLibrary
     public static void showEmpireToolTip(Tooltip pTooltip, string pType, TooltipData pData)
     {
         pTooltip.clear();
-        Kingdom tKingdom = pData.kingdom.GetEmpire().CoreKingdom;
+        Kingdom tKingdom = pData.kingdom;
         if (tKingdom == null) return;
         pTooltip.setSpeciesIcon(tKingdom.getSpeciesIcon());
         string color_text = tKingdom.kingdomColor.color_text;

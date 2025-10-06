@@ -20,13 +20,13 @@ public class ClanWindowPatch : GamePatch
 
     public void Initialize()
     {
-        new Harmony(nameof(applyInputName)).Patch(
-            AccessTools.Method(typeof(ClanWindow), nameof(ClanWindow.applyInputName)),
-            postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(applyInputName))
+        new Harmony(nameof(onNameChange)).Patch(
+            AccessTools.Method(typeof(ClanWindow), nameof(ClanWindow.onNameChange)),
+            postfix: new HarmonyMethod(GetType(), nameof(onNameChange))
         );
     }
 
-    public static void applyInputName(ClanWindow __instance, string pInput)
+    public static void onNameChange(ClanWindow __instance, string pInput)
     {
         if (pInput != null && __instance.meta_object != null)
         {

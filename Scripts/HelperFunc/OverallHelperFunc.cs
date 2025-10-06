@@ -15,10 +15,6 @@ namespace EmpireCraft.Scripts.HelperFunc
 {
     public static class OverallHelperFunc
     {
-        public static bool IsEmpireLayerOn()
-        {
-            return PlayerConfig.dict["map_empire_layer"].boolVal;
-        }
 
         public static class IdGenerator
         {

@@ -1,15 +1,17 @@
 key,cz
 
-Arabic_caliphate, 哈里发国
-Arabic_sultanate, 苏丹国
-Arabic_emirate, 酋长国
-Arabic_province, 行省
+Arabic_caliphate,哈里发国
+Arabic_sultanate,苏丹国
+Arabic_emirate,酋长国
+Arabic_province,行省
 
-Arabic_officiallevel_0, 哈里发
-Arabic_officiallevel_1, 宰相
-Arabic_officiallevel_2, 大法官
-Arabic_officiallevel_3, 军事总督
-Arabic_officiallevel_4, 酋长
-Arabic_officiallevel_5, 省长
-Arabic_officiallevel_6, 苏丹
-Arabic_officiallevel_7, 市长
+Arabic_officiallevel_0,哈里发
+Arabic_officiallevel_1,宰相
+Arabic_officiallevel_2,大法官
+Arabic_officiallevel_3,军事总督
+Arabic_officiallevel_4,酋长
+Arabic_officiallevel_5,省长
+Arabic_officiallevel_6,苏丹
+Arabic_officiallevel_7,市长
+
+Arabic_city,市

@@ -171,12 +171,13 @@ public class SpecificClan
             }
         }
     }
-    public void removeActor(PersonalClanIdentity identity) 
+    public void removeActor(PersonalClanIdentity identity)
     {
-        if (_cache.ContainsKey(identity.id))
+        lock (_cacheLock)
         {
             _cache.Remove(identity.id);
         }
+
         if (identity.is_alive)
         {
             identity._actor.RemoveSpecificClan();
@@ -185,14 +186,13 @@ public class SpecificClan
 
     public void checkDispose()
     {
-        if (!SnapshotPeople().ToList().FindAll(i=>i.is_alive).Any())
-        {
-            dispose();
-            LogService.LogInfo(name+"家族 绝嗣, 清空宗族数据...");
-            SpecificClanManager.RemoveClan(id);
-        }
+        // if (!SnapshotPeople().ToList().FindAll(i=>i.is_alive).Any())
+        // {
+        //     dispose();
+        //     SpecificClanManager.RemoveClan(id);
+        // }
     }
-    public void dispose()
+    public void dispose() 
     {
         foreach (var actor in SnapshotPeople().ToList()) 
         {
@@ -205,7 +205,11 @@ public class SpecificClan
                 }
             }
         }
-        _cache.Clear();
+
+        lock (_cacheLock)
+        {
+            _cache.Clear();
+        }
     }
 }
 

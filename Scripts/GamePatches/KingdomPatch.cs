@@ -66,7 +66,7 @@ public class KingdomPatch : GamePatch
         __instance.RemoveExtraData<Kingdom, KingdomExtraData>();
     }
 
-    public static void new_emperor(Kingdom __instance, Actor pActor, bool pNewKing = true)
+    public static void new_emperor(Kingdom __instance, Actor pActor, bool pFromLoad)
     {
         if (!ModClass.IS_CLEAR)
         {
@@ -82,7 +82,7 @@ public class KingdomPatch : GamePatch
 
             if (__instance.HasMainTitle())
             {
-                if (__instance.isInEmpire() && !__instance.isEmpire())
+                if (__instance.IsInEmpire() && !__instance.isEmpire())
                 {
                     if (pActor.clan == __instance.GetEmpire().EmpireClan)
                     {
@@ -92,7 +92,7 @@ public class KingdomPatch : GamePatch
                         pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_2);
                     }
 
-                } else if (!__instance.isInEmpire())
+                } else if (!__instance.IsInEmpire())
                 {
                     pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_1);
                 }
@@ -100,7 +100,7 @@ public class KingdomPatch : GamePatch
             if (__instance.isEmpire())
             {
                 __instance.GetEmpire().NewEmperor(pActor);
-            } else if (__instance.isInEmpire()&&!__instance.isEmpire())
+            } else if (__instance.IsInEmpire()&&!__instance.isEmpire())
             {
                 Empire empire = __instance.GetEmpire();
                 OfficeIdentity identity = pActor.GetIdentity();
@@ -131,7 +131,7 @@ public class KingdomPatch : GamePatch
             {
                 __instance.GetEmpire().EmperorLeft(__instance);
             }
-            if (__instance.isInEmpire() && !__instance.isEmpire())
+            if (__instance.IsInEmpire() && !__instance.isEmpire())
             {
                 if (__instance.king != null)
                 {
@@ -153,15 +153,17 @@ public class KingdomPatch : GamePatch
     {
         __instance.SetLevel(4);
         __instance.SetEmpireID(-1L);
-        if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(__instance.species_id, out Setting setting))
-        {
-            __instance.SetRegimeType(setting.regime);
-        }
-        else
-        {
-            __instance.SetRegimeType(RegimeType.Feudalism);
-        }
+        var culture = ConfigData.speciesCulturePair.TryGetValue(pActor.asset.id, out string speciesCulture)? speciesCulture : "Western";
+        LogService.LogInfo(culture);
+        RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
+            ? setting.regime
+            : RegimeType.Feudalism;
+        __instance.SetRegimeType(regimeType);
+        LogService.LogInfo(regimeType.ToString());
         __instance.LoadRegime();
+        Regime regime = __instance.GetRegime();
+        regime.SetAllowDiplomacy(true);
+        regime.SetAllowArmy(true);
     }
     public static void RemovePatchData(Kingdom __instance)
     {

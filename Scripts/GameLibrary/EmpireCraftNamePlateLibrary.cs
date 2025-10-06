@@ -18,46 +18,62 @@ namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftNamePlateLibrary
 {
     public static string additionNum => ModClass.REAL_NUM_SWITCH ? "k" : "";
-    public static Dictionary<EmpireCraftMapMode, NameplateAsset> map_modes_nameplates = new Dictionary<EmpireCraftMapMode, NameplateAsset>();
     public static void init()
     {
         NameplateAsset asset = new NameplateAsset
         {
             id = "plate_empire",
             path_sprite = "ui/nameplates/nameplate_empire",
+            map_mode = MetaTypeExtension.Empire,
             padding_left = 26,
             padding_right = 26,
             padding_top = -2,
             action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
             {
+                
+                int num = 0;
                 foreach (Empire empire in ModClass.EMPIRE_MANAGER)
                 {
                     if (empire != null)
                     {
                         if (empire.CoreKingdom != null && isWithinCamera(empire.GetEmpireCenter()))
                         {
-                            NameplateText npt = prepareNext(pManager, pAsset, 37, 12, 39, 11);
+                            NameplateText npt = prepareNext(pManager, pAsset, empire, 37, 12, 39, 11);
                             showTextEmpire(npt, empire.CoreKingdom);
                         }
                     }
                 }
                 foreach (Kingdom kingdom in World.world.kingdoms)
                 {
-                    if (kingdom.hasCapital() && !kingdom.isInEmpire() && isWithinCamera(kingdom.capital.city_center))
+                    if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
                     {
-                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library.plate_kingdom);
+                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
                         showTextKingdom(nameplateText, kingdom);
                     }
+                }
 
+                switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
+                {
+                    case 1:
+                        foreach (Kingdom kingdom in World.world.kingdoms)
+                        {
+                            if (kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
+                            {
+                                NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                showTextKingdomNoBack(nameplateText, kingdom);
+                            }
+                        }
+                        break;
                 }
             }
         };
-        map_modes_nameplates.Add(EmpireCraftMapMode.Empire, asset);
+        AssetManager.nameplates_library.add(asset);
 
         NameplateAsset asset2 = new NameplateAsset
         {
-            id = "plate_title",
-            path_sprite = "ui/nameplates/nameplate_city",
+            id = "plate_kingdomTitle",
+            map_mode = MetaTypeExtension.KingdomTitle,
+            path_sprite = "ui/nameplates/nameplate_kingdomTitle",
             padding_left = 26,
             padding_right = 26,
             padding_top = -2,
@@ -65,9 +81,9 @@ public static class EmpireCraftNamePlateLibrary
             {
                 foreach (KingdomTitle kingdomTitle in ModClass.KINGDOM_TITLE_MANAGER)
                 {
-                    if (kingdomTitle != null && isWithinCamera(kingdomTitle.GetCenter()))
+                    if (!kingdomTitle.isRekt()&&!kingdomTitle.title_capital.isRekt() && isWithinCamera(kingdomTitle.title_capital.city_center))
                     {
-                        NameplateText npt = prepareNext(pManager, pAsset, 37, 12, 39, 11);
+                        NameplateText npt = prepareNext(pManager, pAsset, kingdomTitle, 37, 12, 39, 11);
                         showTextTitle(npt, kingdomTitle.title_capital);
                     }
                 }
@@ -75,47 +91,13 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     if (!city.hasTitle() && isWithinCamera(city.city_center))
                     {
-                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library.plate_city);
-                        showTextCity(nameplateText, city);
+                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_city, city);
+                        showTextCity(nameplateText, city, city.city_center);
                     }
                 }
             },
         };
-        map_modes_nameplates.Add(EmpireCraftMapMode.Title, asset2);
-
-        NameplateAsset asset4 = new NameplateAsset
-        {
-            id = "plate_culture",
-            path_sprite = "ui/nameplates/nameplate_culture",
-            padding_left = 11,
-            padding_right = 13,
-            map_mode = MetaType.Culture,
-            action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
-            {
-                ListPool<Culture> c = new ListPool<Culture>();
-                foreach(City city in World.world.cities)
-                {
-                    if (city.hasCulture())
-                    {
-                        if (!c.Contains(city.culture))
-                        {
-                            c.Add(city.culture);
-                        }
-                    }
-                }
-                foreach(Culture culture in c) 
-                {
-                    if (culture.cities.Count>0)
-                    {
-                        NameplateText nameplateText = pManager.prepareNext(pAsset);
-                        nameplateText.showTextCulture(culture, culture.cities[0].city_center);
-                    }
-                }
-            }
-        };
-        AssetManager.nameplates_library.dict.Remove("Culture");
-        AssetManager.nameplates_library.map_modes_nameplates[asset4.map_mode] = asset4;
-        AssetManager.nameplates_library.dict["Culture"] = asset4;
+        AssetManager.nameplates_library.add(asset2);
         
         
         NameplateAsset asset5 = new NameplateAsset
@@ -128,23 +110,41 @@ public static class EmpireCraftNamePlateLibrary
             padding_top = -2,
             action_main = delegate(NameplateManager pManager, NameplateAsset _)
             {
+                int num = 0;
                 using ListPool<City> listPool = new ListPool<City>(World.world.cities.list);
                 listPool.Sort(sortByMembers);
-                int num = 0;
-                foreach (ref City item2 in listPool)
+                if (MetaTypeLibrary.city.getZoneOptionState() == 0)
                 {
-                    City current = item2;
-                    if (num >= 100)
+                    foreach (ref City item in listPool)
+                    {
+                        City current = item;
+                        if (num >= _.max_nameplate_count)
+                        {
+                            break;
+                        }
+                        if (isWithinCamera(current.city_center))
+                        {
+                            NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_city, current);
+                            showTextCity(nameplateText, current, current.city_center);
+                            num++;
+                        }
+                    }
+                    return;
+                }
+                foreach (City city in World.world.cities)
+                {
+                    if (num >= _.max_nameplate_count)
                     {
                         break;
                     }
-                    if (isWithinCamera(current.city_center))
+                    Actor pForceActor = null;
+                    if (city.hasLeader() && !city.leader.isRekt() && city.leader.is_visible)
                     {
-                        NameplateText nameplateText = 
-                            !current.isCapitalCity() ? 
-                            pManager.prepareNext(AssetManager.nameplates_library.plate_city) : 
-                            pManager.prepareNext(AssetManager.nameplates_library.plate_city_capital);
-                        showTextCity(nameplateText, current);
+                        pForceActor = city.leader;
+                    }
+                    if (getPositionForMeta(city, out var pPosition, pForceActor))
+                    {
+                        pManager.prepareNext(_, city).showTextCity(city, pPosition);
                         num++;
                     }
                 }
@@ -169,7 +169,7 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     if (kingdom.hasCapital() && isWithinCamera(kingdom.capital.city_center))
                     {
-                        NameplateText  nameplateText = pManager.prepareNext(pAsset);
+                        NameplateText  nameplateText = pManager.prepareNext(pAsset, kingdom);
                         showTextKingdom(nameplateText, kingdom);
                     }
                 }
@@ -177,7 +177,7 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     foreach (City city in WildKingdomsManager.neutral.cities)
                     {
-                        pManager.prepareNext(AssetManager.nameplates_library.plate_city).showTextCity(city);
+                        pManager.prepareNext(AssetManager.nameplates_library._plate_city, city).showTextCity(city, city.city_center);
                     }
                 }
             }
@@ -227,88 +227,184 @@ public static class EmpireCraftNamePlateLibrary
             npt._banner_clan.load((NanoObject) kingClan);
         }
         npt.nano_object = (NanoObject) pMetaObject;
+    }	
+    public static void showTextKingdomNoBack(NameplateText npt, Kingdom pMetaObject)
+    {
+        npt.setupMeta(pMetaObject.data, pMetaObject.getColor());
+        string pNewText = $"{pMetaObject.name}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
+        npt.setText(pNewText, pMetaObject.capital.city_center);
+        npt._background_image.enabled = false;
+        npt.priority_population = pMetaObject.units.Count;
+        npt.showSpecies(pMetaObject.getSpriteIcon());
+        npt._show_banner_kingdom = false;
+        npt._show_banner_clan = false;
+        npt.nano_object = pMetaObject;
+    }	
+    public static bool getPositionForMeta(IMetaObject pMetaObject, out Vector3 pPosition, Actor pForceActor = null)
+    {
+        if (!pMetaObject.isAlive() || !pMetaObject.hasUnits())
+        {
+            pPosition = Vector3.zero;
+            return false;
+        }
+        var actor = pForceActor ?? pMetaObject.getOldestVisibleUnitForNameplatesCached();
+        if (actor == null)
+        {
+            pPosition = Vector3.zero;
+            return false;
+        }
+        Vector3 vector = actor.current_position;
+        vector.y += actor.getHeight();
+        vector.y += -2f;
+        pPosition = vector;
+        return true;
     }
-    public static void showTextCity(NameplateText npt, City pMetaObject)
+    public static void showTextCity(NameplateText npt, City pMetaObject, Vector2 pPosition)
     {
         npt.setupMeta(pMetaObject.data, pMetaObject.kingdom.getColor());
-        string text = pMetaObject.name + "  " + pMetaObject.getPopulationPeople()+additionNum;
-        if (DebugConfig.isOn(DebugOption.ShowWarriorsCityText))
-        {
-            text = text + " | " + pMetaObject.countWarriors() + $"{additionNum}/" + pMetaObject.getMaxWarriors()+additionNum;
-            if (Config.isEditor)
-            {
-                string text2 = "  :  " + (int)(pMetaObject.getArmyMaxMultiplier() * 100f) + "%";
-                text += text2;
-            }
-        }
-        if (DebugConfig.isOn(DebugOption.ShowCityWeaponsText))
-        {
-            text = text + " | w" + pMetaObject.countWeapons();
-        }
-        if (DebugConfig.isOn(DebugOption.ShowFoodCityText))
-        {
-            text = text + " | F" + pMetaObject.getTotalFood();
-        }
-        npt.setText(text, pMetaObject.city_center);
         if (pMetaObject.isCapitalCity())
         {
-            npt.showSpecial("ui/Icons/iconKingdom");
+            npt.setNameplateSprite("ui/nameplates/nameplate_city_capital");
         }
+        else
+        {
+            npt.setNameplateSprite("ui/nameplates/nameplate_city");
+        }
+        int populationPeople = pMetaObject.getPopulationPeople();
+        string text = npt.getStringForNameplate(pMetaObject.name, populationPeople) + additionNum;
+        if (npt.is_full)
+        {
+            if (DebugConfig.isOn(DebugOption.ShowWarriorsCityText))
+            {
+                text = text + " | " + pMetaObject.countWarriors() + "/" + pMetaObject.getMaxWarriors();
+                if (Config.isEditor)
+                {
+                    string text2 = "  :  " + (int)(pMetaObject.getArmyMaxMultiplier() * 100f) + "%";
+                    text += text2;
+                }
+            }
+            if (DebugConfig.isOn(DebugOption.ShowCityWeaponsText))
+            {
+                text = text + " | w" + pMetaObject.countWeapons();
+            }
+            if (DebugConfig.isOn(DebugOption.ShowFoodCityText))
+            {
+                text = text + " | F" + pMetaObject.getTotalFood();
+            }
+        }
+        npt.setText(text, pPosition);
         if (pMetaObject.getMainSubspecies() != null)
         {
             npt.showSpecies(pMetaObject.getMainSubspecies().getActorAsset().getSpriteIcon());
         }
-        if (pMetaObject.last_ticks != 0)
+        if (pMetaObject.last_visual_capture_ticks != 0)
         {
-            npt._show_conquest = true;
+            npt._show_capture_counter = true;
+            npt._active_check_dirty = true;
             if (pMetaObject.being_captured_by != null && pMetaObject.being_captured_by.isAlive())
             {
-                npt.conquerText.color = pMetaObject.being_captured_by.kingdomColor.getColorText();
+                npt._conquer_text.color = pMetaObject.being_captured_by.getColor().getColorText();
             }
-            npt.conquerText.text = pMetaObject.last_ticks + "%";
+            npt._conquer_text.text = pMetaObject.last_visual_capture_ticks + "%";
         }
-        Clan royalClan = pMetaObject.getRoyalClan();
-        if (royalClan != null)
+        else
         {
-            npt._show_banner_clan = true;
-            npt._banner_clan.load(royalClan);
+            npt._show_capture_counter = false;
+            npt._active_check_dirty = true;
         }
+        if (npt._show_capture_counter)
+        {
+            Vector2 anchoredPosition = ((!npt.is_full) ? new Vector2(3f, -25f) : new Vector2(0f, -1f));
+            npt._container_capture.anchoredPosition = anchoredPosition;
+        }
+        npt._show_banner_city = true;
+        npt._banner_city.load(pMetaObject);
         npt.priority_capital = pMetaObject.isCapitalCity();
-        npt.priority_population = pMetaObject.status.population;
-        npt.nano_object = pMetaObject;
+        npt.setPriority(populationPeople);
     }
+
     public static bool isWithinCamera(Vector2 pVector)
     {
         return World.world.move_camera.isWithinCameraViewNotPowerBar(pVector);
     }
-    public static NameplateText prepareNext(NameplateManager __instance, NameplateAsset pAsset, float left = 0, float bottom = 0, float right = 0, float top = 0)
+    public static NameplateText prepareNext(NameplateManager __instance, NameplateAsset pAsset, NanoObject pMeta, float left = 0, float bottom = 0, float right = 0, float top = 0)
     {
         NameplateText nameplateText;
-        if (__instance.active.Count > __instance._usedIndex)
+        if (__instance._active.Count > __instance._next_index)
         {
-            nameplateText = __instance.active[__instance._usedIndex];
+            nameplateText = __instance._active[__instance._next_index];
         }
         else
         {
-            nameplateText = __instance.pool.Count != 0 ? __instance.pool.Pop() : __instance.createNew();
-            __instance.active.Add(nameplateText);
+            nameplateText = __instance._pool.Count != 0 ? __instance._pool.Pop() : __instance.createNew();
+            __instance._active.Add(nameplateText);
         }
-        nameplateText.reset();
-        nameplateText.setShowing(pVal: true);
         Sprite sprite = SpriteTextureLoader.getSprite(pAsset.path_sprite);
         var text = sprite.texture;
         var rect = sprite.rect;
         var pivot = sprite.pivot;
         float ppu = sprite.pixelsPerUnit;
         var sliced = Sprite.Create(text, rect, pivot, ppu, 0, SpriteMeshType.FullRect, new Vector4(left, bottom, right, top));
-        var img = nameplateText.background_image;
+        var img = nameplateText._background_image;
         img.sprite = sliced;
         img.type = Image.Type.Sliced;
         nameplateText.layout_group.padding.left = pAsset.padding_left;
         nameplateText.layout_group.padding.right = pAsset.padding_right;
         nameplateText.layout_group.padding.top = pAsset.padding_top;
-        __instance._usedIndex++;
+        __instance._next_index++;
+        prepare(nameplateText, pAsset, pMeta, __instance._tween_scale, __instance._nameplate_mode, __instance._nano_object_set, __instance._selected_nano_object);
         return nameplateText;
+    }
+    public static void prepare(NameplateText nameplateText, NameplateAsset pAsset, NanoObject pMeta, float pGlobalScale, NameplateRenderingType pNameplateMode, bool pNanoObjectSet, NanoObject pSelectedNanoObject)
+    {
+        if (pNanoObjectSet)
+        {
+            pNameplateMode = ((pSelectedNanoObject == pMeta) ? NameplateRenderingType.Full : NameplateRenderingType.BannerOnly);
+        }
+        if (pNameplateMode != nameplateText._last_mode)
+        {
+            nameplateText.clearCaches();
+            nameplateText._active_check_dirty = true;
+            nameplateText._last_mode = pNameplateMode;
+            switch (nameplateText._last_mode)
+            {
+                case NameplateRenderingType.Full:
+                    nameplateText._background_image.transform.localScale = new Vector3(1f, 1f, 1f);
+                    nameplateText._background_image.enabled = true;
+                    nameplateText._banner_kingdoms.gameObject.transform.localScale = Vector3.one;
+                    nameplateText._text_name.fontStyle = FontStyle.Normal;
+                    nameplateText._text_name.transform.localScale = Vector3.one;
+                    break;
+                case NameplateRenderingType.BannerOnly:
+                    if (pMeta.meta_type == MetaTypeExtension.KingdomTitle)
+                    {
+                        nameplateText._background_image.transform.localScale = Vector3.one;
+                        nameplateText._background_image.enabled = false;
+                        nameplateText._banner_kingdoms.enabled = false;
+                    }
+                    else
+                    {
+                        nameplateText._text_name.fontStyle = FontStyle.Normal;
+                        nameplateText._text_name.transform.localScale = Vector3.one;
+                        nameplateText._background_image.transform.localScale = new Vector3(pAsset.banner_only_mode_scale, pAsset.banner_only_mode_scale, 1f);
+                        nameplateText._background_image.enabled = false;
+                    }
+                    break;
+            }
+        }
+        nameplateText.updateScale(pMeta, pGlobalScale, pNanoObjectSet, pSelectedNanoObject);
+        nameplateText.resetElements();
+        nameplateText.setShowing(pVal: true);
+        nameplateText.setAssetAndMeta(pAsset, pMeta);
+        if (((IFavoriteable)pMeta).isFavorite())
+        {
+            nameplateText.showFavoriteIcon();
+        }
+        else
+        {
+            nameplateText._show_icon_favorite = false;
+        }
+        nameplateText.checkSetActive(nameplateText._icon_favorite, nameplateText._show_icon_favorite);
     }
     public static int sortByMembers(City pObject1, City pObject2)
     {
@@ -339,8 +435,7 @@ public static class EmpireCraftNamePlateLibrary
                 text = empire.data.name + "\u200A" + empire.GetYearNameWithTime() + "\u200A" + empire.countPopulation();
             }
         }
-
-
+        
         text = text + " | " + pMetaObject.countTotalWarriors() + $"{additionNum}/" + pMetaObject.countWarriorsMax()+additionNum;
         plateText.setText(text, pMetaObject.GetEmpire().GetEmpireCenter());
         plateText.priority_population = pMetaObject.units.Count;
@@ -364,22 +459,32 @@ public static class EmpireCraftNamePlateLibrary
         try
         {
             plateText.setupMeta(capital.data, capital.GetTitle().getColor());
-            string text = capital.GetTitle().data.name + " | " + capital.GetTitle().data.province_name;
-            plateText.setText(text, capital.GetTitle().GetCenter());
+            string text = capital.GetTitle().data.name;
+            plateText.setText(text, capital.city_center);
+            plateText._text_name.fontStyle = FontStyle.Bold;
+            plateText._text_name.transform.localPosition = Vector3.zero;
+            plateText._text_name.transform.localScale = Vector3.one * 1.5f;
+            plateText._text_name.color = Color.white;
             plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
             plateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);
             plateText._banner_kingdoms.winner_image.gameObject.SetActive(value: false);
             plateText._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.part_background.sprite = capital.GetTitle().getElementBackground();
-            plateText._banner_kingdoms.part_icon.sprite = capital.GetTitle().getElementIcon();
-            plateText._banner_kingdoms.part_background.color = capital.GetTitle().kingdomColor.getColorMain2();
-            plateText._banner_kingdoms.part_icon.color = capital.GetTitle().kingdomColor.getColorBanner();
+            plateText._banner_kingdoms.background.sprite = capital.GetTitle()?.getElementBackground();
+            plateText._banner_kingdoms.icon.sprite = capital.GetTitle()?.getElementIcon();
+            var color = capital.GetTitle().kingdomColor.getColorBanner();
+            color = new Color(color.r, color.g, color.b, 0.5f);
+            plateText._banner_kingdoms.background.color = color;
+            plateText._banner_kingdoms.icon.color = color;
+            plateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.zero;
+            plateText._banner_kingdoms.gameObject.transform.localScale = Vector3.one*1.5f;
             plateText._show_banner_kingdom = true;
+            plateText._background_image.enabled = false;
             plateText.nano_object = capital;
+            
         }
         catch (Exception e)
         {
-            LogService.LogInfo(e.Message);
+            LogService.LogInfo(e.ToString());
         }
 
     }

@@ -152,7 +152,7 @@ public static class EmpireCraftQuantumSpriteLibrary
                 Sprite pSprite;
                 pSprite = (king.has_attack_target ? QuantumSpriteLibrary._king_sprite_angry : (king.hasPlot() ? QuantumSpriteLibrary._king_sprite_surprised : (kingdom.hasEnemies() ? QuantumSpriteLibrary._king_sprite_normal : QuantumSpriteLibrary._king_sprite_happy)));
                 
-                if (!pAsset.group_system.is_withing_active_index)
+                if (!pAsset.group_system.is_within_active_index)
                 {
                     num++;
                 }
@@ -177,7 +177,7 @@ public static class EmpireCraftQuantumSpriteLibrary
             return;
         }
         Vector2 mousePos = World.world.getMousePos();
-        Color pColor = unity_A.getColor().getColorMain2();
+        Color pColor = unity_A.getColor().getColorMain();
         QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, unity_A.getTile().posV, mousePos, ref pColor);
     }
 
@@ -196,7 +196,7 @@ public static class EmpireCraftQuantumSpriteLibrary
         Vector2 mousePos = World.world.getMousePos();
         foreach (City city in unity_A.cities)
         {
-            Color pColor = city.getColor().getColorMain2();
+            Color pColor = city.getColor().getColorMain();
             QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, city.getTile().posV, mousePos, ref pColor);
         }
 
@@ -215,7 +215,7 @@ public static class EmpireCraftQuantumSpriteLibrary
             return;
         }
         Vector2 mousePos = World.world.getMousePos();
-        Color pColor = unity_A.getColor().getColorMain2();
+        Color pColor = unity_A.getColor().getColorMain();
         QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, unity_A.getTile().posV, mousePos, ref pColor);
 
     }

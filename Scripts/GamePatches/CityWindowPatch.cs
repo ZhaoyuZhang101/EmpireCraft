@@ -39,7 +39,8 @@ public class CityWindowPatch : GamePatch
 
     public static void AddSettingTab()
     {
-        City city = Config.selected_city;
+        City city = SelectedMetas.selected_city;
+        LogService.LogInfo(city.GetOffice().GetName(city));
         Transform space = _window.tabs.transform.Find("space (1)");
         if (space != null) 
         {
@@ -79,7 +80,7 @@ public class CityWindowPatch : GamePatch
     [Hotfixable]
     public static List<Transform> CreateCitySettingContent()
     {
-        City city = Config.selected_city;
+        City city = SelectedMetas.selected_city;
         List<Transform> city_setting_contents = new List<Transform>();
 
         // 创建标题
@@ -126,7 +127,7 @@ public class CityWindowPatch : GamePatch
     }                                                                                   
     public static void InputCityPopLimit(string pName, TextInput textInput)
     {
-        City city = Config.selected_city;
+        City city = SelectedMetas.selected_city;
         int limitNum = int.TryParse(pName, out int num) ? num : -1;
         if (city == null) return;
         bool is_open = city.GetMaxPopulationLimitStats();
@@ -143,7 +144,7 @@ public class CityWindowPatch : GamePatch
 
     public static void LimitationToggleSwitch(SimpleButton button, TextInput textInput)
     {
-        City city = Config.selected_city;
+        City city = SelectedMetas.selected_city;
         bool limitationStats = city.GetMaxPopulationLimitStats();
         if (limitationStats) 
         {

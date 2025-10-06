@@ -17,25 +17,17 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     public BannerAsset BannerAsset;
     public HashSet<City> city_list_hash = new HashSet<City>();
     public List<City> city_list = new List<City>();
-    public EmpireCraftMapMode map_mode = EmpireCraftMapMode.Title;
     public Vector3 last_center;
     public Vector3 title_center;
     private readonly List<TileZone> _zoneScratch = new();
-    public KingdomAsset asset;
     public City title_capital;
     public Kingdom control_kingdom;
     public Kingdom main_kingdom;
 
     public Actor owner;
     public ColorAsset kingdomColor => getColor();
-    public override MetaType meta_type
-    {
-        get
-        {
-            return MetaType.None;
-        }
-    }
-
+    public override MetaType meta_type => MetaTypeExtension.KingdomTitle;
+    
     public int GetTitleBeenControlledYear()
     {
         if (this.data == null) return 0;
@@ -44,34 +36,27 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     }
     public void newKingdomTitle(City city)
     {
-        this.addCity(city);
-        this.asset = AssetManager.kingdoms.get(city.kingdom.king.asset.kingdom_id_civilization);
-        this.updateColor(getColorLibrary().getNextColor());
         this.title_capital = city;
         this.data.founder_actor_id = city.kingdom.king.getID();
-        this.data.founder_actor_name = city.kingdom.king.getName();
+        this.data.founder_actor_name = city.kingdom.king.name;
         this.data.created_time = World.world.getCurWorldTime();
         this.data.banner_icon_id = city.kingdom.data.banner_icon_id;
         this.data.banner_background_id = city.kingdom.data.banner_background_id;
-        this.data.original_actor_asset = city.kingdom.king.asset.id;
         this.owner = null;
-        string name = city.SelectKingdomName();
+        string kingdomName = city.SelectKingdomName();
         data.province_name = title_capital.GetCityName();
-        if (name != null&& name != "") 
-        {
-            this.data.name = name;
-        } else
-        {
-            this.data.name = city.kingdom.GetKingdomName();
-        }
+        this.data.name = !string.IsNullOrEmpty(kingdomName) ? kingdomName : city.kingdom.GetKingdomName();
+        this.addCity(city);
+        data.original_actor_asset = city.kingdom.king.asset.id;
         recalculate();
+        generateColor();
+        LogService.LogInfo("创建头衔成功");
+        preserveAlive();
     }
 
     public bool HasOwner()
     {
-        if (this.owner == null) return false;
-        if (!this.owner.isAlive()) return false;
-        return true;
+        return !owner.isRekt();
     }
 
     public override ColorAsset getColor()
@@ -88,7 +73,11 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     {
         return AssetManager.kingdom_banners_library.getSpriteIcon(data.banner_icon_id, getActorAsset().banner_id);
     }
-
+    
+    public Sprite getElementBackground()
+    {
+        return AssetManager.kingdom_banners_library.getSpriteBackground(data.banner_background_id, getActorAsset().banner_id);
+    }
     public int countPopulation()
     {
         int res = 0;
@@ -109,15 +98,26 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         return res;
     }
 
-    public Sprite getElementBackground()
-    {
-        return AssetManager.kingdom_banners_library.getSpriteBackground(data.banner_background_id, getActorAsset().banner_id);
-    }
-
 
     public override ActorAsset getActorAsset()
     {
         return getFounderSpecies();
+    }
+
+    public override int countUnits()
+    {
+        var num = 0;
+        foreach (var city in city_list)
+        {
+            num+=city.getUnits().Count();
+        }
+        return num;
+    }
+    public override void generateColor()
+    {
+        ActorAsset actorAsset = getActorAsset();
+        int nextColorIndex = getColorLibrary().getNextColorIndex(actorAsset);
+        data.setColorID(nextColorIndex);
     }
 
     public ActorAsset getFounderSpecies()
@@ -265,20 +265,15 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
 
     public void addCity(City city)
     {
-        if (city != null)
+        if (city == null) return;
+        if (city.hasTitle())
         {
-            if (city.hasTitle())
-            {
-                KingdomTitle oldTitle = city.GetTitle();
-                oldTitle.removeCity(city);
-            }
-            city.SetTitle(this);
-            if (!this.city_list_hash.Contains(city))
-            {
-                this.city_list_hash.Add(city);
-            }
-            recalculate();
+            KingdomTitle oldTitle = city.GetTitle();
+            oldTitle.removeCity(city);
         }
+        city.SetTitle(this);
+        city_list_hash.Add(city);
+        recalculate();
     }
 
     public void removeCity(City city)
@@ -291,6 +286,10 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         {
             ModClass.KINGDOM_TITLE_MANAGER.dissolveTitle(this);
         }
+    }
+    public override bool isReadyForRemoval()
+    {
+        return false;
     }
     // Token: 0x06001124 RID: 4388 RVA: 0x000C7748 File Offset: 0x000C5948
     public bool checkActive()
@@ -321,11 +320,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         }
         if (city_list.Count > 0)
         {
-            if (this.title_capital == null)
-            {
-                this.title_capital = city_list.First();
-            }
-            if (!this.title_capital.isAlive())
+            if (this.title_capital.isRekt())
             {
                 this.title_capital = city_list.First();
             }
@@ -345,16 +340,22 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
 
     public override void Dispose()
     {
+        clearListUnits();
         this.city_list.Clear();
         this.city_list_hash.Clear();
     }
 
-    public void disolve()
+    public void Dissolve()
     {
         foreach (City city in city_list_hash)
         {
             city.RemoveTitle();
         }
+    }
+
+    public override IEnumerable<City> getCities()
+    {
+        return city_list;
     }
 
     public override void loadData(KingdomTitleData pData)
@@ -370,7 +371,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         this.city_list.AddRange(this.city_list_hash);
         this.owner = this.data.owner == -1L? null:World.world.units.get(this.data.owner);
         this.main_kingdom = this.data.main_kingdom == -1L ? null : World.world.kingdoms.get(this.data.main_kingdom);
-        if(pData.province_name==""||pData.province_name==null)
+        if(string.IsNullOrEmpty(pData.province_name))
         {
             pData.province_name = title_capital.GetCityName();
         } 

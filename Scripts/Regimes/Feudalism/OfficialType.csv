@@ -1,19 +1,23 @@
 key,cz
 
-Feudalism_empire, 帝国
-Feudalism_kingdom, 王国
-Feudalism_grand_duchy, 大公国
-Feudalism_duchy, 公国
-Feudalism_county, 伯爵领
-Feudalism_march, 藩侯领
-Feudalism_papal_states, 教宗国
+Feudalism_empire,帝国
+Feudalism_kingdom,王国
+Feudalism_grand_duchy,大公国
+Feudalism_duchy,公国
+Feudalism_county,伯爵领
+Feudalism_march,藩侯领
+Feudalism_papal_state,教宗国
 
-Feudalism_officiallevel_0, 皇帝
-Feudalism_officiallevel_1, 教皇
-Feudalism_officiallevel_2, 主教
-Feudalism_officiallevel_3, 选帝侯
-Feudalism_officiallevel_4, 帝国伯爵
-Feudalism_officiallevel_5, 公爵
-Feudalism_officiallevel_6, 边疆伯爵
-Feudalism_officiallevel_7, 伯爵
-Feudalism_officiallevel_8, 市长
+Feudalism_officiallevel_0,皇帝
+Feudalism_officiallevel_1,教皇
+Feudalism_officiallevel_2,主教
+Feudalism_officiallevel_3,选帝侯
+Feudalism_officiallevel_4,帝国伯爵
+Feudalism_officiallevel_5,公爵
+Feudalism_officiallevel_6,边疆伯爵
+Feudalism_officiallevel_7,伯爵
+Feudalism_officiallevel_8,市长
+
+Feudalism_city,堡
+Feudalism_dirC,帝国伯爵领
+Feudalism_religion_district,教区

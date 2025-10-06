@@ -16,6 +16,7 @@ using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace EmpireCraft.Scripts.UI.Components;
 public static class UIHelper
@@ -267,7 +268,7 @@ public static class UIHelper
     }
     public static void AddTextIntoVertLayout(this AutoVertLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default)
     {
-        SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab, layout.transform);
+        SimpleText timeText = Object.Instantiate(SimpleText.Prefab, layout.transform);
         timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
         if (hideBackground)
         {
@@ -276,7 +277,7 @@ public static class UIHelper
     }
     public static void AddTextIntoHoriLayout(this AutoHoriLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default)
     {
-        SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab, layout.transform);
+        SimpleText timeText = Object.Instantiate(SimpleText.Prefab, layout.transform);
         timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
         if (hideBackground)
         {

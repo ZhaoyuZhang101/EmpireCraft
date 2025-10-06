@@ -30,9 +30,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
     public static bool REAL_NUM_SWITCH = false;
     public static bool KINGDOM_TITLE_FREEZE = false;
-    public static Empire selected_empire = null;
-    public static MetaTypeAsset EMPIRE_METATYPE_ASSET;
-    public static EmpireCraftMapMode CURRENT_MAP_MOD;
     public static int TITLE_BEEN_DESTROY_TIME = 50;
     public static ModDeclare _declare;
     private GameObject _modObject;
@@ -45,45 +42,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     void Start ()
     {
-
         IS_CLEAR = false;
-    }
-
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.C))
-        {
-            EmpireLayerToggle.disableOtherPower("empire_layer");
-            if (PlayerConfig.dict["map_title_layer"].boolVal)
-            {
-                PlayerConfig.dict["map_city_layer"].boolVal = false;
-                PlayerConfig.dict["map_title_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-            } else
-            {
-                PlayerConfig.dict["map_title_layer"].boolVal = true;
-                PlayerConfig.dict["map_city_layer"].boolVal = true;
-                PlayerConfig.dict["map_empire_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Title;
-            }
-        }
-        if (Input.GetKeyDown(KeyCode.V))
-        {
-            EmpireLayerToggle.disableOtherPower("empire_layer");
-            if (PlayerConfig.dict["map_empire_layer"].boolVal)
-            {
-                PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
-                PlayerConfig.dict["map_empire_layer"].boolVal = false;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-            }
-            else
-            {
-                PlayerConfig.dict["map_empire_layer"].boolVal = true;
-                PlayerConfig.dict["map_title_layer"].boolVal = false;
-                PlayerConfig.dict["map_kingdom_layer"].boolVal = true;
-                ModClass.CURRENT_MAP_MOD = EmpireCraftMapMode.Empire;
-            }
-        }
     }
 
     public GameObject GetGameObject()
@@ -135,7 +94,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "HonoraryOfficial.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "MeritLevel.csv"));
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "OfficialType.csv"));
         //加载文化名称模板
         loadCultureNameTemplate();
         LM.ApplyLocale(); // Apply the loaded locales to the game
@@ -157,10 +115,9 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 }
             }
         }
-
+        LoadUI();
         prefab_library = new GameObject("PrefabLibrary").transform;
         prefab_library.SetParent(transform);
-        LoadUI();
         modConfig = new ModConfig(_declare.FolderPath + "/default_config.json", true);
         LogService.LogInfo("加载帝国模组更多世界提示");
         EmpireCraftWorldLogLibrary.init();
@@ -181,11 +138,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER = new KingdomTitleManager());
         World.world.list_all_sim_managers.Add(EMPIRE_MANAGER);
         World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);
-        CURRENT_MAP_MOD = EmpireCraftMapMode.None;
-        PlayerConfig.dict["map_kingdom_layer"].boolVal = false;
-        PlayerConfig.dict["map_title_layer"].boolVal = false;
-        PlayerConfig.dict["map_empire_layer"].boolVal = false;
-        PlayerConfig.dict["switch_real_num"].boolVal = false;
         OnomasticsRule.ReadSetting();
 
         string path = Path.Combine(_declare.FolderPath, "CultureSpeciesPairPlayerConfig.json");
@@ -198,6 +150,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         {
             LogService.LogInfo("用户文化配置不存在，启用默认配置");
         }
+
     }
 
     public void LoadUI()

@@ -20,42 +20,42 @@ public static class EmpireCraftActorTraitLibrary
             id = "jingshi",
             path_icon = "ui/icons/actor_traits/iconJingshi",
             group_id = "EmpireExam",
-            action_on_add = pass_empire_exam
+            action_on_augmentation_add = pass_empire_exam
         });
         lib.add(new ActorTrait
         {
             id = "gongshi",
             path_icon = "ui/icons/actor_traits/iconGongshi",
             group_id = "EmpireExam",
-            action_on_add = pass_province_exam
+            action_on_augmentation_add = pass_province_exam
         });
         lib.add(new ActorTrait
         {
             id = "juren",
             path_icon = "ui/icons/actor_traits/iconJuren",
             group_id = "EmpireExam",
-            action_on_add = pass_city_exam
+            action_on_augmentation_add = pass_city_exam
         });
         lib.add(new ActorTrait
         {
             id = "officer",
             path_icon = "ui/icons/actor_traits/iconEmpireOfficer",
             group_id = "EmpireOffice",
-            action_on_add = become_officer
+            action_on_augmentation_add = become_officer
         });
         lib.add(new ActorTrait
         {
             id = "officerLeave",
             path_icon = "ui/icons/actor_traits/iconOfficerLeave",
             group_id = "EmpireOffice",
-            action_on_add = office_leave
+            action_on_augmentation_add = office_leave
         });
         lib.add(new ActorTrait
         {
             id = "empireSoldier",
             path_icon = "ui/icons/actor_traits/iconEmpireArmy",
             group_id = "EmpireArmy",
-            action_on_add = been_soldier
+            action_on_augmentation_add = been_soldier
         });
         lib.t.base_stats["damage"] = 20f;
         lib.t.base_stats["speed"] = 20f;
@@ -67,7 +67,7 @@ public static class EmpireCraftActorTraitLibrary
             id = "empireArmedProvinceSoldier",
             path_icon = "ui/icons/actor_traits/iconEmpireEliteArmy",
             group_id = "EmpireArmy",
-            action_on_add = been_elite_soldier
+            action_on_augmentation_add = been_elite_soldier
         });
         lib.t.base_stats["damage"] = 40f;
         lib.t.base_stats["speed"] = 40f;
@@ -103,7 +103,7 @@ public static class EmpireCraftActorTraitLibrary
         }
         if(actor.city == null) return false;
         if(actor.city.kingdom == null) return false;
-        if (actor.city.kingdom.isInEmpire())
+        if (actor.city.kingdom.IsInEmpire())
         {
             actor.GetIdentity().ChangeOfficialLevel(-1);
         }
