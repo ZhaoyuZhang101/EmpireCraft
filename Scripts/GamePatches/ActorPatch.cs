@@ -188,7 +188,6 @@ public class ActorPatch : GamePatch
         if (__instance.city.kingdom == null) return false;
         if(__instance.city.kingdom.IsInEmpire())
         {
-            Empire empire = __instance.city.kingdom.GetEmpire();
             if (__instance.kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi)
             {
                 if(!__instance.hasTrait("empireArmedProvinceSoldier")) 
@@ -196,32 +195,11 @@ public class ActorPatch : GamePatch
                     __instance.addTrait("empireArmedProvinceSoldier");
                 }
             }
-            if (__instance.kingdom.isEmpire())
+            if (__instance.kingdom.IsEmpire())
             {
                 if (!__instance.hasTrait("empireSoldier"))
                 {
                     __instance.addTrait("empireSoldier");
-                }
-            }
-            else
-            {
-                Regime regime = __instance.kingdom.GetRegime();
-                if (regime.IsAllowSupportCenterArmy())
-                {
-                    if (__instance.city.status.warriors_current >= __instance.city.status.warrior_slots * 0.5f)
-                    {
-                        var capitalArmy = empire.CoreKingdom.capital.getArmy();
-                        var maxCapitalSlots = empire.getCities().ToList().Select(c => c.status.warrior_slots*0.5f).Sum();
-                        if (empire.CoreKingdom.capital.status.warriors_current < maxCapitalSlots)
-                        {
-                            LogService.LogInfo("转移至中央");
-                            __instance.setKingdom(empire.CoreKingdom);
-                            __instance.setCity(empire.CoreKingdom.capital);
-                            __instance.goTo(empire.CoreKingdom.capital._city_tile);
-                            __instance.setArmy(capitalArmy);
-                            return false;
-                        }
-                    }
                 }
             }
         }

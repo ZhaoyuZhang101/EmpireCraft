@@ -41,11 +41,11 @@ namespace EmpireCraft.Scripts.AI
                     if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.isKing()) return false;
-                    if (kingdom.isEmpire()) return false;
+                    if (kingdom.IsEmpire()) return false;
                     if (kingdom.IsInEmpire()) return false;
                     if (!kingdom.HasMainTitle()) return false; //if a kingdom has main title then it could become an empire
                     ModClass.EMPIRE_MANAGER.update(-1L);
-                    if (!kingdom.canBecomeEmpire()) return false;
+                    if (!kingdom.CanBecomeEmpire()) return false;
                     return true;
                 },
                 action = BecomeEmpireAndStartEnfeoff
@@ -64,7 +64,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.IsEmperor()) return false;
                     if (!pActor.isKing()) return false;
-                    if (!kingdom.isEmpire()) return false;
+                    if (!kingdom.IsEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     if (empire == null) return false;
                     if (empire.OriginalCapital == null) return false;
@@ -166,7 +166,7 @@ namespace EmpireCraft.Scripts.AI
                         {
                             foreach(City city2 in city.neighbours_cities)
                             {
-                                if(city2.kingdom.IsInEmpire()&&city2.kingdom!=kingdom&&city2.kingdom.isEmpire()&&!city2.isCapitalCity())
+                                if(city2.kingdom.IsInEmpire()&&city2.kingdom!=kingdom&&city2.kingdom.IsEmpire()&&!city2.isCapitalCity())
                                 {
                                     city2.joinAnotherKingdom(kingdom);
                                     pActor.editRenown(-(empire.CoreKingdom.getRenown() / 10));
@@ -193,7 +193,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     if (!kingdom.IsInEmpire()) return false;
                     if (!pActor.HasSpecificClan()) return false;
-                    if (!kingdom.isEmpire()) return false;
+                    if (!kingdom.IsEmpire()) return false;
                     if (kingdom.hasEnemies()) return false;
                     if (!kingdom.GetEmpire().IsRoyalBeenChanged()) return false;
                     if (Date.getYearsSince(kingdom.GetEmpire().data.original_royal_been_changed_timestamp)<=5) return false;
@@ -243,7 +243,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.isKing()) return false;
-                    if (!kingdom.isEmpire()) return false;
+                    if (!kingdom.IsEmpire()) return false;
                     if (!kingdom.IsInEmpire()) return false;
                     if (!kingdom.GetEmpire().IsAllowToMakeYearName()) return false;
                     if (kingdom.GetEmpire().HasYearName()) return false;
@@ -270,7 +270,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.isKing()) return false;
-                    if (!kingdom.isEmpire()) return false;
+                    if (!kingdom.IsEmpire()) return false;
                     if (!kingdom.IsInEmpire()) return false;
                     if (!kingdom.GetEmpire().IsNeedToSetPosthumous()) return false;
                     return true;
@@ -281,7 +281,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.hasKingdom()) return false;
                     Kingdom kingdom = pActor.kingdom;
                     if (!kingdom.isAlive()) return false;
-                    if (!kingdom.isEmpire()) return false;
+                    if (!kingdom.IsEmpire()) return false;
                     if (!kingdom.IsInEmpire()) return false;
                     if (kingdom.GetEmpire().Emperor == null) return false;
                     return true;
@@ -508,22 +508,22 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom == null) return false;
                     if (!pActor.isKing()) return false;
                     if (kingdom.HasTitle()) return false;
-                    if (kingdom.isEmpire()) return false;
+                    if (kingdom.IsEmpire()) return false;
                     if (kingdom.IsInEmpire()) return false;
-                    if (!kingdom.GetEmpiresCanbeJoined().Any()) return false;
+                    if (!kingdom.GetEmpiresCanBeJoined().Any()) return false;
                     return true;
                 },
                 check_should_continue = delegate (Actor pActor)
                 {
                     if (pActor == null) return false;
                     Kingdom kingdom = pActor.kingdom;
-                    if (!kingdom.GetEmpiresCanbeJoined().Any()) return false;
+                    if (!kingdom.GetEmpiresCanBeJoined().Any()) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
                 {
                     Kingdom kingdom = pActor.kingdom;
-                    kingdom.GetEmpiresCanbeJoined().First().join(kingdom);
+                    kingdom.GetEmpiresCanBeJoined().First().join(kingdom);
                     kingdom.getWars().ForEach(war => war.endForSides(WarWinner.Nobody));
                     TranslateHelper.LogKingdomJoinEmpire(kingdom, kingdom.GetEmpire());
                     return true;
@@ -582,7 +582,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (!DiplomacyHelpers.isWarNeeded(kingdom)) return false;
                     if (!pActor.isKing()) return false;
-                    if (kingdom.isEmpire()) return false;
+                    if (kingdom.IsEmpire()) return false;
                     if (!kingdom.IsInEmpire()) return false;
                     if (!pActor.HasTitle() || (!pActor.HasSpecificClan() || pActor.GetSpecificClan().id != kingdom.GetEmpire().EmpireSpecificClan.id)) return false;
                     LogService.LogInfo("权臣索取帝国错误");
@@ -593,7 +593,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!kingdom.isAlive()) return false;
-                    if (kingdom.isEmpire()) return false;
+                    if (kingdom.IsEmpire()) return false;
                     if (!kingdom.IsInEmpire()) return false;
                     if (kingdom.GetEmpire().Emperor == null) return false;
                     return true;
@@ -725,7 +725,7 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
-                    if (warTarget.isInSameEmpire(pActor.kingdom))
+                    if (warTarget.IsInSameEmpire(pActor.kingdom))
                     {
                         Empire empire = warTarget.GetEmpire();
                         if (!empire.IsAllowToMakeWar()&&warTarget==empire.CoreKingdom)
@@ -733,7 +733,7 @@ namespace EmpireCraft.Scripts.AI
                             return false;
                         }
                     }
-                    if (!kingdom.isNeighbourWith(warTarget))
+                    if (!kingdom.IsNeighbourWith(warTarget))
                     {
                         return false;
                     }
@@ -967,8 +967,8 @@ namespace EmpireCraft.Scripts.AI
                 if (tKingdom == null) continue;
                 if (!tKingdom.isAlive()) continue;
                 num = tKingdom.countTotalWarriors();
-                bool flag = pInitiatorKingdom.IsInEmpire() ? pInitiatorKingdom.GetEmpire().IsNeighbourWith(tKingdom) : pInitiatorKingdom.isNeighbourWith(tKingdom);
-                if (!tKingdom.isInSameEmpire(pInitiatorKingdom)&&!pInitiatorKingdom.isOpinionTowardsKingdomGood(tKingdom)&&num2>num&&flag)
+                bool flag = pInitiatorKingdom.IsInEmpire() ? pInitiatorKingdom.GetEmpire().IsNeighbourWith(tKingdom) : pInitiatorKingdom.IsNeighbourWith(tKingdom);
+                if (!tKingdom.IsInSameEmpire(pInitiatorKingdom)&&!pInitiatorKingdom.isOpinionTowardsKingdomGood(tKingdom)&&num2>num&&flag)
                 {
                     result = tKingdom;
                     break;

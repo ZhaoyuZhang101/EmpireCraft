@@ -29,8 +29,33 @@ public class CityWindowPatch : GamePatch
             AccessTools.Method(typeof(CityWindow), nameof(CityWindow.startShowingWindow)),
             postfix: new HarmonyMethod(GetType(), nameof(startShowingWindow))
         );
+        new Harmony(nameof(showStatsRows)).Patch(
+            AccessTools.Method(typeof(CityWindow), nameof(CityWindow.showStatsRows)),
+            prefix: new HarmonyMethod(GetType(), nameof(showStatsRows))
+        );
     }
-
+    public static bool showStatsRows(CityWindow __instance)
+    {
+        City metaObject = __instance.meta_object;
+        if (metaObject == null)
+            return false;
+        if (metaObject.kingdom.isNeutral())
+            __instance.village_title.setKeyAndUpdate("village_dying");
+        else
+            __instance.village_title.setKeyAndUpdate("village");
+        __instance.tryShowPastNames();
+        __instance.showStatRow("founded", (object) metaObject.getFoundedDate(), MetaType.None, -1L, "iconAge", (string) null, (TooltipDataGetter) null);
+        __instance.tryToShowActor("founder", metaObject.data.founder_id, metaObject.data.founder_name, pIconPath: "actor_traits/iconStupid");
+        __instance.tryShowPastRulers();
+        __instance.tryToShowActor("village_statistics_leader", pObject: metaObject.leader, pIconPath: "iconLeaders");
+        if (metaObject.hasLeader())
+            __instance.showStatRow("ruler_money", (object) metaObject.GetMoney(), "#43FF43", pIconPath: "iconMoney");
+        __instance.showStatRow("tax", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_local_low");
+        __instance.showStatRow("tribute", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
+        __instance.tryToShowActor("king", pObject: metaObject.kingdom.king, pIconPath: "iconKings");
+        __instance.tryToShowMetaSpecies("founder_species", metaObject.getFounderSpecies()?.id);
+        return false;
+    }
     public static void startShowingWindow(CityWindow __instance)
     {
         _window = __instance;

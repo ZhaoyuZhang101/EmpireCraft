@@ -42,7 +42,7 @@ public class DiplomacyManagerPatch : GamePatch
         foreach (Kingdom item in listPool.LoopRandom())
         {
             if (item.IsInEmpire()) continue;
-            if (!item.isNeighbourWith(pKingdomStarter)) continue;
+            if (!item.IsNeighbourWith(pKingdomStarter)) continue;
             if (!item.hasKing() || item.isSupreme() || item.king.hasPlot() ||
                 !pKingdomStarter.isOpinionTowardsKingdomGood(item) ||
                 item.getRenown() < PlotsLibrary.alliance_create.min_renown_kingdom) continue;
@@ -70,7 +70,7 @@ public class DiplomacyManagerPatch : GamePatch
         if (pInitiatorKingdom.hasAlliance())
         {
             tCurrentArmy = pInitiatorKingdom.getAlliance().countWarriors();
-        } else if (pInitiatorKingdom.isEmpire())
+        } else if (pInitiatorKingdom.IsEmpire())
         {
             tCurrentArmy = pInitiatorKingdom.GetEmpire().countWarriors();
         }
@@ -86,7 +86,7 @@ public class DiplomacyManagerPatch : GamePatch
                     if (tTargetKingdom.hasAlliance())
                     {
                         tTargetArmy = tTargetKingdom.getAlliance().countWarriors();
-                    } else if (tTargetKingdom.isEmpire())
+                    } else if (tTargetKingdom.IsEmpire())
                     {
                         tTargetArmy = tTargetKingdom.GetEmpire().countWarriors();
                     }

@@ -30,7 +30,7 @@ public class AlliancePatch : GamePatch
         }
         foreach (Kingdom targetKingdom in __instance.kingdoms_hashset)
         {
-            if (targetKingdom.isNeighbourWith(pKingdom) && pKingdom.isOpinionTowardsKingdomGood(targetKingdom))
+            if (targetKingdom.IsNeighbourWith(pKingdom) && pKingdom.isOpinionTowardsKingdomGood(targetKingdom))
             {
                 __result = true;
                 return true;

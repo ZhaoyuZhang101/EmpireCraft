@@ -20,9 +20,9 @@ public abstract class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if (pMain.isInSameEmpire(pTarget))
+                if (pMain.IsInSameEmpire(pTarget))
                 {
-                    if (!pMain.isEmpire()&&pTarget.isEmpire()&&Date.getYearsSince(pMain.GetEmpire().getFoundedTimestamp())<100)
+                    if (!pMain.IsEmpire()&&pTarget.IsEmpire()&&Date.getYearsSince(pMain.GetEmpire().getFoundedTimestamp())<100)
                     {
                         result = 999;
                     }
@@ -37,9 +37,9 @@ public abstract class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if (pMain.isInSameEmpire(pTarget))
+                if (pMain.IsInSameEmpire(pTarget))
                 {
-                    if (!pMain.isEmpire()&&pTarget.isEmpire()&&(pMain.countTotalWarriors()>pMain.GetEmpire().countWarriors()- pMain.countTotalWarriors()))
+                    if (!pMain.IsEmpire()&&pTarget.IsEmpire()&&(pMain.countTotalWarriors()>pMain.GetEmpire().countWarriors()- pMain.countTotalWarriors()))
                     {
                         result = -50;
                     }
@@ -54,9 +54,9 @@ public abstract class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if (pMain.isInSameEmpire(pTarget))
+                if (pMain.IsInSameEmpire(pTarget))
                 {
-                    if (!pMain.isEmpire()&&pTarget.isEmpire())
+                    if (!pMain.IsEmpire()&&pTarget.IsEmpire())
                     {
                         if (Date.getYearsSince(pMain.GetEmpire().getFoundedTimestamp()) >= 100&&pMain.countTotalWarriors()>=pTarget.countTotalWarriors())
                             result = -999;
@@ -72,7 +72,7 @@ public abstract class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if (pMain.isInSameEmpire(pTarget))
+                if (pMain.IsInSameEmpire(pTarget))
                 {
                     result = 50;
                 }
@@ -88,7 +88,7 @@ public abstract class EmpireCraftOpinionAddition
                 int result = 0;
                 if ( pMain.IsInEmpire()&&pTarget.IsInEmpire())
                 {
-                    if (!pMain.isEmpire()&&pTarget.isEmpire())
+                    if (!pMain.IsEmpire()&&pTarget.IsEmpire())
                     {
                         if (pMain.GetEmpire().data.original_royal_been_changed)
                         {
@@ -107,7 +107,7 @@ public abstract class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if (!pMain.isInSameEmpire(pTarget)&&pMain.isEmpire()&&pTarget.isEmpire()&&pMain.getMainSubspecies().getID()==pTarget.getMainSubspecies().getID())
+                if (!pMain.IsInSameEmpire(pTarget)&&pMain.IsEmpire()&&pTarget.IsEmpire()&&pMain.getMainSubspecies().getID()==pTarget.getMainSubspecies().getID())
                 {
                     result = -999;
                 }
@@ -121,7 +121,7 @@ public abstract class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if (pMain.isInSameEmpire(pTarget))
+                if (pMain.IsInSameEmpire(pTarget))
                 {
                     if (Date.getYearsSince(pMain.GetFiedTimestamp())<=50)
                         result = 100;

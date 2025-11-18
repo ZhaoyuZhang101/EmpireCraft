@@ -21,10 +21,10 @@ public class EmpireData : MetaObjectData
     public string motto { get; set; }
     public int banner_background_id { get; set; }
     public long empire_specific_clan { get; set; } = -1L;
+    public float TaxRate = 0.2f;
     public int banner_icon_id { get; set; }
     public int Mandate { get; set; } = 100; //正统
     public int Prestige { get; set; } = 100; //威望
-    public long Heir { get; set; } = -1L;
     public EmpireHeirLawType heir_type { get; set; }
     public int max_province_city_num { get; set; } = 3;
     public bool original_royal_been_changed { get; set; } = false;
@@ -62,8 +62,7 @@ public class EmpireData : MetaObjectData
     public double last_exam_timestamp { get; set; } = -1L;
 
     public double last_office_exam_timestamp { get; set; } = -1L;
-
-    public List<long> province_list = new List<long>();
+    
     public double last_educate_timestamp { get; set; } = -1L;
 
 }

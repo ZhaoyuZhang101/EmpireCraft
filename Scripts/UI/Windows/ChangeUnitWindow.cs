@@ -175,22 +175,18 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
     {
         if (_office!=null)
         {
-            if (_empire.data.centerOffice.General == _office)
+            foreach (var oid in _empire.data.centerOffice.CoreOffices)
             {
-                EmpireCraftKingdomBehCheckInnerOffice.SetOfficer(_empire.data.centerOffice.General, actor);
-            }
-            foreach (var pair in _empire.data.centerOffice.CoreOffices)
-            {
-                if (_office == pair)
+                if (_office.OfficeID == oid)
                 {
-                    EmpireCraftKingdomBehCheckInnerOffice.SetOfficer(pair, actor);
+                    EmpireCraftKingdomBehCheckInnerOffice.SetOfficer(oid, actor);
                 }
             }
-            foreach (var pair in _empire.data.centerOffice.Divisions)
+            foreach (var oid in _empire.data.centerOffice.Divisions)
             {
-                if (_office == pair)
+                if (_office.OfficeID == oid)
                 {
-                    EmpireCraftKingdomBehCheckInnerOffice.SetOfficer(pair, actor);
+                    EmpireCraftKingdomBehCheckInnerOffice.SetOfficer(oid, actor);
                 }
             }
         }

@@ -18,6 +18,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using HarmonyLib;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
@@ -28,15 +29,14 @@ public static class KingdomExtension
     {
         public long EmpireID = -1L;
         public double TimestampEmpire = -1L;
-        public int loyalty = 0;
         public double TimestampBeFeifed = -1L;
-        public double TaxRate = 0.1;
         public long HeirID = -1L;
         public int Level = 2;
         public Regime regime;
         public RegimeType regimeType;
         public KingdomType kingdomType;
         public SpecificClan kingdomSpecificClan;
+        public int Money = 0;
         [JsonIgnore]
         public Task<(Actor, string)> CalcTask;
         //拥有法理
@@ -46,12 +46,66 @@ public static class KingdomExtension
         public int IndependentValue = 100;
         public bool is_need_to_choose_heir = false;
         public double last_exam_timestamp = -1L;
-        public int Authority = 0;
-        public int Legitimate = 0;
+        public double last_tax_timestamp = -1L;
         public double last_office_exam_timestamp = -1L;
-        public OfficeObject office;
+        public long office_id;
+    }
+    
+
+    public static int GetMoney(this Kingdom k)
+    {
+        return k.GetOrCreate().Money;
+    }
+    public static void AddMoney(this Kingdom k, int money)
+    {
+        k.GetOrCreate().Money += money;
+    }
+    public static void SubMoney(this Kingdom k, int money)
+    {
+        k.GetOrCreate().Money -= money; 
+    }
+    
+    public static double GetLastTaxTime(this Kingdom k)
+    {
+        return k.GetOrCreate().last_tax_timestamp;
+    }
+    public static void RecordTaxTime(this Kingdom k)
+    {
+        k.GetOrCreate().last_tax_timestamp = World.world.getCurWorldTime();
     }
 
+    public static bool IsNeedToSubmitTax(this Kingdom k)
+    {
+        if (!k.IsInEmpire() || k.IsEmpire()) return false;
+        return Date.getYearsSince(k.GetLastTaxTime()) >= 1;
+    }
+    public static double GetTaxRate(this Kingdom k)
+    {
+        var baseTax = 0.1f;
+        if (k.IsInEmpire())
+        {
+            Empire empire = k.GetEmpire();
+            if (!empire.isRekt())
+            {
+                baseTax = empire.data.TaxRate;
+            }
+        }
+
+        switch (k.GetRegime().GetTaxLevel())
+        {
+            case TaxLevel.None:
+                return 0.0f;
+            case TaxLevel.Low:
+                return baseTax;
+            case TaxLevel.Medium:
+                return baseTax + 0.2f;
+            case TaxLevel.High:
+                return baseTax + 0.4f;
+            default:
+                return baseTax;
+        } 
+    }
+    
     public static void SetKingdomType(this Kingdom k, KingdomType type)
     {
         k.GetOrCreate().kingdomType = type;
@@ -63,12 +117,18 @@ public static class KingdomExtension
     }
     public static void SetOffice(this Kingdom k, OfficeObject office)
     {
-        k.GetOrCreate().office = office;
+        var res = OfficeManager.Remove(k.GetOfficeID());
+        LogService.LogInfo($"删除旧官职类型：{res}");
+        k.GetOrCreate().office_id = office.OfficeID;
     }
-
     public static OfficeObject GetOffice(this Kingdom k)
     {
-        return k.GetOrCreate().office;
+        return OfficeManager.Offices.TryGetValue(k.GetOrCreate().office_id, out var office) ? office : null;
+    }
+    
+    public static long GetOfficeID(this Kingdom k)
+    {
+        return k.GetOrCreate().office_id;
     }
 
     public static SpecificClan GetSpecificClan(this Kingdom kingdom)
@@ -132,27 +192,13 @@ public static class KingdomExtension
         Regime regime = RegimeManager.regimes[k.GetOrCreate().regimeType].Clone();
         k.SetRegime(regime);
     }
-    public static void AddAuthority(this Kingdom k, int value)
-    {
-        k.GetOrCreate().Authority += value;
-        if (k.GetOrCreate().Authority < 0)
-        {
-            k.GetOrCreate().Authority = 0;
-        }
-    }
     public static int GetIndependentValue(this Kingdom k)
     {
         var ed = k.GetOrCreate();
-        if (ed != null)
-        {
-            return ed.IndependentValue;
-        } else
-        {
-            return 100;
-        }
+        return ed?.IndependentValue ?? 100;
     }
 
-    public static List<Actor> allGongshi(this Kingdom k)
+    public static List<Actor> AllGongshi(this Kingdom k)
     {
         return k.units.FindAll(a => a.hasTrait("gongshi"));
     }
@@ -212,6 +258,20 @@ public static class KingdomExtension
         var ed = k.GetOrCreate();
         if (ed.HeirID == -1L) return false;
         return !World.world.units.get(ed.HeirID).isRekt();
+    }
+
+    public static OfficeObject[] GetAllOffices(this Kingdom k)
+    {
+        OfficeObject[] officeObjects = Array.Empty<OfficeObject>();
+        foreach (var c in k.cities)
+        {
+            OfficeObject o = c.GetOffice();
+            officeObjects.AddItem(o);
+        }
+
+        OfficeObject kingObject = k.GetOffice();
+        officeObjects.AddItem(kingObject);
+        return officeObjects;
     }
 
     public static void SetHeir(this Kingdom k, Actor pActor)
@@ -287,17 +347,17 @@ public static class KingdomExtension
         return GetOrCreate(k).OwnedTitle.Any();
     }
 
-    public static bool canBecomeEmpire(this Kingdom k)
+    public static bool CanBecomeEmpire(this Kingdom k)
     {
         if (!k.hasKing()) return false;
         // 基本条件检查
-        if (k.isRekt() || k.isEmpire()) return false;
+        if (k.isRekt() || k.IsEmpire()) return false;
 
         // 可能需要满足最小城市数量
         if (k.cities.Count < 2) return false;
 
         // 检查是否是同物种中最强大的
-        int allEmpireNumInSameSpecies = World.world.kingdoms.ToList().FindAll(p => p.species_id == k.species_id && p.isEmpire()).Count();
+        int allEmpireNumInSameSpecies = World.world.kingdoms.ToList().FindAll(p => p.species_id == k.species_id && p.IsEmpire()).Count;
         return IsStrongestOfSameSpecies(k) && allEmpireNumInSameSpecies<1;
     }
 
@@ -307,40 +367,13 @@ public static class KingdomExtension
             other != k &&
             other.species_id == k.species_id &&
             !other.isRekt() &&
-            !other.isEmpire() &&
+            !other.IsEmpire() &&
             IsStronger(other, k));
     }
 
     private static bool IsStronger(Kingdom a, Kingdom b)
     {
         return a.countTotalWarriors() > b.countTotalWarriors();
-    }
-    public static double GetTaxtRate(this Kingdom k)
-    {
-        return GetOrCreate(k).TaxRate;
-    }
-
-    public static void SetTaxtRate(this Kingdom k, double value)
-    {
-        GetOrCreate(k).TaxRate = value;
-    }
-    public static void IncreaseTaxtRate (this Kingdom k)
-    {
-        var t = GetOrCreate(k).TaxRate;
-        if (t < 1.0)
-        {
-            t += 0.1;
-            k.SetLoyalty(k.GetLoyalty() - 50);
-        }
-    }
-    public static void DecreaseTaxtRate(this Kingdom k)
-    {
-        var t = GetOrCreate(k).TaxRate;
-        if (t > 0.1)
-        {
-            t -= 0.1;
-            k.SetLoyalty(k.GetLoyalty() + 50);
-        }
     }
     public static KingdomExtraData GetOrCreate(this Kingdom a, bool isSave = false)
     {
@@ -374,35 +407,12 @@ public static class KingdomExtension
         }
     }
 
-    public static bool isInSameEmpire(this Kingdom kingdom, Kingdom pKingdomTaget)
+    public static bool IsInSameEmpire(this Kingdom kingdom, Kingdom pKingdomTaget)
     {
         if (kingdom == null) return false;
         if (!kingdom.IsInEmpire()||!pKingdomTaget.IsInEmpire()) return false;
         return kingdom.GetEmpireID() == pKingdomTaget.GetEmpireID();
     }
-    public static void SetLoyalty(this Kingdom kingdom, int value)
-    {
-        GetOrCreate(kingdom).id = kingdom.getID();
-        GetOrCreate(kingdom).loyalty = value;
-        if (value > 999)
-        {
-            GetOrCreate(kingdom).loyalty = 999;
-        }
-        if (value < 0)
-        {
-            GetOrCreate(kingdom).loyalty = 0;
-        }
-    }
-
-    public static bool IsLoyal(this Kingdom kingdom)
-    {
-        return GetOrCreate(kingdom).loyalty >= 200;
-    }
-
-    public static int GetLoyalty(this Kingdom kingdom)
-    {
-        return GetOrCreate(kingdom).loyalty;
-    } 
 
     public static void SetEmpireID(this Kingdom kingdom, long value)
     {
@@ -429,7 +439,7 @@ public static class KingdomExtension
         return GetOrCreate(kingdom).TimestampEmpire;
     }
 
-    public static List<Empire> GetEmpiresCanbeJoined(this Kingdom kingdom)
+    public static List<Empire> GetEmpiresCanBeJoined(this Kingdom kingdom)
     {
         List<Empire> empires = new List<Empire>();
         if (kingdom == null) return empires;
@@ -444,7 +454,7 @@ public static class KingdomExtension
                     if (k.IsInEmpire())
                     {
                         Empire empire = k.GetEmpire();
-                        if ((double)kingdom.cities.Count()<=((double)empire.AllCities().Count())/5)
+                        if (kingdom.cities.Count<=(double)empire.AllCities().Count/5)
                         {
                             if (kingdom.isOpinionTowardsKingdomGood(k.GetEmpire().CoreKingdom))
                                 empires.Add(k.GetEmpire());
@@ -455,13 +465,13 @@ public static class KingdomExtension
         }
         return empires;
     }
-    public static void empireJoin(this Kingdom kingdom, Empire pEmpire)
+    public static void EmpireJoin(this Kingdom kingdom, Empire pEmpire)
     {
         GetOrCreate(kingdom).EmpireID = pEmpire.data.id;
         GetOrCreate(kingdom).TimestampEmpire = World.world.getCurWorldTime();
     }
 
-    public static bool isEmpire(this Kingdom kingdom)
+    public static bool IsEmpire(this Kingdom kingdom)
     {
         if (kingdom == null) return false;
         if (kingdom.data == null) return false;
@@ -471,7 +481,7 @@ public static class KingdomExtension
         return ModClass.EMPIRE_MANAGER.get(ed.EmpireID)?.CoreKingdom==kingdom;
     }
 
-    public static void empireLeave (this Kingdom kingdom, bool isLeave = true)
+    public static void EmpireLeave (this Kingdom kingdom, bool isLeave = true)
     {
         if (kingdom==null) return;
         if (GetOrCreate(kingdom) == null) return;
@@ -500,12 +510,12 @@ public static class KingdomExtension
         GetOrCreate(k).OwnedTitle = GetOrCreate(k).OwnedTitle.Union(value).ToList();
     } 
 
-    public static bool hasAnycontrolledTitle(this Kingdom kingdom)
+    public static bool HasAnyControlledTitle(this Kingdom kingdom)
     {
-        return kingdom.GetcontrolledTitle().Any();
+        return kingdom.GetControlledTitle().Any();
     }
 
-    public static List<KingdomTitle> GetcontrolledTitle(this Kingdom kingdom)
+    public static List<KingdomTitle> GetControlledTitle(this Kingdom kingdom)
     {
         List<KingdomTitle> controlledTitles = new List<KingdomTitle>();
         foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER)
@@ -528,9 +538,9 @@ public static class KingdomExtension
             .FirstOrDefault();
     }
 
-    public static bool isNeighbourWith(this Kingdom kingdom, Kingdom target)
+    public static bool IsNeighbourWith(this Kingdom kingdom, Kingdom target)
     {
-        if(kingdom.isEmpire())
+        if(kingdom.IsEmpire())
         {
             Empire empire = kingdom.GetEmpire();
             return empire.IsNeighbourWith(target);
@@ -545,16 +555,16 @@ public static class KingdomExtension
         return false;
     }
 
-    public static bool isBorder(this Kingdom kingdom)
+    public static bool IsBorder(this Kingdom kingdom)
     {
-        if(kingdom.isEmpire()) return false;
+        if(kingdom.IsEmpire()) return false;
         foreach(City city in kingdom.cities)
         {
             if (city.neighbours_kingdoms.Count > 0)
             {
                 foreach(Kingdom kingdom2 in city.neighbours_kingdoms)
                 {
-                    if (!kingdom2.isInSameEmpire(kingdom))
+                    if (!kingdom2.IsInSameEmpire(kingdom))
                     {
                         return true;
                     }

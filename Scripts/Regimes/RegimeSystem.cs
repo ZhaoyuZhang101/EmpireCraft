@@ -97,6 +97,7 @@ public class Regime
     public bool era_name;
     [JsonIgnore]
     public long control_kingdom_id;
+    public LeaderSelectMethod leader_select_method;
     public Dictionary<string, int[]> options;
     public BureauConfig bureau_config;
     public Regime Clone()

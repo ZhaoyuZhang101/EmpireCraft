@@ -4,28 +4,14 @@
     "description": "中华文化圈传统制度，建立中央集权的官僚体系，如三省六部制，官员通过科举制度选拔",
     "icon_url": "",
     "era_name": true,
+    "leader_select_method": "Succession",
     "options": {
-      "toggle_allow_diplomacy": [
-        0
-      ],
-      "toggle_allow_army": [
-        1
-      ],
-      "toggle_support_army_to_center": [
-        1
-      ],
-      "option_tax_level": [
-        1,
-        4
-      ],
-      "option_leader_select_method": [
-        1,
-        3
-      ],
-      "option_religion_type": [
-        0,
-        4
-      ]
+      "toggle_allow_diplomacy": [0],
+      "toggle_allow_army": [1],
+      "toggle_support_army_to_center": [1],
+      "option_tax_level": [1, 4],
+      "option_leader_select_method": [1, 3],
+      "option_religion_type": [0, 4]
     },
     "bureau_config": {
       "cores": [
@@ -220,7 +206,7 @@
           "merit": -1,
           "honorary": -1,
           "select_from_local": true,
-          "leader_select_method": "Succession",
+          "officer_selected_method": "Exam",
           "require_traits": []
         }
       },

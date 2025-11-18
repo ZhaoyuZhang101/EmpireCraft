@@ -27,7 +27,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
             }
         }
         Regime regime = pKingdom.GetRegime();
-        if (regime.GetLeaderSelectMethod()==LeaderSelectMethod.Succession)
+        if ((!pKingdom.IsEmpire()&&regime.GetLeaderSelectMethod()==LeaderSelectMethod.Succession)||(pKingdom.IsEmpire()&&regime.leader_select_method==LeaderSelectMethod.Succession))
         {
             if (pKingdom.HasHeir())
             {
@@ -46,6 +46,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         if (!pKingdom.HasHeir()) return;
         var heir = pKingdom.GetHeir(); 
         MakeKingAndMoveToCapital(pKingdom, heir);
+        OfficeObject office = pKingdom.GetOffice();
+        office.SetActor(heir);
     }
     public void TryToGiveGoldenTooth(Actor pActor)
     {

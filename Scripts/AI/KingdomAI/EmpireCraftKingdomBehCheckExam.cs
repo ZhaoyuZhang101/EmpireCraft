@@ -14,7 +14,7 @@ public class EmpireCraftKingdomBehCheckExam: GameAIKingdomBase
     {
         if (pKingdom.GetRegime().GetLeaderSelectMethod() == LeaderSelectMethod.Exam)
         {
-            if (pKingdom.isEmpire())
+            if (pKingdom.IsEmpire())
             {
                 Empire empire = pKingdom.GetEmpire();
                 if (empire.IsNeedToExam())
@@ -41,6 +41,7 @@ public class EmpireCraftKingdomBehCheckExam: GameAIKingdomBase
                     {
                         ExamSystem.startExam(ExamSystem.ExamType.City, city);
                     }
+                    ExamSystem.startExam(ExamSystem.ExamType.Province, pKingdom);
                     pKingdom.UpdateExamTime();
                 }
             }

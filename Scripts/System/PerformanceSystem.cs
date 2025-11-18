@@ -30,12 +30,9 @@ public class PerformanceEvent
 public class PerformanceEvents
 {
     public Dictionary<string, PerformanceEvent> events = null;
-
-    [JsonIgnore]
-    public Actor actor { get; set; }
+    
     public void init(Actor actor)
     {
-        this.actor = actor;
         string filePath = Path.Combine(ModClass._declare.FolderPath, "Scripts", "Data", "PerformanceData.json");
         if (events == null)
         {
@@ -49,55 +46,33 @@ public class PerformanceEvents
                 LogService.LogInfo($"未发现绩效事件文件{filePath}");
             }
         }
-        CalculateRate();
+        CalculateRate(actor);
 
 
     }
-    public double GetPersonalPerformance(Actor actor)
+    public static double GetPersonalPerformance(Actor actor)
     {
         //触发基数
-        double performance_base = 0.0;
+        double score = 0;               // 证据分数，>0 越偏好，<0 越不偏好
+        const double k = 0.6;           // 斜率系数，越大曲线越“陡”，可调
 
-        double genius_base = 0.0;
-
-        if (actor.hasTrait("evil"))
+        foreach (var trait in actor.traits)
         {
-            performance_base -= 0.1;
-        }
-        if (actor.hasTrait("madness"))
-        {
-            performance_base -= 0.1;
-        }
-        if (actor.hasTrait("deceitful"))
-        {
-            performance_base -= 0.1;
+            if (trait.type == TraitType.Positive) score += 1;
+            if (trait.type == TraitType.Negative) score -= 1;
         }
 
-        if (actor.hasTrait("honest"))
-        {
-            performance_base += 0.1;
-        }
-        if (actor.hasTrait("lucky"))
-        {
-            performance_base += 0.1;
-        }
-        if (actor.hasTrait("wise"))
-        {
-            performance_base += 0.1;
-        }
-        //乘积
-        if (actor.hasTrait("genius"))
-        {
-            genius_base = 2;
-        }
-        return performance_base * genius_base;
+        // 收束到 (0,1)，当 score = 0 时结果=0.5
+        double performance_base = 1.0 / (1.0 + Math.Exp(-k * score));
+        
+        return performance_base;
     }
-    public void CalculateRate()
+    public void CalculateRate(Actor actor)
     {
         //初始化绩效事件触发概率
         
         //个人绩效基数
-        double personal_performance_base = GetPersonalPerformance(actor);
+        double personal_performance_base = GetPersonalPerformance(actor)-0.5f;
         foreach (KeyValuePair<string, PerformanceEvent> pairs in events)
         {
             if (pairs.Value.eventType == PerformanceEventType.None) { continue; }
@@ -111,7 +86,7 @@ public class PerformanceEvents
             }
         }
     }
-    public (PerformanceEvent, double performance) TriggerEvent(string pEventName = "None")
+    public (PerformanceEvent, double performance) TriggerEvent(Actor actor, string pEventName = "None")
     {
         if (pEventName != "None")
         {

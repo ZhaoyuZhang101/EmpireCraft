@@ -107,11 +107,16 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.removeLeader)),
             prefix: new HarmonyMethod(GetType(), nameof(removeLeader))
         );
+
+        new Harmony(nameof(newCity)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.newCityEvent)),
+            prefix: new HarmonyMethod(GetType(), nameof(newCity))
+        );
     }
 
     public static bool isArmyOverLimit(City __instance, ref bool __result)
     {
-        if (__instance.kingdom.isEmpire())
+        if (__instance.kingdom.IsEmpire())
         {
             __result = false;
             return true;
@@ -171,18 +176,10 @@ public class CityPatch : GamePatch
     {
         if (__instance.leader!=null)
         {
-            if (__instance.kingdom.IsInEmpire())
+            if (__instance.leader.HasOfficeIdentity())
             {
-                Empire empire = __instance.kingdom.GetEmpire();
-                __instance.leader.ChangeOfficialLevel(-1);
-            }
-            else
-            {
-                __instance.leader.RemoveIdentity();
-                if (__instance.leader.hasTrait("officer"))
-                {
-                    __instance.leader.removeTrait("officer");
-                }
+                OfficeIdentity office = __instance.leader.GetIdentity();
+                office.RemoveOffice();
             }
         }
     }
@@ -191,21 +188,6 @@ public class CityPatch : GamePatch
     {
         if (pActor != null && __instance.kingdom.king != pActor)
         {
-            if (__instance.kingdom.IsInEmpire())
-            {
-                Empire empire = __instance.kingdom.GetEmpire();
-                OfficeIdentity identity = pActor.GetIdentity();
-                if (identity==null)
-                {
-                    identity = new OfficeIdentity();
-                    identity.init(pActor);
-                    pActor.SetIdentity(identity, true);
-                }
-                pActor.ChangeOfficialLevel( 9);
-                pActor.SetIdentityType();
-                pActor.addTrait("officer");
-            }
-
             __instance.leader = pActor;
             __instance.leader.setProfession(UnitProfession.Leader);
             CityData cityData = __instance.data;
@@ -244,7 +226,7 @@ public class CityPatch : GamePatch
         }
         Kingdom pKingdom = __instance.kingdom;
         __instance.removeFromCurrentKingdom();
-        if (pNewSetKingdom.IsInEmpire()&&pCaptured&&!pKingdom.isEmpire())
+        if (pNewSetKingdom.IsInEmpire()&&pCaptured&&!pKingdom.IsEmpire())
         {
             Empire empire = pNewSetKingdom.GetEmpire();
             // 如果新加入的王国是帝国的一部分，并且城市被占领，则将城市加入帝国
@@ -349,15 +331,30 @@ public class CityPatch : GamePatch
         {
             CityType cityType = EmpireCraftKingdomBehCheckKingdomType.CalcCityType(pKingdom);
             BureauSetting citySetting = regime.bureau_config.cities[cityType];
-            OfficeObject officeObject2 = new OfficeObject();
-            officeObject2.InitialOffice(citySetting);
-            officeObject2.regimeType = regime.type;
-            __instance.SetOffice(officeObject2);
+            OfficeObject officeObject = __instance.GetOffice();
+            if (officeObject != null)
+            {
+                officeObject.InitialOffice(citySetting, isNew:false);
+                officeObject.regimeType = regime.type;
+            }
+            else
+            {
+                officeObject = new OfficeObject();
+                officeObject.InitialOffice(citySetting);
+                officeObject.regimeType = regime.type;
+                __instance.SetOffice(officeObject);
+            }
         }
         if (__instance.hasTitle())
         {
             __instance.GetTitle().isBeenControlled();
         }
+    }
+    
+    //创建新城市时触发
+    public static void newCity(City __instance, Actor pActor)
+    {
+        
     }
 
     public static bool zone_steal(CityBehBorderSteal __instance, City pCity)

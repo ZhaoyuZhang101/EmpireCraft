@@ -23,6 +23,7 @@ using System.Text.RegularExpressions;
 using System.Runtime.Serialization;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using System.Security.Principal;
+using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using UnityEngine;
 
@@ -41,6 +42,7 @@ public class Name
     {
         return firstName != "" && familyName != ""&&firstName!=null&&familyName!=null;
     }
+    
     public bool hasFamilyName(Actor actor)
     {
         return !string.IsNullOrEmpty(familyName);
@@ -136,11 +138,13 @@ public class Name
 }
 public class OfficeIdentity
 {
+    private long officeID { get; set; } = -1L;
     public int officialLevel { get; set; } = -1;
     public int meritLevel { get; set; }
     public int honoraryOfficial { get; set; }
     public PeerageType peerageType { get; set; }
     public double OfficePerformance { get; set; } = 100;
+    public double TotalPerformance { get; set; } = 0;
     public PerformanceEvents performanceEvents { get; set; }
     public List<EmpireExamLevel> empireExamLevels { get; set; } = new List<EmpireExamLevel>();
     public long actor_id;
@@ -160,6 +164,31 @@ public class OfficeIdentity
             performanceEvents.init(actor);
         }
     }
+
+    public void SetOfficeId(long oid)
+    {
+        this.officeID = oid;
+    }
+
+    public bool HasOffice()
+    {
+        return officeID != -1L;
+    }
+
+    public void RemoveOffice()
+    {
+        officeID = -1L;
+        if (OfficeManager.Offices.TryGetValue(this.GetOfficeId(), out var value))
+        {
+            value.RemoveActor();
+        }
+    }
+
+    public long GetOfficeId()
+    {
+        return this.officeID;
+    }
+    
     public void ChangeOfficialLevel(int level)
     {
         Actor actor = World.world.units.get(actor_id);
@@ -210,6 +239,7 @@ public static class ActorExtension
         public List<long> owned_title = new List<long>();
         public Name name;
         public OfficeIdentity officeIdentity { get; set; } = null;
+        public double last_tax_timestamp = -1L;
         public long empire_id { get; set; } = -1L;
         public long provinceId { get; set; } = -1L;
         public long personal_identity { get; set; } = -1L;
@@ -228,6 +258,30 @@ public static class ActorExtension
 
         // 概率判定（Unity）
         return UnityEngine.Random.value < rate;
+    }
+    public static double CalcCorruptionValue(this Actor actor)
+    {
+        double result = 0f;
+        double value = 0.5f-PerformanceEvents.GetPersonalPerformance(actor);
+        if (value > 0)
+        {
+            result = value / 0.5f;
+        }
+        return result;
+    }
+    public static double GetLastTaxTime(this Actor k)
+    {
+        return k.GetOrCreate().last_tax_timestamp;
+    }
+    public static void RecordTaxTime(this Actor k)
+    {
+        k.GetOrCreate().last_tax_timestamp = World.world.getCurWorldTime();
+    }
+
+    public static bool IsNeedToSubmitTax(this Actor k)
+    {
+        if (!k.hasKingdom()) return false;
+        return Date.getYearsSince(k.GetLastTaxTime()) >= 1;
     }
 
     public static void ChangeDeathRate(this Actor a, float value)
@@ -346,34 +400,33 @@ public static class ActorExtension
         if (GetOrCreate(actor).officeIdentity!=null)
         {
             GetOrCreate(actor).officeIdentity.empireExamLevels.Add(level);
-            if (GetOrCreate(actor).officeIdentity.empireExamLevels.Count==4)
-            {
-                JudgeOfficeLevel(actor);
-            }
             if (GetOrCreate(actor).officeIdentity.empireExamLevels.Count>4)
             {
                 GetOrCreate(actor).officeIdentity.empireExamLevels.RemoveAt(0);
             }
+            JudgeOfficeLevel(actor);
         }
     }
 
     public static void JudgeOfficeLevel(Actor actor)
     {
-        List<EmpireExamLevel> empireExamLevels = actor.GetEmpireExamLevels();
-        if (empireExamLevels.All(a => a.Equals(EmpireExamLevel.HD)))
+        var p = actor.GetIdentity().TotalPerformance;
+        if (p > 1600)
         {
-            actor.UpgradeOfficial();
-            actor.UpgradeOfficial();
-        } else if (empireExamLevels.All(a => a.Equals(EmpireExamLevel.HD)|| a.Equals(EmpireExamLevel.CR)))
+            actor.UpgradeOfficial(direct:0);
+        }
+        else if (p >1300)
         {
-            actor.UpgradeOfficial();
-        } else if (empireExamLevels.All(a => a.Equals(EmpireExamLevel.F)|| a.Equals(EmpireExamLevel.P))&& empireExamLevels.Any(a=>a.Equals(EmpireExamLevel.F)))
+            actor.UpgradeOfficial(direct:1);
+        }
+        else if (p > 1000)
         {
-            actor.DegradeOfficial();
-        } else if (empireExamLevels.All(a => a.Equals(EmpireExamLevel.F)))
+            actor.UpgradeOfficial(direct:2);
+        }
+        else
         {
-            actor.DegradeOfficial();
-            actor.DegradeOfficial();
+            var dir = 5 - (int)Math.Floor(5 * p / 1000.0f) + 3;
+            actor.UpgradeOfficial(direct:dir);
         }
     }
 
@@ -417,7 +470,7 @@ public static class ActorExtension
     
     public static void initializeActorName(this Actor a)
     {
-        string culture_name = OverallHelperFunc.GetCultureFromSpecies(a.getActorAsset().id);
+        string culture_name = GetCultureFromSpecies(a.getActorAsset().id);
         if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture_name, out Setting setting))
         {
             a.GetModName().Initialize(setting.Clan.has_sex_post, setting.Clan.use_local_as_lastname, setting.Unit.is_invert, culture_name);
@@ -440,33 +493,15 @@ public static class ActorExtension
         a.GetOrCreate().name.familyName = name;
     }
 
-    public static bool isInOffice(this Actor a )
+    public static bool HasOfficeIdentity(this Actor a)
     {
-        if(a == null) return false;
-        if (!a.hasTrait("officer")) return false;
-        if (GetOrCreate(a).officeIdentity==null) return false;
-        if (GetOrCreate(a).officeIdentity.officialLevel == -1) return false;
-        return true;
-    }
-
-    public static bool hasOfficeIdentity(this Actor a)
-    {
-        if (a == null) return false;
-        return a.GetOrCreate().officeIdentity == null;
+        return a?.GetOrCreate().officeIdentity != null;
     }
     public static OfficeIdentity GetIdentity( this Actor a)
     {
-        if (a == null) return null;
-        if (a.city == null) return null;
-        if (a.city.kingdom == null) return null;
-        if (GetOrCreate(a).officeIdentity == null)
-        {
-            GetOrCreate(a).officeIdentity = new OfficeIdentity();
-            GetOrCreate(a).officeIdentity.init(a);
-            GetOrCreate(a).officeIdentity.honoraryOfficial = 8;
-            GetOrCreate(a).officeIdentity.meritLevel = 10;
-        }
-        if (GetOrCreate(a).officeIdentity.officialLevel!=-1)
+        if (a?.city?.kingdom == null) return null;
+        if (!a.HasOfficeIdentity()) return null;
+        if (GetOrCreate(a).officeIdentity.GetOfficeId()!=-1L)
         {
             if (GetOrCreate(a).officeIdentity.performanceEvents == null)
             {
@@ -485,32 +520,12 @@ public static class ActorExtension
     public static void ChangeOfficialLevel(this Actor a, int level)
     {
         if (a == null) return;
-        if (a.city == null) return;
-        if (a.city.kingdom == null) return;
-        Empire empire = a.city.kingdom.GetEmpire();
-        if (empire==null) return;
-        if (GetOrCreate(a).officeIdentity==null) 
-        {
-            GetOrCreate(a).officeIdentity = new OfficeIdentity();
-            GetOrCreate(a).officeIdentity.init(a);
-            GetOrCreate(a).officeIdentity.honoraryOfficial = 8;
-            GetOrCreate(a).officeIdentity.meritLevel = 10;
-        }
         GetOrCreate(a).officeIdentity.ChangeOfficialLevel(level);
     }
 
     public static void SetIdentityType(this Actor a, PeerageType type=PeerageType.Civil)
     {
         if (a == null) return;
-        if (a.city == null) return;
-        if (a.city.kingdom == null) return;
-        if (GetOrCreate(a).officeIdentity == null)
-        {
-            GetOrCreate(a).officeIdentity = new OfficeIdentity();
-            GetOrCreate(a).officeIdentity.init(a);
-            GetOrCreate(a).officeIdentity.honoraryOfficial = 8;
-            GetOrCreate(a).officeIdentity.meritLevel = 10;
-        }
         GetOrCreate(a).officeIdentity.peerageType = type;
     }
     public static void SetIdentity(this Actor a, OfficeIdentity identity, bool isInitial=false)
@@ -532,11 +547,6 @@ public static class ActorExtension
             GetOrCreate(a).officeIdentity = null;
         }
     }
-    public static void RemoveProvinceID(this Actor a)
-    {
-        if (a == null) return;
-        GetOrCreate(a).provinceId = -1L;
-    }
     public static bool isOfficer(this Actor a)
     {
         if (a == null) return false;
@@ -546,7 +556,7 @@ public static class ActorExtension
         return true;
     }
 
-    public static bool canGrabAlliance(this Actor a)
+    public static bool CanGrabAlliance(this Actor a)
     {
 
         return false;
@@ -612,19 +622,27 @@ public static class ActorExtension
                 }
             } else
             {
-                if (identity.honoraryOfficial <= 0)
+                if (direct != -1)
                 {
-                    identity.honoraryOfficial = 0;
+                    var original = identity.honoraryOfficial;
+                    if (original != direct)
+                    {
+                        //LogService.LogInfo("升官");
+                        TranslateHelper.LogOfficeMove(a, identity.peerageType,identity.honoraryOfficial);
+                    }
+                    identity.honoraryOfficial = direct;
                 }
                 else
                 {
-                    identity.honoraryOfficial -= 1;
+                    if (identity.honoraryOfficial <= 0)
+                    {
+                        identity.honoraryOfficial = 0;
+                    }
+                    else
+                    {
+                        identity.honoraryOfficial -= 1;
+                    }
                 }
-                if (direct != -1)
-                {
-                    identity.honoraryOfficial = direct;
-                }
-                //LogService.LogInfo("升官");
                 a.data.renown += 5;
             }
             GetOrCreate(a).officeIdentity = identity;
@@ -725,7 +743,7 @@ public static class ActorExtension
             {
                 foreach (City city2 in city.neighbours_cities)
                 {
-                    if (city2.kingdom.IsInEmpire() && city2.kingdom != kingdom && city2.kingdom.isEmpire() && !city2.isCapitalCity())
+                    if (city2.kingdom.IsInEmpire() && city2.kingdom != kingdom && city2.kingdom.IsEmpire() && !city2.isCapitalCity())
                     {
                         return true;
                     }
@@ -783,7 +801,7 @@ public static class ActorExtension
         if (!a.isKing()) return false;
         Kingdom kingdom = a.kingdom;
         if (kingdom == null) return false;
-        List<long> controlledTitles = kingdom.GetcontrolledTitle().FindAll(t=>!t.owner.IsEmperor()).Select(t=>t.data.id).ToList();
+        List<long> controlledTitles = kingdom.GetControlledTitle().FindAll(t=>!t.owner.IsEmperor()).Select(t=>t.data.id).ToList();
         var commonTitles = controlledTitles.Intersect(a.GetOwnedTitle());
         return commonTitles.Count() < controlledTitles.Count();
     }
@@ -811,7 +829,7 @@ public static class ActorExtension
         if (!a.isKing()) return null;
         List<KingdomTitle> takedTitles = new List<KingdomTitle>();
         Kingdom kingdom = a.kingdom;
-        List<KingdomTitle> titles = kingdom.GetcontrolledTitle();
+        List<KingdomTitle> titles = kingdom.GetControlledTitle();
         foreach(KingdomTitle t in titles)
         {
             if (t.main_kingdom!=null)
@@ -875,7 +893,7 @@ public static class ActorExtension
                 if (a.kingdom.GetKingdomName()==title.data.name)
                 {
                     a.kingdom.data.name = a.kingdom.capital.name;
-                    a.kingdom.empireLeave();
+                    a.kingdom.EmpireLeave();
                 }
                 if (a.kingdom.GetMainTitle() == title)
                 {
