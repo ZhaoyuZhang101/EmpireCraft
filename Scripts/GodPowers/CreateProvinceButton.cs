@@ -21,7 +21,7 @@ public static class CreateProvinceButton
     {
         if (pTile.hasCity())
         {
-            if (pTile.zone_city.kingdom.isEmpire())
+            if (pTile.zone_city.kingdom.IsEmpire())
             {
                 Kingdom kingdom = pTile.zone_city.makeOwnKingdom(pTile.zone_city.leader);
                 return false;

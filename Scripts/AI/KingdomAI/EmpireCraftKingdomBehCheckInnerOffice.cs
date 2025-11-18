@@ -8,6 +8,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
 public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
@@ -15,7 +16,7 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
     public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
     {
-        if (pKingdom.isEmpire())
+        if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
             SelectOfficer(empire);
@@ -39,10 +40,12 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
                     OfficeIdentity identity = actor.GetIdentity();
                     if (identity == null) continue;
                     if (identity.performanceEvents == null) continue;
-                    (PerformanceEvent pEvent, double pValue) performance = identity.performanceEvents.TriggerEvent();
+                    (PerformanceEvent pEvent, double pValue) performance = identity.performanceEvents.TriggerEvent(actor);
                     actor.editRenown((int)(performance.pValue*0.4));
                     //记录事件
                     pData[actor] = performance.pValue;
+                    actor.GetIdentity().TotalPerformance += performance.pValue;
+                    LogService.LogInfo($"{actor.name}{performance.pEvent.is_good}{performance.pEvent.eventType}绩效增加{performance.pValue},当前绩效{actor.GetIdentity().TotalPerformance}");
                     actor.ResetPerformance();
                 }
                 if (pData.Values.Count > 0)
@@ -180,7 +183,7 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
             }
             if (flag)
             {
-                SetOfficer(obj, final);
+                SetOfficer(id, final);
                 final.joinCity(pEmpire.CoreKingdom.capital);
                 final.goTo(pEmpire.CoreKingdom.capital._city_tile);
             }
@@ -193,24 +196,35 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
         }
     }
 
-    public static void SetOfficer(OfficeObject obj, Actor pActor)
+    public static void SetOfficer(long oid, Actor pActor)
     {
-        obj.SetActor(pActor);
+        if (OfficeManager.Offices.TryGetValue(oid, out var oObject))
+        {
+            oObject.SetActor(pActor);
+            return;
+        }
+        LogService.LogInfo("设置官员失败");
     }
     //设置三省
     private void SelectCoreOffices(Empire pEmpire)
     {
-        foreach(var office in pEmpire.data.centerOffice.CoreOffices)
+        foreach(var office_id in pEmpire.data.centerOffice.CoreOffices)
         {
-            SetOfficeBase(office, pEmpire);
+            if (OfficeManager.Offices.TryGetValue(office_id, out var oObject))
+            {
+                SetOfficeBase(oObject, pEmpire);
+            }
         }
     }
     //设置六部
     private void SelectDivisions(Empire pEmpire)
     {
-        foreach (var office in pEmpire.data.centerOffice.Divisions)
+        foreach (var office_id in pEmpire.data.centerOffice.Divisions)
         {
-            SetOfficeBase(office, pEmpire);
+            if (OfficeManager.Offices.TryGetValue(office_id, out var oObject))
+            {
+                SetOfficeBase(oObject, pEmpire);
+            }
         }
     }
 }

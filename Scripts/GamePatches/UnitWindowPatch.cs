@@ -110,6 +110,8 @@ public class UnitWindowPatch: GamePatch
             SimpleWindowTab simpleWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
             simpleWindowTab.Setup("specific_clan", __instance.scroll_window, action:(_) => ShowSpecificClan(__instance.actor), sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
         }
+
+        LogService.LogInfo("贪污值: " + __instance.actor.CalcCorruptionValue());
     }
 
     private static void ShowSpecificClan(Actor actor)
@@ -131,7 +133,7 @@ public class UnitWindowPatch: GamePatch
         if (__instance.actor.HasTitle()&&__instance.actor.isKing())
         {
             string value = __instance.actor.kingdom.HasMainTitle() ? __instance.actor.kingdom.GetMainTitle().data.name: __instance.actor.GetTitle();
-            __instance.showStatRow("EmpireTitle", value, MetaType.None, -1L, pTooltipId: "all_titles",  pTooltipData: getTooltipAllTitles);
+            __instance.showStatRow("EmpireTitle", value, MetaType.None, -1L, pTooltipId: "all_titles",  pTooltipData: GetTooltipAllTitles);
         }
         if (__instance.actor.isOfficer())
         {
@@ -144,31 +146,18 @@ public class UnitWindowPatch: GamePatch
                     string empireMeritString = String.Join("_", "Huaxia", "meritlevel", identity.peerageType, identity.meritLevel);
                     string empireHonoraryOfficialString = String.Join("_", "Huaxia", "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
                     __instance.showStatRow("EmpireMerit", LM.Get(empireMeritString));
-                    __instance.showStatRow("EmpireHonoraryOfficial", LM.Get(empireHonoraryOfficialString));
+                    __instance.showStatRow("EmpireHonoraryOfficial", LM.Get(empireHonoraryOfficialString)+$" ({identity.honoraryOfficial+1}品)");
                 }
-                string empireOfficialLevelString = String.Join("_",empire.CoreKingdom.GetRegime().type.ToString(), "empire", identity.officialLevel.ToString());
-                if (actor.isCityLeader())
+                string empireOfficialLevelString = OfficeManager.Offices.TryGetValue(identity.GetOfficeId(), out var value)? value.GetName() : "";
+                if (!string.IsNullOrEmpty(empireOfficialLevelString))
                 {
-                    empireOfficialLevelString = actor.city.data.name + LM.Get(empireOfficialLevelString);
-                } else if (actor.isKing())
-                {
-                    empireOfficialLevelString = actor.kingdom.GetKingdomName() + LM.Get(empireOfficialLevelString);
+                    __instance.showStatRow("OfficialLevel", empireOfficialLevelString); 
                 }
-                else
-                {
-                    OfficeObject officeObject = empire.data.centerOffice.Divisions.ToList().Find(a => a.actor_id == actor.getID());
-                    if (officeObject != null)
-                    {
-                        empireOfficialLevelString = LM.Get(officeObject.pre) + LM.Get(empireOfficialLevelString);
-                    }
-                }
-                __instance.showStatRow("OfficialLevel", LM.Get(empireOfficialLevelString));
             }
-
         }
     }
 
-    public static TooltipData getTooltipAllTitles()
+    public static TooltipData GetTooltipAllTitles()
     {
         Actor actor = SelectedUnit.unit;
         return new TooltipData

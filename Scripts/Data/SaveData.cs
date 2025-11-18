@@ -14,6 +14,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 
 public class SaveData
@@ -29,4 +30,5 @@ public class SaveData
     public Dictionary<long, List<EmpireCraftHistory>> all_history;
     public bool switch_real_num = false;
     public List<SpecificClan> specificClans = new List<SpecificClan>();
+    public Dictionary<long, OfficeObject>  officeObjects = new Dictionary<long, OfficeObject>();
 }

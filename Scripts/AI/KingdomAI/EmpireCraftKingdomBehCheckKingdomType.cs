@@ -27,7 +27,7 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
         OfficeObject office = pKingdom.GetOffice();
         office.meta_object = pKingdom;
         office.is_local = true;
-        if (pKingdom.isEmpire())
+        if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
             empire.data.centerOffice.SyncMetaObject(pKingdom);
@@ -36,10 +36,11 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
 
     private static void SyncKingdomStatus(Kingdom pKingdom)
     {
+        var originalKingdomType = pKingdom.GetKingdomType();
         //计算当前国家类别
-        KingdomType kingdomType = CalcKingdomType(pKingdom);
-        pKingdom.SetKingdomType(kingdomType);
-        if (pKingdom.isEmpire())
+        KingdomType newkingdomType = CalcKingdomType(pKingdom);
+        pKingdom.SetKingdomType(newkingdomType);
+        if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
             empire.SetEmpireName(empire.GetEmpireName());
@@ -47,17 +48,23 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
         //获取国家政体后同步国家官位
         var regime = pKingdom.GetRegime();
         CityType cityType = CalcCityType(pKingdom);
-        if (pKingdom.GetOffice()?.regimeType != regime.type)
+        if (pKingdom.GetOffice()?.regimeType != regime.type||originalKingdomType != newkingdomType)
         {
-            BureauSetting setting = regime.bureau_config.kingdoms[kingdomType];
+            BureauSetting setting = regime.bureau_config.kingdoms[newkingdomType];
             OfficeObject officeObject = new OfficeObject();
             officeObject.InitialOffice(setting);
+            LogService.LogInfo("官职类型" + officeObject.officeType);
             officeObject.regimeType = regime.type;
             officeObject.meta_object = pKingdom;
             officeObject.is_local = true;
             if (officeObject.leader_select_method != LeaderSelectMethod.Default)
             {
                 regime.SetLeaderSelectMethod(officeObject.leader_select_method);
+            }
+
+            if (pKingdom.hasKing())
+            {
+                officeObject.SetActor(pKingdom.king);
             }
             pKingdom.SetOffice(officeObject);
             foreach (var city in pKingdom.cities)
@@ -68,11 +75,38 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
                 officeObject2.regimeType = regime.type;
                 officeObject2.meta_object = city;
                 officeObject.is_local = true;
+                if (city.hasLeader())
+                {
+                    officeObject2.SetActor(city.leader);
+                }
                 city.SetOffice(officeObject2);
             }
         }
-        var kingdomBack = LM.Get(kingdomType.ToString());
-        pKingdom.data.name = string.Join("\u200A", pKingdom.GetKingdomName(), kingdomBack);
+        
+        var kingdomFront = pKingdom.capital.GetCityName();
+        if (!pKingdom.capital.hasTitle())
+        {
+            kingdomFront = pKingdom.GetKingdomName();
+        }
+        else
+        {
+            kingdomFront = pKingdom.capital.GetTitle().data.province_name;
+        }
+        
+        if (pKingdom.GetOffice().leader_select_method == LeaderSelectMethod.Succession)
+        {
+            if (pKingdom.HasMainTitle())
+            {
+                kingdomFront = pKingdom.GetMainTitle().name;
+            }
+        }
+
+        if (pKingdom.IsEmpire())
+        {
+            kingdomFront = pKingdom.GetEmpire().GetEmpireName();
+        }
+        var kingdomBack = LM.Get(newkingdomType.ToString());
+        pKingdom.data.name = string.Join("\u200A", kingdomFront, kingdomBack);
         foreach (var city in pKingdom.cities)
         {
             var cityBack = LM.Get(cityType.ToString());
@@ -126,7 +160,7 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
                 //律令制依照制度的选项不同来更新后缀
                 case RegimeType.LvLing:
                 {
-                    if (kingdom.isEmpire())
+                    if (kingdom.IsEmpire())
                     {
                         return  KingdomType.LvLing_centre;
                     }
@@ -149,7 +183,7 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
                 }
                 case RegimeType.Republic:
                     //共和依照制度的选项不同来更新后缀
-                    if (kingdom.isEmpire())
+                    if (kingdom.IsEmpire())
                     {
                         return  KingdomType.Republic_republic;
                     }
@@ -173,7 +207,7 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
                     {
                         return  KingdomType.Feudalism_papal_state;
                     }
-                    if (kingdom.isEmpire())
+                    if (kingdom.IsEmpire())
                     {
                         return  KingdomType.Feudalism_empire;
                     }
@@ -187,10 +221,10 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
                         return kingdom.GetSpecificClan() == empire?.EmpireSpecificClan ?  KingdomType.Feudalism_grand_duchy :  KingdomType.Feudalism_duchy;
                     }
 
-                    return kingdom.isBorder() ?  KingdomType.Feudalism_march :  KingdomType.Feudalism_county;
+                    return kingdom.IsBorder() ?  KingdomType.Feudalism_march :  KingdomType.Feudalism_county;
                 
                 case RegimeType.ZhouFeudalism:
-                    if (kingdom.isEmpire())
+                    if (kingdom.IsEmpire())
                     {
                         return  KingdomType.ZhouFeudalism_empire;
                     }
@@ -216,7 +250,7 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
                     break;
                 case RegimeType.Arabic:
                     //帝国称哈里发国
-                    if (kingdom.isEmpire())
+                    if (kingdom.IsEmpire())
                     {
                         return  KingdomType.Arabic_caliphate;
                     }

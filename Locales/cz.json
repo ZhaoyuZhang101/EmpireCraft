@@ -304,6 +304,7 @@
     "new_jingshi_log": "$empire$ 殿试已毕，$actor$ 于金銮殿对策中高列名次，授进士第，荣耀九族！",
     "cotrolled_country_log": "$actor$ 已经完全控制 $empire$ 内阁！",
     "become_greater_general": "$actor$ 被加封为 $empire$ 的天策上将，开府仪同三司，上柱国！",
+    "官员品级调动": "$actor$ 升为 $officeName$ ($level$品)",
     "history_empire_get_back_land": "$actor$ 发动了收复 $place$ 的战争",
     "join_empire_war_log": "$kingdom$ 加入了 $empire$ 的战争",
     "officer_build_specific_clan": "$actor$ 创建了 $clan_name$ 氏族谱",

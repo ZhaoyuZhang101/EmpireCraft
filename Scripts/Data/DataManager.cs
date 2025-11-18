@@ -12,6 +12,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using db;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.Data;
@@ -42,7 +43,7 @@ public static class DataManager
         var clanById = World.world.clans.ToDictionary(c => c.getID());
         var warById = World.world.wars.ToDictionary(w => w.getID());
         LogService.LogInfo("准备各项数据");
-
+        OfficeManager.Offices = saveData.officeObjects;
         // 批量同步
         foreach (var entry in saveData.actorsExtraData)
         {
@@ -113,6 +114,7 @@ public static class DataManager
         saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
         ModClass.EMPIRE_MANAGER.update(-1L);
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
+        saveData.officeObjects = OfficeManager.Offices;
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)
         {
             try

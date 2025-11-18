@@ -13,7 +13,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
     {
-        if (pKingdom.isEmpire())
+        if (pKingdom.IsEmpire())
         {
             CheckJoinWar(pKingdom);
             return BehResult.Continue;

@@ -8,6 +8,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.Regimes;
+using NeoModLoader.services;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftTooltipLibrary
@@ -94,6 +96,7 @@ public static class EmpireCraftTooltipLibrary
 	    {
 		    Kingdom kingdom = pData.actor.kingdom;
 		    OfficeObject office = kingdom.GetOffice();
+		    LogService.LogInfo("官职等级："+office.officeType);
 		    subTitle = office.GetName(kingdom);
 	    }
 	    AssetManager.tooltips.showActor(string.IsNullOrEmpty(subTitle)?"village_statistics_king":subTitle, pTooltip, pData);
@@ -281,7 +284,7 @@ public static class EmpireCraftTooltipLibrary
         pTooltip.addLineText("title_capital", title.title_capital.data.name, "#CC6CE7", false, true, 21);
         if (title.isBeenControlled())
         {
-            pTooltip.addLineText("title_been_controlled", city.kingdom.isEmpire() ? city.kingdom.GetEmpire().data.name : city.kingdom.data.name, "#CC6CE7", false, true, 21);
+            pTooltip.addLineText("title_been_controlled", city.kingdom.IsEmpire() ? city.kingdom.GetEmpire().data.name : city.kingdom.data.name, "#CC6CE7", false, true, 21);
             pTooltip.addLineText("title_been_controlled_year", $"{title.GetTitleBeenControlledYear()}{LM.Get("Year")}", tColorHex, false, true, 21);
         }
     }

@@ -22,6 +22,8 @@ public static class CityExtension
         public List<long> exam_pass_person;
         public int MAX_POPULATION = 100;
         public bool MAX_POPULATION_LIMIT = false;
+        public double last_tax_timestamp = -1L;
+        public int Money = 0;
         [JsonIgnore]
         public TextInput limitationNumber { get; set; }
         public long personalIdentityId = -1L;
@@ -29,11 +31,40 @@ public static class CityExtension
         [JsonIgnore]
         public SimpleButton limitToggle { get; set; }
         public CityType cityType { get; set; }
-        public OfficeObject office { get; set; }
+        public long office_id { get; set; }
     }
     public static void SetCityType(this City c, CityType type)
     {
         c.GetOrCreate().cityType = type;
+    }
+    public static double GetLastTaxTime(this City k)
+    {
+        return k.GetOrCreate().last_tax_timestamp;
+    }
+    public static void RecordTaxTime(this City k)
+    {
+        k.GetOrCreate().last_tax_timestamp = World.world.getCurWorldTime();
+    }
+
+    public static bool IsNeedToSubmitTax(this City k)
+    {
+        if (!k.hasKingdom()) return false;
+        return Date.getYearsSince(k.GetLastTaxTime()) >= 1;
+    }
+    
+    public static int GetMoney(this City c)
+    {
+        return c.GetOrCreate().Money;
+    }
+
+    public static void AddMoney(this City c, int money)
+    {
+        c.GetOrCreate().Money += money;
+    }
+
+    public static void SubMoney(this City c, int money)
+    {
+        c.GetOrCreate().Money -= money; 
     }
 
     public static CityType GetCityType(this City c)
@@ -42,12 +73,18 @@ public static class CityExtension
     }
     public static void SetOffice(this City c, OfficeObject off)
     {
-        c.GetOrCreate().office = off;
+        OfficeManager.Remove(c.GetOfficeID());
+        c.GetOrCreate().office_id = off.OfficeID;
     }
 
     public static OfficeObject GetOffice(this City c)
     {
-        return c.GetOrCreate().office;
+        return OfficeManager.Offices.TryGetValue(c.GetOrCreate().office_id, out OfficeObject office) ? office : null;
+    }
+
+    public static long GetOfficeID(this City c)
+    {
+        return c.GetOrCreate().office_id;
     }
     public static CityExtraData GetOrCreate(this City a, bool isSave=false)
     {

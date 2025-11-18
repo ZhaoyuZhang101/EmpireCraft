@@ -57,9 +57,9 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         coreOfficeSpace.AddChild(coreOfficeTitle.gameObject);
 
         coreOfficeGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 50));
-        foreach (var o in _empire.data.centerOffice.CoreOffices)
+        foreach (var oid in _empire.data.centerOffice.CoreOffices)
         {
-            SetCenterOfficeView(o, ref coreOfficeGroup);
+            SetCenterOfficeView(oid, ref coreOfficeGroup);
         }
         coreOfficeSpace.AddChild(coreOfficeGroup.gameObject);
 
@@ -68,10 +68,10 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
     public void ShowTopOfficeSpace()
     {
-        // topOfficeSpace = this.BeginVertGroup();
-        // //中央核心部门
-        // SimpleText topOfficeTitle = Instantiate( SimpleText.Prefab);
-        // topOfficeTitle.Setup(LM.Get("TopOffice"), TextAnchor.MiddleCenter);
+        topOfficeSpace = this.BeginVertGroup();
+        //中央核心部门
+        topOfficeSpace.AddTextIntoVertLayout(LM.Get("TopOffice"), true, TextAnchor.MiddleCenter);
+        
     }
 
     public void ShowDivisionSpace()
@@ -158,8 +158,13 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         pool.Clear();
     }
 
-    public void SetCenterOfficeView(OfficeObject officeObject, ref AutoGridLayoutGroup parent)
+    public void SetCenterOfficeView(long oid, ref AutoGridLayoutGroup parent)
     {
+        //寻找存在的官制
+        if (!OfficeManager.Offices.TryGetValue(oid, out var officeObject))
+        {
+            return;
+        }
         AutoHoriLayoutGroup officePositionGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
 
         //右边头像

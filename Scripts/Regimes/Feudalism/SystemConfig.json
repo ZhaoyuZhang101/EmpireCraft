@@ -4,6 +4,7 @@
     "description": "西方中世纪时的主流制度，各王国子嗣分封建国，也可通过联姻合并国家，各诸侯国之间彼此独立，拥有独立的军事权外交权",   
     "icon_url": "",
     "era_name": false,
+    "leader_select_method": "Succession",
     "options": {
       "toggle_allow_diplomacy": [1],
       "toggle_allow_army": [1],

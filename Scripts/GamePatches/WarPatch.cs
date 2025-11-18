@@ -144,7 +144,7 @@ public class WarPatch: GamePatch
     {
         if (pDefender.IsInEmpire() || pAttacker.IsInEmpire())
         {
-            if (pAttacker.isEmpire())
+            if (pAttacker.IsEmpire())
             {
                 new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_war, pAttacker.GetEmpire().name, pDefender.name)
                 {
@@ -210,7 +210,7 @@ public class WarPatch: GamePatch
             dKingdom = pWar.getMainDefender();
             if (pWinner == WarWinner.Attackers)
             {
-                if (aKingdom.isEmpire())
+                if (aKingdom.IsEmpire())
                 {
                     Empire empire = aKingdom.GetEmpire();
                     if (empire.Emperor != null)
@@ -219,7 +219,7 @@ public class WarPatch: GamePatch
                     }
                     empire.AddRenown(30);
                 }
-                if (dKingdom.isEmpire())
+                if (dKingdom.IsEmpire())
                 {
                     Empire empire = dKingdom.GetEmpire();
                     if (empire.Emperor != null)
@@ -230,7 +230,7 @@ public class WarPatch: GamePatch
                 }
             } else if (pWinner == WarWinner.Defenders)
             {
-                if (dKingdom.isEmpire())
+                if (dKingdom.IsEmpire())
                 {
                     Empire empire = dKingdom.GetEmpire();
                     if (empire.Emperor!=null)
@@ -240,7 +240,7 @@ public class WarPatch: GamePatch
                     }
                     empire.AddRenown(30);
                 }
-                if (aKingdom.isEmpire())
+                if (aKingdom.IsEmpire())
                 {
                     Empire empire = aKingdom.GetEmpire();
                     if (empire.Emperor != null)

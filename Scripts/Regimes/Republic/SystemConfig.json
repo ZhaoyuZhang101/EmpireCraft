@@ -4,6 +4,7 @@
     "description": "现代制度，各级别官员由考试产生，同时，最高领导者由各个省份领导人票选产生",
     "icon_url": "",
     "era_name": false,
+    "leader_select_method": "Vote",
     "options": {
       "toggle_allow_diplomacy": [0],
       "toggle_allow_army": [0],

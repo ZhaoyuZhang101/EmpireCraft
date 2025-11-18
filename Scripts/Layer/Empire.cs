@@ -31,8 +31,6 @@ public class Empire : MetaObject<EmpireData>
     public HashSet<Kingdom> kingdoms_hashset = new HashSet<Kingdom>();
 
     public Kingdom CoreKingdom;
-
-    public int power;
     public Actor Emperor;
     private Vector3 _capitalCenter;
     public City OriginalCapital;
@@ -44,6 +42,35 @@ public class Empire : MetaObject<EmpireData>
     {
         return !Emperor.isRekt();
     }
+
+    public void AddTaxRate(float addition = 0.1f)
+    {
+        if (data.TaxRate < 1.0f)
+        {
+            data.TaxRate += addition;
+            if (data.TaxRate >= 1.0f)
+            {
+                data.TaxRate = 1.0f;
+            }
+        }
+        //增加税收减少威望
+        data.Prestige -= (int)(addition * 100);
+    }
+
+    public void SubTaxRate(float substraction = 0.1f)
+    {
+        if (data.TaxRate > 0.0f)
+        {
+            data.TaxRate  -= substraction;
+            if (data.TaxRate <= 0.0f)
+            {
+                data.TaxRate =  0.0f;
+            }
+        }
+        //减少税收增加威望
+        data.Prestige += (int)(substraction * 100);
+    }
+    
     public List<Actor> GetMembersWithTrait(string trait)
     {
         List<Actor>  list = new List<Actor>();
@@ -515,7 +542,7 @@ public class Empire : MetaObject<EmpireData>
     public void CheckDissolve(Kingdom mainKingdom)
     {
         this.kingdoms_hashset.Remove(mainKingdom);
-        mainKingdom.empireLeave(false);
+        mainKingdom.EmpireLeave(false);
         Kingdom heirEmpire = null;
         if (EmpireClan != null)
         {
@@ -598,7 +625,7 @@ public class Empire : MetaObject<EmpireData>
         foreach (Kingdom kingdom in kingdoms_hashset)
         {
             newEmpire.kingdoms_hashset.Add(kingdom);
-            kingdom.empireJoin(newEmpire);
+            kingdom.EmpireJoin(newEmpire);
             newEmpire.data.timestamp_member_joined = World.world.getCurWorldTime();
             
         }
@@ -611,7 +638,6 @@ public class Empire : MetaObject<EmpireData>
     public sealed override void setDefaultValues()
     {
         base.setDefaultValues();
-        this.power = 0;
     }
     public override int countTotalMoney()
     {
@@ -799,13 +825,6 @@ public class Empire : MetaObject<EmpireData>
 
     public void update()
     {
-        this.power = 0;
-        List<Kingdom> tKingdoms = this.kingdoms_list;
-        for (int i = 0; i < tKingdoms.Count; i++)
-        {
-            Kingdom tKingdom = tKingdoms[i];
-            this.power += tKingdom.power;
-        }
     }
 
     public bool checkActive()
@@ -845,7 +864,7 @@ public class Empire : MetaObject<EmpireData>
     {
         foreach (Kingdom kingdom in this.kingdoms_hashset)
         {
-            kingdom.empireLeave();
+            kingdom.EmpireLeave();
         }
         this.kingdoms_hashset.Clear();
 
@@ -933,20 +952,19 @@ public class Empire : MetaObject<EmpireData>
             return;
         }
         this.kingdoms_hashset.Add(pKingdom);
-        pKingdom.empireJoin(this);
+        pKingdom.EmpireJoin(this);
         if (pRecalc)
         {
             this.recalculate();
         }
         this.data.timestamp_member_joined = World.world.getCurWorldTime();
-        pKingdom.SetLoyalty(999);
     }
 
     public void leave(Kingdom pKingdom, bool pRecalc = true)
     {
         this.kingdoms_hashset.Remove(pKingdom);
-        pKingdom.empireLeave(false);
-        if (pKingdom.isEmpire())
+        pKingdom.EmpireLeave(false);
+        if (pKingdom.IsEmpire())
         {
             CheckDissolve(pKingdom);
         } else

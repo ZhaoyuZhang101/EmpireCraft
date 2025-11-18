@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.HelperFunc
@@ -145,7 +146,19 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
-        public static void LogcontrolledEmpire(Actor actor, Empire empire)
+        public static void LogOfficeMove(Actor actor, PeerageType type, int officeLevel)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.官员品级调动,
+                actor.data.name, LM.Get($"Huaxia_honoraryofficial_{type.ToString()}_{officeLevel}"), ""+(officeLevel+1)
+                )
+            {
+                color_special1 = actor.getColor()._color_text,
+                color_special2 = actor.getColor()._color_text,
+                color_special3 = actor.getColor()._color_text
+
+            }.add();
+        }
+        public static void LogControlledEmpire(Actor actor, Empire empire)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.cotrolled_country_log,
                 actor.data.name,

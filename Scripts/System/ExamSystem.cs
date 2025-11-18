@@ -40,8 +40,6 @@ public static class ExamSystem
             if (actor.isOfficer()) continue;
             if (actor.isCityLeader()) continue;
             if (actor.isKing()) continue;
-            if (actor.hasArmy()) continue;
-            if (actor.intelligence < 15) continue;
             if (actor.hasTrait("jingshi")) continue;
             if (actor.hasTrait("juren")) continue;
             if (actor.hasTrait("gongshi")) continue;
@@ -61,13 +59,31 @@ public static class ExamSystem
         {
             takeNum = 1;
         }
-        if (sorted.Count()> takeNum)
+        if (sorted.Count> takeNum)
         {
-            sorted.Take(takeNum).ForEach(item=>item.Key.addTrait("juren"));
+            sorted.Take(takeNum).ForEach(item=>
+            {
+                item.Key.addTrait("juren");
+                OfficeIdentity identity = new OfficeIdentity
+                {
+                    actor_id = item.Key.getID()
+                };
+                item.Key.SetIdentity(identity, true);
+                identity.TotalPerformance += 100;
+            });
             //LogService.LogInfo($"{takeNum}人中举");
         } else
         {
-            sorted.ForEach(item => item.Key.addTrait("juren"));
+            sorted.ForEach(item =>
+            {
+                item.Key.addTrait("juren");
+                OfficeIdentity identity = new OfficeIdentity
+                {
+                    actor_id = item.Key.getID()
+                };
+                item.Key.SetIdentity(identity, true);
+                identity.TotalPerformance += 100;
+            });
             //LogService.LogInfo($"{sorted.Count}人中举");
         }
     }
@@ -88,12 +104,22 @@ public static class ExamSystem
         int takeNum = 1;
         if (sorted.Count() > takeNum)
         {
-            sorted.Take(takeNum).ForEach(item => item.Key.addTrait("gongshi"));
+            sorted.Take(takeNum).ForEach(item =>
+            {
+                item.Key.addTrait("gongshi");
+                OfficeIdentity identity = item.Key.GetIdentity();
+                identity.TotalPerformance += 200;
+            });
             //LogService.LogInfo($"{takeNum}人成为贡士");
         }
         else
         {
-            sorted.ForEach(item => item.Key.addTrait("gongshi"));
+            sorted.ForEach(item =>
+            {
+                item.Key.addTrait("gongshi");
+                OfficeIdentity identity = item.Key.GetIdentity();
+                identity.TotalPerformance += 200;
+            });
             //LogService.LogInfo($"{sorted.Count()}人成为贡士");
         }
 
@@ -105,7 +131,7 @@ public static class ExamSystem
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
         foreach (Kingdom province in empire.kingdoms_hashset) 
         {
-            foreach (Actor actor in province.allGongshi())
+            foreach (Actor actor in province.AllGongshi())
             {
                 if (!MarksData.TryGetValue(actor, out double m))
                 {
@@ -121,13 +147,16 @@ public static class ExamSystem
         {
             sorted.Take(takeNum).ForEach(item => { 
                 item.Key.addTrait("jingshi");
-
+                OfficeIdentity identity = item.Key.GetIdentity();
+                identity.TotalPerformance += 300;
             });
         }
         else
         {
             sorted.ForEach(item => {
                 item.Key.addTrait("jingshi");
+                OfficeIdentity identity = item.Key.GetIdentity();
+                identity.TotalPerformance += 300;
             });
             //LogService.LogInfo($"{sorted.Count()}人成为进士");
         }

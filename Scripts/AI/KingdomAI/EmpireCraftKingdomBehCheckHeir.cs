@@ -21,7 +21,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         Regime regime = pKingdom.GetRegime();
-        if (regime.GetLeaderSelectMethod()!=LeaderSelectMethod.Succession|| pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir())
+        if (((!pKingdom.IsEmpire()&&regime.GetLeaderSelectMethod()!=LeaderSelectMethod.Succession)||(pKingdom.IsEmpire()&&regime.leader_select_method != LeaderSelectMethod.Succession))| pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir())
         {
             return BehResult.Continue;
         }
@@ -106,7 +106,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     {
         if (k == null) return (null, "");
         Actor actor = null;
-        var flag = k.isEmpire();
+        var flag = k.IsEmpire();
         var logPreText = flag ? "Empire: " : "Kingdom: ";
         PersonalClanIdentity pci = pActor??k.king?.GetPersonalIdentity();
         List<(ClanRelation, PersonalClanIdentity)> children = SpecificClanManager.getChildren(pci).FindAll(a=>a.Item2.CanHeir(pci));
@@ -164,11 +164,13 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 if (flag)
                 {
                     Empire empire = k.GetEmpire();
-                    actor = empire.data.centerOffice.General?.GetActor()
-                            ?? empire.data.centerOffice.CoreOffices?.ToList().Find(a=>a?.GetActor()!=null)?.GetActor()
-                            ?? empire.data.centerOffice.Divisions?.ToList().Find(a=>a?.GetActor()!=null)?.GetActor()
-                            ?? empire.kingdoms_list?.ToList().Find(p=>p.hasKing())?.king
-                            ?? k.capital?.leader;
+                    List<long> officeIDs = new List<long>();
+                    officeIDs.AddRange(empire.data.centerOffice.CoreOffices);
+                    officeIDs.AddRange(empire.data.centerOffice.Divisions);
+                    officeIDs.AddRange(empire.kingdoms_list?.ToList().Select(pKingdom=>pKingdom.GetOfficeID()) ?? Array.Empty<long>());
+                    officeIDs.Add(k.capital.GetOfficeID());
+                    var actorID = officeIDs.Select(id=>OfficeManager.Offices.TryGetValue(id, out var value)?value.actor_id:-1L).ToList().Find(aid=>aid != -1L);
+                    actor = world.units.get(actorID);
                     OfficeIdentity identity = actor?.GetIdentity();
                     var officeName = string.Join("_", actor?.GetPersonalIdentity()?.culture, identity?.officialLevel);
                     relationText = LM.Get(officeName).ColorString(pColor:new Color(1.0f, 1.0f, 1.0f));

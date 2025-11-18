@@ -32,9 +32,9 @@ public class KingdomPatch : GamePatch
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(RemovePatchData))
         );         
-        new Harmony(nameof(newCivKingdom)).Patch(
+        new Harmony(nameof(NewCivKingdom)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.newCivKingdom)),
-            postfix: new HarmonyMethod(GetType(), nameof(newCivKingdom))
+            postfix: new HarmonyMethod(GetType(), nameof(NewCivKingdom))
         );        
         new Harmony(nameof(new_emperor)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.setKing)),
@@ -82,7 +82,7 @@ public class KingdomPatch : GamePatch
 
             if (__instance.HasMainTitle())
             {
-                if (__instance.IsInEmpire() && !__instance.isEmpire())
+                if (__instance.IsInEmpire() && !__instance.IsEmpire())
                 {
                     if (pActor.clan == __instance.GetEmpire().EmpireClan)
                     {
@@ -97,22 +97,9 @@ public class KingdomPatch : GamePatch
                     pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_1);
                 }
             }
-            if (__instance.isEmpire())
+            if (__instance.IsEmpire())
             {
                 __instance.GetEmpire().NewEmperor(pActor);
-            } else if (__instance.IsInEmpire()&&!__instance.isEmpire())
-            {
-                Empire empire = __instance.GetEmpire();
-                OfficeIdentity identity = pActor.GetIdentity();
-                if (identity == null)
-                {
-                    identity = new OfficeIdentity();
-                    identity.init(pActor);
-                    pActor.SetIdentity(identity, true);
-                }
-                pActor.ChangeOfficialLevel( 8);
-                pActor.SetIdentityType(PeerageType.Military);
-                pActor.addTrait("officer");
             }
             __instance.RemoveHeir();
         }
@@ -120,36 +107,25 @@ public class KingdomPatch : GamePatch
 
     public static void emperor_left(Kingdom __instance)
     {
-        if (!ModClass.IS_CLEAR)
+        if (ModClass.IS_CLEAR) return;
+        if (__instance.king.HasOfficeIdentity())
         {
-            if (__instance.king.HasTitle())
-            {
-                __instance.SetOwnedTitle(__instance.king.GetOwnedTitle());
-                __instance.king.ClearTitle();
-            }
-            if (__instance.isEmpire())
-            {
-                __instance.GetEmpire().EmperorLeft(__instance);
-            }
-            if (__instance.IsInEmpire() && !__instance.isEmpire())
-            {
-                if (__instance.king != null)
-                {
-                    try
-                    {
-                        __instance.king.GetIdentity().ChangeOfficialLevel(-1);
-                    }
-                    catch
-                    {
-                        return;
-                    }
-                    
-                }
-            }
+            var officeIdentity = __instance.king.GetIdentity();
+            officeIdentity?.RemoveOffice();
+        }
+            
+        if (__instance.king.HasTitle())
+        {
+            __instance.SetOwnedTitle(__instance.king.GetOwnedTitle());
+            __instance.king.ClearTitle();
+        }
+        if (__instance.IsEmpire())
+        {
+            __instance.GetEmpire().EmperorLeft(__instance);
         }
     }
 
-    public static void newCivKingdom(Kingdom __instance, Actor pActor)
+    public static void NewCivKingdom(Kingdom __instance, Actor pActor)
     {
         __instance.SetLevel(4);
         __instance.SetEmpireID(-1L);
@@ -169,7 +145,7 @@ public class KingdomPatch : GamePatch
     {
         Empire empire = __instance.GetEmpire();
         if (empire == null) return;
-        if (__instance.isEmpire())
+        if (__instance.IsEmpire())
         {
             empire.CheckDissolve(__instance);
         }

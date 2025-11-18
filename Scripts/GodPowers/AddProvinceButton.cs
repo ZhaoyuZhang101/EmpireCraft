@@ -34,7 +34,7 @@ public static class AddProvinceButton
         }
         if (ConfigData.selected_cityA == null)
         {
-            if (!city.kingdom.isEmpire())
+            if (!city.kingdom.IsEmpire())
             {
                 ActionLibrary.showWhisperTip("city_need_to_belong_empire");
                 return false;

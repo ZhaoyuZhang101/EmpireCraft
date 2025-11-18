@@ -10,7 +10,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
-        if (pKingdom.canBecomeEmpire())
+        if (pKingdom.CanBecomeEmpire())
         {
             
         }

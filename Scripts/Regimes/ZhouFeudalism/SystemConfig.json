@@ -4,6 +4,7 @@
     "description": "东周时期的制度，天子子嗣分封到各个国家以拱卫中央，每征服一片区域便会汉化该地区，并将法理分封给其子嗣，各诸侯国之间彼此独立，拥有独立的军事权外交权",
     "icon_url": "",
     "era_name": true,
+    "leader_select_method": "Succession",
     "options": {
       "toggle_allow_diplomacy": [
         1

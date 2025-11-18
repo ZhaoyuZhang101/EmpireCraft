@@ -68,7 +68,7 @@ public static class OfficeSelector
         {
             if (unit.isUnitFitToRule() && !unit.isKing() && !unit.isCityLeader() && unit.hasClan() && !unit.isOfficer())
             {
-                if (unit.hasOfficeIdentity())
+                if (unit.HasOfficeIdentity())
                 {
                     var flag1 = false;
                     var flag2 = false;
