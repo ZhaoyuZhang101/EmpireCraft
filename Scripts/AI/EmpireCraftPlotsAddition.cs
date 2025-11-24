@@ -939,7 +939,7 @@ namespace EmpireCraft.Scripts.AI
             }
             return true;
         }
-        private static bool BecomeEmpireAndStartEnfeoff(Actor pActor)
+        public static bool BecomeEmpireAndStartEnfeoff(Actor pActor)
         {
             Kingdom kingdom = pActor.kingdom;
             Empire empire = ModClass.EMPIRE_MANAGER.newEmpire(kingdom);

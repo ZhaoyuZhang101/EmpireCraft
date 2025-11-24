@@ -6,14 +6,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.Regimes.TemporaryFactions;
+using EmpireCraft.Scripts.System;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.Data
 {
     public static class ConfigData
     {
-        [JsonIgnore]
-        public static Empire CURRENT_SELECTED_EMPIRE;
         [JsonIgnore]
         public static KingdomTitle CURRENT_SELECTED_TITLE;
         [JsonIgnore]
@@ -27,7 +27,7 @@ namespace EmpireCraft.Scripts.Data
 
         //this coverd all civ species in the game
         public static List<string> AllCivSpecies = new List<string>()
-    {
+        {
             "human", "orc","elf","dwarf","civ_necromancer","civ_alien",
             "civ_druid","civ_bee","civ_beetle","civ_evil_mage","civ_white_mage",
             "civ_bandit","civ_demon","civ_cold_one","civ_angle","civ_snowman",
@@ -37,7 +37,62 @@ namespace EmpireCraft.Scripts.Data
             "civ_wolf","civ_bear","civ_rhino","civ_buffalo","civ_hyena","civ_rat",
             "civ_alpaca","civ_capybara","civ_goat","civ_scorpion","civ_crab",
             "civ_penguin","civ_turtle","civ_crocodile","civ_snake","civ_frog","civ_piranha",
-    };
+        };
+
+        public static Dictionary<FactionType, List<TemporaryFactionType>> FactionConfig =
+            new()
+            {
+                {
+                    FactionType.僭主,
+                    new List<TemporaryFactionType> { TemporaryFactionType.强者继承法, TemporaryFactionType.宗教同化 }
+                },
+                {
+                    FactionType.血脉,
+                    new List<TemporaryFactionType> { TemporaryFactionType.转世袭, TemporaryFactionType.宗教同化 }
+                },
+                {
+                    FactionType.尊王,
+                    new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权 }
+                },
+                {
+                    FactionType.自治,
+                    new List<TemporaryFactionType> { TemporaryFactionType.分割继承, TemporaryFactionType.允许诸侯自由开战 }
+                },
+                {
+                    FactionType.攘夷,
+                    new List<TemporaryFactionType>
+                        { TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府 }
+                },
+                {
+                    FactionType.统一,
+                    new List<TemporaryFactionType> { TemporaryFactionType.谋求统一, TemporaryFactionType.转军府 }
+                },
+                {
+                    FactionType.绥靖,
+                    new List<TemporaryFactionType>
+                        { TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池 }
+                },
+                {
+                    FactionType.共和,
+                    new List<TemporaryFactionType>
+                    {
+                        TemporaryFactionType.提高赋税, TemporaryFactionType.提高福利, TemporaryFactionType.清除移民,
+                        TemporaryFactionType.缩减金融霸权
+                    }
+                },
+                {
+                    FactionType.民主,
+                    new List<TemporaryFactionType>
+                    {
+                        TemporaryFactionType.开放移民, TemporaryFactionType.降低赋税, TemporaryFactionType.提高福利,
+                        TemporaryFactionType.拓展金融霸权
+                    }
+                },
+                {
+                    FactionType.革命,
+                    new List<TemporaryFactionType> { TemporaryFactionType.输出革命, TemporaryFactionType.扶持革命党 }
+                }
+            };
         public static List<string> yearNameSubspecies = new() 
         {
             "Huaxia", "Japan"

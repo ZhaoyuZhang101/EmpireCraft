@@ -37,6 +37,7 @@ public static class KingdomExtension
         public KingdomType kingdomType;
         public SpecificClan kingdomSpecificClan;
         public int Money = 0;
+        public long CenterArmID = -1L;
         [JsonIgnore]
         public Task<(Actor, string)> CalcTask;
         //拥有法理
@@ -50,8 +51,27 @@ public static class KingdomExtension
         public double last_office_exam_timestamp = -1L;
         public long office_id;
     }
-    
 
+    public static void SetCenterArmy(this Kingdom k, Army army)
+    {
+        army.name = $"{k.GetEmpire().GetEmpireName()}-{k.GetKingdomName()}驻军";
+        k.GetOrCreate().CenterArmID = army.getID();
+    }
+
+    public static Army GetCenterArmy(this Kingdom k)
+    {
+        var res = World.world.armies.get(k.GetOrCreate().CenterArmID);
+        if (res.isRekt())
+        {
+            k.RemoveCenterArmy();
+        } 
+        return res;
+    }
+
+    public static void RemoveCenterArmy(this Kingdom k)
+    {
+        k.GetOrCreate().CenterArmID = -1L;
+    }
     public static int GetMoney(this Kingdom k)
     {
         return k.GetOrCreate().Money;

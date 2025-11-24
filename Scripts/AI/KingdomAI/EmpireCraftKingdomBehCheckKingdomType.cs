@@ -27,6 +27,7 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
         OfficeObject office = pKingdom.GetOffice();
         office.meta_object = pKingdom;
         office.is_local = true;
+        office.actor_id = pKingdom.king?.id??-1L;
         if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
@@ -61,7 +62,6 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
             {
                 regime.SetLeaderSelectMethod(officeObject.leader_select_method);
             }
-
             if (pKingdom.hasKing())
             {
                 officeObject.SetActor(pKingdom.king);

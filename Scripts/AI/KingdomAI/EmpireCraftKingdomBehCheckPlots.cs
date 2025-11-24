@@ -16,11 +16,19 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         if (pKingdom.IsEmpire())
         {
             CheckJoinWar(pKingdom);
-            return BehResult.Continue;
+            CheckMainTitle(pKingdom);
         }
         return BehResult.Continue;
     }
 
+    public void CheckMainTitle(Kingdom pKingdom)
+    {
+        if (pKingdom.hasKing())
+        {
+            var king = pKingdom.king;
+            pKingdom.SetOwnedTitle(king.GetOwnedTitle());
+        }
+    }
     public void CheckJoinWar(Kingdom pKingdom)
     {
         Empire empire = pKingdom.GetEmpire();

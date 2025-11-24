@@ -1,4 +1,5 @@
 ﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
@@ -36,14 +37,14 @@ public class EmpireSettingWindow : AutoLayoutWindow<EmpireSettingWindow>
     
     private void ToggleYearName()
     {
-        _empire = ConfigData.CURRENT_SELECTED_EMPIRE;
+        _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         _empire.data.has_year_name = !_empire.data.has_year_name;
         SetToggle(_empire.data.has_year_name);
     }
 
     public override void OnNormalEnable()
     {
-        _empire = ConfigData.CURRENT_SELECTED_EMPIRE;
+        _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         base.OnNormalEnable();
         SetToggle(_empire.data.has_year_name);
     }

@@ -15,6 +15,7 @@ public static class OfficeSelector
         Actor actor = null;
         Regime regime = pKingdom.GetRegime();
         LeaderSelectMethod method = regime.GetLeaderSelectMethod();
+        LogService.LogInfo(office.GetOfficeName()+"选择方法"+method.ToString());
         switch (method)
         {
             case LeaderSelectMethod.Exam:
@@ -26,12 +27,38 @@ public static class OfficeSelector
             case LeaderSelectMethod.Vote:
                 actor = TryGetProfessionOfficer(pKingdom);
                 break;
+            case LeaderSelectMethod.Army:
+                actor = TryGetStrongerLeader(office, pKingdom)??TryGetProfessionOfficer(pKingdom);
+                break;
         }
 
         if (actor != null)
         {
             office.SetActor(actor);
         }
+    }
+
+    private static Actor TryGetStrongerLeader(OfficeObject pOffice, Kingdom pKingdom)
+    {
+        LogService.LogInfo("开始选择官员");
+        if (pOffice.meta_object.isRekt()) return null;
+        if (pKingdom.IsEmpire()&&pOffice.meta_object.meta_type == MetaType.Kingdom)
+        {
+            Kingdom kingdom =  null;
+            int currentWarriors = 0;
+            Empire empire = pKingdom.GetEmpire();
+            foreach (var k in empire.kingdoms_list)
+            {
+                if (!k.hasKing()) continue;
+                if (k.countTotalWarriors() >= currentWarriors)
+                {
+                    kingdom = k;
+                    currentWarriors = k.countTotalWarriors();
+                }
+            }
+            return kingdom?.king;
+        }
+        return null;
     }
 
     private static Actor TryGetExamOfficer(OfficeObject pOffice, Kingdom  pKingdom)
@@ -66,14 +93,14 @@ public static class OfficeSelector
 
         foreach (Actor unit in targetPool)
         {
-            if (unit.isUnitFitToRule() && !unit.isKing() && !unit.isCityLeader() && unit.hasClan() && !unit.isOfficer())
+            if (unit.isUnitFitToRule() && !unit.IsEmperor() && !unit.IsOnOffice() && unit.hasClan()&& (!unit.isKing()||(unit.isKing()&&unit.kingdom.GetRegime().GetLeaderSelectMethod()!=LeaderSelectMethod.Succession)))
             {
                 if (unit.HasOfficeIdentity())
                 {
                     var flag1 = false;
                     var flag2 = false;
                     OfficeIdentity identity = unit.GetIdentity();
-                    if (identity.honoraryOfficial >= pOffice.honorary)
+                    if (identity.honoraryOfficial <= pOffice.honorary)
                     {
                         flag1 = true;
                     }
@@ -106,7 +133,7 @@ public static class OfficeSelector
         int num = 0;
         foreach (Actor unit in pKingdom.units)
         {
-            if (unit.isKing() || unit.isCityLeader() || unit.isOfficer())
+            if (unit.isKing() || unit.isCityLeader() || unit.IsOnOffice())
             {
                 continue;
             }
@@ -140,7 +167,7 @@ public static class OfficeSelector
         {
             foreach (Actor unit in city.units)
             {
-                if (unit.isUnitFitToRule() && !unit.isKing() && !unit.isCityLeader() && unit.hasClan()&&!unit.isOfficer())
+                if (unit.isUnitFitToRule() && !unit.isKing() && !unit.isCityLeader() && unit.hasClan()&&!unit.IsOnOffice())
                 {
                     if (clan != null && unit.clan == clan)
                     {

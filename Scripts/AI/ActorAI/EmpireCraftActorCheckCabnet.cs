@@ -7,7 +7,7 @@ namespace EmpireCraft.Scripts.AI.ActorAI;
 public class EmpireCraftActorCheckCabinet:GameAIActorBase
 {
     public override Type OriginalBeh => GetType();
-    //依据贤能值选择内阁官员
+    //依据绩效值选择内阁官员
     public override BehResult execute(Actor pActor)
     {
         if (pActor.IsEmperor())

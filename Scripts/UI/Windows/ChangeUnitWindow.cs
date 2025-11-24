@@ -12,6 +12,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.AI.KingdomAI;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Regimes;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -123,6 +124,7 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
         Clear();
         base.OnNormalEnable();
         _office = ConfigData.CURRENT_SELECTED_OFFICE;
+        _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         title.Setup(_office.GetName(), pAlignment:TextAnchor.MiddleCenter);
         List<Actor> listActor = new List<Actor>();
         foreach (Kingdom kingdom in _empire.kingdoms_list)
@@ -175,20 +177,7 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
     {
         if (_office!=null)
         {
-            foreach (var oid in _empire.data.centerOffice.CoreOffices)
-            {
-                if (_office.OfficeID == oid)
-                {
-                    EmpireCraftKingdomBehCheckInnerOffice.SetOfficer(oid, actor);
-                }
-            }
-            foreach (var oid in _empire.data.centerOffice.Divisions)
-            {
-                if (_office.OfficeID == oid)
-                {
-                    EmpireCraftKingdomBehCheckInnerOffice.SetOfficer(oid, actor);
-                }
-            }
+            _office.SetActor(actor);
         }
         else if (_kingdom!=null)
         {

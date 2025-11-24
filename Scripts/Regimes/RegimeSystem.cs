@@ -42,6 +42,14 @@ public enum KingdomType
 
     default_country_post //国
 }
+
+public enum ArmyOfficialType
+{
+    Lvling_army_yuling,     //羽林将军
+    Lvling_army_dudu,       //都督
+    Lvling_army_zhenjiang,  //镇将
+    Lvling_army_shuzhu      //戍主
+}
 public enum CityType
 {
     LvLing_city, //县
@@ -68,7 +76,8 @@ public enum LeaderSelectMethod
 {
     Succession,  //世袭
     Exam,        //考试
-    Vote,        //投票   
+    Vote,        //投票
+    Army,        //举能
     Default
 }
 
@@ -98,6 +107,7 @@ public class Regime
     [JsonIgnore]
     public long control_kingdom_id;
     public LeaderSelectMethod leader_select_method;
+    public List<FixedFaction> Factions;
     public Dictionary<string, int[]> options;
     public BureauConfig bureau_config;
     public Regime Clone()
@@ -112,7 +122,8 @@ public class Regime
                 entry => (int[])entry.Value.Clone()
             ),
             bureau_config = this.bureau_config,
-            era_name = this.era_name
+            era_name = this.era_name,
+            Factions =  this.Factions.ToList(),
         };
     }
 
@@ -169,7 +180,7 @@ public class Regime
 public static class RegimeManager
 {
     public static Dictionary<RegimeType, Regime> regimes;
-    private static string _folderPath = Path.Combine(ModClass._declare.FolderPath, "Scripts", "Regimes");
+    private static string _folderPath = Path.Combine(ModClass._declare.FolderPath, "Scripts", "Regimes", "Configs");
 
     public static void init()
     {

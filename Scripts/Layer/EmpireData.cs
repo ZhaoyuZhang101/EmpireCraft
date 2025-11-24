@@ -27,6 +27,9 @@ public class EmpireData : MetaObjectData
     public int Prestige { get; set; } = 100; //威望
     public EmpireHeirLawType heir_type { get; set; }
     public int max_province_city_num { get; set; } = 3;
+    public List<int> PreviousYearsMoney = new();
+    public double MilitaryExpenditureRate { get; set; } = 0.2;
+    public int MilitaryExpenditure = 0;
     public bool original_royal_been_changed { get; set; } = false;
     public double original_royal_been_changed_timestamp { get; set; }
     public string founder_actor_name { get; set; }

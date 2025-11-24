@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -47,6 +48,7 @@ public class BureauConfig
     public List<BureauSetting> division;
     public Dictionary<KingdomType, BureauSetting> kingdoms;
     public Dictionary<CityType, BureauSetting> cities;
+    public Dictionary<ArmyOfficialType, BureauSetting> armies;
 }
 
 public static class OfficeManager
@@ -76,26 +78,48 @@ public class OfficeObject
     public LeaderSelectMethod leader_select_method { get; set; }
     public bool is_local { get; set; } = false;
     public RegimeType regimeType { get; set; }
+    public PeerageType peerageType { get; set; } = PeerageType.Civil;
     public List<string> require_traits { get; set; } = new List<string>();
     public List<string> history_officers = new List<string>();
     
     public string GetName(NanoObject pNano = null)
     {
-        pre = string.IsNullOrEmpty(pre) ? pre : LM.Get(pre);
-        switch (pNano?.getType())
+        var flag = pre.Contains("_all");
+        LogService.LogInfo($"{pre}：{flag}");
+        var preX = string.IsNullOrEmpty(pre) ? pre : LM.Get(pre);
+        switch (pNano?.meta_type)
         {
-            case "kingdom":
-                pre = ((Kingdom)pNano).GetKingdomName();
+            case MetaType.Kingdom:
+                preX = ((Kingdom)pNano).GetKingdomName();
                 LogService.LogInfo("国家");
                 break;
-            case "city":
-                pre = ((City)pNano).GetCityName();
+            case MetaType.City:
+                preX = ((City)pNano).GetCityName();
                 LogService.LogInfo("城市");
                 break;
         }
         LogService.LogInfo(pNano?.getType());
         var post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
-        return pre + post;
+        return flag? post: preX + post;
+    }    
+    public string GetOfficeName(NanoObject pNano = null)
+    {
+        var flag = pre.Contains("full")||pre.Contains("all");
+        LogService.LogInfo($"{pre}：{flag}");
+        var preX = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
+        if (flag) preX = LM.Get(pre);
+        switch (pNano?.meta_type)
+        {
+            case MetaType.Kingdom:
+                preX = ((Kingdom)pNano).name;
+                LogService.LogInfo("国家");
+                break;
+            case MetaType.City:
+                preX = ((City)pNano).name;
+                LogService.LogInfo("城市");
+                break;
+        }
+        return preX;
     }
     public void InitialOffice(BureauSetting config, Action action = null, bool isNew = true)
     {
@@ -119,6 +143,24 @@ public class OfficeObject
 
     public void SetActor (Actor actor)
     {
+        var originalActor = GetActor();
+        if (originalActor != null)
+        {
+            if (originalActor.HasOfficeIdentity())
+            {
+                var id = originalActor.GetIdentity();
+                id.RemoveOffice();
+            }
+            else
+            {
+                RemoveActor();
+            }
+        }
+
+        if (actor.isRekt())
+        {
+            return;
+        }
         if(!actor.hasCulture())
         {
             actor.setCulture(actor.kingdom.culture);
@@ -127,10 +169,15 @@ public class OfficeObject
         if (actor.HasOfficeIdentity())
         {
             var identity = actor.GetIdentity();
+            if (actor.IsOnOffice())
+            {
+                identity.RemoveOffice();
+            }
             identity.SetOfficeId(OfficeID);
             actor.addTrait("officer");
             actor.ChangeOfficialLevel(officeType);
         }
+        actor.StartOffice(this);
         actor_id = actor.getID();
         timestamp = World.world.getCurWorldTime();
         if (!is_local) return;
@@ -145,24 +192,32 @@ public class OfficeObject
             case MetaType.Kingdom:
                 Kingdom kingdom = (Kingdom)meta_object;
                 kingdom.setKing(actor); 
-                actor.joinCity(kingdom.capital);
+                actor.joinCity(kingdom.capital); ;
                 actor.goTo(kingdom.capital._city_tile);
                 break;
         }
     }
     public Actor GetActor()
     {
-        return World.world.units.get(actor_id);
+        var res = World.world.units.get(actor_id);
+        if (res != null)
+        {
+            if (res.isUnitFitToRule() && res.isAdult())
+            {
+                return res;
+            }
+        }
+        return null;
     }
     public int GetOnTime()
     {
         if (this.actor_id == -1L)
         {
-            return 0;
+            return -1;
         }
         if (GetActor() == null)
         {
-            return 0;
+            return -1;
         }
         return Date.getYearsSince(this.timestamp);
     }
@@ -177,8 +232,10 @@ public class OfficeObject
                 actor.addTrait("officerLeave");
             }
             history_officers.Add(actor.data.name);
+            actor.EndOffice();
         }
         actor_id = -1L;
+        
     }
 }
 
@@ -197,7 +254,10 @@ public class CenterOffice
             o.regimeType = pKingdom.GetRegime().type;
             o.meta_object = pKingdom;
             o.is_local = false;
+            o.select_from_local = false;
             o.OfficeID = OverallHelperFunc.IdGenerator.NextId();
+            o.actor_id = -1L;
+            o.history_officers.Clear();
             OfficeManager.Offices.Add(o.OfficeID, o);
             CoreOffices.Add(o.OfficeID);
         }
@@ -207,9 +267,12 @@ public class CenterOffice
             var o = new OfficeObject();
             o.InitialOffice(div);
             o.regimeType = pKingdom.GetRegime().type;
+            o.select_from_local = false;
             o.meta_object = pKingdom;
             o.is_local = false;
             o.OfficeID = OverallHelperFunc.IdGenerator.NextId();
+            o.actor_id = -1L;
+            o.history_officers.Clear();
             OfficeManager.Offices.Add(o.OfficeID, o);
             Divisions.Add(o.OfficeID);
         }

@@ -18,9 +18,18 @@ LvLing_officiallevel_8,刺史
 
 LvLing_city,县
 
-libu,吏部
-li3bu,礼部
-gongbu,工部
-xingbu,刑部
-bingbu,兵部
-hubu,户部
+LvLing_officiallevel_9,羽林大将军
+LvLing_officiallevel_10,都督
+LvLing_officiallevel_11,镇将
+LvLing_officiallevel_12,戍主
+
+libu_full,吏部
+li3bu_full,礼部
+gongbu_full,工部
+xingbu_full,刑部
+bingbu_full,兵部
+hubu_full,户部
+
+zhongshusheng_all,中书省
+shangshusheng_all,尚书省
+menxiasheng_all,门下省
