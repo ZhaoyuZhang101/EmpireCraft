@@ -1,0 +1,222 @@
+{  
+  //周封建制
+  "ZhouFeudalism": {
+    "description": "东周时期的制度，天子子嗣分封到各个国家以拱卫中央，每征服一片区域便会汉化该地区，并将法理分封给其子嗣，各诸侯国之间彼此独立，拥有独立的军事权外交权",
+    "icon_url": "",
+    "era_name": true,
+    "leader_select_method": "Succession",
+    "Factions": [
+      {
+        "_id": "2de32a56-7cb1-4570-b9c6-c1059bee5801",
+        "Type": "尊王",
+        "Ban": false,
+        "_requiredTraits": [],
+        "Name": "天子派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        "_id": "dc184234-019b-4a78-80d5-2297bd2695ab",
+        "Type": "自治",
+        "Ban": false,
+        "_requiredTraits": [],
+        "Name": "诸侯派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [
+        1
+      ],
+      "toggle_allow_army": [
+        1
+      ],
+      "toggle_support_army_to_center": [
+        1
+      ],
+      "option_tax_level": [
+        1,
+        4
+      ],
+      "option_leader_select_method": [
+        0,
+        3
+      ],
+      "option_religion_type": [
+        2,
+        4
+      ]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [
+            "天子智教"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        },
+        {
+          "pre": "",
+          "type": 2,
+          "description": "",
+          "powers": [
+            "天子政教"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        },
+        {
+          "pre": "",
+          "type": 3,
+          "description": "",
+          "powers": [
+            "天子护理"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        }
+      ],
+      "division": [
+        {
+          "pre": "situ_all",
+          "type": 4,
+          "description": "大司徒",
+          "powers": [
+            "财政"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        },
+        {
+          "pre": "sima_all",
+          "type": 4,
+          "description": "大司马",
+          "powers": [
+            "军事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        },
+        {
+          "pre": "sikou_all",
+          "type": 4,
+          "description": "大司寇",
+          "powers": [
+            "司法"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        },
+        {
+          "pre": "sishi_all",
+          "type": 4,
+          "description": "司士",
+          "powers": [
+            "人事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        },
+        {
+          "pre": "zongbo_all",
+          "type": 4,
+          "description": "宗伯",
+          "powers": [
+            "礼仪"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        }
+      ],
+      "armies": {},
+      "kingdoms": {
+        "ZhouFeudalism_empire": {
+          "pre": "",
+          "type": 0,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "ZhouFeudalism_gong": {
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "ZhouFeudalism_hou": {
+          "pre": "",
+          "type": 6,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        "ZhouFeudalism_bo": {
+          "pre": "",
+          "type": 7,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+
+        },
+        "ZhouFeudalism_zi": {
+          "pre": "",
+          "type": 8,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        }
+      },
+      "cities": {
+        "ZhouFeudalism_city": {
+          "pre": "",
+          "type": 9,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        }
+      }
+    }
+  }
+}

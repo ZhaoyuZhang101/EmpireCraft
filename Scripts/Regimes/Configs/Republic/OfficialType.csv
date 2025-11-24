@@ -15,8 +15,8 @@ Republic_officiallevel_6,市长
 
 Republic_city,市
 
-finance_pre,财政
-defence_pre,国防
-law_pre,司法
-interior_pre,内务
-education_pre,教育
+finance_full,财政部
+defence_full,国防部
+law_pre_full,司法部
+interior_full,内务部
+education_full,教育部

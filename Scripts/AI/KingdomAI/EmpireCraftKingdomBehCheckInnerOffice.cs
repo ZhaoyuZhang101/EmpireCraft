@@ -45,7 +45,7 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
                     //记录事件
                     pData[actor] = performance.pValue;
                     actor.GetIdentity().TotalPerformance += performance.pValue;
-                    LogService.LogInfo($"{actor.name}{performance.pEvent.is_good}{performance.pEvent.eventType}绩效增加{performance.pValue},当前绩效{actor.GetIdentity().TotalPerformance}");
+                    // LogService.LogInfo($"{actor.name}{performance.pEvent.is_good}{performance.pEvent.eventType}绩效增加{performance.pValue},当前绩效{actor.GetIdentity().TotalPerformance}");
                     actor.ResetPerformance();
                 }
                 if (pData.Values.Count > 0)
@@ -79,151 +79,29 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
             pEmpire.data.last_office_exam_timestamp = World.world.getCurWorldTime();
         }
     }
-    //内阁官员选拔机制
+    //三省六部官员选拔机制
     public void SelectOfficer(Empire pEmpire)
     {
         foreach (var core in pEmpire.data.centerOffice.CoreOffices)
         {
-            
+            if (OfficeManager.Offices.TryGetValue(core, out var value))
+            {
+                if (value.GetOnTime() > 3||value.GetOnTime()<0)
+                {
+                    LogService.LogInfo("撤换官员");
+                    value.Select(pEmpire.CoreKingdom);
+                }
+            }
         }
         foreach (var division in pEmpire.data.centerOffice.Divisions)
         {
-            
-        }
-        foreach (var kingdom in pEmpire.kingdoms_hashset)
-        {
-            
-        }
-    }
-
-    private void SetOfficeBase(OfficeObject obj, Empire pEmpire)
-    {
-        long id = obj.actor_id;
-        Actor actor = World.world.units.get(id);
-        if (actor != null)
-        {
-            if (actor.GetPeeragesLevel() == PeeragesLevel.peerages_0)
+            if (OfficeManager.Offices.TryGetValue(division, out var value))
             {
-                obj.RemoveActor();
-                id = obj.actor_id;
-                actor = World.world.units.get(id);
-            }
-        }
-        if (actor == null || id == -1L)
-        {
-            ListPool<Actor> pool = new ListPool<Actor>();
-            ListPool<Actor> pool2 = new ListPool<Actor>();
-            ListPool<Actor> pool3 = new ListPool<Actor>();
-            foreach (Kingdom kingdom in pEmpire.kingdoms_list)
-            {
-                foreach (Actor potential in kingdom.units)
+                if (value.GetOnTime() > 3||value.GetOnTime()<0)
                 {
-                    if (potential != null)
-                    {
-                        if (potential.IsEmperor()) continue;
-                        if (potential.isUnitFitToRule() && potential.hasTrait("officer"))
-                        {
-                            OfficeIdentity identity = potential.GetIdentity();
-                            if (identity == null) continue;
-                            if (identity.honoraryOfficial <= 2)
-                            {
-                                pool.Add(potential);
-                            }
-                        }
-                        if (potential.hasClan() && !potential.isOfficer())
-                        {
-                            if (potential.clan == pEmpire.CoreKingdom.getKingClan())
-                            {
-                                pool2.Add(potential);
-                            }
-                        }
-
-                        foreach (string requireTrait in obj.require_traits)
-                        {
-                            if (potential.hasTrait(requireTrait) && !potential.isOfficer())
-                            {
-                                pool3.Add(potential);
-                                break;
-                            }
-                        }
-                    }
+                    LogService.LogInfo("撤换官员");
+                    value.Select(pEmpire.CoreKingdom);
                 }
-            }
-            bool flag = false;
-            Actor final = null;
-            if (pool.Any())
-            {
-                final = pool.First();
-                flag = true;
-            }
-            else if (pool2.Any())
-            {
-                if (pEmpire.CoreKingdom.hasCulture())
-                {
-                    final = ListSorters.getUnitSortedByAgeAndTraits(pool2, pEmpire.CoreKingdom.culture);
-                }
-                else
-                {
-                    pool2.Sort(ListSorters.sortUnitByAgeOldFirst);
-                    final = pool2.First();
-                }
-                flag = true;
-            }
-            else if (pool3.Any())
-            {
-                if (pEmpire.CoreKingdom.hasCulture())
-                {
-                    final = ListSorters.getUnitSortedByAgeAndTraits(pool3, pEmpire.CoreKingdom.culture);
-                } else
-                {
-                    pool3.Sort(ListSorters.sortUnitByAgeOldFirst);
-                    final = pool3.First();
-                }
-                flag = true;
-            }
-            if (flag)
-            {
-                SetOfficer(id, final);
-                final.joinCity(pEmpire.CoreKingdom.capital);
-                final.goTo(pEmpire.CoreKingdom.capital._city_tile);
-            }
-        } else
-        {
-            if (obj.GetOnTime()>=16)
-            {
-                obj.RemoveActor();
-            }
-        }
-    }
-
-    public static void SetOfficer(long oid, Actor pActor)
-    {
-        if (OfficeManager.Offices.TryGetValue(oid, out var oObject))
-        {
-            oObject.SetActor(pActor);
-            return;
-        }
-        LogService.LogInfo("设置官员失败");
-    }
-    //设置三省
-    private void SelectCoreOffices(Empire pEmpire)
-    {
-        foreach(var office_id in pEmpire.data.centerOffice.CoreOffices)
-        {
-            if (OfficeManager.Offices.TryGetValue(office_id, out var oObject))
-            {
-                SetOfficeBase(oObject, pEmpire);
-            }
-        }
-    }
-    //设置六部
-    private void SelectDivisions(Empire pEmpire)
-    {
-        foreach (var office_id in pEmpire.data.centerOffice.Divisions)
-        {
-            if (OfficeManager.Offices.TryGetValue(office_id, out var oObject))
-            {
-                SetOfficeBase(oObject, pEmpire);
             }
         }
     }

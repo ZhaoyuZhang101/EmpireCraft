@@ -32,6 +32,7 @@ public class Empire : MetaObject<EmpireData>
 
     public Kingdom CoreKingdom;
     public Actor Emperor;
+    public int CurrentMoney => CoreKingdom.GetMoney();
     private Vector3 _capitalCenter;
     public City OriginalCapital;
     public　SpecificClan EmpireSpecificClan => SpecificClanManager.Get(data.empire_specific_clan);
@@ -1423,7 +1424,7 @@ public class Empire : MetaObject<EmpireData>
 
     public void SelectAndInspect()
     {
-        ConfigData.CURRENT_SELECTED_EMPIRE = this;
+        EmpireCraftMetaTypeLibrary.selected_empire = this;
         ScrollWindow.showWindow(nameof(EmpireWindow));
     }
 

@@ -5,6 +5,32 @@
     "icon_url": "",
     "era_name": false,
     "leader_select_method": "Succession",
+    "Factions": [
+      {
+        //所有哈里发皆合法
+        "_id": "be7ec507-5517-446e-bc2e-5b598d2d6414",
+        "Type": "僭主",
+        "Ban": false,
+        "_requiredTraits": [],
+        "Name": "逊尼派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        //只认单一血统
+        "_id": "9de1e2ce-a0eb-4360-8238-d10903133c2f",
+        "Type": "血脉",
+        "Ban": false,
+        "_requiredTraits": [],
+        "Name": "什叶派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      }
+    ],
     "options": {
       "toggle_allow_diplomacy": [1],
       "toggle_allow_army": [1],
@@ -61,6 +87,7 @@
         }
       ],
       "division": [],
+      "armies": {},
       "kingdoms": {
         "Arabic_emirate": {
           "pre": "",

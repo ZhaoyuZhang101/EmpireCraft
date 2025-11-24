@@ -16,6 +16,7 @@ using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine.Events;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -56,16 +57,18 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         coreOfficeTitle.Setup(LM.Get("CoreOffice"), TextAnchor.MiddleCenter);
         coreOfficeSpace.AddChild(coreOfficeTitle.gameObject);
 
-        coreOfficeGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 50));
+        coreOfficeGroup = this.BeginGridGroup(2, pCellSize: new Vector2(100, 50));
         foreach (var oid in _empire.data.centerOffice.CoreOffices)
         {
-            SetCenterOfficeView(oid, ref coreOfficeGroup);
+            SetOfficeView(oid, ref coreOfficeGroup);
         }
         coreOfficeSpace.AddChild(coreOfficeGroup.gameObject);
 
         AddChild(coreOfficeSpace.gameObject);
     }
-
+    /// <summary>
+    /// 显示内阁
+    /// </summary>
     public void ShowTopOfficeSpace()
     {
         topOfficeSpace = this.BeginVertGroup();
@@ -85,7 +88,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         divisionsGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 50));
         foreach (var o2 in _empire.data.centerOffice.Divisions)
         {
-            SetCenterOfficeView(o2, ref divisionsGroup);
+            SetOfficeView(o2, ref divisionsGroup);
         }
         divisionsSpace.AddChild(divisionsGroup.gameObject);
 
@@ -103,7 +106,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         provincesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 50));
         foreach (Kingdom kingdom in _empire.kingdoms_hashset)
         {
-            SetProvinceView(kingdom, ref provincesGroup);
+            SetOfficeView(kingdom.GetOfficeID(), ref provincesGroup, kingdom);
         }
 
         provincesSpace.AddChild(provincesGroup.gameObject);
@@ -114,9 +117,9 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
-        _empire = ConfigData.CURRENT_SELECTED_EMPIRE;
+        _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         Clear();
-        ShowTopOfficeSpace();
+        // ShowTopOfficeSpace();
 
         ShowCoreSpace();
 
@@ -158,7 +161,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         pool.Clear();
     }
 
-    public void SetCenterOfficeView(long oid, ref AutoGridLayoutGroup parent)
+    public void SetOfficeView(long oid, ref AutoGridLayoutGroup parent, NanoObject o = null)
     {
         //寻找存在的官制
         if (!OfficeManager.Offices.TryGetValue(oid, out var officeObject))
@@ -169,12 +172,11 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
         //右边头像
         AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:12, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 20));
-        LogService.LogInfo($"官职名称{name}");
         SimpleText title = Instantiate(SimpleText.Prefab);
-        title.Setup(LM.Get(name)+$"({officeObject.history_officers.Count})", TextAnchor.MiddleCenter, new Vector2(30, 10));
+        title.Setup(officeObject.GetOfficeName(o)+$"({officeObject.history_officers.Count})", TextAnchor.MiddleCenter, new Vector2(30, 10));
         title.background.enabled = false;
 
-
+        LogService.LogInfo($"{officeObject.GetOfficeName()}: "+officeObject.actor_id);
         SimpleButton clickframe = UIHelper.CreateAvatarView(officeObject.actor_id);
 
         SimpleButton changeAvatar = Instantiate(SimpleButton.Prefab);
@@ -193,7 +195,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         nameText.Setup($"{LM.Get("i_name")}: {(officeObject.GetActor() == null ? "-" : officeObject.GetActor().data.name)}", pSize: new Vector2(50, 10));
 
         SimpleText levelText = GameObject.Instantiate(SimpleText.Prefab);
-        levelText.Setup($"{LM.Get("OfficialLevel")}: {LM.Get(String.Join("_", culture, officeObject.officeType.ToString()))}", pSize: new Vector2(50, 10));
+        levelText.Setup($"{LM.Get("OfficialLevel")}: {officeObject.GetName(o)}", pSize: new Vector2(50, 10));
 
         SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
         timeText.Setup($"{LM.Get("i_on_office_time")}: {officeObject.GetOnTime()}", pSize: new Vector2(50, 10));
@@ -209,61 +211,6 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         LogService.LogInfo($"加载官位{name}");
 
         pool.Add(officePositionGroup.gameObject);
-    }
-    public void SetProvinceView(Kingdom province, ref AutoGridLayoutGroup parent)
-    {
-        AutoHoriLayoutGroup provinceGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
-
-        //右边头像
-        AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:12, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 20));
-
-        SimpleText title = Instantiate(SimpleText.Prefab);
-        string text = province.data.name + $"({province.data.past_rulers.Count})";
-        title.Setup(text, TextAnchor.MiddleCenter, new Vector2(30, 10));
-        title.background.enabled = false;
-
-        long actor_id = -1L;
-        if (!province.king.isRekt())
-        {
-            actor_id = province.king.getID();
-        } else
-        {
-            actor_id = -1L;
-        }
-        SimpleButton clickframe = UIHelper.CreateAvatarView(actor_id);
-
-        SimpleButton changeAvatar = Instantiate(SimpleButton.Prefab);
-        changeAvatar.Setup(() => ChangeOfficer(province:province), SpriteTextureLoader.getSprite("ui/changeOfficer"), pSize: new Vector2(20, 10));
-
-        avatarLayoutGroup.AddChild(title.gameObject);
-        avatarLayoutGroup.AddChild(clickframe.gameObject);
-        avatarLayoutGroup.AddChild(changeAvatar.gameObject);
-        avatarLayoutGroup.transform.localPosition = Vector3.zero;
-        provinceGroup.AddChild(avatarLayoutGroup.gameObject);
-
-        //左边信息栏
-        AutoVertLayoutGroup leftVertGroup = this.BeginVertGroup(pAlignment: TextAnchor.UpperCenter);
-
-        SimpleText nameText = GameObject.Instantiate(SimpleText.Prefab);
-        nameText.Setup($"{LM.Get("i_name")}: {(province.king.isRekt() ? "-" : province.king.data.name)}", pSize: new Vector2(50, 10));
-
-        SimpleText levelText = GameObject.Instantiate(SimpleText.Prefab);
-        levelText.Setup($"{LM.Get("OfficialLevel")}: -", pSize: new Vector2(50, 10));
-
-        SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
-        timeText.Setup($"{LM.Get("i_on_office_time")}: {Date.getYearsSince(province.data.timestamp_king_rule)}", pSize: new Vector2(50, 10));
-
-
-        leftVertGroup.AddChild(nameText.gameObject);
-        leftVertGroup.AddChild(levelText.gameObject);
-        leftVertGroup.AddChild(timeText.gameObject);
-        leftVertGroup.transform.localPosition = Vector3.zero;
-        provinceGroup.AddChild(leftVertGroup.gameObject);
-
-        parent.AddChild(provinceGroup.gameObject);
-        LogService.LogInfo($"加载官位{province.data.name}");
-
-        pool.Add(provinceGroup.gameObject);
     }
 
     private void ChangeOfficer(OfficeObject o=null, Kingdom province=null)

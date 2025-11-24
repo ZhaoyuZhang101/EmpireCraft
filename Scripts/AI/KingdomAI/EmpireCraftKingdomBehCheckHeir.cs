@@ -21,7 +21,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         Regime regime = pKingdom.GetRegime();
-        if (((!pKingdom.IsEmpire()&&regime.GetLeaderSelectMethod()!=LeaderSelectMethod.Succession)||(pKingdom.IsEmpire()&&regime.leader_select_method != LeaderSelectMethod.Succession))| pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir())
+        if (regime.leader_select_method != LeaderSelectMethod.Succession || pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir())
         {
             return BehResult.Continue;
         }
@@ -169,10 +169,9 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                     officeIDs.AddRange(empire.data.centerOffice.Divisions);
                     officeIDs.AddRange(empire.kingdoms_list?.ToList().Select(pKingdom=>pKingdom.GetOfficeID()) ?? Array.Empty<long>());
                     officeIDs.Add(k.capital.GetOfficeID());
-                    var actorID = officeIDs.Select(id=>OfficeManager.Offices.TryGetValue(id, out var value)?value.actor_id:-1L).ToList().Find(aid=>aid != -1L);
-                    actor = world.units.get(actorID);
-                    OfficeIdentity identity = actor?.GetIdentity();
-                    var officeName = string.Join("_", actor?.GetPersonalIdentity()?.culture, identity?.officialLevel);
+                    var office = officeIDs.Select(id=>OfficeManager.Offices.TryGetValue(id, out var value)?value:null).ToList().Find(o=>o!=null&&o.GetActor()!=null);
+                    actor = office.GetActor();
+                    var officeName = office.GetName();
                     relationText = LM.Get(officeName).ColorString(pColor:new Color(1.0f, 1.0f, 1.0f));
                 }
                 else

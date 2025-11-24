@@ -177,11 +177,13 @@ public class OfficeIdentity
 
     public void RemoveOffice()
     {
-        officeID = -1L;
         if (OfficeManager.Offices.TryGetValue(this.GetOfficeId(), out var value))
         {
             value.RemoveActor();
         }
+
+        officialLevel = -1;
+        officeID = -1L;
     }
 
     public long GetOfficeId()
@@ -241,9 +243,32 @@ public static class ActorExtension
         public OfficeIdentity officeIdentity { get; set; } = null;
         public double last_tax_timestamp = -1L;
         public long empire_id { get; set; } = -1L;
-        public long provinceId { get; set; } = -1L;
+        public long OfficeId { get; set; } = -1L;
+        public bool is_on_office = false;
         public long personal_identity { get; set; } = -1L;
         public float death_rate = 0.0f;
+    }
+
+    public static void StartOffice(this Actor a, OfficeObject o)
+    {
+        a.GetOrCreate().OfficeId = o.OfficeID;
+        a.GetOrCreate().is_on_office = true;
+    }
+
+    public static void EndOffice(this Actor a)
+    {
+        a.GetOrCreate().OfficeId = -1L;
+        a.GetOrCreate().is_on_office = false;
+    }
+
+    public static OfficeObject GetOffice(this Actor a)
+    {
+        return OfficeManager.Offices.TryGetValue(a.GetOrCreate().OfficeId,  out var value) ? value : null;
+    }
+
+    public static bool IsOnOffice(this Actor a)
+    {
+        return a.GetOrCreate().is_on_office;
     }
     public static bool NeedDead(this Actor a)
     {

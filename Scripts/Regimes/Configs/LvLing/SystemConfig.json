@@ -5,6 +5,41 @@
     "icon_url": "",
     "era_name": true,
     "leader_select_method": "Succession",
+    "Factions": [
+      {
+        "_id": "136f74b5-0c6f-4ee7-aee8-bc59c7e77fc8",
+        "Type": "绥靖",
+        "_requiredTraits": ["peaceful", "pacifist"],
+        "Ban": false,
+        "Name": "主和派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        "_id": "dc78eb4d-6319-493e-ae36-512e0561b831",
+        "Type": "统一",
+        "_requiredTraits": ["ambitious", "bloodlust"],
+        "Ban": false,
+        "Name": "统一派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        "_id": "0f0c0d11-7a3d-4ff8-97a2-61bd12c08f85",
+        "Type": "攘夷",
+        "_requiredTraits": ["ambitious", "bloodlust"],
+        "Ban": false,
+        "Name": "攘夷派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      }
+    ],
     "options": {
       "toggle_allow_diplomacy": [0],
       "toggle_allow_army": [1],
@@ -16,7 +51,7 @@
     "bureau_config": {
       "cores": [
         {
-          "pre": "",
+          "pre": "zhongshusheng_all",
           "type": 1,
           "description": "",
           "powers": [
@@ -25,13 +60,14 @@
           "merit": 5,
           "honorary": 4,
           "select_from_local": false,
+          "peerageType": "Civil",
           "leader_select_method": "Default",
           "require_traits": [
             "jingshi"
           ]
         },
         {
-          "pre": "",
+          "pre": "shangshusheng_all",
           "type": 2,
           "description": "",
           "powers": [
@@ -40,13 +76,14 @@
           "merit": 5,
           "honorary": 4,
           "select_from_local": false,
+          "peerageType": "Civil",
           "leader_select_method": "Default",
           "require_traits": [
             "jingshi"
           ]
         },
         {
-          "pre": "",
+          "pre": "menxiasheng_all",
           "type": 3,
           "description": "",
           "powers": [
@@ -55,6 +92,7 @@
           "merit": 5,
           "honorary": 4,
           "select_from_local": false,
+          "peerageType": "Civil",
           "leader_select_method": "Default",
           "require_traits": [
             "jingshi"
@@ -63,7 +101,7 @@
       ],
       "division": [
         {
-          "pre": "libu",
+          "pre": "libu_full",
           "type": 4,
           "description": "",
           "powers": [
@@ -72,13 +110,14 @@
           "merit": 7,
           "honorary": 6,
           "select_from_local": false,
+          "peerageType": "Civil",
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
         },
         {
-          "pre": "gongbu",
+          "pre": "gongbu_full",
           "type": 4,
           "description": "",
           "powers": [
@@ -87,13 +126,14 @@
           "merit": 7,
           "honorary": 6,
           "select_from_local": false,
+          "peerageType": "Civil",
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
         },
         {
-          "pre": "bingbu",
+          "pre": "bingbu_full",
           "type": 4,
           "description": "",
           "powers": [
@@ -102,13 +142,14 @@
           "merit": 7,
           "honorary": 6,
           "select_from_local": false,
+          "peerageType": "Civil",
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
         },
         {
-          "pre": "li3bu",
+          "pre": "li3bu_full",
           "type": 4,
           "description": "",
           "powers": [
@@ -117,13 +158,14 @@
           "merit": 7,
           "honorary": 6,
           "select_from_local": false,
+          "peerageType": "Civil",
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
         },
         {
-          "pre": "xingbu",
+          "pre": "xingbu_full",
           "type": 4,
           "description": "",
           "powers": [
@@ -132,13 +174,14 @@
           "merit": 7,
           "honorary": 6,
           "select_from_local": false,
+          "peerageType": "Civil",
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
           ]
         },
         {
-          "pre": "hubu",
+          "pre": "hubu_full",
           "type": 4,
           "description": "",
           "powers": [
@@ -146,6 +189,7 @@
           ],
           "merit": 7,
           "honorary": 6,
+          "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [
@@ -153,6 +197,56 @@
           ]
         }
       ],
+      "armies": {
+        "LvLing_army_yuling": {
+          "pre": "",
+          "type": 9,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": 2,
+          "peerageType": "Military",
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": ["gongshi", "juren"]
+        },
+        "LvLing_army_dudu": {
+          "pre": "",
+          "type": 10,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": 4,
+          "peerageType": "Military",
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": ["gongshi", "juren"]
+        },
+        "LvLing_army_zhenjiang": {
+          "pre": "",
+          "type": 11,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": 7,
+          "peerageType": "Military",
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": ["gongshi", "juren"]
+        },
+        "LvLing_army_shuzhu": {
+          "pre": "",
+          "type": 12,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Military",
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": ["gongshi", "juren"]
+        }
+      },
       "kingdoms": {
         "LvLing_centre":{
           "pre": "",
@@ -161,6 +255,7 @@
           "powers": [],
           "merit": -1,
           "honorary": -1,
+          "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Succession",
           "require_traits": []
@@ -172,6 +267,7 @@
           "powers": [],
           "merit": -1,
           "honorary": -1,
+          "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Succession",
           "require_traits": []
@@ -183,6 +279,7 @@
           "powers": [],
           "merit": -1,
           "honorary": -1,
+          "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"]
@@ -194,6 +291,7 @@
           "powers": [],
           "merit": 8,
           "honorary": 7,
+          "peerageType": "Military",
           "select_from_local": false,
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"]
@@ -205,6 +303,7 @@
           "powers": [],
           "merit": -1,
           "honorary": -1,
+          "peerageType": "Military",
           "select_from_local": true,
           "officer_selected_method": "Exam",
           "require_traits": []
@@ -218,6 +317,7 @@
           "powers": [],
           "merit": 9,
           "honorary": 8,
+          "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": ["gongshi", "juren"]

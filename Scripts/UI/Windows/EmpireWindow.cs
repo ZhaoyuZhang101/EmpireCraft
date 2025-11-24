@@ -194,6 +194,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         //显示行政窗口
         public void ShowBureau(WindowMetaTab pArg0)
         {
+            
             ScrollWindow.showWindow(nameof(EmpireBeaurauWindow));
         }
 

@@ -36,6 +36,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
             }
         } 
         OfficeObject office = pKingdom.GetOffice();
+        office.meta_object = pKingdom;
         office.Select(pKingdom);
         return BehResult.Continue;
     }
@@ -47,6 +48,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         var heir = pKingdom.GetHeir(); 
         MakeKingAndMoveToCapital(pKingdom, heir);
         OfficeObject office = pKingdom.GetOffice();
+        office.meta_object = pKingdom;
         office.SetActor(heir);
     }
     public void TryToGiveGoldenTooth(Actor pActor)
