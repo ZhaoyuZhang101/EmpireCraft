@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.services;
 
@@ -19,6 +21,9 @@ public enum TemporaryFactionType
     输出革命,
     扶持革命党,
     夺取诸侯开战权,
+    转天朝制度,
+    转周制,
+    加强神权,
     允许诸侯自由开战,
     分割继承,
     强者继承法,
@@ -42,18 +47,19 @@ public enum TemporaryFactionType
 }
 public abstract class TemporaryFaction
 {
-    public TemporaryFactionType type;
+    public TemporaryFactionType type => Enum.TryParse(GetType().ToString().Split('_').Last(), out TemporaryFactionType res) ? res : default;
     public List<long>  kingdoms;
     public long MainKingdom = -1L;
-    public NanoObject target;
+    public long targetID = -1L;
+    public MetaType targetType;
     public float progress = 0.0f;
     public bool started = false;
 
-    public void Start(Kingdom kingdom, TemporaryFactionType pTemporaryFactionType, NanoObject ptarget = null)
+    public void Start(Kingdom kingdom, NanoObject ptarget = null)
     {
         SetMain(kingdom);
-        type = pTemporaryFactionType;
-        target = ptarget;
+        targetID = ptarget?.getID()??-1L;
+        targetType = ptarget?.meta_type??MetaType.Kingdom;
         started = true;
     }
 
@@ -70,16 +76,14 @@ public abstract class TemporaryFaction
     //更新：每年一次共计十年
     public void Update()
     {
-        if (MainKingdom == -1L)
-        {
-            return;
-        }
-        if (!World.world.kingdoms.get(MainKingdom)?.hasKing() ?? true)
-        {
-            return;
-        }
         if (started)
         {
+            if (MainKingdom == -1L || (!GetMainKingdom()?.hasKing() ?? true))
+            {
+                End();
+                return;
+            }
+
             progress += 0.1f;
             if (progress >= 1.0f) Execute();
         }
@@ -107,5 +111,15 @@ public abstract class TemporaryFaction
         }
         MainKingdom = kingdom.id;
         if (!kingdoms.Contains(MainKingdom)) kingdoms.Add(kingdom.id);
+    }
+
+    public Kingdom GetMainKingdom()
+    {
+        return World.world.kingdoms.get(MainKingdom);
+    }
+
+    public List<Kingdom> GetMembers()
+    {
+        return kingdoms.Select(k=>World.world.kingdoms.get(k)).ToList();
     }
 }

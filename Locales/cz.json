@@ -206,6 +206,7 @@
     "trait_empireArmedProvinceSoldier": "帝国军府军人",
 
     "provinceVassaled": "沦陷",
+    "Faction": "派系",
 
     "Libu_division": "吏部",
     "Li3bu_division": "礼部",
@@ -309,11 +310,14 @@
     "join_empire_war_log": "$kingdom$ 加入了 $empire$ 的战争",
     "officer_build_specific_clan": "$actor$ 创建了 $clan_name$ 氏族谱",
     "king_choose_heir_log": "$kingdom$ 王 已选定其 $relation$ $actor$ 作为下一任接班人",
+    "officer_join_faction": "$office$ $actor$ 已加入 $faction$",
+    "officer_become_faction_leader": "$actor$ 已成为 $faction$ 的派系领袖",
     "On": "开",
     "Off": "关",
     "population_limit_text": "开启开关设置人口限制",
     "population_limit_title": "设置城市人口限制",
 
+    "kingdom_list": "行政区列表",
     "city_setting": "城市设置",
     "city_setting_description": "设置城市的基本配置，如人口限制等",
     "AdditionalTab": "附加侧边按钮",

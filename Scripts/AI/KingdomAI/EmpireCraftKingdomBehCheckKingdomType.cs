@@ -44,7 +44,7 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
         if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
-            empire.SetEmpireName(empire.GetEmpireName());
+            empire.SetEmpireName(pKingdom.GetKingdomName());
         }
         //获取国家政体后同步国家官位
         var regime = pKingdom.GetRegime();

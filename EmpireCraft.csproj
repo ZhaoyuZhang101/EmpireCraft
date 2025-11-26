@@ -78,9 +78,6 @@
       <Folder Include="Scripts\AI\" />
       <Folder Include="Scripts\Regimes\Configs\" />
     </ItemGroup>
-    <ItemGroup>
-      <None Include="Scripts\GeneralSystems\BeaurauSystem.cs" />
-    </ItemGroup>
     <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>
 
 </Project>

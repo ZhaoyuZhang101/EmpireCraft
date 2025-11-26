@@ -69,7 +69,6 @@ public class OfficeObject
     public string pre { get; set; } = "";
     public int merit { get; set; }
     public List<OfficerPowerType> powers { get; set; }
-    public bool is_cabinet { get; set; } = false;//内阁
     public int honorary { get; set; }
     [JsonIgnore]
     public NanoObject meta_object { get; set; } = null;
@@ -166,6 +165,11 @@ public class OfficeObject
             actor.setCulture(actor.kingdom.culture);
         }
         actor.CheckSpecificClan();
+        //初始化角色官职
+        if (actor.kingdom.GetRegime().GetLeaderSelectMethod() != LeaderSelectMethod.Exam)
+        {
+            actor.InitialIdentity();
+        }
         if (actor.HasOfficeIdentity())
         {
             var identity = actor.GetIdentity();

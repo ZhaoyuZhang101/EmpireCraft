@@ -6,12 +6,12 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_转军府:TemporaryFaction
 {
-    public TemporaryFactionType type = TemporaryFactionType.转军府;
     public override void Execute()
     {
-        if (target.meta_type == MetaType.Kingdom)
+        LogService.LogInfo($"执行{this.type}");
+        if (targetType == MetaType.Kingdom)
         {
-            Kingdom kingdom = (Kingdom)target;
+            Kingdom kingdom = World.world.kingdoms.get(targetID);
             kingdom.GetRegime().SetAllowArmy(true);
             kingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
         }
@@ -19,7 +19,18 @@ public class TempFac_转军府:TemporaryFaction
     }
     public override bool CheckCondition()
     {
-        
+        if (targetType == MetaType.Kingdom)
+        {
+            Kingdom kingdom = World.world.kingdoms.get(targetID);
+            Regime regime = kingdom.GetRegime();
+            if (regime.type == RegimeType.LvLing)
+            {
+                if (!regime.IsAllowArmy() || regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
+                {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 }

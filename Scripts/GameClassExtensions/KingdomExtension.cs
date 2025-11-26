@@ -138,7 +138,6 @@ public static class KingdomExtension
     public static void SetOffice(this Kingdom k, OfficeObject office)
     {
         var res = OfficeManager.Remove(k.GetOfficeID());
-        LogService.LogInfo($"删除旧官职类型：{res}");
         k.GetOrCreate().office_id = office.OfficeID;
     }
     public static OfficeObject GetOffice(this Kingdom k)

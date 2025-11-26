@@ -11,6 +11,7 @@ using UnityEngine.UI;
 using NCMS.Extensions;
 using EpPathFinding.cs;
 using System.Drawing.Printing;
+using DG.Tweening;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine.Events;
@@ -24,13 +25,14 @@ using NeoModLoader.General.UI.Window;
 using UnityEngine.Pool;
 using NeoModLoader.services;
 using EmpireCraft.Scripts.UI.Components;
+using NeoModLoader.api.attributes;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 {
     public Empire _empire;
     public string culture = "Huaxia";
-    AutoVertLayoutGroup topOfficeSpace;
+    AutoHoriLayoutGroup topSpace;
     AutoGridLayoutGroup topOfficeGroup1;
     AutoGridLayoutGroup topOfficeGroup2;
 
@@ -47,8 +49,35 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     public ListPool<GameObject> pool = new ListPool<GameObject>();
     protected override void Init()
     {
+        layout.spacing = 3;
+        this.layout.padding = new RectOffset(3, 3, 95, 3);
     }
+    [Hotfixable]
+    private void InitialTopPartInfo()
+    {
+        //总容器
+        topSpace = this.BeginHoriGroup();
+        topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
 
+        var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
+        centerPart.AddTextIntoVertLayout("内阁首辅", true, TextAnchor.MiddleCenter);
+        centerPart.AddActorViewIntoVertLayout(_empire.GetCabinetLeader(), 
+            description:_empire.GetCabinetLeader()?.GetFaction()?.Name.ColorString(pColor:new Color(0.0f, 1, 0.5f))??"无");
+        centerPart.AddTextIntoVertLayout("内阁大臣", true, TextAnchor.MiddleCenter);
+        var cabinetMemberSpace = centerPart.BeginHoriGroup(pSpacing:-5);
+        var members = _empire.GetCabinetMembers();
+        for(int i=1; i<5; i++)
+        {
+            int cCount = members.Count;
+            cabinetMemberSpace.AddActorViewIntoHoriLayout(i<cCount?members[i]:null, description: i < cCount
+                ? members[i].GetFaction().Name.ColorString(pColor:new Color(0.0f, 1, 0.5f))
+                : "无");
+        }
+        
+        UIHelper.AddFactionCard(_empire.CoreKingdom.GetRegime().GetDominateFaction(), _empire.CoreKingdom, parentH:topSpace);
+        
+        topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
+    }
     public void ShowCoreSpace()
     {
         coreOfficeSpace = this.BeginVertGroup();
@@ -57,7 +86,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         coreOfficeTitle.Setup(LM.Get("CoreOffice"), TextAnchor.MiddleCenter);
         coreOfficeSpace.AddChild(coreOfficeTitle.gameObject);
 
-        coreOfficeGroup = this.BeginGridGroup(2, pCellSize: new Vector2(100, 50));
+        coreOfficeGroup = this.BeginGridGroup(2, pCellSize: new Vector2(100, 55));
         foreach (var oid in _empire.data.centerOffice.CoreOffices)
         {
             SetOfficeView(oid, ref coreOfficeGroup);
@@ -65,16 +94,6 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         coreOfficeSpace.AddChild(coreOfficeGroup.gameObject);
 
         AddChild(coreOfficeSpace.gameObject);
-    }
-    /// <summary>
-    /// 显示内阁
-    /// </summary>
-    public void ShowTopOfficeSpace()
-    {
-        topOfficeSpace = this.BeginVertGroup();
-        //中央核心部门
-        topOfficeSpace.AddTextIntoVertLayout(LM.Get("TopOffice"), true, TextAnchor.MiddleCenter);
-        
     }
 
     public void ShowDivisionSpace()
@@ -85,7 +104,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         divisionsTitle.Setup(LM.Get("Divisions"), TextAnchor.MiddleCenter);
         divisionsSpace.AddChild(divisionsTitle.gameObject);
 
-        divisionsGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 50));
+        divisionsGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
         foreach (var o2 in _empire.data.centerOffice.Divisions)
         {
             SetOfficeView(o2, ref divisionsGroup);
@@ -103,7 +122,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         provinceTitle.Setup(LM.Get("province"), TextAnchor.MiddleCenter);
         provincesSpace.AddChild(provinceTitle.gameObject);
 
-        provincesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 50));
+        provincesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         foreach (Kingdom kingdom in _empire.kingdoms_hashset)
         {
             SetOfficeView(kingdom.GetOfficeID(), ref provincesGroup, kingdom);
@@ -117,9 +136,11 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
+        layout.spacing = 3;
+        this.layout.padding = new RectOffset(3, 3, 95, 3);
         _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         Clear();
-        // ShowTopOfficeSpace();
+        InitialTopPartInfo();
 
         ShowCoreSpace();
 
@@ -127,6 +148,24 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
         ShowProvincesSpace();
     }
+
+    public override void OnFirstEnable()
+    {
+        base.OnFirstEnable();
+        this.DORestart();
+        layout.spacing = 3;
+        this.layout.padding = new RectOffset(3, 3, 95, 3);
+        _empire = EmpireCraftMetaTypeLibrary.selected_empire;
+        Clear();
+        InitialTopPartInfo();
+
+        ShowCoreSpace();
+
+        ShowDivisionSpace();
+
+        ShowProvincesSpace();
+    }
+
     public void Clear()
     {
 
@@ -138,10 +177,10 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
             Destroy(go, deleteTime);
             deleteTime += 0.1f;
         }
-        if (topOfficeSpace != null)
+        if (topSpace != null)
         {
-            topOfficeSpace.gameObject.SetActive(false);
-            Destroy(topOfficeSpace, deleteTime);
+            topSpace.gameObject.SetActive(false);
+            Destroy(topSpace, deleteTime);
         }
         if (coreOfficeSpace != null)
         {
@@ -160,7 +199,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         }
         pool.Clear();
     }
-
+    [Hotfixable]
     public void SetOfficeView(long oid, ref AutoGridLayoutGroup parent, NanoObject o = null)
     {
         //寻找存在的官制
@@ -168,48 +207,50 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         {
             return;
         }
-        AutoHoriLayoutGroup officePositionGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
+        AutoHoriLayoutGroup officePositionGroup = this.BeginHoriGroup(pSpacing:-10, pAlignment: TextAnchor.MiddleCenter, pSize:new (100, 70));
 
         //右边头像
-        AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:12, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 20));
-        SimpleText title = Instantiate(SimpleText.Prefab);
-        title.Setup(officeObject.GetOfficeName(o)+$"({officeObject.history_officers.Count})", TextAnchor.MiddleCenter, new Vector2(30, 10));
-        title.background.enabled = false;
-
-        LogService.LogInfo($"{officeObject.GetOfficeName()}: "+officeObject.actor_id);
-        SimpleButton clickframe = UIHelper.CreateAvatarView(officeObject.actor_id);
+        AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(pSpacing:-3, pAlignment: TextAnchor.MiddleCenter);
+        avatarLayoutGroup.AddTextIntoVertLayout(officeObject.GetOfficeName(o)+$"({officeObject.history_officers.Count})", true, TextAnchor.MiddleCenter);
+        avatarLayoutGroup.AddActorViewIntoVertLayout(officeObject.GetActor());
 
         SimpleButton changeAvatar = Instantiate(SimpleButton.Prefab);
         changeAvatar.Setup(() => ChangeOfficer(officeObject), SpriteTextureLoader.getSprite("ui/changeOfficer"), pSize: new Vector2(20, 10));
-
-        avatarLayoutGroup.AddChild(title.gameObject);
-        avatarLayoutGroup.AddChild(clickframe.gameObject);
+        
         avatarLayoutGroup.AddChild(changeAvatar.gameObject);
-        avatarLayoutGroup.transform.localPosition = Vector3.zero;
+        
         officePositionGroup.AddChild(avatarLayoutGroup.gameObject);
 
         //左边信息栏
-        AutoVertLayoutGroup leftVertGroup = this.BeginVertGroup(pAlignment: TextAnchor.UpperCenter);
+        AutoVertLayoutGroup leftVertGroup = this.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
 
-        SimpleText nameText = GameObject.Instantiate(SimpleText.Prefab);
-        nameText.Setup($"{LM.Get("i_name")}: {(officeObject.GetActor() == null ? "-" : officeObject.GetActor().data.name)}", pSize: new Vector2(50, 10));
-
-        SimpleText levelText = GameObject.Instantiate(SimpleText.Prefab);
-        levelText.Setup($"{LM.Get("OfficialLevel")}: {officeObject.GetName(o)}", pSize: new Vector2(50, 10));
-
-        SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
-        timeText.Setup($"{LM.Get("i_on_office_time")}: {officeObject.GetOnTime()}", pSize: new Vector2(50, 10));
-
-
-        leftVertGroup.AddChild(nameText.gameObject);
-        leftVertGroup.AddChild(levelText.gameObject);
-        leftVertGroup.AddChild(timeText.gameObject);
+        var content =
+            $"{LM.Get("i_name")}: {(officeObject.GetActor() == null ? "-" : officeObject.GetActor().data.name)}\n" +
+            $"{LM.Get("OfficialLevel").ColorString(pColor: new Color(0.2f, 0.7f, 0.4f))}: {officeObject.GetName(o)}\n" +
+            $"{LM.Get("i_on_office_time")}: {officeObject.GetOnTime()}";
+        
+        leftVertGroup.AddTextIntoVertLayout(content, true, TextAnchor.MiddleCenter, new Vector2(40, 25));
+        var powerContent = "<权能>\n";
+        if (officeObject.powers.Count <= 0)
+        {
+            powerContent += "无";
+        }
+        else
+        {
+            foreach (var power in officeObject.powers)
+            {
+                powerContent += power.ToString().ColorString(pColor:new Color(0.0f, 1, 0.5f))+"\n";
+            }
+        }
+        leftVertGroup.AddTextIntoVertLayout(powerContent, true, TextAnchor.MiddleCenter, new Vector2(40, 20));
+        
         leftVertGroup.transform.localPosition = Vector3.zero;
         officePositionGroup.AddChild(leftVertGroup.gameObject);
 
         parent.AddChild(officePositionGroup.gameObject);
         LogService.LogInfo($"加载官位{name}");
-
+        
+        officePositionGroup.transform.AddStretchBackground("FactionFrame", size:new Vector2(100, 55));
         pool.Add(officePositionGroup.gameObject);
     }
 

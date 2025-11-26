@@ -12,6 +12,7 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
 using UnityEngine.Events;
@@ -237,7 +238,7 @@ public static class UIHelper
         return inputComp;
     }
 
-    public static AutoVertLayoutGroup AddActorViewIntoVertLayout(this AutoVertLayoutGroup layout, Actor actor, SimpleButton button=null)
+    public static AutoVertLayoutGroup AddActorViewIntoVertLayout(this AutoVertLayoutGroup layout, Actor actor, SimpleButton button=null, string description="")
     {
         AutoVertLayoutGroup avatarLayoutGroup = layout.BeginVertGroup(new Vector2(30, 30), pSpacing:15, pAlignment: TextAnchor.MiddleCenter);
 
@@ -248,11 +249,15 @@ public static class UIHelper
             avatarLayoutGroup.AddChild(button.gameObject);
         }
         avatarLayoutGroup.AddChild(clickFrame.gameObject);
+        if (description != "")
+        {
+            avatarLayoutGroup.AddTextIntoVertLayout("\n\n"+description, true, TextAnchor.MiddleCenter, new Vector2(20, 20), ignorePosition:true);
+        }
         avatarLayoutGroup.transform.localPosition = Vector3.zero;
         return avatarLayoutGroup;
     }
 
-    public static AutoVertLayoutGroup AddActorViewIntoHoriLayout(this AutoHoriLayoutGroup layout, Actor actor, SimpleButton button=null)
+    public static AutoVertLayoutGroup AddActorViewIntoHoriLayout(this AutoHoriLayoutGroup layout, Actor actor, SimpleButton button=null, string description="")
     {
         AutoVertLayoutGroup avatarLayoutGroup = layout.BeginVertGroup(new Vector2(30, 30), pSpacing:15, pAlignment: TextAnchor.MiddleCenter);
 
@@ -263,10 +268,14 @@ public static class UIHelper
             avatarLayoutGroup.AddChild(button.gameObject);
         }
         avatarLayoutGroup.AddChild(clickFrame.gameObject);
+        if (description != "")
+        {
+            avatarLayoutGroup.AddTextIntoVertLayout("\n\n"+description, true, TextAnchor.MiddleCenter, new Vector2(20, 20), ignorePosition:true);
+        }
         avatarLayoutGroup.transform.localPosition = Vector3.zero;
         return avatarLayoutGroup;
     }
-    public static void AddTextIntoVertLayout(this AutoVertLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default)
+    public static void AddTextIntoVertLayout(this AutoVertLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false)
     {
         SimpleText timeText = Object.Instantiate(SimpleText.Prefab, layout.transform);
         timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
@@ -274,14 +283,31 @@ public static class UIHelper
         {
             timeText.background.enabled = false;
         }
+
+        if (ignorePosition)
+        {
+            var le = timeText.GetComponent<LayoutElement>() ?? timeText.AddComponent<LayoutElement>();
+            le.ignoreLayout = true;
+            // 关键：让鼠标穿透
+            foreach (var g in timeText.GetComponentsInChildren<Graphic>(true))
+                g.raycastTarget = false;
+        }
     }
-    public static void AddTextIntoHoriLayout(this AutoHoriLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default)
+    public static void AddTextIntoHoriLayout(this AutoHoriLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false)
     {
         SimpleText timeText = Object.Instantiate(SimpleText.Prefab, layout.transform);
         timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
         if (hideBackground)
         {
             timeText.background.enabled = false;
+        }
+        if (ignorePosition)
+        {
+            var le = timeText.GetComponent<LayoutElement>() ?? timeText.AddComponent<LayoutElement>();
+            le.ignoreLayout = true;
+            // 关键：让鼠标穿透
+            foreach (var g in timeText.GetComponentsInChildren<Graphic>(true))
+                g.raycastTarget = false;
         }
     }
 
@@ -358,19 +384,64 @@ public static class UIHelper
         // 5. （可选）为了风格一致，也可以把这个 Text 拖到 inputField.textComponent 的兄弟顺序下
         go.transform.SetAsFirstSibling();
     }
-    
+    /// <summary>
+    /// 派系显示组件
+    /// </summary>
+    /// <param name="groups">UI区块组</param>
+    /// <param name="layout">决定派系卡片的排列方式</param>
+    /// <param name="kingdom">派系所属国家</param>
+    public static void InitialFactionSpace(AutoHoriLayoutGroup layout, Kingdom kingdom, List<GameObject> groups=null)
+    {
+        var factionSpace = layout;
+        foreach (FixedFaction faction in kingdom.GetRegime().Factions)
+        {
+            AddFactionCard(faction, kingdom, layout);
+        }
+        
+        factionSpace.transform.AddStretchBackground("regimeFrame", size:new Vector2(180, 100));
+        groups?.Add(factionSpace.gameObject);
+    }
+    /// <summary>
+    /// 单个派系显示组件
+    /// </summary>
+    /// <param name="groups">UI区块组</param>
+    /// <param name="layout">决定派系卡片的排列方式</param>
+    /// <param name="kingdom">派系所属国家</param>
+    public static void AddFactionCard(FixedFaction faction, Kingdom kingdom, AutoHoriLayoutGroup parentH = null, AutoVertLayoutGroup parentV = null)
+    {
+        if (parentH == null&&parentV==null) return;
+        var isDominate = kingdom.GetRegime().GetDominateFaction() == faction;
+        var factionPart = parentH?.BeginVertGroup(pSpacing:-3)??parentV?.BeginVertGroup(pSpacing:-3);
+        factionPart.AddTextIntoVertLayout(faction.Name+$"{(kingdom.IsEmpire()?isDominate?"(主导)".ColorString(pColor:new Color(0.0f, 1, 0.5f)):"":"(未激活)".ColorString(pColor:new Color(0.8f, 0, 0.2f)))}", true, TextAnchor.LowerCenter);
+        factionPart.AddActorViewIntoVertLayout(faction.GetLeader());
+        factionPart.AddTextIntoVertLayout($"人数：{faction.Count}\n", true, TextAnchor.MiddleCenter);
+        factionPart.AddTextIntoVertLayout($"综合力量：{faction.TotalPower}\n", true, TextAnchor.MiddleCenter);
+        var content = "<核心诉求>\n";
+        foreach (var tempFac in faction.TemporaryFactions)
+        {
+            content += tempFac.ToString().ColorString(pColor:new Color(0.0f, 1, 0.5f))+"\n";
+        }
+        factionPart.AddTextIntoVertLayout(content, true, TextAnchor.UpperCenter, size: new Vector2(30, 40));
+        factionPart?.transform.AddStretchBackground(isDominate?"FactionFrame_dominate":"FactionFrame", size: new Vector2(55, 90));
+    }
+
     /// <summary>
     /// 在 personalGroup 下插入一个全铺满的 Image 背景，
     /// 并保留所有其他子对象在它之上。
     /// </summary>
+    /// <param name="personalGroup"></param>
+    /// <param name="backAddress">背景图片地址，从“ui/”开始</param>
+    /// <param name="size">背景大小</param>
+    /// <param name="offset">偏移值</param>
     [Hotfixable]
-    public static void AddStretchBackground(this Transform personalGroup, Sprite bgSprite, Vector2 size=default, Vector2 offset=default)
+    public static void AddStretchBackground(this Transform personalGroup, string backAddress, Vector2 size=default, Vector2 offset=default)
     {
+        var bgSprite = SpriteTextureLoader.getSprite($"ui/{backAddress}");
         var text = bgSprite.texture;
         var rect = bgSprite.rect;
-        var pivot = bgSprite.pivot;
+        var pivot = new Vector2(0.5f, 0.5f);;
         float ppu = bgSprite.pixelsPerUnit;
-        var sliced = Sprite.Create(text, rect, pivot, ppu, 0, SpriteMeshType.FullRect, new Vector4(12, 24, 24, 12));
+        var sliced = Sprite.Create(text, rect, pivot, ppu, 0, SpriteMeshType.FullRect, new Vector4(11, 11, 24, 24));
         
         // 1. 在 personalGroup 下建一个专用子物体做背景
         var bgGO = new GameObject("Background", typeof(RectTransform));
@@ -413,26 +484,29 @@ public static class UIHelper
         return year_name_button;
     }
 
-    public static void AdjustTopPart(this GameObject gObj, Transform windowRoot, Vector2 offset=default)
+    public static void AdjustTopPart(this GameObject gObj, Transform windowRoot, Vector2 offset = default)
     {
-        gObj.transform.SetParent(windowRoot.parent, false);
-            
         var rt = gObj.GetComponent<RectTransform>();
+        var parentRt = windowRoot.parent as RectTransform;
 
+        // 1) 先忽略布局（第一次就生效）
+        var le = gObj.GetComponent<LayoutElement>() ?? gObj.AddComponent<LayoutElement>();
+        le.ignoreLayout = true;
+
+        // 2) 改父节点，并立即重建一次父布局，释放驱动
+        gObj.transform.SetParent(windowRoot.parent, false);
+        if (parentRt != null)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(parentRt);
+
+        // 3) 现在自己控制位置
         rt.pivot = new Vector2(0.5f, 1f);
-        
-        rt.anchoredPosition = Vector2.zero;
-        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f); 
-        // 关闭拉伸，用 sizeDelta 定宽高
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
         rt.offsetMin = rt.offsetMax = Vector2.zero;
         rt.localScale = Vector3.one;
-        // 局部坐标归零（中心对中心）
-        rt.anchoredPosition = offset==default?new Vector2(0, 10):offset;
-        gObj.transform.SetAsLastSibling();
-        var le = gObj.gameObject.AddComponent<LayoutElement>();
-        le.ignoreLayout = true;
-        
-        gObj.transform.SetAsLastSibling();
+
+        rt.anchoredPosition = (offset == default) ? new Vector2(0, 10) : offset;
+
+        gObj.transform.SetAsLastSibling(); // 你只需要调一次
     }
 
 }
