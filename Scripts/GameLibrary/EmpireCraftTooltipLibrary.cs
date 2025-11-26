@@ -96,7 +96,6 @@ public static class EmpireCraftTooltipLibrary
 	    {
 		    Kingdom kingdom = pData.actor.kingdom;
 		    OfficeObject office = kingdom.GetOffice();
-		    LogService.LogInfo("官职等级："+office.officeType);
 		    subTitle = office.GetName(kingdom);
 	    }
 	    AssetManager.tooltips.showActor(string.IsNullOrEmpty(subTitle)?"village_statistics_king":subTitle, pTooltip, pData);

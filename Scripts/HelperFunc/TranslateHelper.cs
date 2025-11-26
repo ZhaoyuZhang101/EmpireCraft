@@ -98,6 +98,34 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
+        
+        public static void LogOfficerJoinFaction(OfficeObject office, Actor pActor, FixedFaction faction)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.officer_join_faction,
+                office.GetOfficeName(),
+                pActor.name,
+                faction.Name
+                )
+            {
+                color_special1 = pActor.getColor()._color_text,
+                color_special2 = pActor.getColor()._color_text,
+                color_special3 = pActor.getColor()._color_text
+
+            }.add();
+        }
+        
+        public static void LogOfficerBecomeFactionLeader(Actor pActor, FixedFaction faction)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.officer_become_faction_leader,
+                pActor.name,
+                faction.Name
+                )
+            {
+                color_special1 = pActor.getColor()._color_text,
+                color_special2 = pActor.getColor()._color_text
+
+            }.add();
+        }
         public static void LogNewJingShi(Empire empire, Actor actor)
         {
 

@@ -353,10 +353,11 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         leftVertGroup.AddChild(timeText.gameObject);
         leftVertGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(leftVertGroup.gameObject);
-        personalGroup.transform.AddStretchBackground(SpriteTextureLoader.getSprite("ui/clanFrame"), size: new Vector2(100, 30));
+        personalGroup.transform.AddStretchBackground("ui/clanFrame", size: new Vector2(100, 30));
         parent.AddChild(personalGroup.gameObject);
     }
     [Hotfixable]
+    
     public void ShowMainInfo(AutoVertLayoutGroup parent, PersonalClanIdentity actor, ClanRelation relation = ClanRelation.NONE)
     {
         AutoHoriLayoutGroup personalGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter, pSize:new Vector2(200, 70));
@@ -412,7 +413,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         rightVertGroup.AddChild(founderText.gameObject);
         rightVertGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(rightVertGroup.gameObject);
-        personalGroup.transform.AddStretchBackground(SpriteTextureLoader.getSprite("ui/clanFrame"));
+        personalGroup.transform.AddStretchBackground("clanFrame");
         
         parent.AddChild(personalGroup.gameObject);
     }

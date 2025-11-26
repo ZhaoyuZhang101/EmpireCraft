@@ -23,6 +23,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
 {
     private TextInput _regimeInput;
     private Kingdom _kingdom;
+    private Regime _regime => _kingdom.GetRegime();
     private Dictionary<string, AdvancedButton> _toggleButtons = new Dictionary<string, AdvancedButton>();
     private Dictionary<string, List<AdvancedButton>> _optionButtons = new Dictionary<string, List<AdvancedButton>>();
     private List<GameObject> _groups = new List<GameObject>();
@@ -46,24 +47,8 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     {
         Clear();
         InitialRegimeSelection();
-        InitialActorSpace();
+        UIHelper.InitialFactionSpace(this.BeginHoriGroup(), _kingdom, _groups);
         InitialSetting();
-    }
-
-    private void InitialActorSpace()
-    {
-        var kingSpace = this.BeginHoriGroup();
-
-        var leftPart = kingSpace.BeginVertGroup();
-        leftPart.AddTextIntoVertLayout(_kingdom?.king?.name??"", hideBackground:true, TextAnchor.MiddleCenter);
-        leftPart.AddActorViewIntoVertLayout(_kingdom?.king);
-        
-        var rightPart = kingSpace.BeginVertGroup();
-        rightPart.AddTextIntoVertLayout("-");
-        rightPart.AddTextIntoVertLayout("-");
-        rightPart.AddTextIntoVertLayout("-");
-        kingSpace.transform.AddStretchBackground(SpriteTextureLoader.getSprite("ui/regimeFrame"), size:new Vector2(180, 55));
-        _groups.Add(kingSpace.gameObject);
     }
 
     private void InitialSetting()
@@ -82,7 +67,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
                 _optionButtons[option.Key] = optionButton;
             }
         }
-        settingSpace.transform.AddStretchBackground(SpriteTextureLoader.getSprite("ui/regimeFrame"), size:new Vector2(200, 137));
+        settingSpace.transform.AddStretchBackground("regimeFrame", size:new Vector2(200, 137));
         _groups.Add(settingSpace.gameObject);
     }
 
@@ -143,7 +128,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         LoadRegimeButton(regimeIconPart.transform, RegimeType.Republic);
         
         regimeSpace.AddChild(regimeIconPart.gameObject);
-        regimeSpace.transform.AddStretchBackground(SpriteTextureLoader.getSprite("ui/regimeFrame"));
+        regimeSpace.transform.AddStretchBackground("regimeFrame");
         _groups.Add(regimeSpace.gameObject);
     }
     [Hotfixable]
@@ -180,6 +165,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
                 }
             }
         }
+        InitialContent();
     }
 
     public void InitialTextInput()

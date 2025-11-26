@@ -61,11 +61,7 @@ namespace EmpireCraft.Scripts.Data
                 {
                     FactionType.攘夷,
                     new List<TemporaryFactionType>
-                        { TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府 }
-                },
-                {
-                    FactionType.统一,
-                    new List<TemporaryFactionType> { TemporaryFactionType.谋求统一, TemporaryFactionType.转军府 }
+                        { TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府, TemporaryFactionType.谋求统一 }
                 },
                 {
                     FactionType.绥靖,

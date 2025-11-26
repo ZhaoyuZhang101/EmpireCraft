@@ -88,7 +88,6 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
             {
                 if (value.GetOnTime() > 3||value.GetOnTime()<0)
                 {
-                    LogService.LogInfo("撤换官员");
                     value.Select(pEmpire.CoreKingdom);
                 }
             }
@@ -99,7 +98,6 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
             {
                 if (value.GetOnTime() > 3||value.GetOnTime()<0)
                 {
-                    LogService.LogInfo("撤换官员");
                     value.Select(pEmpire.CoreKingdom);
                 }
             }

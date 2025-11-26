@@ -35,6 +35,19 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         {
             empire.Emperor = pKingdom.king;
         }
+
+        if (!pKingdom.IsEmpire())
+        {
+            pKingdom.GetRegime().Factions.ForEach(f=>f.BanFaction());
+        }
+        else
+        {
+            pKingdom.GetRegime().Factions.ForEach(f =>
+            {
+                f.Ban = false;
+                f.Update();
+            });
+        }
     }
     /// <summary>
     /// 计算军费，通过4年内的平均增长的数值来计算
@@ -60,8 +73,6 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             double avg3 = years.Take(years.Count() - 1).Average();
             double growthAvg = Math.Max(0, avg4 - avg3);
             int militaryCost = (int)(growthAvg  * rate);
-            LogService.LogInfo($"军费预算{militaryCost}");
-            LogService.LogInfo($"年均增长{growthAvg}");
             empire.data.MilitaryExpenditure = militaryCost;
             empire.CoreKingdom.SubMoney(militaryCost);
         }

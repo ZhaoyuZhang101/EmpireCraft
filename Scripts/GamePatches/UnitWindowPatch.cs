@@ -153,6 +153,11 @@ public class UnitWindowPatch: GamePatch
                 {
                     __instance.showStatRow("OfficialLevel", empireOfficialLevelString); 
                 }
+
+                if (actor.GetFaction() != null)
+                {
+                    __instance.showStatRow("Faction", actor.GetFaction().Name);
+                }
             }
         }
     }

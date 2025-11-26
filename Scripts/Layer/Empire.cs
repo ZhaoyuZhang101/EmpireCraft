@@ -219,11 +219,13 @@ public class Empire : MetaObject<EmpireData>
                 var validEmperor = currentSpecificClan.all_valid_members?.First()._actor;
             }
             nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
+            this.data.directPre = "";
             if (actor.hasClan())
             {
                 if (actor.clan.HasHistoryEmpire())
                 {
-                    nameEmpire = GetDir(actor.clan.GetHistoryEmpirePos()) + "\u200A" + actor.clan.GetHistoryEmpireName();
+                    this.data.directPre = GetDir(actor.clan.GetHistoryEmpirePos());
+                    nameEmpire = actor.clan.GetHistoryEmpireName();
                 }
             }
             SetEmpireName(nameEmpire);
@@ -388,6 +390,7 @@ public class Empire : MetaObject<EmpireData>
             data.has_year_name = regime.HasEraName();
             LogService.LogInfo(regime.type.ToString());
             LogService.LogInfo(regime.HasEraName().ToString());
+            regime.Factions.ForEach(f=>f.EmpireId = this.getID());
         }
         data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
         CoreKingdom = kingdom;
@@ -422,7 +425,8 @@ public class Empire : MetaObject<EmpireData>
             {
                 if (kingdom.getKingClan().HasHistoryEmpire())
                 {
-                    empireName = String.Join("\u200A", GetDir(kingdom.getKingClan().GetHistoryEmpirePos()), kingdom.getKingClan().GetHistoryEmpireName());
+                    this.data.directPre = GetDir(kingdom.getKingClan().GetHistoryEmpirePos());
+                    empireName = kingdom.getKingClan().GetHistoryEmpireName();
                 }
             }
 
@@ -492,6 +496,50 @@ public class Empire : MetaObject<EmpireData>
         this.data.newEmperor_timestamp = World.world.getCurWorldTime();
     }
 
+    public bool AddCabinetMember(Actor actor)
+    {
+        if (actor == null) return false;
+        if (!actor.HasOfficeIdentity()) return false;
+        OfficeIdentity identity = actor.GetIdentity();
+        if (identity.IsCabinet()) return false;
+        identity.EnterCabinet();
+        if (data.CabinetMembers.Contains(actor.id)) return false;
+        data.CabinetMembers.Add(actor.id);
+        return true;
+    }
+
+    public bool SetCabinetLeader(Actor actor)
+    {
+        if (actor == null) return false;
+        if (!actor.HasOfficeIdentity()) return false;
+        OfficeIdentity identity = actor.GetIdentity();
+        RemoveCabinetMember(actor);
+        data.CabinetMembers.Insert(0, actor.id);
+        identity.EnterCabinet();
+        return true;
+    }
+
+    public Actor GetCabinetLeader()
+    {
+        return data.CabinetMembers.Count<=0?null:World.world.units.get(data.CabinetMembers[0]);
+    }
+
+    public List<Actor> GetCabinetMembers()
+    {
+        return data.CabinetMembers.Select(a=>World.world.units.get(a)).ToList();
+    }
+
+    public bool RemoveCabinetMember(Actor actor)
+    {
+        if (actor.HasOfficeIdentity())
+        {
+            OfficeIdentity identity = actor.GetIdentity();
+            identity.ExitCabinet();
+        }
+        data.CabinetMembers.Remove(actor.id);
+        return true;
+    }
+
     private string GetDir(Vector2 v)
     {
         float ax = Math.Abs(v.x- _capitalCenter.x);
@@ -536,7 +584,8 @@ public class Empire : MetaObject<EmpireData>
     public void SetEmpireName(string name)
     {
         Regime regime = CoreKingdom.GetRegime();
-        data.name = name + "\u200A" + LM.Get(regime.type == RegimeType.LvLing?"LvLing_empire":EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(CoreKingdom).ToString());
+        var originalName = name + "\u200A" + LM.Get(regime.type == RegimeType.LvLing?"LvLing_empire":EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(CoreKingdom).ToString());
+        data.name = string.IsNullOrEmpty(data.directPre)?originalName: string.Join("\u200A", data.directPre, originalName);
         CoreKingdom.data.name = data.name;
     }
 
@@ -600,7 +649,8 @@ public class Empire : MetaObject<EmpireData>
         }
         if (newKingdom.getKingClan().HasHistoryEmpire())
         {
-            string empireName = String.Join("\u200A", newEmpire.GetDir(newKingdom.getKingClan().GetHistoryEmpirePos()), newKingdom.getKingClan().GetHistoryEmpireName());
+            data.directPre = newEmpire.GetDir(newKingdom.getKingClan().GetHistoryEmpirePos());
+            string empireName = newKingdom.getKingClan().GetHistoryEmpireName();
             newEmpire.SetEmpireName(empireName);
         }
         if (newKingdom.king.HasTitle())
@@ -609,7 +659,8 @@ public class Empire : MetaObject<EmpireData>
         }
         if (newKingdom.getKingClan() == EmpireClan)
         {
-            newEmpire.SetEmpireName(newEmpire.GetDir(this._empireCenter) + "\u200A" + GetEmpireName());
+            data.directPre = newEmpire.GetDir(this._empireCenter);
+            newEmpire.SetEmpireName(GetEmpireName());
         }
         if (newKingdom.king.hasClan())
         {

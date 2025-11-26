@@ -123,10 +123,24 @@ public class Regime
             ),
             bureau_config = this.bureau_config,
             era_name = this.era_name,
-            Factions =  this.Factions.ToList(),
+            Factions =  this.Factions.Select(f=>f.Clone()).ToList(),
         };
     }
 
+    public FixedFaction GetDominateFaction()
+    {
+        return Factions.OrderByDescending(a=>a.TotalPower).First();
+    }
+
+    public List<Actor> GetAllFactionMembers()
+    {
+        var res = new List<Actor>();
+        foreach (var f in Factions)
+        {
+            res.AddRange(f.Members.Select(a=>World.world.units.get(a)));
+        }
+        return res;
+    }
     public bool HasEraName()
     {
         return era_name;

@@ -41,6 +41,8 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset officer_build_specific_clan;
     public static WorldLogAsset king_choose_heir_log;
     public static WorldLogAsset 官员品级调动;
+    public static WorldLogAsset officer_join_faction;
+    public static WorldLogAsset officer_become_faction_leader;
 
     public static void init()
     {
@@ -154,6 +156,31 @@ public static class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$province$", 1);
                 wl.updateText(ref pText, pMessage, "$province_level$", 2);
+            }
+        });
+        officer_join_faction = wl.add(new WorldLogAsset
+        {
+            id = nameof(officer_join_faction),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$office$", 1);
+                wl.updateText(ref pText, pMessage, "$actor$", 2);
+                wl.updateText(ref pText, pMessage, "$faction$", 3);
+            }
+        });
+        officer_become_faction_leader = wl.add(new WorldLogAsset
+        {
+            id = nameof(officer_become_faction_leader),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$faction$", 2);
             }
         });
         new_jingshi_log = wl.add(new WorldLogAsset

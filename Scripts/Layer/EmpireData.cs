@@ -24,6 +24,7 @@ public class EmpireData : MetaObjectData
     public float TaxRate = 0.2f;
     public int banner_icon_id { get; set; }
     public int Mandate { get; set; } = 100; //正统
+    public List<long> CabinetMembers { get; set; } = new List<long>();
     public int Prestige { get; set; } = 100; //威望
     public EmpireHeirLawType heir_type { get; set; }
     public int max_province_city_num { get; set; } = 3;
@@ -44,6 +45,8 @@ public class EmpireData : MetaObjectData
 
     [DefaultValue(-1L)]
     public long founder_kingdom_id { get; set; } = -1L;
+
+    public string directPre = "";
     public long emperor { get; set; } = -1L;
     public long empire_clan { get; set; } = -1L;
 

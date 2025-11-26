@@ -15,6 +15,7 @@ using EmpireCraft.Scripts.HelperFunc;
 
 using NeoModLoader.General;
 using System.Collections;
+using DG.Tweening;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.UI.Components;
@@ -30,11 +31,6 @@ namespace EmpireCraft.Scripts.UI.Windows
         public SimpleWindowTab kingdomsWindowTab;
         public SimpleWindowTab pastEmperorsWindowTab;
         public SimpleWindowTab bureauWindowTab;
-
-        private List<string> _infos = new List<string>()
-        {
-            "i_cities", "i_kingdoms", "i_age", "i_renown", "i_deaths", "i_members"
-        };
 
         private Dictionary<string, Text> _infosTrans = new Dictionary<string, Text>();
 
@@ -92,7 +88,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             //总容器
             var topSpace = this.BeginHoriGroup();
-            topSpace.transform.AddStretchBackground(SpriteTextureLoader.getSprite("ui/clanFrame"), new Vector2(220, 55));
+            topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 55));
             
             //左侧信息栏
             var leftPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
@@ -140,6 +136,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             Clear();
             InitialTopPartInfo();
             var parent = CommonInitial("empire_controlled_kingdoms");
+            UIHelper.InitialFactionSpace(parent.BeginHoriGroup(), _empire.CoreKingdom);
+            parent.AddTextIntoVertLayout("", true, TextAnchor.MiddleCenter);
+            parent.AddTextIntoVertLayout(LM.Get("kingdom_list"), true, TextAnchor.MiddleCenter);
             StartCoroutine(ShowKingdoms(parent));
         }
         //显示君主世系
@@ -229,9 +228,22 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         public override void OnFirstEnable()
         {
+            base.OnFirstEnable();
+            this.DORestart();
+            layout.spacing = 3;
+            layout.padding = new RectOffset(3, 3, 60, 3);
+            _empire = EmpireCraftMetaTypeLibrary.selected_empire;
+            _empireNameInput.input.text = _empire.GetEmpireName();
+            Clear();
+            InitialTabButtons();
+            ShowTopPart();
+            ShowKingdomList();
         }
         public override void OnNormalEnable()
         {
+            base.OnNormalEnable();
+            layout.spacing = 3;
+            layout.padding = new RectOffset(3, 3, 60, 3);
             _empire = EmpireCraftMetaTypeLibrary.selected_empire;
             _empireNameInput.input.text = _empire.GetEmpireName();
             Clear();

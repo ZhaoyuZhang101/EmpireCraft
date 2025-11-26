@@ -144,6 +144,7 @@ public class OfficeIdentity
     public int honoraryOfficial { get; set; }
     public PeerageType peerageType { get; set; }
     public double OfficePerformance { get; set; } = 100;
+    private bool _is_cabinet { get; set; } = false;
     public double TotalPerformance { get; set; } = 0;
     public PerformanceEvents performanceEvents { get; set; }
     public List<EmpireExamLevel> empireExamLevels { get; set; } = new List<EmpireExamLevel>();
@@ -164,7 +165,25 @@ public class OfficeIdentity
             performanceEvents.init(actor);
         }
     }
+    /// <summary>
+    /// 进入内阁
+    /// </summary>
+    public void EnterCabinet()
+    {
+        _is_cabinet = true;
+    }
+    /// <summary>
+    /// 离开内阁
+    /// </summary>
+    public void ExitCabinet()
+    {
+        _is_cabinet = false;
+    }
 
+    public bool IsCabinet()
+    {
+        return _is_cabinet;
+    }
     public void SetOfficeId(long oid)
     {
         this.officeID = oid;
@@ -239,6 +258,8 @@ public static class ActorExtension
         public PeerageType peerageType;
         public List<long> want_acuired_title = new List<long>();
         public List<long> owned_title = new List<long>();
+        public FactionType factionType = FactionType.无;
+        public long faction_empire = -1L;
         public Name name;
         public OfficeIdentity officeIdentity { get; set; } = null;
         public double last_tax_timestamp = -1L;
@@ -253,6 +274,39 @@ public static class ActorExtension
     {
         a.GetOrCreate().OfficeId = o.OfficeID;
         a.GetOrCreate().is_on_office = true;
+    }
+
+    public static FixedFaction GetFaction(this Actor a)
+    {
+        Empire empire = ModClass.EMPIRE_MANAGER.get(a.GetOrCreate().faction_empire);
+        List<FixedFaction> factions = empire?.CoreKingdom?.GetRegime().Factions??new List<FixedFaction>();
+        foreach (FixedFaction faction in factions)
+        {
+            if (faction.Type == a.GetOrCreate().factionType)
+            {
+                return faction;
+            }
+        }
+
+        return null;
+    }
+
+    public static void SetFaction(this Actor a, FixedFaction faction)
+    {
+        var lastFaction = a.GetFaction();
+        if (lastFaction != null)
+        {
+            lastFaction.RemoveMember(a);
+        } 
+        faction.AddMember(a);
+        a.GetOrCreate().factionType = faction.Type;
+        a.GetOrCreate().faction_empire = faction.EmpireId;
+    }
+
+    public static void RemoveFaction(this Actor a)
+    {
+        a.GetOrCreate().factionType = FactionType.无;
+        a.GetOrCreate().faction_empire = -1L;
     }
 
     public static void EndOffice(this Actor a)
@@ -436,6 +490,7 @@ public static class ActorExtension
     public static void JudgeOfficeLevel(Actor actor)
     {
         var p = actor.GetIdentity().TotalPerformance;
+        if (actor.kingdom.GetRegime().type!=RegimeType.LvLing) return;
         if (p > 1600)
         {
             actor.UpgradeOfficial(direct:0);
@@ -563,6 +618,15 @@ public static class ActorExtension
             identity.peerageType = PeerageType.Civil;
         }
         GetOrCreate(a).officeIdentity = identity;
+    }
+
+    public static void InitialIdentity(this Actor a)
+    {
+        OfficeIdentity identity = new OfficeIdentity
+        {
+            actor_id = a.getID()
+        };
+        a.SetIdentity(identity, true);
     }
 
     public static void RemoveIdentity(this Actor a)

@@ -15,7 +15,6 @@ public static class OfficeSelector
         Actor actor = null;
         Regime regime = pKingdom.GetRegime();
         LeaderSelectMethod method = regime.GetLeaderSelectMethod();
-        LogService.LogInfo(office.GetOfficeName()+"选择方法"+method.ToString());
         switch (method)
         {
             case LeaderSelectMethod.Exam:
