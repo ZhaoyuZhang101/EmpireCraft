@@ -66,7 +66,7 @@ namespace EmpireCraft.Scripts.Data
                 {
                     FactionType.绥靖,
                     new List<TemporaryFactionType>
-                        { TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池 }
+                        { TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池, TemporaryFactionType.削藩 }
                 },
                 {
                     FactionType.共和,

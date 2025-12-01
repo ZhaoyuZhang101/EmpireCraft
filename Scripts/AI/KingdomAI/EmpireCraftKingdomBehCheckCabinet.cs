@@ -17,6 +17,10 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
         Regime regime = pKingdom.GetRegime();
+        foreach (var ff in regime.Factions)
+        {
+            ff.FixMissedTemporaryFactions();
+        }
         var dominateFaction = regime.GetDominateFaction();
         if (dominateFaction.Members.Count<=0) return BehResult.Continue;
         // —— 1) 计算内阁规模：0~15 → 1~5 ——

@@ -17,6 +17,7 @@ public class TempFac_削藩 : TemporaryFaction
             foreach (var c in kingdom.cities)
             {
                 c.joinAnotherKingdom(GetEmpire().CoreKingdom);
+                LogService.LogInfo("执行成功");
             }
         }
         End();
@@ -27,10 +28,14 @@ public class TempFac_削藩 : TemporaryFaction
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
             if (kingdom.IsEmpire()) continue;
-            if (kingdom.countTotalWarriors() * 5 <= empire.countWarriors() - kingdom.countTotalWarriors())
+            Regime regime = kingdom.GetRegime();
+            if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
             {
-                SetKingdomTarget(kingdom);
-                return true;
+                if (kingdom.countTotalWarriors() * 5 <= empire.countWarriors() - kingdom.countTotalWarriors())
+                {
+                    SetKingdomTarget(kingdom);
+                    return true;
+                }
             }
         }
         return false;
