@@ -853,6 +853,17 @@ public static class ActorExtension
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
         return title?.data?.name??"";
     }
+    public static KingdomTitle GetMainTitle(this Actor a)
+    {
+        if (!a.HasTitle()) return null;
+        if (!a.isKing()) return null;
+        if (a.kingdom == null) return null;
+        Kingdom kingdom = a.kingdom;
+        var ownedTitles = a.GetOwnedTitle();
+        if (ownedTitles == null) return null;
+        KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
+        return title;
+    }
     public static bool HasTitle(this Actor a)
     {
         if(a == null) return false;
@@ -990,7 +1001,6 @@ public static class ActorExtension
                     a.kingdom.RemoveMainTitle();
                 }
             }
-            a.kingdom.GetOwnedTitle().Remove(title.data.id);
             ed.owned_title.Remove(title.data.id);
             title.owner = null;
         }

@@ -41,7 +41,7 @@ public static class KingdomExtension
         [JsonIgnore]
         public Task<(Actor, string)> CalcTask;
         //拥有法理
-        public List<long> OwnedTitle = new List<long>();
+        public long MainTitle = -1L;
         //想要索取的法理
         public List<long> WantedTitle = new List<long>();
         public int IndependentValue = 100;
@@ -345,42 +345,29 @@ public static class KingdomExtension
         return ed.IndependentValue <= 0;
     }
 
-    public static bool IsOwnedTitle(this Kingdom k, KingdomTitle title)
-    {
-        var ed = k.GetOrCreate();
-        return ed.OwnedTitle.Contains(title.id);
-    }
-
     public static void SetMainTitle(this Kingdom k, KingdomTitle title)
     {
         title.main_kingdom = k;
-        if (k.IsOwnedTitle(title))
-        {
-            k.GetOrCreate().OwnedTitle.Remove(title.id);
-            
-        }
-        k.GetOrCreate().OwnedTitle.Insert(0, title.id);
+        k.GetOrCreate().MainTitle = title.getID();
     }
 
     public static void RemoveMainTitle(this Kingdom k)
     {
-        if (GetOrCreate(k).OwnedTitle.Any())
-        {
-            k.GetOrCreate().OwnedTitle.RemoveAt(0);
-        }
+        KingdomTitle kt = ModClass.KINGDOM_TITLE_MANAGER.get(k.GetOrCreate().MainTitle);
+        if (kt != null) kt.main_kingdom = null;
+        k.GetOrCreate().MainTitle = -1L;
     }
     
     public static KingdomTitle GetMainTitle(this Kingdom k)
     {
         if (k == null) return null;
         if (GetOrCreate(k) == null) return null;
-        if (!k.GetOrCreate().OwnedTitle.Any()) return null;
-        return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).OwnedTitle.First());
+        return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).MainTitle);
     }
 
     public static bool HasMainTitle(this Kingdom k)
     {
-        return GetOrCreate(k).OwnedTitle.Any();
+        return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).MainTitle)!=null;
     }
 
     public static bool CanBecomeEmpire(this Kingdom k)
@@ -529,23 +516,10 @@ public static class KingdomExtension
         return GetOrCreate(kingdom).Level;
     }
 
-    public static List<long> GetOwnedTitle(this Kingdom k)
+    public static List<KingdomTitle> GetControlledTitles(this Kingdom kingdom)
     {
-        return GetOrCreate(k).OwnedTitle;
+        return ModClass.KINGDOM_TITLE_MANAGER.ToList().FindAll(kt=>kt.main_kingdom==kingdom);
     }
-
-    public static bool HasTitle(this Kingdom k) 
-    {
-        if (k == null) return false;
-        if (GetOrCreate(k)==null) return false;
-        return GetOrCreate(k).OwnedTitle.Any(); 
-    }
-
-    public static void SetOwnedTitle(this Kingdom k, List<long> value)
-    {
-        GetOrCreate(k).OwnedTitle = GetOrCreate(k).OwnedTitle.Union(value).ToList();
-    } 
-
     public static bool HasAnyControlledTitle(this Kingdom kingdom)
     {
         return kingdom.GetControlledTitle().Any();
