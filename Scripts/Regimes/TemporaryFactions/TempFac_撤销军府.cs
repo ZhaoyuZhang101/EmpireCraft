@@ -4,37 +4,40 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
-public class TempFac_汉化 : TemporaryFaction
+public class TempFac_撤销军府 : TemporaryFaction
 {
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
-        Kingdom pKingdom = GetTarget();
-        if (pKingdom != null)
+        if (GetTarget() != null)
         {
-            pKingdom.setCulture(pKingdom.GetEmpire().CoreKingdom.getCulture());
+            Kingdom kingdom =  GetTarget();
+            kingdom.GetRegime().SetAllowDiplomacy(false);
+            kingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
         }
         End();
     }
 
-    public Kingdom GetTarget()
+    private Kingdom GetTarget()
     {
         if (targetType == MetaType.Kingdom)
         {
             return World.world.kingdoms.get(targetID);
         }
+
         return null;
     }
     public override bool CheckCondition()
     {
+        //如果存在军府则尝试撤销
         Empire empire = GetEmpire();
         foreach (var k in empire.kingdoms_list)
         {
             if (k.IsEmpire()) continue;
-            if (k.getCulture() != empire.CoreKingdom.getCulture())
+            if (k.GetKingdomType() == KingdomType.LvLing_jiedushi)
             {
-                targetType = MetaType.Kingdom;
                 targetID = k.getID();
+                targetType = MetaType.Kingdom;
                 return true;
             }
         }

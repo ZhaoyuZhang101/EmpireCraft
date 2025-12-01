@@ -1,3 +1,4 @@
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
@@ -12,6 +13,7 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
 
     public override bool CheckCondition()
     {
+        Empire empire = GetEmpire();
         return true;
     }
 }

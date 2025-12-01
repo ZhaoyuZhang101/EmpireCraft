@@ -35,7 +35,7 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
         }
     }
 
-    private static void SyncKingdomStatus(Kingdom pKingdom)
+    public static void SyncKingdomStatus(Kingdom pKingdom)
     {
         var originalKingdomType = pKingdom.GetKingdomType();
         //计算当前国家类别
@@ -54,7 +54,6 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
             BureauSetting setting = regime.bureau_config.kingdoms[newkingdomType];
             OfficeObject officeObject = new OfficeObject();
             officeObject.InitialOffice(setting);
-            LogService.LogInfo("官职类型" + officeObject.officeType);
             officeObject.regimeType = regime.type;
             officeObject.meta_object = pKingdom;
             officeObject.is_local = true;
@@ -90,14 +89,17 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
         }
         else
         {
-            kingdomFront = pKingdom.capital.GetTitle().data.province_name;
+            kingdomFront = pKingdom.capital.GetCityName();
         }
         
         if (pKingdom.GetOffice().leader_select_method == LeaderSelectMethod.Succession)
         {
             if (pKingdom.HasMainTitle())
             {
-                kingdomFront = pKingdom.GetMainTitle().name;
+                if (pKingdom.GetMainTitle()?.name != null)
+                {
+                    kingdomFront = pKingdom.GetMainTitle().name;
+                }
             }
         }
 

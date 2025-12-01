@@ -42,6 +42,10 @@ public class EmpireData : MetaObjectData
     public EmpireCraftHistory currentHistory {  get; set; }
     public EmpirePeriod empirePeriod {  get; set; }
     public bool is_been_controlled { get; set; } = false;
+    //岁币国
+    public List<long> given_Kingdoms = new List<long>();
+    //朝贡国
+    public List<long> taken_Kingdoms = new List<long>();
 
     [DefaultValue(-1L)]
     public long founder_kingdom_id { get; set; } = -1L;

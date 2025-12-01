@@ -29,7 +29,6 @@ public class KingdomWindowPatch: GamePatch
     {
         if (__instance.meta_type != MetaType.Kingdom) return;
         _kingdom = SelectedMetas.selected_kingdom;
-        LogService.LogInfo(_kingdom.GetOffice().GetName(_kingdom));
         Transform space = __instance.tabs.transform.Find("space (1)");
         if (space != null)
         {

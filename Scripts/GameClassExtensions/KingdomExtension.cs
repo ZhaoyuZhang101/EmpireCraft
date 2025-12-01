@@ -49,7 +49,7 @@ public static class KingdomExtension
         public double last_exam_timestamp = -1L;
         public double last_tax_timestamp = -1L;
         public double last_office_exam_timestamp = -1L;
-        public long office_id;
+        public long office_id = -1L;
     }
 
     public static void SetCenterArmy(this Kingdom k, Army army)

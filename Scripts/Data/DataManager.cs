@@ -11,6 +11,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using db;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -51,18 +52,54 @@ public static class DataManager
                 actor.SyncData(entry);
         }
         LogService.LogInfo("Sync Actor Data");
-        foreach (var entry in saveData.cityExtraData)
-        {
-            if (cityById.TryGetValue(entry.id, out var city))
-                city.SyncData(entry);
-        }
-        LogService.LogInfo("Sync City Data");
         foreach (var entry in saveData.kingdomExtraData)
         {
             if (kingdomById.TryGetValue(entry.id, out var kingdom))
+            {
                 kingdom.SyncData(entry);
+                if (kingdom.GetOfficeID() == -1L)
+                {
+                    var culture = ConfigData.speciesCulturePair.TryGetValue(kingdom.asset.id, out string speciesCulture)? speciesCulture : "Western";
+                    RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
+                        ? setting.regime
+                        : RegimeType.Feudalism;
+                    kingdom.SetRegimeType(regimeType);
+                    kingdom.LoadRegime();
+                    EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+                }
+            }
         }
         LogService.LogInfo("Sync Kingdom Data");
+        foreach (var entry in saveData.cityExtraData)
+        {
+            if (cityById.TryGetValue(entry.id, out var city))
+            {
+                city.SyncData(entry);
+                if (city.GetOfficeID() == -1L)
+                {
+                    Regime regime = city.kingdom.GetRegime();
+                    if (regime != null)
+                    {
+                        CityType cityType = EmpireCraftKingdomBehCheckKingdomType.CalcCityType(city.kingdom);
+                        BureauSetting citySetting = regime.bureau_config.cities[cityType];
+                        OfficeObject officeObject = city.GetOffice();
+                        if (officeObject != null)
+                        {
+                            officeObject.InitialOffice(citySetting, isNew:false);
+                            officeObject.regimeType = regime.type;
+                        }
+                        else
+                        {
+                            officeObject = new OfficeObject();
+                            officeObject.InitialOffice(citySetting);
+                            officeObject.regimeType = regime.type;
+                            city.SetOffice(officeObject);
+                        }
+                    }
+                }
+            }
+        }
+        LogService.LogInfo("Sync City Data");
         foreach (var entry in saveData.clanExtraData)
         {
             if (clanById.TryGetValue(entry.id, out var clan))
@@ -81,6 +118,12 @@ public static class DataManager
             Empire empire = new Empire();
             empire.loadData(empireData);
             ModClass.EMPIRE_MANAGER.addObject(empire);
+            if (empire.data.centerOffice == null)
+            {
+                empire.data.centerOffice = new CenterOffice();
+                empire.data.centerOffice.Init(empire.CoreKingdom);
+                empire.CoreKingdom.SetLevel(0);
+            }
         }
         ModClass.EMPIRE_MANAGER.update(-1L);
         LogService.LogInfo("Sync Empire Data");

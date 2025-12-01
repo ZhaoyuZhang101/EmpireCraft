@@ -1,11 +1,14 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
+using NeoModLoader.services;
 using Newtonsoft.Json;
 
 namespace EmpireCraft.Scripts.Regimes;
@@ -43,6 +46,7 @@ public class FixedFaction
     public bool Ban { get; set; } = false;
     public string Name { set; get; }
     public long EmpireId { get; set; } = -1L;
+    [JsonIgnore] public Empire Empire => ModClass.EMPIRE_MANAGER.get(EmpireId);
     public List<long> Members = new();
     [JsonIgnore]
     public int Count => Members.Count;
@@ -50,14 +54,20 @@ public class FixedFaction
     public int TotalPower => (int) Members.Sum(a=>World.world.units.get(a)?.GetIdentity()?.TotalPerformance??0);
     [JsonIgnore]
     //倾向于推动的政策
-    public List<TemporaryFactionType> TemporaryFactions => ConfigData.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
+    public List<TemporaryFactionType> TemporaryFactionTypes => ConfigData.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
+    public List<TemporaryFaction> TemporaryFactions;
+    
     public long Leader = -1L;
     [JsonIgnore]
     public float LastJoinProb { get; private set; } // 记录最近一次计算结果(0~1)
 
+    public bool IsAnyTFactionRuns()
+    {
+        return TemporaryFactions.Any(tf => tf.IsStarted());
+    }
     public FixedFaction Clone()
     {
-        return new FixedFaction()
+        FixedFaction newFaction = new FixedFaction()
         {
             _id = _id,
             _requiredTraits = _requiredTraits,
@@ -68,6 +78,64 @@ public class FixedFaction
             Members = new (),
             Leader = -1L
         };
+        newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
+        return newFaction;
+    }
+    /// <summary>
+    /// 将诉求类别转化为实例
+    /// </summary>
+    /// <returns></returns>
+    public List<TemporaryFaction> ConvertToObjectFromFactionType()
+    {
+        var result = new List<TemporaryFaction>();
+        var typesToBuild = TemporaryFactionTypes; // 你的属性：List<TemporaryFactionType>
+        if (typesToBuild == null || typesToBuild.Count == 0)
+            return result;
+
+        // 收集所有可用类型（避免 ReflectionTypeLoadException）
+        var allTypes = new List<Type>();
+        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try { allTypes.AddRange(asm.GetTypes()); }
+            catch (ReflectionTypeLoadException e)
+            {
+                allTypes.AddRange(e.Types.Where(t => t != null));
+            }
+        }
+
+        // 只保留派生自 TemporaryFaction 的具体类型
+        var candidateTypes = allTypes
+            .Where(t => t != null
+                        && typeof(TemporaryFaction).IsAssignableFrom(t)
+                        && !t.IsAbstract)
+            .ToList();
+
+        foreach (var e in typesToBuild)
+        {
+            // 约定：类名为 "TempFac_" + 枚举名
+            string className = "TempFac_" + e.ToString();
+
+            var t = candidateTypes.FirstOrDefault(x => x.Name == className);
+            if (t == null)
+            {
+                LogService.LogError($"TemporaryFaction class not found: {className}");
+                continue;
+            }
+
+            try
+            {
+                var inst = Activator.CreateInstance(t) as TemporaryFaction;
+                if (inst == null) continue;
+
+                result.Add(inst);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"Create TemporaryFaction failed: {className}, {ex}");
+            }
+        }
+
+        return result;
     }
     public float CalcPossibility(Actor pActor, float minProb = 0.5f, float maxProb = 0.95f)
     {
@@ -157,7 +225,7 @@ public class FixedFaction
 
         if (GetLeader() != null)
         {
-            TranslateHelper.LogOfficerBecomeFactionLeader(pActor, this);
+            TranslateHelper.LogOfficerBecomeFactionLeader(GetLeader(),this);
         }
     }
 

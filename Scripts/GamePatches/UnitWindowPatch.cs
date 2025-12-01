@@ -110,8 +110,6 @@ public class UnitWindowPatch: GamePatch
             SimpleWindowTab simpleWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
             simpleWindowTab.Setup("specific_clan", __instance.scroll_window, action:(_) => ShowSpecificClan(__instance.actor), sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
         }
-
-        LogService.LogInfo("贪污值: " + __instance.actor.CalcCorruptionValue());
     }
 
     private static void ShowSpecificClan(Actor actor)

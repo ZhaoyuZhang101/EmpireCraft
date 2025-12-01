@@ -353,7 +353,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         leftVertGroup.AddChild(timeText.gameObject);
         leftVertGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(leftVertGroup.gameObject);
-        personalGroup.transform.AddStretchBackground("ui/clanFrame", size: new Vector2(100, 30));
+        personalGroup.transform.AddStretchBackground("clanFrame", size: new Vector2(100, 30));
         parent.AddChild(personalGroup.gameObject);
     }
     [Hotfixable]
