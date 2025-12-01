@@ -103,7 +103,6 @@ public class OfficeObject
     public string GetOfficeName(NanoObject pNano = null)
     {
         var flag = pre.Contains("full")||pre.Contains("all");
-        LogService.LogInfo($"{pre}：{flag}");
         var preX = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
         if (flag) preX = LM.Get(pre);
         switch (pNano?.meta_type)

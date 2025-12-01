@@ -72,6 +72,7 @@ public class FixedFaction
     }
     public FixedFaction Clone()
     {
+        LogService.LogInfo("重置派系");
         FixedFaction newFaction = new FixedFaction()
         {
             _id = _id,
@@ -89,12 +90,19 @@ public class FixedFaction
 
     public void FixMissedTemporaryFactions()
     {
-        if (TemporaryFactions.Any(tf => tf == null))
+        if (TemporaryFactions == null || TemporaryFactions.Count == 0 || TemporaryFactions.Any(tf => tf == null))
         {
             TemporaryFactions = ConvertToObjectFromFactionType();
             foreach (var tf in TemporaryFactions)
             {
-                tf.Init(this);
+                tf?.Init(this);   // ← 始终把 EmpireId 等运行时信息灌进去
+            }
+        }
+        foreach (var tf in TemporaryFactions)
+        {
+            if (Empire != null)
+            {
+                tf.SetEmpire(Empire); // ← 始终把 EmpireId 等运行时信息灌进去
             }
         }
     }
@@ -102,7 +110,7 @@ public class FixedFaction
     /// 将诉求类别转化为实例
     /// </summary>
     /// <returns></returns>
-    public List<TemporaryFaction> ConvertToObjectFromFactionType()
+    private List<TemporaryFaction> ConvertToObjectFromFactionType()
     {
         var result = new List<TemporaryFaction>();
         var typesToBuild = TemporaryFactionTypes; // 你的属性：List<TemporaryFactionType>
