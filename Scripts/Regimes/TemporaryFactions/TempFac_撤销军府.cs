@@ -11,9 +11,12 @@ public class TempFac_撤销军府 : TemporaryFaction
         LogService.LogInfo($"执行{this.type}");
         if (GetTarget() != null)
         {
-            Kingdom kingdom =  GetTarget();
-            kingdom.GetRegime().SetAllowDiplomacy(false);
-            kingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+            if (!CheckRebelling(GetTarget()))
+            {
+                Kingdom kingdom =  GetTarget();
+                kingdom.GetRegime().SetAllowDiplomacy(false);
+                kingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+            }
         }
         End();
     }
@@ -31,6 +34,7 @@ public class TempFac_撤销军府 : TemporaryFaction
     {
         //如果存在军府则尝试撤销
         Empire empire = GetEmpire();
+        if (empire == null) return false;
         foreach (var k in empire.kingdoms_list)
         {
             if (k.IsEmpire()) continue;

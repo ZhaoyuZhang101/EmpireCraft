@@ -20,7 +20,7 @@ public enum TemporaryFactionType
     转周制,
     加强神权,
     允许诸侯自由开战,
-    分割继承,
+    分封,
     强者继承法,
     地方官叛乱,
     撤销军府,
@@ -38,5 +38,6 @@ public enum TemporaryFactionType
     汉化,
     收回地盘,
     开放移民,
-    谋求统一
+    谋求统一,
+    无
 }

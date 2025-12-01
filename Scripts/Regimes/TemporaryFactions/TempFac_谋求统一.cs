@@ -1,3 +1,6 @@
+using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
@@ -7,11 +10,41 @@ public class TempFac_谋求统一 : TemporaryFaction
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
+        Kingdom kingdom = GetKingdomTarget();
+        if (kingdom != null)
+        {
+            var war = World.world.diplomacy.startWar(GetEmpire().CoreKingdom, kingdom, WarTypeLibrary.normal);
+            if (war != null)
+            {
+                war.SetEmpireWarType(EmpireWarType.统一);
+            }
+        }
         End();
     }
 
     public override bool CheckCondition()
     {
-        return true;
+        Empire empire = GetEmpire();
+        foreach (var kingdom in World.world.kingdoms)
+        {
+            if (empire.given_Kingdoms.Contains(kingdom)) continue;
+            if (empire.taken_Kingdoms.Contains(kingdom)) continue;
+            if (kingdom.IsInEmpire()) continue;
+            if (empire.IsNeighbourWith(kingdom))
+            {
+                if (kingdom.species_id == empire.CoreKingdom.species_id)
+                {
+                    if (!kingdom.isInWarWith(empire.CoreKingdom))
+                    {
+                        if (empire.countWarriors() > kingdom.countTotalWarriors())
+                        {
+                            SetKingdomTarget(kingdom);
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 }

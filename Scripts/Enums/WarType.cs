@@ -12,7 +12,9 @@ namespace EmpireCraft.Scripts.Enums
         BeIndependent,
         FaBuChen,
         Rise,
-        RangYi,
+        攘夷,
+        统一,
+        派系叛乱,
         None
     }
 }

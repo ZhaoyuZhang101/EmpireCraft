@@ -1034,13 +1034,19 @@ public class Empire : MetaObject<EmpireData>
         {
             return;
         }
-        this.kingdoms_hashset.Add(pKingdom);
+
+        if (pKingdom.IsInEmpire())
+        {
+            var originalEmpire = pKingdom.GetEmpire();
+            originalEmpire.leave(pKingdom);
+        }
+        kingdoms_hashset.Add(pKingdom);
         pKingdom.EmpireJoin(this);
         if (pRecalc)
         {
-            this.recalculate();
+            recalculate();
         }
-        this.data.timestamp_member_joined = World.world.getCurWorldTime();
+        data.timestamp_member_joined = World.world.getCurWorldTime();
     }
 
     public void leave(Kingdom pKingdom, bool pRecalc = true)
@@ -1189,6 +1195,19 @@ public class Empire : MetaObject<EmpireData>
         {
             Kingdom tKingdom = tKingdoms[i];
             tResult += tKingdom.countTotalWarriors();
+        }
+        return tResult;
+    }
+
+    // Token: 0x06001133 RID: 4403 RVA: 0x000C7E9C File Offset: 0x000C609C
+    public int countWarriorsMax()
+    {
+        int tResult = 0;
+        List<Kingdom> tKingdoms = this.kingdoms_list;
+        for (int i = 0; i < tKingdoms.Count; i++)
+        {
+            Kingdom tKingdom = tKingdoms[i];
+            tResult += tKingdom.countWarriorsMax();
         }
         return tResult;
     }
@@ -1469,7 +1488,7 @@ public class Empire : MetaObject<EmpireData>
                     location = this.CoreKingdom.location,
                     color_special1 = this.CoreKingdom.getColor().getColorText()
                 }.add();
-                this.join(newKingdom, true, false);
+                this.join(newKingdom, true, true);
                 WorldLog.logNewKingdom(newKingdom);
             }
         }

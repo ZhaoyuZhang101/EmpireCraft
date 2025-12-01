@@ -13,6 +13,8 @@ public class TempFac_汉化 : TemporaryFaction
         if (pKingdom != null)
         {
             pKingdom.setCulture(pKingdom.GetEmpire().CoreKingdom.getCulture());
+            pKingdom.SetRegimeType(GetEmpire().CoreKingdom.GetRegime().type);
+            pKingdom.LoadRegime();
         }
         End();
     }

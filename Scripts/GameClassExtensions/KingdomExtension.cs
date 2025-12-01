@@ -47,6 +47,7 @@ public static class KingdomExtension
         public int IndependentValue = 100;
         public bool is_need_to_choose_heir = false;
         public double last_exam_timestamp = -1L;
+        public bool isFactionRebelling = false;
         public double last_tax_timestamp = -1L;
         public double last_office_exam_timestamp = -1L;
         public long office_id = -1L;
@@ -56,6 +57,22 @@ public static class KingdomExtension
     {
         army.name = $"{k.GetEmpire().GetEmpireName()}-{k.GetKingdomName()}驻军";
         k.GetOrCreate().CenterArmID = army.getID();
+    }
+
+    public static void StartFactionRebelling(this Kingdom k, FixedFaction faction)
+    {
+        k.name = faction.Name + "叛乱";
+        k.GetOrCreate().isFactionRebelling = true;
+    }
+
+    public static void EndFactionRebelling(this Kingdom k)
+    {
+        k.GetOrCreate().isFactionRebelling = false;
+    }
+
+    public static bool IsFactionRebelling(this Kingdom k)
+    {
+        return k.GetOrCreate().isFactionRebelling;
     }
 
     public static Army GetCenterArmy(this Kingdom k)

@@ -13,11 +13,11 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
     {
-        if (pKingdom.IsEmpire())
+        if (pKingdom.IsInEmpire())
         {
             CheckJoinWar(pKingdom);
-            CheckMainTitle(pKingdom);
         }
+        CheckMainTitle(pKingdom);
         return BehResult.Continue;
     }
 
@@ -44,9 +44,9 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                         List<Kingdom> opposites = war.getOppositeSideKingdom(pKingdom);
                         foreach (Kingdom empireKingdoms in empire.kingdoms_hashset)
                         {
-                            if (empireKingdoms == null) return;
-                            if (empireKingdoms.isRekt()) return;
-                            if (!opposites.Contains(empireKingdoms) && pKingdom.getRenown() >= empireKingdoms.countTotalWarriors() && empireKingdoms.getWars().Count() <= 0)
+                            if (empireKingdoms.isRekt()) continue;
+                            if (empireKingdoms.IsEmpire()) continue;
+                            if (!opposites.Contains(empireKingdoms) && empire.CoreKingdom.getRenown() >= empireKingdoms.countTotalWarriors() && empireKingdoms.getWars().Count() <= 0)
                             {
                                 if (war.isAttacker(pKingdom))
                                 {
@@ -56,7 +56,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                                 {
                                     war.joinDefenders(empireKingdoms);
                                 }
-                                empire.AddRenown(empireKingdoms.countTotalWarriors());
+                                empire.AddRenown(-empireKingdoms.countTotalWarriors());
                                 TranslateHelper.LogJoinEmpireWar(empireKingdoms, empire);
                                 empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
                                 return;
