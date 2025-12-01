@@ -83,7 +83,10 @@ public abstract class TemporaryFaction
                             targetMembers.Remove(a);
                             foreach (var city in actor.kingdom.cities)
                             {
-                                cities.Add(city);
+                                if (GetEmpire().CoreKingdom.capital!=city)
+                                {
+                                    cities.Add(city);
+                                }
                                 targetMembers.Remove(city.leader?.getID() ?? -1L);
                             }
                         }
@@ -91,7 +94,10 @@ public abstract class TemporaryFaction
                         {
                             if (actor?.isCityLeader() ?? false)
                             {
-                                cities.Add(actor.city);
+                                if (GetEmpire().CoreKingdom.capital!=actor.city)
+                                {
+                                    cities.Add(actor.city);
+                                }
                                 targetMembers.Remove(a);
                             }
                         }
