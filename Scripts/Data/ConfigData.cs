@@ -52,16 +52,16 @@ namespace EmpireCraft.Scripts.Data
                 },
                 {
                     FactionType.尊王,
-                    new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权 }
+                    new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.转天朝制度 }
                 },
                 {
                     FactionType.自治,
-                    new List<TemporaryFactionType> { TemporaryFactionType.分割继承, TemporaryFactionType.允许诸侯自由开战 }
+                    new List<TemporaryFactionType> { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战 }
                 },
                 {
                     FactionType.攘夷,
                     new List<TemporaryFactionType>
-                        { TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府, TemporaryFactionType.谋求统一 }
+                        { TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府, TemporaryFactionType.谋求统一, TemporaryFactionType.转周制 }
                 },
                 {
                     FactionType.绥靖,

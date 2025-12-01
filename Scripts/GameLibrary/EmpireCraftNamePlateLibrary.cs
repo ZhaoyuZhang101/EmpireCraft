@@ -10,6 +10,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UI;
@@ -436,7 +438,16 @@ public static class EmpireCraftNamePlateLibrary
             }
         }
         
-        text = text + " | " + pMetaObject.countTotalWarriors() + $"{additionNum}/" + pMetaObject.countWarriorsMax()+additionNum;
+        text = text + " | " + empire.countWarriors() + $"{additionNum}/" + empire.countWarriorsMax()+additionNum;
+        FixedFaction faction = empire.CoreKingdom.GetRegime().GetDominateFaction();
+        if (faction != null)
+        {
+            var tf = faction.GetAnyTFactionRuns();
+            text += $"\n主导: {faction.Name} | " +
+                    $"诉求：{(faction.IsAnyTFactionRuns()?tf.type:TemporaryFactionType.无)} " +
+                    (faction.IsAnyTFactionRuns()?$"({(int)(tf.progress/60.0f*100.0f)}/100)":"");
+        }
+        
         plateText.setText(text, pMetaObject.GetEmpire().GetEmpireCenter());
         plateText.priority_population = pMetaObject.units.Count;
         plateText.showSpecies(pMetaObject.getSpriteIcon());

@@ -250,15 +250,29 @@ public class WarPatch: GamePatch
                     empire.AddRenown(-50);
                 }
             }
-            if (pWar.GetEmpireWarType() == EmpireWarType.AquireEmpire)
+
+            switch (pWar.GetEmpireWarType())
             {
-                if (pWinner == WarWinner.Attackers)
-                {
-                    Kingdom kingdom = pWar.getMainAttacker();
-                    kingdom.GetEmpire().ReplaceEmpire(kingdom);
-                    TranslateHelper.LogministerAqcuireEmpire(kingdom.king, kingdom.GetEmpire());
-                    return false;
-                }
+                case EmpireWarType.AquireEmpire:
+                    if (pWinner == WarWinner.Attackers)
+                    {
+                        Kingdom kingdom = pWar.getMainAttacker();
+                        if (kingdom != null)
+                        {
+                            kingdom.GetEmpire().ReplaceEmpire(kingdom);
+                            TranslateHelper.LogministerAqcuireEmpire(kingdom.king, kingdom.GetEmpire());
+                        }
+                        return false;
+                    }
+                    break;
+                case EmpireWarType.派系叛乱:
+                    Kingdom attacker = pWar.getMainAttacker();
+                    if (pWinner == WarWinner.Attackers)
+                    {
+                        attacker.GetEmpire().ReplaceEmpire(attacker);
+                    }
+                    attacker.EndFactionRebelling();
+                    break;
             }
             WorldLog.logWarEnded(pWar);
         }

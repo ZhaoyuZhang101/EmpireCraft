@@ -65,6 +65,11 @@ public class FixedFaction
     {
         return TemporaryFactions.Any(tf => tf.IsStarted());
     }
+
+    public TemporaryFaction GetAnyTFactionRuns()
+    {
+        return TemporaryFactions.Find(tf => tf.IsStarted());
+    }
     public FixedFaction Clone()
     {
         FixedFaction newFaction = new FixedFaction()

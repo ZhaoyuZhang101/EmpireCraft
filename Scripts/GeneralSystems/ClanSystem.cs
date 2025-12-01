@@ -73,6 +73,8 @@ public class SpecificClan
     public float capital_city_pos_y { get; set; }
     [JsonIgnore]
     public List<PersonalClanIdentity> all_valid_members => SnapshotPeople().ToList().FindAll(i=>i.CanHeir(i));
+    [JsonIgnore] 
+    public List<Actor> AllAliveMembers => SnapshotPeople().ToList().FindAll(i => i.is_alive).Select(i=>i._actor).ToList();
     [JsonIgnore]
     private readonly object _cacheLock = new();
     public Dictionary<long, PersonalClanIdentity> _cache = new();

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -29,6 +30,108 @@ public abstract class TemporaryFaction
         kingdoms = new List<long>();
     }
 
+    public void SetKingdomTarget(Kingdom pKingdom)
+    {
+        this.targetType = MetaType.Kingdom;
+        this.targetID = pKingdom.getID();
+    }
+
+    public void SetActorTarget(Actor pActor)
+    {
+        this.targetType = MetaType.Unit;
+        this.targetID = pActor.getID();
+    }
+
+    public Actor GetActorTarget()
+    {
+        if (targetType == MetaType.Unit)
+        {
+            return World.world.units.get(targetID);
+        }
+
+        return null;
+    }
+
+    public Kingdom GetKingdomTarget()
+    {
+        if (targetType == MetaType.Kingdom)
+        {
+            return World.world.kingdoms.get(targetID);
+        }
+
+        return null;
+    }
+    
+    public bool CheckRebelling(Kingdom kingdom)
+    {
+        var targetFaction = kingdom?.king?.GetFaction();
+        if (targetFaction != null)
+        {
+            var targetMembers = targetFaction.Members.ToList();
+            //全部势力
+            var cities = new List<City>();
+            if (targetFaction != GetFaction())
+            {
+                foreach (var a in targetFaction.Members)
+                {
+                    if (targetMembers.Contains(a))
+                    {
+                        Actor actor = World.world.units.get(a);
+                        if (actor?.isKing() ?? false)
+                        {
+                            targetMembers.Remove(a);
+                            foreach (var city in actor.kingdom.cities)
+                            {
+                                cities.Add(city);
+                                targetMembers.Remove(city.leader?.getID() ?? -1L);
+                            }
+                        }
+                        else
+                        {
+                            if (actor?.isCityLeader() ?? false)
+                            {
+                                cities.Add(actor.city);
+                                targetMembers.Remove(a);
+                            }
+                        }
+                    }
+                }
+            }
+
+            var totalWarriors = cities.Sum(c => c.countWarriors());
+            if (totalWarriors >= GetEmpire().countWarriors() - totalWarriors)
+            {
+                var leader = targetFaction.GetLeader();
+                var royalMembers = targetFaction.Members.Select(id => World.world.units.get(id)).ToList().FindAll(a =>
+                    a.GetSpecificClan() == GetEmpire().EmpireSpecificClan && a != null);
+                if (royalMembers.Any())
+                {
+                    leader = royalMembers.OrderByDescending(a => a.age).First();
+                }
+
+                if (leader != null)
+                {
+                    Kingdom newKingdom =
+                        cities.OrderByDescending(c => c.countWarriors()).First().makeOwnKingdom(leader);
+                    GetEmpire().join(newKingdom, pForce: true);
+                    newKingdom.StartFactionRebelling(targetFaction);
+                    foreach (var c in cities)
+                    {
+                        if (c == newKingdom.capital) continue;
+                        c.joinAnotherKingdom(newKingdom);
+                    }
+
+                    var war = World.world.diplomacy.startWar(newKingdom, GetEmpire().CoreKingdom,
+                        WarTypeLibrary.normal);
+                    war.SetEmpireWarType(EmpireWarType.派系叛乱);
+                    war.data.name = targetFaction.Name + "叛乱";
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
     public FixedFaction GetFaction()
     {
         Empire empire = GetEmpire();
