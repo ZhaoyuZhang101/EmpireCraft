@@ -6,6 +6,10 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_汉化 : TemporaryFaction
 {
+    public override long EmpireID { get; protected set; }
+    public override long TargetID { get; protected set; }
+    public override MetaType TargetType { get; protected set; }
+
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
@@ -21,9 +25,9 @@ public class TempFac_汉化 : TemporaryFaction
 
     public Kingdom GetTarget()
     {
-        if (targetType == MetaType.Kingdom)
+        if (TargetType == MetaType.Kingdom)
         {
-            return World.world.kingdoms.get(targetID);
+            return World.world.kingdoms.get(TargetID);
         }
         return null;
     }
@@ -35,8 +39,8 @@ public class TempFac_汉化 : TemporaryFaction
             if (k.IsEmpire()) continue;
             if (k.getCulture() != empire.CoreKingdom.getCulture())
             {
-                targetType = MetaType.Kingdom;
-                targetID = k.getID();
+                TargetType = MetaType.Kingdom;
+                TargetID = k.getID();
                 return true;
             }
         }

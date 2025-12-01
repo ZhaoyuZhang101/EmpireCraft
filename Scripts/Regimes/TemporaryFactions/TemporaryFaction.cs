@@ -16,9 +16,9 @@ public abstract class TemporaryFaction
     public TemporaryFactionType type => Enum.TryParse(GetType().ToString().Split('_').Last(), out TemporaryFactionType res) ? res : default;
     public List<long>  kingdoms = new List<long>();
     public FactionType factionType = FactionType.无;
-    public long EmpireID = -1L;
-    public long targetID = -1L;
-    public MetaType targetType;
+    public abstract long EmpireID { get; protected set; }
+    public abstract long TargetID { get; protected set; }
+    public abstract MetaType TargetType { get; protected set; }
     public int progress = 0;
     private bool started = false;
     public double timestamp = -1L;
@@ -33,21 +33,22 @@ public abstract class TemporaryFaction
 
     public void SetKingdomTarget(Kingdom pKingdom)
     {
-        this.targetType = MetaType.Kingdom;
-        this.targetID = pKingdom.getID();
+        LogService.LogInfo($"设置国家目标{pKingdom.data.name}");
+        this.TargetType = MetaType.Kingdom;
+        this.TargetID = pKingdom.getID();
     }
 
     public void SetActorTarget(Actor pActor)
     {
-        this.targetType = MetaType.Unit;
-        this.targetID = pActor.getID();
+        this.TargetType = MetaType.Unit;
+        this.TargetID = pActor.getID();
     }
 
     public Actor GetActorTarget()
     {
-        if (targetType == MetaType.Unit)
+        if (TargetType == MetaType.Unit)
         {
-            return World.world.units.get(targetID);
+            return World.world.units.get(TargetID);
         }
 
         return null;
@@ -55,9 +56,9 @@ public abstract class TemporaryFaction
 
     public Kingdom GetKingdomTarget()
     {
-        if (targetType == MetaType.Kingdom)
+        if (TargetType == MetaType.Kingdom)
         {
-            return World.world.kingdoms.get(targetID);
+            return World.world.kingdoms.get(TargetID);
         }
 
         return null;
@@ -157,8 +158,8 @@ public abstract class TemporaryFaction
     }
     public void Start(NanoObject ptarget = null)
     {
-        targetID = ptarget?.getID()??-1L;
-        targetType = ptarget?.meta_type??MetaType.Kingdom;
+        TargetID = ptarget?.getID()??-1L;
+        TargetType = ptarget?.meta_type??MetaType.Kingdom;
         started = true;
     }
 
@@ -182,10 +183,8 @@ public abstract class TemporaryFaction
     {
         if (started)
         {
-            LogService.LogInfo($"当前内阁派系：{GetEmpire().GetCabinetLeader()?.GetFaction()?.Type},进度{progress}");
             if (GetEmpire().GetCabinetLeader()?.GetFaction()?.Type != factionType)
             {
-                LogService.LogInfo("触发终止诉求");
                 End();
                 return;
             }
