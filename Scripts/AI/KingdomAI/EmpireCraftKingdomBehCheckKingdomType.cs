@@ -217,11 +217,11 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
                         return  KingdomType.Feudalism_empire;
                     }
 
-                    if (kingdom.GetOwnedTitle().Count >= 2)
+                    if (kingdom.GetControlledTitles().Count >= 2)
                     {
                         return  KingdomType.Feudalism_kingdom;
                     }
-                    if (kingdom.GetOwnedTitle().Count >= 1)
+                    if (kingdom.GetControlledTitles().Count >= 1)
                     {
                         return kingdom.GetSpecificClan() == empire?.EmpireSpecificClan ?  KingdomType.Feudalism_grand_duchy :  KingdomType.Feudalism_duchy;
                     }

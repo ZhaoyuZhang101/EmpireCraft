@@ -72,11 +72,11 @@ public class KingdomPatch : GamePatch
         {
             pActor.CheckSpecificClan();
             __instance.SetSpecificClan(pActor.GetSpecificClan());
-            if (__instance.HasTitle())
+            foreach (var kt in ModClass.KINGDOM_TITLE_MANAGER)
             {
-                foreach (var titleID in __instance.GetOwnedTitle())
+                if (kt.main_kingdom == __instance)
                 {
-                    pActor.AddOwnedTitle(ModClass.KINGDOM_TITLE_MANAGER.get(titleID));
+                    pActor.AddOwnedTitle(kt);
                 }
             }
 
@@ -112,12 +112,6 @@ public class KingdomPatch : GamePatch
         {
             var officeIdentity = __instance.king.GetIdentity();
             officeIdentity?.RemoveOffice();
-        }
-            
-        if (__instance.king.HasTitle())
-        {
-            __instance.SetOwnedTitle(__instance.king.GetOwnedTitle());
-            __instance.king.ClearTitle();
         }
         if (__instance.IsEmpire())
         {

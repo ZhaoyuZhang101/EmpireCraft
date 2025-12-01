@@ -78,6 +78,7 @@ public class TempFac_转周制 : TemporaryFaction
                 }
             }
         }
+        empire.data.centerOffice.Init(empire.CoreKingdom);
         End();
     }
 

@@ -248,6 +248,7 @@ public class CenterOffice
     public List<long> Divisions { get; set; } = new List<long>();
     public void Init(Kingdom pKingdom)
     {
+        CoreOffices.Clear();
         Regime pRegime = pKingdom.GetRegime();
         foreach (var core in pRegime.bureau_config.cores)
         {
@@ -264,6 +265,7 @@ public class CenterOffice
             OfficeManager.Offices.Add(o.OfficeID, o);
             CoreOffices.Add(o.OfficeID);
         }
+        Divisions.Clear();
         foreach (var div in pRegime.bureau_config.division)
         {
 

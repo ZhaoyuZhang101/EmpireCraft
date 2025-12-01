@@ -401,9 +401,9 @@ namespace EmpireCraft.Scripts.AI
 
                         ModClass.KINGDOM_TITLE_MANAGER.dissolveTitle(title);
                         pActor.removeTitle(title);
-                        if (kingdom.GetOwnedTitle().Contains(title.data.id))
+                        if (kingdom.GetMainTitle()==title)
                         {
-                            pActor.GetOwnedTitle().Remove(title.data.id);
+                            kingdom.RemoveMainTitle();
                         }
                         TranslateHelper.LogDestroyTitle(kingdom, title);
                     }
@@ -507,7 +507,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (kingdom == null) return false;
                     if (!pActor.isKing()) return false;
-                    if (kingdom.HasTitle()) return false;
+                    if (kingdom.HasMainTitle()) return false;
                     if (kingdom.IsEmpire()) return false;
                     if (kingdom.IsInEmpire()) return false;
                     if (!kingdom.GetEmpiresCanBeJoined().Any()) return false;
