@@ -1,15 +1,13 @@
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using NeoModLoader.General.Game.extensions;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_转周制 : TemporaryFaction
 {
-    public override long EmpireID { get; protected set; }
-    public override long TargetID { get; protected set; }
-    public override MetaType TargetType { get; protected set; }
 
     public override void Execute()
     {
@@ -33,7 +31,12 @@ public class TempFac_转周制 : TemporaryFaction
                 kingdom.GetRegime().SetAllowArmy(true);
                 kingdom.GetRegime().SetAllowDiplomacy(true);
             }
-
+            Regime regime = kingdom.GetRegime();
+            regime.Factions.ForEach(f=>
+            {
+                f.EmpireId = empire.id;
+                f.FixMissedTemporaryFactions();
+            });
             var flag1 = false;
             if (empire.Emperor.getChildren().Any())
             {

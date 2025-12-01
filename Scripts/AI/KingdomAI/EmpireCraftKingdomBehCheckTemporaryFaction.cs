@@ -18,9 +18,11 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         if (dominateFaction == null) return BehResult.Continue;
         foreach (var tf in dominateFaction.TemporaryFactions)
         {
-            tf.CheckNeedToUpdate();
+            if (tf.IsStarted())
+            {
+                tf.CheckNeedToUpdate();
+            }
         }
-
         foreach (var ff in regime.Factions)
         {
             if (ff==dominateFaction) continue;
@@ -33,11 +35,8 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         {
             if (tf.CheckCondition())
             {
-                if (!tf.IsStarted())
-                {
-                    tf.Start(pKingdom);
-                    break;
-                }
+                tf.Start(pKingdom);
+                return BehResult.Continue;
             }
         }
         return BehResult.Continue;

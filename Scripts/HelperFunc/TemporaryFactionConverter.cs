@@ -17,7 +17,6 @@ public sealed class TemporaryFactionConverter : JsonConverter
         if (reader.TokenType == JsonToken.Null) return null;
 
         var jo = JObject.Load(reader);
-
         // 1) 先取 "type"，没有再兼容 "$type"
         TemporaryFactionType typeEnum;
         if (jo.TryGetValue("type", out var t1))
@@ -47,6 +46,15 @@ public sealed class TemporaryFactionConverter : JsonConverter
             throw new JsonSerializationException($"TemporaryFaction 反序列化失败：未找到类型 {className}");
 
         var inst = Activator.CreateInstance(t);
+        // 读取保存的数据
+        var savedId   = jo["TargetID"]?.ToObject<long?>();       // 若你保存成别的名字，按实际取
+        var savedType = jo["TargetType"]?.ToObject<MetaType?>();
+        if (savedId.HasValue && savedType.HasValue)
+        {
+            // 用基类入口恢复（会记录日志）
+            // 需要把方法设为 internal/protected internal 以便 converter 调用，或放到同一个类里
+            (inst as TemporaryFaction)?.SetTargetFromSave(savedId.Value, savedType.Value, "json-load");
+        }
         serializer.Populate(jo.CreateReader(), inst);
         return inst;
     }

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
@@ -14,37 +16,84 @@ public abstract class TemporaryFaction
 {
     [JsonIgnore]
     public TemporaryFactionType type => Enum.TryParse(GetType().ToString().Split('_').Last(), out TemporaryFactionType res) ? res : default;
+    
     public List<long>  kingdoms = new List<long>();
     public FactionType factionType = FactionType.无;
-    public abstract long EmpireID { get; protected set; }
-    public abstract long TargetID { get; protected set; }
-    public abstract MetaType TargetType { get; protected set; }
+    
+    private long _targetId = -1;
+    private MetaType _targetType = MetaType.None;
+    
+    public long EmpireID = -1L;
+    public long TargetID = -1L;
+    public MetaType TargetType = MetaType.Kingdom;
+    
     public int progress = 0;
     private bool started = false;
     public double timestamp = -1L;
-
+    
     public void Init(FixedFaction faction)
     {
         factionType = faction.Type;
-        EmpireID =  faction.EmpireId;
-        timestamp = World.world.getCurWorldTime();
-        kingdoms = new List<long>();
+        EmpireID    = faction.EmpireId;
+        timestamp   = World.world.getCurWorldTime();
+        kingdoms    = new List<long>();
+        started     = false;
+        LogService.LogInfo("初始化诉求");
     }
 
-    public void SetKingdomTarget(Kingdom pKingdom)
+    public void SetEmpire(Empire pEmpire)
     {
-        LogService.LogInfo($"设置国家目标{pKingdom.data.name}");
-        this.TargetType = MetaType.Kingdom;
-        this.TargetID = pKingdom.getID();
+        this.EmpireID = pEmpire.getID();
+    }    
+    
+    // 统一入口：设定“国家目标”
+    protected void SetKingdomTarget(Kingdom k, string reason = "")
+    {
+        var id = k?.getID() ?? -1L;                     // 一律用 base_id
+        _targetType = MetaType.Kingdom;
+        WriteTargetId(id, reason);
+    }
+    
+
+    // 真正的写入点：埋栈追踪
+    private void WriteTargetId(long id, string reason,
+        [CallerMemberName] string caller = "")
+    {
+        if (_targetId == id) return;
+        if (reason != "")
+        {
+            // 调用栈只保留关键几层，便于读
+            var st = new StackTrace(1, true); // 跳过本方法
+            var where = st.ToString();
+
+            LogService.LogInfo(
+                $"[TF:{GetType().Name}@{GetHashCode()}] TargetID { _targetId } -> { id }" +
+                $", type={_targetType}, reason={reason}, caller={caller}\n{where}");
+        }
+        _targetId = id;
     }
 
-    public void SetActorTarget(Actor pActor)
+
+    // 反序列化/修复等内部写入请走这里
+    public void SetTargetFromSave(long id, MetaType type, string reason = "load")
+    {
+        _targetType = type;
+        WriteTargetId(id, reason);
+    }
+    
+    protected Kingdom GetKingdomTarget()
+    {
+        if (_targetType != MetaType.Kingdom || _targetId < 0) return null;
+        return World.world.kingdoms.get(_targetId);
+    }
+    
+    protected void SetActorTarget(Actor pActor)
     {
         this.TargetType = MetaType.Unit;
         this.TargetID = pActor.getID();
     }
 
-    public Actor GetActorTarget()
+    protected Actor GetActorTarget()
     {
         if (TargetType == MetaType.Unit)
         {
@@ -54,17 +103,9 @@ public abstract class TemporaryFaction
         return null;
     }
 
-    public Kingdom GetKingdomTarget()
-    {
-        if (TargetType == MetaType.Kingdom)
-        {
-            return World.world.kingdoms.get(TargetID);
-        }
+  
 
-        return null;
-    }
-    
-    public bool CheckRebelling(Kingdom kingdom)
+    protected bool CheckRebelling(Kingdom kingdom)
     {
         var targetFaction = kingdom?.king?.GetFaction();
         if (targetFaction != null)
@@ -139,7 +180,8 @@ public abstract class TemporaryFaction
         }
         return false;
     }
-    public FixedFaction GetFaction()
+
+    protected FixedFaction GetFaction()
     {
         Empire empire = GetEmpire();
         if (empire != null)
@@ -152,7 +194,7 @@ public abstract class TemporaryFaction
         return null;
     }
 
-    public Empire GetEmpire()
+    protected Empire GetEmpire()
     {
         return ModClass.EMPIRE_MANAGER.get(EmpireID);
     }
@@ -170,6 +212,8 @@ public abstract class TemporaryFaction
 
     public void End()
     {
+        TargetID = -1L;
+        TargetType = MetaType.Kingdom;
         kingdoms.Clear();
         started = false;
         progress = 0;
@@ -179,7 +223,7 @@ public abstract class TemporaryFaction
         kingdoms.Add(kingdom.id);
     }
     //更新：每年一次共计十年
-    public void Update()
+    private void Update()
     {
         if (started)
         {
@@ -193,7 +237,7 @@ public abstract class TemporaryFaction
         }
         else
         {
-            progress = 0;
+            End();
         }
     }
 

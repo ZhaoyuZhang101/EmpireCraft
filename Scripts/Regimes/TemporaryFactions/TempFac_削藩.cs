@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
@@ -8,22 +10,21 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_削藩 : TemporaryFaction
 {
-    public override long EmpireID { get; protected set; }
-    public override long TargetID { get; protected set; }
-    public override MetaType TargetType { get; protected set; }
 
     public override void Execute()
     {
-        LogService.LogInfo($"执行{this.type}");
         Kingdom kingdom = GetKingdomTarget();
-        if (!CheckRebelling(kingdom))
+        if (kingdom != null)
         {
-            foreach (var c in kingdom.cities)
+            if (!CheckRebelling(kingdom))
             {
-                c.joinAnotherKingdom(GetEmpire().CoreKingdom);
+                foreach (var c in kingdom.cities)
+                {
+                    c.joinAnotherKingdom(GetEmpire().CoreKingdom);
+                }
                 LogService.LogInfo("执行成功");
             }
-        }
+        } 
         End();
     }
     public override bool CheckCondition()
