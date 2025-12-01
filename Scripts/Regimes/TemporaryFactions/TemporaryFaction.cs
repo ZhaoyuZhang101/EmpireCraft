@@ -9,9 +9,10 @@ using NeoModLoader.services;
 using Newtonsoft.Json;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
-
+[JsonConverter(typeof(TemporaryFactionConverter))]
 public abstract class TemporaryFaction
 {
+    [JsonIgnore]
     public TemporaryFactionType type => Enum.TryParse(GetType().ToString().Split('_').Last(), out TemporaryFactionType res) ? res : default;
     public List<long>  kingdoms = new List<long>();
     public FactionType factionType = FactionType.无;
@@ -129,7 +130,6 @@ public abstract class TemporaryFaction
                 }
             }
         }
-
         return false;
     }
     public FixedFaction GetFaction()

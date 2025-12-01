@@ -52,8 +52,8 @@ public class FixedFaction
     public int Count => Members.Count;
     [JsonIgnore]
     public int TotalPower => (int) Members.Sum(a=>World.world.units.get(a)?.GetIdentity()?.TotalPerformance??0);
-    [JsonIgnore]
     //倾向于推动的政策
+    [JsonIgnore]
     public List<TemporaryFactionType> TemporaryFactionTypes => ConfigData.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
     public List<TemporaryFaction> TemporaryFactions;
     
@@ -63,12 +63,12 @@ public class FixedFaction
 
     public bool IsAnyTFactionRuns()
     {
-        return TemporaryFactions.Any(tf => tf.IsStarted());
+        return TemporaryFactions.Any(tf => tf?.IsStarted() ?? false);
     }
 
     public TemporaryFaction GetAnyTFactionRuns()
     {
-        return TemporaryFactions.Find(tf => tf.IsStarted());
+        return TemporaryFactions.Find(tf => tf?.IsStarted() ?? false);
     }
     public FixedFaction Clone()
     {
@@ -85,6 +85,18 @@ public class FixedFaction
         };
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
         return newFaction;
+    }
+
+    public void FixMissedTemporaryFactions()
+    {
+        if (TemporaryFactions.Any(tf => tf == null))
+        {
+            TemporaryFactions = ConvertToObjectFromFactionType();
+            foreach (var tf in TemporaryFactions)
+            {
+                tf.Init(this);
+            }
+        }
     }
     /// <summary>
     /// 将诉求类别转化为实例
@@ -131,7 +143,6 @@ public class FixedFaction
             {
                 var inst = Activator.CreateInstance(t) as TemporaryFaction;
                 if (inst == null) continue;
-
                 result.Add(inst);
             }
             catch (Exception ex)
