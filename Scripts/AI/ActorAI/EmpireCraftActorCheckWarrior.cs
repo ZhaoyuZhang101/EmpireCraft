@@ -10,7 +10,7 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.ActorAI;
 
-public class EmpireCraftCheckWarrior:GameAIActorBase
+public class EmpireCraftActorCheckWarrior:GameAIActorBase
 {
     public override Type OriginalBeh => GetType();
 
@@ -24,14 +24,14 @@ public class EmpireCraftCheckWarrior:GameAIActorBase
         if (!WorldLawLibrary.world_law_civ_army.isEnabled()) return BehResult.Continue;
         if (!pKingdom.IsInEmpire())
         {
-            pActor.city.makeWarrior(pActor);
+            pActor.city?.makeWarrior(pActor);
         }
         else
         {
             Empire empire = pKingdom.GetEmpire();
             if (CountAllCenterArmy(empire) < empire.data.MilitaryExpenditure * 25)
             {
-                pActor.city.makeWarrior(pActor);
+                pActor.city?.makeWarrior(pActor);
                 if (pKingdom.GetRegime().IsAllowSupportCenterArmy())
                 {
                     if (empire.CoreKingdom.capital.hasArmy())

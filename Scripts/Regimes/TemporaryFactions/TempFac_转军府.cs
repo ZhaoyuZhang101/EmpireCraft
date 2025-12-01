@@ -6,15 +6,26 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_转军府 : TemporaryFaction
 {
+    public override long EmpireID { get; protected set; }
+    public override long TargetID { get; protected set; }
+    public override MetaType TargetType { get; protected set; }
+
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
+        Kingdom kingdom = GetKingdomTarget();
+        if (kingdom != null)
+        {
+            Regime regime = kingdom.GetRegime();
+            regime.SetAllowDiplomacy(true);
+            regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+        }
         End();
     }
 
     public override bool CheckCondition()
     {
-        //将已有的省份转为军府
+        //
         Empire empire = GetEmpire();
         if (empire == null) return false;
         foreach (var k in empire.kingdoms_list)
@@ -24,8 +35,7 @@ public class TempFac_转军府 : TemporaryFaction
             {
                 if (k.IsBorder())
                 {
-                    targetID = k.getID();
-                    targetType = MetaType.Kingdom;
+                    SetKingdomTarget(k);
                     return true;
                 }
             }

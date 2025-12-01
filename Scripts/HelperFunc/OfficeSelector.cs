@@ -39,7 +39,6 @@ public static class OfficeSelector
 
     private static Actor TryGetStrongerLeader(OfficeObject pOffice, Kingdom pKingdom)
     {
-        LogService.LogInfo("开始选择官员");
         if (pOffice.meta_object.isRekt()) return null;
         if (pKingdom.IsEmpire()&&pOffice.meta_object.meta_type == MetaType.Kingdom)
         {
@@ -62,7 +61,6 @@ public static class OfficeSelector
 
     private static Actor TryGetExamOfficer(OfficeObject pOffice, Kingdom  pKingdom)
     {
-        LogService.LogInfo("开始选择官员");
         List<Actor> targetPool;
         if (pOffice.meta_object.isRekt()) return null;
         ListPool<Actor> pool = new ListPool<Actor>();

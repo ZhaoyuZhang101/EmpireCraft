@@ -6,30 +6,27 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_撤销军府 : TemporaryFaction
 {
+    public override long EmpireID { get; protected set; }
+    public override long TargetID { get; protected set; }
+    public override MetaType TargetType { get; protected set; }
+
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
-        if (GetTarget() != null)
+        var kingdom = GetKingdomTarget();
+        if (kingdom != null)
         {
-            if (!CheckRebelling(GetTarget()))
+            LogService.LogInfo($"执行1{kingdom.data.name}");
+            if (!CheckRebelling(kingdom))
             {
-                Kingdom kingdom =  GetTarget();
+                LogService.LogInfo("执行2");
                 kingdom.GetRegime().SetAllowDiplomacy(false);
                 kingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
             }
         }
         End();
     }
-
-    private Kingdom GetTarget()
-    {
-        if (targetType == MetaType.Kingdom)
-        {
-            return World.world.kingdoms.get(targetID);
-        }
-
-        return null;
-    }
+    
     public override bool CheckCondition()
     {
         //如果存在军府则尝试撤销
@@ -37,12 +34,13 @@ public class TempFac_撤销军府 : TemporaryFaction
         if (empire == null) return false;
         foreach (var k in empire.kingdoms_list)
         {
-            if (k.IsEmpire()) continue;
-            if (k.GetKingdomType() == KingdomType.LvLing_jiedushi)
+            if (!k.IsEmpire())
             {
-                targetID = k.getID();
-                targetType = MetaType.Kingdom;
-                return true;
+                if (k.GetKingdomType() == KingdomType.LvLing_jiedushi)
+                {
+                    SetKingdomTarget(k);
+                    return true;
+                }
             }
         }
         return false;
