@@ -48,7 +48,6 @@ public class EmpireCraftKingdomBehCheckTax: GameAIKingdomBase
             {
                 // 被发现：充公，帝国收到全部税（下面会统一入账）
                 pKingdom.GetOffice().RemoveActor();
-                LogService.LogInfo("贪污被发现，下马");
                 corruptedMoney = 0;
             }
             actor.addMoney(corruptedMoney);

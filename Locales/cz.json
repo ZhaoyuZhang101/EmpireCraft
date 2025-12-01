@@ -465,6 +465,8 @@
     "history_kingdom_attack_for_title": "$attacker$ 发动了对 $defender$ 的战争，试图获取 $title$ 的法理",
     "history_kingdom_change_capital_to_title": "$kingdom$ 迁都至 $title$ 的法理首都 $city$",
     "history_kingdom_join_empire": "$kingdom$ 已臣服于 $empire$",
+    
+    
 
     "opinion_empire_clan_been_changed": "帝国被篡位",
     "empire_bureau": "帝国行政",

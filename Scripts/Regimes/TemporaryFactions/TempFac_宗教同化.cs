@@ -1,4 +1,3 @@
-using System;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;

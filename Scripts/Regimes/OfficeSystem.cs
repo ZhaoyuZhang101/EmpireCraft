@@ -84,7 +84,6 @@ public class OfficeObject
     public string GetName(NanoObject pNano = null)
     {
         var flag = pre.Contains("_all");
-        LogService.LogInfo($"{pre}：{flag}");
         var preX = string.IsNullOrEmpty(pre) ? pre : LM.Get(pre);
         switch (pNano?.meta_type)
         {

@@ -1,3 +1,4 @@
+using System.Linq;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
@@ -12,6 +13,14 @@ public class TempFac_提供岁币 : TemporaryFaction
 
     public override bool CheckCondition()
     {
+        var enemies = GetEmpire().CoreKingdom.getEnemiesKingdoms();
+        if (enemies.Any())
+        {
+            foreach (var w in enemies)
+            {
+                
+            }
+        }
         return true;
     }
 }

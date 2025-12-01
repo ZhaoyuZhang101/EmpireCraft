@@ -36,6 +36,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
             }
         } 
         OfficeObject office = pKingdom.GetOffice();
+        if (office == null) return BehResult.Continue;
         office.meta_object = pKingdom;
         office.Select(pKingdom);
         return BehResult.Continue;

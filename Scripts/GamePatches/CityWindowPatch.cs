@@ -65,7 +65,6 @@ public class CityWindowPatch : GamePatch
     public static void AddSettingTab()
     {
         City city = SelectedMetas.selected_city;
-        LogService.LogInfo(city.GetOffice().GetName(city));
         Transform space = _window.tabs.transform.Find("space (1)");
         if (space != null) 
         {

@@ -419,7 +419,8 @@ public static class UIHelper
         var content = "<核心诉求>\n";
         foreach (var tempFac in faction.TemporaryFactions)
         {
-            content += tempFac.ToString().ColorString(pColor:new Color(0.0f, 1, 0.5f))+"\n";
+            var startContent = $"\n执行中:({(int)((tempFac.progress/60.0f)*100.0f)}/100)";
+            content += tempFac.type.ToString().ColorString(pColor:new Color(0.7f, 0.9f, tempFac.IsStarted()?0.1f:0.9f))+(tempFac.IsStarted()?startContent:"")+"\n";
         }
         factionPart.AddTextIntoVertLayout(content, true, TextAnchor.UpperCenter, size: new Vector2(30, 40));
         factionPart?.transform.AddStretchBackground(isDominate?"FactionFrame_dominate":"FactionFrame", size: new Vector2(55, 90));

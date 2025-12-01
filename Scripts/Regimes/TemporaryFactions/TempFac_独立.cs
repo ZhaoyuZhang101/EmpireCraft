@@ -2,7 +2,7 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
-public class TempFac_转世袭 : TemporaryFaction
+public class TempFac_独立 : TemporaryFaction
 {
     public override void Execute()
     {

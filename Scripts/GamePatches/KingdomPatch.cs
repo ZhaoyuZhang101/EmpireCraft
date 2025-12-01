@@ -130,12 +130,10 @@ public class KingdomPatch : GamePatch
         __instance.SetLevel(4);
         __instance.SetEmpireID(-1L);
         var culture = ConfigData.speciesCulturePair.TryGetValue(pActor.asset.id, out string speciesCulture)? speciesCulture : "Western";
-        LogService.LogInfo(culture);
         RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
             ? setting.regime
             : RegimeType.Feudalism;
         __instance.SetRegimeType(regimeType);
-        LogService.LogInfo(regimeType.ToString());
         __instance.LoadRegime();
         Regime regime = __instance.GetRegime();
         regime.SetAllowDiplomacy(true);

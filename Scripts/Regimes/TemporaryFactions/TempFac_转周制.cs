@@ -2,7 +2,7 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
-public class TempFac_转世袭 : TemporaryFaction
+public class TempFac_转周制 : TemporaryFaction
 {
     public override void Execute()
     {
@@ -12,6 +12,7 @@ public class TempFac_转世袭 : TemporaryFaction
 
     public override bool CheckCondition()
     {
+        
         return true;
     }
 }

@@ -44,6 +44,8 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(set_actor_peerages)));
         new Harmony(nameof(removeData)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.Dispose)),
             postfix: new HarmonyMethod(GetType(), nameof(removeData)));
+        new Harmony(nameof(Die)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.die)),
+            prefix: new HarmonyMethod(GetType(), nameof(Die)));
         new Harmony(nameof(setArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setArmy)),
             prefix: new HarmonyMethod(GetType(), nameof(setArmy)));
         new Harmony(nameof(removeFromArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.removeFromArmy)),
@@ -62,11 +64,28 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(setCity)));
         new Harmony(nameof(actionLanded)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.actionLanded)),
             postfix: new HarmonyMethod(GetType(), nameof(actionLanded)));
-        new Harmony(nameof(updateAge)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.updateAge)),
-            postfix: new HarmonyMethod(GetType(), nameof(updateAge)));
+        new Harmony(nameof(UpdateAge)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.updateAge)),
+            postfix: new HarmonyMethod(GetType(), nameof(UpdateAge)));
         LogService.LogInfo("角色补丁加载成功");
     }
-    public static void updateAge(Actor __instance)
+
+    public static void Die(Actor __instance, bool pDestroy = false, AttackType pType = AttackType.Other, bool pCountDeath = true,
+        bool pLogFavorite = true)
+    {
+        foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
+        {
+            var list = pEmpire.data.CabinetMembers;
+            if (list.Any(id => id == __instance.getID()))
+            {
+                list.Remove(__instance.getID());
+            }
+        }
+
+        FixedFaction ff = __instance.GetFaction();
+        ff?.RemoveMember(__instance);
+    }
+
+    public static void UpdateAge(Actor __instance)
     {
         if (__instance.age > 70)
         {
@@ -226,11 +245,14 @@ public class ActorPatch : GamePatch
         if (__instance.HasSpecificClan())
         {
             PersonalClanIdentity pci = __instance.GetPersonalIdentity();
-            pci.is_alive = false;
-            pci.actor_id = -1L;
-            pci.deathday = Date.getDate(World.world.getCurWorldTime());
-            pci.recordAllInfo();
-            pci._specificClan.checkDispose();
+            if (pci != null)
+            {
+                pci.is_alive = false;
+                pci.actor_id = -1L;
+                pci.deathday = Date.getDate(World.world.getCurWorldTime());
+                pci.recordAllInfo();
+                pci._specificClan.checkDispose();
+            }
         }
         __instance.RemoveExtraData<Actor, ActorExtraData>();
     }

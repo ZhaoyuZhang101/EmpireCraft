@@ -29,6 +29,11 @@ public class Empire : MetaObject<EmpireData>
     
     public List<Kingdom> kingdoms_list = new List<Kingdom>();
     public HashSet<Kingdom> kingdoms_hashset = new HashSet<Kingdom>();
+    
+    //岁币国
+    public List<Kingdom> given_Kingdoms = new List<Kingdom>();
+    //朝贡国
+    public List<Kingdom> taken_Kingdoms = new List<Kingdom>();
 
     public Kingdom CoreKingdom;
     public Actor Emperor;
@@ -210,8 +215,10 @@ public class Empire : MetaObject<EmpireData>
         this.Emperor = actor;
         actor.SetEmpire(this);
         string nameEmpire = "";
+        actor.CheckSpecificClan();
         //检查帝国分裂
         var currentSpecificClan = actor.GetSpecificClan();
+        
         if (currentSpecificClan.id != data.empire_specific_clan && data.empire_specific_clan != -1L) 
         {
             if (currentSpecificClan.all_valid_members.Any())
@@ -232,6 +239,7 @@ public class Empire : MetaObject<EmpireData>
             isNew = true;
             data.history_emperrors.Clear();
         } 
+        
         data.empire_specific_clan = currentSpecificClan.id;
         EmpireClan = actor.clan;
         //设定天子身份并移居首都
@@ -388,9 +396,12 @@ public class Empire : MetaObject<EmpireData>
         {
             
             data.has_year_name = regime.HasEraName();
-            LogService.LogInfo(regime.type.ToString());
             LogService.LogInfo(regime.HasEraName().ToString());
-            regime.Factions.ForEach(f=>f.EmpireId = this.getID());
+            regime.Factions.ForEach(f=>
+            {
+                f.EmpireId = this.getID();
+                f.TemporaryFactions.ForEach(tf=>tf.Init(f));
+            });
         }
         data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
         CoreKingdom = kingdom;
@@ -956,6 +967,15 @@ public class Empire : MetaObject<EmpireData>
             }
         }
 
+        foreach (var k in this.given_Kingdoms)
+        {
+            this.data.given_Kingdoms.Add(k.getID());
+        }
+
+        foreach (var k in this.taken_Kingdoms)
+        {
+            this.data.taken_Kingdoms.Add(k.getID());
+        }
         if (this.Emperor != null)
             this.data.emperor = this.Emperor.data.id;
         else
@@ -983,9 +1003,20 @@ public class Empire : MetaObject<EmpireData>
             Kingdom tKingdom = World.world.kingdoms.get(tKingdomID);
             if (tKingdom != null)
             {
-                this.kingdoms_hashset.Add(tKingdom);
+                kingdoms_hashset.Add(tKingdom);
             }
+        }       
+        
+        foreach (var k in pData.given_Kingdoms)
+        {
+            given_Kingdoms.Add(World.world.kingdoms.get(k));
         }
+
+        foreach (var k in pData.taken_Kingdoms)
+        {
+            taken_Kingdoms.Add(World.world.kingdoms.get(k));
+        }
+        
         this.CoreKingdom = World.world.kingdoms.get(pData.empire);
         this.EmpireClan = World.world.clans.get(pData.empire_clan);
         this.OriginalCapital = World.world.cities.get(pData.original_capital);
@@ -1498,6 +1529,8 @@ public class Empire : MetaObject<EmpireData>
     {
         this.kingdoms_list.Clear();
         this.kingdoms_hashset.Clear();
+        this.given_Kingdoms.Clear();
+        this.taken_Kingdoms.Clear();
         this.CoreKingdom = null;
         if (!ModClass.ALL_HISTORY_DATA.ContainsKey(this.data.id))
         {

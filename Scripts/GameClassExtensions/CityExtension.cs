@@ -31,7 +31,7 @@ public static class CityExtension
         [JsonIgnore]
         public SimpleButton limitToggle { get; set; }
         public CityType cityType { get; set; }
-        public long office_id { get; set; }
+        public long office_id { get; set; } = -1L;
     }
     public static void SetCityType(this City c, CityType type)
     {

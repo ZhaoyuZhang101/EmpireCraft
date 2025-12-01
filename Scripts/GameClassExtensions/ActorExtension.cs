@@ -378,9 +378,7 @@ public static class ActorExtension
     {
         if (a == null) return null;
         var identity = a.GetPersonalIdentity();
-        return identity != null
-            ? identity._specificClan
-            : null;
+        return identity?._specificClan;
     }
     public static PersonalClanIdentity GetPersonalIdentity(this Actor a)
     {
@@ -717,7 +715,10 @@ public static class ActorExtension
                     if (original != direct)
                     {
                         //LogService.LogInfo("升官");
-                        TranslateHelper.LogOfficeMove(a, identity.peerageType,identity.honoraryOfficial);
+                        if (direct < 5)
+                        {
+                            TranslateHelper.LogOfficeMove(a, identity.peerageType, direct);
+                        }
                     }
                     identity.honoraryOfficial = direct;
                 }
@@ -777,7 +778,7 @@ public static class ActorExtension
     public static string GetActorName(this Actor a)
     {
         if (a == null) return null;
-        if (a.name == null || a.name == "") return null;
+        if (string.IsNullOrEmpty(a.name)) return null;
         string[] nameParts = a.name.Split('\u200A');
 
         if (ConfigData.speciesCulturePair.TryGetValue(a.asset.id, out var culture))

@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.HelperFunc
 {
@@ -117,12 +118,12 @@ namespace EmpireCraft.Scripts.HelperFunc
         public static void LogOfficerBecomeFactionLeader(Actor pActor, FixedFaction faction)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.officer_become_faction_leader,
-                pActor.name,
+                pActor.getName(),
                 faction.Name
                 )
             {
-                color_special1 = pActor.getColor()._color_text,
-                color_special2 = pActor.getColor()._color_text
+                color_special1 = new Color(1f, 0, 0.5f),
+                color_special2 = new Color(0.7f, 0.0f, 0.9f),
 
             }.add();
         }
