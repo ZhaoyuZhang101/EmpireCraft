@@ -4,6 +4,8 @@
     "description": "西方中世纪时的主流制度，各王国子嗣分封建国，也可通过联姻合并国家，各诸侯国之间彼此独立，拥有独立的军事权外交权",   
     "icon_url": "",
     "era_name": false,
+    "has_cabinet": true,
+    "cabinet_number": 7,
     "leader_select_method": "Succession",    
     "Factions": [
       {
@@ -25,6 +27,18 @@
         "Ban": false,
         "_requiredTraits": [],
         "Name": "封建派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        //加强神权
+        "_id": "0d295e4d-7c3e-4a7f-aef4-f30f94d25666",
+        "Type": "神权",
+        "Ban": false,
+        "_requiredTraits": ["cleric"],
+        "Name": "神权派",
         "EmpireId": -1,
         "Members": [],
         "TotalPower": 0,

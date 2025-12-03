@@ -17,6 +17,10 @@ public class TempFac_割让城池 : TemporaryFaction
             City city = kingdom.cities.ToList().Select(c => c.neighbours_cities.ToList().Find(nc =>
                 nc.kingdom.IsInSameEmpire(GetEmpire().CoreKingdom) && (!c.kingdom.IsEmpire() || !c.isCapitalCity()))).First();
             city?.joinAnotherKingdom(kingdom);
+            if (kingdom.isInWarWith(GetEmpire().CoreKingdom))
+            {
+                kingdom.EndWarWith(GetEmpire().CoreKingdom);
+            }
         }
         End();
     }

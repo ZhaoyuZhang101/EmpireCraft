@@ -5,6 +5,7 @@ using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
 
@@ -23,12 +24,18 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
 
     public void CheckMainTitle(Kingdom pKingdom)
     {
+        if (pKingdom.HasMainTitle())
+        {
+            LogService.LogInfo($"{pKingdom}已拥有头衔{pKingdom.GetMainTitle().name}");
+            return;
+        }
         if (pKingdom.hasKing())
         {
             var king = pKingdom.king;
             if (king.GetMainTitle() != null)
             {
                 pKingdom.SetMainTitle(king.GetMainTitle());
+                LogService.LogInfo($"{pKingdom.name}设置头衔为{king.GetMainTitle().name}");
             }
         }
     }
@@ -45,11 +52,12 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                     if (!war.isRekt())
                     {
                         List<Kingdom> opposites = war.getOppositeSideKingdom(pKingdom);
+                        if (opposites==null) return;
                         foreach (Kingdom empireKingdoms in empire.kingdoms_hashset)
                         {
                             if (empireKingdoms.isRekt()) continue;
                             if (empireKingdoms.IsEmpire()) continue;
-                            if (!opposites.Contains(empireKingdoms) && empire.CoreKingdom.getRenown() >= empireKingdoms.countTotalWarriors() && empireKingdoms.getWars().Count() <= 0)
+                            if (!opposites.Contains(empireKingdoms) && (empire.CoreKingdom?.getRenown() >= empireKingdoms.countTotalWarriors()) && empireKingdoms.getWars()?.Count() <= 0)
                             {
                                 if (war.isAttacker(pKingdom))
                                 {

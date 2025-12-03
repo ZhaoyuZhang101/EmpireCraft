@@ -52,6 +52,12 @@ public static class EmpireCraftActorTraitLibrary
         });
         lib.add(new ActorTrait
         {
+            id = "cleric",
+            path_icon = "ui/icons/actor_traits/iconOfficerLeave",
+            group_id = "EmpireOffice"
+        });
+        lib.add(new ActorTrait
+        {
             id = "empireSoldier",
             path_icon = "ui/icons/actor_traits/iconEmpireArmy",
             group_id = "EmpireArmy",

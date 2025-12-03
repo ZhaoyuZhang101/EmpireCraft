@@ -14,6 +14,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.FamilyExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
+using static EmpireCraft.Scripts.GameClassExtensions.ReligionExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class DBManagerPatch:GamePatch
@@ -53,6 +54,7 @@ public class DBManagerPatch:GamePatch
         ExtensionBase.Clear<War, WarExtraData>();
         ExtensionBase.Clear<Kingdom, KingdomExtraData>();
         ExtensionBase.Clear<City, CityExtraData>();
+        ExtensionBase.Clear<Religion, ReligionExtraData>();
         LogService.LogInfo("清空所有Mod数据");
     }
 }

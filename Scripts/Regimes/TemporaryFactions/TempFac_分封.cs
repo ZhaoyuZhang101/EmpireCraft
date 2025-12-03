@@ -17,7 +17,8 @@ public class TempFac_分封 : TemporaryFaction
             foreach (var c in GetEmpire().CoreKingdom.cities)
             {
                 if (c.isCapitalCity()) continue;
-                c.makeOwnKingdom(actor);
+                var kingdom = c.makeOwnKingdom(actor);
+                GetEmpire().join(kingdom, pForce:true);
             }
         }
         End();

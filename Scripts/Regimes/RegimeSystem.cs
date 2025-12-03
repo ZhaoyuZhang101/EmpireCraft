@@ -106,24 +106,30 @@ public class Regime
     public bool era_name;
     [JsonIgnore]
     public long control_kingdom_id;
-    public LeaderSelectMethod leader_select_method;
+    public LeaderSelectMethod leader_select_method; 
+    public bool has_cabinet;
+    public int cabinet_number;
     public List<FixedFaction> Factions;
     public Dictionary<string, int[]> options;
     public BureauConfig bureau_config;
-    public Regime Clone()
+    public Regime Clone(Kingdom kingdom)
     {
         return new Regime
         {
             type = this.type,
             description = this.description,
-            control_kingdom_id = this.control_kingdom_id,
+            control_kingdom_id = kingdom.getID(),
             options = this.options.ToDictionary(
                 entry => entry.Key,
                 entry => (int[])entry.Value.Clone()
             ),
             bureau_config = this.bureau_config,
             era_name = this.era_name,
-            Factions =  this.Factions.Select(f=>f.Clone()).ToList(),
+            Factions =  this.Factions.Select(f=>
+            {
+                var nf = f.Clone();
+                return nf;
+            }).ToList(),
         };
     }
 
@@ -153,6 +159,11 @@ public class Regime
     public ReligionLevel GetReligionLevel()
     {
         return (ReligionLevel)options["option_religion_type"][0];
+    }
+
+    public void SetReligionLevel(ReligionLevel level)
+    {
+        options["option_religion_type"][0] = (int) level;
     }
 
     public LeaderSelectMethod GetLeaderSelectMethod()

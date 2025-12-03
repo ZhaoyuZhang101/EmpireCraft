@@ -12,6 +12,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
+using static EmpireCraft.Scripts.GameClassExtensions.ReligionExtension;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
@@ -24,6 +25,7 @@ public class SaveData
     public List<CityExtraData> cityExtraData = new List<CityExtraData>();
     public List<ClanExtraData> clanExtraData = new List<ClanExtraData>();
     public List<WarExtraData> warExtraData = new List<WarExtraData>();
+    public List<ReligionExtraData> religionExtraData = new List<ReligionExtraData>();
     public List<EmpireData> empireDatas = new List<EmpireData>();
     public List<KingdomTitleData> kingdomTitleDatas = new List<KingdomTitleData>();
     public List<string> yearNameSubspecies = new List<string>();

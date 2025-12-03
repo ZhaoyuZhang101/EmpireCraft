@@ -368,6 +368,16 @@ public class CityPatch : GamePatch
 
     public static void destroy_city(City __instance)
     {
+        foreach (var religion in World.world.religions)
+        {
+            if (religion.GetCity() == __instance)
+            {
+                if (religion.getCities().Count() > 0)
+                {
+                    religion.SetCity(religion.cities.First());
+                }
+            }
+        }
         if (__instance.hasTitle())
         {
             __instance.GetTitle().removeCity(__instance);

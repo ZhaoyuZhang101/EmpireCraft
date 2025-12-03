@@ -32,6 +32,7 @@ public enum FactionType
     绥靖,  //主和
     血脉, //国王为单一血脉
     僭主, //霸者为王
+    神权, //宗教至上
     共和,  //反移民，发展自己
     民主,  //移民，吸血国外
     革命,  //一党，革命输出
@@ -46,7 +47,9 @@ public class FixedFaction
     public bool Ban { get; set; } = false;
     public string Name { set; get; }
     public long EmpireId { get; set; } = -1L;
-    [JsonIgnore] public Empire Empire => ModClass.EMPIRE_MANAGER.get(EmpireId);
+    public bool Force = false; 
+    [JsonIgnore] 
+    public Empire Empire => ModClass.EMPIRE_MANAGER.get(EmpireId);
     public List<long> Members = new();
     [JsonIgnore]
     public int Count => Members.Count;

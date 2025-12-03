@@ -20,14 +20,13 @@ public abstract class TemporaryFaction
     public List<long>  kingdoms = new List<long>();
     public FactionType factionType = FactionType.无;
     
-    private long _targetId = -1;
-    private MetaType _targetType = MetaType.None;
-    
     public long EmpireID = -1L;
     public long TargetID = -1L;
     public MetaType TargetType = MetaType.Kingdom;
     
-    public int progress = 0;
+    public float progress = 0;
+    public float progressMax = 60;
+    public float acceleration = 0;
     private bool started = false;
     public double timestamp = -1L;
     
@@ -49,42 +48,29 @@ public abstract class TemporaryFaction
     // 统一入口：设定“国家目标”
     protected void SetKingdomTarget(Kingdom k, string reason = "")
     {
-        var id = k?.getID() ?? -1L;                     // 一律用 base_id
-        _targetType = MetaType.Kingdom;
-        WriteTargetId(id, reason);
-    }
-    
-
-    // 真正的写入点：埋栈追踪
-    private void WriteTargetId(long id, string reason,
-        [CallerMemberName] string caller = "")
-    {
-        if (_targetId == id) return;
-        if (reason != "")
-        {
-            // 调用栈只保留关键几层，便于读
-            var st = new StackTrace(1, true); // 跳过本方法
-            var where = st.ToString();
-
-            LogService.LogInfo(
-                $"[TF:{GetType().Name}@{GetHashCode()}] TargetID { _targetId } -> { id }" +
-                $", type={_targetType}, reason={reason}, caller={caller}\n{where}");
-        }
-        _targetId = id;
-    }
-
-
-    // 反序列化/修复等内部写入请走这里
-    public void SetTargetFromSave(long id, MetaType type, string reason = "load")
-    {
-        _targetType = type;
-        WriteTargetId(id, reason);
+        var id = k?.getID() ?? -1L; // 一律用 base_id
+        TargetID = id;
+        TargetType = MetaType.Kingdom;
     }
     
     protected Kingdom GetKingdomTarget()
     {
-        if (_targetType != MetaType.Kingdom || _targetId < 0) return null;
-        return World.world.kingdoms.get(_targetId);
+        if (TargetType != MetaType.Kingdom || TargetID < 0) return null;
+        return World.world.kingdoms.get(TargetID);
+    }    
+    
+    // 统一入口：设定“国家目标”
+    protected void SetCityTarget(City k, string reason = "")
+    {
+        var id = k?.getID() ?? -1L; // 一律用 base_id
+        TargetID = id;
+        TargetType = MetaType.City;
+    }
+    
+    protected City GetCityTarget()
+    {
+        if (TargetType != MetaType.City || TargetID < 0) return null;
+        return World.world.cities.get(TargetID);
     }
     
     protected void SetActorTarget(Actor pActor)
@@ -198,10 +184,8 @@ public abstract class TemporaryFaction
     {
         return ModClass.EMPIRE_MANAGER.get(EmpireID);
     }
-    public void Start(NanoObject ptarget = null)
+    public void Start()
     {
-        TargetID = ptarget?.getID()??-1L;
-        TargetType = ptarget?.meta_type??MetaType.Kingdom;
         started = true;
     }
 
@@ -227,13 +211,16 @@ public abstract class TemporaryFaction
     {
         if (started)
         {
-            if (GetEmpire().GetCabinetLeader()?.GetFaction()?.Type != factionType)
+            if (GetEmpire().CoreKingdom.GetRegime().has_cabinet)
             {
-                End();
-                return;
+                if (GetEmpire().GetCabinetLeader()?.GetFaction()?.Type != factionType)
+                {
+                    End();
+                    return;
+                } 
             }
             progress ++;
-            if (progress >= 60) Execute();
+            if (progress >= progressMax-acceleration) Execute();
         }
         else
         {

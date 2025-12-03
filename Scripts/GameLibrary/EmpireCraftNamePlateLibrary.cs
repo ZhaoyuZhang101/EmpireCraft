@@ -445,7 +445,7 @@ public static class EmpireCraftNamePlateLibrary
             var tf = faction.GetAnyTFactionRuns();
             text += $"\n主导: {faction.Name} | " +
                     $"诉求：{(faction.IsAnyTFactionRuns()?tf.type:TemporaryFactionType.无)} " +
-                    (faction.IsAnyTFactionRuns()?$"({(int)(tf.progress/60.0f*100.0f)}/100)":"");
+                    (faction.IsAnyTFactionRuns()?$"({(int)(tf.progress/(tf.progressMax-tf.acceleration)*100)}/100)":"");
         }
         
         plateText.setText(text, pMetaObject.GetEmpire().GetEmpireCenter());

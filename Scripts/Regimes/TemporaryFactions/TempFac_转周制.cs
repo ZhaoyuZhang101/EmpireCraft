@@ -31,12 +31,6 @@ public class TempFac_转周制 : TemporaryFaction
                 kingdom.GetRegime().SetAllowArmy(true);
                 kingdom.GetRegime().SetAllowDiplomacy(true);
             }
-            Regime regime = kingdom.GetRegime();
-            regime.Factions.ForEach(f=>
-            {
-                f.EmpireId = empire.id;
-                f.FixMissedTemporaryFactions();
-            });
             var flag1 = false;
             if (empire.Emperor.getChildren().Any())
             {

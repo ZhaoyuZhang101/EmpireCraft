@@ -13,7 +13,9 @@ public class TempFac_汉化 : TemporaryFaction
         Kingdom pKingdom = GetTarget();
         if (pKingdom != null)
         {
-            pKingdom.setCulture(pKingdom.GetEmpire().CoreKingdom.getCulture());
+            var culture = pKingdom.GetEmpire().CoreKingdom.getCulture();
+            pKingdom.setCulture(culture);
+            pKingdom.units.ForEach(u=>u.setCulture(culture));
             pKingdom.SetRegimeType(GetEmpire().CoreKingdom.GetRegime().type);
             pKingdom.LoadRegime();
         }

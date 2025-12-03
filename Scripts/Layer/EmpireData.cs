@@ -25,6 +25,7 @@ public class EmpireData : MetaObjectData
     public int banner_icon_id { get; set; }
     public int Mandate { get; set; } = 100; //正统
     public List<long> CabinetMembers { get; set; } = new List<long>();
+    public long Religion { get; set; } = -1L;
     public int Prestige { get; set; } = 100; //威望
     public EmpireHeirLawType heir_type { get; set; }
     public int max_province_city_num { get; set; } = 3;

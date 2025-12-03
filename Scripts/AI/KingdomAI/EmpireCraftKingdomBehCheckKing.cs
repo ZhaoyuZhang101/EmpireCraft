@@ -27,7 +27,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
             }
         }
         Regime regime = pKingdom.GetRegime();
-        if ((!pKingdom.IsEmpire()&&regime.GetLeaderSelectMethod()==LeaderSelectMethod.Succession)||(pKingdom.IsEmpire()&&regime.leader_select_method==LeaderSelectMethod.Succession))
+        if (NeedSuccession(pKingdom))
         {
             if (pKingdom.HasHeir())
             {
@@ -40,6 +40,13 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         office.meta_object = pKingdom;
         office.Select(pKingdom);
         return BehResult.Continue;
+    }
+
+    public static bool NeedSuccession(Kingdom pKingdom)
+    {
+        Regime regime = pKingdom.GetRegime();
+        return (!pKingdom.IsEmpire() && regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession) ||
+               (pKingdom.IsEmpire() && regime.leader_select_method == LeaderSelectMethod.Succession);
     }
 
     public void ChooseKingFromHeir(Kingdom pKingdom)

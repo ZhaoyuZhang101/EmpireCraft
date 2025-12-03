@@ -8,6 +8,7 @@ using System.Collections;
 using EmpireCraft.Scripts.HelperFunc;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class ReligionPatch : GamePatch
@@ -34,6 +35,7 @@ public class ReligionPatch : GamePatch
         {
             InsertReligionNameTemplate(__instance, "Western");
         }
+        __instance.SetCity(pActor.city);
 
     }
     public static void InsertReligionNameTemplate(Religion religion, string cultureName)

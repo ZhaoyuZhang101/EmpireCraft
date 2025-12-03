@@ -10,14 +10,11 @@ import re
 from pathlib import Path
 
 TEMPLATE = """using NeoModLoader.services;
-
+using EmpireCraft.Scripts.Layer;
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_{type_name} : TemporaryFaction
 {{
-    public override long EmpireID {{ get; protected set; }}
-    public override long TargetID {{} get; protected set; }}
-    public override MetaType TargetType {{ get; protected set; }}
     
     public override void Execute()
     {{
@@ -27,7 +24,8 @@ public class TempFac_{type_name} : TemporaryFaction
 
     public override bool CheckCondition()
     {{
-        return true;
+        Empire empire = GetEmpire();
+        return false;
     }}
 }}
 """

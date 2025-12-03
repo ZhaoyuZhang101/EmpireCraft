@@ -30,12 +30,15 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         } 
         if (dominateFaction.IsAnyTFactionRuns()) return BehResult.Continue;
         if (dominateFaction.GetLeader() == null) return BehResult.Continue;
-        if (pKingdom.GetEmpire().GetCabinetLeader()?.GetFaction() != dominateFaction) return BehResult.Continue;
+        if (regime.has_cabinet)
+        {
+            if (pKingdom.GetEmpire().GetCabinetLeader()?.GetFaction() != dominateFaction) return BehResult.Continue;
+        }
         foreach (var tf in dominateFaction.TemporaryFactions)
         {
             if (tf.CheckCondition())
             {
-                tf.Start(pKingdom);
+                tf.Start();
                 return BehResult.Continue;
             }
         }

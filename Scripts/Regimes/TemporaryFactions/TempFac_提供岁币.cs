@@ -16,6 +16,7 @@ public class TempFac_提供岁币 : TemporaryFaction
         {
             Empire empire = GetEmpire();
             empire.given_Kingdoms.Add(kingdom);
+            kingdom.EndWarWith(empire.CoreKingdom);
         }
         End();
     }

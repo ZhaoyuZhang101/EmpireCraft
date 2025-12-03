@@ -25,6 +25,7 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
         Empire empire = GetEmpire();
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
+            if (kingdom.IsEmpire()) continue;
             Regime regime = kingdom.GetRegime();
             if (regime.IsAllowDiplomacy())
             {

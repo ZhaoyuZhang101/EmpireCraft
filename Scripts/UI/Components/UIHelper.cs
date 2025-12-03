@@ -419,7 +419,7 @@ public static class UIHelper
         var content = "<核心诉求>\n";
         foreach (var tempFac in faction.TemporaryFactions)
         {
-            var startContent = $"\n执行中:({(int)((tempFac.progress/60.0f)*100.0f)}/100)";
+            var startContent = $"\n执行中:({(int)((tempFac.progress/(tempFac.progressMax-tempFac.acceleration))*100.0f)}/100)";
             content += tempFac.type.ToString().ColorString(pColor:new Color(0.7f, 0.9f, tempFac.IsStarted()?0.1f:0.9f))+(tempFac.IsStarted()?startContent:"")+"\n";
         }
         factionPart.AddTextIntoVertLayout(content, true, TextAnchor.UpperCenter, size: new Vector2(30, 40));

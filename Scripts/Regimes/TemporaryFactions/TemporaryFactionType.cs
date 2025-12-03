@@ -39,5 +39,9 @@ public enum TemporaryFactionType
     收回地盘,
     开放移民,
     谋求统一,
+    确立国教,
+    划地给教廷,
+    神授君权,
+    恢复圣地,
     无
 }

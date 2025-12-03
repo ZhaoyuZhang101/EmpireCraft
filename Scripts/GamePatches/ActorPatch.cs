@@ -81,6 +81,32 @@ public class ActorPatch : GamePatch
             }
         }
 
+        if (__instance.isKing()&&__instance.kingdom.HasHeir())
+        {
+            var heir = __instance.kingdom.GetHeir();
+            var titles = __instance.GetOwnedTitle();
+            if (titles?.Any()??false)
+            {
+                foreach (var titleID in titles)
+                {
+                    var title = ModClass.KINGDOM_TITLE_MANAGER.get(titleID);
+                    heir.AddOwnedTitle(title);
+                }
+            }
+        }
+        else
+        {
+            var titles = __instance.GetOwnedTitle();
+            if (titles?.Any() ?? false)
+            {
+                foreach (var titleID in titles)
+                {
+                    var title = ModClass.KINGDOM_TITLE_MANAGER.get(titleID);
+                    title?.SetOwner(null);
+                }
+            }
+        }
+
         FixedFaction ff = __instance.GetFaction();
         ff?.RemoveMember(__instance);
     }

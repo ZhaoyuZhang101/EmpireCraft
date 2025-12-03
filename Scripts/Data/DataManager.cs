@@ -12,6 +12,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using db;
 using EmpireCraft.Scripts.AI.KingdomAI;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -43,6 +44,7 @@ public static class DataManager
         var cityById = World.world.cities.ToDictionary(c => c.getID());
         var clanById = World.world.clans.ToDictionary(c => c.getID());
         var warById = World.world.wars.ToDictionary(w => w.getID());
+        var religionById = World.world.religions.ToDictionary(r => r.getID());
         LogService.LogInfo("准备各项数据");
         OfficeManager.Offices = saveData.officeObjects;
         // 批量同步
@@ -112,6 +114,12 @@ public static class DataManager
                 war.SyncData(entry);
         }
         LogService.LogInfo("Sync War Data");
+        foreach (var entry in saveData.religionExtraData)
+        {
+            if (religionById.TryGetValue(entry.id, out var religion))
+                religion.SyncData(entry);
+        }
+        LogService.LogInfo("Sync Religion Data");
         foreach (EmpireData empireData in saveData.empireDatas)
         {
             if (empireData == null) continue;
@@ -149,7 +157,8 @@ public static class DataManager
         string savePath = Path.Combine(saveRootPath, "EmpireCraftModData.json");
         SaveData saveData = new SaveData();
         saveData.actorsExtraData = World.world.units.Select(a=>a.GetExtraData<Actor, ActorExtraData>(true)).Where(ed=>ed!=null).ToList();
-        saveData.cityExtraData = World.world.cities.Select(a => a.GetExtraData<City, CityExtraData>(true)).Where(ed => ed != null).ToList(); ;
+        saveData.cityExtraData = World.world.cities.Select(a => a.GetExtraData<City, CityExtraData>(true)).Where(ed => ed != null).ToList();
+        saveData.religionExtraData = World.world.religions.Select(a => a.GetExtraData<Religion, ReligionExtension.ReligionExtraData>(true)).Where(ed => ed != null).ToList();
         saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.GetExtraData<Kingdom, KingdomExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.warExtraData = World.world.wars.Select(a => a.GetExtraData<War, WarExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.clanExtraData = World.world.clans.Select(a => a.GetExtraData<Clan, ClanExtraData>(true)).Where(ed => ed != null).ToList(); ;
@@ -192,6 +201,7 @@ public static class DataManager
         LogService.LogInfo("" + saveData.warExtraData.Count());
         LogService.LogInfo("" + saveData.kingdomExtraData.Count());
         LogService.LogInfo("" + saveData.cityExtraData.Count());
+        LogService.LogInfo("" + saveData.religionExtraData.Count());
         File.WriteAllText(savePath, json);
         LogService.LogInfo("Save Finished");
     }

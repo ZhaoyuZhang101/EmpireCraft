@@ -4,6 +4,8 @@
     "description": "阿拉伯世俗政体，各个地区之间彼此独立，却又联合为一大帝国",
     "icon_url": "",
     "era_name": false,
+    "has_cabinet": false,
+    "cabinet_number": 0,
     "leader_select_method": "Succession",
     "Factions": [
       {

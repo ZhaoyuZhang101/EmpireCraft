@@ -4,6 +4,8 @@
     "description": "中华文化圈传统制度，建立中央集权的官僚体系，如三省六部制，官员通过科举制度选拔",
     "icon_url": "",
     "era_name": true,
+    "has_cabinet": true,
+    "cabinet_number": 5,
     "leader_select_method": "Succession",
     "Factions": [
       {

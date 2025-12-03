@@ -88,9 +88,11 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (!pKingdom.hasKing()) return false;
         if (pKingdom.IsEmpire()) return false;
         if (pKingdom.IsInEmpire()) return false;
-        if (!pKingdom.HasMainTitle()) return false; //if a kingdom has main title then it could become an empire
+        if (!pKingdom.HasMainTitle()) return false; //if a kingdom has main title, then it could become an empire
         ModClass.EMPIRE_MANAGER.update(-1L);
-        if (!pKingdom.CanBecomeEmpire()) return false;
+        var flag = pKingdom.countTotalWarriors() > ModClass.EMPIRE_MANAGER.ToList()
+            .FindAll(e => e.CoreKingdom.species_id == pKingdom.species_id).Sum(e => e.countWarriors());
+        if (!pKingdom.CanBecomeEmpire()&&!flag) return false;
         EmpireCraftPlotsAddition.BecomeEmpireAndStartEnfeoff(pKingdom.king);
         return true;
     }

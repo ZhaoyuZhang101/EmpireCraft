@@ -11,7 +11,7 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
 
-public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
+public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
 {
     public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
@@ -92,7 +92,7 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
             kingdomFront = pKingdom.capital.GetCityName();
         }
         
-        if (pKingdom.GetOffice().leader_select_method == LeaderSelectMethod.Succession)
+        if (pKingdom.GetRegime().leader_select_method == LeaderSelectMethod.Succession)
         {
             if (pKingdom.HasMainTitle())
             {
@@ -276,7 +276,7 @@ public class EmpireCraftKingdomBehCheckKingdomType:GameAIKingdomBase
                 case RegimeType.Republic:
                     return  KingdomType.Republic_republic;
                 case RegimeType.Feudalism:
-                    return  KingdomType.Feudalism_kingdom;
+                    return regime.GetReligionLevel() == ReligionLevel.High ? KingdomType.Feudalism_papal_state : KingdomType.Feudalism_kingdom;
                 case RegimeType.LvLing:
                     return  KingdomType.LvLing_kingdom;
                 case RegimeType.Arabic:

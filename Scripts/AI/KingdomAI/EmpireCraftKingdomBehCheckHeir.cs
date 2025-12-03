@@ -20,8 +20,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
-        Regime regime = pKingdom.GetRegime();
-        if (regime.leader_select_method != LeaderSelectMethod.Succession || pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir())
+        if (!EmpireCraftKingdomBehCheckKing.NeedSuccession(pKingdom) || (pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir()))
         {
             return BehResult.Continue;
         }
