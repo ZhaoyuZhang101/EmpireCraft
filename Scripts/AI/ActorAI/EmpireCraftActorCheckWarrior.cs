@@ -76,10 +76,13 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
             else
             {
                 City city = pActor.city;
-                if (city.countWarriors() < city.getMaxWarriors())
+                if (city != null)
                 {
-                   city.makeWarrior(pActor);
-                }
+                    if (city.countWarriors() < city.getMaxWarriors())
+                    {
+                        city.makeWarrior(pActor);
+                    }
+                } 
             }
         } 
         return BehResult.Continue;

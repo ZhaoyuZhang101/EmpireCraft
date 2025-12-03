@@ -19,6 +19,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using HarmonyLib;
+using NCMS.Extensions;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
@@ -225,8 +226,14 @@ public static class KingdomExtension
 
     public static void LoadRegime(this Kingdom k)
     {
-        Regime regime = RegimeManager.regimes[k.GetOrCreate().regimeType].Clone();
+        Regime regime = RegimeManager.regimes[k.GetOrCreate().regimeType].Clone(k);
         k.SetRegime(regime);
+        regime.Factions.ForEach(f=>
+        {
+            f.EmpireId = k.IsEmpire()?k.GetEmpireID():-1L;
+            f.FixMissedTemporaryFactions();
+            f.TemporaryFactions.ForEach(tf=>tf.Init(f));
+        });
     }
     public static int GetIndependentValue(this Kingdom k)
     {
@@ -595,5 +602,10 @@ public static class KingdomExtension
         if (kingdom == null) return false;
         if (GetOrCreate(kingdom) == null) return false;
         return ModClass.EMPIRE_MANAGER.get(GetOrCreate(kingdom).EmpireID)!=null;
+    }
+    public static void EndWarWith(this Kingdom kingdom, Kingdom kingdom2)
+    {
+        var wars = kingdom.getWars().Intersect(kingdom2.getWars());
+        wars.ForEach(w=>w.endForSides(pWinner: w.getAttackers().Contains(kingdom)? WarWinner.Attackers: WarWinner.Defenders));
     }
 }

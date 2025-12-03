@@ -261,6 +261,7 @@ public static class ActorExtension
         public FactionType factionType = FactionType.无;
         public long faction_empire = -1L;
         public Name name;
+        public bool has_become_cleric = false;
         public OfficeIdentity officeIdentity { get; set; } = null;
         public double last_tax_timestamp = -1L;
         public long empire_id { get; set; } = -1L;
@@ -276,6 +277,15 @@ public static class ActorExtension
         a.GetOrCreate().is_on_office = true;
     }
 
+    public static bool HasChooseToBecomeCleric(this Actor a)
+    {
+        return a.GetOrCreate().has_become_cleric;
+    }
+
+    public static bool FinishChooseToBecomeCleric(this Actor a)
+    {
+        return a.GetOrCreate().has_become_cleric = true;
+    }
     public static FixedFaction GetFaction(this Actor a)
     {
         Empire empire = ModClass.EMPIRE_MANAGER.get(a.GetOrCreate().faction_empire);
@@ -847,7 +857,6 @@ public static class ActorExtension
         if (!a.HasTitle()) return "";
         if (!a.isKing()) return "";
         if (a.kingdom == null) return "";
-        Kingdom kingdom = a.kingdom;
         var ownedTitles = a.GetOwnedTitle();
         if (ownedTitles == null) return "";
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
@@ -855,12 +864,9 @@ public static class ActorExtension
     }
     public static KingdomTitle GetMainTitle(this Actor a)
     {
-        if (!a.HasTitle()) return null;
-        if (!a.isKing()) return null;
-        if (a.kingdom == null) return null;
-        Kingdom kingdom = a.kingdom;
         var ownedTitles = a.GetOwnedTitle();
         if (ownedTitles == null) return null;
+        if (ownedTitles.Count <= 0) return null;
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
         return title;
     }

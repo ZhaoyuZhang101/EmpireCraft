@@ -53,7 +53,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         this.layout.padding = new RectOffset(3, 3, 95, 3);
     }
     [Hotfixable]
-    private void InitialTopPartInfo()
+    private void InitialTopPartInfoLvLing()
     {
         //总容器
         topSpace = this.BeginHoriGroup();
@@ -73,6 +73,52 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
                 ? members[i].GetFaction().Name.ColorString(pColor:new Color(0.0f, 1, 0.5f))
                 : "无");
         }
+        
+        UIHelper.AddFactionCard(_empire.CoreKingdom.GetRegime().GetDominateFaction(), _empire.CoreKingdom, parentH:topSpace);
+        
+        topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
+    }
+    [Hotfixable]
+    private void InitialTopPartInfoFeudalism()
+    {
+        //总容器
+        topSpace = this.BeginHoriGroup();
+        topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
+
+        var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
+        var members = _empire.GetCabinetMembers();
+        centerPart.AddTextIntoVertLayout("教廷选帝侯", true, TextAnchor.MiddleCenter);
+        var cabinetMemberSpace = centerPart.BeginHoriGroup(pSpacing:-5);
+        for (int i=0; i<3; i++ )
+        {
+            int cCount = members.Count;
+            var member = i<cCount ? members[i] : null;
+            cabinetMemberSpace.AddActorViewIntoHoriLayout(member, 
+                description: member?.GetFaction()?.Name?.ColorString(pColor:new Color(0.0f, 1, 0.5f))??"无");
+        }
+        centerPart.AddTextIntoVertLayout("世俗选帝侯", true, TextAnchor.MiddleCenter);
+        var cabinetMemberSpace2 = centerPart.BeginHoriGroup(pSpacing:-5);
+        for(int i=3; i<7; i++)
+        {
+            int cCount = members.Count;
+            var member = i<cCount ? members[i] : null;
+            cabinetMemberSpace2.AddActorViewIntoHoriLayout(member, 
+                description: member?.GetFaction()?.Name?.ColorString(pColor:new Color(0.0f, 1, 0.5f))??"无");
+        }
+        
+        UIHelper.AddFactionCard(_empire.CoreKingdom.GetRegime().GetDominateFaction(), _empire.CoreKingdom, parentH:topSpace);
+        
+        topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
+    }
+    [Hotfixable]
+    private void InitialTopPartInfoNormal()
+    {
+        //总容器
+        topSpace = this.BeginHoriGroup();
+        topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
+
+        var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
+        centerPart.AddTextIntoVertLayout("无内阁", true, TextAnchor.MiddleCenter, new Vector2(80, 40));
         
         UIHelper.AddFactionCard(_empire.CoreKingdom.GetRegime().GetDominateFaction(), _empire.CoreKingdom, parentH:topSpace);
         
@@ -140,11 +186,30 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         this.layout.padding = new RectOffset(3, 3, 95, 3);
         _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         Clear();
-        InitialTopPartInfo();
+        Regime regime = _empire.CoreKingdom.GetRegime();
+        switch (regime.type)
+        {
+            case RegimeType.Feudalism:
+                InitialTopPartInfoFeudalism();
+                break;
+            case RegimeType.LvLing:
+                InitialTopPartInfoLvLing();
+                break;
+            default:
+                InitialTopPartInfoNormal();
+                break;
+        }
 
-        ShowCoreSpace();
+        if (_empire.data.centerOffice.CoreOffices.Count > 0)
+        {
+            ShowCoreSpace();
+        }
 
-        ShowDivisionSpace();
+        if (_empire.data.centerOffice.Divisions.Count > 0)
+        {
+            ShowDivisionSpace();
+        }
+        
 
         ShowProvincesSpace();
     }
@@ -157,11 +222,29 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         this.layout.padding = new RectOffset(3, 3, 95, 3);
         _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         Clear();
-        InitialTopPartInfo();
+        Regime regime = _empire.CoreKingdom.GetRegime();
+        switch (regime.type)
+        {
+            case RegimeType.Feudalism:
+                InitialTopPartInfoFeudalism();
+                break;
+            case RegimeType.LvLing:
+                InitialTopPartInfoLvLing();
+                break;
+            default:
+                InitialTopPartInfoNormal();
+                break;
+        }
 
-        ShowCoreSpace();
+        if (_empire.data.centerOffice.CoreOffices.Count > 0)
+        {
+            ShowCoreSpace();
+        }
 
-        ShowDivisionSpace();
+        if (_empire.data.centerOffice.Divisions.Count > 0)
+        {
+            ShowDivisionSpace();
+        }
 
         ShowProvincesSpace();
     }

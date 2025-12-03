@@ -27,7 +27,11 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     public Actor owner;
     public ColorAsset kingdomColor => getColor();
     public override MetaType meta_type => MetaTypeExtension.KingdomTitle;
-    
+
+    public void SetOwner(Actor pActor)
+    {
+        owner = pActor;
+    }
     public int GetTitleBeenControlledYear()
     {
         if (this.data == null) return 0;

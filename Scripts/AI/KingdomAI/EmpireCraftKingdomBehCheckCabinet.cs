@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -16,17 +17,32 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
     {
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
-        Regime regime = pKingdom.GetRegime();
+        Regime regime = empire.CoreKingdom.GetRegime();
         foreach (var ff in regime.Factions)
         {
             ff.FixMissedTemporaryFactions();
         }
+        switch (pKingdom.GetRegime().type)
+        {
+            case RegimeType.LvLing:
+                SetCabinetForLvLing(empire);
+                break;
+            case RegimeType.Feudalism:
+                SetCabinetForFeudalism(empire);
+                break;
+        }
+        return BehResult.Continue;
+    }
+
+    public void SetCabinetForLvLing(Empire empire)
+    {
+        Regime regime = empire.CoreKingdom.GetRegime();
         var dominateFaction = regime.GetDominateFaction();
-        if (dominateFaction.Members.Count<=0) return BehResult.Continue;
+        if (dominateFaction.Members.Count<=0) return;
         // —— 1) 计算内阁规模：0~15 → 1~5 ——
         int S = empire.Emperor?.stewardship??0;        // 组织能力
         if (S < 3) S = 0; if (S > 15) S = 15;      // 手动 clamp
-        int cabinetSize = 1 + (S * 4) / 15;        // 线性映射到 1..5，最多 5 个
+        int cabinetSize = 1 + (S * regime.cabinet_number-1) / 15;        // 线性映射到 1..5，最多 5 个
 
         var cabinetLeader =
             dominateFaction.Members.OrderByDescending(a => world.units.get(a)?.GetIdentity()?.TotalPerformance ?? 0).First();
@@ -46,6 +62,37 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
                 ToList().Find(a=>!empire.data.CabinetMembers.Contains(a.id));
             empire.AddCabinetMember(newFactionMember);
         }
-        return BehResult.Continue;
+        
+    }
+
+    public void SetCabinetForFeudalism(Empire empire)
+    {
+        List<long> religionLeaderList = new();
+        List<long> normalKingList = empire.kingdoms_list.FindAll(k => k.hasKing()&&!k.IsEmpire()
+                &&k.GetRegime()?.GetReligionLevel() != ReligionLevel.High)
+            .OrderByDescending(k => k.countTotalWarriors()).Select(k => k.king.id).Take(4).ToList();
+        if (!empire.Religion.isRekt())
+        {
+            foreach (var kingdom in empire.kingdoms_list)
+            {
+                if (kingdom.IsEmpire()) continue;
+                var regime = kingdom.GetRegime();
+                if (regime.GetReligionLevel() != ReligionLevel.High) continue;
+                if (religionLeaderList.Count >= 3) continue;
+                var religionAreas = kingdom.cities.OrderByDescending(c => c.countWarriors());
+                religionLeaderList.AddRange(from area in religionAreas where area.hasLeader() select area.leader.id);
+            }
+        }
+        if (religionLeaderList.Count < 3)
+        {
+            religionLeaderList.Add(-1L);
+        }
+
+        if (normalKingList.Count < 4)
+        {
+            normalKingList.Add(-1L);
+        }
+        religionLeaderList.AddRange(normalKingList);
+        empire.data.CabinetMembers = religionLeaderList;
     }
 }

@@ -87,6 +87,11 @@ namespace EmpireCraft.Scripts.Data
                 {
                     FactionType.革命,
                     new List<TemporaryFactionType> { TemporaryFactionType.输出革命, TemporaryFactionType.扶持革命党 }
+                },
+                {
+                    FactionType.神权,
+                    new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.划地给教廷, 
+                        TemporaryFactionType.恢复圣地, TemporaryFactionType.确立国教, TemporaryFactionType.神授君权 }
                 }
             };
         public static List<string> yearNameSubspecies = new() 

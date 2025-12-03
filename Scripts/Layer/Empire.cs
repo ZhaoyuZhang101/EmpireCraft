@@ -34,6 +34,8 @@ public class Empire : MetaObject<EmpireData>
     public List<Kingdom> given_Kingdoms = new List<Kingdom>();
     //朝贡国
     public List<Kingdom> taken_Kingdoms = new List<Kingdom>();
+    
+    public Religion Religion = null;
 
     public Kingdom CoreKingdom;
     public Actor Emperor;
@@ -225,17 +227,21 @@ public class Empire : MetaObject<EmpireData>
             {
                 var validEmperor = currentSpecificClan.all_valid_members?.First()._actor;
             }
-            nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
-            this.data.directPre = "";
-            if (actor.hasClan())
+
+            if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
             {
-                if (actor.clan.HasHistoryEmpire())
+                nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
+                this.data.directPre = "";
+                if (actor.hasClan())
                 {
-                    this.data.directPre = GetDir(actor.clan.GetHistoryEmpirePos());
-                    nameEmpire = actor.clan.GetHistoryEmpireName();
+                    if (actor.clan.HasHistoryEmpire())
+                    {
+                        this.data.directPre = GetDir(actor.clan.GetHistoryEmpirePos());
+                        nameEmpire = actor.clan.GetHistoryEmpireName();
+                    }
                 }
+                SetEmpireName(nameEmpire);
             }
-            SetEmpireName(nameEmpire);
             isNew = true;
             data.history_emperrors.Clear();
         } 
@@ -400,6 +406,7 @@ public class Empire : MetaObject<EmpireData>
             regime.Factions.ForEach(f=>
             {
                 f.EmpireId = this.getID();
+                f.FixMissedTemporaryFactions();
                 f.TemporaryFactions.ForEach(tf=>tf.Init(f));
             });
         }
@@ -967,6 +974,7 @@ public class Empire : MetaObject<EmpireData>
             }
         }
 
+        this.data.Religion = Religion?.id ?? -1L;
         foreach (var k in this.given_Kingdoms)
         {
             this.data.given_Kingdoms.Add(k.getID());
@@ -1016,7 +1024,8 @@ public class Empire : MetaObject<EmpireData>
         {
             taken_Kingdoms.Add(World.world.kingdoms.get(k));
         }
-        
+
+        this.Religion = World.world.religions.get(pData.Religion);
         this.CoreKingdom = World.world.kingdoms.get(pData.empire);
         this.EmpireClan = World.world.clans.get(pData.empire_clan);
         this.OriginalCapital = World.world.cities.get(pData.original_capital);

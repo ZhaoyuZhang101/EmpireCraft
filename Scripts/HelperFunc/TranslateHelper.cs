@@ -103,7 +103,7 @@ namespace EmpireCraft.Scripts.HelperFunc
         public static void LogOfficerJoinFaction(OfficeObject office, Actor pActor, FixedFaction faction)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.officer_join_faction,
-                office.GetOfficeName(),
+                office?.GetOfficeName()??"",
                 pActor.name,
                 faction.Name
                 )

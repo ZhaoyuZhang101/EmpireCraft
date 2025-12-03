@@ -33,7 +33,10 @@ public class TempFac_削藩 : TemporaryFaction
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
             if (kingdom.IsEmpire()) continue;
+            if (kingdom.IsFactionRebelling()) continue;
+            if (kingdom.getWars().Any()) continue;
             Regime regime = kingdom.GetRegime();
+            if (regime.GetReligionLevel()== ReligionLevel.High) continue;
             if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
             {
                 if (kingdom.countTotalWarriors() * 5 <= empire.countWarriors() - kingdom.countTotalWarriors())
