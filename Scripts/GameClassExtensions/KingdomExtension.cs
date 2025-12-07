@@ -731,6 +731,6 @@ public static class KingdomExtension
         var wars = kingdom.getWars()
             .Where(w => w.getAttackers().Contains(kingdom2) 
                         || w.getDefenders().Contains(kingdom2));
-        wars.ForEach(w=>w.endForSides(pWinner: w.getAttackers().Contains(kingdom)? WarWinner.Attackers: WarWinner.Defenders));
+        wars.ForEach(w=>w.lostWar(kingdom2));
     }
 }
