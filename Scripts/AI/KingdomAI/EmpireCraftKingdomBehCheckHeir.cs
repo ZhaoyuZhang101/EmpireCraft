@@ -10,6 +10,7 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
+using NeoModLoader.services;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
@@ -24,9 +25,10 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         {
             return BehResult.Continue;
         }
-
+        LogService.LogInfo("选取继承人");
         if (pKingdom.CalcHeirFinished())
         {
+            LogService.LogInfo("计算继承人中");
             pKingdom.SetCalcHeirTask(ScheduleCalcHeirAsync(pKingdom));
             return BehResult.Continue;
         }
@@ -105,6 +107,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     {
         if (k == null) return (null, "");
         Actor actor = null;
+        LogService.LogInfo("触发选取");
         var flag = k.IsEmpire();
         var logPreText = flag ? "Empire: " : "Kingdom: ";
         PersonalClanIdentity pci = pActor??k.king?.GetPersonalIdentity();

@@ -79,7 +79,6 @@ namespace EmpireCraft.Scripts.AI
                 check_is_possible = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
-                    if (!pActor.IsEmperor()) return false;
                     if (!pActor.isKing()) return false;
                     if (kingdom.IsInEmpire()) return false;
                     if (kingdom.cities.Count > 1) return false;
@@ -308,6 +307,9 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     if (!pActor.CanAcquireTitle()) return false;
                     if (kingdom.getWars().Any()) return false;
+                    Regime regime = kingdom.GetRegime();
+                    if (!regime.IsAllowDiplomacy()) return false;
+                    if (kingdom.IsEmpire()) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
