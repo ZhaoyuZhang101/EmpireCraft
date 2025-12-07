@@ -497,6 +497,13 @@ public static class EmpireCraftNamePlateLibrary
         if (empire == null) return;
         plateText.setupMeta(pMetaObject.data, pMetaObject.getColor());
         string text = empire.data.name + "  " + empire.CountPopulation() + additionNum;
+        int difference = (empire.data.PreviousYearsMoney.Count > 2
+            ? (empire.data.PreviousYearsMoney.Last() -
+               empire.data.PreviousYearsMoney[empire.data.PreviousYearsMoney.Count - 2])
+            : 0);
+        string moneyText =
+            $"\n国库:{empire.CoreKingdom.GetMoney()}" +
+            $"({difference.ToString().ColorString(pColor:difference<0?Color.red : Color.green)})";
         switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
         {
             case 0:
@@ -516,7 +523,7 @@ public static class EmpireCraftNamePlateLibrary
                     var tf = faction.GetAnyTFactionRuns();
                     text =
                         $"\n{(empire.EmpireClan?.name ?? "无皇室").ColorString(pColor: Color.yellow)} | 主导: {faction.Name}" +
-                        $"\n国库:{empire.CoreKingdom.GetMoney()}({(empire.data.PreviousYearsMoney.Count>2?(empire.data.PreviousYearsMoney.Last()-empire.data.PreviousYearsMoney[empire.data.PreviousYearsMoney.Count - 2]):0)})\n"+
+                        moneyText + "\n"+
                         text.ColorString(pColor: pMetaObject.getColor()._color_banner) +
                         $"\n诉求：{(faction.IsAnyTFactionRuns() ? tf.type : TemporaryFactionType.无)}".ColorString(
                             pColor: new Color(0.5f, 0.9f, 0.5f)) +
@@ -526,10 +533,10 @@ public static class EmpireCraftNamePlateLibrary
                 }
                 break;
             case 1:
-                text += "\n朝贡同盟".ColorString(pColor:new Color(0.5f, 0.9f, 0.5f)) + $"\n国库:{empire.CoreKingdom.GetMoney()}({(empire.data.PreviousYearsMoney.Count>=2?empire.data.PreviousYearsMoney.Last()-empire.data.PreviousYearsMoney[empire.data.PreviousYearsMoney.Count - 2]:0)})";
+                text += "\n朝贡同盟".ColorString(pColor:new Color(0.5f, 0.9f, 0.5f)) + moneyText;
                 break;
             case 2:
-                text += "\n岁币同盟".ColorString(pColor:new Color(0.9f, 0.2f, 0.8f)) + $"\n国库:{empire.CoreKingdom.GetMoney()}({(empire.data.PreviousYearsMoney.Count>=2?empire.data.PreviousYearsMoney.Last()-empire.data.PreviousYearsMoney[empire.data.PreviousYearsMoney.Count - 2]:0)})";
+                text += "\n岁币同盟".ColorString(pColor: new Color(0.9f, 0.2f, 0.8f)) + moneyText;
                 break;
 
         }

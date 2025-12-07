@@ -245,17 +245,18 @@ public class Empire : MetaObject<EmpireData>
 
             if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
             {
-                nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
                 this.data.directPre = "";
-                if (actor.hasClan())
-                {
-                    if (actor.clan.HasHistoryEmpire())
-                    {
-                        this.data.directPre = GetDir(actor.clan.GetHistoryEmpirePos());
-                        nameEmpire = actor.clan.GetHistoryEmpireName();
-                    }
-                }
+                nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
                 SetEmpireName(nameEmpire);
+            }
+            if (actor.hasClan())
+            {
+                if (actor.clan.HasHistoryEmpire())
+                {
+                    this.data.directPre = GetDir(actor.clan.GetHistoryEmpirePos());
+                    nameEmpire = actor.clan.GetHistoryEmpireName();
+                    SetEmpireName(nameEmpire);
+                }
             }
             isNew = true;
             data.history_emperrors.Clear();
@@ -1580,6 +1581,12 @@ public class Empire : MetaObject<EmpireData>
                 }.add();
                 this.join(newKingdom, true, true);
                 WorldLog.logNewKingdom(newKingdom);
+                newKingdom.SetRegimeType(CoreKingdom.GetRegime().type);
+                newKingdom.LoadRegime();
+                if (newKingdom.GetRegime().type == RegimeType.LvLing)
+                {
+                    newKingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+                }
             }
         }
         

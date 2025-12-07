@@ -78,7 +78,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             double avg4 = years.Average();
             double avg3 = years.Take(years.Count() - 1).Average();
             double growthAvg = Math.Max(0, avg4 - avg3);
-            int militaryCost = (int)(growthAvg  * rate);
+            int militaryCost = (int)(growthAvg  * rate)*((empire.CoreKingdom.getWars().Count()*2)+1);
             empire.data.MilitaryExpenditure = militaryCost;
             empire.CoreKingdom.SubMoney(militaryCost);
         }
