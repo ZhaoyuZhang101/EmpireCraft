@@ -46,14 +46,6 @@ public static class EmpireCraftNamePlateLibrary
                         }
                     }
                 }
-                foreach (Kingdom kingdom in World.world.kingdoms)
-                {
-                    if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
-                    {
-                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                        showTextKingdom(nameplateText, kingdom);
-                    }
-                }
 
                 switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
                 {
@@ -64,6 +56,15 @@ public static class EmpireCraftNamePlateLibrary
                             {
                                 NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
                                 showTextKingdomNoBack(nameplateText, kingdom);
+                            }
+                        }
+                        
+                        foreach (Kingdom kingdom in World.world.kingdoms)
+                        {
+                            if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
+                            {
+                                NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                showTextKingdom(nameplateText, kingdom);
                             }
                         }
                         break;
@@ -249,8 +250,8 @@ public static class EmpireCraftNamePlateLibrary
         npt.showSpecies(pMetaObject.getSpriteIcon());
         npt._show_banner_kingdom = true;
         npt._banner_kingdoms.load((NanoObject) pMetaObject);
-        float zoom = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f;
-        npt.forceScale(Vector2.one * zoom*3);
+        float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
+        npt.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
         Clan kingClan = pMetaObject.getKingClan();
         if (kingClan != null)
         {
@@ -282,8 +283,8 @@ public static class EmpireCraftNamePlateLibrary
         npt.showSpecies(pMetaObject.getSpriteIcon());
         npt._show_banner_kingdom = false;
         npt._show_banner_clan = false;
-        float zoom = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f;
-        npt.forceScale(Vector2.one * zoom*3);
+        float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
+        npt.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
         // 给文字加蓝色边框（描边）
         var outline = npt._text_name.GetComponent<Outline>();
         if (outline != null)
@@ -375,8 +376,8 @@ public static class EmpireCraftNamePlateLibrary
         {
             outline.enabled = false;
         }
-        float zoom = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f;
-        npt.forceScale(Vector2.one * zoom*3);
+        float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
+        npt.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
         
         npt._show_banner_city = true;
         npt._banner_city.load(pMetaObject);
@@ -549,8 +550,8 @@ public static class EmpireCraftNamePlateLibrary
         outline.effectColor = new Color(1f, 1f, 0.0f, a:0.2f);           // 边框颜色：蓝色
         outline.effectDistance = new Vector2(1f, -1f); // 边框粗细（X/Y 像素偏移，可以自己调）
         
-        float zoom = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f;
-        plateText.forceScale(Vector2.one * zoom*3);
+        float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
+        plateText.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
         plateText._background_image.enabled = false;
         plateText._text_name.color = Color.white;
         

@@ -494,7 +494,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     kingdom.GetEmpiresCanBeJoined().First().join(kingdom);
-                    kingdom.getWars().ForEach(war => war.endForSides(WarWinner.Nobody));
+                    kingdom.getWars().ForEach(war => war.lostWar(kingdom));
                     TranslateHelper.LogKingdomJoinEmpire(kingdom, kingdom.GetEmpire());
                     return true;
                 }
