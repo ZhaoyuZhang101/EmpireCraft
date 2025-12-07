@@ -13,7 +13,7 @@ public class TempFac_设置行政区 : TemporaryFaction
         KingdomTitle title = GetTitleTarget();
         if (title != null&&title.title_capital!=empire.CoreKingdom.capital)
         {
-            var k = title.title_capital.makeOwnKingdom(null);
+            var k = title.title_capital.makeOwnKingdom(empire.CoreKingdom.units.GetRandom());
             k.SetRegimeType(empire.CoreKingdom?.GetRegime()?.type??RegimeType.LvLing);
             k.LoadRegime();
             Regime regime = k.GetRegime();
