@@ -55,12 +55,14 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 pKingdom.SetHeir(actor);
                 // 这时肯定在主线程里，UI 调用安全
                 TranslateHelper.LogKingChooseHeir(pKingdom, relation, actor);
+                pKingdom.RemoveCalcHeirStatus();
             }
         }
         finally
         {
             pKingdom.RemoveCalcHeirStatus();
         }
+        
         return BehResult.Continue;
     }
     public static Task<(Actor actor, string relation)> CheckHeirAsync(Kingdom k, EmpireHeirLawType? secondSelection = null)
