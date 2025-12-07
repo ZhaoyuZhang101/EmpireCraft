@@ -3,6 +3,7 @@ using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 
@@ -63,6 +64,11 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
 
         if (lastKingdom != null && !(lastKingdom.GetRegime() is {type: RegimeType.LvLing|RegimeType.ZhouFeudalism}))
         {
+            if (pKingdom.IsEmpire())
+            {
+                Empire empire = pKingdom.GetEmpire();
+                empire.CoreKingdom = lastKingdom;
+            }
             pKingdom.cities.ForEach(c=>c.joinAnotherKingdom(lastKingdom));
             return;
         }

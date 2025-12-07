@@ -10,11 +10,12 @@ namespace EmpireCraft.Scripts.Enums
     {
         AquireEmpire,
         BeIndependent,
-        FaBuChen,
+        伐不臣,
         Rise,
         攘夷,
         统一,
         派系叛乱,
+        迫使朝贡,
         None
     }
 }

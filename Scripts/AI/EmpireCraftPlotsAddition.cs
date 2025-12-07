@@ -69,6 +69,47 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.add(new PlotAsset
             {
+                id = "kingdom_start_join_taken_alliance",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.IsEmperor()) return false;
+                    if (!pActor.isKing()) return false;
+                    if (kingdom.IsInEmpire()) return false;
+                    if (kingdom.cities.Count > 1) return false;
+                    return ModClass.EMPIRE_MANAGER
+                        .Where(empire => empire.CoreKingdom.GetRegime()?.type== RegimeType.LvLing&&empire.IsNeighbourWith(kingdom))
+                        .Any(empire => kingdom.countTotalWarriors() < empire.countWarriors());
+                },
+                check_should_continue = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.IsEmperor()) return false;
+                    if (!pActor.isKing()) return false;
+                    if (kingdom.IsInEmpire()) return false;
+                    if (kingdom.cities.Count > 1) return false;
+                    return ModClass.EMPIRE_MANAGER
+                        .Where(empire => empire.CoreKingdom.GetRegime()?.type== RegimeType.LvLing&&empire.IsNeighbourWith(kingdom))
+                        .Any(empire => kingdom.countTotalWarriors() < empire.countWarriors());
+                },
+                action = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    Empire empire = ModClass.EMPIRE_MANAGER.Where(empire => empire.IsNeighbourWith(kingdom)).ToList()
+                        .Find(empire => kingdom.countTotalWarriors() < empire.countWarriors());
+                    kingdom.JoinTakenAlliance(empire);
+                    TranslateHelper.LogJoinTakenAlliance(kingdom, empire);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
                 id = "powerful_minister_replace_empire",
                 path_icon = "EmperorQuest.png",
                 group_id = "diplomacy",
@@ -664,6 +705,11 @@ namespace EmpireCraft.Scripts.AI
                     }
 
                     if (warTarget.GetGivenAllianceEmpire() == kingdom.GetEmpire())
+                    {
+                        return false;
+                    }
+
+                    if (warTarget.GetTakenAllianceEmpire() == kingdom.GetEmpire())
                     {
                         return false;
                     }

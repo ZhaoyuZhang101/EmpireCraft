@@ -79,7 +79,7 @@ public static class EmpireCraftMetaTypeLibrary
                   foreach (TileZone zone in city.zones)
                   {
                     zone_manager.drawBegin();
-                    drawZoneEmpire(zone, 1);
+                    drawZoneEmpireWithKingdomBorder(zone, kt);
                     zone_manager.drawEnd(zone);
                   }
                 }
@@ -89,19 +89,38 @@ public static class EmpireCraftMetaTypeLibrary
 		        case 1:
 			        foreach (var kt in ModClass.EMPIRE_MANAGER)
 			        {
-				        foreach (City city in kt.getCities())
-				        {
-					        foreach (TileZone zone in city.zones)
-					        {
-						        zone_manager.drawBegin();
-                    drawZoneEmpireWithKingdomBorder(zone, 1);
-						        zone_manager.drawEnd(zone);
-					        }
-				        }
+                if (kt.CoreKingdom.HasTakenAlliance()) continue;
+                foreach (var kingdom in kt.taken_Kingdoms.Concat(kt.kingdoms_list.ToList()))
+                { 
+                  foreach (City city in kingdom.cities)
+                  {
+                    foreach (TileZone zone in city.zones)
+                    {
+                      zone_manager.drawBegin();
+                      drawZoneEmpireWithKingdomBorder(zone, kt);
+                      zone_manager.drawEnd(zone);
+                    }
+                  }
+                }
 			        }
 			        break;
 		        case 2:
-			        drawDefaultFluid(pMetaTypeAsset);
+              foreach (var kt in ModClass.EMPIRE_MANAGER)
+              {
+                if (kt.CoreKingdom.HasGivenAlliance()) continue;
+                foreach (var kingdom in kt.given_Kingdoms.Concat(kt.kingdoms_list.ToList()))
+                { 
+                  foreach (City city in kingdom.cities)
+                  {
+                    foreach (TileZone zone in city.zones)
+                    {
+                      zone_manager.drawBegin();
+                      drawZoneEmpireWithKingdomBorder(zone, kt);
+                      zone_manager.drawEnd(zone);
+                    }
+                  }
+                }
+              }
 			        break;
 	        }
         });
@@ -503,7 +522,7 @@ public static class EmpireCraftMetaTypeLibrary
         zone_manager.drawZoneMeta(kt, pZone, pUp, pDown, pLeft, pRight, kt.data, kingdomTitle);
     }
     
-    public static void drawZoneEmpireWithKingdomBorder(TileZone pZone, int pZoneOption)
+    public static void drawZoneEmpireWithKingdomBorder(TileZone pZone, Empire pEmpire)
     {
         Kingdom kingdomOnZone = pZone?.city?.kingdom;
         if (kingdomOnZone == null) return;
@@ -511,7 +530,6 @@ public static class EmpireCraftMetaTypeLibrary
         bool pDown = isBorderColor_empire_kingdoms(pZone.zone_down, kingdomOnZone);
         bool pLeft = isBorderColor_empire_kingdoms(pZone.zone_left, kingdomOnZone);
         bool pRight = isBorderColor_empire_kingdoms(pZone.zone_right, kingdomOnZone);
-        Empire pEmpire = kingdomOnZone.GetEmpire();
         zone_manager.drawZoneMeta(pEmpire, pZone, pUp, pDown, pLeft, pRight, pEmpire.data, empire);
     }
     

@@ -24,6 +24,7 @@ public class TempFac_提供岁币 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire.CoreKingdom.HasGivenAlliance()) return false;
         var enemies = GetEmpire().CoreKingdom.getEnemiesKingdoms();
         if (enemies.Any())
         {

@@ -63,6 +63,16 @@ public class KingdomPatch : GamePatch
                 __instance.GetMainTitle().main_kingdom = null;
             }
         }
+
+        if (__instance.HasGivenAlliance())
+        {
+            __instance.RemoveGivenAlliance();
+        }
+
+        if (__instance.HasTakenAlliance())
+        {
+            __instance.RemoveTakenAlliance();
+        }
         __instance.RemoveExtraData<Kingdom, KingdomExtraData>();
     }
 

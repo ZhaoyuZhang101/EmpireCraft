@@ -80,6 +80,18 @@ public class WarPatch: GamePatch
             __instance.lostWar(__instance.main_defender);
             return false;
         }
+
+        switch (__instance.GetEmpireWarType())
+        {
+            case EmpireWarType.迫使朝贡:
+                if (__instance.main_defender.cities.Count <= 1)
+                {
+                    __instance.lostWar(__instance.main_defender);
+                    __instance.main_defender.JoinTakenAlliance(__instance.main_attacker.GetEmpire());
+                    return false;
+                }
+                break;
+        }
         if (__instance.getAge() > 10 && !__instance.isTotalWar())
         {
             if (__instance.main_attacker.countCities() == 0)

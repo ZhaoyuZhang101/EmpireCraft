@@ -21,6 +21,11 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             SyncData(pKingdom);
             CalcMilitaryExpenditure(pKingdom);
         }
+
+        if (pKingdom.IsNeedToTaken())
+        {
+            pKingdom.StartToTaken();
+        }
         CheckEmpireAlliance(pKingdom);
         return BehResult.Continue;
     }
@@ -76,6 +81,10 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             int militaryCost = (int)(growthAvg  * rate);
             empire.data.MilitaryExpenditure = militaryCost;
             empire.CoreKingdom.SubMoney(militaryCost);
+        }
+        if (empire.IsNeedToGive())
+        {
+            empire.StartToGive();
         }
     }
     /// <summary>
