@@ -210,6 +210,24 @@ public class Empire : MetaObject<EmpireData>
         actor.goTo(this.CoreKingdom.capital._city_tile);
         actor.joinKingdom(this.CoreKingdom);
     }
+    //提供岁币
+    public void StartToGive()
+    {
+        data.timestamp_given_time = World.world.getCurWorldTime();
+        foreach (var kingdom in given_Kingdoms)
+        {
+            CoreKingdom.SubMoney(countUnits()/2);
+            kingdom.AddMoney(countUnits()/2);
+            if (CoreKingdom.GetMoney() <= 0)
+            {
+                kingdom.RemoveGivenAlliance();
+            }
+        }
+    }
+    public bool IsNeedToGive()
+    {
+        return Date.getYearsSince(data.timestamp_given_time) >= 10;
+    }
     
     //新皇登基
     public void NewEmperor(Actor actor, bool isNew = false)
@@ -1127,11 +1145,11 @@ public class Empire : MetaObject<EmpireData>
 
     public override int countUnits()
     {
-        return this.countPopulation();
+        return this.CountPopulation();
     }
 
 
-    public int countPopulation()
+    public int CountPopulation()
     {
         int tResult = 0;
         List<Kingdom> tKingdoms = this.kingdoms_list;
@@ -1323,11 +1341,6 @@ public class Empire : MetaObject<EmpireData>
         }
     }
 
-    public void StartExam()
-    {
-
-    }
-
     public Vector3 GetEmpireCenter()
     {
         if (!this._units_dirty)
@@ -1343,9 +1356,8 @@ public class Empire : MetaObject<EmpireData>
         float num3 = float.MaxValue;
         TileZone tileZone = null;
         var zones = this.allZones();
-        for (int i = 0; i < zones.Count; i++)
+        foreach (var tileZone2 in zones)
         {
-            TileZone tileZone2 = zones[i];
             num += tileZone2.centerTile.posV3.x;
             num2 += tileZone2.centerTile.posV3.y;
         }

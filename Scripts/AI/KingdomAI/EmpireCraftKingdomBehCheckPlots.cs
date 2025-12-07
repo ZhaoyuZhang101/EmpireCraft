@@ -26,7 +26,6 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     {
         if (pKingdom.HasMainTitle())
         {
-            LogService.LogInfo($"{pKingdom}已拥有头衔{pKingdom.GetMainTitle().name}");
             return;
         }
         if (pKingdom.hasKing())
@@ -35,7 +34,6 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
             if (king.GetMainTitle() != null)
             {
                 pKingdom.SetMainTitle(king.GetMainTitle());
-                LogService.LogInfo($"{pKingdom.name}设置头衔为{king.GetMainTitle().name}");
             }
         }
     }
@@ -57,7 +55,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                         {
                             if (empireKingdoms.isRekt()) continue;
                             if (empireKingdoms.IsEmpire()) continue;
-                            if (!opposites.Contains(empireKingdoms) && (empire.CoreKingdom?.getRenown() >= empireKingdoms.countTotalWarriors()) && empireKingdoms.getWars()?.Count() <= 0)
+                            if (!opposites.Contains(empireKingdoms) && (empire.CoreKingdom?.getRenown() >= empireKingdoms.countTotalWarriors()||!empireKingdoms.GetRegime().IsAllowDiplomacy()) && empireKingdoms.getWars()?.Count() <= 0)
                             {
                                 if (war.isAttacker(pKingdom))
                                 {
@@ -67,7 +65,11 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                                 {
                                     war.joinDefenders(empireKingdoms);
                                 }
-                                empire.AddRenown(-empireKingdoms.countTotalWarriors());
+
+                                if (empireKingdoms.GetRegime().IsAllowDiplomacy())
+                                {
+                                    empire.AddRenown(-empireKingdoms.countTotalWarriors());
+                                }
                                 TranslateHelper.LogJoinEmpireWar(empireKingdoms, empire);
                                 empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
                                 return;

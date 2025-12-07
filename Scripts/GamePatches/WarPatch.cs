@@ -21,17 +21,10 @@ public class WarPatch: GamePatch
     public ModDeclare declare { get; set; }
     public void Initialize()
     {
-        // UnitWindow类的补丁
-        new Harmony(nameof(start_new_war)).Patch(
-            AccessTools.Method(typeof(DiplomacyManager), nameof(DiplomacyManager.startWar)),
-            postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(start_new_war))
-        );
-        // UnitWindow类的补丁
         new Harmony(nameof(end_war)).Patch(
             AccessTools.Method(typeof(WarManager), nameof(WarManager.endWar)),
             prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(end_war))
         );
-        // UnitWindow类的补丁
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(War), nameof(War.Dispose)),
             prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(removeData))
@@ -138,60 +131,6 @@ public class WarPatch: GamePatch
     public static void removeData(War __instance)
     {
         __instance.RemoveExtraData<War, WarExtraData>();
-    }
-
-    public static void start_new_war(DiplomacyManager __instance, Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pAsset, bool pLog, ref War __result)
-    {
-        if (pDefender.IsInEmpire() || pAttacker.IsInEmpire())
-        {
-            if (pAttacker.IsEmpire())
-            {
-                new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_war, pAttacker.GetEmpire().name, pDefender.name)
-                {
-                    location = pAttacker.location,
-                    color_special1 = pAttacker.kingdomColor.getColorText(),
-                    color_special2 = pDefender.kingdomColor.getColorText()
-                }.add();
-                foreach (var kingdom in pAttacker.GetEmpire().kingdoms_hashset)
-                {
-                    if (kingdom.isOpinionTowardsKingdomGood(pAttacker) && kingdom != pDefender)
-                    {
-                        if (kingdom.getWars().Count()>=0)
-                        {
-                            foreach(War w in kingdom.getWars())
-                            {
-                                w.endForSides(WarWinner.Nobody);
-                            }
-                        }
-                        __result.joinAttackers(kingdom);
-                        if (kingdom.hasAlliance())
-                        {
-                            if (kingdom.getAlliance().hasKingdom(pDefender))
-                            {
-                                kingdom.allianceLeave(kingdom.getAlliance());
-                            }
-                        }
-                    }
-                }
-            }
-            if (pDefender.IsInEmpire())
-            {
-                foreach (var kingdom in pDefender.GetEmpire().kingdoms_hashset)
-                {
-                    if (kingdom.isOpinionTowardsKingdomGood(pDefender) && kingdom != pAttacker)
-                    {
-                        if (kingdom.getWars().Count() >= 0)
-                        {
-                            foreach (War w in kingdom.getWars())
-                            {
-                                w.endForSides(WarWinner.Nobody);
-                            }
-                        }
-                        __result.joinDefenders(kingdom);
-                    }
-                }
-            }
-        }
     }
 
     public static bool end_war(WarManager __instance, War pWar, WarWinner pWinner = WarWinner.Nobody)

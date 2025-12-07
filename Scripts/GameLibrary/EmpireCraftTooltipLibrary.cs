@@ -214,7 +214,7 @@ public static class EmpireCraftTooltipLibrary
         pTooltip.setTitle(pEmpire.name, "EmpireText", tColorHex);
         int tAge = pEmpire.getAge();
         AssetManager.tooltips.setIconValue(pTooltip, "i_age", tAge);
-        AssetManager.tooltips.setIconValue(pTooltip, "i_population", pEmpire.countPopulation());
+        AssetManager.tooltips.setIconValue(pTooltip, "i_population", pEmpire.CountPopulation());
         AssetManager.tooltips.setIconValue(pTooltip, "i_army", pEmpire.countWarriors());
         string pValue = "-";
         if (pEmpire.Emperor != null)

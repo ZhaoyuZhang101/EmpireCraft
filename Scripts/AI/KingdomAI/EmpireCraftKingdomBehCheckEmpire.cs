@@ -21,6 +21,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             SyncData(pKingdom);
             CalcMilitaryExpenditure(pKingdom);
         }
+        CheckEmpireAlliance(pKingdom);
         return BehResult.Continue;
     }
     /// <summary>
@@ -95,5 +96,17 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (!pKingdom.CanBecomeEmpire()&&!flag) return false;
         EmpireCraftPlotsAddition.BecomeEmpireAndStartEnfeoff(pKingdom.king);
         return true;
+    }
+
+    public void CheckEmpireAlliance(Kingdom pKingdom)
+    {
+        if (pKingdom.NeedToRemoveTakenAlliance())
+        {
+            pKingdom.RemoveTakenAlliance();
+        }
+        if (pKingdom.NeedToRemoveGivenAlliance())
+        {
+            pKingdom.RemoveGivenAlliance();
+        }
     }
 }

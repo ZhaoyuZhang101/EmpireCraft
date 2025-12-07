@@ -30,8 +30,44 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
             case RegimeType.Feudalism:
                 SetCabinetForFeudalism(empire);
                 break;
+            case RegimeType.ZhouFeudalism:
+                break;
+            case RegimeType.Republic:
+                break;
+            case RegimeType.Arabic:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
+
+        regime.GetDominateFaction().cabinet_acc = IsCabinetControlEmpire(pKingdom) ? 30 : 0;
         return BehResult.Continue;
+    }
+
+    public static bool IsCabinetControlEmpire(Kingdom pKingdom)
+    {
+        Empire empire = pKingdom.GetEmpire();
+        Regime regime = empire.CoreKingdom.GetRegime();
+        FixedFaction firstFaction = null;
+        var flag = true;
+        foreach (var member in empire.GetCabinetMembers())
+        {
+            var memberFac = member.GetFaction();
+            if (firstFaction == null) firstFaction = memberFac;
+            if (memberFac == firstFaction) continue;
+            if (firstFaction != memberFac)
+            {
+                flag = false;
+                break;
+            }
+        }
+
+        var dominate = regime.GetDominateFaction();
+        if (flag&&dominate==firstFaction)
+        {
+            return true;
+        }
+        return false;
     }
 
     public void SetCabinetForLvLing(Empire empire)
@@ -83,12 +119,12 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
                 religionLeaderList.AddRange(from area in religionAreas where area.hasLeader() select area.leader.id);
             }
         }
-        if (religionLeaderList.Count < 3)
+        while (religionLeaderList.Count < 3)
         {
             religionLeaderList.Add(-1L);
         }
 
-        if (normalKingList.Count < 4)
+        while (normalKingList.Count < 4)
         {
             normalKingList.Add(-1L);
         }

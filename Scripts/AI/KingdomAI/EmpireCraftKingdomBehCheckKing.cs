@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
@@ -53,7 +54,30 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
     {
         pKingdom.clearKingData();
         if (!pKingdom.HasHeir()) return;
-        var heir = pKingdom.GetHeir(); 
+        var heir = pKingdom.GetHeir();
+        Kingdom lastKingdom = null;
+        if (heir.isKing())
+        {
+            lastKingdom = heir.kingdom;
+        }
+
+        if (lastKingdom != null && !(lastKingdom.GetRegime() is {type: RegimeType.LvLing|RegimeType.ZhouFeudalism}))
+        {
+            pKingdom.cities.ForEach(c=>c.joinAnotherKingdom(lastKingdom));
+            return;
+        }
+
+        if (lastKingdom != null && lastKingdom.GetRegime() is {type: RegimeType.LvLing|RegimeType.ZhouFeudalism})
+        {
+            if (heir.getChildren().ToList().FindAll(a=>!a.isKing()).Any())
+            {
+                MakeKingAndMoveToCapital(lastKingdom, heir.getChildren().ToList().Find(a=>!a.isKing()));
+            }
+            else
+            {
+                lastKingdom.StartToChooseHeir();
+            }
+        }
         MakeKingAndMoveToCapital(pKingdom, heir);
         OfficeObject office = pKingdom.GetOffice();
         office.meta_object = pKingdom;

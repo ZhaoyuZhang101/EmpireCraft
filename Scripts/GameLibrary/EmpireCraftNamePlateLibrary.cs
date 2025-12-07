@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UI;
@@ -218,10 +219,18 @@ public static class EmpireCraftNamePlateLibrary
             pNewText = $"{str1} | w{str2}";
         }
         npt.setText(pNewText, (Vector3) pMetaObject.capital.city_center);
+        // 给文字加蓝色边框（描边）
+        var outline = npt._text_name.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.enabled = false;
+        }
         npt.priority_population = pMetaObject.units.Count;
         npt.showSpecies(pMetaObject.getSpriteIcon());
         npt._show_banner_kingdom = true;
         npt._banner_kingdoms.load((NanoObject) pMetaObject);
+        float zoom = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f;
+        npt.forceScale(Vector2.one * zoom*3);
         Clan kingClan = pMetaObject.getKingClan();
         if (kingClan != null)
         {
@@ -240,6 +249,14 @@ public static class EmpireCraftNamePlateLibrary
         npt.showSpecies(pMetaObject.getSpriteIcon());
         npt._show_banner_kingdom = false;
         npt._show_banner_clan = false;
+        float zoom = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f;
+        npt.forceScale(Vector2.one * zoom*3);
+        // 给文字加蓝色边框（描边）
+        var outline = npt._text_name.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.enabled = false;
+        }
         npt.nano_object = pMetaObject;
     }	
     public static bool getPositionForMeta(IMetaObject pMetaObject, out Vector3 pPosition, Actor pForceActor = null)
@@ -319,6 +336,15 @@ public static class EmpireCraftNamePlateLibrary
             Vector2 anchoredPosition = ((!npt.is_full) ? new Vector2(3f, -25f) : new Vector2(0f, -1f));
             npt._container_capture.anchoredPosition = anchoredPosition;
         }
+        // 给文字加蓝色边框（描边）
+        var outline = npt._text_name.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.enabled = false;
+        }
+        float zoom = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f;
+        npt.forceScale(Vector2.one * zoom*3);
+        
         npt._show_banner_city = true;
         npt._banner_city.load(pMetaObject);
         npt.priority_capital = pMetaObject.isCapitalCity();
@@ -368,6 +394,13 @@ public static class EmpireCraftNamePlateLibrary
             nameplateText.clearCaches();
             nameplateText._active_check_dirty = true;
             nameplateText._last_mode = pNameplateMode;
+            
+            // 给文字加蓝色边框（描边）
+            var outline = nameplateText._text_name.GetComponent<Outline>();
+            if (outline != null)
+            {
+                outline.enabled = false;
+            }
             switch (nameplateText._last_mode)
             {
                 case NameplateRenderingType.Full:
@@ -420,7 +453,7 @@ public static class EmpireCraftNamePlateLibrary
         }
         return pObject2.units.Count.CompareTo(pObject1.units.Count);
     }
-
+    [Hotfixable]
     public static void showTextEmpire(NameplateText plateText, Kingdom pMetaObject)
     {
         if (ModClass.IS_CLEAR) return;
@@ -429,12 +462,12 @@ public static class EmpireCraftNamePlateLibrary
         Empire empire = pMetaObject.GetEmpire();
         if (empire == null) return;
         plateText.setupMeta(pMetaObject.data, pMetaObject.getColor());
-        string text = empire.data.name + "  " + empire.countPopulation()+additionNum;
+        string text = empire.data.name + "  " + empire.CountPopulation()+additionNum;
         if (empire.IsAllowToMakeYearName())
         {
             if (empire.HasYearName())
             {
-                text = empire.data.name + "\u200A" + empire.GetYearNameWithTime() + "\u200A" + empire.countPopulation();
+                text = empire.data.name + "\u200A" + empire.GetYearNameWithTime() + "\u200A" + empire.CountPopulation();
             }
         }
         
@@ -443,22 +476,37 @@ public static class EmpireCraftNamePlateLibrary
         if (faction != null)
         {
             var tf = faction.GetAnyTFactionRuns();
-            text += $"\n主导: {faction.Name} | " +
-                    $"诉求：{(faction.IsAnyTFactionRuns()?tf.type:TemporaryFactionType.无)} " +
-                    (faction.IsAnyTFactionRuns()?$"({(int)(tf.progress/(tf.progressMax-tf.acceleration)*100)}/100)":"");
+            text = $"\n{(empire.EmpireClan?.name??"无皇室").ColorString(pColor:Color.yellow)} | 主导: {faction.Name}\n" +
+                   text.ColorString(pColor:pMetaObject.getColor()._color_banner) +
+                   $"\n诉求：{(faction.IsAnyTFactionRuns()?tf.type:TemporaryFactionType.无)}".ColorString(pColor:new Color(0.5f,0.9f,0.5f)) +
+                   (faction.IsAnyTFactionRuns()?$"({(int)(tf.progress/(tf.progressMax-tf.acceleration)*100)}/100)":"");
         }
         
-        plateText.setText(text, pMetaObject.GetEmpire().GetEmpireCenter());
-        plateText.priority_population = pMetaObject.units.Count;
-        plateText.showSpecies(pMetaObject.getSpriteIcon());
-        plateText._show_banner_kingdom = true;
-        plateText._banner_kingdoms.load(pMetaObject);
-        Clan kingClan = pMetaObject.getKingClan();
-        if (kingClan != null)
+        plateText.setText(text, pMetaObject?.capital?.city_center??new Vector2(99, 99));
+        plateText._text_name.supportRichText = true;
+        // 给文字加蓝色边框（描边）
+        var outline = plateText._text_name.GetComponent<Outline>();
+        if (outline == null)
         {
-            plateText._show_banner_clan = true;
-            plateText._banner_clan.load(kingClan);
+            outline = plateText._text_name.gameObject.AddComponent<Outline>();
         }
+        else
+        {
+            outline.enabled = true;
+        }
+
+        outline.effectColor = new Color(1f, 1f, 0.0f, a:0.2f);           // 边框颜色：蓝色
+        outline.effectDistance = new Vector2(1f, -1f); // 边框粗细（X/Y 像素偏移，可以自己调）
+        
+        float zoom = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f;
+        plateText.forceScale(Vector2.one * zoom*3);
+        plateText._background_image.enabled = false;
+        plateText._text_name.color = Color.white;
+        
+        plateText.priority_population = pMetaObject.units.Count;
+        plateText._show_icon_species = false;
+        plateText._show_banner_kingdom = false;
+        plateText._show_banner_clan = false;
         plateText.nano_object = empire.CoreKingdom;
     }
 
@@ -476,6 +524,14 @@ public static class EmpireCraftNamePlateLibrary
             plateText._text_name.transform.localPosition = Vector3.zero;
             plateText._text_name.transform.localScale = Vector3.one * 1.5f;
             plateText._text_name.color = Color.white;
+            
+            // 给文字加蓝色边框（描边）
+            var outline = plateText._text_name.GetComponent<Outline>();
+            if (outline != null)
+            {
+                outline.enabled = false;
+            }
+            
             plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
             plateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);
             plateText._banner_kingdoms.winner_image.gameObject.SetActive(value: false);

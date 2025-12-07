@@ -21,10 +21,23 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
             Empire empire = pKingdom.GetEmpire();
             SelectOfficer(empire);
             StartCalcOfficePerformance(empire);
+            CheckOfficePower(empire);
         }
         return BehResult.Continue;
     }
 
+    public void CheckOfficePower(Empire empire)
+    {
+        foreach (var coreOffice in empire.data.centerOffice.CoreOffices)
+        {
+            var office = OfficeManager.Offices.TryGetValue(coreOffice, out var oo) ? oo : null;
+        }
+
+        foreach (var divisionOffice in empire.data.centerOffice.Divisions)
+        {
+            var office = OfficeManager.Offices.TryGetValue(divisionOffice, out var oo) ? oo : null;
+        }
+    }
     private void StartCalcOfficePerformance(Empire pEmpire)
     {
         if (pEmpire.IsNeedToOfficeExam())

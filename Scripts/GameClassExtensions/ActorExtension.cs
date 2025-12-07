@@ -665,10 +665,7 @@ public static class ActorExtension
         if (a.isKing())
         {
             Kingdom k = a.kingdom;
-            if (k.IsInEmpire())
-            {
-                if (k.GetEmpire().GetEmpirePeriod()!=EmpirePeriod.逐鹿群雄 && k.GetEmpire().GetEmpirePeriod() != EmpirePeriod.天命丧失) return false;
-            }
+            if (!(k.GetRegime()?.IsAllowDiplomacy()??false)) return false;
             foreach (City city in k.cities)
             {
                 if (city.hasTitle())
@@ -679,7 +676,7 @@ public static class ActorExtension
                     {
                         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
                     }
-                    if (!a.GetOwnedTitle().Contains(title.data.id))
+                    if (title.data != null && !a.GetOwnedTitle().Contains(title.data.id))
                     {
                         foreach(City tCity in title.city_list)
                         {

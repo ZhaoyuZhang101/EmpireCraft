@@ -168,7 +168,7 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": ["cleric"]
         }
       }
     }

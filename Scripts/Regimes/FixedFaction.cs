@@ -59,7 +59,8 @@ public class FixedFaction
     [JsonIgnore]
     public List<TemporaryFactionType> TemporaryFactionTypes => ConfigData.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
     public List<TemporaryFaction> TemporaryFactions;
-    
+    public float cabinet_acc = 0;
+    public float officer_acc = 0;
     public long Leader = -1L;
     [JsonIgnore]
     public float LastJoinProb { get; private set; } // 记录最近一次计算结果(0~1)

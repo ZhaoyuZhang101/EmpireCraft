@@ -67,6 +67,8 @@ public class EmpireData : MetaObjectData
     public double timestamp_member_joined;
     public double timestamp_established_time;
     public double timestamp_invite_war_cool_down;
+    //岁币时间戳
+    public double timestamp_given_time;
     public CenterOffice centerOffice { get; set; }
     public double newEmperor_timestamp { get; set; }
 
