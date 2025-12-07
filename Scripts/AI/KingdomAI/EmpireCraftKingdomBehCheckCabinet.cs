@@ -40,7 +40,10 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
                 throw new ArgumentOutOfRangeException();
         }
 
-        regime.GetDominateFaction().cabinet_acc = IsCabinetControlEmpire(pKingdom) ? 30 : 0;
+        if (pKingdom.GetRegime().has_cabinet)
+        {
+            regime.GetDominateFaction().cabinet_acc = IsCabinetControlEmpire(pKingdom) ? 30 : 0;
+        }
         return BehResult.Continue;
     }
 
@@ -52,8 +55,9 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
         var flag = true;
         foreach (var member in empire.GetCabinetMembers())
         {
-            var memberFac = member.GetFaction();
-            if (firstFaction == null) firstFaction = memberFac;
+            var memberFac = member?.GetFaction();
+            if  (memberFac == null) continue;
+            firstFaction ??= memberFac;
             if (memberFac == firstFaction) continue;
             if (firstFaction != memberFac)
             {

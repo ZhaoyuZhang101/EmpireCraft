@@ -31,6 +31,7 @@ public class TempFac_转天朝制度 : TemporaryFaction
         Empire empire = GetEmpire();
         foreach (var k in empire.kingdoms_list)
         {
+            if (k.IsEmpire()) continue;
             Regime regime = k.GetRegime();
             if (regime.IsAllowDiplomacy())
             {

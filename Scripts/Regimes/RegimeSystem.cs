@@ -201,6 +201,11 @@ public class Regime
     {
         return Convert.ToBoolean(options["toggle_support_army_to_center"][0]);
     }
+
+    public void SetAllowSupportCenterArmy(bool value)
+    {
+        options["toggle_support_army_to_center"][0] = value?1:0;
+    }
 }
 
 public static class RegimeManager

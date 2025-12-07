@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.Layer;
 using NCMS.Extensions;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
@@ -23,6 +24,25 @@ public static class WarExtension
     public static void SetEmpireWarType(this War w, EmpireWarType type)
     {
         GetOrCreate(w).empireWarType = type;
+        Empire empire = w.main_attacker.GetEmpire();
+        if (empire != null)
+        {
+            switch (type)
+            {
+                case EmpireWarType.攘夷:
+                    w.data.name = empire.name + type.ToString() + "战争";
+                    break;
+                case EmpireWarType.统一:
+                    w.data.name = empire.name + type.ToString() + "战争";
+                    break;
+                case EmpireWarType.迫使朝贡:
+                    w.data.name = empire.name + type.ToString() + "战争";
+                    break;
+                case EmpireWarType.伐不臣:
+                    w.data.name = empire.name + type.ToString() + "战争";
+                    break;
+            }
+        }
     }
     public static EmpireWarType GetEmpireWarType(this War w)
     {

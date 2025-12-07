@@ -115,6 +115,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.CreateNewEmpire(pKingdom, isSplit);
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
+        empire.data.timestamp_given_time = World.world.getCurWorldTime();
         new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())
         {
             location = pKingdom.location,

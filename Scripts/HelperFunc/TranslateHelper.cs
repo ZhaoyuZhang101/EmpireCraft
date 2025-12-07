@@ -261,6 +261,23 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
+
+        /// <summary>
+        /// 加入朝贡国的提示
+        /// </summary>
+        /// <param name="kingdom">朝贡国</param>
+        /// <param name="empire">宗主国</param>
+        public static void LogJoinTakenAlliance(Kingdom kingdom, Empire empire)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.成为朝贡国,
+                kingdom.name,
+                empire.name)
+            {
+                color_special1 = kingdom.getColor()._color_text,
+                color_special2 = empire.CoreKingdom.getColor()._color_text
+
+            }.add();
+        }
         public static void LogCityAddToTitle(City city, KingdomTitle title)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.city_add_to_title_log,

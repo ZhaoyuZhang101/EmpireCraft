@@ -21,6 +21,7 @@ using EmpireCraft.Scripts.System;
 using HarmonyLib;
 using NCMS.Extensions;
 using UnityEngine;
+using Random = System.Random;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 public static class KingdomExtension
@@ -45,7 +46,7 @@ public static class KingdomExtension
         public long MainTitle = -1L;
         //想要索取的法理
         public List<long> WantedTitle = new List<long>();
-        public int IndependentValue = 100;
+        public int IndependentValue = 50;
         public bool is_need_to_choose_heir = false;
         public double last_exam_timestamp = -1L;
         public bool isFactionRebelling = false;
@@ -59,9 +60,51 @@ public static class KingdomExtension
         public long given_empire = -1L;
         //宗主国
         public long taken_empire = -1L;
+        //上一次朝贡时间
+        public long last_taken_time = -1L;
+        //退出朝贡国倾向
+        public float leave_taken_alliance_preference = 0.0f;
         public long office_id = -1L;
     }
 
+    public static bool IsNeedToTaken(this Kingdom k)
+    {
+        return Date.getYearsSince(k.GetOrCreate().last_taken_time)>1&&k.HasTakenAlliance();
+    }
+
+    public static void StartToTaken(this Kingdom k)
+    {
+        Empire empire = k.GetTakenAllianceEmpire();
+        if (empire == null) return;
+        var value = k.units.Count / 2;
+        k.SubMoney(value);
+        empire.CoreKingdom.AddMoney(value);
+        if (k.GetMoney()<=0)
+        {
+            k.GetOrCreate().leave_taken_alliance_preference += 0.1f;
+        }
+
+        if (k.GetOrCreate().leave_taken_alliance_preference >= 1.0)
+        {
+            k.RemoveTakenAlliance();
+            Random random = new Random();
+            var possibility = random.NextDouble();
+            if (possibility < 0.3f)
+            {
+                var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, k, WarTypeLibrary.normal);
+                war.SetEmpireWarType(EmpireWarType.伐不臣);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 获取当前国家退出朝贡联盟的倾向
+    /// </summary>
+    /// <param name="k"></param>
+    public static float GetLeaveTakenAlliancePreference(this Kingdom k)
+    {
+        return k.GetOrCreate().leave_taken_alliance_preference;
+    }
     public static void JoinGivenAlliance(this Kingdom k, Empire empire)
     {
         k.GetOrCreate().last_given_alliance_timestamp = World.world.getCurWorldTime();
@@ -96,6 +139,7 @@ public static class KingdomExtension
     {
         k.GetOrCreate().last_taken_alliance_timestamp = World.world.getCurWorldTime();
         k.GetOrCreate().taken_empire = empire.id;
+        k.GetOrCreate().leave_taken_alliance_preference = 0.0f;
         empire.taken_Kingdoms.Add(k);
     }
     public static void RemoveTakenAlliance(this Kingdom k)
@@ -137,7 +181,7 @@ public static class KingdomExtension
 
     public static void StartFactionRebelling(this Kingdom k, FixedFaction faction)
     {
-        k.name = faction.Name + "叛乱";
+        k.data.name = faction.Name + "叛乱";
         k.GetOrCreate().isFactionRebelling = true;
     }
 
@@ -303,6 +347,10 @@ public static class KingdomExtension
     {
         Regime regime = RegimeManager.regimes[k.GetOrCreate().regimeType].Clone(k);
         k.SetRegime(regime);
+        if (k.IsEmpire())
+        {
+            k.GetEmpire().data.centerOffice.Init(k);
+        }
         regime.Factions.ForEach(f=>
         {
             f.EmpireId = k.IsEmpire()?k.GetEmpireID():-1L;
@@ -680,7 +728,9 @@ public static class KingdomExtension
     }
     public static void EndWarWith(this Kingdom kingdom, Kingdom kingdom2)
     {
-        var wars = kingdom.getWars().Intersect(kingdom2.getWars());
+        var wars = kingdom.getWars()
+            .Where(w => w.getAttackers().Contains(kingdom2) 
+                        || w.getDefenders().Contains(kingdom2));
         wars.ForEach(w=>w.endForSides(pWinner: w.getAttackers().Contains(kingdom)? WarWinner.Attackers: WarWinner.Defenders));
     }
 }

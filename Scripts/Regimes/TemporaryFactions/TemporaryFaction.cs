@@ -58,6 +58,20 @@ public abstract class TemporaryFaction
     {
         if (TargetType != MetaType.Kingdom || TargetID < 0) return null;
         return World.world.kingdoms.get(TargetID);
+    }      
+    
+    // 统一入口：设定“头衔目标”
+    protected void SetTitleTarget(KingdomTitle k, string reason = "")
+    {
+        var id = k?.getID() ?? -1L; // 一律用 base_id
+        TargetID = id;
+        TargetType = MetaTypeExtension.KingdomTitle;
+    }
+    
+    protected KingdomTitle GetTitleTarget()
+    {
+        if (TargetType != MetaTypeExtension.KingdomTitle || TargetID < 0) return null;
+        return ModClass.KINGDOM_TITLE_MANAGER.get(TargetID);
     }    
     
     // 统一入口：设定“国家目标”
@@ -161,6 +175,7 @@ public abstract class TemporaryFaction
                         WarTypeLibrary.normal);
                     war.SetEmpireWarType(EmpireWarType.派系叛乱);
                     war.data.name = targetFaction.Name + "叛乱";
+                    
                     return true;
                 }
             }

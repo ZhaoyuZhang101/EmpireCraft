@@ -41,6 +41,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset officer_build_specific_clan;
     public static WorldLogAsset king_choose_heir_log;
     public static WorldLogAsset 官员品级调动;
+    public static WorldLogAsset 成为朝贡国;
     public static WorldLogAsset officer_join_faction;
     public static WorldLogAsset officer_become_faction_leader;
 
@@ -71,6 +72,18 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$officeName$", 2);
                 wl.updateText(ref pText, pMessage, "$level$", 3);
+            }
+        });
+        成为朝贡国 = wl.add(new WorldLogAsset
+        {
+            id = nameof(成为朝贡国),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$empire$", 2);
             }
         });
         officer_build_specific_clan = wl.add(new WorldLogAsset

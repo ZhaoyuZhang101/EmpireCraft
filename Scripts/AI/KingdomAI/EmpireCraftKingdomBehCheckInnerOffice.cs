@@ -31,6 +31,7 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
         foreach (var coreOffice in empire.data.centerOffice.CoreOffices)
         {
             var office = OfficeManager.Offices.TryGetValue(coreOffice, out var oo) ? oo : null;
+            // office.powers
         }
 
         foreach (var divisionOffice in empire.data.centerOffice.Divisions)

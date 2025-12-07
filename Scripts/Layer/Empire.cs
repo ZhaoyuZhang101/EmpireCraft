@@ -148,21 +148,6 @@ public class Empire : MetaObject<EmpireData>
         }
         return deaths;
     }
-    public EmpirePeriod GetEmpirePeriod()
-    {
-        int renown = this.CoreKingdom.getRenown();
-        if (renown >= 500)
-            this.data.empirePeriod = EmpirePeriod.拓土扩业;
-        else if (renown >= 300)
-            this.data.empirePeriod = EmpirePeriod.平和;
-        else if (renown >= 200)
-            this.data.empirePeriod = EmpirePeriod.下降;
-        else if (renown >= 150)
-            this.data.empirePeriod = EmpirePeriod.逐鹿群雄;
-        else
-            this.data.empirePeriod = EmpirePeriod.天命丧失;
-        return this.data.empirePeriod;
-    }
 
     public void StartEmpireExam()
     {
@@ -226,7 +211,7 @@ public class Empire : MetaObject<EmpireData>
     }
     public bool IsNeedToGive()
     {
-        return Date.getYearsSince(data.timestamp_given_time) >= 10;
+        return Date.getYearsSince(data.timestamp_given_time) >= 1;
     }
     
     //新皇登基
@@ -244,6 +229,18 @@ public class Empire : MetaObject<EmpireData>
             if (currentSpecificClan.all_valid_members.Any())
             {
                 var validEmperor = currentSpecificClan.all_valid_members?.First()._actor;
+                StartSplit(validEmperor);
+            }
+            foreach (var k in kingdoms_list)
+            {
+                if (k.IsEmpire()) continue;
+                if (!k.hasKing()) continue;
+                var clan = k.king.GetSpecificClan();
+                if (clan.id == data.empire_specific_clan)
+                {
+                    leave(k);
+                    DiplomacyHelpers.wars.newWar(k, CoreKingdom, WarTypeLibrary.normal);
+                }
             }
 
             if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
@@ -281,7 +278,71 @@ public class Empire : MetaObject<EmpireData>
         //记录历史
         this.RecordNewEmperorHistory(isNew);
     }
+    private Empire RebuildSecondEmpire(City startProvince, Actor newEmperor)
+    {
+        var kingdom = startProvince.makeOwnKingdom(newEmperor);
+        var newEmpire = ModClass.EMPIRE_MANAGER.newEmpire(kingdom);
+        newEmpire.UpdateCapital(this.OriginalCapital);
+        newEmpire.data.history.InsertRange(0, this.data.history);
+        string empireName = string.Join("\u200A", this.CalcDir(kingdom.capital.city_center, CoreKingdom.capital.city_center), this.GetEmpireName());
+        newEmpire.SetEmpireName(empireName);
+        
+        var provinces = new List<City>();
+        StartSplit(newEmpire, startProvince, ref provinces);
 
+        return newEmpire;
+    }
+    //帝国分裂方法
+    private bool StartSplit(Actor newEmperor)
+    {
+        if (newEmperor.isRekt()) return false;
+        if (CoreKingdom.cities.Count > 1)
+        {
+            foreach (City province in CoreKingdom.cities)
+            {
+                if (province == null) continue;
+                if (province.isCapitalCity()) continue;
+                if (!province.isAlive()) continue;
+                if (!province.hasLeader()) continue;
+                RebuildSecondEmpire(province, newEmperor);
+                break;
+            }
+        }
+        AddRenown(-(int)(this.CoreKingdom.getRenown() * 0.5));
+        return true;
+    }
+    private void StartSplit(Empire empire, City start, ref List<City> pJoinedProvinceList, double possibility=0.8f)
+    {
+        if (start.isCapitalCity()) return;
+        if (pJoinedProvinceList.Contains(start)) return;
+        Random rand = new Random();
+        double randomValue = rand.NextDouble(); // [0.0, 1.0)
+        LogService.LogInfo("当前随机数: "+randomValue);
+        LogService.LogInfo("当前概率: "+ possibility);
+        if (randomValue >= possibility) return;
+        if (empire == null) return;
+        LogService.LogInfo("检测到帝国");
+        LogService.LogInfo("存在省份");
+        if (pJoinedProvinceList.Count >= empire.CoreKingdom.cities.Count) return;
+        LogService.LogInfo("存在差集");
+        foreach (City province in empire.CoreKingdom.cities.ToList())
+        {
+            if (province.neighbours_cities.Contains(start))
+            {
+                try
+                {
+                    province.joinAnotherKingdom(empire.CoreKingdom);
+                    StartSplit(empire, province, ref pJoinedProvinceList, possibility);
+                }
+                catch (Exception e) 
+                {
+                    LogService.LogInfo("转化失败");
+                }
+
+            }
+        }
+        pJoinedProvinceList.Add(start);
+    }
     public void UpdateCapital(City capital)
     {
         this.OriginalCapital = capital;
@@ -1069,6 +1130,14 @@ public class Empire : MetaObject<EmpireData>
         }
         kingdoms_hashset.Add(pKingdom);
         pKingdom.EmpireJoin(this);
+        if (pKingdom.HasTakenAlliance())
+        {
+            pKingdom.RemoveTakenAlliance();
+        }
+        if (pKingdom.HasGivenAlliance())
+        {
+            pKingdom.RemoveGivenAlliance();
+        }
         if (pRecalc)
         {
             recalculate();

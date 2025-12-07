@@ -57,10 +57,30 @@ public static class EmpireCraftNamePlateLibrary
 
                 switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
                 {
-                    case 1:
+                    case 0:
                         foreach (Kingdom kingdom in World.world.kingdoms)
                         {
                             if (kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
+                            {
+                                NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                showTextKingdomNoBack(nameplateText, kingdom);
+                            }
+                        }
+                        break;
+                    case 1:
+                        foreach (Kingdom kingdom in World.world.kingdoms)
+                        {
+                            if (kingdom.hasCapital() && kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
+                            {
+                                NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                showTextKingdomNoBack(nameplateText, kingdom);
+                            }
+                        }
+                        break;
+                    case 2:
+                        foreach (Kingdom kingdom in World.world.kingdoms)
+                        {
+                            if (kingdom.hasCapital() && kingdom.HasGivenAlliance() && isWithinCamera(kingdom.capital.city_center))
                             {
                                 NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
                                 showTextKingdomNoBack(nameplateText, kingdom);
@@ -243,6 +263,19 @@ public static class EmpireCraftNamePlateLibrary
     {
         npt.setupMeta(pMetaObject.data, pMetaObject.getColor());
         string pNewText = $"{pMetaObject.name}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
+        switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
+        {
+            case 0:
+                break;
+            case 1:
+                if (pMetaObject.HasTakenAlliance())
+                {
+                    pNewText += $"朝贡金额{pMetaObject.countUnits()/2} | 退出朝贡倾向:{pMetaObject.GetLeaveTakenAlliancePreference() * 100}%";
+                }
+                break;
+            case 2:
+                break;
+        }
         npt.setText(pNewText, pMetaObject.capital.city_center);
         npt._background_image.enabled = false;
         npt.priority_population = pMetaObject.units.Count;
@@ -462,26 +495,44 @@ public static class EmpireCraftNamePlateLibrary
         Empire empire = pMetaObject.GetEmpire();
         if (empire == null) return;
         plateText.setupMeta(pMetaObject.data, pMetaObject.getColor());
-        string text = empire.data.name + "  " + empire.CountPopulation()+additionNum;
-        if (empire.IsAllowToMakeYearName())
+        string text = empire.data.name + "  " + empire.CountPopulation() + additionNum;
+        switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
         {
-            if (empire.HasYearName())
-            {
-                text = empire.data.name + "\u200A" + empire.GetYearNameWithTime() + "\u200A" + empire.CountPopulation();
-            }
+            case 0:
+                if (empire.IsAllowToMakeYearName())
+                {
+                    if (empire.HasYearName())
+                    {
+                        text = empire.data.name + "\u200A" + empire.GetYearNameWithTime() + "\u200A" +
+                               empire.CountPopulation();
+                    }
+                }
+
+                text = text + " | " + empire.countWarriors() + $"{additionNum}/" + empire.countWarriorsMax() + additionNum;
+                FixedFaction faction = empire.CoreKingdom.GetRegime().GetDominateFaction();
+                if (faction != null)
+                {
+                    var tf = faction.GetAnyTFactionRuns();
+                    text =
+                        $"\n{(empire.EmpireClan?.name ?? "无皇室").ColorString(pColor: Color.yellow)} | 主导: {faction.Name}\n" +
+                        $"\n国库:{empire.CoreKingdom.GetMoney()}({(empire.data.PreviousYearsMoney.Count>=2?empire.data.PreviousYearsMoney.Last()-empire.data.PreviousYearsMoney[-2]:0)})\n"+
+                        text.ColorString(pColor: pMetaObject.getColor()._color_banner) +
+                        $"\n诉求：{(faction.IsAnyTFactionRuns() ? tf.type : TemporaryFactionType.无)}".ColorString(
+                            pColor: new Color(0.5f, 0.9f, 0.5f)) +
+                        (faction.IsAnyTFactionRuns()
+                            ? $"({(int)(tf.progress / (tf.progressMax - tf.acceleration) * 100)}/100)"
+                            : "");
+                }
+                break;
+            case 1:
+                text += "\n朝贡同盟".ColorString(pColor:new Color(0.5f, 0.9f, 0.5f)) + $"\n国库:{empire.CoreKingdom.GetMoney()}({(empire.data.PreviousYearsMoney.Count>=2?empire.data.PreviousYearsMoney.Last()-empire.data.PreviousYearsMoney[-2]:0)})";
+                break;
+            case 2:
+                text += "\n岁币同盟".ColorString(pColor:new Color(0.9f, 0.2f, 0.8f)) + $"\n国库:{empire.CoreKingdom.GetMoney()}({(empire.data.PreviousYearsMoney.Count>=2?empire.data.PreviousYearsMoney.Last()-empire.data.PreviousYearsMoney[-2]:0)})";
+                break;
+
         }
-        
-        text = text + " | " + empire.countWarriors() + $"{additionNum}/" + empire.countWarriorsMax()+additionNum;
-        FixedFaction faction = empire.CoreKingdom.GetRegime().GetDominateFaction();
-        if (faction != null)
-        {
-            var tf = faction.GetAnyTFactionRuns();
-            text = $"\n{(empire.EmpireClan?.name??"无皇室").ColorString(pColor:Color.yellow)} | 主导: {faction.Name}\n" +
-                   text.ColorString(pColor:pMetaObject.getColor()._color_banner) +
-                   $"\n诉求：{(faction.IsAnyTFactionRuns()?tf.type:TemporaryFactionType.无)}".ColorString(pColor:new Color(0.5f,0.9f,0.5f)) +
-                   (faction.IsAnyTFactionRuns()?$"({(int)(tf.progress/(tf.progressMax-tf.acceleration)*100)}/100)":"");
-        }
-        
+
         plateText.setText(text, pMetaObject?.capital?.city_center??new Vector2(99, 99));
         plateText._text_name.supportRichText = true;
         // 给文字加蓝色边框（描边）
