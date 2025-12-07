@@ -81,6 +81,7 @@ public enum LeaderSelectMethod
     Default
 }
 
+[Flags]
 public enum RegimeType
 {
     LvLing,        //律令      - 唐

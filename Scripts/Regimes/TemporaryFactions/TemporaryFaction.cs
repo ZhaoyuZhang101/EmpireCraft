@@ -26,7 +26,8 @@ public abstract class TemporaryFaction
     
     public float progress = 0;
     public float progressMax = 60;
-    public float acceleration = 0;
+    [JsonIgnore]
+    public float acceleration => GetFaction()?.cabinet_acc??0+GetFaction()?.officer_acc??0;
     private bool started = false;
     public double timestamp = -1L;
     
@@ -220,7 +221,7 @@ public abstract class TemporaryFaction
                 } 
             }
             progress ++;
-            if (progress >= progressMax-acceleration) Execute();
+            if (progress >= progressMax-(acceleration>40?40:acceleration)) Execute();
         }
         else
         {

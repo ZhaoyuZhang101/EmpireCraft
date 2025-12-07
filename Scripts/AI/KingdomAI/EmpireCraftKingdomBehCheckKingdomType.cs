@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
@@ -92,7 +93,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             kingdomFront = pKingdom.capital.GetCityName();
         }
         
-        if (pKingdom.GetRegime().leader_select_method == LeaderSelectMethod.Succession)
+        if (pKingdom.GetRegime().GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
         {
             if (pKingdom.HasMainTitle())
             {
@@ -108,7 +109,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             kingdomFront = pKingdom.GetEmpire().GetEmpireName();
         }
         var kingdomBack = LM.Get(newkingdomType.ToString());
-        if (!pKingdom.IsFactionRebelling())
+        if (!pKingdom.IsFactionRebelling()&&pKingdom.getWars().Count()<=0)
         {
             pKingdom.data.name = string.Join("\u200A", kingdomFront, kingdomBack);
         }

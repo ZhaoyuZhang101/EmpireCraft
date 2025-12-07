@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
@@ -12,6 +13,7 @@ public class TempFac_分封 : TemporaryFaction
     {
         LogService.LogInfo($"执行{this.type}");
         Actor actor = GetActorTarget();
+        Regime empireRegime = GetEmpire().CoreKingdom.GetRegime();
         if (actor != null)
         {
             foreach (var c in GetEmpire().CoreKingdom.cities)
@@ -19,6 +21,11 @@ public class TempFac_分封 : TemporaryFaction
                 if (c.isCapitalCity()) continue;
                 var kingdom = c.makeOwnKingdom(actor);
                 GetEmpire().join(kingdom, pForce:true);
+                kingdom.SetRegimeType(empireRegime.type);
+                kingdom.LoadRegime();
+                Regime kingdomRegime = kingdom.GetRegime();
+                kingdomRegime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
+                break;
             }
         }
         End();
@@ -29,10 +36,10 @@ public class TempFac_分封 : TemporaryFaction
         Empire empire = GetEmpire();
         if (empire.CoreKingdom.cities.Count>1)
         {
-            Actor actor = empire.Emperor?.getChildren()?.ToList().Find(c => !c.isKing());
-            if ( actor != null)
+            List<Actor> actor = empire.Emperor?.getChildren()?.ToList().FindAll(c => !c.isKing());
+            if ( actor is { Count: > 1 })
             {
-                SetActorTarget(actor);
+                SetActorTarget(actor[1]);
                 return true;
             }
         }

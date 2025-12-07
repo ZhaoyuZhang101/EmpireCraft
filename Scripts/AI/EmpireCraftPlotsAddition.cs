@@ -27,31 +27,6 @@ namespace EmpireCraft.Scripts.AI
         {
             AssetManager.plots_library.add(new PlotAsset
             {
-                id = "become_empire",
-                path_icon = "ChineseCrown.png",
-                group_id = "diplomacy",
-                is_basic_plot = true,
-                min_level = 1,
-                money_cost = 30,
-                priority = 999,
-                progress_needed = 60f,
-                can_be_done_by_king = true,
-                check_is_possible = delegate (Actor pActor)
-                {
-                    if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
-                    Kingdom kingdom = pActor.kingdom;
-                    if (!pActor.isKing()) return false;
-                    if (kingdom.IsEmpire()) return false;
-                    if (kingdom.IsInEmpire()) return false;
-                    if (!kingdom.HasMainTitle()) return false; //if a kingdom has main title then it could become an empire
-                    ModClass.EMPIRE_MANAGER.update(-1L);
-                    if (!kingdom.CanBecomeEmpire()) return false;
-                    return true;
-                },
-                action = BecomeEmpireAndStartEnfeoff
-            });
-            AssetManager.plots_library.add(new PlotAsset
-            {
                 id = "empire_move_back_to_capital",
                 path_icon = "EmperorQuest.png",
                 group_id = "diplomacy",
@@ -128,54 +103,6 @@ namespace EmpireCraft.Scripts.AI
                     pActor.setKingdom(kingdom);
                     pActor.setCity(empire.CoreKingdom.capital);
                     return true;
-                }
-            });
-            AssetManager.plots_library.add(new PlotAsset
-            {
-                id = "powerful_minister_take_city",
-                path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
-                is_basic_plot = true,
-                min_level = 5,
-                progress_needed = 60f,
-                can_be_done_by_king = true,
-                check_is_possible = delegate (Actor pActor)
-                {
-                    Kingdom kingdom = pActor.kingdom;
-                    if (!kingdom.IsInEmpire()) return false;
-                    Empire empire = kingdom.GetEmpire();
-                    if(!pActor.isOfficer()) return false;
-                    if (!pActor.isKing()) return false;
-                    if (pActor.renown < empire.CoreKingdom.getRenown()/10) return false;
-                    return pActor.CanTakeCity();
-                },
-                check_should_continue = delegate (Actor actor)
-                {
-                    if (!actor.isOfficer()) return false;
-                    if(!actor.isKing()) return false;
-                    if(actor.IsEmperor()) return false;
-                    return actor.CanTakeCity();
-                },
-                action = delegate (Actor pActor)
-                {
-                    Kingdom kingdom = pActor.kingdom;
-                    Empire empire = kingdom.GetEmpire();
-                    foreach(City city in kingdom.cities)
-                    {
-                        if (city.neighbours_cities.Count>0)
-                        {
-                            foreach(City city2 in city.neighbours_cities)
-                            {
-                                if(city2.kingdom.IsInEmpire()&&city2.kingdom!=kingdom&&city2.kingdom.IsEmpire()&&!city2.isCapitalCity())
-                                {
-                                    city2.joinAnotherKingdom(kingdom);
-                                    pActor.editRenown(-(empire.CoreKingdom.getRenown() / 10));
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                    return false;
                 }
             });
             AssetManager.plots_library.add(new PlotAsset
@@ -325,47 +252,47 @@ namespace EmpireCraft.Scripts.AI
                     return true;
                 }
             });
-            // AssetManager.plots_library.add(new PlotAsset
-            // {
-            //     id = "king_acquire_title",
-            //     path_icon = "TitleAcquire.png",
-            //     group_id = "diplomacy",
-            //     is_basic_plot = true,
-            //     min_level = 1,
-            //     progress_needed = 15f,
-            //     can_be_done_by_king = true,
-            //     check_is_possible = delegate (Actor pActor)
-            //     {
-            //         Kingdom kingdom = pActor.kingdom;
-            //         if (!pActor.isKing()) return false;
-            //         if (!pActor.CanAcquireTitle()) return false;
-            //         if (kingdom.getWars().Any()) return false;
-            //         return true;
-            //     },
-            //     action = delegate(Actor pActor) 
-            //     {
-            //         Kingdom kingdom = pActor.kingdom;
-            //         List<KingdomTitle> titles = pActor.getAcquireTitle();
-            //         if (!titles.Any()) return false;
-            //         foreach (KingdomTitle title in titles)
-            //         {
-            //             foreach(City city in title.city_list)
-            //             {
-            //                 if (!kingdom.cities.Contains(city))
-            //                 {
-            //                     Kingdom targetKingdom = city.kingdom;
-            //                     if (kingdom.countTotalWarriors() > targetKingdom.countTotalWarriors())
-            //                     {
-            //                         War war = World.world.diplomacy.startWar(kingdom, targetKingdom, WarTypeLibrary.normal);
-            //                         TranslateHelper.LogKingdomAcquireTitle(kingdom, targetKingdom, title);
-            //                         return true;
-            //                     }
-            //                 }
-            //             }
-            //         }
-            //         return false;
-            //     }
-            // });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "king_acquire_title",
+                path_icon = "TitleAcquire.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (!pActor.CanAcquireTitle()) return false;
+                    if (kingdom.getWars().Any()) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    List<KingdomTitle> titles = pActor.getAcquireTitle();
+                    if (!titles.Any()) return false;
+                    foreach (KingdomTitle title in titles)
+                    {
+                        foreach(City city in title.city_list)
+                        {
+                            if (!kingdom.cities.Contains(city))
+                            {
+                                Kingdom targetKingdom = city.kingdom;
+                                if (kingdom.countTotalWarriors() > targetKingdom.countTotalWarriors())
+                                {
+                                    War war = World.world.diplomacy.startWar(kingdom, targetKingdom, WarTypeLibrary.normal);
+                                    TranslateHelper.LogKingdomAcquireTitle(kingdom, targetKingdom, title);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    return false;
+                }
+            });
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_destroy_title",
@@ -476,6 +403,7 @@ namespace EmpireCraft.Scripts.AI
                     if (pActor == null) return false;
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.isKing()) return false;
+                    if (kingdom.IsEmpire()) return false;
                     if (!kingdom.HasMainTitle()) return false;
                     if (kingdom.GetMainTitle()==null) return false;
                     if (kingdom.GetMainTitle().title_capital==null) return false;
@@ -517,6 +445,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     if (pActor == null) return false;
                     Kingdom kingdom = pActor.kingdom;
+                    if (kingdom.IsInEmpire()) return false;
                     if (!kingdom.GetEmpiresCanBeJoined().Any()) return false;
                     return true;
                 },
@@ -732,6 +661,11 @@ namespace EmpireCraft.Scripts.AI
                         {
                             return false;
                         }
+                    }
+
+                    if (warTarget.GetGivenAllianceEmpire() == kingdom.GetEmpire())
+                    {
+                        return false;
                     }
                     if (!kingdom.IsNeighbourWith(warTarget))
                     {

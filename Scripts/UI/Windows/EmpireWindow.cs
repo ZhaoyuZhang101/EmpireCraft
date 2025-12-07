@@ -94,7 +94,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             var leftPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
             leftPart.AddTextIntoVertLayout($"{LM.Get("empire_clan")}: {(_empire.EmpireSpecificClan?.name??""+ " " + LM.Get("Clan")).ColorString(_empire.EmpireSpecificClan?.color??"#FFFFFF")}");
             leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count??0)}");
-            leftPart.AddTextIntoVertLayout($"{LM.Get("i_population")}: {_empire.countPopulation()}/{_empire.countMaxPopulation()}");
+            leftPart.AddTextIntoVertLayout($"{LM.Get("i_population")}: {_empire.CountPopulation()}/{_empire.countMaxPopulation()}");
             
             var leftPart2 = topSpace.BeginVertGroup(pAlignment:TextAnchor.LowerCenter, pPadding: new RectOffset(0,0,6,0));
             leftPart2.AddTextIntoVertLayout(LM.Get("empire_heir").ColorString(pColor:new Color(0.8f,0.0f,1f)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));

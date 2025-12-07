@@ -230,10 +230,7 @@ public class CityPatch : GamePatch
         {
             Empire empire = pNewSetKingdom.GetEmpire();
             // 如果新加入的王国是帝国的一部分，并且城市被占领，则将城市加入帝国
-            if (empire.GetEmpirePeriod()!= EmpirePeriod.天命丧失&&empire.GetEmpirePeriod() != EmpirePeriod.下降)
-            {
-                pNewSetKingdom = pNewSetKingdom.GetEmpire().CoreKingdom;
-            }
+            pNewSetKingdom = empire.CoreKingdom;
         }
         __instance.setKingdom(pNewSetKingdom);
         __instance.newForceKingdomEvent(__instance.units, __instance._boats, pNewSetKingdom, pHappinessEvent);

@@ -51,7 +51,82 @@ public static class KingdomExtension
         public bool isFactionRebelling = false;
         public double last_tax_timestamp = -1L;
         public double last_office_exam_timestamp = -1L;
+        //上一次加入岁币联盟的时间
+        public double last_given_alliance_timestamp = -1L;
+        //上一次加入朝贡国的时间
+        public double last_taken_alliance_timestamp = -1L;
+        //岁币国
+        public long given_empire = -1L;
+        //宗主国
+        public long taken_empire = -1L;
         public long office_id = -1L;
+    }
+
+    public static void JoinGivenAlliance(this Kingdom k, Empire empire)
+    {
+        k.GetOrCreate().last_given_alliance_timestamp = World.world.getCurWorldTime();
+        k.GetOrCreate().given_empire = empire.id;
+        empire.given_Kingdoms.Add(k);
+    }
+    public static void RemoveGivenAlliance(this Kingdom k)
+    {
+        Empire empire = k.GetGivenAllianceEmpire();
+        if (empire != null)
+        {
+            empire.given_Kingdoms.Remove(k);
+        }
+        k.GetOrCreate().given_empire = -1L;
+    }
+    public static bool NeedToRemoveGivenAlliance(this Kingdom k)
+    {
+        Empire empire = k.GetGivenAllianceEmpire();
+        if (empire == null||k.IsInEmpire())
+        {
+            return true;
+        }
+
+        if (Date.getYearsSince(k.GetOrCreate().last_given_alliance_timestamp) > 20)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    public static void JoinTakenAlliance(this Kingdom k, Empire empire)
+    {
+        k.GetOrCreate().last_taken_alliance_timestamp = World.world.getCurWorldTime();
+        k.GetOrCreate().taken_empire = empire.id;
+        empire.taken_Kingdoms.Add(k);
+    }
+    public static void RemoveTakenAlliance(this Kingdom k)
+    {
+        Empire empire = k.GetTakenAllianceEmpire();
+        if (empire != null)
+        {
+            empire.taken_Kingdoms.Remove(k);
+        }
+        k.GetOrCreate().taken_empire = -1L;
+    }
+    public static bool NeedToRemoveTakenAlliance(this Kingdom k)
+    {
+        Empire empire = k.GetTakenAllianceEmpire();
+        return empire == null||k.IsInEmpire();
+    }
+    public static bool HasGivenAlliance(this Kingdom k)
+    {
+        return k.GetOrCreate().given_empire != -1L;
+    }
+    public static bool HasTakenAlliance(this Kingdom k)
+    {
+        return k.GetOrCreate().taken_empire != -1L;
+    }
+    public static Empire GetGivenAllianceEmpire(this Kingdom k)
+    {
+        return ModClass.EMPIRE_MANAGER.get(k.GetOrCreate().given_empire);
+    }
+    public static Empire GetTakenAllianceEmpire(this Kingdom k)
+    {
+        return ModClass.EMPIRE_MANAGER.get(k.GetOrCreate().taken_empire);
     }
 
     public static void SetCenterArmy(this Kingdom k, Army army)

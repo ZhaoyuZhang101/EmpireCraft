@@ -15,7 +15,7 @@ public class TempFac_提供岁币 : TemporaryFaction
         if (kingdom != null)
         {
             Empire empire = GetEmpire();
-            empire.given_Kingdoms.Add(kingdom);
+            kingdom.JoinGivenAlliance(empire);
             kingdom.EndWarWith(empire.CoreKingdom);
         }
         End();
@@ -31,6 +31,7 @@ public class TempFac_提供岁币 : TemporaryFaction
             {
                 if (empire.given_Kingdoms.Contains(w)) continue;
                 if (w.IsInSameEmpire(empire.CoreKingdom)) continue;
+                if (w.HasGivenAlliance()) continue;
                 if (w.IsInEmpire())
                 {
                     Empire enemyEmpire = w.GetEmpire();
