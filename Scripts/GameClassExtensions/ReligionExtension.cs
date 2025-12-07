@@ -40,7 +40,10 @@ public static class ReligionExtension
     /// <param name="city"></param>
     public static void SetCity(this Religion r, City city)
     {
-        r.GetOrCreate().CityID = city.getID();
+        if (city != null)
+        {
+            r.GetOrCreate().CityID = city.getID();
+        }
     }
 
     /// <summary>

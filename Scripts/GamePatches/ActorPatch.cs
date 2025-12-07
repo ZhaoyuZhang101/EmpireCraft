@@ -66,9 +66,21 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(actionLanded)));
         new Harmony(nameof(UpdateAge)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.updateAge)),
             postfix: new HarmonyMethod(GetType(), nameof(UpdateAge)));
+        new Harmony(nameof(UpdateReligion)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setReligion)),
+            postfix: new HarmonyMethod(GetType(), nameof(UpdateReligion)));
         LogService.LogInfo("角色补丁加载成功");
     }
 
+    public static void UpdateReligion(Actor __instance, Religion pObject)
+    {
+        if (__instance.hasCity())
+        {
+            if (pObject.GetCity() == null)
+            {
+                pObject.SetCity(__instance.city);
+            }
+        }
+    }
     public static void Die(Actor __instance, bool pDestroy = false, AttackType pType = AttackType.Other, bool pCountDeath = true,
         bool pLogFavorite = true)
     {
