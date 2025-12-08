@@ -13,6 +13,7 @@ public class TempFac_扩张地盘 : TemporaryFaction
 
     public override bool CheckCondition()
     {
+        
         return false;
     }
 }

@@ -31,12 +31,13 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
         foreach (var coreOffice in empire.data.centerOffice.CoreOffices)
         {
             var office = OfficeManager.Offices.TryGetValue(coreOffice, out var oo) ? oo : null;
-            // office.powers
+            office?.DetectPower(empire);
         }
 
         foreach (var divisionOffice in empire.data.centerOffice.Divisions)
         {
             var office = OfficeManager.Offices.TryGetValue(divisionOffice, out var oo) ? oo : null;
+            office?.DetectPower(empire);
         }
     }
     private void StartCalcOfficePerformance(Empire pEmpire)

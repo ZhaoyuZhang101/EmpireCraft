@@ -112,8 +112,71 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.newCityEvent)),
             prefix: new HarmonyMethod(GetType(), nameof(newCity))
         );
-    }
 
+        new Harmony(nameof(FinishedCapture)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.finishCapture)),
+            prefix: new HarmonyMethod(GetType(), nameof(FinishedCapture))
+        );
+    }
+    public bool FinishedCapture(City __instance, Kingdom pNewKingdom)
+    {
+        if (__instance.kingdom.hasKing() && __instance.kingdom.king.city == __instance)
+            __instance.kingdom.kingFledCity();
+        if (World.world.cities.isLocked())
+            return false;
+        __instance.clearCapture();
+        __instance.recalculateNeighbourCities();
+        pNewKingdom.increaseHappinessFromNewCityCapture();
+        __instance.kingdom.decreaseHappinessFromLostCityCapture(__instance);
+        using (ListPool<War> pWars = new ListPool<War>(pNewKingdom.getWars()))
+        {
+            Kingdom joinAfterCapture = __instance.findKingdomToJoinAfterCapture(pNewKingdom, pWars);
+            //检测城市是否被劫掠如果是则不执行占领城市逻辑但是相应的城市金库会被劫走
+            var war = joinAfterCapture.getWars().ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.劫掠&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
+            if (war!= null)
+            {
+                var money = 0;
+                if (__instance.isCapitalCity())
+                {
+                    money = __instance.kingdom.GetMoney();
+                    __instance.kingdom.SubMoney(__instance.kingdom.GetMoney());
+                }
+                else
+                {
+                    money = __instance.GetMoney();
+                    __instance.SubMoney(__instance.GetMoney());
+                }
+                pNewKingdom.AddMoney(money);
+                war.lostWar(__instance.kingdom);
+                return false;
+            }
+            //检测是否为游牧扩张战争，如果是则返还法理土地，保留制度但是加入帝国
+            var expendWar = joinAfterCapture.getWars().ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.游牧扩张&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
+            if (expendWar != null)
+            {
+                Empire empire = joinAfterCapture.GetEmpire();
+                if (__instance.isCapitalCity()&&__instance.GetTitle()?.title_capital==__instance)
+                {
+                    __instance.GetTitle().city_list.ForEach(c =>
+                    {
+                        if (c.kingdom.IsInSameEmpire(joinAfterCapture) && !c.isCapitalCity())
+                        {
+                            c.joinAnotherKingdom(__instance.kingdom);
+                        }
+                    });
+                    empire.join(__instance.kingdom, pForce:true);
+                    expendWar.lostWar(__instance.kingdom);
+                    return false;
+                }
+            }
+            if (!__instance.checkRebelWar(joinAfterCapture, pWars))
+                joinAfterCapture.data.timestamp_new_conquest = World.world.getCurWorldTime();
+            __instance.removeSoldiers();
+            __instance.joinAnotherKingdom(joinAfterCapture, true);
+        }
+
+        return false;
+    }
     public static bool isArmyOverLimit(City __instance, ref bool __result)
     {
         if (__instance.kingdom.IsEmpire())

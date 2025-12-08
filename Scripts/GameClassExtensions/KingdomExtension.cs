@@ -96,7 +96,6 @@ public static class KingdomExtension
             }
         }
     }
-
     /// <summary>
     /// 获取当前国家退出朝贡联盟的倾向
     /// </summary>

@@ -86,6 +86,20 @@ public abstract class TemporaryFaction
     {
         if (TargetType != MetaType.City || TargetID < 0) return null;
         return World.world.cities.get(TargetID);
+    }   
+    
+    // 统一入口：设定“宗教目标”
+    protected void SetReligionTarget(Religion k, string reason = "")
+    {
+        var id = k?.getID() ?? -1L; // 一律用 base_id
+        TargetID = id;
+        TargetType = MetaType.Religion;
+    }
+    
+    protected Religion GetReligionTarget()
+    {
+        if (TargetType != MetaType.Religion || TargetID < 0) return null;
+        return World.world.religions.get(TargetID);
     }
     
     protected void SetActorTarget(Actor pActor)

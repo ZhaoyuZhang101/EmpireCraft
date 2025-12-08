@@ -36,6 +36,8 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
                 break;
             case RegimeType.Arabic:
                 break;
+            case RegimeType.YouMu:
+                break;
             default:
                 throw new ArgumentOutOfRangeException();
         }

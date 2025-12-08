@@ -99,7 +99,12 @@ public class OfficeObject
         LogService.LogInfo(pNano?.getType());
         var post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
         return flag? post: preX + post;
-    }    
+    }
+
+    public void DetectPower(Empire empire)
+    {
+        
+    }
     public string GetOfficeName(NanoObject pNano = null)
     {
         var flag = pre.Contains("full")||pre.Contains("all");

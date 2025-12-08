@@ -46,7 +46,7 @@
           "type": 1,
           "description": "",
           "powers": [
-            "备选"
+            "备选", "审核"
           ],
           "merit": -1,
           "honorary": -1,

@@ -157,7 +157,7 @@
     {
         "name": "Youmu",
         "setting": {
-            "regime": "Feudalism",
+            "regime": "YouMu",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {

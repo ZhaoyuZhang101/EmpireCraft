@@ -19,6 +19,7 @@ public class TempFac_{type_name} : TemporaryFaction
     public override void Execute()
     {{
         LogService.LogInfo($\"执行{{this.type}}\");
+        Empire empire = GetEmpire();
         End();
     }}
 

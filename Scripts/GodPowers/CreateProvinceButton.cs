@@ -23,7 +23,12 @@ public static class CreateProvinceButton
         {
             if (pTile.zone_city.kingdom.IsEmpire())
             {
-                Kingdom kingdom = pTile.zone_city.makeOwnKingdom(pTile.zone_city.leader);
+                Empire empire = pTile.zone_city.kingdom.GetEmpire();
+                Kingdom kingdom = pTile.zone_city.makeOwnKingdom(pTile.zone_city?.leader??pTile.zone_city?.units.GetRandom());
+                if (kingdom != null)
+                {
+                    empire.join(kingdom, pForce: true);
+                }
                 return false;
             }
         }

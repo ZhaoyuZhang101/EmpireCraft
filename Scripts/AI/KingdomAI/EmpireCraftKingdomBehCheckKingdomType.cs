@@ -149,6 +149,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 return CityType.Republic_city;
             case RegimeType.ZhouFeudalism:
                 return CityType.ZhouFeudalism_city;
+            case RegimeType.YouMu:
+                return CityType.YouMu_city;
             default:
                 return CityType.Feudalism_city;
         }
@@ -268,6 +270,17 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
 
                     //有军事外交，宗教等级高者为苏丹国，低为酋长国
                     return regime.options["option_religion_type"][0] <= 2 ?  KingdomType.Arabic_sultanate :  KingdomType.Arabic_emirate;
+                case RegimeType.YouMu:
+                    if (kingdom.IsEmpire())
+                    {
+                        return KingdomType.YouMu_centre;
+                    }
+
+                    if (regime.IsAllowSupportCenterArmy())
+                    {
+                        return KingdomType.YouMu_bu;
+                    }
+                    return KingdomType.YouMu_kingdom;
             }
         }
         else
@@ -284,6 +297,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                     return regime.GetReligionLevel() is ReligionLevel.High or ReligionLevel.Medium ?  KingdomType.Arabic_sultanate :  KingdomType.Arabic_emirate;
                 case RegimeType.ZhouFeudalism:
                     return  KingdomType.ZhouFeudalism_zi;
+                case RegimeType.YouMu:
+                    return  KingdomType.YouMu_kingdom;
             }
         }
         return  KingdomType.default_country_post;

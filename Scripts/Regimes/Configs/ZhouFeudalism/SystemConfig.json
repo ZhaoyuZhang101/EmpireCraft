@@ -153,7 +153,7 @@
           "pre": "",
           "type": 0,
           "description": "",
-          "powers": [],
+          "powers": ["拟定", "审核", "执行"],
           "merit": -1,
           "honorary": -1,
           "select_from_local": false,
