@@ -587,7 +587,6 @@ public static class ActorExtension
     }
     public static OfficeIdentity GetIdentity( this Actor a)
     {
-        if (a?.city?.kingdom == null) return null;
         if (!a.HasOfficeIdentity()) return null;
         if (GetOrCreate(a).officeIdentity.GetOfficeId()!=-1L)
         {

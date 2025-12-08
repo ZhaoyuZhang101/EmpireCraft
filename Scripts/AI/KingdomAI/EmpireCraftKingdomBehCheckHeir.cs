@@ -25,91 +25,26 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         {
             return BehResult.Continue;
         }
-        LogService.LogInfo("选取继承人");
-        if (pKingdom.CalcHeirFinished())
-        {
-            LogService.LogInfo("计算继承人中");
-            pKingdom.SetCalcHeirTask(ScheduleCalcHeirAsync(pKingdom));
-            return BehResult.Continue;
-        }
-        
-        if (!pKingdom.GetCalcHeirTask().IsCompleted)
-            return BehResult.Continue;
-        
-        try
-        {
-            var (actor, relation) = pKingdom.GetCalcHeirTask().Result;
-            if (actor != null)
-            {
-                pKingdom.ChooseHeirFinished();
-                if (pKingdom.GetHeir() == actor)
-                {
-                    return BehResult.Continue;
-                }
 
-                if (pKingdom.king == actor)
-                {
-                    return BehResult.Continue;
-                }
-                if (!actor.isUnitFitToRule()) return BehResult.Continue;
-                pKingdom.SetHeir(actor);
-                // 这时肯定在主线程里，UI 调用安全
-                TranslateHelper.LogKingChooseHeir(pKingdom, relation, actor);
-                pKingdom.RemoveCalcHeirStatus();
-            }
-        }
-        finally
+        var heir = CheckHeir(pKingdom, pKingdom.GetHeirLaw());
+        if (heir.actor == null||!heir.actor.isUnitFitToRule())
         {
-            pKingdom.RemoveCalcHeirStatus();
+            pKingdom.GoToNextHeirLaw();
+        }
+        else
+        {
+            pKingdom.SetHeir(heir.actor);
+            TranslateHelper.LogKingChooseHeir(pKingdom, heir.relation, heir.actor);
+            pKingdom.RecoverToDefaultHeir();
+            pKingdom.ChooseHeirFinished();
         }
         
         return BehResult.Continue;
-    }
-    public static Task<(Actor actor, string relation)> CheckHeirAsync(Kingdom k, EmpireHeirLawType? secondSelection = null)
-    {
-        // 如果 CheckHeir 本身是 CPU 密集型，就用 Task.Run 包裹
-        return Task.Run(() => secondSelection == null
-            ? CheckHeir(k)
-            : CheckHeir(k, secondSelection: secondSelection.Value));
-    }
-
-    public static async Task<(Actor actor, string relation)> ScheduleCalcHeirAsync(Kingdom k)
-    {
-        // 并发限流
-        await KingdomExtension._sem.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            // 按优先级把所有策略打包成 Func<Task<…>>
-            var strategies = new Func<Task<(Actor actor, string relation)>>[]
-            {
-                () => CheckHeirAsync(k),                                           // 默认策略
-                () => CheckHeirAsync(k,EmpireHeirLawType.siblings),                 // 兄弟优先
-                () => CheckHeirAsync(k,EmpireHeirLawType.grand_child_generation),   // 孙辈
-                () => CheckHeirAsync(k,EmpireHeirLawType.random),                   // 随机
-                () => CheckHeirAsync(k,EmpireHeirLawType.officer),                  // 军官
-            };
-
-            // 依次跑，每次 await 完看 actor，是不是非 null，就立刻返回
-            foreach (var strat in strategies)
-            {
-                var result = await strat().ConfigureAwait(false);
-                if (result.actor != null)
-                    return result;
-            }
-
-            // 都没找到
-            return (null, null);
-        }
-        finally
-        {
-            KingdomExtension._sem.Release();
-        }
     }
     private static (Actor actor, string relation) CheckHeir(Kingdom k, EmpireHeirLawType secondSelection=EmpireHeirLawType.eldest_child, PersonalClanIdentity pActor = null)
     {
         if (k == null) return (null, "");
         Actor actor = null;
-        LogService.LogInfo("触发选取");
         var flag = k.IsEmpire();
         var logPreText = flag ? "Empire: " : "Kingdom: ";
         PersonalClanIdentity pci = pActor??k.king?.GetPersonalIdentity();
@@ -154,13 +89,11 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 }
                 break;
             case EmpireHeirLawType.random:
-                List<(ClanRelation, PersonalClanIdentity)> randomClanMember = SpecificClanManager.FindAllRelations(pci);
-                randomClanMember = randomClanMember.FindAll(c=>c.Item2.CanHeir(pci));
-                randomClanMember.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>
-                    .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
+                List<Actor> randomClanMember = pci?._specificClan?.AllAliveMembers??new List<Actor>();
+                randomClanMember = randomClanMember.FindAll(c=>c.GetPersonalIdentity()?.CanHeir(pci)??false).OrderByDescending(a=>a.age).ToList();
                 if (randomClanMember.Any())
                 {
-                    actor = randomClanMember.Last().Item2._actor;
+                    actor = randomClanMember.First();
                     relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.6f, 0.9f));
                 }
                 break;

@@ -52,7 +52,7 @@ public static class EmpireCraftNamePlateLibrary
                     case 0:
                         foreach (Kingdom kingdom in World.world.kingdoms)
                         {
-                            if (kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
+                            if (!kingdom.IsEmpire()&&kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
                             {
                                 NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
                                 showTextKingdomNoBack(nameplateText, kingdom);
@@ -71,7 +71,7 @@ public static class EmpireCraftNamePlateLibrary
                     case 1:
                         foreach (Kingdom kingdom in World.world.kingdoms)
                         {
-                            if (kingdom.hasCapital() && kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
+                            if (!kingdom.IsEmpire()&&kingdom.hasCapital() && kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
                             {
                                 NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
                                 showTextKingdomNoBack(nameplateText, kingdom);
@@ -81,7 +81,7 @@ public static class EmpireCraftNamePlateLibrary
                     case 2:
                         foreach (Kingdom kingdom in World.world.kingdoms)
                         {
-                            if (kingdom.hasCapital() && kingdom.HasGivenAlliance() && isWithinCamera(kingdom.capital.city_center))
+                            if (!kingdom.IsEmpire()&&kingdom.hasCapital() && kingdom.HasGivenAlliance() && isWithinCamera(kingdom.capital.city_center))
                             {
                                 NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
                                 showTextKingdomNoBack(nameplateText, kingdom);

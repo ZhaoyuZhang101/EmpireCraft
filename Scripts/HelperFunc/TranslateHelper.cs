@@ -76,7 +76,7 @@ namespace EmpireCraft.Scripts.HelperFunc
         public static void LogKingChooseHeir(Kingdom kingdom,string relation, Actor pActor)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.king_choose_heir_log,
-                kingdom.GetKingdomName(),
+                kingdom.GetKingdomName()+kingdom.GetOffice().GetName(),
                 relation,
                 pActor.data.name)
             {

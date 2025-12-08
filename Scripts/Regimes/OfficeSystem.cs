@@ -103,7 +103,140 @@ public class OfficeObject
 
     public void DetectPower(Empire empire)
     {
-        
+        var officer = GetActor();
+        foreach (var power in powers)
+        {
+            switch (power)
+            {
+                case OfficerPowerType.审核:
+                    if (officer != null)
+                    {
+                        if (IsSameFactionWithEmpire(empire))
+                        {
+                            empire.data.officer_acc = officer.intelligence*2;
+                        }
+                        else
+                        {
+                            if (officer.GetFaction() == null)
+                            {
+                                empire.data.officer_acc = officer.intelligence;
+                            }
+                            else
+                            {
+                                empire.data.officer_acc = -officer.intelligence;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        empire.data.officer_acc = 0;
+                    }
+                    break;
+                case OfficerPowerType.军事:
+                    if (officer != null)
+                    {
+                        empire.data.军事_addition = officer.warfare;
+                    }
+                    else
+                    {
+                        empire.data.军事_addition = 0;
+                    }
+                    break;
+                case OfficerPowerType.建设:
+                    if (officer != null)
+                    {
+                        empire.data.建设_addition = officer.stewardship;
+                    }
+                    else
+                    {
+                        empire.data.建设_addition = 0;
+                    }
+                    break;
+                case OfficerPowerType.教育:
+                    if (officer != null)
+                    {
+                        empire.data.教育_addition = officer.intelligence;
+                    }
+                    else
+                    {
+                        empire.data.教育_addition = 0;
+                    }
+                    break;
+                case OfficerPowerType.天子护理:
+                    if (officer != null)
+                    {
+                        empire.data.天子护理_addition += officer.level*5;
+                    }
+                    else
+                    {
+                        empire.data.天子护理_addition = 0;
+                    }
+                    break;
+                case OfficerPowerType.天子政教:
+                    if (officer != null)
+                    {
+                        empire.data.天子政教_addition += officer.level*5;
+                    }
+                    else
+                    {
+                        empire.data.天子政教_addition = 0;
+                    }
+                    break;
+                case OfficerPowerType.天子智教:
+                    if (officer != null)
+                    {
+                        empire.data.天子智教_addition += officer.intelligence;
+                    }
+                    else
+                    {
+                        empire.data.天子智教_addition = 0;
+                    }
+                    break;
+                case OfficerPowerType.宗教:
+                    if (officer != null)
+                    {
+                        empire.data.宗教_addition += officer.intelligence;
+                    }
+                    else
+                    {
+                        empire.data.宗教_addition = 0;
+                    }
+                    break;
+                case OfficerPowerType.礼仪:
+                    if (officer != null)
+                    {
+                        empire.data.宗教_addition += officer.stewardship;
+                    }
+                    else
+                    {
+                        empire.data.宗教_addition = 0;
+                    }
+                    break;
+                case OfficerPowerType.财政:
+                    if (officer != null)
+                    {
+                        empire.data.财政_addition += officer.stewardship;
+                    }
+                    else
+                    {
+                        empire.data.财政_addition = 0;
+                    }
+                    break;
+            }
+        }
+    }
+
+    public bool IsSameFactionWithEmpire(Empire empire)
+    {
+        var dominate = empire.CoreKingdom.GetRegime().GetDominateFaction();
+        if (GetActor() != null)
+        {
+            if (GetActor().GetFaction() == dominate)
+            {
+                return true;
+            }
+        }
+        return false;
     }
     public string GetOfficeName(NanoObject pNano = null)
     {
@@ -176,13 +309,16 @@ public class OfficeObject
         if (actor.HasOfficeIdentity())
         {
             var identity = actor.GetIdentity();
-            if (actor.IsOnOffice())
+            if (identity != null)
             {
-                identity.RemoveOffice();
+                if (actor.IsOnOffice())
+                {
+                    identity.RemoveOffice();
+                }
+                identity.SetOfficeId(OfficeID);
+                actor.addTrait("officer");
+                actor.ChangeOfficialLevel(officeType);
             }
-            identity.SetOfficeId(OfficeID);
-            actor.addTrait("officer");
-            actor.ChangeOfficialLevel(officeType);
         }
         actor.StartOffice(this);
         actor_id = actor.getID();
@@ -318,5 +454,44 @@ public class CenterOffice
         }
 
         return officers;
+    }
+
+    public List<OfficeObject> GetAllOffices(Empire empire)
+    {
+        List<OfficeObject> offices = new List<OfficeObject>();
+        foreach (Kingdom kingdom in empire.kingdoms_list)
+        {
+            if (kingdom.GetOffice() != null)
+            {
+                offices.Add(kingdom.GetOffice());
+            }
+        }
+
+        foreach (var city in empire.AllCities())
+        {
+            if (city.GetOffice() != null)
+            {
+                offices.Add(city.GetOffice());
+            }
+        }
+
+        foreach (var coo in empire.data.centerOffice.CoreOffices)
+        {
+            var officeObject = OfficeManager.Offices.TryGetValue(coo, out OfficeObject o) ? o : null;
+            if (officeObject != null)
+            {
+                offices.Add(officeObject);
+            }
+        }
+
+        foreach (var dio in empire.data.centerOffice.Divisions)
+        {
+            var officeObject = OfficeManager.Offices.TryGetValue(dio, out OfficeObject o) ? o : null;
+            if (officeObject != null)
+            {
+                offices.Add(officeObject);
+            }
+        }
+        return offices;
     }
 }

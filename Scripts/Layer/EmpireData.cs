@@ -47,6 +47,26 @@ public class EmpireData : MetaObjectData
     public List<long> given_Kingdoms = new List<long>();
     //朝贡国
     public List<long> taken_Kingdoms = new List<long>();
+    
+    public int 宗教_addition = 0;
+    public int 天子智教_addition = 0;
+    public int 天子政教_addition = 0;
+    public int 天子护理_addition = 0;
+    public int 备选_addition = 0;
+    public int 拟定_addition = 0;
+    public int 审核_addition = 0;
+    public int 执行_addition = 0;
+    public int 人事_addition = 0;
+    public int 财政_addition = 0;
+    public int 礼仪_addition = 0;
+    public int 军事_addition = 0;
+    public int 司法_addition = 0;
+    public int 建设_addition = 0;
+    public int 教育_addition = 0;
+    //内阁加成
+    public float cabinet_acc = 0;
+    //官员加成
+    public float officer_acc = 0;
 
     [DefaultValue(-1L)]
     public long founder_kingdom_id { get; set; } = -1L;

@@ -26,6 +26,7 @@ public class TempFac_对外扩张 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire == null) return false;
         foreach (var kingdom in World.world.kingdoms)
         {
             if (empire.given_Kingdoms.Contains(kingdom)) continue;

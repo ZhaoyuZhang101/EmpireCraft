@@ -52,6 +52,8 @@ public static class KingdomExtension
         public bool isFactionRebelling = false;
         public double last_tax_timestamp = -1L;
         public double last_office_exam_timestamp = -1L;
+        public EmpireHeirLawType HeirLaw = EmpireHeirLawType.eldest_child;
+        public EmpireHeirLawType DefaultHeirLaw = EmpireHeirLawType.eldest_child;
         //上一次加入岁币联盟的时间
         public double last_given_alliance_timestamp = -1L;
         //上一次加入朝贡国的时间
@@ -67,6 +69,53 @@ public static class KingdomExtension
         public long office_id = -1L;
     }
 
+    public static void SetHeirLaw(this Kingdom k, EmpireHeirLawType type)
+    {
+        k.GetOrCreate().HeirLaw = type;
+    }
+
+    public static void SetDefaultHeirLaw(this Kingdom k, EmpireHeirLawType type)
+    {
+        k.GetOrCreate().DefaultHeirLaw = type;
+    }
+    public static EmpireHeirLawType GetHeirLaw(this Kingdom k)
+    {
+        return k.GetOrCreate().HeirLaw;
+    }
+    public static EmpireHeirLawType GetDefaultHeirLaw(this Kingdom k)
+    {
+        return k.GetOrCreate().DefaultHeirLaw;
+    }
+
+    public static void GoToNextHeirLaw(this Kingdom k)
+    {
+        switch (k.GetOrCreate().HeirLaw)
+        {
+            case EmpireHeirLawType.eldest_child:
+                k.SetHeirLaw(EmpireHeirLawType.siblings);
+                break;
+            case EmpireHeirLawType.siblings:
+                k.SetHeirLaw(EmpireHeirLawType.grand_child_generation);
+                break;
+            case EmpireHeirLawType.grand_child_generation:
+                k.SetHeirLaw(EmpireHeirLawType.random);
+                break;
+            case EmpireHeirLawType.random:
+                k.SetHeirLaw(EmpireHeirLawType.officer);
+                break;
+            case EmpireHeirLawType.officer:
+                k.SetHeirLaw(k.GetOrCreate().DefaultHeirLaw);
+                break;
+            case EmpireHeirLawType.smallest_child:
+                k.SetHeirLaw(EmpireHeirLawType.siblings);
+                break;
+        }
+    }
+
+    public static void RecoverToDefaultHeir(this Kingdom k)
+    {
+        k.SetHeirLaw(k.GetDefaultHeirLaw());
+    }
     public static bool IsNeedToTaken(this Kingdom k)
     {
         return Date.getYearsSince(k.GetOrCreate().last_taken_time)>1&&k.HasTakenAlliance();

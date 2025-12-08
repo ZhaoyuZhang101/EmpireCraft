@@ -27,7 +27,7 @@ public abstract class TemporaryFaction
     public float progress = 0;
     public float progressMax = 60;
     [JsonIgnore]
-    public float acceleration => GetFaction()?.cabinet_acc??0+GetFaction()?.officer_acc??0;
+    public float acceleration => GetEmpire()?.data.cabinet_acc??0+GetEmpire()?.data.officer_acc??0;
     private bool started = false;
     public double timestamp = -1L;
     
@@ -239,6 +239,11 @@ public abstract class TemporaryFaction
     //更新：每年一次共计十年
     private void Update()
     {
+        if (!CheckContinue())
+        {
+            End();
+            return;
+        }
         if (started)
         {
             if (GetEmpire().CoreKingdom.GetRegime().has_cabinet)
@@ -276,6 +281,15 @@ public abstract class TemporaryFaction
     /// </summary>
     /// <returns>返回条件是否满足的结果</returns>
     public abstract bool CheckCondition();
+
+    /// <summary>
+    /// 检查条件是否满足
+    /// </summary>
+    /// <returns>返回条件是否满足的结果</returns>
+    public virtual bool CheckContinue()
+    {
+        return true;
+    }
 
     public List<Kingdom> GetMembers()
     {

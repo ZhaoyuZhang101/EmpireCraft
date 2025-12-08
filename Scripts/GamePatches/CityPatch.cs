@@ -22,6 +22,7 @@ using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NeoModLoader.General.Game.extensions;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -118,7 +119,7 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(FinishedCapture))
         );
     }
-    public bool FinishedCapture(City __instance, Kingdom pNewKingdom)
+    public static bool FinishedCapture(City __instance, Kingdom pNewKingdom)
     {
         if (__instance.kingdom.hasKing() && __instance.kingdom.king.city == __instance)
             __instance.kingdom.kingFledCity();
@@ -131,10 +132,16 @@ public class CityPatch : GamePatch
         using (ListPool<War> pWars = new ListPool<War>(pNewKingdom.getWars()))
         {
             Kingdom joinAfterCapture = __instance.findKingdomToJoinAfterCapture(pNewKingdom, pWars);
+            LogService.LogInfo($"{__instance.kingdom}的城市{__instance.name}即将被{joinAfterCapture.name}捕获");
+            pWars.ToList().ForEach(w=>
+            {
+                LogService.LogInfo($"战争名称{w.name}类型：{w.GetEmpireWarType().ToString()}");
+            });
             //检测城市是否被劫掠如果是则不执行占领城市逻辑但是相应的城市金库会被劫走
-            var war = joinAfterCapture.getWars().ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.劫掠&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
+            var war = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.劫掠&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
             if (war!= null)
             {
+                LogService.LogInfo("城市被劫掠");
                 var money = 0;
                 if (__instance.isCapitalCity())
                 {
@@ -151,9 +158,10 @@ public class CityPatch : GamePatch
                 return false;
             }
             //检测是否为游牧扩张战争，如果是则返还法理土地，保留制度但是加入帝国
-            var expendWar = joinAfterCapture.getWars().ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.游牧扩张&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
+            var expendWar = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.游牧扩张&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
             if (expendWar != null)
             {
+                LogService.LogInfo("游牧扩张战争");
                 Empire empire = joinAfterCapture.GetEmpire();
                 if (__instance.isCapitalCity()&&__instance.GetTitle()?.title_capital==__instance)
                 {
