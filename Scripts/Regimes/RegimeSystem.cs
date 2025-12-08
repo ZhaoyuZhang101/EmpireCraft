@@ -39,6 +39,10 @@ public enum KingdomType
     Republic_province, //省
     Republic_state, //州
     Republic_autonomous_prefecture,//自治州
+    
+    YouMu_centre, //共和国
+    YouMu_kingdom, //省
+    YouMu_bu, //州
 
     default_country_post //国
 }
@@ -62,7 +66,9 @@ public enum CityType
     
     Feudalism_city, //市
     Feudalism_dirC, //帝国伯爵领
-    Feudalism_religion_district //教区
+    Feudalism_religion_district, //教区
+    
+    YouMu_city
 }
 public enum TaxLevel
 {
@@ -89,6 +95,7 @@ public enum RegimeType
     ZhouFeudalism, //分封      - 周
     Republic,      //共和      - 现代美国
     Arabic,        //阿拉伯政体 - 阿拉伯世界
+    YouMu          //游牧政体   - 蒙古汗国
 }
 
 public enum ReligionLevel

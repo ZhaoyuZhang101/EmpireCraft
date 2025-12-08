@@ -8,14 +8,15 @@ namespace EmpireCraft.Scripts.Enums
 {
     public enum EmpireWarType
     {
-        AquireEmpire,
-        BeIndependent,
+        获取帝国,
         伐不臣,
-        Rise,
+        独立,
         攘夷,
         统一,
         派系叛乱,
         迫使朝贡,
+        劫掠,
+        游牧扩张,
         None
     }
 }

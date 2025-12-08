@@ -8,8 +8,10 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace EmpireCraft.Scripts.AI;
-public abstract class EmpireCraftOpinionAddition
+public static class EmpireCraftOpinionAddition
 {
+    //被劫掠
+    public static OpinionAsset OpinionKingdomBeenPlunder;
     public static void init()
     {
         OpinionLibrary opl = AssetManager.opinion_library;
@@ -29,6 +31,12 @@ public abstract class EmpireCraftOpinionAddition
                 }
                 return result;
             }
+        });
+        opl.add(OpinionKingdomBeenPlunder = new OpinionAsset
+        {
+            id = nameof(OpinionKingdomBeenPlunder),
+            translation_key = nameof(OpinionKingdomBeenPlunder),
+            calc = (pMain, pTarget) => 0
         });
         opl.add(new OpinionAsset
         {

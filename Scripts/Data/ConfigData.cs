@@ -38,62 +38,6 @@ namespace EmpireCraft.Scripts.Data
             "civ_alpaca","civ_capybara","civ_goat","civ_scorpion","civ_crab",
             "civ_penguin","civ_turtle","civ_crocodile","civ_snake","civ_frog","civ_piranha",
         };
-
-        public static Dictionary<FactionType, List<TemporaryFactionType>> FactionConfig =
-            new()
-            {
-                {
-                    FactionType.僭主,
-                    new List<TemporaryFactionType> { TemporaryFactionType.强者继承法, TemporaryFactionType.宗教同化 }
-                },
-                {
-                    FactionType.血脉,
-                    new List<TemporaryFactionType> { TemporaryFactionType.转世袭, TemporaryFactionType.宗教同化 }
-                },
-                {
-                    FactionType.尊王,
-                    new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.转天朝制度 }
-                },
-                {
-                    FactionType.自治,
-                    new List<TemporaryFactionType> { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战 }
-                },
-                {
-                    FactionType.攘夷,
-                    new List<TemporaryFactionType>
-                        { TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府, TemporaryFactionType.谋求统一, TemporaryFactionType.转周制 }
-                },
-                {
-                    FactionType.绥靖,
-                    new List<TemporaryFactionType>
-                        { TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池, TemporaryFactionType.削藩, TemporaryFactionType.设置行政区 }
-                },
-                {
-                    FactionType.共和,
-                    new List<TemporaryFactionType>
-                    {
-                        TemporaryFactionType.提高赋税, TemporaryFactionType.提高福利, TemporaryFactionType.清除移民,
-                        TemporaryFactionType.缩减金融霸权
-                    }
-                },
-                {
-                    FactionType.民主,
-                    new List<TemporaryFactionType>
-                    {
-                        TemporaryFactionType.开放移民, TemporaryFactionType.降低赋税, TemporaryFactionType.提高福利,
-                        TemporaryFactionType.拓展金融霸权
-                    }
-                },
-                {
-                    FactionType.革命,
-                    new List<TemporaryFactionType> { TemporaryFactionType.输出革命, TemporaryFactionType.扶持革命党 }
-                },
-                {
-                    FactionType.神权,
-                    new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.划地给教廷, 
-                        TemporaryFactionType.恢复圣地, TemporaryFactionType.确立国教, TemporaryFactionType.神授君权 }
-                }
-            };
         public static List<string> yearNameSubspecies = new() 
         {
             "Huaxia", "Japan"

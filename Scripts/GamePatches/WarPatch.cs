@@ -35,6 +35,7 @@ public class WarPatch: GamePatch
         );
         LogService.LogInfo("战争补丁加载成功");
     }
+    
     public static bool update(War __instance)
     {
         if (__instance.main_attacker == null || __instance.main_defender == null)
@@ -67,6 +68,17 @@ public class WarPatch: GamePatch
             __instance.lostWar(__instance.main_attacker);
             return false;
         }
+        switch (__instance.GetEmpireWarType())
+        {
+            case EmpireWarType.迫使朝贡:
+                if (__instance.main_defender.cities.Count <= 1)
+                {
+                    __instance.lostWar(__instance.main_defender);
+                    __instance.main_defender.JoinTakenAlliance(__instance.main_attacker.GetEmpire());
+                    return false;
+                }
+                break;
+        }
         if (__instance.isTotalWar())
         {
             if (World.world.kingdoms.Count <= 1)
@@ -80,18 +92,7 @@ public class WarPatch: GamePatch
             __instance.lostWar(__instance.main_defender);
             return false;
         }
-
-        switch (__instance.GetEmpireWarType())
-        {
-            case EmpireWarType.迫使朝贡:
-                if (__instance.main_defender.cities.Count <= 1)
-                {
-                    __instance.lostWar(__instance.main_defender);
-                    __instance.main_defender.JoinTakenAlliance(__instance.main_attacker.GetEmpire());
-                    return false;
-                }
-                break;
-        }
+        
         if (__instance.getAge() > 10 && !__instance.isTotalWar())
         {
             if (__instance.main_attacker.countCities() == 0)
@@ -204,7 +205,7 @@ public class WarPatch: GamePatch
 
             switch (pWar.GetEmpireWarType())
             {
-                case EmpireWarType.AquireEmpire:
+                case EmpireWarType.获取帝国:
                     if (pWinner == WarWinner.Attackers)
                     {
                         Kingdom kingdom = pWar.getMainAttacker();

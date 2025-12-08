@@ -76,7 +76,6 @@
       <Folder Include="GameResources\civ\icons\Faudlism\Western\" />
       <Folder Include="GameResources\civ\icons\Republic\" />
       <Folder Include="Scripts\AI\" />
-      <Folder Include="Scripts\Regimes\Configs\" />
     </ItemGroup>
     <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>
 

@@ -14,7 +14,70 @@ using Newtonsoft.Json;
 namespace EmpireCraft.Scripts.Regimes;
 
 public class FactionManager
-{
+{        
+    public static Dictionary<FactionType, List<TemporaryFactionType>> FactionConfig =
+        new()
+        {
+            {
+                FactionType.僭主,
+                new List<TemporaryFactionType> { TemporaryFactionType.强者继承法, TemporaryFactionType.宗教同化 }
+            },
+            {
+                FactionType.血脉,
+                new List<TemporaryFactionType> { TemporaryFactionType.转世袭, TemporaryFactionType.宗教同化 }
+            },
+            {
+                FactionType.尊王,
+                new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.转天朝制度 }
+            },
+            {
+                FactionType.自治,
+                new List<TemporaryFactionType> { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战 }
+            },
+            {
+                FactionType.攘夷,
+                new List<TemporaryFactionType>
+                    { TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府, TemporaryFactionType.谋求统一, TemporaryFactionType.转周制 }
+            },
+            {
+                FactionType.绥靖,
+                new List<TemporaryFactionType>
+                    { TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池, TemporaryFactionType.削藩, TemporaryFactionType.设置行政区 }
+            },
+            {
+                FactionType.共和,
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.提高赋税, TemporaryFactionType.提高福利, TemporaryFactionType.清除移民,
+                    TemporaryFactionType.缩减金融霸权
+                }
+            },
+            {
+                FactionType.民主,
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.开放移民, TemporaryFactionType.降低赋税, TemporaryFactionType.提高福利,
+                    TemporaryFactionType.拓展金融霸权
+                }
+            },
+            {
+                FactionType.革命,
+                new List<TemporaryFactionType> { TemporaryFactionType.输出革命, TemporaryFactionType.扶持革命党 }
+            },
+            {
+                FactionType.神权,
+                new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.划地给教廷, 
+                    TemporaryFactionType.恢复圣地, TemporaryFactionType.确立国教, TemporaryFactionType.神授君权 }
+            },
+            {
+                FactionType.融入,
+                new List<TemporaryFactionType> { TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠, TemporaryFactionType.游牧扩张}
+            },
+            {
+                FactionType.同化,
+                new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠, TemporaryFactionType.对外扩张}
+            }
+        };
     public Dictionary<string, FixedFaction>  FixedFactions = new();
 
     public void RecordFactions(FixedFaction faction, Empire empire)
@@ -36,6 +99,8 @@ public enum FactionType
     共和,  //反移民，发展自己
     民主,  //移民，吸血国外
     革命,  //一党，革命输出
+    融入,  //融入帝国中最大的文明
+    同化,  //同化掉其他地区的文明
     无
 }
 public class FixedFaction
@@ -57,7 +122,7 @@ public class FixedFaction
     public int TotalPower => (int) Members.Sum(a=>World.world.units.get(a)?.GetIdentity()?.TotalPerformance??0);
     //倾向于推动的政策
     [JsonIgnore]
-    public List<TemporaryFactionType> TemporaryFactionTypes => ConfigData.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
+    public List<TemporaryFactionType> TemporaryFactionTypes => FactionManager.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
     public List<TemporaryFaction> TemporaryFactions;
     public float cabinet_acc = 0;
     public float officer_acc = 0;

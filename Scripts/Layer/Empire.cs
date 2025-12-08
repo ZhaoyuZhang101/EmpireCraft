@@ -78,6 +78,24 @@ public class Empire : MetaObject<EmpireData>
         //减少税收增加威望
         data.Prestige += (int)(substraction * 100);
     }
+
+    public List<Kingdom> GetKingdomNeighbours()
+    {
+        List<Kingdom> neighbours = new();
+        foreach (var kingdom in World.world.kingdoms)
+        {
+            if (kingdom.IsInSameEmpire(CoreKingdom))continue;
+            if (IsNeighbourWith(kingdom))
+            {
+                if (!neighbours.Contains(kingdom))
+                {
+                    neighbours.Add(kingdom);
+                }
+            }
+        }
+
+        return neighbours;
+    }
     
     public List<Actor> GetMembersWithTrait(string trait)
     {
@@ -480,7 +498,10 @@ public class Empire : MetaObject<EmpireData>
         Regime regime = kingdom.GetRegime();
         if (regime != null)
         {
-            
+            if (regime.type == RegimeType.YouMu)
+            {
+                data.directPre = LM.Get("great");
+            }
             data.has_year_name = regime.HasEraName();
             LogService.LogInfo(regime.HasEraName().ToString());
             regime.Factions.ForEach(f=>
@@ -682,7 +703,19 @@ public class Empire : MetaObject<EmpireData>
     public void SetEmpireName(string name)
     {
         Regime regime = CoreKingdom.GetRegime();
-        var originalName = name + "\u200A" + LM.Get(regime.type == RegimeType.LvLing?"LvLing_empire":EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(CoreKingdom).ToString());
+        var originalName = name;
+        switch (regime.type)
+        {
+            case RegimeType.LvLing:
+                originalName += "\u200A" + LM.Get("LvLing_empire");
+                break;
+            case RegimeType.YouMu:
+                originalName += "\u200A" + LM.Get("YouMu_empire");
+                break;
+            default:
+                originalName += "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(CoreKingdom).ToString());
+                break;
+        }
         data.name = string.IsNullOrEmpty(data.directPre)?originalName: string.Join("\u200A", data.directPre, originalName);
         CoreKingdom.data.name = data.name;
     }

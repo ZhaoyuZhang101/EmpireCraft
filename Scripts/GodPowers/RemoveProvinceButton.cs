@@ -24,11 +24,14 @@ public static class RemoveProvinceButton
             if (pTile.zone_city.hasKingdom())
             {
                 Kingdom kingdom = pTile.zone_city.kingdom;
-                foreach (var city in kingdom.cities)
+                if (kingdom.IsInEmpire() && !kingdom.IsEmpire())
                 {
-                    city.joinAnotherKingdom(kingdom.GetEmpire().CoreKingdom);
+                    foreach (var city in kingdom.cities)
+                    {
+                        city.joinAnotherKingdom(kingdom.GetEmpire().CoreKingdom);
+                    }
+                    return true;
                 }
-                return true;
             }
         }
         return false;

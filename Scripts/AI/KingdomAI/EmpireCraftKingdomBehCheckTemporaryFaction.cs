@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
@@ -34,7 +35,10 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         {
             if (pKingdom.GetEmpire().GetCabinetLeader()?.GetFaction() != dominateFaction) return BehResult.Continue;
         }
-        foreach (var tf in dominateFaction.TemporaryFactions)
+
+        var shuffledTf = dominateFaction.TemporaryFactions.ToList();
+        shuffledTf.Shuffle();
+        foreach (var tf in shuffledTf)
         {
             if (tf.CheckCondition())
             {

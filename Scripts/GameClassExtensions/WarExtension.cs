@@ -27,21 +27,7 @@ public static class WarExtension
         Empire empire = w.main_attacker.GetEmpire();
         if (empire != null)
         {
-            switch (type)
-            {
-                case EmpireWarType.攘夷:
-                    w.data.name = empire.name + type.ToString() + "战争";
-                    break;
-                case EmpireWarType.统一:
-                    w.data.name = empire.name + type.ToString() + "战争";
-                    break;
-                case EmpireWarType.迫使朝贡:
-                    w.data.name = empire.name + type.ToString() + "战争";
-                    break;
-                case EmpireWarType.伐不臣:
-                    w.data.name = empire.name + type.ToString() + "战争";
-                    break;
-            }
+            w.data.name = empire.name + type + "战争";
         }
     }
     public static EmpireWarType GetEmpireWarType(this War w)

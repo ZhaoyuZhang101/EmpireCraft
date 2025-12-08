@@ -916,7 +916,7 @@ namespace EmpireCraft.Scripts.AI
                 War war = World.world.diplomacy.startWar(pActor.kingdom, pActor.kingdom.GetEmpire().CoreKingdom, WarTypeLibrary.normal);
                 if (war != null)
                 {
-                    war.SetEmpireWarType(EmpireWarType.AquireEmpire);
+                    war.SetEmpireWarType(EmpireWarType.获取帝国);
                 }
             }
             return true;
