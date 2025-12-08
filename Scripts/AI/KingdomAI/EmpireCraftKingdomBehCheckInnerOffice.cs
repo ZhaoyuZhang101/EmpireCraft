@@ -8,6 +8,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NCMS.Extensions;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
@@ -28,17 +29,8 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
 
     public void CheckOfficePower(Empire empire)
     {
-        foreach (var coreOffice in empire.data.centerOffice.CoreOffices)
-        {
-            var office = OfficeManager.Offices.TryGetValue(coreOffice, out var oo) ? oo : null;
-            office?.DetectPower(empire);
-        }
-
-        foreach (var divisionOffice in empire.data.centerOffice.Divisions)
-        {
-            var office = OfficeManager.Offices.TryGetValue(divisionOffice, out var oo) ? oo : null;
-            office?.DetectPower(empire);
-        }
+        var office = empire.data.centerOffice.GetAllOffices(empire);
+        office.ForEach(o=>o.DetectPower(empire));
     }
     private void StartCalcOfficePerformance(Empire pEmpire)
     {

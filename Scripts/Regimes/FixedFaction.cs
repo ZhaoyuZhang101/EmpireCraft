@@ -71,11 +71,11 @@ public class FactionManager
             },
             {
                 FactionType.融入,
-                new List<TemporaryFactionType> { TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠, TemporaryFactionType.游牧扩张}
+                new List<TemporaryFactionType> { TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠, TemporaryFactionType.游牧扩张, TemporaryFactionType.分封}
             },
             {
                 FactionType.同化,
-                new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠, TemporaryFactionType.对外扩张}
+                new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠, TemporaryFactionType.对外扩张, TemporaryFactionType.分封}
             }
         };
     public Dictionary<string, FixedFaction>  FixedFactions = new();
@@ -124,8 +124,6 @@ public class FixedFaction
     [JsonIgnore]
     public List<TemporaryFactionType> TemporaryFactionTypes => FactionManager.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
     public List<TemporaryFaction> TemporaryFactions;
-    public float cabinet_acc = 0;
-    public float officer_acc = 0;
     public long Leader = -1L;
     [JsonIgnore]
     public float LastJoinProb { get; private set; } // 记录最近一次计算结果(0~1)

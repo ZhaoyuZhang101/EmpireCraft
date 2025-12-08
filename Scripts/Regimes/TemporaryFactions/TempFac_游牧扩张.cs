@@ -23,6 +23,7 @@ public class TempFac_游牧扩张 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire.CoreKingdom.hasEnemies()) return false;
         var neighbours = empire.GetKingdomNeighbours();
         if (neighbours.Any())
         {

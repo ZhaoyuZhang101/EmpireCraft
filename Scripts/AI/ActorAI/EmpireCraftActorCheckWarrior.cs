@@ -20,7 +20,7 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
         if (pActor.age < 18) return BehResult.Continue;
         Kingdom pKingdom = pActor.kingdom;
         if (pKingdom.GetRegime() == null) return BehResult.Continue;
-        if (!pKingdom.GetRegime().IsAllowSupportCenterArmy()) return BehResult.Continue;
+        if (!pKingdom.GetRegime().IsAllowArmy()) return BehResult.Continue;
         if (!WorldLawLibrary.world_law_civ_army.isEnabled()) return BehResult.Continue;
         if (!pKingdom.IsInEmpire())
         {
@@ -34,7 +34,7 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
                 pActor.city?.makeWarrior(pActor);
                 if (pKingdom.GetRegime().IsAllowSupportCenterArmy())
                 {
-                    if (empire.CoreKingdom.capital.hasArmy())
+                    if (empire.CoreKingdom?.capital?.hasArmy()??false)
                     {
                         var armies =  GetAllCenterArmy(empire);
                         if (armies.Count < empire.kingdoms_list.Count)

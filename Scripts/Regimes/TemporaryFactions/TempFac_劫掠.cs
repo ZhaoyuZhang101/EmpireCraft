@@ -15,7 +15,7 @@ public class TempFac_劫掠 : TemporaryFaction
         Kingdom target = GetKingdomTarget();
         if (target != null)
         {
-            var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, target, WarTypeLibrary.clash);
+            var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, target, WarTypeLibrary.normal);
             war.SetEmpireWarType(EmpireWarType.劫掠);
             var op = World.world.diplomacy.getOpinion(target, empire.CoreKingdom);
             if (!op.results.ContainsKey(EmpireCraftOpinionAddition.OpinionKingdomBeenPlunder))
@@ -33,6 +33,8 @@ public class TempFac_劫掠 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire == null) return false;
+        if (empire.CoreKingdom.hasEnemies()) return false;
         var neighbours = empire.GetKingdomNeighbours();
         if (!neighbours.Any()) return false;
         var target = neighbours.Find(k => k.GetRegime().type != empire.CoreKingdom.GetRegime().type);

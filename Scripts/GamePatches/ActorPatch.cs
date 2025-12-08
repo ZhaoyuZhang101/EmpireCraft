@@ -68,9 +68,20 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(UpdateAge)));
         new Harmony(nameof(UpdateReligion)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setReligion)),
             postfix: new HarmonyMethod(GetType(), nameof(UpdateReligion)));
+        new Harmony(nameof(UpdateStats)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.updateStats)),
+            postfix: new HarmonyMethod(GetType(), nameof(UpdateStats)));
         LogService.LogInfo("角色补丁加载成功");
     }
 
+    public static void UpdateStats(Actor __instance)
+    {
+        if (!__instance.hasKingdom()) return;
+        if (!__instance.kingdom.IsInEmpire()) return;
+        Empire empire = __instance.kingdom.GetEmpire();
+        __instance.stats["warfare"] += empire.data.军事_addition;
+        __instance.stats["stamina"] += empire.data.军事_addition;
+        __instance.stats["intelligence"] += empire.data.教育_addition;
+    }
     public static void UpdateReligion(Actor __instance, Religion pObject)
     {
         if (__instance.hasCity())

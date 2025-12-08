@@ -14,6 +14,7 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
+        if (pKingdom.GetEmpire()==null) return BehResult.Continue;
         Regime regime = pKingdom.GetRegime();
         FixedFaction dominateFaction = regime.GetDominateFaction();
         if (dominateFaction == null) return BehResult.Continue;

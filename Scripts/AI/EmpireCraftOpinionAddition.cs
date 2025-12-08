@@ -36,7 +36,7 @@ public static class EmpireCraftOpinionAddition
         {
             id = nameof(OpinionKingdomBeenPlunder),
             translation_key = nameof(OpinionKingdomBeenPlunder),
-            calc = (pMain, pTarget) => 0
+            calc = (pMain, pTarget) => -20
         });
         opl.add(new OpinionAsset
         {
