@@ -26,6 +26,7 @@ public class TempFac_分封 : TemporaryFaction
                 Regime kingdomRegime = kingdom.GetRegime();
                 kingdomRegime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
                 kingdomRegime.SetAllowSupportCenterArmy(false);
+                kingdomRegime.SetTaxLevel(TaxLevel.None);
                 break;
             }
         }

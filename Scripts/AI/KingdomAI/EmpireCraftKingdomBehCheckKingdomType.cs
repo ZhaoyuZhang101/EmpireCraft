@@ -301,6 +301,6 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                     return  KingdomType.YouMu_kingdom;
             }
         }
-        return  KingdomType.default_country_post;
+        return  KingdomType.LvLing_kingdom;
     }
 }
