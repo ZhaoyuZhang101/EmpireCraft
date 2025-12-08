@@ -165,7 +165,7 @@ public class OfficeObject
                 case OfficerPowerType.天子护理:
                     if (officer != null)
                     {
-                        empire.data.天子护理_addition += officer.level*5;
+                        empire.data.天子护理_addition = officer.level*5;
                     }
                     else
                     {
@@ -175,7 +175,7 @@ public class OfficeObject
                 case OfficerPowerType.天子政教:
                     if (officer != null)
                     {
-                        empire.data.天子政教_addition += officer.level*5;
+                        empire.data.天子政教_addition = officer.level*5;
                     }
                     else
                     {
@@ -185,7 +185,7 @@ public class OfficeObject
                 case OfficerPowerType.天子智教:
                     if (officer != null)
                     {
-                        empire.data.天子智教_addition += officer.intelligence;
+                        empire.data.天子智教_addition = officer.intelligence;
                     }
                     else
                     {
@@ -195,7 +195,7 @@ public class OfficeObject
                 case OfficerPowerType.宗教:
                     if (officer != null)
                     {
-                        empire.data.宗教_addition += officer.intelligence;
+                        empire.data.宗教_addition = officer.intelligence;
                     }
                     else
                     {
@@ -205,7 +205,7 @@ public class OfficeObject
                 case OfficerPowerType.礼仪:
                     if (officer != null)
                     {
-                        empire.data.宗教_addition += officer.stewardship;
+                        empire.data.宗教_addition = officer.stewardship;
                     }
                     else
                     {
@@ -215,7 +215,7 @@ public class OfficeObject
                 case OfficerPowerType.财政:
                     if (officer != null)
                     {
-                        empire.data.财政_addition += officer.stewardship;
+                        empire.data.财政_addition = officer.stewardship;
                     }
                     else
                     {

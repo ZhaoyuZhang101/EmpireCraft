@@ -1,3 +1,4 @@
+using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
@@ -23,12 +24,18 @@ public class TempFac_转天朝制度 : TemporaryFaction
             regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
         }
         empire.data.centerOffice.Init(empire.CoreKingdom);
+        empire.AutoEnfeoff();
         End();
     }
 
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire.kingdoms_list.FindAll(k => !k.IsEmpire()).Sum(k => k.countTotalWarriors()) <
+            empire.CoreKingdom.countTotalWarriors())
+        {
+            return true;
+        }
         foreach (var k in empire.kingdoms_list)
         {
             if (k.IsEmpire()) continue;

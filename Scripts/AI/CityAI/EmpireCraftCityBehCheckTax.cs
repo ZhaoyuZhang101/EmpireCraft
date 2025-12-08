@@ -12,6 +12,7 @@ public class EmpireCraftCityBehCheckTax:GameAICityBase
     public override BehResult execute(City pCity)
     {
         if (!pCity.IsNeedToSubmitTax()) return BehResult.Continue;
+        if (pCity.getLoyalty()<=0) return BehResult.Continue;
         var pTaxRate = pCity.kingdom.GetTaxRate();
         Kingdom pKingdom = pCity.kingdom;
         //金钱

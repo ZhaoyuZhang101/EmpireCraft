@@ -4,6 +4,7 @@ using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
@@ -85,6 +86,14 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             {
                 var warExpend = (empire.countWarriors() / 2) * empire.CoreKingdom.getWars().Count();
                 empire.CoreKingdom.SubMoney(warExpend);
+            }
+
+            var jiedushis = empire.kingdoms_list.FindAll(k => k.GetKingdomType() == KingdomType.LvLing_jiedushi);
+            if (jiedushis.Any())
+            {
+                //军府维护金
+                var junfuMoney = jiedushis.Sum(k => k.countTotalWarriors());
+                empire.CoreKingdom.SubMoney(junfuMoney);
             }
         }
         if (empire.IsNeedToGive())

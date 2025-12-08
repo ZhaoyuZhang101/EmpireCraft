@@ -163,6 +163,10 @@ public class Regime
     {
         return (TaxLevel)options["option_tax_level"][0];
     }
+    public void SetTaxLevel(TaxLevel level)
+    {
+        options["option_tax_level"][0] = (int) level;
+    }
 
     public ReligionLevel GetReligionLevel()
     {

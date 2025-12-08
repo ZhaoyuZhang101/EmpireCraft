@@ -16,6 +16,7 @@ public class TempFac_转军府 : TemporaryFaction
             Regime regime = kingdom.GetRegime();
             regime.SetAllowDiplomacy(true);
             regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+            regime.SetTaxLevel(TaxLevel.None);
         }
         End();
     }

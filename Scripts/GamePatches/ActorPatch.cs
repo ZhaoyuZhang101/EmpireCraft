@@ -77,10 +77,21 @@ public class ActorPatch : GamePatch
     {
         if (!__instance.hasKingdom()) return;
         if (!__instance.kingdom.IsInEmpire()) return;
+        if (__instance.meta_type!=MetaType.Unit) return;
         Empire empire = __instance.kingdom.GetEmpire();
-        __instance.stats["warfare"] += empire.data.军事_addition;
-        __instance.stats["stamina"] += empire.data.军事_addition;
-        __instance.stats["intelligence"] += empire.data.教育_addition;
+        if (__instance.GetOffice()==null||!__instance.GetOffice().powers.Contains(OfficerPowerType.军事))
+        {
+            __instance.stats["warfare"] += empire.data.军事_addition;
+            __instance.stats["stamina"] += empire.data.军事_addition;
+        }
+        if (__instance.GetOffice()==null||!__instance.GetOffice().powers.Contains(OfficerPowerType.教育))
+        {
+            __instance.stats["intelligence"] += empire.data.教育_addition;
+        }
+        if (__instance.isOfficer())
+        {
+            LogService.LogInfo($"{__instance.name}"+__instance.stats["warfare"]);
+        }
     }
     public static void UpdateReligion(Actor __instance, Religion pObject)
     {
