@@ -17,6 +17,7 @@ namespace EmpireCraft.Scripts.Enums
         迫使朝贡,
         劫掠,
         游牧扩张,
+        帝国扩张,
         None
     }
 }

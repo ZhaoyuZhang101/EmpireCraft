@@ -1,5 +1,6 @@
 ﻿using System;
 using ai.behaviours;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Regimes;
 
@@ -12,15 +13,19 @@ public class EmpireCraftCityBehCheckOffice:GameAICityBase
     {
         if (pCity.hasKingdom())
         {
-            
+            SyncOffice(pCity);
         }
-        SyncOffice(pCity);
         return BehResult.Continue;
         
     }
     private static void SyncOffice(City pCity)
     {
         OfficeObject office = pCity.GetOffice();
+        if (office == null)
+        {
+            pCity.InitialRegime();
+            return;
+        }
         office.meta_object = pCity;
         office.is_local = true;
     }

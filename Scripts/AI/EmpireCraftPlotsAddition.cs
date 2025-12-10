@@ -628,7 +628,7 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.list.RemoveAll(a => a.id == "new_war");
             AssetManager.plots_library.basic_plots.RemoveAll(a=>a.id=="new_war");
-            AssetManager.plots_library.add(PlotsLibrary.new_war = new PlotAsset
+            AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empirecraft_war",
                 is_basic_plot = true,
@@ -651,11 +651,7 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
-                    
-                    if (ConfigData.IS_ORIGINAL_WAR_LOGIC)
-                    {
-                        return false;
-                    }
+                    if (kingdom.IsEmpire()) return false;
                     if (pActor.hasCulture() && pActor.culture.hasTrait("serenity_now"))
                     {
                         return false;
@@ -678,7 +674,7 @@ namespace EmpireCraft.Scripts.AI
                             }
                         }
                     }
-                    if (kingdom.IsInEmpire())
+                    if (kingdom.IsInEmpire()&&!kingdom.IsEmpire())
                     {
                         if (!kingdom?.GetEmpire()?.IsAllowToMakeWar()??false)
                         {
@@ -692,7 +688,6 @@ namespace EmpireCraft.Scripts.AI
   
                     Kingdom kingdom = pActor.kingdom;
                     var warTarget = getWarTarget(kingdom);
-                    
                     if (warTarget == null)
                     {
                         return false;
@@ -706,14 +701,17 @@ namespace EmpireCraft.Scripts.AI
                         }
                     }
 
-                    if (warTarget.GetGivenAllianceEmpire() == kingdom.GetEmpire())
+                    if (kingdom.IsInEmpire())
                     {
-                        return false;
-                    }
+                        if (warTarget.GetGivenAllianceEmpire() == kingdom.GetEmpire())
+                        {
+                            return false;
+                        }
 
-                    if (warTarget.GetTakenAllianceEmpire() == kingdom.GetEmpire())
-                    {
-                        return false;
+                        if (warTarget.GetTakenAllianceEmpire() == kingdom.GetEmpire())
+                        {
+                            return false;
+                        }
                     }
                     if (!kingdom.IsNeighbourWith(warTarget))
                     {
@@ -734,7 +732,7 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
-                    return DiplomacyHelpers.isWarNeeded(pActor.kingdom) ? true : false;
+                    return DiplomacyHelpers.isWarNeeded(pActor.kingdom);
                 },
                 action = delegate (Actor pActor)
                 {

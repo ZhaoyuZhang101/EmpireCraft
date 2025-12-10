@@ -20,6 +20,10 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         if (dominateFaction == null) return BehResult.Continue;
         foreach (var tf in dominateFaction.TemporaryFactions)
         {
+            if (tf.IsNeedToCountDown())
+            {
+                tf.CountDown -= 1;
+            }
             if (tf.IsStarted())
             {
                 tf.CheckNeedToUpdate();

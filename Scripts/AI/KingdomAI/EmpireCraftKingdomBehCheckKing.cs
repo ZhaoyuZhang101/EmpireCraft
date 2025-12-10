@@ -28,13 +28,19 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 return BehResult.Continue;
             }
         }
-        Regime regime = pKingdom.GetRegime();
         if (NeedSuccession(pKingdom))
         {
             if (pKingdom.HasHeir())
             {
                 ChooseKingFromHeir(pKingdom);  
                 return BehResult.Continue;
+            }
+            else
+            {
+                if (pKingdom.IsEmpire())
+                {
+                    return BehResult.Continue;
+                }
             }
         } 
         OfficeObject office = pKingdom.GetOffice();

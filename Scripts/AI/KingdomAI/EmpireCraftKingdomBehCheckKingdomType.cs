@@ -26,6 +26,11 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
     private static void SyncOffice(Kingdom pKingdom)
     {
         OfficeObject office = pKingdom.GetOffice();
+        if (office == null)
+        {
+            pKingdom.InitialRegime();
+            return;
+        }
         office.meta_object = pKingdom;
         office.is_local = true;
         office.actor_id = pKingdom.king?.id??-1L;
@@ -49,7 +54,6 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         }
         //获取国家政体后同步国家官位
         var regime = pKingdom.GetRegime();
-        CityType cityType = CalcCityType(pKingdom);
         if (pKingdom.GetOffice()?.regimeType != regime.type||originalKingdomType != newkingdomType)
         {
             BureauSetting setting = regime.bureau_config.kingdoms[newkingdomType];
@@ -69,17 +73,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             pKingdom.SetOffice(officeObject);
             foreach (var city in pKingdom.cities)
             {
-                BureauSetting citySetting = regime.bureau_config.cities[cityType];
-                OfficeObject officeObject2 = new OfficeObject();
-                officeObject2.InitialOffice(citySetting);
-                officeObject2.regimeType = regime.type;
-                officeObject2.meta_object = city;
-                officeObject.is_local = true;
-                if (city.hasLeader())
-                {
-                    officeObject2.SetActor(city.leader);
-                }
-                city.SetOffice(officeObject2);
+                city.InitialRegime();
             }
         }
         
@@ -115,7 +109,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         }
         foreach (var city in pKingdom.cities)
         {
-            var cityBack = LM.Get(cityType.ToString());
+            var cityBack = LM.Get(city.GetCityType().ToString());
             city.data.name = string.Join("\u200A", city.GetCityName(), cityBack);
         }
     }

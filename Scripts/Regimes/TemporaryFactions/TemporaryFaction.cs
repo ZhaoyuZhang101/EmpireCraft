@@ -16,20 +16,24 @@ public abstract class TemporaryFaction
 {
     [JsonIgnore]
     public TemporaryFactionType type => Enum.TryParse(GetType().ToString().Split('_').Last(), out TemporaryFactionType res) ? res : default;
-    
+
+    public int Acc = 0;
+    public virtual bool Hide => false;
+    public int CountDown = 0;
+    public virtual int Budget => 0;
     public List<long>  kingdoms = new List<long>();
     public FactionType factionType = FactionType.无;
-    
     public long EmpireID = -1L;
     public long TargetID = -1L;
-    public MetaType TargetType = MetaType.Kingdom;
+    public MetaType TargetType = MetaType.None;
     
     public float progress = 0;
     public float progressMax = 60;
     [JsonIgnore]
-    public float acceleration => GetEmpire()?.data.cabinet_acc??0+GetEmpire()?.data.officer_acc??0;
+    public float acceleration => GetEmpire()?.data.cabinet_acc??0+GetEmpire()?.data.officer_acc??0+Acc;
     private bool started = false;
     public double timestamp = -1L;
+    public double countDownTimestamp = -1L;
     
     public void Init(FixedFaction faction)
     {
@@ -38,9 +42,19 @@ public abstract class TemporaryFaction
         timestamp   = World.world.getCurWorldTime();
         kingdoms    = new List<long>();
         started     = false;
+        countDownTimestamp = World.world.getCurWorldTime();
         LogService.LogInfo("初始化诉求");
     }
 
+    public bool IsNeedToCountDown()
+    {
+        if (Date.getYearsSince(countDownTimestamp) > 1)
+        {
+            countDownTimestamp =  World.world.getCurWorldTime();
+            return true;
+        }
+        return false;
+    }
     public void SetEmpire(Empire pEmpire)
     {
         this.EmpireID = pEmpire.getID();
@@ -123,11 +137,11 @@ public abstract class TemporaryFaction
     protected bool CheckRebelling(Kingdom kingdom)
     {
         var targetFaction = kingdom?.king?.GetFaction();
+        //全部势力
+        var cities = new List<City>();
         if (targetFaction != null)
         {
             var targetMembers = targetFaction.Members.ToList();
-            //全部势力
-            var cities = new List<City>();
             if (targetFaction != GetFaction())
             {
                 foreach (var a in targetFaction.Members)
@@ -161,37 +175,32 @@ public abstract class TemporaryFaction
                     }
                 }
             }
-
-            var totalWarriors = cities.Sum(c => c.countWarriors());
-            if (totalWarriors >= GetEmpire().countWarriors() - totalWarriors)
+        }
+        var totalWarriors = cities.Sum(c => c.countWarriors());
+        if (totalWarriors >= GetEmpire().countWarriors() - totalWarriors || kingdom.GetEmpire().CoreKingdom.GetMoney()<0)
+        {
+            var leader = targetFaction?.GetLeader()??kingdom?.king;
+            var royalMembers = targetFaction?.Members.Select(id => World.world.units.get(id)).ToList().FindAll(a =>
+                a.GetSpecificClan() == GetEmpire().EmpireSpecificClan && a != null);
+            if (royalMembers?.Any()??false)
             {
-                var leader = targetFaction.GetLeader();
-                var royalMembers = targetFaction.Members.Select(id => World.world.units.get(id)).ToList().FindAll(a =>
-                    a.GetSpecificClan() == GetEmpire().EmpireSpecificClan && a != null);
-                if (royalMembers.Any())
+                leader = royalMembers?.OrderByDescending(a => a.age).First();
+            }
+
+            if (leader != null)
+            {
+                kingdom.StartFactionRebelling(targetFaction);
+                foreach (var c in cities)
                 {
-                    leader = royalMembers.OrderByDescending(a => a.age).First();
+                    if (c == kingdom.capital) continue;
+                    c.joinAnotherKingdom(kingdom);
                 }
 
-                if (leader != null)
-                {
-                    Kingdom newKingdom =
-                        cities.OrderByDescending(c => c.countWarriors()).First().makeOwnKingdom(leader);
-                    GetEmpire().join(newKingdom, pForce: true);
-                    newKingdom.StartFactionRebelling(targetFaction);
-                    foreach (var c in cities)
-                    {
-                        if (c == newKingdom.capital) continue;
-                        c.joinAnotherKingdom(newKingdom);
-                    }
-
-                    var war = World.world.diplomacy.startWar(newKingdom, GetEmpire().CoreKingdom,
-                        WarTypeLibrary.normal);
-                    war.SetEmpireWarType(EmpireWarType.派系叛乱);
-                    war.data.name = targetFaction.Name + "叛乱";
-                    
-                    return true;
-                }
+                var war = World.world.diplomacy.startWar(kingdom, GetEmpire().CoreKingdom,
+                    WarTypeLibrary.normal);
+                war.SetEmpireWarType(EmpireWarType.派系叛乱);
+                war.data.name = targetFaction?.Name??kingdom.name + "叛乱";
+                return true;
             }
         }
         return false;
@@ -216,7 +225,10 @@ public abstract class TemporaryFaction
     }
     public void Start()
     {
-        started = true;
+        if (CountDown <= 0)
+        {
+            started = true;
+        }
     }
 
     public bool IsStarted()
@@ -227,10 +239,16 @@ public abstract class TemporaryFaction
     public void End()
     {
         TargetID = -1L;
-        TargetType = MetaType.Kingdom;
+        TargetType = MetaType.None;
         kingdoms.Clear();
         started = false;
         progress = 0;
+        Acc = 0;
+    }
+
+    public void FinishedAction()
+    {
+        GetEmpire()?.CoreKingdom?.SubMoney(Budget);
     }
     public void JoinKingdom(Kingdom kingdom)
     {
@@ -246,6 +264,11 @@ public abstract class TemporaryFaction
         }
         if (started)
         {
+            if (!CheckTarget())
+            {
+                End();
+                return;
+            }
             if (GetEmpire().CoreKingdom.GetRegime().has_cabinet)
             {
                 if (GetEmpire().GetCabinetLeader()?.GetFaction()?.Type != factionType)
@@ -255,7 +278,7 @@ public abstract class TemporaryFaction
                 } 
             }
             progress ++;
-            if (progress >= progressMax-(acceleration>40?40:acceleration)) Execute();
+            if (progress >= progressMax-(acceleration>=50?50:acceleration)) Execute();
         }
         else
         {
@@ -263,6 +286,27 @@ public abstract class TemporaryFaction
         }
     }
 
+    public bool CheckTarget()
+    {
+        if (TargetType == MetaType.None) return true;
+        if (GetActorTarget().isRekt())
+        {
+            if (GetKingdomTarget().isRekt())
+            {
+                if (GetCityTarget().isRekt())
+                {
+                    if (GetReligionTarget().isRekt())
+                    {
+                        if (GetTitleTarget().isRekt())
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
     public void CheckNeedToUpdate()
     {
         if (Date.getMonthsSince(timestamp) > 1)

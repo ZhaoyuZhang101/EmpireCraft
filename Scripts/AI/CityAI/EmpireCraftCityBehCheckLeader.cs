@@ -41,6 +41,7 @@ public class EmpireCraftCityBehCheckLeader : GameAICityBase
     {
         if (pCity.hasLeader()) return;
         OfficeObject office = pCity.GetOffice();
+        if (office == null) return;
         office.meta_object = pCity;
         office.Select(pCity.kingdom);
     }

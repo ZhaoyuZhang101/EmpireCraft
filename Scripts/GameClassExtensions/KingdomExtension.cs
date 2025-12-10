@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
@@ -48,6 +49,7 @@ public static class KingdomExtension
         public List<long> WantedTitle = new List<long>();
         public int IndependentValue = 50;
         public bool is_need_to_choose_heir = false;
+        public double corruption_rate = 0.0f;
         public double last_exam_timestamp = -1L;
         public bool isFactionRebelling = false;
         public double last_tax_timestamp = -1L;
@@ -68,7 +70,34 @@ public static class KingdomExtension
         public float leave_taken_alliance_preference = 0.0f;
         public long office_id = -1L;
     }
+    public static void AddCorruptionRate(this Kingdom kingdom, double addition)
+    {
+        if (kingdom.GetCorruptionRate() < 1.0f||kingdom.GetCorruptionRate()>0.0f)
+        {
+            kingdom.GetOrCreate().corruption_rate += addition;
+            if (kingdom.GetCorruptionRate() > 1.0f)
+            {
+                kingdom.SetCorruptionRate(1.0f);
+            }
 
+            if (kingdom.GetCorruptionRate() < 0.0f)
+            {
+                kingdom.SetCorruptionRate(0.0f);
+            }
+        }
+        
+    }
+
+    public static double GetCorruptionRate(this Kingdom kingdom)
+    {
+        return kingdom.GetOrCreate().corruption_rate;
+    }
+    
+
+    public static void SetCorruptionRate(this Kingdom kingdom, Double value)
+    {
+        kingdom.GetOrCreate().corruption_rate = value;
+    }
     public static void SetHeirLaw(this Kingdom k, EmpireHeirLawType type)
     {
         k.GetOrCreate().HeirLaw = type;
@@ -101,7 +130,7 @@ public static class KingdomExtension
                 k.SetHeirLaw(EmpireHeirLawType.random);
                 break;
             case EmpireHeirLawType.random:
-                k.SetHeirLaw(EmpireHeirLawType.officer);
+                k.SetHeirLaw(!k.IsEmpire() ? EmpireHeirLawType.officer : k.GetOrCreate().DefaultHeirLaw);
                 break;
             case EmpireHeirLawType.officer:
                 k.SetHeirLaw(k.GetOrCreate().DefaultHeirLaw);
@@ -223,13 +252,13 @@ public static class KingdomExtension
 
     public static void SetCenterArmy(this Kingdom k, Army army)
     {
-        army.name = $"{k.GetEmpire().GetEmpireName()}-{k.GetKingdomName()}驻军";
+        army.name = $"{k?.GetEmpire()?.GetEmpireName()}-{k?.GetKingdomName()}驻军";
         k.GetOrCreate().CenterArmID = army.getID();
     }
 
     public static void StartFactionRebelling(this Kingdom k, FixedFaction faction)
     {
-        k.data.name = faction.Name + "叛乱";
+        k.data.name = faction?.Name??k.name + "叛乱";
         k.GetOrCreate().isFactionRebelling = true;
     }
 
@@ -296,19 +325,23 @@ public static class KingdomExtension
             }
         }
 
-        switch (k.GetRegime().GetTaxLevel())
+        if (k.GetRegime() != null)
         {
-            case TaxLevel.None:
-                return 0.0f;
-            case TaxLevel.Low:
-                return baseTax;
-            case TaxLevel.Medium:
-                return baseTax + 0.2f;
-            case TaxLevel.High:
-                return baseTax + 0.4f;
-            default:
-                return baseTax;
-        } 
+            switch (k.GetRegime().GetTaxLevel())
+            {
+                case TaxLevel.None:
+                    return 0.0f;
+                case TaxLevel.Low:
+                    return baseTax;
+                case TaxLevel.Medium:
+                    return baseTax + 0.2f;
+                case TaxLevel.High:
+                    return baseTax + 0.4f;
+                default:
+                    return baseTax;
+            } 
+        }
+        return baseTax;
     }
     
     public static void SetKingdomType(this Kingdom k, KingdomType type)
@@ -405,6 +438,30 @@ public static class KingdomExtension
             f.FixMissedTemporaryFactions();
             f.TemporaryFactions.ForEach(tf=>tf.Init(f));
         });
+    }
+
+    public static void InitialRegime(this Kingdom k)
+    {
+        var culture = ConfigData.speciesCulturePair.TryGetValue(k.asset.id, out string speciesCulture)? speciesCulture : "Western";
+        RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
+            ? setting.regime
+            : RegimeType.Feudalism;
+        k.SetRegimeType(regimeType);
+        k.LoadRegime();
+        k.GetRegime().SetAllowDiplomacy(true);
+        var regime = k.GetRegime();
+        var type = EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(k);
+        BureauSetting set = regime.bureau_config.kingdoms[type];
+        OfficeObject officeObject = new OfficeObject();
+        officeObject.InitialOffice(set);
+        officeObject.regimeType = regime.type;
+        officeObject.meta_object = k;
+        officeObject.is_local = true;
+        k.SetOffice(officeObject);
+        foreach (var city in k.cities)
+        {
+            city.InitialRegime();
+        }
     }
     public static int GetIndependentValue(this Kingdom k)
     {
@@ -553,9 +610,6 @@ public static class KingdomExtension
         if (!k.hasKing()) return false;
         // 基本条件检查
         if (k.isRekt() || k.IsEmpire()) return false;
-
-        // 可能需要满足最小城市数量
-        if (k.cities.Count < 2) return false;
 
         // 检查是否是同物种中最强大的
         int allEmpireNumInSameSpecies = World.world.kingdoms.ToList().FindAll(p => p.species_id == k.species_id && p.IsEmpire()).Count;

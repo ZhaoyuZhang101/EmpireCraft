@@ -32,7 +32,7 @@
       }
     ],
     "options": {
-      "toggle_allow_diplomacy": [0],
+      "toggle_allow_diplomacy": [1],
       "toggle_allow_army": [0],
       "toggle_support_army_to_center": [1],
       "option_tax_level": [2, 4],

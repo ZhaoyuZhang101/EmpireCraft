@@ -20,6 +20,7 @@ public class TempFac_{type_name} : TemporaryFaction
     {{
         LogService.LogInfo($\"执行{{this.type}}\");
         Empire empire = GetEmpire();
+        FinishedAction();
         End();
     }}
 

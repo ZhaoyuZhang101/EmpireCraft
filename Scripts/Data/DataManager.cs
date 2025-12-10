@@ -26,6 +26,10 @@ public static class DataManager
         string loadPath = Path.Combine(loadRootPath, "EmpireCraftModData.json");
         if (!File.Exists(loadPath))
         {
+            foreach (var worldKingdom in World.world.kingdoms)
+            {
+                worldKingdom.InitialRegime();
+            }
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }

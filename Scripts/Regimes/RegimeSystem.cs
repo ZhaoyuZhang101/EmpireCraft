@@ -143,7 +143,8 @@ public class Regime
 
     public FixedFaction GetDominateFaction()
     {
-        return Factions.OrderByDescending(a=>a.TotalPower).First();
+        var force = Factions.Find(f => f.Force);
+        return force ?? Factions.OrderByDescending(a=>a.TotalPower).First();
     }
 
     public List<Actor> GetAllFactionMembers()

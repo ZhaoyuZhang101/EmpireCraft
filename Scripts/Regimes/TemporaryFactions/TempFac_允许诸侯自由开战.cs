@@ -15,6 +15,7 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
         {
             Regime regime = kingdom.GetRegime();
             regime.SetAllowDiplomacy(true);
+            regime.SetAllowSupportCenterArmy(false);
         }
         End();
     }

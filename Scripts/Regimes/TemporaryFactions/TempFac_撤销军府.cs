@@ -13,14 +13,14 @@ public class TempFac_撤销军府 : TemporaryFaction
         var kingdom = GetKingdomTarget();
         if (kingdom != null)
         {
-            LogService.LogInfo($"执行1{kingdom.data.name}");
             if (!CheckRebelling(kingdom))
             {
-                LogService.LogInfo("执行2");
                 kingdom.GetRegime().SetAllowDiplomacy(false);
                 kingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+                kingdom.GetRegime().SetAllowSupportCenterArmy(false);
             }
         }
+        CountDown = 5;
         End();
     }
     

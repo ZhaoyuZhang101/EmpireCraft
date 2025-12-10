@@ -4,6 +4,7 @@ using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General.UI.Prefabs;
 using System;
 using System.Collections.Generic;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.services;
@@ -26,12 +27,58 @@ public static class CityExtension
         public int Money = 0;
         [JsonIgnore]
         public TextInput limitationNumber { get; set; }
+
+        public double corruption_rate = 0.0f;
         public long personalIdentityId = -1L;
         public bool is_choosing_heir = false;
         [JsonIgnore]
         public SimpleButton limitToggle { get; set; }
         public CityType cityType { get; set; }
         public long office_id { get; set; } = -1L;
+    }
+
+    public static void AddCorruptionRate(this City city, double addition)
+    {
+        if (city.GetCorruptionRate() < 1.0f||city.GetCorruptionRate()>0.0f)
+        {
+            city.GetOrCreate().corruption_rate += addition;
+            if (city.GetCorruptionRate() > 1.0f)
+            {
+                city.SetCorruptionRate(1.0f);
+            }
+            if (city.GetCorruptionRate() < 0.0f)
+            {
+                city.SetCorruptionRate(0.0f);
+            }
+        }
+    }
+
+    public static void InitialRegime(this City city)
+    {
+        if (!city.hasKingdom()) return;
+        if (city.kingdom.GetRegime()==null) return;
+        CityType cityType = EmpireCraftKingdomBehCheckKingdomType.CalcCityType(city.kingdom);
+        city.SetCityType(cityType);
+        BureauSetting citySetting = city.kingdom.GetRegime().bureau_config.cities[cityType];
+        OfficeObject officeObject2 = new OfficeObject();
+        officeObject2.InitialOffice(citySetting);
+        officeObject2.regimeType = city.kingdom.GetRegime().type;
+        officeObject2.meta_object = city;
+        officeObject2.is_local = true;
+        if (city.hasLeader())
+        {
+            officeObject2.SetActor(city.leader);
+        }
+        city.SetOffice(officeObject2);
+    }
+    public static double GetCorruptionRate(this City city)
+    {
+        return city.GetOrCreate().corruption_rate;
+    }
+
+    public static void SetCorruptionRate(this City city, Double value)
+    {
+        city.GetOrCreate().corruption_rate = value;
     }
     public static void SetCityType(this City c, CityType type)
     {

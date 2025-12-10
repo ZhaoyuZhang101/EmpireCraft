@@ -779,5 +779,270 @@
             "CoreOffice": [],
             "Divisions": []
         }
+    },
+    {
+        "name": "Egypt",
+        "setting": {
+            "regime": "Arabic",
+            "traits": ["patriarchy"],
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "\u200A",
+                    "group_3": "Family"
+                },
+                "rule": [
+                    "group_1", "group_2", "group_3"
+                ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "\u200A"
+                },
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1",
+                    "group_3": "UnitNamesFemale2"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "group_3",
+                    "sex_female",
+                    "space"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
+        }
+    },
+    {
+        "name": "Aztec",
+        "setting": {
+            "regime": "Arabic",
+            "traits": ["patriarchy"],
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1",
+                    "group_2": "CityNames2"
+                },
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "\u200A",
+                    "group_3": "Clan"
+                },
+                "rule": [
+                    "group_1",
+                    "group_2"
+                ],
+                "name_pos": 0,
+                "has_sex_post": true,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "\u200A",
+                    "group_3": "Family"
+                },
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
+                "has_sex_post": true,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female",
+                    "space"
+                ],
+                "name_pos": 0,
+                "is_invert": false
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
+        }
+    },
+    {
+        "name": "India",
+        "setting": {
+            "regime": "Arabic",
+            "traits": ["patriarchy"],
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "\u200A",
+                    "group_3": "Clan"
+                },
+                "rule": [
+                    "group_1", "group_2", "group_3"
+                ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "\u200A"
+                },
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female",
+                    "space"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
+        }
+    },
+    {
+        "name": "Corporate",
+        "setting": {
+            "regime": "Republic",
+            "traits": ["patriarchy"],
+            "City": {
+                "groups": {
+                    "group_1": "GreekLetters",
+                    "group_2": "-",
+                    "group_3": "EnglishLetters",
+                    "group_4": "Number",
+                    "group_5": "\u200A",
+                    "group_6": "CityNames"
+                },
+                "rule": [ "group_1", "group_2", "group_3", "group_4", "group_4", "group_5", "group_6" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "Clan",
+                    "group_3": "\u200A"
+                },
+                "rule": [ "group_1", "group_3", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "Family",
+                    "group_3": "\u200A"
+                },
+                "rule": [ "group_1", "group_3", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale",
+                    "group_2": "UnitNamesFemale"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female",
+                    "space"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
+        }
     }
 ]
