@@ -21,11 +21,11 @@ public class FactionManager
         {
             {
                 FactionType.僭主,
-                new List<TemporaryFactionType> { TemporaryFactionType.强者继承法, TemporaryFactionType.宗教同化 }
+                new List<TemporaryFactionType> { TemporaryFactionType.强者继承法, TemporaryFactionType.宗教同化, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.血脉,
-                new List<TemporaryFactionType> { TemporaryFactionType.转世袭, TemporaryFactionType.宗教同化 }
+                new List<TemporaryFactionType> { TemporaryFactionType.转世袭, TemporaryFactionType.宗教同化, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.尊王,
@@ -76,15 +76,16 @@ public class FactionManager
             {
                 FactionType.神权,
                 new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.划地给教廷, 
-                    TemporaryFactionType.恢复圣地, TemporaryFactionType.确立国教, TemporaryFactionType.神授君权 }
+                    TemporaryFactionType.恢复圣地, TemporaryFactionType.确立国教, TemporaryFactionType.神授君权, 
+                    TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.融入,
-                new List<TemporaryFactionType> { TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠, TemporaryFactionType.游牧扩张, TemporaryFactionType.分封}
+                new List<TemporaryFactionType> { TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠, TemporaryFactionType.游牧扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位}
             },
             {
                 FactionType.同化,
-                new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠, TemporaryFactionType.对外扩张, TemporaryFactionType.分封}
+                new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠, TemporaryFactionType.对外扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位}
             }
         };
     public Dictionary<string, FixedFaction>  FixedFactions = new();
