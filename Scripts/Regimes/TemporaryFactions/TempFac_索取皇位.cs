@@ -1,4 +1,5 @@
 using System.Linq;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
@@ -18,6 +19,31 @@ public class TempFac_索取皇位 : TemporaryFaction
             var empire = GetEmpire();
             empire.CoreKingdom.setKing(target);
             target.setKingdom(empire.CoreKingdom);
+            if (empire.CoreKingdom.GetMoney() <= 0)
+            {
+                War war = null;
+                foreach (var kingdom in empire.kingdoms_hashset)
+                {
+                    if (kingdom.IsEmpire()) continue;
+                    if (kingdom?.king?.GetFaction()==target.GetFaction() && war == null) continue;
+                    if (war == null)
+                    {
+                        war = DiplomacyHelpers.wars.newWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
+                        war.SetEmpireWarType(EmpireWarType.清君侧);
+                    }
+                    else
+                    {
+                        if (kingdom?.king?.GetFaction() == target.GetFaction())
+                        {
+                            war.joinDefenders(kingdom);
+                        }
+                        else
+                        {
+                            war.joinAttackers(kingdom);
+                        }
+                    }
+                }
+            }
         }
         End();
     }
@@ -27,20 +53,36 @@ public class TempFac_索取皇位 : TemporaryFaction
         Empire empire = GetEmpire();
         if (empire != null)
         {
-            if (!empire.CoreKingdom.GetRegime().has_cabinet) return false;
-            if (!empire.HasEmperor() || !empire.Emperor.isAdult())
+            if (!empire.CoreKingdom.GetRegime().has_cabinet)
             {
-                var target = empire.GetCabinetLeader();
-                if (target == null) return false;
-                if (empire.GetCabinetMembers()
-                    .All(c => c?.GetFaction() == empire.CoreKingdom?.GetRegime()?.GetDominateFaction()))
+                if (!empire.HasEmperor() || !empire.Emperor.isAdult())
                 {
-                    if (!empire.HasEmperor()) Acc = 40;
-                    else if (!empire.Emperor.isAdult()) Acc = 0;
-                    SetActorTarget(target);
-                    return true;
+                    var leader = empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.GetLeader();
+                    if (leader != null)
+                    {
+                        if (!empire.HasEmperor()) Acc = 40;
+                        else if (!empire.Emperor.isAdult()) Acc = 0;
+                        SetActorTarget(leader);
+                        return true;
+                    }
                 }
             }
+            else
+            {
+                if (!empire.HasEmperor() || !empire.Emperor.isAdult())
+                {
+                    var target = empire.GetCabinetLeader();
+                    if (target == null) return false;
+                    if (target.GetFaction() == empire.CoreKingdom?.GetRegime()?.GetDominateFaction())
+                    {
+                        if (!empire.HasEmperor()) Acc = 40;
+                        else if (!empire.Emperor.isAdult()) Acc = 0;
+                        SetActorTarget(target);
+                        return true;
+                    }
+                }
+            }
+
         }
         return false;
     }

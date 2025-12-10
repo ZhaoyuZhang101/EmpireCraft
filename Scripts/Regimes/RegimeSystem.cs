@@ -133,6 +133,7 @@ public class Regime
             ),
             bureau_config = this.bureau_config,
             era_name = this.era_name,
+            has_cabinet = this.has_cabinet,
             Factions =  this.Factions.Select(f=>
             {
                 var nf = f.Clone();
