@@ -71,7 +71,7 @@ public class TempFac_索取皇位 : TemporaryFaction
             {
                 if (!empire.HasEmperor() || !empire.Emperor.isAdult())
                 {
-                    var target = empire.GetCabinetLeader();
+                    var target = empire.CoreKingdom?.GetRegime()?.type== RegimeType.Feudalism?empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.GetLeader():empire.GetCabinetLeader();
                     if (target == null) return false;
                     if (target.GetFaction() == empire.CoreKingdom?.GetRegime()?.GetDominateFaction())
                     {
