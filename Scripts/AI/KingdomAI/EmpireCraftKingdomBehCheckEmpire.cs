@@ -106,19 +106,20 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     /// </summary>
     /// <param name="pKingdom"></param>
     /// <returns></returns>
-    public bool CheckPossible(Kingdom pKingdom)
+    public void CheckPossible(Kingdom pKingdom)
     {
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
-        if (!pKingdom.hasKing()) return false;
-        if (pKingdom.IsEmpire()) return false;
-        if (pKingdom.IsInEmpire()) return false;
-        if (!pKingdom.HasMainTitle()) return false; //if a kingdom has main title, then it could become an empire
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return;
+        if (!pKingdom.hasKing()) return ;
+        if (pKingdom.IsEmpire()) return ;
+        if (pKingdom.IsInEmpire()) return ;
+        if (!pKingdom.HasMainTitle()) return ; //if a kingdom has main title, then it could become an empire
         ModClass.EMPIRE_MANAGER.update(-1L);
         var flag = pKingdom.countTotalWarriors() > ModClass.EMPIRE_MANAGER.ToList()
             .FindAll(e => e.CoreKingdom.species_id == pKingdom.species_id).Sum(e => e.countWarriors());
-        if (!pKingdom.CanBecomeEmpire()&&!flag) return false;
-        EmpireCraftPlotsAddition.BecomeEmpireAndStartEnfeoff(pKingdom.king);
-        return true;
+        if (pKingdom.CanBecomeEmpire() || flag)
+        {
+            EmpireCraftPlotsAddition.BecomeEmpireAndStartEnfeoff(pKingdom.king);
+        }
     }
 
     public void CheckEmpireAlliance(Kingdom pKingdom)

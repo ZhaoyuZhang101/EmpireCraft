@@ -26,7 +26,8 @@
     "Peerages": "爵位",
     "i_population": "人口",
     "i_age": "年龄",
-
+    "lock_faction_1": "锁定派系",
+    "lock_faction_1_description": "锁定派系后主导派系将会始终保持为当前锁定的派系",
     "eldest_child":"长嗣",
     "smallest_child":"幼子",
     "siblings":"直系同辈",

@@ -1,3 +1,4 @@
+using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.services;
 using EmpireCraft.Scripts.Layer;
@@ -5,7 +6,8 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_设置行政区 : TemporaryFaction
 {
-    
+    public override int Budget => GetTitleTarget()?.city_list?.ToList()?.Sum(c => c.units.Count)??0;
+
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
@@ -24,7 +26,9 @@ public class TempFac_设置行政区 : TemporaryFaction
                 if (c==title.title_capital) continue;
                 c.joinAnotherKingdom(k);
             }
+            empire.join(k, pForce:true);
         }
+        CountDown = 1;
         End();
     }
 
@@ -41,6 +45,7 @@ public class TempFac_设置行政区 : TemporaryFaction
                 if (kt.control_kingdom!=empire.CoreKingdom) continue;
                 if (kt.title_capital != empire.CoreKingdom.capital)
                 {
+                    Acc = 40;
                     SetTitleTarget(kt);
                     return true;
                 }

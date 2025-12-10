@@ -25,8 +25,10 @@ public class TempFac_迫使朝贡 : TemporaryFaction
         Empire empire = GetEmpire();
         foreach (var kingdom in World.world.kingdoms)
         {
+            if (kingdom.IsInEmpire()) continue;
             if (empire.taken_Kingdoms.Contains(kingdom)) continue;
             if (kingdom.countTotalWarriors()>=empire.countWarriors()) continue;
+            if (!empire.IsNeighbourWith(kingdom)) continue;
             if (kingdom.cities.Count<=1) continue;
             SetKingdomTarget(kingdom);
             return true;

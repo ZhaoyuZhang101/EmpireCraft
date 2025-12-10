@@ -8,6 +8,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.services;
 using Newtonsoft.Json;
 
@@ -28,21 +29,29 @@ public class FactionManager
             },
             {
                 FactionType.尊王,
-                new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.转天朝制度 }
+                new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘, TemporaryFactionType.转天朝制度, TemporaryFactionType.索取皇位 }
+            },
+            {
+                FactionType.诸侯,
+                new List<TemporaryFactionType> { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战, TemporaryFactionType.索取皇位 }
+            },
+            {
+                FactionType.中央,
+                new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.自治,
-                new List<TemporaryFactionType> { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战 }
+                new List<TemporaryFactionType> { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.攘夷,
                 new List<TemporaryFactionType>
-                    { TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府, TemporaryFactionType.谋求统一, TemporaryFactionType.转周制 }
+                    { TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府, TemporaryFactionType.谋求统一,TemporaryFactionType.迫使朝贡, TemporaryFactionType.转周制, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.绥靖,
                 new List<TemporaryFactionType>
-                    { TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池, TemporaryFactionType.削藩, TemporaryFactionType.设置行政区 }
+                    { TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池, TemporaryFactionType.削藩, TemporaryFactionType.设置行政区, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.共和,
@@ -90,7 +99,9 @@ public class FactionManager
 public enum FactionType
 {
     尊王,  //王室为主
-    自治,  //诸侯为主
+    诸侯,  //诸侯为主
+    中央,  //西方王室
+    自治,  //西方自治
     攘夷,  //主战
     绥靖,  //主和
     血脉, //国王为单一血脉
@@ -113,6 +124,8 @@ public class FixedFaction
     public string Name { set; get; }
     public long EmpireId { get; set; } = -1L;
     public bool Force = false; 
+    [JsonIgnore]
+    public AdvancedButton LockButton { get; set; }
     [JsonIgnore] 
     public Empire Empire => ModClass.EMPIRE_MANAGER.get(EmpireId);
     public List<long> Members = new();

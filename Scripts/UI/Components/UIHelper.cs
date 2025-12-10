@@ -419,10 +419,36 @@ public static class UIHelper
         var content = "<核心诉求>\n";
         foreach (var tempFac in faction.TemporaryFactions)
         {
-            var startContent = $"\n执行中:({(int)((tempFac.progress/(tempFac.progressMax-tempFac.acceleration))*100.0f)}/100)";
-            content += tempFac.type.ToString().ColorString(pColor:new Color(0.7f, 0.9f, tempFac.IsStarted()?0.1f:0.9f))+(tempFac.IsStarted()?startContent:"")+"\n";
+            LogService.LogInfo(tempFac.Hide.ToString());
+            if (!tempFac.Hide||tempFac.IsStarted())
+            {
+                var startContent = $"\n执行中:({(int)((tempFac.progress/(tempFac.progressMax-tempFac.acceleration))*100.0f)}/100)";
+                content += tempFac.type.ToString().ColorString(pColor:new Color(0.7f, 0.9f, tempFac.IsStarted()?0.1f:0.9f))+(tempFac.IsStarted()?startContent:"")+"\n";
+            }
         }
         factionPart.AddTextIntoVertLayout(content, true, TextAnchor.UpperCenter, size: new Vector2(30, 40));
+        var button = factionPart?.transform.AddNormalOption(factionPart.BeginHoriGroup(), "LockFaction", () =>
+        {
+            if (faction.Force)
+            {
+                faction.Force = false;
+            }
+            else
+            {
+                faction.Force = true;
+                foreach (var f in kingdom.GetRegime().Factions)
+                {
+                    if (f != faction)
+                    {
+                        f.LockButton?.SetStatus(false);
+                        f.Force = false;
+                    }
+                }
+            }
+            faction.LockButton.SetStatus(faction.Force);
+        }, faction.Force, isOption:true, size: new Vector2(10, 10));
+        button?.gameObject.AdjustTopPart(button?.transform, Vector2.down*4);
+        faction.LockButton = button;
         factionPart?.transform.AddStretchBackground(isDominate?"FactionFrame_dominate":"FactionFrame", size: new Vector2(55, 90));
     }
 

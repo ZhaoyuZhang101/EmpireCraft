@@ -183,7 +183,7 @@ public class Empire : MetaObject<EmpireData>
     }
     public bool IsAllowToMakeWar()
     {
-        if (this.data.empirePeriod == EmpirePeriod.逐鹿群雄 || this.data.empirePeriod == EmpirePeriod.天命丧失)
+        if (CurrentMoney<0)
         {
             return true;
         }

@@ -11,7 +11,7 @@
       {
         //皇帝拥有开战权，各诸侯被攻击会一同反击
         "_id": "3dab6ae7-db99-48bc-8b21-8d611718e452",
-        "Type": "尊王",
+        "Type": "中央",
         "Ban": false,
         "_requiredTraits": [],
         "Name": "皇权派",

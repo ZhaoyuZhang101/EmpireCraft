@@ -36,6 +36,7 @@ public class TempFac_汉化 : TemporaryFaction
         foreach (var k in empire.kingdoms_list)
         {
             if (k.IsEmpire()) continue;
+            if (k.isRekt()) continue;
             if (k.getCulture() != empire.CoreKingdom.getCulture())
             {
                 TargetType = MetaType.Kingdom;

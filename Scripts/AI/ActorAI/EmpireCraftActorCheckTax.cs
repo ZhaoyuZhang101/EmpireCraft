@@ -36,7 +36,6 @@ public class EmpireCraftActorCheckTax: GameAIActorBase
             }
             pActor.addMoney(-num);
             city.AddMoney(num);
-            // LogService.LogInfo($"{pActor.name}交税{num}金,保有{pActor.money}");
         }
         pActor.RecordTaxTime();
         return BehResult.Continue;

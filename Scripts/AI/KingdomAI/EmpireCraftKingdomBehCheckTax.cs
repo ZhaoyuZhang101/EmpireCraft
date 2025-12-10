@@ -24,25 +24,34 @@ public class EmpireCraftKingdomBehCheckTax: GameAIKingdomBase
         {
             Actor actor = pKingdom.king;
             var corruptionValue = actor.CalcCorruptionValue();
+            if (pKingdom.IsInEmpire())
+            {
+                if (corruptionValue > 0)
+                {
+                    pKingdom.AddCorruptionRate(corruptionValue/10f);
+                }
+            }
+            else
+            {
+                pKingdom.AddCorruptionRate(-0.2f);
+            }
             corruptedMoney = (int)(corruptionValue / 2) * num;
 
             int intel = actor.intelligence;
             if (intel < 0) intel = 0;
             if (intel > 40) intel = 40;
-
-            // 发现概率：基础 0.6，随智力线性下降 0.5，到 0.1
+            
             double discoverProb = 0.6 - (intel / 40.0) * 0.5;
-            // 手动 clamp 概率到 0.05~0.95，避免极端值
             if (discoverProb < 0.05) discoverProb = 0.05;
             if (discoverProb > 0.95) discoverProb = 0.95;
-
-            // .NET 6+ 可用 Random.Shared；旧版请改成静态 Random 实例
+            
             Random rand = new Random();
             bool caught = rand.NextDouble() < discoverProb;
 
             if (!caught)
             {
-                actor.addMoney(corruptedMoney); // 未被发现，国王拿到贪污款
+                // 未被发现，国王拿到贪污款
+                actor.addMoney(corruptedMoney); 
             }
             else
             {
@@ -52,8 +61,8 @@ public class EmpireCraftKingdomBehCheckTax: GameAIKingdomBase
             }
             actor.addMoney(corruptedMoney);
         }
-        pKingdom.SubMoney(num);
-        pEmpireKingdom.AddMoney(num-corruptedMoney);
+        pKingdom.SubMoney((int)(num*(1.0f-pKingdom.GetCorruptionRate())));
+        pEmpireKingdom.AddMoney((int)((num-corruptedMoney)*(1.0f-pKingdom.GetCorruptionRate())));
         pKingdom.RecordTaxTime();
         return BehResult.Continue;
     }

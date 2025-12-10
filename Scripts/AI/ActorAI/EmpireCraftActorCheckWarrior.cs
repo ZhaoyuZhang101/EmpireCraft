@@ -6,6 +6,7 @@ using ai.behaviours;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.ActorAI;
@@ -17,21 +18,29 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
     public override BehResult execute(Actor pActor)
     {
         if (!pActor.hasKingdom())  return BehResult.Continue;
-        if (pActor.age < 18) return BehResult.Continue;
+        if (!pActor.isAdult()) return BehResult.Continue;
+        if (!pActor.hasCity()) return BehResult.Continue;
+        if (pActor.isWarrior()) return BehResult.Continue;
         Kingdom pKingdom = pActor.kingdom;
         if (pKingdom.GetRegime() == null) return BehResult.Continue;
         if (!pKingdom.GetRegime().IsAllowArmy()) return BehResult.Continue;
         if (!WorldLawLibrary.world_law_civ_army.isEnabled()) return BehResult.Continue;
         if (!pKingdom.IsInEmpire())
         {
-            pActor.city?.makeWarrior(pActor);
+            if (pActor.city.checkCanMakeWarrior(pActor))
+            {
+                pActor.city?.makeWarrior(pActor);
+            }
         }
         else
         {
             Empire empire = pKingdom.GetEmpire();
-            if (CountAllCenterArmy(empire) < empire.data.MilitaryExpenditure * 25)
+            if (CountAllCenterArmy(empire) < empire.data.MilitaryExpenditure * 25&&pKingdom.GetMoney() > 0)
             {
-                pActor.city?.makeWarrior(pActor);
+                if (pActor.city.checkCanMakeWarrior(pActor))
+                {
+                    pActor.city?.makeWarrior(pActor);
+                }
                 if (pKingdom.GetRegime().IsAllowSupportCenterArmy())
                 {
                     if (empire.CoreKingdom?.capital?.hasArmy()??false)
@@ -41,9 +50,11 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
                         {
                             foreach (var ek in empire.kingdoms_list)
                             {
+                                if (ek.isRekt()) continue;
                                 if (ek.GetCenterArmy().isRekt())
                                 {
                                     var newArmy = world.armies.newArmy(pActor, ek.capital);
+                                    if (newArmy.isRekt()) continue;
                                     newArmy._kingdom = empire.CoreKingdom;
                                     ek.SetCenterArmy(newArmy);
                                     pActor.setCity(ek.capital);
@@ -78,7 +89,7 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
                 City city = pActor.city;
                 if (city != null)
                 {
-                    if (city.countWarriors() < city.getMaxWarriors())
+                    if (city.checkCanMakeWarrior(pActor))
                     {
                         city.makeWarrior(pActor);
                     }

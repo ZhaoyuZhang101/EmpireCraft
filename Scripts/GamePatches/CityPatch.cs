@@ -109,6 +109,11 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(removeLeader))
         );
 
+        new Harmony(nameof(TryToMakeWarrior)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.tryToMakeWarrior)),
+            prefix: new HarmonyMethod(GetType(), nameof(TryToMakeWarrior))
+        );
+
         new Harmony(nameof(newCity)).Patch(
             AccessTools.Method(typeof(City), nameof(City.newCityEvent)),
             prefix: new HarmonyMethod(GetType(), nameof(newCity))
@@ -118,6 +123,11 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.finishCapture)),
             prefix: new HarmonyMethod(GetType(), nameof(FinishedCapture))
         );
+    }
+
+    public static bool TryToMakeWarrior(City __instance, Actor pActor)
+    {
+        return false;
     }
     public static bool FinishedCapture(City __instance, Kingdom pNewKingdom)
     {
@@ -281,6 +291,7 @@ public class CityPatch : GamePatch
         {
             return false;
         }
+        __instance.SetCorruptionRate(0.0f);
         string pHappinessEvent = null;
         if (pCaptured)
         {

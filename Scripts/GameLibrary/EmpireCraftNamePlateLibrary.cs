@@ -248,6 +248,7 @@ public static class EmpireCraftNamePlateLibrary
         }
         npt.priority_population = pMetaObject.units.Count;
         npt.showSpecies(pMetaObject.getSpriteIcon());
+        npt._text_name.supportRichText = true;
         npt._show_banner_kingdom = true;
         npt._banner_kingdoms.load((NanoObject) pMetaObject);
         float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
@@ -263,15 +264,21 @@ public static class EmpireCraftNamePlateLibrary
     public static void showTextKingdomNoBack(NameplateText npt, Kingdom pMetaObject)
     {
         npt.setupMeta(pMetaObject.data, pMetaObject.getColor());
-        string pNewText = $"{pMetaObject.name}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
+        string pNewText = $"{pMetaObject.name} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
         switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
         {
             case 0:
+                if (pMetaObject.IsInEmpire())
+                {
+                    var corruption = (int)(pMetaObject.GetCorruptionRate()*100);
+                    pNewText +=
+                        $"\n腐败值：{corruption.ToString().ColorString(pColor: corruption <= 30 ? Color.green : Color.red)}%";
+                }
                 break;
             case 1:
                 if (pMetaObject.HasTakenAlliance())
                 {
-                    pNewText += $"朝贡金额{pMetaObject.countUnits()/2} | 退出朝贡倾向:{pMetaObject.GetLeaveTakenAlliancePreference() * 100}%";
+                    pNewText += $"\n朝贡金额{pMetaObject.countUnits()/2} | 退出朝贡倾向:{pMetaObject.GetLeaveTakenAlliancePreference() * 100}%";
                 }
                 break;
             case 2:
@@ -283,6 +290,7 @@ public static class EmpireCraftNamePlateLibrary
         npt.showSpecies(pMetaObject.getSpriteIcon());
         npt._show_banner_kingdom = false;
         npt._show_banner_clan = false;
+        npt._text_name.supportRichText = true;
         float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
         npt.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
         // 给文字加蓝色边框（描边）
@@ -325,6 +333,12 @@ public static class EmpireCraftNamePlateLibrary
         }
         int populationPeople = pMetaObject.getPopulationPeople();
         string text = npt.getStringForNameplate(pMetaObject.name, populationPeople) + additionNum;
+        if (pMetaObject?.kingdom?.IsInEmpire()??false)
+        {
+            var corruption = (int)(pMetaObject.GetCorruptionRate()*100);
+            text +=
+                $" | 腐败值：{corruption.ToString().ColorString(pColor: corruption <= 30 ? Color.green : Color.red)}%";
+        }
         if (npt.is_full)
         {
             if (DebugConfig.isOn(DebugOption.ShowWarriorsCityText))
@@ -378,7 +392,7 @@ public static class EmpireCraftNamePlateLibrary
         }
         float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
         npt.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
-        
+        npt._text_name.supportRichText = true;
         npt._show_banner_city = true;
         npt._banner_city.load(pMetaObject);
         npt.priority_capital = pMetaObject.isCapitalCity();
@@ -413,6 +427,7 @@ public static class EmpireCraftNamePlateLibrary
         nameplateText.layout_group.padding.left = pAsset.padding_left;
         nameplateText.layout_group.padding.right = pAsset.padding_right;
         nameplateText.layout_group.padding.top = pAsset.padding_top;
+        nameplateText._text_name.supportRichText = true;
         __instance._next_index++;
         prepare(nameplateText, pAsset, pMeta, __instance._tween_scale, __instance._nameplate_mode, __instance._nano_object_set, __instance._selected_nano_object);
         return nameplateText;

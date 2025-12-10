@@ -20,9 +20,18 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
         if (regime == null || !regime.IsAllowArmy())
         {
             pCity.disbandArmy();
-            LogService.LogInfo("禁用军队");
             return BehResult.Continue;
         };
+        if (pCity.kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi)
+        {
+            pCity.units.ForEach(a =>
+            {
+                if (pCity.checkCanMakeWarrior(a))
+                {
+                    pCity.makeWarrior(a);
+                } 
+            });
+        }
         pCity.checkArmyExistence();
         if (pCity.hasArmy())
         {
@@ -33,13 +42,16 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
                 if (k.IsInEmpire())
                 {
                     Empire empire = k.GetEmpire();
-                    if (army == k.GetCenterArmy())
+                    if (empire.CoreKingdom.GetMoney() > 0)
                     {
-                        army._captain.setKingdom(empire.CoreKingdom);
-                        army.units.ForEach(a => a.setKingdom(empire.CoreKingdom));
-                        army.name = $"{k.GetEmpire().GetEmpireName()}-{k.GetKingdomName()}驻军";
-                        CreateNewArmy(pCity);
-                        return BehResult.Continue;
+                        if (army == k.GetCenterArmy())
+                        {
+                            army._captain.setKingdom(empire.CoreKingdom);
+                            army.units.ForEach(a => a.setKingdom(empire.CoreKingdom));
+                            army.name = $"{k.GetEmpire().GetEmpireName()}-{k.GetKingdomName()}驻军";
+                            CreateNewArmy(pCity);
+                            return BehResult.Continue;
+                        }
                     }
                 }
             }

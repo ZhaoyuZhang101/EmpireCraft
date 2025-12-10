@@ -27,6 +27,12 @@ public class TempFac_分封 : TemporaryFaction
                 kingdomRegime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
                 kingdomRegime.SetAllowSupportCenterArmy(false);
                 kingdomRegime.SetTaxLevel(TaxLevel.None);
+                if (c.GetTitle()?.title_capital == c)
+                {
+                    KingdomTitle title = c.GetTitle();
+                    kingdom.SetMainTitle(title);
+                    kingdom.king.AddOwnedTitle(title);
+                }
                 break;
             }
         }

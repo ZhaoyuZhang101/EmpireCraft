@@ -15,10 +15,7 @@ public class TempFac_对外扩张 : TemporaryFaction
         if (kingdom != null)
         {
             var war = World.world.diplomacy.startWar(GetEmpire().CoreKingdom, kingdom, WarTypeLibrary.normal);
-            if (war != null)
-            {
-                war.SetEmpireWarType(EmpireWarType.攘夷);
-            }
+            war?.SetEmpireWarType(EmpireWarType.攘夷);
         }
         End();
     }
