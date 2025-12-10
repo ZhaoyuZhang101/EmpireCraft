@@ -18,6 +18,7 @@ namespace EmpireCraft.Scripts.Enums
         劫掠,
         游牧扩张,
         帝国扩张,
+        清君侧,
         None
     }
 }

@@ -1612,12 +1612,13 @@ public class Empire : MetaObject<EmpireData>
                     location = this.CoreKingdom.location,
                     color_special1 = this.CoreKingdom.getColor().getColorText()
                 }.add();
-                this.join(newKingdom, true, true);
+                join(newKingdom, true, true);
                 WorldLog.logNewKingdom(newKingdom);
                 newKingdom.SetRegimeType(CoreKingdom.GetRegime().type);
                 newKingdom.LoadRegime();
                 if (newKingdom.GetRegime().type == RegimeType.LvLing)
                 {
+                    newKingdom.GetRegime().SetAllowDiplomacy(false);
                     newKingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
                 }
             }
