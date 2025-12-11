@@ -46,7 +46,7 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
                     {
                         if (army == k.GetCenterArmy())
                         {
-                            army._captain.setKingdom(empire.CoreKingdom);
+                            army._captain?.setKingdom(empire.CoreKingdom);
                             army.units.ForEach(a => a.setKingdom(empire.CoreKingdom));
                             army.name = $"{k.GetEmpire().GetEmpireName()}-{k.GetKingdomName()}驻军";
                             CreateNewArmy(pCity);
