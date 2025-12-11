@@ -23,7 +23,7 @@ public class TempFac_撤销军府 : TemporaryFaction
         CountDown = 5;
         End();
     }
-    
+
     public override bool CheckCondition()
     {
         //如果存在军府则尝试撤销
@@ -35,6 +35,7 @@ public class TempFac_撤销军府 : TemporaryFaction
             {
                 if (k.GetKingdomType() == KingdomType.LvLing_jiedushi)
                 {
+                    if(k.hasEnemies()) continue;
                     SetKingdomTarget(k);
                     return true;
                 }

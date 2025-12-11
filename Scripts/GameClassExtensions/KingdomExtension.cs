@@ -54,12 +54,15 @@ public static class KingdomExtension
         public bool isFactionRebelling = false;
         public double last_tax_timestamp = -1L;
         public double last_office_exam_timestamp = -1L;
+        public double corruption_timestamp = -1L;
         public EmpireHeirLawType HeirLaw = EmpireHeirLawType.eldest_child;
         public EmpireHeirLawType DefaultHeirLaw = EmpireHeirLawType.eldest_child;
         //上一次加入岁币联盟的时间
         public double last_given_alliance_timestamp = -1L;
         //上一次加入朝贡国的时间
         public double last_taken_alliance_timestamp = -1L;
+
+        public int selfChangeRegimePlotsCountDown = 0;
         //岁币国
         public long given_empire = -1L;
         //宗主国
@@ -69,6 +72,40 @@ public static class KingdomExtension
         //退出朝贡国倾向
         public float leave_taken_alliance_preference = 0.0f;
         public long office_id = -1L;
+    }
+
+    public static void FinishedSelfPlot(this Kingdom kingdom)
+    {
+        kingdom.GetOrCreate().selfChangeRegimePlotsCountDown = 10;
+    }
+    public static void CountingFinishedSelfPlot(this Kingdom kingdom)
+    {
+        if (kingdom.GetOrCreate().selfChangeRegimePlotsCountDown > 0)
+        {
+            kingdom.GetOrCreate().selfChangeRegimePlotsCountDown -= 1;  
+        }
+    }
+    public static bool IsCountingSelfPlot(this Kingdom kingdom)
+    {
+        return kingdom.GetOrCreate().selfChangeRegimePlotsCountDown > 0;
+    }
+    public static void StartCorrupting(this Kingdom kingdom)
+    {
+        kingdom.GetOrCreate().corruption_timestamp = World.world.getCurWorldTime();
+    }
+
+    public static void EndCorrupting(this Kingdom kingdom)
+    {
+        kingdom.GetOrCreate().corruption_timestamp = -1L;
+    }
+
+    public static int GetCorruptionTime(this Kingdom kingdom)
+    {
+        if (kingdom.GetOrCreate().corruption_timestamp < 0)
+        {
+            return -1;
+        }
+        return Date.getYearsSince(kingdom.GetOrCreate().corruption_timestamp);
     }
     public static void AddCorruptionRate(this Kingdom kingdom, double addition)
     {

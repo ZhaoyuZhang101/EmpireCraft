@@ -20,7 +20,6 @@ public class TempFac_分封 : TemporaryFaction
             {
                 if (c.isCapitalCity()) continue;
                 var kingdom = c.makeOwnKingdom(actor);
-                GetEmpire().join(kingdom, pForce:true);
                 kingdom.SetRegimeType(empireRegime.type);
                 kingdom.LoadRegime();
                 Regime kingdomRegime = kingdom.GetRegime();
@@ -33,6 +32,7 @@ public class TempFac_分封 : TemporaryFaction
                     kingdom.SetMainTitle(title);
                     kingdom.king.AddOwnedTitle(title);
                 }
+                GetEmpire().join(kingdom, pForce:true);
                 break;
             }
         }

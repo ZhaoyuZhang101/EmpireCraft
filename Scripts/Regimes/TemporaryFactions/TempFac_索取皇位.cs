@@ -47,7 +47,11 @@ public class TempFac_索取皇位 : TemporaryFaction
         }
         End();
     }
-
+    public override bool CheckContinue()
+    {
+        Empire empire = GetEmpire();
+        return empire?.Emperor == null || !empire.Emperor.isAdult();
+    }
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
@@ -82,7 +86,6 @@ public class TempFac_索取皇位 : TemporaryFaction
                     }
                 }
             }
-
         }
         return false;
     }

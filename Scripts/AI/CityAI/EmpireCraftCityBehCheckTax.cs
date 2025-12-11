@@ -20,6 +20,8 @@ public class EmpireCraftCityBehCheckTax:GameAICityBase
         int money = pCity.GetMoney();
         //抽成
         int num = (int)((float)money * pTaxRate);
+        int gold = (int)((float)num * 0.1f);
+        num -= gold;
         int corruptedMoney = 0;
         if (pCity.hasLeader())
         {
@@ -45,6 +47,7 @@ public class EmpireCraftCityBehCheckTax:GameAICityBase
         }
         pCity.SubMoney((int)(num*(1.0f-pCity.GetCorruptionRate())));
         pKingdom.AddMoney((int)((num-corruptedMoney)*(1.0f-pCity.GetCorruptionRate())));
+        pCity.addResourcesToRandomStockpile("gold", gold);
         pCity.RecordTaxTime();
         // LogService.LogInfo($"{pCity.name}交税{num}金,保有{pCity.GetMoney()}");
         return BehResult.Continue;

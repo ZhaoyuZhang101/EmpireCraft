@@ -17,6 +17,7 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
 
     public override BehResult execute(Actor pActor)
     {
+        if (pActor.isRekt()) return BehResult.Continue;
         if (!pActor.hasKingdom())  return BehResult.Continue;
         if (!pActor.isAdult()) return BehResult.Continue;
         if (!pActor.hasCity()) return BehResult.Continue;
