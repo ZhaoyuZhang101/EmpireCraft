@@ -187,6 +187,19 @@ public class CityPatch : GamePatch
                     return false;
                 }
             }
+            //检测是否为迫使朝贡战争，如果是则迫使该国家加入朝贡体系
+            var chaoGongWar = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.迫使朝贡&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
+            if (chaoGongWar != null)
+            {
+                LogService.LogInfo("迫使朝贡战争");
+                Empire empire = joinAfterCapture.GetEmpire();
+                if (__instance.isCapitalCity())
+                {
+                    __instance.kingdom.JoinTakenAlliance(empire);
+                    chaoGongWar.lostWar(__instance.kingdom);
+                    return false;
+                }
+            }
             if (!__instance.checkRebelWar(joinAfterCapture, pWars))
                 joinAfterCapture.data.timestamp_new_conquest = World.world.getCurWorldTime();
             __instance.removeSoldiers();
