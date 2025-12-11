@@ -226,6 +226,177 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.add(new PlotAsset
             {
+                id = "kingdom_allow_army",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (kingdom.IsCountingSelfPlot()) return false;
+                    if (kingdom.IsEmpire()) return false;
+                    if (!kingdom.IsInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    Regime regime = kingdom.GetRegime();
+                    if (regime == null) return false;
+                    if (regime.IsAllowArmy()) return false;
+                    if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    kingdom.FinishedSelfPlot();
+                    Regime regime = kingdom.GetRegime();
+                    regime.SetAllowArmy(true);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_allow_diplomacy",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (kingdom.IsCountingSelfPlot()) return false;
+                    if (kingdom.IsEmpire()) return false;
+                    if (!kingdom.IsInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    Regime regime = kingdom.GetRegime();
+                    if (regime == null) return false;
+                    if (!regime.IsAllowArmy()) return false;
+                    if (regime.IsAllowDiplomacy()) return false;
+                    if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    kingdom.FinishedSelfPlot();
+                    Regime regime = kingdom.GetRegime();
+                    regime.SetAllowDiplomacy(true);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_allow_succession",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (kingdom.IsEmpire()) return false;
+                    if (kingdom.IsCountingSelfPlot()) return false;
+                    if (!kingdom.IsInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    Regime regime = kingdom.GetRegime();
+                    if (regime == null) return false;
+                    if (!regime.IsAllowArmy()) return false;
+                    if (!regime.IsAllowDiplomacy()) return false;
+                    if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession) return false;
+                    if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    kingdom.FinishedSelfPlot();
+                    Regime regime = kingdom.GetRegime();
+                    regime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_allow_self_army",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (kingdom.IsEmpire()) return false;
+                    if (kingdom.IsCountingSelfPlot()) return false;
+                    if (!kingdom.IsInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    Regime regime = kingdom.GetRegime();
+                    if (regime == null) return false;
+                    if (!regime.IsAllowArmy()) return false;
+                    if (!regime.IsAllowDiplomacy()) return false;
+                    if (regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;
+                    if (!regime.IsAllowSupportCenterArmy()) return false;
+                    if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    kingdom.FinishedSelfPlot();
+                    Regime regime = kingdom.GetRegime();
+                    regime.SetAllowSupportCenterArmy(false);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_allow_independent",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (kingdom.IsEmpire()) return false;
+                    if (kingdom.IsCountingSelfPlot()) return false;
+                    if (!kingdom.IsInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    Regime regime = kingdom.GetRegime();
+                    if (regime == null) return false;
+                    if (!regime.IsAllowDiplomacy()) return false;
+                    if (!regime.IsAllowArmy()) return false;
+                    if (regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;
+                    if (regime.IsAllowSupportCenterArmy()) return false;
+                    if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    kingdom.FinishedSelfPlot();
+                    Empire empire = kingdom.GetEmpire();
+                    empire.leave(kingdom);
+                    var war = DiplomacyHelpers.wars.newWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
+                    war.SetEmpireWarType(EmpireWarType.地方独立);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
                 id = "emperor_posthumous_name",
                 path_icon = "EmperorQuest.png",
                 group_id = "diplomacy",

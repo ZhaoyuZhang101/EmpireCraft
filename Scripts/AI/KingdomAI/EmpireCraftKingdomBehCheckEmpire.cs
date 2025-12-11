@@ -16,19 +16,50 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         CheckPossible(pKingdom);
-
         if (pKingdom.IsEmpire())
         {
             SyncData(pKingdom);
             CalcMilitaryExpenditure(pKingdom);
+            CheckCorruption(pKingdom);
         }
 
         if (pKingdom.IsNeedToTaken())
         {
             pKingdom.StartToTaken();
         }
+        
         CheckEmpireAlliance(pKingdom);
         return BehResult.Continue;
+    }
+    /// <summary>
+    /// 帝国破产后十年直接解散
+    /// </summary>
+    /// <param name="pKingdom"></param>
+    public static void CheckCorruption(Kingdom pKingdom)
+    {
+        if (pKingdom.IsEmpire())
+        {
+            Empire empire = pKingdom.GetEmpire();
+            if (pKingdom.GetMoney() <= 0)
+            {
+                pKingdom.StartCorrupting();
+            }
+            else
+            {
+                pKingdom.EndCorrupting();
+            }
+
+            if (pKingdom.GetCorruptionTime() > 10)
+            {
+                ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
+                foreach (var c in pKingdom.cities)
+                {
+                    if(c.isCapitalCity()) continue;
+                    var k = c.makeOwnKingdom(c.leader, pRebellion:true);
+                    k.data.name = c.GetCityName();
+                }
+            }
+        }
     }
     /// <summary>
     /// 帝国与核心国家同步数据

@@ -10,7 +10,7 @@ namespace EmpireCraft.Scripts.Enums
     {
         获取帝国,
         伐不臣,
-        独立,
+        地方独立,
         攘夷,
         统一,
         派系叛乱,

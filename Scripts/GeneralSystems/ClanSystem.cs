@@ -646,18 +646,26 @@ public static class SpecificClanManager
         return identityWithRelation;
     }
 
-    public static SpecificClan CheckSpecificClan(this Actor actor, bool show_log = true)
+    public static void CheckSpecificClan(this Actor actor, bool show_log = true)
     {
-        if (actor == null) return null;
+        if (actor.isRekt()||actor.hasDied()) return;
         if (!actor.hasClan())
         {
-            World.world.clans.newClan(actor, true);
+            try
+            {
+                World.world.clans.newClan(actor, true);
+            }
+            catch (Exception e)
+            {
+                return;
+            }
         }
         if (!actor.HasSpecificClan())
         {
-            return newSpecificClan(actor, show_log);
+            newSpecificClan(actor, show_log);
+            return;
         }
-        return actor.GetSpecificClan();
+        actor.GetSpecificClan();
     }
 
     public static SpecificClan Get(long id)

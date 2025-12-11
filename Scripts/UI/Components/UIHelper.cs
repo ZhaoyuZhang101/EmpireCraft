@@ -427,7 +427,8 @@ public static class UIHelper
             }
         }
         factionPart.AddTextIntoVertLayout(content, true, TextAnchor.UpperCenter, size: new Vector2(30, 40));
-        var button = factionPart?.transform.AddNormalOption(factionPart.BeginHoriGroup(), "LockFaction", () =>
+        var bottom = factionPart.BeginHoriGroup();
+        var button = factionPart?.transform.AddNormalOption(bottom, "LockFaction", () =>
         {
             if (faction.Force)
             {
@@ -447,7 +448,8 @@ public static class UIHelper
             }
             faction.LockButton.SetStatus(faction.Force);
         }, faction.Force, isOption:true, size: new Vector2(10, 10));
-        button?.gameObject.AdjustTopPart(button?.transform, Vector2.down*4);
+        bottom.AddButtonIntoHoriLayout("EnterFactionCard", "详情", () => { }, size: new Vector2(20, 10));
+        bottom?.gameObject.AdjustTopPart(bottom.transform, Vector2.down*82);
         faction.LockButton = button;
         factionPart?.transform.AddStretchBackground(isDominate?"FactionFrame_dominate":"FactionFrame", size: new Vector2(55, 90));
     }
@@ -510,7 +512,12 @@ public static class UIHelper
         year_name_button.SetSize(new Vector2(15, 15));
         return year_name_button;
     }
-
+    /// <summary>
+    /// 能够将任何一个组件放到其父结点上并且无视其布局
+    /// </summary>
+    /// <param name="gObj"></param>
+    /// <param name="windowRoot"></param>
+    /// <param name="offset"></param>
     public static void AdjustTopPart(this GameObject gObj, Transform windowRoot, Vector2 offset = default)
     {
         var rt = gObj.GetComponent<RectTransform>();
