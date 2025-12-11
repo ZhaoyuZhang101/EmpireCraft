@@ -14,7 +14,7 @@ public class TempFac_迫使朝贡 : TemporaryFaction
         Kingdom kingdom = GetKingdomTarget();
         if (kingdom != null)
         {
-            var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, kingdom, WarTypeLibrary.spite);
+            var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, kingdom, WarTypeLibrary.normal);
             war.SetEmpireWarType(EmpireWarType.迫使朝贡);
         }
         End();
