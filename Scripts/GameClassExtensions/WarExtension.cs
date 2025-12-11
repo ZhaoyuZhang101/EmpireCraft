@@ -29,6 +29,10 @@ public static class WarExtension
         {
             w.data.name = empire.name + type + "战争";
         }
+        else
+        {
+            w.data.name = w.main_attacker?.name + type + "战争";
+        }
     }
     public static EmpireWarType GetEmpireWarType(this War w)
     {
