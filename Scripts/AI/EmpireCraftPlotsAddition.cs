@@ -389,6 +389,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     kingdom.FinishedSelfPlot();
                     Empire empire = kingdom.GetEmpire();
+                    if (empire.isRekt()) return false;
                     empire.leave(kingdom);
                     var war = DiplomacyHelpers.wars.newWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
                     war.SetEmpireWarType(EmpireWarType.地方独立);
