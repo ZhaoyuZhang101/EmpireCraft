@@ -278,7 +278,7 @@ public abstract class TemporaryFaction
                 } 
             }
             progress ++;
-            if (progress >= progressMax-(acceleration>=50?50:acceleration)) Execute();
+            if (progress >= progressMax-(acceleration>=55?55:acceleration)) Execute();
         }
         else
         {
@@ -309,7 +309,7 @@ public abstract class TemporaryFaction
     }
     public void CheckNeedToUpdate()
     {
-        if (Date.getMonthsSince(timestamp) > 1)
+        if (Date.getMonthsSince(timestamp) >= 1)
         {
             Update();
             timestamp = World.world.getCurWorldTime();
