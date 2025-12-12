@@ -39,10 +39,9 @@ public class EmpireCraftBehCheckBoat: GameAICityBase
 
             boatAssetToBuild = dock.building.asset.getRandomBoatAssetToBuild(pCity);
         }
-        catch (Exception e)
+        catch
         {
             LogService.LogInfo("生成船失败");
-            throw;
         }
         if (boatAssetToBuild == null)
             return (Actor) null;
