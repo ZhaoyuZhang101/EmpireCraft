@@ -161,10 +161,7 @@
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
-                    "group_1": "CityNames1",
-                    "group_2": "CityNames2",
-                    "group_3": "\u200A",
-                    "group_4": "CityNames3"
+                    "group_1": "CityNames1"
                 },
                 "rule": [ "group_1", "group_2", "group_3", "group_4" ],
                 "name_pos": 0
