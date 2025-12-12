@@ -653,7 +653,7 @@ public static class KingdomExtension
         if (k.isRekt() || k.IsEmpire()) return false;
 
         // 检查是否是同物种中最强大的
-        int allEmpireNumInSameSpecies = World.world.kingdoms.ToList().FindAll(p => p.species_id == k.species_id && p.IsEmpire()).Count;
+        int allEmpireNumInSameSpecies = World.world.kingdoms.ToList().FindAll(p => p.getSpecies() == k.getSpecies() && p.IsEmpire()).Count;
         return IsStrongestOfSameSpecies(k) && allEmpireNumInSameSpecies<1;
     }
 

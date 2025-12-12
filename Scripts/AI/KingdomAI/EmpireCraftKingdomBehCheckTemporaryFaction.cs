@@ -35,10 +35,13 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
             ff.TemporaryFactions.ForEach(tf => tf.End());
         } 
         if (dominateFaction.IsAnyTFactionRuns()) return BehResult.Continue;
-        if (dominateFaction.GetLeader() == null) return BehResult.Continue;
+        if (dominateFaction.GetLeader() == null && regime.type!= RegimeType.Feudalism) return BehResult.Continue;
         if (regime.has_cabinet)
         {
-            if (pKingdom.GetEmpire().GetCabinetLeader()?.GetFaction() != dominateFaction) return BehResult.Continue;
+            if (regime.type != RegimeType.Feudalism)
+            {
+                if (pKingdom.GetEmpire().GetCabinetLeader()?.GetFaction() != dominateFaction) return BehResult.Continue;
+            }
         }
 
         var shuffledTf = dominateFaction.TemporaryFactions.ToList();
