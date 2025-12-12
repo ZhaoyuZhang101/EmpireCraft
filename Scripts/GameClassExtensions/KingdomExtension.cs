@@ -649,9 +649,10 @@ public static class KingdomExtension
     public static bool CanBecomeEmpire(this Kingdom k)
     {
         if (!k.hasKing()) return false;
+        if (k.IsInEmpire()) return false;
         // 基本条件检查
         if (k.isRekt() || k.IsEmpire()) return false;
-
+        if (k.countUnits()<200) return false;
         // 检查是否是同物种中最强大的
         int allEmpireNumInSameSpecies = World.world.kingdoms.ToList().FindAll(p => p.getSpecies() == k.getSpecies() && p.IsEmpire()).Count;
         return IsStrongestOfSameSpecies(k) && allEmpireNumInSameSpecies<1;
@@ -663,13 +664,13 @@ public static class KingdomExtension
             other != k &&
             other.species_id == k.species_id &&
             !other.isRekt() &&
-            !other.IsEmpire() &&
             IsStronger(other, k));
     }
 
     private static bool IsStronger(Kingdom a, Kingdom b)
     {
-        return a.countTotalWarriors() > b.countTotalWarriors();
+        if (a.IsEmpire())  return a.GetEmpire().getUnits().Count()> b.units.Count;
+        return a.countUnits() > b.countUnits();
     }
     public static KingdomExtraData GetOrCreate(this Kingdom a, bool isSave = false)
     {
