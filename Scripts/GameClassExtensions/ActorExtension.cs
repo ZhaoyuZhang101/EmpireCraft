@@ -987,7 +987,8 @@ public static class ActorExtension
         if (title == null) return;
         if (a == null) return;
         if (title.data == null) return;
-        if (a.kingdom == null) return;
+        if (a.kingdom.isRekt()) return;
+        if (a.kingdom.capital == null) return;
         var ed = GetOrCreate(a);
         if (a.GetOwnedTitle().Contains(title.data.id))
         {

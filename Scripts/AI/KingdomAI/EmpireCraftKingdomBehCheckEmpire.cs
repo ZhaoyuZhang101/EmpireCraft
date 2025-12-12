@@ -42,7 +42,10 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             Empire empire = pKingdom.GetEmpire();
             if (pKingdom.GetMoney() <= 0)
             {
-                pKingdom.StartCorrupting();
+                if (!pKingdom.IsStartCorrupting())
+                {
+                    pKingdom.StartCorrupting();
+                }
             }
             else
             {

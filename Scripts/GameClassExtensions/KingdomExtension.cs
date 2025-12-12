@@ -93,6 +93,10 @@ public static class KingdomExtension
     {
         kingdom.GetOrCreate().corruption_timestamp = World.world.getCurWorldTime();
     }
+    public static bool IsStartCorrupting(this Kingdom kingdom)
+    {
+        return kingdom.GetOrCreate().corruption_timestamp > 0;
+    }
 
     public static void EndCorrupting(this Kingdom kingdom)
     {

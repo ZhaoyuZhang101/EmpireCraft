@@ -92,7 +92,7 @@ public static class OfficeSelector
         {
             if (unit.isUnitFitToRule() && !unit.IsEmperor() && !unit.IsOnOffice() && unit.hasClan()&& (!unit.isKing()||(unit.isKing()&&unit.kingdom.GetRegime().GetLeaderSelectMethod()!=LeaderSelectMethod.Succession)))
             {
-                if (unit.HasOfficeIdentity())
+                if (unit.HasOfficeIdentity()&&unit.isActor()&&unit.hasCulture())
                 {
                     var flag1 = false;
                     var flag2 = false;
