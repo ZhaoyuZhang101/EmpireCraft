@@ -177,7 +177,7 @@ public abstract class TemporaryFaction
             }
         }
         var totalWarriors = cities.Sum(c => c.countWarriors());
-        if (totalWarriors >= GetEmpire().countWarriors() - totalWarriors || kingdom.GetEmpire().CoreKingdom.GetMoney()<0)
+        if (totalWarriors >= (GetEmpire()?.countWarriors()??9999) - totalWarriors || (kingdom?.GetEmpire()?.CoreKingdom?.GetMoney()??9999)<0)
         {
             var leader = targetFaction?.GetLeader()??kingdom?.king;
             var royalMembers = targetFaction?.Members.Select(id => World.world.units.get(id)).ToList().FindAll(a =>
