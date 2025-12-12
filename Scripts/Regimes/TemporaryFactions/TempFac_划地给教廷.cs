@@ -4,7 +4,8 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_划地给教廷 : TemporaryFaction
 {
-    
+    public override bool Hide => true;
+
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");

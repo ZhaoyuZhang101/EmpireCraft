@@ -149,7 +149,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (!pKingdom.HasMainTitle()) return ; //if a kingdom has main title, then it could become an empire
         ModClass.EMPIRE_MANAGER.update(-1L);
         var flag = pKingdom.countTotalWarriors() > ModClass.EMPIRE_MANAGER.ToList()
-            .FindAll(e => e.CoreKingdom.species_id == pKingdom.species_id).Sum(e => e.countWarriors());
+            .FindAll(e => e.CoreKingdom.getSpecies() == pKingdom.getSpecies()).Sum(e => e.countWarriors());
         if (pKingdom.CanBecomeEmpire() || flag)
         {
             EmpireCraftPlotsAddition.BecomeEmpireAndStartEnfeoff(pKingdom.king);
