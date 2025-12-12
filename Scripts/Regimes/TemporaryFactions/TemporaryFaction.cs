@@ -271,11 +271,14 @@ public abstract class TemporaryFaction
             }
             if (GetEmpire().CoreKingdom.GetRegime().has_cabinet)
             {
-                if (GetEmpire().GetCabinetLeader()?.GetFaction()?.Type != factionType)
+                if (GetEmpire().CoreKingdom.GetRegime().type != RegimeType.Feudalism)
                 {
-                    End();
-                    return;
-                } 
+                    if (GetEmpire().GetCabinetLeader()?.GetFaction()?.Type != factionType)
+                    {
+                        End();
+                        return;
+                    } 
+                }
             }
             progress ++;
             if (progress >= progressMax-(acceleration>=55?55:acceleration)) Execute();

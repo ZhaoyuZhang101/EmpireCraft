@@ -209,6 +209,7 @@ public class Empire : MetaObject<EmpireData>
 
     private void MoveToEmpireCapital(Actor actor)
     {
+        if (CoreKingdom?.capital?._city_tile==null) return;
         actor.joinCity(this.CoreKingdom.capital);
         actor.goTo(this.CoreKingdom.capital._city_tile);
         actor.joinKingdom(this.CoreKingdom);
