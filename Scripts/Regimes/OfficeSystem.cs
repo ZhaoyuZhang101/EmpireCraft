@@ -330,13 +330,19 @@ public class OfficeObject
                 City city =  (City)meta_object;
                 city.setLeader(actor, true);
                 actor.joinCity(city);
-                actor.goTo(city._city_tile);
+                if (city?._city_tile != null)
+                {
+                    actor.goTo(city._city_tile);
+                }
                 break;
             case MetaType.Kingdom:
                 Kingdom kingdom = (Kingdom)meta_object;
                 kingdom.setKing(actor); 
-                actor.joinCity(kingdom.capital); ;
-                actor.goTo(kingdom.capital._city_tile);
+                actor.joinCity(kingdom.capital);
+                if (kingdom?.capital?._city_tile != null)
+                {
+                    actor.goTo(kingdom.capital._city_tile);
+                }
                 break;
         }
     }
