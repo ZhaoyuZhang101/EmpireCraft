@@ -26,7 +26,7 @@ public class EmpireCraftCityBehCheckReligion: GameAICityBase
             Religion pReligion = pCity.getReligion();
             if (pReligion.GetCity() == pCity)
             {
-                if ((pCity.kingdom?.capital?.hasReligion()??false)&&(pCity.kingdom?.capital?.getReligion()?.GetCity()==pCity.kingdom?.capital)) return BehResult.Continue;
+                if (pCity.kingdom?.getReligion() != pReligion) return BehResult.Continue;
                 var kingdom = pCity.makeOwnKingdom(pCity.units.First());
                 Regime regime = kingdom.GetRegime();
                 regime.SetReligionLevel(ReligionLevel.High);

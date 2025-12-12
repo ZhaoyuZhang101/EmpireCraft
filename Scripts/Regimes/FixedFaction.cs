@@ -29,7 +29,7 @@ public class FactionManager
             },
             {
                 FactionType.尊王,
-                new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘, TemporaryFactionType.转天朝制度, TemporaryFactionType.索取皇位 }
+                new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘, TemporaryFactionType.转天朝制度, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一 }
             },
             {
                 FactionType.诸侯,
@@ -37,7 +37,7 @@ public class FactionManager
             },
             {
                 FactionType.中央,
-                new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘, TemporaryFactionType.索取皇位 }
+                new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一 }
             },
             {
                 FactionType.自治,
@@ -81,11 +81,11 @@ public class FactionManager
             },
             {
                 FactionType.融入,
-                new List<TemporaryFactionType> { TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠, TemporaryFactionType.游牧扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位}
+                new List<TemporaryFactionType> { TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠, TemporaryFactionType.游牧扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一}
             },
             {
                 FactionType.同化,
-                new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠, TemporaryFactionType.对外扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位}
+                new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠, TemporaryFactionType.对外扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一}
             }
         };
     public Dictionary<string, FixedFaction>  FixedFactions = new();
