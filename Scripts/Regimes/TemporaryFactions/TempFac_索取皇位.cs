@@ -62,6 +62,13 @@ public class TempFac_索取皇位 : TemporaryFaction
                 if (!empire.HasEmperor() || !empire.Emperor.isAdult())
                 {
                     var leader = empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.GetLeader();
+                    if (empire.CoreKingdom.GetRegime().type == RegimeType.Feudalism)
+                    {
+                        var id = empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.Members?.Take(3)
+                            .FirstOrDefault()??-1L;
+                        leader = World.world.units.get(id);
+                    }
+                    
                     if (leader != null)
                     {
                         if (!empire.HasEmperor()) Acc = 40;
