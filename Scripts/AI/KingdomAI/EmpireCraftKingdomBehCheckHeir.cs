@@ -27,7 +27,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         }
 
         var heir = CheckHeir(pKingdom, pKingdom.GetHeirLaw());
-        if (heir.actor == null||!heir.actor.isUnitFitToRule())
+        if (heir.actor.isRekt()||!heir.actor.isUnitFitToRule())
         {
             pKingdom.GoToNextHeirLaw();
         }

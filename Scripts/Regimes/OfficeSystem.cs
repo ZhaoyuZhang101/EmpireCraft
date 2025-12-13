@@ -100,7 +100,6 @@ public class OfficeObject
         var post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
         return flag? post: preX + post;
     }
-
     public void DetectPower(Empire empire)
     {
         var officer = GetActor();
@@ -324,9 +323,13 @@ public class OfficeObject
         actor.StartOffice(this);
         actor_id = actor.getID();
         timestamp = World.world.getCurWorldTime();
-        var personalId = actor.GetPersonalIdentity();
-        personalId.officeName = GetName();
         var empireName = "";
+        if (actor?.kingdom?.IsInEmpire() ?? false)
+        {
+            empireName = actor?.kingdom?.GetEmpire().GetEmpireName()+" | ";
+        }
+        var personalId = actor.GetPersonalIdentity();
+        personalId?.SetOfficeName(empireName+GetName());
         if(!is_local) return;
         switch (meta_object.meta_type)
         {
@@ -338,15 +341,15 @@ public class OfficeObject
                 {
                     actor.goTo(city._city_tile);
                 }
-                personalId.officeName = empireName+GetName(city);
+                personalId?.SetOfficeName(GetName(city));
                 break;
             case MetaType.Kingdom:
                 Kingdom kingdom = (Kingdom)meta_object;
                 if (kingdom.IsInEmpire() && !kingdom.IsEmpire())
                 {
-                    empireName = kingdom.GetEmpire().GetEmpireName() + "| ";
+                    personalId?.SetOfficeName(kingdom.GetEmpire().GetEmpireName() + "| ");
                 }
-                personalId.officeName = empireName+GetName(kingdom);
+                personalId?.SetOfficeName(GetName(kingdom));
                 kingdom.setKing(actor); 
                 actor.joinCity(kingdom.capital);
                 if (kingdom?.capital?._city_tile != null)

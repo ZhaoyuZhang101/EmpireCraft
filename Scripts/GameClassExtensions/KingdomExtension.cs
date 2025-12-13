@@ -330,6 +330,7 @@ public static class KingdomExtension
     }
     public static int GetMoney(this Kingdom k)
     {
+        if (k.isRekt()) return 0;
         return k.GetOrCreate().Money;
     }
     public static void AddMoney(this Kingdom k, int money)
@@ -663,7 +664,7 @@ public static class KingdomExtension
     {
         return !World.world.kingdoms.Any(other =>
             other != k &&
-            other.species_id == k.species_id &&
+            other.getSpecies() == k.getSpecies() &&
             !other.isRekt() &&
             IsStronger(other, k));
     }

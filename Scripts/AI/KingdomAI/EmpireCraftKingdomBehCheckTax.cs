@@ -16,7 +16,7 @@ public class EmpireCraftKingdomBehCheckTax: GameAIKingdomBase
         {
             if (pKingdom.GetMoney() < 0)
             {
-                pKingdom.AddMoney(1);
+                pKingdom.AddMoney(100);
             }
         } 
         if (!pKingdom.IsNeedToSubmitTax()) return BehResult.Continue;
