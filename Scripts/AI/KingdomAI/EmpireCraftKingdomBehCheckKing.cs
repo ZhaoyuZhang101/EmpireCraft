@@ -31,17 +31,14 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
         if (NeedSuccession(pKingdom))
         {
-            LogService.LogInfo("需要继承");
             if (pKingdom.HasHeir())
             {
-                LogService.LogInfo("存在继承人");
                 ChooseKingFromHeir(pKingdom);  
                 return BehResult.Continue;
             }
 
             if (pKingdom.IsEmpire())
             {
-                LogService.LogInfo("阻断皇帝选择");
                 return BehResult.Continue;
             }
         } 

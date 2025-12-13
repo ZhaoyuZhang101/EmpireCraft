@@ -331,7 +331,6 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         officePositionGroup.AddChild(leftVertGroup.gameObject);
 
         parent.AddChild(officePositionGroup.gameObject);
-        LogService.LogInfo($"加载官位{name}");
         
         officePositionGroup.transform.AddStretchBackground("FactionFrame", size:new Vector2(100, 55));
         pool.Add(officePositionGroup.gameObject);
@@ -341,7 +340,6 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     {
         ConfigData.CURRENT_SELECTED_OFFICE = o;
         SelectedMetas.selected_city = null;
-        LogService.LogInfo($"撤换{o}");
         ScrollWindow.showWindow(nameof(ChangeUnitWindow));
     }
 }

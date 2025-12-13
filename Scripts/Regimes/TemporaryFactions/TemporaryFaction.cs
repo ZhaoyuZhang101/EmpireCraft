@@ -281,7 +281,6 @@ public abstract class TemporaryFaction
                 }
             }
             progress ++;
-            LogService.LogInfo("诉求加成+"+acceleration);
             if (progress >= progressMax-acceleration) Execute();
         }
         else
