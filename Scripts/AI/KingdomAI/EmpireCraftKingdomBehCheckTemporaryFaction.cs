@@ -4,6 +4,7 @@ using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
 
@@ -20,6 +21,7 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         if (dominateFaction == null) return BehResult.Continue;
         foreach (var tf in dominateFaction.TemporaryFactions)
         {
+            tf.SetEmpire(pKingdom.GetEmpire());
             if (tf.IsNeedToCountDown())
             {
                 tf.CountDown -= 1;
