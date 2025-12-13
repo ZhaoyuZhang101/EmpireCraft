@@ -294,7 +294,7 @@ public class Empire : MetaObject<EmpireData>
         actor.data.renown += 20;
         MoveToEmpireCapital(actor);
         create_year_name();
-        if (HasYearName())
+        if (data.has_year_name)
         {
             //公屏提示
             TranslateHelper.LogNewEmperor(actor, CoreKingdom.capital, data.year_name); 
@@ -827,7 +827,7 @@ public class Empire : MetaObject<EmpireData>
         }
         newEmpire.create_year_name();
         newEmpire.recalculate();
-        if (HasYearName())
+        if (data.has_year_name)
         {
             TranslateHelper.LogNewEmperor(newKingdom.king, newKingdom.capital, newEmpire.data.year_name);
         }
