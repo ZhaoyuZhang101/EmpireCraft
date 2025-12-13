@@ -143,6 +143,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     public void CheckPossible(Kingdom pKingdom)
     {
         if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return;
+        if ((pKingdom?.GetMoney()??-1)<0) return;
         if (!pKingdom.hasKing()) return ;
         if (pKingdom.IsEmpire()) return ;
         if (pKingdom.IsInEmpire()) return ;
