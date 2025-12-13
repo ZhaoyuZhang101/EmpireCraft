@@ -75,16 +75,15 @@ namespace EmpireCraft.Scripts.HelperFunc
         
         public static void LogKingChooseHeir(Kingdom kingdom,string relation, Actor pActor)
         {
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.king_choose_heir_log,
-                kingdom.GetKingdomName()+kingdom.GetOffice().GetName(),
-                relation,
-                pActor.data.name)
-            {
-                color_special1 = kingdom.getColor()._color_text,
-                color_special3 = kingdom.getColor()._color_text
-
-            }.add();
-
+            if (kingdom != null&&pActor!=null)
+                new WorldLogMessage(EmpireCraftWorldLogLibrary.king_choose_heir_log,
+                    kingdom.GetKingdomName() ?? "" + (kingdom.GetOffice()?.GetName() ?? ""),
+                    relation,
+                    pActor.name)
+                {
+                    color_special1 = kingdom.getColor()._color_text,
+                    color_special3 = pActor.getColor()._color_text
+                }.add();
         }
         
         public static void LogProvinceChangeToKingdom(Kingdom province, string name)

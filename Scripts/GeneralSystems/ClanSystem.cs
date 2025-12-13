@@ -754,6 +754,10 @@ public class PersonalClanIdentity
         generation = 0;
     }
 
+    public void SetOfficeName(string name)
+    {
+        this.officeName = name;
+    }
     public void recordAllInfo()
     {
         culture = ConfigData.speciesCulturePair.TryGetValue(species, out string culturePair)? culturePair:"Western";

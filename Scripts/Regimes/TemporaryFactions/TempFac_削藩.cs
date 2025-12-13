@@ -30,6 +30,7 @@ public class TempFac_削藩 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire == null) return false;
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
             if (kingdom.IsEmpire()) continue;
