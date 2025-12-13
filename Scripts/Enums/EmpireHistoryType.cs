@@ -8,7 +8,9 @@ namespace EmpireCraft.Scripts.Enums;
 public enum EmpireHistoryType
 {
     new_empire_history,
+    new_empire_history_west,
     new_emperor_history,
+    new_emperor_history_west,
     emperor_die_history,
     emperor_left_history,
     powerful_minister_history,

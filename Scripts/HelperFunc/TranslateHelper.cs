@@ -273,6 +273,17 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
+        public static void LogNewEmperorWest(Actor emperor, City city)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.history_new_emperor_west,
+                emperor.data.name,
+                city.GetCityName())
+            {
+                color_special1 = emperor.kingdom.getColor()._color_text,
+                color_special2 = emperor.kingdom.getColor()._color_text
+
+            }.add();
+        }
 
         /// <summary>
         /// 加入朝贡国的提示

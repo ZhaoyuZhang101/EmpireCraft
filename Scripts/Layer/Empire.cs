@@ -294,8 +294,16 @@ public class Empire : MetaObject<EmpireData>
         actor.data.renown += 20;
         MoveToEmpireCapital(actor);
         create_year_name();
-        //公屏提示
-        TranslateHelper.LogNewEmperor(actor, CoreKingdom.capital, data.year_name);
+        if (HasYearName())
+        {
+            //公屏提示
+            TranslateHelper.LogNewEmperor(actor, CoreKingdom.capital, data.year_name); 
+        }
+        else
+        {
+            TranslateHelper.LogNewEmperorWest(actor, CoreKingdom.capital);
+        }
+        
         
         //记录历史
         this.RecordNewEmperorHistory(isNew);
@@ -819,7 +827,15 @@ public class Empire : MetaObject<EmpireData>
         }
         newEmpire.create_year_name();
         newEmpire.recalculate();
-        TranslateHelper.LogNewEmperor(newKingdom.king, newKingdom.capital, newEmpire.data.year_name);
+        if (HasYearName())
+        {
+            TranslateHelper.LogNewEmperor(newKingdom.king, newKingdom.capital, newEmpire.data.year_name);
+        }
+        else
+        {
+            TranslateHelper.LogNewEmperorWest(newKingdom.king, newKingdom.capital);
+        }
+        
         newKingdom.data.name = newEmpire.data.name;
         ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
     }

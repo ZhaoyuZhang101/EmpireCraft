@@ -81,6 +81,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.isKing()) return false;
                     if (kingdom.IsInEmpire()) return false;
+                    if (kingdom.HasTakenAlliance()) return false;
                     return ModClass.EMPIRE_MANAGER
                         .Where(empire => empire.IsNeighbourWith(kingdom)&&kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom))
                         .Any(empire => kingdom.countTotalWarriors() < empire.countWarriors());
@@ -223,12 +224,24 @@ namespace EmpireCraft.Scripts.AI
                     pActor.clan.RecordHistoryEmpire(empire);
                     empire.data.created_time = World.world.getCurWorldTime();
                     empire.CoreKingdom.setKing(pActor);
-                    empire.RecordHistory(EmpireHistoryType.new_empire_history, new Dictionary<string, string>()
+                    if (empire.HasYearName())
                     {
-                        ["actor"] = pActor.getName(),
-                        ["place"] = empire.CoreKingdom.capital.GetCityName(),
-                        ["name"] = empire.GetEmpireName(),
-                    });
+                        empire.RecordHistory(EmpireHistoryType.new_empire_history, new Dictionary<string, string>()
+                        {
+                            ["actor"] = pActor.getName(),
+                            ["place"] = empire.CoreKingdom.capital.GetCityName(),
+                            ["name"] = empire.GetEmpireName(),
+                        });
+                    }
+                    else
+                    {
+                        empire.RecordHistory(EmpireHistoryType.new_empire_history_west, new Dictionary<string, string>()
+                        {
+                            ["actor"] = pActor.getName(),
+                            ["place"] = empire.CoreKingdom.capital.GetCityName(),
+                            ["name"] = empire.GetEmpireName(),
+                        });
+                    }
                     return true;
                 }
             });
@@ -412,6 +425,7 @@ namespace EmpireCraft.Scripts.AI
                     Empire empire = kingdom.GetEmpire();
                     Regime regime = kingdom.GetRegime();
                     if (regime == null) return false;
+                    if (regime.type != RegimeType.Feudalism && regime.type != RegimeType.Arabic) return false;
                     if (!regime.IsAllowDiplomacy()) return false;
                     if (!regime.IsAllowArmy()) return false;
                     if (regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;

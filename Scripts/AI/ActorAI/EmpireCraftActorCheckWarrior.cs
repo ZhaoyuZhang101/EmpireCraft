@@ -44,42 +44,18 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
                 }
                 if (pKingdom.GetRegime().IsAllowSupportCenterArmy())
                 {
-                    if (empire.CoreKingdom?.capital?.hasArmy()??false)
+                    var armies =  GetAllCenterArmy(empire);
+                    foreach (var a in armies)
                     {
-                        var armies =  GetAllCenterArmy(empire);
-                        if (armies.Count < empire.kingdoms_list.Count)
+                        if (!a.hasCaptain()) continue;
+                        if (a.units.Count<a._captain.warfare)
                         {
-                            foreach (var ek in empire.kingdoms_list)
-                            {
-                                if (ek.isRekt()) continue;
-                                if (ek.GetCenterArmy().isRekt())
-                                {
-                                    var newArmy = world.armies.newArmy(pActor, ek.capital);
-                                    if (newArmy.isRekt()) continue;
-                                    newArmy._kingdom = empire.CoreKingdom;
-                                    ek.SetCenterArmy(newArmy);
-                                    pActor.setCity(ek.capital);
-                                    pActor.setKingdom(empire.CoreKingdom);
-                                    pActor.goTo(ek.capital._city_tile);
-                                    break;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            foreach (var a in armies)
-                            {
-                                if (!a.hasCaptain()) continue;
-                                if (a.units.Count<a._captain.warfare)
-                                {
-                                    var city = a._captain.city;
-                                    pActor.setArmy(a);
-                                    pActor.setCity(city);
-                                    pActor.setKingdom(empire.CoreKingdom);
-                                    pActor.goTo(city._city_tile);
-                                    break;
-                                }
-                            }
+                            var city = a._captain.city;
+                            pActor.setArmy(a);
+                            pActor.setCity(city);
+                            pActor.setKingdom(empire.CoreKingdom);
+                            pActor.goTo(city._city_tile);
+                            break;
                         }
                     }
                 }

@@ -116,11 +116,23 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
-        new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())
+        if (empire.HasYearName())
         {
-            location = pKingdom.location,
-            color_special1 = pKingdom.getColor().getColorText()
-        }.add();
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())
+            {
+                location = pKingdom.location,
+                color_special1 = pKingdom.getColor().getColorText()
+            }.add();
+        }
+        else
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_west_log, pKingdom.king.name, empire.GetEmpireName())
+            {
+                location = pKingdom.location,
+                color_special1 = pKingdom.getColor().getColorText()
+            }.add();
+        }
+        
         return empire;
     }
 

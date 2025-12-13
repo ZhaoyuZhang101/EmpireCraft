@@ -295,6 +295,7 @@
     "empire_war": "$empire$ 发动了对 $defencer$ 的战争",
     "empire_enfeoff_log": "$empire$ 开始分封天下",
     "become_new_empire_log": "$emperor$ 称帝，定国号 $kingdom_name$",
+    "become_new_empire_west_log": "$emperor$ 加冕为 $kingdom_name$ 皇帝",
     "opinion_in_same_empire": "同一帝国",
     "opinion_different_empire_with_other_subspecies": "统一种族下的另一帝国",
     "minister_try_aqcuire_empire_log": "$title$ $minister$妄图夺取$empire_name$的天命",
@@ -465,7 +466,9 @@
 
 
     "history_new_empire": "$actor$ 在 $place$ 称帝，定国号 $name$，定都 $place$",
+    "history_new_empire_west": "$actor$ 在 $place$ 加冕为 $name$ 的皇帝",
     "history_new_emperor": "$actor$ 在 $place$ 登基, 年号 $year_name$",
+    "history_new_emperor_west": "$actor$ 在 $place$ 加冕为皇帝",
     "history_powerful_minister": "$title$ $actor$ 把持了朝政, $actor2$ 沦为了傀儡",
     "history_be_vassal": "$title$ $actor$ 臣服于帝国",
     "history_empire_die": "$year_name$ 皇帝 $actor$ 驾崩",

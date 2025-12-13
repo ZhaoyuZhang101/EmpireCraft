@@ -12,6 +12,7 @@ namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftWorldLogLibrary
 {
     public static WorldLogAsset history_new_emperor;
+    public static WorldLogAsset history_new_emperor_west;
     public static WorldLogAsset empire_powerful_minister_aquire_title;
     public static WorldLogAsset powerful_minister_aquire_empire_war;
     public static WorldLogAsset restore_historcial_empire;
@@ -21,6 +22,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset empire_war;
     public static WorldLogAsset empire_enfeoff_log;
     public static WorldLogAsset become_new_empire_log;
+    public static WorldLogAsset become_new_empire_west_log;
     public static WorldLogAsset minister_try_aqcuire_empire_log;
     public static WorldLogAsset minister_aqcuire_empire_log;
     public static WorldLogAsset king_take_title_log;
@@ -61,6 +63,18 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$place$", 2);
                 wl.updateText(ref pText, pMessage, "$year_name$", 3);
+            }
+        });
+        history_new_emperor_west = wl.add(new WorldLogAsset
+        {
+            id = nameof(history_new_emperor_west),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$place$", 2);
             }
         });
         join_religion_war_log = wl.add(new WorldLogAsset
@@ -373,6 +387,18 @@ public static class EmpireCraftWorldLogLibrary
         become_new_empire_log = wl.add(new WorldLogAsset
         {
             id = nameof(become_new_empire_log),
+            group = "emperors",
+            path_icon = "ChineseCrown.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$emperor$", 1);
+                wl.updateText(ref pText, pMessage, "$kingdom_name$", 2);
+            }
+        });
+        become_new_empire_west_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(become_new_empire_west_log),
             group = "emperors",
             path_icon = "ChineseCrown.png",
             color = Toolbox.color_log_good,
