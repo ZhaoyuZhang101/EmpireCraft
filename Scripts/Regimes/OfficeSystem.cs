@@ -89,11 +89,9 @@ public class OfficeObject
         {
             case MetaType.Kingdom:
                 preX = ((Kingdom)pNano).GetKingdomName();
-                LogService.LogInfo("国家");
                 break;
             case MetaType.City:
                 preX = ((City)pNano).GetCityName();
-                LogService.LogInfo("城市");
                 break;
         }
         LogService.LogInfo(pNano?.getType());

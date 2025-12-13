@@ -80,7 +80,6 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
             optionButton.SetStatus(option==index);
             index++;
         }
-        LogService.LogInfo(title+option);
     }
 
 

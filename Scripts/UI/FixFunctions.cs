@@ -85,7 +85,6 @@ public static class FixFunctions
         OptionAsset option = AssetManager.powers.get(pPower).option_asset;
         if (option.isActive())
         {
-            LogService.LogInfo(option.current_int_value.ToString());
             for (int i = 0; i < option.max_value+1; i++)
             {
                 obj.transform.Find($"toggle_{(i+1>option.max_value?0:i+1)}").GetComponent<ToggleIcon>()?.updateIconMultiToggle(true, option.current_int_value==i);

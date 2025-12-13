@@ -241,7 +241,6 @@ public class Empire : MetaObject<EmpireData>
         actor.CheckSpecificClan();
         //检查帝国分裂
         var currentSpecificClan = actor.GetSpecificClan();
-        LogService.LogInfo($"登基{actor.id}{actor.name}");
         if (currentSpecificClan.id != data.empire_specific_clan && data.empire_specific_clan != -1L) 
         {
             if (currentSpecificClan.all_valid_members.Any())
@@ -515,7 +514,6 @@ public class Empire : MetaObject<EmpireData>
                 data.directPre = LM.Get("great");
             }
             data.has_year_name = regime.HasEraName();
-            LogService.LogInfo(regime.HasEraName().ToString());
             regime.Factions.ForEach(f=>
             {
                 f.EmpireId = this.getID();

@@ -153,7 +153,6 @@ public class FixedFaction
     }
     public FixedFaction Clone()
     {
-        LogService.LogInfo("重置派系");
         FixedFaction newFaction = new FixedFaction()
         {
             _id = _id,
