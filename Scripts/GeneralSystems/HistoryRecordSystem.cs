@@ -13,8 +13,14 @@ public static class HistoryRecordSystem
         string id = "";
         switch (type) 
         {
+            case EmpireHistoryType.new_empire_history_west:
+                id = "history_new_empire_west";
+                break;
             case EmpireHistoryType.new_empire_history:
                 id = "history_new_empire";
+                break;
+            case EmpireHistoryType.new_emperor_history_west:
+                id = "history_new_emperor_west";
                 break;
             case EmpireHistoryType.new_emperor_history:
                 id = "history_new_emperor";
@@ -71,11 +77,23 @@ public static class HistoryRecordSystem
             cities = new List<string>(),
             is_first = isNew
         };
-        empire.RecordHistory(EmpireHistoryType.new_emperor_history, new Dictionary<string, string>()
+        if (empire.HasYearName())
         {
-            ["actor"] = empire.Emperor.getName(),
-            ["place"] = empire.CoreKingdom.capital.GetCityName(),
-            ["year_name"] = empire.data.year_name,
-        });
+            empire.RecordHistory(EmpireHistoryType.new_emperor_history, new Dictionary<string, string>()
+            {
+                ["actor"] = empire.Emperor.getName(),
+                ["place"] = empire.CoreKingdom.capital.GetCityName(),
+                ["year_name"] = empire.data.year_name,
+            });
+        }
+        else
+        {
+            empire.RecordHistory(EmpireHistoryType.new_emperor_history_west, new Dictionary<string, string>()
+            {
+                ["actor"] = empire.Emperor.getName(),
+                ["place"] = empire.CoreKingdom.capital.GetCityName()
+            });
+        }
+        
     }
 }
