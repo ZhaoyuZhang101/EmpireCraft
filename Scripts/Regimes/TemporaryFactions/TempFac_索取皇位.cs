@@ -17,8 +17,8 @@ public class TempFac_索取皇位 : TemporaryFaction
         if (target != null)
         {
             var empire = GetEmpire();
-            empire.CoreKingdom.setKing(target);
-            target.setKingdom(empire.CoreKingdom);
+            empire.CoreKingdom.GetOffice().meta_object = empire.CoreKingdom;
+            empire.CoreKingdom.GetOffice().SetActor(target);
             if (empire.CoreKingdom.GetMoney() <= 0)
             {
                 War war = null;

@@ -21,7 +21,7 @@ public static class WarExtension
 
     }
 
-    public static void SetEmpireWarType(this War w, EmpireWarType type)
+    public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="")
     {
         GetOrCreate(w).empireWarType = type;
         Empire empire = w.main_attacker.GetEmpire();
@@ -31,7 +31,7 @@ public static class WarExtension
         }
         else
         {
-            w.data.name = w.main_attacker?.name + type + "战争";
+            w.data.name = string.IsNullOrEmpty(pre)?w.main_attacker?.name:pre + type + "战争";
         }
     }
     public static EmpireWarType GetEmpireWarType(this War w)

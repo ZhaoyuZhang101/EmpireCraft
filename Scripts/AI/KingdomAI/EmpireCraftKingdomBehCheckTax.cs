@@ -12,6 +12,13 @@ public class EmpireCraftKingdomBehCheckTax: GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
+        if (!pKingdom.IsInEmpire())
+        {
+            if (pKingdom.GetMoney() < 0)
+            {
+                pKingdom.AddMoney(1);
+            }
+        } 
         if (!pKingdom.IsNeedToSubmitTax()) return BehResult.Continue;
         pKingdom.CountingFinishedSelfPlot();
         var pTaxRate = pKingdom.GetTaxRate();

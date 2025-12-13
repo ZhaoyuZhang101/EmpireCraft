@@ -14,7 +14,6 @@ public class EmpireCraftKingdomBehCheckCentreArmy:GameAIKingdomBase
         if (pKingdom.GetRegime().IsAllowDiplomacy() && !pKingdom.GetRegime().IsAllowSupportCenterArmy())
         {
             pKingdom?.GetCenterArmy()?.disband();
-            pKingdom.RemoveCenterArmy();
         }
         return BehResult.Continue;
     }

@@ -118,6 +118,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 string cityName = "";
                 string provinceName = "";
                 string officer = "";
+                string officeName = "";
                 string name = cIdentity.Item2.name;
                 string educationLevel = "";
                 if (cIdentity.Item2.is_alive)
@@ -139,6 +140,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                     educationLevel = (actor.hasTrait("jingshi") ? "trait_jingshi" : "") +"/" +(actor.hasTrait("gongshi") ? "trait_gongshi" : "") +"/"+ (actor.hasTrait("juren")?"trait_juren":"");
                     educationLevel += string.Join("/", educationLevel.Split('/').Select(c=>LM.Get(c)));
                     PeeragesLevel = string.Join("_", culture, actor.GetPeeragesLevel().ToString());
+                    officeName = actor.GetOffice()?.GetOfficeName()??"";
                     PeeragesLevel += LM.Get(PeeragesLevel);
                 }
                 else
@@ -149,11 +151,12 @@ namespace EmpireCraft.Scripts.HelperFunc
                     officialLevel = cIdentity.Item2.officialLevel + LM.Get(cIdentity.Item2.officialLevel);
                     kingdomName = cIdentity.Item2.kingdomName;
                     cityName = cIdentity.Item2.cityName;
+                    officeName = cIdentity.Item2.officeName;
                     educationLevel = cIdentity.Item2.educationLevel + string.Join("/", cIdentity.Item2.educationLevel.Split('/').Select(c=>LM.Get(c)));;
                 }
                 List<string> searchContent = new List<string>()
                 {
-                    merit, honoraryOfficial, officialLevel, PeeragesLevel, name, educationLevel, kingdomName, cityName, provinceName, officer
+                    merit, honoraryOfficial, officialLevel, PeeragesLevel, name, educationLevel, kingdomName, cityName, provinceName, officer, officeName
                 };
                 bool isSatisfied = searchContent.ToList().Any(t =>t.Contains(content));
                 if (isSatisfied) identityPool.Add(cIdentity);

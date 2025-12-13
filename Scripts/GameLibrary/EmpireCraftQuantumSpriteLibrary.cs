@@ -150,8 +150,14 @@ public static class EmpireCraftQuantumSpriteLibrary
                 Vector3 pPos = king.current_position;
                 pPos.y -= 3f;
                 Sprite pSprite;
-                pSprite = (king.has_attack_target ? QuantumSpriteLibrary._king_sprite_angry : (king.hasPlot() ? QuantumSpriteLibrary._king_sprite_surprised : (kingdom.hasEnemies() ? QuantumSpriteLibrary._king_sprite_normal : QuantumSpriteLibrary._king_sprite_happy)));
-                
+                if (kingdom.IsEmpire())
+                {
+                    pSprite = (king.has_attack_target ?  _LvLing_emperor_sprite_angry: (king.hasPlot() ? _LvLing_emperor_sprite_surprised : (kingdom.hasEnemies() ? _LvLing_emperor_sprite_normal : _LvLing_emperor_sprite_happy)));
+                }
+                else
+                {
+                    pSprite = (king.has_attack_target ? QuantumSpriteLibrary._king_sprite_angry : (king.hasPlot() ? QuantumSpriteLibrary._king_sprite_surprised : (kingdom.hasEnemies() ? QuantumSpriteLibrary._king_sprite_normal : QuantumSpriteLibrary._king_sprite_happy)));  
+                }
                 if (!pAsset.group_system.is_within_active_index)
                 {
                     num++;

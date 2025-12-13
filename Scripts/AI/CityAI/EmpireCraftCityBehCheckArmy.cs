@@ -39,7 +39,7 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
             if (pCity.isCapitalCity())
             {
                 Kingdom k = pCity.kingdom;
-                if (k.IsInEmpire())
+                if (k.IsInEmpire()&&!k.IsEmpire())
                 {
                     Empire empire = k.GetEmpire();
                     if (empire.CoreKingdom.GetMoney() > 0)

@@ -12,6 +12,14 @@ public class EmpireCraftActorCheckTraits: GameAIActorBase
 
     public override BehResult execute(Actor pActor)
     {
+        var office = pActor.GetOffice();
+        if (office != null)
+        {
+            if (office.GetActor() != pActor)
+            {
+                pActor.EndOffice();
+            }
+        }
         if (!pActor.hasKingdom()) return BehResult.Continue;
         if (!pActor.isAdult()) return BehResult.Continue;
         if (pActor.kingdom.GetRegime() == null) return BehResult.Continue;

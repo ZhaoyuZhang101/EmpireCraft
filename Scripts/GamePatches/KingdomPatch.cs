@@ -110,6 +110,7 @@ public class KingdomPatch : GamePatch
             if (__instance.IsEmpire())
             {
                 __instance.GetEmpire().NewEmperor(pActor);
+                LogService.LogInfo("触发原版选择国王");
             }
             __instance.RemoveHeir();
         }

@@ -54,8 +54,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_controlled_kingdoms"))
             {
                 kingdomsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                kingdomsWindowTab.Setup("empire_controlled_kingdoms", this.ScrollWindowComponent, action:ShowKingdomList, sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
+                kingdomsWindowTab.Setup("empire_controlled_kingdoms", this.ScrollWindowComponent, action:ShowKingdomListHelp,
+                    sprite: SpriteTextureLoader.getSprite("ui/specificClanIcon"));
             }
+
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "past_emperors"))
             {
                 pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
@@ -73,6 +75,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
         }
 
+        private void ShowKingdomListHelp(WindowMetaTab pArg0)
+        {
+            StartCoroutine(ShowKingdomList());
+        }
         private void OpenEmpireSettingWindow(WindowMetaTab pArg0)
         {
             ScrollWindow.showWindow(nameof(EmpireSettingWindow));
@@ -131,14 +137,17 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
         
         //显示势力范围
-        public void ShowKingdomList(WindowMetaTab pArg0=null)
+        public IEnumerator ShowKingdomList()
         {
             Clear();
             InitialTopPartInfo();
             var parent = CommonInitial("empire_controlled_kingdoms");
+            yield return CoroutineHelper.wait_for_next_frame;
             UIHelper.InitialFactionSpace(parent.BeginHoriGroup(), _empire.CoreKingdom);
+            yield return CoroutineHelper.wait_for_next_frame;
             parent.AddTextIntoVertLayout("", true, TextAnchor.MiddleCenter);
             parent.AddTextIntoVertLayout(LM.Get("kingdom_list"), true, TextAnchor.MiddleCenter);
+            yield return CoroutineHelper.wait_for_next_frame;
             StartCoroutine(ShowKingdoms(parent));
         }
         //显示君主世系
@@ -237,7 +246,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             Clear();
             InitialTabButtons();
             ShowTopPart();
-            ShowKingdomList();
+            StartCoroutine(ShowKingdomList());
         }
         public override void OnNormalEnable()
         {
@@ -249,7 +258,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             Clear();
             InitialTabButtons();
             ShowTopPart();
-            ShowKingdomList();
+            StartCoroutine(ShowKingdomList());
         }
 
         public void ListPastEmperor(EmpireCraftStatsRow statsRow, EmpireCraftHistory history)

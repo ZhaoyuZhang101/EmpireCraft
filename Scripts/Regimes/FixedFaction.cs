@@ -51,7 +51,7 @@ public class FactionManager
             {
                 FactionType.绥靖,
                 new List<TemporaryFactionType>
-                    { TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池, TemporaryFactionType.削藩, TemporaryFactionType.设置行政区, TemporaryFactionType.索取皇位 }
+                    { TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池, TemporaryFactionType.削藩, TemporaryFactionType.设置行政区,TemporaryFactionType.开科取士, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.共和,

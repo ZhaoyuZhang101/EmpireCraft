@@ -26,6 +26,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset king_take_title_log;
     public static WorldLogAsset king_create_title_log;
     public static WorldLogAsset city_add_to_title_log;
+    public static WorldLogAsset religion_war_transfer_log;
     public static WorldLogAsset become_kingdom_log;
     public static WorldLogAsset destroy_title_log;
     public static WorldLogAsset history_kingdom_attack_for_title;
@@ -38,6 +39,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset cotrolled_country_log;
     public static WorldLogAsset become_greater_general;
     public static WorldLogAsset join_empire_war_log;
+    public static WorldLogAsset join_religion_war_log;
     public static WorldLogAsset officer_build_specific_clan;
     public static WorldLogAsset king_choose_heir_log;
     public static WorldLogAsset 官员品级调动;
@@ -59,6 +61,30 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$place$", 2);
                 wl.updateText(ref pText, pMessage, "$year_name$", 3);
+            }
+        });
+        join_religion_war_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(join_religion_war_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$religion$", 2);
+            }
+        });
+        religion_war_transfer_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(religion_war_transfer_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$city$", 1);
+                wl.updateText(ref pText, pMessage, "$religion$", 2);
             }
         });
         官员品级调动 = wl.add(new WorldLogAsset

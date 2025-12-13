@@ -30,7 +30,7 @@ public abstract class TemporaryFaction
     public float progress = 0;
     public float progressMax = 60;
     [JsonIgnore]
-    public float acceleration => GetEmpire()?.data.cabinet_acc??0+GetEmpire()?.data.officer_acc??0+Acc;
+    public float acceleration => (GetEmpire()?.data.cabinet_acc??0)+(GetEmpire()?.data.officer_acc??0)+Acc;
     private bool started = false;
     public double timestamp = -1L;
     public double countDownTimestamp = -1L;
@@ -281,7 +281,8 @@ public abstract class TemporaryFaction
                 }
             }
             progress ++;
-            if (progress >= progressMax-(acceleration>=55?55:acceleration)) Execute();
+            LogService.LogInfo("诉求加成+"+acceleration);
+            if (progress >= progressMax-acceleration) Execute();
         }
         else
         {

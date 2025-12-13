@@ -184,8 +184,10 @@ public class OfficeIdentity
     {
         return _is_cabinet;
     }
-    public void SetOfficeId(long oid)
+    public void SetOfficeId(long oid, Actor actor)
     {
+        performanceEvents = new PerformanceEvents();
+        performanceEvents.init(actor);
         this.officeID = oid;
     }
 
@@ -200,7 +202,7 @@ public class OfficeIdentity
         {
             value.RemoveActor();
         }
-
+        performanceEvents = null;
         officialLevel = -1;
         officeID = -1L;
     }

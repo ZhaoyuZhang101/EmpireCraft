@@ -154,6 +154,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (pKingdom.CanBecomeEmpire() || flag)
         {
             EmpireCraftPlotsAddition.BecomeEmpireAndStartEnfeoff(pKingdom.king);
+            pKingdom.GetRegime().SetAllowDiplomacy(true);
         }
     }
 

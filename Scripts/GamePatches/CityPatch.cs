@@ -200,6 +200,15 @@ public class CityPatch : GamePatch
                     return false;
                 }
             }
+            //检测是否为迫使朝贡战争，如果是则迫使该国家加入朝贡体系
+            var religionWar = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.神圣&&joinAfterCapture.isAttacker());
+            if (religionWar != null)
+            {
+                LogService.LogInfo("宗教圣战");
+                __instance.setReligion(joinAfterCapture.religion);
+                __instance.units.ForEach(a=>a.setReligion(joinAfterCapture.religion));
+                TranslateHelper.LogReligionWarTransfer(__instance, joinAfterCapture.religion);
+            }
             if (!__instance.checkRebelWar(joinAfterCapture, pWars))
                 joinAfterCapture.data.timestamp_new_conquest = World.world.getCurWorldTime();
             __instance.removeSoldiers();

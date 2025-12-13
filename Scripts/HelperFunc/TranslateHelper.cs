@@ -164,14 +164,14 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
-        public static void LogBecomeGreaterGeneral(Actor actor, Empire empire)
+        public static void LogReligionWarTransfer(City city, Religion religion)
         {
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.become_greater_general,
-                actor.data.name,empire.data.name
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.religion_war_transfer_log,
+                city.data.name,religion.data.name
                 )
             {
-                color_special1 = actor.getColor()._color_text,
-                color_special2 = empire.getColor()._color_text
+                color_special1 = city.getColor()._color_text,
+                color_special2 = religion.getColor()._color_text
 
             }.add();
         }
@@ -208,6 +208,18 @@ namespace EmpireCraft.Scripts.HelperFunc
             {
                 color_special1 = kingdom.getColor()._color_text,
                 color_special2 = empire.getColor()._color_text
+
+            }.add();
+        }
+        public static void LogJoinReligionWar(Kingdom kingdom, Religion religion)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.join_religion_war_log,
+                kingdom.data.name,
+                religion.data.name
+                )
+            {
+                color_special1 = kingdom.getColor()._color_text,
+                color_special2 = religion.getColor()._color_text
 
             }.add();
         }

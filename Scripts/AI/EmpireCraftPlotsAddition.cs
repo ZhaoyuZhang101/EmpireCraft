@@ -81,20 +81,8 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.isKing()) return false;
                     if (kingdom.IsInEmpire()) return false;
-                    if (kingdom.cities.Count > 1) return false;
                     return ModClass.EMPIRE_MANAGER
-                        .Where(empire => empire.CoreKingdom.GetRegime()?.type== RegimeType.LvLing&&empire.IsNeighbourWith(kingdom))
-                        .Any(empire => kingdom.countTotalWarriors() < empire.countWarriors());
-                },
-                check_should_continue = delegate (Actor pActor)
-                {
-                    Kingdom kingdom = pActor.kingdom;
-                    if (!pActor.IsEmperor()) return false;
-                    if (!pActor.isKing()) return false;
-                    if (kingdom.IsInEmpire()) return false;
-                    if (kingdom.cities.Count > 1) return false;
-                    return ModClass.EMPIRE_MANAGER
-                        .Where(empire => empire.CoreKingdom.GetRegime()?.type== RegimeType.LvLing&&empire.IsNeighbourWith(kingdom))
+                        .Where(empire => empire.IsNeighbourWith(kingdom)&&kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom))
                         .Any(empire => kingdom.countTotalWarriors() < empire.countWarriors());
                 },
                 action = delegate (Actor pActor)
@@ -105,6 +93,53 @@ namespace EmpireCraft.Scripts.AI
                     kingdom.JoinTakenAlliance(empire);
                     TranslateHelper.LogJoinTakenAlliance(kingdom, empire);
                     return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_start_religion_war",
+                path_icon = "EmperorQuest.png",
+                group_id = "diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    Regime regime = kingdom.GetRegime();
+                    if (regime == null) return false;
+                    if (regime.type != RegimeType.Feudalism || regime.GetReligionLevel() != ReligionLevel.High)
+                        return false;
+                    if (kingdom.hasReligion() && kingdom.religion.GetCity() == kingdom.capital)
+                    {
+                        Religion religion = kingdom.religion;
+                        
+                        if (World.world.kingdoms.ToList().Any(k =>
+                                !religion.kingdoms.Contains(k)&&religion.kingdoms.Any(k2=>k2.IsNeighbourWith(k)))) return true;
+                    }
+                    return false;
+                },
+                action = delegate (Actor pActor)
+                {                    
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    Regime regime = kingdom.GetRegime();
+                    if (regime == null) return false;
+                    if (regime.type != RegimeType.Feudalism || regime.GetReligionLevel() != ReligionLevel.High)
+                        return false;
+                    if (kingdom.hasReligion() && kingdom.religion.GetCity() == kingdom.capital)
+                    {
+                        Religion religion = kingdom.religion;
+
+                        var target = World.world.kingdoms.ToList().Find(k =>
+                            !religion.kingdoms.Contains(k)&&religion.kingdoms.Any(k2=>k2.IsNeighbourWith(k)));
+                        if (target == null) return false;
+                        var war = DiplomacyHelpers.wars.newWar(kingdom, target, WarTypeLibrary.normal);
+                        war.SetEmpireWarType(EmpireWarType.神圣, pre:religion.name);
+                    }
+                    return false;
                 }
             });
             AssetManager.plots_library.add(new PlotAsset
