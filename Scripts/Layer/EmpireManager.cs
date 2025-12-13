@@ -116,7 +116,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
-        if (empire.HasYearName())
+        if (empire.data.has_year_name)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())
             {
