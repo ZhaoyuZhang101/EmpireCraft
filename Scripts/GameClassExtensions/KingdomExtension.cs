@@ -319,6 +319,7 @@ public static class KingdomExtension
         if (res.isRekt())
         {
             k.RemoveCenterArmy();
+            return null;
         } 
         return res;
     }

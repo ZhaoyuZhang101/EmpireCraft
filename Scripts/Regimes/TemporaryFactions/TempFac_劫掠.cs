@@ -17,15 +17,6 @@ public class TempFac_劫掠 : TemporaryFaction
         {
             var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, target, WarTypeLibrary.normal);
             war.SetEmpireWarType(EmpireWarType.劫掠);
-            var op = World.world.diplomacy.getOpinion(target, empire.CoreKingdom);
-            if (!op.results.ContainsKey(EmpireCraftOpinionAddition.OpinionKingdomBeenPlunder))
-            {
-                op.results.Add(EmpireCraftOpinionAddition.OpinionKingdomBeenPlunder, -20);
-            }
-            else
-            {
-                op.results[EmpireCraftOpinionAddition.OpinionKingdomBeenPlunder] -= 20;
-            }
         }
         End();
     }

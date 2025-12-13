@@ -11,7 +11,6 @@ namespace EmpireCraft.Scripts.AI;
 public static class EmpireCraftOpinionAddition
 {
     //被劫掠
-    public static OpinionAsset OpinionKingdomBeenPlunder;
     public static void init()
     {
         OpinionLibrary opl = AssetManager.opinion_library;
@@ -24,7 +23,7 @@ public static class EmpireCraftOpinionAddition
                 int result = 0;
                 if (pMain.IsInSameEmpire(pTarget))
                 {
-                    if (!pMain.IsEmpire()&&pTarget.IsEmpire()&&Date.getYearsSince(pMain.GetEmpire().getFoundedTimestamp())<100)
+                    if (!pMain.IsEmpire()&&pTarget.IsEmpire()&&pTarget.GetEmpire().CoreKingdom.GetMoney()<0)
                     {
                         result = 999;
                     }
@@ -32,11 +31,40 @@ public static class EmpireCraftOpinionAddition
                 return result;
             }
         });
-        opl.add(OpinionKingdomBeenPlunder = new OpinionAsset
+        opl.add(new OpinionAsset
         {
-            id = nameof(OpinionKingdomBeenPlunder),
-            translation_key = nameof(OpinionKingdomBeenPlunder),
-            calc = (pMain, pTarget) => -20
+            id = "opinion_empire_polite",
+            translation_key = "opinion_empire_polite",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                int result = 0;
+                if (!pMain.IsInSameEmpire(pTarget))
+                {
+                    if (!pMain.IsInEmpire() && pTarget.IsEmpire()&&pMain.countTotalWarriors()*2<=pTarget.GetEmpire().countWarriors())
+                    {
+                        result = pTarget.GetEmpire().data.礼仪_addition * 5;
+                    }
+                }
+                return result;
+            }
+        });
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_religion_place",
+            translation_key = "opinion_religion_place",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                int result = 0;
+                if (pMain.hasReligion()&&pMain.GetRegime()!=null)
+                {
+                    Religion religion = pMain.religion;
+                    if (religion.GetCity() == pTarget.capital && pTarget.religion == religion)
+                    {
+                        result = 100*(int)pMain.GetRegime().GetReligionLevel();
+                    }
+                }
+                return result;
+            }
         });
         opl.add(new OpinionAsset
         {
@@ -66,7 +94,7 @@ public static class EmpireCraftOpinionAddition
                 {
                     if (!pMain.IsEmpire()&&pTarget.IsEmpire())
                     {
-                        if (Date.getYearsSince(pMain.GetEmpire().getFoundedTimestamp()) >= 100&&pMain.countTotalWarriors()>=pTarget.countTotalWarriors())
+                        if (pMain.GetCorruptionRate()>0.8f&&pMain.countTotalWarriors()>=pTarget.countTotalWarriors())
                             result = -999;
                     }
                 }
@@ -115,7 +143,7 @@ public static class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if (!pMain.IsInSameEmpire(pTarget)&&pMain.IsEmpire()&&pTarget.IsEmpire()&&pMain.getMainSubspecies().getID()==pTarget.getMainSubspecies().getID())
+                if (!pMain.IsInSameEmpire(pTarget)&&pMain.IsEmpire()&&pTarget.IsEmpire()&&pMain.getSpecies()==pTarget.getSpecies())
                 {
                     result = -999;
                 }

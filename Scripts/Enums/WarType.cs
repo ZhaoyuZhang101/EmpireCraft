@@ -12,6 +12,7 @@ namespace EmpireCraft.Scripts.Enums
         伐不臣,
         地方独立,
         攘夷,
+        神圣,
         统一,
         派系叛乱,
         迫使朝贡,

@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using ai.behaviours;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
@@ -18,8 +20,31 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         {
             CheckJoinWar(pKingdom);
         }
+        //检测加入圣战
+        CheckJoinReligionWar(pKingdom);
         CheckMainTitle(pKingdom);
         return BehResult.Continue;
+    }
+
+    public void CheckJoinReligionWar(Kingdom pKingdom)
+    {
+        if (!pKingdom.hasReligion()) return;
+        foreach (var war in DiplomacyHelpers.wars)
+        {
+            if (war.main_attacker?.capital == war.main_attacker?.religion.GetCity() &&
+                war.GetEmpireWarType() == EmpireWarType.神圣)
+            {
+                if (pKingdom.religion == war.main_attacker?.religion)
+                {
+                    if (pKingdom.isOpinionTowardsKingdomGood(war.main_attacker))
+                    {
+                        war.joinAttackers(pKingdom);
+                        TranslateHelper.LogJoinReligionWar(pKingdom, pKingdom.religion);
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     public void CheckMainTitle(Kingdom pKingdom)

@@ -111,6 +111,17 @@ public class SpecificClan
         capital_city_pos_x = capital.city_center.x;
         capital_city_pos_y = capital.city_center.y;
     }
+    public (string name, Vector2 pos, City city) GetHistoryEmpire()
+    {
+        var empireName = empire_name;
+        var pos = new  Vector2(capital_city_pos_x, capital_city_pos_y);
+        var city = World.world.cities.get(capital_city_id);
+        return (empireName, pos, city);
+    }
+    public bool HasHistoryEmpire()
+    {
+        return !string.IsNullOrEmpty(empire_name);
+    }
     public List<(ClanRelation, PersonalClanIdentity)> GetChildren(PersonalClanIdentity identity)
     {
         var children = this
@@ -655,7 +666,7 @@ public static class SpecificClanManager
             {
                 World.world.clans.newClan(actor, true);
             }
-            catch (Exception e)
+            catch
             {
                 return;
             }
@@ -704,6 +715,7 @@ public class PersonalClanIdentity
     public string cityName = "";
     public string educationLevel = "";
     public string culture = "";
+    public string officeName = "";
     public string name { get; set; }
     [JsonIgnore]
     public SpecificClan _specificClan => SpecificClanManager.Get(specific_clan_id);
@@ -758,7 +770,11 @@ public class PersonalClanIdentity
         {
             merit = string.Join("_", culture, "meritlevel", identity.peerageType.ToString(), identity.meritLevel);
             honoraryOfficial = string.Join("_", culture, "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
-            officialLevel = string.Join("_", culture, identity.officialLevel.ToString());
+            officialLevel = string.Join("_", actor.kingdom.GetRegime().type, "officiallevel", identity.officialLevel.ToString());
+        }
+        if (actor.GetOffice() != null)
+        {
+            officeName = actor.GetOffice().GetOfficeName();
         }
         educationLevel = (actor.hasTrait("jingshi") ? "trait_jingshi" : "") +"/" +(actor.hasTrait("gongshi") ? "trait_gongshi" : "") +"/"+ (actor.hasTrait("juren")?"trait_juren":"");
         PeeragesLevel = string.Join("_", culture, actor.GetPeeragesLevel().ToString());

@@ -6,6 +6,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
 
@@ -30,23 +31,26 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
         if (NeedSuccession(pKingdom))
         {
+            LogService.LogInfo("需要继承");
             if (pKingdom.HasHeir())
             {
+                LogService.LogInfo("存在继承人");
                 ChooseKingFromHeir(pKingdom);  
                 return BehResult.Continue;
             }
-            else
+
+            if (pKingdom.IsEmpire())
             {
-                if (pKingdom.IsEmpire())
-                {
-                    return BehResult.Continue;
-                }
+                LogService.LogInfo("阻断皇帝选择");
+                return BehResult.Continue;
             }
         } 
         OfficeObject office = pKingdom.GetOffice();
         if (office == null) return BehResult.Continue;
+        office.is_local = true;
         office.meta_object = pKingdom;
         office.Select(pKingdom);
+        LogService.LogInfo("选择完毕");
         return BehResult.Continue;
     }
 
@@ -113,13 +117,5 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 pNewKing.city.removeLeader();
             }
         }
-
-        if (pKingdom.hasCapital() && pNewKing.city != pKingdom.capital)
-        {
-            pNewKing.joinCity(pKingdom.capital);
-        }
-
-        pKingdom.setKing(pNewKing);
-        WorldLog.logNewKing(pKingdom);
     }
 }

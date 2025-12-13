@@ -1,4 +1,5 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+﻿using System.Collections;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
@@ -302,14 +303,10 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
             baseSpaceTitle.background.enabled = false;
             baseSpace.AddChild(baseSpaceTitle.gameObject);
             
-            AutoGridLayoutGroup baseActorGrid = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 30), pSpacing:new Vector2(0, 0));
-            if (relationthip != null) 
+            AutoGridLayoutGroup baseActorGrid = this.BeginGridGroup(2, pCellSize: new Vector2(100, 50), pSpacing:new Vector2(0, 0));
+            if (relationthip != null)
             {
-                foreach(var identity in relationthip)
-                {
-                    if (identity.identity == null) continue;
-                    ShowPersonalInfo(baseActorGrid, identity.identity, identity.relation);
-                }
+                ShowPersonalInfos(baseActorGrid, relationthip);
             }
             baseSpace.AddChild(baseActorGrid.gameObject);
         }
@@ -320,6 +317,14 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         return baseSpace;
     }
 
+    public void ShowPersonalInfos(AutoGridLayoutGroup baseActorGrid, List<(ClanRelation relation, PersonalClanIdentity identity)> relationthip)
+    {
+        foreach(var identity in relationthip)
+        {
+            if (identity.identity == null) continue;
+            ShowPersonalInfo(baseActorGrid, identity.identity, identity.relation);
+        }
+    }
     public void ChangeActor(PersonalClanIdentity actor_identity)
     {
         this._identity = actor_identity;
@@ -342,18 +347,15 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 
         //左边信息栏
         AutoVertLayoutGroup leftVertGroup = this.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
-
-        SimpleText nameText = GameObject.Instantiate(SimpleText.Prefab);
-        nameText.Setup($"<color=#FF4500>{(actor.is_alive?"":LM.Get("is_dead")+"-")}</color>{actor.name} ({LM.Get($"relation_{relation.ToString()}")}-{LM.Get(actor.isMainText)})", pSize: new Vector2(50, 10));
         
-        SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
-        timeText.Setup($"{actor.birthday+"-"+actor.getDeathday()}", pSize: new Vector2(50, 10));
-
-        leftVertGroup.AddChild(nameText.gameObject);
-        leftVertGroup.AddChild(timeText.gameObject);
+        
+        leftVertGroup.AddTextIntoVertLayout($"<color=#FF4500>{(actor.is_alive?"":LM.Get("is_dead")+"-")}</color>{actor.name} ({LM.Get($"relation_{relation.ToString()}")}-{LM.Get(actor.isMainText)})", size: new Vector2(50, 10));
+        leftVertGroup.AddTextIntoVertLayout($"{actor.birthday+"-"+actor.getDeathday()}", size: new Vector2(50, 10));
+        var flag = actor.is_alive && actor._actor.IsOnOffice();
+        leftVertGroup.AddTextIntoVertLayout($"官职：{(string.IsNullOrEmpty(actor.officeName)?"无":actor.officeName).ColorString(pColor:flag?Color.yellow:Color.gray)}");
         leftVertGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(leftVertGroup.gameObject);
-        personalGroup.transform.AddStretchBackground("clanFrame", size: new Vector2(100, 30));
+        personalGroup.transform.AddStretchBackground("clanFrame", size: new Vector2(100, 50));
         parent.AddChild(personalGroup.gameObject);
     }
     [Hotfixable]
@@ -369,7 +371,8 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         nameText.Setup($"<color=#FF4500>{(actor.is_alive?"":LM.Get("is_dead")+"-")}</color>{actor.name}-{LM.Get(actor.isMainText)}", pSize: new Vector2(50, 10));
 
         SimpleText levelText = GameObject.Instantiate(SimpleText.Prefab);
-        levelText.Setup(LM.Get($"relation_{relation.ToString()}"), pSize: new Vector2(50, 10));
+        var flag = actor.is_alive && actor._actor.IsOnOffice();
+        levelText.Setup($"官职：{(string.IsNullOrEmpty(actor.officeName)?"无":actor.officeName).ColorString(pColor:flag?Color.yellow:Color.gray)}", pSize: new Vector2(50, 10));
 
         SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
         timeText.Setup($"{actor.birthday+"-"+actor.getDeathday()}", pSize: new Vector2(50, 10));

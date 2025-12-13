@@ -109,7 +109,7 @@ public class OfficeObject
             switch (power)
             {
                 case OfficerPowerType.审核:
-                    if (officer != null)
+                    if (!officer.isRekt())
                     {
                         if (IsSameFactionWithEmpire(empire))
                         {
@@ -205,11 +205,11 @@ public class OfficeObject
                 case OfficerPowerType.礼仪:
                     if (officer != null)
                     {
-                        empire.data.宗教_addition = officer.stewardship;
+                        empire.data.礼仪_addition = officer.stewardship;
                     }
                     else
                     {
-                        empire.data.宗教_addition = 0;
+                        empire.data.礼仪_addition = 0;
                     }
                     break;
                 case OfficerPowerType.财政:
@@ -279,8 +279,9 @@ public class OfficeObject
     public void SetActor (Actor actor)
     {
         var originalActor = GetActor();
-        if (originalActor != null)
+        if (!originalActor.isRekt())
         {
+            originalActor.EndOffice();
             if (originalActor.HasOfficeIdentity())
             {
                 var id = originalActor.GetIdentity();
@@ -315,7 +316,7 @@ public class OfficeObject
                 {
                     identity.RemoveOffice();
                 }
-                identity.SetOfficeId(OfficeID);
+                identity.SetOfficeId(OfficeID, actor);
                 actor.addTrait("officer");
                 actor.ChangeOfficialLevel(officeType);
             }
@@ -323,7 +324,10 @@ public class OfficeObject
         actor.StartOffice(this);
         actor_id = actor.getID();
         timestamp = World.world.getCurWorldTime();
-        if (!is_local) return;
+        var personalId = actor.GetPersonalIdentity();
+        personalId.officeName = GetName();
+        var empireName = "";
+        if(!is_local) return;
         switch (meta_object.meta_type)
         {
             case MetaType.City:
@@ -334,9 +338,15 @@ public class OfficeObject
                 {
                     actor.goTo(city._city_tile);
                 }
+                personalId.officeName = empireName+GetName(city);
                 break;
             case MetaType.Kingdom:
                 Kingdom kingdom = (Kingdom)meta_object;
+                if (kingdom.IsInEmpire() && !kingdom.IsEmpire())
+                {
+                    empireName = kingdom.GetEmpire().GetEmpireName() + "| ";
+                }
+                personalId.officeName = empireName+GetName(kingdom);
                 kingdom.setKing(actor); 
                 actor.joinCity(kingdom.capital);
                 if (kingdom?.capital?._city_tile != null)
@@ -394,6 +404,7 @@ public class CenterOffice
     public List<long> Divisions { get; set; } = new List<long>();
     public void Init(Kingdom pKingdom)
     {
+        CoreOffices.ForEach(id=>OfficeManager.Remove(id));
         CoreOffices.Clear();
         Regime pRegime = pKingdom.GetRegime();
         foreach (var core in pRegime.bureau_config.cores)
@@ -411,6 +422,7 @@ public class CenterOffice
             OfficeManager.Offices.Add(o.OfficeID, o);
             CoreOffices.Add(o.OfficeID);
         }
+        Divisions.ForEach(id=>OfficeManager.Remove(id));
         Divisions.Clear();
         foreach (var div in pRegime.bureau_config.division)
         {
