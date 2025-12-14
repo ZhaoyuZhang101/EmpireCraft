@@ -55,7 +55,6 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
                             pActor.setArmy(a);
                             pActor.setCity(city);
                             pActor.setKingdom(empire.CoreKingdom);
-                            pActor.goTo(city._city_tile);
                             break;
                         }
                     }

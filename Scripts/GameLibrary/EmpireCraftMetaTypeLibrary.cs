@@ -25,7 +25,7 @@ public static class EmpireCraftMetaTypeLibrary
 
     public static void AddEmpireMeta()
     {
-      MetaTypeAsset pAsset13 = new MetaTypeAsset();
+        MetaTypeAsset pAsset13 = new MetaTypeAsset();
         pAsset13.id = "empire";
         pAsset13.ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5);
         pAsset13.window_name = "EmpireWindow";
@@ -144,20 +144,15 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.check_cursor_highlight = (MetaZoneHighlightAction) ((pMetaTypeAsset, pTile, pQAsset) =>
         {
           Color color = pQAsset.color;
-          if (pMetaTypeAsset.getZoneOptionState() is 0 or 1)
-          {
-            City city11 = pTile.zone.city;
-            if (city11.isRekt())
-              return;
-            Kingdom kingdom11 = city11.kingdom;
-            if (kingdom11.isRekt()) return;
-            if (!kingdom11.IsInEmpire())
-              return;
-            foreach (City city12 in kingdom11.GetEmpire().AllCities())
-              QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
-          }
-          else
-            highlightDefault(pTile, pQAsset, color);
+          City city11 = pTile.zone.city;
+          if (city11.isRekt())
+            return;
+          Kingdom kingdom11 = city11.kingdom;
+          if (kingdom11.isRekt()) return;
+          if (!kingdom11.IsInEmpire())
+            return;
+          foreach (City city12 in kingdom11.GetEmpire().AllCities())
+            QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
         });
         pAsset13.tile_get_metaobject = (MetaZoneGetMeta) ((pZone, pZoneOption) =>
         {

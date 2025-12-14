@@ -15,6 +15,7 @@ public class EmpireCraftActorCheckTax: GameAIActorBase
         if (!pActor.IsNeedToSubmitTax()) return BehResult.Continue;
         if (!pActor.hasCity()) return BehResult.Continue;
         if (!pActor.hasKingdom()) return BehResult.Continue;
+        pActor.kingdom.CheckEmpire();
         var pTaxRate = pActor.kingdom.GetTaxRate();
         City city = pActor.getCity();
         if (pActor.loot > 0)

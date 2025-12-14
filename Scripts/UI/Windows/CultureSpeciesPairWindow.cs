@@ -83,6 +83,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
         {
             string SCP = JsonConvert.SerializeObject(ConfigData.speciesCulturePair, Formatting.Indented);
             string path = Path.Combine(ModClass._declare.FolderPath, "CultureSpeciesPairPlayerConfig.json");
+            
             File.WriteAllText(path, SCP);
             LogService.LogInfo("储存用户文化配置数据成功");
 
@@ -100,7 +101,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
             searchInput.input.text = LM.Get("input_species");
         }
         Clear();
-        List<string> species = ConfigData.AllCivSpecies.FindAll(a=>a.Contains(input)||LM.Get(a).Contains(input));
+        List<ActorAsset> species = ConfigData.AllCivSpecies.FindAll(a=>a.id.Contains(input)||a.getLocaleID().Contains(input)||a.getLocalizedDescription().Contains(input)||a.getLocalizedName().Contains(input));
         Show(species);
     }
 
@@ -111,20 +112,22 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
         Show(ConfigData.AllCivSpecies);
     }
 
-    public void Show(List<string> species)
+    public void Show(List<ActorAsset> species)
     {
         foreach (var civSpecies in species)
         {
             AutoVertLayoutGroup wholeView = this.BeginVertGroup(pSpacing: 3);
             // Create a horizontal layout group for each civSpecies
             AutoHoriLayoutGroup pairGroup = this.BeginHoriGroup(pSpacing: 3);
-
+            var button = pairGroup.AddButtonIntoHoriLayout("icon", "", () => { }, civSpecies.getSpriteIcon(), hideBackground:true, size: new Vector2(15, 15));
+            button.Background.enabled = false;
             // Create a new SimpleText instance for each civSpecies
             SimpleText SpeciesText = Instantiate(SimpleText.Prefab);
-            SpeciesText.Setup(LM.Get(civSpecies), pSize: new Vector2(40, 15));
+            SpeciesText.Setup(civSpecies.getLocalizedName()+":", pSize: new Vector2(40, 15));
+            SpeciesText.background.enabled = false;
 
             TextInput inputField = Instantiate(TextInput.Prefab);
-            inputField.Setup(ConfigData.speciesCulturePair.TryGetValue(civSpecies, out string culture) ? culture : "", newValue => ChangeCulture(newValue, civSpecies, inputField));
+            inputField.Setup(ConfigData.speciesCulturePair.TryGetValue(civSpecies.id, out string culture) ? culture : "", newValue => ChangeCulture(newValue, civSpecies.id, inputField));
             inputField.SetSize(new Vector2(100, 18));
             pairGroup.AddChild(SpeciesText.gameObject);
             pairGroup.AddChild(inputField.gameObject);

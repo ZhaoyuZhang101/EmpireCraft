@@ -102,7 +102,7 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
         {
             var newFactionMember = regime.GetAllFactionMembers().
                 OrderByDescending(a=>a?.GetIdentity()?.TotalPerformance ?? 0).
-                ToList().Find(a=>!empire.data.CabinetMembers.Contains(a.id));
+                ToList().Find(a=>!empire.data.CabinetMembers.Contains(a?.id??-1L));
             empire.AddCabinetMember(newFactionMember);
         }
         

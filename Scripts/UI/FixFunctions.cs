@@ -58,8 +58,6 @@ public static class FixFunctions
         {
             prefab.gameObject.SetActive(false);
         }
-
-        prefab.godPower = power;
         var obj = pParent == null ? UnityEngine.Object.Instantiate(prefab) : UnityEngine.Object.Instantiate(prefab, pParent);
 
         if (foundActive)
@@ -83,11 +81,10 @@ public static class FixFunctions
         
         obj.gameObject.SetActive(true);
         obj.init();
-        obj.godPower = power;
         var tipButton = obj.GetComponent<TipButton>();
         tipButton.textOnClick = LM.Get(obj.godPower.id);
         tipButton.textOnClickDescription = LM.Get(obj.godPower.id + "_description");
-        tipButton.text_description_2 = "按x, z切换";
+        tipButton.text_description_2 = "按[z], [x]切换视图";
         return obj;
     }
     private static void ChangeIcon(string pPower, PowerButton obj)
