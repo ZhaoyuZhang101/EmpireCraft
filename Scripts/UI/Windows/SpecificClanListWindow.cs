@@ -65,7 +65,7 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
         foreach (var species in ConfigData.AllCivSpecies)
         {
             var asset = AssetManager.actor_library.list.Find(a => a.id == species.id);
-            gridGroup.AddButtonIntoGirdLayout("species", "", ()=>RefreshAccordingToSpecies(species.id), asset.getSpriteIcon(), size:new Vector2(18, 15));
+            gridGroup.AddButtonIntoGirdLayout(species.getLocaleID(), "", ()=>RefreshAccordingToSpecies(species.id), asset.getSpriteIcon(), size:new Vector2(18, 15), showTip:true);
         }
         topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 80));
         topSpace.gameObject.AdjustTopPart(transform.parent.transform);
@@ -149,7 +149,7 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
         var actor = specificClan.AllAliveMembers.ToList()?.OrderByDescending(a => a?.age??0)?
             .FirstOrDefault();
         vertCard.AddActorViewIntoVertLayout(actor);
-        vertCard.AddTextIntoVertLayout($"{LM.Get("i_founder")+(actor?.data?.asset_id??"")}：{SpecificClanManager.getPerson(specificClan.founder).name}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
+        vertCard.AddTextIntoVertLayout($"{LM.Get("i_founder")}：{SpecificClanManager.getPerson(specificClan.founder).name}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
         vertCard.AddTextIntoVertLayout($"{LM.Get("total_sc_count")}：{specificClan.AllAliveMembers.Count}/{specificClan._cache.Count}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
         var hori = vertCard.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         if (!empire.isRekt())
