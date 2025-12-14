@@ -12,6 +12,7 @@ public class EmpireCraftKingdomBehCheckExam: GameAIKingdomBase
     public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
     {
+        pKingdom.CheckEmpire();
         if (pKingdom.GetRegime().GetLeaderSelectMethod() == LeaderSelectMethod.Exam)
         {
             if (pKingdom.IsEmpire())

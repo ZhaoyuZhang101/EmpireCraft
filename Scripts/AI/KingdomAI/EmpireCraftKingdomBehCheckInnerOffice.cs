@@ -17,6 +17,7 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
     public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
     {
+        pKingdom.CheckEmpire();
         if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();

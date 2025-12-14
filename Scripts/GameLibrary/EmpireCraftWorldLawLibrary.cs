@@ -9,6 +9,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_realistic_age;
     public static WorldLawAsset empirecraft_law_prevent_city_destroy;
     public static WorldLawAsset empirecraft_law_ban_empire;
+    public static WorldLawAsset empirecraft_law_simplify_nameplates;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -62,6 +63,14 @@ public static class EmpireCraftWorldLawLibrary
             id = "empirecraft_law_ban_empire",
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconKingdom",
+            default_state = false
+        });
+        //简化铭牌
+        AssetManager.world_laws_library.add(empirecraft_law_simplify_nameplates= new WorldLawAsset()
+        {
+            id = "empirecraft_law_simplify_nameplates",
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconSimplifyNamePlate",
             default_state = false
         });
         

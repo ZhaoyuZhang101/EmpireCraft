@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using DG.Tweening;
+using DG.Tweening.Core;
+using DG.Tweening.Plugins.Options;
 using EmpireCraft.Scripts.GameClassExtensions;
 using JetBrains.Annotations;
 using NeoModLoader.api.attributes;
@@ -7,6 +10,7 @@ using NeoModLoader.General;
 using NeoModLoader.services;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 namespace EmpireCraft.Scripts.UI;
 public static class FixFunctions
@@ -37,7 +41,7 @@ public static class FixFunctions
             max_value = maxOption-1,
             multi_toggle = maxOption>1,
             type = OptionType.Bool,
-            locale_options_ids = AssetLibrary<OptionAsset>.a("ui_zone_mode_kingdoms", "ui_zone_mode_cities", "ui_zone_mode_units")
+            locale_options_ids = AssetLibrary<OptionAsset>.a($"ui_zone_mode_{mapType.ToMetaString()}_0", $"ui_zone_mode_{mapType.ToMetaString()}_1", $"ui_zone_mode_{mapType.ToMetaString()}_2")
         });
         var option = PlayerConfig.instance.data.add(new PlayerOptionData(power.toggle_name)
         {
@@ -55,6 +59,7 @@ public static class FixFunctions
             prefab.gameObject.SetActive(false);
         }
 
+        prefab.godPower = power;
         var obj = pParent == null ? UnityEngine.Object.Instantiate(prefab) : UnityEngine.Object.Instantiate(prefab, pParent);
 
         if (foundActive)
@@ -70,6 +75,7 @@ public static class FixFunctions
         for(int i=0; i<maxOption; i++) {
             obj.transform.Find($"toggle_{(i+1>=maxOption?0:i+1)}").GetComponent<ToggleIcon>()?.updateIconMultiToggle(true, option.intVal==i);
         }
+        
         var transform = obj.transform;
         power.toggle_action = (PowerToggleAction) Delegate.Combine(power.toggle_action, new PowerToggleAction(p=>ChangeIcon(p, obj)));
         transform.localPosition = pLocalPosition;
@@ -77,9 +83,13 @@ public static class FixFunctions
         
         obj.gameObject.SetActive(true);
         obj.init();
+        obj.godPower = power;
+        var tipButton = obj.GetComponent<TipButton>();
+        tipButton.textOnClick = LM.Get(obj.godPower.id);
+        tipButton.textOnClickDescription = LM.Get(obj.godPower.id + "_description");
+        tipButton.text_description_2 = "按x, z切换";
         return obj;
     }
-
     private static void ChangeIcon(string pPower, PowerButton obj)
     {
         OptionAsset option = AssetManager.powers.get(pPower).option_asset;

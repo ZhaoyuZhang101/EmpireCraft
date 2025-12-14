@@ -77,7 +77,7 @@ public static class HistoryRecordSystem
             cities = new List<string>(),
             is_first = isNew
         };
-        if (empire.HasYearName())
+        if (empire.data.has_year_name)
         {
             empire.RecordHistory(EmpireHistoryType.new_emperor_history, new Dictionary<string, string>()
             {

@@ -72,6 +72,7 @@ public static class KingdomExtension
         //退出朝贡国倾向
         public float leave_taken_alliance_preference = 0.0f;
         public long office_id = -1L;
+        public bool isEmpire = false;
     }
 
     public static void FinishedSelfPlot(this Kingdom kingdom)
@@ -729,6 +730,23 @@ public static class KingdomExtension
         return ModClass.EMPIRE_MANAGER.get(kingdom.GetEmpireID());
     }
 
+    public static void CheckEmpire(this Kingdom kingdom)
+    {
+        if (kingdom.IsInEmpire())
+        {
+            if (kingdom.GetEmpire().isRekt())
+            {
+                kingdom.EmpireLeave();
+            }
+            else
+            {
+                if (kingdom == kingdom.GetEmpire().CoreKingdom)
+                {
+                    kingdom.GetOrCreate().isEmpire = true;
+                }
+            }
+        }
+    }
     public static void SetTimestampEmpire(this Kingdom kingdom, double value)
     {
         GetOrCreate(kingdom).TimestampEmpire = value;
@@ -777,7 +795,7 @@ public static class KingdomExtension
         var ed = GetOrCreate(kingdom);
         if (ed == null) return false;
 
-        return ModClass.EMPIRE_MANAGER.get(ed.EmpireID)?.CoreKingdom==kingdom;
+        return kingdom.GetOrCreate().isEmpire;
     }
 
     public static void EmpireLeave (this Kingdom kingdom, bool isLeave = true)
@@ -786,6 +804,7 @@ public static class KingdomExtension
         if (GetOrCreate(kingdom) == null) return;
         kingdom.generateColor();
         GetOrCreate(kingdom).EmpireID = -1L;
+        kingdom.GetOrCreate().isEmpire = false;
     }
     public static int GetLevel(this Kingdom kingdom)
     {
@@ -870,7 +889,7 @@ public static class KingdomExtension
     {
         if (kingdom == null) return false;
         if (GetOrCreate(kingdom) == null) return false;
-        return ModClass.EMPIRE_MANAGER.get(GetOrCreate(kingdom).EmpireID)!=null;
+        return kingdom.GetOrCreate().EmpireID != -1L;
     }
     public static void EndWarWith(this Kingdom kingdom, Kingdom kingdom2)
     {

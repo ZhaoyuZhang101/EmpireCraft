@@ -24,6 +24,11 @@ public class EmpireCraftActorCheckFaction:GameAIActorBase
         Empire empire = pKingdom.GetEmpire();
         if (empire == null) return BehResult.Continue;
         var coreKingdom = empire.CoreKingdom;
+        if (coreKingdom == null)
+        {
+            empire.CheckDissolve(null);
+            return BehResult.Continue;
+        }
         Regime regime = coreKingdom.GetRegime();
         if (regime == null) return BehResult.Continue;
         var factions = regime.Factions;

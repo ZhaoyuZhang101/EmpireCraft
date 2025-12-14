@@ -24,8 +24,13 @@ public static class EmpireFormButton
             {
                 return true;
             }
+
+            if (pTile.zone_city.kingdom.IsInEmpire())
+            {
+                pTile.zone_city.kingdom.GetEmpire().leave(pTile.zone_city.kingdom);
+            }
             ActionLibrary.showWhisperTip("empire_form");
-            ModClass.EMPIRE_MANAGER.newEmpire(pTile.zone_city.kingdom);
+            ModClass.EMPIRE_MANAGER.NewEmpire(pTile.zone_city.kingdom);
         }
         return true;
     }

@@ -12,6 +12,7 @@ public class EmpireCraftKingdomBehCheckTax: GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
+        pKingdom.CheckEmpire();
         if (!pKingdom.IsInEmpire())
         {
             if (pKingdom.GetMoney() < 0)
