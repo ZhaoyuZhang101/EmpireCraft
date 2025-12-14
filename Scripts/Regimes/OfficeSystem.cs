@@ -324,7 +324,10 @@ public class OfficeObject
         var empireName = "";
         if (actor?.kingdom?.IsInEmpire() ?? false)
         {
-            empireName = actor?.kingdom?.GetEmpire().GetEmpireName()+" | ";
+            if (actor?.kingdom?.GetEmpire()!=null)
+            {
+                empireName = actor?.kingdom?.GetEmpire().GetEmpireName()+" | ";
+            }
         }
         var personalId = actor.GetPersonalIdentity();
         personalId?.SetOfficeName(empireName+GetName());

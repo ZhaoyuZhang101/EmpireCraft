@@ -33,7 +33,6 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public override void update(float pElapsed)
     {
         base.update(pElapsed);
-
         // 创建集合副本进行遍历
         List<Empire> empiresToProcess = new List<Empire>(this);
 
@@ -50,13 +49,11 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                 current.update();
             }
         }
-
         // 处理需要解散的帝国
         foreach (Empire item in _to_dissolve)
         {
             dissolveEmpire(item);
         }
-
         _to_dissolve.Clear();
     }
 
@@ -108,7 +105,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public Sprite[] _cached_banner_icons;
 
 
-    public Empire newEmpire(Kingdom pKingdom, bool isSplit = false)
+    public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false)
     {
         long id = OverallHelperFunc.IdGenerator.NextId();
         var empire = newObjectFromID(id);
@@ -146,7 +143,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         bool result = false;
         if (empire == null)
         {
-            empire = this.newEmpire(pKingdom1);
+            empire = this.NewEmpire(pKingdom1);
             empire.join(pKingdom2);
             result = true;
         }

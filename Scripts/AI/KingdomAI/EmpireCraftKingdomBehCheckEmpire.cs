@@ -15,6 +15,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
+        pKingdom.CheckEmpire();
         CheckPossible(pKingdom);
         if (pKingdom.IsEmpire())
         {
@@ -72,6 +73,10 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     {
         //同步天子
         Empire empire = pKingdom.GetEmpire();
+        if (empire.isRekt())
+        {
+            pKingdom.EmpireLeave();
+        }
         if (pKingdom != null && empire.Emperor != pKingdom.king)
         {
             empire.Emperor = pKingdom.king;
@@ -136,12 +141,29 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         }
     }
     /// <summary>
-    /// 判断是否称帝
+    /// 判断是否称帝，同时检测出现错误的帝国并予以消灭
     /// </summary>
     /// <param name="pKingdom"></param>
     /// <returns></returns>
     public void CheckPossible(Kingdom pKingdom)
     {
+        ModClass.EMPIRE_MANAGER.update(-1L);
+        if (pKingdom.isRekt()) return;
+        Empire empire = pKingdom.GetEmpire();
+        if (empire != null)
+        {
+            var coreKingdom = empire.CoreKingdom;
+            if (coreKingdom.isRekt())
+            {
+                empire.CheckDissolve(null);
+                return;
+            }
+            if (!empire.kingdoms_list.Contains(coreKingdom))
+            {
+                empire.CheckDissolve(null);
+                return; 
+            }
+        }
         if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return;
         if ((pKingdom?.GetMoney()??-1)<0) return;
         if (!pKingdom.hasKing()) return ;
@@ -149,7 +171,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (pKingdom.IsInEmpire()) return ;
         if (!pKingdom.HasMainTitle()) return ; //if a kingdom has main title, then it could become an empire
         ModClass.EMPIRE_MANAGER.update(-1L);
-        var num = ModClass.EMPIRE_MANAGER.ToList()
+        var num = ModClass.EMPIRE_MANAGER.ToList().FindAll(e=>!e.isRekt()&&!e.CoreKingdom.isRekt())
             .FindAll(e => e.CoreKingdom.getSpecies() == pKingdom.getSpecies()).Sum(e => e.getUnits().Count());
         var flag = num > 0 && pKingdom.units.Count > num;
         if (pKingdom.CanBecomeEmpire() || flag)

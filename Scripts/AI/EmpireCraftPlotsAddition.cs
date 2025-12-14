@@ -222,7 +222,7 @@ namespace EmpireCraft.Scripts.AI
                             empire.data.currentHistory.empire_name = empire.GetEmpireName();
                         }
                     }
-                    pActor.clan.RecordHistoryEmpire(empire);
+                    pActor.GetSpecificClan()?.RecordHistoryEmpire(empire, empire.CoreKingdom.capital);
                     empire.data.created_time = World.world.getCurWorldTime();
                     empire.CoreKingdom.setKing(pActor);
                     if (empire.HasYearName())
@@ -649,7 +649,10 @@ namespace EmpireCraft.Scripts.AI
                     List<KingdomTitle> titles = pActor.takeTitle();
                     foreach(KingdomTitle title in titles)
                     {
-                        TranslateHelper.LogKingTakeTitle(kingdom, title);
+                        if (!title.isRekt())
+                        {
+                            TranslateHelper.LogKingTakeTitle(kingdom, title);
+                        }
                     }
                     return true;
                 }
@@ -1144,7 +1147,7 @@ namespace EmpireCraft.Scripts.AI
         public static bool BecomeEmpireAndStartEnfeoff(Actor pActor)
         {
             Kingdom kingdom = pActor.kingdom;
-            Empire empire = ModClass.EMPIRE_MANAGER.newEmpire(kingdom);
+            Empire empire = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom);
             if (kingdom.hasAlliance())
             {
                 foreach (Kingdom kingdom1 in kingdom.getAlliance().kingdoms_hashset) 

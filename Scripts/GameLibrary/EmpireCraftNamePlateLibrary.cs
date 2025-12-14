@@ -532,19 +532,22 @@ public static class EmpireCraftNamePlateLibrary
                 }
 
                 text = text + " | " + empire.countWarriors() + $"{additionNum}/" + empire.countWarriorsMax() + additionNum;
-                FixedFaction faction = empire.CoreKingdom.GetRegime().GetDominateFaction();
-                if (faction != null)
+                if (!EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled())
                 {
-                    var tf = faction.GetAnyTFactionRuns();
-                    text =
-                        $"\n{(empire.EmpireClan?.name ?? "无皇室").ColorString(pColor: Color.yellow)} | 主导: {faction.Name}" +
-                        moneyText + "\n"+
-                        text.ColorString(pColor: pMetaObject.getColor()._color_banner) +
-                        $"\n诉求：{(faction.IsAnyTFactionRuns() ? tf.type : TemporaryFactionType.无)}".ColorString(
-                            pColor: new Color(0.5f, 0.9f, 0.5f)) +
-                        (faction.IsAnyTFactionRuns()
-                            ? $"({(int)(tf.progress / (tf.progressMax - tf.acceleration) * 100)}/100)"
-                            : "");
+                    FixedFaction faction = empire.CoreKingdom.GetRegime().GetDominateFaction();
+                    if (faction != null)
+                    {
+                        var tf = faction.GetAnyTFactionRuns();
+                        text =
+                            $"\n{(empire.EmpireClan?.name ?? "无皇室").ColorString(pColor: Color.yellow)} | 主导: {faction.Name}" +
+                            moneyText + "\n"+
+                            text.ColorString(pColor: pMetaObject.getColor()._color_banner) +
+                            $"\n诉求：{(faction.IsAnyTFactionRuns() ? tf.type : TemporaryFactionType.无)}".ColorString(
+                                pColor: new Color(0.5f, 0.9f, 0.5f)) +
+                            (faction.IsAnyTFactionRuns()
+                                ? $"({(int)(tf.progress / (tf.progressMax - tf.acceleration) * 100)}/100)"
+                                : "");
+                    }
                 }
                 break;
             case 1:
@@ -574,7 +577,7 @@ public static class EmpireCraftNamePlateLibrary
         
         float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
         plateText.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
-        plateText._background_image.enabled = false;
+        plateText._background_image.enabled = EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled();
         plateText._text_name.color = Color.white;
         
         plateText.priority_population = pMetaObject.units.Count;

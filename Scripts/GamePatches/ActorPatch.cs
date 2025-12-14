@@ -79,6 +79,7 @@ public class ActorPatch : GamePatch
         if (!__instance.kingdom.IsInEmpire()) return;
         if (__instance.meta_type!=MetaType.Unit) return;
         Empire empire = __instance.kingdom.GetEmpire();
+        if (empire == null) return;
         if (__instance.GetOffice()==null||!__instance.GetOffice().powers.Contains(OfficerPowerType.军事))
         {
             if (__instance.isWarrior())

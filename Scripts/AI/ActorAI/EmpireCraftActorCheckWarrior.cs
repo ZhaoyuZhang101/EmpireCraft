@@ -36,6 +36,7 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
         else
         {
             Empire empire = pKingdom.GetEmpire();
+            if (empire.isRekt()) return BehResult.Continue;
             if (CountAllCenterArmy(empire) < empire.data.MilitaryExpenditure * 25&&pKingdom.GetMoney() > 0)
             {
                 if (pActor?.city?.checkCanMakeWarrior(pActor)??false)

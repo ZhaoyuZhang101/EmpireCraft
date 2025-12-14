@@ -362,7 +362,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     
     public void ShowMainInfo(AutoVertLayoutGroup parent, PersonalClanIdentity actor, ClanRelation relation = ClanRelation.NONE)
     {
-        AutoHoriLayoutGroup personalGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter, pSize:new Vector2(200, 70));
+        AutoHoriLayoutGroup personalGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter, pSize:new Vector2(200, 70), pSpacing: 10);
 
         //左边信息栏
         AutoVertLayoutGroup leftVertGroup = this.BeginVertGroup(pAlignment: TextAnchor.UpperCenter);
@@ -395,7 +395,8 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 
         avatarLayoutGroup.AddChild(backToMain.gameObject);
         avatarLayoutGroup.AddChild(clickframe.gameObject);
-        avatarLayoutGroup.transform.localPosition = Vector3.zero;
+        avatarLayoutGroup.AddTextIntoVertLayout($"历史称帝法理：{(actor._specificClan.HasHistoryEmpire()?actor._specificClan.empire_name:"无").ColorString(pColor:Color.yellow)}", hideBackground:true);
+        // avatarLayoutGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(avatarLayoutGroup.gameObject);
 
         //右边信息栏

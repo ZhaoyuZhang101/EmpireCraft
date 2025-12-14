@@ -68,20 +68,6 @@ public static class ClanExtension
         return !string.IsNullOrEmpty(name);
     }
 
-    public static void RecordHistoryEmpire(this Clan __instance, Empire empire)
-    {
-        if (empire == null) return;
-        Kingdom kingdom = empire.CoreKingdom;
-        if (kingdom == null) return;
-        if (!kingdom.hasCapital()) return;
-        kingdom.capital.updateCityCenter();
-        GetOrCreate(__instance).id = __instance.getID();
-        GetOrCreate(__instance).x = empire.OriginalCapital.city_center.x;
-        GetOrCreate(__instance).y = empire.OriginalCapital.city_center.y;
-        GetOrCreate(__instance).historical_empire_name = empire.GetEmpireName();
-        GetOrCreate(__instance).original_capital = empire.OriginalCapital.isAlive() ? empire.OriginalCapital.data.id : -1L;
-    }
-
     public static void ClearHistoricalName(this Clan __instance)
     {
         GetOrCreate(__instance).id = __instance.getID();

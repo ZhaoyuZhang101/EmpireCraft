@@ -15,7 +15,16 @@ public class TempFac_设置行政区 : TemporaryFaction
         KingdomTitle title = GetTitleTarget();
         if (title != null&&title.title_capital!=empire.CoreKingdom.capital)
         {
-            var k = title.title_capital.makeOwnKingdom(empire.CoreKingdom.units.GetRandom());
+            Kingdom k = null;
+            try
+            {
+                k = title.title_capital.makeOwnKingdom(empire.CoreKingdom.units.FindAll(a=>!a.isKing()&&a.isAdult()&&a.isUnitFitToRule()).First());
+            }
+            catch
+            {
+                LogService.LogInfo("设置行政区失败");
+                End();
+            }
             k.SetRegimeType(empire.CoreKingdom?.GetRegime()?.type??RegimeType.LvLing);
             k.LoadRegime();
             Regime regime = k.GetRegime();

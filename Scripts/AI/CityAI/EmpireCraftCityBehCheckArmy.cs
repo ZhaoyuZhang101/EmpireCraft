@@ -42,15 +42,18 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
                 if (k.IsInEmpire()&&!k.IsEmpire())
                 {
                     Empire empire = k.GetEmpire();
-                    if (empire.CoreKingdom.GetMoney() > 0)
+                    if (empire != null)
                     {
-                        if (army == k.GetCenterArmy())
+                        if ((empire.CoreKingdom?.GetMoney()??-1) > 0)
                         {
-                            army._captain?.setKingdom(empire.CoreKingdom);
-                            army.units.ForEach(a => a.setKingdom(empire.CoreKingdom));
-                            army.name = $"{k.GetEmpire().GetEmpireName()}-{k.GetKingdomName()}驻军";
-                            CreateNewArmy(pCity);
-                            return BehResult.Continue;
+                            if (army == k.GetCenterArmy())
+                            {
+                                army._captain?.setKingdom(empire.CoreKingdom);
+                                army.units.ForEach(a => a.setKingdom(empire.CoreKingdom));
+                                army.name = $"{k.GetEmpire().GetEmpireName()}-{k.GetKingdomName()}驻军";
+                                CreateNewArmy(pCity);
+                                return BehResult.Continue;
+                            }
                         }
                     }
                 }

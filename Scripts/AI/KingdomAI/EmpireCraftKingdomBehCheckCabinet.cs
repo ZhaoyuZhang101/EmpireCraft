@@ -15,6 +15,7 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
     
     public override BehResult execute(Kingdom pKingdom)
     {
+        pKingdom.CheckEmpire();
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
         Regime regime = empire.CoreKingdom.GetRegime();

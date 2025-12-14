@@ -118,7 +118,7 @@ internal static class CreateEmpireButton
             Debug.LogError("CreateEmpire: Kingdom is null");
             return;
         }
-        Empire empire = ModClass.EMPIRE_MANAGER.newEmpire(kingdom);
+        Empire empire = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom);
         empire.join(JoinKingdom);
         
     }
