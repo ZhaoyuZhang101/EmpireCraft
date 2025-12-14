@@ -260,14 +260,6 @@ public class Empire : MetaObject<EmpireData>
                     DiplomacyHelpers.wars.newWar(k, CoreKingdom, WarTypeLibrary.normal);
                 }
             }
-
-            if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
-            {
-                this.data.directPre = "";
-                nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
-                SetEmpireName(nameEmpire);
-                currentSpecificClan.RecordHistoryEmpire(this, CoreKingdom.capital);
-            }
             if (actor.hasClan())
             {
                 if (currentSpecificClan.HasHistoryEmpire())
@@ -276,6 +268,13 @@ public class Empire : MetaObject<EmpireData>
                     this.data.directPre = GetDir(historyRecord.pos);
                     SetEmpireName(historyRecord.name);
                 }
+            }
+            if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
+            {
+                this.data.directPre = "";
+                nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
+                SetEmpireName(nameEmpire);
+                currentSpecificClan.RecordHistoryEmpire(this, CoreKingdom.capital);
             }
             isNew = true;
             data.history_emperrors.Clear();

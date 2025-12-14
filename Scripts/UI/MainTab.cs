@@ -4,8 +4,10 @@ using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.UI.Windows;
 using NCMS.Utils;
 using NeoModLoader.api;
+using NeoModLoader.api.attributes;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Tab;
+using NeoModLoader.services;
 using NeoModLoader.utils;
 
 namespace EmpireCraft.Scripts.UI;
@@ -59,8 +61,10 @@ internal static class MainTab
             nameof(EmpireSettingWindow) + "Title");
         RegimeWindow.CreateWindow(nameof(RegimeWindow),
             "");
+        SpecificClanListWindow.CreateWindow(nameof(SpecificClanListWindow),
+            nameof(SpecificClanListWindow) + "Title");
     }
-
+    [Hotfixable]
     private static void _addButtons()
     {
         PowerButton pb0 = FixFunctions.CreateLayerButton(MetaTypeExtension.KingdomTitle,
@@ -99,10 +103,34 @@ internal static class MainTab
         EmpireEnfeoffButton.init();
         tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));
-
-
-        tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
-            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png")));
+        //帝国势力列表
+        var empireListButon = PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
+            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png"));
+        tab.AddPowerButton(EMPIRE_GROUP, empireListButon);
+        empireListButon._button.OnHover(() =>
+        {
+            Tooltip.show(empireListButon,"normal", new TooltipData()
+            {
+                tip_name = "show_empire_list",
+                tip_description = "show_empire_list_description"
+            });
+        });
+        empireListButon._button.OnHoverOut(Tooltip.hideTooltip);
+        
+        //宗族列表
+        var specificClanListButton = PowerButtonCreator.CreateWindowButton("specific_clan_list",
+            nameof(SpecificClanListWindow),
+            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ui/specificClanIcon.png"));
+        specificClanListButton._button.OnHover(() =>
+            {
+                Tooltip.show(specificClanListButton,"normal", new TooltipData()
+                {
+                    tip_name = "show_specific_clan_list",
+                    tip_description = "show_specific_clan_list_description"
+                });
+            });
+        specificClanListButton._button.OnHoverOut(Tooltip.hideTooltip);
+        tab.AddPowerButton(EMPIRE_GROUP, specificClanListButton);
         
         CreateProvinceButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
@@ -119,9 +147,18 @@ internal static class MainTab
             PowerButtonCreator.CreateGodPowerButton("remove_province",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleRemove.png")));
 
-        tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateWindowButton("culture_list", nameof(CultureSpeciesPairWindow),
-            SpriteTextureLoader.getSprite("ui/icons/iconCulture")));
-
+        var cultureConfigButton = PowerButtonCreator.CreateWindowButton("culture_list", nameof(CultureSpeciesPairWindow),
+            SpriteTextureLoader.getSprite("ui/icons/iconCulture"));
+        tab.AddPowerButton(EMPIRE_GROUP, cultureConfigButton);
+        cultureConfigButton._button.OnHover(() =>
+        {
+            Tooltip.show(cultureConfigButton,"normal", new TooltipData()
+            {
+                tip_name = "show_culture_config",
+                tip_description = "show_culture_config_description"
+            });
+        });
+        cultureConfigButton._button.OnHoverOut(Tooltip.hideTooltip);
 
         ActorCreateKingdom.init();
         tab.AddPowerButton(EMPIRE_GROUP,

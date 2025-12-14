@@ -275,7 +275,7 @@ public static class UIHelper
         avatarLayoutGroup.transform.localPosition = Vector3.zero;
         return avatarLayoutGroup;
     }
-    public static void AddTextIntoVertLayout(this AutoVertLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false)
+    public static SimpleText AddTextIntoVertLayout(this AutoVertLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false)
     {
         SimpleText timeText = Object.Instantiate(SimpleText.Prefab, layout.transform);
         timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
@@ -292,8 +292,30 @@ public static class UIHelper
             foreach (var g in timeText.GetComponentsInChildren<Graphic>(true))
                 g.raycastTarget = false;
         }
+
+        return timeText;
     }
-    public static void AddTextIntoHoriLayout(this AutoHoriLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false)
+    public static SimpleText AddTextIntoGridLayout(this AutoGridLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false)
+    {
+        SimpleText timeText = Object.Instantiate(SimpleText.Prefab, layout.transform);
+        timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
+        if (hideBackground)
+        {
+            timeText.background.enabled = false;
+        }
+
+        if (ignorePosition)
+        {
+            var le = timeText.GetComponent<LayoutElement>() ?? timeText.AddComponent<LayoutElement>();
+            le.ignoreLayout = true;
+            // 关键：让鼠标穿透
+            foreach (var g in timeText.GetComponentsInChildren<Graphic>(true))
+                g.raycastTarget = false;
+        }
+
+        return timeText;
+    }
+    public static SimpleText AddTextIntoHoriLayout(this AutoHoriLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false)
     {
         SimpleText timeText = Object.Instantiate(SimpleText.Prefab, layout.transform);
         timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
@@ -309,12 +331,15 @@ public static class UIHelper
             foreach (var g in timeText.GetComponentsInChildren<Graphic>(true))
                 g.raycastTarget = false;
         }
+        
+        return timeText;
     }
 
-    public static AdvancedButton AddButtonIntoVertLayout(this AutoVertLayoutGroup layout, string buttonID, string text="", UnityAction action=null, Sprite icon=null, Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false)
+    public static AdvancedButton AddButtonIntoVertLayout(this AutoVertLayoutGroup layout, string buttonID, string text="", UnityAction action=null, Sprite icon=null, Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false, bool hideBackground=false, bool customIcon=false)
     {
         AdvancedButton button = GameObject.Instantiate(AdvancedButton.Prefab, layout.transform);
         button.Setup(buttonID, action, icon, text, size, backgroundSprite:background, isToggle:isToggle,  showTip:showTip);
+        button.Background.enabled = !hideBackground;
         return button;
     }    
     public static AdvancedButton AddNormalOption(this Transform parent, AutoHoriLayoutGroup container, string title, UnityAction action, bool option, bool hasIcon=false, bool isOption=false, int index = -1, Vector2 size=default)
@@ -351,10 +376,20 @@ public static class UIHelper
         return options;
     }
     public static AdvancedButton AddButtonIntoHoriLayout(this AutoHoriLayoutGroup layout, string buttonID, string text="", UnityAction action=null, Sprite icon=null, 
-        Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false, bool customIcon=false, int iconType=0)
+        Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false, bool customIcon=false, int iconType=0, bool hideBackground=false)
+    {
+        AdvancedButton button = GameObject.Instantiate(AdvancedButton.Prefab, layout.transform);
+        button.Setup(buttonID, action, icon, text, size, backgroundSprite: background, isToggle: isToggle,
+            showTip: showTip, customIcon: customIcon, iconType: iconType);
+        button.Background.enabled = !hideBackground;
+        return button;
+    }
+    public static AdvancedButton AddButtonIntoGirdLayout(this AutoGridLayoutGroup layout, string buttonID, string text="", UnityAction action=null, Sprite icon=null, 
+        Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false, bool customIcon=false, int iconType=0, bool hideBackground=false)
     {
         AdvancedButton button = GameObject.Instantiate(AdvancedButton.Prefab, layout.transform);
         button.Setup(buttonID, action, icon, text, size, backgroundSprite:background, isToggle:isToggle,  showTip:showTip, customIcon:customIcon, iconType:iconType);
+        button.Background.enabled = !hideBackground;
         return button;
     }
     public static void SetupPlaceholder(this InputField inputField, Font font, string placeholderText, Color color)

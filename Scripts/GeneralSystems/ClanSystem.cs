@@ -64,6 +64,8 @@ public class SpecificClan
     public long id { get; set; }
     public string name { get; set; }
     public double established_timestamp { get; set; }
+    [JsonIgnore]
+    public ActorAsset asset => AllAliveMembers?.FirstOrDefault()?.asset ?? null;
     public long founder { get; set; }
     public SpecificClanType clan_sex_priority { get; set; }
     public string color { get; set; } = (new Color(0.7f, 0.8f, 0.7f)).ToHexString();
