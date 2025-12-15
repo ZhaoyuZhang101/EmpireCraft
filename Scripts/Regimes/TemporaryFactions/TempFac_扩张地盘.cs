@@ -31,9 +31,10 @@ public class TempFac_扩张地盘 : TemporaryFaction
             {
                 if (empire.given_Kingdoms.Contains(kingdom)) continue;
                 if (empire.taken_Kingdoms.Contains(kingdom)) continue;
+                if (kingdom.isInWarWith(empire.CoreKingdom)) continue;
                 if (empire.CoreKingdom.isOpinionTowardsKingdomGood(kingdom)) continue;
                 SetKingdomTarget(kingdom);
-                Acc = 40;
+                Acc = 30;
                 return true;
             }
         }

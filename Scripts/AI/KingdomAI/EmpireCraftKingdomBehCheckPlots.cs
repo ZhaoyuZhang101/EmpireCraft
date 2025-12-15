@@ -30,12 +30,12 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     public void CheckJoinReligionWar(Kingdom pKingdom)
     {
         if (!pKingdom.hasReligion()) return;
+        if (pKingdom.hasEnemies()) return;
         foreach (var war in DiplomacyHelpers.wars)
         {
             if (!war.main_attacker?.hasReligion()??true) continue;
             if (war.hasKingdom(pKingdom)) continue;
-            if (war.main_attacker?.capital == war.main_attacker?.religion?.GetCity() &&
-                war.GetEmpireWarType() == EmpireWarType.神圣)
+            if (war.GetEmpireWarType() == EmpireWarType.神圣)
             {
                 if (pKingdom.religion == war.main_attacker?.religion)
                 {

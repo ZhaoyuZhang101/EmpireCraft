@@ -164,10 +164,15 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
             EmpireCraftMetaTypeLibrary.selected_empire = empire;
             hori.AddButtonIntoHoriLayout("enter_empire", "帝国", () => { ScrollWindow.showWindow(nameof(EmpireWindow));}, size:new Vector2(15, 10));
         }
-
-        SelectedUnit._unit_main = actor;
-        hori.AddButtonIntoHoriLayout("enter_empire", "详情", () => { ScrollWindow.showWindow(nameof(SpecificClanWindow));}, size:new Vector2(15, 10));
+        
+        hori.AddButtonIntoHoriLayout("enter_empire", "详情", ()=> OpenWindow(actor), size:new Vector2(15, 10));
         vertCard.transform.AddStretchBackground("clanFrame", size:new Vector2(50, 90));
         _groups.Add(vertCard.gameObject);
+    }
+
+    public void OpenWindow(Actor pActor)
+    {
+        SelectedUnit._unit_main = pActor;
+        ScrollWindow.showWindow(nameof(SpecificClanWindow));
     }
 }
