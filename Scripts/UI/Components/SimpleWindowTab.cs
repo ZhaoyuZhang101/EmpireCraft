@@ -48,6 +48,8 @@ public class SimpleWindowTab : APrefab<SimpleWindowTab>
                 t.localPosition = Vector3.zero;
             }
         }
+        _tab.container = window.tabs;
+        _tab.container.disableTabs();
         _tab._tip_button.textOnClick = LM.Get(pName);
         _tab._tip_button.textOnClickDescription = pName + "_description";
         transform.SetParent(window.tabs.transform);
@@ -57,6 +59,11 @@ public class SimpleWindowTab : APrefab<SimpleWindowTab>
         if (action != null)
         {
             _tab.tab_action.AddListener(action);
+            _tab.tab_action.AddListener(delegate
+            {
+                window.tabs.disableTabs();
+                window.tabs.enableTab(_tab);
+            });
         } else
         {
             _tab.tab_action.AddListener(delegate
@@ -104,7 +111,6 @@ public class SimpleWindowTab : APrefab<SimpleWindowTab>
 
         iconRect.offsetMin = Vector2.zero;
         iconRect.offsetMax = Vector2.zero;
-
         Prefab = obj.AddComponent<SimpleWindowTab>();
     }
 }

@@ -41,7 +41,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
-            if (pKingdom.GetMoney() <= 0)
+            if (pKingdom.GetMoney() < 0)
             {
                 if (!pKingdom.IsStartCorrupting())
                 {
@@ -55,6 +55,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
 
             if (pKingdom.GetCorruptionTime() > 10)
             {
+                LogService.LogInfo("触发崩溃事件");
                 ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
                 foreach (var c in pKingdom.cities)
                 {
@@ -73,11 +74,6 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     {
         //同步天子
         Empire empire = pKingdom.GetEmpire();
-        if (empire.isRekt())
-        {
-            pKingdom.EmpireLeave();
-        }
-
         if (string.IsNullOrEmpty(empire.GetEmpireName()))
         {
             if (pKingdom.hasKing()&&pKingdom.king.hasCulture())
@@ -90,13 +86,20 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
                     pKingdom.king.GetSpecificClan().RecordHistoryEmpire(empire, pKingdom.capital);
                 }
             }
-            
-        }
-        if (pKingdom != null && empire.Emperor != pKingdom.king)
-        {
-            empire.Emperor = pKingdom.king;
         }
 
+        if (pKingdom.hasKing())
+        {
+            if (pKingdom.king.HasSpecificClan())
+            {
+                var specificClan = pKingdom.king.GetSpecificClan();
+                if (!specificClan.HasHistoryEmpire())
+                {
+                    specificClan.RecordHistoryEmpire(empire, pKingdom.capital);
+                }
+            }
+            empire.Emperor = pKingdom.king;
+        }
         if (!pKingdom.IsEmpire())
         {
             pKingdom.GetRegime().Factions.ForEach(f=>f.BanFaction());
@@ -171,11 +174,13 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             if (coreKingdom.isRekt())
             {
                 empire.CheckDissolve(null);
+                LogService.LogInfo("解散帝国");
                 return;
             }
             if (!empire.kingdoms_list.Contains(coreKingdom))
             {
                 empire.CheckDissolve(null);
+                LogService.LogInfo("解散帝国");
                 return; 
             }
         }

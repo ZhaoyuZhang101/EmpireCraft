@@ -454,7 +454,6 @@ public static class UIHelper
         var content = "<核心诉求>\n";
         foreach (var tempFac in faction.TemporaryFactions)
         {
-            LogService.LogInfo(tempFac.Hide.ToString());
             if (!tempFac.Hide||tempFac.IsStarted())
             {
                 var startContent = $"\n执行中:({(int)((tempFac.progress/(tempFac.progressMax-tempFac.acceleration))*100.0f)}/100)";

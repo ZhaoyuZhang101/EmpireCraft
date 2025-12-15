@@ -747,6 +747,8 @@ public class Empire : MetaObject<EmpireData>
             this.kingdoms_hashset.Remove(mainKingdom);
             mainKingdom.EmpireLeave(false);
             recalculate();
+            ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
+            LogService.LogInfo("解散帝国1");
         }
         Kingdom heirEmpire = null;
         if (EmpireSpecificClan != null)
@@ -767,6 +769,7 @@ public class Empire : MetaObject<EmpireData>
         if (heirEmpire == null)
         {
             ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
+            LogService.LogInfo("解散帝国2");
             return;
         }
         ReplaceEmpire(heirEmpire);
@@ -1728,5 +1731,6 @@ public class Empire : MetaObject<EmpireData>
         {
             ModClass.ALL_HISTORY_DATA.Add(this.data.id, this.data.history);
         }
+        LogService.LogInfo("清空");
     }
 }

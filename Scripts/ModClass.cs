@@ -134,10 +134,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftWorldLawLibrary.init();
         EmpireCraftHotKeyLibrary.init();
         RegimeManager.init();
-        World.world._list_meta_main_managers.Add(EMPIRE_MANAGER = new EmpireManager());
-        World.world._list_meta_main_managers.Add(KINGDOM_TITLE_MANAGER = new KingdomTitleManager());
-        World.world.list_all_sim_managers.Add(EMPIRE_MANAGER);
-        World.world.list_all_sim_managers.Add(KINGDOM_TITLE_MANAGER);
+        EMPIRE_MANAGER = new EmpireManager();
+        KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         OnomasticsRule.ReadSetting();
 
         string path = Path.Combine(_declare.FolderPath, "CultureSpeciesPairPlayerConfig.json");
