@@ -118,33 +118,26 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
         AutoGridLayoutGroup specificClanGrid = _content.BeginGridGroup(4, pCellSize: new Vector2(55, 90), pSpacing:new Vector2(0, 0));
         _groups.Add(specificClanGrid.gameObject);
         yield return CoroutineHelper.wait_for_next_frame;
-        var list = specificClans ?? SpecificClanManager._specificClans.ToList().FindAll(s => s.AllAliveMembers.Any(a => a?.asset?.id == "human"));
-        list = list.FindAll(s => s.AllAliveMembers.Count > 0);
-        var res = 4 - list.Count % 4;
-        for (int i = 0; i < list.Count; i++)
+        var list = specificClans ?? SpecificClanManager._specificClans.ToList().FindAll(s => s.AllAliveMembers.Any(a => a.asset.id == "human"));
+        foreach (var sc in list)
         {
-            var sc = list[i];
-            ShowSpecificClan(sc, specificClanGrid);
-            if (i+1 % 4 == 0)
+            if (sc.AllAliveMembers.Count <= 0)
             {
+                continue;
+            }
+            ShowSpecificClan(sc, specificClanGrid);
+            yield return CoroutineHelper.wait_for_next_frame;
+        }
+
+        var res = 4 - list.Count % 4;
+        if (res != 4)
+        {
+            for (var i = 0; i < res; i++)
+            {
+                var button = specificClanGrid.AddTextIntoGridLayout("", hideBackground:true);
+                _groups.Add(button.gameObject);
                 yield return CoroutineHelper.wait_for_next_frame;
             }
-            else
-            {
-                if (list.Count == i+1)
-                {
-                    if (res != 4)
-                    {
-                        for (var x = 0; x < res; x++)
-                        {
-                            var button = specificClanGrid.AddTextIntoGridLayout("", hideBackground:true);
-                            _groups.Add(button.gameObject);
-                        }
-                        yield return CoroutineHelper.wait_for_next_frame;
-                    }
-                }
-            }
-            
         }
     }
     [Hotfixable]
