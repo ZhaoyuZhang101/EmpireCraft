@@ -40,6 +40,16 @@ public class ReligionPatch : GamePatch
     }
     public static void InsertReligionNameTemplate(Religion religion, string cultureName)
     {
+        if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(cultureName, out var setting))
+        {
+            if (!string.IsNullOrEmpty(setting.Religion))
+            {
+                var nameSet = setting.Religion.Split(' ');
+                religion.data.name = nameSet.GetRandom();
+                LogService.LogInfo(cultureName + "宗教名称: " + religion.data.name);
+                return;
+            }
+        }
         string culturePath = ModPath + $"Cultures/Culture_{cultureName}/";
         string religionNamePath = culturePath + $"{cultureName}ReligionNames.csv";
         List<string> religionKeys = OnomasticsHelper.getKeysFromPath(religionNamePath);

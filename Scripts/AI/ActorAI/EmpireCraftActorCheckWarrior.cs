@@ -31,7 +31,7 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
         {
             if (pActor.city.checkCanMakeWarrior(pActor))
             {
-                pActor.city?.makeWarrior(pActor);
+                pActor?.city?.makeWarrior(pActor);
             }
         }
         else

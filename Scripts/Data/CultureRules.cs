@@ -14,6 +14,9 @@ namespace EmpireCraft.Scripts.Data;
 public class CultureRule
 {
     public string name;
+    public string translate_ch;
+    public string translate_cz;
+    public string translate_en;
     public Setting setting;
 }
 
@@ -26,6 +29,7 @@ public class Setting
     public ClanSetting Clan;
     public FamilySetting Family;
     public UnitSetting Unit;
+    public string Religion = "";
 }
 
 public class UnitSetting
@@ -71,7 +75,7 @@ public class CitySetting
 public static class OnomasticsRule
 {
     public static Dictionary<string, Setting> ALL_CULTURE_RULE = new Dictionary<string, Setting>();
-    public static List<CultureRule> ALL_CULTUREs = new List<CultureRule>();
+    public static Dictionary<string, (string ch, string cz, string en)> ALL_CULTURE_TRANSLATE = new Dictionary<string, (string ch, string cz, string en)>();
     public static void ReadSetting()
     {
         string settingPath = Path.Combine(ModClass._declare.FolderPath, "CultureRulesConfig.json");
@@ -79,7 +83,9 @@ public static class OnomasticsRule
         List<CultureRule>  cultureRules = JsonConvert.DeserializeObject<List<CultureRule>>(text);
         foreach (CultureRule cultureRule in cultureRules)
         {
+            ALL_CULTURE_TRANSLATE.Add(cultureRule.name, (cultureRule.translate_ch, cultureRule.translate_cz, string.IsNullOrEmpty(cultureRule.translate_en)?cultureRule.name:cultureRule.translate_en));
             ALL_CULTURE_RULE.Add(cultureRule.name, cultureRule.setting);
+            LogService.LogInfo("载入文化配置"+cultureRule.name);
         }
     }
 }
