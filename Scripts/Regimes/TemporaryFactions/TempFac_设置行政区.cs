@@ -15,7 +15,7 @@ public class TempFac_设置行政区 : TemporaryFaction
         KingdomTitle title = GetTitleTarget();
         if (title != null&&title.title_capital!=empire.CoreKingdom.capital)
         {
-            Kingdom k = null;
+            Kingdom k;
             try
             {
                 k = title.title_capital.makeOwnKingdom(empire.CoreKingdom.units.FindAll(a=>!a.isKing()&&a.isAdult()&&a.isUnitFitToRule()).First());
@@ -24,18 +24,23 @@ public class TempFac_设置行政区 : TemporaryFaction
             {
                 LogService.LogInfo("设置行政区失败");
                 End();
+                return;
             }
-            k.SetRegimeType(empire.CoreKingdom?.GetRegime()?.type??RegimeType.LvLing);
-            k.LoadRegime();
-            Regime regime = k.GetRegime();
-            regime.SetAllowDiplomacy(false);
-            regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
-            foreach (var c in title.city_list)
+
+            if (k != null)
             {
-                if (c==title.title_capital) continue;
-                c.joinAnotherKingdom(k);
+                k.SetRegimeType(empire.CoreKingdom?.GetRegime()?.type??RegimeType.LvLing);
+                k.LoadRegime();
+                Regime regime = k.GetRegime();
+                regime.SetAllowDiplomacy(false);
+                regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+                foreach (var c in title.city_list)
+                {
+                    if (c==title.title_capital) continue;
+                    c.joinAnotherKingdom(k);
+                }
+                empire.join(k, pForce:true);
             }
-            empire.join(k, pForce:true);
         }
         CountDown = 1;
         End();

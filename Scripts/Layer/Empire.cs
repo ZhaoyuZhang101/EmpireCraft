@@ -260,14 +260,11 @@ public class Empire : MetaObject<EmpireData>
                     DiplomacyHelpers.wars.newWar(k, CoreKingdom, WarTypeLibrary.normal);
                 }
             }
-            if (actor.hasClan())
+            if (currentSpecificClan.HasHistoryEmpire())
             {
-                if (currentSpecificClan.HasHistoryEmpire())
-                {
-                    var historyRecord = currentSpecificClan.GetHistoryEmpire();
-                    this.data.directPre = GetDir(historyRecord.pos);
-                    SetEmpireName(historyRecord.name);
-                }
+                var historyRecord = currentSpecificClan.GetHistoryEmpire();
+                this.data.directPre = GetDir(historyRecord.pos);
+                SetEmpireName(historyRecord.name);
             }
             if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
             {

@@ -55,18 +55,18 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 kingdomsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
                 kingdomsWindowTab.Setup("empire_controlled_kingdoms", this.ScrollWindowComponent, action:ShowKingdomListHelp,
-                    sprite: SpriteTextureLoader.getSprite("ui/specificClanIcon"));
+                    sprite: SpriteTextureLoader.getSprite("SplitAllUnderHeaven"));
             }
 
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "past_emperors"))
             {
                 pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                pastEmperorsWindowTab.Setup("past_emperors", this.ScrollWindowComponent, action:ShowEmperors, sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
+                pastEmperorsWindowTab.Setup("past_emperors", this.ScrollWindowComponent, action:ShowEmperors, sprite:SpriteTextureLoader.getSprite("ui/iconHistory"));
             }
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_bureau"))
             {
                 bureauWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                bureauWindowTab.Setup("empire_bureau", this.ScrollWindowComponent, action:ShowBureau, sprite:SpriteTextureLoader.getSprite("ui/specificClanIcon"));
+                bureauWindowTab.Setup("empire_bureau", this.ScrollWindowComponent, action:ShowBureau, sprite:SpriteTextureLoader.getSprite("ChineseCrown"));
             }
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_setting"))
             {

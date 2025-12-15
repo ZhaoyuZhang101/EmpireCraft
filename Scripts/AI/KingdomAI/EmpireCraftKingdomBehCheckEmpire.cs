@@ -77,6 +77,21 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         {
             pKingdom.EmpireLeave();
         }
+
+        if (string.IsNullOrEmpty(empire.GetEmpireName()))
+        {
+            if (pKingdom.hasKing()&&pKingdom.king.hasCulture())
+            {
+                empire.data.directPre = "";
+                var nameEmpire = pKingdom.king.culture.getOnomasticData(MetaType.Kingdom).generateName();
+                empire.SetEmpireName(nameEmpire);
+                if (pKingdom.king.HasSpecificClan())
+                {
+                    pKingdom.king.GetSpecificClan().RecordHistoryEmpire(empire, pKingdom.capital);
+                }
+            }
+            
+        }
         if (pKingdom != null && empire.Emperor != pKingdom.king)
         {
             empire.Emperor = pKingdom.king;
