@@ -311,7 +311,7 @@ public abstract class TemporaryFaction
     }
     public void CheckNeedToUpdate()
     {
-        if (Date.getMonthsSince(timestamp) > 1)
+        if (Date.getMonthsSince(timestamp) >= 1)
         {
             LogService.LogInfo("更新");
             Update();

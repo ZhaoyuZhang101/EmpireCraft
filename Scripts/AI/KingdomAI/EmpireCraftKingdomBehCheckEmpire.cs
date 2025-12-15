@@ -55,7 +55,6 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
 
             if (pKingdom.GetCorruptionTime() > 10)
             {
-                LogService.LogInfo("触发崩溃事件");
                 ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
                 foreach (var c in pKingdom.cities)
                 {
@@ -174,13 +173,11 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             if (coreKingdom.isRekt())
             {
                 empire.CheckDissolve(null);
-                LogService.LogInfo("解散帝国");
                 return;
             }
             if (!empire.kingdoms_list.Contains(coreKingdom))
             {
                 empire.CheckDissolve(null);
-                LogService.LogInfo("解散帝国");
                 return; 
             }
         }

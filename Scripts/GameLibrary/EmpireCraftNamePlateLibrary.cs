@@ -626,9 +626,8 @@ public static class EmpireCraftNamePlateLibrary
             plateText.nano_object = capital;
             
         }
-        catch (Exception e)
+        catch
         {
-            LogService.LogInfo(e.ToString());
         }
 
     }
