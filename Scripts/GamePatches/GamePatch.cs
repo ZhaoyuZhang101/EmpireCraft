@@ -20,22 +20,25 @@ namespace EmpireCraft.Scripts.GamePatches
     {
         public static string getFamilyName(this Family family)
         {
-
             var nameParts = family.name.Split('\u200A');
-            if (family.data.custom_data_bool==null)
+            if (nameParts.Length > 0)
             {
-                family.data.custom_data_bool = new CustomDataContainer<bool>();
+                family.data.custom_data_bool ??= new CustomDataContainer<bool>();
+                bool hasCityPre = false;
+                if (family.data.custom_data_bool.Keys.Contains("has_city_pre"))
+                {
+                    hasCityPre = family.data.custom_data_bool["has_city_pre"];
+                }
+                if (hasCityPre)
+                {
+                    nameParts = nameParts.Skip(1).ToArray();
+                }
+                return nameParts[0].Split(' ').Last();
             }
-            bool has_city_pre = false;
-            if (family.data.custom_data_bool.Keys.Contains("has_city_pre"))
+            else
             {
-                has_city_pre = family.data.custom_data_bool["has_city_pre"];
+                return "";
             }
-            if (has_city_pre)
-            {
-                nameParts = nameParts.Skip(1).ToArray();
-            }
-            return nameParts[0].Split(' ').Last();
         }
     }
 }
