@@ -77,7 +77,7 @@ namespace EmpireCraft.Scripts.HelperFunc
         {
             if (kingdom != null&&pActor!=null)
                 new WorldLogMessage(EmpireCraftWorldLogLibrary.king_choose_heir_log,
-                    kingdom.GetKingdomName() ?? "" + (kingdom.GetOffice()?.GetName() ?? ""),
+                    (kingdom.GetKingdomName() ?? "") + (kingdom.GetOffice()?.GetName() ?? ""),
                     relation,
                     pActor.name)
                 {
