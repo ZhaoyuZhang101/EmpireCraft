@@ -26,7 +26,6 @@ public class EmpireCraftActorCheckFaction:GameAIActorBase
         var coreKingdom = empire.CoreKingdom;
         if (coreKingdom == null)
         {
-            LogService.LogInfo("派系触发解体");
             empire.CheckDissolve(null);
             return BehResult.Continue;
         }

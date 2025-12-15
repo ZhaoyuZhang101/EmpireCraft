@@ -346,8 +346,6 @@ public class Empire : MetaObject<EmpireData>
         LogService.LogInfo("当前概率: "+ possibility);
         if (randomValue >= possibility) return;
         if (empire == null) return;
-        LogService.LogInfo("检测到帝国");
-        LogService.LogInfo("存在省份");
         if (pJoinedProvinceList.Count >= empire.CoreKingdom.cities.Count) return;
         LogService.LogInfo("存在差集");
         foreach (City province in empire.CoreKingdom.cities.ToList())

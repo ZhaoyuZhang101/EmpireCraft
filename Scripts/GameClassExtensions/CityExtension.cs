@@ -297,7 +297,6 @@ public static class CityExtension
 
     public static void RemoveTitle(this City c)
     {
-        LogService.LogInfo("城市移除法理");
         GetOrCreate(c).title_id = -1L;
     }
 

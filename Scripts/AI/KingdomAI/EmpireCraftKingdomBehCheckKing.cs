@@ -47,7 +47,6 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         office.is_local = true;
         office.meta_object = pKingdom;
         office.Select(pKingdom);
-        LogService.LogInfo("选择完毕");
         return BehResult.Continue;
     }
 

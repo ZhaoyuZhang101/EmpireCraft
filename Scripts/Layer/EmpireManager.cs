@@ -59,7 +59,6 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
     public void dissolveEmpire(Empire pEmpire)
     {
-        LogService.LogInfo("帝国失去天命");
         pEmpire.dissolve();
         pEmpire.Dispose();
         base.removeObject(pEmpire);
@@ -116,7 +115,6 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
         pKingdom.GetOrCreate().isEmpire = true;
         pKingdom.GetOrCreate().EmpireID = empire.id;
-        LogService.LogInfo("当前帝国数量"+this.Count());
         if (empire.data.has_year_name)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())
