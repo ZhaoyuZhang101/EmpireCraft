@@ -19,13 +19,14 @@ public class EmpireCraftActorCheckFaction:GameAIActorBase
         if (pActor.GetFaction() != null) return BehResult.Continue;
         if (!pActor.IsOnOffice()) return BehResult.Continue;
         if (!pActor.HasOfficeIdentity()) return BehResult.Continue;
-        if (!pActor.hasKingdom()) return BehResult.Continue;
+        if (pActor.IsEmperor()) return BehResult.Continue;
         Kingdom pKingdom = pActor.kingdom;
         Empire empire = pKingdom.GetEmpire();
         if (empire == null) return BehResult.Continue;
         var coreKingdom = empire.CoreKingdom;
         if (coreKingdom == null)
         {
+            LogService.LogInfo("派系触发解体");
             empire.CheckDissolve(null);
             return BehResult.Continue;
         }

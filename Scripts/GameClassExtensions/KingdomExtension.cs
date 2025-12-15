@@ -736,7 +736,10 @@ public static class KingdomExtension
         {
             if (kingdom.GetEmpire().isRekt())
             {
+                LogService.LogInfo(ModClass.EMPIRE_MANAGER.Count.ToString());
+                LogService.LogInfo(kingdom.GetOrCreate().EmpireID.ToString());
                 kingdom.EmpireLeave();
+                LogService.LogInfo("触发分离");
             }
             else
             {

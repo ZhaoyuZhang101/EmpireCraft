@@ -43,7 +43,6 @@ public abstract class TemporaryFaction
         kingdoms    = new List<long>();
         started     = false;
         countDownTimestamp = World.world.getCurWorldTime();
-        LogService.LogInfo("初始化诉求");
     }
 
     public bool IsNeedToCountDown()
@@ -312,8 +311,9 @@ public abstract class TemporaryFaction
     }
     public void CheckNeedToUpdate()
     {
-        if (Date.getMonthsSince(timestamp) >= 1)
+        if (Date.getMonthsSince(timestamp) > 1)
         {
+            LogService.LogInfo("更新");
             Update();
             timestamp = World.world.getCurWorldTime();
         }

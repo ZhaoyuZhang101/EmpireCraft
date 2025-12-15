@@ -39,7 +39,7 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     if (empire != null)
                     {
-                        if (empire.CoreKingdom != null && isWithinCamera(empire.GetEmpireCenter()))
+                        if (empire.CoreKingdom != null&& isWithinCamera(empire.CoreKingdom.capital.city_center))
                         {
                             NameplateText npt = prepareNext(pManager, pAsset, empire, 37, 12, 39, 11);
                             showTextEmpire(npt, empire.CoreKingdom);

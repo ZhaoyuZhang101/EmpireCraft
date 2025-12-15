@@ -268,7 +268,6 @@ public class OfficeObject
         if (isNew)
         {
             OfficeID = OverallHelperFunc.IdGenerator.NextId();
-            LogService.LogInfo("创建官位ID: " +　OfficeID);
             OfficeManager.Offices.Add(OfficeID, this);
         }
     }

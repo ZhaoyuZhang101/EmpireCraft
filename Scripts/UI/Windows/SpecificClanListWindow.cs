@@ -118,7 +118,7 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
         AutoGridLayoutGroup specificClanGrid = _content.BeginGridGroup(4, pCellSize: new Vector2(55, 90), pSpacing:new Vector2(0, 0));
         _groups.Add(specificClanGrid.gameObject);
         yield return CoroutineHelper.wait_for_next_frame;
-        var list = specificClans ?? SpecificClanManager._specificClans.ToList().FindAll(s => s.AllAliveMembers.Any(a => a.asset.id == "human"));
+        var list = specificClans ?? SpecificClanManager._specificClans.ToList().FindAll(s => s.AllAliveMembers.Any(a => a?.asset?.id == "human"));
         list = list.FindAll(s => s.AllAliveMembers.Count > 0);
         var res = 4 - list.Count % 4;
         for (int i = 0; i < list.Count; i++)

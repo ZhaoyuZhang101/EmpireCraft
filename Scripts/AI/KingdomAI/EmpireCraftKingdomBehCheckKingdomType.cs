@@ -18,6 +18,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         if (pKingdom.isRekt()) return BehResult.Continue;
+        pKingdom.CheckEmpire();
         SyncKingdomStatus(pKingdom);
         SyncOffice(pKingdom);
         return BehResult.Continue;

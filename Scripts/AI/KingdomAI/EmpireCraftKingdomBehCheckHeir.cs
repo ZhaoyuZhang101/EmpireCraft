@@ -30,11 +30,9 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         if (heir.actor.isRekt()||!heir.actor.isUnitFitToRule())
         {
             pKingdom.GoToNextHeirLaw();
-            LogService.LogInfo($"下一个继承法{pKingdom.GetHeirLaw()}");
         }
         else
         {
-            LogService.LogInfo("设置为继承人");
             pKingdom.SetHeir(heir.actor);
             TranslateHelper.LogKingChooseHeir(pKingdom, heir.relation, heir.actor);
             pKingdom.RecoverToDefaultHeir();
