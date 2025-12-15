@@ -23,8 +23,12 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
 {
     public ListPool<GameObject> gameObjects = new ListPool<GameObject>();
     TextInput searchInput;
+    public string _currentSelectedSpecies = "";
+    public Dictionary<string, TextInput> TextInputs = new Dictionary<string, TextInput>();
+    public AutoGridLayoutGroup _gridGroup;
     protected override void Init()
     {
+        TextInputs = new Dictionary<string, TextInput>();
         AutoHoriLayoutGroup hGroup = this.BeginHoriGroup();
         SimpleText Text1 = Instantiate(SimpleText.Prefab);
         Text1.Setup(LM.Get("current_exist_culture"), pAlignment: TextAnchor.MiddleCenter, new Vector2(100, 20));
@@ -38,25 +42,77 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
                 tip_description = "insert_all_culture_description"
             });
         });
-        insertAllCulture.Button.OnHoverOut(() =>
-        {
-            Tooltip.hideTooltip();
-        });
+        insertAllCulture.Button.OnHoverOut(Tooltip.hideTooltip);
         hGroup.AddChild(Text1.gameObject);
         hGroup.AddChild(insertAllCulture.gameObject);
 
-        SimpleText Text2 = Instantiate(SimpleText.Prefab);
-        string content = String.Join(",", ConfigData.currentExistCulture);
-        Text2.Setup(content);
+        _gridGroup = this.BeginGridGroup(6, pCellSize:new Vector2(25, 14));
         AddChild(hGroup.gameObject);
-        AddChild(Text2.gameObject);
-        
+        AddChild(_gridGroup.gameObject);
         searchInput = Instantiate(TextInput.Prefab);
         searchInput.Setup(LM.Get("input_species"), StartSearch);
         searchInput.SetSize(new Vector2(180, 20));
         AddChild(searchInput.gameObject);
 
         Show(ConfigData.AllCivSpecies);
+    }
+
+    public override void OnFirstEnable()
+    {
+        base.OnFirstEnable();
+        foreach (var culture in ConfigData.currentExistCulture)
+        {
+            var language = PlayerConfig.detectLanguage();
+            var tc = OnomasticsRule.ALL_CULTURE_TRANSLATE[culture];
+            var translate = "";
+            switch (language)
+            {
+                case "ch":
+                    translate = tc.ch;
+                    break;
+                case "en":
+                    translate = tc.en;
+                    break;
+                case "cz":
+                    translate = tc.cz;
+                    break;
+                default:
+                    translate = tc.en;
+                    break;
+            }
+            translate = string.IsNullOrEmpty(translate) ? tc.en : translate;
+            _gridGroup.AddButtonIntoGirdLayout(culture, translate, ()=>SetCulture(culture), size:new Vector2(20, 14));
+        }
+    }
+
+    public void SetCulture(string cultureName)
+    {
+        if (!string.IsNullOrEmpty(_currentSelectedSpecies))
+        {
+            TextInputs[_currentSelectedSpecies].input.text = cultureName;
+            ConfigData.speciesCulturePair[_currentSelectedSpecies] = cultureName;
+            WorldTip.showNow("set_culture_complete", true, "top", 3f, "#F3961F");
+            _currentSelectedSpecies = "";
+            try
+            {
+                string SCP = JsonConvert.SerializeObject(ConfigData.speciesCulturePair, Formatting.Indented);
+                string parentFolder = Directory.GetParent(ModClass._declare.FolderPath)?.FullName;
+                if (parentFolder != null)
+                {
+                    string path = Path.Combine(parentFolder, "CultureSpeciesPairPlayerConfig.json");
+
+                    File.WriteAllText(path, SCP);
+                    LogService.LogInfo("储存用户文化配置数据成功");
+                }
+
+            }
+            catch (Exception e)
+            {
+                LogService.LogInfo("储存用户文化配置数据失败");
+            }
+            return;
+        }
+        WorldTip.showNow("please_select_species_first", true, "top", 3f, "#F3961F");
     }
 
     public void InsertAllCulture()
@@ -82,11 +138,14 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
         try
         {
             string SCP = JsonConvert.SerializeObject(ConfigData.speciesCulturePair, Formatting.Indented);
-            string path = Path.Combine(ModClass._declare.FolderPath, "CultureSpeciesPairPlayerConfig.json");
-            
-            File.WriteAllText(path, SCP);
-            LogService.LogInfo("储存用户文化配置数据成功");
+            string parentFolder = Directory.GetParent(ModClass._declare.FolderPath)?.FullName;
+            if (parentFolder != null)
+            {
+                string path = Path.Combine(parentFolder, "CultureSpeciesPairPlayerConfig.json");
 
+                File.WriteAllText(path, SCP);
+                LogService.LogInfo("储存用户文化配置数据成功");
+            }
         }
         catch (Exception e)
         {
@@ -112,6 +171,11 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
         Show(ConfigData.AllCivSpecies);
     }
 
+    public void StartSelectCulture(string species)
+    {
+        _currentSelectedSpecies = species;
+        WorldTip.showNow("speciesSelected", true, "top", 3f, "#F3961F");
+    }
     public void Show(List<ActorAsset> species)
     {
         foreach (var civSpecies in species)
@@ -119,7 +183,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
             AutoVertLayoutGroup wholeView = this.BeginVertGroup(pSpacing: 3);
             // Create a horizontal layout group for each civSpecies
             AutoHoriLayoutGroup pairGroup = this.BeginHoriGroup(pSpacing: 3);
-            var button = pairGroup.AddButtonIntoHoriLayout("icon", "", () => { }, civSpecies.getSpriteIcon(), hideBackground:true, size: new Vector2(15, 15));
+            var button = pairGroup.AddButtonIntoHoriLayout("icon", "", () => StartSelectCulture(civSpecies.id), civSpecies.getSpriteIcon(), hideBackground:true, size: new Vector2(15, 15));
             button.Background.enabled = false;
             // Create a new SimpleText instance for each civSpecies
             SimpleText SpeciesText = Instantiate(SimpleText.Prefab);
@@ -131,7 +195,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
             inputField.SetSize(new Vector2(100, 18));
             pairGroup.AddChild(SpeciesText.gameObject);
             pairGroup.AddChild(inputField.gameObject);
-
+            TextInputs[civSpecies.id] = inputField;
             ////设置按钮
             //AutoHoriLayoutGroup settingGroup = this.BeginHoriGroup(pSpacing: 3);
 

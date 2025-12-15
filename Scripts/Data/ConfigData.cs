@@ -114,10 +114,7 @@ namespace EmpireCraft.Scripts.Data
         };
 
         //Already Prepared Cultures
-        public static List<string> currentExistCulture = new List<string>()
-        {
-            "Western","Huaxia","Youmu","Frankish","Slavonic", "Roma", "Japan", "Arab", "Germanic","Kosher","Kosher","Viking"
-        };
+        public static List<string> currentExistCulture => OnomasticsRule.ALL_CULTURE_RULE.Keys.ToList();
         [JsonIgnore]
         public static Empire EMPIRE = null;
         public static bool IS_ORIGINAL_WAR_LOGIC = false;

@@ -137,18 +137,20 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EMPIRE_MANAGER = new EmpireManager();
         KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         OnomasticsRule.ReadSetting();
-
-        string path = Path.Combine(_declare.FolderPath, "CultureSpeciesPairPlayerConfig.json");
-        if (File.Exists(path))
+        string parentFolder = Directory.GetParent(_declare.FolderPath)?.FullName;
+        if (parentFolder != null)
         {
-            string content = File.ReadAllText(path);
-            ConfigData.speciesCulturePair = JsonConvert.DeserializeObject<Dictionary<string, string>>(content);
+            string path = Path.Combine(parentFolder, "CultureSpeciesPairPlayerConfig.json");
+            if (File.Exists(path))
+            {
+                string content = File.ReadAllText(path);
+                ConfigData.speciesCulturePair = JsonConvert.DeserializeObject<Dictionary<string, string>>(content);
+            }
+            else
+            {
+                LogService.LogInfo("用户文化配置不存在，启用默认配置");
+            }
         }
-        else
-        {
-            LogService.LogInfo("用户文化配置不存在，启用默认配置");
-        }
-
     }
 
     public void LoadUI()
