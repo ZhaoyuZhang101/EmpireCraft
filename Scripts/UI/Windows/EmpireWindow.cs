@@ -28,9 +28,6 @@ namespace EmpireCraft.Scripts.UI.Windows
         private TextInput _empireNameInput;
         private Empire _empire;
         private readonly Dictionary<string, GameObject> _groups = new Dictionary<string, GameObject>();
-        public SimpleWindowTab kingdomsWindowTab;
-        public SimpleWindowTab pastEmperorsWindowTab;
-        public SimpleWindowTab bureauWindowTab;
 
         private Dictionary<string, Text> _infosTrans = new Dictionary<string, Text>();
 
@@ -53,25 +50,25 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_controlled_kingdoms"))
             {
-                kingdomsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                var kingdomsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
                 kingdomsWindowTab.Setup("empire_controlled_kingdoms", this.ScrollWindowComponent, action:ShowKingdomListHelp,
                     sprite: SpriteTextureLoader.getSprite("SplitAllUnderHeaven"));
             }
 
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "past_emperors"))
             {
-                pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                var pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
                 pastEmperorsWindowTab.Setup("past_emperors", this.ScrollWindowComponent, action:ShowEmperors, sprite:SpriteTextureLoader.getSprite("ui/iconHistory"));
             }
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_bureau"))
             {
-                bureauWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                var bureauWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
                 bureauWindowTab.Setup("empire_bureau", this.ScrollWindowComponent, action:ShowBureau, sprite:SpriteTextureLoader.getSprite("ChineseCrown"));
             }
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_setting"))
             {
-                bureauWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                bureauWindowTab.Setup("empire_setting", this.ScrollWindowComponent, action:OpenEmpireSettingWindow);
+                var settingWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                settingWindowTab.Setup("empire_setting", this.ScrollWindowComponent, action:OpenEmpireSettingWindow);
             }
         }
 

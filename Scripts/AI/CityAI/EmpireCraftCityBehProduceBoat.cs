@@ -42,6 +42,7 @@ public class EmpireCraftBehCheckBoat: GameAICityBase
         catch
         {
             LogService.LogInfo("生成船失败");
+            return null;
         }
         if (boatAssetToBuild == null)
             return (Actor) null;

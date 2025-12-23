@@ -13,6 +13,7 @@ using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.UI.Windows;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
 using UnityEngine.Events;
@@ -482,7 +483,11 @@ public static class UIHelper
             }
             faction.LockButton.SetStatus(faction.Force);
         }, faction.Force, isOption:true, size: new Vector2(10, 10));
-        bottom.AddButtonIntoHoriLayout("EnterFactionCard", "详情", () => { }, size: new Vector2(20, 10));
+        bottom.AddButtonIntoHoriLayout("EnterFactionCard", "详情", () =>
+        {
+            ConfigData.CURRENT_SELECTED_FACTION = faction;
+            ScrollWindow.showWindow(nameof(FactionDetailWindow));
+        }, size: new Vector2(20, 10));
         bottom?.gameObject.AdjustTopPart(bottom.transform, Vector2.down*82);
         faction.LockButton = button;
         factionPart?.transform.AddStretchBackground(isDominate?"FactionFrame_dominate":"FactionFrame", size: new Vector2(55, 90));

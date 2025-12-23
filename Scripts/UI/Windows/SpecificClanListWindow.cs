@@ -102,7 +102,7 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
 
     public void RefreshAccordingToSpecies(string species, List<SpecificClan> list = null, bool search = false)
     {
-        var result = list??SpecificClanManager._specificClans.ToList().FindAll(s => s.AllAliveMembers.Any(a => a.asset.id == species));
+        var result = list??SpecificClanManager._specificClans.ToList().FindAll(s => s?.AllAliveMembers?.Any(a => a?.asset?.id == species)??false);
         Clear();
         ShowTopPart();
         InitialSearchSpace();

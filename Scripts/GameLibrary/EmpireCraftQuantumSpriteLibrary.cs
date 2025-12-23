@@ -140,6 +140,7 @@ public static class EmpireCraftQuantumSpriteLibrary
         int num = 0;
         foreach (Kingdom kingdom in World.world.kingdoms)
         {
+            if (kingdom.isRekt()) continue;
             if (num > 2)
             {
                 break;

@@ -24,6 +24,7 @@ public class TempFac_扩张地盘 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire == null) return false;
+        if (empire.CoreKingdom.hasEnemies()) return false;
         foreach (var kingdom in World.world.kingdoms)
         {
             if (kingdom.IsInSameEmpire(empire.CoreKingdom)) continue;

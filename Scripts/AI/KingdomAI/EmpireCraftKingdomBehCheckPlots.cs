@@ -7,6 +7,9 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using NCMS.Extensions;
+using NeoModLoader.api.attributes;
+using NeoModLoader.General.Game.extensions;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
@@ -65,45 +68,50 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
             }
         }
     }
+    [Hotfixable]
     public void CheckJoinWar(Kingdom pKingdom)
     {
         Empire empire = pKingdom.GetEmpire();
+        var regime = pKingdom.GetRegime();
+        if (regime == null) return;
         if (!empire.CanJoinWar()) return;
         if (!empire.isRekt())
         {
-            if (pKingdom.getWars().Any())
+            if (!pKingdom.IsEmpire())
             {
-                foreach (War war in pKingdom.getWars())
+                var coreKingdom = empire.CoreKingdom;
+                if (pKingdom.isInWarWith(coreKingdom)) return;
+                if (pKingdom.isInWarOnSameSide(coreKingdom)) return;
+                if (pKingdom.getWars().Any()) return;
+                if (!coreKingdom.hasEnemies()) return;
+                if (pKingdom.isOpinionTowardsKingdomGood(coreKingdom) || regime.IsAllowDiplomacy())
                 {
-                    if (!war.isRekt())
-                    {
-                        List<Kingdom> opposites = war.getOppositeSideKingdom(pKingdom);
-                        if (opposites==null) return;
-                        foreach (Kingdom empireKingdoms in empire.kingdoms_hashset)
-                        {
-                            if (empireKingdoms.isRekt()) continue;
-                            if (empireKingdoms.IsEmpire()) continue;
-                            if (!opposites.Contains(empireKingdoms) && (empire.CoreKingdom?.getRenown() >= empireKingdoms.countTotalWarriors()||!empireKingdoms.GetRegime().IsAllowDiplomacy()) && empireKingdoms.getWars()?.Count() <= 0)
-                            {
-                                if (war.isAttacker(pKingdom))
-                                {
-                                    war.joinAttackers(empireKingdoms);
-                                }
-                                else
-                                {
-                                    war.joinDefenders(empireKingdoms);
-                                }
-
-                                if (empireKingdoms.GetRegime().IsAllowDiplomacy())
-                                {
-                                    empire.AddRenown(-empireKingdoms.countTotalWarriors());
-                                }
-                                TranslateHelper.LogJoinEmpireWar(empireKingdoms, empire);
-                                empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
-                                return;
-                            }
-                        }
-                    }
+                    coreKingdom.getWars(true).ToList().FindAll(w=>w.isAttacker(coreKingdom)).ForEach(w=>w.joinAttackers(pKingdom));
+                    coreKingdom.getWars(true).ToList().FindAll(w=>w.isDefender(coreKingdom)).ForEach(w=>w.joinDefenders(pKingdom));
+                    TranslateHelper.LogJoinEmpireWar(pKingdom, empire);
+                } 
+            }
+            else
+            {
+                foreach (var empireKingdom in empire.kingdoms_list.ToList())
+                {
+                    LogService.LogInfo(empireKingdom.name);
+                    if (empireKingdom.IsEmpire()) continue;
+                    LogService.LogInfo("1");
+                    if (pKingdom.isInWarWith(empireKingdom)) continue;
+                    LogService.LogInfo("2");
+                    if (pKingdom.isInWarOnSameSide(empireKingdom)) continue;
+                    LogService.LogInfo("3");
+                    if (!empireKingdom.hasEnemies())  continue;
+                    LogService.LogInfo("4");
+                    var kRegime = empireKingdom.GetRegime();
+                    if (kRegime == null) continue;
+                    LogService.LogInfo("5");
+                    if (!pKingdom.isOpinionTowardsKingdomGood(empireKingdom)&&regime.IsAllowDiplomacy()) continue;
+                    LogService.LogInfo("6");
+                    empireKingdom.getWars(true).ToList().FindAll(w=>w.isAttacker(empireKingdom)).ForEach(w=>w.joinAttackers(pKingdom));
+                    empireKingdom.getWars(true).ToList().FindAll(w=>w.isDefender(empireKingdom)).ForEach(w=>w.joinDefenders(pKingdom));
+                    TranslateHelper.LogEmpireJoinWar(empire, empireKingdom);
                 }
             }
         }
