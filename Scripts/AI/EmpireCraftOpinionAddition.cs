@@ -110,7 +110,7 @@ public static class EmpireCraftOpinionAddition
                 int result = 0;
                 if (pMain.IsInSameEmpire(pTarget))
                 {
-                    result = 50;
+                    result = 100;
                 }
                 return result;
             }
