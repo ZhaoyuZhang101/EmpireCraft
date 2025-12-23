@@ -1525,44 +1525,7 @@ public class Empire : MetaObject<EmpireData>
         this._units_dirty = false;
         return this._lastEmpireCenter;
     }
-
-    // Token: 0x0600113C RID: 4412 RVA: 0x000C8080 File Offset: 0x000C6280
-    public IEnumerable<War> getAttackerWars()
-    {
-        foreach (War tWar in this.getWars(false))
-        {
-            foreach (Kingdom tKingdom in this.kingdoms_list)
-            {
-                if (tWar.isAttacker(tKingdom))
-                {
-                    yield return tWar;
-                    break;
-                }
-            }
-            List<Kingdom>.Enumerator enumerator2 = default(List<Kingdom>.Enumerator);
-        }
-        IEnumerator<War> enumerator = null;
-        yield break;
-    }
-
-    // Token: 0x0600113D RID: 4413 RVA: 0x000C8090 File Offset: 0x000C6290
-    public IEnumerable<War> getDefenderWars()
-    {
-        foreach (War tWar in this.getWars(false))
-        {
-            foreach (Kingdom tKingdom in this.kingdoms_list)
-            {
-                if (tWar.isDefender(tKingdom))
-                {
-                    yield return tWar;
-                    break;
-                }
-            }
-            List<Kingdom>.Enumerator enumerator2 = default(List<Kingdom>.Enumerator);
-        }
-        IEnumerator<War> enumerator = null;
-        yield break;
-    }
+    
 
     // Token: 0x0600113E RID: 4414 RVA: 0x000C80A0 File Offset: 0x000C62A0
     public override IEnumerable<Actor> getUnits()
@@ -1597,10 +1560,10 @@ public class Empire : MetaObject<EmpireData>
             var seed = unassigned.First();
             var region = new List<City> { seed };
             unassigned.Remove(seed);
-
+    
             var queue = new Queue<City>();
             queue.Enqueue(seed);
-
+    
             while (queue.Count > 0 && region.Count < _avgCitiesPerKingdom)
             {
                 var curr = queue.Dequeue();
@@ -1630,7 +1593,7 @@ public class Empire : MetaObject<EmpireData>
                 {
                     SatisfiedCandidates = new List<Actor>();
                 }
-
+    
                 Kingdom newKingdom;
                 Actor king;
                 if (SatisfiedCandidates.Count() > 0)

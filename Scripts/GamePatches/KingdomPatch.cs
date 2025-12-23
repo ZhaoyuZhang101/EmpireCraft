@@ -43,11 +43,28 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(emperor_left)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.removeKing)),
             prefix: new HarmonyMethod(GetType(), nameof(emperor_left))
+        );             
+        new Harmony(nameof(GetMaxCities)).Patch(
+            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.getMaxCities)),
+            prefix: new HarmonyMethod(GetType(), nameof(GetMaxCities))
         );               
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(removeData))
         );
+    }
+
+    public static bool GetMaxCities(Kingdom __instance, ref int __result)
+    {
+        int maxCities = __instance.getActorAsset().civ_base_cities;
+        if (__instance.hasKing())
+            maxCities += (int) __instance.king.stats["cities"];
+        if (maxCities < 1)
+            maxCities = 1;
+        var titles = __instance.king.GetOwnedTitle();
+        
+        __result = maxCities;
+        return false;
     }
 
     public static void removeData(Kingdom __instance)

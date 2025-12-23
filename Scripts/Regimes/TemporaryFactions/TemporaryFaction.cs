@@ -197,6 +197,10 @@ public abstract class TemporaryFaction
 
                 var war = World.world.diplomacy.startWar(kingdom, GetEmpire().CoreKingdom,
                     WarTypeLibrary.normal);
+                if (war == null)
+                {
+                    return false;
+                }
                 war.SetEmpireWarType(EmpireWarType.派系叛乱);
                 war.data.name = targetFaction?.Name??kingdom.name + "叛乱";
                 return true;

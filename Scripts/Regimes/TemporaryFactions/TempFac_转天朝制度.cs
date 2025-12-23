@@ -24,7 +24,6 @@ public class TempFac_转天朝制度 : TemporaryFaction
             regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
         }
         empire.data.centerOffice.Init(empire.CoreKingdom);
-        empire.AutoEnfeoff();
         End();
     }
 

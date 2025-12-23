@@ -1156,7 +1156,6 @@ namespace EmpireCraft.Scripts.AI
                     empire.join(kingdom1);
                 }
             }
-            empire.AutoEnfeoff();
             return true;
         }
 
