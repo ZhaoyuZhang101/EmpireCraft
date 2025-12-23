@@ -15,9 +15,12 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.GameLibrary;
 using System.Linq;
 using EmpireCraft.Scripts.AI;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NCMS.Extensions;
+using NeoModLoader.General.Game.extensions;
 using Newtonsoft.Json;
 
 namespace EmpireCraft.Scripts;
@@ -45,6 +48,37 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         IS_CLEAR = false;
     }
 
+    private void FixedUpdate()
+    {
+        World.world.kingdoms.ToList().ForEach(pKingdom =>
+        {
+            if (pKingdom.isRekt()) return;
+            if (!pKingdom.IsEmpire()) return;
+            Regime regime = pKingdom.GetRegime();
+            if (regime==null) return;
+            var ff = regime.GetDominateFaction();
+            if (ff==null) return;
+            foreach (var tf in ff.TemporaryFactions)
+            {
+                tf.SetEmpire(pKingdom.GetEmpire());
+                if (tf.IsNeedToCountDown())
+                {
+                    if (tf.CountDown > 0)
+                    {
+                        tf.CountDown -= 1;
+                    }
+                }
+                if (tf.IsStarted())
+                {
+                    tf.CheckNeedToUpdate();
+                }
+            }
+        });
+
+        KINGDOM_TITLE_MANAGER.update(-1L);
+
+    }
+
     public GameObject GetGameObject()
     {
         return _modObject;
@@ -54,7 +88,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         return "https://github.com/ZhaoyuZhang101/EmpireCraft";
     }
 
-    public void loadCultureNameTemplate()
+    public void LoadCultureNameTemplate()
     {
         foreach (string cultureName in ConfigData.speciesCulturePair.Values)
         {
@@ -94,7 +128,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "HonoraryOfficial.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "MeritLevel.csv"));
         //加载文化名称模板
-        loadCultureNameTemplate();
+        LoadCultureNameTemplate();
         LM.ApplyLocale(); // Apply the loaded locales to the game
         Type[] types = Assembly.GetExecutingAssembly().GetTypes();
         foreach (Type type in types)
@@ -165,7 +199,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         LogService.LogInfo("EmpireCraft Reload Finish！！");
         
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
-        loadCultureNameTemplate();
+        LoadCultureNameTemplate();
         LM.ApplyLocale();
         // You can reload your mod here, such as reloading configs, reloading UI, etc.
     }

@@ -15,7 +15,6 @@ public class TempFac_转周制 : TemporaryFaction
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
         var members = GetFaction().Members.ToList();
-        empire.AutoEnfeoff();
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
             kingdom.SetRegimeType(RegimeType.ZhouFeudalism);
