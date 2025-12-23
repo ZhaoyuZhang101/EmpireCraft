@@ -1,11 +1,7 @@
-﻿using EmpireCraft.Scripts.Data;
+﻿using System.Collections.Generic;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
-using EmpireCraft.Scripts.Layer;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using EmpireCraft.Scripts.Regimes;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameLibrary;
@@ -129,8 +125,52 @@ public static class EmpireCraftQuantumSpriteLibrary
             render_gameplay = true,
             color = new Color(0.4f, 0.4f, 1f, 0.9f)
         });
+        AssetManager.quantum_sprites.add(new QuantumSpriteAsset
+        {
+            id = "capturing_zones",
+            id_prefab = "p_mapZone_lines",
+            base_scale = 1f,
+            draw_call = drawCapturingZones,
+            create_object = delegate(QuantumSpriteAsset _, QuantumSprite pQSprite)
+            {
+                pQSprite.sprite_renderer.sortingLayerID = SortingLayer.NameToID("EffectsBack");
+                pQSprite.sprite_renderer.sortingOrder = 0;
+            },
+            render_map = true,
+            add_camera_zoom_multiplier = false
+        });
     }
-
+    private static void drawCapturingZones(QuantumSpriteAsset pAsset)
+    {
+        if (!Zones.showKingdomZones() && !Zones.showCityZones() && !Zones.showAllianceZones()&&!showEmpireZones())
+        {
+            return;
+        }
+        using ListPool<TileZone> listPool = new ListPool<TileZone>();
+        foreach (City city in World.world.cities)
+        {
+            if (!city.being_captured_by.isRekt() && city.hasZones())
+            {
+                float num = (float)city.last_visual_capture_ticks / 100f * (float)city.zones.Count;
+                if (num > (float)city.zones.Count)
+                {
+                    num = city.zones.Count;
+                }
+                CapturingZonesCalculator.getListToDraw(city, (int)num, listPool);
+                for (int i = 0; i < listPool.Count; i++)
+                {
+                    TileZone tileZone = listPool[i];
+                    QuantumSprite quantumSprite = QuantumSpriteLibrary.drawQuantumSprite(pAsset, tileZone.centerTile, null);
+                    Color pColor = city.being_captured_by.getColor().getColorBorderOut_capture();
+                    quantumSprite.setColor(ref pColor);
+                }
+            }
+        }
+    }
+    public static bool showEmpireZones(bool pCheckOnlyOption = false)
+    {
+        return EmpireCraftMetaTypeLibrary.empire.isActive(pCheckOnlyOption);
+    }
     private static void drawEmperor(QuantumSpriteAsset pAsset)
     {
         if (!PlayerConfig.optionBoolEnabled("map_kings_leaders"))
@@ -141,6 +181,8 @@ public static class EmpireCraftQuantumSpriteLibrary
         foreach (Kingdom kingdom in World.world.kingdoms)
         {
             if (kingdom.isRekt()) continue;
+            var regime =  kingdom.GetRegime();
+            if (regime == null) continue;
             if (num > 2)
             {
                 break;
@@ -151,14 +193,25 @@ public static class EmpireCraftQuantumSpriteLibrary
                 Vector3 pPos = king.current_position;
                 pPos.y -= 3f;
                 Sprite pSprite;
-                if (kingdom.IsEmpire())
+                switch (kingdom.GetKingdomType())
                 {
-                    pSprite = (king.has_attack_target ?  _LvLing_emperor_sprite_angry: (king.hasPlot() ? _LvLing_emperor_sprite_surprised : (kingdom.hasEnemies() ? _LvLing_emperor_sprite_normal : _LvLing_emperor_sprite_happy)));
+                    case KingdomType.ZhouFeudalism_empire:
+                    case KingdomType.LvLing_centre:
+                        pSprite = king.has_attack_target ?  _LvLing_emperor_sprite_angry: king.hasPlot() ? _LvLing_emperor_sprite_surprised : kingdom.hasEnemies() ? _LvLing_emperor_sprite_normal : _LvLing_emperor_sprite_happy;
+                        break;
+                    case KingdomType.LvLing_jiedushi:
+                    case KingdomType.LvLing_jimizhou:
+                        pSprite = king.has_attack_target ?  _LvLing_jiedushi_sprite_angry: king.hasPlot() ? _LvLing_jiedushi_sprite_surprised : kingdom.hasEnemies() ? _LvLing_jiedushi_sprite_normal : _LvLing_jiedushi_sprite_happy;
+                        break;
+                    case KingdomType.LvLing_kingdom:
+                    case KingdomType.LvLing_province:
+                        pSprite = king.has_attack_target ?  _LvLing_officer_sprite_angry: king.hasPlot() ? _LvLing_officer_sprite_surprised : kingdom.hasEnemies() ? _LvLing_officer_sprite_normal : _LvLing_officer_sprite_happy;
+                        break;
+                    default:
+                        pSprite = (king.has_attack_target ? QuantumSpriteLibrary._king_sprite_angry : (king.hasPlot() ? QuantumSpriteLibrary._king_sprite_surprised : (kingdom.hasEnemies() ? QuantumSpriteLibrary._king_sprite_normal : QuantumSpriteLibrary._king_sprite_happy))); 
+                        break;
                 }
-                else
-                {
-                    pSprite = (king.has_attack_target ? QuantumSpriteLibrary._king_sprite_angry : (king.hasPlot() ? QuantumSpriteLibrary._king_sprite_surprised : (kingdom.hasEnemies() ? QuantumSpriteLibrary._king_sprite_normal : QuantumSpriteLibrary._king_sprite_happy)));  
-                }
+                
                 if (!pAsset.group_system.is_within_active_index)
                 {
                     num++;

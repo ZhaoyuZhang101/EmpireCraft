@@ -1207,6 +1207,7 @@ public class Empire : MetaObject<EmpireData>
         }
         kingdoms_hashset.Add(pKingdom);
         pKingdom.EmpireJoin(this);
+        pKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
         if (pKingdom.HasTakenAlliance())
         {
             pKingdom.RemoveTakenAlliance();

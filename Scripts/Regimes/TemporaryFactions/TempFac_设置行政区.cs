@@ -15,10 +15,15 @@ public class TempFac_设置行政区 : TemporaryFaction
         KingdomTitle title = GetTitleTarget();
         if (title != null&&title.title_capital!=empire.CoreKingdom.capital)
         {
-            Kingdom k;
+            Kingdom k = null;
             try
             {
-                k = title.title_capital.makeOwnKingdom(empire.CoreKingdom.units.FindAll(a=>!a.isKing()&&a.isAdult()&&a.isUnitFitToRule()).First());
+                var king = empire.getUnits().ToList().FindAll(a => !a.isKing() && a.isAdult() && a.isUnitFitToRule())
+                    .First();
+                if (king != null)
+                {
+                    k = title.title_capital.makeOwnKingdom(king); 
+                }
             }
             catch
             {
@@ -42,7 +47,7 @@ public class TempFac_设置行政区 : TemporaryFaction
                 empire.join(k, pForce:true);
             }
         }
-        CountDown = 1;
+        CountDown = 2;
         End();
     }
 
@@ -56,10 +61,11 @@ public class TempFac_设置行政区 : TemporaryFaction
             {
                 var kt = ModClass.KINGDOM_TITLE_MANAGER.get(title);
                 if (kt==null) continue;
+                if (kt.title_capital.isRekt()) continue;
                 if (kt.control_kingdom!=empire.CoreKingdom) continue;
                 if (kt.title_capital != empire.CoreKingdom.capital)
                 {
-                    Acc = 40;
+                    Acc = 30;
                     SetTitleTarget(kt);
                     return true;
                 }
