@@ -27,7 +27,7 @@ public class TempFac_谋求统一 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire?.CoreKingdom?.getWars()?.Any()??true) return false;
+        if (empire?.CoreKingdom?.hasEnemies()??true) return false;
         foreach (var kingdom in World.world.kingdoms)
         {
             if (empire.given_Kingdoms.Contains(kingdom)) continue;

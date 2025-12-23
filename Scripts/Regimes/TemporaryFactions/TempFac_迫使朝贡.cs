@@ -23,6 +23,7 @@ public class TempFac_迫使朝贡 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire?.CoreKingdom?.hasEnemies()??true) return false;
         foreach (var kingdom in World.world.kingdoms)
         {
             if (kingdom.IsInEmpire()) continue;

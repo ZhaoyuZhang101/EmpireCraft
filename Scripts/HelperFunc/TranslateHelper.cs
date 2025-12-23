@@ -210,6 +210,18 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
         }
+        public static void LogEmpireJoinWar(Empire empire, Kingdom kingdom)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.join_empire_war_log,
+                empire.data.name,
+                kingdom.data.name
+                )
+            {
+                color_special1 = empire.getColor()._color_text,
+                color_special2 = kingdom.getColor()._color_text
+
+            }.add();
+        }
         public static void LogJoinReligionWar(Kingdom kingdom, Religion religion)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.join_religion_war_log,

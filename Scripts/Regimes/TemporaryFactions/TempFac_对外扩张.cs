@@ -24,6 +24,7 @@ public class TempFac_对外扩张 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire == null) return false;
+        if (empire.CoreKingdom?.hasEnemies()??true) return false;
         foreach (var kingdom in World.world.kingdoms)
         {
             if (empire.given_Kingdoms.Contains(kingdom)) continue;
