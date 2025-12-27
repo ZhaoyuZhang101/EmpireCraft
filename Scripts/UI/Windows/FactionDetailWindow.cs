@@ -56,9 +56,18 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         }   
         topPart = this.BeginVertGroup(pSpacing:-12);
         var infoPart = topPart.BeginHoriGroup();
-        infoPart.AddTextIntoHoriLayout("成员数量: "+_faction.Count);
         infoPart.AddActorViewIntoHoriLayout(_faction.GetLeader());
-        infoPart.AddTextIntoHoriLayout("势力: "+_faction.TotalPower);
+        var leftPart = infoPart.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
+        leftPart.AddTextIntoVertLayout("成员数量: "+_faction.Count);
+        leftPart.AddTextIntoVertLayout("势力: "+_faction.TotalPower);
+        var rightPart = infoPart.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
+        rightPart.AddButtonIntoVertLayout("recover_tfaction", icon: SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(10, 10), showTip:true, action:
+            () =>
+            {
+                _faction.TemporaryFactionTypesRecord = new List<TemporaryFactionType>(_faction.TemporaryFactionTypes);
+                _faction.TemporaryFactions = _faction.ConvertToObjectFromFactionType();
+                ShowClaims();
+            });
         topPart.AddTextIntoVertLayout("所需特质: ", hideBackground:true, TextAnchor.LowerCenter, size: new Vector2(25, 15));
         var traitsPart =  topPart.BeginHoriGroup();
         InitTraitPart(traitsPart);
@@ -277,7 +286,8 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     /// 显示和编辑诉求
     /// </summary>
     /// <param name="window"></param>
-    public void ShowClaims(WindowMetaTab window)
+    [Hotfixable]
+    public void ShowClaims(WindowMetaTab window = null)
     {
         Clear();
         InitialTopPart();
@@ -287,16 +297,39 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         {
             ShowClaim(tf, claimSpace);
         }
+        var addSpace = claimSpace.BeginHoriGroup(new Vector2(200, 30), TextAnchor.MiddleCenter);
+        addSpace.AddButtonIntoHoriLayout("add_tfaction", "", () =>
+        {
+            Clear();
+            InitialTopPart();
+            var selectPart = this.BeginVertGroup(pSize: new Vector2(200, 800), pAlignment: TextAnchor.MiddleCenter);
+            foreach (var tf in FactionManager.FactionConfig)
+            {
+                selectPart.AddTextIntoVertLayout(tf.Key.ToString(), size: new Vector2(35, 18), anchor: TextAnchor.MiddleCenter, hideBackground:true);
+                var tFactionContent = selectPart.BeginGridGroup(5, pCellSize: new Vector2(30, 18));
+                foreach (var tf2 in tf.Value)
+                {
+                    tFactionContent.AddButtonIntoGirdLayout(tf2.ToString(), tf2.ToString(), () =>
+                    {
+                        _faction.TemporaryFactionTypesRecord.Add(tf2);
+                        _faction.TemporaryFactions = _faction.ConvertToObjectFromFactionType();
+                        ShowClaims();
+                    }, size: new Vector2(30, 18));
+                }
+            }
+            _groups.Add(selectPart.gameObject);
+        },SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(20, 20));
+        addSpace.transform.AddStretchBackground("FactionFrame", new Vector2(200, 30));
         _groups.Add(claimSpace.gameObject);
     }
     [Hotfixable]
     public void ShowClaim(TemporaryFaction pFaction, AutoVertLayoutGroup parent)
     {
-        var tfSpace = parent.BeginHoriGroup(new Vector2(200, 30));
+        var tfSpace = parent.BeginHoriGroup(new Vector2(200, 30), pSpacing:20);
         var firstPart = tfSpace.BeginVertGroup();
         firstPart.AddTextIntoVertLayout(pFaction.type.ToString(), hideBackground:true);
         firstPart.AddTextIntoVertLayout($"预算: {pFaction.Budget}");
-        var secondPart = tfSpace.BeginVertGroup(pSpacing:-3);
+        var secondPart = tfSpace.BeginVertGroup(pSpacing:-5);
         var hideButton = secondPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "hide_tfaction", () =>
         {
             pFaction.Hide = !pFaction.Hide;
@@ -309,6 +342,14 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         }, pFaction.Active, size: new Vector2(12, 12), isOption:false, hasTitle:false);
         pFaction.hideButton =  hideButton;
         pFaction.activeButton =  activeButton;
+        
+        var thirdPart = tfSpace.BeginVertGroup(new Vector2(100, 30));
+        var fourthPart = thirdPart.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
+        fourthPart.AddButtonIntoVertLayout("remove_tfaction", "", () =>
+        {
+            _faction.TemporaryFactions.Remove(pFaction);
+            ShowClaims();
+        }, icon: SpriteTextureLoader.getSprite("ui/iconRemove"), size: new Vector2(13, 13));
         tfSpace.transform.AddStretchBackground("FactionFrame", new Vector2(200, 30));
     }
     

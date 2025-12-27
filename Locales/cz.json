@@ -39,6 +39,8 @@
     "add_new_trait_description": "添加当前派系所需的人才特质",
     "recover_trait": "恢复默认特质",
     "recover_trait_description": "恢复特质倾向至默认",
+    "recover_tfaction": "恢复默认诉求",
+    "recover_tfaction_description": "将全部诉求恢复至默认配置",
     "lock_faction_1": "锁定派系",
     "speciesSelected": "已选择种族，选择上方的文化集来设定文化模板",
     "please_select_species_first": "请先选择需要配置的种族",

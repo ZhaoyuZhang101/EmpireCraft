@@ -139,6 +139,8 @@ public class FixedFaction
     //倾向于推动的政策
     [JsonIgnore]
     public List<TemporaryFactionType> TemporaryFactionTypes => FactionManager.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
+
+    public List<TemporaryFactionType> TemporaryFactionTypesRecord;
     public List<TemporaryFaction> TemporaryFactions;
     public long Leader = -1L;
     [JsonIgnore]
@@ -169,8 +171,10 @@ public class FixedFaction
             Name = Name,
             EmpireId = EmpireId,
             Members = new (),
-            Leader = -1L
+            Leader = -1L,
+            TemporaryFactionTypesRecord = new List<TemporaryFactionType>(TemporaryFactionTypes)
         };
+        TemporaryFactionTypesRecord = new List<TemporaryFactionType>(TemporaryFactionTypes);
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
         return newFaction;
     }
@@ -197,10 +201,10 @@ public class FixedFaction
     /// 将诉求类别转化为实例
     /// </summary>
     /// <returns></returns>
-    private List<TemporaryFaction> ConvertToObjectFromFactionType()
+    public List<TemporaryFaction> ConvertToObjectFromFactionType()
     {
         var result = new List<TemporaryFaction>();
-        var typesToBuild = TemporaryFactionTypes; // 你的属性：List<TemporaryFactionType>
+        var typesToBuild = TemporaryFactionTypesRecord; // 你的属性：List<TemporaryFactionType>
         if (typesToBuild == null || typesToBuild.Count == 0)
             return result;
 
