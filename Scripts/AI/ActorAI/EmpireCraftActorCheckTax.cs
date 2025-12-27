@@ -2,6 +2,7 @@ using System;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.ActorAI;
@@ -26,7 +27,7 @@ public class EmpireCraftActorCheckTax: GameAIActorBase
             if (pActor.kingdom.IsInEmpire())
             {
                 Empire empire = pActor.kingdom.GetEmpire();
-                loot += empire.data.财政_addition / 2;
+                loot += empire.data.additions.addition[OfficerPowerType.财政] / 2;
             }
             pActor.addMoney(loot);
             //抽成

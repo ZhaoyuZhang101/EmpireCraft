@@ -84,13 +84,13 @@ public class ActorPatch : GamePatch
         {
             if (__instance.isWarrior())
             {
-                __instance.stats["warfare"] += empire.data.军事_addition;
-                __instance.stats["stamina"] += empire.data.军事_addition;
+                __instance.stats["warfare"] += empire.Additions.addition[OfficerPowerType.军事];
+                __instance.stats["stamina"] += empire.Additions.addition[OfficerPowerType.军事];
             }
         }
         if (__instance.GetOffice()==null||!__instance.GetOffice().powers.Contains(OfficerPowerType.教育))
         {
-            __instance.stats["intelligence"] += empire.data.教育_addition;
+            __instance.stats["intelligence"] += empire.Additions.addition[OfficerPowerType.教育];
         }
     }
     public static void UpdateReligion(Actor __instance, Religion pObject)

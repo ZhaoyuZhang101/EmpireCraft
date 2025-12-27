@@ -59,7 +59,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         {
             if (option.Key.Contains("toggle_"))
             {
-                var button = settingSpace.transform.AddNormalOption(this.BeginHoriGroup(), option.Key, ()=>Toggle(option.Key), Convert.ToBoolean(option.Value[0]), hasIcon:false);
+                var button = settingSpace.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), option.Key, ()=>Toggle(option.Key), Convert.ToBoolean(option.Value[0]), hasIcon:false);
                 _toggleButtons[option.Key]  = button;
             } else if (option.Key.Contains("option_"))
             {

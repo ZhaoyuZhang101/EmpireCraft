@@ -65,6 +65,10 @@ internal static class MainTab
             nameof(SpecificClanListWindow) + "Title");
         FactionDetailWindow.CreateWindow(nameof(FactionDetailWindow),
             "");
+        TraitsSelectWindow.CreateWindow(nameof(TraitsSelectWindow),
+            nameof(TraitsSelectWindow) + "Title");
+        AddFactionMemberWindow.CreateWindow(nameof(AddFactionMemberWindow),
+            nameof(AddFactionMemberWindow) + "Title");
     }
     [Hotfixable]
     private static void _addButtons()

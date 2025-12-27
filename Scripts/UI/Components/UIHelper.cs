@@ -12,6 +12,7 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.UI.Windows;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
@@ -45,7 +46,13 @@ public static class UIHelper
 
         return rt;
     }
-
+    public static void ClearChildren(this Transform parent)
+    {
+        for (int i = parent.childCount - 1; i >= 0; i--)
+        {
+            Object.Destroy(parent.GetChild(i).gameObject);
+        }
+    }
     /// <summary>
     /// 在 parent 下创建一个 VerticalLayoutGroup 容器
     /// </summary>
@@ -258,6 +265,60 @@ public static class UIHelper
         return avatarLayoutGroup;
     }
 
+    public static void ShowTrait(this Transform parent, string traitName)
+    {
+        ActorTraitButton traitButton = Resources.Load<ActorTraitButton>($"ui/unit_window_elements/ActorTraitButton");
+        var go = Object.Instantiate(traitButton.gameObject, parent, false);
+        var comp = go.GetComponent<ActorTraitButton>();
+        comp.load(traitName);
+        comp.unlockElement();
+        comp.fillTooltipData(AssetManager.traits.get(traitName));
+        if (go.TryGetComponent(out DraggableLayoutElement component))
+        {
+            component.enabled = false;
+        }
+    }
+    public static void AddTraitIntoVertLayout(this AutoVertLayoutGroup parent, string traitName)
+    {
+        parent.transform.ShowTrait(traitName);
+    }
+    public static void AddTraitIntoHoriLayout(this AutoHoriLayoutGroup parent, string traitName)
+    {
+        parent.transform.ShowTrait(traitName);
+    }
+    [Hotfixable]
+    public static void ShowActorPowerCard(this Actor pActor, OfficerPowerType pPower, AutoHoriLayoutGroup parent, Empire empire, UnityAction action = null)
+    {
+        var contentSpace = parent.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
+        contentSpace.AddTextIntoVertLayout(pActor.name, hideBackground:true, TextAnchor.MiddleCenter);
+        var actorSpace = contentSpace.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
+        actorSpace.AddActorViewIntoHoriLayout(pActor);
+        actorSpace.AddButtonIntoHoriLayout("add_member", "", action: action, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(8, 8));
+        contentSpace.AddTextIntoVertLayout(pActor.IsOnOffice() ? (pActor.GetOffice()?.GetName()??"无") : "无", hideBackground:true, TextAnchor.MiddleCenter);
+        EmpireAddition personalAddition = new EmpireAddition();
+        foreach (var power in OfficeManager.AllPower)
+        {
+            var addition = pActor.CalcPower(power, empire);
+            personalAddition.Add(addition);
+        }
+        contentSpace.AddTextIntoVertLayout($"{pPower.ToString()}: {personalAddition.addition[pPower].ToString().ColorString(pColor:personalAddition.addition[pPower]>=0? Color.green : Color.red)}", 
+            anchor: TextAnchor.MiddleCenter, size: new Vector2(80, 15));
+        contentSpace.transform.AddStretchBackground("FactionFrame", size: new Vector2(85, 90));
+    }
+    [Hotfixable]
+    public static void ShowActorPerformanceCard(this Actor pActor, AutoHoriLayoutGroup parent, UnityAction action = null)
+    {
+        var identity = pActor.GetIdentity();
+        if (identity == null) return;
+        var contentSpace = parent.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
+        contentSpace.AddTextIntoVertLayout(pActor.name, hideBackground:true, TextAnchor.MiddleCenter);
+        var actorSpace = contentSpace.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
+        actorSpace.AddActorViewIntoHoriLayout(pActor);
+        actorSpace.AddButtonIntoHoriLayout("add_member", "", action: action, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(8, 8));
+        contentSpace.AddTextIntoVertLayout(pActor.IsOnOffice() ? (pActor.GetOffice()?.GetName()??"无") : "无", hideBackground:true, TextAnchor.MiddleCenter);
+        contentSpace.AddTextIntoVertLayout($"绩效值: {(int)identity.TotalPerformance}", anchor: TextAnchor.MiddleCenter, size: new Vector2(80, 15));
+        contentSpace.transform.AddStretchBackground("FactionFrame", size: new Vector2(85, 90));
+    }
     public static AutoVertLayoutGroup AddActorViewIntoHoriLayout(this AutoHoriLayoutGroup layout, Actor actor, SimpleButton button=null, string description="")
     {
         AutoVertLayoutGroup avatarLayoutGroup = layout.BeginVertGroup(new Vector2(30, 30), pSpacing:15, pAlignment: TextAnchor.MiddleCenter);
@@ -276,7 +337,7 @@ public static class UIHelper
         avatarLayoutGroup.transform.localPosition = Vector3.zero;
         return avatarLayoutGroup;
     }
-    public static SimpleText AddTextIntoVertLayout(this AutoVertLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false)
+    public static SimpleText AddTextIntoVertLayout(this AutoVertLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false, HorizontalWrapMode mode= HorizontalWrapMode.Overflow)
     {
         SimpleText timeText = Object.Instantiate(SimpleText.Prefab, layout.transform);
         timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
@@ -296,7 +357,7 @@ public static class UIHelper
 
         return timeText;
     }
-    public static SimpleText AddTextIntoGridLayout(this AutoGridLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false)
+    public static SimpleText AddTextIntoGridLayout(this AutoGridLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false, HorizontalWrapMode mode= HorizontalWrapMode.Overflow)
     {
         SimpleText timeText = Object.Instantiate(SimpleText.Prefab, layout.transform);
         timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
@@ -316,7 +377,7 @@ public static class UIHelper
 
         return timeText;
     }
-    public static SimpleText AddTextIntoHoriLayout(this AutoHoriLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false)
+    public static SimpleText AddTextIntoHoriLayout(this AutoHoriLayoutGroup layout, string text, bool hideBackground=false, TextAnchor anchor=TextAnchor.MiddleLeft, Vector2 size=default, bool ignorePosition=false, HorizontalWrapMode mode= HorizontalWrapMode.Overflow)
     {
         SimpleText timeText = Object.Instantiate(SimpleText.Prefab, layout.transform);
         timeText.Setup(text, pSize: size==default?new Vector2(50, 10):size, pAlignment:anchor);
@@ -336,26 +397,52 @@ public static class UIHelper
         return timeText;
     }
 
-    public static AdvancedButton AddButtonIntoVertLayout(this AutoVertLayoutGroup layout, string buttonID, string text="", UnityAction action=null, Sprite icon=null, Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false, bool hideBackground=false, bool customIcon=false)
+    public static AdvancedButton AddButtonIntoVertLayout(this AutoVertLayoutGroup layout, string buttonID, string text="", UnityAction action=null, Sprite icon=null, Sprite background=null, Vector2 size=default, bool isToggle=false, bool showTip=false, bool hideBackground=false, bool customIcon=false, int iconType=0)
     {
-        AdvancedButton button = GameObject.Instantiate(AdvancedButton.Prefab, layout.transform);
-        button.Setup(buttonID, action, icon, text, size, backgroundSprite:background, isToggle:isToggle,  showTip:showTip);
+        AdvancedButton button = Object.Instantiate(AdvancedButton.Prefab, layout.transform);
+        button.Setup(buttonID, action, icon, text, size, backgroundSprite:background, isToggle:isToggle,  showTip:showTip, iconType:iconType);
         button.Background.enabled = !hideBackground;
         return button;
     }    
-    public static AdvancedButton AddNormalOption(this Transform parent, AutoHoriLayoutGroup container, string title, UnityAction action, bool option, bool hasIcon=false, bool isOption=false, int index = -1, Vector2 size=default)
+    public static AdvancedButton AddNormalOptionIntoHori(this Transform parent, AutoHoriLayoutGroup container, string title, UnityAction action, bool option, bool hasIcon=false, bool isOption=false, int index = -1, Vector2 size=default, bool hasTitle=true)
     {
         int toggleType;
         if (!isOption)
         {
             toggleType = 1;
-            container.AddTextIntoHoriLayout(LM.Get(title), hideBackground:true);
+            if (hasTitle)
+            {
+                container.AddTextIntoHoriLayout(LM.Get(title), hideBackground:true);
+            }
         }
         else
         {
             toggleType = 0;
         }
         var button = container.AddButtonIntoHoriLayout(isOption?title+index:title, isToggle:true, size:size==default?new Vector2(15, 15):size, showTip:true, customIcon:hasIcon, iconType:toggleType);
+        button.Button.onClick.RemoveAllListeners();
+        button.Button.onClick.AddListener(action);
+        button.SetStatus(option);
+        button.Background.enabled = false;
+        container.transform.SetParent(parent);
+        return button;
+    }
+    public static AdvancedButton AddNormalOptionIntoVert(this Transform parent, AutoVertLayoutGroup container, string title, UnityAction action, bool option, bool hasIcon=false, bool isOption=false, int index = -1, Vector2 size=default, bool hasTitle=true)
+    {
+        int toggleType;
+        if (!isOption)
+        {
+            toggleType = 1;
+            if (hasTitle)
+            {
+                container.AddTextIntoVertLayout(LM.Get(title), hideBackground:true);
+            }
+        }
+        else
+        {
+            toggleType = 0;
+        }
+        var button = container.AddButtonIntoVertLayout(isOption?title+index:title, isToggle:true, size:size==default?new Vector2(15, 15):size, showTip:true, customIcon:hasIcon, iconType:toggleType);
         button.Button.onClick.RemoveAllListeners();
         button.Button.onClick.AddListener(action);
         button.SetStatus(option);
@@ -371,7 +458,7 @@ public static class UIHelper
         {
             int index = i; 
             var isOn = option == i;
-            var button = parent.AddNormalOption(container, title, ()=>action(title, index), isOn, hasIcon, true, index, size:new Vector2(10, 10));
+            var button = parent.AddNormalOptionIntoHori(container, title, ()=>action(title, index), isOn, hasIcon, true, index, size:new Vector2(10, 10));
             options.Add(button);
         }
         return options;
@@ -458,12 +545,12 @@ public static class UIHelper
             if (!tempFac.Hide||tempFac.IsStarted())
             {
                 var startContent = $"\n执行中:({(int)((tempFac.progress/(tempFac.progressMax-tempFac.acceleration))*100.0f)}/100)";
-                content += tempFac.type.ToString().ColorString(pColor:new Color(0.7f, 0.9f, tempFac.IsStarted()?0.1f:0.9f))+(tempFac.IsStarted()?startContent:"")+"\n";
+                content += tempFac.type.ToString().ColorString(pColor:new Color(0.7f, 0.9f, tempFac.IsStarted()?0.1f:0.9f))+(tempFac.IsStarted()?startContent:"")+$"{(!tempFac.Active?"(未激活)":"")}"+"\n";
             }
         }
         factionPart.AddTextIntoVertLayout(content, true, TextAnchor.UpperCenter, size: new Vector2(30, 40));
         var bottom = factionPart.BeginHoriGroup();
-        var button = factionPart?.transform.AddNormalOption(bottom, "LockFaction", () =>
+        var button = factionPart?.transform.AddNormalOptionIntoHori(bottom, "LockFaction", () =>
         {
             if (faction.Force)
             {
@@ -510,9 +597,13 @@ public static class UIHelper
         var pivot = new Vector2(0.5f, 0.5f);;
         float ppu = bgSprite.pixelsPerUnit;
         var sliced = Sprite.Create(text, rect, pivot, ppu, 0, SpriteMeshType.FullRect, new Vector4(11, 11, 24, 24));
-        
+        var back = personalGroup.transform.Find("CardBackground");
+        if (back != null)
+        {
+            Object.Destroy(back.gameObject);
+        }
         // 1. 在 personalGroup 下建一个专用子物体做背景
-        var bgGO = new GameObject("Background", typeof(RectTransform));
+        var bgGO = new GameObject("CardBackground", typeof(RectTransform));
         bgGO.transform.SetParent(personalGroup, false);
 
         // 2. 铺满父容器

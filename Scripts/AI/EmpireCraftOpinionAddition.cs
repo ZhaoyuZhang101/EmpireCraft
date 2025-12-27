@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.Regimes;
 
 namespace EmpireCraft.Scripts.AI;
 public static class EmpireCraftOpinionAddition
@@ -42,7 +43,7 @@ public static class EmpireCraftOpinionAddition
                 {
                     if (!pMain.IsInEmpire() && pTarget.IsEmpire()&&pMain.countTotalWarriors()*2<=pTarget.GetEmpire().countWarriors())
                     {
-                        result = pTarget.GetEmpire().data.礼仪_addition * 5;
+                        result = pTarget.GetEmpire().Additions.addition[OfficerPowerType.礼仪] * 5;
                     }
                 }
                 return result;
@@ -143,7 +144,7 @@ public static class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if (!pMain.IsInSameEmpire(pTarget)&&pMain.IsEmpire()&&pTarget.IsEmpire()&&pMain.getSpecies()==pTarget.getSpecies())
+                if (!pMain.IsInSameEmpire(pTarget)&&pMain.IsEmpire()&&pTarget.IsEmpire()&&pMain.getSpecies()==pTarget.getSpecies()&&pMain.king!=pTarget.king)
                 {
                     result = -999;
                 }
@@ -161,6 +162,20 @@ public static class EmpireCraftOpinionAddition
                 {
                     if (Date.getYearsSince(pMain.GetFiedTimestamp())<=50)
                         result = 100;
+                }
+                return result;
+            }
+        });
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_same_ruler",
+            translation_key = "opinion_same_ruler",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                int result = 0;
+                if (pMain.king == pTarget.king&&!pMain.king.isRekt())
+                {
+                    result = 999;
                 }
                 return result;
             }

@@ -23,6 +23,7 @@ public class Empire : MetaObject<EmpireData>
     public BannerAsset BannerAsset;
     private Vector3 _lastEmpireCenter;
     private Vector3 _empireCenter;
+    public EmpireAddition Additions => data.additions;
     private readonly List<TileZone> _zoneScratch = new();
     private readonly int _avgCitiesPerKingdom = 3;
     public Clan EmpireClan;
@@ -1527,8 +1528,7 @@ public class Empire : MetaObject<EmpireData>
         return this._lastEmpireCenter;
     }
     
-
-    // Token: 0x0600113E RID: 4414 RVA: 0x000C80A0 File Offset: 0x000C62A0
+    
     public override IEnumerable<Actor> getUnits()
     {
         List<Kingdom> tKingdoms = this.kingdoms_list;

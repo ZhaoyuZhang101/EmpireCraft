@@ -59,6 +59,13 @@ public static class OfficeManager
         var res = Offices.Remove(pOfficeID);
         return res;
     }
+    public static List<OfficerPowerType> AllPower = new List<OfficerPowerType>
+    {
+        OfficerPowerType.财政, OfficerPowerType.人事, OfficerPowerType.军事, OfficerPowerType.审核, 
+        OfficerPowerType.宗教, OfficerPowerType.执行, OfficerPowerType.教育, OfficerPowerType.礼仪,
+        OfficerPowerType.司法, OfficerPowerType.天子护理, OfficerPowerType.天子政教, OfficerPowerType.天子智教,
+        OfficerPowerType.建设
+    };
 }
 public class OfficeObject
 {
@@ -100,140 +107,13 @@ public class OfficeObject
     }
     public void DetectPower(Empire empire)
     {
+        empire.data.additions = new EmpireAddition();
         var officer = GetActor();
         foreach (var power in powers)
         {
-            switch (power)
-            {
-                case OfficerPowerType.审核:
-                    if (!officer.isRekt())
-                    {
-                        if (IsSameFactionWithEmpire(empire))
-                        {
-                            empire.data.officer_acc = officer.intelligence*2;
-                        }
-                        else
-                        {
-                            if (officer.GetFaction() == null)
-                            {
-                                empire.data.officer_acc = officer.intelligence;
-                            }
-                            else
-                            {
-                                empire.data.officer_acc = -officer.intelligence;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        empire.data.officer_acc = 0;
-                    }
-                    break;
-                case OfficerPowerType.军事:
-                    if (officer != null)
-                    {
-                        empire.data.军事_addition = officer.warfare;
-                    }
-                    else
-                    {
-                        empire.data.军事_addition = 0;
-                    }
-                    break;
-                case OfficerPowerType.建设:
-                    if (officer != null)
-                    {
-                        empire.data.建设_addition = officer.stewardship;
-                    }
-                    else
-                    {
-                        empire.data.建设_addition = 0;
-                    }
-                    break;
-                case OfficerPowerType.教育:
-                    if (officer != null)
-                    {
-                        empire.data.教育_addition = officer.intelligence;
-                    }
-                    else
-                    {
-                        empire.data.教育_addition = 0;
-                    }
-                    break;
-                case OfficerPowerType.天子护理:
-                    if (officer != null)
-                    {
-                        empire.data.天子护理_addition = officer.level*5;
-                    }
-                    else
-                    {
-                        empire.data.天子护理_addition = 0;
-                    }
-                    break;
-                case OfficerPowerType.天子政教:
-                    if (officer != null)
-                    {
-                        empire.data.天子政教_addition = officer.level*5;
-                    }
-                    else
-                    {
-                        empire.data.天子政教_addition = 0;
-                    }
-                    break;
-                case OfficerPowerType.天子智教:
-                    if (officer != null)
-                    {
-                        empire.data.天子智教_addition = officer.intelligence;
-                    }
-                    else
-                    {
-                        empire.data.天子智教_addition = 0;
-                    }
-                    break;
-                case OfficerPowerType.宗教:
-                    if (officer != null)
-                    {
-                        empire.data.宗教_addition = officer.intelligence;
-                    }
-                    else
-                    {
-                        empire.data.宗教_addition = 0;
-                    }
-                    break;
-                case OfficerPowerType.礼仪:
-                    if (officer != null)
-                    {
-                        empire.data.礼仪_addition = officer.stewardship;
-                    }
-                    else
-                    {
-                        empire.data.礼仪_addition = 0;
-                    }
-                    break;
-                case OfficerPowerType.财政:
-                    if (officer != null)
-                    {
-                        empire.data.财政_addition = officer.stewardship;
-                    }
-                    else
-                    {
-                        empire.data.财政_addition = 0;
-                    }
-                    break;
-            }
+            var newAddition = officer.CalcPower(power, empire);
+            empire.data.additions.Add(newAddition);
         }
-    }
-
-    public bool IsSameFactionWithEmpire(Empire empire)
-    {
-        var dominate = empire.CoreKingdom.GetRegime().GetDominateFaction();
-        if (GetActor() != null)
-        {
-            if (GetActor().GetFaction() == dominate)
-            {
-                return true;
-            }
-        }
-        return false;
     }
     public string GetOfficeName(NanoObject pNano = null)
     {

@@ -7,6 +7,8 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using UnityEngine;
@@ -35,6 +37,140 @@ namespace EmpireCraft.Scripts.HelperFunc
             {
                 return "Western";
             }
+        }
+        public static EmpireAddition CalcPower(this Actor officer, OfficerPowerType type, Empire empire)
+        {
+            EmpireAddition additions = new();
+            switch (type)
+            {
+                case OfficerPowerType.审核:
+                    if (!officer.isRekt())
+                    {
+                        if (officer.IsSameFactionWithEmpire(empire))
+                        {
+                            additions.addition[OfficerPowerType.审核] = officer.intelligence*2;
+                        }
+                        else
+                        {
+                            if (officer.GetFaction() == null)
+                            {
+                                additions.addition[OfficerPowerType.审核] = officer.intelligence;
+                            }
+                            else
+                            {
+                                additions.addition[OfficerPowerType.审核] = -officer.intelligence;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.审核] = 0;
+                    }
+                    break;
+                case OfficerPowerType.军事:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.军事] = officer.warfare;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.军事] = 0;
+                    }
+                    break;
+                case OfficerPowerType.建设:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.建设] = officer.stewardship;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.建设] = 0;
+                    }
+                    break;
+                case OfficerPowerType.教育:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.教育] = officer.intelligence;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.教育] = 0;
+                    }
+                    break;
+                case OfficerPowerType.天子护理:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.天子护理] = officer.level*5;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.天子护理] = 0;
+                    }
+                    break;
+                case OfficerPowerType.天子政教:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.天子政教] = officer.level*5;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.天子政教] = 0;
+                    }
+                    break;
+                case OfficerPowerType.天子智教:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.天子智教] = officer.intelligence;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.天子智教] = 0;
+                    }
+                    break;
+                case OfficerPowerType.宗教:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.宗教] = officer.intelligence;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.宗教] = 0;
+                    }
+                    break;
+                case OfficerPowerType.礼仪:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.礼仪] = officer.stewardship;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.礼仪] = 0;
+                    }
+                    break;
+                case OfficerPowerType.财政:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.财政] = officer.stewardship;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.财政] = 0;
+                    }
+                    break;
+                }
+            return additions;
+        }
+        public static bool IsSameFactionWithEmpire(this Actor pActor, Empire empire)
+        {
+            var dominate = empire.CoreKingdom.GetRegime().GetDominateFaction();
+            if (pActor != null)
+            {
+                if (pActor.GetFaction() == dominate)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
         public static void SetFamilyCityPre(this Family family, bool has_pre = true)
         {

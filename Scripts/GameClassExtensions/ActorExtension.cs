@@ -25,6 +25,8 @@ using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using System.Security.Principal;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.UI.Components;
+using NeoModLoader.General.UI.Window.Layout;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
@@ -36,6 +38,8 @@ public class Name
     public bool has_sex_post;
     public bool use_local_as_family_name;
     public bool is_invert;
+    public string sex_post_Male;
+    public string sex_post_Female;
     public ActorSex sex;
 
     public bool has_whole_name(Actor actor)
@@ -56,11 +60,32 @@ public class Name
         return actor.hasCulture();
     }
 
-    public void Initialize(bool sex_post, bool local, bool is_invert, string culture)
+    public void Initialize(Setting setting, string culture)
     {
-        this.has_sex_post = sex_post;
-        this.use_local_as_family_name = local;
-        this.is_invert = is_invert;
+        this.has_sex_post = setting.Clan.has_sex_post;
+        this.use_local_as_family_name = setting.Clan.use_local_as_lastname;
+        this.is_invert = setting.Unit.is_invert;
+        var language = PlayerConfig.detectLanguage();
+        switch (language)
+        {
+            case "ch":
+                this.sex_post_Male = setting.Clan.sex_post_Male[0];
+                this.sex_post_Female = setting.Clan.sex_post_Female[0];
+                break;
+            case "en":
+                this.sex_post_Male = setting.Clan.sex_post_Male[1];
+                this.sex_post_Female = setting.Clan.sex_post_Female[1];
+                break;
+            case "cz":
+                this.sex_post_Male = setting.Clan.sex_post_Male[2];
+                this.sex_post_Female = setting.Clan.sex_post_Female[2];
+                break;
+            default:
+                this.sex_post_Male = setting.Clan.sex_post_Male[1];
+                this.sex_post_Female = setting.Clan.sex_post_Female[1];
+                break;
+        }
+        
         this.cultureName = culture;
     }
 
@@ -110,7 +135,7 @@ public class Name
             real_family_name = (use_local_as_family_name&&cityName!="") ? cityName : familyName;
             if (has_sex_post)
             {
-                string post = LM.Get($"{cultureName}_sex_post_{sex.ToString()}");
+                string post = sex == ActorSex.Female ? sex_post_Female : sex_post_Male;
                 if (!real_family_name.Contains(post))
                 {
                     real_family_name += post;
@@ -147,8 +172,14 @@ public class OfficeIdentity
     private bool _is_cabinet { get; set; } = false;
     public double TotalPerformance { get; set; } = 0;
     public PerformanceEvents performanceEvents { get; set; }
+    [JsonIgnore]
+    public AdvancedButton setLeaderButton { get; set; } 
+    [JsonIgnore]
+    public AutoHoriLayoutGroup memberCardSpace { get; set; }
     public List<EmpireExamLevel> empireExamLevels { get; set; } = new List<EmpireExamLevel>();
     public long actor_id;
+    [JsonIgnore]
+    public Actor actor => World.world.units.get(actor_id);
     public void init (Actor actor) 
     {
         actor_id = actor.data.id;
@@ -164,6 +195,12 @@ public class OfficeIdentity
             performanceEvents = new PerformanceEvents();
             performanceEvents.init(actor);
         }
+    }
+
+    public string GetHonoraryOfficialName()
+    {
+        string empireHonoraryOfficialString = String.Join("_", "Huaxia", "honoraryofficial", peerageType.ToString(), honoraryOfficial);
+        return LM.Get(empireHonoraryOfficialString) + $" ({honoraryOfficial + 1}品)";
     }
     /// <summary>
     /// 进入内阁
@@ -493,11 +530,11 @@ public static class ActorExtension
             {
                 GetOrCreate(actor).officeIdentity.empireExamLevels.RemoveAt(0);
             }
-            JudgeOfficeLevel(actor);
+            actor.JudgeOfficeLevel();
         }
     }
 
-    public static void JudgeOfficeLevel(Actor actor)
+    public static void JudgeOfficeLevel(this Actor actor)
     {
         var p = actor.GetIdentity().TotalPerformance;
         if (actor.kingdom.GetRegime().type!=RegimeType.LvLing) return;
@@ -563,7 +600,7 @@ public static class ActorExtension
         string culture_name = GetCultureFromSpecies(a.getActorAsset().id);
         if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture_name, out Setting setting))
         {
-            a.GetModName().Initialize(setting.Clan.has_sex_post, setting.Clan.use_local_as_lastname, setting.Unit.is_invert, culture_name);
+            a.GetModName().Initialize(setting, culture_name);
         }
     }
 

@@ -45,7 +45,7 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
 
         if (pKingdom.GetRegime().has_cabinet)
         {
-            empire.data.cabinet_acc = IsCabinetControlEmpire(pKingdom) ? 30 : 0;
+            empire.Additions.cabinet_acc = IsCabinetControlEmpire(pKingdom) ? 30 : 0;
         }
         return BehResult.Continue;
     }

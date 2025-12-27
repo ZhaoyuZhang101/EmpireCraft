@@ -7,6 +7,7 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.services;
 using Newtonsoft.Json;
 
@@ -18,11 +19,16 @@ public abstract class TemporaryFaction
     public TemporaryFactionType type => Enum.TryParse(GetType().ToString().Split('_').Last(), out TemporaryFactionType res) ? res : default;
 
     public int Acc = 0;
-    public virtual bool Hide => false;
+    public bool Hide = false;
+    public bool Active = true;
     public int CountDown = 0;
     public virtual int Budget => 0;
     public List<long>  kingdoms = new List<long>();
     public FactionType factionType = FactionType.无;
+    [JsonIgnore] 
+    public AdvancedButton hideButton;
+    [JsonIgnore] 
+    public AdvancedButton activeButton;
     public long EmpireID = -1L;
     public long TargetID = -1L;
     public MetaType TargetType = MetaType.None;
@@ -30,12 +36,12 @@ public abstract class TemporaryFaction
     public float progress = 0;
     public float progressMax = 60;
     [JsonIgnore]
-    public float acceleration => (GetEmpire()?.data.cabinet_acc??0)+(GetEmpire()?.data.officer_acc??0)+Acc;
+    public float acceleration => (GetEmpire()?.data.additions.cabinet_acc??0)+(GetEmpire()?.data.additions.addition[OfficerPowerType.审核]??0)+Acc;
     private bool started = false;
     public double timestamp = -1L;
     public double countDownTimestamp = -1L;
     
-    public void Init(FixedFaction faction)
+    public virtual void Init(FixedFaction faction)
     {
         factionType = faction.Type;
         EmpireID    = faction.EmpireId;
@@ -265,7 +271,7 @@ public abstract class TemporaryFaction
             End();
             return;
         }
-        if (started)
+        if (started&&Active)
         {
             if (!CheckTarget())
             {

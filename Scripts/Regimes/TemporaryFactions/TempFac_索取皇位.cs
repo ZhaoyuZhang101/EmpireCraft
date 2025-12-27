@@ -9,7 +9,12 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_索取皇位 : TemporaryFaction
 {
-    public override bool Hide => true;
+    public override void Init(FixedFaction faction)
+    {
+        base.Init(faction);
+        base.Hide = true;
+    }
+
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
@@ -71,8 +76,6 @@ public class TempFac_索取皇位 : TemporaryFaction
                     
                     if (leader != null)
                     {
-                        if (!empire.HasEmperor()) Acc = 40;
-                        else if (!empire.Emperor.isAdult()) Acc = 0;
                         SetActorTarget(leader);
                         return true;
                     }
@@ -86,8 +89,6 @@ public class TempFac_索取皇位 : TemporaryFaction
                     if (target == null) return false;
                     if (target.GetFaction() == empire.CoreKingdom?.GetRegime()?.GetDominateFaction())
                     {
-                        if (!empire.HasEmperor()) Acc = 40;
-                        else if (!empire.Emperor.isAdult()) Acc = 0;
                         SetActorTarget(target);
                         return true;
                     }

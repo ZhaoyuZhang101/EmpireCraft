@@ -104,10 +104,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 LogService.LogInfo(dir);
                 LM.LoadLocales(dir);
             }
-            LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "ProvinceLevel", cultureName + "ProvinceLevel.csv"));
             LogService.LogInfo("Add culture template: " + cultureName);
         }
-        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "CountryLevelNames.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName1.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "YearName2.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "MiaoHaoPrefixes.csv"));

@@ -53,7 +53,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
                 pKingdom.EndCorrupting();
             }
 
-            if (pKingdom.GetCorruptionTime() > 10)
+            if (pKingdom.GetCorruptionTime() > 20)
             {
                 ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
                 foreach (var c in pKingdom.cities)

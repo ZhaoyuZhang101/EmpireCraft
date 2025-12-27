@@ -119,7 +119,8 @@ public class FixedFaction
 {
     private string _id;
     //特质需求（拥有该特质的人会更加倾向于加入此派系）
-    private List<string> _requiredTraits = new();
+    public List<string> _requiredTraits = new();
+    public List<string> RequiredTraits = new();
     public FactionType Type { get; set; }
     public bool Ban { get; set; } = false;
     public string Name { set; get; }
@@ -130,6 +131,7 @@ public class FixedFaction
     [JsonIgnore] 
     public Empire Empire => ModClass.EMPIRE_MANAGER.get(EmpireId);
     public List<long> Members = new();
+    [JsonIgnore] public List<Actor> AllMembers => Members.Select(id => World.world.units.get(id)).Where(actor=>!actor.isRekt()).ToList();
     [JsonIgnore]
     public int Count => Members.Count;
     [JsonIgnore]
@@ -147,6 +149,10 @@ public class FixedFaction
         return TemporaryFactions.Any(tf => tf?.IsStarted() ?? false);
     }
 
+    public void RecoverTrait()
+    {
+        RequiredTraits = _requiredTraits.ToList();
+    }
     public TemporaryFaction GetAnyTFactionRuns()
     {
         return TemporaryFactions.Find(tf => tf?.IsStarted() ?? false);
@@ -156,6 +162,7 @@ public class FixedFaction
         FixedFaction newFaction = new FixedFaction()
         {
             _id = _id,
+            RequiredTraits = _requiredTraits.ToList(),
             _requiredTraits = _requiredTraits,
             Type = Type,
             Ban = Ban,
@@ -243,12 +250,12 @@ public class FixedFaction
     }
     public float CalcPossibility(Actor pActor, float minProb = 0.5f, float maxProb = 0.95f)
     {
-        int required = _requiredTraits?.Count ?? 0;
+        int required = RequiredTraits?.Count ?? 0;
         if (required <= 0) { LastJoinProb = minProb; return LastJoinProb; }
 
         int matched = 0;
-        if (_requiredTraits != null)
-            foreach (var trait in _requiredTraits)
+        if (RequiredTraits != null)
+            foreach (var trait in RequiredTraits)
                 if (pActor.hasTrait(trait))
                     matched++;
 

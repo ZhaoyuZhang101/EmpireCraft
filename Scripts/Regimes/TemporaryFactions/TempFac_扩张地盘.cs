@@ -7,7 +7,11 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_扩张地盘 : TemporaryFaction
 {
-    public override bool Hide => true;
+    public override void Init(FixedFaction faction)
+    {
+        base.Init(faction);
+        base.Hide = true;
+    }
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");

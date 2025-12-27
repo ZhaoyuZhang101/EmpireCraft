@@ -32,7 +32,10 @@
                 "rule": [ "group_1", "group_2", "group_3" ],
                 "name_pos": 0,
                 "has_sex_post": false, //是否存在姓名后缀，有些文化的姓氏存在阴阳词性，在这里设置为true，并且在Locales/Cultures/NameSexPost.csv中配置好后，人物的姓名就会显示词性
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false, //是否将名称放在前面，姓氏放在后面。
+                //名称性别后缀从左往右分别是: 中(简), 英, 中(繁),
+                "sex_post_Male": ["", "", ""], //男性后缀
+                "sex_post_Female": ["", "", ""] //女性后缀
             },
             "Family": {
                 "groups": {
@@ -69,8 +72,7 @@
                     // 只添加了几个常用的，比如sex_male,sex_female的性别过滤器和coin_flip概率发生器等。
                 ],
                 "name_pos": 1,
-                "is_invert": false //是否将名称放在前面，姓氏放在后面。
-
+                "is_invert": false
             },
             "Kingdom": {
                 "groups": {
@@ -106,7 +108,9 @@
                 "rule": [ "group_1", "group_3", "group_2" ],
                 "name_pos": 0,
                 "has_sex_post": false,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Family": {
                 "groups": {
@@ -178,7 +182,9 @@
                 "rule": [ "group_1", "group_2", "group_3" ],
                 "name_pos": 0,
                 "has_sex_post": false,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Family": {
                 "groups": {
@@ -249,7 +255,9 @@
                 "rule": [ "group_1", "group_2", "group_3" ],
                 "name_pos": 0,
                 "has_sex_post": false,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Family": {
                 "groups": {
@@ -323,7 +331,11 @@
                 ],
                 "name_pos": 0,
                 "has_sex_post": false,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""],
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Family": {
                 "groups": {
@@ -350,7 +362,6 @@
                 ],
                 "name_pos": 0,
                 "is_invert": true
-
             },
             "Kingdom": {
                 "groups": {
@@ -397,7 +408,9 @@
                 ],
                 "name_pos": 0,
                 "has_sex_post": false,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Family": {
                 "groups": {
@@ -424,7 +437,6 @@
                 ],
                 "name_pos": 0,
                 "is_invert": true
-
             },
             "Kingdom": {
                 "groups": {
@@ -461,7 +473,9 @@
                 "rule": [ "group_1", "group_2", "group_2" ],
                 "name_pos": 0,
                 "has_sex_post": true,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["夫", "v", "夫"],
+                "sex_post_Female": ["娃", "va", "娃"]
             },
             "Family": {
                 "groups": {
@@ -488,7 +502,6 @@
                 ],
                 "name_pos": 0,
                 "is_invert": true
-
             },
             "Kingdom": {
                 "groups": {
@@ -527,7 +540,9 @@
                 "rule": [ "group_1", "coin_flip", "group_2", "group_4", "group_3" ],
                 "name_pos": 0,
                 "has_sex_post": false,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Family": {
                 "groups": {
@@ -555,7 +570,6 @@
                 ],
                 "name_pos": 0,
                 "is_invert": true
-
             },
             "Kingdom": {
                 "groups": {
@@ -595,7 +609,9 @@
                 "rule": [ "group_1", "group_3", "group_2" ],
                 "name_pos": 0,
                 "has_sex_post": false,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Family": {
                 "groups": {
@@ -629,7 +645,6 @@
                 ],
                 "name_pos": 1,
                 "is_invert": false
-
             },
             "Kingdom": {
                 "groups": {
@@ -671,7 +686,9 @@
                 ],
                 "name_pos": 0,
                 "has_sex_post": false,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Family": {
                 "groups": {
@@ -698,7 +715,6 @@
                 ],
                 "name_pos": 0,
                 "is_invert": true
-
             },
             "Kingdom": {
                 "groups": {
@@ -742,7 +758,9 @@
                 ],
                 "name_pos": 0,
                 "has_sex_post": true,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["之子", "son", "之子"],
+                "sex_post_Female": ["之女", "dóttir", "之女"]
             },
             "Family": {
                 "groups": {
@@ -772,7 +790,6 @@
                 ],
                 "name_pos": 0,
                 "is_invert": true
-
             },
             "Kingdom": {
                 "groups": {
@@ -812,7 +829,9 @@
                 ],
                 "name_pos": 0,
                 "has_sex_post": false,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Family": {
                 "groups": {
@@ -840,7 +859,6 @@
                 ],
                 "name_pos": 0,
                 "is_invert": true
-
             },
             "Kingdom": {
                 "groups": {
@@ -881,7 +899,9 @@
                 ],
                 "name_pos": 0,
                 "has_sex_post": true,
-                "use_local_as_lastname": false
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["之子","tzin","之子"],
+                "sex_post_Female": ["之女","tzin","之女"]
             },
             "Family": {
                 "groups": {
@@ -908,7 +928,6 @@
                 ],
                 "name_pos": 0,
                 "is_invert": false
-
             },
             "Kingdom": {
                 "groups": {
@@ -972,8 +991,9 @@
                     "space"
                 ],
                 "name_pos": 0,
-                "is_invert": true
-
+                "is_invert": true,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Kingdom": {
                 "groups": {
@@ -1041,8 +1061,9 @@
                     "space"
                 ],
                 "name_pos": 0,
-                "is_invert": true
-
+                "is_invert": true,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Kingdom": {
                 "groups": {
@@ -1109,8 +1130,9 @@
                     "group_4"
                 ],
                 "name_pos": 0,
-                "is_invert": false
-
+                "is_invert": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
             },
             "Kingdom": {
                 "groups": {

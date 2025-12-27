@@ -4,7 +4,11 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public class TempFac_划地给教廷 : TemporaryFaction
 {
-    public override bool Hide => true;
+    public override void Init(FixedFaction faction)
+    {
+        base.Init(faction);
+        base.Hide = true;
+    }
 
     public override void Execute()
     {
