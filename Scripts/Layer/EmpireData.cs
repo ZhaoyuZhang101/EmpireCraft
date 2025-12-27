@@ -14,6 +14,7 @@ using System.Linq;
 using System.Xml.Linq;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using UnityEngine;
 
 // Token: 0x0200023D RID: 573
 public class EmpireData : MetaObjectData
@@ -47,27 +48,7 @@ public class EmpireData : MetaObjectData
     public List<long> given_Kingdoms = new List<long>();
     //朝贡国
     public List<long> taken_Kingdoms = new List<long>();
-    
-    public int 宗教_addition = 0;
-    public int 天子智教_addition = 0;
-    public int 天子政教_addition = 0;
-    public int 天子护理_addition = 0;
-    public int 备选_addition = 0;
-    public int 拟定_addition = 0;
-    public int 审核_addition = 0;
-    public int 执行_addition = 0;
-    public int 人事_addition = 0;
-    public int 财政_addition = 0;
-    public int 礼仪_addition = 0;
-    public int 军事_addition = 0;
-    public int 司法_addition = 0;
-    public int 建设_addition = 0;
-    public int 教育_addition = 0;
-    //内阁加成
-    public float cabinet_acc = 0;
-    //官员加成
-    public float officer_acc = 0;
-
+    public EmpireAddition additions = new EmpireAddition();
     [DefaultValue(-1L)]
     public long founder_kingdom_id { get; set; } = -1L;
 
@@ -100,6 +81,31 @@ public class EmpireData : MetaObjectData
 
 }
 
+public class EmpireAddition
+{
+    public Dictionary<OfficerPowerType, int> addition =  OfficeManager.AllPower.ToDictionary(t => t, t => 0);
+    //内阁加成
+    public float cabinet_acc = 0;
+
+    public EmpireAddition Add(EmpireAddition other)
+    {
+        foreach (var kv in other.addition)
+            this.addition[kv.Key] += kv.Value;
+
+        this.cabinet_acc += other.cabinet_acc;
+        return this;
+    }
+
+    public string toString()
+    {
+        var content = "";
+        foreach (var kv in addition)
+        {
+            content += $"{kv.Key}: {kv.Value.ToString().ColorString(pColor:kv.Value>=0? Color.green : Color.red)}\n";
+        }
+        return content;
+    }
+}
 public class EmpireCraftHistory
 {
     public long id { get; set; }

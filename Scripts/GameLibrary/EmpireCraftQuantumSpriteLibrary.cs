@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Regimes;
@@ -88,7 +89,7 @@ public static class EmpireCraftQuantumSpriteLibrary
             base_scale = 0.3f,
             render_map = true,
             selected_city_scale = true,
-            draw_call = drawEmperor,
+            draw_call = DrawEmperor,
             create_object = delegate (QuantumSpriteAsset _, QuantumSprite pQSprite)
             {
                 pQSprite.setSharedMat(LibraryMaterials.instance.mat_minis);
@@ -100,7 +101,7 @@ public static class EmpireCraftQuantumSpriteLibrary
             id = "city_line",
             id_prefab = "p_mapArrow_line",
             base_scale = 0.5f,
-            draw_call = drawCityLine,
+            draw_call = DrawCityLine,
             render_map = true,
             render_gameplay = true,
             color = new Color(0.4f, 0.4f, 1f, 0.9f)
@@ -110,7 +111,7 @@ public static class EmpireCraftQuantumSpriteLibrary
             id = "empire_line",
             id_prefab = "p_mapArrow_line",
             base_scale = 0.5f,
-            draw_call = drawKingdomLine,
+            draw_call = DrawKingdomLine,
             render_map = true,
             render_gameplay = true,
             color = new Color(0.4f, 0.4f, 1f, 0.9f)
@@ -120,7 +121,7 @@ public static class EmpireCraftQuantumSpriteLibrary
             id = "province_line",
             id_prefab = "p_mapArrow_line",
             base_scale = 0.5f,
-            draw_call = drawProvinceLine,
+            draw_call = DrawProvinceLine,
             render_map = true,
             render_gameplay = true,
             color = new Color(0.4f, 0.4f, 1f, 0.9f)
@@ -130,7 +131,7 @@ public static class EmpireCraftQuantumSpriteLibrary
             id = "capturing_zones",
             id_prefab = "p_mapZone_lines",
             base_scale = 1f,
-            draw_call = drawCapturingZones,
+            draw_call = DrawCapturingZones,
             create_object = delegate(QuantumSpriteAsset _, QuantumSprite pQSprite)
             {
                 pQSprite.sprite_renderer.sortingLayerID = SortingLayer.NameToID("EffectsBack");
@@ -140,9 +141,9 @@ public static class EmpireCraftQuantumSpriteLibrary
             add_camera_zoom_multiplier = false
         });
     }
-    private static void drawCapturingZones(QuantumSpriteAsset pAsset)
+    private static void DrawCapturingZones(QuantumSpriteAsset pAsset)
     {
-        if (!Zones.showKingdomZones() && !Zones.showCityZones() && !Zones.showAllianceZones()&&!showEmpireZones())
+        if (!Zones.showKingdomZones() && !Zones.showCityZones() && !Zones.showAllianceZones()&&!ShowEmpireZones())
         {
             return;
         }
@@ -157,9 +158,9 @@ public static class EmpireCraftQuantumSpriteLibrary
                     num = city.zones.Count;
                 }
                 CapturingZonesCalculator.getListToDraw(city, (int)num, listPool);
-                for (int i = 0; i < listPool.Count; i++)
+                for (int i = 0; i < ((ICollection)listPool).Count; i++)
                 {
-                    TileZone tileZone = listPool[i];
+                    TileZone tileZone = ((IList<TileZone>)listPool)[i];
                     QuantumSprite quantumSprite = QuantumSpriteLibrary.drawQuantumSprite(pAsset, tileZone.centerTile, null);
                     Color pColor = city.being_captured_by.getColor().getColorBorderOut_capture();
                     quantumSprite.setColor(ref pColor);
@@ -167,11 +168,11 @@ public static class EmpireCraftQuantumSpriteLibrary
             }
         }
     }
-    public static bool showEmpireZones(bool pCheckOnlyOption = false)
+    public static bool ShowEmpireZones(bool pCheckOnlyOption = false)
     {
         return EmpireCraftMetaTypeLibrary.empire.isActive(pCheckOnlyOption);
     }
-    private static void drawEmperor(QuantumSpriteAsset pAsset)
+    private static void DrawEmperor(QuantumSpriteAsset pAsset)
     {
         if (!PlayerConfig.optionBoolEnabled("map_kings_leaders"))
         {
@@ -201,9 +202,9 @@ public static class EmpireCraftQuantumSpriteLibrary
                         break;
                     case KingdomType.LvLing_jiedushi:
                     case KingdomType.LvLing_jimizhou:
+                    case KingdomType.LvLing_kingdom:
                         pSprite = king.has_attack_target ?  _LvLing_jiedushi_sprite_angry: king.hasPlot() ? _LvLing_jiedushi_sprite_surprised : kingdom.hasEnemies() ? _LvLing_jiedushi_sprite_normal : _LvLing_jiedushi_sprite_happy;
                         break;
-                    case KingdomType.LvLing_kingdom:
                     case KingdomType.LvLing_province:
                         pSprite = king.has_attack_target ?  _LvLing_officer_sprite_angry: king.hasPlot() ? _LvLing_officer_sprite_surprised : kingdom.hasEnemies() ? _LvLing_officer_sprite_normal : _LvLing_officer_sprite_happy;
                         break;
@@ -225,7 +226,7 @@ public static class EmpireCraftQuantumSpriteLibrary
 
     }
 
-    private static void drawCityLine(QuantumSpriteAsset pAsset)
+    private static void DrawCityLine(QuantumSpriteAsset pAsset)
     {
         if (!InputHelpers.mouseSupported || World.world.isBusyWithUI() || !World.world.isSelectedPower("add_title"))
         {
@@ -238,11 +239,11 @@ public static class EmpireCraftQuantumSpriteLibrary
         }
         Vector2 mousePos = World.world.getMousePos();
         Color pColor = unity_A.getColor().getColorMain();
-        QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, unity_A.getTile().posV, mousePos, ref pColor);
+        QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, unity_A.getTile()!.posV, mousePos, ref pColor);
     }
 
 
-    private static void drawKingdomLine(QuantumSpriteAsset pAsset)
+    private static void DrawKingdomLine(QuantumSpriteAsset pAsset)
     {
         if (!InputHelpers.mouseSupported || World.world.isBusyWithUI() || !World.world.isSelectedPower("create_empire"))
         {
@@ -263,7 +264,7 @@ public static class EmpireCraftQuantumSpriteLibrary
     }
 
 
-    private static void drawProvinceLine(QuantumSpriteAsset pAsset)
+    private static void DrawProvinceLine(QuantumSpriteAsset pAsset)
     {
         if (!InputHelpers.mouseSupported || World.world.isBusyWithUI() || !World.world.isSelectedPower("create_province"))
         {

@@ -97,18 +97,12 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                 {
                     LogService.LogInfo(empireKingdom.name);
                     if (empireKingdom.IsEmpire()) continue;
-                    LogService.LogInfo("1");
                     if (pKingdom.isInWarWith(empireKingdom)) continue;
-                    LogService.LogInfo("2");
                     if (pKingdom.isInWarOnSameSide(empireKingdom)) continue;
-                    LogService.LogInfo("3");
                     if (!empireKingdom.hasEnemies())  continue;
-                    LogService.LogInfo("4");
                     var kRegime = empireKingdom.GetRegime();
                     if (kRegime == null) continue;
-                    LogService.LogInfo("5");
                     if (!pKingdom.isOpinionTowardsKingdomGood(empireKingdom)&&regime.IsAllowDiplomacy()) continue;
-                    LogService.LogInfo("6");
                     empireKingdom.getWars(true).ToList().FindAll(w=>w.isAttacker(empireKingdom)).ForEach(w=>w.joinAttackers(pKingdom));
                     empireKingdom.getWars(true).ToList().FindAll(w=>w.isDefender(empireKingdom)).ForEach(w=>w.joinDefenders(pKingdom));
                     TranslateHelper.LogEmpireJoinWar(empire, empireKingdom);

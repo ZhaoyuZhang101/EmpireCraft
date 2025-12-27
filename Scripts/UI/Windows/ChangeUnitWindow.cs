@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -26,12 +27,13 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
     OfficeObject _office;
     Kingdom _kingdom;
     SimpleText title;
-    ListPool<GameObject> _listPool;
+    ListPool<GameObject> _listPool = new ();
     TextInput textInput;
+    private OfficerPowerType _currentSortPower = OfficerPowerType.审核;
+    List<Actor> _actors = new();
     protected override void Init()
     {
-        layout.spacing = 30;
-        layout.padding = new RectOffset(0,0,0,0);
+        layout.padding = new RectOffset(0,0,70,0);
         _listPool = new ListPool<GameObject>();
         title = Instantiate(SimpleText.Prefab);
         AddChild(title.gameObject);
@@ -39,13 +41,14 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
         textInput.Setup(LM.Get("input_name_for_unit"), StarSearchUnit);
         textInput.SetSize(new Vector2(150, 18));
         AddChild(textInput.gameObject);
-        autoGridLayoutGroup = this.BeginGridGroup(5, UnityEngine.UI.GridLayoutGroup.Constraint.FixedColumnCount, pSpacing: new Vector2(30, 30));
+        autoGridLayoutGroup = this.BeginGridGroup(5, pSpacing: new Vector2(30, 30));
         AddChild(autoGridLayoutGroup.gameObject);
     }
 
     public void StarSearchUnit(string content)
     {
         Clear();
+        InitTopPart();
         List<Actor> actorsPool = new List<Actor>();
         if (content == "")
         {
@@ -60,7 +63,8 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
                 }
             }
             textInput.text.text = LM.Get("input_name_for_unit");
-            StartCoroutine(ShowUnitGroup(actorsPool));
+            _actors = actorsPool;
+            StartCoroutine(ShowUnitGroup());
             return;
         }
         foreach (Kingdom kingdom in _empire.kingdoms_list)
@@ -105,7 +109,8 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
                 }
             }
         }
-        StartCoroutine(ShowUnitGroup(actorsPool));
+        _actors = actorsPool;
+        StartCoroutine(ShowUnitGroup());
     }
 
     public void Clear()
@@ -126,6 +131,7 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
         _office = ConfigData.CURRENT_SELECTED_OFFICE;
         _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         title.Setup(_office.GetName(), pAlignment:TextAnchor.MiddleCenter);
+        InitTopPart();
         List<Actor> listActor = new List<Actor>();
         foreach (Kingdom kingdom in _empire.kingdoms_list)
         {
@@ -137,41 +143,54 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
                 }
             }
         }
-        StartCoroutine(ShowUnitGroup(listActor));
+        _actors = listActor;
+        StartCoroutine(ShowUnitGroup());
+    }
+    public void InitTopPart()
+    {
+        var topSpace = this.BeginGridGroup(6, pCellSize: new Vector2(25, 15));
+        foreach (OfficerPowerType power in OfficeManager.AllPower)
+        {
+            topSpace.AddButtonIntoGirdLayout(power.ToString(), power.ToString(), () => SortByPower(power), size: new Vector2(22, 13));
+        }
+        topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset: Vector2.down);
+        topSpace.transform.AddStretchBackground("regimeFrame", new Vector2(220, 75));
+        _listPool.Add(topSpace.gameObject);
+    }
+    public void SortByPower(OfficerPowerType power)
+    {
+        _currentSortPower = power;
+        Clear();
+        InitTopPart();
+        StartCoroutine(ShowUnitGroup());
     }
 
-    public IEnumerator ShowUnitGroup(List<Actor> actors)
+    public IEnumerator ShowUnitGroup()
     {
-        foreach (Actor actor in actors) 
+        _actors = _actors.OrderByDescending(a=>a.CalcPower(_currentSortPower, _empire).addition[_currentSortPower]).ToList();
+        var count = 0;
+        var actorSpace = this.BeginVertGroup();
+        actorSpace.AddTextIntoVertLayout("候选官员列表", hideBackground: true, anchor: TextAnchor.MiddleCenter,
+            size: new Vector2(45, 18));
+        AutoHoriLayoutGroup currentAutoHoriLayout = null;
+        foreach (var actor in _actors.Take(30))
         {
-            ShowSingleUnit(actor);
-            yield return CoroutineHelper.wait_for_next_frame;
+            if (actor.isRekt()) continue;
+            count = (count + 1) % 2;
+            if (count == 1)
+            {
+                currentAutoHoriLayout = actorSpace.BeginHoriGroup();
+            }
+
+            if (currentAutoHoriLayout != null)
+            {
+                actor.ShowActorPowerCard(_currentSortPower, currentAutoHoriLayout, _empire, () => ChangeAvatar(actor));
+                yield return CoroutineHelper.wait_for_next_frame;
+            }
         }
+        _listPool.Add(actorSpace.gameObject);
     }
 
-    public void ShowSingleUnit(Actor actor)
-    {
-        AutoVertLayoutGroup vertLayoutGroup = this.BeginVertGroup(pSize: new Vector2(50, 80), pPadding: new RectOffset(0, 0, 25, 0));
-        SimpleButton avatar = UIHelper.CreateAvatarView(actor.getID());
-        SimpleText text = Instantiate(SimpleText.Prefab);
-        string identityText = "";
-        if (actor.hasTrait("jingshi"))
-        {
-            identityText += LM.Get("trait_jingshi");
-        }
-        else if (actor.hasTrait("gongshi"))
-        {
-            identityText += LM.Get("trait_gongshi");
-        }
-        text.Setup(identityText + "\u200A" + actor.getName(), pSize: new Vector2(25, 10));
-        SimpleButton add = GameObject.Instantiate(SimpleButton.Prefab);
-        add.Setup(() => ChangeAvatar(actor), SpriteTextureLoader.getSprite("ui/setOfficer"), pSize: new Vector2(15, 12));
-        vertLayoutGroup.AddChild(text.gameObject);
-        vertLayoutGroup.AddChild(avatar.gameObject);
-        vertLayoutGroup.AddChild(add.gameObject);
-        _listPool.Add(vertLayoutGroup.gameObject);
-        autoGridLayoutGroup.AddChild(vertLayoutGroup.gameObject);
-    }
 
     public void ChangeAvatar(Actor actor)
     {

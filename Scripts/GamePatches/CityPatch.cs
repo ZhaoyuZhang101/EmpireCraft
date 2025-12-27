@@ -123,6 +123,11 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.finishCapture)),
             prefix: new HarmonyMethod(GetType(), nameof(FinishedCapture))
         );
+
+        new Harmony(nameof(FinishedCapture)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.updateCapture)),
+            prefix: new HarmonyMethod(GetType(), nameof(FinishedCapture))
+        );
     }
 
     public static bool TryToMakeWarrior(City __instance, Actor pActor)

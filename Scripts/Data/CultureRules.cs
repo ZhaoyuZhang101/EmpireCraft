@@ -56,6 +56,8 @@ public class ClanSetting
     public int name_pos;
     public bool has_sex_post;
     public bool use_local_as_lastname;
+    public string[] sex_post_Male;
+    public string[] sex_post_Female;
 }
 
 public class KingdomSetting
