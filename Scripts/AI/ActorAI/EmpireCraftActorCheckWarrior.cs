@@ -5,6 +5,7 @@ using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.services;
@@ -18,7 +19,11 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
     public override BehResult execute(Actor pActor)
     {
         if (pActor.isRekt()) return BehResult.Continue;
-        if (!pActor.isUnitFitToRule()) return BehResult.Continue; 
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_building_destroy.isEnabled())
+        {
+            pActor.asset.can_attack_buildings = false;
+        }
+        if (!pActor.isUnitFitToRule()) return BehResult.Continue;
         if (!pActor.hasKingdom())  return BehResult.Continue;
         if (!pActor.isAdult()) return BehResult.Continue;
         if (!pActor.hasCity()) return BehResult.Continue;

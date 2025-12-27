@@ -1,9 +1,13 @@
+using System.ComponentModel;
+
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 
 public enum TemporaryFactionType
 {
-    转军府, //当地方省份位于边疆或者周边有任一军府时，且对帝国忠诚度低，会自行发起转军府决议
-    扩张地盘, //当地方军府领导控制力大于当前地盘且对帝国忠诚度低时可发起扩张
+    [Description("当地方省份位于边疆或者周边有任一军府时，且对帝国忠诚度低，会自行发起转军府决议")]
+    转军府,
+    [Description("当地方军府领导控制力大于当前地盘且对帝国忠诚度低时可发起扩张")]
+    扩张地盘,
     提供岁币,
     割让城池,
     转世袭,
