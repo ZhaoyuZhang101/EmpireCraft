@@ -215,8 +215,8 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         var infoSpace = cardSpace.BeginHoriGroup(pAlignment:TextAnchor.MiddleCenter);
         //编辑绩效部分
         var editPerformancePart = infoSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
-        editPerformancePart.AddButtonIntoVertLayout("add_performance", "增加绩效", () => AddPerformance(pActor.GetIdentity(), performanceText, levelText), showTip:true, size: new Vector2(20, 12));
-        editPerformancePart.AddButtonIntoVertLayout("sub_performance", "减少绩效", () => SubPerformance(pActor.GetIdentity(), performanceText, levelText), showTip:true, size: new Vector2(20, 12));
+        editPerformancePart.AddButtonIntoVertLayout("add_performance", "增加绩效", () => AddPerformance(pActor.GetIdentity(), performanceText, levelText), size: new Vector2(20, 12));
+        editPerformancePart.AddButtonIntoVertLayout("sub_performance", "减少绩效", () => SubPerformance(pActor.GetIdentity(), performanceText, levelText), size: new Vector2(20, 12));
         //删改角色部分
         var editActorPart = infoSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
         var leaderTurnOnButton = editActorPart.transform.AddNormalOptionIntoVert(editActorPart, "set_leader", () =>
