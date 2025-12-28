@@ -20,7 +20,7 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         Regime regime = pKingdom.GetRegime();
         FixedFaction dominateFaction = regime.GetDominateFaction();
         if (dominateFaction == null) return BehResult.Continue;
-        foreach (var ff in regime.Factions)
+        foreach (var ff in regime.PlayerFactions)
         {
             if (ff==dominateFaction) continue;
             ff.TemporaryFactions.ForEach(tf => tf.End());

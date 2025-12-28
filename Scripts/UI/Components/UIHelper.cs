@@ -211,7 +211,7 @@ public static class UIHelper
         unitLoader.transform.localScale = new Vector2(1.2f, 1.2f);
         return clickFrame;
     }
-    public static TextInput GenerateTextInput(Transform parent, Vector2 size=default, Vector2 offset=default, string default_text = "", UnityAction<string> action = null, TextInput input=null)
+    public static TextInput GenerateTextInput(this Transform parent, Vector2 size=default, Vector2 offset=default, string default_text = "", UnityAction<string> action = null, TextInput input=null)
     {
         Vector2 dSize = size==default?new Vector2(130, 15):size;
         TextInput inputComp;
@@ -516,12 +516,30 @@ public static class UIHelper
     public static void InitialFactionSpace(AutoHoriLayoutGroup layout, Kingdom kingdom, List<GameObject> groups=null)
     {
         var factionSpace = layout;
-        foreach (FixedFaction faction in kingdom.GetRegime().Factions)
+        foreach (FixedFaction faction in kingdom.GetRegime().PlayerFactions)
         {
-            AddFactionCard(faction, kingdom, layout);
+            AddFactionCard(faction, kingdom, factionSpace);
         }
         
+        if (kingdom.GetRegime().PlayerFactions.Count < 3)
+        {
+            for (int i = 0; i < 3-kingdom.GetRegime().PlayerFactions.Count; i++)
+            {
+                var addFaction = factionSpace.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(55, 90));
+                addFaction.AddButtonIntoVertLayout("add_faction", "", () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(15, 15));
+                addFaction?.transform.AddStretchBackground("FactionFrame", size: new Vector2(55, 90));
+            }
+        }
         factionSpace.transform.AddStretchBackground("regimeFrame", size:new Vector2(180, 100));
+        kingdom.GetRegime().FactionSpace = factionSpace;
+        var bottom = factionSpace.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
+        bottom.AddButtonIntoHoriLayout("recover_faction", "", () =>
+        {
+            factionSpace.transform.ClearChildren();
+            kingdom.GetRegime().RecoverFactions();
+            InitialFactionSpace(factionSpace, kingdom, groups);
+        }, SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(10, 10), showTip:true);
+        bottom?.gameObject.AdjustTopPart(bottom.transform, Vector2.up*8);
         groups?.Add(factionSpace.gameObject);
     }
     /// <summary>
@@ -530,7 +548,7 @@ public static class UIHelper
     /// <param name="groups">UI区块组</param>
     /// <param name="layout">决定派系卡片的排列方式</param>
     /// <param name="kingdom">派系所属国家</param>
-    public static void AddFactionCard(FixedFaction faction, Kingdom kingdom, AutoHoriLayoutGroup parentH = null, AutoVertLayoutGroup parentV = null)
+    public static void AddFactionCard(FixedFaction faction, Kingdom kingdom, AutoHoriLayoutGroup parentH = null, AutoVertLayoutGroup parentV = null, bool addMode = false, UnityAction action=null)
     {
         if (parentH == null&&parentV==null) return;
         var isDominate = kingdom.GetRegime().GetDominateFaction() == faction;
@@ -550,36 +568,88 @@ public static class UIHelper
         }
         factionPart.AddTextIntoVertLayout(content, true, TextAnchor.UpperCenter, size: new Vector2(30, 40));
         var bottom = factionPart.BeginHoriGroup();
-        var button = factionPart?.transform.AddNormalOptionIntoHori(bottom, "LockFaction", () =>
+        if (!addMode)
         {
-            if (faction.Force)
+            var button = factionPart?.transform.AddNormalOptionIntoHori(bottom, "LockFaction", () =>
             {
-                faction.Force = false;
-            }
-            else
-            {
-                faction.Force = true;
-                foreach (var f in kingdom.GetRegime().Factions)
+                if (faction.Force)
                 {
-                    if (f != faction)
+                    faction.Force = false;
+                }
+                else
+                {
+                    faction.Force = true;
+                    foreach (var f in kingdom.GetRegime().PlayerFactions)
                     {
-                        f.LockButton?.SetStatus(false);
-                        f.Force = false;
+                        if (f != faction)
+                        {
+                            f.LockButton?.SetStatus(false);
+                            f.Force = false;
+                        }
                     }
                 }
-            }
-            faction.LockButton.SetStatus(faction.Force);
-        }, faction.Force, isOption:true, size: new Vector2(10, 10));
+                faction.LockButton.SetStatus(faction.Force);
+            }, faction.Force, isOption:true, size: new Vector2(10, 10));
+            faction.LockButton = button;
+        }
         bottom.AddButtonIntoHoriLayout("EnterFactionCard", "详情", () =>
         {
             ConfigData.CURRENT_SELECTED_FACTION = faction;
+            SelectedMetas.selected_kingdom = kingdom;   
             ScrollWindow.showWindow(nameof(FactionDetailWindow));
         }, size: new Vector2(20, 10));
+        if (addMode)
+        {
+            bottom.AddButtonIntoHoriLayout("add_faction", action: () =>
+            {
+                kingdom.GetRegime().PlayerFactions.Add(faction);
+                kingdom.GetRegime().FactionSpace.transform.ClearChildren();
+                foreach (var f in kingdom.GetRegime().PlayerFactions)
+                {
+                    AddFactionCard(f, kingdom, kingdom.GetRegime().FactionSpace);
+                }
+                if (kingdom.GetRegime().PlayerFactions.Count < 3)
+                {
+                    for (int i = 0; i < 3-kingdom.GetRegime().PlayerFactions.Count; i++)
+                    {
+                        var addFaction = kingdom.GetRegime().FactionSpace.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(55, 90));
+                        addFaction.AddButtonIntoVertLayout("add_faction", "", () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(15, 15));
+                        addFaction?.transform.AddStretchBackground("FactionFrame", size: new Vector2(55, 90));
+                    }
+                }
+                ScrollWindow.getCurrentWindow().clickBack();
+            }, size: new Vector2(10, 10), icon: SpriteTextureLoader.getSprite("ui/setOfficer"));
+            bottom.AddButtonIntoHoriLayout("remove_faction", action: () =>
+            {
+                FactionManager.Config.PlayerFactions.Remove(faction);
+                action?.Invoke();
+            }, size: new Vector2(10, 10), icon: SpriteTextureLoader.getSprite("ui/iconRemove"));
+        }
+        else
+        {
+            bottom.AddButtonIntoHoriLayout("remove_faction", action: () =>
+            {
+                kingdom.GetRegime().PlayerFactions.Remove(faction);
+                if (faction.CardUI)
+                {
+                    Object.Destroy(faction.CardUI.gameObject);
+                    var addFaction = kingdom.GetRegime().FactionSpace?.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(55, 90));
+                    addFaction?.AddButtonIntoVertLayout("add_faction", "", () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(15, 15));
+                    addFaction?.transform?.AddStretchBackground("FactionFrame", size: new Vector2(55, 90));
+                }
+            }, size: new Vector2(10, 10), icon: SpriteTextureLoader.getSprite("ui/iconRemove")); 
+        }
+        
         bottom?.gameObject.AdjustTopPart(bottom.transform, Vector2.down*82);
-        faction.LockButton = button;
         factionPart?.transform.AddStretchBackground(isDominate?"FactionFrame_dominate":"FactionFrame", size: new Vector2(55, 90));
+        faction.CardUI = factionPart;
     }
 
+    public static void OpenSelectionWindow(Kingdom kingdom)
+    {
+        SelectedMetas.selected_kingdom = kingdom;
+        ScrollWindow.showWindow(nameof(AddFactionWindow));
+    }
     /// <summary>
     /// 在 personalGroup 下插入一个全铺满的 Image 背景，
     /// 并保留所有其他子对象在它之上。

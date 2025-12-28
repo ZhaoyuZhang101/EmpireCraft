@@ -19,7 +19,7 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
         Regime regime = empire.CoreKingdom.GetRegime();
-        foreach (var ff in regime.Factions)
+        foreach (var ff in regime.PlayerFactions)
         {
             ff.FixMissedTemporaryFactions();
         }
@@ -81,6 +81,7 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
     {
         Regime regime = empire.CoreKingdom.GetRegime();
         var dominateFaction = regime.GetDominateFaction();
+        if (dominateFaction==null) return;
         if (dominateFaction.Members.Count<=0) return;
         // —— 1) 计算内阁规模：0~15 → 1~5 ——
         int S = empire.Emperor?.stewardship??0;        // 组织能力

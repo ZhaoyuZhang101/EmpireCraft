@@ -43,6 +43,7 @@ public class AddFactionMemberWindow: AutoLayoutWindow<AddFactionMemberWindow>
 
     public void Clear()
     {
+        _group.Clear();
         foreach (var item in _group)
         {
             Destroy(item);

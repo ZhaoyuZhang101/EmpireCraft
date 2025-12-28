@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using EmpireCraft.Scripts.Data;
@@ -9,49 +10,70 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
+using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.services;
 using Newtonsoft.Json;
 
 namespace EmpireCraft.Scripts.Regimes;
 
-public class FactionManager
-{        
-    public static Dictionary<FactionType, List<TemporaryFactionType>> FactionConfig =
+public static class FactionManager
+{
+    [JsonIgnore] public static Dictionary<FactionType, List<TemporaryFactionType>> FactionConfig =
         new()
         {
             {
                 FactionType.僭主,
-                new List<TemporaryFactionType> { TemporaryFactionType.强者继承法, TemporaryFactionType.宗教同化, TemporaryFactionType.索取皇位 }
+                new List<TemporaryFactionType>
+                    { TemporaryFactionType.强者继承法, TemporaryFactionType.宗教同化, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.血脉,
-                new List<TemporaryFactionType> { TemporaryFactionType.转世袭, TemporaryFactionType.宗教同化, TemporaryFactionType.索取皇位 }
+                new List<TemporaryFactionType>
+                    { TemporaryFactionType.转世袭, TemporaryFactionType.宗教同化, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.尊王,
-                new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘, TemporaryFactionType.转天朝制度, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一 }
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘,
+                    TemporaryFactionType.转天朝制度, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一
+                }
             },
             {
                 FactionType.诸侯,
-                new List<TemporaryFactionType> { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战, TemporaryFactionType.索取皇位 }
+                new List<TemporaryFactionType>
+                    { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.中央,
-                new List<TemporaryFactionType> { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一 }
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘,
+                    TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一
+                }
             },
             {
                 FactionType.自治,
-                new List<TemporaryFactionType> { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战, TemporaryFactionType.索取皇位 }
+                new List<TemporaryFactionType>
+                    { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.攘夷,
                 new List<TemporaryFactionType>
-                    { TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府, TemporaryFactionType.谋求统一,TemporaryFactionType.迫使朝贡, TemporaryFactionType.转周制, TemporaryFactionType.索取皇位 }
+                {
+                    TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府,
+                    TemporaryFactionType.谋求统一, TemporaryFactionType.迫使朝贡, TemporaryFactionType.转周制,
+                    TemporaryFactionType.索取皇位
+                }
             },
             {
                 FactionType.绥靖,
                 new List<TemporaryFactionType>
-                    { TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池, TemporaryFactionType.削藩, TemporaryFactionType.设置行政区,TemporaryFactionType.开科取士, TemporaryFactionType.索取皇位 }
+                {
+                    TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池,
+                    TemporaryFactionType.削藩, TemporaryFactionType.设置行政区, TemporaryFactionType.开科取士,
+                    TemporaryFactionType.索取皇位
+                }
             },
             {
                 FactionType.共和,
@@ -75,28 +97,94 @@ public class FactionManager
             },
             {
                 FactionType.神权,
-                new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.划地给教廷, 
-                    TemporaryFactionType.恢复圣地, TemporaryFactionType.确立国教, TemporaryFactionType.神授君权, 
-                    TemporaryFactionType.索取皇位 }
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.宗教同化, TemporaryFactionType.划地给教廷,
+                    TemporaryFactionType.恢复圣地, TemporaryFactionType.确立国教, TemporaryFactionType.神授君权,
+                    TemporaryFactionType.索取皇位
+                }
             },
             {
                 FactionType.融入,
-                new List<TemporaryFactionType> { TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠, TemporaryFactionType.游牧扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一}
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠,
+                    TemporaryFactionType.游牧扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位,
+                    TemporaryFactionType.谋求统一
+                }
             },
             {
                 FactionType.同化,
-                new List<TemporaryFactionType> { TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠, TemporaryFactionType.对外扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一}
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠,
+                    TemporaryFactionType.对外扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位,
+                    TemporaryFactionType.谋求统一
+                }
             }
         };
-    public Dictionary<string, FixedFaction>  FixedFactions = new();
 
-    public void RecordFactions(FixedFaction faction, Empire empire)
+    public static PlayerFactionConfig Config = new PlayerFactionConfig();
+
+    public static void init()
     {
-        var id = $"{empire.id}_{faction.GetID()}";
-        FixedFactions.Add(id, faction);
+        Load();
+    }
+
+    public static bool Save()
+    {
+        try
+        {
+            string SCP = JsonConvert.SerializeObject(Config, Formatting.Indented);
+            string parentFolder = Directory.GetParent(ModClass._declare.FolderPath)?.FullName;
+            if (parentFolder != null)
+            {
+                string path = Path.Combine(parentFolder, "PlayerFactionConfig.json");
+
+                File.WriteAllText(path, SCP);
+                LogService.LogInfo("储存用户派系配置数据成功");
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            LogService.LogInfo("储存用户派系配置数据失败");
+            return false;
+        }
+    }
+
+    public static void Load()
+    {
+        try
+        {
+
+            string parentFolder = Directory.GetParent(ModClass._declare.FolderPath)?.FullName;
+            if (parentFolder != null)
+            {
+                string path = Path.Combine(parentFolder, "PlayerFactionConfig.json");
+                if (File.Exists(path))
+                {
+                    string text = File.ReadAllText(path);
+                    Config = JsonConvert.DeserializeObject<PlayerFactionConfig>(text);
+                    return;
+                }
+            }
+            LogService.LogInfo("无用户派系配置");
+        }
+        catch
+        {
+            LogService.LogInfo("加载用户派系配置出错");
+        }
     }
 }
 
+public class PlayerFactionConfig
+{
+    public List<FixedFaction> PlayerFactions = new List<FixedFaction>();
+    public Dictionary<RegimeType, List<FixedFaction>> PlayerRegimeFactions = new Dictionary<RegimeType, List<FixedFaction>>();
+}
 public enum FactionType
 {
     尊王,  //王室为主
@@ -128,6 +216,8 @@ public class FixedFaction
     public bool Force = false; 
     [JsonIgnore]
     public AdvancedButton LockButton { get; set; }
+    [JsonIgnore] 
+    public AutoVertLayoutGroup CardUI;
     [JsonIgnore] 
     public Empire Empire => ModClass.EMPIRE_MANAGER.get(EmpireId);
     public List<long> Members = new();
@@ -176,6 +266,24 @@ public class FixedFaction
         };
         TemporaryFactionTypesRecord = new List<TemporaryFactionType>(TemporaryFactionTypes);
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
+        return newFaction;
+    }
+    public FixedFaction DeepClone()
+    {
+        FixedFaction newFaction = new FixedFaction()
+        {
+            _id = _id,
+            RequiredTraits = RequiredTraits,
+            _requiredTraits = _requiredTraits,
+            Type = Type,
+            Ban = Ban,
+            Name = Name,
+            EmpireId = EmpireId,
+            Members = new (),
+            Leader = -1L,
+            TemporaryFactions = TemporaryFactions,
+            TemporaryFactionTypesRecord = TemporaryFactionTypesRecord
+        };
         return newFaction;
     }
 

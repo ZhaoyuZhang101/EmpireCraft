@@ -10,6 +10,7 @@ using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.api;
 using NeoModLoader.api.attributes;
+using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Window.Layout;
@@ -24,9 +25,12 @@ namespace EmpireCraft.Scripts.UI.Windows;
 public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
 {
     private FixedFaction _faction;
+    private Kingdom _kingdom;
     private TextInput _factionNameInput;
     private List<GameObject> _groups = new List<GameObject>();
     private AutoVertLayoutGroup topPart;
+    private bool saveIntoCurrentFaction = false;
+    private AdvancedButton SaveOption = null;
     protected override void Init()
     {
         layout.spacing = 3;
@@ -37,6 +41,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
+        _kingdom = SelectedMetas.selected_kingdom;   
         Clear();
         //初始化输入框
         InitialTextInput();
@@ -60,21 +65,54 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         var leftPart = infoPart.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
         leftPart.AddTextIntoVertLayout("成员数量: "+_faction.Count);
         leftPart.AddTextIntoVertLayout("势力: "+_faction.TotalPower);
-        var rightPart = infoPart.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
-        rightPart.AddButtonIntoVertLayout("recover_tfaction", icon: SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(10, 10), showTip:true, action:
+        var rightPart = infoPart.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
+        rightPart.AddButtonIntoHoriLayout("recover_tfaction", icon: SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(15, 15), showTip:true, action:
             () =>
             {
                 _faction.TemporaryFactionTypesRecord = new List<TemporaryFactionType>(_faction.TemporaryFactionTypes);
                 _faction.TemporaryFactions = _faction.ConvertToObjectFromFactionType();
                 ShowClaims();
             });
+        rightPart.AddButtonIntoHoriLayout("save_faction", icon:SpriteTextureLoader.getSprite("ui/icons/iconSaveLocal"), size:new Vector2(15, 15), showTip:true, action:
+            ShowFactionSaveSpace);
         topPart.AddTextIntoVertLayout("所需特质: ", hideBackground:true, TextAnchor.LowerCenter, size: new Vector2(25, 15));
         var traitsPart =  topPart.BeginHoriGroup();
         InitTraitPart(traitsPart);
         topPart.gameObject.AdjustTopPart(transform.parent.transform);
         topPart.transform.AddStretchBackground("regimeFrame", new Vector2(220, 75));
     }
-
+    /// <summary>
+    /// 显示派系存储配置
+    /// </summary>
+    public void ShowFactionSaveSpace()
+    {
+        Clear();
+        InitialTopPart();
+        var factionSavePart = this.BeginVertGroup(pAlignment:  TextAnchor.MiddleCenter);
+        factionSavePart.AddTextIntoVertLayout(LM.Get("save_faction_setting"), true, size: new Vector2(45, 25));
+        var saveCardSpace = factionSavePart.BeginHoriGroup();
+        SaveOption = saveCardSpace.transform.AddNormalOptionIntoHori(saveCardSpace.BeginHoriGroup(), "save_into_current_title",
+            () =>
+            {
+                saveIntoCurrentFaction = !saveIntoCurrentFaction;
+                if (SaveOption != null)
+                {
+                    SaveOption.SetStatus(saveIntoCurrentFaction);
+                }
+            }, saveIntoCurrentFaction, size: new Vector2(25, 25));
+        
+        saveCardSpace.AddButtonIntoHoriLayout("save_faction_confirm", "", () =>
+        {
+            FactionManager.Config.PlayerFactions.Add(_faction.DeepClone());
+            if (saveIntoCurrentFaction)
+            {
+                FactionManager.Config.PlayerRegimeFactions.Add(_kingdom.GetRegime().type, _kingdom.GetRegime().PlayerFactions.Select(f=>f.DeepClone()).ToList());
+            }
+            var res = FactionManager.Save();
+            ActionLibrary.showWhisperTip(res ? "save_success" : "save_failed");
+        }, size: new Vector2(25, 25), icon:SpriteTextureLoader.getSprite("ui/icons/iconSaveLocal"));
+        _groups.Add(factionSavePart.gameObject);
+    }
     public void InitTraitPart(AutoHoriLayoutGroup parent)
     {
         
@@ -142,6 +180,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         {
             Destroy(part);
         }
+        _groups.Clear();
     }
     /// <summary>
     /// 显示和编辑派系成员
@@ -220,6 +259,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         //删改角色部分
         var editActorPart = infoSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
         var leaderTurnOnButton = editActorPart.transform.AddNormalOptionIntoVert(editActorPart, "set_leader", () =>
+        
         {
             SetLeader(pActor);
         }, _faction.GetLeader()==pActor, false, true);
