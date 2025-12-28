@@ -266,6 +266,7 @@ public class FixedFaction
         };
         TemporaryFactionTypesRecord = new List<TemporaryFactionType>(TemporaryFactionTypes);
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
+        newFaction.TemporaryFactions.ForEach(tf=>tf.Init(newFaction));
         return newFaction;
     }
     public FixedFaction DeepClone()
