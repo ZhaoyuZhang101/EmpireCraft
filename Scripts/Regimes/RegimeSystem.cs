@@ -121,9 +121,22 @@ public class Regime
     public bool has_cabinet;
     public int cabinet_number;
     public List<FixedFaction> Factions;
-    public List<FixedFaction> PlayerFactions;
+    private List<FixedFaction> PlayerFactions;
     public Dictionary<string, int[]> options;
     public BureauConfig bureau_config;
+
+    public List<FixedFaction> GetPlayerFactions()
+    {
+        if (PlayerFactions == null)
+        {
+            PlayerFactions =
+                new List<FixedFaction>(
+                    FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out List<FixedFaction> factions)
+                        ? factions.Select(f => f.DeepClone()).ToList()
+                        : Factions.Select(f => f.DeepClone()).ToList());
+        }
+        return PlayerFactions;
+    }
     public Regime Clone(Kingdom kingdom)
     {
         return new Regime
@@ -139,7 +152,7 @@ public class Regime
             era_name = this.era_name,
             has_cabinet = this.has_cabinet,
             Factions =  this.Factions.Select(f=>f.Clone()).ToList(),
-            PlayerFactions = FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out List<FixedFaction> factions)? factions.Select(f=>f.DeepClone()).ToList(): Factions.Select(f=>f.DeepClone()).ToList()
+            PlayerFactions = new List<FixedFaction>(FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out List<FixedFaction> factions)? factions.Select(f=>f.DeepClone()).ToList(): Factions.Select(f=>f.DeepClone()).ToList())
         };
     }
 
@@ -150,7 +163,7 @@ public class Regime
 
     public FixedFaction GetDominateFaction()
     {
-        if (PlayerFactions.Count<=0) return null;
+        if ((PlayerFactions?.Count??0)<=0) return null;
         var force = PlayerFactions.Find(f => f.Force);
         return force ?? PlayerFactions.OrderByDescending(a=>a.TotalPower).First();
     }

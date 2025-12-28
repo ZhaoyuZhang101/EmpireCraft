@@ -19,7 +19,7 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
         Regime regime = empire.CoreKingdom.GetRegime();
-        foreach (var ff in regime.PlayerFactions)
+        foreach (var ff in regime.GetPlayerFactions())
         {
             ff.FixMissedTemporaryFactions();
         }

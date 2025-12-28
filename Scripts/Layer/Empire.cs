@@ -510,7 +510,7 @@ public class Empire : MetaObject<EmpireData>
                 data.directPre = LM.Get("great");
             }
             data.has_year_name = regime.HasEraName();
-            regime.PlayerFactions.ForEach(f=>
+            regime.GetPlayerFactions().ForEach(f=>
             {
                 f.EmpireId = this.getID();
                 f.FixMissedTemporaryFactions();

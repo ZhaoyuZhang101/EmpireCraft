@@ -222,7 +222,7 @@ public abstract class TemporaryFaction
         {
             Kingdom kingdom = empire.CoreKingdom;
             Regime regime = kingdom.GetRegime();
-            return regime?.PlayerFactions?.Find(f => f.Type == factionType);
+            return regime?.GetPlayerFactions()?.Find(f => f.Type == factionType);
         }
 
         return null;

@@ -516,14 +516,14 @@ public static class UIHelper
     public static void InitialFactionSpace(AutoHoriLayoutGroup layout, Kingdom kingdom, List<GameObject> groups=null)
     {
         var factionSpace = layout;
-        foreach (FixedFaction faction in kingdom.GetRegime().PlayerFactions)
+        foreach (FixedFaction faction in kingdom.GetRegime().GetPlayerFactions())
         {
             AddFactionCard(faction, kingdom, factionSpace);
         }
         
-        if (kingdom.GetRegime().PlayerFactions.Count < 3)
+        if (kingdom.GetRegime().GetPlayerFactions().Count < 3)
         {
-            for (int i = 0; i < 3-kingdom.GetRegime().PlayerFactions.Count; i++)
+            for (int i = 0; i < 3-kingdom.GetRegime().GetPlayerFactions().Count; i++)
             {
                 var addFaction = factionSpace.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(55, 90));
                 addFaction.AddButtonIntoVertLayout("add_faction", "", () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(15, 15));
@@ -543,7 +543,7 @@ public static class UIHelper
         }, SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(10, 10), showTip:true);
         bottom.AddButtonIntoHoriLayout("save_faction", "", () =>
         {
-            FactionManager.Config.PlayerRegimeFactions[kingdom.GetRegime().type] = kingdom.GetRegime().PlayerFactions.Select(f=>f.DeepClone()).ToList();
+            FactionManager.Config.PlayerRegimeFactions[kingdom.GetRegime().type] = kingdom.GetRegime().GetPlayerFactions().Select(f=>f.DeepClone()).ToList();
             var res = FactionManager.Save();
             ActionLibrary.showWhisperTip(res ? "save_success" : "save_failed");
         }, SpriteTextureLoader.getSprite("ui/icons/iconSaveLocal"), size: new Vector2(10, 10), showTip:true);
@@ -587,7 +587,7 @@ public static class UIHelper
                 else
                 {
                     faction.Force = true;
-                    foreach (var f in kingdom.GetRegime().PlayerFactions)
+                    foreach (var f in kingdom.GetRegime().GetPlayerFactions())
                     {
                         if (f != faction)
                         {
@@ -610,15 +610,15 @@ public static class UIHelper
         {
             bottom.AddButtonIntoHoriLayout("add_faction", action: () =>
             {
-                kingdom.GetRegime().PlayerFactions.Add(faction);
+                kingdom.GetRegime().GetPlayerFactions().Add(faction);
                 kingdom.GetRegime().FactionSpace.transform.ClearChildren();
-                foreach (var f in kingdom.GetRegime().PlayerFactions)
+                foreach (var f in kingdom.GetRegime().GetPlayerFactions())
                 {
                     AddFactionCard(f, kingdom, kingdom.GetRegime().FactionSpace);
                 }
-                if (kingdom.GetRegime().PlayerFactions.Count < 3)
+                if (kingdom.GetRegime().GetPlayerFactions().Count < 3)
                 {
-                    for (int i = 0; i < 3-kingdom.GetRegime().PlayerFactions.Count; i++)
+                    for (int i = 0; i < 3-kingdom.GetRegime().GetPlayerFactions().Count; i++)
                     {
                         var addFaction = kingdom.GetRegime().FactionSpace.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(55, 90));
                         addFaction.AddButtonIntoVertLayout("add_faction", "", () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(15, 15));
@@ -637,7 +637,7 @@ public static class UIHelper
         {
             bottom.AddButtonIntoHoriLayout("remove_faction", action: () =>
             {
-                kingdom.GetRegime().PlayerFactions.Remove(faction);
+                kingdom.GetRegime().GetPlayerFactions().Remove(faction);
                 if (faction.CardUI)
                 {
                     Object.Destroy(faction.CardUI.gameObject);
