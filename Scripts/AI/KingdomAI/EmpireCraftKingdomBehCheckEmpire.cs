@@ -101,11 +101,11 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         }
         if (!pKingdom.IsEmpire())
         {
-            pKingdom.GetRegime().PlayerFactions.ForEach(f=>f.BanFaction());
+            pKingdom.GetRegime().GetPlayerFactions().ForEach(f=>f.BanFaction());
         }
         else
         {
-            pKingdom.GetRegime().PlayerFactions.ForEach(f =>
+            pKingdom.GetRegime().GetPlayerFactions().ForEach(f =>
             {
                 f.Ban = false;
                 f.Update();

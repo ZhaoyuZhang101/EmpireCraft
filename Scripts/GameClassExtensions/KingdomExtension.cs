@@ -476,7 +476,7 @@ public static class KingdomExtension
         {
             k.GetEmpire().data.centerOffice.Init(k);
         }
-        regime.PlayerFactions.ForEach(f=>
+        regime.GetPlayerFactions().ForEach(f=>
         {
             f.EmpireId = k.IsEmpire()?k.GetEmpireID():-1L;
             f.FixMissedTemporaryFactions();

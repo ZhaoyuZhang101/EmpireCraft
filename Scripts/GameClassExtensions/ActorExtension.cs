@@ -328,7 +328,7 @@ public static class ActorExtension
     public static FixedFaction GetFaction(this Actor a)
     {
         Empire empire = ModClass.EMPIRE_MANAGER.get(a.GetOrCreate().faction_empire);
-        List<FixedFaction> factions = empire?.CoreKingdom?.GetRegime().PlayerFactions??new List<FixedFaction>();
+        List<FixedFaction> factions = empire?.CoreKingdom?.GetRegime().GetPlayerFactions()??new List<FixedFaction>();
         foreach (FixedFaction faction in factions)
         {
             if (faction.Type == a.GetOrCreate().factionType)

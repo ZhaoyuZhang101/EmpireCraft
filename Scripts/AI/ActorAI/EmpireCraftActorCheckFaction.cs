@@ -31,7 +31,7 @@ public class EmpireCraftActorCheckFaction:GameAIActorBase
         }
         Regime regime = coreKingdom.GetRegime();
         if (regime == null) return BehResult.Continue;
-        var factions = regime.PlayerFactions;
+        var factions = regime.GetPlayerFactions();
         
         Random _rng = new Random();
         // 1) 先算每个派系概率（可加上下限）

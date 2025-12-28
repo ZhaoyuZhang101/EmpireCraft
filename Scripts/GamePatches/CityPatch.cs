@@ -333,8 +333,18 @@ public class CityPatch : GamePatch
         if (pNewSetKingdom.IsInEmpire()&&pCaptured&&!pKingdom.IsEmpire())
         {
             Empire empire = pNewSetKingdom.GetEmpire();
-            // 如果新加入的王国是帝国的一部分，并且城市被占领，则将城市加入帝国
-            pNewSetKingdom = empire.CoreKingdom;
+            if (!empire.CoreKingdom.isInWarWith(pKingdom))
+            {
+                var dominate = empire.CoreKingdom.GetRegime().GetDominateFaction();
+                if (dominate != null)
+                {
+                    if (dominate.Type != FactionType.自治 && dominate.Type != FactionType.诸侯)
+                    {
+                        // 如果新加入的王国是帝国的一部分，并且城市被占领，则将城市加入帝国
+                        pNewSetKingdom = empire.CoreKingdom;
+                    } 
+                }
+            }
         }
         __instance.setKingdom(pNewSetKingdom);
         __instance.newForceKingdomEvent(__instance.units, __instance._boats, pNewSetKingdom, pHappinessEvent);

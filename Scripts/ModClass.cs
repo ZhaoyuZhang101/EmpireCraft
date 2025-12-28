@@ -52,6 +52,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     {
         World.world.kingdoms.ToList().ForEach(pKingdom =>
         {
+            pKingdom.CheckEmpire();
             if (pKingdom.isRekt()) return;
             if (!pKingdom.IsEmpire()) return;
             Regime regime = pKingdom.GetRegime();

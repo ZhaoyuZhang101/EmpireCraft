@@ -285,6 +285,8 @@ public class FixedFaction
             TemporaryFactions = TemporaryFactions,
             TemporaryFactionTypesRecord = TemporaryFactionTypesRecord
         };
+        newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
+        newFaction.TemporaryFactions.ForEach(tf=>tf.Init(newFaction));
         return newFaction;
     }
 
