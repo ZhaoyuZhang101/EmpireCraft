@@ -106,7 +106,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
             FactionManager.Config.PlayerFactions.Add(_faction.DeepClone());
             if (saveIntoCurrentFaction)
             {
-                FactionManager.Config.PlayerRegimeFactions.Add(_kingdom.GetRegime().type, _kingdom.GetRegime().PlayerFactions.Select(f=>f.DeepClone()).ToList());
+                FactionManager.Config.PlayerRegimeFactions[_kingdom.GetRegime().type] = _kingdom.GetRegime().PlayerFactions.Select(f=>f.DeepClone()).ToList();
             }
             var res = FactionManager.Save();
             ActionLibrary.showWhisperTip(res ? "save_success" : "save_failed");

@@ -538,7 +538,15 @@ public static class UIHelper
             factionSpace.transform.ClearChildren();
             kingdom.GetRegime().RecoverFactions();
             InitialFactionSpace(factionSpace, kingdom, groups);
+            var res = FactionManager.Save();
+            ActionLibrary.showWhisperTip(res ? "save_success" : "save_failed");
         }, SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(10, 10), showTip:true);
+        bottom.AddButtonIntoHoriLayout("save_faction", "", () =>
+        {
+            FactionManager.Config.PlayerRegimeFactions[kingdom.GetRegime().type] = kingdom.GetRegime().PlayerFactions.Select(f=>f.DeepClone()).ToList();
+            var res = FactionManager.Save();
+            ActionLibrary.showWhisperTip(res ? "save_success" : "save_failed");
+        }, SpriteTextureLoader.getSprite("ui/icons/iconSaveLocal"), size: new Vector2(10, 10), showTip:true);
         bottom?.gameObject.AdjustTopPart(bottom.transform, Vector2.up*8);
         groups?.Add(factionSpace.gameObject);
     }
