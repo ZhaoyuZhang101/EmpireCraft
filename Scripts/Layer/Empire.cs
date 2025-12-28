@@ -510,7 +510,7 @@ public class Empire : MetaObject<EmpireData>
                 data.directPre = LM.Get("great");
             }
             data.has_year_name = regime.HasEraName();
-            regime.Factions.ForEach(f=>
+            regime.PlayerFactions.ForEach(f=>
             {
                 f.EmpireId = this.getID();
                 f.FixMissedTemporaryFactions();
@@ -1664,6 +1664,7 @@ public class Empire : MetaObject<EmpireData>
     public void SelectAndInspect()
     {
         EmpireCraftMetaTypeLibrary.selected_empire = this;
+        SelectedMetas.selected_kingdom = CoreKingdom;
         ScrollWindow.showWindow(nameof(EmpireWindow));
     }
 

@@ -105,8 +105,11 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
             cabinetMemberSpace2.AddActorViewIntoHoriLayout(member, 
                 description: member?.GetFaction()?.Name?.ColorString(pColor:new Color(0.0f, 1, 0.5f))??"无");
         }
-        
-        UIHelper.AddFactionCard(_empire.CoreKingdom.GetRegime().GetDominateFaction(), _empire.CoreKingdom, parentH:topSpace);
+        var dominate = _empire.CoreKingdom.GetRegime().GetDominateFaction();
+        if (dominate != null)
+        {
+            UIHelper.AddFactionCard(dominate, _empire.CoreKingdom, parentH:topSpace);
+        }
         
         topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
     }
@@ -119,9 +122,11 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
         var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
         centerPart.AddTextIntoVertLayout("无内阁", true, TextAnchor.MiddleCenter, new Vector2(80, 40));
-        
-        UIHelper.AddFactionCard(_empire.CoreKingdom.GetRegime().GetDominateFaction(), _empire.CoreKingdom, parentH:topSpace);
-        
+        var dominate = _empire.CoreKingdom.GetRegime().GetDominateFaction();
+        if (dominate != null)
+        {
+            UIHelper.AddFactionCard(dominate, _empire.CoreKingdom, parentH:topSpace);
+        }
         topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
     }
     public void ShowCoreSpace()

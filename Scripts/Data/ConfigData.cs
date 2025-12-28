@@ -27,7 +27,6 @@ namespace EmpireCraft.Scripts.Data
         public static City selected_cityB;
         [JsonIgnore]
         public static FixedFaction CURRENT_SELECTED_FACTION;
-
         public static List<ActorAsset> AllCivSpecies => AssetManager.actor_library.list.FindAll(a => a.civ);
         //this coverd all civ species in the game
         public static List<string> yearNameSubspecies = new() 

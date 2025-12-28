@@ -204,6 +204,7 @@ public static class EmpireCraftMetaTypeLibrary
           if (pObject.isRekt())
             return;
           selected_empire = pObject;
+          SelectedMetas.selected_kingdom = selected_empire.CoreKingdom;
           ScrollWindow.showWindow(nameof(EmpireWindow));
         });
         empire = AssetManager.meta_type_library.add(pAsset13);
@@ -370,6 +371,7 @@ public static class EmpireCraftMetaTypeLibrary
 	    switch (pMetaTypeAsset.map_mode)
 	    {
 		    case MetaTypeExtension.Empire:
+          SelectedMetas.selected_kingdom = selected_empire.CoreKingdom;
 			    ScrollWindow.showWindow(nameof(EmpireWindow));
 			    break;
 		    case MetaTypeExtension.KingdomTitle:
@@ -398,6 +400,7 @@ public static class EmpireCraftMetaTypeLibrary
       if (pTile.zone_city.kingdom.GetEmpire().isRekt()) return false;
       Empire pEmpire = pTile.zone_city.kingdom.GetEmpire();
       selected_empire = pEmpire;
+      SelectedMetas.selected_kingdom = selected_empire.CoreKingdom;
       ScrollWindow.showWindow(nameof(EmpireWindow));
       return true;
     }

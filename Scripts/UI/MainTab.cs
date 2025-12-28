@@ -69,6 +69,8 @@ internal static class MainTab
             nameof(TraitsSelectWindow) + "Title");
         AddFactionMemberWindow.CreateWindow(nameof(AddFactionMemberWindow),
             nameof(AddFactionMemberWindow) + "Title");
+        AddFactionWindow.CreateWindow(nameof(AddFactionWindow),
+            nameof(AddFactionWindow) + "Title");
     }
     [Hotfixable]
     private static void _addButtons()

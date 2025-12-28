@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
 using NeoModLoader.General;
+using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.services;
 using Newtonsoft.Json;
 
@@ -108,16 +109,19 @@ public enum ReligionLevel
 
 public class Regime
 {
-    public RegimeType  type;
+    public RegimeType type;
     public string description;
     public string icon_url;
     public bool era_name;
     [JsonIgnore]
     public long control_kingdom_id;
+    [JsonIgnore] 
+    public AutoHoriLayoutGroup FactionSpace;
     public LeaderSelectMethod leader_select_method; 
     public bool has_cabinet;
     public int cabinet_number;
     public List<FixedFaction> Factions;
+    public List<FixedFaction> PlayerFactions;
     public Dictionary<string, int[]> options;
     public BureauConfig bureau_config;
     public Regime Clone(Kingdom kingdom)
@@ -134,24 +138,27 @@ public class Regime
             bureau_config = this.bureau_config,
             era_name = this.era_name,
             has_cabinet = this.has_cabinet,
-            Factions =  this.Factions.Select(f=>
-            {
-                var nf = f.Clone();
-                return nf;
-            }).ToList(),
+            Factions =  this.Factions.Select(f=>f.Clone()).ToList(),
+            PlayerFactions = FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out List<FixedFaction> factions)? factions.Select(f=>f.DeepClone()).ToList(): Factions.Select(f=>f.DeepClone()).ToList()
         };
+    }
+
+    public void RecoverFactions()
+    {
+        PlayerFactions = Factions.Select(f => f.Clone()).ToList();
     }
 
     public FixedFaction GetDominateFaction()
     {
-        var force = Factions.Find(f => f.Force);
-        return force ?? Factions.OrderByDescending(a=>a.TotalPower).First();
+        if (PlayerFactions.Count<=0) return null;
+        var force = PlayerFactions.Find(f => f.Force);
+        return force ?? PlayerFactions.OrderByDescending(a=>a.TotalPower).First();
     }
 
     public List<Actor> GetAllFactionMembers()
     {
         var res = new List<Actor>();
-        foreach (var f in Factions)
+        foreach (var f in PlayerFactions)
         {
             res.AddRange(f.Members.Select(a=>World.world.units.get(a)));
         }

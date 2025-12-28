@@ -101,11 +101,11 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         }
         if (!pKingdom.IsEmpire())
         {
-            pKingdom.GetRegime().Factions.ForEach(f=>f.BanFaction());
+            pKingdom.GetRegime().PlayerFactions.ForEach(f=>f.BanFaction());
         }
         else
         {
-            pKingdom.GetRegime().Factions.ForEach(f =>
+            pKingdom.GetRegime().PlayerFactions.ForEach(f =>
             {
                 f.Ban = false;
                 f.Update();
@@ -140,7 +140,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             empire.CoreKingdom.SubMoney(militaryCost);
             if (empire.CoreKingdom.hasEnemies())
             {
-                var warExpend = (empire.countWarriors() / 2) * empire.CoreKingdom.getWars().Count();
+                var warExpend = (empire.countWarriors() / 4) * empire.CoreKingdom.getWars().Count();
                 empire.CoreKingdom.SubMoney(warExpend);
             }
 

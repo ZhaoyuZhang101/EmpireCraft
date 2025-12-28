@@ -154,8 +154,12 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
         var hori = vertCard.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         if (!empire.isRekt())
         {
-            EmpireCraftMetaTypeLibrary.selected_empire = empire;
-            hori.AddButtonIntoHoriLayout("enter_empire", "帝国", () => { ScrollWindow.showWindow(nameof(EmpireWindow));}, size:new Vector2(15, 10));
+            hori.AddButtonIntoHoriLayout("enter_empire", "帝国", () =>
+            {
+                EmpireCraftMetaTypeLibrary.selected_empire = empire;
+                SelectedMetas.selected_kingdom = empire.CoreKingdom;
+                ScrollWindow.showWindow(nameof(EmpireWindow));
+            }, size:new Vector2(15, 10));
         }
         
         hori.AddButtonIntoHoriLayout("enter_empire", "详情", ()=> OpenWindow(actor), size:new Vector2(15, 10));
