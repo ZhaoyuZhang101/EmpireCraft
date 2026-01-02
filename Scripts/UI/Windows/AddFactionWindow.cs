@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Regimes;
@@ -7,7 +8,6 @@ using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
-using NotImplementedException = System.NotImplementedException;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
@@ -54,6 +54,7 @@ public class AddFactionWindow: AutoLayoutWindow<AddFactionWindow>
         {
             FixedFaction blank = new FixedFaction
             {
+                _id = Guid.NewGuid().ToString(),
                 TemporaryFactions = new List<TemporaryFaction>(),
                 TemporaryFactionTypesRecord = new List<TemporaryFactionType>(),
                 Type = FactionType.无

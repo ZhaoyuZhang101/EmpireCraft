@@ -201,20 +201,21 @@ public static class KingdomExtension
         empire.CoreKingdom.AddMoney(value);
         if (k.GetMoney()<=0)
         {
-            k.GetOrCreate().leave_taken_alliance_preference += 0.1f;
-        }
-
-        if (k.GetOrCreate().leave_taken_alliance_preference >= 1.0)
-        {
-            k.RemoveTakenAlliance();
-            Random random = new Random();
-            var possibility = random.NextDouble();
-            if (possibility < 0.3f)
+            if (k.units.Count / 3 > empire.getUnits().Count())
             {
-                var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, k, WarTypeLibrary.normal);
-                war.SetEmpireWarType(EmpireWarType.伐不臣);
+                k.GetOrCreate().leave_taken_alliance_preference += 0.05f;
             }
         }
+
+        if (!(k.GetOrCreate().leave_taken_alliance_preference >= 1.0)) return;
+        k.RemoveTakenAlliance();
+        Random random = new Random();
+        var possibility = random.NextDouble();
+        if (empire.CoreKingdom.GetMoney() <= 0) return;
+        if (k.countTotalWarriors() > empire.countWarriors()) return;
+        if (!(possibility < 0.2f)) return;
+        var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, k, WarTypeLibrary.normal);
+        war.SetEmpireWarType(EmpireWarType.伐不臣);
     }
     /// <summary>
     /// 获取当前国家退出朝贡联盟的倾向
@@ -736,8 +737,6 @@ public static class KingdomExtension
         {
             if (kingdom.GetEmpire().isRekt())
             {
-                LogService.LogInfo(ModClass.EMPIRE_MANAGER.Count.ToString());
-                LogService.LogInfo(kingdom.GetOrCreate().EmpireID.ToString());
                 kingdom.EmpireLeave();
             }
             else

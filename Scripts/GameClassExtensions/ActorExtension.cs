@@ -297,8 +297,7 @@ public static class ActorExtension
         public PeerageType peerageType;
         public List<long> want_acuired_title = new List<long>();
         public List<long> owned_title = new List<long>();
-        public FactionType factionType = FactionType.无;
-        public long faction_empire = -1L;
+        public string factionID = "";
         public Name name;
         public bool has_become_cleric = false;
         public OfficeIdentity officeIdentity { get; set; } = null;
@@ -327,35 +326,38 @@ public static class ActorExtension
     }
     public static FixedFaction GetFaction(this Actor a)
     {
-        Empire empire = ModClass.EMPIRE_MANAGER.get(a.GetOrCreate().faction_empire);
-        List<FixedFaction> factions = empire?.CoreKingdom?.GetRegime().GetPlayerFactions()??new List<FixedFaction>();
-        foreach (FixedFaction faction in factions)
+        foreach (var empire in ModClass.EMPIRE_MANAGER.ToList())
         {
-            if (faction.Type == a.GetOrCreate().factionType)
+            var regime = empire.CoreKingdom?.GetRegime();
+            if (regime == null) continue;
+            foreach (var faction in regime.GetPlayerFactions().ToList())
             {
-                return faction;
+                var id = faction.GetID();
+                if (id == a.GetOrCreate().factionID)
+                {
+                    return faction;
+                }
             }
         }
-
         return null;
     }
 
     public static void SetFaction(this Actor a, FixedFaction faction)
     {
         var lastFaction = a.GetFaction();
-        if (lastFaction != null)
-        {
-            lastFaction.RemoveMember(a);
-        } 
+        lastFaction?.RemoveMember(a);
         faction.AddMember(a);
-        a.GetOrCreate().factionType = faction.Type;
-        a.GetOrCreate().faction_empire = faction.EmpireId;
+        a.GetOrCreate().factionID = faction.GetID();
     }
 
     public static void RemoveFaction(this Actor a)
     {
-        a.GetOrCreate().factionType = FactionType.无;
-        a.GetOrCreate().faction_empire = -1L;
+        a.GetOrCreate().factionID = "";
+    }
+
+    public static bool HasFaction(this Actor a)
+    {
+        return !string.IsNullOrEmpty(a.GetOrCreate().factionID);
     }
 
     public static void EndOffice(this Actor a)

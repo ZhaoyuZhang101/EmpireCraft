@@ -30,6 +30,7 @@ public abstract class TemporaryFaction
     [JsonIgnore] 
     public AdvancedButton activeButton;
     public long EmpireID = -1L;
+    public long KingdomID = -1L;
     public long TargetID = -1L;
     public MetaType TargetType = MetaType.None;
     
@@ -40,7 +41,6 @@ public abstract class TemporaryFaction
     private bool started = false;
     public double timestamp = -1L;
     public double countDownTimestamp = -1L;
-    
     public virtual void Init(FixedFaction faction)
     {
         factionType = faction.Type;
@@ -50,7 +50,7 @@ public abstract class TemporaryFaction
         started     = false;
         countDownTimestamp = World.world.getCurWorldTime();
     }
-
+    public abstract TemporaryFaction Clone(FixedFaction faction);
     public bool IsNeedToCountDown()
     {
         if (Date.getYearsSince(countDownTimestamp) > 1)
@@ -63,6 +63,14 @@ public abstract class TemporaryFaction
     public void SetEmpire(Empire pEmpire)
     {
         this.EmpireID = pEmpire.getID();
+    }  
+    public void SetKingdom(Kingdom pKingdom)
+    {
+        this.KingdomID = pKingdom.getID();
+    }    
+    public Kingdom GetKingdom()
+    {
+        return World.world.kingdoms.get(KingdomID);
     }    
     
     // 统一入口：设定“国家目标”
@@ -323,7 +331,6 @@ public abstract class TemporaryFaction
     {
         if (Date.getMonthsSince(timestamp) >= 1)
         {
-            LogService.LogInfo("更新");
             Update();
             timestamp = World.world.getCurWorldTime();
         }

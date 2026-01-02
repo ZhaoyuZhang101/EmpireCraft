@@ -388,6 +388,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         fourthPart.AddButtonIntoVertLayout("remove_tfaction", "", () =>
         {
             _faction.TemporaryFactions.Remove(pFaction);
+            _faction.TemporaryFactionTypesRecord.Remove(pFaction.type);
             ShowClaims();
         }, icon: SpriteTextureLoader.getSprite("ui/iconRemove"), size: new Vector2(13, 13));
         tfSpace.transform.AddStretchBackground("FactionFrame", new Vector2(200, 30));

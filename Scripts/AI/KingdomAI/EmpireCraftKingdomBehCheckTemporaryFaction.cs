@@ -4,6 +4,7 @@ using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using NeoModLoader.General.Game.extensions;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
@@ -18,11 +19,11 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
         if (pKingdom.GetEmpire()==null) return BehResult.Continue;
         Regime regime = pKingdom.GetRegime();
+        regime.GetPlayerFactions().ForEach(f=>f.EmpireId = pKingdom.GetEmpire().getID());
         FixedFaction dominateFaction = regime.GetDominateFaction();
         if (dominateFaction == null) return BehResult.Continue;
-        foreach (var ff in regime.GetPlayerFactions())
+        foreach (var ff in regime.GetPlayerFactions().Where(ff => ff != dominateFaction))
         {
-            if (ff==dominateFaction) continue;
             ff.TemporaryFactions.ForEach(tf => tf.End());
         } 
         if (dominateFaction.IsAnyTFactionRuns()) return BehResult.Continue;
@@ -34,7 +35,6 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
                 if (pKingdom.GetEmpire().GetCabinetLeader()?.GetFaction() != dominateFaction) return BehResult.Continue;
             }
         }
-
         var shuffledTf = dominateFaction.TemporaryFactions.ToList();
         shuffledTf.Shuffle();
         foreach (var tf in shuffledTf)

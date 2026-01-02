@@ -537,7 +537,7 @@ public static class EmpireCraftNamePlateLibrary
                             $"\n{(empire.EmpireClan?.name ?? "无皇室").ColorString(pColor: Color.yellow)} | 主导: {faction.Name}" +
                             moneyText + "\n"+
                             text.ColorString(pColor: pMetaObject.getColor()._color_banner) +
-                            $"\n诉求：{(faction.IsAnyTFactionRuns() ? tf.type : TemporaryFactionType.无)}".ColorString(
+                            $"\n诉求：{(faction.IsAnyTFactionRuns() ? tf.type.ToString(): "无")}".ColorString(
                                 pColor: new Color(0.5f, 0.9f, 0.5f)) +
                             (faction.IsAnyTFactionRuns()
                                 ? $"({(int)(tf.progress / (tf.progressMax - tf.acceleration) * 100)}/100)"

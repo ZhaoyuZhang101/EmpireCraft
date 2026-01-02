@@ -115,6 +115,8 @@ public class ActorPatch : GamePatch
             }
         }
 
+        var faction = __instance.GetFaction();
+        faction?.RemoveMember(__instance);
         if (__instance.isKing()&&__instance.kingdom.HasHeir())
         {
             var heir = __instance.kingdom.GetHeir();

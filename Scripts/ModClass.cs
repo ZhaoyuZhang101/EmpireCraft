@@ -50,31 +50,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     private void FixedUpdate()
     {
-        World.world.kingdoms.ToList().ForEach(pKingdom =>
-        {
-            pKingdom.CheckEmpire();
-            if (pKingdom.isRekt()) return;
-            if (!pKingdom.IsEmpire()) return;
-            Regime regime = pKingdom.GetRegime();
-            if (regime==null) return;
-            var ff = regime.GetDominateFaction();
-            if (ff==null) return;
-            foreach (var tf in ff.TemporaryFactions)
-            {
-                tf.SetEmpire(pKingdom.GetEmpire());
-                if (tf.IsNeedToCountDown())
-                {
-                    if (tf.CountDown > 0)
-                    {
-                        tf.CountDown -= 1;
-                    }
-                }
-                if (tf.IsStarted())
-                {
-                    tf.CheckNeedToUpdate();
-                }
-            }
-        });
 
         KINGDOM_TITLE_MANAGER.update(-1L);
 
@@ -136,9 +111,12 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
             {
                 try
                 {
-                    GamePatch patch = (GamePatch)type.GetConstructor(new Type[] { }).Invoke(new object[] { });
-                    patch.declare = _declare;
-                    patch.Initialize();
+                    GamePatch patch = (GamePatch)type.GetConstructor(new Type[] { })?.Invoke(new object[] { });
+                    if (patch != null)
+                    {
+                        patch.declare = _declare;
+                        patch.Initialize();
+                    }
                 }
                 catch (Exception e)
                 {
@@ -196,11 +174,11 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     public void Reload()
     {
-        LogService.LogInfo("EmpireCraft Reload Finish！！");
-        
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
         LoadCultureNameTemplate();
         LM.ApplyLocale();
+        FactionManager.ConvertToObjectFromFactionType();
+        LogService.LogInfo("EmpireCraft Reload Finish！！");
         // You can reload your mod here, such as reloading configs, reloading UI, etc.
     }
 

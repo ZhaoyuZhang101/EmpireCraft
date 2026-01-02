@@ -2,7 +2,6 @@ using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GamePatches;
 using HarmonyLib;
 using NeoModLoader.api;
-using NotImplementedException = System.NotImplementedException;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 
@@ -11,13 +10,13 @@ public class ZonesPatch:GamePatch
     public ModDeclare declare { get; set; }
     public void Initialize()
     {
-        new Harmony(nameof(getCurrentMapBorderMode)).Patch(
+        new Harmony(nameof(GetCurrentMapBorderMode)).Patch(
             AccessTools.Method(typeof(Zones), nameof(Zones.getCurrentMapBorderMode)),
-            prefix: new HarmonyMethod(GetType(), nameof(getCurrentMapBorderMode))
+            prefix: new HarmonyMethod(GetType(), nameof(GetCurrentMapBorderMode))
         );
     }
     
-    public static bool getCurrentMapBorderMode(bool pCheckOnlyOption, ref MetaType __result)
+    public static bool GetCurrentMapBorderMode(bool pCheckOnlyOption, ref MetaType __result)
     {
         if (Zones.showCultureZones(pCheckOnlyOption))
         {

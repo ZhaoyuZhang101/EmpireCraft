@@ -15,7 +15,6 @@ using NeoModLoader.services;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
-using NotImplementedException = System.NotImplementedException;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 

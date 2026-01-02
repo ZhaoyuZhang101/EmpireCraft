@@ -16,7 +16,7 @@ public class EmpireCraftActorCheckFaction:GameAIActorBase
     public override BehResult execute(Actor pActor)
     {
         if (!pActor.isAdult()) return BehResult.Continue;
-        if (pActor.GetFaction() != null) return BehResult.Continue;
+        if (pActor.HasFaction()) return BehResult.Continue;
         if (!pActor.IsOnOffice()) return BehResult.Continue;
         if (!pActor.HasOfficeIdentity()) return BehResult.Continue;
         if (pActor.IsEmperor()) return BehResult.Continue;

@@ -41,5 +41,16 @@ public static class EmpireCraftBehaviourTaskLibrary
         obj3.addBeh(new KingdomBehRandomWait(1f));
         AssetManager.tasks_kingdom.add(obj3);
         AssetManager.job_kingdom.t.addTask("do_mod_kingdom_beh");
+        
+        //国家2
+        LogService.LogInfo("初始化帝国模组王国意志逻辑");
+        BehaviourTaskKingdom obj4 = new BehaviourTaskKingdom
+        {
+            id = "do_mod_kingdom_mind_beh"
+        };
+        obj4.KingdomMindAIs(AssetManager.tasks_kingdom);
+        obj4.addBeh(new KingdomBehRandomWait(0.02f));
+        AssetManager.tasks_kingdom.add(obj4);
+        AssetManager.job_kingdom.t.addTask("do_mod_kingdom_mind_beh");
     }
 }

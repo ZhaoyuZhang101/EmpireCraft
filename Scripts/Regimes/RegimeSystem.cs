@@ -120,28 +120,27 @@ public class Regime
     public LeaderSelectMethod leader_select_method; 
     public bool has_cabinet;
     public int cabinet_number;
+    public FixedFaction CentreMind;
     public List<FixedFaction> Factions;
-    private List<FixedFaction> PlayerFactions;
+    public List<FixedFaction> PlayerFactions;
     public Dictionary<string, int[]> options;
     public BureauConfig bureau_config;
 
-    public List<FixedFaction> GetPlayerFactions()
-    {
-        if (PlayerFactions == null)
-        {
-            PlayerFactions =
-                new List<FixedFaction>(
-                    FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out List<FixedFaction> factions)
-                        ? factions.Select(f => f.DeepClone()).ToList()
-                        : Factions.Select(f => f.DeepClone()).ToList());
-        }
-        return PlayerFactions;
-    }
+    public List<FixedFaction> GetPlayerFactions() =>
+        PlayerFactions ??= new List<FixedFaction>(
+            FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out List<FixedFaction> factions)
+                ? factions.Select(f => f.DeepClone()).ToList()
+                : Factions.Select(f => f.DeepClone()).ToList());
+
     public Regime Clone(Kingdom kingdom)
     {
-        return new Regime
+        var res = new Regime
         {
             type = this.type,
+            CentreMind = new FixedFaction()
+            {
+                _id = Guid.NewGuid().ToString(),
+            },
             description = this.description,
             control_kingdom_id = kingdom.getID(),
             options = this.options.ToDictionary(
@@ -151,9 +150,11 @@ public class Regime
             bureau_config = this.bureau_config,
             era_name = this.era_name,
             has_cabinet = this.has_cabinet,
-            Factions =  this.Factions.Select(f=>f.Clone()).ToList(),
-            PlayerFactions = new List<FixedFaction>(FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out List<FixedFaction> factions)? factions.Select(f=>f.DeepClone()).ToList(): Factions.Select(f=>f.DeepClone()).ToList())
+            Factions = this.Factions.Select(f => f.Clone()).ToList()
         };
+        var hasConfig = FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out var factions);
+        res.PlayerFactions = hasConfig ? factions.Select(f => f.DeepClone()).ToList() : Factions.Select(f => f.DeepClone()).ToList();
+        return res;
     }
 
     public void RecoverFactions()
