@@ -2,7 +2,6 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using HarmonyLib;
 using NeoModLoader.api;
 using UnityEngine;
-using NotImplementedException = System.NotImplementedException;
 
 namespace EmpireCraft.Scripts.GamePatches;
 

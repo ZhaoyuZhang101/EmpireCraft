@@ -51,5 +51,5 @@ public enum TemporaryFactionType
     划地给教廷,
     神授君权,
     恢复圣地,
-    无
+    国_打击贪腐
 }

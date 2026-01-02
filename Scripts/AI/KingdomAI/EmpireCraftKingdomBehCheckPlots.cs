@@ -37,6 +37,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         foreach (var war in DiplomacyHelpers.wars)
         {
             if (!war.main_attacker?.hasReligion()??true) continue;
+            if (war.main_defender.isRekt()) continue;
             if (war.hasKingdom(pKingdom)) continue;
             if (war.GetEmpireWarType() == EmpireWarType.神圣)
             {
@@ -68,7 +69,6 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
             }
         }
     }
-    [Hotfixable]
     public void CheckJoinWar(Kingdom pKingdom)
     {
         Empire empire = pKingdom.GetEmpire();
@@ -95,7 +95,6 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
             {
                 foreach (var empireKingdom in empire.kingdoms_list.ToList())
                 {
-                    LogService.LogInfo(empireKingdom.name);
                     if (empireKingdom.IsEmpire()) continue;
                     if (pKingdom.isInWarWith(empireKingdom)) continue;
                     if (pKingdom.isInWarOnSameSide(empireKingdom)) continue;

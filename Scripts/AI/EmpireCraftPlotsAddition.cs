@@ -111,6 +111,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     Regime regime = kingdom.GetRegime();
                     if (regime == null) return false;
+                    if (kingdom.hasEnemies()) return false;
                     if (kingdom.getWars().Any(w => w.GetEmpireWarType() == EmpireWarType.神圣)) return false;
                     if (regime.type != RegimeType.Feudalism || regime.GetReligionLevel() != ReligionLevel.High)
                         return false;

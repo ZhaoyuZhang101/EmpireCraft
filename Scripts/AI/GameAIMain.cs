@@ -5,6 +5,7 @@ using ai.behaviours;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.AI.CityAI;
 using EmpireCraft.Scripts.AI.KingdomAI;
+using EmpireCraft.Scripts.AI.KingdomMindAI;
 using EmpireCraft.Scripts.GameLibrary;
 using HarmonyLib;
 using NeoModLoader.services;
@@ -28,6 +29,36 @@ public static class GameAIMain
             var beh = (GameAIKingdomBase) Activator.CreateInstance(type);
             var id = beh.OriginalBeh.ToString().Split('.').Last();
             LogService.LogInfo("载入模组国家AI: " + beh.GetType().ToString().Split('.').Last());
+            foreach (var bt in lib.list)
+            {
+                foreach (var action in bt.list.ToList())
+                {
+                    if (action.id == id)
+                    {
+                        LogService.LogInfo($"存在原版同类逻辑{id}，已覆盖");
+                        bt.list.Remove(action);
+                    }
+                }
+            }
+            beh.create();
+            t.addBeh(beh);
+        }
+    }
+    public static void KingdomMindAIs(this BehaviourTaskKingdom t, BehaviourTaskKingdomLibrary lib)
+    {
+        t.addBeh(new KingdomBehCheckCapital());
+        var asm = Assembly.GetExecutingAssembly();
+        var types = asm.GetTypes()
+            .Where(ty =>
+                    !ty.IsAbstract
+                    && typeof(GameAIKingdomMindBase).IsAssignableFrom(ty)
+                    && ty.GetConstructor(Type.EmptyTypes) != null 
+            );
+        foreach (var type in types)
+        {
+            var beh = (GameAIKingdomMindBase) Activator.CreateInstance(type);
+            var id = beh.OriginalBeh.ToString().Split('.').Last();
+            LogService.LogInfo("载入模组国家移植AI: " + beh.GetType().ToString().Split('.').Last());
             foreach (var bt in lib.list)
             {
                 foreach (var action in bt.list.ToList())

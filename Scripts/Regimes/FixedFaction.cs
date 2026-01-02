@@ -10,6 +10,7 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
+using NCMS.Extensions;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.services;
 using Newtonsoft.Json;
@@ -18,7 +19,9 @@ namespace EmpireCraft.Scripts.Regimes;
 
 public static class FactionManager
 {
-    [JsonIgnore] public static Dictionary<FactionType, List<TemporaryFactionType>> FactionConfig =
+    public static Dictionary<TemporaryFactionType, TemporaryFaction> StoredTemporaryFaction = new ();
+    [JsonIgnore] 
+    public static Dictionary<FactionType, List<TemporaryFactionType>> FactionConfig =
         new()
         {
             {
@@ -129,6 +132,51 @@ public static class FactionManager
     public static void init()
     {
         Load();
+        ConvertToObjectFromFactionType();
+    }
+    public static void ConvertToObjectFromFactionType()
+    {
+
+        // 收集所有可用类型（避免 ReflectionTypeLoadException）
+        var allTypes = new List<Type>();
+        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try { allTypes.AddRange(asm.GetTypes()); }
+            catch (ReflectionTypeLoadException e)
+            {
+                allTypes.AddRange(e.Types.Where(t => t != null));
+            }
+        }
+
+        // 只保留派生自 TemporaryFaction 的具体类型
+        var candidateTypes = allTypes
+            .Where(t => t != null
+                        && typeof(TemporaryFaction).IsAssignableFrom(t)
+                        && !t.IsAbstract)
+            .ToList();
+
+        foreach (var e in candidateTypes)
+        {
+            // 约定：类名为 "TempFac_" + 枚举名
+            string className = e.ToString().Split('.').Last();
+            var t = candidateTypes.FirstOrDefault(x => x.Name == className);
+            if (t == null)
+            {
+                LogService.LogError($"TemporaryFaction class not found: {className}");
+                continue;
+            }
+            try
+            {
+                var inst = Activator.CreateInstance(t) as TemporaryFaction;
+                if (inst == null) continue;
+                StoredTemporaryFaction.Add(inst.type, inst);
+                LogService.LogInfo($"初始化诉求{inst.type}");
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"Create TemporaryFaction failed: {className}, {ex}");
+            }
+        }
     }
 
     public static bool Save()
@@ -205,7 +253,7 @@ public enum FactionType
 }
 public class FixedFaction
 {
-    private string _id;
+    public string _id;
     //特质需求（拥有该特质的人会更加倾向于加入此派系）
     public List<string> _requiredTraits = new();
     public List<string> RequiredTraits = new();
@@ -229,7 +277,6 @@ public class FixedFaction
     //倾向于推动的政策
     [JsonIgnore]
     public List<TemporaryFactionType> TemporaryFactionTypes => FactionManager.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
-
     public List<TemporaryFactionType> TemporaryFactionTypesRecord;
     public List<TemporaryFaction> TemporaryFactions;
     public long Leader = -1L;
@@ -253,7 +300,7 @@ public class FixedFaction
     {
         FixedFaction newFaction = new FixedFaction()
         {
-            _id = _id,
+            _id = Guid.NewGuid().ToString(),
             RequiredTraits = _requiredTraits.ToList(),
             _requiredTraits = _requiredTraits,
             Type = Type,
@@ -273,7 +320,7 @@ public class FixedFaction
     {
         FixedFaction newFaction = new FixedFaction()
         {
-            _id = _id,
+            _id = Guid.NewGuid().ToString(),
             RequiredTraits = RequiredTraits,
             _requiredTraits = _requiredTraits,
             Type = Type,
@@ -319,48 +366,14 @@ public class FixedFaction
         if (typesToBuild == null || typesToBuild.Count == 0)
             return result;
 
-        // 收集所有可用类型（避免 ReflectionTypeLoadException）
-        var allTypes = new List<Type>();
-        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-        {
-            try { allTypes.AddRange(asm.GetTypes()); }
-            catch (ReflectionTypeLoadException e)
-            {
-                allTypes.AddRange(e.Types.Where(t => t != null));
-            }
-        }
-
-        // 只保留派生自 TemporaryFaction 的具体类型
-        var candidateTypes = allTypes
-            .Where(t => t != null
-                        && typeof(TemporaryFaction).IsAssignableFrom(t)
-                        && !t.IsAbstract)
-            .ToList();
-
         foreach (var e in typesToBuild)
         {
-            // 约定：类名为 "TempFac_" + 枚举名
-            string className = "TempFac_" + e.ToString();
-
-            var t = candidateTypes.FirstOrDefault(x => x.Name == className);
-            if (t == null)
+            if (FactionManager.StoredTemporaryFaction.TryGetValue(e, out var value))
             {
-                LogService.LogError($"TemporaryFaction class not found: {className}");
-                continue;
-            }
-
-            try
-            {
-                var inst = Activator.CreateInstance(t) as TemporaryFaction;
-                if (inst == null) continue;
-                result.Add(inst);
-            }
-            catch (Exception ex)
-            {
-                LogService.LogError($"Create TemporaryFaction failed: {className}, {ex}");
+                result.Add(value.Clone(this));
+                LogService.LogInfo($"加入诉求{e}");
             }
         }
-
         return result;
     }
     public float CalcPossibility(Actor pActor, float minProb = 0.5f, float maxProb = 0.95f)

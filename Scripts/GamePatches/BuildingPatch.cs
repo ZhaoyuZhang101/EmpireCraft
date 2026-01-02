@@ -4,7 +4,6 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using HarmonyLib;
 using NeoModLoader.api;
-using NotImplementedException = System.NotImplementedException;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
@@ -49,10 +48,6 @@ public class BuildingPatch: GamePatch
         bool pMetallicWeapon,
         bool pCheckDamageReduction)
     {
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_building_destroy.isEnabled()&&__instance.asset.building_type == BuildingType.Building_Civ&&!__instance.asset.tower_attack_buildings )
-        {
-            return false;
-        }
-        return true;
+        return !EmpireCraftWorldLawLibrary.empirecraft_law_prevent_building_destroy.isEnabled() || __instance.asset.building_type != BuildingType.Building_Civ || __instance.asset.tower_attack_buildings;
     }
 }

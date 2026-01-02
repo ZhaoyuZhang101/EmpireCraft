@@ -8,25 +8,34 @@
 
 import re
 from pathlib import Path
-
+EMPIRE_PRE = "TempFac"
+EMPIRE_SUF = "Empire empire = GetEmpire();"
+KINGDOM_PRE = "KingdomMind"
+KINGDOM_SUF = "var kingdom = GetKingdom();"
 TEMPLATE = """using NeoModLoader.services;
 using EmpireCraft.Scripts.Layer;
-namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
+namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.{class_type};
 
-public class TempFac_{type_name} : TemporaryFaction
+public class {TempFac}_{type_name} : TemporaryFaction
 {{
+    public override TemporaryFaction Clone(FixedFaction faction)
+    {{
+        var res = new {TempFac}_{type_name}();
+        res.Init(faction);
+        return res;
+    }}
     
     public override void Execute()
     {{
         LogService.LogInfo($\"执行{{this.type}}\");
-        Empire empire = GetEmpire();
+        {suf}
         FinishedAction();
         End();
     }}
-
+    
     public override bool CheckCondition()
     {{
-        Empire empire = GetEmpire();
+        {suf}
         return false;
     }}
 }}
@@ -43,10 +52,11 @@ def find_enum_file(root: Path) -> Path:
 
 def parse_enum(enum_path: Path) -> list[str]:
     text = enum_path.read_text(encoding="utf-8")
-    m = re.search(r"public\s+enum\s+TemporaryFactionType\s*\{(?P<body>.*?)\}", text, re.S)
+    m = re.search(r"public\s+enum\s+TemporaryFactionType\s*\s*\{(?P<body>.*?)\}", text, re.S)
     if not m:
         raise RuntimeError("没有在文件中找到 public enum TemporaryFactionType { ... }")
     body = re.sub(r"//.*", "", m.group("body"))  # 去掉行内注释
+    body = re.sub(r"\[[^\]]*\]\s*", "", body)
     items = []
     for line in body.splitlines():
         line = line.strip().rstrip(",")
@@ -76,12 +86,23 @@ def main():
 
     created, skipped = 0, 0
     for name in items:
-        out_path = out_dir / f"TempFac_{name}.cs"
+        if name.__contains__("国_"):
+            pre = KINGDOM_PRE
+            name = name.replace("国_", "")
+            out_path = out_dir /"KingdomMinds"/ f"{pre}_{name}.cs"
+            class_type = "KingdomMinds"
+            suffix = KINGDOM_SUF
+        else:
+            pre = EMPIRE_PRE
+            out_path = out_dir /"Claims"/ f"{pre}_{name}.cs"
+            class_type = "Claims"
+            suffix = EMPIRE_SUF
+        
         if out_path.exists():
             print(f"跳过（已存在）：{out_path.name}")
             skipped += 1
             continue
-        out_path.write_text(TEMPLATE.format(type_name=name), encoding="utf-8")
+        out_path.write_text(TEMPLATE.format(class_type=class_type, TempFac=pre, type_name=name, suf=suffix), encoding="utf-8")
         print(f"已生成：{out_path.name}")
         created += 1
 
