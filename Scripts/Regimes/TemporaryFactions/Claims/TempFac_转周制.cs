@@ -85,12 +85,17 @@ public class TempFac_转周制 : TemporaryFaction
             }
         }
         empire.data.centerOffice.Init(empire.CoreKingdom);
+        empire.CoreKingdom.SystemChange();
         End();
     }
 
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire.CoreKingdom.GetSystemChangeYear() < 50)
+        {
+            return false;
+        }
         if (empire.kingdoms_list.ToList().All(k => k.IsEmpire()||(k.GetKingdomType() == KingdomType.LvLing_jiedushi||k.GetKingdomType() == KingdomType.LvLing_kingdom||k.GetKingdomType() == KingdomType.LvLing_jimizhou)))
         {
             return true;

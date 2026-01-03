@@ -30,6 +30,7 @@ public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
 
     public void CheckOfficePower(Empire empire)
     {
+        empire.data.additions = new EmpireAddition();
         var office = empire.data.centerOffice.GetAllOffices(empire);
         office.ForEach(o=>o.DetectPower(empire));
     }

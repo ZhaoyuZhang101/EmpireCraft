@@ -24,7 +24,7 @@ public abstract class TemporaryFaction
     public int CountDown = 0;
     public virtual int Budget => 0;
     public List<long>  kingdoms = new List<long>();
-    public FactionType factionType = FactionType.无;
+    public string factionID = "";
     [JsonIgnore] 
     public AdvancedButton hideButton;
     [JsonIgnore] 
@@ -43,7 +43,7 @@ public abstract class TemporaryFaction
     public double countDownTimestamp = -1L;
     public virtual void Init(FixedFaction faction)
     {
-        factionType = faction.Type;
+        factionID = faction.GetID();
         EmpireID    = faction.EmpireId;
         timestamp   = World.world.getCurWorldTime();
         kingdoms    = new List<long>();
@@ -230,7 +230,7 @@ public abstract class TemporaryFaction
         {
             Kingdom kingdom = empire.CoreKingdom;
             Regime regime = kingdom.GetRegime();
-            return regime?.GetPlayerFactions()?.Find(f => f.Type == factionType);
+            return regime?.GetPlayerFactions()?.Find(f => f.GetID() == factionID);
         }
 
         return null;
@@ -290,15 +290,15 @@ public abstract class TemporaryFaction
             {
                 if (GetEmpire().CoreKingdom.GetRegime().type != RegimeType.Feudalism)
                 {
-                    if (GetEmpire().GetCabinetLeader()?.GetFaction()?.Type != factionType)
+                    if (GetEmpire().GetCabinetLeader()?.GetFaction().GetID() != factionID)
                     {
                         End();
                         return;
                     } 
                 }
             }
-            progress ++;
-            if (progress >= progressMax-acceleration) Execute();
+            progress += (1+((acceleration<0?0:acceleration)/5));
+            if (progress >= progressMax) Execute();
         }
         else
         {
@@ -329,11 +329,9 @@ public abstract class TemporaryFaction
     }
     public void CheckNeedToUpdate()
     {
-        if (Date.getMonthsSince(timestamp) >= 1)
-        {
-            Update();
-            timestamp = World.world.getCurWorldTime();
-        }
+        if (Date.getMonthsSince(timestamp) < 1) return;
+        Update();
+        timestamp = World.world.getCurWorldTime();
     }
     /// <summary>
     /// 触发条件成功后的执行动作

@@ -120,6 +120,8 @@ public class Regime
     public LeaderSelectMethod leader_select_method; 
     public bool has_cabinet;
     public int cabinet_number;
+    //宗教點數
+    public int religion_point = 0;
     public FixedFaction CentreMind;
     public List<FixedFaction> Factions;
     public List<FixedFaction> PlayerFactions;

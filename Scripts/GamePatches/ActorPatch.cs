@@ -92,6 +92,12 @@ public class ActorPatch : GamePatch
         {
             __instance.stats["intelligence"] += empire.Additions.addition[OfficerPowerType.教育];
         }
+
+        if (__instance.IsEmperor())
+        {
+            __instance.stats["cities"] += empire.Additions.addition[OfficerPowerType.人事] + empire.Additions.addition[OfficerPowerType.军事];
+            LogService.LogInfo($"人事{empire.Additions.addition[OfficerPowerType.人事]}军事{empire.Additions.addition[OfficerPowerType.军事]}");
+        }
     }
     public static void UpdateReligion(Actor __instance, Religion pObject)
     {
@@ -100,6 +106,25 @@ public class ActorPatch : GamePatch
             if (pObject.GetCity() == null)
             {
                 pObject.SetCity(__instance.city);
+            }
+        }
+
+        if (pObject.GetCity() != null)
+        {
+            City city = pObject.GetCity();
+            var kingdom = city?.kingdom;
+            if (kingdom == null) return;
+            if (city.isCapitalCity())
+            {
+                Regime regime = kingdom.GetRegime();
+                if (regime == null) return;
+                if ((regime.type == RegimeType.Feudalism) && regime.GetReligionLevel() == ReligionLevel.High)
+                {
+                    if (kingdom.religion == pObject)
+                    {
+                        regime.religion_point += 1;
+                    }
+                }
             }
         }
     }

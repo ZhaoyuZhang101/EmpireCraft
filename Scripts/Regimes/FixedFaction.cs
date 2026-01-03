@@ -20,6 +20,11 @@ namespace EmpireCraft.Scripts.Regimes;
 public static class FactionManager
 {
     public static Dictionary<TemporaryFactionType, TemporaryFaction> StoredTemporaryFaction = new ();
+    [JsonIgnore]
+    public static List<TemporaryFactionType> DefaultCountryMind = new()
+    {
+        TemporaryFactionType.国_打击贪腐
+    };
     [JsonIgnore] 
     public static Dictionary<FactionType, List<TemporaryFactionType>> FactionConfig =
         new()
@@ -169,8 +174,11 @@ public static class FactionManager
             {
                 var inst = Activator.CreateInstance(t) as TemporaryFaction;
                 if (inst == null) continue;
-                StoredTemporaryFaction.Add(inst.type, inst);
-                LogService.LogInfo($"初始化诉求{inst.type}");
+                if (!StoredTemporaryFaction.ContainsKey(inst.type))
+                {
+                    StoredTemporaryFaction.Add(inst.type, inst);
+                    LogService.LogInfo($"初始化诉求{inst.type}"); 
+                }
             }
             catch (Exception ex)
             {
@@ -371,7 +379,6 @@ public class FixedFaction
             if (FactionManager.StoredTemporaryFaction.TryGetValue(e, out var value))
             {
                 result.Add(value.Clone(this));
-                LogService.LogInfo($"加入诉求{e}");
             }
         }
         return result;

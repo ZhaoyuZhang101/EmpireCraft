@@ -57,6 +57,7 @@ public static class KingdomExtension
         public double corruption_timestamp = -1L;
         public EmpireHeirLawType HeirLaw = EmpireHeirLawType.eldest_child;
         public EmpireHeirLawType DefaultHeirLaw = EmpireHeirLawType.eldest_child;
+        public double last_system_change_timestamp = -1L;
         //上一次加入岁币联盟的时间
         public double last_given_alliance_timestamp = -1L;
         //上一次加入朝贡国的时间
@@ -75,6 +76,15 @@ public static class KingdomExtension
         public bool isEmpire = false;
     }
 
+    public static void SystemChange(this Kingdom kingdom)
+    {
+        kingdom.GetOrCreate().last_system_change_timestamp = World.world.getCurWorldTime();
+    }
+
+    public static int GetSystemChangeYear(this Kingdom kingdom)
+    {
+        return Date.getYearsSince(kingdom.GetOrCreate().last_system_change_timestamp);
+    }
     public static void FinishedSelfPlot(this Kingdom kingdom)
     {
         kingdom.GetOrCreate().selfChangeRegimePlotsCountDown = 10;

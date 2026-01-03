@@ -49,7 +49,6 @@ public static class EmpireCraftBehaviourTaskLibrary
             id = "do_mod_kingdom_mind_beh"
         };
         obj4.KingdomMindAIs(AssetManager.tasks_kingdom);
-        obj4.addBeh(new KingdomBehRandomWait(0.02f));
         AssetManager.tasks_kingdom.add(obj4);
         AssetManager.job_kingdom.t.addTask("do_mod_kingdom_mind_beh");
     }

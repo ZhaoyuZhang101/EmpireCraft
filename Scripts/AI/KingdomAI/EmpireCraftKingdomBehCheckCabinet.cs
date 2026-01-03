@@ -52,29 +52,9 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
 
     public static bool IsCabinetControlEmpire(Kingdom pKingdom)
     {
-        Empire empire = pKingdom.GetEmpire();
-        Regime regime = empire.CoreKingdom.GetRegime();
-        FixedFaction firstFaction = null;
-        var flag = true;
-        foreach (var member in empire.GetCabinetMembers())
-        {
-            var memberFac = member?.GetFaction();
-            if  (memberFac == null) continue;
-            firstFaction ??= memberFac;
-            if (memberFac == firstFaction) continue;
-            if (firstFaction != memberFac)
-            {
-                flag = false;
-                break;
-            }
-        }
-
-        var dominate = regime.GetDominateFaction();
-        if (flag&&dominate==firstFaction)
-        {
-            return true;
-        }
-        return false;
+        //todo: 派系完全控制内閣
+        var dominate = pKingdom.GetRegime().GetDominateFaction();
+        return pKingdom.GetEmpire().GetCabinetMembers().All(m=>m.GetFaction()?.GetID()==dominate?.GetID());
     }
 
     public void SetCabinetForLvLing(Empire empire)

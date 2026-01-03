@@ -332,8 +332,8 @@ public static class ActorExtension
             if (regime == null) continue;
             foreach (var faction in regime.GetPlayerFactions().ToList())
             {
-                var id = faction.GetID();
-                if (id == a.GetOrCreate().factionID)
+                var id = faction?.GetID();
+                if (id == a.GetOrCreate()?.factionID)
                 {
                     return faction;
                 }
