@@ -144,6 +144,7 @@ namespace EmpireCraft.Scripts.AI
                         var war = DiplomacyHelpers.wars.newWar(kingdom, target, WarTypeLibrary.normal);
                         war.SetEmpireWarType(EmpireWarType.神圣, pre:religion.name);
                         regime.religion_point -= 1000;
+                        return true;
                     }
                     return false;
                 }
