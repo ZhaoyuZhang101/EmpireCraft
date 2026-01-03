@@ -26,6 +26,7 @@
     "Peerages": "爵位",
     "i_population": "人口",
     "i_age": "年龄",
+    "religion_point": "宗教点数",
     "recover_faction": "恢复默认派系",
     "recover_faction_description": "将当前的设定的派系恢复至默认值",
     "save_faction_setting": "存储派系配置",

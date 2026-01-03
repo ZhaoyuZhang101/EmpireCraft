@@ -34,11 +34,13 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     {
         if (!pKingdom.hasReligion()) return;
         if (pKingdom.hasEnemies()) return;
+        if (pKingdom.getWars().Count()>0) return;
         foreach (var war in DiplomacyHelpers.wars)
         {
             if (!war.main_attacker?.hasReligion()??true) continue;
             if (war.main_defender.isRekt()) continue;
             if (war.hasKingdom(pKingdom)) continue;
+            if (war.getAttackers().Contains(pKingdom)) continue;
             if (war.GetEmpireWarType() == EmpireWarType.神圣)
             {
                 if (pKingdom.religion == war.main_attacker?.religion)
