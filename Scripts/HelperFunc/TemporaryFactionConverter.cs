@@ -59,7 +59,7 @@ public sealed class TemporaryFactionConverter : JsonConverter
         {
             ["type"]        = JToken.FromObject(tf.type, serializer),
             ["kingdoms"]    = JArray.FromObject(tf.kingdoms ?? new List<long>(), serializer),
-            ["factionType"] = JToken.FromObject(tf.factionType, serializer),
+            ["factionID"] = JToken.FromObject(tf.factionID, serializer),
             ["EmpireID"]    = tf.EmpireID,
             ["targetID"]    = tf.TargetID,
             ["targetType"]  = JToken.FromObject(tf.TargetType, serializer),

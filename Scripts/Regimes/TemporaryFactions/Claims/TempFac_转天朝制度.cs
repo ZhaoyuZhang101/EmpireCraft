@@ -30,12 +30,17 @@ public class TempFac_转天朝制度 : TemporaryFaction
             regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
         }
         empire.data.centerOffice.Init(empire.CoreKingdom);
+        empire.CoreKingdom.SystemChange();
         End();
     }
 
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire.CoreKingdom.GetSystemChangeYear() < 50)
+        {
+            return false;
+        }
         if (empire.kingdoms_list.FindAll(k => !k.IsEmpire()).Sum(k => k.countTotalWarriors()) <
             empire.CoreKingdom.countTotalWarriors())
         {

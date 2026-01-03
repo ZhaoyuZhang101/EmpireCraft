@@ -46,13 +46,39 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     void Start ()
     {
         IS_CLEAR = false;
+        
     }
 
     private void FixedUpdate()
     {
 
         KINGDOM_TITLE_MANAGER.update(-1L);
-
+        World.world.kingdoms.ForEach(pKingdom =>
+        {
+            pKingdom.CheckEmpire();
+            if (pKingdom.isRekt()) return;
+            if (!pKingdom.IsEmpire())  return;
+            Regime regime = pKingdom.GetRegime();
+            if (regime==null)  return;
+            var ff = regime.GetDominateFaction();
+            if (ff==null)  return;
+            foreach (var tf in ff.TemporaryFactions)
+            {
+                tf.SetEmpire(pKingdom.GetEmpire());
+                if (tf.IsNeedToCountDown())
+                {
+                    if (tf.CountDown > 0)
+                    {
+                        tf.CountDown -= 1;
+                    }
+                }
+                if (tf.IsStarted())
+                {
+                    tf.CheckNeedToUpdate();
+                }
+            }
+        });
+        
     }
 
     public GameObject GetGameObject()

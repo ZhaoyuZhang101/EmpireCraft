@@ -18,6 +18,7 @@ using UnityEngine.Events;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -327,7 +328,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         {
             foreach (var power in officeObject.powers)
             {
-                powerContent += power.ToString().ColorString(pColor:new Color(0.0f, 1, 0.5f))+"\n";
+                powerContent += $"{power}({officeObject.GetActor()?.CalcPower(power, _empire).addition[power]??0})".ColorString(pColor:new Color(0.0f, 1, 0.5f))+"\n";
             }
         }
         leftVertGroup.AddTextIntoVertLayout(powerContent, true, TextAnchor.MiddleCenter, new Vector2(40, 20));

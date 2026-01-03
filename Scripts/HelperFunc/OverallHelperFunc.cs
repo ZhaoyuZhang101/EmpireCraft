@@ -157,6 +157,16 @@ namespace EmpireCraft.Scripts.HelperFunc
                         additions.addition[OfficerPowerType.财政] = 0;
                     }
                     break;
+                case OfficerPowerType.人事:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.人事] = officer.stewardship;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.人事] = 0;
+                    }
+                    break;
                 }
             return additions;
         }

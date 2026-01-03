@@ -107,7 +107,6 @@ public class OfficeObject
     }
     public void DetectPower(Empire empire)
     {
-        empire.data.additions = new EmpireAddition();
         var officer = GetActor();
         foreach (var power in powers)
         {
@@ -124,11 +123,9 @@ public class OfficeObject
         {
             case MetaType.Kingdom:
                 preX = ((Kingdom)pNano).name;
-                LogService.LogInfo("国家");
                 break;
             case MetaType.City:
                 preX = ((City)pNano).name;
-                LogService.LogInfo("城市");
                 break;
         }
         return preX;

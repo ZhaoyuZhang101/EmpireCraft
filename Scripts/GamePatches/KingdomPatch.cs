@@ -35,7 +35,7 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(NewCivKingdom)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.newCivKingdom)),
             postfix: new HarmonyMethod(GetType(), nameof(NewCivKingdom))
-        );        
+        );       
         new Harmony(nameof(new_emperor)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.setKing)),
             prefix: new HarmonyMethod(GetType(), nameof(new_emperor))
@@ -61,8 +61,6 @@ public class KingdomPatch : GamePatch
             maxCities += (int) __instance.king.stats["cities"];
         if (maxCities < 1)
             maxCities = 1;
-        var titles = __instance.king.GetOwnedTitle();
-        
         __result = maxCities;
         return false;
     }

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.ActorAI;
@@ -19,10 +20,16 @@ public class EmpireCraftActorCheckEmperorBaby: GameAIActorBase
         var sc = pActor.GetSpecificClan();
         var pc = pActor.GetPersonalIdentity();
         if (sc == null || pc==null) return BehResult.Continue;
+        pc.is_main = true;
         if (sc.GetChildren(pc).Any(c => c.Item2.CanHeir(pc))) return BehResult.Continue;
         var lover = pActor.lover;
+        var lsc = lover.GetPersonalIdentity();
+        if (lsc == null) return BehResult.Continue;
+        lsc.is_main = false;
         //无子嗣强制生育
-        BabyMaker.makeBaby(pActor, lover);
+        var baby = BabyMaker.makeBaby(pActor, lover,
+            sc.clan_sex_priority == SpecificClanType.FemalePriority ? ActorSex.Female : ActorSex.Male);
+        
         LogService.LogInfo("判断当前无子嗣，触发强制生育");
         return BehResult.Continue;
     }

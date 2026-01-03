@@ -38,7 +38,7 @@ public class WarPatch: GamePatch
     
     public static bool update(War __instance)
     {
-        if (__instance.main_attacker == null || __instance.main_defender == null)
+        if (__instance.main_attacker == null || __instance.main_defender == null||(__instance.getDuration() > 50))
         {
             foreach (var attacker in __instance._hashset_attackers)
             {
@@ -127,7 +127,7 @@ public class WarPatch: GamePatch
         {
             Debug.LogError("[2] should never happen here");
         }
-
+        
         return false;
     }
     public static void removeData(War __instance)

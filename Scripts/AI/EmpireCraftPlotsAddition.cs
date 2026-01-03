@@ -111,6 +111,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     Regime regime = kingdom.GetRegime();
                     if (regime == null) return false;
+                    if (kingdom.GetKingdomType() != KingdomType.Feudalism_papal_state) return false;
+                    if (regime.religion_point<1000) return false;
                     if (kingdom.hasEnemies()) return false;
                     if (kingdom.getWars().Any(w => w.GetEmpireWarType() == EmpireWarType.神圣)) return false;
                     if (regime.type != RegimeType.Feudalism || regime.GetReligionLevel() != ReligionLevel.High)
@@ -141,6 +143,7 @@ namespace EmpireCraft.Scripts.AI
                         if (target == null) return false;
                         var war = DiplomacyHelpers.wars.newWar(kingdom, target, WarTypeLibrary.normal);
                         war.SetEmpireWarType(EmpireWarType.神圣, pre:religion.name);
+                        regime.religion_point -= 1000;
                     }
                     return false;
                 }
