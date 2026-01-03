@@ -334,9 +334,8 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
                 }
                 else
                 {
-                    powerContent += power;
+                    powerContent += power.ToString().ColorString(pColor:new Color(0.0f, 1, 0.5f))+"\n";
                 }
-                
             }
         }
         leftVertGroup.AddTextIntoVertLayout(powerContent, true, TextAnchor.MiddleCenter, new Vector2(40, 20));
