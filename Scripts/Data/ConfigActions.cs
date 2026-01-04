@@ -16,6 +16,10 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.TITLE_BEEN_DESTROY_TIME = int.Parse(time);
         }
+        public static void WarEndYearCallBack(string time)
+        {
+            ModClass.WAR_END_YEAR = int.Parse(time);
+        }
         public static void saveFreezeCallBack(bool on)
         {
             ModClass.SAVE_FREEZE = on;

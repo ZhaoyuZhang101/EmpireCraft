@@ -383,8 +383,15 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         pFaction.hideButton =  hideButton;
         pFaction.activeButton =  activeButton;
         
-        var thirdPart = tfSpace.BeginVertGroup(new Vector2(100, 30));
-        var fourthPart = thirdPart.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
+        var thirdPart = tfSpace.BeginVertGroup(new Vector2(30, 30));
+        var showButton = thirdPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "show_tfaction_as_plot", () =>
+        {
+            pFaction.ShowAsPlot = !pFaction.ShowAsPlot;
+            pFaction.showButton?.SetStatus(pFaction.ShowAsPlot);
+        }, pFaction.ShowAsPlot, size: new Vector2(12, 12), isOption:true);
+        pFaction.showButton =  showButton;
+        
+        var fourthPart = tfSpace.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
         fourthPart.AddButtonIntoVertLayout("remove_tfaction", "", () =>
         {
             _faction.TemporaryFactions.Remove(pFaction);

@@ -193,7 +193,8 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         var flag = num > 0 && pKingdom.units.Count > num;
         if (pKingdom.CanBecomeEmpire() || flag)
         {
-            EmpireCraftPlotsAddition.BecomeEmpireAndStartEnfeoff(pKingdom.king);
+            var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "become_empire");
+            plot?.try_to_start_advanced(pKingdom.king, plot, true);
             pKingdom.GetRegime().SetAllowDiplomacy(true);
         }
     }

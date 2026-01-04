@@ -14,6 +14,7 @@ using System.Linq;
 using System.Numerics;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using UnityEngine;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
@@ -25,11 +26,172 @@ namespace EmpireCraft.Scripts.AI
     {
         public static void init()
         {
+            AssetManager.plot_category_library.add(new PlotCategoryAsset()
+            {
+                id = "empirecraft_diplomacy",
+                name = "plot_group_empirecraft_diplomacy",
+                color = "#5EFFFF",
+                show_counter = true,
+                plot_retry_action = new PlotRetryAction(PlotCategoryLibrary.diplomacyRetryAction)
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "become_empire",
+                path_icon = "ChineseCrown.png",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                money_cost = 0,
+                progress_needed = 60f,
+                can_be_done_by_king = true,
+                check_is_possible = pActor => false,
+                check_can_be_forced = (Actor pActor) => true,
+                try_to_start_advanced = delegate(Actor pActor, PlotAsset pPlotAsset, bool pForced)
+                {
+                    foreach (Plot plot3 in World.world.plots)
+                    {
+                        if (plot3.isActive() && plot3.isSameType(pPlotAsset))
+                        {
+                            pActor.setPlot(plot3);
+                            return true;
+                        }
+                    }
+                    World.world.plots.newPlot(pActor, pPlotAsset, pForced);
+                    return true;
+                },
+                check_should_continue = (Actor pActor) => true,
+                action = BecomeEmpireAndStartEnfeoff
+            });            
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "empire_plots",
+                path_icon = "MinisterAcquireTitle.png",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                money_cost = 0,
+                progress_needed = 60f,
+                can_be_done_by_king = true,
+                check_is_possible = pActor => false,
+                check_can_be_forced = (Actor pActor) => true,
+                try_to_start_advanced = delegate(Actor pActor, PlotAsset pPlotAsset, bool pForced)
+                {
+                    var kingdom = pActor.kingdom;
+                    var regime = kingdom?.GetRegime();
+                    if (regime == null) return false;
+                    var run = regime.GetDominateFaction()?.GetAnyTFactionRuns();
+                    if (run == null) return false;
+                    foreach (Plot plot3 in World.world.plots)
+                    {
+                        if (plot3.isActive() && plot3.isSameType(pPlotAsset))
+                        {
+                            pActor.setPlot(plot3);
+                            plot3._plot_asset.progress_needed = run.progressMax - run.acceleration;
+                            plot3.setName(run.type.ToString());
+                            return true;
+                        }
+                    }
+                    var newPlot = World.world.plots.newPlot(pActor, pPlotAsset, pForced);
+                    newPlot._plot_asset.progress_needed = run.progressMax - run.acceleration;
+                    newPlot.setName(run.type.ToString());
+                    return true;
+                },
+                check_should_continue = delegate(Actor pActor)
+                {
+                    var kingdom = pActor.kingdom;
+                    var regime = kingdom?.GetRegime();
+                    if (regime == null) return false;
+                    var run = regime.GetDominateFaction()?.GetAnyTFactionRuns();
+                    if (run == null) return false;
+                    if (!run.IsStarted()) return false;
+                    if (!run.CheckTarget()) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor)
+                {
+                    var kingdom = pActor.kingdom;
+                    var regime = kingdom?.GetRegime();
+                    if (regime == null) return false;
+                    var run = regime.GetDominateFaction()?.GetAnyTFactionRuns();
+                    if (run == null) return false;
+                    run.Execute();
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+		    {
+			    id = "force_stop_war",
+			    is_basic_plot = true,
+			    path_icon = "plots/icons/plot_stop_war",
+			    group_id = "empirecraft_diplomacy",
+			    min_level = 4,
+			    money_cost = 0,
+			    min_diplomacy = 8,
+                show_for_unlockables_ui = false,
+			    can_be_done_by_king = true,
+			    check_target_war = true,
+			    requires_diplomacy = false,
+			    check_is_possible = (Actor pActor) => false,
+			    try_to_start_advanced = delegate(Actor pActor, PlotAsset pPlotAsset, bool pForced)
+			    {
+				    Kingdom kingdom = pActor.kingdom;
+				    War war = null;
+				    foreach (War war3 in kingdom.getWars(pRandom: true))
+				    {
+					    if (war3.isAttacker(kingdom)&&war3.getDuration()>=ModClass.WAR_END_YEAR)
+					    {
+							war = war3;
+							break;
+					    }
+				    }
+				    if (war == null)
+				    {
+					    return false;
+				    }
+				    foreach (Plot plot3 in World.world.plots)
+				    {
+					    if (plot3.isActive() && plot3.isSameType(pPlotAsset) && plot3.target_war == war)
+					    {
+						    pActor.setPlot(plot3);
+						    return true;
+					    }
+				    }
+				    Plot plot = World.world.plots.newPlot(pActor, pPlotAsset, pForced);
+				    plot.target_war = war;
+				    if (!plot.checkInitiatorAndTargets())
+				    {
+					    Debug.Log("tryPlotStopWar is missing start requirements");
+					    return true;
+				    }
+				    return true;
+			    },
+			    check_can_be_forced = (Actor pActor) => pActor.kingdom.hasEnemies() ? true : false,
+			    check_should_continue = delegate(Actor pActor)
+			    {
+				    Plot plot = pActor.plot;
+				    War targetWar = plot.target_war;
+				    if (targetWar == null || targetWar.isRekt())
+				    {
+					    return false;
+				    }
+				    return !plot.target_war.hasEnded();
+			    },
+			    action = delegate(Actor pActor)
+			    {
+				    Plot plot = pActor.plot;
+				    if (plot.target_war.hasEnded())
+				    {
+					    return false;
+				    }
+				    World.world.wars.endWar(plot.target_war, WarWinner.Peace);
+				    return true;
+			    }
+		    });
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empire_move_back_to_capital",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
                 progress_needed = 15f,
@@ -71,7 +233,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_start_join_taken_alliance",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
                 progress_needed = 15f,
@@ -100,7 +262,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_start_religion_war",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
                 progress_needed = 15f,
@@ -153,7 +315,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "powerful_minister_replace_empire",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
                 progress_needed = 60f,
@@ -191,7 +353,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "new_empire_royal",
                 path_icon = "ChineseCrown.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
                 money_cost = 30,
@@ -255,7 +417,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "emperor_year_name",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -282,7 +444,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_allow_army",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -314,7 +476,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_allow_diplomacy",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -347,7 +509,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_allow_succession",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -381,7 +543,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_allow_self_army",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -416,7 +578,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_allow_independent",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -455,7 +617,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "emperor_posthumous_name",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -523,7 +685,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "king_acquire_title",
                 path_icon = "TitleAcquire.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -567,7 +729,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_destroy_title",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -635,7 +797,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_get_title",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -666,7 +828,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_change_capital_title",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -697,7 +859,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_join_empire",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -735,7 +897,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "kingdom_create_title",
                 path_icon = "EmperorQuest.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 progress_needed = 15f,
@@ -771,7 +933,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "minister_acquire_empire",
                 path_icon = "ministerAcquireEmpire.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
                 money_cost = 30,
@@ -806,7 +968,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 id = "minister_acquire_title",
                 path_icon = "ministerAcquireTitle.png",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
                 progress_needed = 30f,
@@ -863,7 +1025,7 @@ namespace EmpireCraft.Scripts.AI
                 id = "empirecraft_war",
                 is_basic_plot = true,
                 path_icon = "plots/icons/plot_new_war",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 min_level = 3,
                 min_warfare = 6,
                 money_cost = 20,
@@ -1002,7 +1164,7 @@ namespace EmpireCraft.Scripts.AI
                 id = "alliance_join",
                 is_basic_plot = true,
                 path_icon = "plots/icons/plot_alliance_create",
-                group_id = "diplomacy",
+                group_id = "empirecraft_diplomacy",
                 min_level = 2,
                 money_cost = 5,
                 min_diplomacy = 5,

@@ -27,6 +27,7 @@ namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigurable
 {
     public static bool SAVE_FREEZE = false;
+    public static int WAR_END_YEAR = 30;
     public static Transform prefab_library;
     public static bool IS_CLEAR = true;
     public static EmpireManager EMPIRE_MANAGER;
@@ -72,7 +73,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                         tf.CountDown -= 1;
                     }
                 }
-                if (tf.IsStarted())
+                if (tf.IsStarted()&&!tf.ShowAsPlot)
                 {
                     tf.CheckNeedToUpdate();
                 }

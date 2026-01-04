@@ -9,22 +9,30 @@ public enum TemporaryFactionType
     [Description("当地方军府领导控制力大于当前地盘且对帝国忠诚度低时可发起扩张")]
     扩张地盘,
     提供岁币,
+    [Description("帝国处于战争时执行,立即停止战争并割让土地")]
     割让城池,
+    [Description("地方行政区的官位将会世袭罔替")]
     转世袭,
+    [Description("当帝国处于空窗期的时候派系领袖可索取皇位")]
     索取皇位,
+    [Description("帝国官员选拔将会优先通过科举的人才")]
     开科取士,
+    [Description("削藩")]
     削藩,
     拓展金融霸权,
     缩减金融霸权,
     输出革命,
     扶持革命党,
     夺取诸侯开战权,
+    [Description("设立道一级行政区")]
     设置行政区,
     转天朝制度,
     迫使朝贡,
     转周制,
     加强神权,
+    [Description("允许诸侯自由开战")]
     允许诸侯自由开战,
+    [Description("皇帝将地方分封给自己子嗣")]
     分封,
     强者继承法,
     地方官叛乱,
@@ -42,14 +50,18 @@ public enum TemporaryFactionType
     宗教融入,
     制度融入,
     劫掠,
+    [Description("开启对外扩张战争")]
     对外扩张,
     汉化,
     收回地盘,
     开放移民,
     谋求统一,
+    [Description("确立国教")]
     确立国教,
     划地给教廷,
+    [Description("获得教宗国的认可与法理,并赋予神圣前缀")]
     神授君权,
+    [Description("释放圣城并建立教宗国")]
     恢复圣地,
     国_打击贪腐
 }
