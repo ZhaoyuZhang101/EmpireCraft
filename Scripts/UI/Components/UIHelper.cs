@@ -570,7 +570,7 @@ public static class UIHelper
         {
             if (!tempFac.Hide||tempFac.IsStarted())
             {
-                var startContent = $"\n执行中:({(int)((tempFac.progress/(tempFac.progressMax))*100.0f)}/100)";
+                var startContent = tempFac.ShowAsPlot?$"({LM.Get("tf_starting")})":$"\n{LM.Get("tf_starting")}:({(int)((tempFac.progress/(tempFac.progressMax))*100.0f)}/100)";
                 content += tempFac.type.ToString().ColorString(pColor:new Color(0.7f, 0.9f, tempFac.IsStarted()?0.1f:0.9f))+(tempFac.IsStarted()?startContent:"")+$"{(!tempFac.Active?"(未激活)":"")}"+"\n";
             }
         }

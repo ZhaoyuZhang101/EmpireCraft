@@ -25,10 +25,13 @@ public abstract class TemporaryFaction
     public virtual int Budget => 0;
     public List<long>  kingdoms = new List<long>();
     public string factionID = "";
+    public bool ShowAsPlot = false;
     [JsonIgnore] 
     public AdvancedButton hideButton;
     [JsonIgnore] 
     public AdvancedButton activeButton;
+    [JsonIgnore] 
+    public AdvancedButton showButton;
     public long EmpireID = -1L;
     public long KingdomID = -1L;
     public long TargetID = -1L;
@@ -245,6 +248,18 @@ public abstract class TemporaryFaction
         if (CountDown <= 0)
         {
             started = true;
+            if (ShowAsPlot)
+            {
+                var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "empire_plots");
+                var emperor = GetEmpire()?.Emperor;
+                if (emperor != null)
+                {
+                    if (!emperor.plot?.isSameType(plot) ?? true)
+                    {
+                        plot?.try_to_start_advanced(emperor, plot, true);
+                    } 
+                }
+            }
         }
     }
 
@@ -297,8 +312,11 @@ public abstract class TemporaryFaction
                     } 
                 }
             }
-            progress += (1+((acceleration<0?0:acceleration)/5));
-            if (progress >= progressMax) Execute();
+            if (!ShowAsPlot)
+            {
+                progress += (1+((acceleration<0?0:acceleration)/5));
+                if (progress >= progressMax) Execute();
+            }
         }
         else
         {
@@ -350,6 +368,11 @@ public abstract class TemporaryFaction
     /// <returns>返回条件是否满足的结果</returns>
     public virtual bool CheckContinue()
     {
+        var emperor = GetEmpire().Emperor;
+        if (ShowAsPlot && emperor.isRekt())
+        {
+            return false;
+        }
         return true;
     }
 

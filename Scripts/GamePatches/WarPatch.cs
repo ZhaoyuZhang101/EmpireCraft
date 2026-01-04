@@ -31,104 +31,36 @@ public class WarPatch: GamePatch
         );
         new Harmony(nameof(update)).Patch(
             AccessTools.Method(typeof(War), nameof(War.update)),
-            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(update))
+            postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(update))
         );
         LogService.LogInfo("战争补丁加载成功");
     }
     
-    public static bool update(War __instance)
+    public static void update(War __instance)
     {
-        if (__instance.main_attacker == null || __instance.main_defender == null||(__instance.getDuration() > 50))
+        if (__instance.getDuration() > ModClass.WAR_END_YEAR)
         {
-            foreach (var attacker in __instance._hashset_attackers)
+            var attacker = __instance.getMainAttacker()?.king;
+            if (attacker != null)
             {
-                if (!attacker.isRekt())
+                var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "force_stop_war");
+                if (!attacker.plot?.isSameType(plot) ?? true)
                 {
-                    attacker.madePeace(__instance);
-                }
+                    
+                    plot?.try_to_start_advanced(attacker, plot, true);
+                } 
             }
-            __instance._hashset_attackers.Clear();
-            foreach (var defender in __instance._hashset_defenders)
+            var defender = __instance.getMainDefender()?.king;
+            if (defender != null)
             {
-                if (!defender.isRekt())
+                var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "force_stop_war");
+                if (!defender.plot?.isSameType(plot) ?? true)
                 {
-                    defender.madePeace(__instance);
-                }
-            }
-            __instance._hashset_defenders.Clear();
-            __instance.endForSides(WarWinner.Nobody);
-            return false;
-        }
-        if (__instance.hasEnded())
-        {
-            return false;
-        }
-        if (!__instance.main_attacker.isAlive())
-        {
-            __instance.lostWar(__instance.main_attacker);
-            return false;
-        }
-        if (__instance.isTotalWar())
-        {
-            if (World.world.kingdoms.Count <= 1)
-            {
-                World.world.wars.endWar(__instance, WarWinner.Attackers);
-                return false;
+                    
+                    plot?.try_to_start_advanced(defender, plot, true);
+                } 
             }
         }
-        else if (!__instance.main_defender.isAlive())
-        {
-            __instance.lostWar(__instance.main_defender);
-            return false;
-        }
-        
-        if (__instance.getAge() > 10 && !__instance.isTotalWar())
-        {
-            if (__instance.main_attacker.countCities() == 0)
-            {
-                __instance.lostWar(__instance.main_attacker);
-                return false;
-            }
-            if (__instance.main_defender.countCities() == 0)
-            {
-                __instance.lostWar(__instance.main_defender);
-                return false;
-            }
-        }
-        for (int i = 0; i < __instance._list_attackers.Count; i++)
-        {
-            Kingdom kingdom = __instance._list_attackers[i];
-            if (!kingdom.isAlive())
-            {
-                __instance.lostWar(kingdom);
-                return false;
-            }
-        }
-        if (!__instance.isTotalWar())
-        {
-            for (int i = 0; i < __instance._list_defenders.Count; i++)
-            {
-                Kingdom kingdom2 = __instance._list_defenders[i];
-                if (!kingdom2.isAlive())
-                {
-                    __instance.lostWar(kingdom2);
-                    return false;
-                }
-            }
-        }
-        if (__instance.isTotalWar())
-        {
-            if (__instance._list_attackers.Count == 0 || World.world.kingdoms.Count == 1)
-            {
-                Debug.LogError("[1] should never happen here");
-            }
-        }
-        else if (__instance._list_attackers.Count == 0 || __instance._list_defenders.Count == 0)
-        {
-            Debug.LogError("[2] should never happen here");
-        }
-        
-        return false;
     }
     public static void removeData(War __instance)
     {

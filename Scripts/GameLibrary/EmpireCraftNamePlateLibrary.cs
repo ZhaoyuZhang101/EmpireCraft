@@ -539,8 +539,8 @@ public static class EmpireCraftNamePlateLibrary
                             text.ColorString(pColor: pMetaObject.getColor()._color_banner) +
                             $"\n诉求：{(faction.IsAnyTFactionRuns() ? tf.type.ToString(): "无")}".ColorString(
                                 pColor: new Color(0.5f, 0.9f, 0.5f)) +
-                            (faction.IsAnyTFactionRuns()
-                                ? $"({(int)(tf.progress / tf.progressMax * 100)}/100)"
+                            (faction.IsAnyTFactionRuns()?faction.GetAnyTFactionRuns().ShowAsPlot?$"({LM.Get("tf_starting")})"
+                                : $"({(int)(tf.progress / tf.progressMax * 100)}/100)"
                                 : "");
                     }
                 }

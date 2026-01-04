@@ -70,7 +70,26 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(UpdateReligion)));
         new Harmony(nameof(UpdateStats)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.updateStats)),
             postfix: new HarmonyMethod(GetType(), nameof(UpdateStats)));
+        new Harmony(nameof(GetHit)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.getHit)),
+            prefix: new HarmonyMethod(GetType(), nameof(GetHit)));
         LogService.LogInfo("角色补丁加载成功");
+    }
+
+    public static bool GetHit(
+        Actor __instance,
+        float pDamage,
+        bool pFlash,
+        AttackType pAttackType,
+        BaseSimObject pAttacker = null,
+        bool pSkipIfShake = true,
+        bool pMetallicWeapon = false,
+        bool pCheckDamageReduction = true)
+    {
+        if (__instance.IsEmperor() && !__instance.isAdult())
+        {
+            return false;
+        }
+        return true;
     }
 
     public static void UpdateStats(Actor __instance)
