@@ -709,11 +709,13 @@ namespace EmpireCraft.Scripts.AI
                     if (!titles.Any()) return false;
                     foreach (KingdomTitle title in titles)
                     {
+                        if (title.isRekt()) continue;
                         foreach(City city in title.city_list)
                         {
                             if (!kingdom.cities.Contains(city))
                             {
                                 Kingdom targetKingdom = city.kingdom;
+                                if (!targetKingdom.hasKing()) continue;
                                 if (targetKingdom.isNeutral()) continue;
                                 if (!targetKingdom.king.GetOwnedTitle().Contains(title.getID())) continue;
                                 if (kingdom.isOpinionTowardsKingdomGood(targetKingdom)) continue;
@@ -738,6 +740,15 @@ namespace EmpireCraft.Scripts.AI
                         }
                     }
                     return false;
+                },
+                check_should_continue = delegate (Actor pActor) {
+                    if (!pActor.hasPlot()) return false;
+                    if (!pActor.hasKingdom()) return false;
+                    var plot = pActor.plot;
+                    var targetKingdom = plot.target_kingdom;
+                    if (targetKingdom.isRekt()) return false;
+                    if (!targetKingdom.hasKing()) return false;
+                    return true;
                 },
                 action = delegate(Actor pActor)
                 {
@@ -846,6 +857,25 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     List<KingdomTitle> titles = pActor.takeTitle();
+                    KingdomTitle currentTitle = null;
+                    foreach (var city in kingdom.cities)
+                    {
+                        if (city.hasTitle())
+                        {
+                            if (currentTitle != city.GetTitle())
+                            {
+                                currentTitle = city.GetTitle();
+                                if (!currentTitle.HasOwner())
+                                {
+                                    var oCount = (float)currentTitle.getCities().Intersect(kingdom.cities).Count();
+                                    if (oCount / currentTitle.getCities().Count() >= 0.5f)
+                                    {
+                                        titles.Add(currentTitle);
+                                    }
+                                }
+                            }
+                        }
+                    }
                     foreach(KingdomTitle title in titles)
                     {
                         if (!title.isRekt())

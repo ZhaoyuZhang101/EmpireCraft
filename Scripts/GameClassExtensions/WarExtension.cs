@@ -18,7 +18,7 @@ public static class WarExtension
     public class WarExtraData: ExtraDataBase
     {
         public EmpireWarType empireWarType = EmpireWarType.None;
-
+        public NanoObject nanoObject = null;
     }
 
     public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="", NanoObject nanoObject = null)
@@ -34,6 +34,10 @@ public static class WarExtension
             w.data.name = (string.IsNullOrEmpty(pre)?w.main_attacker?.name:pre) + type + "战争";
         }
 
+        if (nanoObject != null)
+        {
+            w.GetOrCreate().nanoObject = nanoObject;
+        }
         switch (type)
         {
             case EmpireWarType.索取法理:
@@ -41,6 +45,11 @@ public static class WarExtension
                 w.data.name = $"{w.getMainAttacker()?.name}索取{title?.name}法理战争";
                 break;
         }
+    }
+
+    public static KingdomTitle GetTitleTarget(this War w)
+    {
+        return (KingdomTitle)w.GetOrCreate().nanoObject;
     }
     public static EmpireWarType GetEmpireWarType(this War w)
     {

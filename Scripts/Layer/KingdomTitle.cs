@@ -30,6 +30,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
 
     public void SetOwner(Actor pActor)
     {
+        owner?.removeTitle(this);
         owner = pActor;
     }
     public int GetTitleBeenControlledYear()
@@ -347,10 +348,23 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         clearListUnits();
         this.city_list.Clear();
         this.city_list_hash.Clear();
+        this.title_capital = null;
+        this.owner = null;
     }
 
     public void Dissolve()
     {
+        foreach (var kingdom in World.world.kingdoms)
+        {
+            if (kingdom.GetMainTitle() == this)
+            {
+                kingdom.RemoveMainTitle();
+            }
+        }
+        foreach (var unit in World.world.units)
+        {
+            unit.removeTitle(this);
+        }
         foreach (City city in city_list_hash)
         {
             city.RemoveTitle();

@@ -51,6 +51,22 @@ public static class EmpireCraftOpinionAddition
         });
         opl.add(new OpinionAsset
         {
+            id = "opinion_occupied_title",
+            translation_key = "opinion_occupied_title",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                int result = 0;
+                if (pMain.HasMainTitle())
+                {
+                    var title = pMain.GetMainTitle();
+                    var value = pTarget.cities.Intersect(title.getCities()).Count();
+                    result = -value;
+                }
+                return result;
+            }
+        });
+        opl.add(new OpinionAsset
+        {
             id = "opinion_religion_place",
             translation_key = "opinion_religion_place",
             calc = delegate (Kingdom pMain, Kingdom pTarget)

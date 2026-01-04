@@ -146,6 +146,27 @@ public class WarPatch: GamePatch
                     }
                     attacker.EndFactionRebelling();
                     break;
+                case EmpireWarType.索取法理:
+                    KingdomTitle title = pWar.GetTitleTarget();
+                    if (pWinner == WarWinner.Attackers)
+                    {
+                        if (title != null)
+                        {
+                            Kingdom kingdom = pWar.getMainAttacker();
+                            if (kingdom != null)
+                            {
+                                if (!kingdom.HasMainTitle())
+                                {
+                                    kingdom.SetMainTitle(title);
+                                }
+                                title.SetOwner(kingdom.king);
+                                kingdom.king.AddOwnedTitle(title);
+                                TranslateHelper.LogKingTakeTitle(kingdom, title);
+                            }
+                        }
+                        return false;
+                    }
+                    break;
             }
             WorldLog.logWarEnded(pWar);
         }

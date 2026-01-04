@@ -356,6 +356,7 @@
     "kingdom_royal_clan_changed_2": "$new_clan$ 击败了 $old_clan$ 成为了 $kingdom$ 的新统治者",
     "opinion_empire_powerful_minister": "节制天下兵马",
     "opinion_religion_place": "宗教圣地",
+    "opinion_occupied_title": "占据法理地盘",
     "opinion_empire_polite": "天朝上国",
     "powerful_minister_aquire_empire_war": "$title$ $minister$ 试图获取 $empire$ 的天命，发动了战争",
     "empire_war": "$empire$ 发动了对 $defencer$ 的战争",
