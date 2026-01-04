@@ -25,7 +25,14 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         foreach (var ff in regime.GetPlayerFactions().Where(ff => ff != dominateFaction))
         {
             ff.TemporaryFactions.ForEach(tf => tf.End());
-        } 
+        }
+
+        var run = dominateFaction.GetAnyTFactionRuns();
+        if ((pKingdom.king?.plot?.name ?? "") != (run?.type.ToString() ?? "-"))
+        {
+            run?.End();
+            return BehResult.Continue;
+        }
         if (dominateFaction.IsAnyTFactionRuns()) return BehResult.Continue;
         if (dominateFaction.GetLeader() == null && regime.type!= RegimeType.Feudalism) return BehResult.Continue;
         if (regime.has_cabinet)

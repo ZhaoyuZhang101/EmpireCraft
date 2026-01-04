@@ -115,7 +115,6 @@ public class ActorPatch : GamePatch
         if (__instance.IsEmperor())
         {
             __instance.stats["cities"] += empire.Additions.addition[OfficerPowerType.人事] + empire.Additions.addition[OfficerPowerType.军事];
-            LogService.LogInfo($"人事{empire.Additions.addition[OfficerPowerType.人事]}军事{empire.Additions.addition[OfficerPowerType.军事]}");
         }
     }
     public static void UpdateReligion(Actor __instance, Religion pObject)
