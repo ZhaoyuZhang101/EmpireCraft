@@ -20,6 +20,7 @@ namespace EmpireCraft.Scripts.Enums
         游牧扩张,
         帝国扩张,
         清君侧,
+        索取法理,
         None
     }
 }

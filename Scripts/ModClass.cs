@@ -15,6 +15,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.GameLibrary;
 using System.Linq;
 using EmpireCraft.Scripts.AI;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.Regimes;
@@ -57,6 +58,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         World.world.kingdoms.ForEach(pKingdom =>
         {
             pKingdom.CheckEmpire();
+            EmpireCraftKingdomBehCheckTemporaryFaction.CheckTf(pKingdom);
             if (pKingdom.isRekt()) return;
             if (!pKingdom.IsEmpire())  return;
             Regime regime = pKingdom.GetRegime();

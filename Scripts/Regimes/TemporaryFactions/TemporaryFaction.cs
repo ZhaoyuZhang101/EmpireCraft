@@ -219,7 +219,14 @@ public abstract class TemporaryFaction
                     return false;
                 }
                 war.SetEmpireWarType(EmpireWarType.派系叛乱);
-                war.data.name = targetFaction?.Name??kingdom.name + "叛乱";
+                if (targetFaction != null)
+                {
+                    war.data.name = targetFaction.Name + "\u200A" + "叛乱";
+                }
+                else
+                {
+                    war.data.name = kingdom.GetOffice().GetName() + "\u200A" + "叛乱";
+                }
                 return true;
             }
         }
