@@ -947,6 +947,25 @@ public static class ActorExtension
         if (kingdom == null) return false;
         List<long> controlledTitles = kingdom.GetControlledTitle().FindAll(t=>!t.owner.IsEmperor()).Select(t=>t.data.id).ToList();
         var commonTitles = controlledTitles.Intersect(a.GetOwnedTitle());
+        KingdomTitle currentTitle = null;
+        foreach (var city in kingdom.cities)
+        {
+            if (city.hasTitle())
+            {
+                if (currentTitle != city.GetTitle())
+                {
+                    currentTitle = city.GetTitle();
+                    if (!currentTitle.HasOwner())
+                    {
+                        var oCount = (float)currentTitle.getCities().Intersect(kingdom.cities).Count();
+                        if (oCount / currentTitle.getCities().Count() >= 0.5f)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
         return commonTitles.Count() < controlledTitles.Count();
     }
 

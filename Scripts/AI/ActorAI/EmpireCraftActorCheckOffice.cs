@@ -19,6 +19,18 @@ public class EmpireCraftActorCheckOffice:GameAIActorBase
             pActor.EndOffice();
             return BehResult.Continue;
         }
+
+        if (pActor.isKing())
+        {
+            if (pActor.kingdom.HasMainTitle())
+            {
+                var mainTitle = pActor.kingdom.GetMainTitle();
+                if (mainTitle.owner.isRekt())
+                {
+                    pActor.AddOwnedTitle(mainTitle);
+                }
+            }
+        }
         if (office.actor_id == pActor.id) return BehResult.Continue;
         pActor.EndOffice();
         LogService.LogInfo($"{pActor.name}脱离官位{office.GetOfficeName()}");
