@@ -28,10 +28,13 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         }
 
         var run = dominateFaction.GetAnyTFactionRuns();
-        if ((pKingdom.king?.plot?.name ?? "") != (run?.type.ToString() ?? "-"))
+        if (run?.ShowAsPlot??false)
         {
-            run?.End();
-            return BehResult.Continue;
+            if ((pKingdom.king?.plot?.name ?? "") != (run?.type.ToString() ?? "-"))
+            {
+                run?.End();
+                return BehResult.Continue;
+            }
         }
         if (dominateFaction.IsAnyTFactionRuns()) return BehResult.Continue;
         if (dominateFaction.GetLeader() == null && regime.type!= RegimeType.Feudalism) return BehResult.Continue;
