@@ -1,4 +1,4 @@
-﻿﻿using NeoModLoader.General.UI.Window.Layout;
+﻿using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using NeoModLoader.General.UI.Window;
 using System;

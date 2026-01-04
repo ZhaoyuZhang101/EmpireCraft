@@ -10,6 +10,9 @@ public class TempFac_撤销军府 : TemporaryFaction
     {
         var res = new TempFac_撤销军府();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

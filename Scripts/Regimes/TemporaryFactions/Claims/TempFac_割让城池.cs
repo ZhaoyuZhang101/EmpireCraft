@@ -11,6 +11,9 @@ public class TempFac_割让城池 : TemporaryFaction
     {
         var res = new TempFac_割让城池();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

@@ -8,6 +8,9 @@ public class TempFac_扶持革命党 : TemporaryFaction
     {
         var res = new TempFac_扶持革命党();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

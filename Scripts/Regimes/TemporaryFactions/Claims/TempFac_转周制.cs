@@ -12,6 +12,9 @@ public class TempFac_转周制 : TemporaryFaction
     {
         var res = new TempFac_转周制();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

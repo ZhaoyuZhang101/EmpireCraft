@@ -10,6 +10,9 @@ public class TempFac_游牧扩张 : TemporaryFaction
     {
         var res = new TempFac_游牧扩张();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     

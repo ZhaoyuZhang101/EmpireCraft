@@ -12,6 +12,9 @@ public class TempFac_分封 : TemporaryFaction
     {
         var res = new TempFac_分封();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     public override void Execute()

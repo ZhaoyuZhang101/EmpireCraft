@@ -10,6 +10,9 @@ public class TempFac_制度融入 : TemporaryFaction
     {
         var res = new TempFac_制度融入();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     

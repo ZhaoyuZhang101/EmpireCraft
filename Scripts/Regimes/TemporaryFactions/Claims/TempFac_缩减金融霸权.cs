@@ -8,6 +8,9 @@ public class TempFac_缩减金融霸权 : TemporaryFaction
     {
         var res = new TempFac_缩减金融霸权();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

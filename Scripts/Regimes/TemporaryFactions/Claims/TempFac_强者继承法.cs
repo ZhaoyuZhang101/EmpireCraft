@@ -8,6 +8,9 @@ public class TempFac_强者继承法 : TemporaryFaction
     {
         var res = new TempFac_强者继承法();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

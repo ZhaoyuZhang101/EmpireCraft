@@ -8,6 +8,9 @@ public class TempFac_地方官叛乱 : TemporaryFaction
     {
         var res = new TempFac_地方官叛乱();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

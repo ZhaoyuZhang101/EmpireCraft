@@ -10,6 +10,9 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
     {
         var res = new TempFac_允许诸侯自由开战();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

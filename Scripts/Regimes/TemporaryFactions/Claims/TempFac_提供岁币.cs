@@ -11,6 +11,9 @@ public class TempFac_提供岁币 : TemporaryFaction
     {
         var res = new TempFac_提供岁币();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

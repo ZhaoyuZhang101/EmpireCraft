@@ -8,6 +8,9 @@ public class TempFac_自由信仰 : TemporaryFaction
     {
         var res = new TempFac_自由信仰();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

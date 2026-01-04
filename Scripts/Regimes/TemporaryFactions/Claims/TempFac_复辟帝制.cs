@@ -8,6 +8,9 @@ public class TempFac_复辟帝制 : TemporaryFaction
     {
         var res = new TempFac_复辟帝制();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

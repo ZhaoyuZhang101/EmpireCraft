@@ -65,6 +65,9 @@ public sealed class TemporaryFactionConverter : JsonConverter
             ["targetType"]  = JToken.FromObject(tf.TargetType, serializer),
             ["progress"]    = tf.progress,
             ["started"]    = tf.IsStarted(),
+            ["Hide"]    = tf.Hide,
+            ["Active"]    = tf.Active,
+            ["ShowAsPlot"]    = tf.ShowAsPlot,
             ["timestamp"] = tf.timestamp,
             // 如果子类有额外**纯数据**字段，也在这里一并手动写出；
             // 对于会导致循环引用的对象（如 Regime/Kingdom/World 指针）务必不要写。

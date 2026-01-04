@@ -9,6 +9,9 @@ public class TempFac_确立国教 : TemporaryFaction
     {
         var res = new TempFac_确立国教();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     

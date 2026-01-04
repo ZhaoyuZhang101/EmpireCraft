@@ -8,6 +8,9 @@ public class TempFac_收回地盘 : TemporaryFaction
     {
         var res = new TempFac_收回地盘();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

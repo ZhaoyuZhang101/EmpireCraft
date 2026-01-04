@@ -11,6 +11,9 @@ public class TempFac_扩张地盘 : TemporaryFaction
     {
         var res = new TempFac_扩张地盘();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     public override void Init(FixedFaction faction)

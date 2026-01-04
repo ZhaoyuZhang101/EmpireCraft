@@ -10,6 +10,9 @@ public class TempFac_开科取士 : TemporaryFaction
     {
         var res = new TempFac_开科取士();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

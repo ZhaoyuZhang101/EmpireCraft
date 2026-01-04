@@ -11,6 +11,9 @@ public class TempFac_劫掠 : TemporaryFaction
     {
         var res = new TempFac_劫掠();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     

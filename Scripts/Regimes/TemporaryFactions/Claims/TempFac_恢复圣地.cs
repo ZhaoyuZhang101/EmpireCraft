@@ -11,6 +11,9 @@ public class TempFac_恢复圣地 : TemporaryFaction
     {
         var res = new TempFac_恢复圣地();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     

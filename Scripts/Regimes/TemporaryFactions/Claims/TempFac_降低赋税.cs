@@ -8,6 +8,9 @@ public class TempFac_降低赋税 : TemporaryFaction
     {
         var res = new TempFac_降低赋税();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

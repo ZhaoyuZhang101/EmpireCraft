@@ -9,6 +9,9 @@ public class TempFac_游牧化 : TemporaryFaction
     {
         var res = new TempFac_游牧化();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     
