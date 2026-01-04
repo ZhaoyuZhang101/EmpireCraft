@@ -387,6 +387,14 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         var showButton = thirdPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "show_tfaction_as_plot", () =>
         {
             pFaction.ShowAsPlot = !pFaction.ShowAsPlot;
+            if ((_kingdom?.king?.plot?.name??"") == pFaction.type.ToString())
+            {
+                _kingdom?.king?.plot?.setAlive(false);
+            }
+            if (pFaction.IsStarted())
+            {
+                pFaction.End();
+            }
             pFaction.showButton?.SetStatus(pFaction.ShowAsPlot);
         }, pFaction.ShowAsPlot, size: new Vector2(12, 12), isOption:true);
         pFaction.showButton =  showButton;
