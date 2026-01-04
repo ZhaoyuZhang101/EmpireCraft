@@ -857,25 +857,6 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     List<KingdomTitle> titles = pActor.takeTitle();
-                    KingdomTitle currentTitle = null;
-                    foreach (var city in kingdom.cities)
-                    {
-                        if (city.hasTitle())
-                        {
-                            if (currentTitle != city.GetTitle())
-                            {
-                                currentTitle = city.GetTitle();
-                                if (!currentTitle.HasOwner())
-                                {
-                                    var oCount = (float)currentTitle.getCities().Intersect(kingdom.cities).Count();
-                                    if (oCount / currentTitle.getCities().Count() >= 0.5f)
-                                    {
-                                        titles.Add(currentTitle);
-                                    }
-                                }
-                            }
-                        }
-                    }
                     foreach(KingdomTitle title in titles)
                     {
                         if (!title.isRekt())
