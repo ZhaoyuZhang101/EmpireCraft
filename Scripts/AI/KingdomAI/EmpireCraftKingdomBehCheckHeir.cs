@@ -23,6 +23,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     {
         if (!EmpireCraftKingdomBehCheckKing.NeedSuccession(pKingdom) || (pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir()))
         {
+            pKingdom.RecoverToDefaultHeir();
             return BehResult.Continue;
         }
 

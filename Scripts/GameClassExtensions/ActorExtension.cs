@@ -993,6 +993,25 @@ public static class ActorExtension
         List<KingdomTitle> takedTitles = new List<KingdomTitle>();
         Kingdom kingdom = a.kingdom;
         List<KingdomTitle> titles = kingdom.GetControlledTitle();
+        KingdomTitle currentTitle = null;
+        foreach (var city in kingdom.cities)
+        {
+            if (city.hasTitle())
+            {
+                if (currentTitle != city.GetTitle())
+                {
+                    currentTitle = city.GetTitle();
+                    if (!currentTitle.HasOwner())
+                    {
+                        var oCount = (float)currentTitle.getCities().Intersect(kingdom.cities).Count();
+                        if (oCount / currentTitle.getCities().Count() >= 0.5f)
+                        {
+                            titles.Add(currentTitle);
+                        }
+                    }
+                }
+            }
+        }
         foreach(KingdomTitle t in titles)
         {
             if (t.main_kingdom!=null)

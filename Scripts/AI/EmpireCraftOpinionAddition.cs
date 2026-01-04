@@ -56,11 +56,14 @@ public static class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if (pMain.HasMainTitle())
+                if (!pMain.IsInSameEmpire(pTarget))
                 {
-                    var title = pMain.GetMainTitle();
-                    var value = pTarget.cities.Intersect(title.getCities()).Count();
-                    result = -value;
+                    if (pMain.HasMainTitle())
+                    {
+                        var title = pMain.GetMainTitle();
+                        var value = pTarget.cities.Intersect(title.getCities()).Count();
+                        result = -(value*100);
+                    }
                 }
                 return result;
             }
