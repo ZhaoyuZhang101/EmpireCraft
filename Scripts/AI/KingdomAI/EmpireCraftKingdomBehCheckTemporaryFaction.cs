@@ -15,13 +15,19 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
+        CheckTf(pKingdom);
+        return BehResult.Continue;
+    }
+
+    public static void CheckTf(Kingdom pKingdom)
+    {
         pKingdom.CheckEmpire();
-        if (!pKingdom.IsEmpire()) return BehResult.Continue;
-        if (pKingdom.GetEmpire()==null) return BehResult.Continue;
+        if (!pKingdom.IsEmpire()) return;
+        if (pKingdom.GetEmpire()==null) return;
         Regime regime = pKingdom.GetRegime();
         regime.GetPlayerFactions().ForEach(f=>f.EmpireId = pKingdom.GetEmpire().getID());
         FixedFaction dominateFaction = regime.GetDominateFaction();
-        if (dominateFaction == null) return BehResult.Continue;
+        if (dominateFaction == null) return;
         foreach (var ff in regime.GetPlayerFactions().Where(ff => ff != dominateFaction))
         {
             ff.TemporaryFactions.ForEach(tf => tf.End());
@@ -33,16 +39,16 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
             if ((pKingdom.king?.plot?.name ?? "") != (run?.type.ToString() ?? "-"))
             {
                 run?.End();
-                return BehResult.Continue;
+                return;
             }
         }
-        if (dominateFaction.IsAnyTFactionRuns()) return BehResult.Continue;
-        if (dominateFaction.GetLeader() == null && regime.type!= RegimeType.Feudalism) return BehResult.Continue;
+        if (dominateFaction.IsAnyTFactionRuns()) return;
+        if (dominateFaction.GetLeader() == null && regime.type!= RegimeType.Feudalism) return;
         if (regime.has_cabinet)
         {
             if (regime.type != RegimeType.Feudalism)
             {
-                if (pKingdom.GetEmpire().GetCabinetLeader()?.GetFaction() != dominateFaction) return BehResult.Continue;
+                if (pKingdom.GetEmpire().GetCabinetLeader()?.GetFaction() != dominateFaction) return;
             }
         }
         var shuffledTf = dominateFaction.TemporaryFactions.ToList();
@@ -52,9 +58,9 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
             if (tf.CheckCondition())
             {
                 tf.Start();
-                return BehResult.Continue;
+                return;
             }
         }
-        return BehResult.Continue;
+        return;
     }
 }

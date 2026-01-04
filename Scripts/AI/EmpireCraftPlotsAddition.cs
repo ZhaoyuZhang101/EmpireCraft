@@ -690,6 +690,7 @@ namespace EmpireCraft.Scripts.AI
                 min_level = 1,
                 progress_needed = 15f,
                 can_be_done_by_king = true,
+                check_target_kingdom = true,
                 check_is_possible = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
@@ -701,7 +702,7 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom.IsEmpire()) return false;
                     return true;
                 },
-                action = delegate(Actor pActor) 
+                try_to_start_advanced = delegate(Actor pActor, PlotAsset pPlotAsset, bool pForced)
                 {
                     Kingdom kingdom = pActor.kingdom;
                     List<KingdomTitle> titles = pActor.getAcquireTitle();
@@ -713,16 +714,47 @@ namespace EmpireCraft.Scripts.AI
                             if (!kingdom.cities.Contains(city))
                             {
                                 Kingdom targetKingdom = city.kingdom;
+                                if (targetKingdom.isNeutral()) continue;
+                                if (!targetKingdom.king.GetOwnedTitle().Contains(title.getID())) continue;
+                                if (kingdom.isOpinionTowardsKingdomGood(targetKingdom)) continue;
                                 if (kingdom.countTotalWarriors() > targetKingdom.countTotalWarriors())
                                 {
-                                    War war = World.world.diplomacy.startWar(kingdom, targetKingdom, WarTypeLibrary.normal);
-                                    TranslateHelper.LogKingdomAcquireTitle(kingdom, targetKingdom, title);
+                                    foreach (Plot plot3 in World.world.plots)
+                                    {
+                                        if (plot3.isActive() && plot3.isSameType(pPlotAsset))
+                                        {
+                                            pActor.setPlot(plot3);
+                                            plot3.target_kingdom = targetKingdom;
+                                            plot3.setName($"{kingdom.name}试图索取{targetKingdom.name}的{title.name}法理");
+                                            return true;
+                                        }
+                                    }
+                                    var nPlot = World.world.plots.newPlot(pActor, pPlotAsset, pForced);
+                                    nPlot.target_kingdom = targetKingdom;
+                                    nPlot.setName($"{kingdom.name}试图索取{targetKingdom.name}的{title.name}法理");
                                     return true;
                                 }
                             }
                         }
                     }
                     return false;
+                },
+                action = delegate(Actor pActor)
+                {
+                    if (!pActor.hasPlot()) return false;
+                    if (!pActor.hasKingdom()) return false;
+                    var kingdom = pActor.kingdom;
+                    var plot = pActor.plot;
+                    var targetKingdom = plot.target_kingdom;
+                    List<KingdomTitle> titles = pActor.getAcquireTitle();
+                    var needTitles = targetKingdom.king.GetOwnedTitle().Select(tid=>ModClass.KINGDOM_TITLE_MANAGER.get(tid)).Intersect(titles).ToList();
+                    if (needTitles.Count <= 0) return false;
+                    var finalTitle = needTitles.ToList().Find(t => !t.isRekt());
+                    if (finalTitle == null) return false;
+                    War war = World.world.diplomacy.startWar(kingdom, targetKingdom, WarTypeLibrary.normal);
+                    war.SetEmpireWarType(EmpireWarType.索取法理, nanoObject:finalTitle);
+                    TranslateHelper.LogKingdomAcquireTitle(kingdom, targetKingdom, finalTitle);
+                    return true;
                 }
             });
             AssetManager.plots_library.add(new PlotAsset

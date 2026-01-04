@@ -21,7 +21,7 @@ public static class WarExtension
 
     }
 
-    public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="")
+    public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="", NanoObject nanoObject = null)
     {
         GetOrCreate(w).empireWarType = type;
         Empire empire = w.main_attacker.GetEmpire();
@@ -32,6 +32,14 @@ public static class WarExtension
         else
         {
             w.data.name = (string.IsNullOrEmpty(pre)?w.main_attacker?.name:pre) + type + "战争";
+        }
+
+        switch (type)
+        {
+            case EmpireWarType.索取法理:
+                var title = nanoObject;
+                w.data.name = $"{w.getMainAttacker()?.name}索取{title?.name}法理战争";
+                break;
         }
     }
     public static EmpireWarType GetEmpireWarType(this War w)
