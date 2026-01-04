@@ -14,6 +14,9 @@ public class TempFac_削藩 : TemporaryFaction
     {
         var res = new TempFac_削藩();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

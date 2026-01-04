@@ -11,6 +11,9 @@ public class TempFac_转天朝制度 : TemporaryFaction
     {
         var res = new TempFac_转天朝制度();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

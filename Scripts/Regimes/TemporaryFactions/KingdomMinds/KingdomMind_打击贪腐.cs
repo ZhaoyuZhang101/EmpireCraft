@@ -9,6 +9,9 @@ public class KingdomMind_打击贪腐 : TemporaryFaction
     {
         var res = new KingdomMind_打击贪腐();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     

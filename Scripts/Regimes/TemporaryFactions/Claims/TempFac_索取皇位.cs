@@ -13,6 +13,9 @@ public class TempFac_索取皇位 : TemporaryFaction
     {
         var res = new TempFac_索取皇位();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     public override void Init(FixedFaction faction)

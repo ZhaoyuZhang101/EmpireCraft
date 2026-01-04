@@ -11,6 +11,9 @@ public class TempFac_对外扩张 : TemporaryFaction
     {
         var res = new TempFac_对外扩张();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

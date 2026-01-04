@@ -8,6 +8,9 @@ public class TempFac_划地给教廷 : TemporaryFaction
     {
         var res = new TempFac_划地给教廷();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     public override void Init(FixedFaction faction)

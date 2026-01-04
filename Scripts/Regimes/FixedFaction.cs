@@ -19,7 +19,6 @@ namespace EmpireCraft.Scripts.Regimes;
 
 public static class FactionManager
 {
-    public static Dictionary<TemporaryFactionType, TemporaryFaction> StoredTemporaryFaction = new ();
     [JsonIgnore]
     public static List<TemporaryFactionType> DefaultCountryMind = new()
     {
@@ -174,9 +173,9 @@ public static class FactionManager
             {
                 var inst = Activator.CreateInstance(t) as TemporaryFaction;
                 if (inst == null) continue;
-                if (!StoredTemporaryFaction.ContainsKey(inst.type))
+                if (!Config.StoredTemporaryFaction.ContainsKey(inst.type))
                 {
-                    StoredTemporaryFaction.Add(inst.type, inst);
+                    Config.StoredTemporaryFaction.Add(inst.type, inst);
                     LogService.LogInfo($"初始化诉求{inst.type}"); 
                 }
             }
@@ -238,6 +237,7 @@ public static class FactionManager
 
 public class PlayerFactionConfig
 {
+    public Dictionary<TemporaryFactionType, TemporaryFaction> StoredTemporaryFaction = new ();
     public List<FixedFaction> PlayerFactions = new List<FixedFaction>();
     public Dictionary<RegimeType, List<FixedFaction>> PlayerRegimeFactions = new Dictionary<RegimeType, List<FixedFaction>>();
 }
@@ -376,9 +376,17 @@ public class FixedFaction
 
         foreach (var e in typesToBuild)
         {
-            if (FactionManager.StoredTemporaryFaction.TryGetValue(e, out var value))
+            if (FactionManager.Config.StoredTemporaryFaction.TryGetValue(e, out var value))
             {
-                result.Add(value.Clone(this));
+                var tf = TemporaryFactions?.Find(tf => tf.type == e);
+                var new_tf = value.Clone(this);
+                if (tf != null)
+                {
+                    new_tf.ShowAsPlot = tf.ShowAsPlot;
+                    new_tf.Hide = tf.Hide;
+                    new_tf.Active = tf.Active;
+                }
+                result.Add(new_tf);
             }
         }
         return result;

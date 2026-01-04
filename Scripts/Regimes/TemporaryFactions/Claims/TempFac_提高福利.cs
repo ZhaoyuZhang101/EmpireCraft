@@ -8,6 +8,9 @@ public class TempFac_提高福利 : TemporaryFaction
     {
         var res = new TempFac_提高福利();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

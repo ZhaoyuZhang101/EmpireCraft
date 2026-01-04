@@ -10,6 +10,9 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
     {
         var res = new TempFac_夺取诸侯开战权();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     public override void Execute()

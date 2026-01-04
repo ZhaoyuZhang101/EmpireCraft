@@ -12,6 +12,9 @@ public class TempFac_设置行政区 : TemporaryFaction
     {
         var res = new TempFac_设置行政区();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     public override void Execute()

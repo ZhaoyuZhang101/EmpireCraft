@@ -8,6 +8,9 @@ public class TempFac_开放移民 : TemporaryFaction
     {
         var res = new TempFac_开放移民();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
 

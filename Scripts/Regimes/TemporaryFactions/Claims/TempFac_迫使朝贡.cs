@@ -10,6 +10,9 @@ public class TempFac_迫使朝贡 : TemporaryFaction
     {
         var res = new TempFac_迫使朝贡();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }
     

@@ -22,6 +22,9 @@ public class {TempFac}_{type_name} : TemporaryFaction
     {{
         var res = new {TempFac}_{type_name}();
         res.Init(faction);
+        res.ShowAsPlot = ShowAsPlot;
+        res.Hide = Hide;
+        res.Active = Active;
         return res;
     }}
     
