@@ -407,7 +407,7 @@ public class ActorPatch : GamePatch
                     }
                     else if (__instance.hasFamily() && __instance.family.units.Any(p => p.isParentOf(__instance)))
                     {
-                        __instance.SetFamilyName(__instance.family.getFamilyName());
+                        __instance.SetFamilyName(__instance.family.GetFamilyName());
                         flag = true;
                     }
                     else
@@ -449,7 +449,7 @@ public class ActorPatch : GamePatch
                     {
                         __instance.family.data.name = pCulture.getOnomasticData(MetaType.Family).generateName();
                         __instance.family.SetFamilyCityPre(false);
-                        __instance.SetFamilyName(__instance.family.getFamilyName());
+                        __instance.SetFamilyName(__instance.family.GetFamilyName());
                     }
                     
                 }
@@ -545,7 +545,7 @@ public class ActorPatch : GamePatch
                     string cityName = __instance.city.GetCityName();
                     pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
                     pObject.SetFamilyCityPre();
-                    __instance.SetFamilyName(pObject.getFamilyName());
+                    __instance.SetFamilyName(pObject.GetFamilyName());
                 }
                 else
                 {
@@ -553,7 +553,7 @@ public class ActorPatch : GamePatch
                     {
                         pObject.data.name = string.Join("\u200A", clanName, familyEnd);
                         pObject.SetFamilyCityPre(false);
-                        __instance.SetFamilyName(pObject.getFamilyName());
+                        __instance.SetFamilyName(pObject.GetFamilyName());
                     }
                 }
                 __instance.initializeActorName();
@@ -581,7 +581,7 @@ public class ActorPatch : GamePatch
                         pObject.SetFamilyCityPre(false);
                     }
                 }
-                __instance.SetFamilyName(pObject.getFamilyName());
+                __instance.SetFamilyName(pObject.GetFamilyName());
                 __instance.GetModName().SetName(__instance);
                 return;
             }
@@ -606,7 +606,7 @@ public class ActorPatch : GamePatch
                     pObject.SetFamilyCityPre(false);
                 }
             }
-            __instance.SetFamilyName(pObject.getFamilyName());
+            __instance.SetFamilyName(pObject.GetFamilyName());
         }
         __instance.initializeActorName();
         __instance.GetModName().SetName(__instance);

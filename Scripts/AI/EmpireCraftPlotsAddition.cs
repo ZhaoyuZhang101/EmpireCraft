@@ -103,6 +103,7 @@ namespace EmpireCraft.Scripts.AI
                     if (regime == null) return false;
                     var run = regime.GetDominateFaction()?.GetAnyTFactionRuns();
                     if (run == null) return false;
+                    if (!run.CheckContinue()) return false;
                     if (!run.IsStarted()) return false;
                     if (!run.CheckTarget()) return false;
                     return true;
@@ -111,8 +112,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     var kingdom = pActor.kingdom;
                     var regime = kingdom?.GetRegime();
-                    if (regime == null) return false;
-                    var run = regime.GetDominateFaction()?.GetAnyTFactionRuns();
+                    var run = regime?.GetDominateFaction()?.GetAnyTFactionRuns();
                     if (run == null) return false;
                     run.Execute();
                     return true;
