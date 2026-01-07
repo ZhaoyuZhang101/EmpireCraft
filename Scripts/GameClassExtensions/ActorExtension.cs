@@ -62,6 +62,12 @@ public class Name
 
     public void Initialize(Setting setting, string culture)
     {
+        if (setting?.Clan?.sex_post_Male == null) return;
+        if (setting?.Clan?.sex_post_Female == null) return;
+        if (setting.City == null) return;
+        if (setting.Family == null) return;
+        if (setting.Kingdom == null) return;
+        if (setting.Religion == null) return;
         this.has_sex_post = setting.Clan.has_sex_post;
         this.use_local_as_family_name = setting.Clan.use_local_as_lastname;
         this.is_invert = setting.Unit.is_invert;
@@ -91,6 +97,7 @@ public class Name
 
     public void SetName(Actor actor)
     {
+        if (actor == null) return;
         sex = actor.isSexMale() ? ActorSex.Male : ActorSex.Female;
         if (hasFamilyName(actor))
         {
@@ -133,9 +140,10 @@ public class Name
                 }
             }
             real_family_name = (use_local_as_family_name&&cityName!="") ? cityName : familyName;
+            real_family_name ??= "";
             if (has_sex_post)
             {
-                string post = sex == ActorSex.Female ? sex_post_Female : sex_post_Male;
+                string post = (sex == ActorSex.Female ? sex_post_Female : sex_post_Male)??"";
                 if (!real_family_name.Contains(post))
                 {
                     real_family_name += post;
@@ -145,12 +153,19 @@ public class Name
             if (actor.HasSpecificClan())
             {
                 PersonalClanIdentity identity = actor.GetPersonalIdentity();
-                identity.name = actor.name;
-                SpecificClan sc = identity._specificClan;
-                if (identity.id == sc.founder)
+                if (identity != null)
                 {
-                    sc.name = real_family_name;
+                    identity.name = actor.name;
+                    SpecificClan sc = identity._specificClan;
+                    if (sc != null)
+                    {
+                        if (identity.id == sc.founder)
+                        {
+                            sc.name = real_family_name;
+                        }
+                    }
                 }
+
             }
         } else
         {

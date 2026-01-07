@@ -64,7 +64,7 @@ public class TempFac_索取皇位 : TemporaryFaction
     public override bool CheckContinue()
     {
         Empire empire = GetEmpire();
-        return empire?.Emperor == null || !empire.Emperor.isAdult();
+        return empire?.Emperor == null;
     }
     public override bool CheckCondition()
     {

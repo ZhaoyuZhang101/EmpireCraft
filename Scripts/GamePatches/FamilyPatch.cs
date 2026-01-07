@@ -48,7 +48,7 @@ public class FamilyPatch : GamePatch
                     OverallHelperFunc.SetFamilyCityPre(__instance, false);
                     if (!pActor1.GetModName().hasFamilyName(pActor1))
                     {
-                        pActor1.SetFamilyName(__instance.getFamilyName());
+                        pActor1.SetFamilyName(__instance.GetFamilyName());
                     }
                     if (pActor1.GetModName().has_whole_name(pActor1))
                     {
@@ -62,7 +62,7 @@ public class FamilyPatch : GamePatch
                         }
                         if (!pActor2.GetModName().hasFamilyName(pActor2))
                         {
-                            pActor2.SetFamilyName(__instance.getFamilyName());
+                            pActor2.SetFamilyName(__instance.GetFamilyName());
                         }
                         if (pActor2.GetModName().has_whole_name(pActor2))
                         {
@@ -93,7 +93,7 @@ public class FamilyPatch : GamePatch
                     if (!pActor2.GetModName().hasFamilyName(pActor2))
                     {
                         
-                        pActor2.SetFamilyName(__instance.getFamilyName());
+                        pActor2.SetFamilyName(__instance.GetFamilyName());
                     }
                     if (pActor2.GetModName().has_whole_name(pActor2))
                     {
@@ -107,7 +107,7 @@ public class FamilyPatch : GamePatch
                         }
                         if (!pActor1.GetModName().hasFamilyName(pActor1))
                         {
-                            pActor1.SetFamilyName(__instance.getFamilyName());
+                            pActor1.SetFamilyName(__instance.GetFamilyName());
                         }
                         if (pActor1.GetModName().has_whole_name(pActor1))
                         {

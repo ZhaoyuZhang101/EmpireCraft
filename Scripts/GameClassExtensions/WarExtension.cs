@@ -18,7 +18,8 @@ public static class WarExtension
     public class WarExtraData: ExtraDataBase
     {
         public EmpireWarType empireWarType = EmpireWarType.None;
-        public NanoObject nanoObject = null;
+        public MetaType metaType = MetaType.None;
+        public long metaID = -1L;
     }
 
     public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="", NanoObject nanoObject = null)
@@ -36,12 +37,13 @@ public static class WarExtension
 
         if (nanoObject != null)
         {
-            w.GetOrCreate().nanoObject = nanoObject;
+            w.GetOrCreate().metaType = nanoObject.meta_type;
+            w.GetOrCreate().metaID = nanoObject.id;
         }
         switch (type)
         {
             case EmpireWarType.索取法理:
-                var title = nanoObject;
+                var title = (KingdomTitle)nanoObject;
                 w.data.name = $"{w.getMainAttacker()?.name}索取{title?.name}法理战争";
                 break;
         }
@@ -49,7 +51,13 @@ public static class WarExtension
 
     public static KingdomTitle GetTitleTarget(this War w)
     {
-        return (KingdomTitle)w.GetOrCreate().nanoObject;
+        var metaType = w.GetOrCreate().metaType;
+        switch (metaType)
+        {
+            case MetaTypeExtension.KingdomTitle:
+                return ModClass.KINGDOM_TITLE_MANAGER.get(w.GetOrCreate().metaID);
+        }
+        return null;
     }
     public static EmpireWarType GetEmpireWarType(this War w)
     {

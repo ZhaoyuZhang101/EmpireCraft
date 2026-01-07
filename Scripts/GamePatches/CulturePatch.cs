@@ -38,12 +38,21 @@ public class CulturePatch : GamePatch
 
     private static void set_default_culture_name(Actor __instance, string pCultureName)
     {
-        __instance.kingdom.data.name = __instance.culture.getOnomasticData(MetaType.Kingdom).generateName();
-        __instance.city.data.name = __instance.culture.getOnomasticData(MetaType.City).generateName();
-        __instance.language.data.name = __instance.kingdom.GetKingdomName() + LM.Get("Language") + __instance.city.GetCityName() + LM.Get("Dialect");
-        __instance.culture.data.name = __instance.kingdom.GetKingdomName() + "-" + LM.Get("OriginalCulture");
-        __instance.culture.data.creator_city_name = __instance.city.data.name;
-        LogService.LogInfo("当前文化名称: " + __instance.culture.data.name);
+        try
+        {
+            __instance.kingdom.data.name = __instance.culture.getOnomasticData(MetaType.Kingdom).generateName();
+            __instance.city.data.name = __instance.culture.getOnomasticData(MetaType.City).generateName();
+            __instance.language.data.name = __instance.kingdom.GetKingdomName() + LM.Get("Language") +
+                                            __instance.city.GetCityName() + LM.Get("Dialect");
+            __instance.culture.data.name = __instance.kingdom.GetKingdomName() + "-" + LM.Get("OriginalCulture");
+            __instance.culture.data.creator_city_name = __instance.city.data.name;
+            LogService.LogInfo("当前文化名称: " + __instance.culture.data.name);
+        }
+        catch (Exception e)
+        {
+            LogService.LogInfo("文化载入失败");
+        }
+
     }
 
     private static void set_culture_name(Culture __instance, Actor pActor)
