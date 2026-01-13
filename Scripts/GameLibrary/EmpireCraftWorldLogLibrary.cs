@@ -30,6 +30,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset city_add_to_title_log;
     public static WorldLogAsset religion_war_transfer_log;
     public static WorldLogAsset become_kingdom_log;
+    public static WorldLogAsset combine_kingdom_log;
     public static WorldLogAsset destroy_title_log;
     public static WorldLogAsset history_kingdom_attack_for_title;
     public static WorldLogAsset history_kingdom_change_capital_to_title;
@@ -63,6 +64,17 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$place$", 2);
                 wl.updateText(ref pText, pMessage, "$year_name$", 3);
+            }
+        });
+        combine_kingdom_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(combine_kingdom_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
             }
         });
         history_new_emperor_west = wl.add(new WorldLogAsset

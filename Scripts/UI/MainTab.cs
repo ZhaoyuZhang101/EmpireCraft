@@ -108,6 +108,12 @@ internal static class MainTab
             PowerButtonCreator.CreateGodPowerButton("empire_form",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ChineseCrown.png")));
 
+
+        RemoveEmpireButton.init();
+        tab.AddPowerButton(EMPIRE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("remove_empire",
+                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ChineseCrown_remove.png")));
+
         EmpireEnfeoffButton.init();
         tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));

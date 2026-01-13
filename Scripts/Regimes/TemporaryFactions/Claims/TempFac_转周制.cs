@@ -39,6 +39,7 @@ public class TempFac_转周制 : TemporaryFaction
                 kingdom.GetRegime().SetAllowArmy(true);
                 kingdom.GetRegime().SetAllowDiplomacy(true);
             }
+            if (kingdom.IsEmpire()) continue;
             var flag1 = false;
             if (empire.Emperor.getChildren().Any())
             {
@@ -55,7 +56,6 @@ public class TempFac_转周制 : TemporaryFaction
                     }
                 }
             }
-
             if (!flag1)
             {
                 if (members.Any())

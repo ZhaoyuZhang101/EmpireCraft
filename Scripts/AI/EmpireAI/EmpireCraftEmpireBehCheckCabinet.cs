@@ -5,18 +5,17 @@ using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
-using NeoModLoader.services;
 
-namespace EmpireCraft.Scripts.AI.KingdomAI;
+namespace EmpireCraft.Scripts.AI.EmpireAI;
 
-public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
+public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
 {
     public override Type OriginalBeh => GetType();
     
     public override BehResult execute(Kingdom pKingdom)
     {
         pKingdom.CheckEmpire();
-        if (!pKingdom.IsEmpire()) return BehResult.Continue;
+        if (!pKingdom.IsEmpire()) return BehResult.Stop;
         Empire empire = pKingdom.GetEmpire();
         Regime regime = empire.CoreKingdom.GetRegime();
         foreach (var ff in regime.GetPlayerFactions())
@@ -47,7 +46,7 @@ public class EmpireCraftKingdomBehCheckCabinet : GameAIKingdomBase
         {
             empire.Additions.cabinet_acc = IsCabinetControlEmpire(pKingdom) ? 30 : 0;
         }
-        return BehResult.Continue;
+        return base.execute(pKingdom);
     }
 
     public static bool IsCabinetControlEmpire(Kingdom pKingdom)

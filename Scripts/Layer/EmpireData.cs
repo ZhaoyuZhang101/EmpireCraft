@@ -74,6 +74,7 @@ public class EmpireData : MetaObjectData
     public double newEmperor_timestamp { get; set; }
 
     public double last_exam_timestamp { get; set; } = -1L;
+    public double last_select_lovers_timestamp { get; set; } = -1L;
 
     public double last_office_exam_timestamp { get; set; } = -1L;
     

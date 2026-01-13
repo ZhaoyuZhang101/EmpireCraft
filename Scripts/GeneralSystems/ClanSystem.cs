@@ -306,7 +306,7 @@ public static class SpecificClanManager
                     if (sibling.mother == identity.mother)
                         siblings.Add((ClanRelation.SFSM, sibling)); // 同父同母
                     else
-                        siblings.Add((ClanRelation.DFSM, sibling)); // 同父异母
+                        siblings.Add((ClanRelation.SFDM, sibling)); // 同父异母
                 }
             }
         }
@@ -318,7 +318,7 @@ public static class SpecificClanManager
                 if (sibling != null && sibling.id != selfId)
                 {
                     if (sibling.father != identity.father)
-                        siblings.Add((ClanRelation.SFDM, sibling)); // 同母异父
+                        siblings.Add((ClanRelation.DFSM, sibling)); // 同母异父
                 }
             }
         }
@@ -815,25 +815,35 @@ public class PersonalClanIdentity
         return is_main && IsHeirPriority()&&is_alive&&identity.specific_clan_id==specific_clan_id&&identity.id!=id;
     }
 
-    public void setLover(Actor actor)
+    public void setLover(Actor actor, bool isCus = false)
     {
         if (actor == null) return;
-        if (this.lover!= (-1L, -1L)) return;
+        if (!isCus)
+        {
+            if (this.lover!= (-1L, -1L)) return;
+        }
         actor.CheckSpecificClan(false);
         PersonalClanIdentity lpci = actor.GetPersonalIdentity();
         if (lpci == null) return;
-        lover.specific_clan = lpci.specific_clan_id;
-        lover.identity = lpci.id;
-        is_main = IsHeirPriority();
-
         lpci.lover.specific_clan = specific_clan_id;
         lpci.lover.identity = id;
         lpci.is_main = !IsHeirPriority();
-    }
-    public void addConcubines(Actor actor)
-    {
-        _specificClan.addActor(actor, is_concubines:true);
-        this.concubines.Add((this.specific_clan_id, actor.GetPersonalIdentity().id));
+        if (!isCus)
+        {
+            lover.specific_clan = lpci.specific_clan_id;
+            lover.identity = lpci.id;
+            is_main = IsHeirPriority();
+        }
+        else
+        {
+            if (!concubines.Contains((lpci._specificClan.id, lpci.id)))
+            {
+                lpci.is_main = false;
+                is_main = true;
+                lpci.is_concubine = true;
+                concubines.Add((lpci._specificClan.id, lpci.id));
+            }
+        }
     }
 
     public void setParent(PersonalClanIdentity identity)

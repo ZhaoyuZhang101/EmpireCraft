@@ -532,14 +532,14 @@ public static class EmpireCraftNamePlateLibrary
                     FixedFaction faction = empire.CoreKingdom.GetRegime().GetDominateFaction();
                     if (faction != null)
                     {
-                        var tf = faction.GetAnyTFactionRuns();
+                        var tf = empire.RunningTemporaryFaction;
                         text =
                             $"\n{(empire.EmpireClan?.name ?? "无皇室").ColorString(pColor: Color.yellow)} | 主导: {faction.Name}" +
                             moneyText + "\n"+
                             text.ColorString(pColor: pMetaObject.getColor()._color_banner) +
-                            $"\n诉求：{(faction.IsAnyTFactionRuns() ? tf.type.ToString(): "无")}".ColorString(
+                            $"\n诉求：{(tf!=null ? tf.type.ToString(): "无")}".ColorString(
                                 pColor: new Color(0.5f, 0.9f, 0.5f)) +
-                            (faction.IsAnyTFactionRuns()?faction.GetAnyTFactionRuns().ShowAsPlot?$"({LM.Get("tf_starting")})"
+                            (tf!=null?tf.ShowAsPlot?$"({LM.Get("tf_starting")})"
                                 : $"({(int)(tf.progress / tf.progressMax * 100)}/100)"
                                 : "");
                     }
@@ -549,7 +549,10 @@ public static class EmpireCraftNamePlateLibrary
                 text += "\n朝贡同盟".ColorString(pColor:new Color(0.5f, 0.9f, 0.5f)) + moneyText;
                 break;
             case 2:
-                text += "\n岁币同盟".ColorString(pColor: new Color(0.9f, 0.2f, 0.8f)) + moneyText;
+                if (!empire.CoreKingdom.HasGivenAlliance())
+                {
+                    text += "\n岁币同盟".ColorString(pColor: new Color(0.9f, 0.2f, 0.8f)) + moneyText;
+                } 
                 break;
 
         }

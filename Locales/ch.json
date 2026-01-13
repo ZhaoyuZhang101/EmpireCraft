@@ -364,6 +364,7 @@
   "官员品级调动": "$actor$ 升為 $officeName$ ($level$ 品)",
   "join_religion_war_log": "$kingdom$ 加入了 $religion$ 聖戰",
   "religion_war_transfer_log": "$city$ 已受到 $religion$ 的洗禮",
+  "combine_kingdom_log": "$actor$ 已统合治下的所有辖区/国家",
   "成为朝贡国": "$kingdom$ 成為 $empire$ 的朝貢國",
   "history_empire_get_back_land": "$actor$ 發動了收復 $place$ 的戰爭",
   "join_empire_war_log": "$kingdom$ 加入了 $empire$ 的戰爭",

@@ -61,6 +61,47 @@ namespace EmpireCraft.Scripts.AI
                 },
                 check_should_continue = (Actor pActor) => true,
                 action = BecomeEmpireAndStartEnfeoff
+            });  
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "combine_kingdom",
+                path_icon = "ChineseCrown.png",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                money_cost = 0,
+                progress_needed = 60f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate(Actor pActor)
+                {
+                    if (!pActor.isKing()) return false;
+                    var allKingdoms = World.world.kingdoms.ToList().FindAll(k => k.king == pActor);
+                    if (!pActor.HasTitle()) return false;
+                    if (ModClass.KINGDOM_TITLE_MANAGER.get(pActor.GetOwnedTitle()[0])?.title_capital?.kingdom?.king !=
+                        pActor) return false;
+                    return allKingdoms.Count > 1;
+                },
+                check_should_continue = delegate(Actor pActor)
+                {
+                    if (!pActor.isKing()) return false;
+                    var allKingdoms = World.world.kingdoms.ToList().FindAll(k => k.king == pActor);
+                    if (!pActor.HasTitle()) return false;
+                    return allKingdoms.Count > 1;
+                },
+                action = delegate(Actor pActor)
+                {
+                    if (!pActor.isKing()) return false;
+                    var mainKingdom = ModClass.KINGDOM_TITLE_MANAGER.get(pActor.GetOwnedTitle()[0])?.title_capital
+                        ?.kingdom;
+                    var allKingdoms = World.world.kingdoms.ToList().FindAll(k => k.king == pActor&&k!=mainKingdom);
+                    if (mainKingdom==null) return false;
+                    foreach (var kingdom in allKingdoms)
+                    {
+                        kingdom.cities.ForEach(c=>c.joinAnotherKingdom(mainKingdom));
+                    }
+                    TranslateHelper.LogCombineKingdom(pActor);
+                    return true;
+                }
             });            
             AssetManager.plots_library.add(new PlotAsset
             {

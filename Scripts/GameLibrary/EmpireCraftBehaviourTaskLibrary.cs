@@ -51,5 +51,15 @@ public static class EmpireCraftBehaviourTaskLibrary
         obj4.KingdomMindAIs(AssetManager.tasks_kingdom);
         AssetManager.tasks_kingdom.add(obj4);
         AssetManager.job_kingdom.t.addTask("do_mod_kingdom_mind_beh");
+        
+        //国家2
+        LogService.LogInfo("初始化帝国模组帝国逻辑");
+        BehaviourTaskKingdom obj5 = new BehaviourTaskKingdom
+        {
+            id = "do_mod_empire_beh"
+        };
+        obj5.EmpireAIs(AssetManager.tasks_kingdom);
+        AssetManager.tasks_kingdom.add(obj5);
+        AssetManager.job_kingdom.t.addTask("do_mod_empire_beh");
     }
 }
