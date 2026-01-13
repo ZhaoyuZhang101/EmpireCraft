@@ -92,6 +92,7 @@ public static class EmpireCraftMetaTypeLibrary
                 if (kt.CoreKingdom.HasTakenAlliance()) continue;
                 foreach (var kingdom in kt.taken_Kingdoms.Concat(kt.kingdoms_list.ToList()))
                 { 
+                  if (kingdom.isRekt()) continue;
                   foreach (City city in kingdom.cities)
                   {
                     foreach (TileZone zone in city.zones)
@@ -109,14 +110,29 @@ public static class EmpireCraftMetaTypeLibrary
               {
                 if (kt.CoreKingdom.HasGivenAlliance()) continue;
                 foreach (var kingdom in kt.given_Kingdoms.Concat(kt.kingdoms_list.ToList()))
-                { 
-                  foreach (City city in kingdom.cities)
+                {
+                  if (kingdom.IsEmpire())
                   {
-                    foreach (TileZone zone in city.zones)
+                    foreach (City city in kingdom.GetEmpire().getCities())
                     {
-                      zone_manager.drawBegin();
-                      drawZoneEmpireWithKingdomBorder(zone, kt);
-                      zone_manager.drawEnd(zone);
+                      foreach (TileZone zone in city.zones)
+                      {
+                        zone_manager.drawBegin();
+                        drawZoneEmpireWithKingdomBorder(zone, kt);
+                        zone_manager.drawEnd(zone);
+                      }
+                    }
+                  }
+                  else
+                  {
+                    foreach (City city in kingdom.cities)
+                    {
+                      foreach (TileZone zone in city.zones)
+                      {
+                        zone_manager.drawBegin();
+                        drawZoneEmpireWithKingdomBorder(zone, kt);
+                        zone_manager.drawEnd(zone);
+                      }
                     }
                   }
                 }
@@ -149,10 +165,68 @@ public static class EmpireCraftMetaTypeLibrary
             return;
           Kingdom kingdom11 = city11.kingdom;
           if (kingdom11.isRekt()) return;
-          if (!kingdom11.IsInEmpire())
-            return;
-          foreach (City city12 in kingdom11.GetEmpire().AllCities())
-            QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
+          switch (pMetaTypeAsset.getZoneOptionState())
+          {
+            case 0:
+              if (!kingdom11.IsInEmpire())
+                return;
+              foreach (City city12 in kingdom11.GetEmpire().AllCities())
+                QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
+              break;
+            case 1:
+              Empire empire1 = null;
+              if (kingdom11.HasTakenAlliance())
+              {
+                empire1 = kingdom11.GetTakenAllianceEmpire();
+              } else if (kingdom11.IsInEmpire())
+              {
+                empire1 = kingdom11.GetEmpire();
+              }
+
+              List<City> cities = new List<City>();
+              if (empire1 != null)
+              {
+                cities = empire1.AllCities();
+                foreach (var kingdom in empire1.taken_Kingdoms)
+                {
+                  if (kingdom.isRekt()) continue;
+                  cities = cities.Union(kingdom.cities).ToList();
+                }
+              }
+              foreach (City city12 in cities)
+                QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
+              break;
+            case 2:
+              Empire empire2 = null;
+              if (kingdom11.HasGivenAlliance())
+              {
+                empire2 = kingdom11.GetGivenAllianceEmpire();
+              } else if (kingdom11.IsInEmpire())
+              {
+                if (kingdom11.GetEmpire().CoreKingdom.HasGivenAlliance())
+                {
+                  empire2 = kingdom11.GetEmpire().CoreKingdom.GetGivenAllianceEmpire();
+                }
+                else
+                {
+                  empire2 = kingdom11.GetEmpire();
+                }
+              }
+
+              List<City> cities2 = new List<City>();
+              if (empire2 != null)
+              {
+                cities2 = empire2.AllCities();
+                foreach (var kingdom in empire2.given_Kingdoms)
+                {
+                  cities2 = kingdom.IsInEmpire() ? cities2.Union(kingdom.GetEmpire().getCities()).ToList() : cities2.Union(kingdom.cities).ToList();
+                }
+              }
+              foreach (City city12 in cities2)
+                QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
+              break;
+          }
+
         });
         pAsset13.tile_get_metaobject = (MetaZoneGetMeta) ((pZone, pZoneOption) =>
         {

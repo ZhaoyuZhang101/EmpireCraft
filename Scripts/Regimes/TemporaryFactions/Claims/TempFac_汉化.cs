@@ -22,11 +22,14 @@ public class TempFac_汉化 : TemporaryFaction
         Kingdom pKingdom = GetTarget();
         if (pKingdom != null)
         {
-            var culture = pKingdom.GetEmpire().CoreKingdom.getCulture();
-            pKingdom.setCulture(culture);
-            pKingdom.units.ForEach(u=>u.setCulture(culture));
-            pKingdom.SetRegimeType(GetEmpire().CoreKingdom.GetRegime().type);
-            pKingdom.LoadRegime();
+            var culture = GetEmpire()?.CoreKingdom?.getCulture();
+            if (culture != null)
+            {
+                pKingdom.setCulture(culture);
+                pKingdom.units.ForEach(u=>u.setCulture(culture));
+                pKingdom.SetRegimeType(GetEmpire().CoreKingdom.GetRegime().type);
+                pKingdom.LoadRegime();  
+            }
         }
         End();
     }

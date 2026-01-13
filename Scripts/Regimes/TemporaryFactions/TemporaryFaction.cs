@@ -36,7 +36,8 @@ public abstract class TemporaryFaction
     public long KingdomID = -1L;
     public long TargetID = -1L;
     public MetaType TargetType = MetaType.None;
-    
+    [JsonIgnore]
+    public Empire Empire => GetEmpire();
     public float progress = 0;
     public float progressMax = 60;
     [JsonIgnore]
@@ -235,10 +236,9 @@ public abstract class TemporaryFaction
 
     protected FixedFaction GetFaction()
     {
-        Empire empire = GetEmpire();
-        if (empire != null)
+        if (Empire != null)
         {
-            Kingdom kingdom = empire.CoreKingdom;
+            Kingdom kingdom = Empire.CoreKingdom;
             Regime regime = kingdom.GetRegime();
             return regime?.GetPlayerFactions()?.Find(f => f.GetID() == factionID);
         }
@@ -255,6 +255,11 @@ public abstract class TemporaryFaction
         if (CountDown <= 0)
         {
             started = true;
+            var empire = GetEmpire();
+            if (empire != null)
+            {
+                GetEmpire().RunningTemporaryFaction = null;  
+            }
             if (ShowAsPlot)
             {
                 var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "empire_plots");
@@ -283,6 +288,11 @@ public abstract class TemporaryFaction
         started = false;
         progress = 0;
         Acc = 0;
+        if (Empire != null)
+        {
+            Empire.RunningTemporaryFaction = null;  
+        }
+        
     }
 
     public void FinishedAction()

@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using NCMS;
 using UnityEngine;
@@ -37,9 +38,10 @@ public class Empire : MetaObject<EmpireData>
     public List<Kingdom> taken_Kingdoms = new List<Kingdom>();
     
     public Religion Religion = null;
+    public TemporaryFaction RunningTemporaryFaction = null;
 
     public Kingdom CoreKingdom;
-    public Actor Emperor;
+    public Actor Emperor => CoreKingdom.king;
     public int CurrentMoney => CoreKingdom.GetMoney();
     private Vector3 _capitalCenter;
     public City OriginalCapital;
@@ -236,7 +238,7 @@ public class Empire : MetaObject<EmpireData>
     //新皇登基
     public void NewEmperor(Actor actor, bool isNew = false)
     {
-        this.Emperor = actor;
+        if (actor == null) return;
         actor.SetEmpire(this);
         string nameEmpire = "";
         actor.CheckSpecificClan();
@@ -264,18 +266,20 @@ public class Empire : MetaObject<EmpireData>
             if (currentSpecificClan.HasHistoryEmpire())
             {
                 var historyRecord = currentSpecificClan.GetHistoryEmpire();
-                this.data.directPre = GetDir(historyRecord.pos);
+                data.directPre = GetDir(historyRecord.pos);
                 SetEmpireName(historyRecord.name);
             }
             if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
             {
-                this.data.directPre = "";
+                data.directPre = "";
                 nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
                 SetEmpireName(nameEmpire);
                 currentSpecificClan.RecordHistoryEmpire(this, CoreKingdom.capital);
             }
             isNew = true;
             data.history_emperrors.Clear();
+            CoreKingdom.updateColor(getColorLibrary().getNextColor(actor.getActorAsset()));
+            updateColor(CoreKingdom.getColor());
         } 
         
         data.empire_specific_clan = currentSpecificClan.id;
@@ -303,6 +307,18 @@ public class Empire : MetaObject<EmpireData>
         
         //记录历史
         this.RecordNewEmperorHistory(isNew);
+    }
+    public bool IsNeedToChooseLovers()
+    {
+        if (Date.getYearsSince(data.last_select_lovers_timestamp) >= 3)
+        {
+            data.last_select_lovers_timestamp = World.world.getCurWorldTime();
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
     private Empire RebuildSecondEmpire(City startProvince, Actor newEmperor)
     {
@@ -421,7 +437,6 @@ public class Empire : MetaObject<EmpireData>
         data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
         data.history.Add(data.currentHistory);
         data.currentHistory = null;
-        Emperor = null;
     }
     public bool IsNeedToSetPosthumous()
     {
@@ -497,6 +512,7 @@ public class Empire : MetaObject<EmpireData>
         if (kingdom.data == null) return;
         if (!kingdom.isAlive()) return;
         if (!kingdom.hasKing()) return;
+        kingdom.ai.setTask("do_mod_empire_beh");
         kingdom.GetOrCreate().isEmpire = true;
         data.history_emperrors = new List<string>();
         data.heir_type = EmpireHeirLawType.eldest_child;
@@ -1141,10 +1157,6 @@ public class Empire : MetaObject<EmpireData>
         {
             this.data.taken_Kingdoms.Add(k.getID());
         }
-        if (this.Emperor != null)
-            this.data.emperor = this.Emperor.data.id;
-        else
-            this.data.emperor = -1L;
         this.data.empire = this.CoreKingdom.data.id;
         this.data.original_capital = !this.OriginalCapital.isRekt() ? this.OriginalCapital.data.id : -1L;
         try

@@ -17,7 +17,7 @@ using EmpireCraft.Scripts.Layer;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 using EmpireCraft.Scripts.Data;
 using System.Configuration;
-using static EmpireCraft.Scripts.System.ExamSystem;
+using static EmpireCraft.Scripts.GeneralSystems.ExamSystem;
 using System.Numerics;
 using System.Text.RegularExpressions;
 using System.Runtime.Serialization;

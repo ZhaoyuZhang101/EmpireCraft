@@ -355,6 +355,17 @@ namespace EmpireCraft.Scripts.HelperFunc
             }
 
         }
+
+        public static void LogCombineKingdom(Actor pActor)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.combine_kingdom_log,
+                pActor.name)
+            {
+                color_special1 = pActor.getColor()._color_text
+
+            }.add();
+
+        }
         /// <summary>
         /// 新年号
         ///     $empire$ → 帝国名

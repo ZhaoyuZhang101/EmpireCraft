@@ -38,7 +38,7 @@ public class KingdomPatch : GamePatch
         );       
         new Harmony(nameof(new_emperor)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.setKing)),
-            prefix: new HarmonyMethod(GetType(), nameof(new_emperor))
+            postfix: new HarmonyMethod(GetType(), nameof(new_emperor))
         );           
         new Harmony(nameof(emperor_left)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.removeKing)),
@@ -78,7 +78,6 @@ public class KingdomPatch : GamePatch
                 __instance.GetMainTitle().main_kingdom = null;
             }
         }
-
         if (__instance.HasGivenAlliance())
         {
             __instance.RemoveGivenAlliance();

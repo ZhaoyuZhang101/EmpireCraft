@@ -2,30 +2,27 @@
 using System.Collections.Generic;
 using System.Linq;
 using ai.behaviours;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
-using NCMS.Extensions;
-using NeoModLoader.services;
 
-namespace EmpireCraft.Scripts.AI.KingdomAI;
-public class EmpireCraftKingdomBehCheckInnerOffice: GameAIKingdomBase
+namespace EmpireCraft.Scripts.AI.EmpireAI;
+public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
 {
     public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
     {
         pKingdom.CheckEmpire();
-        if (pKingdom.IsEmpire())
-        {
-            Empire empire = pKingdom.GetEmpire();
-            SelectOfficer(empire);
-            StartCalcOfficePerformance(empire);
-            CheckOfficePower(empire);
-        }
-        return BehResult.Continue;
+        if (!pKingdom.IsEmpire()) return BehResult.Stop;
+        Empire empire = pKingdom.GetEmpire();
+        SelectOfficer(empire);
+        StartCalcOfficePerformance(empire);
+        CheckOfficePower(empire);
+        return base.execute(pKingdom);
     }
 
     public void CheckOfficePower(Empire empire)

@@ -97,7 +97,6 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
                     specificClan.RecordHistoryEmpire(empire, pKingdom.capital);
                 }
             }
-            empire.Emperor = pKingdom.king;
         }
         if (!pKingdom.IsEmpire())
         {

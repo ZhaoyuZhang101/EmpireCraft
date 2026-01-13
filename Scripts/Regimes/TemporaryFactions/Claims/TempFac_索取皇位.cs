@@ -73,7 +73,7 @@ public class TempFac_索取皇位 : TemporaryFaction
         {
             if (!empire.CoreKingdom.GetRegime().has_cabinet)
             {
-                if (!empire.HasEmperor())
+                if (!empire.HasEmperor()&&!empire.CoreKingdom.HasHeir())
                 {
                     var leader = empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.GetLeader();
                     if (empire.CoreKingdom.GetRegime().type == RegimeType.Feudalism)
@@ -92,7 +92,7 @@ public class TempFac_索取皇位 : TemporaryFaction
             }
             else
             {
-                if (!empire.HasEmperor())
+                if (!empire.HasEmperor()&&!empire.CoreKingdom.HasHeir())
                 {
                     var target = empire.CoreKingdom?.GetRegime()?.type== RegimeType.Feudalism?empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.GetLeader():empire.GetCabinetLeader();
                     if (target == null) return false;

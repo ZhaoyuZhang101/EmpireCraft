@@ -4,7 +4,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using NCMS.Extensions;
 
-namespace EmpireCraft.Scripts.System;
+namespace EmpireCraft.Scripts.GeneralSystems;
 public static class ExamSystem
 {
     public enum ExamType
