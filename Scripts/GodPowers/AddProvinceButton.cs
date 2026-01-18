@@ -34,11 +34,6 @@ public static class AddProvinceButton
         }
         if (ConfigData.selected_cityA == null)
         {
-            if (!city.kingdom.IsEmpire())
-            {
-                ActionLibrary.showWhisperTip("city_need_to_belong_empire");
-                return false;
-            }
             ConfigData.selected_cityA = city;
             ActionLibrary.showWhisperTip("city_selected_first");
             return false;
@@ -50,7 +45,7 @@ public static class AddProvinceButton
             ConfigData.selected_cityB = null;
             return false;
         }
-        if (ConfigData.selected_cityA.GetProvinceID() == city.GetProvinceID())
+        if (ConfigData.selected_cityA.kingdom == city.kingdom)
         {
             ActionLibrary.showWhisperTip("city_cancelled");
             ConfigData.selected_cityA = null;
@@ -67,12 +62,6 @@ public static class AddProvinceButton
         }
         if (ConfigData.selected_cityA.hasKingdom())
         {
-            if (ConfigData.selected_cityA.getTile() == ConfigData.selected_cityB.getTile())
-            {
-                ActionLibrary.showWhisperTip("city_cancelled");
-                ConfigData.selected_cityB = null;
-                return false;
-            }
             if (ConfigData.selected_cityB.hasKingdom())
             {
                 ConfigData.selected_cityA.joinAnotherKingdom(ConfigData.selected_cityB.kingdom);

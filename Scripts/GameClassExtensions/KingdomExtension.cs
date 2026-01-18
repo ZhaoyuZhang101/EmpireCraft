@@ -898,8 +898,7 @@ public static class KingdomExtension
 
     public static bool IsInEmpire(this Kingdom kingdom)
     {
-        if (kingdom == null) return false;
-        if (GetOrCreate(kingdom) == null) return false;
+        if (kingdom.isRekt()) return false;
         return kingdom.GetOrCreate().EmpireID != -1L;
     }
     public static void EndWarWith(this Kingdom kingdom, Kingdom kingdom2)

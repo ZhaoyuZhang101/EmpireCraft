@@ -18,7 +18,6 @@ public static class CityExtension
     {
         public string kingdom_names = "";
         public long title_id = -1L;
-        public long province_id = -1L;
         public long empire_core_id = -1L;
         public List<long> exam_pass_person;
         public int MAX_POPULATION = 100;
@@ -249,13 +248,7 @@ public static class CityExtension
         if (GetOrCreate(c)==null) return false; 
         return GetOrCreate(c).title_id!=-1L;
     }
-
-    public static bool hasProvince(this City c)
-    {
-        if (c == null) return false;
-        if (GetOrCreate(c)==null) return false; 
-        return GetOrCreate(c).province_id!=-1L;
-    }
+    
     public static void Clear()
     {
         ExtensionManager<City, CityExtraData>.Clear();
@@ -264,16 +257,6 @@ public static class CityExtension
     public static long GetTitleID(this City c)
     {
         return GetOrCreate(c).title_id;
-    }
-
-    public static long GetProvinceID(this City c)
-    {
-        return GetOrCreate(c).province_id;
-    }
-
-    public static void SetProvinceID(this City c, long id)
-    {
-        GetOrCreate(c).province_id = id;
     }
 
     public static void SetTitleID(this City c, long id)

@@ -346,6 +346,16 @@ public class CityPatch : GamePatch
                 }
             }
         }
+
+        if (__instance.hasKingdom())
+        {
+            var originKingdom = __instance.kingdom;
+            if (originKingdom != null)
+            {
+                var empire = originKingdom.GetEmpire();
+                empire?.cities_list.Remove(__instance);
+            }
+        }
         __instance.setKingdom(pNewSetKingdom);
         __instance.newForceKingdomEvent(__instance.units, __instance._boats, pNewSetKingdom, pHappinessEvent);
         __instance.switchedKingdom();
@@ -456,6 +466,16 @@ public class CityPatch : GamePatch
                 __instance.SetOffice(officeObject);
             }
         }
+
+        if (pKingdom.IsInEmpire())
+        {
+            var empire = pKingdom.GetEmpire();
+            if (empire != null)
+            {
+                empire.cities_list.Add(__instance);
+                empire.cities_list = empire.cities_list.Distinct().ToList();
+            }
+        }
         if (__instance.hasTitle())
         {
             __instance.GetTitle().isBeenControlled();
@@ -486,6 +506,19 @@ public class CityPatch : GamePatch
                 if (religion.getCities().Count() > 0)
                 {
                     religion.SetCity(religion.cities.First());
+                }
+            }
+        }
+
+        if (__instance.hasKingdom())
+        {
+            var kingdom = __instance.kingdom;
+            if (kingdom != null)
+            {
+                var empire = kingdom.GetEmpire();
+                if (empire != null)
+                {
+                    empire.cities_list.Remove(__instance);
                 }
             }
         }
