@@ -1004,8 +1004,9 @@ public static class ActorExtension
 
     public static List<KingdomTitle> takeTitle(this Actor a)
     {
-        if (!a.isKing()) return null;
         List<KingdomTitle> takedTitles = new List<KingdomTitle>();
+        if (!a.isKing()) return takedTitles;
+        
         Kingdom kingdom = a.kingdom;
         List<KingdomTitle> titles = kingdom.GetControlledTitle();
         KingdomTitle currentTitle = null;

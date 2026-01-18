@@ -39,6 +39,8 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     if (empire?.CoreKingdom == null) continue;
                     NameplateText npt = prepareNext(pManager, pAsset, empire, 37, 12, 39, 11);
+                    npt._showing = true;
+                    npt.setPriority(9999999+empire.getUnits().Count());
                     showTextEmpire(npt, empire.CoreKingdom);
                 }
 
@@ -505,6 +507,8 @@ public static class EmpireCraftNamePlateLibrary
         if (!pMetaObject.isAlive()) return;
         Empire empire = pMetaObject.GetEmpire();
         if (empire == null) return;
+        plateText.setPriority(99999999);
+        plateText._showing = true;
         plateText.setupMeta(pMetaObject.data, pMetaObject.getColor());
         string text = empire.data.name + "  " + empire.CountPopulation() + additionNum;
         int difference = (empire.data.PreviousYearsMoney.Count > 2

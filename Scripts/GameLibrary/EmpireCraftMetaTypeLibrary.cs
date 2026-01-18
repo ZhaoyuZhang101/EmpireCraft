@@ -72,25 +72,24 @@ public static class EmpireCraftMetaTypeLibrary
                 if (kingdom.IsInEmpire()) continue;
                 drawDefaultMeta(kingdom.meta_type_asset);
               }
-              foreach (var kt in ModClass.EMPIRE_MANAGER)
+              foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList())
               {
-                foreach (City city in kt.getCities())
-                {
-                  foreach (TileZone zone in city.zones)
+                  foreach (City city in pEmpire.getCities().ToList())
                   {
-                    zone_manager.drawBegin();
-                    drawZoneEmpireWithKingdomBorder(zone, kt);
-                    zone_manager.drawEnd(zone);
+                    foreach (TileZone zone in city.zones)
+                    {
+                      zone_manager.drawBegin();
+                      drawZoneEmpireWithKingdomBorder(zone, pEmpire);
+                      zone_manager.drawEnd(zone);
+                    }
                   }
-                }
               }
-              drawForCities(pMetaTypeAsset, WildKingdomsManager.neutral.getCities(), getZoneDelegate(pMetaTypeAsset));
 			        break;
 		        case 1:
-			        foreach (var kt in ModClass.EMPIRE_MANAGER)
+			        foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
 			        {
-                if (kt.CoreKingdom.HasTakenAlliance()) continue;
-                foreach (var kingdom in kt.taken_Kingdoms.Concat(kt.kingdoms_list.ToList()))
+                if (pEmpire.CoreKingdom.HasTakenAlliance()) continue;
+                foreach (var kingdom in pEmpire.taken_Kingdoms.Concat(pEmpire.kingdoms_list.ToList()))
                 { 
                   if (kingdom.isRekt()) continue;
                   foreach (City city in kingdom.cities)
@@ -98,7 +97,7 @@ public static class EmpireCraftMetaTypeLibrary
                     foreach (TileZone zone in city.zones)
                     {
                       zone_manager.drawBegin();
-                      drawZoneEmpireWithKingdomBorder(zone, kt);
+                      drawZoneEmpire(zone);
                       zone_manager.drawEnd(zone);
                     }
                   }
@@ -118,7 +117,7 @@ public static class EmpireCraftMetaTypeLibrary
                       foreach (TileZone zone in city.zones)
                       {
                         zone_manager.drawBegin();
-                        drawZoneEmpireWithKingdomBorder(zone, kt);
+                        drawZoneEmpire(zone);
                         zone_manager.drawEnd(zone);
                       }
                     }
@@ -130,7 +129,7 @@ public static class EmpireCraftMetaTypeLibrary
                       foreach (TileZone zone in city.zones)
                       {
                         zone_manager.drawBegin();
-                        drawZoneEmpireWithKingdomBorder(zone, kt);
+                        drawZoneEmpire(zone);
                         zone_manager.drawEnd(zone);
                       }
                     }
@@ -558,16 +557,21 @@ public static class EmpireCraftMetaTypeLibrary
       return true;
     }
     
-    public static void drawZoneEmpire(TileZone pZone, int pZoneOption)
+    public static void drawZoneEmpire(TileZone pZone, int pZoneOption = 0)
     {
-      Empire empireOnZone = getEmpireOnZone(pZone, pZoneOption);
+      Empire empireOnZone = getEmpireOnZone(pZone);
+      if (empireOnZone == null)
+      {
+        ((Kingdom) pZone.getKingdomOnZone(0)).EmpireLeave();
+        return;
+      };
       bool pUp = isBorderColor_empire(pZone.zone_up, empireOnZone, pZoneOption);
       bool pDown = isBorderColor_empire(pZone.zone_down, empireOnZone, pZoneOption);
       bool pLeft = isBorderColor_empire(pZone.zone_left, empireOnZone, pZoneOption);
       bool pRight = isBorderColor_empire(pZone.zone_right, empireOnZone, pZoneOption);
       zone_manager.drawZoneMeta(empireOnZone, pZone, pUp, pDown, pLeft, pRight, empireOnZone.data, empire);
     }
-    public static Empire getEmpireOnZone(TileZone pZone, int pZoneOption)
+    public static Empire getEmpireOnZone(TileZone pZone)
     {
 	    return pZone.city?.kingdom?.GetEmpire();
     } 
@@ -583,7 +587,7 @@ public static class EmpireCraftMetaTypeLibrary
         return empireOnZone == null || empireOnZone != pEmpire;
     }
     
-    public static void drawZoneKingdomTitleWithCityBorder(TileZone pZone, int pZoneOption)
+    public static void drawZoneKingdomTitleWithCityBorder(TileZone pZone, int pZoneOption = 0)
     { 
 	      City cityOnZone = pZone.city;
         bool pUp = zone_manager.isBorderColor_cities(pZone.zone_up, cityOnZone);

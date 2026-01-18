@@ -73,6 +73,12 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     {
         //同步天子
         Empire empire = pKingdom.GetEmpire();
+        if (empire.isRekt())  return;
+        foreach (var kingdom in empire.kingdoms_list)
+        {
+            if (kingdom.IsEmpire()) continue;
+            kingdom.SetEmpireID(empire.id);
+        }
         if (string.IsNullOrEmpty(empire.GetEmpireName()))
         {
             if (pKingdom.hasKing()&&pKingdom.king.hasCulture())

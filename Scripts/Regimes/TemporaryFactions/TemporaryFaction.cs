@@ -255,15 +255,14 @@ public abstract class TemporaryFaction
         if (CountDown <= 0)
         {
             started = true;
-            var empire = GetEmpire();
-            if (empire != null)
+            if (Empire != null)
             {
-                GetEmpire().RunningTemporaryFaction = null;  
+                Empire.RunningTemporaryFaction = this;  
             }
             if (ShowAsPlot)
             {
                 var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "empire_plots");
-                var emperor = GetEmpire()?.Emperor;
+                var emperor = Empire?.Emperor;
                 if (emperor != null)
                 {
                     if (!emperor.plot?.isSameType(plot) ?? true)
@@ -290,9 +289,11 @@ public abstract class TemporaryFaction
         Acc = 0;
         if (Empire != null)
         {
-            Empire.RunningTemporaryFaction = null;  
+            if ((!Empire.RunningTemporaryFaction?.IsStarted()) ?? true)
+            {
+                Empire.RunningTemporaryFaction = null;  
+            }
         }
-        
     }
 
     public void FinishedAction()

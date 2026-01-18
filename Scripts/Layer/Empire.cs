@@ -28,9 +28,10 @@ public class Empire : MetaObject<EmpireData>
     private readonly List<TileZone> _zoneScratch = new();
     private readonly int _avgCitiesPerKingdom = 3;
     public Clan EmpireClan;
-    
+    public Regime regime => CoreKingdom.GetRegime();
     public List<Kingdom> kingdoms_list = new List<Kingdom>();
     public HashSet<Kingdom> kingdoms_hashset = new HashSet<Kingdom>();
+    public List<City> cities_list = new List<City>();
     
     //岁币国
     public List<Kingdom> given_Kingdoms = new List<Kingdom>();
@@ -118,13 +119,7 @@ public class Empire : MetaObject<EmpireData>
 
     public override IEnumerable<City> getCities()
     {
-        var cities = new List<City>();
-        foreach (var kingdom in kingdoms_list)
-        {
-            cities.AddRange(kingdom.cities);
-        }
-
-        return cities;
+        return cities_list;
     }
 
     public bool IsNeedToExam()
@@ -618,7 +613,7 @@ public class Empire : MetaObject<EmpireData>
         }
 
         kingdom.data.name = this.data.name;
-
+        World.world.zone_calculator.dirtyAndClear();
     }
     public bool CanSetTitleToPreviousEmperor()
     {
@@ -1146,6 +1141,13 @@ public class Empire : MetaObject<EmpireData>
                 this.data.kingdoms.Add(tKingdom.id);
             }
         }
+        foreach (City tCity in this.cities_list)
+        {
+            if (tCity!=null)
+            {
+                this.data.cities.Add(tCity.id);
+            }
+        }
 
         this.data.Religion = Religion?.id ?? -1L;
         foreach (var k in this.given_Kingdoms)
@@ -1182,7 +1184,27 @@ public class Empire : MetaObject<EmpireData>
             {
                 kingdoms_hashset.Add(tKingdom);
             }
-        }       
+        }
+
+        if (this.data.cities != null)
+        {
+            foreach (long tCityID in this.data.cities)
+            {
+                City tCity = World.world.cities.get(tCityID);
+                if (tCity != null)
+                {
+                    cities_list.Add(tCity);
+                }
+            }       
+        }
+        else
+        {
+            cities_list = new List<City>();
+            foreach (var kingdom in kingdoms_hashset)
+            {
+                cities_list = cities_list.Union(kingdom.cities).ToList();
+            }
+        }
         
         foreach (var k in pData.given_Kingdoms)
         {
@@ -1219,6 +1241,7 @@ public class Empire : MetaObject<EmpireData>
             originalEmpire.leave(pKingdom);
         }
         kingdoms_hashset.Add(pKingdom);
+        cities_list = cities_list.Union(pKingdom.cities).ToList();
         pKingdom.EmpireJoin(this);
         pKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
         if (pKingdom.HasTakenAlliance())
@@ -1240,6 +1263,7 @@ public class Empire : MetaObject<EmpireData>
     {
         this.kingdoms_hashset.Remove(pKingdom);
         pKingdom.EmpireLeave(false);
+        cities_list = this.cities_list.Except(pKingdom.cities).ToList();
         if (pKingdom.IsEmpire())
         {
             CheckDissolve(pKingdom);
@@ -1642,21 +1666,8 @@ public class Empire : MetaObject<EmpireData>
                 }
             }
         }
-        
+        World.world.zone_calculator.dirtyAndClear();
     }
-
-    public bool IsNeedToSetProvince()
-    {
-        foreach(City city in CoreKingdom.cities)
-        {
-            if (!city.hasProvince())
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
 
 
     public Kingdom SetEnfeoff(City capital, Actor king)
@@ -1670,6 +1681,7 @@ public class Empire : MetaObject<EmpireData>
         capital.switchedKingdom();
         kingdom.copyMetasFromOtherKingdom(pKingdom);
         kingdom.setCityMetas(capital);
+        World.world.zone_calculator.dirtyAndClear();
         return kingdom;
     }
 
@@ -1701,6 +1713,7 @@ public class Empire : MetaObject<EmpireData>
         this.kingdoms_hashset.Clear();
         this.given_Kingdoms.Clear();
         this.taken_Kingdoms.Clear();
+        this.cities_list.Clear();
         this.CoreKingdom = null;
         if (!ModClass.ALL_HISTORY_DATA.ContainsKey(this.data.id))
         {

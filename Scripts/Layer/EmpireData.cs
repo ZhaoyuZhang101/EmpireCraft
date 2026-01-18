@@ -34,6 +34,7 @@ public class EmpireData : MetaObjectData
     public double MilitaryExpenditureRate { get; set; } = 0.2;
     public int MilitaryExpenditure = 0;
     public bool original_royal_been_changed { get; set; } = false;
+    public bool feed_royal = false;
     public double original_royal_been_changed_timestamp { get; set; }
     public string founder_actor_name { get; set; }
     [DefaultValue(-1L)]
@@ -57,6 +58,7 @@ public class EmpireData : MetaObjectData
     public long empire_clan { get; set; } = -1L;
 
     public List<long> kingdoms;
+    public List<long> cities;
     public List<string> history_emperrors = new List<string>();
 
     public bool is_allow_normal_to_exam = true; 
@@ -82,19 +84,26 @@ public class EmpireData : MetaObjectData
 
 }
 
+public enum RoyalFeedLevel
+{
+    None,
+    Low,
+    Middle,
+    High,
+    Extreme
+}
 public class EmpireAddition
 {
     public Dictionary<OfficerPowerType, int> addition =  OfficeManager.AllPower.ToDictionary(t => t, t => 0);
     //内阁加成
     public float cabinet_acc = 0;
 
-    public EmpireAddition Add(EmpireAddition other)
+    public void Add(EmpireAddition other)
     {
         foreach (var kv in other.addition)
             this.addition[kv.Key] += kv.Value;
 
         this.cabinet_acc += other.cabinet_acc;
-        return this;
     }
 
     public string toString()
