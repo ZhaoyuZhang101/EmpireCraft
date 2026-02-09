@@ -1,4 +1,5 @@
-﻿using NeoModLoader.services;
+using NeoModLoader.services;
+using EmpireCraft.Scripts;
 
 namespace EmpireCraft.Scripts.GameLibrary;
 
@@ -11,6 +12,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_ban_empire;
     public static WorldLawAsset empirecraft_law_simplify_nameplates;
     public static WorldLawAsset empirecraft_law_prevent_building_destroy;
+    public static WorldLawAsset empirecraft_law_allow_harem;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -81,6 +83,14 @@ public static class EmpireCraftWorldLawLibrary
             group_id = "EmpireCraftCommonSetting",
             icon_path = "buildings/civ_main/human/barracks_human/main_0",
             default_state = false
+        });
+        //后宫开关
+        AssetManager.world_laws_library.add(empirecraft_law_allow_harem = new WorldLawAsset()
+        {
+            id = "empirecraft_law_allow_harem",
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconKingdom",
+            default_state = true
         });
         
     }

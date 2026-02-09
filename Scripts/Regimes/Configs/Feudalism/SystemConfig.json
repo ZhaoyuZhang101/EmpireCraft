@@ -56,6 +56,21 @@
     "bureau_config": {
       "cores": [],
       "division": [],
+      "harems": [
+        {
+          "pre": "",
+          "type": 13,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        }
+      ],
       "kingdoms": {
         "Feudalism_grand_duchy": {
           "pre": "",
@@ -66,7 +81,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["empire_royal:true", "controlled_titles:>=|1"],
+          "city_type": "Feudalism_city"
         },
         "Feudalism_kingdom": {
           "pre": "",
@@ -77,7 +94,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["controlled_titles:>=|2"],
+          "city_type": "Feudalism_city"
         },
         "Feudalism_duchy": {
           "pre": "",
@@ -88,7 +107,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["controlled_titles:>=|1"],
+          "city_type": "Feudalism_city"
         },
         "Feudalism_county": {
           "pre": "",
@@ -99,7 +120,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": [],
+          "city_type": "Feudalism_city"
         },
         "Feudalism_march": {
           "pre": "",
@@ -110,7 +133,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": [],
+          "city_type": "Feudalism_city"
         },
         "Feudalism_papal_state": {
           "pre": "",
@@ -121,7 +146,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["religion_level:>=|3"],
+          "city_type": "Feudalism_religion_district"
         },
         "Feudalism_empire": {
           "pre": "",
@@ -132,7 +159,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["empire_center:true"],
+          "city_type": "Feudalism_dirC"
         }
       },
       "armies": {},
@@ -146,7 +175,8 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": []
         },
         "Feudalism_dirC": {
           "pre": "",
@@ -157,7 +187,8 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": []
         },
         "Feudalism_religion_district": {
           "pre": "",
@@ -168,7 +199,8 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": ["cleric"]
+          "require_traits": ["cleric"],
+          "condition": []
         }
       }
     }

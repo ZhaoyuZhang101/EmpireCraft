@@ -1,4 +1,4 @@
-﻿using NeoModLoader.General.UI.Window.Layout;
+using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using NeoModLoader.General.UI.Window;
 using System;
@@ -157,9 +157,25 @@ namespace EmpireCraft.Scripts.UI.Windows
             EmpireCraftStatsRow statsRow = parent.GetComponent<EmpireCraftStatsRow>();
             
             string text = "";
-            foreach (EmpireCraftHistory history in _empire.data.history)
+            var groups = new List<string>();
+            foreach (var h in _empire.data.history)
             {
-                ListPastEmperor(statsRow, history);
+                var s = string.IsNullOrEmpty(h.royal_surname) ? "" : h.royal_surname;
+                var g = string.IsNullOrEmpty(s) ? h.empire_name : string.Join("·", s, h.empire_name);
+                if (!groups.Contains(g)) groups.Add(g);
+            }
+            foreach (var g in groups)
+            {
+                parent.AddTextIntoVertLayout(g, true, TextAnchor.MiddleCenter);
+                foreach (var h in _empire.data.history)
+                {
+                    var s = string.IsNullOrEmpty(h.royal_surname) ? "" : h.royal_surname;
+                    var k = string.IsNullOrEmpty(s) ? h.empire_name : string.Join("·", s, h.empire_name);
+                    if (k == g)
+                    {
+                        ListPastEmperor(statsRow, h);
+                    }
+                }
             }
             text = _empire.GetEmpireName() + _empire.data.year_name + LM.Get("emperor");
             statsRow.tryToShowActor("current_emperor", -1L, null, _empire.Emperor, "iconKings");

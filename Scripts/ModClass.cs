@@ -1,4 +1,4 @@
-﻿using NeoModLoader.api;
+using NeoModLoader.api;
 using UnityEngine;
 using NeoModLoader.services;
 using System;
@@ -40,6 +40,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     private GameObject _modObject;
     public static ModConfig modConfig;
     public static Dictionary<long, List<EmpireCraftHistory>> ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
+    private double _lastFixedScanTimestamp = -1L;
     public ModDeclare GetDeclaration()
     {
         return _declare;
@@ -53,7 +54,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     private void FixedUpdate()
     {
-
+        if (_lastFixedScanTimestamp > 0 && Date.getMonthsSince(_lastFixedScanTimestamp) < 1) return;
+        _lastFixedScanTimestamp = World.world.getCurWorldTime();
         KINGDOM_TITLE_MANAGER.update(-1L);
         World.world.kingdoms.ForEach(pKingdom =>
         {

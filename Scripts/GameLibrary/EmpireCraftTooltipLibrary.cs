@@ -209,6 +209,8 @@ public static class EmpireCraftTooltipLibrary
             array[i].load(tKingdom);
         }
         Empire pEmpire = ModClass.EMPIRE_MANAGER.get(tKingdom.GetEmpireID());
+        if (pEmpire == null) return;
+        if (pEmpire.isRekt() || pEmpire.IsArchived()) return;
         pTooltip.setDescription(tKingdom.getMotto(), null);
         string tColorHex = tKingdom.getColor().color_text;
         pTooltip.setTitle(pEmpire.name, "EmpireText", tColorHex);

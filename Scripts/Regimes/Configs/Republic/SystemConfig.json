@@ -71,6 +71,7 @@
           "require_traits": []
         }
       ],
+      "harems": [],
       "division": [
         {
           "pre": "finance_full",
@@ -149,7 +150,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["empire_center:true"],
+          "city_type": "Republic_city"
         },
         "Republic_province": {
           "pre": "",
@@ -160,7 +163,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["allow_army:false", "another_race:false"],
+          "city_type": "Republic_city"
         },
         "Republic_state": {
           "pre": "",
@@ -171,7 +176,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["allow_army:true", "another_race:false"],
+          "city_type": "Republic_city"
         },
         "Republic_autonomous_prefecture": {
           "pre": "",
@@ -182,7 +189,9 @@
           "honorary": -1,
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["another_race:true"],
+          "city_type": "Republic_city"
         }
       },
       "cities": {

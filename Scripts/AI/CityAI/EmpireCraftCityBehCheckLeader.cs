@@ -10,6 +10,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NCMS.Extensions;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -43,7 +44,7 @@ public class EmpireCraftCityBehCheckLeader : GameAICityBase
         OfficeObject office = pCity.GetOffice();
         if (office == null) return;
         office.meta_object = pCity;
-        office.Select(pCity.kingdom);
+        office.Select(pCity.kingdom, "城市");
     }
 
 }

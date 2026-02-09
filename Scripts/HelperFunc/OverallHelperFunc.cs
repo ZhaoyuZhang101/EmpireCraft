@@ -17,7 +17,6 @@ namespace EmpireCraft.Scripts.HelperFunc
 {
     public static class OverallHelperFunc
     {
-
         public static class IdGenerator
         {
             private static long _lastId = DateTime.UtcNow.Ticks;
@@ -167,6 +166,16 @@ namespace EmpireCraft.Scripts.HelperFunc
                         additions.addition[OfficerPowerType.人事] = 0;
                     }
                     break;
+                case OfficerPowerType.生育:
+                    if (officer != null)
+                    {
+                        additions.addition[OfficerPowerType.生育] = officer.getChildren(false).ToList().FindAll(a=>a.getParents().Any(p=>p.IsEmperor())).Count;
+                    }
+                    else
+                    {
+                        additions.addition[OfficerPowerType.生育] = 0;
+                    }
+                    break;
                 }
             return additions;
         }
@@ -245,6 +254,22 @@ namespace EmpireCraft.Scripts.HelperFunc
                 }
             }
             return actorsPool;
+        }
+
+        public static bool HasChangeToGiveBirth(Actor pMotherTarget, Actor pFatherTarget)
+        {
+            int mNum = (int)pMotherTarget.stats["birth_rate"];
+            int fNum = (int)pFatherTarget.stats["birth_rate"];
+            float num2 = 0.5f;
+            for (int i = 0; i < (mNum+fNum)/2; i++)
+            {
+                if (!Randy.randomChance(num2))
+                {
+                    return true;
+                };
+                num2 *= 0.85f;
+            }
+            return false;
         }
     public static List<(ClanRelation, PersonalClanIdentity)> SearchPersonalClanIdentityHelper(string content, List<(ClanRelation, PersonalClanIdentity)> cIdentities)
         {

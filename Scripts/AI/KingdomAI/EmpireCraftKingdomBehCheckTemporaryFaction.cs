@@ -15,7 +15,16 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
+        var ked = KingdomExtension.GetOrCreate(pKingdom);
+        if (ked != null && ked.last_tf_check_ts > 0)
+        {
+            if (Date.getMonthsSince(ked.last_tf_check_ts) < 1)
+            {
+                return BehResult.Continue;
+            }
+        }
         CheckTf(pKingdom);
+        if (ked != null) ked.last_tf_check_ts = World.world.getCurWorldTime();
         return BehResult.Continue;
     }
 
@@ -25,12 +34,23 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         if (!pKingdom.IsEmpire()) return;
         if (pKingdom.GetEmpire()==null) return;
         Regime regime = pKingdom.GetRegime();
-        regime.GetPlayerFactions().ForEach(f=>f.EmpireId = pKingdom.GetEmpire().getID());
+        var factions = regime.GetPlayerFactions();
+        var empireId = pKingdom.GetEmpire().getID();
+        for (int i = 0; i < factions.Count; i++)
+        {
+            factions[i].EmpireId = empireId;
+        }
         FixedFaction dominateFaction = regime.GetDominateFaction();
         if (dominateFaction == null) return;
-        foreach (var ff in regime.GetPlayerFactions().Where(ff => ff != dominateFaction))
+        for (int i = 0; i < factions.Count; i++)
         {
-            ff.TemporaryFactions.ForEach(tf => tf.End());
+            var ff = factions[i];
+            if (ff == dominateFaction) continue;
+            var tfs = ff.TemporaryFactions;
+            for (int j = 0; j < tfs.Count; j++)
+            {
+                tfs[j].End();
+            }
         }
 
         var run = dominateFaction.GetAnyTFactionRuns();
@@ -53,8 +73,9 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         }
         var shuffledTf = dominateFaction.TemporaryFactions.ToList();
         shuffledTf.Shuffle();
-        foreach (var tf in shuffledTf)
+        for (int i = 0; i < shuffledTf.Count; i++)
         {
+            var tf = shuffledTf[i];
             if (tf.CheckCondition())
             {
                 tf.Start();

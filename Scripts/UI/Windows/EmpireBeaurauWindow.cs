@@ -43,6 +43,9 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     AutoVertLayoutGroup divisionsSpace;
     AutoGridLayoutGroup divisionsGroup;
 
+    AutoVertLayoutGroup haremsSpace;
+    AutoGridLayoutGroup haremsGroup;
+
     AutoVertLayoutGroup provincesSpace;
     AutoGridLayoutGroup provincesGroup;
     [Header("UI Prefab & 根容器")]
@@ -166,6 +169,24 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         AddChild(divisionsSpace.gameObject);
     }
 
+    public void ShowHaremSpace()
+    {
+        haremsSpace = this.BeginVertGroup();
+        //后宫
+        SimpleText haremsTitle = Instantiate(SimpleText.Prefab);
+        haremsTitle.Setup(LM.Get("Harems"), TextAnchor.MiddleCenter);
+        haremsSpace.AddChild(haremsTitle.gameObject);
+
+        haremsGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
+        foreach (var o2 in _empire.data.centerOffice.Harems)
+        {
+            SetOfficeView(o2, ref haremsGroup);
+        }
+        haremsSpace.AddChild(haremsGroup.gameObject);
+
+        AddChild(haremsSpace.gameObject);
+    }
+
     public void ShowProvincesSpace()
     {
         provincesSpace = this.BeginVertGroup();
@@ -206,6 +227,11 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
                 break;
         }
 
+        if (_empire.data.centerOffice.Harems.Count > 0)
+        {
+            ShowHaremSpace();
+        }
+
         if (_empire.data.centerOffice.CoreOffices.Count > 0)
         {
             ShowCoreSpace();
@@ -242,6 +268,11 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
                 break;
         }
 
+        if (_empire.data.centerOffice.Harems.Count > 0)
+        {
+            ShowHaremSpace();
+        }
+
         if (_empire.data.centerOffice.CoreOffices.Count > 0)
         {
             ShowCoreSpace();
@@ -270,6 +301,11 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         {
             topSpace.gameObject.SetActive(false);
             Destroy(topSpace, deleteTime);
+        }
+        if (haremsSpace != null)
+        {
+            haremsSpace.gameObject.SetActive(false);
+            Destroy(haremsSpace, deleteTime);
         }
         if (coreOfficeSpace != null)
         {

@@ -89,6 +89,7 @@
         }
       ],
       "division": [],
+      "harems": [],
       "armies": {},
       "kingdoms": {
         "Arabic_emirate": {
@@ -100,7 +101,9 @@
           "honorary": 5,
           "select_from_local": false,
           "heir": true,
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["allow_diplomacy:true", "religion_level:>=|3"],
+          "city_type": "Arabic_city"
         },
         "Arabic_province": {
           "pre": "",
@@ -111,7 +114,9 @@
           "honorary": -1,
           "select_from_local": false,
           "heir": false,
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["allow_diplomacy:false"],
+          "city_type": "Arabic_city"
         },
         "Arabic_sultanate": {
           "pre": "",
@@ -122,7 +127,9 @@
           "honorary": -1,
           "select_from_local": false,
           "heir": true,
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["allow_diplomacy:true", "religion_level:<=|2"],
+          "city_type": "Arabic_city"
         },
         "Arabic_caliphate": {
           "pre": "",
@@ -133,7 +140,9 @@
           "honorary": -1,
           "select_from_local": false,
           "heir": true,
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["empire_center:true"],
+          "city_type": "Arabic_city"
         }
       },
       "cities": {

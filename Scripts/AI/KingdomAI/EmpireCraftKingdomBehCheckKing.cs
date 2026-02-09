@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -46,15 +46,17 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         if (office == null) return BehResult.Continue;
         office.is_local = true;
         office.meta_object = pKingdom;
-        office.Select(pKingdom);
+        office.Select(pKingdom, "国家");
         return BehResult.Continue;
     }
 
     public static bool NeedSuccession(Kingdom pKingdom)
     {
         Regime regime = pKingdom.GetRegime();
-        return (!pKingdom.IsEmpire() && regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession) ||
-               (pKingdom.IsEmpire() && regime.leader_select_method == LeaderSelectMethod.Succession);
+        if (regime == null) return false;
+        var method = regime.GetLeaderSelectMethod();
+        return (!pKingdom.IsEmpire() && method == LeaderSelectMethod.Succession) ||
+               (pKingdom.IsEmpire() && method == LeaderSelectMethod.Succession);
     }
 
     public void ChooseKingFromHeir(Kingdom pKingdom)

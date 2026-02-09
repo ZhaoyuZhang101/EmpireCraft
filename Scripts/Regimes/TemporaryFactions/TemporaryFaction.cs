@@ -66,7 +66,7 @@ public abstract class TemporaryFaction
     }
     public void SetEmpire(Empire pEmpire)
     {
-        this.EmpireID = pEmpire.getID();
+        this.EmpireID = (pEmpire == null || pEmpire.isRekt() || pEmpire.IsArchived()) ? -1L : pEmpire.getID();
     }  
     public void SetKingdom(Kingdom pKingdom)
     {

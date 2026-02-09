@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using ai.behaviours;
@@ -7,6 +7,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using NCMS.Extensions;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General.Game.extensions;
@@ -20,6 +21,14 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         pKingdom.CheckEmpire();
+        var ked = KingdomExtension.GetOrCreate(pKingdom);
+        if (ked != null && ked.last_plots_check_ts > 0)
+        {
+            if (Date.getMonthsSince(ked.last_plots_check_ts) < 1)
+            {
+                return BehResult.Continue;
+            }
+        }
         if (pKingdom.IsInEmpire())
         {
             CheckJoinWar(pKingdom);
@@ -27,6 +36,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         //检测加入圣战
         CheckJoinReligionWar(pKingdom);
         CheckMainTitle(pKingdom);
+        if (ked != null) ked.last_plots_check_ts = World.world.getCurWorldTime();
         return BehResult.Continue;
     }
 
@@ -88,15 +98,39 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                 if (!coreKingdom.hasEnemies()) return;
                 if (pKingdom.isOpinionTowardsKingdomGood(coreKingdom) || regime.IsAllowDiplomacy())
                 {
-                    coreKingdom.getWars(true).ToList().FindAll(w=>w.isAttacker(coreKingdom)).ForEach(w=>w.joinAttackers(pKingdom));
-                    coreKingdom.getWars(true).ToList().FindAll(w=>w.isDefender(coreKingdom)).ForEach(w=>w.joinDefenders(pKingdom));
+                    var wars = KingdomExtension.GetWarsCached(coreKingdom, true);
+                    var enumerable = wars.ToArray();
+                    for (int i = 0; i < enumerable.Count(); i++)
+                    {
+                        var w = enumerable[i];
+                        if (w.isAttacker(coreKingdom))
+                        {
+                            w.joinAttackers(pKingdom);
+                            empire.RecordHistory(EmpireHistoryType.war_join_attacker_history, new Dictionary<string, string>()
+                            {
+                                ["kingdom"] = pKingdom.GetKingdomName(),
+                                ["empire"] = empire.GetEmpireName()
+                            });
+                        }
+                        else if (w.isDefender(coreKingdom))
+                        {
+                            w.joinDefenders(pKingdom);
+                            empire.RecordHistory(EmpireHistoryType.war_join_defender_history, new Dictionary<string, string>()
+                            {
+                                ["kingdom"] = pKingdom.GetKingdomName(),
+                                ["empire"] = empire.GetEmpireName()
+                            });
+                        }
+                    }
                     TranslateHelper.LogJoinEmpireWar(pKingdom, empire);
                 } 
             }
             else
             {
-                foreach (var empireKingdom in empire.kingdoms_list.ToList())
+                var ks = empire.kingdoms_list;
+                for (int x = 0; x < ks.Count; x++)
                 {
+                    var empireKingdom = ks[x];
                     if (empireKingdom.IsEmpire()) continue;
                     if (pKingdom.isInWarWith(empireKingdom)) continue;
                     if (pKingdom.isInWarOnSameSide(empireKingdom)) continue;
@@ -104,8 +138,30 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                     var kRegime = empireKingdom.GetRegime();
                     if (kRegime == null) continue;
                     if (!pKingdom.isOpinionTowardsKingdomGood(empireKingdom)&&regime.IsAllowDiplomacy()) continue;
-                    empireKingdom.getWars(true).ToList().FindAll(w=>w.isAttacker(empireKingdom)).ForEach(w=>w.joinAttackers(pKingdom));
-                    empireKingdom.getWars(true).ToList().FindAll(w=>w.isDefender(empireKingdom)).ForEach(w=>w.joinDefenders(pKingdom));
+                    var wars2 = KingdomExtension.GetWarsCached(empireKingdom, true);
+                    var enumerable = wars2.ToArray();
+                    for (int i = 0; i < enumerable.Count(); i++)
+                    {
+                        var w = enumerable[i];
+                        if (w.isAttacker(empireKingdom))
+                        {
+                            w.joinAttackers(pKingdom);
+                            empire.RecordHistory(EmpireHistoryType.war_join_attacker_history, new Dictionary<string, string>()
+                            {
+                                ["kingdom"] = pKingdom.GetKingdomName(),
+                                ["empire"] = empire.GetEmpireName()
+                            });
+                        }
+                        else if (w.isDefender(empireKingdom))
+                        {
+                            w.joinDefenders(pKingdom);
+                            empire.RecordHistory(EmpireHistoryType.war_join_defender_history, new Dictionary<string, string>()
+                            {
+                                ["kingdom"] = pKingdom.GetKingdomName(),
+                                ["empire"] = empire.GetEmpireName()
+                            });
+                        }
+                    }
                     TranslateHelper.LogEmpireJoinWar(empire, empireKingdom);
                 }
             }

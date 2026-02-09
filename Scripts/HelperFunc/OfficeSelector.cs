@@ -2,19 +2,27 @@ using System.Collections.Generic;
 using System.Linq;
 using ai;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
+using NeoModLoader.General;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.HelperFunc;
 
 public static class OfficeSelector
 {
-    public static void Select(this OfficeObject office, Kingdom pKingdom)
+    public static void Select(this OfficeObject office, Kingdom pKingdom, string debugType = "中央")
     {
         Actor actor = null;
         Regime regime = pKingdom.GetRegime();
-        LeaderSelectMethod method = regime.GetLeaderSelectMethod();
+        LeaderSelectMethod method = office.leader_select_method;
+        if (office.leader_select_method == LeaderSelectMethod.Default)
+        {
+            LogService.LogInfo("触发默认");
+            method =  regime.GetLeaderSelectMethod();
+        }
         switch (method)
         {
             case LeaderSelectMethod.Exam:
@@ -29,6 +37,18 @@ public static class OfficeSelector
             case LeaderSelectMethod.Army:
                 actor = TryGetStrongerLeader(office, pKingdom)??TryGetProfessionOfficer(pKingdom);
                 break;
+            case LeaderSelectMethod.Harem:
+                if (!EmpireCraftWorldLawLibrary.empirecraft_law_allow_harem.isEnabled())
+                {
+                    break;
+                }
+                LogService.LogInfo($"选择后宫{LM.Get($"LvLing_officiallevel_{office.officeType}")}");
+                LogService.LogInfo($"{debugType}: {pKingdom?.name??"无国家"}");
+                actor = TryGetHarem(office, pKingdom);
+                break;
+            default:
+                actor = TryGetProfessionOfficer(pKingdom);
+                break;
         }
 
         if (actor != null)
@@ -37,6 +57,54 @@ public static class OfficeSelector
         }
     }
 
+    public static Actor TryGetHarem(OfficeObject pOffice, Kingdom pKingdom)
+    {
+        if (pOffice.meta_object.isRekt()) return null;
+        if (pKingdom.king.isRekt()) return null;
+        if (pKingdom.IsEmpire())
+        {
+            Empire empire = pKingdom.GetEmpire();
+            if (empire != null)
+            {
+                var emperor = empire.Emperor;
+                var concubines = emperor.GetPersonalIdentity().concubines;
+                var lives = concubines.Select(pValueTuple => SpecificClanManager.getPerson(pValueTuple.identity)).ToList()
+                    .FindAll(a => a.is_alive).Select(a=>a._actor).ToList();
+                if (pOffice.officeType != 13)
+                {
+                    var lover = empire.getUnits().ToList().Find(a =>
+                        a.isSexFemale() && a.isAdult() && a.age <= 25&&!a.hasLover()&&!lives.Contains(a));
+                    if (lover != null)
+                    {
+                        lover.lover = emperor;
+                        emperor.GetPersonalIdentity().setLover(lover, isCus:true);
+                        lover.joinCity(emperor.city);
+                        return lover;
+                    }
+                }
+                else
+                {
+                    if (emperor.hasLover())
+                    {
+                        return emperor.lover;
+                    }
+
+                    var lover = empire.getUnits().ToList().Find(a =>
+                        a.isSexFemale() && a.isAdult() && a.age <= 25&&!a.hasLover());
+                    if (lover != null)
+                    {
+                        lover.lover = emperor;
+                        emperor.setLover(lover);
+                        emperor.GetPersonalIdentity().setLover(lover, isCus:false);
+                        lover.joinCity(emperor.city);
+                        return lover;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
     private static Actor TryGetStrongerLeader(OfficeObject pOffice, Kingdom pKingdom)
     {
         if (pOffice.meta_object.isRekt()) return null;

@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
@@ -31,7 +31,7 @@ public class ClanPatch : GamePatch
     }
     public static void removeData(Clan __instance)
     {
-        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
         {
             if (empire.EmpireClan == __instance)
             {

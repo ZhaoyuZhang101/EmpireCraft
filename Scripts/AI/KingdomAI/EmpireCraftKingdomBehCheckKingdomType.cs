@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.Data;
@@ -15,12 +16,155 @@ namespace EmpireCraft.Scripts.AI.KingdomAI;
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
 {
     public override Type OriginalBeh => GetType();
+    private static bool MatchConditions(Kingdom kingdom, Regime regime, List<string> conditions)
+    {
+        if (conditions == null || conditions.Count == 0) return false;
+        Empire empire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : null;
+        foreach (var cond in conditions)
+        {
+            if (string.IsNullOrEmpty(cond)) continue;
+            var parts = cond.Split(':');
+            var key = parts[0];
+            var val = parts.Length > 1 ? parts[1] : "";
+            switch (key)
+            {
+                case "empire_center":
+                {
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    if (kingdom.IsEmpire() != expect) return false;
+                    break;
+                }
+                case "succession":
+                {
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    var actual = regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession;
+                    if (actual != expect) return false;
+                    break;
+                }
+                case "allow_diplomacy":
+                {
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    if (regime.IsAllowDiplomacy() != expect) return false;
+                    break;
+                }
+                case "allow_army":
+                {
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    if (regime.IsAllowArmy() != expect) return false;
+                    break;
+                }
+                case "support_center_army":
+                {
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    if (regime.IsAllowSupportCenterArmy() != expect) return false;
+                    break;
+                }
+                case "another_race":
+                {
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    var actual = empire != null && empire.CoreKingdom != null && kingdom.species_id != empire.CoreKingdom.species_id;
+                    if (actual != expect) return false;
+                    break;
+                }
+                case "controlled_titles":
+                {
+                    if (string.IsNullOrEmpty(val)) return false;
+                    var segs = val.Split('|');
+                    if (segs.Length != 2) return false;
+                    var op = segs[0];
+                    if (!int.TryParse(segs[1], out var n)) return false;
+                    var c = kingdom.GetControlledTitles().Count;
+                    var ok = op switch
+                    {
+                        ">=" => c >= n,
+                        ">" => c > n,
+                        "<=" => c <= n,
+                        "<" => c < n,
+                        "==" => c == n,
+                        "=" => c == n,
+                        _ => false
+                    };
+                    if (!ok) return false;
+                    break;
+                }
+                case "cities_count":
+                {
+                    if (string.IsNullOrEmpty(val)) return false;
+                    var segs = val.Split('|');
+                    if (segs.Length != 2) return false;
+                    var op = segs[0];
+                    if (!int.TryParse(segs[1], out var n)) return false;
+                    var c = kingdom.cities.Count;
+                    var ok = op switch
+                    {
+                        ">=" => c >= n,
+                        ">" => c > n,
+                        "<=" => c <= n,
+                        "<" => c < n,
+                        "==" => c == n,
+                        "=" => c == n,
+                        _ => false
+                    };
+                    if (!ok) return false;
+                    break;
+                }
+                case "religion_level":
+                {
+                    if (string.IsNullOrEmpty(val)) return false;
+                    if (int.TryParse(val, out var eqLevel))
+                    {
+                        var actual = (int) regime.GetReligionLevel();
+                        if (actual != eqLevel) return false;
+                    }
+                    else
+                    {
+                        var segs = val.Split('|');
+                        if (segs.Length != 2) return false;
+                        var op = segs[0];
+                        if (!int.TryParse(segs[1], out var n)) return false;
+                        var actual = (int) regime.GetReligionLevel();
+                        var ok = op switch
+                        {
+                            ">=" => actual >= n,
+                            ">" => actual > n,
+                            "<=" => actual <= n,
+                            "<" => actual < n,
+                            "==" => actual == n,
+                            "=" => actual == n,
+                            _ => false
+                        };
+                        if (!ok) return false;
+                    }
+                    break;
+                }
+                case "empire_royal":
+                {
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    var actual = empire != null && kingdom.GetSpecificClan() == empire.EmpireSpecificClan;
+                    if (actual != expect) return false;
+                    break;
+                }
+                default:
+                    return false;
+            }
+        }
+        return true;
+    }
     public override BehResult execute(Kingdom pKingdom)
     {
         if (pKingdom.isRekt()) return BehResult.Continue;
         pKingdom.CheckEmpire();
+        var ked = KingdomExtension.GetOrCreate(pKingdom);
+        if (ked != null && ked.last_kingdom_status_ts > 0)
+        {
+            if (Date.getMonthsSince(ked.last_kingdom_status_ts) < 1)
+            {
+                return BehResult.Continue;
+            }
+        }
         SyncKingdomStatus(pKingdom);
         SyncOffice(pKingdom);
+        if (ked != null) ked.last_kingdom_status_ts = World.world.getCurWorldTime();
         return BehResult.Continue;
     }
 
@@ -38,6 +182,14 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
+            if (empire == null || empire.isRekt() || empire.IsArchived()) return;
+            if (empire.data.centerOffice == null)
+            {
+                var core = empire.CoreKingdom;
+                if (core == null) return;
+                empire.data.centerOffice = new CenterOffice();
+                empire.data.centerOffice.Init(core);
+            }
             empire.data.centerOffice.SyncMetaObject(pKingdom);
         }
     }
@@ -51,15 +203,24 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
-            empire.SetEmpireName(pKingdom.GetKingdomName());
+            empire?.SetEmpireName(pKingdom.GetKingdomName());
         }
         //获取国家政体后同步国家官位
         var regime = pKingdom.GetRegime();
-        if (pKingdom.GetOffice()?.regimeType != regime.type||originalKingdomType != newkingdomType)
+        if (regime == null) return;
+        var needSyncOffice = pKingdom.GetOffice() == null || pKingdom.GetOffice()?.regimeType != regime.type || originalKingdomType != newkingdomType;
+        if (needSyncOffice)
         {
-            BureauSetting setting = regime.bureau_config.kingdoms[newkingdomType];
+            BureauSetting setting = null;
+            if (regime.bureau_config != null && regime.bureau_config.kingdoms != null)
+            {
+                regime.bureau_config.kingdoms.TryGetValue(newkingdomType, out setting);
+            }
             OfficeObject officeObject = new OfficeObject();
-            officeObject.InitialOffice(setting);
+            if (setting != null)
+            {
+                officeObject.InitialOffice(setting);
+            }
             officeObject.regimeType = regime.type;
             officeObject.meta_object = pKingdom;
             officeObject.is_local = true;
@@ -78,17 +239,20 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             }
         }
         
-        var kingdomFront = pKingdom.capital.GetCityName();
-        if (!pKingdom.capital.hasTitle())
+        var kingdomFront = pKingdom.GetKingdomName();
+        if (pKingdom.hasCapital())
         {
-            kingdomFront = pKingdom.GetKingdomName();
-        }
-        else
-        {
-            kingdomFront = pKingdom.capital.GetCityName();
+            if (!pKingdom.capital.hasTitle())
+            {
+                kingdomFront = pKingdom.GetKingdomName();
+            }
+            else
+            {
+                kingdomFront = pKingdom.capital.GetCityName();
+            }
         }
         
-        if (pKingdom.GetRegime().GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
+        if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
         {
             if (pKingdom.HasMainTitle())
             {
@@ -101,7 +265,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
 
         if (pKingdom.IsEmpire())
         {
-            kingdomFront = pKingdom.GetEmpire().GetEmpireName();
+            kingdomFront = pKingdom.GetEmpire()?.GetEmpireName();
         }
         var kingdomBack = LM.Get(newkingdomType.ToString());
         if (!pKingdom.IsFactionRebelling()&&pKingdom.getWars().Count()<=0)
@@ -124,6 +288,16 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             return CityType.Feudalism_city;
         }
         KingdomType  kingdomType = kingdom.GetKingdomType();
+        if (regime.bureau_config != null && regime.bureau_config.kingdoms != null)
+        {
+            if (regime.bureau_config.kingdoms.TryGetValue(kingdomType, out var setting))
+            {
+                if (setting != null && setting.city_type.HasValue)
+                {
+                    return setting.city_type.Value;
+                }
+            }
+        }
         switch (regime.type)
         {
             case RegimeType.Arabic:
@@ -155,9 +329,23 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
     public static KingdomType CalcKingdomType(Kingdom kingdom)
     {
         var regime = kingdom.GetRegime();
+        if (regime == null) return KingdomType.LvLing_kingdom;
         if (kingdom.IsInEmpire())
         {
             var empire = kingdom.GetEmpire();
+            if (regime.bureau_config != null && regime.bureau_config.kingdoms != null)
+            {
+                foreach (var kv in regime.bureau_config.kingdoms)
+                {
+                    var target = kv.Key;
+                    var setting = kv.Value;
+                    if (setting == null) continue;
+                    if (MatchConditions(kingdom, regime, setting.condition))
+                    {
+                        return target;
+                    }
+                }
+            }
             switch (regime.type)
             {
                 //律令制依照制度的选项不同来更新后缀
@@ -168,11 +356,13 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                         return  KingdomType.LvLing_centre;
                     }
 
-                    switch (regime.options["option_leader_select_method"][0])
+                    var sel = GetOption(regime, "option_leader_select_method");
+                    var dip = GetOption(regime, "toggle_allow_diplomacy");
+                    switch (sel)
                     {
-                        case 1 when regime.options["toggle_allow_diplomacy"][0]==1:
+                        case 1 when dip == 1:
                             return  KingdomType.LvLing_jiedushi;
-                        case 1 when regime.options["toggle_allow_diplomacy"][0]==0:
+                        case 1 when dip == 0:
                             return  KingdomType.LvLing_province;
                         case 0 when
                             kingdom.species_id == empire?.CoreKingdom.species_id:
@@ -191,7 +381,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                         return  KingdomType.Republic_republic;
                     }
 
-                    switch (regime.options["toggle_allow_army"][0])
+                    var allowArmy = GetOption(regime, "toggle_allow_army");
+                    switch (allowArmy)
                     {
                         case 0 when kingdom.species_id == empire?.CoreKingdom.species_id:
                             return  KingdomType.Republic_province;
@@ -206,7 +397,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
 
                     break;
                 case RegimeType.Feudalism:
-                    if (regime.options["option_religion_type"][0] == 3)
+                    if (GetOption(regime, "option_religion_type") == 3)
                     {
                         return  KingdomType.Feudalism_papal_state;
                     }
@@ -258,13 +449,13 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                         return  KingdomType.Arabic_caliphate;
                     }
                     //无军事外交为行省
-                    if (!kingdom.GetRegime().IsAllowDiplomacy())
+                    if (!regime.IsAllowDiplomacy())
                     {
                         return  KingdomType.Arabic_province;
                     }
 
                     //有军事外交，宗教等级高者为苏丹国，低为酋长国
-                    return regime.options["option_religion_type"][0] <= 2 ?  KingdomType.Arabic_sultanate :  KingdomType.Arabic_emirate;
+                    return GetOption(regime, "option_religion_type") <= 2 ?  KingdomType.Arabic_sultanate :  KingdomType.Arabic_emirate;
                 case RegimeType.YouMu:
                     if (kingdom.IsEmpire())
                     {
@@ -297,5 +488,11 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             }
         }
         return  KingdomType.LvLing_kingdom;
+    }
+    private static int GetOption(Regime regime, string key)
+    {
+        if (regime?.options == null) return 0;
+        if (!regime.options.TryGetValue(key, out var arr) || arr == null || arr.Length == 0) return 0;
+        return arr[0];
     }
 }

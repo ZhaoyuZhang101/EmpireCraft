@@ -1,4 +1,4 @@
-﻿using ai.behaviours;
+using ai.behaviours;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -123,6 +123,15 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.finishCapture)),
             prefix: new HarmonyMethod(GetType(), nameof(FinishedCapture))
         );
+        
+        new Harmony(nameof(countWarriors)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.countWarriors)),
+            prefix: new HarmonyMethod(GetType(), nameof(countWarriors))
+        );
+        new Harmony(nameof(getPopulationPeople)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.getPopulationPeople)),
+            prefix: new HarmonyMethod(GetType(), nameof(getPopulationPeople))
+        );
     }
 
     public static bool TryToMakeWarrior(City __instance, Actor pActor)
@@ -164,6 +173,14 @@ public class CityPatch : GamePatch
                     __instance.SubMoney(__instance.GetMoney());
                 }
                 pNewKingdom.AddMoney(money);
+                if (joinAfterCapture.IsInEmpire())
+                {
+                    joinAfterCapture.GetEmpire().RecordHistory(EmpireHistoryType.city_plundered_history, new Dictionary<string, string>()
+                    {
+                        ["attacker"] = joinAfterCapture.GetKingdomName(),
+                        ["city"] = __instance.GetCityName()
+                    });
+                }
                 war.lostWar(__instance.kingdom);
                 return false;
             }
@@ -184,6 +201,12 @@ public class CityPatch : GamePatch
                     });
                     empire.join(__instance.kingdom, pForce:true);
                     expendWar.lostWar(__instance.kingdom);
+                    empire.RecordHistory(EmpireHistoryType.city_captured_history, new Dictionary<string, string>()
+                    {
+                        ["attacker"] = joinAfterCapture.GetKingdomName(),
+                        ["defender"] = __instance.kingdom.GetKingdomName(),
+                        ["city"] = __instance.GetCityName()
+                    });
                     return false;
                 }
             }
@@ -197,6 +220,11 @@ public class CityPatch : GamePatch
                 {
                     __instance.kingdom.JoinTakenAlliance(empire);
                     chaoGongWar.lostWar(__instance.kingdom);
+                    empire.RecordHistory(EmpireHistoryType.join_taken_alliance_history, new Dictionary<string, string>()
+                    {
+                        ["kingdom"] = __instance.kingdom.GetKingdomName(),
+                        ["empire"] = empire.GetEmpireName()
+                    });
                     return false;
                 }
             }
@@ -208,14 +236,60 @@ public class CityPatch : GamePatch
                 __instance.setReligion(joinAfterCapture.religion);
                 __instance.units.ForEach(a=>a.setReligion(joinAfterCapture.religion));
                 TranslateHelper.LogReligionWarTransfer(__instance, joinAfterCapture.religion);
+                if (joinAfterCapture.IsInEmpire())
+                {
+                    joinAfterCapture.GetEmpire().RecordHistory(EmpireHistoryType.religion_war_transfer_history, new Dictionary<string, string>()
+                    {
+                        ["city"] = __instance.GetCityName(),
+                        ["religion"] = joinAfterCapture.religion?.data.name??""
+                    });
+                }
             }
             if (!__instance.checkRebelWar(joinAfterCapture, pWars))
                 joinAfterCapture.data.timestamp_new_conquest = World.world.getCurWorldTime();
             __instance.removeSoldiers();
             __instance.joinAnotherKingdom(joinAfterCapture, true);
+            if (joinAfterCapture.IsInEmpire())
+            {
+                joinAfterCapture.GetEmpire().RecordHistory(EmpireHistoryType.city_captured_history, new Dictionary<string, string>()
+                {
+                    ["attacker"] = joinAfterCapture.GetKingdomName(),
+                    ["defender"] = __instance.kingdom.GetKingdomName(),
+                    ["city"] = __instance.GetCityName()
+                });
+            }
+            if (__instance.kingdom.IsInEmpire())
+            {
+                __instance.kingdom.GetEmpire().RecordHistory(EmpireHistoryType.city_lost_history, new Dictionary<string, string>()
+                {
+                    ["attacker"] = joinAfterCapture.GetKingdomName(),
+                    ["defender"] = __instance.kingdom.GetKingdomName(),
+                    ["city"] = __instance.GetCityName()
+                });
+            }
         }
 
         return false;
+    }
+    public static bool countWarriors(City __instance, ref int __result)
+    {
+        var ed = CityExtension.GetOrCreate(__instance);
+        if (ed != null && ed.last_cached_timestamp > 0)
+        {
+            __result = ed.cached_warriors;
+            return false;
+        }
+        return true;
+    }
+    public static bool getPopulationPeople(City __instance, ref int __result)
+    {
+        var ed = CityExtension.GetOrCreate(__instance);
+        if (ed != null && ed.last_cached_timestamp > 0)
+        {
+            __result = ed.cached_population;
+            return false;
+        }
+        return true;
     }
     public static bool isArmyOverLimit(City __instance, ref bool __result)
     {
@@ -330,6 +404,17 @@ public class CityPatch : GamePatch
         }
         Kingdom pKingdom = __instance.kingdom;
         __instance.removeFromCurrentKingdom();
+        if (pNewSetKingdom.IsInEmpire())
+        {
+            var empire = pNewSetKingdom.GetEmpire();
+            if (empire != null)
+            {
+                if (!empire.cities_list.Contains(__instance))
+                {
+                    empire.cities_list.Add(__instance);
+                }
+            }
+        }
         if (pNewSetKingdom.IsInEmpire()&&pCaptured&&!pKingdom.IsEmpire())
         {
             Empire empire = pNewSetKingdom.GetEmpire();
@@ -346,15 +431,11 @@ public class CityPatch : GamePatch
                 }
             }
         }
-
-        if (__instance.hasKingdom())
+        
+        if (pKingdom != null)
         {
-            var originKingdom = __instance.kingdom;
-            if (originKingdom != null)
-            {
-                var empire = originKingdom.GetEmpire();
-                empire?.cities_list.Remove(__instance);
-            }
+            var empire = pKingdom.GetEmpire();
+            empire?.cities_list.Remove(__instance);
         }
         __instance.setKingdom(pNewSetKingdom);
         __instance.newForceKingdomEvent(__instance.units, __instance._boats, pNewSetKingdom, pHappinessEvent);

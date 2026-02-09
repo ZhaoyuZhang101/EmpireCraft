@@ -73,7 +73,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     {
         //同步天子
         Empire empire = pKingdom.GetEmpire();
-        if (empire.isRekt())  return;
+        if (empire == null || empire.isRekt() || empire.IsArchived())  return;
         foreach (var kingdom in empire.kingdoms_list)
         {
             if (kingdom.IsEmpire()) continue;
@@ -124,6 +124,9 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     public void CalcMilitaryExpenditure(Kingdom pKingdom)
     {
         Empire empire = pKingdom.GetEmpire();
+        if (empire == null || empire.isRekt() || empire.IsArchived()) return;
+        var core = empire.CoreKingdom;
+        if (core == null) return;
         //计算军费
         // 追加当年财政数据
         empire.data.PreviousYearsMoney.Add(empire.CurrentMoney);
@@ -142,11 +145,11 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             double growthAvg = Math.Max(0, avg4 - avg3);
             int militaryCost = (int)(growthAvg  * rate);
             empire.data.MilitaryExpenditure = militaryCost;
-            empire.CoreKingdom.SubMoney(militaryCost);
-            if (empire.CoreKingdom.hasEnemies())
+            core.SubMoney(militaryCost);
+            if (core.hasEnemies())
             {
-                var warExpend = (empire.countWarriors() / 4) * empire.CoreKingdom.getWars().Count();
-                empire.CoreKingdom.SubMoney(warExpend);
+                var warExpend = (empire.countWarriors() / 4) * core.getWars().Count();
+                core.SubMoney(warExpend);
             }
 
             var jiedushis = empire.kingdoms_list.FindAll(k => k.GetKingdomType() == KingdomType.LvLing_jiedushi);
@@ -154,7 +157,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             {
                 //军府维护金
                 var junfuMoney = jiedushis.Sum(k => k.countTotalWarriors());
-                empire.CoreKingdom.SubMoney(junfuMoney);
+                core.SubMoney(junfuMoney);
             }
         }
         if (empire.IsNeedToGive())
@@ -193,7 +196,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (pKingdom.IsInEmpire()) return ;
         if (!pKingdom.HasMainTitle()) return ; //if a kingdom has main title, then it could become an empire
         ModClass.EMPIRE_MANAGER.update(-1L);
-        var num = ModClass.EMPIRE_MANAGER.ToList().FindAll(e=>!e.isRekt()&&!e.CoreKingdom.isRekt())
+        var num = ModClass.EMPIRE_MANAGER.ToList().FindAll(e=>!e.IsArchived() && !e.isRekt()&&!e.CoreKingdom.isRekt())
             .FindAll(e => e.CoreKingdom.getSpecies() == pKingdom.getSpecies()).Sum(e => e.getUnits().Count());
         var flag = num > 0 && pKingdom.units.Count > num;
         if (pKingdom.CanBecomeEmpire() || flag)

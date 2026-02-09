@@ -446,7 +446,9 @@
     "all_titles_description": "All titles the current character has obtained",
 
     "history_new_empire": "$actor$ proclaimed himself emperor at $place$, naming the state $name$ and setting the capital at $place$",
+    "history_new_empire_west": "$actor$ was crowned Emperor of $name$ at $place$",
     "history_new_emperor": "$actor$ ascended the throne at $place$, era name $year_name$",
+    "history_new_emperor_west": "$actor$ was crowned Emperor at $place$",
     "history_powerful_minister": "$title$ $actor$ monopolized state affairs; $actor2$ became a puppet",
     "history_be_vassal": "$title$ $actor$ submitted to the empire",
     "history_empire_die": "In the era of $year_name$, Emperor $actor$ passed away",
@@ -458,6 +460,35 @@
     "history_kingdom_attack_for_title": "$attacker$ launched a war against $defender$ attempting to seize the De Jure of $title$",
     "history_kingdom_change_capital_to_title": "$kingdom$ moved the capital to $city$, the De Jure capital of $title$",
     "history_kingdom_join_empire": "$kingdom$ has submitted to $empire$",
+    "history_destroy_title": "$kingdom$ abolished the title $title$ and reorganized the realm",
+    "history_create_title": "$kingdom$ created the title $title$ and established a new De Jure realm",
+    "history_city_add_to_title": "The city of $city$ was incorporated into the De Jure realm of $title$",
+    "history_king_take_title": "$actor$ acquired the title $title$ and rose in rank",
+    "history_war_declared": "$attacker$ declared war on $defender$ ($type$)",
+    "history_war_ended_attacker_victory": "War ended: $attacker$ defeated $defender$ ($type$)",
+    "history_war_ended_defender_victory": "War ended: $defender$ repelled $attacker$ ($type$)",
+    "history_war_join_attacker": "$kingdom$ joined the war on the side of $empire$",
+    "history_war_join_defender": "$kingdom$ joined the defense under $empire$",
+    "history_city_captured": "$attacker$ captured $city$ from $defender$",
+    "history_city_lost": "$defender$ lost $city$ to $attacker$",
+    "history_city_plundered": "$attacker$ plundered $city$, treasury seized",
+    "history_join_taken_alliance": "$kingdom$ became tributary to $empire$",
+    "history_leave_taken_alliance": "$kingdom$ left the tributary system of $empire$",
+    "history_join_given_alliance": "$kingdom$ granted annual payment alliance to $empire$",
+    "history_leave_given_alliance": "$kingdom$ ended annual payment alliance with $empire$",
+    "history_officer_join_faction": "$actor$ joined $faction$ from $office$",
+    "history_officer_become_faction_leader": "$actor$ became leader of $faction$",
+    "history_officer_build_specific_clan": "$actor$ founded the clan $clan$",
+    "history_king_choose_heir": "$kingdom$ chose $actor$ as $relation$",
+    "history_province_change_to_kingdom": "Province $kingdom$ became the kingdom $name$",
+    "history_new_jingshi": "$empire$ established new capital administration with $actor$",
+    "history_emperor_new_year_name": "$empire$ set new era name: $year_name$ by $emperor$",
+    "history_minister_acquire_empire": "$minister$ seized the Mandate and founded $empire$ ($title$)",
+    "history_restore_historical_empire": "Restored historical empire $empire$",
+    "history_emperor_posthumous_name": "Posthumous naming by $actor$ for $name$",
+    "history_become_kingdom": "$king$ founded the kingdom $kingdom$ with title $title$",
+    "history_combine_kingdom": "$actor$ unified kingdoms and reorganized the realm",
+    "history_religion_war_transfer": "$city$ converted in holy war to $religion$",
 
     "opinion_empire_clan_been_changed": "Empire Usurped",
     "empire_bureau": "Imperial Administration",
@@ -511,5 +542,63 @@
     "option_religion_type0_description": "",
     "option_religion_type1_description": "",
     "option_religion_type2_description": "",
-    "option_religion_type3_description": ""
+    "option_religion_type3_description": "",
+    "office_config_title": "Office Config",
+    "office_tab_armies": "Armies",
+    "office_tab_kingdoms": "Kingdoms",
+    "office_tab_cities": "Cities",
+    "office_save": "Save Config",
+    "office_reload": "Reload Config",
+    "office_delete_config": "Delete User Config",
+    "office_restore_default": "Restore Default",
+    "office_armies_title": "Army Offices",
+    "office_kingdoms_title": "Kingdom Offices",
+    "office_cities_title": "City Offices",
+    "office_type_label": "Type",
+    "office_dynamic_conditions": "Dynamic Conditions",
+    "office_remove": "Remove Office",
+    "office_add": "Add Office",
+    "name_edit_title": "Edit Office Name",
+    "confirm": "Confirm",
+    "office_name_updated": "Name Updated",
+    "traits_add_title": "Add Office Traits",
+    "conditions_edit_title": "Edit Dynamic Conditions",
+    "conditions_add_title": "Add Condition",
+    "edit_label": "Edit",
+    "regime_title": "Regime",
+    "cond_add": "Add",
+    "office_selection_title": "Selection Criteria",
+    "office_select_local": "Select From Local Only",
+    "office_leader_method": "Selection Method",
+    "office_leader_method0": "Default",
+    "office_leader_method1": "Exam",
+    "office_leader_method2": "Succession",
+    "office_leader_method3": "Election",
+    "office_leader_method4": "Army Merit",
+    "office_leader_method5": "Harem",
+    "office_honorary_label": "Honorary Rank Max"
+    ,"empire_center":"Empire Center"
+    ,"is_capital":"Capital City"
+    ,"city_is_border":"Border City"
+    ,"succession":"Clan Succession"
+    ,"allow_diplomacy":"Enable Diplomacy"
+    ,"another_race":"Another Race Rule"
+    ,"controlled_titles":"Controlled Titles Count"
+    ,"cities_count":"Cities Count"
+    ,"empire_royal":"Royal Member"
+    ,"cond_true":"Yes"
+    ,"cond_false":"No"
+    ,">=":">="
+    ,"<=":"<="
+    ,">":">"
+    ,"<":"<"
+    ,"==":"Equal"
+    ,"OfficeConfigWindowTitle":"Office Configuration"
+    ,"OfficeConditionEditorWindowTitle":"Edit Dynamic Conditions"
+    ,"OfficeTraitsSelectWindowTitle":"Select Traits"
+    ,"OfficeNameEditWindowTitle":"Edit Name"
+    ,"operator":"Operator",
+    "xing_zai":"Mobile Capital",
+    "provisional_government":"Provisional Government",
+    "zhi_li":"Direct Control"
 }

@@ -23,6 +23,7 @@
   "Northern": "北",
   "Later": "後",
   "Year": "年",
+  "Harems": "后宮",
   "Peerages": "爵位",
   "i_population": "人口",
   "i_age": "年齡",
@@ -83,6 +84,26 @@
   "random": "氏族成員",
   "officer": "官員",
   "none": "公民",
+  "builder": "建筑工人",
+  "gatherer_bushes":"蔬果采集工人",
+  "gatherer_herbs": "药草采集工人",
+  "gatherer_honey":"采蜜工人",
+  "farmer": "农民",
+  "hunter":"猎人",
+  "woodcutter": "伐木工人",
+  "miner":"矿工",
+  "miner_deposit": "",
+  "road_builder":"修路工人",
+  "cleaner": "清洁工人",
+  "manure_cleaner":"粪便清理工人",
+  "attacker": "进攻者",
+  "merchant": "商人",
+  "class_labour": "工人",
+  "class_peasant": "农民",
+  "class_merchant": "商人",
+  "class_army": "军人",
+  "class_officer": "官僚",
+  "class_noble": "贵族",
   "name": "名稱",
   "post_humous_name": "廟號/諡號",
   "empty": "",
@@ -533,6 +554,38 @@
   "history_kingdom_attack_for_title": "$attacker$ 發動了對 $defender$ 的戰爭，試圖獲取 $title$ 的法理",
   "history_kingdom_change_capital_to_title": "$kingdom$ 遷都至 $title$ 的法理首都 $city$",
   "history_kingdom_join_empire": "$kingdom$ 已臣服於 $empire$",
+  "history_destroy_title": "$kingdom$ 廢除了 $title$，重整法理版圖",
+  "history_create_title": "$kingdom$ 創建了 $title$，建立新的法理版圖",
+  "history_city_add_to_title": "$city$ 併入 $title$ 的法理領土",
+  "history_king_take_title": "$actor$ 獲得了 $title$，品級晉升",
+  "history_war_declared": "$attacker$ 向 $defender$ 宣戰（$type$）",
+  "history_war_ended_attacker_victory": "戰爭結束：$attacker$ 擊敗了 $defender$（$type$）",
+  "history_war_ended_defender_victory": "戰爭結束：$defender$ 擊退了 $attacker$（$type$）",
+  "history_war_join_attacker": "$kingdom$ 加入了 $empire$ 的進攻方",
+  "history_war_join_defender": "$kingdom$ 以 $empire$ 的名義參與防禦",
+  "history_city_captured": "$attacker$ 從 $defender$ 手中攻克了 $city$",
+  "history_city_lost": "$defender$ 失去了 $city$，被 $attacker$ 奪取",
+  "history_city_plundered": "$attacker$ 劫掠了 $city$，金庫被洗劫",
+  "history_join_taken_alliance": "$kingdom$ 成為 $empire$ 的朝貢國",
+  "history_leave_taken_alliance": "$kingdom$ 脫離了 $empire$ 的朝貢體系",
+  "history_join_given_alliance": "$kingdom$ 與 $empire$ 建立歲幣盟約",
+  "history_leave_given_alliance": "$kingdom$ 終止了與 $empire$ 的歲幣盟約",
+  "history_officer_join_faction": "$actor$ 加入了 $faction$（$office$）",
+  "history_officer_become_faction_leader": "$actor$ 成為 $faction$ 的領袖",
+  "history_officer_build_specific_clan": "$actor$ 建立了宗族 $clan$",
+  "history_king_choose_heir": "$kingdom$ 立 $actor$ 為 $relation$",
+  "history_province_change_to_kingdom": "州郡 $kingdom$ 改建為王國 $name$",
+  "history_new_jingshi": "$empire$ 設置京師，由 $actor$ 典領",
+  "history_emperor_new_year_name": "$empire$ 立新年號：$year_name$（$emperor$）",
+  "history_minister_acquire_empire": "$minister$ 奪天命，建立 $empire$（$title$）",
+  "history_restore_historical_empire": "復興歷史帝國 $empire$",
+  "history_emperor_posthumous_name": "$actor$ 為 $name$ 追封諡號",
+  "history_become_kingdom": "$king$ 建立王國 $kingdom$（封號 $title$）",
+  "history_combine_kingdom": "$actor$ 合併諸國，重整邦域",
+  "history_religion_war_transfer": "$city$ 在聖戰中改宗為 $religion$",
+  "xing_zai": "行在",
+  "provisional_government": "臨時政府",
+  "zhi_li": "直隸",
   "opinion_empire_clan_been_changed": "帝國被篡位",
   "empire_bureau": "帝國行政",
   "format_past_emperor": "歷經 {0} 帝",
@@ -577,5 +630,60 @@
   "option_religion_type0_description": "",
   "option_religion_type1_description": "",
   "option_religion_type2_description": "",
-  "option_religion_type3_description": ""
+  "option_religion_type3_description": "",
+  "office_config_title": "官位配置",
+  "office_tab_armies": "軍隊",
+  "office_tab_kingdoms": "國家",
+  "office_tab_cities": "城市",
+  "office_save": "保存配置",
+  "office_reload": "重新載入配置",
+  "office_delete_config": "刪除使用者配置",
+  "office_restore_default": "恢復預設配置",
+  "office_armies_title": "軍隊官位",
+  "office_kingdoms_title": "國家官位",
+  "office_cities_title": "城市官位",
+  "office_type_label": "類型",
+  "office_dynamic_conditions": "動態條件",
+  "office_remove": "刪除官位",
+  "office_add": "新增官位",
+  "name_edit_title": "編輯官位名稱",
+  "confirm": "確認",
+  "office_name_updated": "名稱已更新",
+  "traits_add_title": "新增官位特質",
+  "conditions_edit_title": "編輯動態條件",
+  "conditions_add_title": "新增條件",
+  "edit_label": "編輯",
+  "regime_title": "政體",
+  "cond_add": "新增",
+  "office_selection_title": "選拔條件",
+  "office_select_local": "僅從本地選擇",
+  "office_leader_method": "選拔方式",
+  "office_leader_method0": "預設",
+  "office_leader_method1": "科舉",
+  "office_leader_method2": "宗族繼承",
+  "office_leader_method3": "選舉",
+  "office_leader_method4": "軍功",
+  "office_leader_method5": "後宮",
+  "office_honorary_label": "散官等級上限"
+  ,"empire_center":"帝國中心"
+  ,"is_capital":"首都城市"
+  ,"city_is_border":"邊境城市"
+  ,"succession":"宗族繼承"
+  ,"allow_diplomacy":"開啟外交"
+  ,"another_race":"異族統治"
+  ,"controlled_titles":"控制頭銜數量"
+  ,"cities_count":"城市數量"
+  ,"empire_royal":"皇室成員"
+  ,"cond_true":"是"
+  ,"cond_false":"否"
+  ,">=":">="
+  ,"<=":"<="
+  ,">":">"
+  ,"<":"<"
+  ,"==":"等於"
+  ,"OfficeConfigWindowTitle":"官位配置"
+  ,"OfficeConditionEditorWindowTitle":"編輯動態條件"
+  ,"OfficeTraitsSelectWindowTitle":"選擇特質"
+  ,"OfficeNameEditWindowTitle":"編輯名稱"
+  ,"operator":"運算符"
 }

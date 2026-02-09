@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.System;
 using UnityEngine;
 using static EmpireCraft.Scripts.GameClassExtensions.WarExtension;
 using static UnityEngine.UI.CanvasScaler;
@@ -32,6 +33,10 @@ public class WarPatch: GamePatch
         new Harmony(nameof(update)).Patch(
             AccessTools.Method(typeof(War), nameof(War.update)),
             postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(update))
+        );
+        new Harmony(nameof(new_war)).Patch(
+            AccessTools.Method(typeof(WarManager), nameof(WarManager.newWar)),
+            postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(new_war))
         );
         LogService.LogInfo("战争补丁加载成功");
     }
@@ -91,6 +96,12 @@ public class WarPatch: GamePatch
                         empire.Emperor.editRenown(30);
                     }
                     empire.AddRenown(30);
+                    empire.RecordHistory(EmpireHistoryType.war_ended_attacker_victory_history, new Dictionary<string, string>()
+                    {
+                        ["attacker"] = aKingdom.GetKingdomName(),
+                        ["defender"] = dKingdom.GetKingdomName(),
+                        ["type"] = pWar.GetEmpireWarType().ToString()
+                    });
                 }
                 if (dKingdom.IsEmpire())
                 {
@@ -100,6 +111,12 @@ public class WarPatch: GamePatch
                         empire.Emperor.editRenown(-50);
                     }
                     empire.AddRenown(-50);
+                    empire.RecordHistory(EmpireHistoryType.war_ended_defender_victory_history, new Dictionary<string, string>()
+                    {
+                        ["attacker"] = aKingdom.GetKingdomName(),
+                        ["defender"] = dKingdom.GetKingdomName(),
+                        ["type"] = pWar.GetEmpireWarType().ToString()
+                    });
                 }
             } else if (pWinner == WarWinner.Defenders)
             {
@@ -112,6 +129,12 @@ public class WarPatch: GamePatch
 
                     }
                     empire.AddRenown(30);
+                    empire.RecordHistory(EmpireHistoryType.war_ended_defender_victory_history, new Dictionary<string, string>()
+                    {
+                        ["attacker"] = aKingdom.GetKingdomName(),
+                        ["defender"] = dKingdom.GetKingdomName(),
+                        ["type"] = pWar.GetEmpireWarType().ToString()
+                    });
                 }
                 if (aKingdom.IsEmpire())
                 {
@@ -121,6 +144,12 @@ public class WarPatch: GamePatch
                         empire.Emperor.editRenown(-50);
                     }
                     empire.AddRenown(-50);
+                    empire.RecordHistory(EmpireHistoryType.war_ended_attacker_victory_history, new Dictionary<string, string>()
+                    {
+                        ["attacker"] = aKingdom.GetKingdomName(),
+                        ["defender"] = dKingdom.GetKingdomName(),
+                        ["type"] = pWar.GetEmpireWarType().ToString()
+                    });
                 }
             }
 
@@ -171,5 +200,31 @@ public class WarPatch: GamePatch
             WorldLog.logWarEnded(pWar);
         }
         return false;
+    }
+    public static void new_war(War __result)
+    {
+        if (__result == null) return;
+        Kingdom aKingdom = __result.getMainAttacker();
+        Kingdom dKingdom = __result.getMainDefender();
+        if (aKingdom != null && aKingdom.IsEmpire())
+        {
+            Empire empire = aKingdom.GetEmpire();
+            empire.RecordHistory(EmpireHistoryType.war_declared_history, new Dictionary<string, string>()
+            {
+                ["attacker"] = aKingdom.GetKingdomName(),
+                ["defender"] = dKingdom?.GetKingdomName()??"",
+                ["type"] = __result.GetEmpireWarType().ToString()
+            });
+        }
+        if (dKingdom != null && dKingdom.IsEmpire())
+        {
+            Empire empire = dKingdom.GetEmpire();
+            empire.RecordHistory(EmpireHistoryType.war_declared_history, new Dictionary<string, string>()
+            {
+                ["attacker"] = aKingdom?.GetKingdomName()??"",
+                ["defender"] = dKingdom.GetKingdomName(),
+                ["type"] = __result.GetEmpireWarType().ToString()
+            });
+        }
     }
 }
