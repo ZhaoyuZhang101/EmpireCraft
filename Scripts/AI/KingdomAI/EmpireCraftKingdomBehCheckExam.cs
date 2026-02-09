@@ -14,21 +14,31 @@ public class EmpireCraftKingdomBehCheckExam: GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         pKingdom.CheckEmpire();
-        if (pKingdom.GetRegime().GetLeaderSelectMethod() == LeaderSelectMethod.Exam)
+        var regime = pKingdom.GetRegime();
+        if (regime == null) return BehResult.Continue;
+        if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Exam)
         {
             if (pKingdom.IsEmpire())
             {
                 Empire empire = pKingdom.GetEmpire();
-                if (empire.IsNeedToExam())
+                if (empire != null && empire.IsNeedToExam())
                 {
-                    foreach (City city in empire.AllCities())
+                    var cities = empire.AllCities();
+                    if (cities != null)
                     {
-                        ExamSystem.startExam(ExamSystem.ExamType.City, city);
+                        foreach (City city in cities)
+                        {
+                            ExamSystem.startExam(ExamSystem.ExamType.City, city);
+                        }
                     }
 
-                    foreach (Kingdom province in empire.kingdoms_hashset)
+                    var provinces = empire.kingdoms_hashset;
+                    if (provinces != null)
                     {
-                        ExamSystem.startExam(ExamSystem.ExamType.Province, province);
+                        foreach (Kingdom province in provinces)
+                        {
+                            ExamSystem.startExam(ExamSystem.ExamType.Province, province);
+                        }
                     }
 
                     ExamSystem.startExam(ExamSystem.ExamType.Empire, empire); 

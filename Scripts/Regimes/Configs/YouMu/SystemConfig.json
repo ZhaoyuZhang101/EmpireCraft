@@ -71,6 +71,7 @@
         }
       ],
       "division": [],
+      "harems": [],
       "armies": {},
       "kingdoms": {
         "YouMu_centre":{
@@ -83,7 +84,9 @@
           "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Succession",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["empire_center:true"],
+          "city_type": "YouMu_city"
         },
         "YouMu_kingdom":{
           "pre": "",
@@ -95,7 +98,9 @@
           "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Succession",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["support_center_army:false"],
+          "city_type": "YouMu_city"
         },
         "YouMu_bu":{
           "pre": "",
@@ -107,7 +112,9 @@
           "peerageType": "Military",
           "select_from_local": false,
           "leader_select_method": "Succession",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["support_center_army:true"],
+          "city_type": "YouMu_city"
         }
       },
       "cities": {

@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
@@ -72,9 +72,21 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(UpdateStats)));
         new Harmony(nameof(GetHit)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.getHit)),
             prefix: new HarmonyMethod(GetType(), nameof(GetHit)));
+        new Harmony(nameof(SetArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setArmy)),
+            postfix: new HarmonyMethod(GetType(), nameof(SetArmy)));
+        new Harmony(nameof(IncreaseKills)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.increaseKills)),
+            postfix: new HarmonyMethod(GetType(), nameof(IncreaseKills)));
         LogService.LogInfo("角色补丁加载成功");
     }
 
+    public static void IncreaseKills(Actor __instance)
+    {
+        if (__instance.GetIdentity() != null)
+        {
+            __instance.GetIdentity().TotalPerformance += 100;
+            __instance.JudgeOfficeLevel();
+        }
+    }
     public static bool GetHit(
         Actor __instance,
         float pDamage,
@@ -92,6 +104,18 @@ public class ActorPatch : GamePatch
         return true;
     }
 
+    public static void SetArmy(Actor __instance, Army pObject)
+    {
+        if (__instance.GetIdentity() == null)
+        {
+            OfficeIdentity identity = new OfficeIdentity
+            {
+                actor_id = __instance.getID()
+            };
+            __instance.SetIdentity(identity, true);
+            __instance.SetIdentityType(PeerageType.Military);
+        }
+    }
     public static void UpdateStats(Actor __instance)
     {
         if (!__instance.hasKingdom()) return;
@@ -149,7 +173,7 @@ public class ActorPatch : GamePatch
     public static void Die(Actor __instance, bool pDestroy = false, AttackType pType = AttackType.Other, bool pCountDeath = true,
         bool pLogFavorite = true)
     {
-        foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
+        foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
         {
             var list = pEmpire.data.CabinetMembers;
             if (list.Any(id => id == __instance.getID()))
@@ -163,7 +187,7 @@ public class ActorPatch : GamePatch
         if (__instance.isKing()&&__instance.kingdom.HasHeir())
         {
             var heir = __instance.kingdom.GetHeir();
-            var titles = __instance.GetOwnedTitle();
+            var titles = __instance.GetOwnedTitle()?.ToList();
             if (titles?.Any()??false)
             {
                 foreach (var titleID in titles)
@@ -175,7 +199,7 @@ public class ActorPatch : GamePatch
         }
         else
         {
-            var titles = __instance.GetOwnedTitle();
+            var titles = __instance.GetOwnedTitle()?.ToList();
             if (titles?.Any() ?? false)
             {
                 foreach (var titleID in titles)

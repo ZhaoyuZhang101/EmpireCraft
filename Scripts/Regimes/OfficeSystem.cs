@@ -27,7 +27,8 @@ public enum OfficerPowerType
     军事,     //加强军队攻击力
     司法,     //减少叛乱和腐败
     建设,     //加快建设速度
-    教育      //国民基础智力增加
+    教育,     //国民基础智力增加
+    生育      //为皇帝诞下子嗣
 }
 public class BureauSetting
 {
@@ -40,20 +41,34 @@ public class BureauSetting
     public bool select_from_local;
     public LeaderSelectMethod leader_select_method;
     public List<string> require_traits;
+    public List<string> condition;
+    public CityType? city_type;
 }
 
 public class BureauConfig
 {
     public List<BureauSetting> cores;
     public List<BureauSetting> division;
+    public List<BureauSetting> harems;
     public Dictionary<KingdomType, BureauSetting> kingdoms;
     public Dictionary<CityType, BureauSetting> cities;
-    public Dictionary<ArmyOfficialType, BureauSetting> armies;
+    public Dictionary<string, BureauSetting> armies;
 }
 
 public static class OfficeManager
 {
     public static Dictionary<long, OfficeObject> Offices = new();
+    private static Dictionary<string, string> OfficialLevelLocale = new();
+    public static string GetOfficialLevelLocale(RegimeType regimeType, int officeType)
+    {
+        var key = string.Join("_", regimeType, "officiallevel", officeType);
+        if (!OfficialLevelLocale.TryGetValue(key, out var value))
+        {
+            value = LM.Get(key);
+            OfficialLevelLocale[key] = value;
+        }
+        return value;
+    }
     public static bool Remove(long pOfficeID)
     {
         var res = Offices.Remove(pOfficeID);
@@ -64,7 +79,7 @@ public static class OfficeManager
         OfficerPowerType.财政, OfficerPowerType.人事, OfficerPowerType.军事, OfficerPowerType.审核, 
         OfficerPowerType.宗教, OfficerPowerType.执行, OfficerPowerType.教育, OfficerPowerType.礼仪,
         OfficerPowerType.司法, OfficerPowerType.天子护理, OfficerPowerType.天子政教, OfficerPowerType.天子智教,
-        OfficerPowerType.建设
+        OfficerPowerType.建设, OfficerPowerType.生育
     };
 }
 public class OfficeObject
@@ -79,6 +94,8 @@ public class OfficeObject
     public int honorary { get; set; }
     [JsonIgnore]
     public NanoObject meta_object { get; set; } = null;
+
+    public double last_pregnant_timestamp { get; set; } = -1L;
 
     public bool select_from_local { get; set; } = false;
     public LeaderSelectMethod leader_select_method { get; set; }
@@ -101,8 +118,7 @@ public class OfficeObject
                 preX = ((City)pNano).GetCityName();
                 break;
         }
-        LogService.LogInfo(pNano?.getType());
-        var post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
+        var post = OfficeManager.GetOfficialLevelLocale(regimeType, officeType);
         return flag? post: preX + post;
     }
     public void DetectPower(Empire empire)
@@ -112,12 +128,38 @@ public class OfficeObject
         {
             var newAddition = officer.CalcPower(power, empire);
             empire.data.additions.Add(newAddition);
+            if (power == OfficerPowerType.生育)
+            {
+                if (officer.isRekt()) return;
+                if (GetPregnantYear() > 2)
+                {
+                    LogService.LogInfo("检测生育");
+                    var kingdom = (Kingdom) meta_object;
+                    Random rand = new Random();
+                    if (OverallHelperFunc.HasChangeToGiveBirth(officer, kingdom.king))
+                    {
+                        BabyMaker.makeBaby(kingdom.king, officer); 
+                        LogService.LogInfo("生育权能触发");
+                    }
+                    last_pregnant_timestamp = World.world.getCurWorldTime();
+                }
+            }
         }
+    }
+
+    public int GetPregnantYear()
+    {
+        if (last_pregnant_timestamp == -1L)
+        {
+            return 999;
+        }
+
+        return Date.getYearsSince(last_pregnant_timestamp);
     }
     public string GetOfficeName(NanoObject pNano = null)
     {
         var flag = pre.Contains("full")||pre.Contains("all");
-        var preX = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
+        var preX = OfficeManager.GetOfficialLevelLocale(regimeType, officeType);
         if (flag) preX = LM.Get(pre);
         switch (pNano?.meta_type)
         {
@@ -222,16 +264,38 @@ public class OfficeObject
                 break;
             case MetaType.Kingdom:
                 Kingdom kingdom = (Kingdom)meta_object;
-                if (kingdom.IsInEmpire() && !kingdom.IsEmpire())
+                if (kingdom.IsInEmpire())
                 {
-                    personalId?.SetOfficeName(kingdom.GetEmpire().GetEmpireName() + "| ");
+                    personalId?.SetOfficeName(kingdom.GetEmpire().GetEmpireName() + "| " + GetName(kingdom));
                 }
-                personalId?.SetOfficeName(GetName(kingdom));
+                else
+                {
+                    personalId?.SetOfficeName(GetName(kingdom));
+                }
                 kingdom.setKing(actor); 
                 actor.joinCity(kingdom.capital);
                 if (kingdom?.capital?._city_tile != null)
                 {
                     actor.goTo(kingdom.capital._city_tile);
+                }
+                break;
+            case MetaType.Army:
+                Army army = (Army)meta_object;
+                var k = army.getKingdom();
+                if (k.IsInEmpire())
+                {
+                    personalId?.SetOfficeName(k.GetEmpire().GetEmpireName() + "| "+GetName());
+                }
+                else
+                {
+                    personalId?.SetOfficeName(GetName());
+                }
+                actor.SetPeerageType(PeerageType.Military);
+                army.setCaptain(actor);
+                actor.joinCity(army._kingdom.capital);
+                if (k?.capital?._city_tile != null)
+                {
+                    actor.goTo(k.capital._city_tile);
                 }
                 break;
         }
@@ -272,7 +336,13 @@ public class OfficeObject
             }
             history_officers.Add(actor.data.name);
             actor.EndOffice();
+            if (officeType is > 13 and <= 22)
+            {
+                actor.lover = null;
+            }
         }
+
+
         actor_id = -1L;
         
     }
@@ -282,6 +352,7 @@ public class CenterOffice
 {
     public List<long> CoreOffices { get; set; } = new List<long>();
     public List<long> Divisions { get; set; } = new List<long>();
+    public List<long> Harems { get; set; } = new List<long>();
     public void Init(Kingdom pKingdom)
     {
         CoreOffices.ForEach(id=>OfficeManager.Remove(id));
@@ -318,6 +389,23 @@ public class CenterOffice
             o.history_officers.Clear();
             OfficeManager.Offices.Add(o.OfficeID, o);
             Divisions.Add(o.OfficeID);
+        }
+        Harems.ForEach(id=>OfficeManager.Remove(id));
+        Harems.Clear();
+        if (pRegime.bureau_config.harems == null) return;
+        foreach (var div in pRegime.bureau_config.harems)
+        {
+            var o = new OfficeObject();
+            o.InitialOffice(div);
+            o.regimeType = pKingdom.GetRegime().type;
+            o.select_from_local = false;
+            o.meta_object = pKingdom;
+            o.is_local = false;
+            o.OfficeID = OverallHelperFunc.IdGenerator.NextId();
+            o.actor_id = -1L;
+            o.history_officers.Clear();
+            OfficeManager.Offices.Add(o.OfficeID, o);
+            Harems.Add(o.OfficeID);
         }
     }
 
@@ -383,6 +471,15 @@ public class CenterOffice
         }
 
         foreach (var dio in empire.data.centerOffice.Divisions)
+        {
+            var officeObject = OfficeManager.Offices.TryGetValue(dio, out OfficeObject o) ? o : null;
+            if (officeObject != null)
+            {
+                offices.Add(officeObject);
+            }
+        }
+
+        foreach (var dio in empire.data.centerOffice.Harems)
         {
             var officeObject = OfficeManager.Offices.TryGetValue(dio, out OfficeObject o) ? o : null;
             if (officeObject != null)

@@ -26,17 +26,21 @@ public class BuildingPatch: GamePatch
 
     public static void UpdateStats(Building __instance)
     {
-        if (!__instance.hasKingdom()) return;
-        if (__instance.kingdom.IsInEmpire())
+        if (__instance == null) return;
+        var k = __instance.kingdom;
+        if (k == null || !__instance.hasKingdom()) return;
+        if (!k.IsInEmpire()) return;
+        Empire empire = k.GetEmpire();
+        if (empire == null) return;
+        if (empire.isRekt()) return;
+        var additions = empire.Additions;
+        if (additions == null) return;
+        if (__instance.stats != null && __instance.stats.hasStat("health"))
         {
-            Empire empire = __instance.kingdom.GetEmpire();
-            if (empire.isRekt())
-            {
-                __instance.stats["health"] += empire.Additions.addition[OfficerPowerType.建设]*5;
-            }
+            __instance.stats["health"] += additions.addition[OfficerPowerType.建设] * 5;
         }
-        
     }
+
 
     public static bool GetHit(
         Building __instance,

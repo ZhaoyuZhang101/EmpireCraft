@@ -1,4 +1,5 @@
-﻿
+
+using System;
 using System.IO;
 using NeoModLoader.services;
 using System.Linq;
@@ -130,7 +131,8 @@ public static class DataManager
             Empire empire = new Empire();
             empire.loadData(empireData);
             ModClass.EMPIRE_MANAGER.addObject(empire);
-            if (empire.data.centerOffice == null)
+            LogService.LogInfo($"加载帝国{empire.name}");
+            if (empire.data.centerOffice == null && empire.CoreKingdom != null)
             {
                 empire.data.centerOffice = new CenterOffice();
                 empire.data.centerOffice.Init(empire.CoreKingdom);
@@ -177,9 +179,9 @@ public static class DataManager
             {
                 empire.save();
                 saveData.empireDatas.Add(empire.data);
-            } catch
+            } catch (Exception e)
             {
-                LogService.LogInfo("存在帝国数据出错，跳过该帝国存档");
+                LogService.LogInfo($"存在帝国数据出错，跳过该帝国存档: {e.ToString()}");
             }
 
         }

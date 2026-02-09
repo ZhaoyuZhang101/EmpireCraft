@@ -74,6 +74,7 @@ public class EmpireData : MetaObjectData
     public double timestamp_given_time;
     public CenterOffice centerOffice { get; set; }
     public double newEmperor_timestamp { get; set; }
+    public double center_loss_timestamp { get; set; } = -1L;
 
     public double last_exam_timestamp { get; set; } = -1L;
     public double last_select_lovers_timestamp { get; set; } = -1L;
@@ -82,6 +83,12 @@ public class EmpireData : MetaObjectData
     
     public double last_educate_timestamp { get; set; } = -1L;
 
+    public bool archived { get; set; } = false;
+    
+    public int cached_population { get; set; } = 0;
+    public int cached_warriors { get; set; } = 0;
+    public int cached_warriors_max { get; set; } = 0;
+    public double last_cached_timestamp { get; set; } = -1L;
 }
 
 public enum RoyalFeedLevel
@@ -120,6 +127,8 @@ public class EmpireCraftHistory
 {
     public long id { get; set; }
     public string empire_name { get; set; }
+    public string dynasty_name { get; set; }
+    public string royal_surname { get; set; }
     public bool is_first { get; set; } = false;
     public string year_name { get; set; }
     public string emperor { get; set; }

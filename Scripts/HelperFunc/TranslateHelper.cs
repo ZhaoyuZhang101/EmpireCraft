@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
@@ -58,6 +58,12 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.CoreKingdom.getColor()._color_text
 
             }.add();
+            empire.RecordHistory(EmpireHistoryType.powerful_minister_history, new Dictionary<string, string>()
+            {
+                ["actor"] = minister.getName(),
+                ["empire"] = empire.GetEmpireName(),
+                ["title"] = title
+            });
         }
         public static void LogCreateTitle(Kingdom kingdom, KingdomTitle title)
         {
@@ -84,6 +90,15 @@ namespace EmpireCraft.Scripts.HelperFunc
                     color_special1 = kingdom.getColor()._color_text,
                     color_special3 = pActor.getColor()._color_text
                 }.add();
+            if (kingdom.IsInEmpire())
+            {
+                kingdom.GetEmpire().RecordHistory(EmpireHistoryType.king_choose_heir_history, new Dictionary<string, string>()
+                {
+                    ["kingdom"] = kingdom.GetKingdomName(),
+                    ["relation"] = relation,
+                    ["actor"] = pActor.getName()
+                });
+            }
         }
         
         public static void LogProvinceChangeToKingdom(Kingdom province, string name)
@@ -97,6 +112,14 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = province.getColor()._color_text
 
             }.add();
+            if (province.IsInEmpire())
+            {
+                province.GetEmpire().RecordHistory(EmpireHistoryType.province_change_to_kingdom_history, new Dictionary<string, string>()
+                {
+                    ["kingdom"] = province.GetKingdomName(),
+                    ["name"] = name
+                });
+            }
         }
         
         public static void LogOfficerJoinFaction(OfficeObject office, Actor pActor, FixedFaction faction)
@@ -112,6 +135,15 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special3 = pActor.getColor()._color_text
 
             }.add();
+            if (pActor.kingdom.IsInEmpire())
+            {
+                pActor.GetEmpire().RecordHistory(EmpireHistoryType.officer_join_faction_history, new Dictionary<string, string>()
+                {
+                    ["office"] = office?.GetOfficeName()??"",
+                    ["actor"] = pActor.getName(),
+                    ["faction"] = faction.Name
+                });
+            }
         }
         
         public static void LogOfficerBecomeFactionLeader(Actor pActor, FixedFaction faction)
@@ -125,6 +157,14 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = new Color(0.7f, 0.0f, 0.9f),
 
             }.add();
+            if (pActor.kingdom.IsInEmpire())
+            {
+                pActor.GetEmpire().RecordHistory(EmpireHistoryType.officer_become_faction_leader_history, new Dictionary<string, string>()
+                {
+                    ["actor"] = pActor.getName(),
+                    ["faction"] = faction.Name
+                });
+            }
         }
         public static void LogNewJingShi(Empire empire, Actor actor)
         {
@@ -138,6 +178,11 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.CoreKingdom.getColor()._color_text
 
             }.add();
+            empire.RecordHistory(EmpireHistoryType.new_jingshi_history, new Dictionary<string, string>()
+            {
+                ["empire"] = empire.GetEmpireName(),
+                ["actor"] = actor.getName()
+            });
         }
         public static void LogDestroyTitle(Kingdom kingdom, KingdomTitle title)
         {
@@ -162,6 +207,15 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special3 = title.getColor()._color_text
 
             }.add();
+            if (attacker.IsInEmpire())
+            {
+                attacker.GetEmpire().RecordHistory(EmpireHistoryType.kingdom_attack_for_title_history, new Dictionary<string, string>()
+                {
+                    ["attacker"] = attacker.GetKingdomName(),
+                    ["defender"] = defender.GetKingdomName(),
+                    ["title"] = title.data.name
+                });
+            }
         }
         public static void LogReligionWarTransfer(City city, Religion religion)
         {
@@ -185,6 +239,18 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special3 = actor.getColor()._color_text
 
             }.add();
+            if (actor.kingdom.IsInEmpire())
+            {
+                var e = actor.GetEmpire();
+                if (e != null && !e.isRekt())
+                {
+                    e.RecordHistory(EmpireHistoryType.officer_join_faction_history, new Dictionary<string, string>()
+                    {
+                        ["actor"] = actor.getName(),
+                        ["title"] = LM.Get($"Huaxia_honoraryofficial_{type.ToString()}_{officeLevel}")
+                    });
+                }
+            }
         }
         public static void LogControlledEmpire(Actor actor, Empire empire)
         {
@@ -209,6 +275,11 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.getColor()._color_text
 
             }.add();
+            empire.RecordHistory(EmpireHistoryType.war_join_attacker_history, new Dictionary<string, string>()
+            {
+                ["kingdom"] = kingdom.GetKingdomName(),
+                ["empire"] = empire.GetEmpireName()
+            });
         }
         public static void LogEmpireJoinWar(Empire empire, Kingdom kingdom)
         {
@@ -221,6 +292,11 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = kingdom.getColor()._color_text
 
             }.add();
+            empire.RecordHistory(EmpireHistoryType.war_join_attacker_history, new Dictionary<string, string>()
+            {
+                ["empire"] = empire.GetEmpireName(),
+                ["kingdom"] = kingdom.GetKingdomName()
+            });
         }
         public static void LogJoinReligionWar(Kingdom kingdom, Religion religion)
         {
@@ -233,6 +309,18 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = religion.getColor()._color_text
 
             }.add();
+            if (kingdom.IsInEmpire())
+            {
+                var e = kingdom.GetEmpire();
+                if (e != null && !e.isRekt())
+                {
+                    e.RecordHistory(EmpireHistoryType.war_join_attacker_history, new Dictionary<string, string>()
+                    {
+                        ["kingdom"] = kingdom.GetKingdomName(),
+                        ["religion"] = religion?.data.name??""
+                    });
+                }
+            }
         }
         public static void LogOfficerBuildSpecificClan(Actor actor, SpecificClan sc)
         {
@@ -246,6 +334,14 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = actor.clan.getColor()._color_text
 
             }.add();
+            if (actor.kingdom.IsInEmpire())
+            {
+                actor.GetEmpire().RecordHistory(EmpireHistoryType.officer_build_specific_clan_history, new Dictionary<string, string>()
+                {
+                    ["actor"] = actor.getName(),
+                    ["clan"] = sc.name
+                });
+            }
         }
         public static void LogKingdomChangeCapitalToTitle(Kingdom kingdom,KingdomTitle title)
         {
@@ -259,6 +355,15 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special3 = kingdom.getColor()._color_text
 
             }.add();
+            if (kingdom.IsInEmpire())
+            {
+                kingdom.GetEmpire().RecordHistory(EmpireHistoryType.kingdom_change_capital_to_title_history, new Dictionary<string, string>()
+                {
+                    ["kingdom"] = kingdom.GetKingdomName(),
+                    ["title"] = title.data.name,
+                    ["city"] = kingdom.capital.GetCityName()
+                });
+            }
         }
         public static void LogKingdomJoinEmpire(Kingdom kingdom,Empire empire)
         {
@@ -270,6 +375,11 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.getColor()._color_text
 
             }.add();
+            empire.RecordHistory(EmpireHistoryType.kingdom_join_empire_history, new Dictionary<string, string>()
+            {
+                ["kingdom"] = kingdom.GetKingdomName(),
+                ["empire"] = empire.GetEmpireName()
+            });
         }
         public static void LogNewEmperor(Actor emperor, City city, string year_name)
         {
@@ -352,6 +462,15 @@ namespace EmpireCraft.Scripts.HelperFunc
                     color_special3 = kingdom.getColor()._color_text
 
                 }.add();
+                if (kingdom.IsInEmpire())
+                {
+                    kingdom.GetEmpire().RecordHistory(EmpireHistoryType.become_kingdom_history, new Dictionary<string, string>()
+                    {
+                        ["king"] = kingdom.king.getName(),
+                        ["kingdom"] = kingdom.GetKingdomName(),
+                        ["title"] = title
+                    });
+                }
             }
 
         }
@@ -365,6 +484,13 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.add();
 
+            if (pActor.kingdom.IsInEmpire())
+            {
+                pActor.GetEmpire().RecordHistory(EmpireHistoryType.combine_kingdom_history, new Dictionary<string, string>()
+                {
+                    ["actor"] = pActor.getName()
+                });
+            }
         }
         /// <summary>
         /// 新年号
@@ -383,6 +509,12 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.CoreKingdom.getColor()._color_text
 
             }.add();
+            empire.RecordHistory(EmpireHistoryType.emperor_new_year_name_history, new Dictionary<string, string>()
+            {
+                ["emperor"] = minister.getName(),
+                ["empire"] = empire.GetEmpireName(),
+                ["year_name"] = title
+            });
         }
 
         /// <summary>
@@ -401,6 +533,12 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = minister.kingdom.getColor()._color_text,
                 color_special2 = new_empire.CoreKingdom.getColor()._color_text,
             }.add();
+            new_empire.RecordHistory(EmpireHistoryType.minister_acquire_empire_history, new Dictionary<string, string>()
+            {
+                ["minister"] = minister.getName(),
+                ["empire"] = new_empire.GetEmpireName(),
+                ["title"] = minister.GetTitle()
+            });
         }
         /// <summary>
         /// 记录“恢复历史帝国”
@@ -415,6 +553,11 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = clan.getColor()._color_text,
                 color_special2 = empire.CoreKingdom.getColor()._color_text
             }.add();
+            empire.RecordHistory(EmpireHistoryType.restore_historical_empire_history, new Dictionary<string, string>()
+            {
+                ["clan"] = clan.name,
+                ["empire"] = empire.GetEmpireName()
+            });
         }
         /// <summary>
         /// 记录“追封先帝”
@@ -429,6 +572,14 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = actor.kingdom.getColor()._color_text,
                 color_special2 = actor.kingdom.getColor()._color_text
             }.add();
+            if (actor.kingdom.IsInEmpire())
+            {
+                actor.GetEmpire().RecordHistory(EmpireHistoryType.emperor_posthumous_name_history, new Dictionary<string, string>()
+                {
+                    ["actor"] = actor.getName(),
+                    ["name"] = name
+                });
+            }
         }
     }
 }

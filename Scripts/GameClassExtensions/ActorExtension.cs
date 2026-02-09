@@ -23,6 +23,7 @@ using System.Text.RegularExpressions;
 using System.Runtime.Serialization;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using System.Security.Principal;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
@@ -315,8 +316,11 @@ public static class ActorExtension
         public string factionID = "";
         public Name name;
         public bool has_become_cleric = false;
+        public SocialClass  socialClass = SocialClass.Peasant;
         public OfficeIdentity officeIdentity { get; set; } = null;
         public double last_tax_timestamp = -1L;
+        public double last_add_lover_timestamp = -1L;
+        public double last_give_birth_timestamp = -1L;
         public long empire_id { get; set; } = -1L;
         public long OfficeId { get; set; } = -1L;
         public bool is_on_office = false;
@@ -324,6 +328,31 @@ public static class ActorExtension
         public float death_rate = 0.0f;
     }
 
+    public static void SetSocialClass(this Actor a, SocialClass socialClass)
+    {
+        a.GetOrCreate().socialClass = socialClass;
+    }
+    public static void RecordAddLoverTime(this Actor a)
+    {
+        a.GetOrCreate().last_add_lover_timestamp = World.world.getCurWorldTime();
+    }
+
+    public static bool IsNeedToAddLover(this Actor a)
+    {
+        return a.GetOrCreate().last_add_lover_timestamp < 0 ||
+               Date.getYearsSince(a.GetOrCreate().last_add_lover_timestamp) > 2;
+    }
+
+    public static void RecordGiveBirthTime(this Actor a)
+    {
+        a.GetOrCreate().last_give_birth_timestamp = World.world.getCurWorldTime();
+    }
+
+    public static bool IsNeedToGiveBirth(this Actor a)
+    {
+        return a.GetOrCreate().last_give_birth_timestamp < 0 ||
+               Date.getYearsSince(a.GetOrCreate().last_give_birth_timestamp) > 2;
+    }
     public static void StartOffice(this Actor a, OfficeObject o)
     {
         a.GetOrCreate().OfficeId = o.OfficeID;
@@ -341,7 +370,7 @@ public static class ActorExtension
     }
     public static FixedFaction GetFaction(this Actor a)
     {
-        foreach (var empire in ModClass.EMPIRE_MANAGER.ToList())
+        foreach (var empire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
         {
             var regime = empire.CoreKingdom?.GetRegime();
             if (regime == null) continue;
@@ -670,6 +699,11 @@ public static class ActorExtension
     {
         if (a == null) return;
         GetOrCreate(a).officeIdentity.peerageType = type;
+    }
+
+    public static PeerageType GetIdentityType(this Actor a)
+    {
+        return a == null ? PeerageType.Civil : GetOrCreate(a).officeIdentity.peerageType;
     }
     public static void SetIdentity(this Actor a, OfficeIdentity identity, bool isInitial=false)
     {

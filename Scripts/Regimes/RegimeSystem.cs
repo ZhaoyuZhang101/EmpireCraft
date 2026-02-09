@@ -55,6 +55,20 @@ public enum ArmyOfficialType
     Lvling_army_zhenjiang,  //镇将
     Lvling_army_shuzhu      //戍主
 }
+
+public enum HaremOfficialType
+{
+    Lvling_harem_huanghou,//皇后
+    Lvling_harem_de,      //德妃
+    Lvling_harem_li,      //丽妃
+    Lvling_harem_zhuang,  //庄妃
+    Lvling_harem_xian,    //贤妃
+    Lvling_harem_hui,     //惠妃
+    Lvling_harem_an,      //安妃
+    Lvling_harem_he,      //和妃
+    Lvling_harem_xi,      //僖妃
+    Lvling_harem_kang,    //康妃
+}
 public enum CityType
 {
     LvLing_city, //县
@@ -85,6 +99,7 @@ public enum LeaderSelectMethod
     Exam,        //考试
     Vote,        //投票
     Army,        //举能
+    Harem,       //妃子
     Default
 }
 

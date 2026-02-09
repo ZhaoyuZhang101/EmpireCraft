@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General.UI.Prefabs;
@@ -19,7 +19,7 @@ public static class CityExtension
         public string kingdom_names = "";
         public long title_id = -1L;
         public long empire_core_id = -1L;
-        public List<long> exam_pass_person;
+        public List<long> exam_pass_person = new List<long>();
         public int MAX_POPULATION = 100;
         public bool MAX_POPULATION_LIMIT = false;
         public double last_tax_timestamp = -1L;
@@ -34,6 +34,10 @@ public static class CityExtension
         public SimpleButton limitToggle { get; set; }
         public CityType cityType { get; set; }
         public long office_id { get; set; } = -1L;
+        public int cached_warriors = 0;
+        public int cached_population = 0;
+        public double last_cached_timestamp = -1L;
+        public double last_army_check_ts = -1L;
     }
 
     public static void AddCorruptionRate(this City city, double addition)

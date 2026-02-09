@@ -1,4 +1,4 @@
-﻿﻿using EmpireCraft.Scripts.Enums;
+﻿using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -62,6 +62,13 @@ public static class KingdomExtension
         public double last_given_alliance_timestamp = -1L;
         //上一次加入朝贡国的时间
         public double last_taken_alliance_timestamp = -1L;
+        public double last_kingdom_status_ts = -1L;
+        public double last_tf_check_ts = -1L;
+        public double last_plots_check_ts = -1L;
+        public double last_cabinet_check_ts = -1L;
+        public double last_religion_check_ts = -1L;
+        public List<War> cached_wars = new List<War>();
+        public double last_wars_ts = -1L;
 
         public int selfChangeRegimePlotsCountDown = 0;
         //岁币国
@@ -74,6 +81,9 @@ public static class KingdomExtension
         public float leave_taken_alliance_preference = 0.0f;
         public long office_id = -1L;
         public bool isEmpire = false;
+        public int cached_warriors = 0;
+        public int cached_population = 0;
+        public double last_cached_timestamp = -1L;
     }
 
     public static void SystemChange(this Kingdom kingdom)
@@ -240,6 +250,14 @@ public static class KingdomExtension
         k.GetOrCreate().last_given_alliance_timestamp = World.world.getCurWorldTime();
         k.GetOrCreate().given_empire = empire.id;
         empire.given_Kingdoms.Add(k);
+        if (empire != null)
+        {
+            empire.RecordHistory(EmpireHistoryType.join_given_alliance_history, new Dictionary<string, string>()
+            {
+                ["kingdom"] = k.GetKingdomName(),
+                ["empire"] = empire.GetEmpireName()
+            });
+        }
     }
     public static void RemoveGivenAlliance(this Kingdom k)
     {
@@ -247,6 +265,11 @@ public static class KingdomExtension
         if (empire != null)
         {
             empire.given_Kingdoms.Remove(k);
+            empire.RecordHistory(EmpireHistoryType.leave_given_alliance_history, new Dictionary<string, string>()
+            {
+                ["kingdom"] = k.GetKingdomName(),
+                ["empire"] = empire.GetEmpireName()
+            });
         }
         k.GetOrCreate().given_empire = -1L;
     }
@@ -271,6 +294,14 @@ public static class KingdomExtension
         k.GetOrCreate().taken_empire = empire.id;
         k.GetOrCreate().leave_taken_alliance_preference = 0.0f;
         empire.taken_Kingdoms.Add(k);
+        if (empire != null)
+        {
+            empire.RecordHistory(EmpireHistoryType.join_taken_alliance_history, new Dictionary<string, string>()
+            {
+                ["kingdom"] = k.GetKingdomName(),
+                ["empire"] = empire.GetEmpireName()
+            });
+        }
     }
     public static void RemoveTakenAlliance(this Kingdom k)
     {
@@ -278,6 +309,11 @@ public static class KingdomExtension
         if (empire != null)
         {
             empire.taken_Kingdoms.Remove(k);
+            empire.RecordHistory(EmpireHistoryType.leave_taken_alliance_history, new Dictionary<string, string>()
+            {
+                ["kingdom"] = k.GetKingdomName(),
+                ["empire"] = empire.GetEmpireName()
+            });
         }
         k.GetOrCreate().taken_empire = -1L;
     }
@@ -371,18 +407,19 @@ public static class KingdomExtension
     public static double GetTaxRate(this Kingdom k)
     {
         var baseTax = 0.1f;
-        if (k.IsInEmpire())
+        if (k != null && k.IsInEmpire())
         {
             Empire empire = k.GetEmpire();
-            if (!empire.isRekt())
+            if (empire != null && !empire.isRekt() && !empire.IsArchived())
             {
                 baseTax = empire.data.TaxRate;
             }
         }
 
-        if (k.GetRegime() != null)
+        var regime = k?.GetRegime();
+        if (regime != null)
         {
-            switch (k.GetRegime().GetTaxLevel())
+            switch (regime.GetTaxLevel())
             {
                 case TaxLevel.None:
                     return 0.0f;
@@ -683,8 +720,14 @@ public static class KingdomExtension
 
     private static bool IsStronger(Kingdom a, Kingdom b)
     {
-        if (a.IsEmpire())  return a.GetEmpire().getUnits().Count()> b.units.Count;
-        return a.countUnits() > b.countUnits();
+        if (a.IsEmpire())
+        {
+            var emp = a.GetEmpire();
+            var empUnits = emp?.getUnits();
+            if (emp == null || emp.isRekt() || emp.IsArchived() || empUnits == null) return false;
+            return empUnits.Count() > (b?.units?.Count ?? 0);
+        }
+        return a.countUnits() > (b?.countUnits() ?? 0);
     }
     public static KingdomExtraData GetOrCreate(this Kingdom a, bool isSave = false)
     {
@@ -720,8 +763,8 @@ public static class KingdomExtension
 
     public static bool IsInSameEmpire(this Kingdom kingdom, Kingdom pKingdomTaget)
     {
-        if (kingdom == null) return false;
-        if (!kingdom.IsInEmpire()||!pKingdomTaget.IsInEmpire()) return false;
+        if (kingdom == null || pKingdomTaget == null) return false;
+        if (!kingdom.IsInEmpire() || !pKingdomTaget.IsInEmpire()) return false;
         return kingdom.GetEmpireID() == pKingdomTaget.GetEmpireID();
     }
 
@@ -743,19 +786,16 @@ public static class KingdomExtension
 
     public static void CheckEmpire(this Kingdom kingdom)
     {
-        if (kingdom.IsInEmpire())
+        if (!kingdom.IsInEmpire()) return;
+        var emp = kingdom.GetEmpire();
+        if (emp == null || emp.isRekt() || emp.IsArchived())
         {
-            if (kingdom.GetEmpire().isRekt())
-            {
-                kingdom.EmpireLeave();
-            }
-            else
-            {
-                if (kingdom == kingdom.GetEmpire().CoreKingdom)
-                {
-                    kingdom.GetOrCreate().isEmpire = true;
-                }
-            }
+            kingdom.EmpireLeave();
+            return;
+        }
+        if (kingdom == emp.CoreKingdom)
+        {
+            kingdom.GetOrCreate().isEmpire = true;
         }
     }
     public static void SetTimestampEmpire(this Kingdom kingdom, double value)
@@ -856,14 +896,21 @@ public static class KingdomExtension
 
     public static bool IsNeighbourWith(this Kingdom kingdom, Kingdom target)
     {
+        if (kingdom == null || target == null) return false;
         if(kingdom.IsEmpire())
         {
             Empire empire = kingdom.GetEmpire();
+            if (empire == null || empire.isRekt() || empire.IsArchived()) return false;
             return empire.IsNeighbourWith(target);
         }
-        foreach(City city in kingdom.cities)
+        var cities = kingdom.cities;
+        if (cities == null || cities.Count == 0) return false;
+        foreach(City city in cities)
         {
-            if (city.neighbours_kingdoms.Contains(target))
+            if (city == null) continue;
+            var neighbours = city.neighbours_kingdoms;
+            if (neighbours == null) continue;
+            if (neighbours.Contains(target))
             {
                 return true;
             }
@@ -898,14 +945,52 @@ public static class KingdomExtension
 
     public static bool IsInEmpire(this Kingdom kingdom)
     {
-        if (kingdom.isRekt()) return false;
-        return kingdom.GetOrCreate().EmpireID != -1L;
+        if (kingdom == null || kingdom.isRekt()) return false;
+        var ed = kingdom.GetOrCreate();
+        if (ed == null) return false;
+        var id = ed.EmpireID;
+        if (id == -1L) return false;
+        if (ModClass.EMPIRE_MANAGER == null) return false;
+        var emp = ModClass.EMPIRE_MANAGER.get(id);
+        return emp != null && !emp.IsArchived() && !emp.isRekt();
     }
     public static void EndWarWith(this Kingdom kingdom, Kingdom kingdom2)
     {
-        var wars = kingdom.getWars()
-            .Where(w => w.getAttackers().Contains(kingdom2) 
-                        || w.getDefenders().Contains(kingdom2));
-        wars.ForEach(w=>w.lostWar(kingdom2));
+        var wars = kingdom.GetWarsCached(false);
+        for (int i = 0; i < wars.Count; i++)
+        {
+            var w = wars[i];
+            var attackers = w.getAttackers().ToArray();
+            var defenders = w.getDefenders().ToArray();
+            bool has = false;
+            for (int a = 0; a < attackers.Length; a++) { if (attackers[a] == kingdom2) { has = true; break; } }
+            if (!has)
+            {
+                for (int d = 0; d < defenders.Length; d++) { if (defenders[d] == kingdom2) { has = true; break; } }
+            }
+            if (has) w.lostWar(kingdom2);
+        }
+    }
+
+    public static List<War> GetWarsCached(this Kingdom kingdom, bool pRandom = false)
+    {
+        var ed = GetOrCreate(kingdom);
+        if (ed.last_wars_ts > 0 && Date.getMonthsSince(ed.last_wars_ts) < 1 && ed.cached_wars != null)
+        {
+            return ed.cached_wars;
+        }
+        var warsEnum = kingdom.getWars(pRandom);
+        List<War> list;
+        if (warsEnum is List<War> lw)
+        {
+            list = lw;
+        }
+        else
+        {
+            list = warsEnum.ToList();
+        }
+        ed.cached_wars = list;
+        ed.last_wars_ts = World.world.getCurWorldTime();
+        return list;
     }
 }

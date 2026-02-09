@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using NeoModLoader.services;
 using System;
@@ -24,9 +24,17 @@ public static class EmpireCraftOpinionAddition
                 int result = 0;
                 if (pMain.IsInSameEmpire(pTarget))
                 {
-                    if (!pMain.IsEmpire()&&pTarget.IsEmpire()&&pTarget.GetEmpire().CoreKingdom.GetMoney()<0)
+                    if (!pMain.IsEmpire()&&pTarget.IsEmpire())
                     {
-                        result = 999;
+                        var emp = pTarget.GetEmpire();
+                        if (emp != null && !emp.isRekt() && !emp.IsArchived())
+                        {
+                            var core = emp.CoreKingdom;
+                            if ((core?.GetMoney() ?? 0) < 0)
+                            {
+                                result = 999;
+                            }
+                        }
                     }
                 }
                 return result;
@@ -41,9 +49,20 @@ public static class EmpireCraftOpinionAddition
                 int result = 0;
                 if (!pMain.IsInSameEmpire(pTarget))
                 {
-                    if (!pMain.IsInEmpire() && pTarget.IsEmpire()&&pMain.countTotalWarriors()*2<=pTarget.GetEmpire().countWarriors())
+                    if (!pMain.IsInEmpire() && pTarget.IsEmpire())
                     {
-                        result = pTarget.GetEmpire().Additions.addition[OfficerPowerType.礼仪] * 5;
+                        var emp = pTarget.GetEmpire();
+                        if (emp != null && !emp.isRekt() && !emp.IsArchived())
+                        {
+                            if (pMain.countTotalWarriors() * 2 <= emp.countWarriors())
+                            {
+                                var adds = emp.Additions;
+                                if (adds != null && adds.addition != null && adds.addition.ContainsKey(OfficerPowerType.礼仪))
+                                {
+                                    result = adds.addition[OfficerPowerType.礼仪] * 5;
+                                }
+                            }
+                        }
                     }
                 }
                 return result;
@@ -61,8 +80,12 @@ public static class EmpireCraftOpinionAddition
                     if (pMain.HasMainTitle())
                     {
                         var title = pMain.GetMainTitle();
-                        var value = pTarget.cities.Intersect(title.getCities()).Count();
-                        result = -(value*100);
+                        var titleCities = title?.getCities();
+                        if (titleCities != null)
+                        {
+                            var value = pTarget.cities.Intersect(titleCities).Count();
+                            result = -(value*100);
+                        }
                     }
                 }
                 return result;
@@ -95,9 +118,16 @@ public static class EmpireCraftOpinionAddition
                 int result = 0;
                 if (pMain.IsInSameEmpire(pTarget))
                 {
-                    if (!pMain.IsEmpire()&&pTarget.IsEmpire()&&(pMain.countTotalWarriors()>pMain.GetEmpire().countWarriors()- pMain.countTotalWarriors()))
+                    if (!pMain.IsEmpire()&&pTarget.IsEmpire())
                     {
-                        result = -50;
+                        var emp = pMain.GetEmpire();
+                        if (emp != null && !emp.isRekt() && !emp.IsArchived())
+                        {
+                            if (pMain.countTotalWarriors() > emp.countWarriors() - pMain.countTotalWarriors())
+                            {
+                                result = -50;
+                            }
+                        }
                     }
                 }
                 return result;
@@ -146,9 +176,13 @@ public static class EmpireCraftOpinionAddition
                 {
                     if (!pMain.IsEmpire()&&pTarget.IsEmpire())
                     {
-                        if (pMain.GetEmpire().data.original_royal_been_changed)
+                        var emp = pMain.GetEmpire();
+                        if (emp != null && !emp.isRekt() && !emp.IsArchived())
                         {
-                            result = -200;
+                            if (emp.data.original_royal_been_changed)
+                            {
+                                result = -200;
+                            }
                         }
                     }
                 }
@@ -192,7 +226,7 @@ public static class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
-                if (pMain.king == pTarget.king&&!pMain.king.isRekt())
+                if (pMain.king == pTarget.king && pMain.king != null && !pMain.king.isRekt())
                 {
                     result = 999;
                 }

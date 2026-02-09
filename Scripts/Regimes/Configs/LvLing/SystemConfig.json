@@ -55,7 +55,8 @@
           "leader_select_method": "Default",
           "require_traits": [
             "jingshi"
-          ]
+          ],
+          "condition": []
         },
         {
           "pre": "shangshusheng_all",
@@ -87,7 +88,8 @@
           "leader_select_method": "Default",
           "require_traits": [
             "jingshi"
-          ]
+          ],
+          "condition": []
         }
       ],
       "division": [
@@ -105,7 +107,8 @@
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
-          ]
+          ],
+          "condition": []
         },
         {
           "pre": "gongbu_full",
@@ -121,7 +124,8 @@
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
-          ]
+          ],
+          "condition": []
         },
         {
           "pre": "bingbu_full",
@@ -137,7 +141,8 @@
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
-          ]
+          ],
+          "condition": []
         },
         {
           "pre": "li3bu_full",
@@ -153,7 +158,8 @@
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
-          ]
+          ],
+          "condition": []
         },
         {
           "pre": "xingbu_full",
@@ -169,7 +175,8 @@
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
-          ]
+          ],
+          "condition": []
         },
         {
           "pre": "hubu_full",
@@ -185,7 +192,131 @@
           "leader_select_method": "Default",
           "require_traits": [
             "gongshi"
-          ]
+          ],
+          "condition": []
+        }
+      ],
+      "harems": [
+        {
+          "pre": "",
+          "type": 13,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        },{
+          "pre": "",
+          "type": 14,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        },{
+          "pre": "",
+          "type": 15,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        },{
+          "pre": "",
+          "type": 16,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        },{
+          "pre": "",
+          "type": 17,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        },{
+          "pre": "",
+          "type": 18,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        },{
+          "pre": "",
+          "type": 19,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        },{
+          "pre": "",
+          "type": 20,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        },{
+          "pre": "",
+          "type": 21,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        },{
+          "pre": "",
+          "type": 22,
+          "description": "",
+          "powers": ["生育"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
         }
       ],
       "armies": {
@@ -199,7 +330,8 @@
           "peerageType": "Military",
           "select_from_local": false,
           "leader_select_method": "Exam",
-          "require_traits": ["gongshi", "juren"]
+          "require_traits": ["gongshi", "juren"],
+          "condition": ["empire_center:true", "is_capital:true"]
         },
         "LvLing_army_dudu": {
           "pre": "",
@@ -211,7 +343,8 @@
           "peerageType": "Military",
           "select_from_local": false,
           "leader_select_method": "Exam",
-          "require_traits": ["gongshi", "juren"]
+          "require_traits": ["gongshi", "juren"],
+          "condition": ["empire_center:false", "is_capital:true", "allow_diplomacy:true"]
         },
         "LvLing_army_zhenjiang": {
           "pre": "",
@@ -223,7 +356,8 @@
           "peerageType": "Military",
           "select_from_local": false,
           "leader_select_method": "Exam",
-          "require_traits": ["gongshi", "juren"]
+          "require_traits": ["gongshi", "juren"],
+          "condition": ["city_is_border:true", "is_capital:true"]
         },
         "LvLing_army_shuzhu": {
           "pre": "",
@@ -235,7 +369,8 @@
           "peerageType": "Military",
           "select_from_local": false,
           "leader_select_method": "Exam",
-          "require_traits": ["gongshi", "juren"]
+          "require_traits": ["gongshi", "juren"],
+          "condition": ["city_is_border:true", "is_capital:false"]
         }
       },
       "kingdoms": {
@@ -249,7 +384,9 @@
           "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Succession",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["empire_center:true"],
+          "city_type": "LvLing_city"
         },
         "LvLing_kingdom":{
           "pre": "",
@@ -261,7 +398,9 @@
           "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Succession",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["succession:true"],
+          "city_type": "LvLing_city"
         },
         "LvLing_jiedushi":{
           "pre": "",
@@ -273,7 +412,9 @@
           "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Exam",
-          "require_traits": ["gongshi", "jingshi"]
+          "require_traits": ["gongshi", "jingshi"],
+          "condition": ["allow_diplomacy:true", "succession:false"],
+          "city_type": "LvLing_city"
         },
         "LvLing_province":{
           "pre": "",
@@ -285,7 +426,9 @@
           "peerageType": "Military",
           "select_from_local": false,
           "leader_select_method": "Exam",
-          "require_traits": ["gongshi", "jingshi"]
+          "require_traits": ["gongshi", "jingshi"],
+          "condition": ["allow_diplomacy:false", "succession:false"],
+          "city_type": "LvLing_city"
         },
         "LvLing_jimizhou":{
           "pre": "",
@@ -297,7 +440,9 @@
           "peerageType": "Military",
           "select_from_local": true,
           "officer_selected_method": "Exam",
-          "require_traits": []
+          "require_traits": [],
+          "condition": ["another_race:true"],
+          "city_type": "LvLing_city"
         }
       },
       "cities": {
@@ -311,7 +456,8 @@
           "peerageType": "Civil",
           "select_from_local": false,
           "leader_select_method": "Default",
-          "require_traits": ["gongshi", "juren"]
+          "require_traits": ["gongshi", "juren"],
+          "condition": []
         }
       }
     }

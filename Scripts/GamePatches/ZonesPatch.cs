@@ -78,7 +78,7 @@ public class ZonesPatch:GamePatch
             __result = MetaTypeExtension.KingdomTitle;
             return false;
         }
-        __result = MetaType.None;
+        __result = MetaType.City;
         return false;
     }
 }

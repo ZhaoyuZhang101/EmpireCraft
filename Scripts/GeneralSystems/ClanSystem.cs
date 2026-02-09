@@ -838,6 +838,7 @@ public class PersonalClanIdentity
         {
             if (!concubines.Contains((lpci._specificClan.id, lpci.id)))
             {
+                _actor.RecordAddLoverTime();
                 lpci.is_main = false;
                 is_main = true;
                 lpci.is_concubine = true;

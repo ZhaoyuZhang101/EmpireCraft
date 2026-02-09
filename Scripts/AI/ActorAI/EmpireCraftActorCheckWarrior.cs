@@ -36,7 +36,15 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
         {
             if (pActor.city.checkCanMakeWarrior(pActor))
             {
-                pActor?.city?.makeWarrior(pActor);
+                try
+                {
+                    var c = pActor?.city;
+                    if (c != null) c.makeWarrior(pActor);
+                }
+                catch
+                {
+                    // 跳过异常，避免旧存档或边界态导致崩溃
+                }
             }
         }
         else
@@ -74,7 +82,14 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
                 {
                     if (city.checkCanMakeWarrior(pActor))
                     {
-                        city.makeWarrior(pActor);
+                        try
+                        {
+                            city.makeWarrior(pActor);
+                        }
+                        catch
+                        {
+                            // 跳过异常，避免旧存档或边界态导致崩溃
+                        }
                     }
                 } 
             }
@@ -84,11 +99,27 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
 
     public static List<Army> GetAllCenterArmy(Empire empire)
     {
-        return empire.kingdoms_list.FindAll(k => !k.GetCenterArmy().isRekt()).Select(k => k.GetCenterArmy()).ToList();
+        List<Army> res = new List<Army>();
+        var ks = empire.kingdoms_list;
+        for (int i = 0; i < ks.Count; i++)
+        {
+            var a = ks[i].GetCenterArmy();
+            if (a != null && !a.isRekt())
+            {
+                res.Add(a);
+            }
+        }
+        return res;
     }
 
     public static int CountAllCenterArmy(Empire empire)
     {
-        return GetAllCenterArmy(empire).Select(a=>a.units.Count).Sum();
+        var armies = GetAllCenterArmy(empire);
+        int total = 0;
+        for (int i = 0; i < armies.Count; i++)
+        {
+            total += armies[i].units.Count;
+        }
+        return total;
     }
 }

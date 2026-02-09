@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Layer;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -21,6 +21,10 @@ namespace EmpireCraft.Scripts.Data
         public static EmpireCraftHistory CURRENT_SELECTED_HISTORY;
         [JsonIgnore]
         public static OfficeObject CURRENT_SELECTED_OFFICE;
+        [JsonIgnore]
+        public static BureauSetting CURRENT_SELECTED_BUREAU_SETTING;
+        [JsonIgnore]
+        public static string CURRENT_SELECTED_BUREAU_CTX;
         [JsonIgnore]
         public static City selected_cityA;
         [JsonIgnore]
@@ -113,7 +117,6 @@ namespace EmpireCraft.Scripts.Data
             {"civ_piranha", "India" }, // 食人鱼族
             {"civ_monkey", "India" }, // 猴族
         };
-
         //Already Prepared Cultures
         public static List<string> currentExistCulture => OnomasticsRule.ALL_CULTURE_RULE.Keys.ToList();
         [JsonIgnore]

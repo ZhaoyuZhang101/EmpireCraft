@@ -144,7 +144,7 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
     public void ShowSpecificClan(SpecificClan specificClan, AutoGridLayoutGroup grid)
     {
         var vertCard = grid.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
-        Empire empire = ModClass.EMPIRE_MANAGER.ToList().Find(e => e.EmpireSpecificClan == specificClan);
+        Empire empire = ModClass.EMPIRE_MANAGER.ToList().Find(e => e.EmpireSpecificClan == specificClan && !e.IsArchived());
         vertCard.AddTextIntoVertLayout(specificClan.name + LM.Get("specific_clan")+$"{(empire.isRekt()?"":("("+empire.GetEmpireName()+"皇室)").ColorString(pColor:empire.CoreKingdom.getColor()._color_main))}", hideBackground:true, TextAnchor.MiddleCenter, size:new Vector2(49, 10));
         var actor = specificClan.AllAliveMembers.ToList()?.OrderByDescending(a => a?.age??0)?
             .FirstOrDefault();
@@ -152,7 +152,7 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
         vertCard.AddTextIntoVertLayout($"{LM.Get("i_founder")}：{SpecificClanManager.getPerson(specificClan.founder).name}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
         vertCard.AddTextIntoVertLayout($"{LM.Get("total_sc_count")}：{specificClan.AllAliveMembers.Count}/{specificClan._cache.Count}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
         var hori = vertCard.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
-        if (!empire.isRekt())
+        if (empire != null && !empire.isRekt())
         {
             hori.AddButtonIntoHoriLayout("enter_empire", "帝国", () =>
             {

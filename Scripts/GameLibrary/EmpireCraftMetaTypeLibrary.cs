@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Policy;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -49,8 +49,8 @@ public static class EmpireCraftMetaTypeLibrary
           "many_children",
           "many_homeless"
         };
-        pAsset13.get_list = (MetaTypeListAction) (() => (IEnumerable<NanoObject>) ModClass.EMPIRE_MANAGER);
-        pAsset13.has_any = (MetaTypeListHasAction) (() => ModClass.EMPIRE_MANAGER.hasAny());
+        pAsset13.get_list = (MetaTypeListAction) (() => (IEnumerable<NanoObject>) ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()));
+        pAsset13.has_any = (MetaTypeListHasAction) (() => ModClass.EMPIRE_MANAGER.ToList().Any(e => !e.IsArchived()));
         pAsset13.get_selected = (MetaSelectedGetter) (() => (NanoObject) selected_empire);
         pAsset13.set_selected = (MetaSelectedSetter) (pElement => selected_empire = pElement as Empire);
         pAsset13.get = (MetaGetter) (pId => (NanoObject) ModClass.EMPIRE_MANAGER.get(pId));
@@ -72,7 +72,7 @@ public static class EmpireCraftMetaTypeLibrary
                 if (kingdom.IsInEmpire()) continue;
                 drawDefaultMeta(kingdom.meta_type_asset);
               }
-              foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList())
+              foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
               {
                   foreach (City city in pEmpire.getCities().ToList())
                   {
@@ -86,61 +86,54 @@ public static class EmpireCraftMetaTypeLibrary
               }
 			        break;
 		        case 1:
-			        foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
+
+			        foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
 			        {
                 if (pEmpire.CoreKingdom.HasTakenAlliance()) continue;
-                foreach (var kingdom in pEmpire.taken_Kingdoms.Concat(pEmpire.kingdoms_list.ToList()))
-                { 
+                var cities = pEmpire.AllCities();
+                foreach (var kingdom in pEmpire.taken_Kingdoms)
+                {
                   if (kingdom.isRekt()) continue;
-                  foreach (City city in kingdom.cities)
+                  cities = cities.Union(kingdom.cities).ToList();
+                }
+                foreach (City city in cities)
+                {
+                  foreach (TileZone zone in city.zones)
                   {
-                    foreach (TileZone zone in city.zones)
-                    {
-                      zone_manager.drawBegin();
-                      drawZoneEmpire(zone);
-                      zone_manager.drawEnd(zone);
-                    }
+                    zone_manager.drawBegin();
+                    drawZoneEmpireWithKingdomBorder(zone, pEmpire);
+                    zone_manager.drawEnd(zone);
                   }
                 }
 			        }
 			        break;
 		        case 2:
-              foreach (var kt in ModClass.EMPIRE_MANAGER)
+              foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
               {
-                if (kt.CoreKingdom.HasGivenAlliance()) continue;
-                foreach (var kingdom in kt.given_Kingdoms.Concat(kt.kingdoms_list.ToList()))
+                if (pEmpire.CoreKingdom.HasGivenAlliance()) continue;
+                var cities = pEmpire.AllCities();
+                foreach (var kingdom in pEmpire.given_Kingdoms)
                 {
-                  if (kingdom.IsEmpire())
+                  if (kingdom.isRekt()) continue;
+                  cities = cities.Union(kingdom.cities).ToList();
+                }
+                foreach (City city in cities)
+                {
+                  foreach (TileZone zone in city.zones)
                   {
-                    foreach (City city in kingdom.GetEmpire().getCities())
-                    {
-                      foreach (TileZone zone in city.zones)
-                      {
-                        zone_manager.drawBegin();
-                        drawZoneEmpire(zone);
-                        zone_manager.drawEnd(zone);
-                      }
-                    }
-                  }
-                  else
-                  {
-                    foreach (City city in kingdom.cities)
-                    {
-                      foreach (TileZone zone in city.zones)
-                      {
-                        zone_manager.drawBegin();
-                        drawZoneEmpire(zone);
-                        zone_manager.drawEnd(zone);
-                      }
-                    }
+                    zone_manager.drawBegin();
+                    drawZoneEmpireWithKingdomBorder(zone, pEmpire);
+                    zone_manager.drawEnd(zone);
                   }
                 }
               }
 			        break;
 	        }
         });
+        double _last_dynamic_zones_ts = -1L;
         pAsset13.dynamic_zones = (MetaZoneDynamicAction) (() =>
         {
+          if (_last_dynamic_zones_ts > 0 && Date.getMonthsSince(_last_dynamic_zones_ts) < 1) return;
           List<Actor> simpleList = World.world.units.getSimpleList();
           double curWorldTime = World.world.getCurWorldTime();
           int index = 0;
@@ -155,6 +148,7 @@ public static class EmpireCraftMetaTypeLibrary
                   ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) actor.city.kingdom.GetEmpire(), curWorldTime);
             }
           }
+          _last_dynamic_zones_ts = World.world.getCurWorldTime();
         });
         pAsset13.check_cursor_highlight = (MetaZoneHighlightAction) ((pMetaTypeAsset, pTile, pQAsset) =>
         {
@@ -244,13 +238,15 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.check_tile_has_meta = (MetaZoneTooltipAction) ((pZone, pAsset, pZoneOption) =>
         {
           IMetaObject metaObject = pAsset.tile_get_metaobject(pZone, pZoneOption);
-          return ((Empire) metaObject).isRekt();
+          Empire m = metaObject as Empire;
+          if (m == null) return false;
+          return m.isRekt();
         });
         pAsset13.check_cursor_tooltip = new MetaZoneTooltipAction(checkCursorTooltipDefault);
         pAsset13.cursor_tooltip_action = (MetaTooltipShowAction) (pMeta =>
         {
           Empire pEmpire = pMeta as Empire;
-          if (pEmpire.isRekt())
+          if (pEmpire.isRekt() || pEmpire.IsArchived())
             return;
           string str = "empire";
           Tooltip.hideTooltip((object) pEmpire, true, str);
@@ -264,7 +260,7 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.stat_hover = (MetaStatAction) ((pMetaId, pField) =>
         {
           Empire pObject = ModClass.EMPIRE_MANAGER.get(pMetaId);
-          if (pObject.isRekt())
+          if (pObject.isRekt() || pObject.IsArchived())
             return;
           Tooltip.show((object) pField, "empire", new TooltipData()
           {
@@ -274,7 +270,7 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.stat_click = (MetaStatAction) ((pMetaId, _) =>
         {
           Empire pObject = ModClass.EMPIRE_MANAGER.get(pMetaId);
-          if (pObject.isRekt())
+          if (pObject.isRekt() || pObject.IsArchived())
             return;
           selected_empire = pObject;
           SelectedMetas.selected_kingdom = selected_empire.CoreKingdom;
@@ -402,7 +398,9 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.check_tile_has_meta = (MetaZoneTooltipAction) ((pZone, pAsset, pZoneOption) =>
         {
           IMetaObject metaObject = pAsset.tile_get_metaobject(pZone, pZoneOption);
-          return ((KingdomTitle) metaObject).isRekt();
+          KingdomTitle kt = metaObject as KingdomTitle;
+          if (kt == null) return false;
+          return kt.isRekt();
         });
         pAsset13.check_cursor_tooltip = new MetaZoneTooltipAction(checkCursorTooltipDefault);
         pAsset13.cursor_tooltip_action = (MetaTooltipShowAction) (pMeta =>
@@ -470,8 +468,10 @@ public static class EmpireCraftMetaTypeLibrary
         return false;
       if (!pTile.hasCity()) return false;
       if (!pTile.zone_city.hasKingdom()) return false;
-      if (pTile.zone_city.kingdom.GetEmpire().isRekt()) return false;
-      Empire pEmpire = pTile.zone_city.kingdom.GetEmpire();
+      var kingdom = pTile.zone_city.kingdom;
+      if (!kingdom.IsInEmpire()) return false;
+      Empire pEmpire = kingdom.GetEmpire();
+      if (pEmpire == null || pEmpire.isRekt() || pEmpire.IsArchived()) return false;
       selected_empire = pEmpire;
       SelectedMetas.selected_kingdom = selected_empire.CoreKingdom;
       ScrollWindow.showWindow(nameof(EmpireWindow));

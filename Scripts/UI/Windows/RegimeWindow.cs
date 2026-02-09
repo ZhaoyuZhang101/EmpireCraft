@@ -66,6 +66,12 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
                 _optionButtons[option.Key] = optionButton;
             }
         }
+        var editBar = settingSpace.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
+        editBar.AddButtonIntoHoriLayout("open_office_config", LM.Get("office_config_title"), () =>
+        {
+            SelectedMetas.selected_kingdom = _kingdom;
+            ScrollWindow.showWindow(nameof(OfficeConfigWindow));
+        }, size: new Vector2(25, 12));
         settingSpace.transform.AddStretchBackground("regimeFrame", size:new Vector2(200, 137));
         _groups.Add(settingSpace.gameObject);
     }
@@ -118,7 +124,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     private void InitialRegimeSelection()
     {
         var regimeSpace = this.BeginVertGroup();
-        regimeSpace.AddTextIntoVertLayout("政体", true, TextAnchor.MiddleCenter, new Vector2(25, 15));
+        regimeSpace.AddTextIntoVertLayout(LM.Get("regime_title"), true, TextAnchor.MiddleCenter, new Vector2(25, 15));
         var regimeIconPart = this.BeginHoriGroup();
         LoadRegimeButton(regimeIconPart.transform, RegimeType.LvLing);
         LoadRegimeButton(regimeIconPart.transform, RegimeType.ZhouFeudalism);
