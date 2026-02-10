@@ -61,7 +61,8 @@ public class CityPatch : GamePatch
 
         new Harmony(nameof(setKingdom)).Patch(
             AccessTools.Method(typeof(City), nameof(City.setKingdom)),
-            prefix: new HarmonyMethod(GetType(), nameof(setKingdom))
+            prefix: new HarmonyMethod(GetType(), nameof(setKingdom)),
+            postfix: new HarmonyMethod(GetType(), nameof(setKingdom_Postfix))
         );
 
         new Harmony(nameof(zone_steal)).Patch(
@@ -132,6 +133,20 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.getPopulationPeople)),
             prefix: new HarmonyMethod(GetType(), nameof(getPopulationPeople))
         );
+        new Harmony(nameof(getMainSubspecies)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.getMainSubspecies)),
+            prefix: new HarmonyMethod(GetType(), nameof(getMainSubspecies))
+        );
+    }
+
+    public static bool getMainSubspecies(City __instance, ref Subspecies __result)
+    {
+        if (__instance.units.Count == 0)
+        {
+            __result = null;
+            return false;
+        }
+        return true;
     }
 
     public static bool TryToMakeWarrior(City __instance, Actor pActor)
@@ -513,6 +528,7 @@ public class CityPatch : GamePatch
 
     public static void city_update(City __instance, float pElapsed)
     {
+        /*
         if (__instance.hasTitle())
         {
             if (__instance.GetTitle() != null)
@@ -520,6 +536,7 @@ public class CityPatch : GamePatch
                 __instance.GetTitle().isBeenControlled();
             }
         }
+        */
     }
     public static bool removeObject(CityManager __instance, City pObject)
     {
@@ -557,6 +574,10 @@ public class CityPatch : GamePatch
                 empire.cities_list = empire.cities_list.Distinct().ToList();
             }
         }
+    }
+
+    public static void setKingdom_Postfix(City __instance)
+    {
         if (__instance.hasTitle())
         {
             __instance.GetTitle().isBeenControlled();

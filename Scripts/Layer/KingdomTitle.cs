@@ -57,6 +57,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         generateColor();
         LogService.LogInfo("创建头衔成功");
         preserveAlive();
+        isBeenControlled();
     }
 
     public bool HasOwner()
@@ -279,6 +280,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         city.SetTitle(this);
         city_list_hash.Add(city);
         recalculate();
+        isBeenControlled();
     }
 
     public void removeCity(City city)
@@ -287,6 +289,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         city.RemoveTitle();
         this.city_list_hash.Remove(city);
         this.recalculate();
+        isBeenControlled();
         if (this.city_list_hash.Count <= 0)
         {
             ModClass.KINGDOM_TITLE_MANAGER.dissolveTitle(this);

@@ -101,6 +101,7 @@
     "class_labour": "工人",
     "class_peasant": "农民",
     "class_merchant": "商人",
+    "SocialClass": "阶级",
     "class_army": "军人",
     "class_officer": "官僚",
     "class_noble": "贵族",

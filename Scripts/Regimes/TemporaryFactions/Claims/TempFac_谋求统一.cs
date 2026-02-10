@@ -30,6 +30,7 @@ public class TempFac_谋求统一 : TemporaryFaction
                 war.SetEmpireWarType(EmpireWarType.统一);
             }
         }
+        CountDown = 5;
         End();
     }
 

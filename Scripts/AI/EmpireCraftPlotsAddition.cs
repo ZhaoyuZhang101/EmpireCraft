@@ -91,13 +91,43 @@ namespace EmpireCraft.Scripts.AI
                 action = delegate(Actor pActor)
                 {
                     if (!pActor.isKing()) return false;
-                    var mainKingdom = ModClass.KINGDOM_TITLE_MANAGER.get(pActor.GetOwnedTitle()[0])?.title_capital
-                        ?.kingdom;
-                    var allKingdoms = World.world.kingdoms.ToList().FindAll(k => k.king == pActor&&k!=mainKingdom);
-                    if (mainKingdom==null) return false;
+                    
+                    var allKingdoms = World.world.kingdoms.ToList().FindAll(k => k.king == pActor);
+                    if (allKingdoms.Count < 2) return false;
+
+                    Kingdom mainKingdom = null;
+                    
+                    // 1. Prioritize Empire Core
+                    var empireCore = allKingdoms.Find(k => k.IsInEmpire() && k.GetEmpire()?.CoreKingdom == k);
+                    if (empireCore != null)
+                    {
+                        mainKingdom = empireCore;
+                    }
+                    else
+                    {
+                        // 2. Fallback to Primary Title
+                        if (pActor.HasTitle())
+                        {
+                            var title = ModClass.KINGDOM_TITLE_MANAGER.get(pActor.GetOwnedTitle()[0]);
+                            if (title?.title_capital?.kingdom?.king == pActor)
+                            {
+                                mainKingdom = title.title_capital.kingdom;
+                            }
+                        }
+                        
+                        // 3. Fallback to current kingdom
+                        if (mainKingdom == null)
+                        {
+                            mainKingdom = pActor.kingdom;
+                        }
+                    }
+
+                    if (mainKingdom == null) return false;
+
                     foreach (var kingdom in allKingdoms)
                     {
-                        kingdom.cities.ForEach(c=>c.joinAnotherKingdom(mainKingdom));
+                        if (kingdom == mainKingdom) continue;
+                        kingdom.cities.ToList().ForEach(c=>c.joinAnotherKingdom(mainKingdom));
                     }
                     TranslateHelper.LogCombineKingdom(pActor);
                     return true;
@@ -1253,6 +1283,7 @@ namespace EmpireCraft.Scripts.AI
                             return false;
                         }
                     }
+                    if (kingdom.GetMoney() < 200) return false;
                     return true;
                 },
                 try_to_start_advanced = delegate (Actor pActor, PlotAsset pPlotAsset, bool pForced)
@@ -1285,6 +1316,13 @@ namespace EmpireCraft.Scripts.AI
                             return false;
                         }
                     }
+                    if (kingdom.HasGivenAlliance())
+                    {
+                        if (warTarget == kingdom.GetGivenAllianceEmpire()?.CoreKingdom)
+                        {
+                            if (!kingdom.NeedToRemoveGivenAlliance()) return false;
+                        }
+                    }
                     if (!kingdom.IsNeighbourWith(warTarget))
                     {
                         return false;
@@ -1309,6 +1347,7 @@ namespace EmpireCraft.Scripts.AI
                 action = delegate (Actor pActor)
                 {
                     World.world.diplomacy.startWar(pActor.kingdom, pActor.plot.target_kingdom, WarTypeLibrary.normal);
+                    pActor.kingdom.SubMoney(200);
                     return true;
                 }
             });
@@ -1528,7 +1567,7 @@ namespace EmpireCraft.Scripts.AI
             if (result==null)
             {
                 Kingdom target = pInitiatorKingdom.FindClosestKingdom();
-                if (target != null)
+                if (target != null && UnityEngine.Vector3.Distance(pInitiatorKingdom.location, target.location) < 300f)
                 {
                     if (num2 > target.countTotalWarriors())
                     {

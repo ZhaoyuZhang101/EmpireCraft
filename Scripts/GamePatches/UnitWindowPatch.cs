@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
@@ -17,6 +17,7 @@ using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.GeneralSystems;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -128,6 +129,8 @@ public class UnitWindowPatch: GamePatch
         Actor actor = __instance.actor;
         PeeragesLevel peeragesLevel = __instance.actor.GetPeeragesLevel();
         __instance.showStatRow("Peerages", LM.Get("default_" + peeragesLevel.ToString()), MetaType.Unit, -1L);
+        SocialClass socialClass = actor.GetOrCreate().socialClass;
+        __instance.showStatRow("SocialClass", socialClass.ToTranslate(), MetaType.Unit, -1L);
         if (__instance.actor.HasTitle()&&__instance.actor.isKing())
         {
             string value = __instance.actor.kingdom.HasMainTitle() ? __instance.actor.kingdom.GetMainTitle().data.name: __instance.actor.GetTitle();

@@ -31,6 +31,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static int WAR_END_YEAR = 30;
     public static Transform prefab_library;
     public static bool IS_CLEAR = true;
+    public static int MOD_DATA_VERSION = 1;
     public static EmpireManager EMPIRE_MANAGER;
     public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
     public static bool REAL_NUM_SWITCH = false;

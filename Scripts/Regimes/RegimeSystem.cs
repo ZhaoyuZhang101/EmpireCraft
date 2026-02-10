@@ -286,6 +286,7 @@ public static class RegimeManager
                     foreach (var regime in dict)
                     {
                         regime.Value.type = regime.Key;
+                        NormalizeRegime(regime.Value);
                         regimes[regime.Key] = regime.Value; // 合并到总字典
                         LogService.LogInfo(regime.Value.bureau_config.cores.Count.ToString());
                         LogService.LogInfo("加载政体完成: " + regime.Key + " 来自 " + dir);
@@ -301,5 +302,59 @@ public static class RegimeManager
         {
             LogService.LogInfo($"未发现政体目录: {_folderPath}");
         }
+    }
+    private static void NormalizeRegime(Regime regime)
+    {
+        var bc = regime.bureau_config ?? new BureauConfig();
+        bc.cores ??= new List<BureauSetting>();
+        bc.division ??= new List<BureauSetting>();
+        bc.harems ??= new List<BureauSetting>();
+        bc.kingdoms ??= new Dictionary<KingdomType, BureauSetting>();
+        bc.cities ??= new Dictionary<CityType, BureauSetting>();
+        bc.armies ??= new Dictionary<string, BureauSetting>();
+        foreach (var s in bc.cores)
+        {
+            s.powers ??= new List<OfficerPowerType>();
+            s.require_traits ??= new List<string>();
+            s.condition ??= new List<string>();
+        }
+        foreach (var s in bc.division)
+        {
+            s.powers ??= new List<OfficerPowerType>();
+            s.require_traits ??= new List<string>();
+            s.condition ??= new List<string>();
+        }
+        foreach (var s in bc.harems)
+        {
+            s.powers ??= new List<OfficerPowerType>();
+            s.require_traits ??= new List<string>();
+            s.condition ??= new List<string>();
+        }
+        foreach (var kv in bc.kingdoms)
+        {
+            var s = kv.Value;
+            if (s == null) continue;
+            s.powers ??= new List<OfficerPowerType>();
+            s.require_traits ??= new List<string>();
+            s.condition ??= new List<string>();
+        }
+        foreach (var kv in bc.cities)
+        {
+            var s = kv.Value;
+            if (s == null) continue;
+            s.powers ??= new List<OfficerPowerType>();
+            s.require_traits ??= new List<string>();
+            s.condition ??= new List<string>();
+        }
+        foreach (var kv in bc.armies)
+        {
+            var s = kv.Value;
+            if (s == null) continue;
+            s.powers ??= new List<OfficerPowerType>();
+            s.require_traits ??= new List<string>();
+            s.condition ??= new List<string>();
+        }
+        regime.bureau_config = bc;
+        regime.options ??= new Dictionary<string, int[]>();
     }
 }

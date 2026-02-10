@@ -37,6 +37,7 @@ public static class DataManager
         var json = File.ReadAllText(loadPath);
         var saveData = JsonConvert.DeserializeObject<SaveData>(json);
         LogService.LogInfo("初始化模组数据模板");
+        bool isOldSave = saveData == null || saveData.mod_version < ModClass.MOD_DATA_VERSION;
 
         if (saveData == null || saveData.actorsExtraData == null || saveData.actorsExtraData.Count == 0)
         {
@@ -138,6 +139,10 @@ public static class DataManager
                 empire.data.centerOffice.Init(empire.CoreKingdom);
                 empire.CoreKingdom.SetLevel(0);
             }
+            if (empire.data.centerOffice != null && empire.CoreKingdom != null)
+            {
+                empire.data.centerOffice.SyncMetaObject(empire.CoreKingdom);
+            }
         }
         ModClass.EMPIRE_MANAGER.update(-1L);
         LogService.LogInfo("Sync Empire Data");
@@ -152,11 +157,20 @@ public static class DataManager
         }
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
         SpecificClanManager._specificClans = saveData.specificClans;
+        SpecificClanManager.RebuildCache();
         LogService.LogInfo("Sync Titles Data");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         LogService.LogInfo("Sync history Data");
         ModClass.ALL_HISTORY_DATA = saveData.all_history ?? new Dictionary<long, List<EmpireCraftHistory>>();
         PlayerConfig.dict["switch_real_num"].boolVal = saveData.switch_real_num;
+        if (isOldSave)
+        {
+            foreach (var worldKingdom in World.world.kingdoms)
+            {
+                worldKingdom.InitialRegime();
+                EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
+            }
+        }
     }
     public static void SaveAll(string saveRootPath)
     {
@@ -173,6 +187,7 @@ public static class DataManager
         ModClass.EMPIRE_MANAGER.update(-1L);
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
         saveData.officeObjects = OfficeManager.Offices;
+        saveData.mod_version = ModClass.MOD_DATA_VERSION;
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)
         {
             try

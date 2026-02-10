@@ -62,7 +62,29 @@ public static class CityExtension
         if (city.kingdom.GetRegime()==null) return;
         CityType cityType = EmpireCraftKingdomBehCheckKingdomType.CalcCityType(city.kingdom);
         city.SetCityType(cityType);
-        BureauSetting citySetting = city.kingdom.GetRegime().bureau_config.cities[cityType];
+        BureauSetting citySetting = null;
+        var bc = city.kingdom.GetRegime().bureau_config;
+        if (bc != null && bc.cities != null)
+        {
+            bc.cities.TryGetValue(cityType, out citySetting);
+        }
+        if (citySetting == null)
+        {
+            citySetting = new BureauSetting
+            {
+                type = 0,
+                pre = "",
+                description = "",
+                powers = new List<OfficerPowerType>(),
+                merit = 0,
+                honorary = 0,
+                select_from_local = false,
+                leader_select_method = LeaderSelectMethod.Default,
+                require_traits = new List<string>(),
+                condition = new List<string>(),
+                city_type = cityType
+            };
+        }
         OfficeObject officeObject2 = new OfficeObject();
         officeObject2.InitialOffice(citySetting);
         officeObject2.regimeType = city.kingdom.GetRegime().type;

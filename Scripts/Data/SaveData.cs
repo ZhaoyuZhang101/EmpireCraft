@@ -33,4 +33,5 @@ public class SaveData
     public bool switch_real_num = false;
     public List<SpecificClan> specificClans = new List<SpecificClan>();
     public Dictionary<long, OfficeObject>  officeObjects = new Dictionary<long, OfficeObject>();
+    public int mod_version = 0;
 }

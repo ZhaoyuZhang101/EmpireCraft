@@ -70,6 +70,7 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
+      <Folder Include="GameOriginalCode\" />
       <Folder Include="GameResources\actors\species\civs\easternHuman\" />
       <Folder Include="GameResources\civ\icons\Faudlism\Eastern\" />
       <Folder Include="GameResources\civ\icons\Faudlism\MidEastern\" />

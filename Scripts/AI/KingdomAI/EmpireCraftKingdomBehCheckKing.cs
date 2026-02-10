@@ -64,8 +64,9 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         pKingdom.clearKingData();
         if (!pKingdom.HasHeir()) return;
         var heir = pKingdom.GetHeir();
+        if (heir == null || heir.isRekt()) return;
         Kingdom lastKingdom = null;
-        if (heir.isKing())
+        if (heir.isKing() && heir.kingdom != null && !heir.kingdom.isRekt())
         {
             lastKingdom = heir.kingdom;
         }
@@ -75,17 +76,21 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
             if (pKingdom.IsEmpire())
             {
                 Empire empire = pKingdom.GetEmpire();
-                empire.CoreKingdom = lastKingdom;
+                if (empire != null && !empire.isRekt() && !empire.IsArchived())
+                {
+                    empire.CoreKingdom = lastKingdom;
+                }
             }
-            pKingdom.cities.ForEach(c=>c.joinAnotherKingdom(lastKingdom));
+            pKingdom.cities.ForEach(c=>{ if (c != null && !c.isRekt()) c.joinAnotherKingdom(lastKingdom); });
             return;
         }
 
         if (lastKingdom != null && lastKingdom.GetRegime() is {type: RegimeType.LvLing|RegimeType.ZhouFeudalism})
         {
-            if (heir.getChildren().ToList().FindAll(a=>!a.isKing()).Any())
+            var children = heir.getChildren();
+            if (children != null && children.ToList().FindAll(a=>a != null && !a.isKing()).Any())
             {
-                MakeKingAndMoveToCapital(lastKingdom, heir.getChildren().ToList().Find(a=>!a.isKing()));
+                MakeKingAndMoveToCapital(lastKingdom, children.ToList().Find(a=>a != null && !a.isKing()));
             }
             else
             {
@@ -94,8 +99,16 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
         MakeKingAndMoveToCapital(pKingdom, heir);
         OfficeObject office = pKingdom.GetOffice();
-        office.meta_object = pKingdom;
-        office.SetActor(heir);
+        if (office == null)
+        {
+            pKingdom.InitialRegime();
+            office = pKingdom.GetOffice();
+        }
+        if (office != null)
+        {
+            office.meta_object = pKingdom;
+            office.SetActor(heir);
+        }
     }
     public void TryToGiveGoldenTooth(Actor pActor)
     {

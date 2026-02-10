@@ -134,7 +134,9 @@ public class OfficeObject
                 if (GetPregnantYear() > 2)
                 {
                     LogService.LogInfo("检测生育");
+                    if (meta_object == null) return;
                     var kingdom = (Kingdom) meta_object;
+                    if (kingdom == null || kingdom.king == null) return;
                     Random rand = new Random();
                     if (OverallHelperFunc.HasChangeToGiveBirth(officer, kingdom.king))
                     {
@@ -421,6 +423,15 @@ public class CenterOffice
             }
         }
         foreach (var office_id in Divisions)
+        {
+            OfficeObject office = OfficeManager.Offices.TryGetValue(office_id, out OfficeObject o)? o: null;
+            if (office != null)
+            {
+                office.meta_object = pkingdom;
+                office.is_local = false;
+            }
+        }
+        foreach (var office_id in Harems)
         {
             OfficeObject office = OfficeManager.Offices.TryGetValue(office_id, out OfficeObject o)? o: null;
             if (office != null)

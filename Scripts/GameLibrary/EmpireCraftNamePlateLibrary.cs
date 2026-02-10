@@ -23,6 +23,7 @@ public static class EmpireCraftNamePlateLibrary
     public static string additionNum => ModClass.REAL_NUM_SWITCH ? "k" : "";
     private static double _last_plate_update_ts = -1L;
     private static UnityEngine.Vector3 _last_cam_pos;
+    private static readonly Dictionary<string, Sprite> _sliced_sprite_cache = new Dictionary<string, Sprite>(256);
     private static readonly List<Empire> _cached_empires = new List<Empire>();
     private static readonly List<Kingdom> _cached_kingdoms = new List<Kingdom>();
     private static readonly List<Kingdom> _cached_kingdoms_no_back = new List<Kingdom>();
@@ -38,9 +39,11 @@ public static class EmpireCraftNamePlateLibrary
         var now = World.world.getCurWorldTime();
         var pos = cam.transform.position;
         var moved = UnityEngine.Vector3.Distance(pos, _last_cam_pos);
+        var heavy = (World.world.kingdoms.Count > 120) || (World.world.cities.Count > 250);
         if (_last_plate_update_ts > 0)
         {
-            if (now - _last_plate_update_ts < 0.2 && moved < 0.5) return true;
+            var interval = heavy ? 0.35 : 0.2;
+            if (now - _last_plate_update_ts < interval && moved < 0.5) return true;
         }
         _last_cam_pos = pos;
         _last_plate_update_ts = now;
@@ -89,19 +92,86 @@ public static class EmpireCraftNamePlateLibrary
                     case 0:
                         if (_shouldThrottle())
                         {
+                            int budget = 128;
+                            int processed = 0;
+                            if (_cached_kingdoms_no_back.Count == 0 && _cached_kingdoms.Count == 0)
+                            {
+                                _cached_kingdoms_no_back.Clear();
+                                _cached_kingdoms.Clear();
+                                foreach (Kingdom kingdom in World.world.kingdoms)
+                                {
+                                    if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
+                                    {
+                                        _cached_kingdoms_no_back.Add(kingdom);
+                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                        nameplateText._showing = true;
+                                        nameplateText.setPriority(kingdom.getPopulationPeople());
+                                        showTextKingdomNoBack(nameplateText, kingdom);
+                                        if (++processed >= budget) break;
+                                    }
+                                }
+                                foreach (Kingdom kingdom in World.world.kingdoms)
+                                {
+                                    if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
+                                    {
+                                        _cached_kingdoms.Add(kingdom);
+                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                        nameplateText.setPriority(kingdom.getPopulationPeople());
+                                        nameplateText._showing = true;
+                                        showTextKingdom(nameplateText, kingdom);
+                                        if (++processed >= budget) break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                _cached_kingdoms_no_back.Clear();
+                                _cached_kingdoms.Clear();
+                                foreach (Kingdom kingdom in World.world.kingdoms)
+                                {
+                                    if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center) && !_cached_kingdoms_no_back.Contains(kingdom))
+                                    {
+                                        _cached_kingdoms_no_back.Add(kingdom);
+                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                        nameplateText._showing = true;
+                                        nameplateText.setPriority(kingdom.getPopulationPeople());
+                                        showTextKingdomNoBack(nameplateText, kingdom);
+                                        if (++processed >= budget) break;
+                                    }
+                                }
+                                foreach (Kingdom kingdom in World.world.kingdoms)
+                                {
+                                    if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center) && !_cached_kingdoms.Contains(kingdom))
+                                    {
+                                        _cached_kingdoms.Add(kingdom);
+                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                        nameplateText.setPriority(kingdom.getPopulationPeople());
+                                        nameplateText._showing = true;
+                                        showTextKingdom(nameplateText, kingdom);
+                                        if (++processed >= budget) break;
+                                    }
+                                }
+                            }
                             for (int i = 0; i < _cached_kingdoms_no_back.Count; i++)
                             {
                                 var k = _cached_kingdoms_no_back[i];
                                 if (k == null || !k.hasCapital()) continue;
                                 var nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, k);
+                                nameplateText._showing = true;
+                                nameplateText.setPriority(k.getPopulationPeople());
                                 showTextKingdomNoBack(nameplateText, k);
+                                if (++processed >= budget) break;
                             }
                             for (int i = 0; i < _cached_kingdoms.Count; i++)
                             {
                                 var k = _cached_kingdoms[i];
                                 if (k == null || !k.hasCapital()) continue;
-                                var nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, k);
+                                var nameplateText =
+                                    pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, k);
+                                nameplateText._showing = true;
+                                nameplateText.setPriority(k.getPopulationPeople());
                                 showTextKingdom(nameplateText, k);
+                                if (++processed >= budget) break;
                             }
                         }
                         else
@@ -114,6 +184,8 @@ public static class EmpireCraftNamePlateLibrary
                                 {
                                     _cached_kingdoms_no_back.Add(kingdom);
                                     NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                    nameplateText.setPriority(kingdom.getPopulationPeople());
+                                    nameplateText._showing = true;
                                     showTextKingdomNoBack(nameplateText, kingdom);
                                 }
                             }
@@ -123,6 +195,7 @@ public static class EmpireCraftNamePlateLibrary
                                 {
                                     _cached_kingdoms.Add(kingdom);
                                     NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                     nameplateText.setPriority(kingdom.getPopulationPeople());
                                     showTextKingdom(nameplateText, kingdom);
                                 }
                             }
@@ -131,11 +204,24 @@ public static class EmpireCraftNamePlateLibrary
                     case 1:
                         if (_shouldThrottle())
                         {
+                            if (_cached_kingdoms_no_back.Count == 0)
+                            {
+                                foreach (Kingdom kingdom in World.world.kingdoms)
+                                {
+                                    if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
+                                    {
+                                        _cached_kingdoms_no_back.Add(kingdom);
+                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                        showTextKingdomNoBack(nameplateText, kingdom);
+                                    }
+                                }
+                            }
                             for (int i = 0; i < _cached_kingdoms_no_back.Count; i++)
                             {
                                 var k = _cached_kingdoms_no_back[i];
                                 if (k == null || !k.hasCapital()) continue;
                                 var nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, k);
+                                nameplateText.setPriority( k.getPopulationPeople());
                                 showTextKingdomNoBack(nameplateText, k);
                             }
                         }
@@ -148,6 +234,7 @@ public static class EmpireCraftNamePlateLibrary
                                 {
                                     _cached_kingdoms_no_back.Add(kingdom);
                                     NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                     nameplateText.setPriority(kingdom.getPopulationPeople());
                                     showTextKingdomNoBack(nameplateText, kingdom);
                                 }
                             }
@@ -156,11 +243,24 @@ public static class EmpireCraftNamePlateLibrary
                     case 2:
                         if (_shouldThrottle())
                         {
+                            if (_cached_kingdoms_no_back.Count == 0)
+                            {
+                                foreach (Kingdom kingdom in World.world.kingdoms)
+                                {
+                                    if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.HasGivenAlliance() && isWithinCamera(kingdom.capital.city_center))
+                                    {
+                                        _cached_kingdoms_no_back.Add(kingdom);
+                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                        showTextKingdomNoBack(nameplateText, kingdom);
+                                    }
+                                }
+                            }
                             for (int i = 0; i < _cached_kingdoms_no_back.Count; i++)
                             {
                                 var k = _cached_kingdoms_no_back[i];
                                 if (k == null || !k.hasCapital()) continue;
                                 var nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, k);
+                                nameplateText.setPriority(k.getPopulationPeople());
                                 showTextKingdomNoBack(nameplateText, k);
                             }
                         }
@@ -173,6 +273,7 @@ public static class EmpireCraftNamePlateLibrary
                                 {
                                     _cached_kingdoms_no_back.Add(kingdom);
                                     NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                                     nameplateText.setPriority(kingdom.getPopulationPeople());
                                     showTextKingdomNoBack(nameplateText, kingdom);
                                 }
                             }
@@ -302,7 +403,8 @@ public static class EmpireCraftNamePlateLibrary
                             if (getPositionForMeta(city, out var pPosition, pForceActor))
                             {
                                 _cached_cities.Add(city);
-                                pManager.prepareNext(_, city).showTextCity(city, pPosition);
+                                var npt = pManager.prepareNext(_, city);
+                                showTextCity(npt, city, pPosition);
                                 num++;
                             }
                         }
@@ -327,18 +429,23 @@ public static class EmpireCraftNamePlateLibrary
             {
                 if (_shouldThrottle())
                 {
+                    int budget = 128;
+                    int processed = 0;
                     for (int i = 0; i < _cached_kingdoms.Count; i++)
                     {
                         var kingdom = _cached_kingdoms[i];
                         if (kingdom == null || kingdom.isRekt() || !kingdom.hasCapital()) continue;
                         NameplateText nameplateText = pManager.prepareNext(pAsset, kingdom);
                         showTextKingdom(nameplateText, kingdom);
+                        if (++processed >= budget) break;
                     }
                     for (int i = 0; i < _cached_neutral_cities.Count; i++)
                     {
                         var city = _cached_neutral_cities[i];
                         if (city == null || city.isRekt()) continue;
-                        pManager.prepareNext(AssetManager.nameplates_library._plate_city, city).showTextCity(city, city.city_center);
+                        var npt = pManager.prepareNext(AssetManager.nameplates_library._plate_city, city);
+                        showTextCity(npt, city, city.city_center);
+                        if (++processed >= budget) break;
                     }
                 }
                 else
@@ -359,7 +466,8 @@ public static class EmpireCraftNamePlateLibrary
                         foreach (City city in WildKingdomsManager.neutral.cities)
                         {
                             _cached_neutral_cities.Add(city);
-                            pManager.prepareNext(AssetManager.nameplates_library._plate_city, city).showTextCity(city, city.city_center);
+                            var npt = pManager.prepareNext(AssetManager.nameplates_library._plate_city, city);
+                            showTextCity(npt, city, city.city_center);
                         }
                     }
                 }
@@ -371,7 +479,7 @@ public static class EmpireCraftNamePlateLibrary
     }
     public static void showTextKingdom(NameplateText npt, Kingdom pMetaObject)
     {
-        npt.setupMeta((MetaObjectData) pMetaObject.data, pMetaObject.kingdomColor);
+        npt.setupMeta((MetaObjectData) pMetaObject.data, pMetaObject.getColor());
         string pNewText = $"{pMetaObject.name}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
         int num;
         if (DebugConfig.isOn(DebugOption.ShowWarriorsCityText))
@@ -519,9 +627,18 @@ public static class EmpireCraftNamePlateLibrary
             }
         }
         npt.setText(text, pPosition);
-        if (pMetaObject.getMainSubspecies() != null)
+        Subspecies mainSubspecies = null;
+        try
         {
-            npt.showSpecies(pMetaObject.getMainSubspecies().getActorAsset().getSpriteIcon());
+            mainSubspecies = pMetaObject.getMainSubspecies();
+        }
+        catch
+        {
+        }
+
+        if (mainSubspecies != null)
+        {
+            npt.showSpecies(mainSubspecies.getActorAsset().getSpriteIcon());
         }
         if (pMetaObject.last_visual_capture_ticks != 0)
         {
@@ -574,12 +691,17 @@ public static class EmpireCraftNamePlateLibrary
             nameplateText = __instance._pool.Count != 0 ? __instance._pool.Pop() : __instance.createNew();
             __instance._active.Add(nameplateText);
         }
-        Sprite sprite = SpriteTextureLoader.getSprite(pAsset.path_sprite);
-        var text = sprite.texture;
-        var rect = sprite.rect;
-        var pivot = sprite.pivot;
-        float ppu = sprite.pixelsPerUnit;
-        var sliced = Sprite.Create(text, rect, pivot, ppu, 0, SpriteMeshType.FullRect, new Vector4(left, bottom, right, top));
+        var key = pAsset.path_sprite + "|" + left + "|" + bottom + "|" + right + "|" + top;
+        if (!_sliced_sprite_cache.TryGetValue(key, out var sliced))
+        {
+            Sprite sprite = SpriteTextureLoader.getSprite(pAsset.path_sprite);
+            var text = sprite.texture;
+            var rect = sprite.rect;
+            var pivot = sprite.pivot;
+            float ppu = sprite.pixelsPerUnit;
+            sliced = Sprite.Create(text, rect, pivot, ppu, 0, SpriteMeshType.FullRect, new Vector4(left, bottom, right, top));
+            _sliced_sprite_cache[key] = sliced;
+        }
         var img = nameplateText._background_image;
         img.sprite = sliced;
         img.type = Image.Type.Sliced;
@@ -664,7 +786,6 @@ public static class EmpireCraftNamePlateLibrary
     [Hotfixable]
     public static void showTextEmpire(NameplateText plateText, Kingdom pMetaObject)
     {
-        if (ModClass.IS_CLEAR) return;
         if (pMetaObject == null) return;
         if (!pMetaObject.isAlive()) return;
         Empire empire = pMetaObject.GetEmpire();
