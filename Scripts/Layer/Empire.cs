@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
@@ -224,11 +224,17 @@ public class Empire : MetaObject<EmpireData>
     public void StartToGive()
     {
         data.timestamp_given_time = World.world.getCurWorldTime();
-        foreach (var kingdom in given_Kingdoms)
+        var tempGiven = given_Kingdoms.ToList();
+        foreach (var kingdom in tempGiven)
         {
+            if (CoreKingdom.GetMoney() <= 0)
+            {
+                kingdom.RemoveGivenAlliance();
+                continue;
+            }
             CoreKingdom.SubMoney(countUnits()/2);
             kingdom.AddMoney(countUnits()/2);
-            if (CoreKingdom.GetMoney() <= 0)
+            if (kingdom.NeedToRemoveGivenAlliance())
             {
                 kingdom.RemoveGivenAlliance();
             }
@@ -745,22 +751,27 @@ public class Empire : MetaObject<EmpireData>
 
     public void SetEmpireName(string name)
     {
-        Regime regime = CoreKingdom.GetRegime();
+        var core = CoreKingdom;
+        if (core == null) return;
+        Regime regime = core.GetRegime();
         var originalName = name;
-        switch (regime.type)
+        if (regime != null)
         {
-            case RegimeType.LvLing:
-                originalName += "\u200A" + LM.Get("LvLing_empire");
-                break;
-            case RegimeType.YouMu:
-                originalName += "\u200A" + LM.Get("YouMu_empire");
-                break;
-            default:
-                originalName += "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(CoreKingdom).ToString());
-                break;
+            switch (regime.type)
+            {
+                case RegimeType.LvLing:
+                    originalName += "\u200A" + LM.Get("LvLing_empire");
+                    break;
+                case RegimeType.YouMu:
+                    originalName += "\u200A" + LM.Get("YouMu_empire");
+                    break;
+                default:
+                    originalName += "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(core).ToString());
+                    break;
+            }
         }
         data.name = string.IsNullOrEmpty(data.directPre)?originalName: string.Join("\u200A", data.directPre, originalName);
-        CoreKingdom.data.name = data.name;
+        if (core.data != null) core.data.name = data.name;
     }
 
     public void CheckDissolve(Kingdom mainKingdom)

@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -35,6 +35,7 @@ public static class KingdomExtension
         public double TimestampBeFeifed = -1L;
         public long HeirID = -1L;
         public int Level = 2;
+        [JsonIgnore]
         public Regime regime;
         public RegimeType regimeType;
         public KingdomType kingdomType;
@@ -67,6 +68,7 @@ public static class KingdomExtension
         public double last_plots_check_ts = -1L;
         public double last_cabinet_check_ts = -1L;
         public double last_religion_check_ts = -1L;
+        [JsonIgnore]
         public List<War> cached_wars = new List<War>();
         public double last_wars_ts = -1L;
 
@@ -215,13 +217,15 @@ public static class KingdomExtension
     public static void StartToTaken(this Kingdom k)
     {
         Empire empire = k.GetTakenAllianceEmpire();
-        if (empire == null) return;
-        var value = k.units.Count / 2;
+        if (empire == null || empire.isRekt() || empire.IsArchived()) return;
+        var core = empire.CoreKingdom;
+        if (core == null || core.isRekt()) return;
+        var value = k.units != null ? k.units.Count / 2 : 0;
         k.SubMoney(value);
-        empire.CoreKingdom.AddMoney(value);
+        core.AddMoney(value);
         if (k.GetMoney()<=0)
         {
-            if (k.units.Count / 3 > empire.getUnits().Count())
+            if ((k.units?.Count ?? 0) / 3 > empire.getUnits().Count())
             {
                 k.GetOrCreate().leave_taken_alliance_preference += 0.05f;
             }
@@ -231,10 +235,10 @@ public static class KingdomExtension
         k.RemoveTakenAlliance();
         Random random = new Random();
         var possibility = random.NextDouble();
-        if (empire.CoreKingdom.GetMoney() <= 0) return;
+        if (core.GetMoney() <= 0) return;
         if (k.countTotalWarriors() > empire.countWarriors()) return;
         if (!(possibility < 0.2f)) return;
-        var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, k, WarTypeLibrary.normal);
+        var war = DiplomacyHelpers.wars.newWar(core, k, WarTypeLibrary.normal);
         war.SetEmpireWarType(EmpireWarType.伐不臣);
     }
     /// <summary>
@@ -505,7 +509,16 @@ public static class KingdomExtension
     }
     public static Regime GetRegime(this Kingdom k)
     {
-        return k.GetOrCreate().regime;
+        if (k == null) return null;
+        var ed = k.GetOrCreate();
+        if (ed == null) return null;
+        var reg = ed.regime;
+        if (reg == null)
+        {
+            k.LoadRegime();
+            reg = ed.regime;
+        }
+        return reg;
     }
     public static void SetRegimeType(this Kingdom k, RegimeType type)
     {
@@ -518,18 +531,45 @@ public static class KingdomExtension
 
     public static void LoadRegime(this Kingdom k)
     {
-        Regime regime = RegimeManager.regimes[k.GetOrCreate().regimeType].Clone(k);
+        var ed = k.GetOrCreate();
+        var type = ed.regimeType;
+        Regime baseRegime = null;
+        if (RegimeManager.regimes != null)
+        {
+            RegimeManager.regimes.TryGetValue(type, out baseRegime);
+            if (baseRegime == null)
+            {
+                RegimeManager.regimes.TryGetValue(RegimeType.Feudalism, out baseRegime);
+            }
+        }
+        Regime regime = baseRegime?.Clone(k);
         k.SetRegime(regime);
         if (k.IsEmpire())
         {
-            k.GetEmpire().data.centerOffice.Init(k);
+            var empire = k.GetEmpire();
+            if (empire != null)
+            {
+                if (empire.data.centerOffice == null)
+                {
+                    empire.data.centerOffice = new CenterOffice();
+                    var core = empire.CoreKingdom ?? k;
+                    empire.data.centerOffice.Init(core);
+                }
+            }
         }
-        regime.GetPlayerFactions().ForEach(f=>
+        var factions = regime?.GetPlayerFactions();
+        if (factions != null)
         {
-            f.EmpireId = k.IsEmpire()?k.GetEmpireID():-1L;
-            f.FixMissedTemporaryFactions();
-            f.TemporaryFactions.ForEach(tf=>tf.Init(f));
-        });
+            factions.ForEach(f =>
+            {
+                f.EmpireId = k.IsEmpire() ? k.GetEmpireID() : -1L;
+                f.FixMissedTemporaryFactions();
+                if (f.TemporaryFactions != null)
+                {
+                    f.TemporaryFactions.ForEach(tf => tf.Init(f));
+                }
+            });
+        }
     }
 
     public static void InitialRegime(this Kingdom k)
@@ -543,7 +583,28 @@ public static class KingdomExtension
         k.GetRegime().SetAllowDiplomacy(true);
         var regime = k.GetRegime();
         var type = EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(k);
-        BureauSetting set = regime.bureau_config.kingdoms[type];
+        BureauSetting set = null;
+        if (regime?.bureau_config?.kingdoms != null)
+        {
+            regime.bureau_config.kingdoms.TryGetValue(type, out set);
+        }
+        if (set == null)
+        {
+            set = new BureauSetting
+            {
+                type = 0,
+                pre = "",
+                description = "",
+                powers = new List<OfficerPowerType>(),
+                merit = 0,
+                honorary = 0,
+                select_from_local = false,
+                leader_select_method = LeaderSelectMethod.Default,
+                require_traits = new List<string>(),
+                condition = new List<string>(),
+                city_type = null
+            };
+        }
         OfficeObject officeObject = new OfficeObject();
         officeObject.InitialOffice(set);
         officeObject.regimeType = regime.type;

@@ -19,5 +19,29 @@ public class NameplateTextPatch:GamePatch
         __instance._banner_kingdoms.transform.localScale = Vector3.one;
         __instance._text_name.fontStyle = FontStyle.Normal;
         __instance._text_name.transform.localScale = Vector3.one;
+        __instance._text_name.enabled = true;
+        __instance._text_name.gameObject.SetActive(true);
+        __instance.setShowing(true);
+        if (pAsset != null)
+        {
+            if (pAsset.map_mode == MetaType.Kingdom)
+            {
+                __instance._show_banner_kingdom = true;
+                __instance._banner_kingdoms.load(pMeta);
+            }
+            else
+            {
+                __instance._show_banner_kingdom = false;
+            }
+            if (pAsset.map_mode == MetaType.City)
+            {
+                __instance._show_banner_city = true;
+                __instance._banner_city.load(pMeta as City);
+            }
+            else
+            {
+                __instance._show_banner_city = false;
+            }
+        }
     }
 }

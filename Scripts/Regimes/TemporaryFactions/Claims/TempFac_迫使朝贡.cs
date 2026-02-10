@@ -26,6 +26,7 @@ public class TempFac_迫使朝贡 : TemporaryFaction
             var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, kingdom, WarTypeLibrary.normal);
             war.SetEmpireWarType(EmpireWarType.迫使朝贡);
         }
+        CountDown = 5;
         End();
     }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
@@ -126,12 +126,17 @@ public class SpecificClan
     }
     public List<(ClanRelation, PersonalClanIdentity)> GetChildren(PersonalClanIdentity identity)
     {
-        var children = this
-            .SnapshotPeople().ToList()
-            .Where(pci => pci.father == identity.id || pci.mother == identity.id)
-            .Select(pci => (pci.isMale()?ClanRelation.CHILDS:ClanRelation.CHILDD, pci))
-            .ToList();
-
+        var children = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (identity == null) return children;
+        foreach (var childId in identity.children_cache)
+        {
+            var child = SpecificClanManager.getPerson(childId);
+            if (child != null && child.specific_clan_id == this.id)
+            {
+                ClanRelation rel = child.isMale() ? ClanRelation.CHILDS : ClanRelation.CHILDD;
+                children.Add((rel, child));
+            }
+        }
         return children;
     }
 
@@ -192,6 +197,8 @@ public class SpecificClan
         {
             _cache.Remove(identity.id);
         }
+        SpecificClanManager._globalPersonLookup.Remove(identity.id);
+        SpecificClanManager._actorToPersonLookup.Remove(identity.actor_id);
 
         if (identity.is_alive)
         {
@@ -223,6 +230,14 @@ public class SpecificClan
 
         lock (_cacheLock)
         {
+            foreach (var id in _cache.Keys)
+            {
+                SpecificClanManager._globalPersonLookup.Remove(id);
+            }
+            foreach (var pci in _cache.Values)
+            {
+                SpecificClanManager._actorToPersonLookup.Remove(pci.actor_id);
+            }
             _cache.Clear();
         }
     }
@@ -232,6 +247,46 @@ public static class SpecificClanManager
 {
     private static readonly object _clansLock = new();
     public static List<SpecificClan> _specificClans = new List<SpecificClan>();
+    public static Dictionary<long, PersonalClanIdentity> _globalPersonLookup = new Dictionary<long, PersonalClanIdentity>();
+    public static Dictionary<long, PersonalClanIdentity> _actorToPersonLookup = new Dictionary<long, PersonalClanIdentity>();
+
+    public static void RebuildCache()
+    {
+        lock (_clansLock)
+        {
+            _globalPersonLookup.Clear();
+            _actorToPersonLookup.Clear();
+            foreach (var sc in _specificClans)
+            {
+                foreach (var pci in sc.SnapshotPeople())
+                {
+                    _globalPersonLookup[pci.id] = pci;
+                    if (pci.is_alive)
+                    {
+                        _actorToPersonLookup[pci.actor_id] = pci;
+                    }
+                    pci.children_cache.Clear();
+                }
+            }
+            foreach (var sc in _specificClans)
+            {
+                foreach (var pci in sc.SnapshotPeople())
+                {
+                    if (pci.father != -1L && _globalPersonLookup.TryGetValue(pci.father, out var fatherPci))
+                    {
+                        if (!fatherPci.children_cache.Contains(pci.id))
+                            fatherPci.children_cache.Add(pci.id);
+                    }
+                    if (pci.mother != -1L && _globalPersonLookup.TryGetValue(pci.mother, out var motherPci))
+                    {
+                        if (!motherPci.children_cache.Contains(pci.id))
+                            motherPci.children_cache.Add(pci.id);
+                    }
+                }
+            }
+        }
+    }
+
     public static SpecificClan newSpecificClan(Actor actor, bool show_log = true)
     {
         SpecificClan specificClan = new SpecificClan();
@@ -258,35 +313,60 @@ public static class SpecificClanManager
 
     public static List<(ClanRelation, PersonalClanIdentity)> FindAllRelations(PersonalClanIdentity self)
     {
-        var pre  = new List<(ClanRelation, PersonalClanIdentity)>();
-        var post = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (self == null) return pre;
-        
-        var clans = _specificClans.ToArray();
+        var relations = new List<(ClanRelation, PersonalClanIdentity)>();
+        if (self == null) return relations;
 
-        foreach (var sc in clans)
+        // Parents
+        var father = getPerson(self.father);
+        if (father != null) relations.Add((ClanRelation.FAT, father));
+        var mother = getPerson(self.mother);
+        if (mother != null) relations.Add((ClanRelation.MOM, mother));
+        
+        // In-laws
+        var fil = getPerson(self.father_in_law);
+        if (fil != null) relations.Add((ClanRelation.FIL, fil));
+        var mil = getPerson(self.mother_in_law);
+        if (mil != null) relations.Add((ClanRelation.MIL, mil));
+
+        // Lover
+        if (self.hasLover())
         {
-            var identities = sc.SnapshotPeople();
-            
-            foreach (var identity in identities)
-            {
-                var relation = CalcRelation(self, target: identity);
-                if (relation != ClanRelation.NONE)
-                    pre.Add((relation, identity));
-            }
-            if (sc.id == self.specific_clan_id)
-            {
-                foreach (var identity in identities)
-                {
-                    if (identity.id == self.id) continue;
-                    var relation = CalcRelation(self, target: identity);
-                    post.Add((relation, identity));
-                }
-                break;
-            }
+            var lover = getPerson(self.lover.identity);
+            if (lover != null) relations.Add((ClanRelation.LOV, lover));
+        }
+        
+        // Concubines
+        foreach (var c in self.concubines)
+        {
+            var cob = getPerson(c.identity);
+            if (cob != null) relations.Add((ClanRelation.COB, cob));
         }
 
-        return pre.Concat(post).ToList();
+        // Children
+        relations.AddRange(getChildren(self));
+
+        // Siblings
+        relations.AddRange(GetSiblingsWithRelation(self));
+
+        // Grandparents
+        relations.AddRange(GetFatherGrandGeneration(self));
+        relations.AddRange(GetMotherGrandGeneration(self));
+
+        // Uncles/Aunts
+        relations.AddRange(GetFatherGreatGeneration(self));
+        relations.AddRange(GetMotherGreatGeneration(self));
+
+        // Cousins
+        relations.AddRange(GetFatherSameGeneration(self));
+        relations.AddRange(GetMotherSameGeneration(self));
+
+        // Nephews/Nieces
+        relations.AddRange(GetSiblingChildGeneration(self));
+
+        // Grandchildren
+        relations.AddRange(GetGrandChildren(self));
+
+        return relations;
     }
     public static List<(ClanRelation, PersonalClanIdentity)> GetSiblingsWithRelation(PersonalClanIdentity identity)
     {
@@ -610,16 +690,9 @@ public static class SpecificClanManager
     }
     public static PersonalClanIdentity getPerson(long identity_id)
     {
-        SpecificClan[] clans;
-        lock (_clansLock)
+        if (_globalPersonLookup.TryGetValue(identity_id, out var pci))
         {
-            clans = _specificClans.ToArray(); // 在锁里做快照，避免复制过程也被并发写破坏
-        }
-        foreach (var sc in clans)
-        {
-            var pci = sc.GetPerson(identity_id);   // sc.GetPerson 自身也要线程安全（前面已给出两种实现）
-            if (pci != null && pci.specific_clan_id == sc.id)
-                return pci;
+            return pci;
         }
         return null;
     }
@@ -647,13 +720,14 @@ public static class SpecificClanManager
     public static List<(ClanRelation, PersonalClanIdentity)> getChildren(PersonalClanIdentity identity)
     {
         var identityWithRelation = new List<(ClanRelation, PersonalClanIdentity)>();
-        if (identity ==null)  return identityWithRelation;
-        for (int i = 0; i < _specificClans.Count; i++)
+        if (identity == null) return identityWithRelation;
+        foreach (var childId in identity.children_cache)
         {
-            var kids = _specificClans[i].GetChildren(identity);
-            if (kids.Any())
+            var child = getPerson(childId);
+            if (child != null)
             {
-                return kids.ToList();
+                ClanRelation rel = child.isMale() ? ClanRelation.CHILDS : ClanRelation.CHILDD;
+                identityWithRelation.Add((rel, child));
             }
         }
         return identityWithRelation;
@@ -675,6 +749,13 @@ public static class SpecificClanManager
         }
         if (!actor.HasSpecificClan())
         {
+            // Fix: Check if we can restore the link from existing data
+            if (_actorToPersonLookup.TryGetValue(actor.getID(), out var existingPci))
+            {
+                actor.SetPersonalIdentity(existingPci);
+                return;
+            }
+            
             newSpecificClan(actor, show_log);
             return;
         }
@@ -740,6 +821,8 @@ public class PersonalClanIdentity
     public long mother_in_law { get; set; } = -1L; //义母
     public (long specific_clan, long identity) lover = (-1L, -1L); //正妻/正夫
     public List<(long specific_clan, long identity)> concubines = new(); //小妾/情人
+    [JsonIgnore]
+    public List<long> children_cache = new List<long>();
 
     public void newPersonalClanIdentity(SpecificClan specificClan, Actor a)
     {
@@ -857,6 +940,12 @@ public class PersonalClanIdentity
         {
             mother = identity.id;
         }
+
+        if (!identity.children_cache.Contains(this.id))
+        {
+            identity.children_cache.Add(this.id);
+        }
+
         if (identity.is_main&&identity.is_alive)
         {
             _actor.setClan(identity._actor.clan);

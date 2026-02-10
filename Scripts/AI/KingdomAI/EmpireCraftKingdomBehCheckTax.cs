@@ -23,7 +23,15 @@ public class EmpireCraftKingdomBehCheckTax: GameAIKingdomBase
         if (!pKingdom.IsNeedToSubmitTax()) return BehResult.Continue;
         pKingdom.CountingFinishedSelfPlot();
         var pTaxRate = pKingdom.GetTaxRate();
-        Kingdom pEmpireKingdom = pKingdom.GetEmpire().CoreKingdom;
+        Kingdom pEmpireKingdom = null;
+        if (pKingdom.IsInEmpire())
+        {
+            Empire empire = pKingdom.GetEmpire();
+            if (empire != null && !empire.isRekt() && !empire.IsArchived())
+            {
+                pEmpireKingdom = empire.CoreKingdom;
+            }
+        }
         //金钱
         int money = pKingdom.GetMoney();
         //抽成
@@ -65,13 +73,17 @@ public class EmpireCraftKingdomBehCheckTax: GameAIKingdomBase
             else
             {
                 // 被发现：充公，帝国收到全部税（下面会统一入账）
-                pKingdom.GetOffice().RemoveActor();
+                var office = pKingdom.GetOffice();
+                if (office != null) office.RemoveActor();
                 corruptedMoney = 0;
             }
             actor.addMoney(corruptedMoney);
         }
         pKingdom.SubMoney((int)(num*(1.0f-pKingdom.GetCorruptionRate())));
-        pEmpireKingdom.AddMoney((int)((num-corruptedMoney)*(1.0f-pKingdom.GetCorruptionRate())));
+        if (pEmpireKingdom != null)
+        {
+            pEmpireKingdom.AddMoney((int)((num-corruptedMoney)*(1.0f-pKingdom.GetCorruptionRate())));
+        }
         pKingdom.RecordTaxTime();
         return BehResult.Continue;
     }

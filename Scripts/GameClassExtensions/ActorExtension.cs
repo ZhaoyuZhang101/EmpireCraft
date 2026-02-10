@@ -507,6 +507,8 @@ public static class ActorExtension
         PersonalClanIdentity pci = new PersonalClanIdentity();
         pci.newPersonalClanIdentity(clan, a);
         clan._cache.Add(pci.id, pci);
+        SpecificClanManager._globalPersonLookup[pci.id] = pci;
+        SpecificClanManager._actorToPersonLookup[pci.actor_id] = pci;
         a.SetPersonalIdentity (pci);
         if (a.hasLover())
         {
