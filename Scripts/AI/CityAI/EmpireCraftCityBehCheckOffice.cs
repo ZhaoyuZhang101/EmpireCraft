@@ -44,8 +44,6 @@ public class EmpireCraftCityBehCheckOffice:GameAICityBase
                 break;
             case RegimeType.LvLing:
                 break;
-            case RegimeType.Republic:
-                break;
             case RegimeType.ZhouFeudalism:
                 break;
         }

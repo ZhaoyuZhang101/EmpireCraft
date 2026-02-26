@@ -47,14 +47,14 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
                 break;
             case RegimeType.ZhouFeudalism:
                 break;
-            case RegimeType.Republic:
+            case RegimeType.Modern:
                 break;
             case RegimeType.Arabic:
                 break;
             case RegimeType.YouMu:
                 break;
             default:
-                throw new ArgumentOutOfRangeException();
+                break;
         }
 
         if (kRegime.has_cabinet)

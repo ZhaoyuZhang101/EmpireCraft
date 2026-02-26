@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using NeoModLoader.api;
 using UnityEngine;
@@ -27,7 +28,13 @@ public class NameplateTextPatch:GamePatch
             if (pAsset.map_mode == MetaType.Kingdom)
             {
                 __instance._show_banner_kingdom = true;
-                __instance._banner_kingdoms.load(pMeta);
+                try
+                {
+                    __instance._banner_kingdoms.load(pMeta);
+                }
+                catch
+                {
+                }
             }
             else
             {

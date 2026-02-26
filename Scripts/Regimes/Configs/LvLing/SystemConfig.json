@@ -7,6 +7,8 @@
     "has_cabinet": true,
     "cabinet_number": 5,
     "leader_select_method": "Succession",
+    "default_kingdom": "LvLing_kingdom",
+    "centre_empire_separate": true,
     "Factions": [
       {
         "_id": "136f74b5-0c6f-4ee7-aee8-bc59c7e77fc8",
@@ -14,6 +16,7 @@
         "_requiredTraits": ["peaceful", "pacifist"],
         "Ban": false,
         "Name": "文官派",
+        "only_king": false,
         "EmpireId": -1,
         "Members": [],
         "TotalPower": 0,
@@ -25,6 +28,7 @@
         "_requiredTraits": ["ambitious", "bloodlust"],
         "Ban": false,
         "Name": "武官派",
+        "only_king": false,
         "EmpireId": -1,
         "Members": [],
         "TotalPower": 0,
@@ -374,6 +378,20 @@
         }
       },
       "kingdoms": {
+        "default_country_post":{
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Succession",
+          "require_traits": [],
+          "condition": [],
+          "city_type": "LvLing_city"
+        },
         "LvLing_centre":{
           "pre": "",
           "type": 0,
@@ -399,7 +417,7 @@
           "select_from_local": false,
           "leader_select_method": "Succession",
           "require_traits": [],
-          "condition": ["succession:true"],
+          "condition": ["succession:true","empire_center:false"],
           "city_type": "LvLing_city"
         },
         "LvLing_jiedushi":{
@@ -413,7 +431,7 @@
           "select_from_local": false,
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"],
-          "condition": ["allow_diplomacy:true", "succession:false"],
+          "condition": ["allow_diplomacy:true", "succession:false","empire_center:false"],
           "city_type": "LvLing_city"
         },
         "LvLing_province":{
@@ -427,7 +445,7 @@
           "select_from_local": false,
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"],
-          "condition": ["allow_diplomacy:false", "succession:false"],
+          "condition": ["allow_diplomacy:false", "succession:false","empire_center:false"],
           "city_type": "LvLing_city"
         },
         "LvLing_jimizhou":{
@@ -441,7 +459,7 @@
           "select_from_local": true,
           "officer_selected_method": "Exam",
           "require_traits": [],
-          "condition": ["another_race:true"],
+          "condition": ["another_race:true","empire_center:false"],
           "city_type": "LvLing_city"
         }
       },

@@ -1,12 +1,14 @@
 {  
-  //共和
-  "Republic": {
+  //现代
+  "Modern": {
     "description": "现代制度，各级别官员由考试产生，同时，最高领导者由各个省份领导人票选产生",
     "icon_url": "",
     "era_name": false,
     "has_cabinet": false,
     "cabinet_number": 0,
     "leader_select_method": "Vote",
+    "default_kingdom": "Modern_republic",
+    "centre_empire_separate": true,
     "Factions": [
       {
         "_id": "ee61868b-90ff-415f-b749-882c561e6ccd",
@@ -14,6 +16,7 @@
         "Ban": false,
         "_requiredTraits": [],
         "Name": "民主党",
+        "only_king": false,
         "EmpireId": -1,
         "Members": [],
         "TotalPower": 0,
@@ -25,6 +28,43 @@
         "Ban": false,
         "_requiredTraits": [],
         "Name": "共和党",
+        "only_king": false,
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        "_id": "11111111-0c44-47b4-95d5-2a2b5918238b",
+        "Type": "共产",
+        "Ban": false,
+        "_requiredTraits": [],
+        "Name": "革命党",
+        "only_king": false,
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        "_id": "22222222-0c44-47b4-95d5-2a2b5918238b",
+        "Type": "尊王",
+        "Ban": false,
+        "_requiredTraits": [],
+        "Name": "保皇党",
+        "only_king": false,
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        "_id": "33333333-0c44-47b4-95d5-2a2b5918238b",
+        "Type": "攘夷",
+        "Ban": false,
+        "_requiredTraits": [],
+        "Name": "军国主义者",
+        "only_king": false,
         "EmpireId": -1,
         "Members": [],
         "TotalPower": 0,
@@ -141,7 +181,20 @@
       ],
       "armies": {},
       "kingdoms": {
-        "Republic_republic": {
+        "default_country_post": {
+          "pre": "",
+          "type": 0,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": [],
+          "city_type": "Modern_city"
+        },
+        "Modern_centre": {
           "pre": "",
           "type": 0,
           "description": "",
@@ -152,9 +205,9 @@
           "leader_select_method": "Default",
           "require_traits": [],
           "condition": ["empire_center:true"],
-          "city_type": "Republic_city"
+          "city_type": "Modern_city"
         },
-        "Republic_province": {
+        "Modern_province": {
           "pre": "",
           "type": 5,
           "description": "",
@@ -165,9 +218,9 @@
           "leader_select_method": "Default",
           "require_traits": [],
           "condition": ["allow_army:false", "another_race:false"],
-          "city_type": "Republic_city"
+          "city_type": "Modern_city"
         },
-        "Republic_state": {
+        "Modern_state": {
           "pre": "",
           "type": 5,
           "description": "",
@@ -178,9 +231,9 @@
           "leader_select_method": "Default",
           "require_traits": [],
           "condition": ["allow_army:true", "another_race:false"],
-          "city_type": "Republic_city"
+          "city_type": "Modern_city"
         },
-        "Republic_autonomous_prefecture": {
+        "Modern_autonomous_prefecture": {
           "pre": "",
           "type": 5,
           "description": "",
@@ -191,11 +244,11 @@
           "leader_select_method": "Default",
           "require_traits": [],
           "condition": ["another_race:true"],
-          "city_type": "Republic_city"
+          "city_type": "Modern_city"
         }
       },
       "cities": {
-        "Republic_city": {
+        "Modern_city": {
           "pre": "",
           "type": 6,
           "description": "",

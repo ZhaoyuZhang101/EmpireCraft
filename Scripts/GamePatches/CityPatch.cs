@@ -155,6 +155,10 @@ public class CityPatch : GamePatch
     }
     public static bool FinishedCapture(City __instance, Kingdom pNewKingdom)
     {
+        Kingdom oldKingdom = __instance.kingdom;
+        bool isEmpireCapital = oldKingdom.IsEmpire() && oldKingdom.capital == __instance;
+        Empire targetEmpire = oldKingdom.GetEmpire();
+
         if (__instance.kingdom.hasKing() && __instance.kingdom.king.city == __instance)
             __instance.kingdom.kingFledCity();
         if (World.world.cities.isLocked())
@@ -163,6 +167,42 @@ public class CityPatch : GamePatch
         __instance.recalculateNeighbourCities();
         pNewKingdom.increaseHappinessFromNewCityCapture();
         __instance.kingdom.decreaseHappinessFromLostCityCapture(__instance);
+
+        if (targetEmpire != null && isEmpireCapital)
+        {
+            Regime newRegime = pNewKingdom.GetRegime();
+            if (newRegime != null && newRegime.type == RegimeType.Modern)
+            {
+                FixedFaction dominate = newRegime.GetDominateFaction();
+                if (dominate != null)
+                {
+                    newRegime.BlockFactionChange(50); 
+                    
+                    if (newRegime.PlayerFactions != null)
+                    {
+                        foreach (var f in newRegime.PlayerFactions)
+                        {
+                            if (f.Type != dominate.Type)
+                            {
+                                f.BanFaction();
+                                f.Ban = true;
+                                f.Force = false;
+                            }
+                            else
+                            {
+                                f.Ban = false;
+                                f.Force = true;
+                            }
+                        }
+                    }
+
+                    ActionLibrary.showWhisperTip($"{pNewKingdom.GetKingdomName()} 攻占首都，革命胜利！确立{dominate.Name}领导地位！");
+                    
+                    pNewKingdom.LoadRegime();
+                }
+            }
+        }
+
         using (ListPool<War> pWars = new ListPool<War>(pNewKingdom.getWars()))
         {
             Kingdom joinAfterCapture = __instance.findKingdomToJoinAfterCapture(pNewKingdom, pWars);
@@ -548,7 +588,9 @@ public class CityPatch : GamePatch
         Regime regime = pKingdom.GetRegime();
         if (regime != null)
         {
-            CityType cityType = EmpireCraftKingdomBehCheckKingdomType.CalcCityType(pKingdom);
+            CityType cityType = regime.bureau_config.kingdoms.TryGetValue(pKingdom.GetKingdomType(), out var value)
+                ?regime.bureau_config.kingdoms[pKingdom.GetKingdomType()].city_type
+                : regime.bureau_config.cities.Keys.ToList()[0];
             BureauSetting citySetting = regime.bureau_config.cities[cityType];
             OfficeObject officeObject = __instance.GetOffice();
             if (officeObject != null)

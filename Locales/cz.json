@@ -1,10 +1,5 @@
 {
-    "Default": "默认设置组",
-    "WhatToSay": "模组加载时打印的信息",
     "toggle_mod_title": "帝国盒子",
-    "mod_enabled_description": "该模组已启用",
-    "mod_disabled_description": "该模组已禁用",
-    "nml_authentication": "NML认证",
     "Culture": "文化",
     "Dialect": "话",
     "Language": "语",
@@ -27,6 +22,7 @@
     "Peerages": "爵位",
     "i_population": "人口",
     "i_age": "年龄",
+    "main_title": "主法理",
     "religion_point": "宗教点数",
     "plot_group_empirecraft_diplomacy": "帝国",
     "tf_starting": "执行中",

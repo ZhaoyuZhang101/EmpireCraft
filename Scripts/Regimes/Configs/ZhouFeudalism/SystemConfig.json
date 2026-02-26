@@ -7,6 +7,8 @@
     "has_cabinet": false,
     "cabinet_number": 0,
     "leader_select_method": "Succession",
+    "default_kingdom": "ZhouFeudalism_zi",
+    "centre_empire_separate": false,
     "Factions": [
       {
         "_id": "2de32a56-7cb1-4570-b9c6-c1059bee5801",
@@ -14,6 +16,7 @@
         "Ban": false,
         "_requiredTraits": [],
         "Name": "天子派",
+        "only_king": false,
         "EmpireId": -1,
         "Members": [],
         "TotalPower": 0,
@@ -25,6 +28,7 @@
         "Ban": false,
         "_requiredTraits": [],
         "Name": "诸侯派",
+        "only_king": false,
         "EmpireId": -1,
         "Members": [],
         "TotalPower": 0,
@@ -207,6 +211,19 @@
       ],
       "armies": {},
       "kingdoms": {
+      "default_country_post": {
+        "pre": "",
+        "type": 8,
+        "description": "",
+        "powers": [],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": [],
+        "condition": [],
+        "city_type": "ZhouFeudalism_city"
+      },
         "ZhouFeudalism_empire": {
           "pre": "",
           "type": 0,
@@ -230,7 +247,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["empire_royal:true", "another_race:false"],
+          "condition": ["empire_center:false","empire_royal:true", "another_race:false", "empire_center:false"],
           "city_type": "ZhouFeudalism_city"
         },
         "ZhouFeudalism_hou": {
@@ -243,7 +260,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["cities_count:>=|2", "another_race:false", "empire_royal:false"],
+          "condition": ["empire_center:false","cities_count:>=|2", "another_race:false", "empire_royal:false"],
           "city_type": "ZhouFeudalism_city"
         },
         "ZhouFeudalism_bo": {
@@ -256,7 +273,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["cities_count:>=|1", "another_race:false", "empire_royal:false"],
+          "condition": ["empire_center:false","cities_count:>=|1", "another_race:false", "empire_royal:false"],
           "city_type": "ZhouFeudalism_city"
 
         },
@@ -270,7 +287,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["another_race:true"],
+          "condition": ["empire_center:false","another_race:true"],
           "city_type": "ZhouFeudalism_city"
         }
       },

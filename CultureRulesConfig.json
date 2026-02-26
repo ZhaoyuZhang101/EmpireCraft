@@ -946,7 +946,7 @@
         "name": "India",
         "translate_cz": "印度",
         "setting": {
-            "regime": "Arabic",
+            "regime": "Origin",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -1012,7 +1012,7 @@
         "name": "Corporate",
         "translate_cz": "企业",
         "setting": {
-            "regime": "Republic",
+            "regime": "Modern",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {

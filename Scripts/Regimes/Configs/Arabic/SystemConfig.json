@@ -7,6 +7,8 @@
     "has_cabinet": false,
     "cabinet_number": 0,
     "leader_select_method": "Succession",
+    "default_kingdom": "default_country_post",
+    "centre_empire_separate": false,
     "Factions": [
       {
         //所有哈里发皆合法
@@ -14,6 +16,7 @@
         "Type": "僭主",
         "Ban": false,
         "_requiredTraits": [],
+        "only_king": false,
         "Name": "逊尼派",
         "EmpireId": -1,
         "Members": [],
@@ -26,6 +29,7 @@
         "Type": "血脉",
         "Ban": false,
         "_requiredTraits": [],
+        "only_king": false,
         "Name": "什叶派",
         "EmpireId": -1,
         "Members": [],
@@ -92,6 +96,19 @@
       "harems": [],
       "armies": {},
       "kingdoms": {
+        "default_country_post": {
+          "pre": "",
+          "type": 4,
+          "description": "",
+          "powers": [],
+          "merit": 6,
+          "honorary": 5,
+          "select_from_local": false,
+          "heir": true,
+          "require_traits": [],
+          "condition": [],
+          "city_type": "Arabic_city"
+        },
         "Arabic_emirate": {
           "pre": "",
           "type": 4,
@@ -102,7 +119,7 @@
           "select_from_local": false,
           "heir": true,
           "require_traits": [],
-          "condition": ["allow_diplomacy:true", "religion_level:>=|3"],
+          "condition": ["empire_center:false","allow_diplomacy:true", "religion_level:<=|1"],
           "city_type": "Arabic_city"
         },
         "Arabic_province": {
@@ -115,7 +132,7 @@
           "select_from_local": false,
           "heir": false,
           "require_traits": [],
-          "condition": ["allow_diplomacy:false"],
+          "condition": ["empire_center:false","allow_diplomacy:false"],
           "city_type": "Arabic_city"
         },
         "Arabic_sultanate": {
@@ -128,7 +145,7 @@
           "select_from_local": false,
           "heir": true,
           "require_traits": [],
-          "condition": ["allow_diplomacy:true", "religion_level:<=|2"],
+          "condition": ["empire_center:false","allow_diplomacy:true", "religion_level:>|1"],
           "city_type": "Arabic_city"
         },
         "Arabic_caliphate": {

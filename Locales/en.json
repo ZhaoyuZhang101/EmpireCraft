@@ -1,10 +1,5 @@
 {
-    "Default": "Default Settings Group",
-    "WhatToSay": "Message printed when the mod loads",
     "toggle_mod_title": "Empire Box",
-    "mod_enabled_description": "This mod is enabled",
-    "mod_disabled_description": "This mod is disabled",
-    "nml_authentication": "NML Authentication",
     "Culture": "Culture",
     "Dialect": "Dialect",
     "Language": "Language",
@@ -25,7 +20,7 @@
     "Peerages": "Peerages",
     "i_population": "Population",
     "i_age": "Age",
-
+    "main_title": "Main Title",
     "eldest_child": "Eldest Heir",
     "smallest_child": "Youngest Son",
     "siblings": "Siblings",

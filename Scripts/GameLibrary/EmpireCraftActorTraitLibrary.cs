@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
@@ -54,6 +54,12 @@ public static class EmpireCraftActorTraitLibrary
         {
             id = "cleric",
             path_icon = "ui/icons/actor_traits/iconOfficerLeave",
+            group_id = "EmpireOffice"
+        });
+        lib.add(new ActorTrait
+        {
+            id = "revolutionary",
+            path_icon = "ui/icons/actor_traits/iconEmpireArmy",
             group_id = "EmpireOffice"
         });
         lib.add(new ActorTrait

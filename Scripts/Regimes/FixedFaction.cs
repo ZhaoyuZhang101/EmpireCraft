@@ -83,6 +83,13 @@ public static class FactionManager
                 }
             },
             {
+                FactionType.原始,
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.索取皇位, TemporaryFactionType.分封, TemporaryFactionType.加强神权, TemporaryFactionType.扩张地盘
+                }
+            },
+            {
                 FactionType.共和,
                 new List<TemporaryFactionType>
                 {
@@ -100,7 +107,7 @@ public static class FactionManager
             },
             {
                 FactionType.革命,
-                new List<TemporaryFactionType> { TemporaryFactionType.输出革命, TemporaryFactionType.扶持革命党 }
+                new List<TemporaryFactionType> { TemporaryFactionType.输出革命, TemporaryFactionType.扶持革命党, TemporaryFactionType.禁党 }
             },
             {
                 FactionType.神权,
@@ -243,6 +250,7 @@ public class PlayerFactionConfig
 }
 public enum FactionType
 {
+    原始,
     尊王,  //王室为主
     诸侯,  //诸侯为主
     中央,  //西方王室
@@ -257,11 +265,13 @@ public enum FactionType
     革命,  //一党，革命输出
     融入,  //融入帝国中最大的文明
     同化,  //同化掉其他地区的文明
+    共产,  //社会主义
     无
 }
 public class FixedFaction
 {
     public string _id;
+    public bool only_king;
     //特质需求（拥有该特质的人会更加倾向于加入此派系）
     public List<string> _requiredTraits = new();
     public List<string> RequiredTraits = new();
@@ -269,6 +279,7 @@ public class FixedFaction
     public bool Ban { get; set; } = false;
     public string Name { set; get; }
     public long EmpireId { get; set; } = -1L;
+    public bool Hide { get; set; } = false;
     public bool Force = false; 
     [JsonIgnore]
     public AdvancedButton LockButton { get; set; }
@@ -280,8 +291,20 @@ public class FixedFaction
     [JsonIgnore] public List<Actor> AllMembers => Members.Select(id => World.world.units.get(id)).Where(actor=>!actor.isRekt()).ToList();
     [JsonIgnore]
     public int Count => Members.Count;
+    private int _cachedPower = -1;
     [JsonIgnore]
-    public int TotalPower => (int) Members.Sum(a=>World.world.units.get(a)?.GetIdentity()?.TotalPerformance??0);
+    public int TotalPower 
+    {
+        get 
+        {
+            if (_cachedPower >= 0) return _cachedPower;
+            return (int) Members.Sum(a=>World.world.units.get(a)?.GetIdentity()?.TotalPerformance??0);
+        }
+        set
+        {
+            _cachedPower = value;
+        }
+    }
     //倾向于推动的政策
     [JsonIgnore]
     public List<TemporaryFactionType> TemporaryFactionTypes => FactionManager.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
@@ -311,6 +334,7 @@ public class FixedFaction
             _id = Guid.NewGuid().ToString(),
             RequiredTraits = _requiredTraits.ToList(),
             _requiredTraits = _requiredTraits,
+            only_king = only_king,
             Type = Type,
             Ban = Ban,
             Name = Name,
@@ -331,6 +355,7 @@ public class FixedFaction
             _id = Guid.NewGuid().ToString(),
             RequiredTraits = RequiredTraits,
             _requiredTraits = _requiredTraits,
+            only_king = only_king,
             Type = Type,
             Ban = Ban,
             Name = Name,
@@ -403,13 +428,17 @@ public class FixedFaction
                     matched++;
 
         // 匹配占比 0~1
-        float ratio = (float)matched / required;
+        float ratio = (float) matched / required;
 
         // 线性插值：匹配越多，越接近 maxProb
         float prob = minProb + (maxProb - minProb) * ratio;
 
         // 存一下并返回
         LastJoinProb = prob;
+        if (only_king && !pActor.isKing())
+        {
+            return 0;
+        }
         return prob;
     }
     public void AddMember(Actor pActor)

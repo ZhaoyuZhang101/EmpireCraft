@@ -23,6 +23,7 @@ using System.Text.RegularExpressions;
 using System.Runtime.Serialization;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using System.Security.Principal;
+using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -742,6 +743,11 @@ public static class ActorExtension
         if (identity == null) return false;
         if (identity.officialLevel == -1) return false;
         return true;
+    }
+    public static bool isNoble(this Actor a)
+    {
+        if (a == null) return false;
+        return EmpireCaftActorJudgeClass.JudgeClass(a) == SocialClass.Noble;
     }
 
     public static bool CanGrabAlliance(this Actor a)

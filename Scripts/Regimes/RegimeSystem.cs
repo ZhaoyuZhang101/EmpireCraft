@@ -12,6 +12,7 @@ namespace EmpireCraft.Scripts.Regimes;
 public enum KingdomType
 {
     LvLing_centre,//京畿道
+    LvLing_tempcentre,//京畿道
     LvLing_kingdom,//藩国
     LvLing_jiedushi,//军
     LvLing_province,//道
@@ -36,15 +37,20 @@ public enum KingdomType
     Arabic_emirate, //酋长国
     Arabic_province, //行省
     
-    Republic_republic, //共和国
-    Republic_province, //省
-    Republic_state, //州
-    Republic_autonomous_prefecture,//自治州
+    Modern_republic, //共和国
+    Modern_republic_socialist, //社会主义共和国
+    Modern_republic_people, //人民共和国
+    Modern_province, //省
+    Modern_centre, //中央
+    Modern_state, //州
+    Modern_autonomous_prefecture,//自治州
     
     YouMu_centre, //共和国
     YouMu_kingdom, //省
     YouMu_bu, //州
-
+    default_tempcentre, //临时政府
+    Origin_kingdom,
+    Origin_centre,
     default_country_post //国
 }
 
@@ -77,9 +83,10 @@ public enum CityType
     
     Arabic_city, //市
     
-    Republic_city, //市
+    Modern_city, //市
     
     Feudalism_city, //市
+    Origin_city,
     Feudalism_dirC, //帝国伯爵领
     Feudalism_religion_district, //教区
     
@@ -109,9 +116,10 @@ public enum RegimeType
     LvLing,        //律令      - 唐
     Feudalism,     //封建      - 神罗
     ZhouFeudalism, //分封      - 周
-    Republic,      //共和      - 现代美国
+    Modern,      //共和      - 现代美国
     Arabic,        //阿拉伯政体 - 阿拉伯世界
-    YouMu          //游牧政体   - 蒙古汗国
+    YouMu,         //游牧政体   - 蒙古汗国
+    Origin
 }
 
 public enum ReligionLevel
@@ -132,9 +140,11 @@ public class Regime
     public long control_kingdom_id;
     [JsonIgnore] 
     public AutoHoriLayoutGroup FactionSpace;
-    public LeaderSelectMethod leader_select_method; 
+    public LeaderSelectMethod leader_select_method;
+    public bool centre_empire_separate;
     public bool has_cabinet;
     public int cabinet_number;
+    public KingdomType default_kingdom;
     //宗教點數
     public int religion_point = 0;
     public FixedFaction CentreMind;
@@ -142,6 +152,18 @@ public class Regime
     public List<FixedFaction> PlayerFactions;
     public Dictionary<string, int[]> options;
     public BureauConfig bureau_config;
+    
+    public double FactionChangeBlockUntil = -1f;
+
+    public void BlockFactionChange(int years)
+    {
+        FactionChangeBlockUntil = World.world.getCurWorldTime() + years;
+    }
+
+    public bool IsFactionChangeBlocked()
+    {
+        return World.world.getCurWorldTime() < FactionChangeBlockUntil;
+    }
 
     public List<FixedFaction> GetPlayerFactions() =>
         PlayerFactions ??= new List<FixedFaction>(
@@ -167,6 +189,9 @@ public class Regime
             bureau_config = this.bureau_config,
             era_name = this.era_name,
             has_cabinet = this.has_cabinet,
+            cabinet_number = this.cabinet_number,
+            centre_empire_separate = this.centre_empire_separate,
+            default_kingdom = this.default_kingdom,
             Factions = this.Factions.Select(f => f.Clone()).ToList()
         };
         var hasConfig = FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out var factions);

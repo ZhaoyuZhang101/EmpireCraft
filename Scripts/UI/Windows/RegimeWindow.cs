@@ -129,7 +129,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         LoadRegimeButton(regimeIconPart.transform, RegimeType.LvLing);
         LoadRegimeButton(regimeIconPart.transform, RegimeType.ZhouFeudalism);
         LoadRegimeButton(regimeIconPart.transform, RegimeType.Feudalism);
-        LoadRegimeButton(regimeIconPart.transform, RegimeType.Republic);
+        LoadRegimeButton(regimeIconPart.transform, RegimeType.Modern);
         
         regimeSpace.AddChild(regimeIconPart.gameObject);
         regimeSpace.transform.AddStretchBackground("regimeFrame");

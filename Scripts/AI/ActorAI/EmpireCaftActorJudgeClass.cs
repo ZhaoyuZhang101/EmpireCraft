@@ -15,7 +15,7 @@ public class EmpireCaftActorJudgeClass: GameAIActorBase
         pActor.SetSocialClass(JudgeClass(pActor));
         return BehResult.Continue;
     }
-    private SocialClass JudgeClass(Actor pActor)
+    public static SocialClass JudgeClass( Actor pActor)
     {
         if (world.kingdoms.ToList().FindAll(k => k.GetRegime() != null).Any(k =>
                 k.GetRegime().GetLeaderSelectMethod() == LeaderSelectMethod.Succession &&

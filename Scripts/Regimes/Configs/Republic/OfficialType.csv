@@ -1,19 +1,23 @@
 key,cz
 
-Republic_republic,共和国
-Republic_province,省
-Republic_state,州
-Republic_autonomous_prefecture,自治州
+Modern_republic,共和国
+Modern_centre,直辖市(首都)
+default_tempcentre,临时政府
+Modern_republic_socialist,社会主义共和国
+Modern_republic_people,人民共和国
+Modern_province,省
+Modern_state,州
+Modern_autonomous_prefecture,自治州
 
-Republic_officiallevel_0,总统
-Republic_officiallevel_1,副总统
-Republic_officiallevel_2,国务卿
-Republic_officiallevel_3,部长
-Republic_officiallevel_4,议员
-Republic_officiallevel_5,州长
-Republic_officiallevel_6,市长
+Modern_officiallevel_0,总统2
+Modern_officiallevel_1,副总统
+Modern_officiallevel_2,国务卿
+Modern_officiallevel_3,部长
+Modern_officiallevel_4,议员
+Modern_officiallevel_5,州长
+Modern_officiallevel_6,市长
 
-Republic_city,市
+Modern_city,市
 
 finance_full,财政部
 defence_full,国防部
