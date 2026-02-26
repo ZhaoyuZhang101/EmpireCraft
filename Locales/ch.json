@@ -1,10 +1,5 @@
 {
-  "Default": "預設設定組",
-  "WhatToSay": "模組載入時列印的資訊",
   "toggle_mod_title": "帝國盒子",
-  "mod_enabled_description": "該模組已啟用",
-  "mod_disabled_description": "該模組已停用",
-  "nml_authentication": "NML 認證",
   "Culture": "文化",
   "Dialect": "話",
   "Language": "語",
@@ -27,6 +22,7 @@
   "Peerages": "爵位",
   "i_population": "人口",
   "i_age": "年齡",
+  "main_title": "主法理",
   "religion_point": "宗教點數",
   "tf_starting": "執行中",
   "plot_group_empirecraft_diplomacy": "帝國",

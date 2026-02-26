@@ -1,5 +1,6 @@
 key,cz
 
+default_country_post,国
 Feudalism_empire,帝国
 Feudalism_kingdom,王国
 Feudalism_grand_duchy,大公国
@@ -13,6 +14,7 @@ Feudalism_officiallevel_1,教皇
 Feudalism_officiallevel_2,大主教
 Feudalism_officiallevel_3,选帝侯
 Feudalism_officiallevel_4,帝国伯爵
+Feudalism_officiallevel_9,大公
 Feudalism_officiallevel_5,公爵
 Feudalism_officiallevel_6,边疆伯爵
 Feudalism_officiallevel_7,伯爵

@@ -6,7 +6,9 @@
     "era_name": false,
     "has_cabinet": true,
     "cabinet_number": 7,
-    "leader_select_method": "Succession",    
+    "leader_select_method": "Succession",
+    "default_kingdom": "default_country_post",
+    "centre_empire_separate": false,
     "Factions": [
       {
         //皇帝拥有开战权，各诸侯被攻击会一同反击
@@ -14,6 +16,7 @@
         "Type": "中央",
         "Ban": false,
         "_requiredTraits": [],
+        "only_king": false,
         "Name": "皇权派",
         "EmpireId": -1,
         "Members": [],
@@ -26,6 +29,7 @@
         "Type": "自治",
         "Ban": false,
         "_requiredTraits": [],
+        "only_king": false,
         "Name": "封建派",
         "EmpireId": -1,
         "Members": [],
@@ -38,6 +42,7 @@
         "Type": "神权",
         "Ban": false,
         "_requiredTraits": ["cleric"],
+        "only_king": false,
         "Name": "神权派",
         "EmpireId": -1,
         "Members": [],
@@ -72,7 +77,7 @@
         }
       ],
       "kingdoms": {
-        "Feudalism_grand_duchy": {
+        "default_country_post": {
           "pre": "",
           "type": 5,
           "description": "",
@@ -82,7 +87,20 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["empire_royal:true", "controlled_titles:>=|1"],
+          "condition": [],
+          "city_type": "Feudalism_city"
+        },
+        "Feudalism_grand_duchy": {
+          "pre": "",
+          "type": 9,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": ["empire_royal:true", "controlled_titles:>=|1", "empire_center:false"],
           "city_type": "Feudalism_city"
         },
         "Feudalism_kingdom": {
@@ -95,7 +113,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["controlled_titles:>=|2"],
+          "condition": ["controlled_titles:>=|2", "empire_center:false"],
           "city_type": "Feudalism_city"
         },
         "Feudalism_duchy": {
@@ -108,7 +126,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["controlled_titles:>=|1"],
+          "condition": ["controlled_titles:>=|1", "empire_center:false"],
           "city_type": "Feudalism_city"
         },
         "Feudalism_county": {
@@ -121,7 +139,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": [],
+          "condition": ["controlled_titles:>=|1", "empire_center:false"],
           "city_type": "Feudalism_city"
         },
         "Feudalism_march": {
@@ -134,7 +152,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": [],
+          "condition": ["is_border:true", "empire_center:false"],
           "city_type": "Feudalism_city"
         },
         "Feudalism_papal_state": {

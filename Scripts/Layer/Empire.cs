@@ -757,17 +757,13 @@ public class Empire : MetaObject<EmpireData>
         var originalName = name;
         if (regime != null)
         {
-            switch (regime.type)
+            if (regime.centre_empire_separate)
             {
-                case RegimeType.LvLing:
-                    originalName += "\u200A" + LM.Get("LvLing_empire");
-                    break;
-                case RegimeType.YouMu:
-                    originalName += "\u200A" + LM.Get("YouMu_empire");
-                    break;
-                default:
-                    originalName += "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(core).ToString());
-                    break;
+                originalName += "\u200A" + LM.Get($"{regime.type}_empire");
+            }
+            else
+            {
+                originalName += "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(core).ToString());
             }
         }
         data.name = string.IsNullOrEmpty(data.directPre)?originalName: string.Join("\u200A", data.directPre, originalName);
@@ -1130,47 +1126,20 @@ public class Empire : MetaObject<EmpireData>
                 {
                     CoreKingdom = candidate;
                     data.centerOffice.Init(CoreKingdom);
-                    if (originalEmperor != null && originalEmperor.isAlive())
+                    if (!originalEmperor.isRekt())
                     {
                         CoreKingdom.setKing(originalEmperor);
                         MoveToEmpireCapital(originalEmperor);
                     }
                     else
                     {
-                        if (originalHeir != null && !originalHeir.isRekt())
+                        if (!originalHeir.isRekt())
                         {
                             CoreKingdom.setKing(originalHeir);
                             MoveToEmpireCapital(originalHeir);
                         }
                     }
-                    if (data.center_loss_timestamp < 0)
-                    {
-                        data.center_loss_timestamp = World.world.getCurWorldTime();
-                        if (regime.type == RegimeType.LvLing || regime.type == RegimeType.ZhouFeudalism)
-                        {
-                            data.directPre = LM.Get("xing_zai");
-                        }
-                        else
-                        {
-                            data.directPre = LM.Get("provisional_government");
-                        }
-                        SetEmpireName(GetEmpireName());
-                        this.RecordHistory(EmpireHistoryType.change_capital_history, new Dictionary<string, string>()
-                        {
-                            ["actor"] = CoreKingdom.king?.getName()??"",
-                            ["place"] = CoreKingdom.capital.GetCityName()
-                        });
-                    }
-                }
-            }
-            if (data.center_loss_timestamp >= 0)
-            {
-                if (Date.getYearsSince(data.center_loss_timestamp) >= 50)
-                {
-                    data.directPre = LM.Get("zhi_li");
-                    OriginalCapital = CoreKingdom.capital;
-                    data.original_capital = CoreKingdom.capital.data.id;
-                    SetEmpireName(GetEmpireName());
+                    
                 }
             }
         }
@@ -1198,6 +1167,15 @@ public class Empire : MetaObject<EmpireData>
         return kingdoms_hashset.Count >= 1;
     }
 
+    public int GetCapitalLostTime()
+    {
+        return Date.getYearsSince(data.center_loss_timestamp);
+    }
+
+    public bool IsCapitalLost()
+    {
+        return data.is_center_lost;
+    }
     // Token: 0x06001125 RID: 4389 RVA: 0x000C77B4 File Offset: 0x000C59B4
     public void dissolve()
     {

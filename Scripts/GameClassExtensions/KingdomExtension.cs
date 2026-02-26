@@ -97,6 +97,18 @@ public static class KingdomExtension
     {
         return Date.getYearsSince(kingdom.GetOrCreate().last_system_change_timestamp);
     }
+
+    public static void CacheData(this Kingdom kingdom)
+    {
+        var ed = kingdom.GetOrCreate();
+        if (ed.last_cached_timestamp <= 0 || Date.getYearsSince(ed.last_cached_timestamp) >= 1)
+        {
+            ed.last_cached_timestamp = -1L;
+            ed.cached_population = kingdom.getPopulationPeople();
+            ed.cached_warriors = kingdom.countTotalWarriors();
+            ed.last_cached_timestamp = World.world.getCurWorldTime();
+        }
+    }
     public static void FinishedSelfPlot(this Kingdom kingdom)
     {
         kingdom.GetOrCreate().selfChangeRegimePlotsCountDown = 10;
@@ -602,7 +614,7 @@ public static class KingdomExtension
                 leader_select_method = LeaderSelectMethod.Default,
                 require_traits = new List<string>(),
                 condition = new List<string>(),
-                city_type = null
+                city_type = CityType.Feudalism_city
             };
         }
         OfficeObject officeObject = new OfficeObject();

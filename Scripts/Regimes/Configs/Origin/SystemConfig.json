@@ -1,0 +1,138 @@
+{
+  "Origin": {
+    "description": "非洲原始部落",
+    "icon_url": "",
+    "era_name": false,
+    "has_cabinet": false,
+    "cabinet_number": 0,
+    "leader_select_method": "Succession",
+    "default_kingdom": "Origin_kingdom",
+    "centre_empire_separate": true,
+    "Factions": [
+      {
+        "_id": "3e703ecd-a604-46c1-8b0a-d18350da25e1",
+        "Type": "原始",
+        "_requiredTraits": [],
+        "Ban": false,
+        "Name": "酋长联合议会",
+        "only_king": true,
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [
+        1
+      ],
+      "toggle_allow_army": [
+        1
+      ],
+      "toggle_support_army_to_center": [
+        0
+      ],
+      "option_tax_level": [
+        2,
+        4
+      ],
+      "option_leader_select_method": [
+        1,
+        3
+      ],
+      "option_religion_type": [
+        2,
+        4
+      ]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 2,
+          "description": "",
+          "powers": [
+            "礼仪"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "peerageType": "Civil",
+          "leader_select_method": "Default",
+          "require_traits": []
+        }
+      ],
+      "division": [],
+      "harems": [],
+      "armies": {},
+      "kingdoms": {
+        "default_country_post": {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Succession",
+          "require_traits": [],
+          "condition": [],
+          "city_type": "Origin_city"
+        },
+        "Origin_centre": {
+          "pre": "",
+          "type": 0,
+          "description": "",
+          "powers": [
+            "拟定",
+            "审核",
+            "执行",
+            "军事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Succession",
+          "require_traits": [],
+          "condition": [
+            "empire_center:true"
+          ],
+          "city_type": "Origin_city"
+        },
+        "Origin_kingdom": {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Succession",
+          "require_traits": [],
+          "condition": [
+            "empire_center:false"
+          ],
+          "city_type": "Origin_city"
+        }
+      },
+      "cities": {
+        "Origin_city": {
+          "pre": "",
+          "type": 3,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": []
+        }
+      }
+    }
+  }
+}

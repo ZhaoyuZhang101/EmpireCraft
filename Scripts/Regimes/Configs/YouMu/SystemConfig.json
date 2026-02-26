@@ -1,12 +1,14 @@
 {
-  //律令制
+  //游牧
   "YouMu": {
     "description": "草原传统部落制文明，参考蒙古汗国",
     "icon_url": "",
     "era_name": false,
     "has_cabinet": false,
     "cabinet_number": 0,
+    "centre_empire_separate": true,
     "leader_select_method": "Succession",
+    "default_kingdom": "YouMu_kingdom",
     "Factions": [
       {
         "_id": "136f74b5-0c6f-4ee7-aee8-bc59c7e77fa8",
@@ -14,6 +16,7 @@
         "_requiredTraits": ["peaceful", "pacifist"],
         "Ban": false,
         "Name": "融合派",
+        "only_king": false,
         "EmpireId": -1,
         "Members": [],
         "TotalPower": 0,
@@ -25,6 +28,7 @@
         "_requiredTraits": ["ambitious", "bloodlust"],
         "Ban": false,
         "Name": "同化派",
+        "only_king": false,
         "EmpireId": -1,
         "Members": [],
         "TotalPower": 0,
@@ -74,6 +78,20 @@
       "harems": [],
       "armies": {},
       "kingdoms": {
+        "default_country_post":{
+          "pre": "",
+          "type": 3,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Succession",
+          "require_traits": [],
+          "condition": [],
+          "city_type": "YouMu_city"
+        },
         "YouMu_centre":{
           "pre": "",
           "type": 0,
@@ -99,7 +117,7 @@
           "select_from_local": false,
           "leader_select_method": "Succession",
           "require_traits": [],
-          "condition": ["support_center_army:false"],
+          "condition": ["support_center_army:false","empire_center:false"],
           "city_type": "YouMu_city"
         },
         "YouMu_bu":{
@@ -113,7 +131,7 @@
           "select_from_local": false,
           "leader_select_method": "Succession",
           "require_traits": [],
-          "condition": ["support_center_army:true"],
+          "condition": ["support_center_army:true","empire_center:false"],
           "city_type": "YouMu_city"
         }
       },

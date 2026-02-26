@@ -42,8 +42,8 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     public void newKingdomTitle(City city)
     {
         this.title_capital = city;
-        this.data.founder_actor_id = city.kingdom.king.getID();
-        this.data.founder_actor_name = city.kingdom.king.name;
+        this.data.founder_actor_id = city.kingdom.king?.getID()??-1L;
+        this.data.founder_actor_name = city.kingdom.king?.name??"創世神";
         this.data.created_time = World.world.getCurWorldTime();
         this.data.banner_icon_id = city.kingdom.data.banner_icon_id;
         this.data.banner_background_id = city.kingdom.data.banner_background_id;
@@ -52,7 +52,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         data.province_name = title_capital.GetCityName();
         this.data.name = !string.IsNullOrEmpty(kingdomName) ? kingdomName : city.kingdom.GetKingdomName();
         this.addCity(city);
-        data.original_actor_asset = city.kingdom.king.asset.id;
+        data.original_actor_asset = city.kingdom.king?.asset?.id;
         recalculate();
         generateColor();
         LogService.LogInfo("创建头衔成功");

@@ -25,6 +25,8 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
         }
         if (!pActor.isUnitFitToRule()) return BehResult.Continue;
         if (!pActor.hasKingdom())  return BehResult.Continue;
+        if (pActor.isKing())  return BehResult.Continue;
+        if (pActor.isCityLeader())  return BehResult.Continue;
         if (!pActor.isAdult()) return BehResult.Continue;
         if (!pActor.hasCity()) return BehResult.Continue;
         if (pActor.isWarrior()) return BehResult.Continue;

@@ -346,7 +346,7 @@ public class OfficeConfigWindow : AutoLayoutWindow<OfficeConfigWindow>
                     leader_select_method = template?.leader_select_method ?? LeaderSelectMethod.Default,
                     require_traits = new List<string>(),
                     condition = new List<string>(),
-                    city_type = template?.city_type ?? null
+                    city_type = template?.city_type ?? CityType.Feudalism_city
                 };
                 _regime.bureau_config.kingdoms[value] = setting;
                 foreach (var p in _popups) Destroy(p);

@@ -19,12 +19,22 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(getPopulationPeople)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.getPopulationPeople)),
             prefix: new HarmonyMethod(GetType(), nameof(getPopulationPeople)));
+        new Harmony(nameof(newKingdom)).Patch(
+            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.newCivKingdom)),
+            postfix: new HarmonyMethod(GetType(), nameof(newKingdom)));
         LogService.LogInfo("Kingdom warriors/population cache patch loaded");
+    }
+    public static void newKingdom(Kingdom __instance, Actor pActor)
+    {
+        if (__instance != null)
+        {
+            __instance.InitialRegime();
+        }
     }
     public static bool countTotalWarriors(Kingdom __instance, ref int __result)
     {
-        var ed = KingdomExtension.GetOrCreate(__instance);
-        if (ed != null && ed.last_cached_timestamp > 0)
+        var ed = __instance.GetOrCreate();
+        if (ed is { last_cached_timestamp: > 0 })
         {
             __result = ed.cached_warriors;
             return false;
@@ -33,8 +43,8 @@ public class KingdomPatch : GamePatch
     }
     public static bool getPopulationPeople(Kingdom __instance, ref int __result)
     {
-        var ed = KingdomExtension.GetOrCreate(__instance);
-        if (ed != null && ed.last_cached_timestamp > 0)
+        var ed = __instance.GetOrCreate();
+        if (ed is { last_cached_timestamp: > 0 })
         {
             __result = ed.cached_population;
             return false;

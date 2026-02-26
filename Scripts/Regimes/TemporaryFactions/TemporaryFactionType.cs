@@ -65,5 +65,6 @@ public enum TemporaryFactionType
     恢复圣地,
     [Description("将税收的一部分用来供养宗室,获得供养的宗室生育率会提高")]
     供养宗室,
+    禁党,
     国_打击贪腐
 }

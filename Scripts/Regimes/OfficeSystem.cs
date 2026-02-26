@@ -42,7 +42,7 @@ public class BureauSetting
     public LeaderSelectMethod leader_select_method;
     public List<string> require_traits;
     public List<string> condition;
-    public CityType? city_type;
+    public CityType city_type;
 }
 
 public class BureauConfig

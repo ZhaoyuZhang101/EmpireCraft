@@ -45,6 +45,10 @@ public class KingdomWindowPatch: GamePatch
     {
         Kingdom metaObject = __instance.meta_object;
         __instance.tryShowPastNames();
+        if (metaObject.HasMainTitle())
+        {
+            __instance.showStatRow("main_title", (object) metaObject.GetMainTitle().name, "#43FF43", pIconPath: "iconKings");
+        }
         __instance.showStatRow("founded", (object) metaObject.getFoundedDate(), MetaType.None, -1L, "iconAge", (string) null, (TooltipDataGetter) null);
         __instance.tryShowPastRulers();
         __instance.tryToShowActor("king", pObject: metaObject.king, pIconPath: "iconKings");
@@ -60,6 +64,7 @@ public class KingdomWindowPatch: GamePatch
                 __instance.showStatRow("religion_point", (object) metaObject.GetRegime().religion_point, "#43FF43", pIconPath: "iconMoney");
             }
         }
+        
         __instance.showStatRow("tribute", (object) metaObject.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
         __instance.tryToShowMetaSpecies("founder_species", metaObject.getFounderSpecies().id);
         return false;
