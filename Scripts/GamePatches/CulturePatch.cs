@@ -40,8 +40,14 @@ public class CulturePatch : GamePatch
     {
         try
         {
+            var beforeKingdomName = __instance.kingdom.data.name;
             __instance.kingdom.data.name = __instance.culture.getOnomasticData(MetaType.Kingdom).generateName();
+            var afterKingdomName = __instance.kingdom.data.name;
+            TranslateHelper.LogChangeKingdomName(__instance, __instance.kingdom, beforeKingdomName, afterKingdomName);
+            var beforeCityName = __instance.city.data.name;
             __instance.city.data.name = __instance.culture.getOnomasticData(MetaType.City).generateName();
+            var afterCityName = __instance.city.data.name;
+            TranslateHelper.LogChangeCityName(__instance, __instance.city, beforeCityName, afterCityName);
             __instance.language.data.name = __instance.kingdom.GetKingdomName() + LM.Get("Language") +
                                             __instance.city.GetCityName() + LM.Get("Dialect");
             __instance.culture.data.name = __instance.kingdom.GetKingdomName() + "-" + LM.Get("OriginalCulture");
@@ -143,7 +149,7 @@ public class CulturePatch : GamePatch
 
     public static (string groupName, string CharacterSetName, string definedContent)[] setGroup(Dictionary<string, string> groupPair, string culture)
     {
-        (string groupName, string CharacterSetName, string definedContent)[] groups = new (string groupName, string CharacterSetName, string definedContent)[0];
+        (string groupName, string CharacterSetName, string definedContent)[] groups = Array.Empty<(string groupName, string CharacterSetName, string definedContent)>();
         foreach (KeyValuePair<string, string> group in groupPair)
         {
             string key = group.Key;

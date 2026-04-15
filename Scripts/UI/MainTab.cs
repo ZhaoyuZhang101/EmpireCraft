@@ -61,14 +61,6 @@ internal static class MainTab
             nameof(EmpireSettingWindow) + "Title");
         RegimeWindow.CreateWindow(nameof(RegimeWindow),
             "");
-        OfficeConfigWindow.CreateWindow(nameof(OfficeConfigWindow),
-            nameof(OfficeConfigWindow) + "Title");
-        OfficeNameEditWindow.CreateWindow(nameof(OfficeNameEditWindow),
-            nameof(OfficeNameEditWindow) + "Title");
-        OfficeTraitsSelectWindow.CreateWindow(nameof(OfficeTraitsSelectWindow),
-            nameof(OfficeTraitsSelectWindow) + "Title");
-        OfficeConditionEditorWindow.CreateWindow(nameof(OfficeConditionEditorWindow),
-            nameof(OfficeConditionEditorWindow) + "Title");
         SpecificClanListWindow.CreateWindow(nameof(SpecificClanListWindow),
             nameof(SpecificClanListWindow) + "Title");
         FactionDetailWindow.CreateWindow(nameof(FactionDetailWindow),

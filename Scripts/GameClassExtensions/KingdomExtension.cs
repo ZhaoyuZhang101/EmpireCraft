@@ -266,14 +266,6 @@ public static class KingdomExtension
         k.GetOrCreate().last_given_alliance_timestamp = World.world.getCurWorldTime();
         k.GetOrCreate().given_empire = empire.id;
         empire.given_Kingdoms.Add(k);
-        if (empire != null)
-        {
-            empire.RecordHistory(EmpireHistoryType.join_given_alliance_history, new Dictionary<string, string>()
-            {
-                ["kingdom"] = k.GetKingdomName(),
-                ["empire"] = empire.GetEmpireName()
-            });
-        }
     }
     public static void RemoveGivenAlliance(this Kingdom k)
     {
@@ -281,11 +273,6 @@ public static class KingdomExtension
         if (empire != null)
         {
             empire.given_Kingdoms.Remove(k);
-            empire.RecordHistory(EmpireHistoryType.leave_given_alliance_history, new Dictionary<string, string>()
-            {
-                ["kingdom"] = k.GetKingdomName(),
-                ["empire"] = empire.GetEmpireName()
-            });
         }
         k.GetOrCreate().given_empire = -1L;
     }
@@ -310,14 +297,6 @@ public static class KingdomExtension
         k.GetOrCreate().taken_empire = empire.id;
         k.GetOrCreate().leave_taken_alliance_preference = 0.0f;
         empire.taken_Kingdoms.Add(k);
-        if (empire != null)
-        {
-            empire.RecordHistory(EmpireHistoryType.join_taken_alliance_history, new Dictionary<string, string>()
-            {
-                ["kingdom"] = k.GetKingdomName(),
-                ["empire"] = empire.GetEmpireName()
-            });
-        }
     }
     public static void RemoveTakenAlliance(this Kingdom k)
     {
@@ -325,11 +304,6 @@ public static class KingdomExtension
         if (empire != null)
         {
             empire.taken_Kingdoms.Remove(k);
-            empire.RecordHistory(EmpireHistoryType.leave_taken_alliance_history, new Dictionary<string, string>()
-            {
-                ["kingdom"] = k.GetKingdomName(),
-                ["empire"] = empire.GetEmpireName()
-            });
         }
         k.GetOrCreate().taken_empire = -1L;
     }

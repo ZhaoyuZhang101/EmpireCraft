@@ -1,4 +1,4 @@
-using EmpireCraft.Scripts.Data;
+﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
@@ -28,6 +28,7 @@ public class Empire : MetaObject<EmpireData>
     private readonly List<TileZone> _zoneScratch = new();
     private readonly int _avgCitiesPerKingdom = 3;
     public Clan EmpireClan;
+    public int Mandate => data.Mandate;
     public Regime regime => CoreKingdom.GetRegime();
     public List<Kingdom> kingdoms_list = new List<Kingdom>();
     public HashSet<Kingdom> kingdoms_hashset = new HashSet<Kingdom>();
@@ -54,7 +55,23 @@ public class Empire : MetaObject<EmpireData>
     {
         return !Emperor.isRekt();
     }
-    
+    /// <summary>
+    /// 增加或减少帝国正统值
+    /// </summary>
+    /// <param name="change">增加的数值</param>
+    /// <returns></returns>
+    public void AddMandate(int change)
+    {
+        data.Mandate+=change;
+        if (Mandate < 0)
+        {
+            data.Mandate = 0;
+        }
+        if (Mandate > 100)
+        {
+            data.Mandate = 100;
+        }
+    }
     public bool IsArchived()
     {
         return this.data?.archived ?? false;
@@ -74,8 +91,8 @@ public class Empire : MetaObject<EmpireData>
                 data.TaxRate = 1.0f;
             }
         }
-        //增加税收减少威望
-        data.Prestige -= (int)(addition * 100);
+        //增加税收减少正统性
+        AddMandate((int)(addition * 100));
     }
 
     public void SubTaxRate(float substraction = 0.1f)
@@ -88,8 +105,8 @@ public class Empire : MetaObject<EmpireData>
                 data.TaxRate =  0.0f;
             }
         }
-        //减少税收增加威望
-        data.Prestige += (int)(substraction * 100);
+        //减少税收增加正统性
+        AddMandate(-(int)(substraction * 100));
     }
 
     public List<Kingdom> GetKingdomNeighbours()
@@ -879,7 +896,6 @@ public class Empire : MetaObject<EmpireData>
             
         }
         newEmpire.create_year_name();
-        newEmpire.RecordNewEmperorHistory(true);
         newEmpire.recalculate();
         if (data.has_year_name)
         {
@@ -891,10 +907,6 @@ public class Empire : MetaObject<EmpireData>
         }
         
         newKingdom.data.name = newEmpire.data.name;
-        newEmpire.RecordHistory(EmpireHistoryType.rebuild_empire_history, new Dictionary<string, string>()
-        {
-            ["place"] = newKingdom.capital.GetCityName()
-        });
         ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
     }
     public sealed override void setDefaultValues()

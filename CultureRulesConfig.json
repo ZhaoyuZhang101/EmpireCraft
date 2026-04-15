@@ -1012,7 +1012,7 @@
         "name": "Corporate",
         "translate_cz": "企业",
         "setting": {
-            "regime": "Modern",
+            "regime": "Republic",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {

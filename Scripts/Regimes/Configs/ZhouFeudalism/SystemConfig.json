@@ -9,6 +9,7 @@
     "leader_select_method": "Succession",
     "default_kingdom": "ZhouFeudalism_zi",
     "centre_empire_separate": false,
+    "laws": [0,1,2,4,5,6,7,8,9,10,11,12,13,14,16,17,19,20,21,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,46,47,50,51,52,54,55],
     "Factions": [
       {
         "_id": "2de32a56-7cb1-4570-b9c6-c1059bee5801",

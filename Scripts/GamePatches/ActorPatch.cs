@@ -329,6 +329,10 @@ public class ActorPatch : GamePatch
                 }
             }
         }
+        else
+        {
+            __instance.SetEmpire(pKingdomToSet.GetEmpire());
+        }
     }
     public static bool setArmy(Actor __instance, Army pObject)
     {

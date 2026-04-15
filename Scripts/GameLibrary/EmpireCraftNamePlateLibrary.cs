@@ -1,4 +1,4 @@
-using db;
+﻿using db;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -822,7 +822,7 @@ public static class EmpireCraftNamePlateLibrary
                         var tf = empire.RunningTemporaryFaction;
                         text =
                             $"\n{(empire.EmpireClan?.name ?? "无皇室").ColorString(pColor: Color.yellow)} | 主导: {faction.Name}" +
-                            moneyText + "\n"+
+                            moneyText + "\n"+ $"正统性: {empire.Mandate}" + "\n" +
                             text.ColorString(pColor: pMetaObject.getColor()._color_banner) +
                             $"\n诉求：{(tf!=null ? tf.type.ToString(): "无")}".ColorString(
                                 pColor: new Color(0.5f, 0.9f, 0.5f)) +

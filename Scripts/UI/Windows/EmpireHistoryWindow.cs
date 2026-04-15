@@ -5,6 +5,7 @@ using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Prefabs;
 using UnityEngine;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using NeoModLoader.General;
 using EmpireCraft.Scripts.Layer;
@@ -77,22 +78,23 @@ namespace EmpireCraft.Scripts.UI.Windows
             parent.AddChild(titleText.gameObject);
             if (currentHistory.descriptions != null)
             {
+                var lasDes = "xx_xx";
                 foreach (var d in currentHistory.descriptions)
                 {
-                    ListHistoryDescriptions(d, parent);
+                    ListHistoryDescriptions(lasDes, d, parent);
+                    lasDes = d;
                 }
             }
         }
-        public void ListHistoryDescriptions(string description, AutoVertLayoutGroup parent)
+        public void ListHistoryDescriptions(string lastDescription, string description, AutoVertLayoutGroup parent)
         {
+            (string time, string describe) lsDes = (lastDescription.Split('_')[0], lastDescription.Split('_')[1]);
             (string time, string describe) des = (description.Split('_')[0], description.Split('_')[1]);
-            SimpleText timeText = UnityEngine.Object.Instantiate(SimpleText.Prefab, null);
-            SimpleText describeText = UnityEngine.Object.Instantiate(SimpleText.Prefab, null);
-            timeText.Setup(des.time, TextAnchor.MiddleLeft, new Vector2(40, 10));
-            timeText.text.color = Color.blue;
-            describeText.Setup(des.describe, TextAnchor.MiddleLeft, new Vector2(200, 10));
-            parent.AddChild(timeText.gameObject);
-            parent.AddChild(describeText.gameObject);
+            if (lsDes.time != des.time)
+            {
+                parent.AddTextIntoVertLayout(des.time.ColorString(pColor:new Color(0.5f, 0.8f, 1.0f)), false, TextAnchor.MiddleCenter, new Vector2(50, 23));
+            }
+            parent.AddTextIntoVertLayout(des.describe, false, TextAnchor.MiddleLeft, new Vector2(200, 10));
         }
     }
 }

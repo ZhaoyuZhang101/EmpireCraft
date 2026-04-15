@@ -66,12 +66,6 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
                 _optionButtons[option.Key] = optionButton;
             }
         }
-        var editBar = settingSpace.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
-        editBar.AddButtonIntoHoriLayout("open_office_config", LM.Get("office_config_title"), () =>
-        {
-            SelectedMetas.selected_kingdom = _kingdom;
-            ScrollWindow.showWindow(nameof(OfficeConfigWindow));
-        }, size: new Vector2(25, 12));
         settingSpace.transform.AddStretchBackground("regimeFrame", size:new Vector2(200, 137));
         _groups.Add(settingSpace.gameObject);
     }

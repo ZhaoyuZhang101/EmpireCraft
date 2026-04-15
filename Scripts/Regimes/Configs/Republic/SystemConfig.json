@@ -9,6 +9,7 @@
     "leader_select_method": "Vote",
     "default_kingdom": "Modern_republic",
     "centre_empire_separate": true,
+    "laws": [0,1,13,14,16,17,18,20,21,27,28,29,32,33,36,37,38,39,42,43,50,51,54],
     "Factions": [
       {
         "_id": "ee61868b-90ff-415f-b749-882c561e6ccd",

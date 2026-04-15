@@ -228,14 +228,6 @@ public class CityPatch : GamePatch
                     __instance.SubMoney(__instance.GetMoney());
                 }
                 pNewKingdom.AddMoney(money);
-                if (joinAfterCapture.IsInEmpire())
-                {
-                    joinAfterCapture.GetEmpire().RecordHistory(EmpireHistoryType.city_plundered_history, new Dictionary<string, string>()
-                    {
-                        ["attacker"] = joinAfterCapture.GetKingdomName(),
-                        ["city"] = __instance.GetCityName()
-                    });
-                }
                 war.lostWar(__instance.kingdom);
                 return false;
             }
@@ -256,12 +248,6 @@ public class CityPatch : GamePatch
                     });
                     empire.join(__instance.kingdom, pForce:true);
                     expendWar.lostWar(__instance.kingdom);
-                    empire.RecordHistory(EmpireHistoryType.city_captured_history, new Dictionary<string, string>()
-                    {
-                        ["attacker"] = joinAfterCapture.GetKingdomName(),
-                        ["defender"] = __instance.kingdom.GetKingdomName(),
-                        ["city"] = __instance.GetCityName()
-                    });
                     return false;
                 }
             }
@@ -275,11 +261,6 @@ public class CityPatch : GamePatch
                 {
                     __instance.kingdom.JoinTakenAlliance(empire);
                     chaoGongWar.lostWar(__instance.kingdom);
-                    empire.RecordHistory(EmpireHistoryType.join_taken_alliance_history, new Dictionary<string, string>()
-                    {
-                        ["kingdom"] = __instance.kingdom.GetKingdomName(),
-                        ["empire"] = empire.GetEmpireName()
-                    });
                     return false;
                 }
             }
@@ -291,37 +272,11 @@ public class CityPatch : GamePatch
                 __instance.setReligion(joinAfterCapture.religion);
                 __instance.units.ForEach(a=>a.setReligion(joinAfterCapture.religion));
                 TranslateHelper.LogReligionWarTransfer(__instance, joinAfterCapture.religion);
-                if (joinAfterCapture.IsInEmpire())
-                {
-                    joinAfterCapture.GetEmpire().RecordHistory(EmpireHistoryType.religion_war_transfer_history, new Dictionary<string, string>()
-                    {
-                        ["city"] = __instance.GetCityName(),
-                        ["religion"] = joinAfterCapture.religion?.data.name??""
-                    });
-                }
             }
             if (!__instance.checkRebelWar(joinAfterCapture, pWars))
                 joinAfterCapture.data.timestamp_new_conquest = World.world.getCurWorldTime();
             __instance.removeSoldiers();
             __instance.joinAnotherKingdom(joinAfterCapture, true);
-            if (joinAfterCapture.IsInEmpire())
-            {
-                joinAfterCapture.GetEmpire().RecordHistory(EmpireHistoryType.city_captured_history, new Dictionary<string, string>()
-                {
-                    ["attacker"] = joinAfterCapture.GetKingdomName(),
-                    ["defender"] = __instance.kingdom.GetKingdomName(),
-                    ["city"] = __instance.GetCityName()
-                });
-            }
-            if (__instance.kingdom.IsInEmpire())
-            {
-                __instance.kingdom.GetEmpire().RecordHistory(EmpireHistoryType.city_lost_history, new Dictionary<string, string>()
-                {
-                    ["attacker"] = joinAfterCapture.GetKingdomName(),
-                    ["defender"] = __instance.kingdom.GetKingdomName(),
-                    ["city"] = __instance.GetCityName()
-                });
-            }
         }
 
         return false;
