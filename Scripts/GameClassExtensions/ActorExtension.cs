@@ -392,7 +392,6 @@ public static class ActorExtension
         var lastFaction = a.GetFaction();
         lastFaction?.RemoveMember(a);
         faction.AddMember(a);
-        a.GetOrCreate().factionID = faction.GetID();
     }
 
     public static void RemoveFaction(this Actor a)
@@ -1180,7 +1179,8 @@ public static class ActorExtension
     public static bool IsEmperor(this Actor a)
     {
         if (a==null) return false;
-        return GetOrCreate(a).empire_id!=-1L;
+        var empire = ModClass.EMPIRE_MANAGER.get(GetOrCreate(a).empire_id);
+        return empire?.Emperor==a;
     }
 
     public static void SetEmpire(this Actor a, Empire empire)

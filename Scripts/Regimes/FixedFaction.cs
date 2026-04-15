@@ -443,6 +443,7 @@ public class FixedFaction
     }
     public void AddMember(Actor pActor)
     {
+        pActor.GetOrCreate().factionID = GetID();
         Members.Add(pActor.id);
         if (Members.Count == 1)
         {

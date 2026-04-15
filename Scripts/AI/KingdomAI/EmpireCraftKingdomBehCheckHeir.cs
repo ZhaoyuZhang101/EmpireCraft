@@ -47,7 +47,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         if (k == null) return (null, "");
         Actor actor = null;
         var flag = k.IsEmpire();
-        var logPreText = flag ? "Empire: " : "Kingdom: ";
+        var logPreText = flag ? "empire" : "kingdom";
         PersonalClanIdentity pci = pActor??k.king?.GetPersonalIdentity();
         List<(ClanRelation, PersonalClanIdentity)> children = SpecificClanManager.getChildren(pci).FindAll(a=>a.Item2.CanHeir(pci));
         var relationText = secondSelection.ToString();
@@ -56,15 +56,24 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             case EmpireHeirLawType.eldest_child:
                 if (children.Any())
                 {
-                    actor = children.First().Item2._actor; // Assuming eldest is the last after sorting by age
-                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.3f, 0.2f));
+                    var actor_pci = children.First().Item2; // Assuming eldest is the last after sorting by age
+                    actor = actor_pci._actor;
+                    relationText =
+                        string.Format(
+                            LM.Get($"rank_child_{logPreText}_{(actor_pci.sex == ActorSex.Female ? "female" : "male")}"),
+                            actor_pci.rank).ColorString(pColor:new Color(0.9f, 0.3f, 0.2f));
                 }
                 break;
             case EmpireHeirLawType.smallest_child:
                 if (children.Any())
                 {
-                    actor = children.Last().Item2._actor; // Assuming youngest is the first after sorting by age
-                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.5f, 0.1f, 0.7f));
+                    var actor_pci = children.Last().Item2;
+                    actor = actor_pci._actor; // Assuming youngest is the first after sorting by age
+                    relationText =
+                        string.Format(
+                            LM.Get(
+                                $"rank_child_{logPreText}_{(actor_pci.sex == ActorSex.Female ? "female" : "male")}"),
+                            actor_pci.rank).ColorString(pColor: new Color(0.5f, 0.1f, 0.7f));
                 }
                 break;
             case EmpireHeirLawType.siblings:

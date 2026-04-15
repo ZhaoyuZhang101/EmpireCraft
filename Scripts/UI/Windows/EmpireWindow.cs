@@ -1,4 +1,4 @@
-using NeoModLoader.General.UI.Window.Layout;
+﻿using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using NeoModLoader.General.UI.Window;
 using System;
@@ -207,9 +207,11 @@ namespace EmpireCraft.Scripts.UI.Windows
             titleText.Setup(text, TextAnchor.MiddleCenter, new Vector2(50, 50));
             titleText.background.enabled = false;
             parent.AddChild(titleText.gameObject);
+            var lasDes = "xx_xx";
             foreach (var d in currentHistory.descriptions)
             {
-                ListHistoryDescriptions(d, parent);
+                ListHistoryDescriptions(lasDes, d, parent);
+                lasDes = d;
             }
         }
         //显示行政窗口
@@ -312,16 +314,15 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
         }
 
-        public void ListHistoryDescriptions(string description, AutoVertLayoutGroup parent)
+        public void ListHistoryDescriptions(string lastDescription, string description, AutoVertLayoutGroup parent)
         {
+            (string time, string describe) lsDes = (lastDescription.Split('_')[0], lastDescription.Split('_')[1]);
             (string time, string describe) des = (description.Split('_')[0], description.Split('_')[1]);
-            SimpleText timeText = Instantiate(SimpleText.Prefab, null);
-            SimpleText describeText = Instantiate(SimpleText.Prefab, null);
-            timeText.Setup(des.time, TextAnchor.MiddleLeft, new Vector2(40, 10));
-            timeText.text.color = Color.blue;
-            describeText.Setup(des.describe, TextAnchor.MiddleLeft, new Vector2(200, 10));
-            parent.AddChild(timeText.gameObject);
-            parent.AddChild(describeText.gameObject);
+            if (lsDes.time != des.time)
+            {
+                parent.AddTextIntoVertLayout(des.time.ColorString(pColor:new Color(0.5f, 0.8f, 1.0f)), true, TextAnchor.MiddleCenter, new Vector2(50, 20));
+            }
+            parent.AddTextIntoVertLayout(des.describe, false, TextAnchor.MiddleLeft, new Vector2(200, 10));
         }
 
         public void AddIntoGroup(string title, GameObject obj)

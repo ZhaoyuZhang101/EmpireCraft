@@ -9,6 +9,7 @@
     "centre_empire_separate": true,
     "leader_select_method": "Succession",
     "default_kingdom": "YouMu_kingdom",
+    "laws": [0,1,2,3,5,13,14,16,17,18,19,20,21,25,27,28,29,31,32,33,34,35,36,37,38,39,40,41,42,43,50,51,52,54,55],
     "Factions": [
       {
         "_id": "136f74b5-0c6f-4ee7-aee8-bc59c7e77fa8",

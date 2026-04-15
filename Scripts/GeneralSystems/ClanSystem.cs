@@ -128,7 +128,7 @@ public class SpecificClan
     {
         var children = new List<(ClanRelation, PersonalClanIdentity)>();
         if (identity == null) return children;
-        foreach (var childId in identity.children_cache)
+        foreach (var childId in identity.children)
         {
             var child = SpecificClanManager.getPerson(childId);
             if (child != null && child.specific_clan_id == this.id)
@@ -265,7 +265,7 @@ public static class SpecificClanManager
                     {
                         _actorToPersonLookup[pci.actor_id] = pci;
                     }
-                    pci.children_cache.Clear();
+                    pci.children.Clear();
                 }
             }
             foreach (var sc in _specificClans)
@@ -274,13 +274,13 @@ public static class SpecificClanManager
                 {
                     if (pci.father != -1L && _globalPersonLookup.TryGetValue(pci.father, out var fatherPci))
                     {
-                        if (!fatherPci.children_cache.Contains(pci.id))
-                            fatherPci.children_cache.Add(pci.id);
+                        if (!fatherPci.children.Contains(pci.id))
+                            fatherPci.children.Add(pci.id);
                     }
                     if (pci.mother != -1L && _globalPersonLookup.TryGetValue(pci.mother, out var motherPci))
                     {
-                        if (!motherPci.children_cache.Contains(pci.id))
-                            motherPci.children_cache.Add(pci.id);
+                        if (!motherPci.children.Contains(pci.id))
+                            motherPci.children.Add(pci.id);
                     }
                 }
             }
@@ -721,7 +721,7 @@ public static class SpecificClanManager
     {
         var identityWithRelation = new List<(ClanRelation, PersonalClanIdentity)>();
         if (identity == null) return identityWithRelation;
-        foreach (var childId in identity.children_cache)
+        foreach (var childId in identity.children)
         {
             var child = getPerson(childId);
             if (child != null)
@@ -808,6 +808,7 @@ public class PersonalClanIdentity
     public string species { get; set; }
     [JsonIgnore]
     public Actor _actor => World.world.units.get(actor_id);
+    public int rank = 1;
     public bool is_alive { get; set; }
     public bool is_concubine {  get; set; } = false; //是否是小妾/男宠（当小妾/男宠无自身宗族时，会加入丈夫/妻子氏族并标记为小妾/男宠身份）
     public bool is_main { get; set; } = true; //在婚姻关系中是否为主要角色（对于爱人来说是嫁/入赘，还是娶/招亲）
@@ -821,8 +822,7 @@ public class PersonalClanIdentity
     public long mother_in_law { get; set; } = -1L; //义母
     public (long specific_clan, long identity) lover = (-1L, -1L); //正妻/正夫
     public List<(long specific_clan, long identity)> concubines = new(); //小妾/情人
-    [JsonIgnore]
-    public List<long> children_cache = new List<long>();
+    public List<long> children = new List<long>();
 
     public void newPersonalClanIdentity(SpecificClan specificClan, Actor a)
     {
@@ -941,9 +941,10 @@ public class PersonalClanIdentity
             mother = identity.id;
         }
 
-        if (!identity.children_cache.Contains(this.id))
+        if (!identity.children.Contains(this.id))
         {
-            identity.children_cache.Add(this.id);
+            identity.children.Add(this.id);
+            rank = identity.children.Count;
         }
 
         if (identity.is_main&&identity.is_alive)

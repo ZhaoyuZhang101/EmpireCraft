@@ -106,20 +106,10 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                         if (w.isAttacker(coreKingdom))
                         {
                             w.joinAttackers(pKingdom);
-                            empire.RecordHistory(EmpireHistoryType.war_join_attacker_history, new Dictionary<string, string>()
-                            {
-                                ["kingdom"] = pKingdom.GetKingdomName(),
-                                ["empire"] = empire.GetEmpireName()
-                            });
                         }
                         else if (w.isDefender(coreKingdom))
                         {
                             w.joinDefenders(pKingdom);
-                            empire.RecordHistory(EmpireHistoryType.war_join_defender_history, new Dictionary<string, string>()
-                            {
-                                ["kingdom"] = pKingdom.GetKingdomName(),
-                                ["empire"] = empire.GetEmpireName()
-                            });
                         }
                     }
                     TranslateHelper.LogJoinEmpireWar(pKingdom, empire);
@@ -146,20 +136,10 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                         if (w.isAttacker(empireKingdom))
                         {
                             w.joinAttackers(pKingdom);
-                            empire.RecordHistory(EmpireHistoryType.war_join_attacker_history, new Dictionary<string, string>()
-                            {
-                                ["kingdom"] = pKingdom.GetKingdomName(),
-                                ["empire"] = empire.GetEmpireName()
-                            });
                         }
                         else if (w.isDefender(empireKingdom))
                         {
                             w.joinDefenders(pKingdom);
-                            empire.RecordHistory(EmpireHistoryType.war_join_defender_history, new Dictionary<string, string>()
-                            {
-                                ["kingdom"] = pKingdom.GetKingdomName(),
-                                ["empire"] = empire.GetEmpireName()
-                            });
                         }
                     }
                     TranslateHelper.LogEmpireJoinWar(empire, empireKingdom);

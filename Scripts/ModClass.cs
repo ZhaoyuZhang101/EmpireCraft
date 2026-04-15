@@ -17,6 +17,7 @@ using System.Linq;
 using EmpireCraft.Scripts.AI;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -178,6 +179,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftHotKeyLibrary.init();
         RegimeManager.init();
         FactionManager.init();
+        EmpireLawSystem.init();
         EMPIRE_MANAGER = new EmpireManager();
         KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         OnomasticsRule.ReadSetting();

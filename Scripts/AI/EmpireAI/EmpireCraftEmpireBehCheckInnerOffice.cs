@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using ai.behaviours;
@@ -17,7 +17,7 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
     public override BehResult execute(Kingdom pKingdom)
     {
         pKingdom.CheckEmpire();
-        if (!pKingdom.IsEmpire()) return BehResult.Stop;
+        if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
         if (empire == null || empire.isRekt() || empire.IsArchived()) return BehResult.Continue;
         if (empire.data.centerOffice == null)

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.services;
@@ -84,6 +86,7 @@ public enum CityType
     Arabic_city, //市
     
     Modern_city, //市
+    Republic_city, //市
     
     Feudalism_city, //市
     Origin_city,
@@ -119,6 +122,7 @@ public enum RegimeType
     Modern,      //共和      - 现代美国
     Arabic,        //阿拉伯政体 - 阿拉伯世界
     YouMu,         //游牧政体   - 蒙古汗国
+    Republic,
     Origin
 }
 
@@ -140,7 +144,7 @@ public class Regime
     public long control_kingdom_id;
     [JsonIgnore] 
     public AutoHoriLayoutGroup FactionSpace;
-    public LeaderSelectMethod leader_select_method;
+    public LeaderSelectMethod leader_select_method; 
     public bool centre_empire_separate;
     public bool has_cabinet;
     public int cabinet_number;
@@ -152,7 +156,7 @@ public class Regime
     public List<FixedFaction> PlayerFactions;
     public Dictionary<string, int[]> options;
     public BureauConfig bureau_config;
-    
+    public List<LawType> laws;
     public double FactionChangeBlockUntil = -1f;
 
     public void BlockFactionChange(int years)
@@ -336,7 +340,7 @@ public static class RegimeManager
         bc.harems ??= new List<BureauSetting>();
         bc.kingdoms ??= new Dictionary<KingdomType, BureauSetting>();
         bc.cities ??= new Dictionary<CityType, BureauSetting>();
-        bc.armies ??= new Dictionary<string, BureauSetting>();
+        bc.armies ??= new Dictionary<ArmyOfficialType, BureauSetting>();
         foreach (var s in bc.cores)
         {
             s.powers ??= new List<OfficerPowerType>();

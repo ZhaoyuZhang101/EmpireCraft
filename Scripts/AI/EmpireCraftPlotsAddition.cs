@@ -843,16 +843,6 @@ namespace EmpireCraft.Scripts.AI
                     War war = World.world.diplomacy.startWar(kingdom, targetKingdom, WarTypeLibrary.normal);
                     war.SetEmpireWarType(EmpireWarType.索取法理, nanoObject:finalTitle);
                     TranslateHelper.LogKingdomAcquireTitle(kingdom, targetKingdom, finalTitle);
-                    var emp = kingdom.GetEmpire();
-                    if (emp != null)
-                    {
-                        emp.RecordHistory(EmpireHistoryType.kingdom_attack_for_title_history, new Dictionary<string, string>()
-                        {
-                            ["attacker"] = kingdom.GetKingdomName(),
-                            ["defender"] = targetKingdom.GetKingdomName(),
-                            ["title"] = finalTitle.data.name
-                        });
-                    }
                     return true;
                 }
             });
@@ -896,15 +886,6 @@ namespace EmpireCraft.Scripts.AI
                             kingdom.RemoveMainTitle();
                         }
                         TranslateHelper.LogDestroyTitle(kingdom, title);
-                        var emp = kingdom.GetEmpire();
-                        if (emp != null)
-                        {
-                            emp.RecordHistory(EmpireHistoryType.destroy_title_history, new Dictionary<string, string>()
-                            {
-                                ["kingdom"] = kingdom.GetKingdomName(),
-                                ["title"] = title.data.name
-                            });
-                        }
                     }
                     if (kingdom.HasMainTitle())
                     {
@@ -915,15 +896,6 @@ namespace EmpireCraft.Scripts.AI
                             {
                                 title.addCity(city);
                                 TranslateHelper.LogCityAddToTitle(city, title);
-                                var emp = kingdom.GetEmpire();
-                                if (emp != null)
-                                {
-                                    emp.RecordHistory(EmpireHistoryType.city_add_to_title_history, new Dictionary<string, string>()
-                                    {
-                                        ["city"] = city.GetCityName(),
-                                        ["title"] = title.data.name
-                                    });
-                                }
                             }
                         }
                     }else
@@ -936,15 +908,6 @@ namespace EmpireCraft.Scripts.AI
                             {
                                 title.addCity(city);
                                 TranslateHelper.LogCityAddToTitle(city, title);
-                                var emp = kingdom.GetEmpire();
-                                if (emp != null)
-                                {
-                                    emp.RecordHistory(EmpireHistoryType.city_add_to_title_history, new Dictionary<string, string>()
-                                    {
-                                        ["city"] = city.GetCityName(),
-                                        ["title"] = title.data.name
-                                    });
-                                }
                             }
                         }
                     }
@@ -978,15 +941,6 @@ namespace EmpireCraft.Scripts.AI
                         if (!title.isRekt())
                         {
                             TranslateHelper.LogKingTakeTitle(kingdom, title);
-                            var emp = kingdom.GetEmpire();
-                            if (emp != null)
-                            {
-                                emp.RecordHistory(EmpireHistoryType.king_take_title_history, new Dictionary<string, string>()
-                                {
-                                    ["actor"] = pActor.getName(),
-                                    ["title"] = title.data.name
-                                });
-                            }
                         }
                     }
                     return true;
@@ -1021,16 +975,6 @@ namespace EmpireCraft.Scripts.AI
                     kingdom.setCapital(kingdom.GetMainTitle().title_capital);
                     TranslateHelper.LogKingdomChangeCapitalToTitle(kingdom, kingdom.GetMainTitle());
                     var emp = kingdom.GetEmpire();
-                    if (emp != null)
-                    {
-                        var t = kingdom.GetMainTitle();
-                        emp.RecordHistory(EmpireHistoryType.kingdom_change_capital_to_title_history, new Dictionary<string, string>()
-                        {
-                            ["kingdom"] = kingdom.GetKingdomName(),
-                            ["title"] = t.data.name,
-                            ["city"] = t.title_capital.GetCityName()
-                        });
-                    }
                     return true;
                 }
             });
@@ -1073,15 +1017,6 @@ namespace EmpireCraft.Scripts.AI
                         warsList5[wi].lostWar(kingdom);
                     }
                     TranslateHelper.LogKingdomJoinEmpire(kingdom, kingdom.GetEmpire());
-                    var emp = kingdom.GetEmpire();
-                    if (emp != null)
-                    {
-                        emp.RecordHistory(EmpireHistoryType.kingdom_join_empire_history, new Dictionary<string, string>()
-                        {
-                            ["kingdom"] = kingdom.GetKingdomName(),
-                            ["empire"] = emp.GetEmpireName()
-                        });
-                    }
                     return true;
                 }
             });
@@ -1111,14 +1046,6 @@ namespace EmpireCraft.Scripts.AI
                     title.owner = pActor;
                     pActor.AddOwnedTitle(title);
                     var emp = kingdom.GetEmpire();
-                    if (emp != null)
-                    {
-                        emp.RecordHistory(EmpireHistoryType.create_title_history, new Dictionary<string, string>()
-                        {
-                            ["kingdom"] = kingdom.GetKingdomName(),
-                            ["title"] = title.data.name
-                        });
-                    }
                     foreach(City c in kingdom.cities)
                     {
                         if (!c.hasTitle())
@@ -1126,14 +1053,6 @@ namespace EmpireCraft.Scripts.AI
                             title.addCity(c);
                             TranslateHelper.LogCityAddToTitle(c, title);
                             var emp2 = kingdom.GetEmpire();
-                            if (emp2 != null)
-                            {
-                                emp2.RecordHistory(EmpireHistoryType.city_add_to_title_history, new Dictionary<string, string>()
-                                {
-                                    ["city"] = c.GetCityName(),
-                                    ["title"] = title.data.name
-                                });
-                            }
                         }
                     }
                     return true;

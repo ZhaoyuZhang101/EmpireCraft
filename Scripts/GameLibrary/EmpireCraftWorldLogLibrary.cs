@@ -26,6 +26,8 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset minister_try_aqcuire_empire_log;
     public static WorldLogAsset minister_aqcuire_empire_log;
     public static WorldLogAsset king_take_title_log;
+    public static WorldLogAsset change_city_name_log;
+    public static WorldLogAsset change_kingdom_name_log;
     public static WorldLogAsset king_create_title_log;
     public static WorldLogAsset city_add_to_title_log;
     public static WorldLogAsset religion_war_transfer_log;
@@ -173,6 +175,32 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$kingdom$", 1);
                 wl.updateText(ref pText, pMessage, "$relation$", 2);
                 wl.updateText(ref pText, pMessage, "$actor$", 3);
+            }
+        });
+        change_kingdom_name_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(change_kingdom_name_log),
+            group = "kings",
+            path_icon = "ui/Icons/iconKings",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$pre$", 2);
+                wl.updateText(ref pText, pMessage, "$after$", 3);
+            }
+        });
+        change_city_name_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(change_city_name_log),
+            group = "kings",
+            path_icon = "ui/Icons/iconKings",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$pre$", 2);
+                wl.updateText(ref pText, pMessage, "$after$", 3);
             }
         });
         join_empire_war_log = wl.add(new WorldLogAsset

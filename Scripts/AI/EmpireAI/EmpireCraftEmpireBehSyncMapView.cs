@@ -13,7 +13,7 @@ public class EmpireCraftEmpireBehSyncMapView:GameAIEmpireBase
     public override BehResult execute(Kingdom pKingdom)
     {
         pKingdom.CheckEmpire();
-        if (!pKingdom.IsEmpire()) return BehResult.Stop;
+        if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
         if (empire == null) return BehResult.Continue;
         empire.cities_list = empire.kingdoms_list.SelectMany(k => k.cities).ToList();

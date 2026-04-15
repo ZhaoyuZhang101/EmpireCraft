@@ -8,6 +8,7 @@
     "leader_select_method": "Succession",
     "default_kingdom": "Origin_kingdom",
     "centre_empire_separate": true,
+    "laws": [0,1,13,14,16,17,18,20,21,27,28,29,32,33,36,37,38,39,42,43,50,51,54],
     "Factions": [
       {
         "_id": "3e703ecd-a604-46c1-8b0a-d18350da25e1",
