@@ -1,4 +1,4 @@
-[
+﻿[
   {
     "Type": "谋反",
     "Category": "王权与国家安全",
@@ -52,6 +52,7 @@
     "Category": "官制与行政",
     "Name": "贪污罪",
     "Description": "官员非法侵吞公款、公粮、公产者有罪。",
+    "AffectDescendants": true,
     "Punishments": ["剥夺官职", "杖刑", "流放", "没收财产"],
     "Note": "数额巨大者可并处罚金、监禁或流放。"
   },
@@ -60,6 +61,7 @@
     "Category": "官制与行政",
     "Name": "受贿罪",
     "Description": "官员收受财物而徇私枉法、偏袒一方者有罪。",
+    "AffectDescendants": true,
     "Punishments": ["剥夺官职", "监禁", "没收财产"],
     "Note": "与贪污并犯者加重处罚。"
   },
@@ -68,7 +70,8 @@
     "Category": "官制与行政",
     "Name": "买官罪",
     "Description": "以财物换取官职、爵位或行政特权者有罪。",
-    "Punishments": ["罚金", "剥夺官位", "监禁"],
+    "AffectDescendants": true,
+    "Punishments": ["罚金", "剥夺官职", "监禁"],
     "Note": "行贿受贿双方同罚。"
   },
   {
@@ -76,6 +79,7 @@
     "Category": "官制与行政",
     "Name": "卖官罪",
     "Description": "官员私自出售官职、爵位或任命资格者有罪。",
+    "AffectDescendants": true,
     "Punishments": ["剥夺官职", "杖刑", "流放", "没收财产"],
     "Note": "破坏吏治者从重。"
   },
@@ -84,6 +88,7 @@
     "Category": "官制与行政",
     "Name": "滥用职权罪",
     "Description": "官员超越权限，借公权为私利或迫害他人者有罪。",
+    "AffectDescendants": true,
     "Punishments": ["剥夺官职", "监禁"],
     "Note": "造成严重后果者加重处罚。"
   },
@@ -92,6 +97,7 @@
     "Category": "官制与行政",
     "Name": "玩忽职守罪",
     "Description": "官员怠忽职责、致使政务失序或民众受害者有罪。",
+    "AffectDescendants": true,
     "Punishments": ["罚金", "剥夺官职", "监禁"],
     "Note": "若致军国重损，可流放。"
   },
@@ -332,7 +338,7 @@
     "Category": "婚姻与家族",
     "Name": "伪造血统罪",
     "Description": "伪造出身、血缘、宗族身份以谋取继承、爵位或特权者有罪。",
-    "Punishments": ["监禁", "剥夺官位", "没收财产"],
+    "Punishments": ["监禁", "剥夺官职", "没收财产"],
     "Note": "涉及皇室者从重处罚。"
   },
   {
@@ -446,5 +452,13 @@
     "Description": "故意散播虚假信息，引发民众恐慌、抢购、逃亡或骚乱者有罪。",
     "Punishments": ["杖刑", "监禁", "流放"],
     "Note": "战时或灾时从重处罚。"
+  },
+  {
+    "Type": "MercenaryOvermighty",
+    "Category": 5,
+    "Name": "拥兵自重罪",
+    "Description": "地方君主或藩镇领袖兵力坐大，以至足以对帝国形成军事胁迫时，可依拥兵自重之罪论处。",
+    "Punishments": [5, 10],
+    "Note": "当当事者所控军力不低于帝国总军力之半，且皇帝威望高于其本人时，皇帝可消耗等同于其威望的影响力对其定罪。"
   }
 ]

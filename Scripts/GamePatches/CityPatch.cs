@@ -141,7 +141,7 @@ public class CityPatch : GamePatch
 
     public static bool getMainSubspecies(City __instance, ref Subspecies __result)
     {
-        if (__instance.units.Count == 0)
+        if (__instance.CountLivingPopulation() == 0)
         {
             __result = null;
             return false;
@@ -283,23 +283,13 @@ public class CityPatch : GamePatch
     }
     public static bool countWarriors(City __instance, ref int __result)
     {
-        var ed = CityExtension.GetOrCreate(__instance);
-        if (ed != null && ed.last_cached_timestamp > 0)
-        {
-            __result = ed.cached_warriors;
-            return false;
-        }
-        return true;
+        __result = __instance.CountLivingWarriors();
+        return false;
     }
     public static bool getPopulationPeople(City __instance, ref int __result)
     {
-        var ed = CityExtension.GetOrCreate(__instance);
-        if (ed != null && ed.last_cached_timestamp > 0)
-        {
-            __result = ed.cached_population;
-            return false;
-        }
-        return true;
+        __result = __instance.CountLivingPopulation();
+        return false;
     }
     public static bool isArmyOverLimit(City __instance, ref bool __result)
     {

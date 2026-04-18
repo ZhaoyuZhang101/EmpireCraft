@@ -1,24 +1,21 @@
 using System;
-using System.Globalization;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
-using NeoModLoader.services;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 
 namespace EmpireCraft.Scripts.AI.CityAI;
 
-public class EmpireCraftCityBehCheckTax:GameAICityBase
+public class EmpireCraftCityBehCheckTax : GameAICityBase
 {
     public override Type OriginalBeh => GetType();
 
     public override BehResult execute(City pCity)
     {
         if (!pCity.IsNeedToSubmitTax()) return BehResult.Continue;
-        if (pCity.getLoyalty()<=0) return BehResult.Continue;
+        if (pCity.getLoyalty() <= 0) return BehResult.Continue;
         var pTaxRate = pCity.kingdom.GetTaxRate();
         Kingdom pKingdom = pCity.kingdom;
-        //金钱
         int money = pCity.GetMoney();
-        //抽成
         int num = (int)((float)money * pTaxRate);
         int gold = (int)((float)num * 0.1f);
         num -= gold;
@@ -31,7 +28,7 @@ public class EmpireCraftCityBehCheckTax:GameAICityBase
             {
                 if (corruptionValue > 0)
                 {
-                    pCity.AddCorruptionRate(corruptionValue/10f);
+                    pCity.AddCorruptionRate(corruptionValue / 10f);
                 }
                 if (pCity.GetCorruptionRate() >= 0.8f)
                 {
@@ -43,13 +40,17 @@ public class EmpireCraftCityBehCheckTax:GameAICityBase
                 pCity.AddCorruptionRate(-0.2f);
             }
             corruptedMoney = (int)(corruptionValue / 2) * num;
-            actor.addMoney(corruptedMoney);
+
+            if (corruptedMoney > 0)
+            {
+                actor.addMoney(corruptedMoney);
+                EmpireLawSystem.RecordCrime(actor, LawType.贪污, pKingdom);
+            }
         }
-        pCity.SubMoney((int)(num*(1.0f-pCity.GetCorruptionRate())));
-        pKingdom.AddMoney((int)((num-corruptedMoney)*(1.0f-pCity.GetCorruptionRate())));
+        pCity.SubMoney((int)(num * (1.0f - pCity.GetCorruptionRate())));
+        pKingdom.AddMoney((int)((num - corruptedMoney) * (1.0f - pCity.GetCorruptionRate())));
         pCity.addResourcesToRandomStockpile("gold", gold);
         pCity.RecordTaxTime();
-        // LogService.LogInfo($"{pCity.name}交税{num}金,保有{pCity.GetMoney()}");
         return BehResult.Continue;
     }
 }

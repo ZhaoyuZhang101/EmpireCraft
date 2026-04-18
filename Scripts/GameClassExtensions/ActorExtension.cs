@@ -327,6 +327,8 @@ public static class ActorExtension
         public bool is_on_office = false;
         public long personal_identity { get; set; } = -1L;
         public float death_rate = 0.0f;
+        public List<long> banned_office_empire_ids = new List<long>();
+        public Dictionary<string, double> law_check_timestamps = new Dictionary<string, double>();
     }
 
     public static void SetSocialClass(this Actor a, SocialClass socialClass)
@@ -418,6 +420,105 @@ public static class ActorExtension
     public static bool IsOnOffice(this Actor a)
     {
         return a.GetOrCreate().is_on_office;
+    }
+
+    public static void BanFromOffice(this Actor a, long empireId)
+    {
+        if (a == null || empireId < 0) return;
+        var bans = a.GetOrCreate().banned_office_empire_ids;
+        if (bans == null)
+        {
+            bans = new List<long>();
+            a.GetOrCreate().banned_office_empire_ids = bans;
+        }
+        if (!bans.Contains(empireId))
+        {
+            bans.Add(empireId);
+        }
+    }
+
+    public static bool IsBannedFromOffice(this Actor a, long empireId)
+    {
+        if (a == null || empireId < 0) return false;
+        return IsBannedFromOffice(a, empireId, new HashSet<long>());
+    }
+
+    private static bool IsBannedFromOffice(this Actor a, long empireId, HashSet<long> visited)
+    {
+        if (a == null) return false;
+        var id = a.getID();
+        if (!visited.Add(id)) return false;
+
+        var bans = a.GetOrCreate().banned_office_empire_ids;
+        if (bans != null && bans.Contains(empireId))
+        {
+            return true;
+        }
+
+        var parents = a.getParents();
+        if (parents == null || !parents.Any())
+        {
+            return false;
+        }
+
+        foreach (var parent in parents)
+        {
+            if (parent.IsBannedFromOffice(empireId, visited))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static bool CanServeOffice(this Actor a, Kingdom kingdom)
+    {
+        if (a == null) return false;
+        if (kingdom == null || !kingdom.IsInEmpire())
+        {
+            return true;
+        }
+
+        var empireId = kingdom.GetEmpireID();
+        return empireId < 0 || !a.IsBannedFromOffice(empireId);
+    }
+
+    public static bool IsLawCheckDue(this Actor a, string key, float years = 1f)
+    {
+        if (a == null || string.IsNullOrEmpty(key)) return false;
+        Dictionary<string, double> timestamps = a.GetOrCreate().law_check_timestamps;
+        if (timestamps == null)
+        {
+            timestamps = new Dictionary<string, double>();
+            a.GetOrCreate().law_check_timestamps = timestamps;
+        }
+
+        double value;
+        if (!timestamps.TryGetValue(key, out value))
+        {
+            return true;
+        }
+
+        if (value < 0)
+        {
+            return true;
+        }
+
+        return Date.getYearsSince(value) >= years;
+    }
+
+    public static void RecordLawCheck(this Actor a, string key)
+    {
+        if (a == null || string.IsNullOrEmpty(key)) return;
+        Dictionary<string, double> timestamps = a.GetOrCreate().law_check_timestamps;
+        if (timestamps == null)
+        {
+            timestamps = new Dictionary<string, double>();
+            a.GetOrCreate().law_check_timestamps = timestamps;
+        }
+
+        timestamps[key] = World.world.getCurWorldTime();
     }
     public static bool NeedDead(this Actor a)
     {

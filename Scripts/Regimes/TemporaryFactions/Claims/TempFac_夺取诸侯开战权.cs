@@ -1,4 +1,5 @@
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -23,6 +24,7 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
         {
             if (!CheckRebelling(kingdom))
             {
+                EmpireLawSystem.TryEnforceCrimeForClaim(kingdom.king, kingdom);
                 kingdom.GetRegime().SetAllowDiplomacy(false);
             }
         }

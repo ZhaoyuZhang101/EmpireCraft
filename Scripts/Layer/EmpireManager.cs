@@ -66,8 +66,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                         var ced0 = CityExtension.GetOrCreate(c);
                         ced0.last_cached_timestamp = -1L;
                         var ced = CityExtension.GetOrCreate(c);
-                        ced.cached_population = c.getPopulationPeople();
-                        ced.cached_warriors = c.countWarriors();
+                        ced.cached_population = c.CountLivingPopulation();
+                        ced.cached_warriors = c.CountLivingWarriors();
                         ced.last_cached_timestamp = World.world.getCurWorldTime();
                     }
                 }

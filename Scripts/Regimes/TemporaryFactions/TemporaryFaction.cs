@@ -246,7 +246,7 @@ public abstract class TemporaryFaction
         return null;
     }
 
-    protected Empire GetEmpire()
+    public Empire GetEmpire()
     {
         return ModClass.EMPIRE_MANAGER.get(EmpireID);
     }
@@ -300,6 +300,7 @@ public abstract class TemporaryFaction
     {
         GetEmpire()?.CoreKingdom?.SubMoney(Budget);
     }
+
     public void JoinKingdom(Kingdom kingdom)
     {
         kingdoms.Add(kingdom.id);

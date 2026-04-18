@@ -2,6 +2,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -125,6 +126,139 @@ namespace EmpireCraft.Scripts.HelperFunc
             LogService.LogInfo("世界提示完毕,开始记录入历史");
             pEmpire?.RecordHistory(directContent: worldLog.GetEmpireHistoryFormatedText());
         }
+        public static void LogLawEnforcement(LawEnforcementContext context)
+        {
+            if (context == null) return;
+
+            Actor actor = context.Actor;
+            Kingdom kingdom = context.Kingdom;
+            Empire empire = kingdom != null ? kingdom.GetEmpire() : null;
+            if (actor == null || kingdom == null || empire == null) return;
+
+            string actorName = actor.getName();
+            if (string.IsNullOrEmpty(actorName))
+            {
+                actorName = actor.name;
+            }
+
+            string lawName = context.Law != null ? context.Law.Name : context.LawType.ToString();
+            if (string.IsNullOrEmpty(lawName))
+            {
+                lawName = context.LawType.ToString();
+            }
+
+            string punishmentText = GetPunishmentText(context);
+            WorldLogMessage worldLog = new WorldLogMessage(
+                EmpireCraftWorldLogLibrary.empire_law_enforced_log,
+                actorName,
+                lawName,
+                punishmentText)
+            {
+                color_special1 = actor.getColor()._color_text,
+                color_special2 = kingdom.getColor()._color_text,
+                color_special3 = kingdom.getColor()._color_text
+            };
+
+            if (ShouldRecordLawEnforcementHistory(actor, empire))
+            {
+                worldLog.RecordIntoEmpire(empire);
+                return;
+            }
+
+            worldLog.add();
+        }
+
+        public static void LogLawArrest(Actor actor, Kingdom kingdom, string crimeName, string crimeDate)
+        {
+            if (actor == null || kingdom == null) return;
+
+            Empire empire = kingdom.GetEmpire();
+            if (empire == null) return;
+
+            string actorName = actor.getName();
+            if (string.IsNullOrEmpty(actorName))
+            {
+                actorName = actor.name;
+            }
+
+            WorldLogMessage worldLog = new WorldLogMessage(
+                EmpireCraftWorldLogLibrary.empire_law_arrest_log,
+                actorName,
+                string.IsNullOrEmpty(crimeDate) ? Date.getDate(World.world.getCurWorldTime()) : crimeDate,
+                crimeName)
+            {
+                color_special1 = actor.getColor()._color_text,
+                color_special2 = kingdom.getColor()._color_text,
+                color_special3 = kingdom.getColor()._color_text
+            };
+
+            if (ShouldRecordLawEnforcementHistory(actor, empire))
+            {
+                worldLog.RecordIntoEmpire(empire);
+                return;
+            }
+
+            worldLog.add();
+        }
+
+        private static string GetPunishmentText(LawEnforcementContext context)
+        {
+            if (context == null || context.AppliedPunishments == null || context.AppliedPunishments.Count <= 0)
+            {
+                return LM.Get("empire_law_default_punishment");
+            }
+
+            List<string> punishmentNames = new List<string>();
+            foreach (PunishmentLevel punishment in context.AppliedPunishments)
+            {
+                string punishmentName = GetPunishmentName(punishment);
+                if (!string.IsNullOrEmpty(punishmentName))
+                {
+                    punishmentNames.Add(punishmentName);
+                }
+            }
+
+            if (punishmentNames.Count <= 0)
+            {
+                return LM.Get("empire_law_default_punishment");
+            }
+
+            return string.Join(", ", punishmentNames);
+        }
+
+        private static string GetPunishmentName(PunishmentLevel punishment)
+        {
+            string localeKey = "punishment_" + punishment.ToString();
+            string text = LM.Get(localeKey);
+            if (!string.IsNullOrEmpty(text) && text != localeKey)
+            {
+                return text;
+            }
+
+            return punishment.ToString();
+        }
+
+        private static bool ShouldRecordLawEnforcementHistory(Actor actor, Empire empire)
+        {
+            if (actor == null || empire == null) return false;
+
+            if (actor.isOfficer() || actor.IsOnOffice() || actor.GetOffice() != null)
+            {
+                return true;
+            }
+
+            if (actor.IsEmperor() || actor.isKing() || actor.HasTitle())
+            {
+                return true;
+            }
+
+            if (actor.HasSpecificClan() && empire.Emperor != null && empire.Emperor.HasSpecificClan())
+            {
+                return actor.GetSpecificClan() == empire.Emperor.GetSpecificClan();
+            }
+
+            return false;
+        }
         public static void LogOfficerJoinFaction(OfficeObject office, Actor pActor, FixedFaction faction)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.officer_join_faction,
@@ -138,6 +272,28 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special3 = pActor.getColor()._color_text
 
             }.RecordIntoEmpire(faction.Empire);
+        }
+
+        public static void LogTemporaryFactionExecuted(Empire empire, string claimName, string targetName = null)
+        {
+            if (empire == null || string.IsNullOrWhiteSpace(claimName))
+            {
+                return;
+            }
+
+            var asset = string.IsNullOrWhiteSpace(targetName)
+                ? EmpireCraftWorldLogLibrary.temporary_faction_executed_no_target_log
+                : EmpireCraftWorldLogLibrary.temporary_faction_executed_log;
+
+            new WorldLogMessage(asset,
+                empire.GetEmpireName() ?? empire.data?.name ?? "",
+                claimName,
+                targetName ?? "")
+            {
+                color_special1 = empire.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_good,
+                color_special2 = empire.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_good,
+                color_special3 = empire.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_good
+            }.RecordIntoEmpire(empire);
         }
         
         public static void LogOfficerBecomeFactionLeader(Actor pActor, FixedFaction faction)

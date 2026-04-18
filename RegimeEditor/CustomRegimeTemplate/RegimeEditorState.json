@@ -1,0 +1,136 @@
+{
+  "folderName": "CustomRegimeTemplate",
+  "regimeKey": "CustomRegimeTemplate",
+  "regimeName": {
+    "ch": "自定义政体模板",
+    "cz": "自定義政體模板",
+    "en": "Custom Regime Template"
+  },
+  "description": {
+    "ch": "一个用于演示自定义政体配置结构的模板政体。",
+    "cz": "一個用於演示自定義政體配置結構的模板政體。",
+    "en": "A template regime used to demonstrate a custom regime configuration structure."
+  },
+  "icon_url": "",
+  "era_name": false,
+  "has_cabinet": true,
+  "cabinet_number": 3,
+  "leader_select_method": "Succession",
+  "default_kingdom": "CustomRegimeTemplate_county",
+  "centre_empire_separate": true,
+  "lawsText": "0,1,2,13,16,20,21,27,28,29,32,33,36,37,38,39,50,51,54",
+  "factionsText": "[\n  {\n    \"_id\": \"11111111-1111-1111-1111-111111111111\",\n    \"Type\": \"Custom\",\n    \"_requiredTraits\": [],\n    \"Ban\": false,\n    \"Name\": \"议政派\",\n    \"only_king\": false,\n    \"EmpireId\": -1,\n    \"Members\": [],\n    \"TotalPower\": 0,\n    \"Leader\": -1\n  }\n]",
+  "optionsText": "{\n  \"toggle_allow_diplomacy\": [1],\n  \"toggle_allow_army\": [1],\n  \"toggle_support_army_to_center\": [1],\n  \"option_tax_level\": [1, 4],\n  \"option_leader_select_method\": [0, 3],\n  \"option_religion_type\": [1, 4]\n}",
+  "offices": {
+    "cores": [
+      {
+        "scope": "cores",
+        "entryKey": "",
+        "entryName": { "ch": "", "cz": "", "en": "" },
+        "officeType": 0,
+        "officeTitle": { "ch": "大执政", "cz": "大執政", "en": "Grand Archon" },
+        "preKey": "grand_council_full",
+        "preName": { "ch": "大议会", "cz": "大議會", "en": "Grand Council" },
+        "description": { "ch": "最高统治核心。", "cz": "最高統治核心。", "en": "The highest governing core." },
+        "powersText": "拟定,审核,执行",
+        "merit": 5,
+        "honorary": 4,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": "wise,ambitious",
+        "condition": "",
+        "city_type": ""
+      }
+    ],
+    "division": [
+      {
+        "scope": "division",
+        "entryKey": "",
+        "entryName": { "ch": "", "cz": "", "en": "" },
+        "officeType": 1,
+        "officeTitle": { "ch": "内政官", "cz": "內政官", "en": "Chancellor" },
+        "preKey": "inner_court_full",
+        "preName": { "ch": "内廷", "cz": "內廷", "en": "Inner Court" },
+        "description": { "ch": "负责内政与财政。", "cz": "負責內政與財政。", "en": "Responsible for internal affairs and finance." },
+        "powersText": "人事,财政",
+        "merit": 4,
+        "honorary": 3,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": "",
+        "condition": "",
+        "city_type": ""
+      }
+    ],
+    "harems": [],
+    "kingdoms": [
+      {
+        "scope": "kingdoms",
+        "entryKey": "CustomRegimeTemplate_empire",
+        "entryName": { "ch": "自定义帝国", "cz": "自定義帝國", "en": "Custom Empire" },
+        "officeType": 0,
+        "officeTitle": { "ch": "大执政", "cz": "大執政", "en": "Grand Archon" },
+        "preKey": "",
+        "preName": { "ch": "", "cz": "", "en": "" },
+        "description": { "ch": "中央帝国本位。", "cz": "中央帝國本位。", "en": "The central imperial title." },
+        "powersText": "拟定,审核,执行",
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": "",
+        "condition": "empire_center:true",
+        "city_type": "CustomRegimeTemplate_city"
+      },
+      {
+        "scope": "kingdoms",
+        "entryKey": "CustomRegimeTemplate_county",
+        "entryName": { "ch": "自定义领", "cz": "自定義領", "en": "Custom County" },
+        "officeType": 1,
+        "officeTitle": { "ch": "内政官", "cz": "內政官", "en": "Chancellor" },
+        "preKey": "",
+        "preName": { "ch": "", "cz": "", "en": "" },
+        "description": { "ch": "地方基本封号。", "cz": "地方基本封號。", "en": "The default local title." },
+        "powersText": "",
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": "",
+        "condition": "empire_center:false",
+        "city_type": "CustomRegimeTemplate_city"
+      }
+    ],
+    "cities": [
+      {
+        "scope": "cities",
+        "entryKey": "CustomRegimeTemplate_city",
+        "entryName": { "ch": "首邑", "cz": "首邑", "en": "Capital Town" },
+        "officeType": 2,
+        "officeTitle": { "ch": "城督", "cz": "城督", "en": "Castellan" },
+        "preKey": "",
+        "preName": { "ch": "", "cz": "", "en": "" },
+        "description": { "ch": "地方城市职位。", "cz": "地方城市職位。", "en": "The city-level office." },
+        "powersText": "",
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": "",
+        "condition": "",
+        "city_type": ""
+      }
+    ],
+    "armies": []
+  },
+  "cultures": [
+    {
+      "name": "CustomCulture",
+      "translate_ch": "自定义文化",
+      "translate_cz": "自定義文化",
+      "translate_en": "Custom Culture",
+      "regime": "CustomRegimeTemplate",
+      "selected": false
+    }
+  ]
+}

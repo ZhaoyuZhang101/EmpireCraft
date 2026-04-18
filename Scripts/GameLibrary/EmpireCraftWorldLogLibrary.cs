@@ -51,6 +51,10 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset 成为朝贡国;
     public static WorldLogAsset officer_join_faction;
     public static WorldLogAsset officer_become_faction_leader;
+    public static WorldLogAsset empire_law_arrest_log;
+    public static WorldLogAsset empire_law_enforced_log;
+    public static WorldLogAsset temporary_faction_executed_log;
+    public static WorldLogAsset temporary_faction_executed_no_target_log;
 
     public static void init()
     {
@@ -150,6 +154,31 @@ public static class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$clan_name$", 2);
+            }
+        });
+        temporary_faction_executed_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_executed_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$claim$", 2);
+                wl.updateText(ref pText, pMessage, "$target$", 3);
+            }
+        });
+        temporary_faction_executed_no_target_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_executed_no_target_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$claim$", 2);
             }
         });
         become_greater_general = wl.add(new WorldLogAsset
@@ -274,6 +303,32 @@ public static class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$faction$", 2);
+            }
+        });
+        empire_law_enforced_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(empire_law_enforced_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$crime$", 2);
+                wl.updateText(ref pText, pMessage, "$punishments$", 3);
+            }
+        });
+        empire_law_arrest_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(empire_law_arrest_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$date$", 2);
+                wl.updateText(ref pText, pMessage, "$crime$", 3);
             }
         });
         new_jingshi_log = wl.add(new WorldLogAsset

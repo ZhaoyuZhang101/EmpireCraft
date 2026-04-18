@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
@@ -823,6 +824,7 @@ public class PersonalClanIdentity
     public (long specific_clan, long identity) lover = (-1L, -1L); //正妻/正夫
     public List<(long specific_clan, long identity)> concubines = new(); //小妾/情人
     public List<long> children = new List<long>();
+    public List<CrimeRecord> crime_records = new List<CrimeRecord>();
 
     public void newPersonalClanIdentity(SpecificClan specificClan, Actor a)
     {
@@ -985,4 +987,17 @@ public class PersonalClanIdentity
         actor.kingdom?.StartToChooseHeir();
         actor.kingdom?.RemoveCalcHeirStatus();
     }
+}
+
+public class CrimeRecord
+{
+    public int law_type { get; set; }
+    public long kingdom_id { get; set; } = -1L;
+    public long empire_id { get; set; } = -1L;
+    public double crime_timestamp { get; set; } = -1L;
+    public string crime_date { get; set; } = "";
+    public bool resolved { get; set; } = false;
+    public bool discovered { get; set; } = false;
+    public double discovered_timestamp { get; set; } = -1L;
+    public string discovered_date { get; set; } = "";
 }

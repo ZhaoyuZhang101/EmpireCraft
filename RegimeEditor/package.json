@@ -1,0 +1,41 @@
+{
+  "name": "empirecraft-regime-editor",
+  "version": "0.1.0",
+  "description": "Electron desktop wrapper for the EmpireCraft regime editor.",
+  "main": "main.js",
+  "author": "Codex",
+  "license": "MIT",
+  "scripts": {
+    "start": "node node_modules/electron/cli.js .",
+    "dist": "node node_modules/electron-builder/cli.js --win portable"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.empirecraft.regimeeditor",
+    "productName": "EmpireCraft Regime Editor",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "regime_enum_sync.py",
+      "CustomRegimeTemplate/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  }
+}
