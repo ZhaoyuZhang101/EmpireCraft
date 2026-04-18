@@ -26,6 +26,33 @@ public class SimpleText : APrefab<SimpleText>
         text.alignment = pAlignment;
         background.sprite = pBackground == null ? SpriteTextureLoader.getSprite("ui/special/windowInnerSliced") : pBackground;
     }
+    public void UseFixedFontSize(int pFontSize, HorizontalWrapMode pHorizontalWrap = HorizontalWrapMode.Wrap,
+        VerticalWrapMode pVerticalWrap = VerticalWrapMode.Overflow)
+    {
+        Init();
+        text.resizeTextForBestFit = false;
+        text.fontSize = pFontSize;
+        text.horizontalOverflow = pHorizontalWrap;
+        text.verticalOverflow = pVerticalWrap;
+    }
+    public void RefreshAutoHeight(float pMinHeight = 18f, float pPadding = 6f)
+    {
+        Init();
+        var textRect = text.GetComponent<RectTransform>();
+        var rootRect = GetComponent<RectTransform>();
+        var layout = GetComponent<LayoutElement>() ?? gameObject.AddComponent<LayoutElement>();
+
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(textRect);
+
+        float preferredHeight = LayoutUtility.GetPreferredHeight(textRect) + pPadding;
+        float finalHeight = Mathf.Max(pMinHeight, preferredHeight);
+
+        rootRect.sizeDelta = new Vector2(rootRect.sizeDelta.x, finalHeight);
+        textRect.sizeDelta = new Vector2(textRect.sizeDelta.x, finalHeight * 0.95f);
+        layout.preferredHeight = finalHeight;
+        layout.minHeight = finalHeight;
+    }
     public override void SetSize(Vector2 pSize)
     {
         base.SetSize(pSize);

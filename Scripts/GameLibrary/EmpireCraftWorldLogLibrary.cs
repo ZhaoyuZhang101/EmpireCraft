@@ -26,6 +26,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset minister_try_aqcuire_empire_log;
     public static WorldLogAsset minister_aqcuire_empire_log;
     public static WorldLogAsset king_take_title_log;
+    public static WorldLogAsset kingdom_change_main_title_log;
     public static WorldLogAsset change_city_name_log;
     public static WorldLogAsset change_kingdom_name_log;
     public static WorldLogAsset king_create_title_log;
@@ -585,6 +586,19 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$kingdom$", 1);
                 wl.updateText(ref pText, pMessage, "$king$", 2);
                 wl.updateText(ref pText, pMessage, "$title_name$", 3);
+            }
+        });
+        kingdom_change_main_title_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(kingdom_change_main_title_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$old_title$", 2);
+                wl.updateText(ref pText, pMessage, "$new_title$", 3);
             }
         });
         king_create_title_log = wl.add(new WorldLogAsset

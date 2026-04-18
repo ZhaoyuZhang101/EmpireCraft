@@ -140,8 +140,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                         empire_name = empire.GetEmpireName(),
                         dynasty_name = empire.GetEmpireName(),
                         royal_surname = emActor?.GetSpecificClan()?.name ?? "",
-                        descriptions = new List<string>(),
-                        cities = new List<string>()
+                        descriptions = new List<HistoryDescription>(),
                     };
                 }
                 ConfigData.CURRENT_SELECTED_HISTORY = history;

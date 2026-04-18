@@ -35,6 +35,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         base.update(pElapsed);
         // 创建集合副本进行遍历
         List<Empire> empiresToProcess = new List<Empire>(this);
+        double worldTime = World.world.getCurWorldTime();
         if (_lastStatsCacheTimestamp <= 0 || Date.getMonthsSince(_lastStatsCacheTimestamp) >= 1)
         {
             foreach (Empire e in empiresToProcess)
@@ -58,7 +59,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                     var ked = KingdomExtension.GetOrCreate(k);
                     ked.cached_population = kp;
                     ked.cached_warriors = kw;
-                    ked.last_cached_timestamp = World.world.getCurWorldTime();
+                    ked.last_cached_timestamp = worldTime;
                     var cities = k.cities;
                     for (int j = 0; j < cities.Count; j++)
                     {
@@ -68,15 +69,15 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                         var ced = CityExtension.GetOrCreate(c);
                         ced.cached_population = c.CountLivingPopulation();
                         ced.cached_warriors = c.CountLivingWarriors();
-                        ced.last_cached_timestamp = World.world.getCurWorldTime();
+                        ced.last_cached_timestamp = worldTime;
                     }
                 }
                 e.data.cached_population = pop;
                 e.data.cached_warriors = warriors;
                 e.data.cached_warriors_max = warriorsMax;
-                e.data.last_cached_timestamp = World.world.getCurWorldTime();
+                e.data.last_cached_timestamp = worldTime;
             }
-            _lastStatsCacheTimestamp = World.world.getCurWorldTime();
+            _lastStatsCacheTimestamp = worldTime;
         }
 
         foreach (Empire current in empiresToProcess)
@@ -110,6 +111,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         pEmpire.dissolve();
         pEmpire.Dispose();
         pEmpire.Archive();
+        removeObject(pEmpire);
     }
 
     private List<Empire> _to_dissolve = new List<Empire>();

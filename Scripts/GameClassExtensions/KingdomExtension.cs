@@ -771,6 +771,17 @@ public static class KingdomExtension
 
     public static void SetMainTitle(this Kingdom k, KingdomTitle title)
     {
+        if (k == null || title == null || title.isRekt()) return;
+        if (title.title_capital == null || title.title_capital.isRekt()) return;
+        var current = ModClass.KINGDOM_TITLE_MANAGER.get(k.GetOrCreate().MainTitle);
+        if (current != null && current != title && current.main_kingdom == k)
+        {
+            current.main_kingdom = null;
+        }
+        if (title.main_kingdom != null && title.main_kingdom != k)
+        {
+            title.main_kingdom.RemoveMainTitle();
+        }
         title.main_kingdom = k;
         k.GetOrCreate().MainTitle = title.getID();
     }
@@ -786,12 +797,115 @@ public static class KingdomExtension
     {
         if (k == null) return null;
         if (GetOrCreate(k) == null) return null;
-        return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).MainTitle);
+        KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).MainTitle);
+        if (title == null || title.isRekt() || title.title_capital == null || title.title_capital.isRekt())
+        {
+            k.GetOrCreate().MainTitle = -1L;
+            return null;
+        }
+
+        var hasValidCity = title.city_list_hash != null && title.city_list_hash.Any(c => c != null && !c.isRekt() && c.kingdom == k);
+        if (!hasValidCity)
+        {
+            if (title.main_kingdom == k)
+            {
+                title.main_kingdom = null;
+            }
+            k.GetOrCreate().MainTitle = -1L;
+            return null;
+        }
+
+        if (title.main_kingdom != null && title.main_kingdom != k)
+        {
+            k.GetOrCreate().MainTitle = -1L;
+            return null;
+        }
+
+        if (title.main_kingdom == null)
+        {
+            title.main_kingdom = k;
+        }
+
+        return title;
     }
 
     public static bool HasMainTitle(this Kingdom k)
     {
-        return ModClass.KINGDOM_TITLE_MANAGER.get(GetOrCreate(k).MainTitle)!=null;
+        return k.GetMainTitle() != null;
+    }
+
+    public static bool TrySetPreferredMainTitle(this Kingdom k, KingdomTitle title)
+    {
+        if (k == null || title == null || title.isRekt()) return false;
+        if (title.title_capital == null || title.title_capital.isRekt()) return false;
+
+        var current = k.GetMainTitle();
+        bool shouldReplace = current == null;
+
+        if (!shouldReplace && current != title)
+        {
+            bool currentInvalid = current.title_capital == null || current.title_capital.isRekt();
+            bool currentFallbackCapitalTitle = k.capital != null && current.title_capital == k.capital;
+            bool currentDetachedFromKingdom = !current.getCities().Any(c => c != null && !c.isRekt() && c.kingdom == k);
+
+            shouldReplace = currentInvalid || currentFallbackCapitalTitle || currentDetachedFromKingdom;
+        }
+
+        if (!shouldReplace) return false;
+
+        k.SetMainTitle(title);
+        EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(k);
+        return true;
+    }
+
+    public static KingdomTitle GetCapitalMainTitleCandidate(this Kingdom kingdom)
+    {
+        if (kingdom == null || !kingdom.hasKing() || !kingdom.hasCapital()) return null;
+        if (!kingdom.capital.hasTitle()) return null;
+        var title = kingdom.capital.GetTitle();
+        if (title == null || title.isRekt()) return null;
+        if (title.owner != kingdom.king && !(kingdom.king.GetOwnedTitle()?.Contains(title.id) ?? false)) return null;
+        return title;
+    }
+
+    public static KingdomTitle GetAncestralMainTitleCandidate(this Kingdom kingdom)
+    {
+        if (kingdom == null || !kingdom.hasKing()) return null;
+        var clan = kingdom.king.GetSpecificClan();
+        var city = clan?.GetAncestralCity();
+        if (city == null || city.isRekt() || !city.hasTitle()) return null;
+        var title = city.GetTitle();
+        if (title == null || title.isRekt()) return null;
+        if (title.owner != kingdom.king && !(kingdom.king.GetOwnedTitle()?.Contains(title.id) ?? false)) return null;
+        return title;
+    }
+
+    public static KingdomTitle GetPreferredMainTitleCandidate(this Kingdom kingdom)
+    {
+        var capitalTitle = kingdom.GetCapitalMainTitleCandidate();
+        if (capitalTitle != null) return capitalTitle;
+
+        var ancestralTitle = kingdom.GetAncestralMainTitleCandidate();
+        if (ancestralTitle != null) return ancestralTitle;
+
+        return null;
+    }
+
+    public static bool ChangeMainTitle(this Kingdom kingdom, KingdomTitle title, bool writeLog = true)
+    {
+        if (kingdom == null || title == null || title.isRekt()) return false;
+        if (title.title_capital == null || title.title_capital.isRekt()) return false;
+
+        var current = kingdom.GetMainTitle();
+        if (current == title) return false;
+
+        kingdom.SetMainTitle(title);
+        EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+        if (writeLog)
+        {
+            TranslateHelper.LogKingdomChangeMainTitle(kingdom, current, title);
+        }
+        return true;
     }
 
     public static bool CanBecomeEmpire(this Kingdom k)
@@ -845,17 +959,60 @@ public static class KingdomExtension
     public static string GetKingdomName(this Kingdom kingdom)
     {
         if (kingdom == null) return null;
-        if (string.IsNullOrEmpty(kingdom.name)) return null;
+        if (string.IsNullOrWhiteSpace(kingdom.name))
+        {
+            return GetKingdomFrontFallback(kingdom);
+        }
 
         string[] nameParts = kingdom.name.Split('\u200A');
+        string result;
         if (nameParts.Length <= 2)
         {
-            return nameParts[0];
+            result = nameParts[0];
         }
         else
         {
-            return nameParts[nameParts.Length - 2];
+            result = nameParts[nameParts.Length - 2];
         }
+
+        if (string.IsNullOrWhiteSpace(result))
+        {
+            return GetKingdomFrontFallback(kingdom);
+        }
+
+        var suffix = LM.Get(kingdom.GetKingdomType().ToString());
+        if (!string.IsNullOrWhiteSpace(suffix) && string.Equals(result, suffix, StringComparison.Ordinal))
+        {
+            return GetKingdomFrontFallback(kingdom);
+        }
+
+        return result;
+    }
+
+    private static string GetKingdomFrontFallback(Kingdom kingdom)
+    {
+        var title = kingdom.GetMainTitle();
+        if (!string.IsNullOrWhiteSpace(title?.data?.name))
+        {
+            return title.data.name;
+        }
+
+        if (kingdom.hasCapital() && kingdom.capital != null && !kingdom.capital.isRekt())
+        {
+            var selectedName = kingdom.capital.SelectKingdomName();
+            if (!string.IsNullOrWhiteSpace(selectedName))
+            {
+                return selectedName;
+            }
+
+            var cityName = kingdom.capital.GetCityName();
+            if (!string.IsNullOrWhiteSpace(cityName))
+            {
+                return cityName;
+            }
+        }
+
+        return kingdom.name ?? "";
     }
 
     public static bool IsInSameEmpire(this Kingdom kingdom, Kingdom pKingdomTaget)
@@ -942,8 +1099,16 @@ public static class KingdomExtension
         if (kingdom.data == null) return false;
         var ed = GetOrCreate(kingdom);
         if (ed == null) return false;
+        if (!ed.isEmpire) return false;
 
-        return kingdom.GetOrCreate().isEmpire;
+        var empire = kingdom.GetEmpire();
+        if (empire == null || empire.isRekt() || empire.IsArchived() || empire.CoreKingdom == null || empire.CoreKingdom != kingdom)
+        {
+            ed.isEmpire = false;
+            return false;
+        }
+
+        return true;
     }
 
     public static void EmpireLeave (this Kingdom kingdom, bool isLeave = true)

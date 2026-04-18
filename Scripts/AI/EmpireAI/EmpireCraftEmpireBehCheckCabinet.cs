@@ -17,12 +17,13 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         pKingdom.CheckEmpire();
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
-        Regime regime = empire.CoreKingdom.GetRegime();
+        Regime regime = empire?.CoreKingdom?.GetRegime();
+        if (regime == null) return BehResult.Continue;
         foreach (var ff in regime.GetPlayerFactions())
         {
             ff.FixMissedTemporaryFactions();
         }
-        switch (pKingdom.GetRegime().type)
+        switch (regime.type)
         {
             case RegimeType.LvLing:
                 SetCabinetForLvLing(empire);
@@ -42,7 +43,7 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
                 throw new ArgumentOutOfRangeException();
         }
 
-        if (pKingdom.GetRegime().has_cabinet)
+        if (regime.has_cabinet)
         {
             empire.Additions.cabinet_acc = IsCabinetControlEmpire(pKingdom) ? 30 : 0;
         }
@@ -67,22 +68,47 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         if (S < 3) S = 0; if (S > 15) S = 15;      // 手动 clamp
         int cabinetSize = 1 + (S * regime.cabinet_number-1) / 15;        // 线性映射到 1..5，最多 5 个
 
-        var cabinetLeader =
-            dominateFaction.Members.OrderByDescending(a => world.units.get(a)?.GetIdentity()?.TotalPerformance ?? 0).First();
+        long cabinetLeader = dominateFaction.Members[0];
+        double bestPerformance = world.units.get(cabinetLeader)?.GetIdentity()?.TotalPerformance ?? double.MinValue;
+        for (int i = 1; i < dominateFaction.Members.Count; i++)
+        {
+            long memberId = dominateFaction.Members[i];
+            double performance = world.units.get(memberId)?.GetIdentity()?.TotalPerformance ?? double.MinValue;
+            if (performance > bestPerformance)
+            {
+                bestPerformance = performance;
+                cabinetLeader = memberId;
+            }
+        }
         if (cabinetLeader != empire.GetCabinetLeader()?.id)
         {
             empire.SetCabinetLeader(world.units.get(cabinetLeader));  
         }
 
-        if (empire.data.CabinetMembers.ToList().Count > cabinetSize)
+        if (empire.data.CabinetMembers.Count > cabinetSize)
         {
             empire.data.CabinetMembers.Remove(empire.data.CabinetMembers.Last());
         }
         else if  (empire.data.CabinetMembers.Count < cabinetSize)
         {
-            var newFactionMember = regime.GetAllFactionMembers().
-                OrderByDescending(a=>a?.GetIdentity()?.TotalPerformance ?? 0).
-                ToList().Find(a=>!empire.data.CabinetMembers.Contains(a?.id??-1L));
+            Actor newFactionMember = null;
+            double bestCandidatePerformance = double.MinValue;
+            var allFactionMembers = regime.GetAllFactionMembers();
+            for (int i = 0; i < allFactionMembers.Count; i++)
+            {
+                var actor = allFactionMembers[i];
+                long actorId = actor?.id ?? -1L;
+                if (empire.data.CabinetMembers.Contains(actorId))
+                {
+                    continue;
+                }
+                double performance = actor?.GetIdentity()?.TotalPerformance ?? double.MinValue;
+                if (performance > bestCandidatePerformance)
+                {
+                    bestCandidatePerformance = performance;
+                    newFactionMember = actor;
+                }
+            }
             empire.AddCabinetMember(newFactionMember);
         }
         

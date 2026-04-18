@@ -237,6 +237,13 @@ public class Empire : MetaObject<EmpireData>
         actor.joinCity(this.CoreKingdom.capital);
         actor.goTo(this.CoreKingdom.capital._city_tile);
     }
+
+    private void SyncCoreKingdomReference()
+    {
+        if (data == null) return;
+        data.empire = CoreKingdom?.id ?? -1L;
+        data.last_core_kingdom_id = CoreKingdom?.id ?? data.last_core_kingdom_id;
+    }
     //提供岁币
     public void StartToGive()
     {
@@ -455,8 +462,7 @@ public class Empire : MetaObject<EmpireData>
             royal_surname = this.Emperor.GetSpecificClan()?.name??"",
             miaohao_name = "",
             shihao_name = "",
-            descriptions = new List<string>(),
-            cities = new List<string>()
+            descriptions = new List<HistoryDescription>()
         };
         this.RecordHistory(
             Emperor.isAlive() ? EmpireHistoryType.emperor_left_history : EmpireHistoryType.emperor_die_history,
@@ -568,6 +574,7 @@ public class Empire : MetaObject<EmpireData>
         }
         data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
         CoreKingdom = kingdom;
+        SyncCoreKingdomReference();
         data.centerOffice = new CenterOffice();
         data.centerOffice.Init(CoreKingdom);
         kingdom.SetLevel(0);
@@ -623,8 +630,7 @@ public class Empire : MetaObject<EmpireData>
                 is_first = true,
                 miaohao_name = "",
                 shihao_name = "",
-                descriptions = new List<string>(),
-                cities = new List<string>()
+                descriptions = new List<HistoryDescription>(),
             };
             if (data.has_year_name)
             {
@@ -1199,9 +1205,11 @@ public class Empire : MetaObject<EmpireData>
         bool coreInvalid = currentCore == null || currentCore.isRekt() || !kingdoms_hashset.Contains(currentCore) || currentCore.cities.Count <= 0;
         if (coreInvalid)
         {
+            long preferredCoreId = data.last_core_kingdom_id > 0 ? data.last_core_kingdom_id : data.empire;
             Kingdom candidate = kingdoms_list
                 .Where(k => k != null && !k.isRekt() && k.cities.Count > 0)
-                .OrderByDescending(k => k == currentCore)
+                .OrderByDescending(k => k.id == preferredCoreId)
+                .ThenByDescending(k => k == currentCore)
                 .ThenByDescending(k => k.IsEmpire())
                 .ThenByDescending(k => k.countTotalWarriors())
                 .ThenByDescending(k => k.cities.Count)
@@ -1210,7 +1218,7 @@ public class Empire : MetaObject<EmpireData>
             if (candidate != null)
             {
                 CoreKingdom = candidate;
-                data.empire = candidate.id;
+                SyncCoreKingdomReference();
                 repaired = true;
             }
         }
@@ -1252,6 +1260,7 @@ public class Empire : MetaObject<EmpireData>
             _capitalCenter = OriginalCapital.city_center;
             data.original_capital = OriginalCapital.id;
         }
+        SyncCoreKingdomReference();
 
         if (EmpireClan == null || EmpireClan.isRekt())
         {
@@ -1281,7 +1290,7 @@ public class Empire : MetaObject<EmpireData>
 
         data.kingdoms = kingdoms_list.Where(k => k != null && !k.isRekt()).Select(k => k.id).Distinct().ToList();
         data.cities = cities_list.Where(c => c != null && !c.isRekt()).Select(c => c.id).Distinct().ToList();
-        data.empire = CoreKingdom.id;
+        SyncCoreKingdomReference();
 
         if (repaired && !string.IsNullOrEmpty(reason))
         {
@@ -1326,26 +1335,48 @@ public class Empire : MetaObject<EmpireData>
                 }
                 if (candidate == null)
                 {
-                    candidate = GetMostPowerfulKingdom();
+                    int maxWarriors = -1;
+                    foreach (var k in tKingdoms)
+                    {
+                        if (k == CoreKingdom) continue;
+                        if (k.isRekt()) continue;
+                        if (k.cities.Count <= 0) continue;
+                        int warriors = k.countTotalWarriors();
+                        if (warriors >= maxWarriors)
+                        {
+                            maxWarriors = warriors;
+                            candidate = k;
+                        }
+                    }
                 }
                 if (candidate != null)
                 {
                     CoreKingdom = candidate;
+                    SyncCoreKingdomReference();
                     data.centerOffice.Init(CoreKingdom);
-                    if (!originalEmperor.isRekt())
+                    if (originalEmperor != null && !originalEmperor.isRekt())
                     {
-                        CoreKingdom.setKing(originalEmperor);
+                        if (CoreKingdom.king != originalEmperor)
+                        {
+                            CoreKingdom.setKing(originalEmperor);
+                        }
                         MoveToEmpireCapital(originalEmperor);
                     }
                     else
                     {
-                        if (!originalHeir.isRekt())
+                        if (originalHeir != null && !originalHeir.isRekt())
                         {
-                            CoreKingdom.setKing(originalHeir);
+                            if (CoreKingdom.king != originalHeir)
+                            {
+                                CoreKingdom.setKing(originalHeir);
+                            }
                             MoveToEmpireCapital(originalHeir);
                         }
                     }
-                    
+                }
+                else
+                {
+                    return false;
                 }
             }
         }
@@ -1446,7 +1477,7 @@ public class Empire : MetaObject<EmpireData>
         {
             this.data.taken_Kingdoms.Add(k.getID());
         }
-        this.data.empire = this.CoreKingdom.data.id;
+        SyncCoreKingdomReference();
         this.data.original_capital = !this.OriginalCapital.isRekt() ? this.OriginalCapital.data.id : -1L;
         try
         {
@@ -1470,6 +1501,11 @@ public class Empire : MetaObject<EmpireData>
             this.Religion = World.world.religions.get(pData.Religion);
             this.OriginalCapital = World.world.cities.get(pData.original_capital);
             this.CoreKingdom = World.world.kingdoms.get(pData.empire);
+            if (this.CoreKingdom == null || this.CoreKingdom.isRekt())
+            {
+                this.CoreKingdom = World.world.kingdoms.get(pData.last_core_kingdom_id);
+            }
+            SyncCoreKingdomReference();
             return;
         }
         foreach (long tKingdomID in this.data.kingdoms)
@@ -1514,8 +1550,16 @@ public class Empire : MetaObject<EmpireData>
 
         this.Religion = World.world.religions.get(pData.Religion);
         this.CoreKingdom = World.world.kingdoms.get(pData.empire);
-        this.CoreKingdom.SetEmpireID(this.id);
-        this.CoreKingdom.GetOrCreate().isEmpire = true;
+        if (this.CoreKingdom == null || this.CoreKingdom.isRekt())
+        {
+            this.CoreKingdom = World.world.kingdoms.get(pData.last_core_kingdom_id);
+        }
+        if (this.CoreKingdom != null && !this.CoreKingdom.isRekt())
+        {
+            this.CoreKingdom.SetEmpireID(this.id);
+            this.CoreKingdom.GetOrCreate().isEmpire = true;
+            SyncCoreKingdomReference();
+        }
         this.EmpireClan = World.world.clans.get(pData.empire_clan);
         this.OriginalCapital = World.world.cities.get(pData.original_capital);
         this.recalculate();

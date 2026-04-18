@@ -70,6 +70,7 @@ public class SpecificClan
     public long founder { get; set; }
     public SpecificClanType clan_sex_priority { get; set; }
     public string color { get; set; } = (new Color(0.7f, 0.8f, 0.7f)).ToHexString();
+    public long ancestral_city_id { get; set; } = -1L;
     public long capital_city_id { get; set; }
     public string empire_name { get; set; }
     public float capital_city_pos_x { get; set; }
@@ -114,6 +115,25 @@ public class SpecificClan
         capital_city_pos_x = capital.city_center.x;
         capital_city_pos_y = capital.city_center.y;
     }
+    public void RecordAncestralCity(City city)
+    {
+        if (city == null || city.isRekt()) return;
+        ancestral_city_id = city.getID();
+    }
+    public City GetAncestralCity()
+    {
+        var city = World.world.cities.get(ancestral_city_id);
+        if (city != null && !city.isRekt())
+        {
+            return city;
+        }
+        city = World.world.cities.get(capital_city_id);
+        return city != null && !city.isRekt() ? city : null;
+    }
+    public bool HasAncestralCity()
+    {
+        return GetAncestralCity() != null;
+    }
     public (string name, Vector2 pos, City city) GetHistoryEmpire()
     {
         var empireName = empire_name;
@@ -151,6 +171,7 @@ public class SpecificClan
         clan_sex_priority = judgeMalePriority(actor) ? SpecificClanType.MalePriority : SpecificClanType.FemalePriority;
         clan.SetSpecificClan(this);
         color = ColorSelector.NextColor();
+        RecordAncestralCity(SpecificClanManager.GetOriginCity(actor));
     }
 
     private bool judgeMalePriority(Actor actor)
@@ -288,7 +309,7 @@ public static class SpecificClanManager
         }
     }
 
-    public static SpecificClan newSpecificClan(Actor actor, bool show_log = true)
+    public static SpecificClan newSpecificClan(Actor actor, bool show_log = false)
     {
         SpecificClan specificClan = new SpecificClan();
         specificClan.newSpecificClan(actor);
@@ -310,6 +331,24 @@ public static class SpecificClanManager
             TranslateHelper.LogOfficerBuildSpecificClan(actor, specificClan);
         }
         return specificClan;
+    }
+
+    public static City GetOriginCity(Actor actor)
+    {
+        if (actor == null) return null;
+        if (actor.hasCity()) return actor.city;
+        if (actor.current_tile != null && actor.current_tile.hasCity()) return actor.current_tile.zone_city;
+        if (actor.getParents().Any())
+        {
+            foreach (var parent in actor.getParents())
+            {
+                if (parent != null && parent.hasCity())
+                {
+                    return parent.city;
+                }
+            }
+        }
+        return null;
     }
 
     public static List<(ClanRelation, PersonalClanIdentity)> FindAllRelations(PersonalClanIdentity self)
@@ -734,7 +773,7 @@ public static class SpecificClanManager
         return identityWithRelation;
     }
 
-    public static void CheckSpecificClan(this Actor actor, bool show_log = true)
+    public static void CheckSpecificClan(this Actor actor, bool show_log = false)
     {
         if (actor.isRekt()||actor.hasDied()) return;
         if (!actor.hasClan())

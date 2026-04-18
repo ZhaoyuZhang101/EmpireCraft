@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -28,12 +29,17 @@ public static class HistoryRecordSystem
                     royal_surname = empire.Emperor?.GetSpecificClan()?.name ?? "",
                     year_name = empire.data.year_name,
                     emperor = empire.Emperor?.getName() ?? "",
-                    descriptions = new List<string>(),
-                    cities = new List<string>(),
+                    descriptions = new List<HistoryDescription>(),
                     is_first = false
                 };
             }
-            empire.data.currentHistory.descriptions.Add(empire.GetYearNameWithTime()+ "_" + directContent);
+            var description = new HistoryDescription
+            {
+                time = empire.GetYearNameWithTime(),
+                cities = empire.cities_list.Select(c=>c.name).ToList(),
+                description = directContent
+            };
+            empire.data.currentHistory.descriptions.Add(description);
             return;
         }
         string id = "";
@@ -96,12 +102,17 @@ public static class HistoryRecordSystem
                     royal_surname = empire.Emperor?.GetSpecificClan()?.name ?? "",
                     year_name = empire.data.year_name,
                     emperor = empire.Emperor?.getName() ?? "",
-                    descriptions = new List<string>(),
-                    cities = new List<string>(),
+                    descriptions = new List<HistoryDescription>(),
                     is_first = false
                 };
             }
-            empire.data.currentHistory.descriptions.Add(empire.GetYearNameWithTime()+ "_" + replacedText);
+            var description = new HistoryDescription
+            {
+                time = empire.GetYearNameWithTime(),
+                cities = empire.cities_list.Select(c=>c.name).ToList(),
+                description = replacedText
+            };
+            empire.data.currentHistory.descriptions.Add(description);
         }
     }
     
@@ -118,8 +129,7 @@ public static class HistoryRecordSystem
             emperor = empire.Emperor.getName(),
             miaohao_name = "",
             shihao_name = "",
-            descriptions = new List<string>(),
-            cities = new List<string>(),
+            descriptions = new List<HistoryDescription>(),
             is_first = isNew
         };
         if (empire.data.has_year_name)

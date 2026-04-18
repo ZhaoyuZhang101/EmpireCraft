@@ -124,6 +124,54 @@ namespace EmpireCraft.Scripts.AI
             Debug.LogWarning($"[EmpireCraftPlotsAddition] plot '{plotId}' {stage} failed for actor '{actorName}': {ex}");
         }
 
+        private static List<Kingdom> GetKingdomsRuledByActor(Actor actor)
+        {
+            List<Kingdom> result = new List<Kingdom>();
+            if (actor == null || World.world?.kingdoms == null)
+            {
+                return result;
+            }
+
+            foreach (Kingdom kingdom in World.world.kingdoms)
+            {
+                if (kingdom != null && kingdom.king == actor)
+                {
+                    result.Add(kingdom);
+                }
+            }
+
+            return result;
+        }
+
+        private static Empire FindTakenAllianceEmpireCandidate(Kingdom kingdom, bool requireGoodOpinion)
+        {
+            if (kingdom == null)
+            {
+                return null;
+            }
+
+            int kingdomWarriors = kingdom.countTotalWarriors();
+            foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+            {
+                if (empire == null || empire.IsArchived() || !empire.IsNeighbourWith(kingdom))
+                {
+                    continue;
+                }
+
+                if (requireGoodOpinion && !kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom))
+                {
+                    continue;
+                }
+
+                if (kingdomWarriors < empire.countWarriors())
+                {
+                    return empire;
+                }
+            }
+
+            return null;
+        }
+
         public static void init()
         {
             s_guardedPlotIds.Clear();
@@ -176,7 +224,7 @@ namespace EmpireCraft.Scripts.AI
                 check_is_possible = delegate(Actor pActor)
                 {
                     if (!pActor.isKing()) return false;
-                    var allKingdoms = World.world.kingdoms.ToList().FindAll(k => k.king == pActor);
+                    var allKingdoms = GetKingdomsRuledByActor(pActor);
                     if (!pActor.HasTitle()) return false;
                     if (ModClass.KINGDOM_TITLE_MANAGER.get(pActor.GetOwnedTitle()[0])?.title_capital?.kingdom?.king !=
                         pActor) return false;
@@ -185,7 +233,7 @@ namespace EmpireCraft.Scripts.AI
                 check_should_continue = delegate(Actor pActor)
                 {
                     if (!pActor.isKing()) return false;
-                    var allKingdoms = World.world.kingdoms.ToList().FindAll(k => k.king == pActor);
+                    var allKingdoms = GetKingdomsRuledByActor(pActor);
                     if (!pActor.HasTitle()) return false;
                     return allKingdoms.Count > 1;
                 },
@@ -193,7 +241,7 @@ namespace EmpireCraft.Scripts.AI
                 {
                     if (!pActor.isKing()) return false;
                     
-                    var allKingdoms = World.world.kingdoms.ToList().FindAll(k => k.king == pActor);
+                    var allKingdoms = GetKingdomsRuledByActor(pActor);
                     if (allKingdoms.Count < 2) return false;
 
                     Kingdom mainKingdom = null;
@@ -228,7 +276,11 @@ namespace EmpireCraft.Scripts.AI
                     foreach (var kingdom in allKingdoms)
                     {
                         if (kingdom == mainKingdom) continue;
-                        kingdom.cities.ToList().ForEach(c=>c.joinAnotherKingdom(mainKingdom));
+                        List<City> citiesSnapshot = new List<City>(kingdom.cities);
+                        for (int i = 0; i < citiesSnapshot.Count; i++)
+                        {
+                            citiesSnapshot[i]?.joinAnotherKingdom(mainKingdom);
+                        }
                     }
                     TranslateHelper.LogCombineKingdom(pActor);
                     return true;
@@ -418,15 +470,12 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     if (kingdom.IsInEmpire()) return false;
                     if (kingdom.HasTakenAlliance()) return false;
-                    return ModClass.EMPIRE_MANAGER
-                        .Where(empire => !empire.IsArchived() && empire.IsNeighbourWith(kingdom)&&kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom))
-                        .Any(empire => kingdom.countTotalWarriors() < empire.countWarriors());
+                    return FindTakenAllianceEmpireCandidate(kingdom, true) != null;
                 },
                 action = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
-                    Empire empire = ModClass.EMPIRE_MANAGER.Where(empire => !empire.IsArchived() && empire.IsNeighbourWith(kingdom)).ToList()
-                        .Find(empire => kingdom.countTotalWarriors() < empire.countWarriors());
+                    Empire empire = FindTakenAllianceEmpireCandidate(kingdom, false);
                     if (empire == null)
                     {
                         return false;
@@ -1006,7 +1055,7 @@ namespace EmpireCraft.Scripts.AI
                     }else
                     {
                         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(kingdom.capital);
-                        kingdom.SetMainTitle(title);
+                        kingdom.ChangeMainTitle(title);
                         foreach (City city in kingdom.cities)
                         {
                             if (city!=kingdom.capital)

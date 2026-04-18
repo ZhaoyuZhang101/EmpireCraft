@@ -23,7 +23,12 @@ public static class EmpireCraftNamePlateLibrary
     public static string additionNum => ModClass.REAL_NUM_SWITCH ? "k" : "";
     private static double _last_plate_update_ts = -1L;
     private static UnityEngine.Vector3 _last_cam_pos;
+    private static float _last_cam_size = -1f;
     private static readonly Dictionary<string, Sprite> _sliced_sprite_cache = new Dictionary<string, Sprite>(256);
+    private static readonly Dictionary<int, string> _text_cache = new Dictionary<int, string>(512);
+    private static readonly Dictionary<int, Vector3> _text_position_cache = new Dictionary<int, Vector3>(512);
+    private static readonly Dictionary<long, Vector3> _empire_position_cache = new Dictionary<long, Vector3>(128);
+    private static readonly Dictionary<long, float> _empire_position_cache_time = new Dictionary<long, float>(128);
     private static readonly List<Empire> _cached_empires = new List<Empire>();
     private static readonly List<Kingdom> _cached_kingdoms = new List<Kingdom>();
     private static readonly List<Kingdom> _cached_kingdoms_no_back = new List<Kingdom>();
@@ -35,8 +40,21 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly List<Kingdom> _render_kingdoms_no_back_buffer = new List<Kingdom>();
     private static readonly Queue<City> _empire_city_queue = new Queue<City>();
     private static readonly HashSet<long> _empire_city_visited = new HashSet<long>();
+    private static readonly HashSet<long> _empire_city_members = new HashSet<long>();
     private static readonly List<City> _empire_component_cities = new List<City>();
     private static readonly List<City> _empire_best_component_cities = new List<City>();
+    private static bool _is_camera_moving_this_frame;
+    private static Empire GetDisplayedEmpireForKingdom(Kingdom kingdom)
+    {
+        if (kingdom == null) return null;
+        if (kingdom.IsInEmpire()) return kingdom.GetEmpire();
+        if (kingdom.HasTakenAlliance()) return kingdom.GetTakenAllianceEmpire();
+        return null;
+    }
+    private static bool isCameraMoving()
+    {
+        return _is_camera_moving_this_frame;
+    }
     private static bool _shouldThrottle()
     {
         var cam = MoveCamera.instance?.main_camera;
@@ -45,13 +63,23 @@ public static class EmpireCraftNamePlateLibrary
         var now = World.world.getCurWorldTime();
         var pos = cam.transform.position;
         var moved = UnityEngine.Vector3.Distance(pos, _last_cam_pos);
+        float zoomChanged = _last_cam_size < 0f ? 0f : Mathf.Abs(cam.orthographicSize - _last_cam_size);
+        _is_camera_moving_this_frame = moved > 0.01f || zoomChanged > 0.01f;
         var heavy = (World.world.kingdoms.Count > 120) || (World.world.cities.Count > 250);
+        if (_is_camera_moving_this_frame)
+        {
+            _last_cam_pos = pos;
+            _last_cam_size = cam.orthographicSize;
+            _last_plate_update_ts = now;
+            return false;
+        }
         if (_last_plate_update_ts > 0)
         {
             var interval = heavy ? 0.35 : 0.2;
             if (now - _last_plate_update_ts < interval && moved < 0.5) return true;
         }
         _last_cam_pos = pos;
+        _last_cam_size = cam.orthographicSize;
         _last_plate_update_ts = now;
         return false;
     }
@@ -67,13 +95,16 @@ public static class EmpireCraftNamePlateLibrary
             padding_top = -2,
             action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
             {
-                if (_shouldThrottle())
+                bool throttle = _shouldThrottle();
+                if (throttle)
                 {
                     _cached_empires.Sort((a, b) => (a?.countWarriors() ?? 0).CompareTo(b?.countWarriors() ?? 0));
                     for (int i = 0; i < _cached_empires.Count; i++)
                     {
                         var empire = _cached_empires[i];
                         if (empire == null || empire.IsArchived() || empire.CoreKingdom == null) continue;
+                        Vector3 empirePos = GetEmpireDisplayPosition(empire);
+                        if (!isWithinCamera(empirePos)) continue;
                         var npt = prepareNext(pManager, pAsset, empire, 37, 12, 39, 11);
                         npt._showing = true;
                         npt.setPriority(9999999 + empire.CountPopulation());
@@ -105,45 +136,23 @@ public static class EmpireCraftNamePlateLibrary
                 switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
                 {
                     case 0:
-                        if (_shouldThrottle())
+                        if (throttle)
                         {
                             int budget = 128;
-                            if (_cached_kingdoms_no_back.Count == 0 && _cached_kingdoms.Count == 0)
+                            _cached_kingdoms_no_back.Clear();
+                            _cached_kingdoms.Clear();
+                            foreach (Kingdom kingdom in World.world.kingdoms)
                             {
-                                _cached_kingdoms_no_back.Clear();
-                                _cached_kingdoms.Clear();
-                                foreach (Kingdom kingdom in World.world.kingdoms)
+                                if (!kingdom.IsEmpire() && kingdom.hasCapital() && (kingdom.IsInEmpire() || kingdom.HasTakenAlliance()) && isWithinCamera(kingdom.capital.city_center))
                                 {
-                                    if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
-                                    {
-                                        _cached_kingdoms_no_back.Add(kingdom);
-                                    }
-                                }
-                                foreach (Kingdom kingdom in World.world.kingdoms)
-                                {
-                                    if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
-                                    {
-                                        _cached_kingdoms.Add(kingdom);
-                                    }
+                                    _cached_kingdoms_no_back.Add(kingdom);
                                 }
                             }
-                            else
+                            foreach (Kingdom kingdom in World.world.kingdoms)
                             {
-                                _cached_kingdoms_no_back.Clear();
-                                _cached_kingdoms.Clear();
-                                foreach (Kingdom kingdom in World.world.kingdoms)
+                                if (kingdom.hasCapital() && !kingdom.IsInEmpire() && !kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
                                 {
-                                    if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center) && !_cached_kingdoms_no_back.Contains(kingdom))
-                                    {
-                                        _cached_kingdoms_no_back.Add(kingdom);
-                                    }
-                                }
-                                foreach (Kingdom kingdom in World.world.kingdoms)
-                                {
-                                    if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center) && !_cached_kingdoms.Contains(kingdom))
-                                    {
-                                        _cached_kingdoms.Add(kingdom);
-                                    }
+                                    _cached_kingdoms.Add(kingdom);
                                 }
                             }
                             for (int i = 0; i < _cached_kingdoms_no_back.Count && _render_kingdoms_no_back_buffer.Count < budget; i++)
@@ -165,14 +174,14 @@ public static class EmpireCraftNamePlateLibrary
                             _cached_kingdoms.Clear();
                             foreach (Kingdom kingdom in World.world.kingdoms)
                             {
-                                if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
+                                if (!kingdom.IsEmpire() && kingdom.hasCapital() && (kingdom.IsInEmpire() || kingdom.HasTakenAlliance()) && isWithinCamera(kingdom.capital.city_center))
                                 {
                                     _cached_kingdoms_no_back.Add(kingdom);
                                 }
                             }
                             foreach (Kingdom kingdom in World.world.kingdoms)
                             {
-                                if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
+                                if (kingdom.hasCapital() && !kingdom.IsInEmpire() && !kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
                                 {
                                     _cached_kingdoms.Add(kingdom);
                                 }
@@ -182,16 +191,14 @@ public static class EmpireCraftNamePlateLibrary
                         }
                         break;
                     case 1:
-                        if (_shouldThrottle())
+                        if (throttle)
                         {
-                            if (_cached_kingdoms_no_back.Count == 0)
+                            _cached_kingdoms_no_back.Clear();
+                            foreach (Kingdom kingdom in World.world.kingdoms)
                             {
-                                foreach (Kingdom kingdom in World.world.kingdoms)
+                                if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
                                 {
-                                    if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
-                                    {
-                                        _cached_kingdoms_no_back.Add(kingdom);
-                                    }
+                                    _cached_kingdoms_no_back.Add(kingdom);
                                 }
                             }
                             for (int i = 0; i < _cached_kingdoms_no_back.Count && _render_kingdoms_no_back_buffer.Count < 128; i++)
@@ -215,16 +222,14 @@ public static class EmpireCraftNamePlateLibrary
                         }
                         break;
                     case 2:
-                        if (_shouldThrottle())
+                        if (throttle)
                         {
-                            if (_cached_kingdoms_no_back.Count == 0)
+                            _cached_kingdoms_no_back.Clear();
+                            foreach (Kingdom kingdom in World.world.kingdoms)
                             {
-                                foreach (Kingdom kingdom in World.world.kingdoms)
+                                if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.HasGivenAlliance() && isWithinCamera(kingdom.capital.city_center))
                                 {
-                                    if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.HasGivenAlliance() && isWithinCamera(kingdom.capital.city_center))
-                                    {
-                                        _cached_kingdoms_no_back.Add(kingdom);
-                                    }
+                                    _cached_kingdoms_no_back.Add(kingdom);
                                 }
                             }
                             for (int i = 0; i < _cached_kingdoms_no_back.Count && _render_kingdoms_no_back_buffer.Count < 128; i++)
@@ -282,12 +287,14 @@ public static class EmpireCraftNamePlateLibrary
             padding_top = -2,
             action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
             {
-                if (_shouldThrottle())
+                bool throttle = _shouldThrottle();
+                if (throttle)
                 {
                     for (int i = 0; i < _cached_titles.Count; i++)
                     {
                         var t = _cached_titles[i];
                         if (t == null || t.isRekt() || t.title_capital == null || t.title_capital.isRekt()) continue;
+                        if (!isWithinCamera(t.title_capital.city_center)) continue;
                         var npt = prepareNext(pManager, pAsset, t, 37, 12, 39, 11);
                         showTextTitle(npt, t.title_capital);
                     }
@@ -295,6 +302,7 @@ public static class EmpireCraftNamePlateLibrary
                     {
                         var c = _cached_cities_no_title[i];
                         if (c == null || c.isRekt()) continue;
+                        if (!isWithinCamera(c.city_center)) continue;
                         var npt = pManager.prepareNext(AssetManager.nameplates_library._plate_city, c);
                         showTextCity(npt, c, c.city_center);
                     }
@@ -338,7 +346,8 @@ public static class EmpireCraftNamePlateLibrary
             action_main = delegate(NameplateManager pManager, NameplateAsset _)
             {
                 int num = 0;
-                if (_shouldThrottle())
+                bool throttle = _shouldThrottle();
+                if (throttle)
                 {
                     for (int i = 0; i < _cached_cities.Count && num < _.max_nameplate_count; i++)
                     {
@@ -415,7 +424,8 @@ public static class EmpireCraftNamePlateLibrary
             map_mode = MetaType.Kingdom,
             action_main = delegate(NameplateManager pManager, NameplateAsset pAsset)
             {
-                if (_shouldThrottle())
+                bool throttle = _shouldThrottle();
+                if (throttle)
                 {
                     int budget = 128;
                     int processed = 0;
@@ -423,6 +433,7 @@ public static class EmpireCraftNamePlateLibrary
                     {
                         var kingdom = _cached_kingdoms[i];
                         if (kingdom == null || kingdom.isRekt() || !kingdom.hasCapital()) continue;
+                        if (!isWithinCamera(kingdom.capital.city_center)) continue;
                         NameplateText nameplateText = pManager.prepareNext(pAsset, kingdom);
                         showTextKingdom(nameplateText, kingdom);
                         if (++processed >= budget) break;
@@ -431,6 +442,7 @@ public static class EmpireCraftNamePlateLibrary
                     {
                         var city = _cached_neutral_cities[i];
                         if (city == null || city.isRekt()) continue;
+                        if (!isWithinCamera(city.city_center)) continue;
                         var npt = pManager.prepareNext(AssetManager.nameplates_library._plate_city, city);
                         showTextCity(npt, city, city.city_center);
                         if (++processed >= budget) break;
@@ -494,7 +506,7 @@ public static class EmpireCraftNamePlateLibrary
             string str2 = num.ToString();
             pNewText = $"{str1} | w{str2}";
         }
-        npt.setText(pNewText, (Vector3) pMetaObject.capital.city_center);
+        setTextIfChanged(npt, pNewText, (Vector3)pMetaObject.capital.city_center);
         // 给文字加蓝色边框（描边）
         var outline = npt._text_name.GetComponent<Outline>();
         if (outline != null)
@@ -519,8 +531,16 @@ public static class EmpireCraftNamePlateLibrary
     }	
     public static void showTextKingdomNoBack(NameplateText npt, Kingdom pMetaObject)
     {
-        npt.setupMeta(pMetaObject.data, pMetaObject.getColor());
+        var displayedEmpire = GetDisplayedEmpireForKingdom(pMetaObject);
+        var displayColor = pMetaObject.HasTakenAlliance() && displayedEmpire?.CoreKingdom != null
+            ? displayedEmpire.CoreKingdom.getColor()
+            : pMetaObject.getColor();
+        npt.setupMeta(pMetaObject.data, displayColor);
         string pNewText = $"{pMetaObject.name} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
+        if (pMetaObject.HasTakenAlliance() && displayedEmpire != null)
+        {
+            pNewText += $"\n朝贡对象: {displayedEmpire.GetEmpireName()}";
+        }
         switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
         {
             case 0:
@@ -545,14 +565,14 @@ public static class EmpireCraftNamePlateLibrary
             case 2:
                 break;
         }
-        npt.setText(pNewText, pMetaObject.capital.city_center);
+        setTextIfChanged(npt, pNewText, pMetaObject.capital.city_center);
         npt._background_image.enabled = false;
         npt.priority_population = pMetaObject.units.Count;
         npt.showSpecies(pMetaObject.getSpriteIcon());
         npt._show_banner_kingdom = false;
         npt._show_banner_clan = false;
         npt._text_name.supportRichText = true;
-        if (pMetaObject.IsInEmpire())
+        if (pMetaObject.IsInEmpire() || pMetaObject.HasTakenAlliance())
         {
             npt._text_name.color = Color.white;
         }
@@ -625,7 +645,7 @@ public static class EmpireCraftNamePlateLibrary
                 text = text + " | F" + pMetaObject.getTotalFood();
             }
         }
-        npt.setText(text, pPosition);
+        setTextIfChanged(npt, text, pPosition);
         Subspecies mainSubspecies = null;
         try
         {
@@ -782,6 +802,34 @@ public static class EmpireCraftNamePlateLibrary
         }
         return pObject2.units.Count.CompareTo(pObject1.units.Count);
     }
+
+    private static void setTextIfChanged(NameplateText npt, string text, Vector3 position)
+    {
+        if (npt == null)
+        {
+            return;
+        }
+
+        if (isCameraMoving())
+        {
+            npt.setText(text, position);
+            return;
+        }
+
+        int cacheKey = npt.GetInstanceID();
+        if (_text_cache.TryGetValue(cacheKey, out string lastText)
+            && _text_position_cache.TryGetValue(cacheKey, out Vector3 lastPosition)
+            && lastText == text
+            && (lastPosition - position).sqrMagnitude <= 0.0001f)
+        {
+            return;
+        }
+
+        npt.setText(text, position);
+        _text_cache[cacheKey] = text;
+        _text_position_cache[cacheKey] = position;
+    }
+
     [Hotfixable]
     public static void showTextEmpire(NameplateText plateText, Kingdom pMetaObject)
     {
@@ -843,7 +891,7 @@ public static class EmpireCraftNamePlateLibrary
 
         }
 
-        plateText.setText(text, GetEmpireDisplayPosition(empire));
+        setTextIfChanged(plateText, text, GetEmpireDisplayPosition(empire));
         plateText._text_name.supportRichText = true;
         plateText._text_name.fontStyle = FontStyle.Bold;
         // 给文字加蓝色边框（描边）
@@ -879,16 +927,35 @@ public static class EmpireCraftNamePlateLibrary
         {
             return new Vector2(99, 99);
         }
+        long empireId = empire.id;
+        float now = Time.unscaledTime;
+        if (!isCameraMoving()
+            && _empire_position_cache.TryGetValue(empireId, out Vector3 cachedPosition)
+            && _empire_position_cache_time.TryGetValue(empireId, out float cachedTime)
+            && now - cachedTime <= 0.25f)
+        {
+            return cachedPosition;
+        }
 
         List<City> cities = empire.AllCities();
         if (cities == null || cities.Count <= 0)
         {
-            return empire.CoreKingdom?.capital?.city_center ?? new Vector2(99, 99);
+            Vector3 fallback = empire.CoreKingdom?.capital?.city_center ?? new Vector2(99, 99);
+            _empire_position_cache[empireId] = fallback;
+            _empire_position_cache_time[empireId] = now;
+            return fallback;
         }
 
         _empire_city_visited.Clear();
+        _empire_city_members.Clear();
         _empire_best_component_cities.Clear();
         int bestWeight = -1;
+        for (int i = 0; i < cities.Count; i++)
+        {
+            City city = cities[i];
+            if (city == null || city.isRekt()) continue;
+            _empire_city_members.Add(city.getID());
+        }
 
         for (int i = 0; i < cities.Count; i++)
         {
@@ -914,8 +981,8 @@ public static class EmpireCraftNamePlateLibrary
                 foreach (City neighbour in current.neighbours_cities)
                 {
                     if (neighbour == null || neighbour.isRekt()) continue;
-                    if (!cities.Contains(neighbour)) continue;
                     long neighbourId = neighbour.getID();
+                    if (!_empire_city_members.Contains(neighbourId)) continue;
                     if (!_empire_city_visited.Add(neighbourId)) continue;
                     _empire_city_queue.Enqueue(neighbour);
                     _empire_component_cities.Add(neighbour);
@@ -932,7 +999,10 @@ public static class EmpireCraftNamePlateLibrary
 
         if (_empire_best_component_cities.Count <= 0)
         {
-            return empire.GetEmpireCenter();
+            Vector3 fallback = empire.GetEmpireCenter();
+            _empire_position_cache[empireId] = fallback;
+            _empire_position_cache_time[empireId] = now;
+            return fallback;
         }
 
         float avgX = 0f;
@@ -958,7 +1028,10 @@ public static class EmpireCraftNamePlateLibrary
 
         if (zoneCount <= 0)
         {
-            return _empire_best_component_cities[0]?.city_center ?? empire.GetEmpireCenter();
+            Vector3 fallback = _empire_best_component_cities[0]?.city_center ?? empire.GetEmpireCenter();
+            _empire_position_cache[empireId] = fallback;
+            _empire_position_cache_time[empireId] = now;
+            return fallback;
         }
 
         avgX /= zoneCount;
@@ -986,10 +1059,15 @@ public static class EmpireCraftNamePlateLibrary
         {
             Vector3 center = nearestZone.centerTile.posV3;
             center.y += 2f;
+            _empire_position_cache[empireId] = center;
+            _empire_position_cache_time[empireId] = now;
             return center;
         }
 
-        return _empire_best_component_cities[0]?.city_center ?? empire.GetEmpireCenter();
+        Vector3 result = _empire_best_component_cities[0]?.city_center ?? empire.GetEmpireCenter();
+        _empire_position_cache[empireId] = result;
+        _empire_position_cache_time[empireId] = now;
+        return result;
     }
 
     public static void showTextTitle(NameplateText plateText, City capital)
@@ -1001,7 +1079,7 @@ public static class EmpireCraftNamePlateLibrary
         {
             plateText.setupMeta(capital.data, capital.GetTitle().getColor());
             string text = capital.GetTitle().data.name;
-            plateText.setText(text, capital.city_center);
+            setTextIfChanged(plateText, text, capital.city_center);
             plateText._text_name.fontStyle = FontStyle.Bold;
             plateText._text_name.transform.localPosition = Vector3.zero;
             plateText._text_name.transform.localScale = Vector3.one * 1.5f;

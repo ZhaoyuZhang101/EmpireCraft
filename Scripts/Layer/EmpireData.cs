@@ -64,6 +64,7 @@ public class EmpireData : MetaObjectData
     public bool has_year_name = false;
 
     public long empire;
+    public long last_core_kingdom_id { get; set; } = -1L;
     public long original_capital;
 
     public double timestamp_member_joined;
@@ -137,8 +138,14 @@ public class EmpireCraftHistory
     public string shihao_name { get; set; }
     public int total_time { get; set; }
 
-    public List<string> descriptions;
+    public List<HistoryDescription> descriptions =  new List<HistoryDescription>();
+}
+
+public class HistoryDescription
+{
+    public string time;
     public List<string> cities;
+    public string description;
 }
 
 public class EmpireCore

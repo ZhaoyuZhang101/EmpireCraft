@@ -960,15 +960,15 @@ public static class ActorExtension
             {
                 if (direct != -1)
                 {
-                    var original = identity.honoraryOfficial;
-                    if (original != direct)
-                    {
-                        //LogService.LogInfo("升官");
-                        if (direct <= 1)
-                        {
-                            TranslateHelper.LogOfficeMove(a, identity.peerageType, direct);
-                        }
-                    }
+                    // var original = identity.honoraryOfficial;
+                    // if (original != direct)
+                    // {
+                    //     // //LogService.LogInfo("升官");
+                    //     // if (direct <= 1)
+                    //     // {
+                    //     //     TranslateHelper.LogOfficeMove(a, identity.peerageType, direct);
+                    //     // }
+                    // }
                     identity.honoraryOfficial = direct;
                 }
                 else
@@ -1278,7 +1278,7 @@ public static class ActorExtension
             {
                 if (a.kingdom.GetKingdomName()==title.data.name)
                 {
-                    a.kingdom.data.name = a.kingdom.capital.name;
+                    a.kingdom.data.name = a.kingdom.capital.GetCityName();
                     a.kingdom.EmpireLeave();
                 }
                 if (a.kingdom.GetMainTitle() == title)

@@ -304,6 +304,12 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         {
             return false;
         }
+        this.city_list_hash ??= new HashSet<City>();
+        this.city_list ??= new List<City>();
+        if (this.city_list.Count != this.city_list_hash.Count || this.city_list.Any(c => c == null))
+        {
+            this.recalculate();
+        }
         List<City> cities = this.city_list;
         if (cities.Count <= 0)
         {
@@ -312,7 +318,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         List<City> needRemove = new List<City>();
         foreach (City city in cities) 
         {
-            if (!city.isAlive())
+            if (city == null || city.isRekt() || !city.isAlive())
             {
                 needRemove.Add(city);
                 tChanged = true;
@@ -320,14 +326,52 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         }
         foreach (City city in needRemove) 
         {
-            city.RemoveTitle();
+            if (city != null && !city.isRekt())
+            {
+                city.RemoveTitle();
+            }
+            this.city_list_hash.Remove(city);
             this.city_list.Remove(city);
         }
         if (city_list.Count > 0)
         {
-            if (this.title_capital.isRekt())
+            if (this.title_capital == null || this.title_capital.isRekt() || !this.city_list_hash.Contains(this.title_capital))
             {
                 this.title_capital = city_list.First();
+                tChanged = true;
+            }
+        }
+        if (this.owner != null && this.owner.isRekt())
+        {
+            this.owner = null;
+            tChanged = true;
+        }
+        if (this.main_kingdom != null && (this.main_kingdom.isRekt() || this.main_kingdom.GetMainTitle() != this))
+        {
+            this.main_kingdom = null;
+            tChanged = true;
+        }
+        if (this.title_capital != null && !this.title_capital.isRekt())
+        {
+            if (string.IsNullOrWhiteSpace(this.data.province_name))
+            {
+                this.data.province_name = this.title_capital.GetCityName();
+                tChanged = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(this.data.name))
+            {
+                var titleName = this.title_capital.SelectKingdomName();
+                if (string.IsNullOrWhiteSpace(titleName))
+                {
+                    titleName = this.title_capital.kingdom?.GetKingdomName();
+                }
+                if (string.IsNullOrWhiteSpace(titleName))
+                {
+                    titleName = this.title_capital.GetCityName();
+                }
+                this.data.name = titleName ?? "";
+                tChanged = true;
             }
         }
         if (tChanged)

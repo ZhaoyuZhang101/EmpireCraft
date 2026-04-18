@@ -17,7 +17,6 @@ public enum KingdomType
     Arabic_emirate,
     Arabic_province,
     Arabic_sultanate,
-    CustomRegimeTemplate_county,
     Feudalism_county,
     Feudalism_duchy,
     Feudalism_empire,
@@ -57,7 +56,6 @@ public enum ArmyOfficialType
 public enum CityType
 {
     Arabic_city,
-    CustomRegimeTemplate_city,
     Feudalism_city,
     Feudalism_dirC,
     Feudalism_religion_district,

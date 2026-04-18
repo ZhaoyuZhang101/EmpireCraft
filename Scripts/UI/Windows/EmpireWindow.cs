@@ -207,11 +207,19 @@ namespace EmpireCraft.Scripts.UI.Windows
             titleText.Setup(text, TextAnchor.MiddleCenter, new Vector2(50, 50));
             titleText.background.enabled = false;
             parent.AddChild(titleText.gameObject);
-            var lasDes = "xx_xx";
-            foreach (var d in currentHistory.descriptions)
+            if (currentHistory.descriptions != null)
             {
-                ListHistoryDescriptions(lasDes, d, parent);
-                lasDes = d;
+                HistoryDescription lasDes = new HistoryDescription()
+                {
+                    cities = new  List<string>(),
+                    description = "",
+                    time = ""
+                };
+                foreach (var d in currentHistory.descriptions)
+                {
+                    EmpireHistoryWindow.ListHistoryDescriptions(lasDes, d, parent);
+                    lasDes = d;
+                }
             }
         }
         //显示行政窗口
@@ -312,17 +320,6 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 _empire.SetEmpireName(name);
             }
-        }
-
-        public void ListHistoryDescriptions(string lastDescription, string description, AutoVertLayoutGroup parent)
-        {
-            (string time, string describe) lsDes = (lastDescription.Split('_')[0], lastDescription.Split('_')[1]);
-            (string time, string describe) des = (description.Split('_')[0], description.Split('_')[1]);
-            if (lsDes.time != des.time)
-            {
-                parent.AddTextIntoVertLayout(des.time.ColorString(pColor:new Color(0.5f, 0.8f, 1.0f)), true, TextAnchor.MiddleCenter, new Vector2(50, 20));
-            }
-            parent.AddTextIntoVertLayout(des.describe, false, TextAnchor.MiddleLeft, new Vector2(200, 10));
         }
 
         public void AddIntoGroup(string title, GameObject obj)

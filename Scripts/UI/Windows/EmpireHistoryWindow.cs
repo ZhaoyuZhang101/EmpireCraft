@@ -78,7 +78,12 @@ namespace EmpireCraft.Scripts.UI.Windows
             parent.AddChild(titleText.gameObject);
             if (currentHistory.descriptions != null)
             {
-                var lasDes = "xx_xx";
+                HistoryDescription lasDes = new HistoryDescription()
+                {
+                    cities = new  List<string>(),
+                    description = "",
+                    time = ""
+                };
                 foreach (var d in currentHistory.descriptions)
                 {
                     ListHistoryDescriptions(lasDes, d, parent);
@@ -86,15 +91,41 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }
             }
         }
-        public void ListHistoryDescriptions(string lastDescription, string description, AutoVertLayoutGroup parent)
+        public static void ListHistoryDescriptions(HistoryDescription lastDesc, HistoryDescription desc, AutoVertLayoutGroup parent)
         {
-            (string time, string describe) lsDes = (lastDescription.Split('_')[0], lastDescription.Split('_')[1]);
-            (string time, string describe) des = (description.Split('_')[0], description.Split('_')[1]);
-            if (lsDes.time != des.time)
+            if (lastDesc.time != desc.time)
             {
-                parent.AddTextIntoVertLayout(des.time.ColorString(pColor:new Color(0.5f, 0.8f, 1.0f)), false, TextAnchor.MiddleCenter, new Vector2(50, 23));
+                parent.AddTextIntoVertLayout(desc.time.ColorString(pColor:new Color(0.5f, 0.8f, 1.0f)), false, TextAnchor.MiddleCenter, new Vector2(50, 23));
+                string content = "";
+                string com = "";
+                int init = 0;
+                foreach (var city in desc.cities)
+                {
+                    init++;
+                    com = init<desc.cities.Count? ", ": "";
+                    if (!lastDesc.cities.Contains(city))
+                    {
+                        content+= city.ColorString(pColor:new Color(0.4f, 0.8f, 0.4f)) +$"({LM.Get("obtain_city")})"+ com;
+                    }
+                    else
+                    {
+                        content += city +　com;
+                    }
+                }
+                
+                foreach (var lCity in lastDesc.cities)
+                {
+                    com = string.IsNullOrEmpty(content) ? "" : ", ";
+                    if (!desc.cities.Contains(lCity))
+                    {
+                        content += com + lCity.ColorString(pColor:new Color(1.0f, 0.3f, 0.3f)) +$"({LM.Get("lost_city")})";
+                    }
+                }
+                var cityChangeText = parent.AddTextIntoVertLayout(content, false, TextAnchor.MiddleCenter, new Vector2(200, 15));
+                cityChangeText.UseFixedFontSize(8);
+                cityChangeText.RefreshAutoHeight(15);
             }
-            parent.AddTextIntoVertLayout(des.describe, false, TextAnchor.MiddleLeft, new Vector2(200, 10));
+            parent.AddTextIntoVertLayout(desc.description, false, TextAnchor.MiddleLeft, new Vector2(200, 10));
         }
     }
 }

@@ -72,13 +72,10 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         {
             return;
         }
-        if (pKingdom.hasKing())
+        var preferredTitle = pKingdom.GetPreferredMainTitleCandidate();
+        if (preferredTitle != null)
         {
-            var king = pKingdom.king;
-            if (king.GetMainTitle() != null)
-            {
-                pKingdom.SetMainTitle(king.GetMainTitle());
-            }
+            pKingdom.ChangeMainTitle(preferredTitle);
         }
     }
     public void CheckJoinWar(Kingdom pKingdom)

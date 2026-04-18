@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 namespace EmpireCraft.Scripts.System;
 public class PerformanceEvent
 {
+    internal static readonly Random s_random = new Random();
     public PerformanceEventType eventType { get; set; }
     public bool is_good { get; set; }
     public double trigger_rate { get; set; }
@@ -19,12 +20,12 @@ public class PerformanceEvent
 
     public double trigger(Actor actor)
     {
-        Random rand = new Random();
         double minDouble = 0;
         double maxDouble = performance_add_on;
-        double randomDouble = rand.NextDouble() * (maxDouble - minDouble) + minDouble;
-        actor.GetIdentity().OfficePerformance += randomDouble;
-        return actor.GetIdentity().OfficePerformance;
+        double randomDouble = s_random.NextDouble() * (maxDouble - minDouble) + minDouble;
+        var identity = actor.GetIdentity();
+        identity.OfficePerformance += randomDouble;
+        return identity.OfficePerformance;
     }
 }
 public class PerformanceEvents
@@ -96,6 +97,10 @@ public class PerformanceEvents
         List<(PerformanceEvent e, double weight)> weightedList = new List<(PerformanceEvent, double)>();
         double performance = 0;
         if (events == null) return (null, 0);
+        var identity = actor?.GetIdentity();
+        bool hasIdentity = identity != null;
+        int officialLevel = hasIdentity ? identity.officialLevel : -1;
+        double totalWeight = 0;
         foreach (var pair in events)
         {
             double weight = pair.Value.trigger_rate;
@@ -106,22 +111,22 @@ public class PerformanceEvents
             } else if (pair.Value.official_levels.Count == 0)
             {
                 flag = true;
-            } else if (actor.GetIdentity()==null) 
+            } else if (!hasIdentity) 
             {
                 flag = false;
             }
-            else if (pair.Value.official_levels.Contains(actor.GetIdentity().officialLevel))
+            else if (pair.Value.official_levels.Contains(officialLevel))
             {
                 flag = true;
             }
             if (weight > 0.001 && flag)
             {
                 weightedList.Add((pair.Value, weight));
+                totalWeight += weight;
             }
         }
         if (weightedList.Count == 0) return (null, 0);
-        double totalWeight = weightedList.Sum(item => item.weight);
-        double rand = new Random().NextDouble() * totalWeight;
+        double rand = PerformanceEvent.s_random.NextDouble() * totalWeight;
         double cumulative = 0.0;
         foreach (var item in weightedList)
         {

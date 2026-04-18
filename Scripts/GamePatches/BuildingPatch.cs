@@ -52,6 +52,6 @@ public class BuildingPatch: GamePatch
         bool pMetallicWeapon,
         bool pCheckDamageReduction)
     {
-        return !EmpireCraftWorldLawLibrary.empirecraft_law_prevent_building_destroy.isEnabled() || __instance.asset.building_type != BuildingType.Building_Civ || __instance.asset.tower_attack_buildings;
+        return !EmpireCraftWorldLawLibrary.empirecraft_law_prevent_building_destroy.isEnabled() || __instance.asset.building_type != BuildingType.Building_Civ || __instance.asset.tower;
     }
 }

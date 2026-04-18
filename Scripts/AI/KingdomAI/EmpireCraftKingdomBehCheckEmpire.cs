@@ -172,7 +172,6 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     /// <returns></returns>
     public void CheckPossible(Kingdom pKingdom)
     {
-        ModClass.EMPIRE_MANAGER.update(-1L);
         if (pKingdom.isRekt()) return;
         Empire empire = pKingdom.GetEmpire();
         if (empire != null)
@@ -195,9 +194,15 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (pKingdom.IsEmpire()) return ;
         if (pKingdom.IsInEmpire()) return ;
         if (!pKingdom.HasMainTitle()) return ; //if a kingdom has main title, then it could become an empire
-        ModClass.EMPIRE_MANAGER.update(-1L);
-        var num = ModClass.EMPIRE_MANAGER.ToList().FindAll(e=>!e.IsArchived() && !e.isRekt()&&!e.CoreKingdom.isRekt())
-            .FindAll(e => e.CoreKingdom.getSpecies() == pKingdom.getSpecies()).Sum(e => e.getUnits().Count());
+        int num = 0;
+        foreach (var e in ModClass.EMPIRE_MANAGER)
+        {
+            if (e == null || e.IsArchived() || e.isRekt()) continue;
+            var core = e.CoreKingdom;
+            if (core == null || core.isRekt()) continue;
+            if (core.getSpecies() != pKingdom.getSpecies()) continue;
+            num += e.getUnits().Count();
+        }
         var flag = num > 0 && pKingdom.units.Count > num;
         if (pKingdom.CanBecomeEmpire() || flag)
         {

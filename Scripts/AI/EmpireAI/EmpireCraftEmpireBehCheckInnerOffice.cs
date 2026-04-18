@@ -39,10 +39,13 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
         var center = empire.data.centerOffice;
         if (center == null) return;
         empire.data.additions = new EmpireAddition();
-        var office = center.GetAllOffices(empire);
-        if (office == null) return;
-        office.Shuffle();
-        office.ForEach(o=>o.DetectPower(empire));
+        var offices = center.GetAllOffices(empire);
+        if (offices == null) return;
+        offices.Shuffle();
+        for (int i = 0; i < offices.Count; i++)
+        {
+            offices[i]?.DetectPower(empire);
+        }
     }
     private void StartCalcOfficePerformance(Empire pEmpire)
     {
@@ -57,6 +60,8 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
             List<Actor> officers = center.GetAllOfficers(pEmpire);
             if (officers.Count > 0)
             {
+                double sumPerformance = 0;
+                double sumSquares = 0;
                 foreach (Actor actor in officers)
                 {
                     OfficeIdentity identity = actor.GetIdentity();
@@ -66,14 +71,20 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
                     actor.editRenown((int)(performance.pValue*0.4));
                     //记录事件
                     pData[actor] = performance.pValue;
-                    actor.GetIdentity().TotalPerformance += performance.pValue;
+                    identity.TotalPerformance += performance.pValue;
+                    sumPerformance += performance.pValue;
+                    sumSquares += performance.pValue * performance.pValue;
                     // LogService.LogInfo($"{actor.name}{performance.pEvent.is_good}{performance.pEvent.eventType}绩效增加{performance.pValue},当前绩效{actor.GetIdentity().TotalPerformance}");
                     actor.ResetPerformance();
                 }
-                if (pData.Values.Count > 0)
+                if (pData.Count > 0)
                 {
-                    double averagePerformance = pData.Values.Average();
-                    double variancePerformance = pData.Values.Select(x => Math.Pow(x - averagePerformance, 2)).Average(); // 计算方差
+                    double averagePerformance = sumPerformance / pData.Count;
+                    double variancePerformance = (sumSquares / pData.Count) - averagePerformance * averagePerformance;
+                    if (variancePerformance < 0)
+                    {
+                        variancePerformance = 0;
+                    }
                     double standardDeviationPerformance = Math.Sqrt(variancePerformance); // 计算标准方差
                     foreach (var item in pData)
                     {
@@ -109,11 +120,13 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
         if (coreKingdom == null) return;
         var center = pEmpire.data.centerOffice;
         if (center == null) return;
+        var emperor = pEmpire.Emperor;
         foreach (var core in center.CoreOffices)
         {
             if (OfficeManager.Offices.TryGetValue(core, out var value))
             {
-                if (value.GetOnTime() > 3||value.GetOnTime()<0)
+                int onTime = value.GetOnTime();
+                if (onTime > 3 || onTime < 0)
                 {
                     value.Select(coreKingdom);
                 }
@@ -123,7 +136,8 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
         {
             if (OfficeManager.Offices.TryGetValue(division, out var value))
             {
-                if (value.GetOnTime() > 3||value.GetOnTime()<0)
+                int onTime = value.GetOnTime();
+                if (onTime > 3 || onTime < 0)
                 {
                     value.Select(coreKingdom);
                 }
@@ -133,7 +147,6 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
         {
             if (OfficeManager.Offices.TryGetValue(harem, out var value))
             {
-                var emperor = pEmpire.Emperor;
                 if (emperor != null && !emperor.isRekt())
                 {
                     if (value.officeType == 13)
@@ -146,7 +159,8 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
                     else
                     {
                         var actor = value.GetActor();
-                        if (value.GetOnTime() < 0 || (actor != null && actor.age > 35))
+                        int onTime = value.GetOnTime();
+                        if (onTime < 0 || (actor != null && actor.age > 35))
                         {
                             value.Select(coreKingdom);
                         }

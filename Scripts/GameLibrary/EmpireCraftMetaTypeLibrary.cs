@@ -70,6 +70,23 @@ public static class EmpireCraftMetaTypeLibrary
               foreach (var kingdom in World.world.kingdoms)
               { 
                 if (kingdom.IsInEmpire()) continue;
+                if (kingdom.HasTakenAlliance())
+                {
+                  var takenEmpire = kingdom.GetTakenAllianceEmpire();
+                  if (takenEmpire != null && !takenEmpire.isRekt() && !takenEmpire.IsArchived())
+                  {
+                    foreach (City city in kingdom.cities)
+                    {
+                      foreach (TileZone zone in city.zones)
+                      {
+                        zone_manager.drawBegin();
+                        drawZoneEmpireWithKingdomBorder(zone, takenEmpire);
+                        zone_manager.drawEnd(zone);
+                      }
+                    }
+                    continue;
+                  }
+                }
                 drawDefaultMeta(kingdom.meta_type_asset);
               }
               foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
@@ -226,12 +243,17 @@ public static class EmpireCraftMetaTypeLibrary
           Kingdom kingdomOnZone = pZone.city?.kingdom;
           if (kingdomOnZone==null)
             return null;
-          return kingdomOnZone.IsInEmpire() ? kingdomOnZone.GetEmpire(): null;
+          if (kingdomOnZone.IsInEmpire()) return kingdomOnZone.GetEmpire();
+          if (kingdomOnZone.HasTakenAlliance()) return kingdomOnZone.GetTakenAllianceEmpire();
+          return null;
         });
         pAsset13.tile_get_metaobject_0 = (MetaZoneGetMetaSimple) (pZone =>
         {
           Kingdom kingdom = pZone?.city?.kingdom;
-          return kingdom?.GetEmpire();
+          if (kingdom == null) return null;
+          if (kingdom.IsInEmpire()) return kingdom.GetEmpire();
+          if (kingdom.HasTakenAlliance()) return kingdom.GetTakenAllianceEmpire();
+          return null;
         });
         pAsset13.tile_get_metaobject_1 = (MetaZoneGetMetaSimple) (pZone => ZoneMetaDataVisualizer.getZoneMetaData(pZone).meta_object);
         pAsset13.tile_get_metaobject_2 = (MetaZoneGetMetaSimple) (pZone => ZoneMetaDataVisualizer.getZoneMetaData(pZone).meta_object);
@@ -469,8 +491,7 @@ public static class EmpireCraftMetaTypeLibrary
       if (!pTile.hasCity()) return false;
       if (!pTile.zone_city.hasKingdom()) return false;
       var kingdom = pTile.zone_city.kingdom;
-      if (!kingdom.IsInEmpire()) return false;
-      Empire pEmpire = kingdom.GetEmpire();
+      Empire pEmpire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : kingdom.GetTakenAllianceEmpire();
       if (pEmpire == null || pEmpire.isRekt() || pEmpire.IsArchived()) return false;
       selected_empire = pEmpire;
       SelectedMetas.selected_kingdom = selected_empire.CoreKingdom;
@@ -573,7 +594,11 @@ public static class EmpireCraftMetaTypeLibrary
     }
     public static Empire getEmpireOnZone(TileZone pZone)
     {
-	    return pZone.city?.kingdom?.GetEmpire();
+      Kingdom kingdom = pZone.city?.kingdom;
+      if (kingdom == null) return null;
+      if (kingdom.IsInEmpire()) return kingdom.GetEmpire();
+      if (kingdom.HasTakenAlliance()) return kingdom.GetTakenAllianceEmpire();
+	    return null;
     } 
     public static bool isBorderColor_empire(
         TileZone pZone,
@@ -583,7 +608,7 @@ public static class EmpireCraftMetaTypeLibrary
     {
         if (pZone == null)
           return true;
-        NanoObject empireOnZone = (NanoObject) pZone.city?.kingdom?.GetEmpire();
+        NanoObject empireOnZone = (NanoObject) getEmpireOnZone(pZone);
         return empireOnZone == null || empireOnZone != pEmpire;
     }
     

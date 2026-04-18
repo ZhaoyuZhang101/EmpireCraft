@@ -160,10 +160,6 @@ public class WarPatch: GamePatch
                             Kingdom kingdom = pWar.getMainAttacker();
                             if (kingdom != null)
                             {
-                                if (!kingdom.HasMainTitle())
-                                {
-                                    kingdom.SetMainTitle(title);
-                                }
                                 title.SetOwner(kingdom.king);
                                 kingdom.king.AddOwnedTitle(title);
                                 TranslateHelper.LogKingTakeTitle(kingdom, title);

@@ -290,6 +290,21 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         {
             kingdomFront = pKingdom.GetEmpire()?.GetEmpireName();
         }
+        if (string.IsNullOrWhiteSpace(kingdomFront))
+        {
+            if (pKingdom.HasMainTitle() && !string.IsNullOrWhiteSpace(pKingdom.GetMainTitle()?.name))
+            {
+                kingdomFront = pKingdom.GetMainTitle().name;
+            }
+            else if (pKingdom.hasCapital() && pKingdom.capital != null)
+            {
+                kingdomFront = pKingdom.capital.GetCityName();
+            }
+            else
+            {
+                kingdomFront = pKingdom.GetKingdomName();
+            }
+        }
         var kingdomBack = LM.Get(newkingdomType.ToString());
         if (!pKingdom.IsFactionRebelling()&&pKingdom.getWars().Count()<=0)
         {

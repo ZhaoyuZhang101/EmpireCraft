@@ -4,9 +4,11 @@ using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General.UI.Prefabs;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NeoModLoader.General;
 using NeoModLoader.services;
 using Newtonsoft.Json;
 
@@ -416,6 +418,7 @@ public static class CityExtension
         if (city == null) return null;
         if (string.IsNullOrEmpty(city.name)) return null;
         string[] nameParts = city.name.Split('\u200A');
+        string result = null;
 
         if (ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out var culture))
         {
@@ -423,11 +426,28 @@ public static class CityExtension
             {
                 if (nameParts.Length-1 >= setting.City.name_pos)
                 {
-                    return nameParts[setting.City.name_pos].Split(' ').Last();
+                    result = nameParts[setting.City.name_pos].Split(' ').Last();
                 }
             }
         }
-        return nameParts[0].Split(' ').Last();
+        result ??= nameParts[0].Split(' ').Last();
+        if (string.IsNullOrWhiteSpace(result))
+        {
+            return result;
+        }
+
+        if (city.hasKingdom())
+        {
+            string citySuffix = LM.Get(city.GetCityType().ToString());
+            if (!string.IsNullOrWhiteSpace(citySuffix) &&
+                result.Length > citySuffix.Length &&
+                result.EndsWith(citySuffix, StringComparison.Ordinal))
+            {
+                result = result.Substring(0, result.Length - citySuffix.Length);
+            }
+        }
+
+        return result;
     }
 
     public static string GetKingdomNames(this City city)
@@ -456,12 +476,18 @@ public static class CityExtension
     }
     public static string SelectKingdomName(this City city)
     {
-        return GetOrCreate(city).kingdom_names.Split('\u200A').GetRandom();
+        if (city == null) return "";
+        var names = (GetOrCreate(city).kingdom_names ?? "")
+            .Split('\u200A')
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .ToList();
+        return names.Count > 0 ? names.GetRandom() : "";
     }
 
     public static bool HasKingdomName(this City city) 
     {
-        return string.IsNullOrEmpty(GetOrCreate(city).kingdom_names);
+        if (city == null) return false;
+        return !string.IsNullOrWhiteSpace(SelectKingdomName(city));
     }
 
 }
