@@ -42,6 +42,8 @@
     "show_tfaction_as_plot_1_description": "开启后诉求将通过谋划的方式执行(此选项开启后派系诉求将会检测皇帝是否存在,如果皇帝为空位那么诉求将无法执行,请谨慎选择)",
     "active_tfaction": "激活诉求",
     "active_tfaction_description": "关闭后,诉求将不会被触发",
+    "localpush_tfaction": "是否由地方推进",
+    "localpush_tfaction_description": "开启后.本诉求将会仅由地方推进",
     "add_new_trait": "添加特质",
     "add_new_trait_description": "添加当前派系所需的人才特质",
     "recover_trait": "恢复默认特质",
@@ -411,11 +413,14 @@
     "officer_build_specific_clan": "$actor$ 创建了 $clan_name$ 氏族谱",
     "king_choose_heir_log": "$kingdom$ 已选定其 $relation$ $actor$ 作为下一任接班人",
     "officer_join_faction": "$office$ $actor$ 已加入 $faction$",
+    "log_actor_full_name_format": "$office$$actor$",
+    "empire_law_crime_detail_with_date": "于 $date$ 犯下 $crime$",
+    "empire_law_crime_detail_without_date": "犯下了 $crime$",
     "officer_become_faction_leader": "$actor$ 已成为 $faction$ 的派系领袖",
     "empire_law_arrest_log": "$actor$ 于 $date$ 犯下 $crime$，现已被依法拘捕",
-  "empire_law_enforced_log": "$actor$ 犯下了 $crime$，处罚：$punishments$",
-  "temporary_faction_executed_log": "$empire$执行了$claim$诉求，目标$target$",
-  "temporary_faction_executed_no_target_log": "$empire$执行了$claim$诉求",
+    "empire_law_enforced_log": "$actor$ $crime$，处罚：$punishments$",
+    "temporary_faction_executed_log": "$empire$执行了$claim$诉求，目标$target$",
+    "temporary_faction_executed_no_target_log": "$empire$执行了$claim$诉求",
     "empire_law_default_punishment": "依法惩处",
     "punishment_缃氶噾": "罚金",
     "punishment_绗炲垜": "笞刑",
@@ -742,4 +747,66 @@
     ,"OfficeTraitsSelectWindowTitle":"选择特质"
     ,"OfficeNameEditWindowTitle":"编辑名称"
     ,"operator":"运算符"
+    ,"temporary_faction_prepare_log":"$empire$準備執行$claim$，目標：$target$"
+    ,"temporary_faction_prepare_no_target_log":"$empire$準備執行$claim$"
+    ,"temporary_faction_prepare_crime_log":"$target$因犯$crime$，即將被執行$claim$"
+    ,"temporary_faction_success_log":"$empire$完成了$claim$，目標：$target$"
+    ,"temporary_faction_success_no_target_log":"$empire$完成了$claim$"
+    ,"temporary_faction_success_crime_log":"$target$因犯$crime$，已被執行$claim$"
+    ,"temporary_faction_failed_log":"$empire$執行$claim$失敗，目標：$target$"
+    ,"temporary_faction_failed_no_target_log":"$empire$執行$claim$失敗"
+    ,"temporary_faction_failed_crime_log":"$target$雖因犯$crime$被提議執行$claim$，但執行失敗"
+    ,"temporary_faction_official_fall_log":"$actor$因犯$crime$而落馬"
+    ,"temporary_faction_reduce_feudatory_log":"$kingdom$被削藩"
+    ,"temporary_faction_revoke_war_right_log":"$kingdom$的開戰權被撤銷"
+    ,"temporary_faction_revoke_military_region_log":"$kingdom$被撤銷軍府"
+    ,"temporary_faction_raise_tax_log":"$empire$提高了賦稅"
+    ,"供养宗室":"供養宗室"
+    ,"允许诸侯自由开战":"允許諸侯自由開戰"
+    ,"分封":"分封"
+    ,"划地给教廷":"劃地給教廷"
+    ,"制度融入":"制度融入"
+    ,"削藩":"削藩"
+    ,"割让城池":"割讓城池"
+    ,"加强神权":"加強神權"
+    ,"劫掠":"劫掠"
+    ,"地方官叛乱":"地方官叛亂"
+    ,"复辟帝制":"復辟帝制"
+    ,"夺取诸侯开战权":"奪取諸侯開戰權"
+    ,"宗教同化":"宗教同化"
+    ,"宗教融入":"宗教融入"
+    ,"对外扩张":"對外擴張"
+    ,"开放移民":"開放移民"
+    ,"开科取士":"開科取士"
+    ,"强者继承法":"強者繼承法"
+    ,"恢复圣地":"恢復聖地"
+    ,"扩张地盘":"擴張地盤"
+    ,"扶持革命党":"扶持革命黨"
+    ,"拓展金融霸权":"拓展金融霸權"
+    ,"提供岁币":"提供歲幣"
+    ,"提高福利":"提高福利"
+    ,"提高赋税":"提高賦稅"
+    ,"撤销军府":"撤銷軍府"
+    ,"收回地盘":"收回地盤"
+    ,"汉化":"漢化"
+    ,"清除移民":"清除移民"
+    ,"渴望共和":"渴望共和"
+    ,"游牧化":"遊牧化"
+    ,"游牧扩张":"遊牧擴張"
+    ,"确立国教":"確立國教"
+    ,"神授君权":"神授君權"
+    ,"索取皇位":"索取皇位"
+    ,"缩减金融霸权":"縮減金融霸權"
+    ,"自由信仰":"自由信仰"
+    ,"设置行政区":"設置行政區"
+    ,"谋求统一":"謀求統一"
+    ,"转世袭":"轉世襲"
+    ,"转军府":"轉軍府"
+    ,"转周制":"轉周制"
+    ,"转天朝制度":"轉天朝制度"
+    ,"输出革命":"輸出革命"
+    ,"迫使朝贡":"迫使朝貢"
+    ,"降低赋税":"降低賦稅"
+    ,"禁党":"禁黨"
+    ,"国_打击贪腐":"打擊貪腐"
 }

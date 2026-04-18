@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
@@ -29,12 +30,16 @@ public abstract class TemporaryFaction
     [JsonIgnore] 
     public AdvancedButton hideButton;
     [JsonIgnore] 
+    public AdvancedButton localPushButton;
+    [JsonIgnore] 
     public AdvancedButton activeButton;
     [JsonIgnore] 
     public AdvancedButton showButton;
     public long EmpireID = -1L;
     public long KingdomID = -1L;
     public long TargetID = -1L;
+    public bool canBePushByLocal = false;
+    public MetaType pusherType = MetaType.None;
     public MetaType TargetType = MetaType.None;
     [JsonIgnore]
     public Empire Empire => GetEmpire();
@@ -45,6 +50,8 @@ public abstract class TemporaryFaction
     private bool started = false;
     public double timestamp = -1L;
     public double countDownTimestamp = -1L;
+    [JsonIgnore]
+    public virtual bool RequireCrimeTarget => false;
     public virtual void Init(FixedFaction faction)
     {
         factionID = faction.GetID();
@@ -147,6 +154,143 @@ public abstract class TemporaryFaction
         }
 
         return null;
+    }
+
+    protected bool TrySetTarget(Kingdom kingdom, string reason = "")
+    {
+        if (!CanUseCrimeRestrictedTarget(kingdom?.king, kingdom))
+        {
+            return false;
+        }
+
+        SetKingdomTarget(kingdom, reason);
+        return true;
+    }
+
+    protected bool TrySetTarget(Actor actor)
+    {
+        if (!CanUseCrimeRestrictedTarget(actor, actor?.kingdom))
+        {
+            return false;
+        }
+
+        SetActorTarget(actor);
+        return true;
+    }
+
+    protected bool TrySetTarget(City city, string reason = "")
+    {
+        Actor actor = city?.leader ?? city?.kingdom?.king;
+        Kingdom kingdom = city?.kingdom;
+        if (!CanUseCrimeRestrictedTarget(actor, kingdom))
+        {
+            return false;
+        }
+
+        SetCityTarget(city, reason);
+        return true;
+    }
+
+    protected bool TrySetTarget(Religion religion, string reason = "")
+    {
+        if (RequireCrimeTarget)
+        {
+            return false;
+        }
+
+        SetReligionTarget(religion, reason);
+        return true;
+    }
+
+    protected bool TrySetTarget(KingdomTitle title, string reason = "")
+    {
+        Kingdom kingdom = title?.title_capital?.kingdom;
+        if (!CanUseCrimeRestrictedTarget(kingdom?.king, kingdom))
+        {
+            return false;
+        }
+
+        SetTitleTarget(title, reason);
+        return true;
+    }
+
+    protected bool HasRequiredCrimeForCurrentTarget()
+    {
+        if (!RequireCrimeTarget)
+        {
+            return true;
+        }
+
+        GetCrimeScopeForCurrentTarget(out Actor actor, out Kingdom kingdom);
+        return CanUseCrimeRestrictedTarget(actor, kingdom);
+    }
+
+    protected bool TryEnforceCrimeForCurrentTarget()
+    {
+        if (!RequireCrimeTarget)
+        {
+            return true;
+        }
+
+        GetCrimeScopeForCurrentTarget(out Actor actor, out Kingdom kingdom);
+        return EmpireLawSystem.TryEnforceCrimeForClaim(actor, kingdom) != null;
+    }
+
+    public string GetCurrentTargetCrimeName()
+    {
+        if (!RequireCrimeTarget)
+        {
+            return null;
+        }
+
+        GetCrimeScopeForCurrentTarget(out Actor actor, out Kingdom kingdom);
+        return EmpireLawSystem.GetResolvableCrimeName(actor, kingdom);
+    }
+
+    private bool CanUseCrimeRestrictedTarget(Actor actor, Kingdom kingdom)
+    {
+        if (!RequireCrimeTarget)
+        {
+            return true;
+        }
+
+        if (actor == null || actor.isRekt() || kingdom == null || kingdom.isRekt())
+        {
+            return false;
+        }
+
+        return EmpireLawSystem.HasResolvableCrimeRecord(actor, kingdom);
+    }
+
+    private void GetCrimeScopeForCurrentTarget(out Actor actor, out Kingdom kingdom)
+    {
+        actor = null;
+        kingdom = null;
+
+        switch (TargetType)
+        {
+            case MetaType.Kingdom:
+                kingdom = GetKingdomTarget();
+                actor = kingdom?.king;
+                return;
+            case MetaType.City:
+                City city = GetCityTarget();
+                kingdom = city?.kingdom;
+                actor = city?.leader ?? kingdom?.king;
+                return;
+            case MetaType.Unit:
+                actor = GetActorTarget();
+                kingdom = actor?.kingdom;
+                return;
+            default:
+                if (TargetType == MetaTypeExtension.KingdomTitle)
+                {
+                    kingdom = GetTitleTarget()?.title_capital?.kingdom;
+                    actor = kingdom?.king;
+                }
+
+                return;
+        }
     }
 
   
@@ -254,15 +398,23 @@ public abstract class TemporaryFaction
     {
         if (CountDown <= 0)
         {
+            bool shouldLogPreparing = !started;
             started = true;
-            if (Empire != null)
+            Empire empire = Empire;
+            if (empire != null)
             {
-                Empire.RunningTemporaryFaction = this;  
+                empire.RunningTemporaryFaction = this;
+                if (shouldLogPreparing && HasRequiredCrimeForCurrentTarget())
+                {
+                    TranslateHelper.LogTemporaryFactionPreparing(empire, type.ToString(),
+                        TranslateHelper.GetTemporaryFactionTargetText(TargetType, TargetID),
+                        GetCurrentTargetCrimeName());
+                }
             }
             if (ShowAsPlot)
             {
                 var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "empire_plots");
-                var emperor = Empire?.Emperor;
+                var emperor = empire?.Emperor;
                 if (emperor != null)
                 {
                     if (!emperor.plot?.isSameType(plot) ?? true)

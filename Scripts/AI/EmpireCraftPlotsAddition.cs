@@ -24,8 +24,109 @@ namespace EmpireCraft.Scripts.AI
 {
     public static class EmpireCraftPlotsAddition
     {
+        private static readonly HashSet<string> s_guardedPlotIds = new HashSet<string>();
+
+        private static void GuardAllPlotAssets()
+        {
+            foreach (PlotAsset plotAsset in AssetManager.plots_library.getList())
+            {
+                GuardPlotAsset(plotAsset);
+            }
+
+            GuardPlotAsset(PlotsLibrary.alliance_create);
+        }
+
+        private static void GuardPlotAsset(PlotAsset plotAsset)
+        {
+            if (plotAsset == null || string.IsNullOrWhiteSpace(plotAsset.id))
+            {
+                return;
+            }
+
+            if (!s_guardedPlotIds.Add(plotAsset.id))
+            {
+                return;
+            }
+
+            string plotId = plotAsset.id;
+
+            if (plotAsset.check_is_possible != null)
+            {
+                var original = plotAsset.check_is_possible;
+                plotAsset.check_is_possible = pActor => SafePlotBoolCall(plotId, "check_is_possible", pActor, () => original(pActor));
+            }
+
+            if (plotAsset.check_should_continue != null)
+            {
+                var original = plotAsset.check_should_continue;
+                plotAsset.check_should_continue = pActor => SafePlotBoolCall(plotId, "check_should_continue", pActor, () => original(pActor));
+            }
+
+            if (plotAsset.check_can_be_forced != null)
+            {
+                var original = plotAsset.check_can_be_forced;
+                plotAsset.check_can_be_forced = pActor => SafePlotBoolCall(plotId, "check_can_be_forced", pActor, () => original(pActor));
+            }
+
+            if (plotAsset.try_to_start_advanced != null)
+            {
+                var original = plotAsset.try_to_start_advanced;
+                plotAsset.try_to_start_advanced = (pActor, pPlotAsset, pForced) =>
+                    SafePlotStartCall(plotId, pActor, pPlotAsset, pForced, () => original(pActor, pPlotAsset, pForced));
+            }
+
+            if (plotAsset.action != null)
+            {
+                var original = plotAsset.action;
+                plotAsset.action = pActor => SafePlotBoolCall(plotId, "action", pActor, () => original(pActor));
+            }
+        }
+
+        private static bool SafePlotBoolCall(string plotId, string stage, Actor actor, Func<bool> callback)
+        {
+            if (actor == null || callback == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                return callback();
+            }
+            catch (Exception ex)
+            {
+                LogPlotGuardException(plotId, stage, actor, ex);
+                return false;
+            }
+        }
+
+        private static bool SafePlotStartCall(string plotId, Actor actor, PlotAsset plotAsset, bool forced, Func<bool> callback)
+        {
+            if (actor == null || plotAsset == null || callback == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                return callback();
+            }
+            catch (Exception ex)
+            {
+                LogPlotGuardException(plotId, $"try_to_start_advanced(forced={forced})", actor, ex);
+                return false;
+            }
+        }
+
+        private static void LogPlotGuardException(string plotId, string stage, Actor actor, Exception ex)
+        {
+            string actorName = actor?.data?.name ?? "unknown_actor";
+            Debug.LogWarning($"[EmpireCraftPlotsAddition] plot '{plotId}' {stage} failed for actor '{actorName}': {ex}");
+        }
+
         public static void init()
         {
+            s_guardedPlotIds.Clear();
             AssetManager.plot_category_library.add(new PlotCategoryAsset()
             {
                 id = "empirecraft_diplomacy",
@@ -326,6 +427,10 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     Empire empire = ModClass.EMPIRE_MANAGER.Where(empire => !empire.IsArchived() && empire.IsNeighbourWith(kingdom)).ToList()
                         .Find(empire => kingdom.countTotalWarriors() < empire.countWarriors());
+                    if (empire == null)
+                    {
+                        return false;
+                    }
                     kingdom.JoinTakenAlliance(empire);
                     TranslateHelper.LogJoinTakenAlliance(kingdom, empire);
                     return true;
@@ -1422,26 +1527,42 @@ namespace EmpireCraft.Scripts.AI
                     return true;
                 }
             });
+            GuardAllPlotAssets();
             LogService.LogInfo($"Currently loaded{AssetManager.plots_library.getList().Count().ToString()} plots");
             AssetManager.plots_library.linkAssets();
         }
 
         private static bool minister_acquire_empire(Actor pActor)
         {
-
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.minister_try_aqcuire_empire_log, pActor.GetTitle(), pActor.data.name, pActor.kingdom.GetEmpire().data.name)
+            if (pActor == null)
             {
-                color_special1 = pActor.kingdom.getColor()._color_text,
-                color_special2 = pActor.kingdom.GetEmpire().CoreKingdom.getColor()._color_text
+                return false;
+            }
+
+            Kingdom kingdom = pActor.kingdom;
+            Empire empire = kingdom?.GetEmpire();
+            Kingdom coreKingdom = empire?.CoreKingdom;
+            if (kingdom == null || empire == null || coreKingdom == null || !kingdom.isAlive() || !coreKingdom.isAlive())
+            {
+                return false;
+            }
+
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.minister_try_aqcuire_empire_log, pActor.GetTitle() ?? "", pActor.data?.name ?? "", empire.data?.name ?? "")
+            {
+                color_special1 = kingdom.getColor()._color_text,
+                color_special2 = coreKingdom.getColor()._color_text
             }.add();
 
-            if ((float)pActor.kingdom.countCities() / (float)(pActor.kingdom.GetEmpire().countCities()- pActor.kingdom.countCities())>=4)
+            int ownedCities = kingdom.countCities();
+            int empireCities = empire.countCities();
+            int otherCities = empireCities - ownedCities;
+            if (otherCities <= 0 || (float)ownedCities / (float)otherCities >= 4f)
             {
-                pActor.kingdom.GetEmpire().ReplaceEmpire(pActor.kingdom);
+                empire.ReplaceEmpire(kingdom);
             } 
             else
             {
-                War war = World.world.diplomacy.startWar(pActor.kingdom, pActor.kingdom.GetEmpire().CoreKingdom, WarTypeLibrary.normal);
+                War war = World.world?.diplomacy?.startWar(kingdom, coreKingdom, WarTypeLibrary.normal);
                 if (war != null)
                 {
                     war.SetEmpireWarType(EmpireWarType.获取帝国);
@@ -1451,12 +1572,33 @@ namespace EmpireCraft.Scripts.AI
         }
         public static bool BecomeEmpireAndStartEnfeoff(Actor pActor)
         {
-            Kingdom kingdom = pActor.kingdom;
-            Empire empire = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom);
+            Kingdom kingdom = pActor?.kingdom;
+            if (kingdom == null || !kingdom.isAlive())
+            {
+                return false;
+            }
+
+            Empire empire = ModClass.EMPIRE_MANAGER?.NewEmpire(kingdom);
+            if (empire == null)
+            {
+                return false;
+            }
+
             if (kingdom.hasAlliance())
             {
-                foreach (Kingdom kingdom1 in kingdom.getAlliance().kingdoms_hashset) 
+                Alliance alliance = kingdom.getAlliance();
+                if (alliance?.kingdoms_hashset == null)
                 {
+                    return true;
+                }
+
+                foreach (Kingdom kingdom1 in alliance.kingdoms_hashset.ToList()) 
+                {
+                    if (kingdom1 == null || !kingdom1.isAlive())
+                    {
+                        continue;
+                    }
+
                     kingdom1.SetIndependentValue(50);
                     empire.join(kingdom1);
                 }
@@ -1466,29 +1608,35 @@ namespace EmpireCraft.Scripts.AI
 
         public static Kingdom getWarTarget(Kingdom pInitiatorKingdom)
         {
-            if (pInitiatorKingdom == null) { return null; }
+            if (pInitiatorKingdom == null || !pInitiatorKingdom.isAlive() || World.world?.kingdoms == null)
+            {
+                return null;
+            }
+
             Kingdom result = null;
             Empire empire = pInitiatorKingdom.GetEmpire();
-            float num = float.MaxValue;
-            int num2 = pInitiatorKingdom.countTotalWarriors();
-            foreach(Kingdom tKingdom in World.world.kingdoms)
+            int initiatorWarriors = pInitiatorKingdom.countTotalWarriors();
+            foreach (Kingdom tKingdom in World.world.kingdoms)
             {
-                if (tKingdom == null) continue;
-                if (!tKingdom.isAlive()) continue;
-                num = tKingdom.countTotalWarriors();
-                bool flag = pInitiatorKingdom.IsInEmpire() ? pInitiatorKingdom.GetEmpire().IsNeighbourWith(tKingdom) : pInitiatorKingdom.IsNeighbourWith(tKingdom);
-                if (!tKingdom.IsInSameEmpire(pInitiatorKingdom)&&!pInitiatorKingdom.isOpinionTowardsKingdomGood(tKingdom)&&num2>num&&flag)
+                if (tKingdom == null || tKingdom == pInitiatorKingdom || !tKingdom.isAlive())
+                {
+                    continue;
+                }
+
+                int targetWarriors = tKingdom.countTotalWarriors();
+                bool isNeighbour = pInitiatorKingdom.IsInEmpire() ? empire != null && empire.IsNeighbourWith(tKingdom) : pInitiatorKingdom.IsNeighbourWith(tKingdom);
+                if (!tKingdom.IsInSameEmpire(pInitiatorKingdom) && !pInitiatorKingdom.isOpinionTowardsKingdomGood(tKingdom) && initiatorWarriors > targetWarriors && isNeighbour)
                 {
                     result = tKingdom;
                     break;
                 }
             }
-            if (result==null)
+            if (result == null)
             {
                 Kingdom target = pInitiatorKingdom.FindClosestKingdom();
-                if (target != null && UnityEngine.Vector3.Distance(pInitiatorKingdom.location, target.location) < 300f)
+                if (target != null && target.isAlive() && UnityEngine.Vector3.Distance(pInitiatorKingdom.location, target.location) < 300f)
                 {
-                    if (num2 > target.countTotalWarriors())
+                    if (initiatorWarriors > target.countTotalWarriors())
                     {
                         result = target;
                     }

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.General.Game.extensions;
@@ -15,7 +16,7 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
-        var ked = KingdomExtension.GetOrCreate(pKingdom);
+        var ked = pKingdom.GetOrCreate();
         if (ked != null && ked.last_tf_check_ts > 0)
         {
             if (Date.getMonthsSince(ked.last_tf_check_ts) < 1)
@@ -32,10 +33,11 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
     {
         pKingdom.CheckEmpire();
         if (!pKingdom.IsEmpire()) return;
-        if (pKingdom.GetEmpire()==null) return;
+        var empire = pKingdom.GetEmpire();
+        if (empire==null) return;
         Regime regime = pKingdom.GetRegime();
         var factions = regime.GetPlayerFactions();
-        var empireId = pKingdom.GetEmpire().getID();
+        var empireId = empire.getID();
         for (int i = 0; i < factions.Count; i++)
         {
             factions[i].EmpireId = empireId;

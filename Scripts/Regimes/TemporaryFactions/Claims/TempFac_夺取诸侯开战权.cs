@@ -1,5 +1,6 @@
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -7,6 +8,8 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
 public class TempFac_夺取诸侯开战权 : TemporaryFaction
 {
+    public override bool RequireCrimeTarget => true;
+
     public override TemporaryFaction Clone(FixedFaction faction)
     {
         var res = new TempFac_夺取诸侯开战权();
@@ -14,20 +17,24 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
+        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
+
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
         Kingdom kingdom = GetKingdomTarget();
-        if (kingdom != null)
+        if (kingdom != null && !CheckRebelling(kingdom))
         {
-            if (!CheckRebelling(kingdom))
+            if (!TryEnforceCrimeForCurrentTarget())
             {
-                EmpireLawSystem.TryEnforceCrimeForClaim(kingdom.king, kingdom);
-                kingdom.GetRegime().SetAllowDiplomacy(false);
+                End();
+                return;
             }
+            kingdom.GetRegime().SetAllowDiplomacy(false);
         }
+
         End();
     }
 
@@ -39,15 +46,12 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
         {
             if (kingdom.IsEmpire()) continue;
             Regime regime = kingdom.GetRegime();
-            if (regime.IsAllowDiplomacy())
+            if (regime.IsAllowDiplomacy() && kingdom.countTotalWarriors() * 3 > empire.countWarriors())
             {
-                if (kingdom.countTotalWarriors() * 3 > empire.countWarriors())
-                {
-                    SetKingdomTarget(kingdom);
-                    return true;
-                }
+                return TrySetTarget(kingdom);
             }
         }
+
         return false;
     }
 }

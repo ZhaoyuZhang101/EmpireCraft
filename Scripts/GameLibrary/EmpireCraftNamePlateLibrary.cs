@@ -538,6 +538,11 @@ public static class EmpireCraftNamePlateLibrary
                 if (pMetaObject.IsInEmpire())
                 {
                     var corruption = (int)(pMetaObject.GetCorruptionRate()*100);
+                    if (pMetaObject.hasKing())
+                    {
+                        pNewText +=
+                            $"\n长官影响力: {pMetaObject.king.renown}";
+                    }
                     pNewText +=
                         $"\n腐败值：{corruption.ToString().ColorString(pColor: corruption <= 30 ? Color.green : Color.red)}%";
                 }

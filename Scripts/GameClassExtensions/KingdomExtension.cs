@@ -18,6 +18,7 @@ using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using HarmonyLib;
 using NCMS.Extensions;
@@ -25,6 +26,46 @@ using UnityEngine;
 using Random = System.Random;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
+
+public class TemporaryPushProgress
+{
+    public bool StartToPushTf = false;
+    public TemporaryFactionType CurrentPushTfType = TemporaryFactionType.供养宗室;
+    public int Progress = 0;
+    public static int CalcPolicyProgressAdd(double p, int currentProgress)
+    {
+        int add;
+
+        if (p < 200) add = 1;
+        else if (p < 400) add = 2;
+        else if (p < 700) add = 3;
+        else if (p < 1000) add = 4;
+        else add = 5;
+
+        // 接近封顶时减速，防止后期涨太快
+        if (currentProgress >= 90) add = Math.Min(add, 1);
+        else if (currentProgress >= 75) add = Math.Min(add, 2);
+        else if (currentProgress >= 60) add = Math.Min(add, 3);
+
+        return add;
+    }
+    /// <summary>
+    /// 推动诉求
+    /// </summary>
+    /// <param name="pActor"></param>
+    public void Push(Actor pActor)
+    {
+        var identity = pActor.GetIdentity();
+        if (identity == null)
+        {
+            Progress = 0;
+            StartToPushTf = false;
+            return;
+        }
+        int add = CalcPolicyProgressAdd(identity.TotalPerformance, Progress);
+        Progress = Math.Min(100, Progress + add);
+    }
+}
 public static class KingdomExtension
 {
     public static readonly SemaphoreSlim _sem = new SemaphoreSlim(Environment.ProcessorCount);
@@ -293,10 +334,19 @@ public static class KingdomExtension
 
     public static void JoinTakenAlliance(this Kingdom k, Empire empire)
     {
+        if (k == null || empire == null || empire.IsArchived())
+        {
+            return;
+        }
+
         k.GetOrCreate().last_taken_alliance_timestamp = World.world.getCurWorldTime();
         k.GetOrCreate().taken_empire = empire.id;
         k.GetOrCreate().leave_taken_alliance_preference = 0.0f;
-        empire.taken_Kingdoms.Add(k);
+        empire.taken_Kingdoms ??= new List<Kingdom>();
+        if (!empire.taken_Kingdoms.Contains(k))
+        {
+            empire.taken_Kingdoms.Add(k);
+        }
     }
     public static void RemoveTakenAlliance(this Kingdom k)
     {
