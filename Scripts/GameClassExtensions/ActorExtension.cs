@@ -340,6 +340,10 @@ public static class ActorExtension
         a.GetOrCreate().last_add_lover_timestamp = World.world.getCurWorldTime();
     }
 
+    public static bool IsSkeleton(this Actor a)
+    {
+        return a.subspecies.species_id == "skeleton";
+    }
     public static bool IsNeedToAddLover(this Actor a)
     {
         return a.GetOrCreate().last_add_lover_timestamp < 0 ||

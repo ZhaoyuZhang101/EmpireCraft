@@ -69,7 +69,7 @@ public static class OfficeSelector
                 var emperor = empire.Emperor;
                 var concubines = emperor.GetPersonalIdentity().concubines;
                 var lives = concubines.Select(pValueTuple => SpecificClanManager.getPerson(pValueTuple.identity)).ToList()
-                    .FindAll(a => a.is_alive).Select(a=>a._actor).ToList();
+                    .FindAll(a => a.is_alive&&!a._actor.IsSkeleton()).Select(a=>a._actor).ToList();
                 if (pOffice.officeType != 13)
                 {
                     var lover = empire.getUnits().ToList().Find(a =>
@@ -90,7 +90,7 @@ public static class OfficeSelector
                     }
 
                     var lover = empire.getUnits().ToList().Find(a =>
-                        a.isSexFemale() && a.isAdult() && a.age <= 25&&!a.hasLover());
+                        a.isSexFemale() && a.isAdult() && a.age <= 25&&!a.hasLover() && !a.IsSkeleton());
                     if (lover != null)
                     {
                         lover.lover = emperor;
@@ -160,6 +160,7 @@ public static class OfficeSelector
         {
             if (unit.isUnitFitToRule() && unit.CanServeOffice(pKingdom) && !unit.IsEmperor() && !unit.IsOnOffice() && unit.hasClan()&& (!unit.isKing()||(unit.isKing()&&unit.kingdom.GetRegime().GetLeaderSelectMethod()!=LeaderSelectMethod.Succession)))
             {
+                if (unit.IsSkeleton()) continue;
                 if (unit.HasOfficeIdentity()&&unit.isActor()&&unit.hasCulture())
                 {
                     var flag1 = false;
@@ -198,7 +199,7 @@ public static class OfficeSelector
         int num = 0;
         foreach (Actor unit in pKingdom.units)
         {
-            if (unit.isKing() || unit.isCityLeader() || unit.IsOnOffice() || !unit.CanServeOffice(pKingdom))
+            if (unit.isKing() || unit.isCityLeader() || unit.IsOnOffice() || !unit.CanServeOffice(pKingdom) || unit.IsSkeleton())
             {
                 continue;
             }
@@ -232,7 +233,7 @@ public static class OfficeSelector
         {
             foreach (Actor unit in city.units)
             {
-                if (unit.isUnitFitToRule() && unit.CanServeOffice(pKingdom) && !unit.isKing() && !unit.isCityLeader() && unit.hasClan()&&!unit.IsOnOffice())
+                if (unit.isUnitFitToRule() && unit.CanServeOffice(pKingdom) && !unit.isKing() && !unit.isCityLeader() && unit.hasClan()&&!unit.IsOnOffice() && !unit.IsSkeleton())
                 {
                     if (clan != null && unit.clan == clan)
                     {
