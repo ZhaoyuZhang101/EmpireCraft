@@ -1,6 +1,7 @@
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -8,6 +9,8 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
 public class TempFac_提高赋税 : TemporaryFaction
 {
+    public override bool RequireCrimeTarget => true;
+
     public override TemporaryFaction Clone(FixedFaction faction)
     {
         var res = new TempFac_提高赋税();
@@ -15,6 +18,7 @@ public class TempFac_提高赋税 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
+        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 
@@ -23,15 +27,16 @@ public class TempFac_提高赋税 : TemporaryFaction
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
         Kingdom kingdom = GetKingdomTarget();
-        if (empire != null)
+        if (empire != null && kingdom != null && !CheckRebelling(kingdom))
         {
-            if (kingdom != null && !CheckRebelling(kingdom))
+            if (!TryEnforceCrimeForCurrentTarget())
             {
-                EmpireLawSystem.TryEnforceCrimeForClaim(kingdom.king, kingdom);
+                End();
+                return;
             }
-
             empire.AddTaxRate();
         }
+
         End();
     }
 
@@ -47,10 +52,9 @@ public class TempFac_提高赋税 : TemporaryFaction
             if (kingdom.IsFactionRebelling()) continue;
             if (kingdom.getWars().Any()) continue;
 
-            SetKingdomTarget(kingdom);
-            return true;
+            return TrySetTarget(kingdom);
         }
 
-        return true;
+        return false;
     }
 }

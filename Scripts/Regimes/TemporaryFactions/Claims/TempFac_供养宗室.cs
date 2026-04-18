@@ -12,6 +12,7 @@ public class TempFac_供养宗室 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
+        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
     

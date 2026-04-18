@@ -11,6 +11,7 @@ public class TempFac_提高福利 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
+        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 

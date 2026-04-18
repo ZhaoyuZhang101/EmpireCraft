@@ -138,6 +138,7 @@ public class LawEnforcementContext
     public Regimes.Regime Regime { get; set; }
     public LawType LawType { get; set; }
     public Law Law { get; set; }
+    public string CrimeDate { get; set; }
     public List<PunishmentLevel> AppliedPunishments { get; private set; }
 
     public LawEnforcementContext()
@@ -235,11 +236,17 @@ public static class EmpireLawSystem
 
     public static LawEnforcementContext TryEnforceLaw(Actor actor, LawType type, Kingdom kingdom)
     {
-        return TryEnforceLaw(actor, type, kingdom, null);
+        return TryEnforceLaw(actor, type, kingdom, null, null);
     }
 
     public static LawEnforcementContext TryEnforceLaw(Actor actor, LawType type, Kingdom kingdom,
         Action<LawEnforcementContext> extraPunishment)
+    {
+        return TryEnforceLaw(actor, type, kingdom, extraPunishment, null);
+    }
+
+    public static LawEnforcementContext TryEnforceLaw(Actor actor, LawType type, Kingdom kingdom,
+        Action<LawEnforcementContext> extraPunishment, string crimeDate)
     {
         if (actor == null || actor.isRekt()) return null;
         if (kingdom == null)
@@ -267,7 +274,8 @@ public static class EmpireLawSystem
             Kingdom = kingdom,
             Regime = regime,
             LawType = type,
-            Law = law
+            Law = law,
+            CrimeDate = crimeDate
         };
 
         foreach (PunishmentLevel punishment in law.Punishments ?? new List<PunishmentLevel>())
@@ -303,6 +311,7 @@ public static class EmpireLawSystem
     public static void CheckAutomaticLawTriggers(Actor actor)
     {
         if (actor == null || actor.isRekt() || !actor.isAlive() || !actor.isAdult()) return;
+        if (!ShouldAutoCheckCrimeActor(actor)) return;
         if (!actor.hasKingdom()) return;
 
         Kingdom kingdom = actor.kingdom;
@@ -314,6 +323,38 @@ public static class EmpireLawSystem
         if (TryDetectRecordedCrime(actor, kingdom)) return;
         if (TryTriggerOfficialLaws(actor, kingdom)) return;
         TryTriggerGeneralLaws(actor, kingdom);
+    }
+
+    public static bool CheckAutomaticLawTriggersForCity(City city)
+    {
+        if (city == null || city.isRekt() || !city.hasKingdom()) return false;
+
+        Kingdom kingdom = city.kingdom;
+        if (kingdom == null || kingdom.isRekt() || !kingdom.IsInEmpire()) return false;
+
+        HashSet<long> checkedActors = new HashSet<long>();
+
+        bool TryCheckActor(Actor actor)
+        {
+            if (!ShouldAutoCheckCrimeActor(actor)) return false;
+            if (!checkedActors.Add(actor.getID())) return false;
+            CheckAutomaticLawTriggers(actor);
+            return true;
+        }
+
+        if (TryCheckActor(city.leader)) return true;
+        if (TryCheckActor(city.GetOffice()?.GetActor())) return true;
+        if (city.isCapitalCity() && TryCheckActor(kingdom.king)) return true;
+
+        foreach (Actor actor in city.units)
+        {
+            if (TryCheckActor(actor))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static void CheckMercenaryOvermightyLaw(Kingdom kingdom)
@@ -420,6 +461,12 @@ public static class EmpireLawSystem
         if (kingdom == null || !CanEnforceLawInEmpireScope(actor, kingdom)) return false;
         if (!kingdom.HasLaw(lawType)) return false;
 
+        if (actor.IsEmperor())
+        {
+            actor.AddTyrantValue(5f);
+            return true;
+        }
+
         actor.CheckSpecificClan(false);
         PersonalClanIdentity identity = actor.GetPersonalIdentity();
         if (identity == null) return false;
@@ -493,6 +540,19 @@ public static class EmpireLawSystem
         return GetResolvableCrimeRecord(actor, kingdom) != null;
     }
 
+    public static string GetResolvableCrimeName(Actor actor, Kingdom kingdom)
+    {
+        CrimeRecord record = GetResolvableCrimeRecord(actor, kingdom);
+        if (record == null)
+        {
+            return null;
+        }
+
+        LawType lawType = (LawType)record.law_type;
+        Law law = lawType.GetConfig();
+        return law != null && !string.IsNullOrEmpty(law.Name) ? law.Name : lawType.ToString();
+    }
+
     public static LawEnforcementContext TryEnforceCrimeForClaim(Actor actor, Kingdom kingdom)
     {
         if (actor == null || actor.isRekt() || kingdom == null)
@@ -514,13 +574,16 @@ public static class EmpireLawSystem
         Law law = lawType.GetConfig();
         string lawName = law != null && !string.IsNullOrEmpty(law.Name) ? law.Name : lawType.ToString();
 
-        TranslateHelper.LogLawArrest(actor, kingdom, lawName, record.crime_date);
-
-        LawEnforcementContext context = TryEnforceLaw(actor, lawType, kingdom, ApplyRecordedOptionalPunishments);
-        if (context != null)
-        {
-            record.resolved = true;
-        }
+          LawEnforcementContext context = TryEnforceLaw(actor, lawType, kingdom, ApplyRecordedOptionalPunishments, record.crime_date);
+          if (context != null)
+          {
+              if (context.AppliedPunishments != null && context.AppliedPunishments.Any(p =>
+                      p == PunishmentLevel.剥夺官职 || p == PunishmentLevel.剥夺爵位))
+              {
+                  TranslateHelper.LogTemporaryFactionOfficialFall(kingdom.GetEmpire(), actor, lawName);
+              }
+              record.resolved = true;
+          }
 
         return context;
     }
@@ -528,6 +591,7 @@ public static class EmpireLawSystem
     private static bool TryDetectRecordedCrime(Actor actor, Kingdom kingdom)
     {
         if (actor == null || kingdom == null) return false;
+        if (!ShouldAutoCheckCrimeActor(actor)) return false;
 
         PersonalClanIdentity identity = actor.GetPersonalIdentity();
         if (identity == null || identity.crime_records == null || identity.crime_records.Count <= 0)
@@ -550,12 +614,7 @@ public static class EmpireLawSystem
             record.discovered_date = Date.getDate(record.discovered_timestamp);
 
             LawType lawType = (LawType)record.law_type;
-            Law law = lawType.GetConfig();
-            string lawName = law != null && !string.IsNullOrEmpty(law.Name) ? law.Name : lawType.ToString();
-
-            TranslateHelper.LogLawArrest(actor, kingdom, lawName, record.crime_date);
-
-            LawEnforcementContext context = TryEnforceLaw(actor, lawType, kingdom, ApplyRecordedOptionalPunishments);
+            LawEnforcementContext context = TryEnforceLaw(actor, lawType, kingdom, ApplyRecordedOptionalPunishments, record.crime_date);
             if (context != null)
             {
                 record.resolved = true;
@@ -565,6 +624,21 @@ public static class EmpireLawSystem
 
         CleanupCrimeRecords(identity);
         return false;
+    }
+
+    private static bool ShouldAutoCheckCrimeActor(Actor actor)
+    {
+        if (actor == null || actor.isRekt() || !actor.isAlive() || !actor.isAdult())
+        {
+            return false;
+        }
+
+        if (actor.IsEmperor())
+        {
+            return false;
+        }
+
+        return actor.isOfficer() || actor.IsOnOffice() || actor.GetOffice() != null || actor.isKing() || actor.HasTitle() || actor.isCityLeader();
     }
 
     private static void CleanupCrimeRecords(PersonalClanIdentity identity)

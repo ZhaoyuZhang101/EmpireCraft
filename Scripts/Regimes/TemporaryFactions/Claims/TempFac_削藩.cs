@@ -1,9 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -11,6 +9,8 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
 public class TempFac_削藩 : TemporaryFaction
 {
+    public override bool RequireCrimeTarget => true;
+
     public override TemporaryFaction Clone(FixedFaction faction)
     {
         var res = new TempFac_削藩();
@@ -18,26 +18,31 @@ public class TempFac_削藩 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
+        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 
     public override void Execute()
     {
         Kingdom kingdom = GetKingdomTarget();
-        if (kingdom != null)
+        if (kingdom != null && !CheckRebelling(kingdom))
         {
-            if (!CheckRebelling(kingdom))
+            if (!TryEnforceCrimeForCurrentTarget())
             {
-                EmpireLawSystem.TryEnforceCrimeForClaim(kingdom.king, kingdom);
-                foreach (var c in kingdom.cities)
-                {
-                    c.joinAnotherKingdom(GetEmpire().CoreKingdom);
-                }
-                LogService.LogInfo("执行成功");
+                End();
+                return;
             }
-        } 
+
+            foreach (var city in kingdom.cities)
+            {
+                city.joinAnotherKingdom(GetEmpire().CoreKingdom);
+            }
+            LogService.LogInfo("执行成功");
+        }
+
         End();
     }
+
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
@@ -48,16 +53,16 @@ public class TempFac_削藩 : TemporaryFaction
             if (kingdom.IsFactionRebelling()) continue;
             if (kingdom.getWars().Any()) continue;
             Regime regime = kingdom.GetRegime();
-            if (regime.GetReligionLevel()== ReligionLevel.High) continue;
+            if (regime.GetReligionLevel() == ReligionLevel.High) continue;
             if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
             {
                 if (kingdom.countTotalWarriors() * 5 <= empire.countWarriors() - kingdom.countTotalWarriors())
                 {
-                    SetKingdomTarget(kingdom);
-                    return true;
+                    return TrySetTarget(kingdom);
                 }
             }
         }
+
         return false;
     }
 }

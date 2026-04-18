@@ -11,6 +11,7 @@ public class TempFac_划地给教廷 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
+        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
     public override void Init(FixedFaction faction)

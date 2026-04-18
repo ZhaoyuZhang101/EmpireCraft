@@ -53,8 +53,20 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset officer_become_faction_leader;
     public static WorldLogAsset empire_law_arrest_log;
     public static WorldLogAsset empire_law_enforced_log;
-    public static WorldLogAsset temporary_faction_executed_log;
-    public static WorldLogAsset temporary_faction_executed_no_target_log;
+    public static WorldLogAsset temporary_faction_prepare_log;
+    public static WorldLogAsset temporary_faction_prepare_no_target_log;
+    public static WorldLogAsset temporary_faction_prepare_crime_log;
+    public static WorldLogAsset temporary_faction_success_log;
+    public static WorldLogAsset temporary_faction_success_no_target_log;
+    public static WorldLogAsset temporary_faction_success_crime_log;
+    public static WorldLogAsset temporary_faction_failed_log;
+    public static WorldLogAsset temporary_faction_failed_no_target_log;
+    public static WorldLogAsset temporary_faction_failed_crime_log;
+    public static WorldLogAsset temporary_faction_official_fall_log;
+    public static WorldLogAsset temporary_faction_reduce_feudatory_log;
+    public static WorldLogAsset temporary_faction_revoke_war_right_log;
+    public static WorldLogAsset temporary_faction_revoke_military_region_log;
+    public static WorldLogAsset temporary_faction_raise_tax_log;
 
     public static void init()
     {
@@ -156,9 +168,47 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$clan_name$", 2);
             }
         });
-        temporary_faction_executed_log = wl.add(new WorldLogAsset
+        temporary_faction_prepare_log = wl.add(new WorldLogAsset
         {
-            id = nameof(temporary_faction_executed_log),
+            id = nameof(temporary_faction_prepare_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$claim$", 2);
+                wl.updateText(ref pText, pMessage, "$target$", 3);
+            }
+        });
+        temporary_faction_prepare_no_target_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_prepare_no_target_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$claim$", 2);
+            }
+        });
+        temporary_faction_prepare_crime_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_prepare_crime_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$target$", 1);
+                wl.updateText(ref pText, pMessage, "$crime$", 2);
+                wl.updateText(ref pText, pMessage, "$claim$", 3);
+            }
+        });
+        temporary_faction_success_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_success_log),
             group = "emperors",
             path_icon = "EmperorQuest",
             color = Toolbox.color_log_good,
@@ -169,9 +219,9 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$target$", 3);
             }
         });
-        temporary_faction_executed_no_target_log = wl.add(new WorldLogAsset
+        temporary_faction_success_no_target_log = wl.add(new WorldLogAsset
         {
-            id = nameof(temporary_faction_executed_no_target_log),
+            id = nameof(temporary_faction_success_no_target_log),
             group = "emperors",
             path_icon = "EmperorQuest",
             color = Toolbox.color_log_good,
@@ -179,6 +229,113 @@ public static class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$empire$", 1);
                 wl.updateText(ref pText, pMessage, "$claim$", 2);
+            }
+        });
+        temporary_faction_success_crime_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_success_crime_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$target$", 1);
+                wl.updateText(ref pText, pMessage, "$crime$", 2);
+                wl.updateText(ref pText, pMessage, "$claim$", 3);
+            }
+        });
+        temporary_faction_failed_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_failed_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$claim$", 2);
+                wl.updateText(ref pText, pMessage, "$target$", 3);
+            }
+        });
+        temporary_faction_failed_no_target_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_failed_no_target_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$claim$", 2);
+            }
+        });
+        temporary_faction_failed_crime_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_failed_crime_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$target$", 1);
+                wl.updateText(ref pText, pMessage, "$crime$", 2);
+                wl.updateText(ref pText, pMessage, "$claim$", 3);
+            }
+        });
+        temporary_faction_official_fall_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_official_fall_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$crime$", 2);
+            }
+        });
+        temporary_faction_reduce_feudatory_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_reduce_feudatory_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+            }
+        });
+        temporary_faction_revoke_war_right_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_revoke_war_right_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+            }
+        });
+        temporary_faction_revoke_military_region_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_revoke_military_region_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+            }
+        });
+        temporary_faction_raise_tax_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_raise_tax_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
             }
         });
         become_greater_general = wl.add(new WorldLogAsset
