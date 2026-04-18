@@ -86,7 +86,10 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
             if (!current.checkActive())
             {
-                _to_dissolve.Add(current);
+                if (!current.TryRepairState("EmpireManager.update fallback"))
+                {
+                    _to_dissolve.Add(current);
+                }
             }
             else
             {

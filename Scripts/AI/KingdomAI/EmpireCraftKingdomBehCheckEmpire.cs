@@ -178,14 +178,14 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (empire != null)
         {
             var coreKingdom = empire.CoreKingdom;
-            if (coreKingdom.isRekt())
+            if (coreKingdom == null || coreKingdom.isRekt())
             {
-                empire.CheckDissolve(null);
+                empire.TryRepairState("CheckPossible: core kingdom invalid");
                 return;
             }
             if (!empire.kingdoms_list.Contains(coreKingdom))
             {
-                empire.CheckDissolve(null);
+                empire.TryRepairState("CheckPossible: core kingdom missing from empire list");
                 return; 
             }
         }

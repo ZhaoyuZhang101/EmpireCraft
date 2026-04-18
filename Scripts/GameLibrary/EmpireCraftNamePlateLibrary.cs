@@ -31,6 +31,12 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly List<City> _cached_cities_no_title = new List<City>();
     private static readonly List<City> _cached_neutral_cities = new List<City>();
     private static readonly List<KingdomTitle> _cached_titles = new List<KingdomTitle>();
+    private static readonly List<Kingdom> _render_kingdoms_buffer = new List<Kingdom>();
+    private static readonly List<Kingdom> _render_kingdoms_no_back_buffer = new List<Kingdom>();
+    private static readonly Queue<City> _empire_city_queue = new Queue<City>();
+    private static readonly HashSet<long> _empire_city_visited = new HashSet<long>();
+    private static readonly List<City> _empire_component_cities = new List<City>();
+    private static readonly List<City> _empire_best_component_cities = new List<City>();
     private static bool _shouldThrottle()
     {
         var cam = MoveCamera.instance?.main_camera;
@@ -63,6 +69,7 @@ public static class EmpireCraftNamePlateLibrary
             {
                 if (_shouldThrottle())
                 {
+                    _cached_empires.Sort((a, b) => (a?.countWarriors() ?? 0).CompareTo(b?.countWarriors() ?? 0));
                     for (int i = 0; i < _cached_empires.Count; i++)
                     {
                         var empire = _cached_empires[i];
@@ -80,6 +87,12 @@ public static class EmpireCraftNamePlateLibrary
                     {
                         if (empire == null || empire.IsArchived() || empire.CoreKingdom == null) continue;
                         _cached_empires.Add(empire);
+                    }
+                    _cached_empires.Sort((a, b) => (a?.countWarriors() ?? 0).CompareTo(b?.countWarriors() ?? 0));
+                    for (int i = 0; i < _cached_empires.Count; i++)
+                    {
+                        var empire = _cached_empires[i];
+                        if (empire == null || empire.IsArchived() || empire.CoreKingdom == null) continue;
                         var npt = prepareNext(pManager, pAsset, empire, 37, 12, 39, 11);
                         npt._showing = true;
                         npt.setPriority(9999999 + empire.CountPopulation());
@@ -87,13 +100,14 @@ public static class EmpireCraftNamePlateLibrary
                     }
                 }
 
+                _render_kingdoms_no_back_buffer.Clear();
+                _render_kingdoms_buffer.Clear();
                 switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
                 {
                     case 0:
                         if (_shouldThrottle())
                         {
                             int budget = 128;
-                            int processed = 0;
                             if (_cached_kingdoms_no_back.Count == 0 && _cached_kingdoms.Count == 0)
                             {
                                 _cached_kingdoms_no_back.Clear();
@@ -103,11 +117,6 @@ public static class EmpireCraftNamePlateLibrary
                                     if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
                                     {
                                         _cached_kingdoms_no_back.Add(kingdom);
-                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                                        nameplateText._showing = true;
-                                        nameplateText.setPriority(kingdom.getPopulationPeople());
-                                        showTextKingdomNoBack(nameplateText, kingdom);
-                                        if (++processed >= budget) break;
                                     }
                                 }
                                 foreach (Kingdom kingdom in World.world.kingdoms)
@@ -115,11 +124,6 @@ public static class EmpireCraftNamePlateLibrary
                                     if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
                                     {
                                         _cached_kingdoms.Add(kingdom);
-                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                                        nameplateText.setPriority(kingdom.getPopulationPeople());
-                                        nameplateText._showing = true;
-                                        showTextKingdom(nameplateText, kingdom);
-                                        if (++processed >= budget) break;
                                     }
                                 }
                             }
@@ -132,11 +136,6 @@ public static class EmpireCraftNamePlateLibrary
                                     if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center) && !_cached_kingdoms_no_back.Contains(kingdom))
                                     {
                                         _cached_kingdoms_no_back.Add(kingdom);
-                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                                        nameplateText._showing = true;
-                                        nameplateText.setPriority(kingdom.getPopulationPeople());
-                                        showTextKingdomNoBack(nameplateText, kingdom);
-                                        if (++processed >= budget) break;
                                     }
                                 }
                                 foreach (Kingdom kingdom in World.world.kingdoms)
@@ -144,34 +143,20 @@ public static class EmpireCraftNamePlateLibrary
                                     if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center) && !_cached_kingdoms.Contains(kingdom))
                                     {
                                         _cached_kingdoms.Add(kingdom);
-                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                                        nameplateText.setPriority(kingdom.getPopulationPeople());
-                                        nameplateText._showing = true;
-                                        showTextKingdom(nameplateText, kingdom);
-                                        if (++processed >= budget) break;
                                     }
                                 }
                             }
-                            for (int i = 0; i < _cached_kingdoms_no_back.Count; i++)
+                            for (int i = 0; i < _cached_kingdoms_no_back.Count && _render_kingdoms_no_back_buffer.Count < budget; i++)
                             {
                                 var k = _cached_kingdoms_no_back[i];
-                                if (k == null || !k.hasCapital()) continue;
-                                var nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, k);
-                                nameplateText._showing = true;
-                                nameplateText.setPriority(k.getPopulationPeople());
-                                showTextKingdomNoBack(nameplateText, k);
-                                if (++processed >= budget) break;
+                                if (k == null || k.isRekt() || !k.hasCapital()) continue;
+                                _render_kingdoms_no_back_buffer.Add(k);
                             }
-                            for (int i = 0; i < _cached_kingdoms.Count; i++)
+                            for (int i = 0; i < _cached_kingdoms.Count && _render_kingdoms_buffer.Count + _render_kingdoms_no_back_buffer.Count < budget; i++)
                             {
                                 var k = _cached_kingdoms[i];
-                                if (k == null || !k.hasCapital()) continue;
-                                var nameplateText =
-                                    pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, k);
-                                nameplateText._showing = true;
-                                nameplateText.setPriority(k.getPopulationPeople());
-                                showTextKingdom(nameplateText, k);
-                                if (++processed >= budget) break;
+                                if (k == null || k.isRekt() || !k.hasCapital()) continue;
+                                _render_kingdoms_buffer.Add(k);
                             }
                         }
                         else
@@ -183,10 +168,6 @@ public static class EmpireCraftNamePlateLibrary
                                 if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
                                 {
                                     _cached_kingdoms_no_back.Add(kingdom);
-                                    NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                                    nameplateText.setPriority(kingdom.getPopulationPeople());
-                                    nameplateText._showing = true;
-                                    showTextKingdomNoBack(nameplateText, kingdom);
                                 }
                             }
                             foreach (Kingdom kingdom in World.world.kingdoms)
@@ -194,11 +175,10 @@ public static class EmpireCraftNamePlateLibrary
                                 if (kingdom.hasCapital() && !kingdom.IsInEmpire() && isWithinCamera(kingdom.capital.city_center))
                                 {
                                     _cached_kingdoms.Add(kingdom);
-                                    NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                                     nameplateText.setPriority(kingdom.getPopulationPeople());
-                                    showTextKingdom(nameplateText, kingdom);
                                 }
                             }
+                            _render_kingdoms_no_back_buffer.AddRange(_cached_kingdoms_no_back);
+                            _render_kingdoms_buffer.AddRange(_cached_kingdoms);
                         }
                         break;
                     case 1:
@@ -211,18 +191,14 @@ public static class EmpireCraftNamePlateLibrary
                                     if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
                                     {
                                         _cached_kingdoms_no_back.Add(kingdom);
-                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                                        showTextKingdomNoBack(nameplateText, kingdom);
                                     }
                                 }
                             }
-                            for (int i = 0; i < _cached_kingdoms_no_back.Count; i++)
+                            for (int i = 0; i < _cached_kingdoms_no_back.Count && _render_kingdoms_no_back_buffer.Count < 128; i++)
                             {
                                 var k = _cached_kingdoms_no_back[i];
-                                if (k == null || !k.hasCapital()) continue;
-                                var nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, k);
-                                nameplateText.setPriority( k.getPopulationPeople());
-                                showTextKingdomNoBack(nameplateText, k);
+                                if (k == null || k.isRekt() || !k.hasCapital()) continue;
+                                _render_kingdoms_no_back_buffer.Add(k);
                             }
                         }
                         else
@@ -233,11 +209,9 @@ public static class EmpireCraftNamePlateLibrary
                                 if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
                                 {
                                     _cached_kingdoms_no_back.Add(kingdom);
-                                    NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                                     nameplateText.setPriority(kingdom.getPopulationPeople());
-                                    showTextKingdomNoBack(nameplateText, kingdom);
                                 }
                             }
+                            _render_kingdoms_no_back_buffer.AddRange(_cached_kingdoms_no_back);
                         }
                         break;
                     case 2:
@@ -250,18 +224,14 @@ public static class EmpireCraftNamePlateLibrary
                                     if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.HasGivenAlliance() && isWithinCamera(kingdom.capital.city_center))
                                     {
                                         _cached_kingdoms_no_back.Add(kingdom);
-                                        NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                                        showTextKingdomNoBack(nameplateText, kingdom);
                                     }
                                 }
                             }
-                            for (int i = 0; i < _cached_kingdoms_no_back.Count; i++)
+                            for (int i = 0; i < _cached_kingdoms_no_back.Count && _render_kingdoms_no_back_buffer.Count < 128; i++)
                             {
                                 var k = _cached_kingdoms_no_back[i];
-                                if (k == null || !k.hasCapital()) continue;
-                                var nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, k);
-                                nameplateText.setPriority(k.getPopulationPeople());
-                                showTextKingdomNoBack(nameplateText, k);
+                                if (k == null || k.isRekt() || !k.hasCapital()) continue;
+                                _render_kingdoms_no_back_buffer.Add(k);
                             }
                         }
                         else
@@ -272,13 +242,31 @@ public static class EmpireCraftNamePlateLibrary
                                 if (!kingdom.IsEmpire() && kingdom.hasCapital() && kingdom.HasGivenAlliance() && isWithinCamera(kingdom.capital.city_center))
                                 {
                                     _cached_kingdoms_no_back.Add(kingdom);
-                                    NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
-                                     nameplateText.setPriority(kingdom.getPopulationPeople());
-                                    showTextKingdomNoBack(nameplateText, kingdom);
                                 }
                             }
+                            _render_kingdoms_no_back_buffer.AddRange(_cached_kingdoms_no_back);
                         }
                         break;
+                }
+
+                for (int i = 0; i < _render_kingdoms_no_back_buffer.Count; i++)
+                {
+                    Kingdom kingdom = _render_kingdoms_no_back_buffer[i];
+                    if (kingdom == null || kingdom.isRekt() || !kingdom.hasCapital()) continue;
+                    NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                    nameplateText._showing = true;
+                    nameplateText.setPriority(kingdom.getPopulationPeople());
+                    showTextKingdomNoBack(nameplateText, kingdom);
+                }
+
+                for (int i = 0; i < _render_kingdoms_buffer.Count; i++)
+                {
+                    Kingdom kingdom = _render_kingdoms_buffer[i];
+                    if (kingdom == null || kingdom.isRekt() || !kingdom.hasCapital()) continue;
+                    NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+                    nameplateText._showing = true;
+                    nameplateText.setPriority(kingdom.getPopulationPeople());
+                    showTextKingdom(nameplateText, kingdom);
                 }
             }
         };
@@ -526,6 +514,7 @@ public static class EmpireCraftNamePlateLibrary
             npt._show_banner_clan = true;
             npt._banner_clan.load((NanoObject) kingClan);
         }
+        npt.transform.SetAsFirstSibling();
         npt.nano_object = (NanoObject) pMetaObject;
     }	
     public static void showTextKingdomNoBack(NameplateText npt, Kingdom pMetaObject)
@@ -563,6 +552,10 @@ public static class EmpireCraftNamePlateLibrary
         npt._show_banner_kingdom = false;
         npt._show_banner_clan = false;
         npt._text_name.supportRichText = true;
+        if (pMetaObject.IsInEmpire())
+        {
+            npt._text_name.color = Color.white;
+        }
         float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
         npt.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
         // 给文字加蓝色边框（描边）
@@ -571,6 +564,7 @@ public static class EmpireCraftNamePlateLibrary
         {
             outline.enabled = false;
         }
+        npt.transform.SetAsFirstSibling();
         npt.nano_object = pMetaObject;
     }	
     public static bool getPositionForMeta(IMetaObject pMetaObject, out Vector3 pPosition, Actor pForceActor = null)
@@ -849,8 +843,9 @@ public static class EmpireCraftNamePlateLibrary
 
         }
 
-        plateText.setText(text, pMetaObject?.capital?.city_center??new Vector2(99, 99));
+        plateText.setText(text, GetEmpireDisplayPosition(empire));
         plateText._text_name.supportRichText = true;
+        plateText._text_name.fontStyle = FontStyle.Bold;
         // 给文字加蓝色边框（描边）
         var outline = plateText._text_name.GetComponent<Outline>();
         if (outline == null)
@@ -862,8 +857,8 @@ public static class EmpireCraftNamePlateLibrary
             outline.enabled = true;
         }
 
-        outline.effectColor = new Color(1f, 1f, 0.0f, a:0.2f);           // 边框颜色：蓝色
-        outline.effectDistance = new Vector2(1f, -1f); // 边框粗细（X/Y 像素偏移，可以自己调）
+        outline.effectColor = new Color(0f, 0f, 0f, 0.75f);
+        outline.effectDistance = new Vector2(2f, -2f);
         
         float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
         plateText.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
@@ -874,7 +869,127 @@ public static class EmpireCraftNamePlateLibrary
         plateText._show_icon_species = false;
         plateText._show_banner_kingdom = false;
         plateText._show_banner_clan = false;
+        plateText.transform.SetAsLastSibling();
         plateText.nano_object = empire.CoreKingdom;
+    }
+
+    private static Vector3 GetEmpireDisplayPosition(Empire empire)
+    {
+        if (empire == null)
+        {
+            return new Vector2(99, 99);
+        }
+
+        List<City> cities = empire.AllCities();
+        if (cities == null || cities.Count <= 0)
+        {
+            return empire.CoreKingdom?.capital?.city_center ?? new Vector2(99, 99);
+        }
+
+        _empire_city_visited.Clear();
+        _empire_best_component_cities.Clear();
+        int bestWeight = -1;
+
+        for (int i = 0; i < cities.Count; i++)
+        {
+            City city = cities[i];
+            if (city == null || city.isRekt()) continue;
+            long cityId = city.getID();
+            if (!_empire_city_visited.Add(cityId)) continue;
+
+            _empire_component_cities.Clear();
+            _empire_city_queue.Clear();
+            _empire_city_queue.Enqueue(city);
+            _empire_component_cities.Add(city);
+
+            int componentWeight = 0;
+            while (_empire_city_queue.Count > 0)
+            {
+                City current = _empire_city_queue.Dequeue();
+                if (current == null || current.isRekt()) continue;
+
+                componentWeight += current.zones?.Count ?? 0;
+                if (current.neighbours_cities == null) continue;
+
+                foreach (City neighbour in current.neighbours_cities)
+                {
+                    if (neighbour == null || neighbour.isRekt()) continue;
+                    if (!cities.Contains(neighbour)) continue;
+                    long neighbourId = neighbour.getID();
+                    if (!_empire_city_visited.Add(neighbourId)) continue;
+                    _empire_city_queue.Enqueue(neighbour);
+                    _empire_component_cities.Add(neighbour);
+                }
+            }
+
+            if (componentWeight > bestWeight)
+            {
+                bestWeight = componentWeight;
+                _empire_best_component_cities.Clear();
+                _empire_best_component_cities.AddRange(_empire_component_cities);
+            }
+        }
+
+        if (_empire_best_component_cities.Count <= 0)
+        {
+            return empire.GetEmpireCenter();
+        }
+
+        float avgX = 0f;
+        float avgY = 0f;
+        int zoneCount = 0;
+        TileZone nearestZone = null;
+        float nearestDist = float.MaxValue;
+
+        for (int i = 0; i < _empire_best_component_cities.Count; i++)
+        {
+            City city = _empire_best_component_cities[i];
+            if (city == null || city.isRekt() || city.zones == null) continue;
+
+            for (int j = 0; j < city.zones.Count; j++)
+            {
+                TileZone zone = city.zones[j];
+                if (zone?.centerTile == null) continue;
+                avgX += zone.centerTile.posV3.x;
+                avgY += zone.centerTile.posV3.y;
+                zoneCount++;
+            }
+        }
+
+        if (zoneCount <= 0)
+        {
+            return _empire_best_component_cities[0]?.city_center ?? empire.GetEmpireCenter();
+        }
+
+        avgX /= zoneCount;
+        avgY /= zoneCount;
+
+        for (int i = 0; i < _empire_best_component_cities.Count; i++)
+        {
+            City city = _empire_best_component_cities[i];
+            if (city == null || city.isRekt() || city.zones == null) continue;
+
+            for (int j = 0; j < city.zones.Count; j++)
+            {
+                TileZone zone = city.zones[j];
+                if (zone?.centerTile == null) continue;
+                float dist = Toolbox.SquaredDist(zone.centerTile.posV3.x, zone.centerTile.posV3.y, avgX, avgY);
+                if (dist < nearestDist)
+                {
+                    nearestDist = dist;
+                    nearestZone = zone;
+                }
+            }
+        }
+
+        if (nearestZone?.centerTile != null)
+        {
+            Vector3 center = nearestZone.centerTile.posV3;
+            center.y += 2f;
+            return center;
+        }
+
+        return _empire_best_component_cities[0]?.city_center ?? empire.GetEmpireCenter();
     }
 
     public static void showTextTitle(NameplateText plateText, City capital)

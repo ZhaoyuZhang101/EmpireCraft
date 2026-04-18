@@ -9,19 +9,19 @@ public class NameplateManagerPatch : GamePatch
 
     public void Initialize()
     {
-        new Harmony(nameof(updateOverlappingPosition)).Patch(
+        new Harmony(nameof(UpdateOverlappingPosition)).Patch(
             AccessTools.Method(typeof(NameplateManager), nameof(NameplateManager.updateOverlappingPosition)),
-            prefix: new HarmonyMethod(GetType(), nameof(updateOverlappingPosition))
+            prefix: new HarmonyMethod(GetType(), nameof(UpdateOverlappingPosition))
         );
     }
 
-    public static bool updateOverlappingPosition(NameplateManager __instance)
+    public static bool UpdateOverlappingPosition(NameplateManager __instance)
     {
         if (__instance == null)
         {
             return false;
         }
 
-        return true;
+        return false;
     }
 }

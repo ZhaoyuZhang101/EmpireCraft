@@ -1101,9 +1101,195 @@ public class Empire : MetaObject<EmpireData>
     {
     }
 
+    public bool TryRepairState(string reason = "")
+    {
+        if (IsArchived() || data == null || World.world == null)
+        {
+            return false;
+        }
+
+        kingdoms_hashset ??= new HashSet<Kingdom>();
+        kingdoms_list ??= new List<Kingdom>();
+        cities_list ??= new List<City>();
+        given_Kingdoms ??= new List<Kingdom>();
+        taken_Kingdoms ??= new List<Kingdom>();
+        data.kingdoms ??= new List<long>();
+        data.cities ??= new List<long>();
+        data.given_Kingdoms ??= new List<long>();
+        data.taken_Kingdoms ??= new List<long>();
+        data.history_emperrors ??= new List<string>();
+        data.PreviousYearsMoney ??= new List<int>();
+
+        bool repaired = false;
+        HashSet<Kingdom> rebuiltKingdoms = new HashSet<Kingdom>();
+
+        foreach (Kingdom kingdom in kingdoms_hashset)
+        {
+            if (kingdom != null && !kingdom.isRekt())
+            {
+                rebuiltKingdoms.Add(kingdom);
+            }
+        }
+
+        foreach (Kingdom kingdom in kingdoms_list)
+        {
+            if (kingdom != null && !kingdom.isRekt())
+            {
+                rebuiltKingdoms.Add(kingdom);
+            }
+        }
+
+        foreach (long kingdomId in data.kingdoms)
+        {
+            Kingdom kingdom = World.world.kingdoms.get(kingdomId);
+            if (kingdom != null && !kingdom.isRekt())
+            {
+                rebuiltKingdoms.Add(kingdom);
+            }
+        }
+
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+            if (kingdom == null || kingdom.isRekt()) continue;
+            if (kingdom.GetEmpireID() == this.id)
+            {
+                rebuiltKingdoms.Add(kingdom);
+            }
+        }
+
+        if (!kingdoms_hashset.SetEquals(rebuiltKingdoms))
+        {
+            kingdoms_hashset = rebuiltKingdoms;
+            repaired = true;
+        }
+
+        recalculate();
+
+        List<City> rebuiltCities = new List<City>();
+        HashSet<long> seenCityIds = new HashSet<long>();
+        foreach (Kingdom kingdom in kingdoms_list)
+        {
+            if (kingdom == null || kingdom.isRekt()) continue;
+            kingdom.SetEmpireID(this.id);
+            foreach (City city in kingdom.cities)
+            {
+                if (city == null || city.isRekt()) continue;
+                if (seenCityIds.Add(city.id))
+                {
+                    rebuiltCities.Add(city);
+                }
+            }
+        }
+
+        if (cities_list.Count != rebuiltCities.Count || cities_list.Except(rebuiltCities).Any())
+        {
+            cities_list = rebuiltCities;
+            repaired = true;
+        }
+
+        Kingdom currentCore = CoreKingdom;
+        bool coreInvalid = currentCore == null || currentCore.isRekt() || !kingdoms_hashset.Contains(currentCore) || currentCore.cities.Count <= 0;
+        if (coreInvalid)
+        {
+            Kingdom candidate = kingdoms_list
+                .Where(k => k != null && !k.isRekt() && k.cities.Count > 0)
+                .OrderByDescending(k => k == currentCore)
+                .ThenByDescending(k => k.IsEmpire())
+                .ThenByDescending(k => k.countTotalWarriors())
+                .ThenByDescending(k => k.cities.Count)
+                .FirstOrDefault();
+
+            if (candidate != null)
+            {
+                CoreKingdom = candidate;
+                data.empire = candidate.id;
+                repaired = true;
+            }
+        }
+
+        if (CoreKingdom == null || CoreKingdom.isRekt() || !kingdoms_hashset.Contains(CoreKingdom))
+        {
+            if (!string.IsNullOrEmpty(reason))
+            {
+                LogService.LogInfo($"帝国 {id} 修复失败: {reason}");
+            }
+            return false;
+        }
+
+        if (data.centerOffice == null)
+        {
+            data.centerOffice = new CenterOffice();
+            repaired = true;
+        }
+
+        try
+        {
+            data.centerOffice.Init(CoreKingdom);
+        }
+        catch
+        {
+            data.centerOffice = new CenterOffice();
+            data.centerOffice.Init(CoreKingdom);
+            repaired = true;
+        }
+
+        if (OriginalCapital == null || OriginalCapital.isRekt() || OriginalCapital.kingdom != CoreKingdom)
+        {
+            OriginalCapital = CoreKingdom.capital;
+            repaired = true;
+        }
+
+        if (OriginalCapital != null && !OriginalCapital.isRekt())
+        {
+            _capitalCenter = OriginalCapital.city_center;
+            data.original_capital = OriginalCapital.id;
+        }
+
+        if (EmpireClan == null || EmpireClan.isRekt())
+        {
+            EmpireClan = CoreKingdom.getKingClan();
+            data.empire_clan = EmpireClan?.data?.id ?? -1L;
+            repaired = true;
+        }
+
+        if (Religion == null || Religion.isRekt())
+        {
+            Religion = World.world.religions.get(data.Religion);
+        }
+
+        given_Kingdoms = given_Kingdoms.Where(k => k != null && !k.isRekt()).Distinct().ToList();
+        taken_Kingdoms = taken_Kingdoms.Where(k => k != null && !k.isRekt()).Distinct().ToList();
+
+        if (string.IsNullOrWhiteSpace(data.name))
+        {
+            string empireName = CoreKingdom.GetKingdomName();
+            if (CoreKingdom.king != null && CoreKingdom.king.HasTitle())
+            {
+                empireName = CoreKingdom.king.GetTitle();
+            }
+            SetEmpireName(empireName);
+            repaired = true;
+        }
+
+        data.kingdoms = kingdoms_list.Where(k => k != null && !k.isRekt()).Select(k => k.id).Distinct().ToList();
+        data.cities = cities_list.Where(c => c != null && !c.isRekt()).Select(c => c.id).Distinct().ToList();
+        data.empire = CoreKingdom.id;
+
+        if (repaired && !string.IsNullOrEmpty(reason))
+        {
+            LogService.LogInfo($"帝国 {id} 已重置并修复: {reason}");
+        }
+
+        return kingdoms_hashset.Count > 0;
+    }
+
     public bool checkActive()
     {
         if (IsArchived()) return false;
+        if (!TryRepairState("checkActive precheck"))
+        {
+            return false;
+        }
         bool tChanged = false;
         recalculate();
         List<Kingdom> tKingdoms = this.kingdoms_list;
@@ -1175,6 +1361,7 @@ public class Empire : MetaObject<EmpireData>
         if (tChanged)
         {
             recalculate();
+            return TryRepairState("checkActive cleanup");
         }
         return kingdoms_hashset.Count >= 1;
     }
@@ -1374,8 +1561,11 @@ public class Empire : MetaObject<EmpireData>
         {
             if (ShouldDissolveEmpire())
             {
-                ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
-                LogService.LogInfo("帝国内部国家数量为0解散");
+                if (!TryRepairState("leave after kingdom removed"))
+                {
+                    ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
+                    LogService.LogInfo("帝国内部国家数量为0解散");
+                }
             }
         }
         if (pRecalc)
