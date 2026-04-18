@@ -195,10 +195,20 @@ public static class OfficeSelector
     }
     private static Actor TryGetProfessionOfficer(Kingdom pKingdom)
     {
+        if (pKingdom == null || pKingdom.isRekt() || pKingdom.units == null)
+        {
+            return null;
+        }
+
         Actor actor = null;
         int num = 0;
         foreach (Actor unit in pKingdom.units)
         {
+            if (unit == null || unit.isRekt())
+            {
+                continue;
+            }
+
             if (unit.isKing() || unit.isCityLeader() || unit.IsOnOffice() || !unit.CanServeOffice(pKingdom) || unit.IsSkeleton())
             {
                 continue;

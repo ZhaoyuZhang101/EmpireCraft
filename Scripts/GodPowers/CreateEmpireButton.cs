@@ -119,6 +119,10 @@ internal static class CreateEmpireButton
             return;
         }
         Empire empire = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom);
+        if (empire == null)
+        {
+            return;
+        }
         empire.join(JoinKingdom);
         
     }

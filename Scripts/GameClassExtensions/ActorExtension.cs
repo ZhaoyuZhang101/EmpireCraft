@@ -343,6 +343,16 @@ public static class ActorExtension
 
     public static bool IsSkeleton(this Actor a)
     {
+        if (a == null || a.isRekt())
+        {
+            return false;
+        }
+
+        if (a.subspecies == null)
+        {
+            return false;
+        }
+
         return a.subspecies.species_id == "skeleton";
     }
     public static bool IsNeedToAddLover(this Actor a)
@@ -954,7 +964,7 @@ public static class ActorExtension
                     if (original != direct)
                     {
                         //LogService.LogInfo("升官");
-                        if (direct < 5)
+                        if (direct <= 1)
                         {
                             TranslateHelper.LogOfficeMove(a, identity.peerageType, direct);
                         }

@@ -175,9 +175,23 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
     public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false)
     {
+        if (pKingdom == null || !pKingdom.isAlive())
+        {
+            return null;
+        }
+        if (!EnsureKingForNewEmpire(pKingdom))
+        {
+            LogService.LogWarning($"[EmpireManager] Failed to create empire for kingdom {pKingdom?.name}: no valid king candidate.");
+            return null;
+        }
         long id = OverallHelperFunc.IdGenerator.NextId();
         var empire = newObjectFromID(id);
         empire.CreateNewEmpire(pKingdom, isSplit);
+        if (empire.CoreKingdom == null)
+        {
+            LogService.LogWarning($"[EmpireManager] Failed to initialize empire core kingdom for {pKingdom?.name}.");
+            return null;
+        }
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
@@ -203,6 +217,82 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         return empire;
     }
 
+    private static bool EnsureKingForNewEmpire(Kingdom kingdom)
+    {
+        if (kingdom == null || !kingdom.isAlive())
+        {
+            return false;
+        }
+        if (kingdom.hasKing() && kingdom.king != null && !kingdom.king.isRekt())
+        {
+            return true;
+        }
+        Actor fallbackKing = FindFallbackKingCandidate(kingdom);
+        if (fallbackKing == null)
+        {
+            return false;
+        }
+
+        fallbackKing.removeFromArmy();
+        if (fallbackKing.isCityLeader() && fallbackKing.city != null)
+        {
+            fallbackKing.city.removeLeader();
+        }
+        kingdom.setKing(fallbackKing);
+        if (kingdom.capital != null)
+        {
+            fallbackKing.joinCity(kingdom.capital);
+        }
+        fallbackKing.joinKingdom(kingdom);
+        return kingdom.hasKing() && kingdom.king != null && !kingdom.king.isRekt();
+    }
+
+    private static Actor FindFallbackKingCandidate(Kingdom kingdom)
+    {
+        if (kingdom?.cities != null)
+        {
+            for (int i = 0; i < kingdom.cities.Count; i++)
+            {
+                City city = kingdom.cities[i];
+                if (city == null || city.isRekt() || city.units == null)
+                {
+                    continue;
+                }
+                for (int j = 0; j < city.units.Count; j++)
+                {
+                    Actor actor = city.units[j];
+                    if (IsValidFallbackKingCandidate(actor))
+                    {
+                        return actor;
+                    }
+                }
+            }
+        }
+
+        if (kingdom?.units != null)
+        {
+            for (int i = 0; i < kingdom.units.Count; i++)
+            {
+                Actor actor = kingdom.units[i];
+                if (IsValidFallbackKingCandidate(actor))
+                {
+                    return actor;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsValidFallbackKingCandidate(Actor actor)
+    {
+        return actor != null
+               && !actor.isRekt()
+               && actor.isAlive()
+               && actor.isAdult()
+               && actor.isUnitFitToRule();
+    }
+
     public bool forceEmpire(Kingdom pKingdom1, Kingdom pKingdom2)
     {
         Empire empire = ModClass.EMPIRE_MANAGER.get(pKingdom1.GetEmpireID());
@@ -214,6 +304,10 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         if (empire == null)
         {
             empire = this.NewEmpire(pKingdom1);
+            if (empire == null)
+            {
+                return false;
+            }
             empire.join(pKingdom2);
             result = true;
         }

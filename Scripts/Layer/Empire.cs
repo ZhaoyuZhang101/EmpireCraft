@@ -351,6 +351,10 @@ public class Empire : MetaObject<EmpireData>
     {
         var kingdom = startProvince.makeOwnKingdom(newEmperor);
         var newEmpire = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom);
+        if (newEmpire == null)
+        {
+            return null;
+        }
         newEmpire.UpdateCapital(this.OriginalCapital);
         newEmpire.data.history.InsertRange(0, this.data.history);
         string empireName = string.Join("\u200A", this.CalcDir(kingdom.capital.city_center, CoreKingdom.capital.city_center), this.GetEmpireName());
@@ -842,6 +846,10 @@ public class Empire : MetaObject<EmpireData>
     public void ReplaceEmpire(Kingdom newKingdom)
     {
         Empire newEmpire = ModClass.EMPIRE_MANAGER.NewEmpire(newKingdom);
+        if (newEmpire == null)
+        {
+            return;
+        }
         newEmpire.data.history.InsertRange(0, data.history);
         newEmpire.SetEmpireName(newKingdom.GetKingdomName());
         newKingdom.GetOrCreate().isEmpire = true;
