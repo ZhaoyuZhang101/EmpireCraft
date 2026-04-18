@@ -1,0 +1,109 @@
+{
+  "CustomRegimeTemplate": {
+    "description": "一个用于演示自定义政体配置结构的模板政体。",
+    "icon_url": "",
+    "era_name": false,
+    "has_cabinet": true,
+    "cabinet_number": 3,
+    "leader_select_method": "Succession",
+    "default_kingdom": "CustomRegimeTemplate_county",
+    "centre_empire_separate": true,
+    "laws": [0, 1, 2, 13, 16, 20, 21, 27, 28, 29, 32, 33, 36, 37, 38, 39, 50, 51, 54],
+    "Factions": [
+      {
+        "_id": "11111111-1111-1111-1111-111111111111",
+        "Type": "Custom",
+        "_requiredTraits": [],
+        "Ban": false,
+        "Name": "议政派",
+        "only_king": false,
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [1],
+      "toggle_allow_army": [1],
+      "toggle_support_army_to_center": [1],
+      "option_tax_level": [1, 4],
+      "option_leader_select_method": [0, 3],
+      "option_religion_type": [1, 4]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "grand_council_full",
+          "type": 0,
+          "description": "最高统治核心。",
+          "powers": ["拟定", "审核", "执行"],
+          "merit": 5,
+          "honorary": 4,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": ["wise", "ambitious"],
+          "condition": []
+        }
+      ],
+      "division": [
+        {
+          "pre": "inner_court_full",
+          "type": 1,
+          "description": "负责内政与财政。",
+          "powers": ["人事", "财政"],
+          "merit": 4,
+          "honorary": 3,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": []
+        }
+      ],
+      "harems": [],
+      "kingdoms": {
+        "CustomRegimeTemplate_empire": {
+          "pre": "",
+          "type": 0,
+          "description": "中央帝国本位。",
+          "powers": ["拟定", "审核", "执行"],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": ["empire_center:true"],
+          "city_type": "CustomRegimeTemplate_city"
+        },
+        "CustomRegimeTemplate_county": {
+          "pre": "",
+          "type": 1,
+          "description": "地方基本封号。",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": ["empire_center:false"],
+          "city_type": "CustomRegimeTemplate_city"
+        }
+      },
+      "cities": {
+        "CustomRegimeTemplate_city": {
+          "pre": "",
+          "type": 2,
+          "description": "地方城市职位。",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": []
+        }
+      },
+      "armies": {}
+    }
+  }
+}

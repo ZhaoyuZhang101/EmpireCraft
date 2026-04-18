@@ -164,6 +164,93 @@ public static class CityExtension
         return ed;
     }
 
+    public static int CountLivingPopulation(this City city)
+    {
+        if (city == null || city.units == null)
+        {
+            return 0;
+        }
+
+        int count = 0;
+        for (int i = 0; i < city.units.Count; i++)
+        {
+            Actor actor = city.units[i];
+            if (actor == null || actor.isRekt()) continue;
+            if (!actor.isAlive()) continue;
+            count++;
+        }
+
+        return count;
+    }
+
+    public static int CountLivingWarriors(this City city)
+    {
+        if (city == null || city.units == null)
+        {
+            return 0;
+        }
+
+        int count = 0;
+        for (int i = 0; i < city.units.Count; i++)
+        {
+            Actor actor = city.units[i];
+            if (actor == null || actor.isRekt()) continue;
+            if (!actor.isAlive()) continue;
+            if (!actor.isWarrior()) continue;
+            count++;
+        }
+
+        return count;
+    }
+
+    public static bool IsBorderCity(this City city)
+    {
+        return city != null && city.neighbours_kingdoms != null && city.neighbours_kingdoms.Count > 0;
+    }
+
+    public static City FindExileCity(this Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.isRekt() || kingdom.cities == null || kingdom.cities.Count <= 0)
+        {
+            return null;
+        }
+
+        City borderEmptyCity = null;
+        City leastPopulatedCity = null;
+        int leastPopulation = int.MaxValue;
+
+        for (int i = 0; i < kingdom.cities.Count; i++)
+        {
+            City city = kingdom.cities[i];
+            if (city == null || city.isRekt()) continue;
+
+            int population = city.CountLivingPopulation();
+            if (population <= 0 && city.IsBorderCity())
+            {
+                borderEmptyCity = city;
+                break;
+            }
+
+            if (population < leastPopulation)
+            {
+                leastPopulation = population;
+                leastPopulatedCity = city;
+            }
+        }
+
+        if (borderEmptyCity != null)
+        {
+            return borderEmptyCity;
+        }
+
+        if (leastPopulatedCity != null)
+        {
+            return leastPopulatedCity;
+        }
+
+        return kingdom.capital;
+    }
+
     public static void StartChoosingHeir(this City c)
     {
         c.GetOrCreate().is_choosing_heir = true;

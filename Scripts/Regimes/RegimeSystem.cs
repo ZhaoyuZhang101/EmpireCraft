@@ -13,87 +13,59 @@ using Newtonsoft.Json;
 namespace EmpireCraft.Scripts.Regimes;
 public enum KingdomType
 {
-    LvLing_centre,//京畿道
-    LvLing_tempcentre,//京畿道
-    LvLing_kingdom,//藩国
-    LvLing_jiedushi,//军
-    LvLing_province,//道
-    LvLing_jimizhou,//羁縻州
-
-    ZhouFeudalism_empire, //朝
-    ZhouFeudalism_gong, //国
-    ZhouFeudalism_hou, //国
-    ZhouFeudalism_bo, //国
-    ZhouFeudalism_zi, //国
-
-    Feudalism_empire, //帝国
-    Feudalism_kingdom, //王国
-    Feudalism_grand_duchy, //大公国
-    Feudalism_duchy, //公国
-    Feudalism_county, //伯爵领
-    Feudalism_march, //藩侯领
-    Feudalism_papal_state, //教宗国
-
-    Arabic_caliphate, //哈里发国
-    Arabic_sultanate, //苏丹国
-    Arabic_emirate, //酋长国
-    Arabic_province, //行省
-    
-    Modern_republic, //共和国
-    Modern_republic_socialist, //社会主义共和国
-    Modern_republic_people, //人民共和国
-    Modern_province, //省
-    Modern_centre, //中央
-    Modern_state, //州
-    Modern_autonomous_prefecture,//自治州
-    
-    YouMu_centre, //共和国
-    YouMu_kingdom, //省
-    YouMu_bu, //州
-    default_tempcentre, //临时政府
-    Origin_kingdom,
+    Arabic_caliphate,
+    Arabic_emirate,
+    Arabic_province,
+    Arabic_sultanate,
+    CustomRegimeTemplate_county,
+    Feudalism_county,
+    Feudalism_duchy,
+    Feudalism_empire,
+    Feudalism_grand_duchy,
+    Feudalism_kingdom,
+    Feudalism_march,
+    Feudalism_papal_state,
+    LvLing_centre,
+    LvLing_jiedushi,
+    LvLing_jimizhou,
+    LvLing_kingdom,
+    LvLing_province,
+    Modern_autonomous_prefecture,
+    Modern_centre,
+    Modern_province,
+    Modern_state,
     Origin_centre,
-    default_country_post //国
+    Origin_kingdom,
+    YouMu_bu,
+    YouMu_centre,
+    YouMu_kingdom,
+    ZhouFeudalism_bo,
+    ZhouFeudalism_empire,
+    ZhouFeudalism_gong,
+    ZhouFeudalism_hou,
+    ZhouFeudalism_zi,
+    default_country_post,
 }
 
 public enum ArmyOfficialType
 {
-    Lvling_army_yuling,     //羽林将军
-    Lvling_army_dudu,       //都督
-    Lvling_army_zhenjiang,  //镇将
-    Lvling_army_shuzhu      //戍主
-}
-
-public enum HaremOfficialType
-{
-    Lvling_harem_huanghou,//皇后
-    Lvling_harem_de,      //德妃
-    Lvling_harem_li,      //丽妃
-    Lvling_harem_zhuang,  //庄妃
-    Lvling_harem_xian,    //贤妃
-    Lvling_harem_hui,     //惠妃
-    Lvling_harem_an,      //安妃
-    Lvling_harem_he,      //和妃
-    Lvling_harem_xi,      //僖妃
-    Lvling_harem_kang,    //康妃
+    LvLing_army_yuling,
+    LvLing_army_dudu,
+    LvLing_army_zhenjiang,
+    LvLing_army_shuzhu,
 }
 public enum CityType
 {
-    LvLing_city, //县
-    
-    ZhouFeudalism_city, //邑
-    
-    Arabic_city, //市
-    
-    Modern_city, //市
-    Republic_city, //市
-    
-    Feudalism_city, //市
+    Arabic_city,
+    CustomRegimeTemplate_city,
+    Feudalism_city,
+    Feudalism_dirC,
+    Feudalism_religion_district,
+    LvLing_city,
+    Modern_city,
     Origin_city,
-    Feudalism_dirC, //帝国伯爵领
-    Feudalism_religion_district, //教区
-    
-    YouMu_city
+    YouMu_city,
+    ZhouFeudalism_city,
 }
 public enum TaxLevel
 {
@@ -191,6 +163,7 @@ public class Regime
                 entry => (int[])entry.Value.Clone()
             ),
             bureau_config = this.bureau_config,
+            laws = this.laws?.ToList() ?? new List<LawType>(),
             era_name = this.era_name,
             has_cabinet = this.has_cabinet,
             cabinet_number = this.cabinet_number,
@@ -385,5 +358,6 @@ public static class RegimeManager
         }
         regime.bureau_config = bc;
         regime.options ??= new Dictionary<string, int[]>();
+        regime.laws ??= new List<LawType>();
     }
 }

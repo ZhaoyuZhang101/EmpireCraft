@@ -7,6 +7,7 @@ using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.services;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace EmpireCraft.Scripts.GamePatches;
 

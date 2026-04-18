@@ -20,6 +20,14 @@ public class EmpireCraftActorCheckOffice:GameAIActorBase
             return BehResult.Continue;
         }
 
+        if (!pActor.CanServeOffice(pActor.kingdom))
+        {
+            office.RemoveActor();
+            pActor.EndOffice();
+            LogService.LogInfo($"{pActor.name}因官位禁令失去官职{office.GetOfficeName()}");
+            return BehResult.Continue;
+        }
+
         if (pActor.isKing())
         {
             if (pActor.kingdom.HasMainTitle())

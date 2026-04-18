@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -27,6 +28,7 @@ public class TempFac_削藩 : TemporaryFaction
         {
             if (!CheckRebelling(kingdom))
             {
+                EmpireLawSystem.TryEnforceCrimeForClaim(kingdom.king, kingdom);
                 foreach (var c in kingdom.cities)
                 {
                     c.joinAnotherKingdom(GetEmpire().CoreKingdom);

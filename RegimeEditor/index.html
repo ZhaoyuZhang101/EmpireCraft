@@ -1,0 +1,1017 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmpireCraft 政体编辑器</title>
+  <style>
+    :root{--bg:#f6efe2;--panel:#fffaf1;--ink:#2d2318;--muted:#6f5d45;--line:#d8c5a4;--accent:#8d6836;--accent2:#6d4e24;--danger:#9f4335;--good:#446b49;--r:18px;--r2:12px}
+    *{box-sizing:border-box} body{margin:0;color:var(--ink);font:14px/1.5 "Microsoft YaHei","Segoe UI",sans-serif;background:radial-gradient(circle at top left,rgba(141,104,54,.12),transparent 30%),linear-gradient(180deg,#fbf6ed 0%,var(--bg) 100%)}
+    .shell{width:min(1440px,calc(100vw - 24px));margin:12px auto 24px;display:grid;grid-template-columns:310px minmax(0,1fr);gap:16px}
+    .side,.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 36px rgba(50,36,15,.1)}
+    .side{position:sticky;top:12px;align-self:start;padding:18px}.panel{padding:18px}.brand h1,.panel h2{margin:0 0 10px}.brand p,.muted{margin:0;color:var(--muted)}
+    .stack,.grid,.cards,.toolbar{display:grid;gap:10px}.toolbar{display:flex;flex-wrap:wrap}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .section-nav{display:flex;flex-wrap:wrap;gap:10px}.section-nav button{min-width:120px}.section-nav button.active{background:linear-gradient(180deg,#b48b50 0%,var(--accent2) 100%);color:#fff;border-color:transparent}
+    .section-panel{display:none}.section-panel.active{display:block}
+    label.field{display:grid;gap:6px;color:var(--muted)} input,select,textarea,button{font:inherit} input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r2);background:#fffdfa;color:var(--ink)}
+    textarea{min-height:96px;resize:vertical} .check{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r2);background:#fffdfa;color:var(--ink)} input[type="checkbox"]{width:auto}
+    button,.button-like,a.jump{border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));background:linear-gradient(180deg,#fffdf8 0%,#efe1c4 100%);color:var(--ink);padding:10px 14px;border-radius:999px;cursor:pointer;text-decoration:none}
+    button.primary{background:linear-gradient(180deg,#b48b50 0%,var(--accent2) 100%);color:#fff;border-color:transparent}
+    button.danger{background:linear-gradient(180deg,#cb7368 0%,var(--danger) 100%);color:#fff;border-color:transparent}
+    .note,.office,.culture,.preview{border:1px solid color-mix(in srgb,var(--line) 85%,white);border-radius:16px;padding:14px;background:linear-gradient(180deg,#fffdf8 0%,#f7efdf 100%)}
+    .head{display:flex;justify-content:space-between;align-items:center;gap:10px}.status{min-height:24px;color:var(--good);font-weight:700}.status.err{color:var(--danger)} .mono{font-family:Consolas,monospace}
+    .conds{display:grid;gap:8px}.cond{border:1px dashed var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.55)}
+    .tag-editor{display:grid;gap:8px}.tag-list,.tag-preset{display:flex;flex-wrap:wrap;gap:8px}.tag{padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:#fffdfa}.tag button{margin-left:6px;padding:0 6px;border:none;background:transparent;color:var(--danger)}
+    .badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:#fff7e8;color:var(--accent2);font-weight:700}
+    .tag-preset button{padding:7px 10px}.tag-preset button.active{background:linear-gradient(180deg,#b48b50 0%,var(--accent2) 100%);color:#fff;border-color:transparent}.tag-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+    .config-list{display:grid;gap:10px}.config-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fffdfa}
+    .office-group{display:grid;gap:10px}.office-group-title{font-size:18px;font-weight:700;color:var(--accent2);padding:6px 4px 0}.office-summary{display:grid;gap:6px;color:var(--muted)}
+    @media (max-width:1120px){.shell{grid-template-columns:1fr}.side{position:static}} @media (max-width:760px){.grid.two,.grid.three{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <h1>EmpireCraft 政体编辑器</h1>
+        <p>独立放在模组根目录即可使用，面向新手的政体配置小工具。</p>
+      </div>
+      <div class="stack" style="margin-top:14px">
+        <button class="primary" id="loadTemplateBtn">载入模板</button>
+        <label class="button-like" for="importEditorState">导入编辑器状态</label>
+        <input id="importEditorState" type="file" accept=".json" hidden />
+        <button id="loadCultureRulesBtn">读取文化配置</button>
+        <button id="chooseModRootBtn">选择模组目录</button>
+        <button id="openConfigsBtn">打开政体目录</button>
+        <button class="primary" id="writeConfigsBtn">写入政体目录</button>
+        <button id="syncEnumsBtn">同步代码枚举</button>
+        <button id="downloadBtn">下载导出文件</button>
+      </div>
+      <div class="stack" style="margin-top:14px">
+        <div class="section-nav">
+          <button type="button" data-open-section="meta" class="active">基本信息</button>
+          <button type="button" data-open-section="offices">官职结构</button>
+          <button type="button" data-open-section="cultures">文化绑定</button>
+          <button type="button" data-open-section="preview">导出预览</button>
+        </div>
+      </div>
+      <div class="note" style="margin-top:14px">
+        说明：
+        <br />1. 新增官职时，官职等级默认按创建顺序自动递增。
+        <br />2. `core / division` 会额外显示部门命名规则。
+        <br />3. 桌面版会读取并直接修改现有的 `CultureRulesConfig.json`，这里只改文化的政体字段。
+        <br />4. “打开政体目录”会尝试打开 `Scripts/Regimes/Configs/`。
+        <br />5. 桌面版可以先选择一次模组目录，之后会自动记住。
+        <br />6. 桌面版可以直接写入 `Scripts/Regimes/Configs/<政体文件夹名>/`，不用手动逐个下载。
+      </div>
+      <div class="note" id="modRootNote" style="margin-top:14px">当前模组目录：未设置</div>
+      <div class="status" id="statusText"></div>
+    </aside>
+
+    <main class="stack">
+      <section class="panel section-panel active" id="meta">
+        <h2>基本信息</h2>
+        <div class="grid two">
+          <label class="field">政体文件夹名<input id="folderName" value="CustomRegimeTemplate" /></label>
+          <label class="field">政体键名<input id="regimeKey" value="CustomRegimeTemplate" /></label>
+        </div>
+        <div class="grid three" style="margin-top:12px">
+          <label class="field">简体名称<input id="regimeNameCh" value="自定义政体模板" /></label>
+          <label class="field">繁体名稱<input id="regimeNameCz" value="自訂政體模板" /></label>
+          <label class="field">英文名称<input id="regimeNameEn" value="Custom Regime Template" /></label>
+        </div>
+        <div class="grid three" style="margin-top:12px">
+          <label class="field">简体描述<textarea id="descriptionCh">一个用于演示自定义政体配置结构的模板政体。</textarea></label>
+          <label class="field">繁體描述<textarea id="descriptionCz">一個用於演示自訂政體配置結構的模板政體。</textarea></label>
+          <label class="field">英文描述<textarea id="descriptionEn">A template regime used to demonstrate a custom regime configuration structure.</textarea></label>
+        </div>
+        <div class="grid three" style="margin-top:12px">
+          <label class="field">图标地址 icon_url<input id="iconUrl" /></label>
+          <label class="field">默认选拔方式
+            <select id="leaderSelectMethod">
+              <option value="Succession">世袭继承</option><option value="Exam">科举考试</option><option value="Vote">投票推选</option><option value="Army">军权决定</option><option value="Harem">后宫生育</option><option value="Default">跟随默认</option>
+            </select>
+          </label>
+          <label class="field">default_kingdom<input id="defaultKingdom" value="CustomRegimeTemplate_county" /></label>
+        </div>
+        <div class="grid three" style="margin-top:12px">
+          <label class="check"><input id="eraName" type="checkbox" /> 启用年号</label>
+          <label class="check"><input id="hasCabinet" type="checkbox" checked /> 启用内阁</label>
+          <label class="check"><input id="centreSeparate" type="checkbox" checked /> 中央与帝国分离</label>
+        </div>
+        <div class="grid two" style="margin-top:12px">
+          <label class="field">内阁人数 cabinet_number<input id="cabinetNumber" value="6" type="number" /></label>
+          <div class="field">
+            <span>启用法律 laws</span>
+            <div id="lawsEditor"></div>
+          </div>
+        </div>
+        <div class="grid two" style="margin-top:12px">
+          <div class="field">
+            <span>派系 factions</span>
+            <div id="factionsEditor"></div>
+          </div>
+          <div class="field">
+            <span>政体选项 options</span>
+            <div id="optionsEditor"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section-panel" id="offices">
+        <h2>官职结构</h2>
+        <p class="muted">这里可以新增、删除、编辑官职。`core / division` 会提供更清晰的“部门名 + 官职名”命名菜单。</p>
+        <div class="toolbar">
+          <button data-add-scope="cores">添加核心官职</button>
+          <button data-add-scope="division">添加部门官职</button>
+          <button data-add-scope="harems">添加后宫官职</button>
+          <button data-add-scope="kingdoms">添加国家职类</button>
+          <button data-add-scope="cities">添加城市职类</button>
+          <button data-add-scope="armies">添加军职</button>
+        </div>
+        <div class="cards" id="officeCards"></div>
+      </section>
+
+      <section class="panel section-panel" id="cultures">
+        <h2>文化绑定</h2>
+        <p class="muted">这里会读取真实的 `CultureRulesConfig.json`，只修改每个文化的 `setting.regime`。界面只显示文化名称，方便直接勾选后绑定当前政体。</p>
+        <div class="toolbar">
+          <button id="selectAllCulturesBtn">全选</button>
+          <button id="clearCultureSelectionBtn">清空选择</button>
+          <button id="applyCurrentRegimeToSelectedBtn">把当前政体应用到已勾选文化</button>
+        </div>
+        <div class="note" id="cultureSummaryNote" style="margin-top:12px">还没有读取到文化配置。</div>
+        <div class="cards" id="cultureCards"></div>
+      </section>
+
+      <section class="panel section-panel" id="preview">
+        <h2>导出预览</h2>
+        <div class="grid two">
+          <div class="preview">
+            <div class="head"><strong>SystemConfig.json</strong><button data-copy-target="systemPreview">复制</button></div>
+            <textarea class="mono" id="systemPreview" readonly></textarea>
+          </div>
+          <div class="preview">
+            <div class="head"><strong>OfficialType.csv</strong><button data-copy-target="officialPreview">复制</button></div>
+            <textarea class="mono" id="officialPreview" readonly></textarea>
+          </div>
+        </div>
+        <div class="grid two" style="margin-top:12px">
+          <div class="preview">
+            <div class="head"><strong>RegimeEditorState.json</strong><button data-copy-target="statePreview">复制</button></div>
+            <textarea class="mono" id="statePreview" readonly></textarea>
+          </div>
+            <div class="preview">
+              <div class="head"><strong>文化配置说明</strong></div>
+              <textarea class="mono" id="culturePreview" readonly></textarea>
+            </div>
+          </div>
+        </section>
+    </main>
+  </div>
+
+  <script>
+    const scopeLabels={cores:"核心官职",division:"部门官职",harems:"后宫官职",kingdoms:"国家职类",cities:"城市职类",armies:"军职"};
+    const namedScopes=new Set(["cores","division"]);
+    const leaderMethodOptions=[["","留空，跟随默认"],["Succession","世袭继承"],["Exam","科举考试"],["Vote","投票推选"],["Army","军权决定"],["Harem","后宫生育"],["Default","跟随默认"]];
+    const boolConds=[["empire_center","帝国中央"],["is_capital","首都"],["allow_diplomacy","允许外交"],["allow_army","允许军队"],["support_center_army","支援中央军"],["city_is_border","城市接壤边境"],["is_border","国家接壤边境"],["succession","世袭制"],["another_race","异族统治"],["empire_royal","帝国宗室"]];
+    const numConds=[["controlled_titles","控制头衔数"],["cities_count","城市数量"],["religion_level","宗教等级"]];
+    const opLabels={">=":"大于等于",">":"大于","<=":"小于等于","<":"小于","=":"等于"};
+    const powerOptions=[
+      ["宗教","宗教"],["天子智教","天子智教"],["天子政教","天子政教"],["天子护理","天子护理"],["备选","备选"],
+      ["拟定","拟定"],["审核","审核"],["执行","执行"],["人事","人事"],["财政","财政"],["礼仪","礼仪"],
+      ["军事","军事"],["司法","司法"],["建设","建设"],["教育","教育"],["生育","生育"]
+    ];
+    const traitOptions=[
+      ["ambitious","ambitious"],["bloodlust","bloodlust"],["cleric","cleric"],["death_mark","death_mark"],
+      ["empireArmedProvinceSoldier","empireArmedProvinceSoldier"],["empireSoldier","empireSoldier"],
+      ["gongshi","gongshi"],["golden_tooth","golden_tooth"],["jingshi","jingshi"],["juren","juren"],
+      ["moonchild","moonchild"],["officer","officer"],["officerLeave","officerLeave"],["pacifist","pacifist"],
+      ["peaceful","peaceful"],["revolutionary","revolutionary"],["soft_skin","soft_skin"],["weightless","weightless"]
+    ];
+    const factionTypeOptions=[["原始","原始"],["尊王","尊王"],["诸侯","诸侯"],["中央","中央"],["自治","自治"],["政敌","政敌"],["绥靖","绥靖"],["血脉","血脉"],["僭主","僭主"],["神权","神权"],["共和","共和"],["民主","民主"],["革命","革命"],["融入","融入"],["同化","同化"],["共产","共产"],["无","无"]];
+    const regimeOptionDefinitions=[
+      {key:"toggle_allow_diplomacy",label:"允许外交",kind:"toggle",defaultValue:1,max:1,description:"决定这个政体能不能正常进行外交互动，例如结盟、宣战与对外关系处理。"},
+      {key:"toggle_allow_army",label:"允许军队",kind:"toggle",defaultValue:1,max:1,description:"决定这个政体下的地方或国家单位能不能保有独立军队。"},
+      {key:"toggle_support_army_to_center",label:"支援中央军",kind:"toggle",defaultValue:1,max:1,description:"决定地方军事力量是否会优先支援帝国中央，而不是保持完全独立。"},
+      {key:"option_tax_level",label:"税率等级",kind:"range",defaultValue:1,max:4,description:"设置这个政体默认使用的税率档位。数值越高，通常代表征税越重。"},
+      {key:"option_leader_select_method",label:"君主选拔方式",kind:"enum",defaultValue:0,max:6,choices:[[0,"世袭继承"],[1,"科举考试"],[2,"投票推选"],[3,"军权决定"],[4,"后宫生育"],[5,"跟随默认"]],description:"设置这个政体默认采用哪一种统治者产生方式。"},
+      {key:"option_religion_type",label:"宗教制度",kind:"enum",defaultValue:2,max:4,choices:[[0,"无国教 / 信仰自由"],[1,"有国教 / 信仰自由"],[2,"有国教 / 限制信仰"],[3,"政教合一"]],description:"设置这个政体默认的宗教控制强度，以及国家与宗教的绑定程度。"}
+    ];
+    const lawGroups=[
+      {label:"王权与国家安全",items:[[0,"谋反"],[1,"叛国"],[2,"篡位"],[3,"私通敌国"],[4,"伪造诏令"],[5,"煽动叛乱"]]},
+      {label:"官制与行政",items:[[6,"贪污"],[7,"受贿"],[8,"买官"],[9,"卖官"],[10,"滥用职权"],[11,"玩忽职守"],[12,"冒充官员"]]},
+      {label:"刑法",items:[[13,"杀人"],[14,"故意伤害"],[15,"强奸"],[16,"绑架"],[17,"放火"],[18,"投毒"],[19,"陷害"],[20,"抢劫"],[21,"盗窃"]]},
+      {label:"财产与经济",items:[[22,"诈骗"],[23,"伪造货币"],[24,"偷税漏税"],[25,"走私"],[26,"哄抬物价"],[27,"非法侵占土地"]]},
+      {label:"土地与农业",items:[[28,"破坏农田"],[29,"破坏水利"],[30,"隐瞒田亩"],[31,"逃避徭役"]]},
+      {label:"军事",items:[[32,"临阵脱逃"],[33,"违抗军令"],[34,"私卖军械"],[35,"谎报军功"],[36,"抢掠平民"],[56,"MercenaryOvermighty"]]},
+      {label:"婚姻与家族",items:[[37,"重婚"],[38,"遗弃家庭"],[39,"虐待亲属"],[40,"非法继承"],[41,"伪造血统"]]},
+      {label:"宗教与礼制",items:[[42,"亵渎神庙"],[43,"破坏祭祀"],[44,"冒充神职"],[45,"宣扬异端"]]},
+      {label:"商贸与契约",items:[[46,"违约"],[47,"伪造契约"],[48,"欺诈交易"],[49,"缺斤少两"]]},
+      {label:"城市与公共秩序",items:[[50,"非法持械"],[51,"聚众斗殴"],[52,"违反宵禁"],[53,"扰乱集市"],[54,"污染水源"],[55,"散布恐慌谣言"]]}
+    ];
+    const state={offices:{cores:[],division:[],harems:[],kingdoms:[],cities:[],armies:[]},cultures:[],rawCultureRules:[],factions:[],regimeOptions:{},laws:[]};
+    const desktopApi=window.regimeEditorDesktop||null;
+
+    function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36)}
+    function esc(v){return String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
+    function csv(v){const s=String(v??"");return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s}
+    function splitComma(t){return String(t||"").split(",").map(v=>v.trim()).filter(Boolean)}
+    function uniq(arr){return [...new Set((arr||[]).filter(Boolean))]}
+    function uniqNumbers(arr){return [...new Set((arr||[]).map(v=>Number(v)).filter(v=>Number.isFinite(v)))].sort((a,b)=>a-b)}
+    function setStatus(text,isErr=false){const el=document.getElementById("statusText");el.textContent=text||"";el.className=isErr?"status err":"status"}
+    function isDesktopApp(){return !!(desktopApi&&desktopApi.isElectron)}
+    function getConfigsUrl(){return new URL("../Scripts/Regimes/Configs/",window.location.href).href}
+    function isNamedScope(scope){return namedScopes.has(scope)}
+    function nextType(scope){const list=state.offices[scope]||[];const nums=list.map(o=>Number(o.officeType)).filter(Number.isFinite);return nums.length?Math.max(...nums)+1:list.length}
+    function joinTags(values){return uniq(values).join(",")}
+    function parseTags(text){return uniq(splitComma(text))}
+    function labelFor(list,value){return (list.find(x=>x[0]===value)||[])[1]||value}
+    function defaultRegimeOptions(){
+      const obj={};
+      for(const def of regimeOptionDefinitions) obj[def.key]=[def.defaultValue,def.max];
+      return obj;
+    }
+    function normalizeLaws(input){
+      if(Array.isArray(input)) return uniqNumbers(input);
+      if(typeof input==="string") return uniqNumbers(splitComma(input));
+      return [];
+    }
+    function normalizeRegimeOptions(input){
+      const base=defaultRegimeOptions();
+      if(!input || typeof input!=="object") return base;
+      for(const def of regimeOptionDefinitions){
+        const raw=input[def.key];
+        if(Array.isArray(raw)) base[def.key]=[Number(raw[0]??def.defaultValue), Number(raw[1]??def.max)];
+      }
+      return base;
+    }
+    function makeFaction(seed={}){
+      return {
+        id:seed.id||uid(),
+        _id:seed._id||uid(),
+        Name:seed.Name||seed.name||"",
+        Type:seed.Type||seed.type||"无",
+        _requiredTraits:joinTags(seed._requiredTraits||seed.RequiredTraits||seed.requiredTraits||[]),
+        only_king:!!seed.only_king,
+        Ban:!!seed.Ban,
+        Force:!!seed.Force
+      };
+    }
+
+    function makeConditionRow(mode="boolean",seed={}){
+      return {id:seed.id||uid(),mode:seed.mode||mode,key:seed.key||(mode==="number"?numConds[0][0]:boolConds[0][0]),operator:seed.operator||(mode==="number"?">=":"="),value:String(seed.value ?? (mode==="number"?"1":"true"))};
+    }
+
+    function parseConditionRows(arr){
+      return (arr||[]).map((item)=>{
+        if(typeof item!=="string") return makeConditionRow("boolean",item);
+        const num=item.match(/^([^:<>!=]+):([<>]=?|=)\|(.+)$/);
+        if(num){
+          const [,key,op,val]=num;
+          return makeConditionRow("number",{key,operator:op,value:val});
+        }
+        const bool=item.match(/^([^:<>!=]+):(true|false)$/);
+        if(bool){
+          const [,key,val]=bool;
+          return makeConditionRow("boolean",{key,operator:"=",value:val});
+        }
+        const legacy=item.match(/^([^:<>!=]+)(>=|<=|>|<|=)(.+)$/);
+        if(legacy){
+          const [,key,op,val]=legacy;
+          const mode=numConds.some(x=>x[0]===key)?"number":"boolean";
+          return makeConditionRow(mode,{key,operator:op,value:val});
+        }
+        return makeConditionRow("boolean",{key:item,value:"true"});
+      });
+    }
+    function makeOffice(scope,seed={}){
+      let namingMode="none",preBaseKey="",preKey=seed.preKey||"";
+      const rawPre=seed.pre||seed.preKey||"";
+      if(isNamedScope(scope)){
+        if(rawPre.endsWith("_full")){namingMode="full";preBaseKey=rawPre.slice(0,-5)}
+        else if(rawPre.endsWith("_all")){namingMode="all";preBaseKey=rawPre.slice(0,-4)}
+        else{namingMode="none";preBaseKey=rawPre}
+      }else preKey=rawPre;
+      return {
+        id:seed.id||uid(),
+        scope,
+        officeType:String(seed.officeType ?? seed.type ?? nextType(scope)),
+        key:seed.key||"",
+        select:seed.select||"",
+        nameCh:seed.nameCh||seed.translate_ch||"",
+        nameCz:seed.nameCz||seed.translate_cz||"",
+        nameEn:seed.nameEn||seed.translate_en||"",
+        preBaseKey:preBaseKey||"",
+        preNameCh:seed.preNameCh||"",
+        preNameCz:seed.preNameCz||"",
+        preNameEn:seed.preNameEn||"",
+        namingMode,
+        preKey,
+        categoryKeyRaw:seed.categoryKeyRaw||seed.category_key_raw||"",
+        categoryKey:seed.categoryKey||seed.category_key||seed.key||"",
+        suffixCh:seed.suffixCh||seed.suffix_ch||seed.translate_ch||"",
+        suffixCz:seed.suffixCz||seed.suffix_cz||seed.translate_cz||"",
+        suffixEn:seed.suffixEn||seed.suffix_en||seed.translate_en||"",
+        powers:Array.isArray(seed.powers)?seed.powers.join(","):seed.powers||"",
+        requireTraits:Array.isArray(seed.require_traits)?seed.require_traits.join(","):seed.require_traits||"",
+        description:seed.description||"",
+        peerageType:seed.peerageType||((scope==="armies")?"Military":"Civil"),
+        merit:String(seed.merit ?? "-1"),
+        honorary:String(seed.honorary ?? "-1"),
+        local:!!seed.local,
+        collapsed:!!seed.collapsed,
+        cityType:seed.cityType||seed.city_type||"",
+        conditionRows:parseConditionRows(seed.conditionRows||seed.condition||[])
+      };
+    }
+
+    function cloneOffice(scope,id){
+      const source=findOffice(scope,id);
+      if(!source) return;
+      const copied=makeOffice(scope,{
+        ...JSON.parse(JSON.stringify(source)),
+        id: undefined,
+        officeType: nextType(scope)
+      });
+      state.offices[scope].push(copied);
+    }
+
+    function makeCulture(seed={}){
+      return {
+        id:seed.id||uid(),
+        name:seed.name||"",
+        translate_ch:seed.translate_ch||"",
+        translate_cz:seed.translate_cz||"",
+        translate_en:seed.translate_en||"",
+        regime:seed.regime||"",
+        selected:!!seed.selected
+      };
+    }
+
+    function cultureDisplayName(culture){
+      return culture.translate_ch || culture.translate_cz || culture.translate_en || culture.name || "未命名文化";
+    }
+
+    function renderCultureSummary(){
+      const el=document.getElementById("cultureSummaryNote");
+      const total=state.cultures.length;
+      if(!total){
+        el.textContent="还没有读取到文化配置。";
+        return;
+      }
+      const unbound=state.cultures.filter(c=>!String(c.regime||"").trim()).length;
+      const bound=total-unbound;
+      const regimeMap=new Map();
+      state.cultures.forEach(c=>{
+        const key=String(c.regime||"").trim()||"未绑定";
+        regimeMap.set(key,(regimeMap.get(key)||0)+1);
+      });
+      const detail=[...regimeMap.entries()].sort((a,b)=>a[0].localeCompare(b[0],"zh-CN")).map(([key,count])=>`${key}：${count}`).join(" | ");
+      el.textContent=`文化总数 ${total}；已绑定 ${bound}；未绑定 ${unbound}。当前绑定概览：${detail}`;
+    }
+
+      function seedTemplate(){
+        state.offices={cores:[makeOffice("cores",{officeType:0,key:"prime_minister",nameCh:"首辅",nameCz:"首輔",nameEn:"Grand Chancellor",pre:"cabinet_full",preNameCh:"内阁",preNameCz:"內閣",preNameEn:"Cabinet",powers:"拟定,审核,执行",condition:["empire_center=true"]})],division:[],harems:[],kingdoms:[makeOffice("kingdoms",{officeType:0,key:"county",categoryKey:"CustomRegimeTemplate_county",categoryKeyRaw:"county",suffixCh:"国",suffixCz:"國",suffixEn:"County",nameCh:"国王",nameCz:"國王",nameEn:"King",cityType:"CustomRegimeTemplate_city"})],cities:[makeOffice("cities",{officeType:2,key:"city",categoryKey:"CustomRegimeTemplate_city",categoryKeyRaw:"city",suffixCh:"市",suffixCz:"市",suffixEn:"City",nameCh:"市长",nameCz:"市長",nameEn:"Mayor"})],armies:[]};
+        state.cultures=[];
+        state.rawCultureRules=[];
+          state.regimeOptions=defaultRegimeOptions();
+          state.factions=[makeFaction({Name:"中央派",Type:"中央"}),makeFaction({Name:"自治派",Type:"自治"})];
+          state.laws=[];
+        }
+
+    function officePreValue(office){
+      if(!isNamedScope(office.scope)) return office.preKey.trim();
+      const base=office.preBaseKey.trim();
+      if(!base) return "";
+      return office.namingMode==="full"?`${base}_full`:office.namingMode==="all"?`${base}_all`:base;
+    }
+
+    function fullCategoryKey(office){
+      const raw=(office.categoryKeyRaw || office.categoryKey || "").trim();
+      if(!(office.scope==="kingdoms" || office.scope==="cities" || office.scope==="armies")) return raw;
+      if(!raw) return "";
+      if(raw.includes("_")) return raw;
+      const regimeKey=(document.getElementById("regimeKey")?.value || "").trim();
+      return regimeKey ? `${regimeKey}_${raw}` : raw;
+    }
+
+    function officeConfig(office){
+      const out={
+        pre: officePreValue(office),
+        type:Number(office.officeType),
+        description:office.description||"",
+        powers:splitComma(office.powers),
+        merit:Number(office.merit||-1),
+        honorary:Number(office.honorary||-1),
+        peerageType:office.peerageType||((office.scope==="armies")?"Military":"Civil"),
+        select_from_local:!!office.local,
+        leader_select_method:office.select.trim() || "Default",
+        require_traits:splitComma(office.requireTraits)
+      };
+      const conds=(office.conditionRows||[]).map(row=>row.mode==="number"?`${row.key}:${row.operator}|${row.value}`:`${row.key}:${row.value}`).filter(Boolean);
+      if(conds.length) out.condition=conds;
+      if(office.scope==="kingdoms" && office.cityType.trim()) out.city_type=office.cityType.trim();
+      return out;
+    }
+
+    function officeCategoryLocales(office){
+      return {
+        key: fullCategoryKey(office),
+        ch: office.suffixCh.trim(),
+        cz: office.suffixCz.trim(),
+        en: office.suffixEn.trim()
+      };
+    }
+
+    function officialLocaleKey(office){
+      const regimeKey=(document.getElementById("regimeKey")?.value || "").trim() || "RegimeKey";
+      return `${regimeKey}_officiallevel_${office.officeType || 0}`;
+    }
+
+    function officeSummary(office){
+      const parts=[
+        `等级 ${office.officeType || "0"}`,
+        `本地化key: ${officialLocaleKey(office)}`,
+        (office.scope==="kingdoms" || office.scope==="cities" || office.scope==="armies") && fullCategoryKey(office) ? `类别: ${fullCategoryKey(office)}` : "",
+        office.select ? `选拔: ${labelFor(leaderMethodOptions,office.select)}` : "选拔: 跟随默认",
+        officePreValue(office) ? `pre: ${officePreValue(office)}` : "",
+        office.scope==="kingdoms" && office.cityType ? `城市类型: ${office.cityType}` : "",
+        office.powers ? `能力: ${parseTags(office.powers).join(" / ")}` : "",
+        office.requireTraits ? `特质: ${parseTags(office.requireTraits).join(" / ")}` : ""
+      ].filter(Boolean);
+      return parts.join(" | ");
+    }
+
+    function collectMeta(){
+      return {
+        folderName:document.getElementById("folderName").value.trim()||"CustomRegimeTemplate",
+        regimeKey:document.getElementById("regimeKey").value.trim()||"CustomRegimeTemplate",
+        regimeNameCh:document.getElementById("regimeNameCh").value.trim(),
+        regimeNameCz:document.getElementById("regimeNameCz").value.trim(),
+        regimeNameEn:document.getElementById("regimeNameEn").value.trim(),
+        descriptionCh:document.getElementById("descriptionCh").value.trim(),
+        descriptionCz:document.getElementById("descriptionCz").value.trim(),
+        descriptionEn:document.getElementById("descriptionEn").value.trim(),
+        iconUrl:document.getElementById("iconUrl").value.trim(),
+        leaderSelectMethod:document.getElementById("leaderSelectMethod").value,
+          defaultKingdom:document.getElementById("defaultKingdom").value.trim(),
+          eraName:document.getElementById("eraName").checked,
+          hasCabinet:document.getElementById("hasCabinet").checked,
+          centreSeparate:document.getElementById("centreSeparate").checked,
+          cabinetNumber:Number(document.getElementById("cabinetNumber").value||0),
+          laws:uniqNumbers(state.laws)
+        };
+      }
+
+    function buildOutputs(){
+      const meta=collectMeta();
+      const bureauConfig={
+        cores: state.offices.cores.map(officeConfig),
+        division: state.offices.division.map(officeConfig),
+        harems: state.offices.harems.map(officeConfig),
+        kingdoms: Object.fromEntries(state.offices.kingdoms.filter(o=>fullCategoryKey(o)).map(o=>[fullCategoryKey(o),officeConfig(o)])),
+        cities: Object.fromEntries(state.offices.cities.filter(o=>fullCategoryKey(o)).map(o=>[fullCategoryKey(o),officeConfig(o)])),
+        armies: Object.fromEntries(state.offices.armies.filter(o=>fullCategoryKey(o)).map(o=>[fullCategoryKey(o),officeConfig(o)]))
+      };
+      const systemConfig={
+        description:meta.descriptionCh,
+        icon_url:meta.iconUrl,
+        era_name:meta.eraName,
+        has_cabinet:meta.hasCabinet,
+        cabinet_number:meta.cabinetNumber,
+        leader_select_method:meta.leaderSelectMethod,
+        default_kingdom:meta.defaultKingdom,
+        centre_empire_separate:meta.centreSeparate,
+        laws:meta.laws,Factions:state.factions.map(f=>({_id:f._id,Type:f.Type,Ban:!!f.Ban,_requiredTraits:parseTags(f._requiredTraits),only_king:!!f.only_king,Name:f.Name,EmpireId:-1,Members:[],TotalPower:0,Leader:-1})),
+        options:Object.fromEntries(regimeOptionDefinitions.map(def=>{
+          const arr=state.regimeOptions[def.key]||[def.defaultValue,def.max];
+          return [def.key,[Number(arr[0]||0),Number(arr[1]||0)]];
+        })),
+        bureau_config:bureauConfig
+      };
+      const localeRows=[["key","cz","en","ch"].join(",")];
+      const localeMap=new Map();
+      function pushLocaleRow(key,cz,en,ch){
+        if(!key) return;
+        localeMap.set(key,[key,cz||"",en||"",ch||""]);
+      }
+      for(const office of Object.values(state.offices).flat()){
+        pushLocaleRow(`${meta.regimeKey}_officiallevel_${office.officeType}`,office.nameCz,office.nameEn,office.nameCh);
+        if((office.scope==="cores" || office.scope==="division") && officePreValue(office)){
+          pushLocaleRow(officePreValue(office),office.preNameCz,office.preNameEn,office.preNameCh);
+        }
+        if(office.scope==="kingdoms" || office.scope==="cities" || office.scope==="armies"){
+          const loc=officeCategoryLocales(office);
+          pushLocaleRow(loc.key,loc.cz,loc.en,loc.ch);
+        }
+      }
+      for(const row of localeMap.values()) localeRows.push(row.map(csv).join(","));
+
+        const editorState={meta,offices:state.offices,factions:state.factions,regimeOptions:state.regimeOptions,laws:state.laws};
+        const cultureRules=(state.rawCultureRules.length?state.rawCultureRules.map(x=>JSON.parse(JSON.stringify(x))):state.cultures.map(c=>({name:c.name,translate_ch:c.translate_ch,translate_cz:c.translate_cz,translate_en:c.translate_en,setting:{regime:c.regime}}))).map(item=>{
+          const found=state.cultures.find(c=>c.name===item.name);
+          if(found){
+            item.setting=item.setting||{}; item.setting.regime=found.regime;
+          }
+          return item;
+        });
+
+      return {systemText:JSON.stringify({[meta.regimeKey]:systemConfig},null,2),officialText:localeRows.join("\n"),stateText:JSON.stringify(editorState,null,2),cultureText:JSON.stringify(cultureRules,null,2)};
+    }
+
+    async function openConfigsDirectory(){
+      if(isDesktopApp() && desktopApi.openConfigsDir){
+        const result=await desktopApi.openConfigsDir();
+        if(result?.error) throw new Error(result.error);
+        return result;
+      }
+      window.open(getConfigsUrl(),"_blank");
+      return {path:getConfigsUrl()};
+    }
+
+    async function writeConfigsToFolder(){
+      if(!isDesktopApp() || !desktopApi.writeConfigs){
+        throw new Error("当前不是桌面版，无法直接写入本地政体目录。");
+      }
+      const meta=collectMeta();
+      const out=buildOutputs();
+      const result=await desktopApi.writeConfigs({
+        folderName:meta.folderName,
+        outputs:{
+          "SystemConfig.json":out.systemText,
+          "OfficialType.csv":out.officialText,
+          "RegimeEditorState.json":out.stateText,
+          cultureText:out.cultureText
+        }
+      });
+      if(result?.error) throw new Error(result.error);
+      return result;
+    }
+
+    async function syncEnumsToCode(){
+      if(!isDesktopApp() || !desktopApi.syncEnums){
+        throw new Error("当前不是桌面版，无法直接同步代码枚举。");
+      }
+      const result=await desktopApi.syncEnums();
+      if(result?.error) throw new Error(result.error);
+      return result;
+    }
+
+    async function refreshModRootNote(){
+      const note=document.getElementById("modRootNote");
+      if(!isDesktopApp() || !desktopApi.getModRoot){
+        note.textContent="当前模组目录：网页版模式下不可用";
+        return;
+      }
+      const result=await desktopApi.getModRoot();
+      note.textContent=result?.path?`当前模组目录：${result.path}`:`当前模组目录：未设置`;
+    }
+
+    function openSection(sectionId){
+      document.querySelectorAll(".section-panel").forEach(el=>el.classList.toggle("active",el.id===sectionId));
+      document.querySelectorAll("[data-open-section]").forEach(el=>el.classList.toggle("active",el.dataset.openSection===sectionId));
+    }
+
+    async function loadCultureRulesFromDesktop(){
+      if(!isDesktopApp() || !desktopApi.loadCultureRules){
+        throw new Error("当前不是桌面版，无法直接读取文化配置。");
+      }
+      const result=await desktopApi.loadCultureRules();
+      state.rawCultureRules=Array.isArray(result?.data)?result.data:[];
+      state.cultures=state.rawCultureRules.map(item=>makeCulture({
+        name:item.name,
+        translate_ch:item.translate_ch,
+        translate_cz:item.translate_cz,
+        translate_en:item.translate_en,
+        regime:item.setting?.regime||""
+      }));
+      renderCultures();
+      refreshPreview();
+      return result;
+    }
+
+    function renderTagEditor(values,presets,kind,path,scope="",id="",placeholder="输入后点添加"){
+      const items=parseTags(values);
+      return `<div class="tag-editor">
+        <div class="tag-list">${items.length?items.map(v=>`<span class="tag">${esc(labelFor(presets,v))}<button type="button" data-tag-remove="${esc(v)}" data-tag-kind="${kind}" data-tag-path="${path}" data-tag-scope="${scope}" data-tag-id="${id}">×</button></span>`).join(""):'<span class="muted">暂未选择</span>'}</div>
+        <div class="tag-preset">${presets.map(([v,t])=>`<button type="button" class="${items.includes(v)?'active':''}" data-tag-toggle="${esc(v)}" data-tag-kind="${kind}" data-tag-path="${path}" data-tag-scope="${scope}" data-tag-id="${id}">${esc(t)}</button>`).join("")}</div>
+        <div class="tag-add">
+          <input data-tag-custom-input="${kind}:${path}:${scope}:${id}" placeholder="${esc(placeholder)}" />
+          <button type="button" data-tag-add-custom="${kind}" data-tag-path="${path}" data-tag-scope="${scope}" data-tag-id="${id}">添加自定义项</button>
+        </div>
+      </div>`;
+    }
+
+    function renderMetaSelectors(){
+      document.getElementById("optionsEditor").innerHTML=`<div class="config-list">${regimeOptionDefinitions.map(def=>{
+        const arr=state.regimeOptions[def.key]||[def.defaultValue,def.max];
+        return `<div class="config-card">
+          <div class="head"><strong>${def.label}</strong><span class="muted mono">${def.key}</span></div>
+          ${def.kind==="toggle"
+            ? `<div style="margin-top:8px"><label class="field">当前值<select data-option-key="${def.key}" data-option-index="0"><option value="0" ${Number(arr[0])===0?"selected":""}>关闭</option><option value="1" ${Number(arr[0])===1?"selected":""}>开启</option></select></label></div>`
+            : def.kind==="enum"
+              ? `<div style="margin-top:8px"><label class="field">当前值<select data-option-key="${def.key}" data-option-index="0">${def.choices.map(([v,t])=>`<option value="${v}" ${Number(arr[0])===Number(v)?"selected":""}>${t}</option>`).join("")}</select></label></div>`
+              : `<div class="grid two" style="margin-top:8px"><label class="field">当前值<input data-option-key="${def.key}" data-option-index="0" type="number" min="0" value="${esc(arr[0])}" /></label><label class="field">可选总数 / 上限<input data-option-key="${def.key}" data-option-index="1" type="number" min="1" value="${esc(arr[1])}" /></label></div>`}
+          <div class="muted" style="margin-top:6px">${def.description || ""}<\/div>
+          </div>`;
+        }).join("")}</div>`;
+        document.getElementById("lawsEditor").innerHTML=`<div class="tag-editor">
+          <div class="tag-list">${state.laws.length?state.laws.map(value=>{const item=lawGroups.flatMap(g=>g.items).find(x=>Number(x[0])===Number(value));return `<span class="tag">${esc(item?`${item[1]} (${value})`:String(value))}<button type="button" data-law-remove="${value}">×</button></span>`}).join(""):'<span class="muted">暂未选择法律</span>'}</div>
+          <div class="config-list">${lawGroups.map(group=>`<div class="config-card"><div class="head"><strong>${group.label}</strong></div><div class="tag-preset" style="margin-top:8px">${group.items.map(([value,label])=>`<button type="button" class="${state.laws.includes(Number(value))?'active':''}" data-law-toggle="${value}">${esc(label)}</button>`).join("")}</div></div>`).join("")}</div>
+        </div>`;
+        document.getElementById("factionsEditor").innerHTML=`<div class="toolbar"><button type="button" id="addFactionConfigBtn">添加派系</button></div><div class="config-list">${state.factions.map(f=>`
+          <div class="config-card">
+          <div class="head"><strong>${esc(f.Name||"未命名派系")}</strong><button type="button" class="danger" data-delete-faction="${f.id}">删除</button></div>
+          <div class="grid two" style="margin-top:8px">
+            <label class="field">派系名称<input data-faction-id="${f.id}" data-faction-path="Name" value="${esc(f.Name)}" /></label>
+            <label class="field">派系类型
+              <select data-faction-id="${f.id}" data-faction-path="Type">
+                ${factionTypeOptions.map(([v,t])=>`<option value="${v}" ${f.Type===v?"selected":""}>${t}</option>`).join("")}
+              </select>
+            </label>
+          </div>
+          <div class="grid three" style="margin-top:8px">
+            <label class="check"><input type="checkbox" data-faction-check="${f.id}" data-faction-path="only_king" ${f.only_king?"checked":""} /> 仅君主可加入</label>
+            <label class="check"><input type="checkbox" data-faction-check="${f.id}" data-faction-path="Ban" ${f.Ban?"checked":""} /> 默认禁用</label>
+            <label class="check"><input type="checkbox" data-faction-check="${f.id}" data-faction-path="Force" ${f.Force?"checked":""} /> 设为主导派系</label>
+          </div>
+          <div class="field" style="margin-top:8px">
+            <span>派系需求特质 _requiredTraits</span>
+            <div data-faction-trait-box="${f.id}">${renderTagEditor(f._requiredTraits,traitOptions,"faction","_requiredTraits","",f.id,"输入特质后点添加")}</div>
+          </div>
+        </div>`).join("")}</div>`;
+    }
+
+    function setOfficeTagValue(scope,id,path,values){
+      const office=findOffice(scope,id);
+      if(!office) return;
+      office[path]=joinTags(values);
+      refreshOfficeDisplay(scope,id);
+      refreshPreview();
+    }
+
+    function setFactionTagValue(id,path,values){
+      const faction=state.factions.find(f=>f.id===id);
+      if(!faction) return;
+      faction[path]=joinTags(values);
+      renderMetaSelectors();
+      refreshPreview();
+    }
+
+    function refreshOfficeDisplay(scope,id){
+      const office=findOffice(scope,id);
+      const root=document.querySelector(`[data-office-root="${scope}:${id}"]`);
+      if(!office || !root) return;
+      const title=root.querySelector("[data-office-title]");
+      if(title) title.textContent=`${scopeLabels[office.scope]}：${office.nameCh||office.key||"未命名官职"}`;
+      const summary=root.querySelector("[data-office-summary]");
+      if(summary) summary.innerHTML=`<div>${esc(officeSummary(office))}</div><div>${esc(office.nameCh||"未填写简体名")} / ${esc(office.nameCz||"未填写繁体名")} / ${esc(office.nameEn||"未填写英文名")}</div>`;
+      const preView=root.querySelector("[data-office-prepreview]");
+      if(preView) preView.value=officePreValue(office);
+      const powerBox=root.querySelector("[data-tag-box='powers']");
+      if(powerBox) powerBox.innerHTML=renderTagEditor(office.powers,powerOptions,"office","powers",scope,id,"输入能力后点添加");
+      const traitBox=root.querySelector("[data-tag-box='requireTraits']");
+      if(traitBox) traitBox.innerHTML=renderTagEditor(office.requireTraits,traitOptions,"office","requireTraits",scope,id,"输入特质后点添加");
+    }
+
+    function officeCard(office){
+      const named=isNamedScope(office.scope);
+      const cityOptions=(state.offices.cities||[]).map(city=>fullCategoryKey(city)).filter(Boolean);
+      const hasCityOptions=cityOptions.length>0;
+      return `
+      <div class="office" data-office-root="${office.scope}:${office.id}">
+        <div class="head"><strong data-office-title>${scopeLabels[office.scope]}：${esc(office.nameCh||office.key||"未命名官职")}</strong><div><button type="button" data-toggle-scope="${office.scope}" data-toggle-id="${office.id}">${office.collapsed?"展开":"收起"}</button> <button type="button" data-copy-scope="${office.scope}" data-copy-id="${office.id}">复制</button> <button class="danger" type="button" data-delete-scope="${office.scope}" data-delete-id="${office.id}">删除</button></div></div>
+        <div class="office-summary" data-office-summary>
+          <div>${esc(officeSummary(office))}</div>
+          <div>${esc(office.nameCh||"未填写简体名")} / ${esc(office.nameCz||"未填写繁体名")} / ${esc(office.nameEn||"未填写英文名")}</div>
+        </div>
+        ${office.collapsed?"":`
+        <div class="grid three">
+          <label class="field">官职等级 type<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="officeType" value="${esc(office.officeType)}" /></label>
+          <label class="field">官职本地化 key（自动生成）<input value="${esc(officialLocaleKey(office))}" readonly /></label>
+          <label class="field">选拔方式
+            <select data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="select">
+              ${leaderMethodOptions.map(([v,t])=>`<option value="${v}" ${office.select===v?"selected":""}>${t}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+        ${office.scope==="kingdoms" || office.scope==="cities" ? `
+        <div class="grid two">
+          <label class="field">类别名（自动拼接政体 key）<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="categoryKeyRaw" value="${esc(office.categoryKeyRaw || office.categoryKey)}" placeholder="${office.scope==="kingdoms"?"如 jimizhou":"如 city"}" /></label>
+          <div class="note">这里不用再手填前面的政体 key。导出时会自动拼成 ${esc((document.getElementById("regimeKey")?.value || "RegimeKey"))}_xxx，并且需要和代码中的 ${office.scope==="kingdoms"?"KingdomType":"CityType"} 枚举值一致。<br />当前完整 key：${esc(fullCategoryKey(office) || "尚未生成")}</div>
+        </div>
+        <div class="grid three">
+          <label class="field">类别后缀简体<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="suffixCh" value="${esc(office.suffixCh)}" placeholder="${office.scope==="kingdoms"?"如 国 / 州 / 郡":"如 市 / 城"}" /></label>
+          <label class="field">類別後綴繁體<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="suffixCz" value="${esc(office.suffixCz)}" /></label>
+          <label class="field">Category Suffix English<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="suffixEn" value="${esc(office.suffixEn)}" /></label>
+        </div>` : ""}
+        ${office.scope==="kingdoms"?`
+        <div class="field">
+          <span>绑定城市类型 city_type</span>
+          ${hasCityOptions
+            ? `<select data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="cityType">
+                <option value="">请选择下面城市类别中的一个</option>
+                ${cityOptions.map(v=>`<option value="${esc(v)}" ${office.cityType===v?"selected":""}>${esc(v)}</option>`).join("")}
+              </select>
+              <div class="muted">国家类别必须绑定一个城市类别，这会决定该国家下属城市使用哪套城市名称与职位配置。</div>`
+            : `<div class="note">还没有创建任何城市类别。请先在“城市职类”里新增至少一个条目并填写类别 key，否则当前国家类别配置不会生效。</div>`}
+        </div>`:""}
+        <div class="grid three">
+          <label class="field">${office.scope==="kingdoms" || office.scope==="cities" ? "简体头衔名" : "简体官职名"}<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="nameCh" value="${esc(office.nameCh)}" placeholder="${office.scope==="kingdoms"?"如 国王 / 国公 / 省长":office.scope==="cities"?"如 市长 / 城主 / 府尹":"可填写官职名"}" /></label>
+          <label class="field">${office.scope==="kingdoms" || office.scope==="cities" ? "繁體頭銜名" : "繁體官職名"}<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="nameCz" value="${esc(office.nameCz)}" placeholder="${office.scope==="kingdoms"?"如 國王 / 國公 / 省長":office.scope==="cities"?"如 市長 / 城主 / 府尹":"可填写官职名"}" /></label>
+          <label class="field">${office.scope==="kingdoms" || office.scope==="cities" ? "英文头衔名" : "英文官职名"}<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="nameEn" value="${esc(office.nameEn)}" placeholder="${office.scope==="kingdoms"?"如 King / Duke / Governor":office.scope==="cities"?"如 Mayor / Castellan":"可填写官职名"}" /></label>
+        </div>
+        ${named?`
+        <div class="grid three">
+          <label class="field">部门键名前缀<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="preBaseKey" value="${esc(office.preBaseKey)}" placeholder="如 finance / libu / zhongshusheng" /></label>
+          <label class="field">部门与职位的称呼规则
+            <select data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="namingMode">
+              <option value="none" ${office.namingMode==="none"?"selected":""}>没有独立部门名，职位名就是完整称呼</option>
+              <option value="full" ${office.namingMode==="full"?"selected":""}>部门名 + 职位名，例如 财政部部长 / 礼部尚书</option>
+              <option value="all" ${office.namingMode==="all"?"selected":""}>部门名和职位名完全特称，例如 中书省 / 中书令</option>
+            </select>
+          </label>
+          <label class="field">当前生成的 pre 键<input data-office-prepreview value="${esc(officePreValue(office))}" readonly /></label>
+        </div>
+        <div class="grid three">
+          <label class="field">部门简体名<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="preNameCh" value="${esc(office.preNameCh)}" /></label>
+          <label class="field">部門繁體名<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="preNameCz" value="${esc(office.preNameCz)}" /></label>
+          <label class="field">部门英文名<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="preNameEn" value="${esc(office.preNameEn)}" /></label>
+        </div>`:`
+        <div class="grid three">
+          <label class="field">前缀 pre<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="preKey" value="${esc(office.preKey)}" placeholder="通常可留空" /></label>
+          <label class="field">功绩 merit<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="merit" value="${esc(office.merit)}" /></label>
+          <label class="field">荣誉 honorary<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="honorary" value="${esc(office.honorary)}" /></label>
+        </div>`}
+        ${named?`<div class="grid three">
+          <label class="field">功绩 merit<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="merit" value="${esc(office.merit)}" /></label>
+          <label class="field">荣誉 honorary<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="honorary" value="${esc(office.honorary)}" /></label>
+          <label class="check"><input type="checkbox" data-kind="office-check" data-scope="${office.scope}" data-id="${office.id}" data-path="local" ${office.local?"checked":""} /> 本地选拔</label>
+        </div>`:`<div class="grid two"><div class="field"><span>能力 powers</span><div data-tag-box="powers">${renderTagEditor(office.powers,powerOptions,"office","powers",office.scope,office.id,"输入能力后点添加")}</div></div><div class="field"><span>需求特质 require_traits</span><div data-tag-box="requireTraits">${renderTagEditor(office.requireTraits,traitOptions,"office","requireTraits",office.scope,office.id,"输入特质后点添加")}</div></div></div>`}
+        ${named?`<div class="grid two"><div class="field"><span>能力 powers</span><div data-tag-box="powers">${renderTagEditor(office.powers,powerOptions,"office","powers",office.scope,office.id,"输入能力后点添加")}</div></div><div class="field"><span>需求特质 require_traits</span><div data-tag-box="requireTraits">${renderTagEditor(office.requireTraits,traitOptions,"office","requireTraits",office.scope,office.id,"输入特质后点添加")}</div></div></div><label class="check"><input type="checkbox" data-kind="office-check" data-scope="${office.scope}" data-id="${office.id}" data-path="local" ${office.local?"checked":""} /> 本地选拔</label>`:""}
+        <div class="grid two">
+          <label class="field">结构描述 description<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="description" value="${esc(office.description)}" placeholder="可留空" /></label>
+          <label class="field">官职属性 peerageType
+            <select data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="peerageType">
+              <option value="Civil" ${office.peerageType==="Civil"?"selected":""}>Civil</option>
+              <option value="Military" ${office.peerageType==="Military"?"selected":""}>Military</option>
+            </select>
+          </label>
+        </div>
+        <div class="conds">
+          <div class="head"><strong>条件菜单</strong><div><button type="button" data-condition-add="${office.id}" data-condition-mode-template="boolean">添加是/否条件</button> <button type="button" data-condition-add="${office.id}" data-condition-mode-template="number">添加数值条件</button></div></div>
+          <div class="muted">这里给新手准备成了中文菜单，不需要手写 empire_center=true 这种原始文本。</div>
+          ${(office.conditionRows||[]).map(row=>`
+            <div class="cond">
+              <div class="grid ${row.mode==="number"?"three":"three"}">
+                <label class="field">条件类型
+                  <select data-condition-office="${office.id}" data-condition-row="${row.id}" data-condition-field="mode">
+                    <option value="boolean" ${row.mode==="boolean"?"selected":""}>是/否条件</option>
+                    <option value="number" ${row.mode==="number"?"selected":""}>数值条件</option>
+                  </select>
+                </label>
+                <label class="field">条件内容
+                  <select data-condition-office="${office.id}" data-condition-row="${row.id}" data-condition-field="key">
+                    ${(row.mode==="number"?numConds:boolConds).map(([v,t])=>`<option value="${v}" ${row.key===v?"selected":""}>${t}</option>`).join("")}
+                  </select>
+                </label>
+                ${row.mode==="number"?`
+                  <label class="field">比较方式
+                    <select data-condition-office="${office.id}" data-condition-row="${row.id}" data-condition-field="operator">
+                      ${Object.entries(opLabels).map(([v,t])=>`<option value="${v}" ${row.operator===v?"selected":""}>${t}</option>`).join("")}
+                    </select>
+                  </label>
+                  <label class="field">数值<input data-condition-office="${office.id}" data-condition-row="${row.id}" data-condition-field="value" value="${esc(row.value)}" /></label>
+                `:`
+                  <label class="field">是否需要满足
+                    <select data-condition-office="${office.id}" data-condition-row="${row.id}" data-condition-field="value">
+                      <option value="true" ${row.value==="true"?"selected":""}>需要满足</option>
+                      <option value="false" ${row.value==="false"?"selected":""}>需要不满足</option>
+                    </select>
+                  </label>
+                `}
+              </div>
+              <div style="margin-top:8px"><button class="danger" type="button" data-condition-delete="${office.id}" data-condition-row-delete="${row.id}">删除条件</button></div>
+            </div>`).join("")}
+        </div>
+        `}
+      </div>`;
+    }
+
+    function renderOffices(){
+      const box=document.getElementById("officeCards");
+      let html="";
+      for(const scope of Object.keys(state.offices)){
+        const list=state.offices[scope];
+        html+=`<div class="office-group"><div class="office-group-title">${scopeLabels[scope]}</div>${list.length?list.map(officeCard).join(""):`<div class="note">这个分类下还没有条目。</div>`}</div>`;
+      }
+      box.innerHTML=html||'<div class="note">还没有官职，点击上面的按钮开始添加。</div>';
+    }
+
+    function renderCultures(){
+      const box=document.getElementById("cultureCards");
+      renderCultureSummary();
+      box.innerHTML=(state.cultures||[]).map(c=>`
+        <div class="culture">
+          <div class="head"><strong>${esc(cultureDisplayName(c))}</strong><label class="check"><input type="checkbox" data-culture-check="${c.id}" ${c.selected?"checked":""} /> 选择</label></div>
+          <div class="grid two">
+            <div class="muted">文化 key：<span class="mono">${esc(c.name||"")}</span></div>
+            <div class="muted">当前政体：<span class="badge mono">${esc(c.regime||"未绑定")}</span></div>
+          </div>
+          <div class="toolbar" style="margin-top:8px">
+            <button type="button" data-culture-apply="${c.id}">绑定当前政体</button>
+          </div>
+        </div>`).join("")||'<div class="note">还没有读取到文化配置，请先点击“读取文化配置”。</div>';
+    }
+
+    function refreshPreview(){
+      try{
+        const out=buildOutputs();
+        document.getElementById("systemPreview").value=out.systemText;
+        document.getElementById("officialPreview").value=out.officialText;
+        document.getElementById("statePreview").value=out.stateText;
+        document.getElementById("culturePreview").value=state.rawCultureRules.length
+          ? "不会生成新的 CultureRulesConfig.json 文件。\n写入时会直接修改当前读取到的真实文化配置文件，并且只更新每个文化的 setting.regime 字段。"
+          : "还没有读取到真实文化配置文件。点击“读取文化配置”后，写入操作才会修改现有的 CultureRulesConfig.json。";
+        setStatus("预览已更新");
+      }catch(err){setStatus(`预览更新失败：${err.message}`,true)}
+    }
+
+    function findOffice(scope,id){return (state.offices[scope]||[]).find(o=>o.id===id)}
+
+    document.body.addEventListener("input",e=>{
+      const t=e.target;
+      if(t.dataset.kind==="office"){
+        const office=findOffice(t.dataset.scope,t.dataset.id); if(!office) return;
+        office[t.dataset.path]=t.value;
+        if(["nameCh","key","preBaseKey","namingMode","preKey","categoryKey","suffixCh","suffixCz","suffixEn","cityType"].includes(t.dataset.path)) renderOffices();
+        else refreshOfficeDisplay(t.dataset.scope,t.dataset.id);
+        refreshPreview();
+      }else if(t.dataset.factionId){
+        const faction=state.factions.find(x=>x.id===t.dataset.factionId); if(!faction) return;
+        faction[t.dataset.factionPath]=t.value;
+        refreshPreview();
+      }else if(t.dataset.optionKey){
+        state.regimeOptions[t.dataset.optionKey][Number(t.dataset.optionIndex)]=Number(t.value||0);
+        refreshPreview();
+      }else if(t.matches("#meta input,#meta textarea")){
+        if(t.id==="regimeKey") renderOffices();
+        refreshPreview();
+      }
+      else if(t.dataset.conditionOffice){
+        const office=Object.values(state.offices).flat().find(o=>o.id===t.dataset.conditionOffice); if(!office) return;
+        const row=(office.conditionRows||[]).find(r=>r.id===t.dataset.conditionRow); if(!row) return;
+        row[t.dataset.conditionField]=t.value;
+        if(t.dataset.conditionField==="mode"){
+          const repl=makeConditionRow(t.value);
+          row.mode=repl.mode; row.key=repl.key; row.operator=repl.operator; row.value=repl.value;
+          renderOffices();
+        }
+        refreshPreview();
+      }
+    });
+
+    document.body.addEventListener("change",e=>{
+      const t=e.target;
+      if(t.dataset.kind==="office-check"){
+        const office=findOffice(t.dataset.scope,t.dataset.id); if(!office) return;
+        office[t.dataset.path]=t.checked; refreshPreview();
+      }else if(t.dataset.kind==="office"){
+        const office=findOffice(t.dataset.scope,t.dataset.id); if(!office) return;
+        office[t.dataset.path]=t.value;
+        if(["select","categoryKey","cityType"].includes(t.dataset.path)) renderOffices();
+        else refreshOfficeDisplay(t.dataset.scope,t.dataset.id);
+        refreshPreview();
+      }else if(t.dataset.factionCheck){
+        const faction=state.factions.find(x=>x.id===t.dataset.factionCheck); if(!faction) return;
+        faction[t.dataset.factionPath]=t.checked;
+        refreshPreview();
+      }else if(t.dataset.factionId){
+        const faction=state.factions.find(x=>x.id===t.dataset.factionId); if(!faction) return;
+        faction[t.dataset.factionPath]=t.value;
+        refreshPreview();
+      }else if(t.dataset.optionKey){
+        state.regimeOptions[t.dataset.optionKey][Number(t.dataset.optionIndex)]=Number(t.value||0);
+        refreshPreview();
+      }else if(t.dataset.cultureCheck){
+        const c=state.cultures.find(x=>x.id===t.dataset.cultureCheck); if(!c) return;
+        c.selected=t.checked; refreshPreview();
+      }else if(t.matches("#leaderSelectMethod,#eraName,#hasCabinet,#centreSeparate")) refreshPreview();
+    });
+
+    document.body.addEventListener("click",async e=>{
+      const t=e.target;
+      if(t.dataset.tagToggle){
+        const current=t.dataset.tagKind==="office"
+          ? parseTags((findOffice(t.dataset.tagScope,t.dataset.tagId)||{})[t.dataset.tagPath]||"")
+          : parseTags((state.factions.find(f=>f.id===t.dataset.tagId)||{})[t.dataset.tagPath]||"");
+        const next=current.includes(t.dataset.tagToggle)?current.filter(v=>v!==t.dataset.tagToggle):current.concat(t.dataset.tagToggle);
+        if(t.dataset.tagKind==="office") setOfficeTagValue(t.dataset.tagScope,t.dataset.tagId,t.dataset.tagPath,next);
+        else setFactionTagValue(t.dataset.tagId,t.dataset.tagPath,next);
+        return;
+      }
+      if(t.dataset.tagRemove){
+        const current=t.dataset.tagKind==="office"
+          ? parseTags((findOffice(t.dataset.tagScope,t.dataset.tagId)||{})[t.dataset.tagPath]||"")
+          : parseTags((state.factions.find(f=>f.id===t.dataset.tagId)||{})[t.dataset.tagPath]||"");
+        const next=current.filter(v=>v!==t.dataset.tagRemove);
+        if(t.dataset.tagKind==="office") setOfficeTagValue(t.dataset.tagScope,t.dataset.tagId,t.dataset.tagPath,next);
+        else setFactionTagValue(t.dataset.tagId,t.dataset.tagPath,next);
+        return;
+      }
+      if(t.dataset.tagAddCustom){
+        const key=`${t.dataset.tagAddCustom}:${t.dataset.tagPath}:${t.dataset.tagScope||""}:${t.dataset.tagId||""}`;
+        const input=document.querySelector(`[data-tag-custom-input="${key}"]`);
+        const value=input?.value.trim();
+        if(!value) return;
+        const current=t.dataset.tagAddCustom==="office"
+          ? parseTags((findOffice(t.dataset.tagScope,t.dataset.tagId)||{})[t.dataset.tagPath]||"")
+          : parseTags((state.factions.find(f=>f.id===t.dataset.tagId)||{})[t.dataset.tagPath]||"");
+        const next=uniq(current.concat(value));
+        if(t.dataset.tagAddCustom==="office") setOfficeTagValue(t.dataset.tagScope,t.dataset.tagId,t.dataset.tagPath,next);
+        else setFactionTagValue(t.dataset.tagId,t.dataset.tagPath,next);
+        if(input) input.value="";
+        return;
+      }
+      if(t.dataset.lawToggle){
+        const value=Number(t.dataset.lawToggle);
+        state.laws=state.laws.includes(value)?state.laws.filter(x=>x!==value):uniqNumbers(state.laws.concat(value));
+        renderMetaSelectors();
+        refreshPreview();
+        return;
+      }
+      if(t.dataset.lawRemove){
+        const value=Number(t.dataset.lawRemove);
+        state.laws=state.laws.filter(x=>x!==value);
+        renderMetaSelectors();
+        refreshPreview();
+        return;
+      }
+      if(t.dataset.openSection){
+        openSection(t.dataset.openSection);
+        return;
+      }
+      if(t.dataset.cultureApply){
+        const c=state.cultures.find(x=>x.id===t.dataset.cultureApply);
+        if(!c) return;
+        c.regime=document.getElementById("regimeKey").value.trim();
+        renderCultures();
+        refreshPreview();
+        return;
+      }
+      if(t.dataset.toggleScope){
+        const office=findOffice(t.dataset.toggleScope,t.dataset.toggleId);
+        if(!office) return;
+        office.collapsed=!office.collapsed;
+        renderOffices();
+        refreshPreview();
+        return;
+      }
+      if(t.dataset.copyScope){
+        cloneOffice(t.dataset.copyScope,t.dataset.copyId);
+        renderOffices();
+        refreshPreview();
+        return;
+      }
+      if(t.id==="addFactionConfigBtn"){ state.factions.push(makeFaction({Name:"新派系",Type:"无"})); renderMetaSelectors(); refreshPreview(); return; }
+      if(t.dataset.deleteFaction){ state.factions=state.factions.filter(f=>f.id!==t.dataset.deleteFaction); renderMetaSelectors(); refreshPreview(); return; }
+      if(t.dataset.addScope){ state.offices[t.dataset.addScope].push(makeOffice(t.dataset.addScope)); renderOffices(); refreshPreview(); return; }
+      if(t.dataset.deleteScope){ state.offices[t.dataset.deleteScope]=state.offices[t.dataset.deleteScope].filter(o=>o.id!==t.dataset.deleteId); renderOffices(); refreshPreview(); return; }
+      if(t.dataset.copyTarget){ await navigator.clipboard.writeText(document.getElementById(t.dataset.copyTarget).value); setStatus("已复制到剪贴板"); return; }
+      if(t.dataset.conditionAdd){ const office=Object.values(state.offices).flat().find(o=>o.id===t.dataset.conditionAdd); if(!office) return; office.conditionRows.push(makeConditionRow(t.dataset.conditionModeTemplate||"boolean")); renderOffices(); refreshPreview(); return; }
+      if(t.dataset.conditionDelete){ const office=Object.values(state.offices).flat().find(o=>o.id===t.dataset.conditionDelete); if(!office) return; office.conditionRows=office.conditionRows.filter(r=>r.id!==t.dataset.conditionRowDelete); renderOffices(); refreshPreview(); }
+    });
+
+    document.getElementById("loadTemplateBtn").addEventListener("click",()=>{seedTemplate();renderOffices();renderCultures();renderMetaSelectors();refreshPreview()});
+    document.getElementById("loadCultureRulesBtn").addEventListener("click",async()=>{try{const result=await loadCultureRulesFromDesktop();setStatus(`文化配置已读取：${result.path}`)}catch(err){setStatus(`读取文化配置失败：${err.message}`,true)}});
+    document.getElementById("selectAllCulturesBtn").addEventListener("click",()=>{state.cultures.forEach(c=>c.selected=true);renderCultures();refreshPreview()});
+    document.getElementById("clearCultureSelectionBtn").addEventListener("click",()=>{state.cultures.forEach(c=>c.selected=false);renderCultures();refreshPreview()});
+    document.getElementById("applyCurrentRegimeToSelectedBtn").addEventListener("click",()=>{const key=document.getElementById("regimeKey").value.trim();state.cultures.forEach(c=>{if(c.selected)c.regime=key});renderCultures();refreshPreview()});
+    document.getElementById("chooseModRootBtn").addEventListener("click",async()=>{try{if(!isDesktopApp() || !desktopApi.chooseModRoot) throw new Error("当前不是桌面版，无法选择模组目录。"); const result=await desktopApi.chooseModRoot(); if(result?.canceled){setStatus("已取消选择模组目录"); return;} await refreshModRootNote(); setStatus(`已切换模组目录：${result.path}`)}catch(err){setStatus(`选择模组目录失败：${err.message}`,true)}});
+    document.getElementById("openConfigsBtn").addEventListener("click",async()=>{try{const result=await openConfigsDirectory();setStatus(`已打开政体目录：${result.path||"Scripts/Regimes/Configs"}`)}catch(err){setStatus(`打开政体目录失败：${err.message}`,true)}});
+    document.getElementById("writeConfigsBtn").addEventListener("click",async()=>{try{const result=await writeConfigsToFolder();setStatus(`已写入政体目录：${result.directory}；文化配置已更新：${result.culturePath}`)}catch(err){setStatus(`写入政体目录失败：${err.message}`,true)}});
+    document.getElementById("syncEnumsBtn").addEventListener("click",async()=>{try{const result=await syncEnumsToCode();const msg=result?.stdout?`同步完成：${result.stdout}`:"同步完成";setStatus(msg)}catch(err){setStatus(`同步枚举失败：${err.message}`,true)}});
+    document.getElementById("downloadBtn").addEventListener("click",()=>{try{const out=buildOutputs();const files=[["SystemConfig.json",out.systemText],["OfficialType.csv",out.officialText],["RegimeEditorState.json",out.stateText]];for(const [name,text] of files){const blob=new Blob([text],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url)}setStatus("导出文件已开始下载；CultureRulesConfig.json 不会被导出成新文件")}catch(err){setStatus(`导出失败：${err.message}`,true)}});
+    document.getElementById("importEditorState").addEventListener("change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const json=JSON.parse(await file.text());const meta=json.meta||{};for(const [id,key] of [["folderName","folderName"],["regimeKey","regimeKey"],["regimeNameCh","regimeNameCh"],["regimeNameCz","regimeNameCz"],["regimeNameEn","regimeNameEn"],["descriptionCh","descriptionCh"],["descriptionCz","descriptionCz"],["descriptionEn","descriptionEn"],["iconUrl","iconUrl"],["defaultKingdom","defaultKingdom"],["cabinetNumber","cabinetNumber"]]){if(meta[key]!==undefined)document.getElementById(id).value=Array.isArray(meta[key])?meta[key].join(","):meta[key]} document.getElementById("leaderSelectMethod").value=meta.leaderSelectMethod||"Succession"; document.getElementById("eraName").checked=!!meta.eraName; document.getElementById("hasCabinet").checked=meta.hasCabinet!==false; document.getElementById("centreSeparate").checked=meta.centreSeparate!==false; state.offices={cores:[],division:[],harems:[],kingdoms:[],cities:[],armies:[]}; for(const scope of Object.keys(state.offices)) state.offices[scope]=(json.offices?.[scope]||[]).map(x=>makeOffice(scope,x)); state.factions=(json.factions||[]).map(makeFaction); state.regimeOptions=normalizeRegimeOptions(json.regimeOptions||meta.options); state.laws=normalizeLaws(json.laws||json.selectedLaws||meta.laws); renderOffices(); renderCultures(); renderMetaSelectors(); refreshPreview(); setStatus("编辑器状态已导入；文化列表仍以真实 CultureRulesConfig.json 为准")}catch(err){setStatus(`导入编辑器状态失败：${err.message}`,true)}});
+    seedTemplate();
+    renderOffices();
+    renderCultures();
+    renderMetaSelectors();
+    refreshPreview();
+    refreshModRootNote();
+    if(isDesktopApp()){
+      loadCultureRulesFromDesktop().then(result=>{
+        setStatus(`文化配置已读取：${result.path}`);
+      }).catch(()=>{});
+    }
+    if(!isDesktopApp()){
+      document.getElementById("chooseModRootBtn").title="桌面版可选择并记住模组根目录";
+      document.getElementById("writeConfigsBtn").title="桌面版可直接写入到 Scripts/Regimes/Configs";
+      document.getElementById("syncEnumsBtn").title="桌面版可直接运行同步脚本";
+    }
+  </script>
+</body>
+</html>
+
+

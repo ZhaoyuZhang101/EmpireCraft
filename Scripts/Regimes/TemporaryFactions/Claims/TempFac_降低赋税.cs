@@ -1,3 +1,4 @@
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
@@ -17,11 +18,18 @@ public class TempFac_降低赋税 : TemporaryFaction
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
+        Empire empire = GetEmpire();
+        if (empire != null)
+        {
+            empire.SubTaxRate();
+        }
         End();
     }
 
     public override bool CheckCondition()
     {
-        return false;
+        Empire empire = GetEmpire();
+        if (empire == null) return false;
+        return empire.data != null && empire.data.TaxRate > 0f;
     }
 }
