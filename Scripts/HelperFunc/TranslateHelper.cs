@@ -134,12 +134,9 @@ namespace EmpireCraft.Scripts.HelperFunc
             Kingdom kingdom = context.Kingdom;
             Empire empire = kingdom != null ? kingdom.GetEmpire() : null;
             if (actor == null || kingdom == null || empire == null) return;
+            if (!ShouldBroadcastLawActor(actor)) return;
 
-            string actorName = actor.getName();
-            if (string.IsNullOrEmpty(actorName))
-            {
-                actorName = actor.name;
-            }
+            string actorName = GetActorFullLogName(actor);
 
             string lawName = context.Law != null ? context.Law.Name : context.LawType.ToString();
             if (string.IsNullOrEmpty(lawName))
@@ -147,11 +144,12 @@ namespace EmpireCraft.Scripts.HelperFunc
                 lawName = context.LawType.ToString();
             }
 
+            string crimeDetailText = GetLawCrimeDetailText(lawName, context.CrimeDate);
             string punishmentText = GetPunishmentText(context);
             WorldLogMessage worldLog = new WorldLogMessage(
                 EmpireCraftWorldLogLibrary.empire_law_enforced_log,
                 actorName,
-                lawName,
+                crimeDetailText,
                 punishmentText)
             {
                 color_special1 = actor.getColor()._color_text,
@@ -174,12 +172,9 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             Empire empire = kingdom.GetEmpire();
             if (empire == null) return;
+            if (!ShouldBroadcastLawActor(actor)) return;
 
-            string actorName = actor.getName();
-            if (string.IsNullOrEmpty(actorName))
-            {
-                actorName = actor.name;
-            }
+            string actorName = GetActorFullLogName(actor);
 
             WorldLogMessage worldLog = new WorldLogMessage(
                 EmpireCraftWorldLogLibrary.empire_law_arrest_log,
@@ -224,6 +219,40 @@ namespace EmpireCraft.Scripts.HelperFunc
             }
 
             return string.Join(", ", punishmentNames);
+        }
+
+        private static string GetLawCrimeDetailText(string crimeName, string crimeDate)
+        {
+            string localizedCrimeName = GetTemporaryFactionCrimeText(crimeName);
+            string templateKey = string.IsNullOrWhiteSpace(crimeDate)
+                ? "empire_law_crime_detail_without_date"
+                : "empire_law_crime_detail_with_date";
+            string template = LM.Get(templateKey);
+            if (string.IsNullOrWhiteSpace(template) || template == templateKey)
+            {
+                return string.IsNullOrWhiteSpace(crimeDate)
+                    ? localizedCrimeName
+                    : $"{crimeDate} {localizedCrimeName}";
+            }
+
+            return template
+                .Replace("$date$", crimeDate ?? "")
+                .Replace("$crime$", localizedCrimeName ?? "");
+        }
+
+        private static bool ShouldBroadcastLawActor(Actor actor)
+        {
+            if (actor == null || actor.isRekt())
+            {
+                return false;
+            }
+
+            if (actor.IsEmperor())
+            {
+                return false;
+            }
+
+            return actor.isOfficer() || actor.IsOnOffice() || actor.GetOffice() != null || actor.isKing() || actor.HasTitle() || actor.isCityLeader();
         }
 
         private static string GetPunishmentName(PunishmentLevel punishment)
@@ -274,25 +303,268 @@ namespace EmpireCraft.Scripts.HelperFunc
             }.RecordIntoEmpire(faction.Empire);
         }
 
-        public static void LogTemporaryFactionExecuted(Empire empire, string claimName, string targetName = null)
+        private static WorldLogMessage CreateTemporaryFactionMessage(WorldLogAsset asset, Empire empire, string pSpecial1, string pSpecial2 = "", string pSpecial3 = "")
+        {
+            return new WorldLogMessage(asset, pSpecial1, pSpecial2, pSpecial3)
+            {
+                color_special1 = empire?.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_good,
+                color_special2 = empire?.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_good,
+                color_special3 = empire?.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_good
+            };
+        }
+
+        private static string GetTemporaryFactionClaimText(string claimName)
+        {
+            if (string.IsNullOrWhiteSpace(claimName))
+            {
+                return "";
+            }
+
+            string localized = LM.Get(claimName);
+            return !string.IsNullOrEmpty(localized) && localized != claimName ? localized : claimName;
+        }
+
+        private static string GetTemporaryFactionCrimeText(string crimeName)
+        {
+            if (string.IsNullOrWhiteSpace(crimeName))
+            {
+                return "";
+            }
+
+            string localized = LM.Get(crimeName);
+            return !string.IsNullOrEmpty(localized) && localized != crimeName ? localized : crimeName;
+        }
+
+        private static string GetBaseActorLogName(Actor actor)
+        {
+            if (actor == null)
+            {
+                return "";
+            }
+
+            string actorName = actor.getName();
+            if (string.IsNullOrWhiteSpace(actorName))
+            {
+                actorName = actor.name;
+            }
+
+            return actorName ?? "";
+        }
+
+        private static string GetActorLogOfficeName(Actor actor)
+        {
+            if (actor == null)
+            {
+                return "";
+            }
+
+            OfficeObject office = actor.GetOffice();
+            if (office != null)
+            {
+                string officeName = office.GetOfficeName(office.meta_object);
+                if (!string.IsNullOrWhiteSpace(officeName))
+                {
+                    return officeName;
+                }
+            }
+
+            string title = actor.GetTitle();
+            return string.IsNullOrWhiteSpace(title) ? "" : title;
+        }
+
+        private static string FormatActorFullLogName(string officeName, string actorName)
+        {
+            if (string.IsNullOrWhiteSpace(actorName))
+            {
+                return officeName ?? "";
+            }
+
+            if (string.IsNullOrWhiteSpace(officeName))
+            {
+                return actorName;
+            }
+
+            string template = LM.Get("log_actor_full_name_format");
+            if (string.IsNullOrWhiteSpace(template) || template == "log_actor_full_name_format")
+            {
+                return officeName + " " + actorName;
+            }
+
+            return template
+                .Replace("$office$", officeName)
+                .Replace("$actor$", actorName);
+        }
+
+        public static string GetActorFullLogName(Actor actor)
+        {
+            if (actor == null)
+            {
+                return "";
+            }
+
+            return FormatActorFullLogName(GetActorLogOfficeName(actor), GetBaseActorLogName(actor));
+        }
+
+        public static string GetTemporaryFactionTargetText(MetaType targetType, long targetId)
+        {
+            if (targetId < 0)
+            {
+                return null;
+            }
+
+            switch (targetType)
+            {
+                case MetaType.Kingdom:
+                    return World.world?.kingdoms?.get(targetId)?.GetKingdomName();
+                case MetaType.City:
+                    return World.world?.cities?.get(targetId)?.GetCityName();
+                case MetaType.Religion:
+                    return World.world?.religions?.get(targetId)?.data?.name;
+                case MetaType.Unit:
+                    return GetActorFullLogName(World.world?.units?.get(targetId));
+                case MetaType.None:
+                    return null;
+                default:
+                    if (targetType == MetaTypeExtension.KingdomTitle)
+                    {
+                        return ModClass.KINGDOM_TITLE_MANAGER.get(targetId)?.data?.name;
+                    }
+
+                    return null;
+            }
+        }
+
+        public static void LogTemporaryFactionPreparing(Empire empire, string claimName, string targetName = null, string crimeName = null)
         {
             if (empire == null || string.IsNullOrWhiteSpace(claimName))
             {
                 return;
             }
 
-            var asset = string.IsNullOrWhiteSpace(targetName)
-                ? EmpireCraftWorldLogLibrary.temporary_faction_executed_no_target_log
-                : EmpireCraftWorldLogLibrary.temporary_faction_executed_log;
-
-            new WorldLogMessage(asset,
-                empire.GetEmpireName() ?? empire.data?.name ?? "",
-                claimName,
-                targetName ?? "")
+            if (!string.IsNullOrWhiteSpace(crimeName) && !string.IsNullOrWhiteSpace(targetName))
             {
-                color_special1 = empire.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_good,
-                color_special2 = empire.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_good,
-                color_special3 = empire.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_good
+                CreateTemporaryFactionMessage(EmpireCraftWorldLogLibrary.temporary_faction_prepare_crime_log, empire,
+                    targetName,
+                    GetTemporaryFactionCrimeText(crimeName),
+                    GetTemporaryFactionClaimText(claimName)).RecordIntoEmpire(empire);
+                return;
+            }
+
+            var asset = string.IsNullOrWhiteSpace(targetName)
+                ? EmpireCraftWorldLogLibrary.temporary_faction_prepare_no_target_log
+                : EmpireCraftWorldLogLibrary.temporary_faction_prepare_log;
+
+            CreateTemporaryFactionMessage(asset, empire,
+                empire.GetEmpireName() ?? empire.data?.name ?? "",
+                GetTemporaryFactionClaimText(claimName),
+                targetName ?? "").RecordIntoEmpire(empire);
+        }
+
+        public static void LogTemporaryFactionSucceeded(Empire empire, string claimName, string targetName = null, string crimeName = null)
+        {
+            if (empire == null || string.IsNullOrWhiteSpace(claimName))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(crimeName) && !string.IsNullOrWhiteSpace(targetName))
+            {
+                CreateTemporaryFactionMessage(EmpireCraftWorldLogLibrary.temporary_faction_success_crime_log, empire,
+                    targetName,
+                    GetTemporaryFactionCrimeText(crimeName),
+                    GetTemporaryFactionClaimText(claimName)).RecordIntoEmpire(empire);
+                return;
+            }
+
+            var asset = string.IsNullOrWhiteSpace(targetName)
+                ? EmpireCraftWorldLogLibrary.temporary_faction_success_no_target_log
+                : EmpireCraftWorldLogLibrary.temporary_faction_success_log;
+
+            CreateTemporaryFactionMessage(asset, empire,
+                empire.GetEmpireName() ?? empire.data?.name ?? "",
+                GetTemporaryFactionClaimText(claimName),
+                targetName ?? "").RecordIntoEmpire(empire);
+        }
+
+        public static void LogTemporaryFactionFailed(Empire empire, string claimName, string targetName = null, string crimeName = null)
+        {
+            if (empire == null || string.IsNullOrWhiteSpace(claimName))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(crimeName) && !string.IsNullOrWhiteSpace(targetName))
+            {
+                CreateTemporaryFactionMessage(EmpireCraftWorldLogLibrary.temporary_faction_failed_crime_log, empire,
+                    targetName,
+                    GetTemporaryFactionCrimeText(crimeName),
+                    GetTemporaryFactionClaimText(claimName)).RecordIntoEmpire(empire);
+                return;
+            }
+
+            var asset = string.IsNullOrWhiteSpace(targetName)
+                ? EmpireCraftWorldLogLibrary.temporary_faction_failed_no_target_log
+                : EmpireCraftWorldLogLibrary.temporary_faction_failed_log;
+
+            CreateTemporaryFactionMessage(asset, empire,
+                empire.GetEmpireName() ?? empire.data?.name ?? "",
+                GetTemporaryFactionClaimText(claimName),
+                targetName ?? "").RecordIntoEmpire(empire);
+        }
+
+        public static void LogTemporaryFactionOfficialFall(Empire empire, Actor actor, string crimeName)
+        {
+            if (empire == null || actor == null || string.IsNullOrWhiteSpace(crimeName))
+            {
+                return;
+            }
+
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.temporary_faction_official_fall_log,
+                actor.getName(),
+                crimeName)
+            {
+                color_special1 = actor.getColor()._color_text,
+                color_special2 = empire.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_warning,
+            }.RecordIntoEmpire(empire);
+        }
+
+        public static void LogTemporaryFactionReduceFeudatory(Empire empire, Kingdom kingdom)
+        {
+            if (empire == null || kingdom == null) return;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.temporary_faction_reduce_feudatory_log,
+                kingdom.GetKingdomName())
+            {
+                color_special1 = kingdom.getColor()._color_text
+            }.RecordIntoEmpire(empire);
+        }
+
+        public static void LogTemporaryFactionRevokeWarRight(Empire empire, Kingdom kingdom)
+        {
+            if (empire == null || kingdom == null) return;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.temporary_faction_revoke_war_right_log,
+                kingdom.GetKingdomName())
+            {
+                color_special1 = kingdom.getColor()._color_text
+            }.RecordIntoEmpire(empire);
+        }
+
+        public static void LogTemporaryFactionRevokeMilitaryRegion(Empire empire, Kingdom kingdom)
+        {
+            if (empire == null || kingdom == null) return;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.temporary_faction_revoke_military_region_log,
+                kingdom.GetKingdomName())
+            {
+                color_special1 = kingdom.getColor()._color_text
+            }.RecordIntoEmpire(empire);
+        }
+
+        public static void LogTemporaryFactionRaiseTax(Empire empire)
+        {
+            if (empire == null) return;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.temporary_faction_raise_tax_log,
+                empire.GetEmpireName() ?? empire.data?.name ?? "")
+            {
+                color_special1 = empire.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_warning,
             }.RecordIntoEmpire(empire);
         }
         

@@ -38,6 +38,7 @@ public static class CityExtension
         public int cached_population = 0;
         public double last_cached_timestamp = -1L;
         public double last_army_check_ts = -1L;
+        public double last_law_scan_ts = -1L;
     }
 
     public static void AddCorruptionRate(this City city, double addition)
@@ -116,6 +117,20 @@ public static class CityExtension
     public static void RecordTaxTime(this City k)
     {
         k.GetOrCreate().last_tax_timestamp = World.world.getCurWorldTime();
+    }
+
+    public static bool IsLawScanDue(this City city, float years = 1f)
+    {
+        if (city == null) return false;
+        double value = city.GetOrCreate().last_law_scan_ts;
+        if (value < 0) return true;
+        return Date.getYearsSince(value) >= years;
+    }
+
+    public static void RecordLawScan(this City city)
+    {
+        if (city == null) return;
+        city.GetOrCreate().last_law_scan_ts = World.world.getCurWorldTime();
     }
 
     public static bool IsNeedToSubmitTax(this City k)
