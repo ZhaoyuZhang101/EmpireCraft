@@ -365,7 +365,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     [Hotfixable]
     public void ShowClaim(TemporaryFaction pFaction, AutoVertLayoutGroup parent)
     {
-        var tfSpace = parent.BeginHoriGroup(new Vector2(200, 30), pSpacing:20);
+        var tfSpace = parent.BeginHoriGroup(new Vector2(200, 40), pSpacing:20);
         var firstPart = tfSpace.BeginVertGroup();
         firstPart.AddTextIntoVertLayout(pFaction.type.ToString(), hideBackground:true);
         firstPart.AddTextIntoVertLayout($"预算: {pFaction.Budget}");
@@ -379,7 +379,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         {
             pFaction.canBePushByLocal = !pFaction.canBePushByLocal;
             pFaction.localPushButton?.SetStatus(pFaction.canBePushByLocal);
-        }, pFaction.Hide, size: new Vector2(12, 12), isOption:false);
+        }, pFaction.Hide, size: new Vector2(12, 12), isOption:false, hasTitle:false);
         var activeButton = secondPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "active_tfaction", () =>
         {
             pFaction.Active = !pFaction.Active;
@@ -411,7 +411,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
             _faction.TemporaryFactionTypesRecord.Remove(pFaction.type);
             ShowClaims();
         }, icon: SpriteTextureLoader.getSprite("ui/iconRemove"), size: new Vector2(13, 13));
-        tfSpace.transform.AddStretchBackground("FactionFrame", new Vector2(200, 30));
+        tfSpace.transform.AddStretchBackground("FactionFrame", new Vector2(200, 42));
     }
     
     public void ChangeFactionName(string newName)

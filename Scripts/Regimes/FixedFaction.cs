@@ -407,9 +407,7 @@ public class FixedFaction
                 var new_tf = value.Clone(this);
                 if (tf != null)
                 {
-                    new_tf.ShowAsPlot = tf.ShowAsPlot;
-                    new_tf.Hide = tf.Hide;
-                    new_tf.Active = tf.Active;
+                    new_tf.CopyRuntimeStateFrom(tf);
                 }
                 result.Add(new_tf);
             }

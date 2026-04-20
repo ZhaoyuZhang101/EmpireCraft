@@ -80,7 +80,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 HistoryDescription lasDes = new HistoryDescription()
                 {
-                    cities = new  List<string>(),
+                    cities = currentHistory.initial_cities != null ? new List<string>(currentHistory.initial_cities) : new List<string>(),
                     description = "",
                     time = ""
                 };

@@ -10,6 +10,36 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.System;
 public static class HistoryRecordSystem
 {
+    private static List<string> GetPreviousFinalCities(this Empire empire)
+    {
+        if (empire?.data?.history == null || empire.data.history.Count <= 0)
+        {
+            return new List<string>();
+        }
+
+        for (int i = empire.data.history.Count - 1; i >= 0; i--)
+        {
+            var history = empire.data.history[i];
+            if (history?.descriptions == null || history.descriptions.Count <= 0)
+            {
+                continue;
+            }
+
+            for (int j = history.descriptions.Count - 1; j >= 0; j--)
+            {
+                var description = history.descriptions[j];
+                if (description?.cities == null)
+                {
+                    continue;
+                }
+
+                return new List<string>(description.cities);
+            }
+        }
+
+        return new List<string>();
+    }
+
     public static void RecordHistory(this Empire empire, EmpireHistoryType type = default, Dictionary<string, string> recordInfo = null, string directContent=null)
     {
         LogService.LogInfo("开始记录历史");
@@ -129,6 +159,7 @@ public static class HistoryRecordSystem
             emperor = empire.Emperor.getName(),
             miaohao_name = "",
             shihao_name = "",
+            initial_cities = empire.GetPreviousFinalCities(),
             descriptions = new List<HistoryDescription>(),
             is_first = isNew
         };

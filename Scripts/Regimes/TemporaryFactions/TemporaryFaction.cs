@@ -50,8 +50,37 @@ public abstract class TemporaryFaction
     private bool started = false;
     public double timestamp = -1L;
     public double countDownTimestamp = -1L;
+    [JsonProperty("started")]
+    public bool StartedState
+    {
+        get => started;
+        set => started = value;
+    }
     [JsonIgnore]
     public virtual bool RequireCrimeTarget => false;
+    public void CopyRuntimeStateFrom(TemporaryFaction other)
+    {
+        if (other == null) return;
+
+        Acc = other.Acc;
+        Hide = other.Hide;
+        Active = other.Active;
+        CountDown = other.CountDown;
+        kingdoms = other.kingdoms != null ? new List<long>(other.kingdoms) : new List<long>();
+        factionID = other.factionID;
+        ShowAsPlot = other.ShowAsPlot;
+        EmpireID = other.EmpireID;
+        KingdomID = other.KingdomID;
+        TargetID = other.TargetID;
+        canBePushByLocal = other.canBePushByLocal;
+        pusherType = other.pusherType;
+        TargetType = other.TargetType;
+        progress = other.progress;
+        progressMax = other.progressMax;
+        StartedState = other.StartedState;
+        timestamp = other.timestamp;
+        countDownTimestamp = other.countDownTimestamp;
+    }
     public virtual void Init(FixedFaction faction)
     {
         factionID = faction.GetID();
@@ -400,6 +429,11 @@ public abstract class TemporaryFaction
         {
             bool shouldLogPreparing = !started;
             started = true;
+            timestamp = World.world.getCurWorldTime();
+            if (countDownTimestamp < 0)
+            {
+                countDownTimestamp = timestamp;
+            }
             Empire empire = Empire;
             if (empire != null)
             {
@@ -519,6 +553,7 @@ public abstract class TemporaryFaction
     public void CheckNeedToUpdate()
     {
         if (Date.getMonthsSince(timestamp) < 1) return;
+        LogService.LogInfo("更新进度");
         Update();
         timestamp = World.world.getCurWorldTime();
     }

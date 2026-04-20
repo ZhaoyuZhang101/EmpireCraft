@@ -1603,10 +1603,11 @@ public class Empire : MetaObject<EmpireData>
 
     public void leave(Kingdom pKingdom, bool pRecalc = true)
     {
+        bool isCoreKingdom = pKingdom != null && (pKingdom == CoreKingdom || pKingdom.IsEmpire());
         this.kingdoms_hashset.Remove(pKingdom);
         pKingdom.EmpireLeave(false);
         cities_list = this.cities_list.Except(pKingdom.cities).ToList();
-        if (pKingdom.IsEmpire())
+        if (isCoreKingdom)
         {
             CheckDissolve(pKingdom);
         } else

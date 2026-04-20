@@ -177,9 +177,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                     }
                 }
             }
-            text = _empire.GetEmpireName() + _empire.data.year_name + LM.Get("emperor");
-            statsRow.tryToShowActor("current_emperor", -1L, null, _empire.Emperor, "iconKings");
-            statsRow.IShowStatsRow("title_name", text, _empire.getColor().color_text);
+            text = _empire.GetEmpireName() + (_empire.data.has_year_name?_empire.data.year_name:"") + LM.Get("emperor");
+            statsRow.IShowStatsRow("current_emperor", _empire.Emperor?.name??"无" , _empire.getColor().color_text, pIconPath: "iconKings", action: () => OpenHistoryWindow(_empire.data.currentHistory));
+            if (_empire.Emperor != null)
+            {
+                statsRow.IShowStatsRow("title_name", text, _empire.getColor().color_text);
+            }
             StartCoroutine(statsRow.showRows());
         }
         //显示个人历史
@@ -211,7 +214,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 HistoryDescription lasDes = new HistoryDescription()
                 {
-                    cities = new  List<string>(),
+                    cities = currentHistory.initial_cities != null ? new List<string>(currentHistory.initial_cities) : new List<string>(),
                     description = "",
                     time = ""
                 };
@@ -290,21 +293,27 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 return;
             }
-            var text1 = history.empire_name + history.year_name + LM.Get("emperor");
+            var text1 = history.empire_name + (_empire.data.has_year_name?history.year_name:"") + LM.Get("emperor");
             var text2 = "";
-            if (!string.IsNullOrEmpty(history.miaohao_name))
+            if (_empire.data.has_year_name)
             {
-                text2 =
-                    history.empire_name + LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix) + "-" +
-                    history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
-            }
-            else
-            {
-                text2 = LM.Get("waiting_for_naming");
+                if (!string.IsNullOrEmpty(history.miaohao_name))
+                {
+                    text2 =
+                        history.empire_name + LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix) + "-" +
+                        history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
+                }
+                else
+                {
+                    text2 = LM.Get("waiting_for_naming");
+                } 
             }
             statsRow.IShowStatsRow("past_emperor", history.emperor + $"(在位 {history.total_time}{LM.Get("Year")})", _empire.getColor().color_text, pIconPath: "iconKings", action: () => OpenHistoryWindow(history));
             statsRow.IShowStatsRow("title_name", text1, _empire.getColor().color_text);
-            statsRow.IShowStatsRow("post_humous_name", text2, _empire.getColor().color_text);
+            if (_empire.data.has_year_name)
+            {
+                statsRow.IShowStatsRow("post_humous_name", text2, _empire.getColor().color_text);
+            }
             statsRow.IShowStatsRow("empty", "=======================================================================================", "#ffffff");
         }
 

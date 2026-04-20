@@ -61,14 +61,17 @@ public sealed class TemporaryFactionConverter : JsonConverter
             ["kingdoms"]    = JArray.FromObject(tf.kingdoms ?? new List<long>(), serializer),
             ["factionID"] = JToken.FromObject(tf.factionID, serializer),
             ["EmpireID"]    = tf.EmpireID,
+            ["KingdomID"]   = tf.KingdomID,
             ["targetID"]    = tf.TargetID,
             ["targetType"]  = JToken.FromObject(tf.TargetType, serializer),
             ["progress"]    = tf.progress,
-            ["started"]    = tf.IsStarted(),
-            ["Hide"]    = tf.Hide,
-            ["Active"]    = tf.Active,
-            ["ShowAsPlot"]    = tf.ShowAsPlot,
-            ["timestamp"] = tf.timestamp,
+            ["started"]     = tf.StartedState,
+            ["Hide"]        = tf.Hide,
+            ["Active"]      = tf.Active,
+            ["ShowAsPlot"]  = tf.ShowAsPlot,
+            ["CountDown"]   = tf.CountDown,
+            ["timestamp"]   = tf.timestamp,
+            ["countDownTimestamp"] = tf.countDownTimestamp,
             // 如果子类有额外**纯数据**字段，也在这里一并手动写出；
             // 对于会导致循环引用的对象（如 Regime/Kingdom/World 指针）务必不要写。
         };

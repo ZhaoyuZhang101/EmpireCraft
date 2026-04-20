@@ -138,6 +138,7 @@ public class EmpireCraftHistory
     public string shihao_name { get; set; }
     public int total_time { get; set; }
 
+    public List<string> initial_cities = new List<string>();
     public List<HistoryDescription> descriptions =  new List<HistoryDescription>();
 }
 
