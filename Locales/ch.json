@@ -385,6 +385,8 @@
   "king_create_title_log": "$kingdom$ $king$ 建立了 $title_name$ 的法理",
   "become_kingdom_log": "$actor$ 因獲得 $title$ 的法理改國名為 $kingdom$",
   "city_add_to_title_log": "$city$ 已被納入 $title_name$ 的法理範圍",
+  "邀请入派系": "$invitor$ 已将 $target$ 拉入 $faction$",
+  "追加罪行": "$actor$ 的统治者 试图给 $victim$ 的统治者 追加 $crime$ 罪行",
   "province_change_to_kingdom_log": "$province$ 已被轉為 $province_level$",
   "new_jingshi_log": "$empire$ 殿試已畢，$actor$ 於金鑾殿對策中高列名次，授進士第，榮耀九族！",
   "cotrolled_country_log": "$actor$ 已經完全控制 $empire$ 內閣！",
@@ -775,4 +777,10 @@
   ,"降低赋税":"降低赋税"
   ,"禁党":"禁党"
   ,"国_打击贪腐":"打击贪腐"
+  ,"opinion_local_claim_failed":"地方推動訴求失敗後的不滿"
+  ,"support_local_push_claim":"拉攏訴求支持者"
+  ,"support_local_push_claim_description":"花費金錢拉攏其他有政治身份者協助推進地方訴求"
+  ,"撤換官員":"撤換官員"
+  ,"expose_official_crime":"曝光官員黑料"
+  ,"expose_official_crime_description":"花費影響力挖掘並曝光地方官員的犯罪黑料"
 }

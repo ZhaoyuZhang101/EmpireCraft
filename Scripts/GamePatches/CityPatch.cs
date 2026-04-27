@@ -215,7 +215,6 @@ public class CityPatch : GamePatch
             var war = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.劫掠&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
             if (war!= null)
             {
-                LogService.LogInfo("城市被劫掠");
                 var money = 0;
                 if (__instance.isCapitalCity())
                 {

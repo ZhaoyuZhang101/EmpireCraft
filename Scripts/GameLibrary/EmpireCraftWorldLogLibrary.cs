@@ -50,6 +50,8 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset king_choose_heir_log;
     public static WorldLogAsset 官员品级调动;
     public static WorldLogAsset 成为朝贡国;
+    public static WorldLogAsset 邀请入派系;
+    public static WorldLogAsset 追加罪行;
     public static WorldLogAsset officer_join_faction;
     public static WorldLogAsset officer_become_faction_leader;
     public static WorldLogAsset empire_law_arrest_log;
@@ -155,6 +157,32 @@ public static class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$kingdom$", 1);
                 wl.updateText(ref pText, pMessage, "$empire$", 2);
+            }
+        });
+        邀请入派系 = wl.add(new WorldLogAsset
+        {
+            id = nameof(邀请入派系),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$invitor$", 1);
+                wl.updateText(ref pText, pMessage, "$target$", 2);
+                wl.updateText(ref pText, pMessage, "$faction$", 3);
+            }
+        });
+        追加罪行 = wl.add(new WorldLogAsset
+        {
+            id = nameof(追加罪行),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$victim$", 2);
+                wl.updateText(ref pText, pMessage, "$crime$", 3);
             }
         });
         officer_build_specific_clan = wl.add(new WorldLogAsset

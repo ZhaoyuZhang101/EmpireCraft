@@ -72,6 +72,11 @@ public class Empire : MetaObject<EmpireData>
             data.Mandate = 100;
         }
     }
+
+    public bool IsNeedToIncreaseMandate()
+    {
+        return data.last_increase_mandate_timestamp<0||Date.getYearsSince(data.last_increase_mandate_timestamp)>1;
+    }
     public bool IsArchived()
     {
         return this.data?.archived ?? false;
@@ -274,12 +279,14 @@ public class Empire : MetaObject<EmpireData>
     {
         if (actor == null) return;
         actor.SetEmpire(this);
+        AddMandate(-20);
         string nameEmpire = "";
         actor.CheckSpecificClan();
         //检查帝国分裂
         var currentSpecificClan = actor.GetSpecificClan();
         if (currentSpecificClan.id != data.empire_specific_clan && data.empire_specific_clan != -1L) 
         {
+            AddMandate(-30);
             if (currentSpecificClan.all_valid_members.Any())
             {
                 var validEmperor = currentSpecificClan.all_valid_members?.First()._actor;
@@ -473,6 +480,7 @@ public class Empire : MetaObject<EmpireData>
             });
         data.history_emperrors.Add(Emperor?.name);
         this.Emperor.RemoveEmpire();
+        data.empire_specific_clan = Emperor?.GetSpecificClan()?.id??-1L;
         data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
         data.history.Add(data.currentHistory);
         data.currentHistory = null;
@@ -859,6 +867,7 @@ public class Empire : MetaObject<EmpireData>
         newEmpire.data.history.InsertRange(0, data.history);
         newEmpire.SetEmpireName(newKingdom.GetKingdomName());
         newKingdom.GetOrCreate().isEmpire = true;
+        newEmpire.data.Mandate = data.Mandate - 50;
         data.directPre = "";
         if (newKingdom.capital.HasKingdomName()) 
         {

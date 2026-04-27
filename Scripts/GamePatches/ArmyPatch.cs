@@ -20,7 +20,6 @@ public class ArmyPatch : GamePatch
         {
             if (__instance.data == null)
             {
-                LogService.LogInfo("跳过保存：Army.data 为空");
                 return false;
             }
             if (__instance.units != null)

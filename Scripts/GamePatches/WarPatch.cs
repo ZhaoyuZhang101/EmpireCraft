@@ -95,7 +95,8 @@ public class WarPatch: GamePatch
                     {
                         empire.Emperor.editRenown(30);
                     }
-                    empire.AddRenown(30);
+                    empire.AddMandate(10);
+                    empire.AddRenown(100);
                 }
                 if (dKingdom.IsEmpire())
                 {

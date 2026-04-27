@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 
 namespace EmpireCraft.Scripts.AI;
@@ -24,9 +25,10 @@ public static class EmpireCraftOpinionAddition
                 int result = 0;
                 if (pMain.IsInSameEmpire(pTarget))
                 {
-                    if (!pMain.IsEmpire()&&pTarget.IsEmpire()&&pTarget.GetEmpire().CoreKingdom.GetMoney()<0)
+                    if (!pMain.IsEmpire()&&pTarget.IsEmpire())
                     {
-                        result = 999;
+                        var mandate = pTarget.GetEmpire().Mandate;
+                        result = (mandate-50)*5;
                     }
                 }
                 return result;
@@ -196,6 +198,22 @@ public static class EmpireCraftOpinionAddition
                 {
                     result = 999;
                 }
+                return result;
+            }
+        });
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_local_claim_failed",
+            translation_key_negative = "opinion_local_claim_failed",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                int result = 0;
+                if (pMain == null || pTarget == null) return result;
+                if (!pMain.IsInSameEmpire(pTarget)) return result;
+                if (pMain.IsEmpire() || !pTarget.IsEmpire()) return result;
+                Empire empire = pTarget.GetEmpire();
+                if (empire == null) return result;
+                result = -(pMain.GetLocalClaimFailedOpinion(empire) * 20);
                 return result;
             }
         });

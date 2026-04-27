@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
@@ -50,7 +50,6 @@ public static class ExamSystem
             }
         }
         var sorted = MarksData.OrderByDescending(kv=>kv.Value).ToList();
-        //LogService.LogInfo($"参加{city.data.name}乡试有{sorted.Count}人");
         int takeNum = 3;
         if (city.GetExamPassPersonIDs().Count()< takeNum)
         {
@@ -71,7 +70,6 @@ public static class ExamSystem
                 item.Key.SetIdentity(identity, true);
                 identity.TotalPerformance += 100;
             });
-            //LogService.LogInfo($"{takeNum}人中举");
         } else
         {
             sorted.ForEach(item =>
@@ -84,7 +82,6 @@ public static class ExamSystem
                 item.Key.SetIdentity(identity, true);
                 identity.TotalPerformance += 100;
             });
-            //LogService.LogInfo($"{sorted.Count}人中举");
         }
     }
     public static void provinceExamPrepare(NanoObject nano)
@@ -100,7 +97,6 @@ public static class ExamSystem
             }
         }
         var sorted = MarksData.OrderByDescending(kv => kv.Value).ToList();
-        //LogService.LogInfo($"参加{province.data.name}会试有{sorted.Count}人");
         int takeNum = 1;
         if (sorted.Count() > takeNum)
         {
@@ -110,7 +106,6 @@ public static class ExamSystem
                 OfficeIdentity identity = item.Key.GetIdentity();
                 identity.TotalPerformance += 200;
             });
-            //LogService.LogInfo($"{takeNum}人成为贡士");
         }
         else
         {
@@ -120,7 +115,6 @@ public static class ExamSystem
                 OfficeIdentity identity = item.Key.GetIdentity();
                 identity.TotalPerformance += 200;
             });
-            //LogService.LogInfo($"{sorted.Count()}人成为贡士");
         }
 
     }
@@ -141,7 +135,6 @@ public static class ExamSystem
             }
         }
         var sorted = MarksData.OrderByDescending(kv => kv.Value).ToList();
-        //LogService.LogInfo($"参加{empire.data.name}殿试有{sorted.Count}人");
         int takeNum = 1;
         if (sorted.Count() > takeNum)
         {
@@ -158,7 +151,6 @@ public static class ExamSystem
                 OfficeIdentity identity = item.Key.GetIdentity();
                 identity.TotalPerformance += 300;
             });
-            //LogService.LogInfo($"{sorted.Count()}人成为进士");
         }
     }
 

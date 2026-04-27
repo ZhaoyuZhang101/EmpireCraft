@@ -42,7 +42,6 @@ public static class HistoryRecordSystem
 
     public static void RecordHistory(this Empire empire, EmpireHistoryType type = default, Dictionary<string, string> recordInfo = null, string directContent=null)
     {
-        LogService.LogInfo("开始记录历史");
         if (empire == null || empire.isRekt()) return;
         if (empire.data == null) return;
         recordInfo ??= new Dictionary<string, string>();

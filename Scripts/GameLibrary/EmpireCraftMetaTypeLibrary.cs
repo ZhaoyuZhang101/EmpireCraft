@@ -89,15 +89,41 @@ public static class EmpireCraftMetaTypeLibrary
                 }
                 drawDefaultMeta(kingdom.meta_type_asset);
               }
+              WorldTile mouseTilePosCachedFrame = World.world.getMouseTilePosCachedFrame();
+              var kingdomSelect = mouseTilePosCachedFrame?.zone_city?.kingdom;
               foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
               {
                   foreach (City city in pEmpire.getCities().ToList())
                   {
-                    foreach (TileZone zone in city.zones)
+                    if (kingdomSelect == null)
                     {
-                      zone_manager.drawBegin();
-                      drawZoneEmpireWithKingdomBorder(zone, pEmpire);
-                      zone_manager.drawEnd(zone);
+                      foreach (TileZone zone in city.zones)
+                      {
+                        zone_manager.drawBegin();
+                        drawZoneEmpireWithKingdomBorder(zone, pEmpire);
+                        zone_manager.drawEnd(zone);
+                      }
+                    }
+                    else
+                    {
+                      if (!kingdomSelect.cities.Contains(city))
+                      {
+                        foreach (TileZone zone in city.zones)
+                        {
+                          zone_manager.drawBegin();
+                          drawZoneEmpireWithKingdomBorder(zone, pEmpire);
+                          zone_manager.drawEnd(zone);
+                        }
+                      }
+                      else
+                      {
+                        foreach (TileZone zone in city.zones)
+                        {
+                          zone_manager.drawBegin();
+                          drawZoneSelectedEmpireWithKingdomBorder(zone, kingdomSelect);
+                          zone_manager.drawEnd(zone);
+                        }
+                      }
                     }
                   }
               }
@@ -632,6 +658,17 @@ public static class EmpireCraftMetaTypeLibrary
         bool pLeft = isBorderColor_empire_kingdoms(pZone.zone_left, kingdomOnZone);
         bool pRight = isBorderColor_empire_kingdoms(pZone.zone_right, kingdomOnZone);
         zone_manager.drawZoneMeta(pEmpire, pZone, pUp, pDown, pLeft, pRight, pEmpire.data, empire);
+    }
+    
+    public static void drawZoneSelectedEmpireWithKingdomBorder(TileZone pZone, Kingdom pKingdom)
+    {
+        Kingdom kingdomOnZone = pZone?.city?.kingdom;
+        if (kingdomOnZone == null) return;
+        bool pUp = isBorderColor_empire_kingdoms(pZone.zone_up, kingdomOnZone);
+        bool pDown = isBorderColor_empire_kingdoms(pZone.zone_down, kingdomOnZone);
+        bool pLeft = isBorderColor_empire_kingdoms(pZone.zone_left, kingdomOnZone);
+        bool pRight = isBorderColor_empire_kingdoms(pZone.zone_right, kingdomOnZone);
+        zone_manager.drawZoneMeta(pKingdom, pZone, pUp, pDown, pLeft, pRight, pKingdom.data, empire);
     }
     
     

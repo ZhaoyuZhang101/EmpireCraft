@@ -1,4 +1,4 @@
-using NeoModLoader.api;
+﻿using NeoModLoader.api;
 using UnityEngine;
 using NeoModLoader.services;
 using System;
@@ -17,7 +17,6 @@ using System.Linq;
 using EmpireCraft.Scripts.AI;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
-using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -32,7 +31,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static int WAR_END_YEAR = 30;
     public static Transform prefab_library;
     public static bool IS_CLEAR = true;
-    public static int MOD_DATA_VERSION = 1;
     public static EmpireManager EMPIRE_MANAGER;
     public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
     public static bool REAL_NUM_SWITCH = false;
@@ -41,9 +39,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static ModDeclare _declare;
     private GameObject _modObject;
     public static ModConfig modConfig;
+    public static int MOD_DATA_VERSION = 1;
     public static Dictionary<long, List<EmpireCraftHistory>> ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
-    private double _lastFixedScanTimestamp = -1L;
-    private bool _isFixedScanning = false;
     public ModDeclare GetDeclaration()
     {
         return _declare;
@@ -57,58 +54,35 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     private void FixedUpdate()
     {
-        if (_isFixedScanning) return;
-        double currentWorldTime = World.world.getCurWorldTime();
-        if (_lastFixedScanTimestamp > currentWorldTime)
+
+        KINGDOM_TITLE_MANAGER.update(-1L);
+        World.world.kingdoms.ForEach(pKingdom =>
         {
-            _lastFixedScanTimestamp = -1L;
-        }
-        if (_lastFixedScanTimestamp > 0 && Date.getMonthsSince(_lastFixedScanTimestamp) < 1) return;
-        _isFixedScanning = true;
-        _lastFixedScanTimestamp = currentWorldTime;
-        try
-        {
-            KINGDOM_TITLE_MANAGER?.update(-1L);
-            var kingdoms = World.world?.kingdoms;
-            if (kingdoms == null || kingdoms.Count == 0) return;
-            for (int i = 0; i < kingdoms.Count; i++)
+            pKingdom.CheckEmpire();
+            EmpireCraftKingdomBehCheckTemporaryFaction.CheckTf(pKingdom);
+            if (pKingdom.isRekt()) return;
+            if (!pKingdom.IsEmpire())  return;
+            Regime regime = pKingdom.GetRegime();
+            if (regime==null)  return;
+            var ff = regime.GetDominateFaction();
+            if (ff==null)  return;
+            foreach (var tf in ff.TemporaryFactions)
             {
-                var pKingdom = kingdoms.get(i);
-                if (pKingdom == null || pKingdom.isRekt()) continue;
-
-                pKingdom.CheckEmpire();
-                EmpireCraftKingdomBehCheckTemporaryFaction.CheckTf(pKingdom);
-                if (pKingdom.isRekt()) continue;
-                if (!pKingdom.IsEmpire()) continue;
-
-                Regime regime = pKingdom.GetRegime();
-                if (regime == null) continue;
-                var ff = regime.GetDominateFaction();
-                if (ff == null || ff.TemporaryFactions == null) continue;
-
-                for (int j = 0; j < ff.TemporaryFactions.Count; j++)
+                tf.SetEmpire(pKingdom.GetEmpire());
+                if (tf.IsNeedToCountDown())
                 {
-                    var tf = ff.TemporaryFactions[j];
-                    if (tf == null) continue;
-                    tf.SetEmpire(pKingdom.GetEmpire());
-                    if (tf.IsNeedToCountDown())
+                    if (tf.CountDown > 0)
                     {
-                        if (tf.CountDown > 0)
-                        {
-                            tf.CountDown -= 1;
-                        }
-                    }
-                    if (tf.IsStarted() && !tf.ShowAsPlot)
-                    {
-                        tf.CheckNeedToUpdate();
+                        tf.CountDown -= 1;
                     }
                 }
+                if (tf.IsStarted()&&!tf.ShowAsPlot)
+                {
+                    tf.CheckNeedToUpdate();
+                }
             }
-        }
-        finally
-        {
-            _isFixedScanning = false;
-        }
+        });
+        
     }
 
     public GameObject GetGameObject()
@@ -202,7 +176,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftHotKeyLibrary.init();
         RegimeManager.init();
         FactionManager.init();
-        EmpireLawSystem.init();
         EMPIRE_MANAGER = new EmpireManager();
         KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         OnomasticsRule.ReadSetting();

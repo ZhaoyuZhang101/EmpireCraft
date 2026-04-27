@@ -1,4 +1,4 @@
-﻿using ai.behaviours;
+using ai.behaviours;
 using EmpireCraft.Scripts.AI;
 using NeoModLoader.api;
 using NeoModLoader.services;
@@ -10,7 +10,6 @@ public static class EmpireCraftBehaviourTaskLibrary
     public static void init()
     {
         //角色
-        LogService.LogInfo("初始化帝国模组角色逻辑");
         BehaviourTaskActor obj = new BehaviourTaskActor()
         {
             id = "do_mod_actor_beh",
@@ -21,7 +20,6 @@ public static class EmpireCraftBehaviourTaskLibrary
         AssetManager.job_actor.t.addTask("do_mod_actor_beh");
         
         //城市
-        LogService.LogInfo("初始化帝国模组城市逻辑");
         BehaviourTaskCity obj2 = new BehaviourTaskCity()
         {
             id = "do_mod_city_beh"
@@ -32,7 +30,6 @@ public static class EmpireCraftBehaviourTaskLibrary
         AssetManager.job_city.t.addTask("do_mod_city_beh");
         
         //国家
-        LogService.LogInfo("初始化帝国模组王国逻辑");
         BehaviourTaskKingdom obj3 = new BehaviourTaskKingdom
         {
             id = "do_mod_kingdom_beh"
@@ -43,7 +40,6 @@ public static class EmpireCraftBehaviourTaskLibrary
         AssetManager.job_kingdom.t.addTask("do_mod_kingdom_beh");
         
         //国家2
-        LogService.LogInfo("初始化帝国模组王国意志逻辑");
         BehaviourTaskKingdom obj4 = new BehaviourTaskKingdom
         {
             id = "do_mod_kingdom_mind_beh"
@@ -53,7 +49,6 @@ public static class EmpireCraftBehaviourTaskLibrary
         AssetManager.job_kingdom.t.addTask("do_mod_kingdom_mind_beh");
         
         //国家2
-        LogService.LogInfo("初始化帝国模组帝国逻辑");
         BehaviourTaskKingdom obj5 = new BehaviourTaskKingdom
         {
             id = "do_mod_empire_beh"

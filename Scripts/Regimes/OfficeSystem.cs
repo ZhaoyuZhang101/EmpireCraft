@@ -107,7 +107,6 @@ public class OfficeObject
                 preX = ((City)pNano).GetCityName();
                 break;
         }
-        LogService.LogInfo(pNano?.getType());
         var post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
         return flag? post: preX + post;
     }

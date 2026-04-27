@@ -24,7 +24,6 @@ public class EmpireCraftActorCheckOffice:GameAIActorBase
         {
             office.RemoveActor();
             pActor.EndOffice();
-            LogService.LogInfo($"{pActor.name}因官位禁令失去官职{office.GetOfficeName()}");
             return BehResult.Continue;
         }
 
@@ -41,7 +40,6 @@ public class EmpireCraftActorCheckOffice:GameAIActorBase
         }
         if (office.actor_id == pActor.id) return BehResult.Continue;
         pActor.EndOffice();
-        LogService.LogInfo($"{pActor.name}脱离官位{office.GetOfficeName()}");
         return BehResult.Continue;
     }
 }

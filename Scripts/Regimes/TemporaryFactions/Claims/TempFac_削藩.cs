@@ -10,6 +10,7 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 public class TempFac_削藩 : TemporaryFaction
 {
     public override bool RequireCrimeTarget => true;
+    public override bool RequireRenown => true;
 
     public override TemporaryFaction Clone(FixedFaction faction)
     {
@@ -52,6 +53,8 @@ public class TempFac_削藩 : TemporaryFaction
             if (kingdom.IsEmpire()) continue;
             if (kingdom.IsFactionRebelling()) continue;
             if (kingdom.getWars().Any()) continue;
+            if ((empire.Emperor?.renown??0)==0) continue;
+            if ((kingdom.king?.renown??0)>(empire.Emperor?.renown??0)) continue;
             Regime regime = kingdom.GetRegime();
             if (regime.GetReligionLevel() == ReligionLevel.High) continue;
             if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)

@@ -22,17 +22,17 @@ public static class WarExtension
         public long metaID = -1L;
     }
 
-    public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="", NanoObject nanoObject = null)
+    public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="", NanoObject nanoObject = null, bool isRebelling = false)
     {
         GetOrCreate(w).empireWarType = type;
         Empire empire = w.main_attacker.GetEmpire();
         if (empire != null)
         {
-            w.data.name = empire.name + type + "战争";
+            w.data.name = empire.name + type + (!isRebelling?"战争":"");
         }
         else
         {
-            w.data.name = (string.IsNullOrEmpty(pre)?w.main_attacker?.name:pre) + type + "战争";
+            w.data.name = (string.IsNullOrEmpty(pre)?w.main_attacker?.name:pre) + type + (!isRebelling?"战争":"");
         }
 
         if (nanoObject != null)

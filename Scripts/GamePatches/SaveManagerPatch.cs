@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.services;
 using System;
@@ -62,11 +62,9 @@ public class SaveManagerPatch : GamePatch
     {
         if (ModClass.SAVE_FREEZE)
         {
-            LogService.LogInfo("Mod数据保存被冻结，无法保存");
             return false;
         }
         DataManager.SaveAll(pFolder);
-        LogService.LogInfo("保存mod数据到 " + pFolder);
 
         if (string.IsNullOrEmpty(pFolder))
         {
@@ -84,7 +82,6 @@ public class SaveManagerPatch : GamePatch
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
 
-        LogService.LogInfo("加载mod数据从 " + pPath);
         if (pData == null)
         {
             LogService.LogError("数据为空，无法加载mod数据");
@@ -95,7 +92,6 @@ public class SaveManagerPatch : GamePatch
             try
             {
                 DataManager.LoadAll(pPath);
-                LogService.LogInfo("mod数据加载成功");
             }
             catch (Exception ex)
             {

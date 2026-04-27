@@ -57,12 +57,9 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     {
         base.OnNormalEnable();
         this._actor = SelectedUnit.unit;
-        
-        LogService.LogInfo($"选择角色的名称为{this._actor.name}");
         if (this._actor == null) return;
         if (!this._actor.HasSpecificClan()) return;
         _sc = _actor.GetSpecificClan();
-        LogService.LogInfo($"{_sc.name}氏族,成员{_sc.Count}");
         _identity = _actor.GetPersonalIdentity();
         refreshAll();
     }
@@ -275,7 +272,6 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     {
         List<(ClanRelation, PersonalClanIdentity)> personalClanIdentities = new List<(ClanRelation, PersonalClanIdentity)>();
         personalClanIdentities.AddRange(SpecificClanManager.getChildren(_identity));
-        LogService.LogInfo("子嗣数量: "+ personalClanIdentities.Count.ToString());
         return ShowSpaceBase("current_children_generation", personalClanIdentities);
     }
     //显示同辈子辈空间

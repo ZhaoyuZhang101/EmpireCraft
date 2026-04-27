@@ -1,27 +1,19 @@
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
-using NeoModLoader.services;
-using Newtonsoft.Json.Converters;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.AI.KingdomAI;
-using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
-using static EmpireCraft.Scripts.GameClassExtensions.ClanExtension;
-using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using HarmonyLib;
-using NCMS.Extensions;
 using UnityEngine;
 using Random = System.Random;
 
@@ -29,9 +21,14 @@ namespace EmpireCraft.Scripts.GameClassExtensions;
 
 public class TemporaryPushProgress
 {
+    public const int InfluenceCostPerYear = 50;
+    public const int SupportBaseMoneyCost = 50;
     public bool StartToPushTf = false;
-    public TemporaryFactionType CurrentPushTfType = TemporaryFactionType.供养宗室;
+    public TemporaryFactionType TfType = TemporaryFactionType.供养宗室;
     public int Progress = 0;
+    public long pusher = -1L;
+    public List<(double date, long actor, int duration)> Supporters = new  List<(double, long, int)>();
+    public double StartTimestamp = -1L;
     public static int CalcPolicyProgressAdd(double p, int currentProgress)
     {
         int add;
@@ -50,11 +47,56 @@ public class TemporaryPushProgress
         return add;
     }
     /// <summary>
+    /// 获取发起人
+    /// </summary>
+    /// <returns></returns>
+    public Actor GetPusher()
+    {
+        return World.world.units.get(pusher);
+    }
+    /// <summary>
+    /// 为当前诉求添加支持者
+    /// </summary>
+    /// <param name="supporter">支持者</param>
+    /// <param name="duration">持续时间/年</param>
+    public void AddSupporter(Actor supporter, int duration)
+    {
+        if (supporter == null || supporter.isRekt()) return;
+        if (Supporters.Any(s => s.actor == supporter.id)) return;
+        this.Supporters.Add((World.world.getCurWorldTime(), supporter.id, duration));
+    }
+    public bool HasSupporter(Actor supporter)
+    {
+        return supporter != null && Supporters.Any(s => s.actor == supporter.id);
+    }
+    public void Stop()
+    {
+        StartToPushTf = false;
+        Progress = 0;
+        pusher = -1L;
+        StartTimestamp = -1L;
+        Supporters.Clear();
+    }
+    /// <summary>
+    /// 开始推动
+    /// </summary>
+    /// <param name="pActor"></param>
+    public void StartToPush(Actor pActor, TemporaryFactionType tfType)
+    {
+        if (pActor == null || pActor.isRekt()) return;
+        pusher = pActor.id;
+        TfType = tfType;
+        StartTimestamp = World.world.getCurWorldTime();
+        StartToPushTf = true;
+        Progress = 0;
+    }
+    /// <summary>
     /// 推动诉求
     /// </summary>
     /// <param name="pActor"></param>
     public void Push(Actor pActor)
     {
+        if (!StartToPushTf) return;
         var identity = pActor.GetIdentity();
         if (identity == null)
         {
@@ -64,6 +106,74 @@ public class TemporaryPushProgress
         }
         int add = CalcPolicyProgressAdd(identity.TotalPerformance, Progress);
         Progress = Math.Min(100, Progress + add);
+    }
+
+    public int ConsumeInfluenceAndCalcAdd(Actor actor)
+    {
+        if (actor == null || actor.isRekt()) return 0;
+        if (actor.GetIdentity() == null) return 0;
+        if (actor.data == null || actor.data.renown < InfluenceCostPerYear) return 0;
+        actor.editRenown(-InfluenceCostPerYear);
+        return CalcPolicyProgressAdd(actor.GetIdentity().TotalPerformance, Progress);
+    }
+
+    public int PushOneYear()
+    {
+        if (!StartToPushTf) return 0;
+
+        int totalAdd = 0;
+        var pusherActor = GetPusher();
+        if (pusherActor == null || pusherActor.isRekt() || pusherActor.GetIdentity() == null)
+        {
+            Stop();
+            return 0;
+        }
+
+        totalAdd += ConsumeInfluenceAndCalcAdd(pusherActor);
+
+        for (int i = Supporters.Count - 1; i >= 0; i--)
+        {
+            var record = Supporters[i];
+            var supporter = World.world.units.get(record.actor);
+            if (supporter == null || supporter.isRekt() || supporter.GetIdentity() == null)
+            {
+                Supporters.RemoveAt(i);
+                continue;
+            }
+
+            if (Date.getYearsSince(record.date) < 1)
+            {
+                continue;
+            }
+
+            totalAdd += ConsumeInfluenceAndCalcAdd(supporter);
+            int nextDuration = record.duration - 1;
+            if (nextDuration <= 0)
+            {
+                Supporters.RemoveAt(i);
+            }
+            else
+            {
+                Supporters[i] = (World.world.getCurWorldTime(), record.actor, nextDuration);
+            }
+        }
+
+        Progress = Math.Min(100, Progress + totalAdd);
+        StartTimestamp = World.world.getCurWorldTime();
+        return totalAdd;
+    }
+
+    public string ToInlineString()
+    {
+        if (!StartToPushTf) return "";
+        return $"正在推进: {TfType} | 进度: {Progress}%";
+    }
+
+    public string ToString ()
+    {
+        var text = $"\n正在推进: {TfType.ToString()} | 进度: {Progress.ToString()}%";
+        if (StartToPushTf) return text;
+        return "";
     }
 }
 public static class KingdomExtension
@@ -99,6 +209,12 @@ public static class KingdomExtension
         public double corruption_timestamp = -1L;
         public EmpireHeirLawType HeirLaw = EmpireHeirLawType.eldest_child;
         public EmpireHeirLawType DefaultHeirLaw = EmpireHeirLawType.eldest_child;
+        public string faction_rebel_original_name = "";
+        public TemporaryPushProgress PushProgress = new TemporaryPushProgress()
+        {
+            StartToPushTf = false,
+            Progress = 0
+        };
         public double last_system_change_timestamp = -1L;
         //上一次加入岁币联盟的时间
         public double last_given_alliance_timestamp = -1L;
@@ -122,6 +238,7 @@ public static class KingdomExtension
         public long last_taken_time = -1L;
         //退出朝贡国倾向
         public float leave_taken_alliance_preference = 0.0f;
+        public Dictionary<long, int> local_claim_failed_opinion = new Dictionary<long, int>();
         public long office_id = -1L;
         public bool isEmpire = false;
         public int cached_warriors = 0;
@@ -189,20 +306,16 @@ public static class KingdomExtension
     }
     public static void AddCorruptionRate(this Kingdom kingdom, double addition)
     {
-        if (kingdom.GetCorruptionRate() < 1.0f||kingdom.GetCorruptionRate()>0.0f)
+        kingdom.GetOrCreate().corruption_rate += addition;
+        if (kingdom.GetCorruptionRate() > 1.0f)
         {
-            kingdom.GetOrCreate().corruption_rate += addition;
-            if (kingdom.GetCorruptionRate() > 1.0f)
-            {
-                kingdom.SetCorruptionRate(1.0f);
-            }
-
-            if (kingdom.GetCorruptionRate() < 0.0f)
-            {
-                kingdom.SetCorruptionRate(0.0f);
-            }
+            kingdom.SetCorruptionRate(1.0f);
         }
-        
+
+        if (kingdom.GetCorruptionRate() < 0.0f)
+        {
+            kingdom.SetCorruptionRate(0.0f);
+        }
     }
 
     public static double GetCorruptionRate(this Kingdom kingdom)
@@ -302,6 +415,31 @@ public static class KingdomExtension
     {
         return k.GetOrCreate().leave_taken_alliance_preference;
     }
+    public static void AddLocalClaimFailedOpinion(this Kingdom kingdom, Empire empire, int stack = 1)
+    {
+        if (kingdom == null || kingdom.isRekt() || empire == null || empire.IsArchived()) return;
+        var data = kingdom.GetOrCreate();
+        if (data.local_claim_failed_opinion == null)
+        {
+            data.local_claim_failed_opinion = new Dictionary<long, int>();
+        }
+
+        long empireId = empire.getID();
+        if (!data.local_claim_failed_opinion.ContainsKey(empireId))
+        {
+            data.local_claim_failed_opinion[empireId] = 0;
+        }
+
+        data.local_claim_failed_opinion[empireId] += Math.Max(1, stack);
+    }
+
+    public static int GetLocalClaimFailedOpinion(this Kingdom kingdom, Empire empire)
+    {
+        if (kingdom == null || empire == null) return 0;
+        var data = kingdom.GetOrCreate();
+        if (data?.local_claim_failed_opinion == null) return 0;
+        return data.local_claim_failed_opinion.TryGetValue(empire.getID(), out var value) ? value : 0;
+    }
     public static void JoinGivenAlliance(this Kingdom k, Empire empire)
     {
         k.GetOrCreate().last_given_alliance_timestamp = World.world.getCurWorldTime();
@@ -346,6 +484,7 @@ public static class KingdomExtension
         if (!empire.taken_Kingdoms.Contains(k))
         {
             empire.taken_Kingdoms.Add(k);
+            k.updateColor(empire.CoreKingdom.getColor());
         }
     }
     public static void RemoveTakenAlliance(this Kingdom k)
@@ -387,13 +526,22 @@ public static class KingdomExtension
 
     public static void StartFactionRebelling(this Kingdom k, FixedFaction faction)
     {
-        k.data.name = faction?.Name??k.name + "叛乱";
+        if (string.IsNullOrWhiteSpace(k.GetOrCreate().faction_rebel_original_name))
+        {
+            k.GetOrCreate().faction_rebel_original_name = k.data?.name ?? k.name ?? "";
+        }
+        k.data.name = faction?.Name ?? ((k.GetOrCreate().faction_rebel_original_name ?? k.name) + "叛乱");
         k.GetOrCreate().isFactionRebelling = true;
     }
 
     public static void EndFactionRebelling(this Kingdom k)
     {
         k.GetOrCreate().isFactionRebelling = false;
+        if (!string.IsNullOrWhiteSpace(k.GetOrCreate().faction_rebel_original_name) && k.data != null)
+        {
+            k.data.name = k.GetOrCreate().faction_rebel_original_name;
+        }
+        k.GetOrCreate().faction_rebel_original_name = "";
     }
 
     public static bool IsFactionRebelling(this Kingdom k)
@@ -733,6 +881,7 @@ public static class KingdomExtension
         officeObjects.AddItem(kingObject);
         return officeObjects;
     }
+
 
     public static void SetHeir(this Kingdom k, Actor pActor)
     {

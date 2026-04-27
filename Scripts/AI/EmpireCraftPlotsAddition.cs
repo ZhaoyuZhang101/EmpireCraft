@@ -13,12 +13,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using EmpireCraft.Scripts.AI.KingdomAI;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using UnityEngine;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using static System.Collections.Specialized.BitVector32;
+using Random = System.Random;
 
 namespace EmpireCraft.Scripts.AI
 {
@@ -28,8 +30,9 @@ namespace EmpireCraft.Scripts.AI
 
         private static void GuardAllPlotAssets()
         {
-            foreach (PlotAsset plotAsset in AssetManager.plots_library.getList())
+            foreach (var asset in AssetManager.plots_library.getList())
             {
+                var plotAsset = (PlotAsset)asset;
                 GuardPlotAsset(plotAsset);
             }
 
@@ -482,6 +485,112 @@ namespace EmpireCraft.Scripts.AI
                     }
                     kingdom.JoinTakenAlliance(empire);
                     TranslateHelper.LogJoinTakenAlliance(kingdom, empire);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_start_invite_to_faction",
+                path_icon = "EmperorQuest.png",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                progress_needed = 15f,
+                min_renown_actor = 300,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (!kingdom.IsInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    if (empire == null) return false;
+                    if (!pActor.HasFaction()) return false;
+                    return empire.kingdoms_list.Any(k => ((!k.king?.HasFaction()) ?? false)&&(k.king?.renown??99999)<pActor.renown);
+                },
+                action = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    var empire = kingdom.GetEmpire();
+                    if (!pActor.HasFaction()) return false;
+                    var target = empire?.kingdoms_list?.Find(k => ((!k.king?.HasFaction()) ?? false)&&(k.king?.renown??99999)<pActor.renown);
+                    if (target == null)
+                    {
+                        return false;
+                    }
+                    target.king.SetFaction(pActor.GetFaction());
+                    pActor.data.renown -= target.king?.renown??0;
+                    TranslateHelper.LogInviteIntoFaction(kingdom, target, pActor.GetFaction());
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_expose_crime",
+                path_icon = "EmperorQuest.png",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 5,
+                money_cost = 5,
+                min_renown_actor = 200,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!pActor.isKing()) return false;
+                    if (!kingdom.IsInEmpire()) return false;
+                    Empire empire = kingdom.GetEmpire();
+                    if (empire == null) return false;
+                    if (!pActor.HasFaction()) return false;
+                    return empire.kingdoms_list.Any(k => (k.king?.GetFaction()!=pActor.GetFaction())&&(((k.king?.renown??99999)/2)<pActor.renown)&&k.king.GetViolateValue()>=0&&k!=kingdom);
+                },
+                action = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    var empire = kingdom.GetEmpire();
+                    if (!pActor.HasFaction()) return false;
+                    var target = empire?.kingdoms_list?.Find(k => k.king?.GetFaction()!=pActor.GetFaction()&&((k.king?.renown??99999)/2)<pActor.renown&&k.king.GetViolateValue()>=0&&k!=kingdom);
+                    if (target == null)
+                    {
+                        return false;
+                    }
+                    pActor.data.renown -= (target.king?.renown/2)??0;
+                    target.king.AddTyrantValue(30);
+                    if (target.king.GetViolateValue() >= 100)
+                    {
+                        var potentialCrimes = new List<LawType>()
+                        {
+                            LawType.叛国,
+                            LawType.伪造货币,
+                            LawType.滥用职权,
+                            LawType.私通敌国,
+                            LawType.玩忽职守,
+                            LawType.走私
+                        };
+                        var crime = potentialCrimes.FindAll(c=>target.HasLaw(c)).GetRandom();
+                        target.king.TryTriggerProbabilisticLaw(crime, 1f, _ => { });
+                        float rebellingPossibility = 0.2f;
+                        if (!target.isOpinionTowardsKingdomGood(empire.CoreKingdom))
+                        {
+                            rebellingPossibility = (float)target.countTotalWarriors() / (float)empire.countWarriors();
+                        }
+                        Random rand = new Random();
+                        if (rand.NextDouble() < rebellingPossibility)
+                        {
+                            var war = DiplomacyHelpers.wars.newWar(kingdom, target, WarTypeLibrary.normal);
+                            war.SetEmpireWarType(EmpireWarType.地方叛乱, pre: kingdom.name);
+                        }
+                        else
+                        {
+                            target.king.TryEnforceLaw(crime, kingdom);
+                        }
+                        TranslateHelper.LogExposeCrime(kingdom, target, crime.ToString());
+                    }
+                    else
+                    {
+                        TranslateHelper.LogExposeCrime(kingdom, target, "");
+                    }
                     return true;
                 }
             });

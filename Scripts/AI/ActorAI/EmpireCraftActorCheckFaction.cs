@@ -60,7 +60,7 @@ public class EmpireCraftActorCheckFaction:GameAIActorBase
         if (chosen != null)
         {
             pActor.SetFaction(chosen);
-            TranslateHelper.LogOfficerJoinFaction(pActor.GetOffice(), pActor, chosen);
+            // TranslateHelper.LogOfficerJoinFaction(pActor.GetOffice(), pActor, chosen);
         }
         return BehResult.Continue;
     }

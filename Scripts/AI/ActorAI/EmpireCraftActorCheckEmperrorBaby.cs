@@ -29,8 +29,6 @@ public class EmpireCraftActorCheckEmperorBaby: GameAIActorBase
         //无子嗣强制生育
         var baby = BabyMaker.makeBaby(pActor, lover,
             sc.clan_sex_priority == SpecificClanType.FemalePriority ? ActorSex.Female : ActorSex.Male);
-        
-        LogService.LogInfo("判断当前无子嗣，触发强制生育");
         return BehResult.Continue;
     }
 }

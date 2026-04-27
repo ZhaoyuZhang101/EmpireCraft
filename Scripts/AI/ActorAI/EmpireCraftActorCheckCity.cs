@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameLibrary;
 using NeoModLoader.services;
@@ -18,7 +18,6 @@ public class EmpireCraftActorCheckCity:GameAIActorBase
             City city = pActor.current_zone.city;
             if (pActor.hasKingdom() && city != null && city.getPopulationPeople()<=0)
             {
-                LogService.LogInfo("开始移民空城市");
                 Kingdom kingdom = pActor.kingdom;
                 city.joinAnotherKingdom(kingdom);
                 if (pActor.hasFamily())

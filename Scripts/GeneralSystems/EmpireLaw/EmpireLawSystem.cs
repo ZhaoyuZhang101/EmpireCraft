@@ -96,7 +96,7 @@ public enum LawType
     扰乱集市 = 53,
     污染水源 = 54,
     散布恐慌谣言 = 55,
-    MercenaryOvermighty = 56
+    过于强大 = 56
 }
 
 public enum PunishmentLevel
@@ -234,7 +234,7 @@ public static class EmpireLawSystem
         return actor.kingdom.GetEmpireID() == kingdom.GetEmpireID();
     }
 
-    public static LawEnforcementContext TryEnforceLaw(Actor actor, LawType type, Kingdom kingdom)
+    public static LawEnforcementContext TryEnforceLaw(this Actor actor, LawType type, Kingdom kingdom)
     {
         return TryEnforceLaw(actor, type, kingdom, null, null);
     }
@@ -373,7 +373,7 @@ public static class EmpireLawSystem
 
         leader.RecordLawCheck(MERCENARY_OVERMIGHTY_KEY);
 
-        LawType lawType = LawType.MercenaryOvermighty;
+        LawType lawType = LawType.过于强大;
         if (!kingdom.HasLaw(lawType)) return;
 
         int empireWarriors = empire.countWarriors();
@@ -384,7 +384,7 @@ public static class EmpireLawSystem
         int leaderInfluence = leader.data != null ? leader.data.renown : 0;
         if (leaderInfluence <= 0 || emperorInfluence <= leaderInfluence) return;
 
-        RecordCrime(leader, lawType, kingdom);
+        leader.RecordCrime(lawType);
     }
 
     private static bool TryTriggerOfficialLaws(Actor actor, Kingdom kingdom)
@@ -398,13 +398,13 @@ public static class EmpireLawSystem
         float abuseModifier = GetAuthorityCrimeModifier(actor);
         float negligenceModifier = GetNeglectCrimeModifier(actor);
 
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.受贿, 0.03f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.买官, 0.02f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.卖官, 0.025f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.滥用职权, 0.03f + abuseModifier, ApplyOptionalPeerageRemoval)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.玩忽职守, 0.025f + negligenceModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.受贿, 0.03f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.买官, 0.02f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.卖官, 0.025f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.滥用职权, 0.03f + abuseModifier, ApplyOptionalPeerageRemoval)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.玩忽职守, 0.025f + negligenceModifier, null)) return true;
 
-        return TryTriggerProbabilisticLaw(actor, kingdom, LawType.谎报军功, 0.02f + GetMilitaryCrimeModifier(actor), null);
+        return TryTriggerProbabilisticLaw(actor, LawType.谎报军功, 0.02f + GetMilitaryCrimeModifier(actor), null);
     }
 
     private static bool TryTriggerGeneralLaws(Actor actor, Kingdom kingdom)
@@ -416,54 +416,52 @@ public static class EmpireLawSystem
         float deceitModifier = GetDeceitCrimeModifier(actor);
         float disorderModifier = GetDisorderCrimeModifier(actor);
 
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.杀人, 0.005f + violentModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.故意伤害, 0.015f + violentModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.绑架, 0.008f + violentModifier + deceitModifier * 0.5f, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.陷害, 0.012f + deceitModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.盗窃, 0.02f + economicModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.诈骗, 0.02f + deceitModifier + economicModifier * 0.5f, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.偷税漏税, 0.02f + economicModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.走私, 0.015f + economicModifier + deceitModifier * 0.5f, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.哄抬物价, 0.012f + economicModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.非法侵占土地, 0.01f + economicModifier + GetNobleCrimeModifier(actor), null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.隐瞒田亩, 0.015f + economicModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.逃避徭役, 0.02f + GetDutyEvasionModifier(actor), null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.违约, 0.015f + deceitModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.欺诈交易, 0.018f + deceitModifier + economicModifier * 0.5f, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.缺斤少两, 0.012f + deceitModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.非法持械, 0.01f + violentModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.聚众斗殴, 0.02f + disorderModifier + violentModifier * 0.5f, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, kingdom, LawType.扰乱集市, 0.015f + disorderModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.杀人, 0.005f + violentModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.故意伤害, 0.015f + violentModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.绑架, 0.008f + violentModifier + deceitModifier * 0.5f, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.陷害, 0.012f + deceitModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.盗窃, 0.02f + economicModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.诈骗, 0.02f + deceitModifier + economicModifier * 0.5f, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.偷税漏税, 0.02f + economicModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.走私, 0.015f + economicModifier + deceitModifier * 0.5f, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.哄抬物价, 0.012f + economicModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.非法侵占土地, 0.01f + economicModifier + GetNobleCrimeModifier(actor), null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.隐瞒田亩, 0.015f + economicModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.逃避徭役, 0.02f + GetDutyEvasionModifier(actor), null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.违约, 0.015f + deceitModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.欺诈交易, 0.018f + deceitModifier + economicModifier * 0.5f, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.缺斤少两, 0.012f + deceitModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.非法持械, 0.01f + violentModifier, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.聚众斗殴, 0.02f + disorderModifier + violentModifier * 0.5f, null)) return true;
+        if (TryTriggerProbabilisticLaw(actor, LawType.扰乱集市, 0.015f + disorderModifier, null)) return true;
 
-        return TryTriggerProbabilisticLaw(actor, kingdom, LawType.散布恐慌谣言, 0.02f + deceitModifier + disorderModifier * 0.5f, null);
+        return TryTriggerProbabilisticLaw(actor, LawType.散布恐慌谣言, 0.02f + deceitModifier + disorderModifier * 0.5f, null);
     }
 
-    private static bool TryTriggerProbabilisticLaw(Actor actor, Kingdom kingdom, LawType lawType, float chance,
+    public static bool TryTriggerProbabilisticLaw(this Actor actor, LawType lawType, float chance,
         Action<LawEnforcementContext> extraPunishment)
     {
-        if (actor == null || kingdom == null) return false;
+        var kingdom = actor?.kingdom;
+        if (kingdom == null) return false;
         if (!kingdom.HasLaw(lawType)) return false;
 
         float finalChance = Mathf.Clamp01(chance);
         if (finalChance <= 0f) return false;
         if (UnityEngine.Random.value > finalChance) return false;
 
-        return RecordCrime(actor, lawType, kingdom);
+        return RecordCrime(actor, lawType);
     }
 
-    public static bool RecordCrime(Actor actor, LawType lawType, Kingdom kingdom)
+    public static bool RecordCrime(this Actor actor, LawType lawType)
     {
         if (actor == null || actor.isRekt()) return false;
-        if (kingdom == null)
-        {
-            kingdom = actor.kingdom;
-        }
+        var kingdom = actor.kingdom;
         if (kingdom == null || !CanEnforceLawInEmpireScope(actor, kingdom)) return false;
         if (!kingdom.HasLaw(lawType)) return false;
 
-        if (actor.IsEmperor())
+        if (actor.isKing())
         {
-            actor.AddTyrantValue(5f);
+            actor.AddTyrantValue(10);
             return true;
         }
 
@@ -681,7 +679,7 @@ public static class EmpireLawSystem
         if (actor == null || kingdom == null || record == null) return false;
 
         LawType lawType = (LawType)record.law_type;
-        if (lawType == LawType.MercenaryOvermighty)
+        if (lawType == LawType.过于强大)
         {
             Empire empire = kingdom.GetEmpire();
             if (empire == null || empire.isRekt() || empire.IsArchived()) return false;
@@ -690,7 +688,7 @@ public static class EmpireLawSystem
 
             Actor emperor = empire.Emperor;
             int emperorInfluence = emperor != null && emperor.data != null ? emperor.data.renown : 0;
-            int actorInfluence = actor.data != null ? actor.data.renown : 0;
+            int actorInfluence = actor.data?.renown ?? 0;
             return emperor != null && emperorInfluence > actorInfluence && actorInfluence > 0;
         }
 
@@ -710,7 +708,7 @@ public static class EmpireLawSystem
             case LawType.滥用职权:
                 ApplyOptionalPeerageRemoval(context);
                 break;
-            case LawType.MercenaryOvermighty:
+            case LawType.过于强大:
                 ConsumeMercenaryOvermightyInfluence(context);
                 break;
         }
@@ -731,7 +729,7 @@ public static class EmpireLawSystem
         if (context == null || context.Kingdom == null || context.Actor == null) return;
 
         Empire empire = context.Kingdom.GetEmpire();
-        Actor emperor = empire != null ? empire.Emperor : null;
+        Actor emperor = empire?.Emperor;
         if (emperor == null || emperor.data == null || context.Actor.data == null) return;
 
         int cost = context.Actor.data.renown;

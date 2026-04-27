@@ -43,6 +43,11 @@ public static class CityExtension
         public double last_law_scan_ts = -1L;
     }
 
+    public static EmpireCore GetEmpireCore(this City c)
+    {
+        EmpireCoreManager.EmpireCores.TryGetValue(c.GetEmpireCoreID(), out EmpireCore core);
+        return core;
+    }
     public static void AddCorruptionRate(this City city, double addition)
     {
         if (city.GetCorruptionRate() < 1.0f||city.GetCorruptionRate()>0.0f)

@@ -177,6 +177,5 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     {
         var namePart = text.Split('\u200A');
         _regimeInput.input.text = namePart[0] + "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(_kingdom).ToString());
-        LogService.LogInfo("changing clan name");
     }
 }

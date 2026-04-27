@@ -1,4 +1,4 @@
-﻿using db;
+using db;
 using EmpireCraft.Scripts.GameClassExtensions;
 using HarmonyLib;
 using NeoModLoader.api;
@@ -33,7 +33,6 @@ public class DBManagerPatch:GamePatch
         //    AccessTools.Method(typeof(DBManager), nameof(DBManager.OnApplicationQuit)),
         //    prefix: new HarmonyMethod(GetType(), nameof(on_application_quit))
         //);
-        //LogService.LogInfo("DBManagerPatch加载成功");
     }
 
     public static void on_application_quit(DBManager __instance)
@@ -55,6 +54,5 @@ public class DBManagerPatch:GamePatch
         ExtensionBase.Clear<Kingdom, KingdomExtraData>();
         ExtensionBase.Clear<City, CityExtraData>();
         ExtensionBase.Clear<Religion, ReligionExtraData>();
-        LogService.LogInfo("清空所有Mod数据");
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Reflection;
 using ai.behaviours;
@@ -29,14 +29,12 @@ public static class GameAIMain
         {
             var beh = (GameAIKingdomBase) Activator.CreateInstance(type);
             var id = beh.OriginalBeh.ToString().Split('.').Last();
-            LogService.LogInfo("载入模组国家AI: " + beh.GetType().ToString().Split('.').Last());
             foreach (var bt in lib.list)
             {
                 foreach (var action in bt.list.ToList())
                 {
                     if (action.id == id)
                     {
-                        LogService.LogInfo($"存在原版同类逻辑{id}，已覆盖");
                         bt.list.Remove(action);
                     }
                 }
@@ -59,14 +57,12 @@ public static class GameAIMain
         {
             var beh = (GameAIKingdomMindBase) Activator.CreateInstance(type);
             var id = beh.OriginalBeh.ToString().Split('.').Last();
-            LogService.LogInfo("载入模组国家移植AI: " + beh.GetType().ToString().Split('.').Last());
             foreach (var bt in lib.list)
             {
                 foreach (var action in bt.list.ToList())
                 {
                     if (action.id == id)
                     {
-                        LogService.LogInfo($"存在原版同类逻辑{id}，已覆盖");
                         bt.list.Remove(action);
                     }
                 }
@@ -89,14 +85,12 @@ public static class GameAIMain
         {
             var beh = (GameAIEmpireBase) Activator.CreateInstance(type);
             var id = beh.OriginalBeh.ToString().Split('.').Last();
-            LogService.LogInfo("载入模组帝国AI: " + beh.GetType().ToString().Split('.').Last());
             foreach (var bt in lib.list)
             {
                 foreach (var action in bt.list.ToList())
                 {
                     if (action.id == id)
                     {
-                        LogService.LogInfo($"存在原版同类逻辑{id}，已覆盖");
                         bt.list.Remove(action);
                     }
                 }
@@ -119,14 +113,12 @@ public static class GameAIMain
         {
             var beh = (GameAICityBase) Activator.CreateInstance(type);
             var id = beh.OriginalBeh.ToString().Split('.').Last();
-            LogService.LogInfo("载入模组城市AI: " + beh.GetType().ToString().Split('.').Last());
             foreach (var bt in lib.list)
             {
                 foreach (var action in bt.list.ToList())
                 {
                     if (action.id == id)
                     {
-                        LogService.LogInfo($"存在原版同类逻辑{id}，已覆盖");
                         bt.list.Remove(action);
                     }
                 }
@@ -149,14 +141,12 @@ public static class GameAIMain
             bool isReplace = false;
             var beh = (GameAIActorBase) Activator.CreateInstance(type);
             var id = beh.OriginalBeh.ToString().Split('.').Last();
-            LogService.LogInfo("载入模组角色AI: " + beh.GetType().ToString().Split('.').Last());
             foreach (var bt in lib.list)
             {
                 foreach (var action in bt.list.ToList())
                 {
                     if (action.id == id)
                     {
-                        LogService.LogInfo($"存在原版同类逻辑{id}，已覆盖");
                         bt.list.Remove(action);
                         beh.create();
                         beh.id = id;

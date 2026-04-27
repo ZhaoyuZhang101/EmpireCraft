@@ -55,7 +55,7 @@ public class EmpireCraftKingdomBehCheckTax : GameAIKingdomBase
             if (corruptedMoney > 0)
             {
                 actor.addMoney(corruptedMoney);
-                EmpireLawSystem.RecordCrime(actor, LawType.贪污, pKingdom);
+                actor.RecordCrime(LawType.贪污);
             }
         }
         pKingdom.SubMoney((int)(num * (1.0f - pKingdom.GetCorruptionRate())));

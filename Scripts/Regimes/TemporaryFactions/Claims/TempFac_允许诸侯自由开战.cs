@@ -19,7 +19,6 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
 
     public override void Execute()
     {
-        LogService.LogInfo($"执行{this.type}");
         Kingdom kingdom = GetKingdomTarget();
         if (kingdom != null)
         {
@@ -33,6 +32,10 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire.HasEmperor())
+        {
+            if (!empire.Emperor.hasTrait("ambitious")) return false;
+        }
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
             Regime regime = kingdom.GetRegime();

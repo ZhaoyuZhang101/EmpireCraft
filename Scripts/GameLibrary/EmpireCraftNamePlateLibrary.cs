@@ -546,14 +546,35 @@ public static class EmpireCraftNamePlateLibrary
             case 0:
                 if (pMetaObject.IsInEmpire())
                 {
-                    var corruption = (int)(pMetaObject.GetCorruptionRate()*100);
-                    if (pMetaObject.hasKing())
+                    WorldTile mouseTilePosCachedFrame = World.world.getMouseTilePosCachedFrame();
+                    if (mouseTilePosCachedFrame?.zone_city?.kingdom==pMetaObject)
                     {
+                        var corruption = (int)(pMetaObject.GetCorruptionRate()*100);
+                        if (pMetaObject.hasKing())
+                        {
+                            pNewText += pMetaObject.king.HasFaction()?" "+pMetaObject.king.GetFaction()?.Name??" 无派系":" 无派系";
+                            pNewText +=
+                                $"\n长官影响力: {pMetaObject.king.renown}";
+                            if (pMetaObject.king.HasOfficeIdentity())
+                            {
+                                var officeIdentity = pMetaObject.king.GetIdentity();
+                                if (officeIdentity != null)
+                                {
+                                    var level = officeIdentity.ViolateLevel;
+                                    var levelText = level.ToString();
+                                    pNewText += $" | 暴虐值: {(
+                                        level>30?
+                                            level>70?
+                                                levelText.ColorString(pColor:new Color(1, 0,0)):
+                                                levelText.ColorString(pColor:new Color(0.8f, 0.8f, 0)):
+                                            levelText.ColorString(pColor:new Color(0,1,0)))}%";
+                                }
+                            
+                            }
+                        }
                         pNewText +=
-                            $"\n长官影响力: {pMetaObject.king.renown}";
+                            $"\n腐败值：{corruption.ToString().ColorString(pColor: corruption <= 30 ? Color.green : Color.red)}%";
                     }
-                    pNewText +=
-                        $"\n腐败值：{corruption.ToString().ColorString(pColor: corruption <= 30 ? Color.green : Color.red)}%";
                 }
                 break;
             case 1:
@@ -841,6 +862,7 @@ public static class EmpireCraftNamePlateLibrary
         plateText._showing = true;
         plateText.setupMeta(pMetaObject.data, pMetaObject.getColor());
         string text = empire.data.name + "  " + empire.CountPopulation() + additionNum;
+        text = text.ColorString(pColor: new Color(1, 1, 1));
         int difference = (empire.data.PreviousYearsMoney.Count > 2
             ? (empire.data.PreviousYearsMoney.Last() -
                empire.data.PreviousYearsMoney[empire.data.PreviousYearsMoney.Count - 2])

@@ -58,6 +58,15 @@ public abstract class TemporaryFaction
     }
     [JsonIgnore]
     public virtual bool RequireCrimeTarget => false;
+    [JsonIgnore]
+    public virtual bool RequireRenown => false;
+    public virtual float RequireRenownMultiplier => 1f;
+
+    public bool OwnEnoughRenown(Kingdom target)
+    {
+        if ((GetEmpire().Emperor?.renown??0f)==0f) return false;
+        return (GetEmpire().Emperor?.renown ?? 0f) >(target?.king?.renown ?? 0f) * RequireRenownMultiplier ;
+    }
     public void CopyRuntimeStateFrom(TemporaryFaction other)
     {
         if (other == null) return;

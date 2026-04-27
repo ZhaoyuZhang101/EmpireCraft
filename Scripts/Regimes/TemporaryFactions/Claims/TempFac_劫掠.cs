@@ -20,7 +20,6 @@ public class TempFac_劫掠 : TemporaryFaction
     
     public override void Execute()
     {
-        LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
         Kingdom target = GetKingdomTarget();
         if (target != null)

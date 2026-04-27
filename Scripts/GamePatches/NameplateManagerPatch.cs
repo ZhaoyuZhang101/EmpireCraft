@@ -17,11 +17,6 @@ public class NameplateManagerPatch : GamePatch
 
     public static bool UpdateOverlappingPosition(NameplateManager __instance)
     {
-        if (__instance == null)
-        {
-            return false;
-        }
-
         return false;
     }
 }

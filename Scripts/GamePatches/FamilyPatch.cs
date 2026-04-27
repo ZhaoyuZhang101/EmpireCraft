@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
@@ -23,7 +23,6 @@ public class FamilyPatch : GamePatch
             AccessTools.Method(typeof(Family), nameof(Family.newFamily)),
             postfix: new HarmonyMethod(GetType(), nameof(set_family_name))
         );
-        LogService.LogInfo("家族命名补丁加载成功");
     }
 
     public static void set_family_name(Family __instance, Actor pActor1, Actor pActor2, WorldTile pTile)

@@ -174,13 +174,11 @@ public class CityWindowPatch : GamePatch
         {
             button.Text.text = LM.Get("Off");
             city.CloseMaxPopulationLimit();
-            LogService.LogInfo("关闭人口限制");
             textInput.input.text = LM.Get("population_limit_text");
         } else
         {
             button.Text.text = LM.Get("On");
             city.OpenMaxPopulationLimit();
-            LogService.LogInfo("开启人口限制");
             textInput.input.text = city.GetMaxPopulation().ToString();
         }
     }

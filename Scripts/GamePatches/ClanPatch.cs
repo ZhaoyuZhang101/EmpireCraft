@@ -27,7 +27,6 @@ public class ClanPatch : GamePatch
             AccessTools.Method(typeof(Clan), nameof(Clan.Dispose)),
             postfix: new HarmonyMethod(GetType(), nameof(removeData))
         );
-        LogService.LogInfo("氏族命名补丁加载成功");
     }
     public static void removeData(Clan __instance)
     {

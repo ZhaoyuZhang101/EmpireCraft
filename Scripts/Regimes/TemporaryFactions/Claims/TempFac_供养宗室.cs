@@ -18,7 +18,6 @@ public class TempFac_供养宗室 : TemporaryFaction
     
     public override void Execute()
     {
-        LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
         if (empire != null)
         {

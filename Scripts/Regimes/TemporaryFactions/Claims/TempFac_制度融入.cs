@@ -19,7 +19,6 @@ public class TempFac_制度融入 : TemporaryFaction
     
     public override void Execute()
     {
-        LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
         var target = GetKingdomTarget();
         if (target != null)

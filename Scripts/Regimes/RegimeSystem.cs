@@ -288,7 +288,6 @@ public static class RegimeManager
                         regime.Value.type = regime.Key;
                         NormalizeRegime(regime.Value);
                         regimes[regime.Key] = regime.Value; // 合并到总字典
-                        LogService.LogInfo(regime.Value.bureau_config.cores.Count.ToString());
                         LogService.LogInfo("加载政体完成: " + regime.Key + " 来自 " + dir);
                     }
                 }

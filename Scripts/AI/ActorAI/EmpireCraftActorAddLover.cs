@@ -55,7 +55,6 @@ public class EmpireCraftActorAddLover:GameAIActorBase
                                                               && !a.hasLover());
                 if (actor == null) return BehResult.Continue;
                 identity.setLover(actor, true);
-                LogService.LogInfo("纳妾成功");
             }
         }
         return BehResult.Continue;

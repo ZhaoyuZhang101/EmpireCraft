@@ -33,7 +33,6 @@ public class CulturePatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(set_default_culture_name)));
         new Harmony(nameof(clone_culture_name)).Patch(AccessTools.Method(typeof(Culture), nameof(Culture.cloneAndEvolveOnomastics)),
             postfix: new HarmonyMethod(GetType(), nameof(clone_culture_name)));
-        LogService.LogInfo("文化模板加载成功");
     }
 
     private static void set_default_culture_name(Actor __instance, string pCultureName)
@@ -52,11 +51,9 @@ public class CulturePatch : GamePatch
                                             __instance.city.GetCityName() + LM.Get("Dialect");
             __instance.culture.data.name = __instance.kingdom.GetKingdomName() + "-" + LM.Get("OriginalCulture");
             __instance.culture.data.creator_city_name = __instance.city.data.name;
-            LogService.LogInfo("当前文化名称: " + __instance.culture.data.name);
         }
         catch (Exception e)
         {
-            LogService.LogInfo("文化载入失败");
         }
 
     }
@@ -70,13 +67,11 @@ public class CulturePatch : GamePatch
     private static void clone_culture_name(Culture __instance)
     {
         __instance.data.name = __instance.data.creator_kingdom_name.Split('\u200A')[0].Split(' ').Last()+"-"+ __instance.data.creator_city_name.Split('\u200A')[0].Split(' ').Last()+ LM.Get("EvolvedCulture");
-        LogService.LogInfo("当前文化名称: " + __instance.data.name);
     }
     private static void setDefaultNameTemplate(Culture culture)
     {
 
         string species = culture.data.creator_species_id;
-        LogService.LogInfo("当前文化物种: " + species);
         string insertCulture = OverallHelperFunc.GetCultureFromSpecies(species);
         insertCultureTemplate(culture, insertCulture);
     }
@@ -92,7 +87,6 @@ public class CulturePatch : GamePatch
 
         if (!OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(cultureName, out Setting setting))
         {
-            LogService.LogInfo($"文化：{cultureName}的配置不存在");
             return;
         }
         FamilySetting familySetting = setting.Family;

@@ -15,6 +15,7 @@ namespace EmpireCraft.Scripts.Enums
         神圣,
         统一,
         派系叛乱,
+        地方叛乱,
         迫使朝贡,
         劫掠,
         游牧扩张,

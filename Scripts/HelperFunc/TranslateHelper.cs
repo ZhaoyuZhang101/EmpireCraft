@@ -123,7 +123,6 @@ namespace EmpireCraft.Scripts.HelperFunc
         public static void RecordIntoEmpire(this WorldLogMessage worldLog, Empire pEmpire = null)
         {
             worldLog.add();
-            LogService.LogInfo("世界提示完毕,开始记录入历史");
             pEmpire?.RecordHistory(directContent: worldLog.GetEmpireHistoryFormatedText());
         }
         public static void LogLawEnforcement(LawEnforcementContext context)
@@ -132,7 +131,7 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             Actor actor = context.Actor;
             Kingdom kingdom = context.Kingdom;
-            Empire empire = kingdom != null ? kingdom.GetEmpire() : null;
+            Empire empire = kingdom?.GetEmpire();
             if (actor == null || kingdom == null || empire == null) return;
             if (!ShouldBroadcastLawActor(actor)) return;
 
@@ -775,6 +774,46 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.CoreKingdom.getColor()._color_text
 
             }.add();
+        }
+
+        /// <summary>
+        /// 拉入派系提示
+        /// </summary>
+        /// <param name="invitor">邀请者</param>
+        /// <param name="target">目标</param>
+        /// <param name="faction">派系</param>
+        public static void LogInviteIntoFaction(Kingdom invitor, Kingdom target, FixedFaction faction)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.邀请入派系,
+                invitor.name,
+                target.name,
+                faction.Name)
+            {
+                color_special1 = invitor.getColor()._color_text,
+                color_special2 = target.getColor()._color_text,
+                color_special3 = invitor.getColor()._color_text,
+
+            }.add();
+        }
+
+        /// <summary>
+        /// 罪加罪行
+        /// </summary>
+        /// <param name="actor">执行者</param>
+        /// <param name="victim">受害者</param>
+        /// <param name="crime">罪行</param>
+        public static void LogExposeCrime(Kingdom actor, Kingdom victim, string crime)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.追加罪行,
+                actor.name,
+                victim.name,
+                crime)
+            {
+                color_special1 = actor.getColor()._color_text,
+                color_special2 = victim.getColor()._color_text,
+                color_special3 = victim.getColor()._color_text,
+
+            }.RecordIntoEmpire();
         }
         public static void LogCityAddToTitle(City city, KingdomTitle title)
         {

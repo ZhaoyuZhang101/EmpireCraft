@@ -42,8 +42,6 @@ public static class OfficeSelector
                 {
                     break;
                 }
-                LogService.LogInfo($"选择后宫{LM.Get($"LvLing_officiallevel_{office.officeType}")}");
-                LogService.LogInfo($"{debugType}: {pKingdom?.name??"无国家"}");
                 actor = TryGetHarem(office, pKingdom);
                 break;
             default:

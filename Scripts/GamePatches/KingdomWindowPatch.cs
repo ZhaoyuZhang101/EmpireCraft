@@ -73,6 +73,5 @@ public class KingdomWindowPatch: GamePatch
     private static void ShowRegime()
     {
         ScrollWindow.showWindow(nameof(RegimeWindow));
-        LogService.LogInfo($"开启RegimeWindow");
     }
 }

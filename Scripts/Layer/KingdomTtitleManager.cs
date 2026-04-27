@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.services;
 using System;
@@ -101,14 +101,12 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         foreach (KingdomTitle kt in this._to_dissolve)
         {
             this.dissolveTitle(kt);
-            LogService.LogInfo("清空错误目标");
         }
         this._to_dissolve.Clear();
     }
 
     public void dissolveTitle(KingdomTitle pkt)
     {
-        LogService.LogInfo("移除");
         pkt.Dissolve();
         pkt.Dispose();
         this.removeObject(pkt);
@@ -117,7 +115,6 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     public override void removeObject(KingdomTitle pObject)
     {
         base.removeObject(pObject);
-        LogService.LogInfo("移除头衔实体");
     }
 
     private List<KingdomTitle> _to_dissolve = new List<KingdomTitle>();

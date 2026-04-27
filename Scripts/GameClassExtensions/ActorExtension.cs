@@ -188,6 +188,7 @@ public class OfficeIdentity
     public double OfficePerformance { get; set; } = 100;
     private bool _is_cabinet { get; set; } = false;
     public double TotalPerformance { get; set; } = 0;
+    public int ViolateLevel { get; set; } = 0;
     public PerformanceEvents performanceEvents { get; set; }
     [JsonIgnore]
     public AdvancedButton setLeaderButton { get; set; } 
@@ -327,7 +328,6 @@ public static class ActorExtension
         public bool is_on_office = false;
         public long personal_identity { get; set; } = -1L;
         public float death_rate = 0.0f;
-        public float tyrant_value = 0.0f;
         public List<long> banned_office_empire_ids = new List<long>();
         public Dictionary<string, double> law_check_timestamps = new Dictionary<string, double>();
     }
@@ -536,29 +536,22 @@ public static class ActorExtension
         timestamps[key] = World.world.getCurWorldTime();
     }
 
-    public static float GetTyrantValue(this Actor a)
+    public static void SetTyrantValue(this Actor a, int value)
     {
-        if (a == null) return 0f;
-        return Mathf.Clamp(a.GetOrCreate().tyrant_value, 0f, 100f);
-    }
-
-    public static void SetTyrantValue(this Actor a, float value)
-    {
-        if (a == null) return;
-
-        float previous = a.GetTyrantValue();
-        float next = Mathf.Clamp(value, 0f, 100f);
-        a.GetOrCreate().tyrant_value = next;
+        if (a?.GetIdentity()==null) return;
+        float previous = a.GetViolateValue();
+        int next = Mathf.Clamp(value, 0, 100);
+        a.GetIdentity().ViolateLevel = next;
         if (previous < 100f && next >= 100f)
         {
             a.OnTyrantValueFullReached();
         }
     }
 
-    public static void AddTyrantValue(this Actor a, float addition = 5f)
+    public static void AddTyrantValue(this Actor a, int addition = 20)
     {
         if (a == null || addition == 0f) return;
-        a.SetTyrantValue(a.GetTyrantValue() + addition);
+        a.SetTyrantValue(a.GetViolateValue() + addition);
     }
 
     private static void OnTyrantValueFullReached(this Actor a)
@@ -695,6 +688,22 @@ public static class ActorExtension
     public static void RemoveEmpire(this Actor a)
     {
         GetOrCreate(a).empire_id = -1L;
+    }
+
+    public static bool AddViolateValue(this Actor a, int value)
+    {
+        var officeIdentity =  a.GetOrCreate().officeIdentity;
+        if (officeIdentity == null) return false;
+        officeIdentity.ViolateLevel = Math.Min(100, officeIdentity.ViolateLevel+=value);
+        officeIdentity.ViolateLevel = Math.Max(0, officeIdentity.ViolateLevel+=value);
+        return true;
+    }
+
+    public static int GetViolateValue(this Actor a)
+    {
+        var officeIdentity =  a.GetOrCreate().officeIdentity;
+        if (officeIdentity == null) return -1;
+        return officeIdentity.ViolateLevel;
     }
 
     public static Empire GetEmpire(this Actor a)

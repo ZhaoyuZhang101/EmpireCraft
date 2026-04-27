@@ -42,6 +42,7 @@ public class TempFac_分封 : TemporaryFaction
                     kingdom.king.AddOwnedTitle(title);
                 }
                 GetEmpire().join(kingdom, pForce:true);
+                GetEmpire().AddMandate(10);
                 break;
             }
         }

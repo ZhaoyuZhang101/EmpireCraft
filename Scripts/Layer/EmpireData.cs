@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -32,6 +33,7 @@ public class EmpireData : MetaObjectData
     public List<int> PreviousYearsMoney = new();
     public double MilitaryExpenditureRate { get; set; } = 0.2;
     public int MilitaryExpenditure = 0;
+    public double last_increase_mandate_timestamp = -1L;
     public bool original_royal_been_changed { get; set; } = false;
     public bool feed_royal = false;
     public double original_royal_been_changed_timestamp { get; set; }
@@ -149,12 +151,41 @@ public class HistoryDescription
     public string description;
 }
 
+public static class EmpireCoreManager
+{
+    public static Dictionary<long, EmpireCore> EmpireCores = new Dictionary<long, EmpireCore>();
+
+    public static void newEmpireCore(Empire empire)
+    {
+        var empireCore = new EmpireCore()
+        {
+            id = OverallHelperFunc.IdGenerator.NextId(),
+            empire_id = empire.id,
+            culture = empire.CoreKingdom.culture.id,
+            name =  empire.CoreKingdom.name,
+            create_timestamp = empire.data.created_time,
+            citiesRecord = empire.cities_list.Select(c=>(World.world.getCurWorldTime(), c.id)).ToList()
+        };
+    }
+}
 public class EmpireCore
 {
     public long id { get; set; }
-    public string culture { get; set; }
+    public long empire_id { get; set; } = -1L;
+    public long culture { get; set; }
     public string name { get; set; }
-    public bool hasPostHumous { get; set; }
-    public long create_timestamp { get; set; }
-    public List<long> cities;
+    public double create_timestamp { get; set; }
+    public List<(double time, long cityId)> citiesRecord;
+    public bool AddCity(City city)
+    {
+        if (citiesRecord.Select(a => a.cityId).ToList().Contains(city.id)) return false;
+        citiesRecord.Add((World.world.getCurWorldTime(),  city.id));
+        return true;
+    }
+    public bool RemoveCity(City city)
+    {
+        if (!citiesRecord.Select(a => a.cityId).ToList().Contains(city.id)) return false;
+        citiesRecord.RemoveAll(c=>c.cityId==city.id);
+        return true;
+    }
 }

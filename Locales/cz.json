@@ -393,14 +393,15 @@
     "minister_aqcuire_empire_log": "$title$ $minister$成功夺取天命, 定国号$new_empire_name$",
     "emperor_posthumous_name": "$actor$ 追封了先帝 $actor2$",
     "empire_powerful_minister_aquire_title": "权臣 $minister$ 向 $empire$ 天子索取封号，称 $title$",
-  "king_take_title_log": "$kingdom$ $king$ 获得了 $title_name$ 的法理",
-  "kingdom_change_main_title_log": "$kingdom$ 将主法理从 $old_title$ 变更为 $new_title$",
+    "king_take_title_log": "$kingdom$ $king$ 获得了 $title_name$ 的法理",
+    "kingdom_change_main_title_log": "$kingdom$ 将主法理从 $old_title$ 变更为 $new_title$",
     "title_been_controlled": "当前控制法理的国家",
     "obtain_city": "获取",
     "lost_city": "丢失",
     "king_create_title_log": "$kingdom$ $king$ 创建了 $title_name$ 的法理",
     "become_kingdom_log": "$actor$ 因获得 $title$ 的法理 改国名为 $kingdom$",
     "city_add_to_title_log": "$city$ 已被纳入 $title_name$ 的法理范围",
+    "邀请入派系": "$invitor$ 已将 $target$ 拉入 $faction$",
     "province_change_to_kingdom_log": "$province$ 已被转为 $province_level$",
     "new_jingshi_log": "$empire$ 殿试已毕，$actor$ 于金銮殿对策中高列名次，授进士第，荣耀九族！",
     "cotrolled_country_log": "$actor$ 已经完全控制 $empire$ 内阁！",
@@ -576,6 +577,7 @@
     "plot_emperor_get_back_province_info_base": "收复已被敌人占领的沦陷区",
     "plot_powerful_minister_controlled_empire": "权臣控制内阁",
     "plot_powerful_minister_controlled_empire_info_base": "权臣发起控制内阁谋划",
+    "追加罪行": "$actor$ 的统治者 试图给 $victim$ 的统治者 追加 $crime$ 罪行",
     "plot_powerful_minister_take_city": "节度使蚕食帝国领土",
     "plot_powerful_minister_take_city_info_base": "节度使通过消耗帝国十分之一的影响力来获取帝国最近的一块土地",
     "plot_emperor_take_armed_province": "皇帝撤除军府",
@@ -813,4 +815,10 @@
     ,"降低赋税":"降低賦稅"
     ,"禁党":"禁黨"
     ,"国_打击贪腐":"打擊貪腐"
+    ,"opinion_local_claim_failed":"地方推动诉求失败后的不满"
+    ,"support_local_push_claim":"拉拢诉求支持者"
+    ,"support_local_push_claim_description":"花费金钱拉拢其他有政治身份者协助推进地方诉求"
+    ,"撤换官员":"撤换官员"
+    ,"expose_official_crime":"曝光官员黑料"
+    ,"expose_official_crime_description":"花费影响力挖掘并曝光地方官员的犯罪黑料"
 }
