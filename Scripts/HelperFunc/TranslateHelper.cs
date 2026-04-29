@@ -687,6 +687,18 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.RecordIntoEmpire(kingdom.GetEmpire());
         }
+        public static void LogJoinRebellionWar(Kingdom joiner, Kingdom beginner, Empire empire)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.join_rebellion_war_log,
+                joiner.data.name,
+                beginner.data.name
+                )
+            {
+                color_special1 = joiner.getColor()._color_text,
+                color_special2 = beginner.getColor()._color_text
+
+            }.RecordIntoEmpire(empire);
+        }
         public static void LogOfficerBuildSpecificClan(Actor actor, SpecificClan sc)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.officer_build_specific_clan,
@@ -841,22 +853,15 @@ namespace EmpireCraft.Scripts.HelperFunc
                 }.add();
         }
 
-        public static void LogKingdomChangeMainTitle(Kingdom kingdom, KingdomTitle oldTitle, KingdomTitle newTitle)
+        public static void LogKingdomChangeMainTitle(Kingdom kingdom, KingdomTitle newTitle)
         {
             if (kingdom == null || newTitle == null) return;
-            var oldTitleName = oldTitle?.data?.name;
-            if (string.IsNullOrWhiteSpace(oldTitleName))
-            {
-                oldTitleName = LM.Get("no_main_title");
-            }
             new WorldLogMessage(EmpireCraftWorldLogLibrary.kingdom_change_main_title_log,
                 kingdom.data.name,
-                oldTitleName,
                 newTitle.data.name)
             {
                 color_special1 = kingdom.getColor()._color_text,
                 color_special2 = kingdom.getColor()._color_text,
-                color_special3 = newTitle.getColor()._color_text
 
             }.RecordIntoEmpire(kingdom.GetEmpire());
         }

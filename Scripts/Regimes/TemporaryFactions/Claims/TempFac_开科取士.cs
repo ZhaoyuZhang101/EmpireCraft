@@ -25,6 +25,7 @@ public class TempFac_开科取士 : TemporaryFaction
         {
             Regime regime = empire.CoreKingdom.GetRegime();
             regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+            empire.AddMandate(20);
         }
         End();
     }

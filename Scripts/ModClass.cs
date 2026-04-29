@@ -174,6 +174,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftWorldLawGroupLibrary.init();
         EmpireCraftWorldLawLibrary.init();
         EmpireCraftHotKeyLibrary.init();
+        EmpireCraftLoyaltyLibrary.init();
         RegimeManager.init();
         FactionManager.init();
         EMPIRE_MANAGER = new EmpireManager();

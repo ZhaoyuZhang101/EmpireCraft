@@ -326,12 +326,34 @@ public static class ActorExtension
         public long empire_id { get; set; } = -1L;
         public long OfficeId { get; set; } = -1L;
         public bool is_on_office = false;
+        public int ChanceToGetKingdom = 0;
         public long personal_identity { get; set; } = -1L;
+        public int escape_count { get; set; } = 0;
         public float death_rate = 0.0f;
         public List<long> banned_office_empire_ids = new List<long>();
         public Dictionary<string, double> law_check_timestamps = new Dictionary<string, double>();
     }
+    /// <summary>
+    /// 初始化执行
+    /// </summary>
+    /// <param name="a"></param>
+    public static void InitialChangeToGetKingdom(this Actor a)
+    {
+        
+    }
 
+    public static bool EscapeFromPunishment(this Actor a, bool result = false)
+    {
+        if (!result)
+        {
+            a.GetOrCreate().escape_count = Mathf.Clamp(a.GetOrCreate().escape_count+1, 0, 2);
+        }
+        if (a.GetOrCreate().escape_count >= 2)
+        {
+            return true;
+        }
+        return false;
+    }
     public static void SetSocialClass(this Actor a, SocialClass socialClass)
     {
         a.GetOrCreate().socialClass = socialClass;
@@ -1287,7 +1309,7 @@ public static class ActorExtension
             {
                 if (a.kingdom.GetKingdomName()==title.data.name)
                 {
-                    a.kingdom.data.name = a.kingdom.capital.GetCityName();
+                    a.kingdom.SetKindomName(a.kingdom.capital.GetCityName());
                     a.kingdom.EmpireLeave();
                 }
                 if (a.kingdom.GetMainTitle() == title)

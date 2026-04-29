@@ -51,7 +51,7 @@ public static class EmpireCraftNamePlateLibrary
         if (kingdom.HasTakenAlliance()) return kingdom.GetTakenAllianceEmpire();
         return null;
     }
-    private static bool isCameraMoving()
+    private static bool IsCameraMoving()
     {
         return _is_camera_moving_this_frame;
     }
@@ -145,6 +145,7 @@ public static class EmpireCraftNamePlateLibrary
                             {
                                 if (!kingdom.IsEmpire() && kingdom.hasCapital() && (kingdom.IsInEmpire() || kingdom.HasTakenAlliance()) && isWithinCamera(kingdom.capital.city_center))
                                 {
+
                                     _cached_kingdoms_no_back.Add(kingdom);
                                 }
                             }
@@ -258,6 +259,15 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     Kingdom kingdom = _render_kingdoms_no_back_buffer[i];
                     if (kingdom == null || kingdom.isRekt() || !kingdom.hasCapital()) continue;
+                    if (kingdom.IsInEmpire())
+                    {
+                        WorldTile mouseTilePosCachedFrame = World.world.getMouseTilePosCachedFrame();
+                        if ((!mouseTilePosCachedFrame?.zone_city?.kingdom?.GetEmpire()?.kingdoms_list?.Contains(kingdom)) ??
+                            true)
+                        {
+                            continue;
+                        }
+                    }
                     NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
                     nameplateText._showing = true;
                     nameplateText.setPriority(kingdom.getPopulationPeople());
@@ -831,7 +841,7 @@ public static class EmpireCraftNamePlateLibrary
             return;
         }
 
-        if (isCameraMoving())
+        if (IsCameraMoving())
         {
             npt.setText(text, position);
             return;
@@ -892,7 +902,7 @@ public static class EmpireCraftNamePlateLibrary
                         text =
                             $"\n{(empire.EmpireClan?.name ?? "无皇室").ColorString(pColor: Color.yellow)} | 主导: {faction.Name}" +
                             moneyText + "\n"+ $"正统性: {empire.Mandate}" + "\n" +
-                            text.ColorString(pColor: pMetaObject.getColor()._color_banner) +
+                            text +
                             $"\n诉求：{(tf!=null ? tf.type.ToString(): "无")}".ColorString(
                                 pColor: new Color(0.5f, 0.9f, 0.5f)) +
                             (tf!=null?tf.ShowAsPlot?$"({LM.Get("tf_starting")})"
@@ -951,7 +961,7 @@ public static class EmpireCraftNamePlateLibrary
         }
         long empireId = empire.id;
         float now = Time.unscaledTime;
-        if (!isCameraMoving()
+        if (!IsCameraMoving()
             && _empire_position_cache.TryGetValue(empireId, out Vector3 cachedPosition)
             && _empire_position_cache_time.TryGetValue(empireId, out float cachedTime)
             && now - cachedTime <= 0.25f)

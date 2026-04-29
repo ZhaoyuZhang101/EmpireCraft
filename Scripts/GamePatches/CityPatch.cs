@@ -39,6 +39,11 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(destroy_city))
         );
 
+        new Harmony(nameof(destroy_city)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.getLoyalty)),
+            prefix: new HarmonyMethod(GetType(), nameof(destroy_city))
+        );
+
         new Harmony(nameof(hasReachedWorldLawLimit)).Patch(
             AccessTools.Method(typeof(City), nameof(City.hasReachedWorldLawLimit)),
             prefix: new HarmonyMethod(GetType(), nameof(hasReachedWorldLawLimit))
@@ -158,7 +163,6 @@ public class CityPatch : GamePatch
         Kingdom oldKingdom = __instance.kingdom;
         bool isEmpireCapital = oldKingdom.IsEmpire() && oldKingdom.capital == __instance;
         Empire targetEmpire = oldKingdom.GetEmpire();
-
         if (__instance.kingdom.hasKing() && __instance.kingdom.king.city == __instance)
             __instance.kingdom.kingFledCity();
         if (World.world.cities.isLocked())
@@ -167,7 +171,28 @@ public class CityPatch : GamePatch
         __instance.recalculateNeighbourCities();
         pNewKingdom.increaseHappinessFromNewCityCapture();
         __instance.kingdom.decreaseHappinessFromLostCityCapture(__instance);
-
+        if (targetEmpire != null)
+        {
+            if (!oldKingdom.IsInSameEmpire(pNewKingdom))
+            {
+                var newEmpire = pNewKingdom.GetEmpire();
+                if (targetEmpire.CoreKingdom?.HasSameEmpireCraftCulture(newEmpire?.CoreKingdom) ?? false)
+                {
+                    targetEmpire.AddMandate(-20);
+                }
+                else
+                {
+                    targetEmpire.AddMandate(-10);
+                }
+            }
+            else
+            {
+                if (oldKingdom.IsEmpire())
+                {
+                    targetEmpire.AddMandate(-40);
+                }
+            }
+        }
         if (targetEmpire != null && isEmpireCapital)
         {
             Regime newRegime = pNewKingdom.GetRegime();
@@ -504,6 +529,8 @@ public class CityPatch : GamePatch
         if (pRebellion) 
         {
             kingdom.data.name = __instance.GetCityName() + "\u200A" + LM.Get("Rebellion");
+            kingdom.getWars()?.First()?.SetEmpireWarType(EmpireWarType.地方独立);
+            kingdom.StartLocalRebelling(EmpireWarType.地方独立);
         }
         __result = kingdom;
         return false;

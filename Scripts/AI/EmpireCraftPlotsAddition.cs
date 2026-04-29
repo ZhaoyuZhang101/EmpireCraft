@@ -514,11 +514,11 @@ namespace EmpireCraft.Scripts.AI
                     var empire = kingdom.GetEmpire();
                     if (!pActor.HasFaction()) return false;
                     var target = empire?.kingdoms_list?.Find(k => ((!k.king?.HasFaction()) ?? false)&&(k.king?.renown??99999)<pActor.renown);
-                    if (target == null)
+                    if (target?.king == null)
                     {
                         return false;
                     }
-                    target.king.SetFaction(pActor.GetFaction());
+                    target.king?.SetFaction(pActor.GetFaction());
                     pActor.data.renown -= target.king?.renown??0;
                     TranslateHelper.LogInviteIntoFaction(kingdom, target, pActor.GetFaction());
                     return true;
@@ -570,22 +570,48 @@ namespace EmpireCraft.Scripts.AI
                         };
                         var crime = potentialCrimes.FindAll(c=>target.HasLaw(c)).GetRandom();
                         target.king.TryTriggerProbabilisticLaw(crime, 1f, _ => { });
-                        float rebellingPossibility = 0.2f;
+                        double rebellingPossibility = 0.2f;
                         if (!target.isOpinionTowardsKingdomGood(empire.CoreKingdom))
                         {
-                            rebellingPossibility = (float)target.countTotalWarriors() / (float)empire.countWarriors();
+                            rebellingPossibility = ((double)target.countTotalWarriors() / (double)empire.countWarriors()) * 0.5f + (0.5f*(double)(100.0f-empire.Mandate)/100.0f);
                         }
                         Random rand = new Random();
                         if (rand.NextDouble() < rebellingPossibility)
                         {
-                            var war = DiplomacyHelpers.wars.newWar(kingdom, target, WarTypeLibrary.normal);
-                            war.SetEmpireWarType(EmpireWarType.地方叛乱, pre: kingdom.name);
+                            var war = DiplomacyHelpers.wars.newWar(target, kingdom, WarTypeLibrary.normal);
+                            war.SetEmpireWarType(EmpireWarType.地方叛乱, pre: kingdom.name, nanoObject:empire, belongingFaction:target.king?.GetFaction());
+                            empire.leave(target, true, true);
+                            target.StartLocalRebelling(EmpireWarType.地方叛乱);
                         }
                         else
                         {
-                            target.king.TryEnforceLaw(crime, kingdom);
+                            var context = target.king.TryEnforceLaw(crime, kingdom);
+                            //当影响力小于两百, 或者脱罪次数达到2的上限则进行惩罚
+                            if (target.king?.renown <= 200&&target.king.EscapeFromPunishment(true))
+                            {
+                                var punishments = new List<PunishmentLevel>()
+                                {
+                                    PunishmentLevel.剥夺官职, PunishmentLevel.剥夺爵位, PunishmentLevel.夷三族
+                                };
+                                context.AppliedPunishments = punishments;
+                                foreach (var p in punishments)
+                                {
+                                    EmpireLawSystem.ApplyPunishment(context, p);
+                                }
+                                TranslateHelper.LogLawEnforcement(context);
+                            }
+                            else
+                            {
+                                target.king?.addRenown(-200);
+                                EmpireLawSystem.ApplyPunishment(context, PunishmentLevel.无罪);
+                                target.king.AddTyrantValue(-30);
+                                context.AppliedPunishments = new List<PunishmentLevel>() {PunishmentLevel.无罪};
+                                target.king.EscapeFromPunishment();
+                            }
+                            TranslateHelper.LogLawEnforcement(context);
                         }
                         TranslateHelper.LogExposeCrime(kingdom, target, crime.ToString());
+                        kingdom.SetMainCrime(crime);
                     }
                     else
                     {
@@ -798,6 +824,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsInEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     Regime regime = kingdom.GetRegime();
+                    if (empire.Mandate > 60) return false;
                     if (regime == null) return false;
                     if (regime.IsAllowArmy()) return false;
                     if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
@@ -830,6 +857,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsInEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     Regime regime = kingdom.GetRegime();
+                    if (empire.Mandate > 60) return false;
                     if (regime == null) return false;
                     if (!regime.IsAllowArmy()) return false;
                     if (regime.IsAllowDiplomacy()) return false;
@@ -932,6 +960,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsInEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     Regime regime = kingdom.GetRegime();
+                    if (empire.Mandate > 40) return false;
                     if (regime == null) return false;
                     if (regime.type != RegimeType.Feudalism && regime.type != RegimeType.Arabic) return false;
                     if (!regime.IsAllowDiplomacy()) return false;
@@ -1036,7 +1065,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.isKing()) return false;
                     if (!pActor.CanAcquireTitle()) return false;
-                    var warsList3 = KingdomExtension.GetWarsCached(kingdom, false);
+                    var warsList3 = kingdom.GetWarsCached(false);
                     if (warsList3.Count > 0) return false;
                     Regime regime = kingdom.GetRegime();
                     if (!regime.IsAllowDiplomacy()) return false;
@@ -1164,7 +1193,7 @@ namespace EmpireCraft.Scripts.AI
                     }else
                     {
                         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(kingdom.capital);
-                        kingdom.ChangeMainTitle(title);
+                        kingdom.SetMainTitle(title);
                         foreach (City city in kingdom.cities)
                         {
                             if (city!=kingdom.capital)
@@ -1191,8 +1220,15 @@ namespace EmpireCraft.Scripts.AI
                     if (pActor == null) return false;
                     if (!pActor.isKing()) return false;
                     if (!pActor.canTakeTitle()) return false;
-                    var warsList4 = KingdomExtension.GetWarsCached(pActor.kingdom, false);
+                    var warsList4 = pActor.kingdom.GetWarsCached(false);
                     if (warsList4.Count > 0) return false;
+                    Kingdom kingdom = pActor.kingdom;
+                    if (kingdom.isRekt()) return false;
+                    if (kingdom.IsInEmpire())
+                    {
+                        var empire = kingdom.GetEmpire();
+                        return (empire?.Mandate??0) <= 50;
+                    }
                     return true;
                 },
                 action = delegate(Actor pActor) 

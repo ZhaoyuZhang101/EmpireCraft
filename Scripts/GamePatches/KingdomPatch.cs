@@ -139,6 +139,7 @@ public class KingdomPatch : GamePatch
     public static void emperor_left(Kingdom __instance)
     {
         if (ModClass.IS_CLEAR) return;
+        if (__instance.HasMainCrime()) __instance.RemoveMainCrime();
         if (__instance.king.HasOfficeIdentity())
         {
             var officeIdentity = __instance.king.GetIdentity();

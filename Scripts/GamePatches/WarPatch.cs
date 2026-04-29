@@ -152,6 +152,11 @@ public class WarPatch: GamePatch
                     }
                     attacker.EndFactionRebelling();
                     break;
+                case EmpireWarType.地方叛乱:
+                case EmpireWarType.地方独立:
+                    Kingdom attacker1 = pWar.getMainAttacker();
+                    attacker1.EndLocalRebelling();
+                    break;
                 case EmpireWarType.索取法理:
                     KingdomTitle title = pWar.GetTitleTarget();
                     if (pWinner == WarWinner.Attackers)

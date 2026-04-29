@@ -75,7 +75,7 @@ public class Empire : MetaObject<EmpireData>
 
     public bool IsNeedToIncreaseMandate()
     {
-        return data.last_increase_mandate_timestamp<0||Date.getYearsSince(data.last_increase_mandate_timestamp)>1;
+        return data.last_increase_mandate_timestamp<0||Date.getYearsSince(data.last_increase_mandate_timestamp)>=1;
     }
     public bool IsArchived()
     {
@@ -1610,12 +1610,12 @@ public class Empire : MetaObject<EmpireData>
         data.timestamp_member_joined = World.world.getCurWorldTime();
     }
 
-    public void leave(Kingdom pKingdom, bool pRecalc = true)
+    public void leave(Kingdom pKingdom, bool pRecalc = true, bool isLeave = false)
     {
         bool isCoreKingdom = pKingdom != null && (pKingdom == CoreKingdom || pKingdom.IsEmpire());
         this.kingdoms_hashset.Remove(pKingdom);
-        pKingdom.EmpireLeave(false);
-        cities_list = this.cities_list.Except(pKingdom.cities).ToList();
+        pKingdom.EmpireLeave(isLeave);
+        cities_list = this.cities_list.Except(pKingdom?.cities??new List<City>()).ToList();
         if (isCoreKingdom)
         {
             CheckDissolve(pKingdom);

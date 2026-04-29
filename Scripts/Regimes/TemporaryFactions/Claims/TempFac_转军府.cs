@@ -39,6 +39,7 @@ public class TempFac_转军府 : TemporaryFaction
         foreach (var k in empire.kingdoms_list)
         {
             if (k.IsEmpire()) continue;
+            if (k.GetKingdomType() == KingdomType.LvLing_kingdom) continue;
             if (k.GetKingdomType() != KingdomType.LvLing_jiedushi)
             {
                 if (k.IsBorder())

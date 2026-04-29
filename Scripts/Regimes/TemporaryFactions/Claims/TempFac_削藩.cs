@@ -38,10 +38,26 @@ public class TempFac_削藩 : TemporaryFaction
             {
                 city.joinAnotherKingdom(GetEmpire().CoreKingdom);
             }
+            GetEmpire().AddMandate(20);
             LogService.LogInfo("执行成功");
         }
-
         End();
+    }
+
+    public override bool CheckLocalCondition(Kingdom actor)
+    {
+        if (!base.CheckLocalCondition(actor)) return false;
+        Empire empire = GetEmpire();
+        var target = empire.kingdoms_list.ToList().Find(k =>
+        {
+            if (!k.hasKing()) return false;
+            if (k.king.GetFaction()==GetFaction()) return false;
+            if (k.king.renown>actor.king.renown) return false;
+            if (k.GetRegime().GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;
+            return true;
+        });
+        SetKingdomTarget(target);
+        return true;
     }
 
     public override bool CheckCondition()
@@ -53,8 +69,8 @@ public class TempFac_削藩 : TemporaryFaction
             if (kingdom.IsEmpire()) continue;
             if (kingdom.IsFactionRebelling()) continue;
             if (kingdom.getWars().Any()) continue;
-            if ((empire.Emperor?.renown??0)==0) continue;
-            if ((kingdom.king?.renown??0)>(empire.Emperor?.renown??0)) continue;
+            if (!OwnEnoughRenown(kingdom)) continue;
+            if ((kingdom?.king?.GetViolateValue()??0)<90) continue;
             Regime regime = kingdom.GetRegime();
             if (regime.GetReligionLevel() == ReligionLevel.High) continue;
             if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)

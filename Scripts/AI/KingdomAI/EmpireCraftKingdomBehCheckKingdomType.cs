@@ -306,10 +306,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             }
         }
         var kingdomBack = LM.Get(newkingdomType.ToString());
-        if (!pKingdom.IsFactionRebelling()&&pKingdom.getWars().Count()<=0)
-        {
-            pKingdom.data.name = string.Join("\u200A", kingdomFront, kingdomBack);
-        }
+        pKingdom.SetKindomName(string.Join("\u200A", kingdomFront, kingdomBack));
         foreach (var city in pKingdom.cities)
         {
             var cityBack = LM.Get(city.GetCityType().ToString());

@@ -21,7 +21,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         pKingdom.CheckEmpire();
-        var ked = KingdomExtension.GetOrCreate(pKingdom);
+        var ked = pKingdom.GetOrCreate();
         if (ked != null && ked.last_plots_check_ts > 0)
         {
             if (Date.getMonthsSince(ked.last_plots_check_ts) < 1)
@@ -33,13 +33,63 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         {
             CheckJoinWar(pKingdom);
         }
+
+        CheckProgress(pKingdom);
         //检测加入圣战
         CheckJoinReligionWar(pKingdom);
         CheckMainTitle(pKingdom);
+        CheckRebellionWar(pKingdom);
         if (ked != null) ked.last_plots_check_ts = World.world.getCurWorldTime();
         return BehResult.Continue;
     }
-
+    public void CheckMainTitle(Kingdom pKingdom)
+    {
+        if (pKingdom.HasMainTitle())
+        {
+            return;
+        }
+        if (pKingdom.hasKing())
+        {
+            var king = pKingdom.king;
+            if (king.GetOwnedTitle()?.Contains(pKingdom.capital.GetTitleID())??false)
+            {
+                pKingdom.SetMainTitle(pKingdom.capital.GetTitle());
+            }
+        }
+    }
+    public void CheckProgress(Kingdom pKingdom)
+    {
+        if (!pKingdom.hasEnemies())
+        {
+            pKingdom.EndFactionRebelling();
+            pKingdom.EndLocalRebelling();
+        }
+        pKingdom.PushProgress();
+    }
+    public void CheckRebellionWar(Kingdom pKingdom)
+    {
+        if (!pKingdom.hasEnemies()) return;
+        if (!pKingdom.hasKing()) return;
+        var war = pKingdom.getWars().ToList().Find(w => w.main_attacker == pKingdom&&w.GetEmpireWarType() == EmpireWarType.地方叛乱);
+        var empire = war?.GetEmpireTarget();
+        if  (empire == null) return;
+        var faction = war.GetEmpireFaction();
+        foreach (var k in empire.kingdoms_list.ToList())
+        {
+            if (k.IsEmpire()) continue;
+            if (k == pKingdom) continue;
+            if (!k.hasKing()) continue;
+            if (!k.king.HasFaction()) continue;
+            if (k.king.GetFaction()!=faction) continue;
+            if (k.king.renown>pKingdom.king.renown) continue;
+            TranslateHelper.LogJoinRebellionWar(k, pKingdom, empire);
+            foreach (var c in k.cities.ToList())
+            {
+                c.joinAnotherKingdom(pKingdom);
+            }
+        }
+        
+    }
     public void CheckJoinReligionWar(Kingdom pKingdom)
     {
         if (!pKingdom.hasReligion()) return;
@@ -65,19 +115,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
             }
         }
     }
-
-    public void CheckMainTitle(Kingdom pKingdom)
-    {
-        if (pKingdom.HasMainTitle())
-        {
-            return;
-        }
-        var preferredTitle = pKingdom.GetPreferredMainTitleCandidate();
-        if (preferredTitle != null)
-        {
-            pKingdom.ChangeMainTitle(preferredTitle);
-        }
-    }
+    
     public void CheckJoinWar(Kingdom pKingdom)
     {
         Empire empire = pKingdom.GetEmpire();
@@ -95,7 +133,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                 if (!coreKingdom.hasEnemies()) return;
                 if (pKingdom.isOpinionTowardsKingdomGood(coreKingdom) || regime.IsAllowDiplomacy())
                 {
-                    var wars = KingdomExtension.GetWarsCached(coreKingdom, true);
+                    var wars = coreKingdom.GetWarsCached(true);
                     var enumerable = wars.ToArray();
                     for (int i = 0; i < enumerable.Count(); i++)
                     {
@@ -125,7 +163,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                     var kRegime = empireKingdom.GetRegime();
                     if (kRegime == null) continue;
                     if (!pKingdom.isOpinionTowardsKingdomGood(empireKingdom)&&regime.IsAllowDiplomacy()) continue;
-                    var wars2 = KingdomExtension.GetWarsCached(empireKingdom, true);
+                    var wars2 = empireKingdom.GetWarsCached(true);
                     var enumerable = wars2.ToArray();
                     for (int i = 0; i < enumerable.Count(); i++)
                     {

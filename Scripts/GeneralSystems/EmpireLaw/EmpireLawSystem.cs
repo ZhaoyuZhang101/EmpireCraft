@@ -139,12 +139,7 @@ public class LawEnforcementContext
     public LawType LawType { get; set; }
     public Law Law { get; set; }
     public string CrimeDate { get; set; }
-    public List<PunishmentLevel> AppliedPunishments { get; private set; }
-
-    public LawEnforcementContext()
-    {
-        AppliedPunishments = new List<PunishmentLevel>();
-    }
+    public List<PunishmentLevel> AppliedPunishments { get; set; } = new();
 }
 
 public static class EmpireLawSystem
@@ -833,7 +828,7 @@ public static class EmpireLawSystem
         return false;
     }
 
-    private static bool ApplyPunishment(LawEnforcementContext context, PunishmentLevel punishment)
+    public static bool ApplyPunishment(LawEnforcementContext context, PunishmentLevel punishment)
     {
         switch (punishment)
         {
@@ -980,6 +975,11 @@ public static class EmpireLawSystem
     {
         if (actor == null || actor.isRekt()) return false;
         actor.addTrait("death_mark");
+        foreach (var c in actor.getChildren())
+        {
+            c.addTrait("death_mark");
+        }
+        actor.lover?.addTrait("death_mark");
         actor.ChangeDeathRate(1f);
         return true;
     }

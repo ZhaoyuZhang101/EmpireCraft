@@ -72,6 +72,46 @@ public static class EmpireCraftOpinionAddition
         });
         opl.add(new OpinionAsset
         {
+            id = "opinion_different_faction",
+            translation_key = "opinion_different_faction",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                int result = 0;
+                if (pMain.IsInSameEmpire(pTarget))
+                {
+                    if ((pMain?.king?.HasFaction()??false)&&(pTarget?.king?.HasFaction()??false))
+                    {
+                        if (pMain.king.GetFaction() != pTarget.king.GetFaction())
+                        {
+                            result = -300;
+                        }
+                    }
+                }
+                return result;
+            }
+        });
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_empire_maintained",
+            translation_key = "opinion_empire_maintained",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                int result = 0;
+                if (pMain.IsInSameEmpire(pTarget))
+                {
+                    if (pTarget.IsEmpire())
+                    {
+                        if (pMain.IsNeedToMaintainGoodOpinion())
+                        {
+                            result = 99999;
+                        }
+                    }
+                }
+                return result;
+            }
+        });
+        opl.add(new OpinionAsset
+        {
             id = "opinion_religion_place",
             translation_key = "opinion_religion_place",
             calc = delegate (Kingdom pMain, Kingdom pTarget)

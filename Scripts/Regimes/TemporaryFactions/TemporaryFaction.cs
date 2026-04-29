@@ -123,7 +123,7 @@ public abstract class TemporaryFaction
     }    
     
     // 统一入口：设定“国家目标”
-    protected void SetKingdomTarget(Kingdom k, string reason = "")
+    public void SetKingdomTarget(Kingdom k, string reason = "")
     {
         var id = k?.getID() ?? -1L; // 一律用 base_id
         TargetID = id;
@@ -570,6 +570,31 @@ public abstract class TemporaryFaction
     /// 触发条件成功后的执行动作
     /// </summary>
     public abstract void Execute();
+
+    /// <summary>
+    /// 检测本体条件是否满足
+    /// </summary>
+    /// <param name="actor">发起主体</param>
+    /// <returns></returns>
+    public virtual bool CheckLocalCondition(Kingdom actor)
+    {
+        return CheckLocalContinue(actor);
+    }
+
+    public virtual bool CheckLocalContinue(Kingdom actor)
+    {
+        if (GetEmpire()==null) return false;
+        if (actor?.king==null) return false;
+        var actorFaction = actor.king.GetFaction();
+        if (actorFaction == null) return false;
+        if (actorFaction != GetFaction()) return false;
+        return true;
+    }
+
+    public virtual void LocalEnd(Kingdom actor)
+    {
+        actor.EndProgress();
+    }
     
     /// <summary>
     /// 检查条件是否满足

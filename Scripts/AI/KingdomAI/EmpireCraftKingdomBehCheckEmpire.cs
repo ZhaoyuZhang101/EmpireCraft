@@ -53,15 +53,9 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
                 pKingdom.EndCorrupting();
             }
 
-            if (pKingdom.GetCorruptionTime() > 20)
+            if (pKingdom.GetCorruptionTime() > 1)
             {
-                ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
-                foreach (var c in pKingdom.cities)
-                {
-                    if(c.isCapitalCity()) continue;
-                    var k = c.makeOwnKingdom(c.leader, pRebellion:true);
-                    k.data.name = c.GetCityName();
-                }
+                empire.AddMandate(-5);
             }
         }
     }

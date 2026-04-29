@@ -33,6 +33,7 @@ public class TempFac_设置行政区 : TemporaryFaction
                 if (king != null)
                 {
                     k = title.title_capital.makeOwnKingdom(king); 
+                    empire.AddMandate(10);
                 }
             }
             catch

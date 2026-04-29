@@ -76,7 +76,14 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(SetArmy)));
         new Harmony(nameof(IncreaseKills)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.increaseKills)),
             postfix: new HarmonyMethod(GetType(), nameof(IncreaseKills)));
+        new Harmony(nameof(SpawnSkeleton)).Patch(AccessTools.Method(typeof(ActionLibrary), nameof(ActionLibrary.spawnSkeleton)),
+            prefix: new HarmonyMethod(GetType(), nameof(SpawnSkeleton)));
         LogService.LogInfo("角色补丁加载成功");
+    }
+
+    public static bool SpawnSkeleton(BaseSimObject pCaster, WorldTile pTile)
+    {
+        return EmpireCraftWorldLawLibrary.empirecraft_law_allow_skeleton.isEnabled();
     }
 
     public static void IncreaseKills(Actor __instance)
