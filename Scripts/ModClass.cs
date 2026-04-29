@@ -39,7 +39,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static ModDeclare _declare;
     private GameObject _modObject;
     public static ModConfig modConfig;
-    public static int MOD_DATA_VERSION = 1;
+    public static int MOD_DATA_VERSION = 3;
     public static Dictionary<long, List<EmpireCraftHistory>> ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
     public ModDeclare GetDeclaration()
     {

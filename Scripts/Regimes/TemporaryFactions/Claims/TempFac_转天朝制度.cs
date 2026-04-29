@@ -41,6 +41,7 @@ public class TempFac_转天朝制度 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire.Mandate<70) return false;
         if (empire.CoreKingdom.GetSystemChangeYear() < 50)
         {
             return false;

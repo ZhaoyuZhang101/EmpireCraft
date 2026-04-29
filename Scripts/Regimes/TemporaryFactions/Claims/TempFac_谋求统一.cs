@@ -43,6 +43,8 @@ public class TempFac_谋求统一 : TemporaryFaction
         {
             if (empire.given_Kingdoms.Contains(kingdom)) continue;
             if (empire.taken_Kingdoms.Contains(kingdom)) continue;
+            if (kingdom.IsLocalRebelling()) continue;
+            if (kingdom.IsFactionRebelling()) continue;
             if (empire.GetKingdomNeighbours().Any(k => k.IsInEmpire() && k == kingdom && k.getSpecies()==empire.CoreKingdom.getSpecies()))
             {
                 var targetEmpire = kingdom.GetEmpire();

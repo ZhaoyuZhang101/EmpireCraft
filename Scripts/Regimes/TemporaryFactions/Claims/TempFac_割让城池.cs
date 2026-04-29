@@ -46,6 +46,7 @@ public class TempFac_割让城池 : TemporaryFaction
                 foreach (var enemy in coreKingdom.getEnemiesKingdoms())
                 {
                     if (!empire.IsNeighbourWith(enemy)) continue;
+                    if (enemy.IsInSameEmpire(coreKingdom)) continue;
                     City city = enemy.cities.ToList().Select(c => c.neighbours_cities.ToList().Find(nc =>
                         nc.kingdom.IsInSameEmpire(GetEmpire().CoreKingdom) && (!c.kingdom.IsEmpire() || !c.isCapitalCity()))).First();
                     if (city == null) continue;

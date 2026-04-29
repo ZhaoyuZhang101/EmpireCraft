@@ -39,11 +39,6 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(destroy_city))
         );
 
-        new Harmony(nameof(destroy_city)).Patch(
-            AccessTools.Method(typeof(City), nameof(City.getLoyalty)),
-            prefix: new HarmonyMethod(GetType(), nameof(destroy_city))
-        );
-
         new Harmony(nameof(hasReachedWorldLawLimit)).Patch(
             AccessTools.Method(typeof(City), nameof(City.hasReachedWorldLawLimit)),
             prefix: new HarmonyMethod(GetType(), nameof(hasReachedWorldLawLimit))
@@ -561,7 +556,7 @@ public class CityPatch : GamePatch
         {
             CityType cityType = regime.bureau_config.kingdoms.TryGetValue(pKingdom.GetKingdomType(), out var value)
                 ?regime.bureau_config.kingdoms[pKingdom.GetKingdomType()].city_type
-                : regime.bureau_config.cities.Keys.ToList()[0];
+                : regime.bureau_config.cities.Keys.First();
             BureauSetting citySetting = regime.bureau_config.cities[cityType];
             OfficeObject officeObject = __instance.GetOffice();
             if (officeObject != null)
