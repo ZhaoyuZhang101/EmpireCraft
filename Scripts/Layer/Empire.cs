@@ -419,7 +419,7 @@ public class Empire : MetaObject<EmpireData>
         AddRenown(-(int)(this.CoreKingdom.getRenown() * 0.5));
         return true;
     }
-    private void StartSplit(Empire empire, City start, ref List<City> pJoinedProvinceList, double possibility=0.7f)
+    private void StartSplit(Empire empire, City start, ref List<City> pJoinedProvinceList, double possibility=0.5f)
     {
         if (start.isCapitalCity()&&start.kingdom.IsEmpire()&&start.kingdom.GetEmpire()!=empire) return;
         if (pJoinedProvinceList.Contains(start)) return;
