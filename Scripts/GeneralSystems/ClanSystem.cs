@@ -76,7 +76,7 @@ public class SpecificClan
     public float capital_city_pos_x { get; set; }
     public float capital_city_pos_y { get; set; }
     [JsonIgnore]
-    public List<PersonalClanIdentity> all_valid_members => SnapshotPeople().ToList().FindAll(i=>i.CanHeir(i));
+    public List<PersonalClanIdentity> all_valid_members => SnapshotPeople().ToList().FindAll(i=>i.CanHeir());
     [JsonIgnore] 
     public List<Actor> AllAliveMembers => SnapshotPeople().ToList().FindAll(i => i.is_alive).Select(i=>i._actor).ToList();
     [JsonIgnore]
@@ -789,6 +789,13 @@ public static class SpecificClanManager
         }
         if (!actor.HasSpecificClan())
         {
+            var parent = actor.getParents().ToList().Find(a => a.GetPersonalIdentity()?.is_main ?? false);
+            if (parent != null)
+            {
+                parent?.GetSpecificClan().addActor(actor);
+                actor.GetPersonalIdentity()?.setParent(parent.GetPersonalIdentity());
+                return;
+            }
             // Fix: Check if we can restore the link from existing data
             if (_actorToPersonLookup.TryGetValue(actor.getID(), out var existingPci))
             {
@@ -933,10 +940,9 @@ public class PersonalClanIdentity
         return (_specificClan.isMalePriority() && this.sex == ActorSex.Male) || (!_specificClan.isMalePriority() && this.sex == ActorSex.Female);
     }
 
-    public bool CanHeir(PersonalClanIdentity identity)
+    public bool CanHeir(PersonalClanIdentity identity=null)
     {
-        if (identity == null) return false;
-        return is_main && IsHeirPriority()&&is_alive&&identity.specific_clan_id==specific_clan_id&&identity.id!=id;
+        return is_main&&IsHeirPriority()&&is_alive&&identity?.id!=id;
     }
 
     public void setLover(Actor actor, bool isCus = false)

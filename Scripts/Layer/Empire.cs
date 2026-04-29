@@ -279,17 +279,25 @@ public class Empire : MetaObject<EmpireData>
     {
         if (actor == null) return;
         actor.SetEmpire(this);
-        AddMandate(-20);
+        if (!isNew)
+        {
+            AddMandate(-20);
+        }
         string nameEmpire = "";
         actor.CheckSpecificClan();
         //检查帝国分裂
         var currentSpecificClan = actor.GetSpecificClan();
-        if (currentSpecificClan.id != data.empire_specific_clan && data.empire_specific_clan != -1L) 
+        if (currentSpecificClan != EmpireSpecificClan && data.empire_specific_clan != -1L) 
         {
+            LogService.LogInfo("篡位逻辑");
             AddMandate(-30);
-            if (currentSpecificClan.all_valid_members.Any())
+            LogService.LogInfo($"上一任皇室: {EmpireSpecificClan?.name??"None"}");
+            LogService.LogInfo($"皇室活人: {EmpireSpecificClan?.Count??0}");
+            LogService.LogInfo($"合法继承人: {EmpireSpecificClan?.all_valid_members.Count??0}");
+            if (EmpireSpecificClan?.all_valid_members.Any()??false)
             {
-                var validEmperor = currentSpecificClan.all_valid_members?.First()._actor;
+                LogService.LogInfo("存在合法继承人");
+                var validEmperor = EmpireSpecificClan.all_valid_members?.First()._actor;
                 StartSplit(validEmperor);
                 LogService.LogInfo($"开始分裂{actor.id}{actor.name}");
             }
@@ -321,6 +329,18 @@ public class Empire : MetaObject<EmpireData>
             data.history_emperrors.Clear();
             CoreKingdom.updateColor(getColorLibrary().getNextColor(actor.getActorAsset()));
             updateColor(CoreKingdom.getColor());
+            foreach (var tk in taken_Kingdoms.ToList())
+            {
+                tk.RemoveTakenAlliance();
+            }
+
+            foreach (var k in kingdoms_list.ToList())
+            {
+                if (!k.isOpinionTowardsKingdomGood(CoreKingdom)&&Mandate<20)
+                {
+                    this.leave(k);
+                }
+            }
         } 
         
         data.empire_specific_clan = currentSpecificClan.id;
@@ -364,6 +384,7 @@ public class Empire : MetaObject<EmpireData>
     private Empire RebuildSecondEmpire(City startProvince, Actor newEmperor)
     {
         var kingdom = startProvince.makeOwnKingdom(newEmperor);
+        kingdom.setCapital(startProvince);
         var newEmpire = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom);
         if (newEmpire == null)
         {
@@ -371,24 +392,24 @@ public class Empire : MetaObject<EmpireData>
         }
         newEmpire.UpdateCapital(this.OriginalCapital);
         newEmpire.data.history.InsertRange(0, this.data.history);
-        string empireName = string.Join("\u200A", this.CalcDir(kingdom.capital.city_center, CoreKingdom.capital.city_center), this.GetEmpireName());
-        newEmpire.SetEmpireName(empireName);
+        newEmpire.SetEmpireName(this.GetEmpireName());
+        newEmpire.data.directPre = this.CalcDir(kingdom.capital.city_center, CoreKingdom.capital.city_center);
         
-        var provinces = new List<City>();
+        var provinces = new List<City>() {};
         StartSplit(newEmpire, startProvince, ref provinces);
-
+        
         return newEmpire;
     }
     //帝国分裂方法
     private bool StartSplit(Actor newEmperor)
     {
         if (newEmperor.isRekt()) return false;
-        if (CoreKingdom.cities.Count > 1)
+        if (cities_list.Count > 1)
         {
-            foreach (City province in CoreKingdom.cities)
+            foreach (City province in cities_list)
             {
                 if (province == null) continue;
-                if (province.isCapitalCity()) continue;
+                if (province.isCapitalCity()&&province.kingdom.IsEmpire()) continue;
                 if (!province.isAlive()) continue;
                 if (!province.hasLeader()) continue;
                 RebuildSecondEmpire(province, newEmperor);
@@ -398,9 +419,9 @@ public class Empire : MetaObject<EmpireData>
         AddRenown(-(int)(this.CoreKingdom.getRenown() * 0.5));
         return true;
     }
-    private void StartSplit(Empire empire, City start, ref List<City> pJoinedProvinceList, double possibility=0.8f)
+    private void StartSplit(Empire empire, City start, ref List<City> pJoinedProvinceList, double possibility=0.7f)
     {
-        if (start.isCapitalCity()) return;
+        if (start.isCapitalCity()&&start.kingdom.IsEmpire()&&start.kingdom.GetEmpire()!=empire) return;
         if (pJoinedProvinceList.Contains(start)) return;
         Random rand = new Random();
         double randomValue = rand.NextDouble(); // [0.0, 1.0)
@@ -408,11 +429,12 @@ public class Empire : MetaObject<EmpireData>
         LogService.LogInfo("当前概率: "+ possibility);
         if (randomValue >= possibility) return;
         if (empire == null) return;
-        if (pJoinedProvinceList.Count >= empire.CoreKingdom.cities.Count) return;
+        if (pJoinedProvinceList.Count >= this.cities_list.Count-1) return;
         LogService.LogInfo("存在差集");
-        foreach (City province in empire.CoreKingdom.cities.ToList())
+        foreach (City province in this.cities_list.ToList())
         {
-            if (province.neighbours_cities.Contains(start))
+            if (province.isCapitalCity()&&province.kingdom.IsEmpire()) continue;
+            if (start.neighbours_cities.Contains(province))
             {
                 try
                 {
@@ -455,7 +477,7 @@ public class Empire : MetaObject<EmpireData>
         return false;
     }
 
-    public void EmperorLeft(Kingdom kingdom)
+    public void EmperorLeft()
     {
         if (this.Emperor == null) return;
         if (this.Emperor.data == null) return;
@@ -481,6 +503,7 @@ public class Empire : MetaObject<EmpireData>
         data.history_emperrors.Add(Emperor?.name);
         this.Emperor.RemoveEmpire();
         data.empire_specific_clan = Emperor?.GetSpecificClan()?.id??-1L;
+        LogService.LogInfo("上一任皇氏族记录:"+Emperor?.GetSpecificClan().name);
         data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
         data.history.Add(data.currentHistory);
         data.currentHistory = null;

@@ -147,7 +147,7 @@ public class KingdomPatch : GamePatch
         }
         if (__instance.IsEmpire())
         {
-            __instance.GetEmpire()?.EmperorLeft(__instance);
+            __instance.GetEmpire()?.EmperorLeft();
         }
     }
 

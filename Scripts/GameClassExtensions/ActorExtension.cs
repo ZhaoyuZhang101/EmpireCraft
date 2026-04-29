@@ -430,7 +430,7 @@ public static class ActorExtension
     {
         var lastFaction = a.GetFaction();
         lastFaction?.RemoveMember(a);
-        faction.AddMember(a);
+        faction?.AddMember(a);
     }
 
     public static void RemoveFaction(this Actor a)

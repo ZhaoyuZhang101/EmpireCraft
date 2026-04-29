@@ -36,8 +36,8 @@ public class EmpireCraftEmpireBehCheckMandate:GameAIEmpireBase
                             }
                             else
                             {
-                                LogService.LogInfo($"当前国家好感度{99999-value}=>维稳所需资金{((99999-value) / 5)}");
-                                empire.CoreKingdom?.AddMoney(-((99999-value) / 5));
+                                LogService.LogInfo($"1当前国家好感度{value-99999}=>维稳所需资金{(value-99999) / 5}");
+                                empire.CoreKingdom?.AddMoney((99999-value) / 5);
                                 k.StartMaintainGoodOpinion();
                             }
     
@@ -47,8 +47,8 @@ public class EmpireCraftEmpireBehCheckMandate:GameAIEmpireBase
                             if (!k.isOpinionTowardsKingdomGood(empire.CoreKingdom)&&(empire.CoreKingdom?.isOpinionTowardsKingdomGood(k)??false))
                             {
                                 var value = World.world.diplomacy.getOpinion(k, empire.CoreKingdom).total;
-                                LogService.LogInfo($"当前国家好感度{value}=>维稳所需资金{-(value / 5)}");
-                                empire.CoreKingdom?.AddMoney(-(value / 5));
+                                LogService.LogInfo($"2当前国家好感度{value}=>维稳所需资金{(value / 5)}");
+                                empire.CoreKingdom?.AddMoney(value / 5);
                                 k.StartMaintainGoodOpinion();
                             }
                         }
