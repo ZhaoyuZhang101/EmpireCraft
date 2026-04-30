@@ -23,6 +23,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General.Game.extensions;
+using UnityEngine;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -124,6 +125,11 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.finishCapture)),
             prefix: new HarmonyMethod(GetType(), nameof(FinishedCapture))
         );
+
+        new Harmony(nameof(AddCapturePoints)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.addCapturePoints)),
+            prefix: new HarmonyMethod(GetType(), nameof(AddCapturePoints))
+        );
         
         new Harmony(nameof(countWarriors)).Patch(
             AccessTools.Method(typeof(City), nameof(City.countWarriors)),
@@ -138,7 +144,23 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(getMainSubspecies))
         );
     }
-
+    public bool AddCapturePoints(City __instance, Kingdom pKingdom, int pValue)
+    {
+        int num;
+        __instance._capturing_units.TryGetValue(pKingdom, out num);
+        //正统值加成
+        var mandateAddition = 0;
+        //原帝国
+        var originEmpirePoint = (__instance.kingdom?.GetEmpire()?.Mandate??0);
+        //新帝国
+        var captureEmpirePoint = (pKingdom.GetEmpire()?.Mandate??0);
+        mandateAddition += Mathf.Clamp(captureEmpirePoint-originEmpirePoint, 0, 30);
+        //同文化加成
+        var sameCultureFactor = (__instance.kingdom?.GetEmpireCraftCulture()==pKingdom.GetEmpireCraftCulture())?2:0;
+        mandateAddition *= sameCultureFactor;
+        __instance._capturing_units[pKingdom] = num + pValue + mandateAddition;
+        return false;
+    }
     public static bool getMainSubspecies(City __instance, ref Subspecies __result)
     {
         if (__instance.CountLivingPopulation() == 0)

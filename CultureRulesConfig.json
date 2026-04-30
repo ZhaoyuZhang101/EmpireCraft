@@ -84,10 +84,144 @@
         }
     },
     {
+        "name": "China",
+        "translate_cz": "现代中国",
+        "setting": {
+            "regime": "Republic",
+            "traits": ["patriarchy"],
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "\u200A",
+                    "group_3": "Clan"
+                },
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "\u200A",
+                    "group_3": "Family"
+                },
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesMale2",
+                    "group_3": "UnitNamesFemale1",
+                    "group_4": "UnitNamesFemale2"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "coin_flip",
+                    "group_2",
+                    "sex_male",
+                    "group_3",
+                    "sex_female",
+                    "coin_flip",
+                    "group_4",
+                    "sex_female"
+                ],
+                "name_pos": 1,
+                "is_invert": false
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        }
+    },
+    {
+        "name": "Shanhai",
+        "translate_cz": "山海经",
+        "setting": {
+            "regime": "ZhouFeudalism",
+            "traits": ["patriarchy"],
+            "City": {
+                "groups": {
+                    "group_1": "CityNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "Clan",
+                    "group_3": "\u200A"
+                },
+                "rule": [ "group_1", "group_3", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "Family",
+                    "group_3": "\u200A"
+                },
+                "rule": [ "group_1", "group_3", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesTiangan",
+                    "group_2": "UnitNamesDizhi",
+                    "group_3": "UnitNamesQianziwen"
+                },
+                "rule": [
+                    "group_3",
+                    "group_1",
+                    "divider",
+                    "group_2",
+                    "group_3"
+                ],
+                "name_pos": 1,
+                "is_invert": false
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
+        }
+    },
+    {
         "name": "Western",
         "translate_cz": "西方",
         "setting": {
-            "regime": "Feudalism",
+            "regime": "Republic",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -145,6 +279,75 @@
                 ],
                 "name_pos": 0,
                 "is_invert": true
+
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
+        }
+    },
+    {
+        "name": "ElfFancy",
+        "translate_cz": "精灵幻想",
+        "setting": {
+            "regime": "Feudalism",
+            "traits": ["patriarchy"],
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1",
+                    "group_2": "CityNames2",
+                    "group_3": "\u200A",
+                    "group_4": "CityNames3"
+                },
+                "rule": [ "group_1", "group_2", "group_3", "group_4" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "Clan",
+                    "group_3": "\u200A"
+                },
+                "rule": [ "group_1", "group_3", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "Family",
+                    "group_3": "\u200A"
+                },
+                "rule": [ "group_1", "group_3", "group_2" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNames1",
+                    "group_2": "UnitNames2",
+                    "group_3": "MiddenClanNames"
+                },
+                "rule": [
+                    "group_3",
+                    "group_1",
+                    "divider",
+                    "group_2"
+                ],
+                "name_pos": 1,
+                "is_invert": false
 
             },
             "Kingdom": {
@@ -874,10 +1077,76 @@
         }
     },
     {
+        "name": "Persepolis",
+        "translate_cz": "波斯",
+        "setting": {
+            "regime": "Arabic",
+            "traits": ["patriarchy"],
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "\u200A",
+                    "group_3": "Family"
+                },
+                "rule": [
+                    "group_1", "group_2", "group_3"
+                ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "\u200A"
+                },
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female",
+                    "space"
+                ],
+                "name_pos": 0,
+                "is_invert": true
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
+        }
+    },
+    {
         "name": "Aztec",
         "translate_cz": "阿兹特克",
         "setting": {
-            "regime": "Arabic",
+            "regime": "YouMu",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -946,7 +1215,73 @@
         "name": "India",
         "translate_cz": "印度",
         "setting": {
-            "regime": "Arabic",
+            "regime": "Feudalism",
+            "traits": ["patriarchy"],
+            "City": {
+                "groups": {
+                    "group_1": "CityNames1"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            },
+            "Clan": {
+                "groups": {
+                    "group_1": "ClanNames",
+                    "group_2": "\u200A",
+                    "group_3": "Clan"
+                },
+                "rule": [
+                    "group_1", "group_2", "group_3"
+                ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Family": {
+                "groups": {
+                    "group_1": "FamilyNames",
+                    "group_2": "\u200A"
+                },
+                "rule": [ "group_1", "group_2", "group_3" ],
+                "name_pos": 0,
+                "has_sex_post": false,
+                "use_local_as_lastname": false
+            },
+            "Unit": {
+                "groups": {
+                    "group_1": "UnitNamesMale1",
+                    "group_2": "UnitNamesFemale1"
+                },
+                "rule": [
+                    "group_1",
+                    "sex_male",
+                    "group_2",
+                    "sex_female",
+                    "space"
+                ],
+                "name_pos": 0,
+                "is_invert": true,
+                "sex_post_Male": ["", "", ""],
+                "sex_post_Female": ["", "", ""]
+            },
+            "Kingdom": {
+                "groups": {
+                    "group_1": "CountryNames"
+                },
+                "rule": [ "group_1" ],
+                "name_pos": 0
+            }
+        },
+        "beaurau_config": {
+            "CoreOffice": [],
+            "Divisions": []
+        }
+    },
+    {
+        "name": "Ojibwe",
+        "translate_cz": "奥吉布瓦",
+        "setting": {
+            "regime": "YouMu",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
