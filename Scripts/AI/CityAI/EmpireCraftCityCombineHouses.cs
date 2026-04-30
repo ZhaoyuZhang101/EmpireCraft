@@ -15,7 +15,7 @@ public class EmpireCraftCityCombineHouses: GameAICityBase
         if (pCity?.kingdom == null) return BehResult.Continue;
         if (!pCity.buildings.ToList().Any(b => b.asset.id.Contains("city_")))
         {
-            if (pCity.countUnits() > 150)
+            if (pCity.countUnits() > 80)
             {
                 var loc = pCity.buildings.Find(b => b.asset.type == "type_house")?.current_tile;
                 if (loc == null) return BehResult.Continue;
@@ -36,7 +36,7 @@ public class EmpireCraftCityCombineHouses: GameAICityBase
             var building = pCity.buildings.Find(b=>b.asset.id.Contains("city_"));
             if (building != null)
             {
-                if (pCity.countUnits() >= 200)
+                if (pCity.countUnits() >= 100)
                 {
                     if (building.asset.upgrade_level == 1)
                     {
@@ -44,7 +44,7 @@ public class EmpireCraftCityCombineHouses: GameAICityBase
                     }
                 }
 
-                if (pCity.countUnits() >= 300 || (pCity.isCapitalCity() && pCity.kingdom.IsEmpire()))
+                if (pCity.countUnits() >= 150 || (pCity.isCapitalCity() && pCity.kingdom.IsEmpire()))
                 {
                     if (building.asset.upgrade_level <= 1)
                     {
