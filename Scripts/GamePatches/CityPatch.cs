@@ -40,9 +40,9 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(destroy_city))
         );
 
-        new Harmony(nameof(hasReachedWorldLawLimit)).Patch(
+        new Harmony(nameof(HasReachedWorldLawLimit)).Patch(
             AccessTools.Method(typeof(City), nameof(City.hasReachedWorldLawLimit)),
-            prefix: new HarmonyMethod(GetType(), nameof(hasReachedWorldLawLimit))
+            prefix: new HarmonyMethod(GetType(), nameof(HasReachedWorldLawLimit))
         );
         
         new Harmony(nameof(getPopulationMaximum)).Patch(
@@ -106,6 +106,11 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(setLeader))
         );
 
+        new Harmony(nameof(GetHouseLimit)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.getHouseLimit)),
+            prefix: new HarmonyMethod(GetType(), nameof(GetHouseLimit))
+        );
+
         new Harmony(nameof(removeLeader)).Patch(
             AccessTools.Method(typeof(City), nameof(City.removeLeader)),
             prefix: new HarmonyMethod(GetType(), nameof(removeLeader))
@@ -126,8 +131,17 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(FinishedCapture))
         );
 
+        new Harmony(nameof(RecalculateMaxHouses)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.recalculateMaxHouses)),
+            prefix: new HarmonyMethod(GetType(), nameof(RecalculateMaxHouses))
+        );
+
         new Harmony(nameof(AddCapturePoints)).Patch(
-            AccessTools.Method(typeof(City), nameof(City.addCapturePoints)),
+            original: AccessTools.Method(
+                typeof(City),
+                nameof(City.addCapturePoints),
+                new Type[] { typeof(Kingdom), typeof(int) }
+            ),
             prefix: new HarmonyMethod(GetType(), nameof(AddCapturePoints))
         );
         
@@ -144,7 +158,26 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(getMainSubspecies))
         );
     }
-    public bool AddCapturePoints(City __instance, Kingdom pKingdom, int pValue)
+
+    public static bool GetHouseLimit(City __instance, ref int __result)
+    {
+        if (__instance.buildings.Any(b => b.asset.id.Contains("city_")))
+        {
+            __result = 1;
+            return false;
+        }
+        return true;
+    } 
+    private static bool RecalculateMaxHouses(City __instance)
+    {
+        if (__instance.buildings.Any(b => b.asset.id.Contains("city_")))
+        {
+            __instance.status.houses_max = 1;
+            return false;
+        }
+        return true;
+    }
+    public static bool AddCapturePoints(City __instance, Kingdom pKingdom, int pValue)
     {
         int num;
         __instance._capturing_units.TryGetValue(pKingdom, out num);
@@ -370,7 +403,7 @@ public class CityPatch : GamePatch
         __result = cap;
         return false;
     }
-    public static bool hasReachedWorldLawLimit(City __instance, ref bool __result)
+    public static bool HasReachedWorldLawLimit(City __instance, ref bool __result)
     {
         if (WorldLawLibrary.world_law_civ_limit_population_100.isEnabled() && __instance.getPopulationPeople() >= 100)
         {
