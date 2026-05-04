@@ -1431,6 +1431,7 @@ namespace EmpireCraft.Scripts.AI
                     var noneTitleCities = kingdom.cities.FindAll(c => !c.hasTitle());
                     foreach (City city in noneTitleCities)
                     {
+                        mainTitle.addCity(city);
                         TranslateHelper.LogCityAddToTitle(city, mainTitle);
                     }
                     return true;
