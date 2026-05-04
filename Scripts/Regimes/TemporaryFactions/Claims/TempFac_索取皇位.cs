@@ -1,7 +1,10 @@
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using NCMS.Extensions;
+using NeoModLoader.General;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -29,12 +32,65 @@ public class TempFac_索取皇位 : TemporaryFaction
     {
         LogService.LogInfo($"执行{this.type}");
         var target = GetActorTarget();
+        Actor newEmperor = null;
         if (target != null)
         {
             var empire = GetEmpire();
+            if (empire.Mandate >= 70)
+            {
+                if (empire.EmpireSpecificClan != null)
+                {
+                    var kingCandidate = empire.EmpireSpecificClan.all_valid_members.FindAll(v=>v._actor.isKing());
+                    var normalCandidate = empire.EmpireSpecificClan.all_valid_members.FindAll(v=>!v._actor.isKing());
+                    if (kingCandidate.Count > 0)
+                    {
+                        newEmperor = kingCandidate.OrderByDescending(k=>k._actor.kingdom.countTotalWarriors()).FirstOrDefault()?._actor;
+                        if (newEmperor != null) TranslateHelper.LogMinisterSelectEmpire(empire, newEmperor.GetOffice(), newEmperor.kingdom, newEmperor);
+                        
+                    }
+                    if (newEmperor == null)
+                    {
+                        if (normalCandidate.Count > 0)
+                        {
+                            newEmperor = kingCandidate.OrderBy(k => k._actor.GetIdentity()?.honoraryOfficial??999)
+                                .FirstOrDefault()
+                                ?._actor;
+                            if (newEmperor != null) TranslateHelper.LogMinisterSelectEmpire(empire, newEmperor.GetOffice(), null, newEmperor);
+                        }
+                    }
+
+                    if (newEmperor != null)
+                    {
+                        empire.CoreKingdom.GetOffice().meta_object = empire.CoreKingdom;
+                        empire.CoreKingdom.GetOffice().SetActor(newEmperor);
+                        return;
+                    }
+                }
+            } else if (empire.Mandate >= 30 && (empire.CoreKingdom.GetRegime().type == RegimeType.LvLing || empire.CoreKingdom.GetRegime().type == RegimeType.ZhouFeudalism))
+            {
+                War war = null;
+                foreach (var kingdom in empire.kingdoms_list)
+                {
+                    if (!kingdom.StartLocalRebelling(EmpireWarType.藩王索取皇位)) continue;
+                    if (war == null)
+                    {
+                        war = DiplomacyHelpers.diplomacy.startWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
+                        war.SetEmpireWarType(EmpireWarType.藩王索取皇位);
+                    }
+                    else
+                    {
+                        war.joinAttackers(kingdom);
+                    }
+                }
+
+                if (war != null)
+                {
+                    return;
+                }
+            }
             empire.CoreKingdom.GetOffice().meta_object = empire.CoreKingdom;
             empire.CoreKingdom.GetOffice().SetActor(target);
-            if (empire.CoreKingdom.GetMoney() <= 0)
+            if (empire.Mandate<30)
             {
                 War war = null;
                 foreach (var kingdom in empire.kingdoms_hashset)

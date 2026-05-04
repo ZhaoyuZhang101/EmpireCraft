@@ -19,6 +19,10 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
     public override BehResult execute(Actor pActor)
     {
         if (pActor.isRekt()) return BehResult.Continue;
+        if (pActor.isKing())
+        {
+            pActor.stopBeingWarrior();
+        }
         if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_building_destroy.isEnabled())
         {
             pActor.asset.can_attack_buildings = false;

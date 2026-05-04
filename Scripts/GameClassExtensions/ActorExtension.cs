@@ -1140,6 +1140,28 @@ public static class ActorExtension
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(ownedTitles.First());
         return title;
     }
+    public static bool SetMainTitle(this Actor a, KingdomTitle title)
+    {
+        var ownedTitles = a.GetOwnedTitle();
+        if (ownedTitles == null) return false;
+        if (ownedTitles.Contains(title.id))
+        {
+            var index = ownedTitles.IndexOf(title.id);
+            ownedTitles.Swap(index, 0);
+        }
+        else
+        {
+            ownedTitles.Insert(0, title.id);
+        }
+        if (a.isKing())
+        {
+            if (a.kingdom.cities.Any(c => c.GetTitle() == title))
+            {
+                a.kingdom.SetMainTitle(title);
+            }
+        }
+        return true;
+    }
     public static bool HasTitle(this Actor a)
     {
         if(a == null) return false;

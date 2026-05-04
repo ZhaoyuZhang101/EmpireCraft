@@ -984,6 +984,44 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.add(new PlotAsset
             {
+                id = "empire_take_back_title",
+                path_icon = "EmperorQuest.png",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!kingdom.IsEmpire()) return false;
+                    var empire = kingdom.GetEmpire();
+                    if (empire==null) return false;
+                    var k = empire.kingdoms_list.Find(k => (k.king?.GetViolateValue() ?? 0) >= 90&&(k.king?.HasTitle()??false));
+                    var crime = k?.GetMainCrime();
+                    if (crime == null) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (!kingdom.IsEmpire()) return false;
+                    var empire = kingdom.GetEmpire();
+                    if (empire==null) return false;
+                    var k = empire.kingdoms_list.Find(k => (k.king?.GetViolateValue() ?? 0) >= 90&&(k.king?.HasTitle()??false));
+                    var crime = k?.GetMainCrime().ToString();
+                    if (crime == null) return false;
+                    var titles = k.king?.GetOwnedTitle();
+                    var kingdomTitles = titles?.Select(t => ModClass.KINGDOM_TITLE_MANAGER.get(t))?.ToList().FindAll(kt=>kt!=null);
+                    if (kingdomTitles == null) return false;
+                    string titleText = string.Join(",", kingdomTitles.Select(kt=>kt.name));
+                    TranslateHelper.LogEmpireTakeBackTitle(k.king, titleText, crime);
+                    kingdomTitles?.ForEach(pActor.AddOwnedTitle);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
                 id = "emperor_posthumous_name",
                 path_icon = "EmperorQuest.png",
                 group_id = "empirecraft_diplomacy",
@@ -1070,6 +1108,14 @@ namespace EmpireCraft.Scripts.AI
                     Regime regime = kingdom.GetRegime();
                     if (!regime.IsAllowDiplomacy()) return false;
                     if (kingdom.IsEmpire()) return false;
+                    if (kingdom.IsInEmpire())
+                    {
+                        var empire = kingdom.GetEmpire();
+                        if (empire.Mandate > 60)
+                        {
+                            return false;
+                        }
+                    }
                     return true;
                 },
                 try_to_start_advanced = delegate(Actor pActor, PlotAsset pPlotAsset, bool pForced)
@@ -1226,8 +1272,9 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom.isRekt()) return false;
                     if (kingdom.IsInEmpire())
                     {
-                        var empire = kingdom.GetEmpire();
-                        return (empire?.Mandate??0) <= 50;
+                        var regime = kingdom.GetRegime();
+                        if (regime == null) return false;
+                        if (!regime.IsAllowDiplomacy()) return false;
                     }
                     return true;
                 },
@@ -1353,6 +1400,38 @@ namespace EmpireCraft.Scripts.AI
                             TranslateHelper.LogCityAddToTitle(c, title);
                             var emp2 = kingdom.GetEmpire();
                         }
+                    }
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_add_city_into_title",
+                path_icon = "EmperorQuest.png",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    if (kingdom.capital==null) return false;
+                    if (!pActor.isKing()) return false;
+                    if (!pActor.hasKingdom()) return false; 
+                    if (!kingdom.HasMainTitle()) return false;
+                    if (kingdom.cities.All(c=>c.hasTitle())) return false;
+                    return true;
+                },
+                action = delegate(Actor pActor) 
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    var mainTitle = kingdom.GetMainTitle();
+                    if (mainTitle == null) return false;
+                    var noneTitleCities = kingdom.cities.FindAll(c => !c.hasTitle());
+                    foreach (City city in noneTitleCities)
+                    {
+                        TranslateHelper.LogCityAddToTitle(city, mainTitle);
                     }
                     return true;
                 }

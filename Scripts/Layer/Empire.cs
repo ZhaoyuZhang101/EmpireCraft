@@ -290,17 +290,25 @@ public class Empire : MetaObject<EmpireData>
         if (currentSpecificClan != EmpireSpecificClan && data.empire_specific_clan != -1L) 
         {
             LogService.LogInfo("篡位逻辑");
-            AddMandate(-30);
             LogService.LogInfo($"上一任皇室: {EmpireSpecificClan?.name??"None"}");
             LogService.LogInfo($"皇室活人: {EmpireSpecificClan?.Count??0}");
             LogService.LogInfo($"合法继承人: {EmpireSpecificClan?.all_valid_members.Count??0}");
-            if (EmpireSpecificClan?.all_valid_members.Any()??false)
+            if (Mandate >= 70)
             {
-                LogService.LogInfo("存在合法继承人");
-                var validEmperor = EmpireSpecificClan.all_valid_members?.First()._actor;
-                StartSplit(validEmperor);
-                LogService.LogInfo($"开始分裂{actor.id}{actor.name}");
+                if (EmpireSpecificClan?.all_valid_members.Any()??false)
+                {
+                    LogService.LogInfo("存在合法继承人");
+                    var validEmperor = EmpireSpecificClan.all_valid_members?.First()._actor;
+                    var newEmpire = StartSplit(validEmperor);
+                    LogService.LogInfo($"开始分裂{actor.id}{actor.name}");
+                    if (newEmpire != null)
+                    {
+                        War war = World.world.diplomacy.startWar(newEmpire.CoreKingdom,this.CoreKingdom, WarTypeLibrary.normal);
+                        war.SetEmpireWarType(EmpireWarType.帝国正统, pre: CoreKingdom.GetEmpireCraftCulture(true));
+                    }
+                }
             }
+            AddMandate(-30);
             foreach (var k in kingdoms_list)
             {
                 if (k.IsEmpire()) continue;
@@ -401,9 +409,10 @@ public class Empire : MetaObject<EmpireData>
         return newEmpire;
     }
     //帝国分裂方法
-    private bool StartSplit(Actor newEmperor)
+    private Empire StartSplit(Actor newEmperor)
     {
-        if (newEmperor.isRekt()) return false;
+        Empire newEmpire = null;
+        if (newEmperor.isRekt()) return null;
         if (cities_list.Count > 1)
         {
             foreach (City province in cities_list)
@@ -412,12 +421,12 @@ public class Empire : MetaObject<EmpireData>
                 if (province.isCapitalCity()&&province.kingdom.IsEmpire()) continue;
                 if (!province.isAlive()) continue;
                 if (!province.hasLeader()) continue;
-                RebuildSecondEmpire(province, newEmperor);
+                newEmpire = RebuildSecondEmpire(province, newEmperor);
                 break;
             }
         }
         AddRenown(-(int)(this.CoreKingdom.getRenown() * 0.5));
-        return true;
+        return newEmpire;
     }
     private void StartSplit(Empire empire, City start, ref List<City> pJoinedProvinceList, double possibility=0.5f)
     {

@@ -33,6 +33,8 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset city_add_to_title_log;
     public static WorldLogAsset religion_war_transfer_log;
     public static WorldLogAsset become_kingdom_log;
+    public static WorldLogAsset royal_king_become_emperor_log;
+    public static WorldLogAsset empire_take_back_title_log;
     public static WorldLogAsset combine_kingdom_log;
     public static WorldLogAsset destroy_title_log;
     public static WorldLogAsset history_kingdom_attack_for_title;
@@ -41,6 +43,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset history_kingdom_join_empire;
     public static WorldLogAsset emperor_posthumous_name;
     public static WorldLogAsset province_change_to_kingdom_log;
+    public static WorldLogAsset minister_select_emperor_log;
     public static WorldLogAsset new_jingshi_log;
     public static WorldLogAsset cotrolled_country_log;
     public static WorldLogAsset become_greater_general;
@@ -88,6 +91,19 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$year_name$", 3);
             }
         });
+        empire_take_back_title_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(empire_take_back_title_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$crime$", 2);
+                wl.updateText(ref pText, pMessage, "$title$", 3);
+            }
+        });
         combine_kingdom_log = wl.add(new WorldLogAsset
         {
             id = nameof(combine_kingdom_log),
@@ -109,6 +125,18 @@ public static class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$place$", 2);
+            }
+        });
+        royal_king_become_emperor_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(royal_king_become_emperor_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$empire$", 2);
             }
         });
         join_religion_war_log = wl.add(new WorldLogAsset
@@ -477,6 +505,18 @@ public static class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$province$", 1);
                 wl.updateText(ref pText, pMessage, "$province_level$", 2);
+            }
+        });
+        minister_select_emperor_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(minister_select_emperor_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$actor$", 2);
             }
         });
         officer_join_faction = wl.add(new WorldLogAsset

@@ -90,4 +90,28 @@ public static class OnomasticsRule
             LogService.LogInfo("载入文化配置"+cultureRule.name);
         }
     }
+
+    public static string GetCultureTranslate(this string culture)
+    {
+        var language = PlayerConfig.detectLanguage();
+        var tc = ALL_CULTURE_TRANSLATE[culture];
+        var translate = "";
+        switch (language)
+        {
+            case "ch":
+                translate = tc.ch;
+                break;
+            case "en":
+                translate = tc.en;
+                break;
+            case "cz":
+                translate = tc.cz;
+                break;
+            default:
+                translate = tc.en;
+                break;
+        }
+        translate = string.IsNullOrEmpty(translate) ? tc.en : translate;
+        return translate;
+    }
 }

@@ -157,8 +157,69 @@ public class CityPatch : GamePatch
             AccessTools.Method(typeof(City), nameof(City.getMainSubspecies)),
             prefix: new HarmonyMethod(GetType(), nameof(getMainSubspecies))
         );
+        new Harmony(nameof(CanUseBuildAsset)).Patch(
+            AccessTools.Method(typeof(CityBehBuild), nameof(CityBehBuild.canUseBuildAsset)),
+            prefix: new HarmonyMethod(GetType(), nameof(CanUseBuildAsset))
+        );
     }
-
+    public static bool CanUseBuildAsset(CityBehBuild __instance, BuildOrder pBuildAsset, City pCity, ref bool __result)
+    {
+        BuildingAsset buildingAsset = pBuildAsset.getBuildingAsset(pCity);
+        if (pBuildAsset.min_zones != 0 && pCity.zones.Count < pBuildAsset.min_zones)
+        {
+            __result = false;
+            return false;
+        }
+        int num = pCity.countBuildingsType(buildingAsset.type, false);
+        if (pBuildAsset.check_house_limit)
+        {
+            if (pCity.status.housing_free > 10)
+            {
+                __result = false;
+                return false;
+            }
+            int houseLimit = pCity.getHouseLimit();
+            if (num >= houseLimit)
+            {
+                __result = false;
+                return false;
+            }
+        }
+        int limitOfBuildingsType = pCity.getLimitOfBuildingsType(pBuildAsset);
+        if (!pCity.HasBeenCombined())
+        {
+            if (pCity.status.population < pBuildAsset.required_pop ||
+                pCity.buildings.Count < pBuildAsset.required_buildings)
+            {
+                __result = false;
+                return false;
+            }
+        }
+        if (limitOfBuildingsType != 0 && num >= limitOfBuildingsType ||
+            pBuildAsset.check_full_village && pCity.status.housing_free != 0 ||
+            !CityBehBuild.haveRequiredBuildings(pBuildAsset, pCity) ||
+            !CityBehBuild.haveRequiredBuildingTypes(pBuildAsset.requirements_types, pCity))
+        {
+            __result = false;
+            return false;
+        }
+        if (pBuildAsset.upgrade)
+        {
+            List<Building> buildingListOfId = pCity.getBuildingListOfID(buildingAsset.id);
+            if (buildingListOfId == null || buildingListOfId.Count == 0)
+            {
+                __result = false;
+                return false;
+            }
+        }
+        else if (buildingAsset.docks && CityBehBuild.getDockTile(pCity) == null)
+        {
+            __result = false;
+            return false;
+        }
+        __result = true;
+        return false;
+    }
     public static bool GetHouseLimit(City __instance, ref int __result)
     {
         if (__instance.buildings.Any(b => b.asset.id.Contains("city_")))
@@ -172,7 +233,7 @@ public class CityPatch : GamePatch
     {
         if (__instance.buildings.Any(b => b.asset.id.Contains("city_")))
         {
-            __instance.status.houses_max = 1;
+            __instance.status.houses_max = 0;
             return false;
         }
         return true;
@@ -346,6 +407,30 @@ public class CityPatch : GamePatch
                 __instance.setReligion(joinAfterCapture.religion);
                 __instance.units.ForEach(a=>a.setReligion(joinAfterCapture.religion));
                 TranslateHelper.LogReligionWarTransfer(__instance, joinAfterCapture.religion);
+            }
+            var empireRoyalAcquireEmpireWar = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.藩王索取皇位&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
+            if (empireRoyalAcquireEmpireWar != null)
+            {
+                LogService.LogInfo("藩王之乱");
+                if (__instance.isCapitalCity())
+                {
+                    var empire = joinAfterCapture.GetEmpire();
+                    var newEmperor = joinAfterCapture.king;
+                    if (newEmperor != null&&newEmperor.GetSpecificClan()==empire.EmpireSpecificClan)
+                    {
+                        TranslateHelper.LogRoyalKingBecomeEmperor(empire, joinAfterCapture.GetMainTitle(), newEmperor);
+                        empire.CoreKingdom.GetOffice().meta_object = empire.CoreKingdom;
+                        empire.CoreKingdom.GetOffice().SetActor(newEmperor);
+                        joinAfterCapture.cities.ForEach(c=>c.joinAnotherKingdom(empire.CoreKingdom));
+                        return false;
+                    }
+                    empireRoyalAcquireEmpireWar.leaveWar(joinAfterCapture);
+                    joinAfterCapture.EndLocalRebelling();
+                    joinAfterCapture.GetRegime().SetAllowArmy(false);
+                    joinAfterCapture.GetRegime().SetAllowSupportCenterArmy(false);
+                    joinAfterCapture.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+                    return false;
+                }
             }
             if (!__instance.checkRebelWar(joinAfterCapture, pWars))
                 joinAfterCapture.data.timestamp_new_conquest = World.world.getCurWorldTime();

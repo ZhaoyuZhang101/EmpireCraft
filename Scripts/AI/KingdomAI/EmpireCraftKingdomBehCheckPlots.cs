@@ -121,6 +121,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         Empire empire = pKingdom.GetEmpire();
         var regime = pKingdom.GetRegime();
         if (regime == null) return;
+        if (empire.CoreKingdom.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return;
         if (!empire.CanJoinWar()) return;
         if (!empire.isRekt())
         {

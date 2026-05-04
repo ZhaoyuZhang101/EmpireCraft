@@ -19,6 +19,8 @@ namespace EmpireCraft.Scripts.Enums
         民族叛乱,
         宗教叛乱,
         迫使朝贡,
+        藩王索取皇位,
+        帝国正统,
         劫掠,
         游牧扩张,
         帝国扩张,

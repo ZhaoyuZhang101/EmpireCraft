@@ -15,6 +15,7 @@ using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using HarmonyLib;
+using NCMS.Extensions;
 using UnityEngine;
 using Random = System.Random;
 
@@ -361,10 +362,14 @@ public static class KingdomExtension
         }
     }
 
-    public static string GetEmpireCraftCulture(this Kingdom kingdom)
+    public static string GetEmpireCraftCulture(this Kingdom kingdom, bool allowTranslate = false)
     {
         if (ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out string culture))
         {
+            if (allowTranslate)
+            {
+                return culture.GetCultureTranslate();
+            }
             return culture;
         }
         return null;
@@ -642,16 +647,66 @@ public static class KingdomExtension
         k.GetOrCreate().faction_rebel_original_name = "";
     }
 
+    public static void ClearRebellionStatus(this Kingdom k)
+    {
+        k.EndFactionRebelling();
+        k.EndLocalRebelling();
+    }
+
     public static bool IsFactionRebelling(this Kingdom k)
     {
         return k.GetOrCreate().isFactionRebelling;
     }
 
-    public static void StartLocalRebelling(this Kingdom k, EmpireWarType warType, string pre = "")
+    public static bool StartLocalRebelling(this Kingdom kingdom, EmpireWarType warType, string pre = "")
     {
-        if (k?.data == null) return;
-        k.data.name =  (string.IsNullOrEmpty(pre)?k.name:pre) + '\u200A' + LM.Get("rebelling");
-        k.GetOrCreate().isLocalRebelling = true;
+        if (kingdom?.data == null) return false;
+        switch (warType)
+        {
+            case EmpireWarType.藩王索取皇位:
+                if (!kingdom.IsInEmpire()) return false;
+                Empire empire = kingdom.GetEmpire();
+                if (empire == null) return false;
+                if (kingdom.IsEmpire()) return false;
+                if (!kingdom.hasKing()) return false;
+                if (kingdom.king.GetSpecificClan() != empire.EmpireSpecificClan)
+                {
+                    var preKing = kingdom.units.Find(a=>a.GetSpecificClan()==empire.EmpireSpecificClan);
+                    if (preKing==null) return false;
+                    kingdom.setKing(preKing);
+                }
+                if (!kingdom.HasMainTitle())
+                {
+                    if (kingdom.capital.hasTitle())
+                    {
+                        kingdom.king.AddOwnedTitle(kingdom.capital.GetTitle());
+                        kingdom.king.SetMainTitle(kingdom.capital.GetTitle());
+                    }
+                }
+
+                if (!kingdom.HasMainTitle()) return false;
+                    
+                kingdom.ClearRebellionStatus();
+                kingdom.GetRegime().SetAllowArmy(true);
+                kingdom.GetRegime().SetAllowSupportCenterArmy(false);
+                kingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Succession);
+                kingdom.getWars().ForEach(w=>DiplomacyHelpers.wars.endWar(w));
+                var language = PlayerConfig.detectLanguage();
+                if (language == "en")
+                {
+                    kingdom.data.name = $"The Regime of {kingdom.GetMainTitle().name}'s {LM.Get("default_" + kingdom.king.GetPeeragesLevel())}";
+                }
+                else
+                {
+                    kingdom.data.name = kingdom.GetMainTitle().name+""+LM.Get("King")+LM.Get("Regime");
+                }
+                break;
+            default:
+                kingdom.data.name =  (string.IsNullOrEmpty(pre)?kingdom.GetKingdomName():pre)+'\u200A'+ LM.Get(kingdom.GetKingdomType().ToString()) + '\u200A' + LM.Get("rebelling");
+                break;
+        }
+        kingdom.GetOrCreate().isLocalRebelling = true;
+        return true;
     }
 
     public static void EndLocalRebelling(this Kingdom k)

@@ -62,25 +62,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
         base.OnFirstEnable();
         foreach (var culture in ConfigData.currentExistCulture)
         {
-            var language = PlayerConfig.detectLanguage();
-            var tc = OnomasticsRule.ALL_CULTURE_TRANSLATE[culture];
-            var translate = "";
-            switch (language)
-            {
-                case "ch":
-                    translate = tc.ch;
-                    break;
-                case "en":
-                    translate = tc.en;
-                    break;
-                case "cz":
-                    translate = tc.cz;
-                    break;
-                default:
-                    translate = tc.en;
-                    break;
-            }
-            translate = string.IsNullOrEmpty(translate) ? tc.en : translate;
+            var translate = culture.GetCultureTranslate();
             _gridGroup.AddButtonIntoGirdLayout(culture, translate, ()=>SetCulture(culture), size:new Vector2(20, 14));
         }
     }

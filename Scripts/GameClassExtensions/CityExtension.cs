@@ -64,6 +64,10 @@ public static class CityExtension
         }
     }
 
+    public static bool HasBeenCombined(this City city)
+    {
+        return city.buildings.Any(b => b.asset.id.Contains("city_"));
+    }
     public static void InitialRegime(this City city)
     {
         if (!city.hasKingdom()) return;

@@ -104,6 +104,18 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             }.RecordIntoEmpire();
         }
+        public static void LogMinisterSelectEmpire(Empire empire, OfficeObject office, Kingdom kingdom, Actor actor)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.minister_select_emperor_log,
+                empire.data.name,
+                (office?.GetOfficeName(kingdom)??"")+" "+actor.data.name
+                )
+            {
+                color_special1 = empire.getColor()._color_text,
+                color_special2 = actor.getColor()._color_text
+
+            }.RecordIntoEmpire(empire);
+        }
         public static string GetEmpireHistoryFormatedText(this WorldLogMessage pMessage)
         {
             WorldLogAsset asset = pMessage.getAsset();
@@ -881,7 +893,42 @@ namespace EmpireCraft.Scripts.HelperFunc
 
                 }.RecordIntoEmpire(kingdom.GetEmpire());
             }
+        }
 
+        public static void LogRoyalKingBecomeEmperor(Empire empire,KingdomTitle title, Actor actor)
+        {
+            var language = PlayerConfig.detectLanguage();
+            var text = "";
+            if (language == "en")
+            {
+                text = $"{LM.Get("default_" + actor.GetPeeragesLevel())} of {title.name}" + " " + actor.name;
+            }
+            else
+            {
+                text = title.name+""+LM.Get("King") + " " + actor.name;
+            }
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.royal_king_become_emperor_log,
+                text,
+                empire.data.name)
+            {
+                color_special1 = actor.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text
+
+            }.RecordIntoEmpire(empire);
+        }
+
+        public static void LogEmpireTakeBackTitle(Actor a, string titles, string crime)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_take_back_title_log,
+                a.data.name,
+                crime,
+                titles)
+            {
+                color_special1 = a.getColor()._color_text,
+                color_special2 = a.getColor()._color_text,
+                color_special3 = a.getColor()._color_text
+
+            }.RecordIntoEmpire(a.GetEmpire());
         }
         public static void LogChangeCityName(Actor pActor, City pCity, string beforeName, string afterName)
         {
