@@ -63,6 +63,7 @@ public class TempFac_索取皇位 : TemporaryFaction
                     {
                         empire.CoreKingdom.GetOffice().meta_object = empire.CoreKingdom;
                         empire.CoreKingdom.GetOffice().SetActor(newEmperor);
+                        End();
                         return;
                     }
                 }
@@ -85,6 +86,7 @@ public class TempFac_索取皇位 : TemporaryFaction
 
                 if (war != null)
                 {
+                    End();
                     return;
                 }
             }
@@ -128,6 +130,7 @@ public class TempFac_索取皇位 : TemporaryFaction
         Empire empire = GetEmpire();
         if (empire != null)
         {
+            if (empire.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return false;
             if (!empire.CoreKingdom.GetRegime().has_cabinet)
             {
                 if (!empire.HasEmperor()&&!empire.CoreKingdom.HasHeir())

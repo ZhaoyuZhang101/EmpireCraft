@@ -681,6 +681,7 @@ public static class KingdomExtension
                     {
                         kingdom.king.AddOwnedTitle(kingdom.capital.GetTitle());
                         kingdom.king.SetMainTitle(kingdom.capital.GetTitle());
+                        kingdom.SetMainTitle(kingdom.capital.GetTitle());
                     }
                 }
 
@@ -698,7 +699,7 @@ public static class KingdomExtension
                 }
                 else
                 {
-                    kingdom.data.name = kingdom.GetMainTitle().name+""+LM.Get("King")+LM.Get("Regime");
+                    kingdom.data.name = kingdom.GetMainTitle().name+""+LM.Get("King")+LM.Get("regime");
                 }
                 break;
             default:
