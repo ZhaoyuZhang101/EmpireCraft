@@ -418,7 +418,7 @@ public class CityPatch : GamePatch
                     var newEmperor = joinAfterCapture.king;
                     if (newEmperor != null&&newEmperor.GetSpecificClan()==empire.EmpireSpecificClan)
                     {
-                        TranslateHelper.LogRoyalKingBecomeEmperor(empire, joinAfterCapture.GetMainTitle(), newEmperor);
+                        TranslateHelper.LogRoyalKingBecomeEmperor(empire, joinAfterCapture.GetMainTitle()??joinAfterCapture.capital.GetTitle(), newEmperor);
                         empire.CoreKingdom.GetOffice().meta_object = empire.CoreKingdom;
                         empire.CoreKingdom.GetOffice().SetActor(newEmperor);
                         joinAfterCapture.cities.ForEach(c=>c.joinAnotherKingdom(empire.CoreKingdom));

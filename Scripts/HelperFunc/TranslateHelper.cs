@@ -901,11 +901,11 @@ namespace EmpireCraft.Scripts.HelperFunc
             var text = "";
             if (language == "en")
             {
-                text = $"{LM.Get("default_" + actor.GetPeeragesLevel())} of {title.name}" + " " + actor.name;
+                text = $"{LM.Get("default_" + actor.GetPeeragesLevel())} of {title?.name??actor.kingdom.capital.GetCityName()}" + " " + actor.name;
             }
             else
             {
-                text = title.name+""+LM.Get("King") + " " + actor.name;
+                text = (title?.name??actor.kingdom.capital.GetCityName())+""+LM.Get("King") + " " + actor.name;
             }
             new WorldLogMessage(EmpireCraftWorldLogLibrary.royal_king_become_emperor_log,
                 text,
