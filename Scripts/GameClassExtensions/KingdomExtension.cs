@@ -267,13 +267,333 @@ public static class KingdomExtension
         public int cached_warriors = 0;
         public int cached_population = 0;
         public double last_cached_timestamp = -1L;
+        
+        public Dictionary<FixedFaction, int> FactionRatio = new Dictionary<FixedFaction, int>();
     }
-
     public static LawType GetMainCrime(this Kingdom kingdom)
     {
         return kingdom.GetOrCreate().main_crime;
     }
+    public static Dictionary<FixedFaction, int> GetFactionRatio(this Kingdom kingdom)
+    {
+        if (kingdom.isRekt())
+        {
+            return null;
+        }
 
+        return kingdom.GetOrCreate().FactionRatio;
+    }
+    public static void RemoveFactionRatio(this Kingdom kingdom)
+    {
+        kingdom.GetOrCreate().FactionRatio.Clear();
+    }
+    /// <summary>
+    /// 增加派系占比
+    /// </summary>
+    /// <param name="kingdom">王国</param>
+    /// <param name="faction">派系</param>
+    /// <param name="increaseRatio">增长的数值</param>
+    /// <returns>是否执行成功</returns>
+   public static bool TryIncreaseFactionRatio(this Kingdom kingdom, FixedFaction faction, int increaseRatio)
+    {
+        if (kingdom == null || faction == null)
+        {
+            return false;
+        }
+
+        if (increaseRatio <= 0)
+        {
+            return false;
+        }
+
+        KingdomExtraData data = kingdom.GetOrCreate();
+        Dictionary<FixedFaction, int> ratios = data.FactionRatio;
+
+        if (ratios == null)
+        {
+            return false;
+        }
+
+        if (!ratios.ContainsKey(faction))
+        {
+            ratios[faction] = 0;
+        }
+
+        kingdom.ClampFactionRatio();
+
+        int currentTotal = kingdom.GetFactionRatioTotal();
+
+        // 如果总数还没满 100，就先直接加
+        int freeSpace = 100 - currentTotal;
+
+        if (freeSpace >= increaseRatio)
+        {
+            ratios[faction] += increaseRatio;
+            kingdom.ClampFactionRatio();
+            return true;
+        }
+
+        // 需要增加的数值中，有一部分可以直接加入，剩下的是溢出值
+        int overflow = increaseRatio - freeSpace;
+
+        // 其他派系需要承担这个 overflow
+        int otherTotal = 0;
+
+        foreach (var pair in ratios)
+        {
+            if (!EqualityComparer<FixedFaction>.Default.Equals(pair.Key, faction))
+            {
+                otherTotal += pair.Value;
+            }
+        }
+
+        // 其他派系不够扣，说明不能完整增加
+        if (otherTotal < overflow)
+        {
+            return false;
+        }
+
+        // 先把目标派系增加完整 increaseRatio
+        ratios[faction] += increaseRatio;
+
+        int remainingDecrease = overflow;
+
+        List<FixedFaction> otherFactions = ratios.Keys
+            .Where(f => !EqualityComparer<FixedFaction>.Default.Equals(f, faction))
+            .ToList();
+
+        Dictionary<FixedFaction, int> decreaseMap = new Dictionary<FixedFaction, int>();
+
+        foreach (FixedFaction otherFaction in otherFactions)
+        {
+            int value = ratios[otherFaction];
+
+            if (value <= 0)
+            {
+                decreaseMap[otherFaction] = 0;
+                continue;
+            }
+
+            int decrease = Mathf.FloorToInt((float)value / otherTotal * overflow);
+
+            if (decrease > value)
+            {
+                decrease = value;
+            }
+
+            decreaseMap[otherFaction] = decrease;
+            remainingDecrease -= decrease;
+        }
+
+        // 补足因为 FloorToInt 少扣的部分
+        while (remainingDecrease > 0)
+        {
+            FixedFaction maxFaction = null;
+            int maxValue = -1;
+
+            foreach (FixedFaction otherFaction in otherFactions)
+            {
+                int afterDecreaseValue = ratios[otherFaction] - decreaseMap[otherFaction];
+
+                if (afterDecreaseValue > maxValue)
+                {
+                    maxValue = afterDecreaseValue;
+                    maxFaction = otherFaction;
+                }
+            }
+
+            if (maxFaction == null || maxValue <= 0)
+            {
+                return false;
+            }
+
+            decreaseMap[maxFaction]++;
+            remainingDecrease--;
+        }
+
+        foreach (var pair in decreaseMap)
+        {
+            ratios[pair.Key] -= pair.Value;
+
+            if (ratios[pair.Key] < 0)
+            {
+                ratios[pair.Key] = 0;
+            }
+        }
+
+        kingdom.ClampFactionRatio();
+
+        return true;
+    }
+    public static void ClampFactionRatio(this Kingdom kingdom)
+    {
+        if (kingdom == null)
+        {
+            return;
+        }
+
+        Dictionary<FixedFaction, int> ratios = kingdom.GetOrCreate().FactionRatio;
+
+        if (ratios == null || ratios.Count == 0)
+        {
+            return;
+        }
+
+        List<FixedFaction> keys = ratios.Keys.ToList();
+
+        foreach (FixedFaction faction in keys)
+        {
+            ratios[faction] = Mathf.Clamp(ratios[faction], 0, 100);
+        }
+
+        int total = kingdom.GetFactionRatioTotal();
+
+        if (total <= 100)
+        {
+            return;
+        }
+
+        int overflow = total - 100;
+
+        // 如果因为外部代码直接设置导致超过 100，
+        // 就从当前最高的派系开始扣，直到总和回到 100
+        while (overflow > 0)
+        {
+            FixedFaction maxFaction = null;
+            int maxValue = -1;
+
+            foreach (var pair in ratios)
+            {
+                if (pair.Value > maxValue)
+                {
+                    maxValue = pair.Value;
+                    maxFaction = pair.Key;
+                }
+            }
+
+            if (maxFaction == null || maxValue <= 0)
+            {
+                break;
+            }
+
+            ratios[maxFaction]--;
+            overflow--;
+        }
+    }
+    public static int GetFactionRatioTotal(this Kingdom kingdom)
+    {
+        if (kingdom == null)
+        {
+            return 0;
+        }
+
+        Dictionary<FixedFaction, int> ratios = kingdom.GetOrCreate().FactionRatio;
+
+        if (ratios == null || ratios.Count == 0)
+        {
+            return 0;
+        }
+
+        int total = 0;
+
+        foreach (var pair in ratios)
+        {
+            total += Mathf.Max(0, pair.Value);
+        }
+
+        return total;
+    }
+    public static string FactionRatioToString(this Kingdom kingdom)
+    {
+        if (kingdom == null)
+        {
+            return "";
+        }
+
+        Dictionary<FixedFaction, int> ratios = kingdom.GetOrCreate().FactionRatio;
+
+        if (ratios == null || ratios.Count == 0)
+        {
+            return "";
+        }
+
+        kingdom.ClampFactionRatio();
+
+        string result = "";
+
+        foreach (var pair in ratios.OrderByDescending(p => p.Value))
+        {
+            FixedFaction faction = pair.Key;
+            int ratio = pair.Value;
+
+            if (faction == null)
+            {
+                continue;
+            }
+
+            if (ratio <= 0)
+            {
+                continue;
+            }
+
+            if (result != "")
+            {
+                result += "\n";
+            }
+
+            result += $"{faction.Name}: {ratio}%";
+        }
+
+        return result;
+    }
+    public static int GetFactionRatioValue(this Kingdom kingdom, FixedFaction faction)
+    {
+        if (kingdom == null || faction == null)
+        {
+            return 0;
+        }
+
+        Dictionary<FixedFaction, int> ratios = kingdom.GetOrCreate().FactionRatio;
+
+        if (ratios == null || !ratios.ContainsKey(faction))
+        {
+            return 0;
+        }
+
+        kingdom.ClampFactionRatio();
+
+        return ratios[faction];
+    }
+    public static FixedFaction GetHighestFactionRatio(this Kingdom kingdom)
+    {
+        if (kingdom == null)
+        {
+            return null;
+        }
+
+        Dictionary<FixedFaction, int> ratios = kingdom.GetOrCreate().FactionRatio;
+
+        if (ratios == null || ratios.Count == 0)
+        {
+            return null;
+        }
+
+        kingdom.ClampFactionRatio();
+
+        FixedFaction highestFaction = null;
+        int highestRatio = int.MinValue;
+
+        foreach (var pair in ratios)
+        {
+            if (pair.Value > highestRatio)
+            {
+                highestRatio = pair.Value;
+                highestFaction = pair.Key;
+            }
+        }
+
+        return highestFaction;
+    }
     public static void SetMainCrime(this Kingdom kingdom, LawType type)
     {
         kingdom.GetOrCreate().main_crime = type;
@@ -408,16 +728,14 @@ public static class KingdomExtension
     }
     public static void AddCorruptionRate(this Kingdom kingdom, double addition)
     {
-        kingdom.GetOrCreate().corruption_rate += addition;
-        if (kingdom.GetCorruptionRate() > 1.0f)
+        if (kingdom == null || addition == 0) return;
+        double current = kingdom.GetCorruptionRate();
+        if ((current >= 1.0f && addition > 0) || (current <= 0.0f && addition < 0))
         {
-            kingdom.SetCorruptionRate(1.0f);
+            return;
         }
 
-        if (kingdom.GetCorruptionRate() < 0.0f)
-        {
-            kingdom.SetCorruptionRate(0.0f);
-        }
+        kingdom.SetCorruptionRate(current + addition);
     }
 
     public static double GetCorruptionRate(this Kingdom kingdom)
@@ -428,7 +746,8 @@ public static class KingdomExtension
 
     public static void SetCorruptionRate(this Kingdom kingdom, Double value)
     {
-        kingdom.GetOrCreate().corruption_rate = value;
+        if (kingdom == null) return;
+        kingdom.GetOrCreate().corruption_rate = Math.Max(0.0, Math.Min(1.0, value));
     }
     public static void SetHeirLaw(this Kingdom k, EmpireHeirLawType type)
     {
@@ -703,7 +1022,7 @@ public static class KingdomExtension
                 }
                 break;
             default:
-                kingdom.data.name =  (string.IsNullOrEmpty(pre)?kingdom.GetKingdomName():pre)+'\u200A'+ LM.Get(kingdom.GetKingdomType().ToString()) + '\u200A' + LM.Get("rebelling");
+                kingdom.data.name =  (string.IsNullOrEmpty(pre)?kingdom.GetKingdomName():pre)+'\u200A' + '\u200A' + LM.Get("rebelling");
                 break;
         }
         kingdom.GetOrCreate().isLocalRebelling = true;
@@ -1101,13 +1420,28 @@ public static class KingdomExtension
     {
         if (k == null || title == null || title.isRekt()) return;
         if (title.title_capital == null || title.title_capital.isRekt()) return;
+        bool titleBelongsToKingdom = title.getCities().Any(c => c != null && !c.isRekt() && c.kingdom == k);
+        if (!titleBelongsToKingdom) return;
         var current = ModClass.KINGDOM_TITLE_MANAGER.get(k.GetOrCreate().MainTitle);
+        if (current == title)
+        {
+            if (title.main_kingdom == null)
+            {
+                title.main_kingdom = k;
+            }
+            k.GetOrCreate().MainTitle = title.getID();
+            return;
+        }
         if (current != null && current != title && current.main_kingdom == k)
         {
             current.main_kingdom = null;
         }
         if (title.main_kingdom != null && title.main_kingdom != k)
         {
+            if (k.hasKing() && title.main_kingdom.hasKing() && title.main_kingdom.king == k.king)
+            {
+                return;
+            }
             title.main_kingdom.RemoveMainTitle();
         }
         TranslateHelper.LogKingdomChangeMainTitle(k, title);
@@ -1449,12 +1783,71 @@ public static class KingdomExtension
         return controlledTitles;
     }
 
-    public static Kingdom FindClosestKingdom (this Kingdom kingdom)
+    public static Kingdom FindClosestKingdom(this Kingdom kingdom)
     {
-        return World.world.kingdoms
-            .Where(k => k != kingdom && !k.isRekt())
-            .OrderBy(k => Vector3.Distance(kingdom.location, k.location))
-            .FirstOrDefault();
+        if (kingdom == null || kingdom.cities == null || kingdom.cities.Count == 0)
+        {
+            return null;
+        }
+
+        Kingdom closestKingdom = null;
+        int closestDistanceSqr = int.MaxValue;
+
+        foreach (Kingdom otherKingdom in World.world.kingdoms)
+        {
+            if (otherKingdom == null)
+            {
+                continue;
+            }
+
+            if (otherKingdom == kingdom)
+            {
+                continue;
+            }
+
+            if (otherKingdom.isRekt())
+            {
+                continue;
+            }
+
+            if (otherKingdom.cities == null || otherKingdom.cities.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (City city in kingdom.cities)
+            {
+                if (city == null || city._city_tile == null)
+                {
+                    continue;
+                }
+
+                Vector2Int cityPos = city._city_tile.pos;
+
+                foreach (City otherCity in otherKingdom.cities)
+                {
+                    if (otherCity == null || otherCity._city_tile == null)
+                    {
+                        continue;
+                    }
+
+                    Vector2Int otherPos = otherCity._city_tile.pos;
+
+                    int dx = cityPos.x - otherPos.x;
+                    int dy = cityPos.y - otherPos.y;
+
+                    int distanceSqr = dx * dx + dy * dy;
+
+                    if (distanceSqr < closestDistanceSqr)
+                    {
+                        closestDistanceSqr = distanceSqr;
+                        closestKingdom = otherKingdom;
+                    }
+                }
+            }
+        }
+
+        return closestKingdom;
     }
 
     public static bool IsNeighbourWith(this Kingdom kingdom, Kingdom target)

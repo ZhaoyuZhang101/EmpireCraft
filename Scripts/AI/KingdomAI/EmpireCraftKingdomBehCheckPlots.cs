@@ -69,7 +69,6 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     public void CheckRebellionWar(Kingdom pKingdom)
     {
         if (!pKingdom.hasEnemies()) return;
-        if (!pKingdom.hasKing()) return;
         var war = pKingdom.getWars().ToList().Find(w => w.main_attacker == pKingdom&&w.GetEmpireWarType() == EmpireWarType.地方叛乱);
         var empire = war?.GetEmpireTarget();
         if  (empire == null) return;
@@ -78,10 +77,11 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         {
             if (k.IsEmpire()) continue;
             if (k == pKingdom) continue;
-            if (!k.hasKing()) continue;
+            if (k == null || k.isRekt() || !k.hasKing() || k.king == null) continue;
             if (!k.king.HasFaction()) continue;
-            if (k.king.GetFaction()!=faction) continue;
-            if (k.king.renown>pKingdom.king.renown) continue;
+            if (k.GetHighestFactionRatio()!=faction) continue;
+            if (k.getRenown()>pKingdom.getRenown()) continue;
+            pKingdom.addRenown(-k.getRenown());
             TranslateHelper.LogJoinRebellionWar(k, pKingdom, empire);
             foreach (var c in k.cities.ToList())
             {

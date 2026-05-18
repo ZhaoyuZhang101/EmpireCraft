@@ -97,7 +97,7 @@ public class Empire : MetaObject<EmpireData>
             }
         }
         //增加税收减少正统性
-        AddMandate((int)(addition * 100));
+        AddMandate(-(int)(addition * 100));
     }
 
     public void SubTaxRate(float substraction = 0.1f)
@@ -111,7 +111,7 @@ public class Empire : MetaObject<EmpireData>
             }
         }
         //减少税收增加正统性
-        AddMandate(-(int)(substraction * 100));
+        AddMandate((int)(substraction * 100));
     }
 
     public List<Kingdom> GetKingdomNeighbours()
@@ -1635,6 +1635,7 @@ public class Empire : MetaObject<EmpireData>
         {
             pKingdom.RemoveGivenAlliance();
         }
+        pKingdom.RemoveFactionRatio();
         if (pRecalc)
         {
             recalculate();

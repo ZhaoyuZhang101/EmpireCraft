@@ -240,6 +240,11 @@ public class CityPatch : GamePatch
     }
     public static bool AddCapturePoints(City __instance, Kingdom pKingdom, int pValue)
     {
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode.isEnabled()) return false;
+        if (__instance.TryTriggerOccupationCaptureEvent(pKingdom))
+        {
+            return false;
+        }
         int num;
         __instance._capturing_units.TryGetValue(pKingdom, out num);
         //正统值加成
@@ -252,7 +257,12 @@ public class CityPatch : GamePatch
         //同文化加成
         var sameCultureFactor = (__instance.kingdom?.GetEmpireCraftCulture()==pKingdom.GetEmpireCraftCulture())?2:0;
         mandateAddition *= sameCultureFactor;
-        __instance._capturing_units[pKingdom] = num + pValue + mandateAddition;
+        var kingDeathAddition = 0;
+        if (__instance.kingdom == null || !__instance.kingdom.hasKing() || __instance.kingdom.king == null || __instance.kingdom.king.isRekt() || !__instance.kingdom.king.isAlive())
+        {
+            kingDeathAddition = 20;
+        }
+        __instance._capturing_units[pKingdom] = num + pValue + mandateAddition + kingDeathAddition;
         return false;
     }
     public static bool getMainSubspecies(City __instance, ref Subspecies __result)
@@ -279,6 +289,7 @@ public class CityPatch : GamePatch
         if (World.world.cities.isLocked())
             return false;
         __instance.clearCapture();
+        __instance.ClearOccupiedStatus();
         __instance.recalculateNeighbourCities();
         pNewKingdom.increaseHappinessFromNewCityCapture();
         __instance.kingdom.decreaseHappinessFromLostCityCapture(__instance);
@@ -343,12 +354,28 @@ public class CityPatch : GamePatch
         {
             Kingdom joinAfterCapture = __instance.findKingdomToJoinAfterCapture(pNewKingdom, pWars);
             LogService.LogInfo($"{__instance.kingdom}的城市{__instance.name}即将被{joinAfterCapture.name}捕获");
-            pWars.ToList().ForEach(w=>
+            War war = null;
+            War expendWar = null;
+            War chaoGongWar = null;
+            War religionWar = null;
+            War empireRoyalAcquireEmpireWar = null;
+            bool attackerInEmpire = joinAfterCapture.isAttacker() && joinAfterCapture.IsInEmpire();
+            foreach (War w in pWars)
             {
                 LogService.LogInfo($"战争名称{w.name}类型：{w.GetEmpireWarType().ToString()}");
-            });
+                EmpireWarType warType = w.GetEmpireWarType();
+                if (war == null && attackerInEmpire && warType == EmpireWarType.劫掠)
+                    war = w;
+                if (expendWar == null && attackerInEmpire && warType == EmpireWarType.游牧扩张)
+                    expendWar = w;
+                if (chaoGongWar == null && attackerInEmpire && warType == EmpireWarType.迫使朝贡)
+                    chaoGongWar = w;
+                if (religionWar == null && joinAfterCapture.isAttacker() && warType == EmpireWarType.神圣)
+                    religionWar = w;
+                if (empireRoyalAcquireEmpireWar == null && attackerInEmpire && warType == EmpireWarType.藩王索取皇位)
+                    empireRoyalAcquireEmpireWar = w;
+            }
             //检测城市是否被劫掠如果是则不执行占领城市逻辑但是相应的城市金库会被劫走
-            var war = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.劫掠&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
             if (war!= null)
             {
                 var money = 0;
@@ -367,7 +394,6 @@ public class CityPatch : GamePatch
                 return false;
             }
             //检测是否为游牧扩张战争，如果是则返还法理土地，保留制度但是加入帝国
-            var expendWar = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.游牧扩张&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
             if (expendWar != null)
             {
                 LogService.LogInfo("游牧扩张战争");
@@ -387,7 +413,6 @@ public class CityPatch : GamePatch
                 }
             }
             //检测是否为迫使朝贡战争，如果是则迫使该国家加入朝贡体系
-            var chaoGongWar = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.迫使朝贡&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
             if (chaoGongWar != null)
             {
                 LogService.LogInfo("迫使朝贡战争");
@@ -400,7 +425,6 @@ public class CityPatch : GamePatch
                 }
             }
             //检测是否为迫使朝贡战争，如果是则迫使该国家加入朝贡体系
-            var religionWar = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.神圣&&joinAfterCapture.isAttacker());
             if (religionWar != null)
             {
                 LogService.LogInfo("宗教圣战");
@@ -408,7 +432,6 @@ public class CityPatch : GamePatch
                 __instance.units.ForEach(a=>a.setReligion(joinAfterCapture.religion));
                 TranslateHelper.LogReligionWarTransfer(__instance, joinAfterCapture.religion);
             }
-            var empireRoyalAcquireEmpireWar = pWars.ToList().Find(w => w.GetEmpireWarType() == EmpireWarType.藩王索取皇位&&joinAfterCapture.isAttacker()&&joinAfterCapture.IsInEmpire());
             if (empireRoyalAcquireEmpireWar != null)
             {
                 LogService.LogInfo("藩王之乱");
@@ -546,6 +569,7 @@ public class CityPatch : GamePatch
         {
             return false;
         }
+        
         __instance.SetCorruptionRate(0.0f);
         string pHappinessEvent = null;
         if (pCaptured)
@@ -600,6 +624,7 @@ public class CityPatch : GamePatch
         __instance.newForceKingdomEvent(__instance.units, __instance._boats, pNewSetKingdom, pHappinessEvent);
         __instance.switchedKingdom();
         pNewSetKingdom.capturedFrom(pKingdom);
+        __instance.ClearOccupiedStatus();
         return false;
     }
     public static bool removeZone(City __instance, TileZone pZone)
@@ -661,12 +686,6 @@ public class CityPatch : GamePatch
         __instance.switchedKingdom();
         kingdom.copyMetasFromOtherKingdom(pKingdom);
         kingdom.setCityMetas(__instance);
-        if (pRebellion) 
-        {
-            kingdom.data.name = __instance.GetCityName() + "\u200A" + LM.Get("Rebellion");
-            kingdom.getWars()?.First()?.SetEmpireWarType(EmpireWarType.地方独立);
-            kingdom.StartLocalRebelling(EmpireWarType.地方独立);
-        }
         __result = kingdom;
         return false;
     }

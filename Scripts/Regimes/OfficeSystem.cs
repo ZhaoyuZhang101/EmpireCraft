@@ -376,6 +376,13 @@ public class CenterOffice
             OfficeManager.Offices.Add(o.OfficeID, o);
             Harems.Add(o.OfficeID);
         }
+
+        if (!pKingdom.IsEmpire()) return;
+        var empire = pKingdom.GetEmpire();
+        empire?.kingdoms_list.ForEach(k =>
+        {
+            k.RemoveFactionRatio();
+        });
     }
 
     public void SyncMetaObject(Kingdom pkingdom)

@@ -1,4 +1,4 @@
-{
+﻿{
     "toggle_mod_title": "Empire Box",
     "Culture": "Culture",
     "Dialect": "Dialect",
@@ -308,7 +308,7 @@
     "king_create_title_log": "$kingdom$ $king$ created the De Jure of $title_name$",
     "become_kingdom_log": "$actor$, upon obtaining the De Jure of $title$, changed the state name to $kingdom$",
     "city_add_to_title_log": "$city$ has been included in the De Jure scope of $title_name$",
-    "邀请入派系": "$invitor$ has invited $target$ into the $faction$",
+    "邀请入派系": "$invitor$ is exerting influence on $target$ on behalf of $faction$, increasing that faction's influence share.",
     "追加罪行": "the lord of $actor$ try to expose the crime $crime$ to the lord of $victim$",
     "province_change_to_kingdom_log": "$province$ has been converted to $province_level$",
     "new_jingshi_log": "The palace examination of $empire$ has concluded. In the imperial hall, $actor$ ranked highly and was granted the Jinshi degree, bringing glory to nine generations!",
@@ -533,6 +533,22 @@
     "world_law_civ_limit_population_20_description": "Limit maximum town population to 20",
     "empirecraft_law_ban_empire_title": "Ban Founding Empires",
     "empirecraft_law_ban_empire_description": "When enabled, empires will not be created automatically in the game",
+    "world_law_civ_limit_population_100_title": "One Hundred People",
+    "world_law_civ_limit_population_100_description": "Limit maximum town population to 100",
+    "empirecraft_law_simplify_nameplates_title": "Simplify Nameplates",
+    "empirecraft_law_simplify_nameplates_description": "When enabled, empire nameplates use a simplified gold-bordered style",
+    "empirecraft_law_prevent_building_destroy_title": "Prevent Building Destruction",
+    "empirecraft_law_prevent_building_destroy_description": "When enabled, buildings will not take any damage",
+    "empirecraft_law_allow_harem_title": "Allow Harem System",
+    "empirecraft_law_allow_harem_description": "When enabled, the harem-related system can operate normally",
+    "empirecraft_law_allow_skeleton_title": "Allow Skeletons",
+    "empirecraft_law_allow_skeleton_description": "When enabled, skeleton-related content is allowed to appear",
+    "empirecraft_law_switch_occupy_mode_title": "EmpireCraft Occupation Mode",
+    "empirecraft_law_switch_occupy_mode_description": "Switch between the EmpireCraft zone occupation system and the vanilla city capture system",
+    "debug_frontline": "Debug Frontline",
+    "debug_frontline_description": "Click a kingdom to display its frontline zones in debug mode",
+    "debug_frontline_invalid_target": "Select a valid kingdom to debug frontline zones",
+    "debug_frontline_triggered": "Frontline debug display has been triggered",
 
     "toggle_allow_diplomacy": "Allow Diplomacy",
     "toggle_allow_diplomacy_description": "When enabled, states/regions can freely form alliances or declare war.",
@@ -695,5 +711,9 @@
     "迫使朝贡": "Force tributary status",
     "降低赋税": "Lower taxes",
     "禁党": "Ban factions",
-    "国_打击贪腐": "Fight corruption"
+    "国_打击贪腐": "Fight corruption",
+    "occupation_capture_event_log": "$capturer$ captured $victim$, $result$",
+    "occupation_capture_result_lord": "the city fell immediately",
+    "occupation_capture_result_king": "the whole kingdom surrendered",
+    "occupation_capture_result_emperor": "imperial mandate collapsed and the occupied target was overrun"
 }

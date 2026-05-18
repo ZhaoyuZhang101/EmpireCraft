@@ -119,6 +119,11 @@ internal static class MainTab
         EmpireEnfeoffButton.init();
         tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));
+
+        DebugFrontLineButton.init();
+        tab.AddPowerButton(EMPIRE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("debug_frontline",
+                SpriteTextureLoader.getSprite("ui/icons/iconWar")));
         //帝国势力列表
         var empireListButon = PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
             SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png"));

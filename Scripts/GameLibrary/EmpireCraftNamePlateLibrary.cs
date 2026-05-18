@@ -560,9 +560,11 @@ public static class EmpireCraftNamePlateLibrary
                     if (mouseTilePosCachedFrame?.zone_city?.kingdom==pMetaObject)
                     {
                         var corruption = (int)(pMetaObject.GetCorruptionRate()*100);
+                        pNewText += "\n" + (pMetaObject.GetHighestFactionRatio() == null
+                            ? "无派系影响"
+                            : pMetaObject.FactionRatioToString());
                         if (pMetaObject.hasKing())
                         {
-                            pNewText += pMetaObject.king.HasFaction()?" "+pMetaObject.king.GetFaction()?.Name??" 无派系":" 无派系";
                             pNewText +=
                                 $"\n长官影响力: {pMetaObject.king.renown}";
                             if (pMetaObject.king.HasOfficeIdentity())

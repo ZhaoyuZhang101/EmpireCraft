@@ -26,6 +26,7 @@ namespace EmpireCraft.Scripts.AI
 {
     public static class EmpireCraftPlotsAddition
     {
+        public static PlotAsset Rebellion;
         private static readonly HashSet<string> s_guardedPlotIds = new HashSet<string>();
 
         private static void GuardAllPlotAssets()
@@ -506,20 +507,16 @@ namespace EmpireCraft.Scripts.AI
                     Empire empire = kingdom.GetEmpire();
                     if (empire == null) return false;
                     if (!pActor.HasFaction()) return false;
-                    return empire.kingdoms_list.Any(k => ((!k.king?.HasFaction()) ?? false)&&(k.king?.renown??99999)<pActor.renown);
+                    return empire.kingdoms_list.Any(k=>k!=kingdom&&k.IsNeighbourWith(kingdom)&&!kingdom.IsEmpire());
                 },
                 action = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
                     var empire = kingdom.GetEmpire();
                     if (!pActor.HasFaction()) return false;
-                    var target = empire?.kingdoms_list?.Find(k => ((!k.king?.HasFaction()) ?? false)&&(k.king?.renown??99999)<pActor.renown);
-                    if (target?.king == null)
-                    {
-                        return false;
-                    }
-                    target.king?.SetFaction(pActor.GetFaction());
-                    pActor.data.renown -= target.king?.renown??0;
+                    var target = empire?.kingdoms_list?.Find(k=>k!=kingdom&&k.IsNeighbourWith(kingdom)&&!kingdom.IsEmpire());
+                    kingdom.TryIncreaseFactionRatio(pActor.GetFaction(), 1);
+                    pActor.data.renown -= 50;
                     TranslateHelper.LogInviteIntoFaction(kingdom, target, pActor.GetFaction());
                     return true;
                 }
@@ -1526,6 +1523,187 @@ namespace EmpireCraft.Scripts.AI
                     return false;
                 }
             });
+            AssetManager.plots_library.list.RemoveAll(a => a.id == "rebellion");
+            AssetManager.plots_library.basic_plots.RemoveAll(a=>a.id=="rebellion");
+            Rebellion = AssetManager.plots_library.add(new PlotAsset
+		    {
+			    id = "rebellion",
+			    is_basic_plot = true,
+			    path_icon = "plots/icons/plot_rebellion",
+			    group_id = "empirecraft_diplomacy",
+			    min_level = 2,
+			    money_cost = 15,
+			    min_stewardship = 6,
+			    min_warfare = 5,
+			    can_be_done_by_clan_member = true,
+			    can_be_done_by_leader = true,
+			    check_target_kingdom = true,
+			    requires_diplomacy = true,
+			    requires_rebellion = true,
+                unlocked_with_achievement = false,
+			    check_is_possible = delegate(Actor pActor)
+			    {
+				    Kingdom kingdom = pActor.kingdom;
+				    if (pActor.isKing())
+				    {
+					    return false;
+				    }
+				    if (kingdom.countCities() == 1&&!kingdom.IsInEmpire())
+				    {
+					    return false;
+				    }
+				    if (!kingdom.hasCapital())
+				    {
+					    return false;
+				    }
+				    if (kingdom.getAge() <= SimGlobals.m.rebellions_min_age)
+				    {
+					    return false;
+				    }
+				    if (pActor.hasTrait("pacifist"))
+				    {
+					    return false;
+				    }
+				    City city = pActor.city;
+				    if (city.isCapitalCity()&&!city.kingdom.IsInEmpire())
+				    {
+					    return false;
+				    }
+
+                    if (city.kingdom.IsEmpire() && city.isCapitalCity())
+                    {
+                        return false;
+                    }
+				    if (city.isHappy())
+				    {
+					    return false;
+				    }
+                    if (!kingdom.IsInEmpire())
+                    {
+                        float num = city.countWarriors();
+                        float num2 = kingdom.capital.countWarriors();
+                        if (num < (float)SimGlobals.m.rebellions_min_warriors)
+                        {
+                            return false;
+                        }
+                        float num3 = (float)kingdom.countUnhappyCities() * SimGlobals.m.rebellions_unhappy_multiplier;
+                        float num4 = num2 - num2 * num3;
+                        if (!(num >= num4))
+                        {
+                            return false;
+                        }
+                    }
+				    foreach (War war2 in kingdom.getWars())
+				    {
+					    if (war2.getAsset() == WarTypeLibrary.rebellion && war2.isMainDefender(kingdom))
+					    {
+						    return false;
+					    }
+				    }
+				    int num5 = kingdom.countCities();
+                    if (!kingdom.IsInEmpire())
+                    {
+                        if (num5 <= 6)
+                        {
+                            int maxCities = kingdom.getMaxCities();
+                            if (num5 <= maxCities)
+                            {
+                                return false;
+                            }
+                        }
+                    }
+				    foreach (Plot plot2 in World.world.plots)
+				    {
+					    if (plot2.isActive() && plot2.isSameType(Rebellion) && plot2.target_kingdom == kingdom)
+					    {
+						    return false;
+					    }
+				    }
+				    return true;
+			    },
+			    try_to_start_advanced = delegate(Actor pActor, PlotAsset pPlotAsset, bool pForced)
+			    {
+				    Plot plot = World.world.plots.newPlot(pActor, pPlotAsset, pForced);
+                    var regime = pActor.kingdom.GetRegime();
+                    var empire = pActor.kingdom.GetEmpire();
+				    plot.target_kingdom = empire!=null&&regime.type == RegimeType.LvLing?empire.CoreKingdom:pActor.kingdom;
+				    if (!plot.checkInitiatorAndTargets())
+				    {
+					    Debug.Log("tryPlotRebellion is missing start requirements");
+                    }
+				    return true;
+			    },
+			    check_other_plots = (pActor, pPlot) => (pActor.kingdom == pPlot.target_kingdom),
+			    check_can_be_forced = delegate(Actor pActor)
+			    {
+				    if (pActor.isKing())
+				    {
+					    return false;
+				    }
+				    Kingdom kingdom = pActor.kingdom;
+                    City city = pActor.city;
+                    if (city.isCapitalCity()&&!city.kingdom.IsInEmpire())
+                    {
+                        return false;
+                    }
+
+                    if (city.kingdom.IsEmpire() && city.isCapitalCity())
+                    {
+                        return false;
+                    }
+				    return kingdom.countCities() != 1&&!kingdom.IsInEmpire();
+			    },
+			    check_should_continue = delegate(Actor pActor)
+			    {
+				    if (!pActor.hasCity())
+				    {
+					    return false;
+				    }
+				    if (!pActor.hasClan())
+				    {
+					    return false;
+				    }
+				    if (pActor.isKing())
+				    {
+					    return false;
+				    }
+                    City city = pActor.city;
+                    if (city.isCapitalCity()&&!city.kingdom.IsInEmpire())
+                    {
+                        return false;
+                    }
+
+                    if (city.kingdom.IsEmpire() && city.isCapitalCity())
+                    {
+                        return false;
+                    }
+				    return true;
+			    },
+			    action = delegate(Actor pActor)
+			    {
+				    bool pCheckForHappiness = !pActor.plot.data.forced;
+				    DiplomacyHelpersRebellion.startRebellion(pActor, pActor.plot, pCheckForHappiness);
+                    War war = null;
+                    if (pActor.kingdom.hasEnemies())
+                    {
+                        war = pActor.kingdom.getWars()?.First();
+                    }
+                    else
+                    {
+                        war = World.world.diplomacy.startWar(pActor.kingdom, pActor.plot.target_kingdom, WarTypeLibrary.rebellion);
+                    }
+                    if (war != null)
+                    {
+                        war.SetEmpireWarType(EmpireWarType.地方独立);
+                        pActor.kingdom.StartLocalRebelling(EmpireWarType.地方独立, pre: pActor.city.GetCityName());
+                        if (pActor.plot.target_kingdom.IsInEmpire() && !pActor.plot.target_kingdom.IsEmpire())
+                        {
+                            war.joinDefenders(pActor.plot.target_kingdom.GetEmpire().CoreKingdom);
+                        }
+                    }
+				    return true;
+			    }
+		    }); 
             AssetManager.plots_library.list.RemoveAll(a => a.id == "new_war");
             AssetManager.plots_library.basic_plots.RemoveAll(a=>a.id=="new_war");
             AssetManager.plots_library.add(new PlotAsset
@@ -1588,7 +1766,7 @@ namespace EmpireCraft.Scripts.AI
                 {
   
                     Kingdom kingdom = pActor.kingdom;
-                    var warTarget = getWarTarget(kingdom);
+                    var warTarget = GetWarTarget(kingdom);
                     if (warTarget == null)
                     {
                         return false;
@@ -1880,7 +2058,7 @@ namespace EmpireCraft.Scripts.AI
             return true;
         }
 
-        public static Kingdom getWarTarget(Kingdom pInitiatorKingdom)
+        public static Kingdom GetWarTarget(Kingdom pInitiatorKingdom)
         {
             if (pInitiatorKingdom == null || !pInitiatorKingdom.isAlive() || World.world?.kingdoms == null)
             {

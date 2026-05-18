@@ -26,6 +26,7 @@ public class EmpireCraftKingdomBehCheckTax : GameAIKingdomBase
         Kingdom pEmpireKingdom = null;
         if (pKingdom.IsInEmpire())
         {
+            CheckFactionInfluence(pKingdom);
             Empire empire = pKingdom.GetEmpire();
             if (empire != null && !empire.isRekt() && !empire.IsArchived())
             {
@@ -65,5 +66,18 @@ public class EmpireCraftKingdomBehCheckTax : GameAIKingdomBase
         }
         pKingdom.RecordTaxTime();
         return BehResult.Continue;
+    }
+
+    public void CheckFactionInfluence(Kingdom pkingdom)
+    {
+        if (!pkingdom.hasKing()) return;
+        var king = pkingdom.king;
+        if (king.isRekt()) return;
+        if (!king.HasFaction()) return;
+        var faction = king.GetFaction();
+        if (faction == null) return;
+        if (king.data.renown < 10) return;
+        king.data.renown -= 10;
+        pkingdom.TryIncreaseFactionRatio(faction, 1);
     }
 }

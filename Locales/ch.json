@@ -1,4 +1,4 @@
-{
+﻿{
   "toggle_mod_title": "帝國盒子",
   "Culture": "文化",
   "Dialect": "話",
@@ -389,7 +389,7 @@
   "king_create_title_log": "$kingdom$ $king$ 建立了 $title_name$ 的法理",
   "become_kingdom_log": "$actor$ 因獲得 $title$ 的法理改國名為 $kingdom$",
   "city_add_to_title_log": "$city$ 已被納入 $title_name$ 的法理範圍",
-  "邀请入派系": "$invitor$ 已将 $target$ 拉入 $faction$",
+  "邀请入派系": "$invitor$ 正在代表 $faction$ 对 $target$ 施加影响，以提升该派系的影响占比。",
   "追加罪行": "$actor$ 的统治者 试图给 $victim$ 的统治者 追加 $crime$ 罪行",
   "province_change_to_kingdom_log": "$province$ 已被轉為 $province_level$",
   "new_jingshi_log": "$empire$ 殿試已畢，$actor$ 於金鑾殿對策中高列名次，授進士第，榮耀九族！",
@@ -791,4 +791,20 @@
   ,"撤換官員":"撤換官員"
   ,"expose_official_crime":"曝光官員黑料"
   ,"expose_official_crime_description":"花費影響力挖掘並曝光地方官員的犯罪黑料"
+  ,"world_law_civ_limit_population_100_title":"一百人"
+  ,"world_law_civ_limit_population_100_description":"限制村鎮最大人口數為 100"
+  ,"empirecraft_law_allow_harem_title":"允許後宮"
+  ,"empirecraft_law_allow_harem_description":"開啟後，後宮相關系統可以正常運作"
+  ,"empirecraft_law_allow_skeleton_title":"允許骷髏"
+  ,"empirecraft_law_allow_skeleton_description":"開啟後，允許骷髏相關內容出現"
+  ,"empirecraft_law_switch_occupy_mode_title":"帝國占領模式"
+  ,"empirecraft_law_switch_occupy_mode_description":"切換 EmpireCraft 區塊占領與原版城市占領模式"
+  ,"debug_frontline":"戰線調試"
+  ,"debug_frontline_description":"點擊一個國家，顯示其戰線區塊的調試結果"
+  ,"debug_frontline_invalid_target":"請選擇一個有效的國家來調試戰線"
+  ,"debug_frontline_triggered":"已觸發戰線調試顯示"
+  ,"occupation_capture_event_log":"$capturer$ 擒获了 $victim$，$result$"
+  ,"occupation_capture_result_lord":"其所镇城市被立即占领"
+  ,"occupation_capture_result_king":"其所属国家全境投降"
+  ,"occupation_capture_result_emperor":"帝国正统崩溃，所攻目标被迅速攻占"
 }

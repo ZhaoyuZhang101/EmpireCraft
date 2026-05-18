@@ -13,6 +13,7 @@ public class EmpireCraftCityCombineHouses: GameAICityBase
     public override BehResult execute(City pCity)
     {
         if (pCity?.kingdom == null) return BehResult.Continue;
+        if (!pCity.kingdom.hasEnemies()) pCity.ClearOccupiedStatus();
         if (!pCity.buildings.ToList().Any(b => b.asset.id.Contains("city_")))
         {
             if (pCity.countUnits() > 80)

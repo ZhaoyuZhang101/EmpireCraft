@@ -40,6 +40,17 @@
       <PackageReference Include="System.Text.Json" Version="9.0.7" />
     </ItemGroup>
     <ItemGroup>
+        <Reference Include="DOTween">
+            <HintPath Condition="Exists('..\..\worldbox_Data\Managed\DOTween.dll')">..\..\worldbox_Data\Managed\DOTween.dll</HintPath>
+            <HintPath Condition="Exists('$(UserProfile)\.nuget\packages\dotween\1.0.0\lib\net35\DOTween.dll')">$(UserProfile)\.nuget\packages\dotween\1.0.0\lib\net35\DOTween.dll</HintPath>
+        </Reference>
+        <Reference Include="0Harmony">
+            <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NML\Assemblies\0Harmony.dll')">..\..\worldbox_Data\StreamingAssets\mods\NML\Assemblies\0Harmony.dll</HintPath>
+            <HintPath Condition="Exists('$(UserProfile)\.nuget\packages\lib.harmony\2.3.6\lib\net48\0Harmony.dll')">$(UserProfile)\.nuget\packages\lib.harmony\2.3.6\lib\net48\0Harmony.dll</HintPath>
+        </Reference>
+        <Reference Include="Newtonsoft.Json">
+            <HintPath Condition="Exists('$(UserProfile)\.nuget\packages\newtonsoft.json\10.0.1\lib\net45\Newtonsoft.Json.dll')">$(UserProfile)\.nuget\packages\newtonsoft.json\10.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+        </Reference>
         <Reference Include="Assembly-CSharp">
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NML\Assembly-CSharp-Publicized.dll')">..\..\worldbox_Data\StreamingAssets\mods\NML\Assembly-CSharp-Publicized.dll</HintPath>
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\Mods\NML\Assembly-CSharp-Publicized.dll')">..\..\worldbox_Data\StreamingAssets\Mods\NML\Assembly-CSharp-Publicized.dll</HintPath>

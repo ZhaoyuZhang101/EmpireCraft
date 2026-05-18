@@ -74,6 +74,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset temporary_faction_revoke_war_right_log;
     public static WorldLogAsset temporary_faction_revoke_military_region_log;
     public static WorldLogAsset temporary_faction_raise_tax_log;
+    public static WorldLogAsset occupation_capture_event_log;
 
     public static void init()
     {
@@ -406,6 +407,19 @@ public static class EmpireCraftWorldLogLibrary
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$empire$", 1);
+            }
+        });
+        occupation_capture_event_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(occupation_capture_event_log),
+            group = "wars",
+            path_icon = "iconWar",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$capturer$", 1);
+                wl.updateText(ref pText, pMessage, "$victim$", 2);
+                wl.updateText(ref pText, pMessage, "$result$", 3);
             }
         });
         become_greater_general = wl.add(new WorldLogAsset

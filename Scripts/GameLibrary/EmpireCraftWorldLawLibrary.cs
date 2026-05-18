@@ -14,6 +14,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_prevent_building_destroy;
     public static WorldLawAsset empirecraft_law_allow_harem;
     public static WorldLawAsset empirecraft_law_allow_skeleton;
+    public static WorldLawAsset empirecraft_law_switch_occupy_mode;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -100,6 +101,14 @@ public static class EmpireCraftWorldLawLibrary
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconSkeleton",
             default_state = false
+        });
+        //帝国占领模式
+        AssetManager.world_laws_library.add(empirecraft_law_switch_occupy_mode = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_switch_occupy_mode),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconWar",
+            default_state = true
         });
         
     }

@@ -423,7 +423,7 @@ public static class EmpireCraftMetaTypeLibrary
               return;
             if (!city11.hasTitle())
               return;
-            foreach (City city12 in city11.GetTitle().getCities())
+            foreach (City city12 in city11.GetTitle()?.getCities()?? new List<City>())
               QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
           }
           else

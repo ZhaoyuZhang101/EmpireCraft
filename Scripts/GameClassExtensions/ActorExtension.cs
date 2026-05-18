@@ -30,6 +30,8 @@ using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General.UI.Window.Layout;
 using UnityEngine;
+using Vector2 = UnityEngine.Vector2;
+using Vector3 = UnityEngine.Vector3;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 public class Name
@@ -440,6 +442,10 @@ public static class ActorExtension
 
     public static bool HasFaction(this Actor a)
     {
+        if (a == null)
+        {
+            return false;
+        }
         return !string.IsNullOrEmpty(a.GetOrCreate().factionID);
     }
 
@@ -618,7 +624,44 @@ public static class ActorExtension
         if (!k.hasKingdom()) return false;
         return Date.getYearsSince(k.GetLastTaxTime()) >= 1;
     }
+    public static void WarriorMoveTo(this Actor a, WorldTile pTileTarget)
+    {
+        if (a == null || pTileTarget == null)
+        {
+            return;
+        }
 
+        if (a.current_tile == null)
+        {
+            return;
+        }
+
+        float dist = Toolbox.SquaredDistTile(a.current_tile, pTileTarget);
+
+        LogService.LogInfo("士兵移动距离: " + dist);
+
+        a.setIsMoving();
+
+        if (pTileTarget.isOnFire() && !a.current_tile.isOnFire() && !a.isImmuneToFire())
+        {
+            a.cancelAllBeh();
+            return;
+        }
+
+        a._next_step_tile = pTileTarget;
+
+        if (dist > 4.0)
+        {
+            LogService.LogInfo("目标 tile 太远，不能直接移动");
+            return;
+        }
+
+        a.setCurrentTile(a._next_step_tile);
+        a.checkStepActionForTile(a.current_tile);
+        a.next_step_position = new Vector3(pTileTarget.posV3.x, pTileTarget.posV3.y);
+
+        LogService.LogInfo("士兵移动成功");
+    }
     public static void ChangeDeathRate(this Actor a, float value)
     {
         a.GetOrCreate().death_rate += value;

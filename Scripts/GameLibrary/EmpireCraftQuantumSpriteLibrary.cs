@@ -143,31 +143,205 @@ public static class EmpireCraftQuantumSpriteLibrary
     }
     private static void DrawCapturingZones(QuantumSpriteAsset pAsset)
     {
-        if (!Zones.showKingdomZones() && !Zones.showCityZones() && !Zones.showAllianceZones()&&!ShowEmpireZones())
+        if (!Zones.showKingdomZones() && 
+            !Zones.showCityZones() && 
+            !Zones.showAllianceZones() && 
+            !ShowEmpireZones())
         {
             return;
         }
+
+        // 如果占领模式开启，使用 EmpireCraft 自定义占领区渲染
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode.isEnabled())
+        {
+            DrawEmpireCraftOccupiedZones(pAsset);
+            return;
+        }
+
+        // 否则使用原版占领区渲染
+        DrawVanillaCapturingZones(pAsset);
+    }
+    private static void DrawVanillaCapturingZones(QuantumSpriteAsset pAsset)
+    {
         using ListPool<TileZone> listPool = new ListPool<TileZone>();
+
         foreach (City city in World.world.cities)
         {
             if (!city.being_captured_by.isRekt() && city.hasZones())
             {
                 float num = (float)city.last_visual_capture_ticks / 100f * (float)city.zones.Count;
+
                 if (num > (float)city.zones.Count)
                 {
                     num = city.zones.Count;
                 }
+
                 CapturingZonesCalculator.getListToDraw(city, (int)num, listPool);
+
                 for (int i = 0; i < ((ICollection)listPool).Count; i++)
                 {
                     TileZone tileZone = ((IList<TileZone>)listPool)[i];
-                    QuantumSprite quantumSprite = QuantumSpriteLibrary.drawQuantumSprite(pAsset, tileZone.centerTile, null);
+
+                    if (tileZone == null)
+                    {
+                        continue;
+                    }
+
+                    QuantumSprite quantumSprite = QuantumSpriteLibrary.drawQuantumSprite(
+                        pAsset, 
+                        tileZone.centerTile, 
+                        pTileTarget: null
+                    );
+
                     Color pColor = city.being_captured_by.getColor().getColorBorderOut_capture();
                     quantumSprite.setColor(ref pColor);
                 }
             }
         }
     }
+private static void DrawEmpireCraftOccupiedZones(QuantumSpriteAsset pAsset)
+{
+    using ListPool<TileZone> listPool = new ListPool<TileZone>();
+
+    foreach (City city in World.world.cities)
+    {
+        if (city == null)
+        {
+            continue;
+        }
+
+        if (!city.hasZones())
+        {
+            continue;
+        }
+
+        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOccupiedStatus();
+
+        if (occupiedStatus == null || occupiedStatus.Count == 0)
+        {
+            continue;
+        }
+
+        List<Kingdom> emptyOrInvalidOccupiers = null;
+
+        foreach (var pair in occupiedStatus)
+        {
+            Kingdom occupier = pair.Key;
+            List<TileZone> occupiedZones = pair.Value;
+
+            if (occupier == null || occupier.isRekt())
+            {
+                if (occupier != null)
+                {
+                    emptyOrInvalidOccupiers ??= new List<Kingdom>();
+                    emptyOrInvalidOccupiers.Add(occupier);
+                }
+                continue;
+            }
+
+            if (occupiedZones == null || occupiedZones.Count == 0)
+            {
+                emptyOrInvalidOccupiers ??= new List<Kingdom>();
+                emptyOrInvalidOccupiers.Add(occupier);
+                continue;
+            }
+
+            if (city.kingdom == occupier || city.kingdom == null || occupier.isInWarOnSameSide(city.kingdom))
+            {
+                occupiedZones.Clear();
+                emptyOrInvalidOccupiers ??= new List<Kingdom>();
+                emptyOrInvalidOccupiers.Add(occupier);
+                continue;
+            }
+
+            ((IList<TileZone>)listPool).Clear();
+            List<TileZone> staleZones = null;
+
+            foreach (TileZone tileZone in occupiedZones)
+            {
+                if (tileZone == null)
+                {
+                    staleZones ??= new List<TileZone>();
+                    staleZones.Add(tileZone);
+                    continue;
+                }
+
+                if (tileZone.centerTile == null)
+                {
+                    staleZones ??= new List<TileZone>();
+                    staleZones.Add(tileZone);
+                    continue;
+                }
+
+                // 防止脏数据：只绘制这个 city 自己的 zone
+                if (tileZone.city != city)
+                {
+                    staleZones ??= new List<TileZone>();
+                    staleZones.Add(tileZone);
+                    continue;
+                }
+
+                Kingdom currentOccupier = city.GetTileZoneOccupier(tileZone);
+                if (currentOccupier != occupier)
+                {
+                    staleZones ??= new List<TileZone>();
+                    staleZones.Add(tileZone);
+                    continue;
+                }
+
+                ((IList<TileZone>)listPool).Add(tileZone);
+            }
+
+            if (staleZones != null)
+            {
+                for (int i = 0; i < staleZones.Count; i++)
+                {
+                    occupiedZones.Remove(staleZones[i]);
+                }
+            }
+
+            if (((ICollection)listPool).Count == 0)
+            {
+                emptyOrInvalidOccupiers ??= new List<Kingdom>();
+                emptyOrInvalidOccupiers.Add(occupier);
+                continue;
+            }
+
+            Color pColor = occupier.getColor().getColorBorderOut_capture();
+
+            for (int i = 0; i < ((ICollection)listPool).Count; i++)
+            {
+                TileZone tileZone = ((IList<TileZone>)listPool)[i];
+
+                if (tileZone == null)
+                {
+                    continue;
+                }
+
+                if (tileZone.centerTile == null)
+                {
+                    continue;
+                }
+
+                QuantumSprite quantumSprite = QuantumSpriteLibrary.drawQuantumSprite(
+                    pAsset,
+                    tileZone.centerTile,
+                    pTileTarget: null
+                );
+
+                quantumSprite.setColor(ref pColor);
+            }
+        }
+
+        if (emptyOrInvalidOccupiers != null)
+        {
+            for (int i = 0; i < emptyOrInvalidOccupiers.Count; i++)
+            {
+                occupiedStatus.Remove(emptyOrInvalidOccupiers[i]);
+            }
+        }
+    }
+}
     public static bool ShowEmpireZones(bool pCheckOnlyOption = false)
     {
         return EmpireCraftMetaTypeLibrary.empire.isActive(pCheckOnlyOption);

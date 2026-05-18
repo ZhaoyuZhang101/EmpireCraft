@@ -61,7 +61,14 @@ public class EmpireCraftActorCheckWarrior:GameAIActorBase
             {
                 if (pActor?.city?.checkCanMakeWarrior(pActor)??false)
                 {
-                    pActor?.city?.makeWarrior(pActor);
+                    try
+                    {
+                        pActor?.city?.makeWarrior(pActor);
+                    }
+                    catch
+                    {
+                        // 跳过异常，避免旧存档或边界态导致崩溃
+                    }
                 }
                 if (pKingdom.GetRegime().IsAllowSupportCenterArmy())
                 {

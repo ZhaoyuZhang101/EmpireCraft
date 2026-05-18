@@ -578,6 +578,33 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = empire.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_warning,
             }.RecordIntoEmpire(empire);
         }
+
+        public static void LogOccupationCaptureEvent(Actor capturer, Actor victim, string resultLocaleKey, Empire empire = null)
+        {
+            if (victim == null) return;
+            string capturerName = GetActorFullLogName(capturer);
+            if (string.IsNullOrWhiteSpace(capturerName))
+            {
+                capturerName = capturer?.getName() ?? "";
+            }
+
+            string victimName = GetActorFullLogName(victim);
+            string resultText = LM.Get(resultLocaleKey);
+            if (string.IsNullOrWhiteSpace(resultText) || resultText == resultLocaleKey)
+            {
+                resultText = resultLocaleKey;
+            }
+
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.occupation_capture_event_log,
+                capturerName,
+                victimName,
+                resultText)
+            {
+                color_special1 = capturer?.getColor()._color_text ?? Toolbox.color_log_good,
+                color_special2 = victim.getColor()._color_text,
+                color_special3 = victim.kingdom?.getColor()._color_text ?? Toolbox.color_log_warning
+            }.RecordIntoEmpire(empire);
+        }
         
         public static void LogOfficerBecomeFactionLeader(Actor pActor, FixedFaction faction)
         {
@@ -801,7 +828,7 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
 
         /// <summary>
-        /// 拉入派系提示
+        /// 增加派系影响力
         /// </summary>
         /// <param name="invitor">邀请者</param>
         /// <param name="target">目标</param>

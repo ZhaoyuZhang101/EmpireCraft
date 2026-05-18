@@ -6,16 +6,40 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.AI.KingdomAI;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using Newtonsoft.Json;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameClassExtensions;
 
 public static class CityExtension
 {
+    // 正统自动扩张最低门槛
+    private const int OccupySpreadMinMandate = 80;
+
+    // 基础要求：进攻方正统 - 防守方正统 至少达到这个值才会开始明显扩张
+    private const int OccupySpreadMinMandateDiff = 20;
+
+    // 每次占领后最多自动扩张多少层，防止一次性扩太多影响性能
+    private const int OccupySpreadMaxDepth = 2;
+
+    // 每次触发最多自动占领多少个 zone
+    private const int OccupySpreadMaxZonesPerTrigger = 5;
+
+    // 同族加成，异族惩罚
+    private const int OccupySpreadSameCultureBonus = 10;
+    private const int OccupySpreadDifferentCulturePenalty = 15;
+    private const int OccupySpreadKingDeadMandateBonus = 25;
+    private const int OccupationCaptureLordPerformanceReward = 100;
+    private const int OccupationCaptureKingPerformanceReward = 200;
+    private const int OccupationCaptureEmperorPerformanceReward = 300;
+    private const float OccupationCaptureLordChance = 0.20f;
+    private const float OccupationCaptureKingChance = 0.35f;
+    private const float OccupationCaptureEmperorChance = 0.50f;
     public class CityExtraData: ExtraDataBase
     {
         public string kingdom_names = "";
@@ -41,8 +65,1141 @@ public static class CityExtension
         public double last_cached_timestamp = -1L;
         public double last_army_check_ts = -1L;
         public double last_law_scan_ts = -1L;
+        public Dictionary<Kingdom, List<TileZone>> OccupiedStatus= new ();
+        [JsonIgnore]
+        public Dictionary<TileZone, Kingdom> OccupiedZoneOwners = new();
+    }
+    private static Dictionary<TileZone, Kingdom> GetOccupiedZoneOwnerMap(this City city)
+    {
+        if (city == null)
+        {
+            return null;
+        }
+
+        CityExtraData data = city.GetOrCreate();
+        data.OccupiedZoneOwners ??= new Dictionary<TileZone, Kingdom>();
+
+        if (data.OccupiedZoneOwners.Count == 0 && data.OccupiedStatus != null && data.OccupiedStatus.Count > 0)
+        {
+            foreach (var pair in data.OccupiedStatus)
+            {
+                if (pair.Key == null || pair.Value == null)
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < pair.Value.Count; i++)
+                {
+                    TileZone zone = pair.Value[i];
+                    if (zone == null)
+                    {
+                        continue;
+                    }
+
+                    data.OccupiedZoneOwners[zone] = pair.Key;
+                }
+            }
+        }
+
+        return data.OccupiedZoneOwners;
+    }
+    public static void TrySpreadOccupiedZonesByMandate(this City city, Kingdom occupier, TileZone startZone)
+    {
+        if (city == null || occupier == null || startZone == null)
+        {
+            return;
+        }
+
+        if (occupier.isRekt() || occupier.isNeutral())
+        {
+            return;
+        }
+
+        if (city.kingdom == null || city.kingdom == occupier)
+        {
+            return;
+        }
+
+        Kingdom defender = city.kingdom;
+        bool defenderKingDead = city.IsOccupationKingDeathAdvantage(defender);
+
+        if (!occupier.isInWarWith(defender))
+        {
+            return;
+        }
+
+        Empire occupierEmpire = occupier.GetEmpire();
+        Empire defenderEmpire = defender.GetEmpire();
+
+        int occupierMandate = occupierEmpire?.Mandate ?? 0;
+        int defenderMandate = defenderEmpire?.Mandate ?? 0;
+
+        // 进攻方正统不到 80，不触发自动扩张
+        if (occupierMandate < OccupySpreadMinMandate && !defenderKingDead)
+        {
+            return;
+        }
+
+        int effectiveDiff = city.GetEffectiveOccupySpreadMandateDiff(occupier, defender);
+
+        // 差距不够，不自动延伸
+        if (effectiveDiff < OccupySpreadMinMandateDiff)
+        {
+            return;
+        }
+
+        int spreadDepth = city.GetOccupySpreadDepthByMandateDiff(effectiveDiff);
+        int spreadLimit = city.GetOccupySpreadLimitByMandateDiff(effectiveDiff);
+
+        if (spreadDepth <= 0 || spreadLimit <= 0)
+        {
+            return;
+        }
+
+        HashSet<TileZone> visited = new HashSet<TileZone>();
+        Queue<(TileZone zone, int depth)> queue = new Queue<(TileZone zone, int depth)>();
+
+        visited.Add(startZone);
+        queue.Enqueue((startZone, 0));
+
+        int spreadCount = 0;
+
+        while (queue.Count > 0)
+        {
+            var item = queue.Dequeue();
+            TileZone currentZone = item.zone;
+            int currentDepth = item.depth;
+
+            if (currentZone == null || currentDepth >= spreadDepth)
+            {
+                continue;
+            }
+
+            if (currentZone.neighbours_all == null)
+            {
+                continue;
+            }
+
+            foreach (TileZone neighbour in currentZone.neighbours_all)
+            {
+                if (neighbour == null)
+                {
+                    continue;
+                }
+
+                if (!visited.Add(neighbour))
+                {
+                    continue;
+                }
+
+                if (!city.IsValidAutoSpreadOccupyZone(occupier, neighbour))
+                {
+                    continue;
+                }
+
+                bool occupied = city.AddOccupiedTileZoneByMandateSpread(occupier, neighbour);
+
+                if (!occupied)
+                {
+                    continue;
+                }
+
+                spreadCount++;
+
+                if (spreadCount >= spreadLimit)
+                {
+                    return;
+                }
+
+                queue.Enqueue((neighbour, currentDepth + 1));
+            }
+        }
+    }
+    private static int GetEffectiveOccupySpreadMandateDiff(this City city, Kingdom occupier, Kingdom defender)
+    {
+        if (city == null || occupier == null || defender == null)
+        {
+            return 0;
+        }
+
+        Empire occupierEmpire = occupier.GetEmpire();
+        Empire defenderEmpire = defender.GetEmpire();
+
+        int occupierMandate = occupierEmpire?.Mandate ?? 0;
+        int defenderMandate = defenderEmpire?.Mandate ?? 0;
+
+        int diff = occupierMandate - defenderMandate;
+
+        bool sameCulture = false;
+
+        try
+        {
+            sameCulture =
+                occupier.GetEmpireCraftCulture() != null &&
+                occupier.GetEmpireCraftCulture() == defender.GetEmpireCraftCulture();
+        }
+        catch
+        {
+            sameCulture = false;
+        }
+
+        if (sameCulture)
+        {
+            diff += OccupySpreadSameCultureBonus;
+        }
+        else
+        {
+            diff -= OccupySpreadDifferentCulturePenalty;
+        }
+
+        if (city.IsOccupationKingDeathAdvantage(defender))
+        {
+            diff += OccupySpreadKingDeadMandateBonus;
+        }
+
+        return diff;
+    }
+    private static bool IsOccupationKingDeathAdvantage(this City city, Kingdom defender)
+    {
+        if (city == null || defender == null)
+        {
+            return false;
+        }
+
+        if (!defender.hasKing())
+        {
+            return true;
+        }
+
+        Actor king = defender.king;
+        if (king == null)
+        {
+            return true;
+        }
+
+        return king.isRekt() || !king.isAlive();
+    }
+    private static int GetOccupySpreadDepthByMandateDiff(this City city, int effectiveDiff)
+    {
+        if (effectiveDiff < OccupySpreadMinMandateDiff)
+        {
+            return 0;
+        }
+
+        if (effectiveDiff >= 70)
+        {
+            return 3;
+        }
+
+        if (effectiveDiff >= 45)
+        {
+            return 2;
+        }
+
+        return 1;
     }
 
+    private static int GetOccupySpreadLimitByMandateDiff(this City city, int effectiveDiff)
+    {
+        if (effectiveDiff < OccupySpreadMinMandateDiff)
+        {
+            return 0;
+        }
+
+        if (effectiveDiff >= 70)
+        {
+            return 8;
+        }
+
+        if (effectiveDiff >= 45)
+        {
+            return 5;
+        }
+
+        return 3;
+    }
+    private static bool IsValidAutoSpreadOccupyZone(this City city, Kingdom occupier, TileZone zone)
+    {
+        if (city == null || occupier == null || zone == null)
+        {
+            return false;
+        }
+
+        if (zone.world_edge)
+        {
+            return false;
+        }
+
+        if (zone.city != city)
+        {
+            return false;
+        }
+
+        if (city.kingdom == null)
+        {
+            return false;
+        }
+
+        if (!occupier.isInWarWith(city.kingdom))
+        {
+            return false;
+        }
+
+        Kingdom currentOccupier = city.GetTileZoneOccupier(zone);
+
+        // 已经是自己占领，不需要重复扩张
+        if (currentOccupier == occupier)
+        {
+            return false;
+        }
+
+        // 友军已经占领，不抢友军占领区
+        if (currentOccupier != null && occupier.isInWarOnSameSide(currentOccupier))
+        {
+            return false;
+        }
+
+        return true;
+    }
+    private static bool AddOccupiedTileZoneByMandateSpread(this City city, Kingdom occupier, TileZone tileZone)
+    {
+        if (city == null || occupier == null || tileZone == null)
+        {
+            return false;
+        }
+
+        if (occupier.isRekt())
+        {
+            return false;
+        }
+
+        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+
+        if (occupiedStatus == null)
+        {
+            return false;
+        }
+
+        Kingdom currentOccupier = city.GetTileZoneOccupier(tileZone);
+
+        if (currentOccupier != null)
+        {
+            if (currentOccupier == occupier)
+            {
+                return false;
+            }
+
+            if (occupier.isInWarOnSameSide(currentOccupier))
+            {
+                return false;
+            }
+
+            city.RemoveOccupiedTileZone(currentOccupier, tileZone);
+        }
+
+        if (!occupiedStatus.ContainsKey(occupier))
+        {
+            occupiedStatus[occupier] = new List<TileZone>();
+        }
+
+        List<TileZone> zones = occupiedStatus[occupier];
+
+        if (zones == null)
+        {
+            zones = new List<TileZone>();
+            occupiedStatus[occupier] = zones;
+        }
+
+        if (zones.Contains(tileZone))
+        {
+            return false;
+        }
+
+        zones.Add(tileZone);
+        city.GetOccupiedZoneOwnerMap()[tileZone] = occupier;
+        if (city.TryTriggerOccupationCaptureEvent(occupier, tileZone, zoneOccupationMode:true))
+        {
+            return true;
+        }
+
+        return true;
+    }
+    public static bool AddOccupiedTileZone(this City city, Kingdom occupier, TileZone tileZone, Actor capturer = null)
+    {
+        if (city == null || occupier == null || tileZone == null)
+        {
+            return false;
+        }
+
+        if (occupier.isRekt())
+        {
+            return false;
+        }
+
+        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+
+        if (occupiedStatus == null)
+        {
+            return false;
+        }
+
+        Kingdom currentOccupier = city.GetTileZoneOccupier(tileZone);
+
+        if (currentOccupier != null)
+        {
+            // 已经是自己占领，不重复添加
+            if (currentOccupier == occupier)
+            {
+                return false;
+            }
+
+            // 原版已有判断：如果双方在同一场战争中属于同一边，不转移
+            if (occupier.isInWarOnSameSide(currentOccupier))
+            {
+                return false;
+            }
+
+            // 不是同一边，说明可以抢占/转移
+            city.RemoveOccupiedTileZone(currentOccupier, tileZone);
+        }
+
+        if (!occupiedStatus.ContainsKey(occupier))
+        {
+            occupiedStatus[occupier] = new List<TileZone>();
+        }
+
+        List<TileZone> zones = occupiedStatus[occupier];
+
+        if (zones == null)
+        {
+            zones = new List<TileZone>();
+            occupiedStatus[occupier] = zones;
+        }
+
+        if (zones.Contains(tileZone))
+        {
+            return false;
+        }
+
+        zones.Add(tileZone);
+        city.GetOccupiedZoneOwnerMap()[tileZone] = occupier;
+
+        // 高正统占领自动扩张：只在手动/士兵占领成功后触发
+        city.TrySpreadOccupiedZonesByMandate(occupier, tileZone);
+
+        // 检查是否完成占领
+        city.CheckFinishedCapture(occupier);
+
+        return true;
+    }
+    public static bool RemoveOccupiedTileZone(this City city, Kingdom occupier, TileZone tileZone)
+    {
+        if (city == null || occupier == null || tileZone == null)
+        {
+            return false;
+        }
+
+        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+
+        if (occupiedStatus == null)
+        {
+            return false;
+        }
+
+        if (!occupiedStatus.TryGetValue(occupier, out var zones))
+        {
+            return false;
+        }
+
+        if (zones == null)
+        {
+            occupiedStatus.Remove(occupier);
+            return false;
+        }
+
+        bool removed = zones.Remove(tileZone);
+        Dictionary<TileZone, Kingdom> ownerMap = city.GetOccupiedZoneOwnerMap();
+        if (ownerMap != null && ownerMap.TryGetValue(tileZone, out var currentOwner) && currentOwner == occupier)
+        {
+            ownerMap.Remove(tileZone);
+        }
+
+        if (zones.Count == 0)
+        {
+            occupiedStatus.Remove(occupier);
+        }
+        return removed;
+    }
+    public static bool TransferOccupiedTileZone(this City city, Kingdom toKingdom, TileZone tileZone)
+    {
+        if (city == null || toKingdom == null || tileZone == null)
+        {
+            return false;
+        }
+
+        if (toKingdom.isRekt() || toKingdom.isNeutral())
+        {
+            return false;
+        }
+
+        Kingdom currentOccupier = city.GetTileZoneOccupier(tileZone);
+
+        if (currentOccupier == null)
+        {
+            bool added = city.AddOccupiedTileZone(toKingdom, tileZone);
+            
+            return added;
+        }
+
+        if (currentOccupier == toKingdom)
+        {
+            return false;
+        }
+
+        if (toKingdom.isInWarOnSameSide(currentOccupier))
+        {
+            return false;
+        }
+
+        city.RemoveOccupiedTileZone(currentOccupier, tileZone);
+
+        bool transferred = city.AddOccupiedTileZone(toKingdom, tileZone);
+
+        return transferred;
+    }
+    public static Dictionary<Kingdom, List<TileZone>> GetOccupiedStatus(this City city)
+    {
+        if (city == null)
+        {
+            return null;
+        }
+
+        return city.GetOrCreate().OccupiedStatus;
+    }
+    public static bool RemoveOccupiedTileZoneFromAll(this City city, TileZone tileZone)
+    {
+        if (city == null || tileZone == null)
+        {
+            return false;
+        }
+
+        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        Dictionary<TileZone, Kingdom> ownerMap = city.GetOccupiedZoneOwnerMap();
+
+        if (occupiedStatus == null || occupiedStatus.Count == 0)
+        {
+            return false;
+        }
+
+        if (ownerMap != null && ownerMap.TryGetValue(tileZone, out var directOwner))
+        {
+            return city.RemoveOccupiedTileZone(directOwner, tileZone);
+        }
+
+        bool removedAny = false;
+
+        List<Kingdom> emptyKingdoms = new List<Kingdom>();
+
+        foreach (var pair in occupiedStatus)
+        {
+            List<TileZone> zones = pair.Value;
+
+            if (zones == null)
+            {
+                emptyKingdoms.Add(pair.Key);
+                continue;
+            }
+
+            if (zones.Remove(tileZone))
+            {
+                removedAny = true;
+            }
+
+            if (zones.Count == 0)
+            {
+                emptyKingdoms.Add(pair.Key);
+            }
+        }
+
+        foreach (Kingdom kingdom in emptyKingdoms)
+        {
+            occupiedStatus.Remove(kingdom);
+        }
+
+        if (removedAny)
+        {
+            ownerMap?.Remove(tileZone);
+        }
+
+        return removedAny;
+    }
+    public static Kingdom GetTileZoneOccupier(this City city, TileZone tileZone)
+    {
+        if (city == null || tileZone == null)
+        {
+            return null;
+        }
+
+        Dictionary<TileZone, Kingdom> ownerMap = city.GetOccupiedZoneOwnerMap();
+        if (ownerMap == null || ownerMap.Count == 0)
+        {
+            return null;
+        }
+
+        ownerMap.TryGetValue(tileZone, out var occupier);
+        return occupier;
+    }
+    public static bool IsTileZoneOccupied(this City city, TileZone tileZone)
+    {
+        return city.GetTileZoneOccupier(tileZone) != null;
+    }
+    public static int GetOccupiedTileZoneCount(this City city, Kingdom occupier)
+    {
+        if (city == null || occupier == null)
+        {
+            return 0;
+        }
+
+        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+
+        if (occupiedStatus == null)
+        {
+            return 0;
+        }
+
+        if (!occupiedStatus.ContainsKey(occupier))
+        {
+            return 0;
+        }
+
+        List<TileZone> zones = occupiedStatus[occupier];
+
+        if (zones == null)
+        {
+            return 0;
+        }
+
+        return zones.Count;
+    }
+    public static bool CheckFinishedCapture(this City city, Kingdom occupier)
+    {
+        return city.CheckFinishedCapture();
+    }
+    public static float GetOccupiedTileZoneRate(this City city, Kingdom occupier)
+    {
+        if (city == null || occupier == null)
+        {
+            return 0f;
+        }
+
+        if (city.zones == null || city.zones.Count == 0)
+        {
+            return 0f;
+        }
+
+        int occupiedCount = city.GetOccupiedTileZoneCount(occupier);
+
+        return (float)occupiedCount / city.zones.Count;
+    }
+    public static Kingdom GetFinishedCaptureWinner(this City city)
+    {
+        if (city == null)
+        {
+            return null;
+        }
+
+        Kingdom originKingdom = city.kingdom;
+
+        if (originKingdom == null || originKingdom.isRekt())
+        {
+            return null;
+        }
+
+        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+
+        if (occupiedStatus == null || occupiedStatus.Count == 0)
+        {
+            return null;
+        }
+
+        int validZoneCount = city.GetValidCityZoneCount();
+
+        if (validZoneCount <= 0)
+        {
+            return null;
+        }
+
+        Dictionary<Kingdom, int> validOccupiedCountMap = new Dictionary<Kingdom, int>();
+        Dictionary<TileZone, Kingdom> ownerMap = city.GetOccupiedZoneOwnerMap();
+        int allEnemyOccupiedCount = 0;
+
+        foreach (var pair in occupiedStatus)
+        {
+            Kingdom occupier = pair.Key;
+            List<TileZone> zones = pair.Value;
+
+            if (occupier == null || zones == null || zones.Count == 0)
+            {
+                continue;
+            }
+
+            if (occupier.isRekt() || occupier.isNeutral())
+            {
+                continue;
+            }
+
+            if (occupier == originKingdom)
+            {
+                continue;
+            }
+
+            // 如果和原城市国家在同一战争阵营，不算敌对占领
+            if (occupier.isInWarOnSameSide(originKingdom))
+            {
+                continue;
+            }
+
+            int count = 0;
+
+            for (int i = 0; i < zones.Count; i++)
+            {
+                TileZone zone = zones[i];
+
+                if (!city.IsValidCaptureZone(zone))
+                {
+                    continue;
+                }
+
+                if (ownerMap != null && ownerMap.TryGetValue(zone, out var currentOwner) && currentOwner != occupier)
+                {
+                    continue;
+                }
+
+                count++;
+                allEnemyOccupiedCount++;
+            }
+
+            if (count > 0)
+            {
+                validOccupiedCountMap[occupier] = count;
+            }
+        }
+
+        if (validOccupiedCountMap.Count == 0)
+        {
+            return null;
+        }
+
+        Kingdom bestOccupier = null;
+        int bestCount = 0;
+
+        foreach (var pair in validOccupiedCountMap)
+        {
+            Kingdom occupier = pair.Key;
+            int count = pair.Value;
+
+            if (bestOccupier == null || count > bestCount)
+            {
+                bestOccupier = occupier;
+                bestCount = count;
+                continue;
+            }
+
+            if (count == bestCount)
+            {
+                // 平手时，用正统值更高的国家获得优先权
+                int currentMandate = occupier.GetEmpire()?.Mandate ?? 0;
+                int bestMandate = bestOccupier.GetEmpire()?.Mandate ?? 0;
+
+                if (currentMandate > bestMandate)
+                {
+                    bestOccupier = occupier;
+                    bestCount = count;
+                }
+            }
+        }
+
+        if (bestOccupier == null)
+        {
+            return null;
+        }
+
+        float occupiedRateByAllEnemies = (float)allEnemyOccupiedCount / validZoneCount;
+        float requiredRate = city.GetRequiredFinishedCaptureRate(bestOccupier);
+
+        if (occupiedRateByAllEnemies >= requiredRate)
+        {
+            return bestOccupier;
+        }
+
+        return null;
+    }
+    public static bool IsFullyOccupiedBy(this City city, Kingdom occupier)
+    {
+        if (city == null || occupier == null)
+        {
+            return false;
+        }
+
+        Kingdom winner = city.GetFinishedCaptureWinner();
+
+        return winner == occupier;
+    }
+
+    public static int GetValidCityZoneCount(this City city)
+    {
+        if (city == null || city.zones == null || city.zones.Count == 0)
+        {
+            return 0;
+        }
+
+        int count = 0;
+
+        for (int i = 0; i < city.zones.Count; i++)
+        {
+            TileZone zone = city.zones[i];
+
+            if (!city.IsValidCaptureZone(zone))
+            {
+                continue;
+            }
+
+            count++;
+        }
+
+        return count;
+    }
+
+    public static bool IsValidCaptureZone(this City city, TileZone zone)
+    {
+        if (city == null || zone == null)
+        {
+            return false;
+        }
+
+        if (zone.world_edge)
+        {
+            return false;
+        }
+
+        if (zone.city != city)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static float GetRequiredFinishedCaptureRate(this City city, Kingdom occupier)
+    {
+        if (city == null || occupier == null)
+        {
+            return 1.0f;
+        }
+
+        Kingdom originKingdom = city.kingdom;
+
+        if (originKingdom == null)
+        {
+            return 1.0f;
+        }
+
+        Empire originEmpire = originKingdom.GetEmpire();
+        Empire captureEmpire = occupier.GetEmpire();
+
+        int originMandate = originEmpire?.Mandate ?? 0;
+        int captureMandate = captureEmpire?.Mandate ?? 0;
+
+        bool sameCulture = false;
+
+        try
+        {
+            sameCulture =
+                originKingdom.GetEmpireCraftCulture() != null &&
+                originKingdom.GetEmpireCraftCulture() == occupier.GetEmpireCraftCulture();
+        }
+        catch
+        {
+            sameCulture = false;
+        }
+
+        // 基础值：默认需要 80% 土地被敌对势力占领
+        float requiredRate = 0.80f;
+
+        // 正统差距：进攻方正统越高，越容易完成占领；防守方正统越高，越难完成占领
+        int mandateDiff = captureMandate - originMandate;
+
+        // 每 1 点正统差距影响 0.5%，最多影响 15%
+        float mandateModifier = Mathf.Clamp(mandateDiff * 0.005f, -0.15f, 0.15f);
+
+        requiredRate -= mandateModifier;
+
+        // 同族更容易接管，异族更难接管
+        if (sameCulture)
+        {
+            requiredRate -= 0.10f;
+        }
+        else
+        {
+            requiredRate += 0.10f;
+        }
+
+        // 最低 50%，最高 95%
+        requiredRate = Mathf.Clamp(requiredRate, 0.50f, 0.95f);
+
+        return requiredRate;
+    }
+    
+    public static bool CheckFinishedCapture(this City city)
+    {
+        if (city == null)
+        {
+            return false;
+        }
+
+        Kingdom winner = city.GetFinishedCaptureWinner();
+
+        if (winner == null)
+        {
+            return false;
+        }
+
+        if (city.kingdom == winner)
+        {
+            return false;
+        }
+
+        city.finishCapture(winner);
+        city.ClearOccupiedStatus();
+
+        return true;
+    }
+    private static float GetOccupationCaptureChance(this Actor victim)
+    {
+        if (victim == null) return 0f;
+        if (victim.IsEmperor()) return OccupationCaptureEmperorChance;
+        if (victim.isKing()) return OccupationCaptureKingChance;
+        if (victim.isCityLeader()) return OccupationCaptureLordChance;
+        return 0f;
+    }
+
+    private static Actor FindOccupationCaptureTarget(this City city, TileZone zone, bool zoneOccupationMode)
+    {
+        if (city == null || city.kingdom == null)
+        {
+            return null;
+        }
+
+        Actor emperor = city.kingdom.GetEmpire()?.Emperor;
+        if (emperor != null && !emperor.isRekt() && emperor.isAlive())
+        {
+            if (!zoneOccupationMode || emperor.current_tile?.zone == zone)
+            {
+                return emperor;
+            }
+        }
+
+        Actor king = city.kingdom.king;
+        if (king != null && !king.isRekt() && king.isAlive())
+        {
+            if (!zoneOccupationMode || king.current_tile?.zone == zone)
+            {
+                return king;
+            }
+        }
+
+        Actor leader = city.hasLeader() ? city.leader : null;
+        if (leader != null && !leader.isRekt() && leader.isAlive())
+        {
+            if (!zoneOccupationMode || leader.current_tile?.zone == zone)
+            {
+                return leader;
+            }
+        }
+
+        return null;
+    }
+
+    private static void ApplyOccupationCaptureRewards(this City city, Actor capturer, Actor victim)
+    {
+        if (capturer == null || capturer.isRekt() || victim == null || victim.isRekt())
+        {
+            return;
+        }
+
+        int performanceReward = victim.IsEmperor()
+            ? OccupationCaptureEmperorPerformanceReward
+            : (victim.isKing() ? OccupationCaptureKingPerformanceReward : OccupationCaptureLordPerformanceReward);
+
+        if (capturer.GetIdentity() != null)
+        {
+            capturer.GetIdentity().TotalPerformance += performanceReward;
+        }
+
+        int capturedInfluence = victim.data?.renown ?? 0;
+        if (capturer.data != null && capturedInfluence > 0)
+        {
+            capturer.data.renown += capturedInfluence;
+            victim.data.renown = 0;
+        }
+    }
+
+    private static void ForceOccupyAllRemainingZones(this City city, Kingdom occupier)
+    {
+        if (city == null || occupier == null || city.zones == null)
+        {
+            return;
+        }
+
+        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        if (!occupiedStatus.ContainsKey(occupier))
+        {
+            occupiedStatus[occupier] = new List<TileZone>();
+        }
+
+        List<TileZone> occupierZones = occupiedStatus[occupier];
+        for (int i = 0; i < city.zones.Count; i++)
+        {
+            TileZone currentZone = city.zones[i];
+            if (!city.IsValidCaptureZone(currentZone))
+            {
+                continue;
+            }
+
+            Kingdom currentOccupier = city.GetTileZoneOccupier(currentZone);
+            if (currentOccupier != null && currentOccupier != occupier)
+            {
+                city.RemoveOccupiedTileZone(currentOccupier, currentZone);
+            }
+
+            if (!occupierZones.Contains(currentZone))
+            {
+                occupierZones.Add(currentZone);
+            }
+
+            city.GetOccupiedZoneOwnerMap()[currentZone] = occupier;
+        }
+    }
+
+    private static void ForceKingdomSurrenderTo(this Kingdom defeated, Kingdom occupier, City capturedCity)
+    {
+        if (defeated == null || occupier == null || defeated.isRekt() || defeated == occupier)
+        {
+            return;
+        }
+
+        List<City> citySnapshot = new List<City>(defeated.cities);
+        if (capturedCity != null && capturedCity.kingdom == defeated)
+        {
+            capturedCity.finishCapture(occupier);
+        }
+
+        for (int i = 0; i < citySnapshot.Count; i++)
+        {
+            City targetCity = citySnapshot[i];
+            if (targetCity == null || targetCity.isRekt() || targetCity.kingdom != defeated)
+            {
+                continue;
+            }
+
+            targetCity.joinAnotherKingdom(occupier, true);
+        }
+    }
+
+    public static bool TryTriggerOccupationCaptureEvent(this City city, Kingdom occupier, TileZone zone = null, Actor capturer = null, bool zoneOccupationMode = false)
+    {
+        if (city == null || occupier == null || city.kingdom == null || city.kingdom == occupier)
+        {
+            return false;
+        }
+
+        Actor victim = city.FindOccupationCaptureTarget(zone, zoneOccupationMode);
+        if (victim == null || victim.kingdom == null || victim.kingdom == occupier)
+        {
+            return false;
+        }
+
+        float chance = victim.GetOccupationCaptureChance();
+        if (chance <= 0f || UnityEngine.Random.value > chance)
+        {
+            return false;
+        }
+
+        Actor captureActor = capturer;
+        if (captureActor == null || captureActor.isRekt() || captureActor.kingdom != occupier)
+        {
+            captureActor = occupier.king;
+        }
+
+        city.ApplyOccupationCaptureRewards(captureActor, victim);
+
+        if (victim.IsEmperor())
+        {
+            victim.GetEmpire()?.AddMandate(-3000);
+            if (zoneOccupationMode)
+            {
+                city.ForceOccupyAllRemainingZones(occupier);
+                city.CheckFinishedCapture();
+            }
+            else
+            {
+                city.finishCapture(occupier);
+            }
+
+            TranslateHelper.LogOccupationCaptureEvent(captureActor, victim, "occupation_capture_result_emperor", occupier.GetEmpire());
+            return true;
+        }
+
+        if (victim.isKing())
+        {
+            victim.kingdom.ForceKingdomSurrenderTo(occupier, city);
+            TranslateHelper.LogOccupationCaptureEvent(captureActor, victim, "occupation_capture_result_king", occupier.GetEmpire());
+            return true;
+        }
+
+        if (victim.isCityLeader())
+        {
+            if (zoneOccupationMode)
+            {
+                city.ForceOccupyAllRemainingZones(occupier);
+                city.CheckFinishedCapture();
+            }
+            else
+            {
+                city.finishCapture(occupier);
+            }
+
+            TranslateHelper.LogOccupationCaptureEvent(captureActor, victim, "occupation_capture_result_lord", occupier.GetEmpire());
+            return true;
+        }
+
+        return false;
+    }
+    public static void ClearOccupiedStatus(this City city)
+    {
+        if (city == null)
+        {
+            return;
+        }
+
+        try
+        {
+            city.clearCapture();
+        }
+        catch
+        {
+            // Ignore vanilla capture visual cleanup failures here.
+        }
+
+        CityExtraData data = city.GetOrCreate();
+        if (data.OccupiedStatus == null || data.OccupiedStatus.Count == 0)
+        {
+            data.OccupiedZoneOwners?.Clear();
+            return;
+        }
+        data.OccupiedStatus = new Dictionary<Kingdom, List<TileZone>>();
+        data.OccupiedZoneOwners?.Clear();
+    }
     public static EmpireCore GetEmpireCore(this City c)
     {
         EmpireCoreManager.EmpireCores.TryGetValue(c.GetEmpireCoreID(), out EmpireCore core);
@@ -50,18 +1207,14 @@ public static class CityExtension
     }
     public static void AddCorruptionRate(this City city, double addition)
     {
-        if (city.GetCorruptionRate() < 1.0f||city.GetCorruptionRate()>0.0f)
+        if (city == null || addition == 0) return;
+        double current = city.GetCorruptionRate();
+        if ((current >= 1.0f && addition > 0) || (current <= 0.0f && addition < 0))
         {
-            city.GetOrCreate().corruption_rate += addition;
-            if (city.GetCorruptionRate() > 1.0f)
-            {
-                city.SetCorruptionRate(1.0f);
-            }
-            if (city.GetCorruptionRate() < 0.0f)
-            {
-                city.SetCorruptionRate(0.0f);
-            }
+            return;
         }
+
+        city.SetCorruptionRate(current + addition);
     }
 
     public static bool HasBeenCombined(this City city)
@@ -115,7 +1268,8 @@ public static class CityExtension
 
     public static void SetCorruptionRate(this City city, Double value)
     {
-        city.GetOrCreate().corruption_rate = value;
+        if (city == null) return;
+        city.GetOrCreate().corruption_rate = Math.Max(0.0, Math.Min(1.0, value));
     }
     public static void SetCityType(this City c, CityType type)
     {
@@ -395,6 +1549,7 @@ public static class CityExtension
 
     public static long GetTitleID(this City c)
     {
+        if (c == null) return -1;
         return GetOrCreate(c).title_id;
     }
 
@@ -407,7 +1562,9 @@ public static class CityExtension
     {
         var ed = GetOrCreate(c);
         if (ed == null) return null;
-        return ed.title_id==-1L?null:ModClass.KINGDOM_TITLE_MANAGER.get(ed.title_id);
+        KingdomTitle title = ed.title_id==-1L?null:ModClass.KINGDOM_TITLE_MANAGER.get(ed.title_id);
+        if (title==null) c.RemoveTitle();
+        return title;
     }
     
 
