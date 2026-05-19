@@ -11,8 +11,8 @@
 
 **EmpireCraft** is a large-scale political and historical simulation mod for **WorldBox**.  
 It expands the base game with interconnected systems for **empires, legitimacy, titles, imperial cores, factions, bureaucracy, local governance, law, succession, war, and occupation**.
----
 
+---
 ## Core Features
 
 ### 1. Empire System
