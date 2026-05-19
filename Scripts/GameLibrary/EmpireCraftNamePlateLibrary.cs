@@ -36,6 +36,7 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly List<City> _cached_cities_no_title = new List<City>();
     private static readonly List<City> _cached_neutral_cities = new List<City>();
     private static readonly List<KingdomTitle> _cached_titles = new List<KingdomTitle>();
+    private static readonly List<EmpireCore> _cached_empire_cores = new List<EmpireCore>();
     private static readonly List<Kingdom> _render_kingdoms_buffer = new List<Kingdom>();
     private static readonly List<Kingdom> _render_kingdoms_no_back_buffer = new List<Kingdom>();
     private static readonly Queue<City> _empire_city_queue = new Queue<City>();
@@ -298,8 +299,21 @@ public static class EmpireCraftNamePlateLibrary
             action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
             {
                 bool throttle = _shouldThrottle();
+                int zoneOptionState = EmpireCraftMetaTypeLibrary.kingdomTitle.getZoneOptionState();
                 if (throttle)
                 {
+                    if (zoneOptionState == 0)
+                    {
+                        for (int i = 0; i < _cached_empire_cores.Count; i++)
+                        {
+                            var core = _cached_empire_cores[i];
+                            var repCity = EmpireCoreManager.GetRepresentativeCity(core);
+                            if (core == null || repCity == null || repCity.isRekt()) continue;
+                            if (!isWithinCamera(repCity.city_center)) continue;
+                            var npt = prepareNext(pManager, pAsset, repCity, 37, 12, 39, 11);
+                            showTextEmpireCore(npt, core);
+                        }
+                    }
                     for (int i = 0; i < _cached_titles.Count; i++)
                     {
                         var t = _cached_titles[i];
@@ -319,20 +333,39 @@ public static class EmpireCraftNamePlateLibrary
                 }
                 else
                 {
+                    _cached_empire_cores.Clear();
                     _cached_titles.Clear();
                     _cached_cities_no_title.Clear();
-                    foreach (KingdomTitle kingdomTitle in ModClass.KINGDOM_TITLE_MANAGER)
-                    {
-                        if (!kingdomTitle.isRekt() && !kingdomTitle.title_capital.isRekt() && isWithinCamera(kingdomTitle.title_capital.city_center))
-                        {
-                            _cached_titles.Add(kingdomTitle);
-                            NameplateText npt = prepareNext(pManager, pAsset, kingdomTitle, 37, 12, 39, 11);
-                            showTextTitle(npt, kingdomTitle.title_capital);
-                        }
-                    }
+                    HashSet<long> visibleCoreIds = new HashSet<long>();
+                    HashSet<long> visibleTitleIds = new HashSet<long>();
                     foreach (City city in World.world.cities)
                     {
-                        if (!city.hasTitle() && isWithinCamera(city.city_center))
+                        if (city == null || city.isRekt()) continue;
+                        if (!isWithinCamera(city.city_center)) continue;
+
+                        KingdomTitle kingdomTitle = city.GetTitle();
+                        EmpireCore core = city.GetEmpireCore();
+                        if (zoneOptionState == 0 && core != null && kingdomTitle != null && EmpireCoreManager.ContainsTitle(core, kingdomTitle))
+                        {
+                            if (visibleCoreIds.Add(core.id))
+                            {
+                                _cached_empire_cores.Add(core);
+                                NameplateText npt = prepareNext(pManager, pAsset, city, 37, 12, 39, 11);
+                                showTextEmpireCore(npt, core);
+                            }
+                            continue;
+                        }
+
+                        if (kingdomTitle != null && !kingdomTitle.isRekt())
+                        {
+                            if (visibleTitleIds.Add(kingdomTitle.id))
+                            {
+                                _cached_titles.Add(kingdomTitle);
+                                NameplateText npt = prepareNext(pManager, pAsset, city, 37, 12, 39, 11);
+                                showTextTitle(npt, kingdomTitle.title_capital);
+                            }
+                        }
+                        else
                         {
                             _cached_cities_no_title.Add(city);
                             NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_city, city);
@@ -343,7 +376,6 @@ public static class EmpireCraftNamePlateLibrary
             },
         };
         AssetManager.nameplates_library.add(asset2);
-        
         
         NameplateAsset asset5 = new NameplateAsset
         {
@@ -955,6 +987,39 @@ public static class EmpireCraftNamePlateLibrary
         plateText.nano_object = empire.CoreKingdom;
     }
 
+    public static void showTextEmpireCore(NameplateText plateText, EmpireCore core)
+    {
+        if (core == null) return;
+        City repCity = EmpireCoreManager.GetRepresentativeCity(core);
+        if (repCity == null || repCity.isRekt()) return;
+
+        plateText._showing = true;
+        plateText._text_name.supportRichText = true;
+        plateText._text_name.fontStyle = FontStyle.Bold;
+        plateText._text_name.color = Color.white;
+        setTextIfChanged(plateText, EmpireCoreManager.GetDisplayName(core), GetEmpireCoreDisplayPosition(core));
+
+        var outline = plateText._text_name.GetComponent<Outline>();
+        if (outline == null)
+        {
+            outline = plateText._text_name.gameObject.AddComponent<Outline>();
+        }
+        outline.enabled = true;
+        outline.effectColor = new Color(0f, 0f, 0f, 0.75f);
+        outline.effectDistance = new Vector2(2f, -2f);
+
+        Sprite sprite = SpriteTextureLoader.getSprite("ui/nameplates/nameplate_empire");
+        plateText._background_image.sprite = sprite;
+        plateText._background_image.type = Image.Type.Simple;
+        plateText._background_image.enabled = true;
+        plateText._show_banner_kingdom = false;
+        plateText._show_banner_city = false;
+        plateText._show_banner_clan = false;
+        plateText.priority_population = EmpireCoreManager.GetCities(core).Count;
+        plateText.transform.SetAsLastSibling();
+        plateText.nano_object = repCity;
+    }
+
     private static Vector3 GetEmpireDisplayPosition(Empire empire)
     {
         if (empire == null)
@@ -972,11 +1037,37 @@ public static class EmpireCraftNamePlateLibrary
         }
 
         List<City> cities = empire.AllCities();
+        Vector3 fallback = empire.CoreKingdom?.capital?.city_center ?? new Vector2(99, 99);
         if (cities == null || cities.Count <= 0)
         {
-            Vector3 fallback = empire.CoreKingdom?.capital?.city_center ?? new Vector2(99, 99);
             _empire_position_cache[empireId] = fallback;
             _empire_position_cache_time[empireId] = now;
+            return fallback;
+        }
+        Vector3 result = GetDominantCitiesDisplayPosition(cities, fallback);
+        _empire_position_cache[empireId] = result;
+        _empire_position_cache_time[empireId] = now;
+        return result;
+    }
+
+    private static Vector3 GetEmpireCoreDisplayPosition(EmpireCore core)
+    {
+        if (core == null) return new Vector2(99, 99);
+        var currentEmpire = EmpireCoreManager.GetEmpires(core).FirstOrDefault();
+        if (currentEmpire != null)
+        {
+            return GetEmpireDisplayPosition(currentEmpire);
+        }
+
+        List<City> cities = EmpireCoreManager.GetCities(core);
+        Vector3 fallback = EmpireCoreManager.GetRepresentativeCity(core)?.city_center ?? new Vector2(99, 99);
+        return GetDominantCitiesDisplayPosition(cities, fallback);
+    }
+
+    private static Vector3 GetDominantCitiesDisplayPosition(List<City> cities, Vector3 fallback)
+    {
+        if (cities == null || cities.Count <= 0)
+        {
             return fallback;
         }
 
@@ -1033,9 +1124,6 @@ public static class EmpireCraftNamePlateLibrary
 
         if (_empire_best_component_cities.Count <= 0)
         {
-            Vector3 fallback = empire.GetEmpireCenter();
-            _empire_position_cache[empireId] = fallback;
-            _empire_position_cache_time[empireId] = now;
             return fallback;
         }
 
@@ -1062,10 +1150,7 @@ public static class EmpireCraftNamePlateLibrary
 
         if (zoneCount <= 0)
         {
-            Vector3 fallback = _empire_best_component_cities[0]?.city_center ?? empire.GetEmpireCenter();
-            _empire_position_cache[empireId] = fallback;
-            _empire_position_cache_time[empireId] = now;
-            return fallback;
+            return _empire_best_component_cities[0]?.city_center ?? fallback;
         }
 
         avgX /= zoneCount;
@@ -1093,15 +1178,10 @@ public static class EmpireCraftNamePlateLibrary
         {
             Vector3 center = nearestZone.centerTile.posV3;
             center.y += 2f;
-            _empire_position_cache[empireId] = center;
-            _empire_position_cache_time[empireId] = now;
             return center;
         }
 
-        Vector3 result = _empire_best_component_cities[0]?.city_center ?? empire.GetEmpireCenter();
-        _empire_position_cache[empireId] = result;
-        _empire_position_cache_time[empireId] = now;
-        return result;
+        return _empire_best_component_cities[0]?.city_center ?? fallback;
     }
 
     public static void showTextTitle(NameplateText plateText, City capital)

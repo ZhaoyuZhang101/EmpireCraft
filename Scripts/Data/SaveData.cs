@@ -27,6 +27,7 @@ public class SaveData
     public List<WarExtraData> warExtraData = new List<WarExtraData>();
     public List<ReligionExtraData> religionExtraData = new List<ReligionExtraData>();
     public List<EmpireData> empireDatas = new List<EmpireData>();
+    public List<EmpireCore> empireCoreDatas = new List<EmpireCore>();
     public List<KingdomTitleData> kingdomTitleDatas = new List<KingdomTitleData>();
     public List<string> yearNameSubspecies = new List<string>();
     public Dictionary<long, List<EmpireCraftHistory>> all_history;

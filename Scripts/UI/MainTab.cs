@@ -73,6 +73,8 @@ internal static class MainTab
             nameof(AddFactionWindow) + "Title");
         EmpireHistoryWindow.CreateWindow(nameof(EmpireHistoryWindow),
             "empire_personal_history");
+        EmpireCoreWindow.CreateWindow(nameof(EmpireCoreWindow),
+            "EmpireCoreWindowTitle");
     }
     [Hotfixable]
     private static void _addButtons()
@@ -86,14 +88,34 @@ internal static class MainTab
             PowerButtonCreator.CreateGodPowerButton("create_title",
                   SpriteTextureLoader.getSprite("ui/icons/iconCreateTitle.png")));
 
+        CreateEmpireCoreButton.init();
+        tab.AddPowerButton(EMPIRE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("create_empire_core",
+                SpriteTextureLoader.getSprite("ui/icons/iconCreateTitle.png")));
+
         AddTitleButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("add_title",
                 SpriteTextureLoader.getSprite("ui/icons/iconAddTitle.png")));
 
+        AddTitleToEmpireCoreButton.init();
+        tab.AddPowerButton(EMPIRE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("add_title_to_empire_core",
+                SpriteTextureLoader.getSprite("ui/icons/iconAddTitle.png")));
+
         RemoveTitleButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_title",
+                SpriteTextureLoader.getSprite("ui/icons/iconRemoveTitle.png")));
+
+        RemoveTitleFromEmpireCoreButton.init();
+        tab.AddPowerButton(EMPIRE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("remove_title_from_empire_core",
+                SpriteTextureLoader.getSprite("ui/icons/iconRemoveTitle.png")));
+
+        DestroyEmpireCoreButton.init();
+        tab.AddPowerButton(EMPIRE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("destroy_empire_core",
                 SpriteTextureLoader.getSprite("ui/icons/iconRemoveTitle.png")));
         
         PowerButton pb = FixFunctions.CreateLayerButton(MetaTypeExtension.Empire,

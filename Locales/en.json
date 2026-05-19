@@ -715,5 +715,36 @@
     "occupation_capture_event_log": "$capturer$ captured $victim$, $result$",
     "occupation_capture_result_lord": "the city fell immediately",
     "occupation_capture_result_king": "the whole kingdom surrendered",
-    "occupation_capture_result_emperor": "imperial mandate collapsed and the occupied target was overrun"
+    "occupation_capture_result_emperor": "imperial mandate collapsed and the occupied target was overrun",
+    "opinion_same_empire_core": "Rival claim to the same imperial legacy",
+    "create_empire_core": "Create Imperial Core",
+    "create_empire_core_description": "Create a new imperial core from the clicked kingdom title",
+    "add_title_to_empire_core": "Add Title To Imperial Core",
+    "add_title_to_empire_core_description": "Select a kingdom title first, then click a city inside the target imperial core to absorb it",
+    "remove_title_from_empire_core": "Remove Title From Imperial Core",
+    "remove_title_from_empire_core_description": "Remove the clicked kingdom title from its current imperial core",
+    "destroy_empire_core": "Destroy Imperial Core",
+    "destroy_empire_core_description": "Destroy the imperial core attached to the clicked city",
+    "empire_core_invalid_target": "Invalid imperial core target",
+    "empire_core_select_title_first": "Please select a city with a kingdom title first",
+    "empire_core_title_selected": "Kingdom title selected",
+    "create_empire_core_success": "A new imperial core has been created",
+    "add_title_to_empire_core_success": "The kingdom title has been added to the imperial core",
+    "remove_title_from_empire_core_success": "The kingdom title has been removed from the imperial core",
+    "destroy_empire_core_success": "The imperial core has been destroyed"
+    ,"EmpireCoreWindowTitle":""
+    ,"empire_core_description":"Current imperial core information"
+    ,"empire_core_display_name":"Imperial Core Name"
+    ,"empire_core_plate_name":"Plate Name"
+    ,"empire_core_created_time":"Created On"
+    ,"empire_core_founding_empire":"Founding Empire"
+    ,"empire_core_titles_count":"Included Titles"
+    ,"empire_core_cities_count":"Included Cities"
+    ,"empire_core_current_empires":"Current Claimant Empires"
+    ,"empire_core_history_collection":"Imperial Core History Collection"
+    ,"empire_core_history_exists":"Still Exists"
+    ,"empire_core_history_gone":"No Longer Exists"
+    ,"empire_core_history_duration":"Duration"
+    ,"empire_core_history_emperors":"Emperor History"
+    ,"empire_core_none":"None"
 }

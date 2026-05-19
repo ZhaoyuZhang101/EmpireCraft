@@ -410,12 +410,56 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
                 // 敌对国家占领，才需要夺回
                 if (kingdom.isInWarWith(occupier))
                 {
-                    result.Add(zone);
+                    if (CanRetakeZoneFromFriendlyEdge(kingdom, zone))
+                    {
+                        result.Add(zone);
+                    }
                 }
             }
         }
 
         return result;
+    }
+
+    private static bool CanRetakeZoneFromFriendlyEdge(Kingdom kingdom, TileZone zone)
+    {
+        if (kingdom == null || zone == null || zone.city == null)
+        {
+            return false;
+        }
+
+        if (zone.neighbours_all == null || zone.neighbours_all.Count() == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < zone.neighbours_all.Count(); i++)
+        {
+            TileZone neighbour = zone.neighbours_all[i];
+            if (!KingdomFrontLineHelper.IsValidZone(neighbour))
+            {
+                continue;
+            }
+
+            City neighbourCity = neighbour.city;
+            if (neighbourCity == null || neighbourCity.isRekt())
+            {
+                continue;
+            }
+
+            Kingdom neighbourOwner = neighbourCity.kingdom;
+            Kingdom neighbourOccupier = neighbourCity.GetTileZoneOccupier(neighbour);
+
+            bool isFriendlyNativeEdge = neighbourOwner == kingdom && neighbourOccupier == null;
+            bool isFriendlyRecoveredEdge = neighbourOccupier == kingdom;
+
+            if (isFriendlyNativeEdge || isFriendlyRecoveredEdge)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static TileZone FindTargetFrontZoneForActor(Actor actor)

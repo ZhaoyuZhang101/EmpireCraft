@@ -197,6 +197,15 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
+        var riseCore = EmpireCoreManager.GetRiseCandidateCore(pKingdom);
+        if (riseCore != null)
+        {
+            EmpireCoreManager.RebindEmpire(empire, riseCore);
+        }
+        else
+        {
+            EmpireCoreManager.newEmpireCore(empire);
+        }
         pKingdom.GetOrCreate().isEmpire = true;
         pKingdom.GetOrCreate().EmpireID = empire.id;
         if (empire.data.has_year_name)

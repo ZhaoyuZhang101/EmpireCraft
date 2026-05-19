@@ -11,6 +11,7 @@ namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftMetaTypeLibrary
 {
     public static Empire selected_empire; 
+    public static EmpireCore selected_empireCore;
     public static KingdomTitle selected_kingdomTitle; 
     public static MetaTypeAsset empire; 
     public static MetaTypeAsset kingdomTitle; 
@@ -360,7 +361,7 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.map_mode = MetaTypeExtension.KingdomTitle;
         pAsset13.option_id = "map_KingdomTitle_layer";
         pAsset13.power_option_zone_id = "KingdomTitle_layer";
-        pAsset13.click_action_zone = new MetaZoneClickAction(inspectKingdomTitle);
+        pAsset13.click_action_zone = new MetaZoneClickAction(inspectEmpireCoreOrKingdomTitle);
         pAsset13.selected_tab_action_meta = new MetaTypeActionAsset(defaultClickActionZone);
         pAsset13.check_unit_has_meta = (MetaCheckUnitWindowAction) (pActor => pActor.isKingdomCiv());
         pAsset13.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (pActor => selected_kingdomTitle = pActor.city.GetTitle());
@@ -421,6 +422,16 @@ public static class EmpireCraftMetaTypeLibrary
             City city11 = pTile.zone.city;
             if (city11.isRekt())
               return;
+            if (pMetaTypeAsset.getZoneOptionState() == 0)
+            {
+              EmpireCore core = getTitleLayerEmpireCore(pTile.zone);
+              if (core != null)
+              {
+                foreach (City city12 in EmpireCoreManager.GetCities(core))
+                  QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
+                return;
+              }
+            }
             if (!city11.hasTitle())
               return;
             foreach (City city12 in city11.GetTitle()?.getCities()?? new List<City>())
@@ -438,21 +449,54 @@ public static class EmpireCraftMetaTypeLibrary
         });
         pAsset13.tile_get_metaobject_0 = (MetaZoneGetMetaSimple) (pZone =>
         {
-          City city = pZone.city;
-          return city?.GetTitle();
+          return getKingdomTitleLayerMeta0(pZone);
         });
         pAsset13.tile_get_metaobject_1 = (MetaZoneGetMetaSimple) (pZone => ZoneMetaDataVisualizer.getZoneMetaData(pZone).meta_object);
         pAsset13.tile_get_metaobject_2 = (MetaZoneGetMetaSimple) (pZone => ZoneMetaDataVisualizer.getZoneMetaData(pZone).meta_object);
         pAsset13.check_tile_has_meta = (MetaZoneTooltipAction) ((pZone, pAsset, pZoneOption) =>
         {
           IMetaObject metaObject = pAsset.tile_get_metaobject(pZone, pZoneOption);
+          Empire empireMeta = metaObject as Empire;
+          if (empireMeta != null) return !empireMeta.isRekt() && !empireMeta.IsArchived();
           KingdomTitle kt = metaObject as KingdomTitle;
           if (kt == null) return false;
-          return kt.isRekt();
+          return !kt.isRekt();
         });
-        pAsset13.check_cursor_tooltip = new MetaZoneTooltipAction(checkCursorTooltipDefault);
+        pAsset13.check_cursor_tooltip = (pZone, pAsset, pZoneOption) =>
+        {
+          if (pZoneOption == 0)
+          {
+            EmpireCore core = getTitleLayerEmpireCore(pZone);
+            if (core != null)
+            {
+              Tooltip.hideTooltip((object) pZone.city, true, "empireCore");
+              Tooltip.show((object) pZone.city, "empireCore", new TooltipData()
+              {
+                city = pZone?.city,
+                tooltip_scale = 0.7f,
+                is_sim_tooltip = true
+              });
+              return true;
+            }
+          }
+          return checkCursorTooltipDefault(pZone, pAsset, pZoneOption);
+        };
         pAsset13.cursor_tooltip_action = (MetaTooltipShowAction) (pMeta =>
         {
+          if (pMeta is Empire empireMeta)
+          {
+            if (empireMeta.isRekt() || empireMeta.IsArchived())
+              return;
+            string empireStr = "empire";
+            Tooltip.hideTooltip((object) empireMeta, true, empireStr);
+            Tooltip.show((object) empireMeta, empireStr, new TooltipData()
+            {
+              kingdom = empireMeta.CoreKingdom,
+              tooltip_scale = 0.7f,
+              is_sim_tooltip = true
+            });
+            return;
+          }
           KingdomTitle kingdomTitle = pMeta as KingdomTitle;
           if (kingdomTitle.isRekt())
             return;
@@ -467,8 +511,17 @@ public static class EmpireCraftMetaTypeLibrary
         });
         pAsset13.stat_hover = (MetaStatAction) ((pMetaId, pField) =>
         {
+          Empire empireMeta = ModClass.EMPIRE_MANAGER.get(pMetaId);
+          if (empireMeta != null && !empireMeta.isRekt() && !empireMeta.IsArchived())
+          {
+            Tooltip.show((object) pField, "empire", new TooltipData()
+            {
+              kingdom = empireMeta.CoreKingdom
+            });
+            return;
+          }
           KingdomTitle pObject = ModClass.KINGDOM_TITLE_MANAGER.get(pMetaId);
-          if (pObject.isRekt())
+          if (pObject == null || pObject.isRekt())
             return;
           Tooltip.show((object) pField, "kingdomTitle", new TooltipData()
           {
@@ -477,8 +530,15 @@ public static class EmpireCraftMetaTypeLibrary
         });
         pAsset13.stat_click = (MetaStatAction) ((pMetaId, _) =>
         {
+          Empire empireMeta = ModClass.EMPIRE_MANAGER.get(pMetaId);
+          if (empireMeta != null && !empireMeta.isRekt() && !empireMeta.IsArchived())
+          {
+            selected_empire = empireMeta;
+            ScrollWindow.showWindow(nameof(EmpireWindow));
+            return;
+          }
           KingdomTitle pObject = ModClass.KINGDOM_TITLE_MANAGER.get(pMetaId);
-          if (pObject.isRekt())
+          if (pObject == null || pObject.isRekt())
             return;
           selected_kingdomTitle = pObject;
           ScrollWindow.showWindow(nameof(KingdomTitleWindow));
@@ -536,6 +596,26 @@ public static class EmpireCraftMetaTypeLibrary
       ScrollWindow.showWindow(nameof(KingdomTitleWindow));
       return true;
     }
+    public static bool inspectEmpireCoreOrKingdomTitle(WorldTile pTile = null, string pPower = null)
+    {
+      if (pTile?.zone == null) return false;
+      EmpireCore core = getTitleLayerEmpireCore(pTile.zone);
+      if (core != null)
+      {
+        return inspectEmpireCore(pTile, pPower);
+      }
+      return inspectKingdomTitle(pTile, pPower);
+    }
+
+    public static bool inspectEmpireCore(WorldTile pTile = null, string pPower = null)
+    {
+      if (pTile?.zone == null) return false;
+      EmpireCore core = getTitleLayerEmpireCore(pTile.zone);
+      if (core == null) return false;
+      selected_empireCore = core;
+      ScrollWindow.showWindow(nameof(EmpireCoreWindow));
+      return true;
+    }
     public static void highlightDefault(WorldTile pTile, QuantumSpriteAsset pQAsset, Color pColorAnimated)
     {
       ZoneMetaData zoneMetaData = ZoneMetaDataVisualizer.getZoneMetaData(pTile.zone);
@@ -549,6 +629,33 @@ public static class EmpireCraftMetaTypeLibrary
       MetaZoneGetMetaSimple zoneDelegate = getZoneDelegate(pMetaTypeAsset);
       foreach (Kingdom kingdom in (CoreSystemManager<Kingdom, KingdomData>) World.world.kingdoms)
         drawForCities(pMetaTypeAsset, kingdom.getCities(), zoneDelegate);
+    }
+
+    private static IMetaObject getKingdomTitleLayerMeta0(TileZone pZone)
+    {
+      City city = pZone?.city;
+      if (city == null) return null;
+      KingdomTitle title = city.GetTitle();
+      EmpireCore core = city.GetEmpireCore();
+      if (core != null && title != null && EmpireCoreManager.ContainsTitle(core, title))
+      {
+        Empire empireMeta = ModClass.EMPIRE_MANAGER.get(core.empire_id);
+        if (empireMeta != null && !empireMeta.isRekt() && !empireMeta.IsArchived())
+        {
+          return empireMeta;
+        }
+      }
+      return title;
+    }
+
+    private static EmpireCore getTitleLayerEmpireCore(TileZone pZone)
+    {
+      City city = pZone?.city;
+      if (city == null) return null;
+      KingdomTitle title = city.GetTitle();
+      EmpireCore core = city.GetEmpireCore();
+      if (core == null || title == null) return null;
+      return EmpireCoreManager.ContainsTitle(core, title) ? core : null;
     }
 
     public static void drawForCities(

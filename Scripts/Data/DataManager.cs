@@ -146,6 +146,7 @@ public static class DataManager
         }
         ModClass.EMPIRE_MANAGER.update(-1L);
         LogService.LogInfo("Sync Empire Data");
+        EmpireCoreManager.EmpireCores = saveData.empireCoreDatas?.Where(c => c != null).ToDictionary(c => c.id) ?? new Dictionary<long, EmpireCore>();
 
         foreach (KingdomTitleData kingdomTitleData in saveData.kingdomTitleDatas)
         {
@@ -183,6 +184,7 @@ public static class DataManager
         saveData.warExtraData = World.world.wars.Select(a => a.GetExtraData<War, WarExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.clanExtraData = World.world.clans.Select(a => a.GetExtraData<Clan, ClanExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
+        saveData.empireCoreDatas = EmpireCoreManager.EmpireCores.Values.Where(c => c != null).ToList();
         saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
         ModClass.EMPIRE_MANAGER.update(-1L);
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);

@@ -1,4 +1,4 @@
-using EmpireCraft.Scripts.Enums;
+﻿using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using Newtonsoft.Json;
@@ -1420,8 +1420,8 @@ public static class KingdomExtension
     {
         if (k == null || title == null || title.isRekt()) return;
         if (title.title_capital == null || title.title_capital.isRekt()) return;
-        bool titleBelongsToKingdom = title.getCities().Any(c => c != null && !c.isRekt() && c.kingdom == k);
-        if (!titleBelongsToKingdom) return;
+        if (k.capital == null || k.capital.isRekt()) return;
+        if (title.title_capital != k.capital) return;
         var current = ModClass.KINGDOM_TITLE_MANAGER.get(k.GetOrCreate().MainTitle);
         if (current == title)
         {
@@ -1467,8 +1467,7 @@ public static class KingdomExtension
             return null;
         }
 
-        var hasValidCity = title.city_list_hash != null && title.city_list_hash.Any(c => c != null && !c.isRekt() && c.kingdom == k);
-        if (!hasValidCity)
+        if (k.capital == null || k.capital.isRekt() || title.title_capital != k.capital)
         {
             if (title.main_kingdom == k)
             {
@@ -1501,6 +1500,7 @@ public static class KingdomExtension
     {
         if (k == null || title == null || title.isRekt()) return false;
         if (title.title_capital == null || title.title_capital.isRekt()) return false;
+        if (k.capital == null || k.capital.isRekt() || title.title_capital != k.capital) return false;
 
         var current = k.GetMainTitle();
         bool shouldReplace = current == null;
@@ -1508,10 +1508,9 @@ public static class KingdomExtension
         if (!shouldReplace && current != title)
         {
             bool currentInvalid = current.title_capital == null || current.title_capital.isRekt();
-            bool currentFallbackCapitalTitle = k.capital != null && current.title_capital == k.capital;
-            bool currentDetachedFromKingdom = !current.getCities().Any(c => c != null && !c.isRekt() && c.kingdom == k);
+            bool currentCapitalMismatch = k.capital == null || current.title_capital != k.capital;
 
-            shouldReplace = currentInvalid || currentFallbackCapitalTitle || currentDetachedFromKingdom;
+            shouldReplace = currentInvalid || currentCapitalMismatch;
         }
 
         if (!shouldReplace) return false;
@@ -1547,12 +1546,22 @@ public static class KingdomExtension
     {
         if (!k.hasKing()) return false;
         if (k.IsInEmpire()) return false;
-        // 基本条件检查
         if (k.isRekt() || k.IsEmpire()) return false;
-        if (k.countUnits()<200) return false;
-        // 检查是否是同物种中最强大的
+        if (k.countUnits() < 200) return false;
+
+        EmpireCore riseCore = EmpireCoreManager.GetRiseCandidateCore(k);
+        if (riseCore != null)
+        {
+            int controlledCount = EmpireCoreManager.GetControlledCoreTitleCount(riseCore, k);
+            int requiredCount = EmpireCoreManager.GetRequiredRiseTitleCount(riseCore);
+            if (controlledCount >= requiredCount)
+            {
+                return true;
+            }
+        }
+
         int allEmpireNumInSameSpecies = World.world.kingdoms.ToList().FindAll(p => p.getSpecies() == k.getSpecies() && p.IsEmpire()).Count;
-        return IsStrongestOfSameSpecies(k) && allEmpireNumInSameSpecies<1;
+        return IsStrongestOfSameSpecies(k) && allEmpireNumInSameSpecies < 1;
     }
 
     private static bool IsStrongestOfSameSpecies(Kingdom k)

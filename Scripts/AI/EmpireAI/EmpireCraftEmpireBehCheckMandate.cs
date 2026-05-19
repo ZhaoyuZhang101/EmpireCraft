@@ -20,6 +20,15 @@ public class EmpireCraftEmpireBehCheckMandate : GameAIEmpireBase
         {
             empire.AddMandate(1);
             empire.data.last_increase_mandate_timestamp = world.getCurWorldTime();
+            foreach (var memberKingdom in empire.kingdoms_list.ToList())
+            {
+                if (memberKingdom == null || memberKingdom.isRekt()) continue;
+                foreach (var title in memberKingdom.GetControlledTitle())
+                {
+                    if (title == null || title.isRekt()) continue;
+                    EmpireCoreManager.TryAbsorbTitle(empire, title);
+                }
+            }
             foreach (var k in empire.kingdoms_list.ToList())
             {
                 if (empire.CurrentMoney > 0)

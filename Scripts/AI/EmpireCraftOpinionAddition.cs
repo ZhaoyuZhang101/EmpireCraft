@@ -214,6 +214,26 @@ public static class EmpireCraftOpinionAddition
         });
         opl.add(new OpinionAsset
         {
+            id = "opinion_same_empire_core",
+            translation_key_negative = "opinion_same_empire_core",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                int result = 0;
+                if (pMain == null || pTarget == null) return result;
+                if (!pMain.IsEmpire() || !pTarget.IsEmpire()) return result;
+                if (pMain.IsInSameEmpire(pTarget)) return result;
+                EmpireCore mainCore = EmpireCoreManager.GetRiseCandidateCore(pMain);
+                EmpireCore targetCore = EmpireCoreManager.GetRiseCandidateCore(pTarget);
+                if (mainCore == null || targetCore == null) return result;
+                if (mainCore.id == targetCore.id)
+                {
+                    result = -1200;
+                }
+                return result;
+            }
+        });
+        opl.add(new OpinionAsset
+        {
             id = "opinion_just_enfeoff",
             translation_key = "opinion_just_enfeoff",
             calc = delegate (Kingdom pMain, Kingdom pTarget)

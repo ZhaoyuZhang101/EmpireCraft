@@ -1531,8 +1531,7 @@ public static class CityExtension
 
     public static void SetEmpireCore(this City a, EmpireCore core)
     {
-        if (core == null) return;
-        GetOrCreate(a).empire_core_id = core.id;
+        GetOrCreate(a).empire_core_id = core?.id ?? -1L;
     }
 
     public static bool hasTitle(this City c)

@@ -39,12 +39,26 @@ public class TempFac_谋求统一 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire?.CoreKingdom?.hasEnemies()??true) return false;
+        EmpireCore selfCore = EmpireCoreManager.Get(empire);
         foreach (var kingdom in World.world.kingdoms)
         {
             if (empire.given_Kingdoms.Contains(kingdom)) continue;
             if (empire.taken_Kingdoms.Contains(kingdom)) continue;
             if (kingdom.IsLocalRebelling()) continue;
             if (kingdom.IsFactionRebelling()) continue;
+            if (kingdom.IsEmpire() && !kingdom.IsInSameEmpire(empire.CoreKingdom))
+            {
+                EmpireCore targetCore = EmpireCoreManager.GetRiseCandidateCore(kingdom);
+                if (selfCore != null && targetCore != null && selfCore.id == targetCore.id)
+                {
+                    Empire targetEmpire = kingdom.GetEmpire();
+                    if (targetEmpire != null && empire.countWarriors() >= targetEmpire.countWarriors())
+                    {
+                        SetKingdomTarget(targetEmpire.CoreKingdom);
+                        return true;
+                    }
+                }
+            }
             if (empire.GetKingdomNeighbours().Any(k => k.IsInEmpire() && k == kingdom && k.getSpecies()==empire.CoreKingdom.getSpecies()))
             {
                 var targetEmpire = kingdom.GetEmpire();

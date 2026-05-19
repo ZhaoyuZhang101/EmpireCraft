@@ -636,6 +636,11 @@ public class Empire : MetaObject<EmpireData>
         }
         generateNewMetaObject();
         string empireName = kingdom.GetKingdomName();
+        EmpireCore riseCore = EmpireCoreManager.GetRiseCandidateCore(kingdom);
+        if (riseCore != null && !string.IsNullOrWhiteSpace(riseCore.name))
+        {
+            empireName = riseCore.name;
+        }
         if (kingdom.king.HasTitle())
         {
             empireName = kingdom.king.GetTitle();

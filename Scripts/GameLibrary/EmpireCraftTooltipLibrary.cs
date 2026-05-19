@@ -31,6 +31,12 @@ public static class EmpireCraftTooltipLibrary
         });
         tl.add(new TooltipAsset
         {
+            id = "empireCore",
+            prefab_id = "tooltips/tooltip_kingdom",
+            callback = showEmpireCoreToolTip
+        });
+        tl.add(new TooltipAsset
+        {
             id = "actor_officer",
             prefab_id = "tooltips/tooltip_actor",
             callback = showOfficer
@@ -287,6 +293,39 @@ public static class EmpireCraftTooltipLibrary
         {
             pTooltip.addLineText("title_been_controlled", city.kingdom.IsEmpire() ? city.kingdom.GetEmpire().data.name : city.kingdom.data.name, "#CC6CE7", false, true, 21);
             pTooltip.addLineText("title_been_controlled_year", $"{title.GetTitleBeenControlledYear()}{LM.Get("Year")}", tColorHex, false, true, 21);
+        }
+    }
+
+    public static void showEmpireCoreToolTip(Tooltip pTooltip, string pType, TooltipData pData)
+    {
+        pTooltip.clear();
+        City city = pData.city;
+        EmpireCore core = city?.GetEmpireCore();
+        if (core == null) return;
+
+        City repCity = EmpireCoreManager.GetRepresentativeCity(core) ?? city;
+        Kingdom repKingdom = repCity?.kingdom;
+        string colorText = repKingdom?.getColor().color_text ?? "#FFFFFF";
+        pTooltip.setDescription(LM.Get("empire_core_description"), null);
+        pTooltip.setTitle(EmpireCoreManager.GetDisplayName(core), "EmpireCoreWindowTitle", colorText);
+        AssetManager.tooltips.setIconValue(pTooltip, "i_age", Date.getYearsSince(core.create_timestamp));
+        AssetManager.tooltips.setIconValue(pTooltip, "i_population", EmpireCoreManager.GetCities(core).Sum(c => c?.CountLivingPopulation() ?? 0));
+        AssetManager.tooltips.setIconValue(pTooltip, "i_army", EmpireCoreManager.GetCities(core).Sum(c => c?.CountLivingWarriors() ?? 0));
+
+        string createTime = $"{Date.getDate(core.create_timestamp)}";
+        pTooltip.addLineText("empire_core_created_time", createTime, colorText, false, true, 21);
+        string foundingEmpire = EmpireCoreManager.GetFoundingEmpireName(core);
+        if (!string.IsNullOrWhiteSpace(foundingEmpire))
+        {
+            pTooltip.addLineText("empire_core_founding_empire", foundingEmpire, colorText, false, true, 21);
+        }
+        pTooltip.addLineText("empire_core_titles_count", EmpireCoreManager.GetTitles(core).Count.ToString(), colorText, false, true, 21);
+        pTooltip.addLineText("empire_core_cities_count", EmpireCoreManager.GetCities(core).Count.ToString(), colorText, false, true, 21);
+
+        List<string> empires = EmpireCoreManager.GetCurrentEmpireNames(core);
+        if (empires.Count > 0)
+        {
+            pTooltip.addLineText("empire_core_current_empires", string.Join(" / ", empires), colorText, false, true, 21);
         }
     }
     private static void showOfficer(Tooltip pTooltip, string pType, TooltipData pData)
