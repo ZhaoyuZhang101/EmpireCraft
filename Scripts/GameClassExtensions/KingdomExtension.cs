@@ -1039,7 +1039,7 @@ public static class KingdomExtension
         return k.GetOrCreate().isLocalRebelling;
     }
 
-    public static void SetKindomName(this Kingdom k, string kindomName)
+    public static void SetKingdomName(this Kingdom k, string kindomName)
     {
         if (!k.IsFactionRebelling() && k.getWars().Count() <= 0 && !k.IsLocalRebelling())
         {
@@ -1552,12 +1552,36 @@ public static class KingdomExtension
         EmpireCore riseCore = EmpireCoreManager.GetRiseCandidateCore(k);
         if (riseCore != null)
         {
+            if (EmpireCoreManager.GetActiveEmpireCount(riseCore) >= 2)
+            {
+                return false;
+            }
             int controlledCount = EmpireCoreManager.GetControlledCoreTitleCount(riseCore, k);
             int requiredCount = EmpireCoreManager.GetRequiredRiseTitleCount(riseCore);
-            if (controlledCount >= requiredCount)
+            if (controlledCount < requiredCount)
             {
-                return true;
+                return false;
             }
+
+            KingdomTitle capitalTitle = k.capital?.GetTitle();
+            if (capitalTitle != null && EmpireCoreManager.ContainsTitle(riseCore, capitalTitle))
+            {
+                List<City> coreCities = EmpireCoreManager.GetCities(riseCore);
+                int totalCityCount = coreCities.Count(c => c != null && !c.isRekt());
+                if (totalCityCount <= 0)
+                {
+                    return false;
+                }
+
+                int controlledCityCount = coreCities.Count(c => c != null && !c.isRekt() && c.kingdom == k);
+                int requiredCityCount = (int)Math.Ceiling(totalCityCount / 2f);
+                if (controlledCityCount < requiredCityCount)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         int allEmpireNumInSameSpecies = World.world.kingdoms.ToList().FindAll(p => p.getSpecies() == k.getSpecies() && p.IsEmpire()).Count;

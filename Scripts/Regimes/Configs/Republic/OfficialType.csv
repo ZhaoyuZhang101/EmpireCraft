@@ -1,26 +1,26 @@
-key,cz
+key,cz,en,ch
 
-Modern_republic,共和国
-Modern_centre,直辖市(首都)
-default_tempcentre,临时政府
-Modern_republic_socialist,社会主义共和国
-Modern_republic_people,人民共和国
-Modern_province,省
-Modern_state,州
-Modern_autonomous_prefecture,自治州
+Modern_republic,共和国,Republic,共和國
+Modern_centre,直辖市(首都),Direct-administered Municipality (Capital),直轄市(首都)
+default_tempcentre,临时政府,Provisional Government,臨時政府
+Modern_republic_socialist,社会主义共和国,Socialist Republic,社會主義共和國
+Modern_republic_people,人民共和国,People's Republic,人民共和國
+Modern_province,省,Province,省
+Modern_state,州,State,州
+Modern_autonomous_prefecture,自治州,Autonomous Prefecture,自治州
 
-Modern_officiallevel_0,总统2
-Modern_officiallevel_1,副总统
-Modern_officiallevel_2,国务卿
-Modern_officiallevel_3,部长
-Modern_officiallevel_4,议员
-Modern_officiallevel_5,州长
-Modern_officiallevel_6,市长
+Modern_officiallevel_0,总统,President,總統
+Modern_officiallevel_1,副总统,Vice President,副總統
+Modern_officiallevel_2,国务卿,Secretary of State,國務卿
+Modern_officiallevel_3,部长,Minister,部長
+Modern_officiallevel_4,议员,Legislator,議員
+Modern_officiallevel_5,州长,Governor,州長
+Modern_officiallevel_6,市长,Mayor,市長
 
-Modern_city,市
+Modern_city,市,City,市
 
-finance_full,财政部
-defence_full,国防部
-law_pre_full,司法部
-interior_full,内务部
-education_full,教育部
+finance_full,财政部,Ministry of Finance,財政部
+defence_full,国防部,Ministry of Defense,國防部
+law_pre_full,司法部,Ministry of Justice,司法部
+interior_full,内务部,Ministry of the Interior,內務部
+education_full,教育部,Ministry of Education,教育部

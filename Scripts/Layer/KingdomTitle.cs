@@ -20,6 +20,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     public Vector3 last_center;
     public Vector3 title_center;
     private readonly List<TileZone> _zoneScratch = new();
+    private readonly List<City> _needRemoveCitiesBuffer = new();
     public City title_capital;
     public Kingdom control_kingdom;
     public Kingdom main_kingdom;
@@ -222,12 +223,26 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     public override void save()
     {
         if (this.data == null) return;
+        if (this.city_list_hash == null || this.city_list_hash.Count == 0)
+        {
+            this.data.cities ??= new List<long>();
+            return;
+        }
+
         this.data.cities = new List<long>();
         foreach (City city in city_list_hash)
         {
+            if (city == null || city.isRekt())
+            {
+                continue;
+            }
+
             this.data.cities.Add(city.data.id);
         }
-        this.data.title_capital = this.title_capital.data.id;
+        if (this.title_capital != null && !this.title_capital.isRekt())
+        {
+            this.data.title_capital = this.title_capital.data.id;
+        }
         try
         {
             this.data.owner = this.owner == null ? -1L : this.owner.data.id;
@@ -278,14 +293,23 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         }
         city.SetTitle(this);
         city_list_hash.Add(city);
+        EmpireCore core = this.title_capital?.GetEmpireCore();
+        if (core != null && EmpireCoreManager.ContainsTitle(core, this))
+        {
+            city.SetEmpireCore(core);
+        }
         recalculate();
     }
 
     public void removeCity(City city)
     {
-
+        EmpireCore core = this.title_capital?.GetEmpireCore();
         city.RemoveTitle();
         this.city_list_hash.Remove(city);
+        if (core != null && city.GetEmpireCoreID() == core.id)
+        {
+            city.SetEmpireCore(null);
+        }
         this.recalculate();
         if (this.city_list_hash.Count <= 0)
         {
@@ -306,25 +330,35 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         }
         this.city_list_hash ??= new HashSet<City>();
         this.city_list ??= new List<City>();
-        if (this.city_list.Count != this.city_list_hash.Count || this.city_list.Any(c => c == null))
+        bool hasNullCity = false;
+        for (int i = 0; i < this.city_list.Count; i++)
+        {
+            if (this.city_list[i] == null)
+            {
+                hasNullCity = true;
+                break;
+            }
+        }
+
+        if (this.city_list.Count != this.city_list_hash.Count || hasNullCity)
         {
             this.recalculate();
         }
         List<City> cities = this.city_list;
         if (cities.Count <= 0)
         {
-            return false;
+            return this.data.cities != null && this.data.cities.Count > 0;
         }
-        List<City> needRemove = new List<City>();
+        _needRemoveCitiesBuffer.Clear();
         foreach (City city in cities) 
         {
             if (city == null || city.isRekt() || !city.isAlive())
             {
-                needRemove.Add(city);
+                _needRemoveCitiesBuffer.Add(city);
                 tChanged = true;
             }
         }
-        foreach (City city in needRemove) 
+        foreach (City city in _needRemoveCitiesBuffer)
         {
             if (city != null && !city.isRekt())
             {
@@ -333,6 +367,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
             this.city_list_hash.Remove(city);
             this.city_list.Remove(city);
         }
+        _needRemoveCitiesBuffer.Clear();
         if (city_list.Count > 0)
         {
             if (this.title_capital == null || this.title_capital.isRekt() || !this.city_list_hash.Contains(this.title_capital))
@@ -378,7 +413,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         {
             this.recalculate();
         } 
-        return this.city_list.Count >= 1;
+        return this.city_list.Count >= 1 || (this.data.cities != null && this.data.cities.Count > 0);
     }
     public void recalculate()
     {
@@ -425,15 +460,32 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         base.loadData(pData);
         this.city_list_hash.Clear();
         this.city_list.Clear();
+        pData.cities ??= new List<long>();
         foreach (long city_id in pData.cities)
         {
-            this.city_list_hash.Add(World.world.cities.get(city_id));
+            City city = World.world.cities.get(city_id);
+            if (city == null || city.isRekt())
+            {
+                continue;
+            }
+
+            this.city_list_hash.Add(city);
+            city.SetTitle(this);
         }
         this.title_capital = World.world.cities.get(this.data.title_capital);
+        if ((this.title_capital == null || this.title_capital.isRekt() || !this.city_list_hash.Contains(this.title_capital)) && this.city_list_hash.Count > 0)
+        {
+            this.title_capital = this.city_list_hash.First();
+            this.data.title_capital = this.title_capital.id;
+        }
         this.city_list.AddRange(this.city_list_hash);
         this.owner = this.data.owner == -1L? null:World.world.units.get(this.data.owner);
         this.main_kingdom = this.data.main_kingdom == -1L ? null : World.world.kingdoms.get(this.data.main_kingdom);
-        if(string.IsNullOrEmpty(pData.province_name))
+        if (string.IsNullOrWhiteSpace(this.data.original_actor_asset) && this.title_capital != null)
+        {
+            this.data.original_actor_asset = this.title_capital.kingdom?.king?.asset?.id ?? this.title_capital.kingdom?.asset?.id ?? this.title_capital.getSpecies();
+        }
+        if(string.IsNullOrEmpty(pData.province_name) && title_capital != null)
         {
             pData.province_name = title_capital.GetCityName();
         } 

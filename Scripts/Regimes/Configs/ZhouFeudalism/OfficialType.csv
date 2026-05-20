@@ -1,31 +1,31 @@
-key,cz
+key,cz,en,ch
 
-ZhouFeudalism_empire,朝
-ZhouFeudalism_gong,国
-ZhouFeudalism_hou,国
-ZhouFeudalism_bo,国
-ZhouFeudalism_zi,国
+ZhouFeudalism_empire,朝,Dynasty,朝
+ZhouFeudalism_gong,国,Ducal State,國
+ZhouFeudalism_hou,国,Marquisate,國
+ZhouFeudalism_bo,国,Earldom,國
+ZhouFeudalism_zi,国,Viscounty,國
 
-ZhouFeudalism_officiallevel_0,天子
-ZhouFeudalism_officiallevel_1,太师
-ZhouFeudalism_officiallevel_2,太傅
-ZhouFeudalism_officiallevel_3,太保
-ZhouFeudalism_officiallevel_4,卿
-ZhouFeudalism_officiallevel_5,公
-ZhouFeudalism_officiallevel_6,侯
-ZhouFeudalism_officiallevel_7,伯
-ZhouFeudalism_officiallevel_8,子
-ZhouFeudalism_officiallevel_9,国卿
+ZhouFeudalism_officiallevel_0,天子,Son of Heaven,天子
+ZhouFeudalism_officiallevel_1,太师,Grand Preceptor,太師
+ZhouFeudalism_officiallevel_2,太傅,Grand Tutor,太傅
+ZhouFeudalism_officiallevel_3,太保,Grand Protector,太保
+ZhouFeudalism_officiallevel_4,卿,Minister,卿
+ZhouFeudalism_officiallevel_5,公,Duke,公
+ZhouFeudalism_officiallevel_6,侯,Marquis,侯
+ZhouFeudalism_officiallevel_7,伯,Count,伯
+ZhouFeudalism_officiallevel_8,子,Viscount,子
+ZhouFeudalism_officiallevel_9,国卿,State Minister,國卿
 
-ZhouFeudalism_officiallevel_13,王后
-ZhouFeudalism_officiallevel_14,贵嫔
-ZhouFeudalism_officiallevel_15,夫人
-ZhouFeudalism_officiallevel_16,贵人
+ZhouFeudalism_officiallevel_13,王后,Queen Consort,王后
+ZhouFeudalism_officiallevel_14,贵嫔,Noble Consort,貴嬪
+ZhouFeudalism_officiallevel_15,夫人,Lady,夫人
+ZhouFeudalism_officiallevel_16,贵人,Noble Lady,貴人
 
-ZhouFeudalism_city,
+ZhouFeudalism_city,城,City,城
 
-situ_all,大司徒
-sima_all,大司马
-sikou_all,大司寇
-sishi_all,司士
-zongbo_all,宗伯
+situ_all,大司徒,Grand Minister of Education,大司徒
+sima_all,大司马,Grand Minister of War,大司馬
+sikou_all,大司寇,Grand Minister of Justice,大司寇
+sishi_all,司士,Minister of Personnel,司士
+zongbo_all,宗伯,Minister of Rites,宗伯

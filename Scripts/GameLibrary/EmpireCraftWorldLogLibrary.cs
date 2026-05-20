@@ -75,6 +75,9 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset temporary_faction_revoke_military_region_log;
     public static WorldLogAsset temporary_faction_raise_tax_log;
     public static WorldLogAsset occupation_capture_event_log;
+    public static WorldLogAsset empire_pressure_surrender_log;
+    public static WorldLogAsset empire_pressure_surrender_city_log;
+    public static WorldLogAsset empire_core_absorb_title_log;
 
     public static void init()
     {
@@ -174,6 +177,45 @@ public static class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$city$", 1);
                 wl.updateText(ref pText, pMessage, "$religion$", 2);
+            }
+        });
+        empire_pressure_surrender_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(empire_pressure_surrender_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$attacker$", 1);
+                wl.updateText(ref pText, pMessage, "$defender$", 2);
+                wl.updateText(ref pText, pMessage, "$target$", 3);
+            }
+        });
+        empire_pressure_surrender_city_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(empire_pressure_surrender_city_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$attacker$", 1);
+                wl.updateText(ref pText, pMessage, "$defender$", 2);
+                wl.updateText(ref pText, pMessage, "$target$", 3);
+            }
+        });
+        empire_core_absorb_title_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(empire_core_absorb_title_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$title$", 2);
+                wl.updateText(ref pText, pMessage, "$core$", 3);
             }
         });
         官员品级调动 = wl.add(new WorldLogAsset

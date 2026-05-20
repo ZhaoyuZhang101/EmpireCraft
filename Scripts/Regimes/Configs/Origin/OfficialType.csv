@@ -1,11 +1,11 @@
-key,cz
-Origin_empire,部落联合王国
-Origin_centre,酋长国
-Origin_kingdom,邦
+key,cz,en,ch
+Origin_empire,部落联合王国,Tribal Confederation,部落聯合王國
+Origin_centre,酋长国,Chieftaincy,酋長國
+Origin_kingdom,邦,Tribe,邦
 
-Origin_officiallevel_0,国王
-Origin_officiallevel_1,大酋长
-Origin_officiallevel_2,大祭司
-Origin_officiallevel_3,酋长
+Origin_officiallevel_0,国王,King,國王
+Origin_officiallevel_1,大酋长,High Chieftain,大酋長
+Origin_officiallevel_2,大祭司,High Priest,大祭司
+Origin_officiallevel_3,酋长,Chieftain,酋長
 
-Origin_city,部落
+Origin_city,部落,Tribe,部落

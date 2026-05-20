@@ -1,27 +1,27 @@
-key,cz
+key,cz,en,ch
 
-default_country_post,国
-Feudalism_empire,帝国
-Feudalism_kingdom,王国
-Feudalism_grand_duchy,大公国
-Feudalism_duchy,公国
-Feudalism_county,伯爵领
-Feudalism_march,藩侯领
-Feudalism_papal_state,教宗国
+default_country_post,国,Realm,國
+Feudalism_empire,帝国,Empire,帝國
+Feudalism_kingdom,王国,Kingdom,王國
+Feudalism_grand_duchy,大公国,Grand Duchy,大公國
+Feudalism_duchy,公国,Duchy,公國
+Feudalism_county,伯爵领,County,伯爵領
+Feudalism_march,边疆伯爵领,March,邊疆伯爵領
+Feudalism_papal_state,教宗国,Papal State,教宗國
 
-Feudalism_officiallevel_0,皇帝
-Feudalism_officiallevel_1,教皇
-Feudalism_officiallevel_2,大主教
-Feudalism_officiallevel_3,选帝侯
-Feudalism_officiallevel_4,帝国伯爵
-Feudalism_officiallevel_9,大公
-Feudalism_officiallevel_5,公爵
-Feudalism_officiallevel_6,边疆伯爵
-Feudalism_officiallevel_7,伯爵
-Feudalism_officiallevel_8,市长
+Feudalism_officiallevel_0,皇帝,Emperor,皇帝
+Feudalism_officiallevel_1,教皇,Pope,教皇
+Feudalism_officiallevel_2,大主教,Archbishop,大主教
+Feudalism_officiallevel_3,选帝侯,Elector,選帝侯
+Feudalism_officiallevel_4,帝国伯爵,Imperial Count,帝國伯爵
+Feudalism_officiallevel_9,大公,Grand Duke,大公
+Feudalism_officiallevel_5,公爵,Duke,公爵
+Feudalism_officiallevel_6,边疆伯爵,Margrave,邊疆伯爵
+Feudalism_officiallevel_7,伯爵,Count,伯爵
+Feudalism_officiallevel_8,市长,Mayor,市長
 
-Feudalism_officiallevel_13,皇后
+Feudalism_officiallevel_13,皇后,Empress,皇后
 
-Feudalism_city,堡
-Feudalism_dirC,帝国伯爵领
-Feudalism_religion_district,教区
+Feudalism_city,堡,Castle,堡
+Feudalism_dirC,帝国伯爵领,Imperial County,帝國伯爵領
+Feudalism_religion_district,教区,Diocese,教區

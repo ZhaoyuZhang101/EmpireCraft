@@ -37,6 +37,14 @@ namespace EmpireCraft.Scripts.HelperFunc
                 return "Western";
             }
         }
+        public static string GetLocal(this string key)
+        {
+            return LM.Get(key);
+        }
+        public static string AppendWithNarrowSpace(this string textA, string textB)
+        {
+            return textA + ModClass.NARROW_SPACE + textB;
+        }
         public static EmpireAddition CalcPower(this Actor officer, OfficerPowerType type, Empire empire)
         {
             EmpireAddition additions = new();

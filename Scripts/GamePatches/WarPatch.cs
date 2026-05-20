@@ -86,6 +86,14 @@ public class WarPatch: GamePatch
             Kingdom dKingdom = null;
             aKingdom = pWar.getMainAttacker();
             dKingdom = pWar.getMainDefender();
+            foreach (var a in pWar._list_attackers)
+            {
+                a.cities.ForEach(c=>c.ClearOccupiedStatus());
+            }
+            foreach (var d in pWar._list_defenders)
+            {
+                d.cities.ForEach(c=>c.ClearOccupiedStatus());
+            }
             if (pWinner == WarWinner.Attackers)
             {
                 if (aKingdom.IsEmpire())

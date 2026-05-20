@@ -39,6 +39,8 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly List<EmpireCore> _cached_empire_cores = new List<EmpireCore>();
     private static readonly List<Kingdom> _render_kingdoms_buffer = new List<Kingdom>();
     private static readonly List<Kingdom> _render_kingdoms_no_back_buffer = new List<Kingdom>();
+    private static readonly HashSet<long> _visible_core_ids = new HashSet<long>();
+    private static readonly HashSet<long> _visible_title_ids = new HashSet<long>();
     private static readonly Queue<City> _empire_city_queue = new Queue<City>();
     private static readonly HashSet<long> _empire_city_visited = new HashSet<long>();
     private static readonly HashSet<long> _empire_city_members = new HashSet<long>();
@@ -336,8 +338,8 @@ public static class EmpireCraftNamePlateLibrary
                     _cached_empire_cores.Clear();
                     _cached_titles.Clear();
                     _cached_cities_no_title.Clear();
-                    HashSet<long> visibleCoreIds = new HashSet<long>();
-                    HashSet<long> visibleTitleIds = new HashSet<long>();
+                    _visible_core_ids.Clear();
+                    _visible_title_ids.Clear();
                     foreach (City city in World.world.cities)
                     {
                         if (city == null || city.isRekt()) continue;
@@ -347,7 +349,7 @@ public static class EmpireCraftNamePlateLibrary
                         EmpireCore core = city.GetEmpireCore();
                         if (zoneOptionState == 0 && core != null && kingdomTitle != null && EmpireCoreManager.ContainsTitle(core, kingdomTitle))
                         {
-                            if (visibleCoreIds.Add(core.id))
+                            if (_visible_core_ids.Add(core.id))
                             {
                                 _cached_empire_cores.Add(core);
                                 NameplateText npt = prepareNext(pManager, pAsset, city, 37, 12, 39, 11);
@@ -358,7 +360,7 @@ public static class EmpireCraftNamePlateLibrary
 
                         if (kingdomTitle != null && !kingdomTitle.isRekt())
                         {
-                            if (visibleTitleIds.Add(kingdomTitle.id))
+                            if (_visible_title_ids.Add(kingdomTitle.id))
                             {
                                 _cached_titles.Add(kingdomTitle);
                                 NameplateText npt = prepareNext(pManager, pAsset, city, 37, 12, 39, 11);
@@ -372,6 +374,8 @@ public static class EmpireCraftNamePlateLibrary
                             showTextCity(nameplateText, city, city.city_center);
                         }
                     }
+                    _visible_core_ids.Clear();
+                    _visible_title_ids.Clear();
                 }
             },
         };
@@ -559,6 +563,7 @@ public static class EmpireCraftNamePlateLibrary
         npt.showSpecies(pMetaObject.getSpriteIcon());
         npt._text_name.supportRichText = true;
         npt._show_banner_kingdom = true;
+        npt._banner_kingdoms.enabled = true;
         npt._banner_kingdoms.load((NanoObject) pMetaObject);
         float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
         npt.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
@@ -566,6 +571,7 @@ public static class EmpireCraftNamePlateLibrary
         if (kingClan != null)
         {
             npt._show_banner_clan = true;
+            npt._banner_clan.enabled = true;
             npt._banner_clan.load((NanoObject) kingClan);
         }
         npt.transform.SetAsFirstSibling();
@@ -581,7 +587,7 @@ public static class EmpireCraftNamePlateLibrary
         string pNewText = $"{pMetaObject.name} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
         if (pMetaObject.HasTakenAlliance() && displayedEmpire != null)
         {
-            pNewText += $"\n朝贡对象: {displayedEmpire.GetEmpireName()}";
+            pNewText += $"\n{LM.Get("label_tributary_target")}: {displayedEmpire.GetEmpireName()}";
         }
         switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
         {
@@ -593,12 +599,12 @@ public static class EmpireCraftNamePlateLibrary
                     {
                         var corruption = (int)(pMetaObject.GetCorruptionRate()*100);
                         pNewText += "\n" + (pMetaObject.GetHighestFactionRatio() == null
-                            ? "无派系影响"
+                            ? LM.Get("label_no_faction_influence")
                             : pMetaObject.FactionRatioToString());
                         if (pMetaObject.hasKing())
                         {
                             pNewText +=
-                                $"\n长官影响力: {pMetaObject.king.renown}";
+                                $"\n{LM.Get("label_governor_influence")}: {pMetaObject.king.renown}";
                             if (pMetaObject.king.HasOfficeIdentity())
                             {
                                 var officeIdentity = pMetaObject.king.GetIdentity();
@@ -606,7 +612,7 @@ public static class EmpireCraftNamePlateLibrary
                                 {
                                     var level = officeIdentity.ViolateLevel;
                                     var levelText = level.ToString();
-                                    pNewText += $" | 暴虐值: {(
+                                    pNewText += $" | {LM.Get("label_brutality")}: {(
                                         level>30?
                                             level>70?
                                                 levelText.ColorString(pColor:new Color(1, 0,0)):
@@ -617,7 +623,7 @@ public static class EmpireCraftNamePlateLibrary
                             }
                         }
                         pNewText +=
-                            $"\n腐败值：{corruption.ToString().ColorString(pColor: corruption <= 30 ? Color.green : Color.red)}%";
+                            $"\n{LM.Get("label_corruption")}:{corruption.ToString().ColorString(pColor: corruption <= 30 ? Color.green : Color.red)}%";
                     }
                 }
                 break;
@@ -635,7 +641,9 @@ public static class EmpireCraftNamePlateLibrary
         npt.priority_population = pMetaObject.units.Count;
         npt.showSpecies(pMetaObject.getSpriteIcon());
         npt._show_banner_kingdom = false;
+        npt._banner_kingdoms.enabled = false;
         npt._show_banner_clan = false;
+        npt._banner_clan.enabled = false;
         npt._text_name.supportRichText = true;
         if (pMetaObject.IsInEmpire() || pMetaObject.HasTakenAlliance())
         {
@@ -688,7 +696,7 @@ public static class EmpireCraftNamePlateLibrary
         {
             var corruption = (int)(pMetaObject.GetCorruptionRate()*100);
             text +=
-                $" | 腐败值：{corruption.ToString().ColorString(pColor: corruption <= 30 ? Color.green : Color.red)}%";
+                $" | {LM.Get("label_corruption")}:{corruption.ToString().ColorString(pColor: corruption <= 30 ? Color.green : Color.red)}%";
         }
         if (npt.is_full)
         {
@@ -754,6 +762,7 @@ public static class EmpireCraftNamePlateLibrary
         npt.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
         npt._text_name.supportRichText = true;
         npt._show_banner_city = true;
+        npt._banner_city.enabled = true;
         npt._banner_city.load(pMetaObject);
         npt.priority_capital = pMetaObject.isCapitalCity();
         npt.setPriority(populationPeople);
@@ -795,6 +804,11 @@ public static class EmpireCraftNamePlateLibrary
         nameplateText._text_name.supportRichText = true;
         __instance._next_index++;
         prepare(nameplateText, pAsset, pMeta, __instance._tween_scale, __instance._nameplate_mode, __instance._nano_object_set, __instance._selected_nano_object);
+        img.sprite = sliced;
+        img.type = Image.Type.Sliced;
+        
+        
+        
         return nameplateText;
     }
     public static void prepare(NameplateText nameplateText, NameplateAsset pAsset, NanoObject pMeta, float pGlobalScale, NameplateRenderingType pNameplateMode, bool pNanoObjectSet, NanoObject pSelectedNanoObject)
@@ -803,44 +817,14 @@ public static class EmpireCraftNamePlateLibrary
         {
             pNameplateMode = ((pSelectedNanoObject == pMeta) ? NameplateRenderingType.Full : NameplateRenderingType.BannerOnly);
         }
+        ResetReusableNameplateVisuals(nameplateText);
         if (pNameplateMode != nameplateText._last_mode)
         {
             nameplateText.clearCaches();
             nameplateText._active_check_dirty = true;
             nameplateText._last_mode = pNameplateMode;
-            
-            // 给文字加蓝色边框（描边）
-            var outline = nameplateText._text_name.GetComponent<Outline>();
-            if (outline != null)
-            {
-                outline.enabled = false;
-            }
-            switch (nameplateText._last_mode)
-            {
-                case NameplateRenderingType.Full:
-                    nameplateText._background_image.transform.localScale = new Vector3(1f, 1f, 1f);
-                    nameplateText._background_image.enabled = true;
-                    nameplateText._banner_kingdoms.gameObject.transform.localScale = Vector3.one;
-                    nameplateText._text_name.fontStyle = FontStyle.Normal;
-                    nameplateText._text_name.transform.localScale = Vector3.one;
-                    break;
-                case NameplateRenderingType.BannerOnly:
-                    if (pMeta.meta_type == MetaTypeExtension.KingdomTitle)
-                    {
-                        nameplateText._background_image.transform.localScale = Vector3.one;
-                        nameplateText._background_image.enabled = false;
-                        nameplateText._banner_kingdoms.enabled = false;
-                    }
-                    else
-                    {
-                        nameplateText._text_name.fontStyle = FontStyle.Normal;
-                        nameplateText._text_name.transform.localScale = Vector3.one;
-                        nameplateText._background_image.transform.localScale = new Vector3(pAsset.banner_only_mode_scale, pAsset.banner_only_mode_scale, 1f);
-                        nameplateText._background_image.enabled = false;
-                    }
-                    break;
-            }
         }
+        ApplyReusableNameplateMode(nameplateText, pAsset, pMeta);
         nameplateText.updateScale(pMeta, pGlobalScale, pNanoObjectSet, pSelectedNanoObject);
         nameplateText.resetElements();
         nameplateText.setShowing(pVal: true);
@@ -854,6 +838,146 @@ public static class EmpireCraftNamePlateLibrary
             nameplateText._show_icon_favorite = false;
         }
         nameplateText.checkSetActive(nameplateText._icon_favorite, nameplateText._show_icon_favorite);
+        if (pAsset != null)
+        {
+            switch (pAsset.map_mode)
+            {
+                case MetaTypeExtension.KingdomTitle:
+                    var capital = (City)pMeta;
+                    nameplateText.setupMeta(capital.data, capital.GetTitle().getColor());
+                    nameplateText._text_name.fontStyle = FontStyle.Bold;
+                    nameplateText._text_name.transform.localPosition = Vector3.left*30;
+                    nameplateText._text_name.transform.localScale = Vector3.one * 1.5f;
+                    nameplateText._text_name.color = Color.white;
+                    
+                    nameplateText._banner_kingdoms.enabled = true;
+                    nameplateText._banner_kingdoms.gameObject.SetActive(true);
+                    nameplateText._banner_kingdoms.background.sprite = capital.GetTitle()?.getElementBackground();
+                    nameplateText._banner_kingdoms.icon.sprite = capital.GetTitle()?.getElementIcon();
+                    var color = capital.GetTitle().kingdomColor.getColorBanner();
+                    color = new Color(color.r, color.g, color.b, 0.5f);
+                    nameplateText._banner_kingdoms.background.color = color;
+                    nameplateText._banner_kingdoms.icon.color = color;
+                    nameplateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.right*30;
+                    nameplateText._banner_kingdoms.gameObject.transform.localScale = Vector3.one * 1.5f;
+                    
+                    nameplateText._banner_city.enabled = false;
+                    nameplateText._banner_city.gameObject.SetActive(false);
+                    
+                    nameplateText._banner_clan.enabled = false;
+                    nameplateText._banner_clan.gameObject.SetActive(false);
+                    break;
+                case MetaTypeExtension.Empire:
+                    if (!EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled())
+                    {
+                        nameplateText._show_banner_city = false;
+                        nameplateText._show_banner_clan = false;
+                        nameplateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
+                        nameplateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);
+                        nameplateText._banner_kingdoms.winner_image.gameObject.SetActive(value: false);
+                        nameplateText._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
+                        nameplateText._show_banner_kingdom = false;
+                        nameplateText._show_banner_culture = false;
+                        nameplateText._background_image.enabled = true;
+                        
+                        nameplateText._banner_kingdoms.enabled = false;
+                        nameplateText._banner_kingdoms.gameObject.SetActive(false);
+                        
+                        nameplateText._banner_city.enabled = false;
+                        nameplateText._banner_city.gameObject.SetActive(false);
+                    
+                        nameplateText._banner_clan.enabled = false;
+                        nameplateText._banner_clan.gameObject.SetActive(false);
+                    }
+                    break;
+            }
+        }
+    }
+    private static void ResetReusableNameplateVisuals(NameplateText nameplateText)
+    {
+        if (nameplateText == null)
+        {
+            return;
+        }
+
+        nameplateText._text_name.supportRichText = true;
+        nameplateText._text_name.fontStyle = FontStyle.Normal;
+        nameplateText._text_name.color = Color.white;
+        nameplateText._text_name.transform.localPosition = Vector3.zero;
+        nameplateText._text_name.transform.localScale = Vector3.one;
+
+        var outline = nameplateText._text_name.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.enabled = false;
+        }
+
+        nameplateText._background_image.transform.localPosition = Vector3.zero;
+        nameplateText._background_image.transform.localScale = Vector3.one;
+        nameplateText._background_image.enabled = true;
+
+        if (nameplateText._banner_kingdoms != null)
+        {
+            nameplateText._banner_kingdoms.enabled = true;
+            nameplateText._banner_kingdoms.gameObject.SetActive(true);
+            nameplateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.zero;
+            nameplateText._banner_kingdoms.gameObject.transform.localScale = Vector3.one;
+        }
+        if (nameplateText._banner_city != null)
+        {
+            nameplateText._banner_city.enabled = true;
+            nameplateText._banner_city.gameObject.SetActive(true);
+            nameplateText._banner_city.gameObject.transform.localPosition = Vector3.zero;
+            nameplateText._banner_city.gameObject.transform.localScale = Vector3.one;
+        }
+        if (nameplateText._banner_clan != null)
+        {
+            nameplateText._banner_clan.enabled = true;
+            nameplateText._banner_clan.gameObject.SetActive(true);
+            nameplateText._banner_clan.gameObject.transform.localPosition = Vector3.zero;
+            nameplateText._banner_clan.gameObject.transform.localScale = Vector3.one;
+        }
+    }
+
+    private static void ApplyReusableNameplateMode(NameplateText nameplateText, NameplateAsset pAsset, NanoObject pMeta)
+    {
+        if (nameplateText == null)
+        {
+            return;
+        }
+
+        var outline = nameplateText._text_name.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.enabled = false;
+        }
+
+        switch (nameplateText._last_mode)
+        {
+            case NameplateRenderingType.Full:
+                nameplateText._background_image.transform.localScale = Vector3.one;
+                nameplateText._background_image.enabled = true;
+                nameplateText._banner_kingdoms.gameObject.transform.localScale = Vector3.one;
+                nameplateText._text_name.fontStyle = FontStyle.Normal;
+                nameplateText._text_name.transform.localScale = Vector3.one;
+                break;
+            case NameplateRenderingType.BannerOnly:
+                if (pMeta != null && pMeta.meta_type == MetaTypeExtension.KingdomTitle)
+                {
+                    nameplateText._background_image.transform.localScale = Vector3.one;
+                    nameplateText._background_image.enabled = false;
+                    nameplateText._banner_kingdoms.enabled = false;
+                }
+                else
+                {
+                    nameplateText._text_name.fontStyle = FontStyle.Normal;
+                    nameplateText._text_name.transform.localScale = Vector3.one;
+                    float scale = pAsset != null ? pAsset.banner_only_mode_scale : 1f;
+                    nameplateText._background_image.transform.localScale = new Vector3(scale, scale, 1f);
+                    nameplateText._background_image.enabled = false;
+                }
+                break;
+        }
     }
     public static int sortByMembers(City pObject1, City pObject2)
     {
@@ -912,7 +1036,7 @@ public static class EmpireCraftNamePlateLibrary
                empire.data.PreviousYearsMoney[empire.data.PreviousYearsMoney.Count - 2])
             : 0);
         string moneyText =
-            $"\n国库:{empire.CoreKingdom.GetMoney()}" +
+            $"\n{LM.Get("label_treasury")}:{empire.CoreKingdom.GetMoney()}" +
             $"({difference.ToString().ColorString(pColor:difference<0?Color.red : Color.green)})";
         switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
         {
@@ -934,10 +1058,10 @@ public static class EmpireCraftNamePlateLibrary
                     {
                         var tf = empire.RunningTemporaryFaction;
                         text =
-                            $"\n{(empire.EmpireClan?.name ?? "无皇室").ColorString(pColor: Color.yellow)} | 主导: {faction.Name}" +
-                            moneyText + "\n"+ $"正统性: {empire.Mandate}" + "\n" +
+                            $"\n{(empire.EmpireClan?.name ?? LM.Get("label_no_royal_clan")).ColorString(pColor: Color.yellow)} | {LM.Get("label_dominant_faction")}: {faction.Name}" +
+                            moneyText + "\n"+ $"{LM.Get("label_mandate")}:{empire.Mandate}" + "\n" +
                             text +
-                            $"\n诉求：{(tf!=null ? tf.type.ToString(): "无")}".ColorString(
+                            $"\n{LM.Get("label_claim")}:{(tf!=null ? LM.Get(tf.type.ToString()) : LM.Get("label_none"))}".ColorString(
                                 pColor: new Color(0.5f, 0.9f, 0.5f)) +
                             (tf!=null?tf.ShowAsPlot?$"({LM.Get("tf_starting")})"
                                 : $"({(int)(tf.progress / tf.progressMax * 100)}/100)"
@@ -997,6 +1121,8 @@ public static class EmpireCraftNamePlateLibrary
         plateText._text_name.supportRichText = true;
         plateText._text_name.fontStyle = FontStyle.Bold;
         plateText._text_name.color = Color.white;
+        plateText._text_name.transform.localPosition = Vector3.zero;
+        plateText._text_name.transform.localScale = Vector3.one * 1.5f;
         setTextIfChanged(plateText, EmpireCoreManager.GetDisplayName(core), GetEmpireCoreDisplayPosition(core));
 
         var outline = plateText._text_name.GetComponent<Outline>();
@@ -1004,14 +1130,14 @@ public static class EmpireCraftNamePlateLibrary
         {
             outline = plateText._text_name.gameObject.AddComponent<Outline>();
         }
-        outline.enabled = true;
-        outline.effectColor = new Color(0f, 0f, 0f, 0.75f);
-        outline.effectDistance = new Vector2(2f, -2f);
+        outline.enabled = false;
 
         Sprite sprite = SpriteTextureLoader.getSprite("ui/nameplates/nameplate_empire");
         plateText._background_image.sprite = sprite;
         plateText._background_image.type = Image.Type.Simple;
         plateText._background_image.enabled = true;
+        plateText._background_image.transform.localPosition = Vector3.zero;
+        plateText._background_image.transform.localScale = Vector3.one * 1.5f;
         plateText._show_banner_kingdom = false;
         plateText._show_banner_city = false;
         plateText._show_banner_clan = false;
@@ -1053,15 +1179,7 @@ public static class EmpireCraftNamePlateLibrary
     private static Vector3 GetEmpireCoreDisplayPosition(EmpireCore core)
     {
         if (core == null) return new Vector2(99, 99);
-        var currentEmpire = EmpireCoreManager.GetEmpires(core).FirstOrDefault();
-        if (currentEmpire != null)
-        {
-            return GetEmpireDisplayPosition(currentEmpire);
-        }
-
-        List<City> cities = EmpireCoreManager.GetCities(core);
-        Vector3 fallback = EmpireCoreManager.GetRepresentativeCity(core)?.city_center ?? new Vector2(99, 99);
-        return GetDominantCitiesDisplayPosition(cities, fallback);
+        return EmpireCoreManager.GetRepresentativeCity(core)?.city_center ?? new Vector2(99, 99);
     }
 
     private static Vector3 GetDominantCitiesDisplayPosition(List<City> cities, Vector3 fallback)
@@ -1191,41 +1309,29 @@ public static class EmpireCraftNamePlateLibrary
         if (!capital.hasTitle()) return;
         try
         {
-            plateText.setupMeta(capital.data, capital.GetTitle().getColor());
+            plateText.nano_object = capital;
             string text = capital.GetTitle().data.name;
             setTextIfChanged(plateText, text, capital.city_center);
-            plateText._text_name.fontStyle = FontStyle.Bold;
-            plateText._text_name.transform.localPosition = Vector3.zero;
-            plateText._text_name.transform.localScale = Vector3.one * 1.5f;
-            plateText._text_name.color = Color.white;
-            
-            // 给文字加蓝色边框（描边）
-            var outline = plateText._text_name.GetComponent<Outline>();
-            if (outline != null)
-            {
-                outline.enabled = false;
-            }
-            
+            plateText._background_image.enabled = false;
+            plateText._show_banner_culture = false;
             plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
             plateText._banner_kingdoms.left_image.gameObject.SetActive(value: false);
             plateText._banner_kingdoms.winner_image.gameObject.SetActive(value: false);
             plateText._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
-            plateText._banner_kingdoms.background.sprite = capital.GetTitle()?.getElementBackground();
-            plateText._banner_kingdoms.icon.sprite = capital.GetTitle()?.getElementIcon();
-            var color = capital.GetTitle().kingdomColor.getColorBanner();
-            color = new Color(color.r, color.g, color.b, 0.5f);
-            plateText._banner_kingdoms.background.color = color;
-            plateText._banner_kingdoms.icon.color = color;
-            plateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.zero;
-            plateText._banner_kingdoms.gameObject.transform.localScale = Vector3.one*1.5f;
-            plateText._show_banner_kingdom = true;
-            plateText._background_image.enabled = false;
-            plateText.nano_object = capital;
-            
+            plateText._show_banner_city = false;
+            plateText._show_banner_clan = false;
+            if (EmpireCraftMetaTypeLibrary.kingdomTitle.getZoneOptionState() == 0)
+            {
+                plateText._show_banner_kingdom = false;
+            }
+            else
+            {
+                plateText._show_banner_kingdom = true;
+            }
         }
         catch
         {
+            // ignored
         }
-
     }
 }

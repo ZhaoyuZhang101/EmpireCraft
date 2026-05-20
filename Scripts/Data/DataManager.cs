@@ -148,11 +148,22 @@ public static class DataManager
         LogService.LogInfo("Sync Empire Data");
         EmpireCoreManager.EmpireCores = saveData.empireCoreDatas?.Where(c => c != null).ToDictionary(c => c.id) ?? new Dictionary<long, EmpireCore>();
 
-        foreach (KingdomTitleData kingdomTitleData in saveData.kingdomTitleDatas)
+        List<KingdomTitleData> titleDatas = saveData.kingdomTitleDatas;
+        if (titleDatas == null || titleDatas.Count == 0)
         {
+            titleDatas = RebuildKingdomTitleDataFromCityData(saveData, cityById);
+        }
+
+        foreach (KingdomTitleData kingdomTitleData in titleDatas)
+        {
+            if (kingdomTitleData == null) continue;
+            NormalizeKingdomTitleData(kingdomTitleData, saveData, cityById);
             KingdomTitle kt = new KingdomTitle();
             kt.loadData(kingdomTitleData);
-            kt.isBeenControlled();
+            if (kt.getCities().Any())
+            {
+                kt.isBeenControlled();
+            }
             ModClass.KINGDOM_TITLE_MANAGER.addObject(kt);
 
         }
@@ -227,6 +238,110 @@ public static class DataManager
         LogService.LogInfo("" + saveData.religionExtraData.Count());
         File.WriteAllText(savePath, json);
         LogService.LogInfo("Save Finished");
+    }
+
+    private static void NormalizeKingdomTitleData(KingdomTitleData data, SaveData saveData, Dictionary<long, City> cityById)
+    {
+        if (data == null)
+        {
+            return;
+        }
+
+        data.cities ??= new List<long>();
+        HashSet<long> cityIds = new HashSet<long>();
+        foreach (long cityId in data.cities)
+        {
+            if (cityById.ContainsKey(cityId))
+            {
+                cityIds.Add(cityId);
+            }
+        }
+
+        if (cityIds.Count == 0 && saveData?.cityExtraData != null)
+        {
+            foreach (var cityData in saveData.cityExtraData)
+            {
+                if (cityData == null || cityData.title_id != data.id)
+                {
+                    continue;
+                }
+
+                if (cityById.ContainsKey(cityData.id))
+                {
+                    cityIds.Add(cityData.id);
+                }
+            }
+        }
+
+        if (cityIds.Count > 0)
+        {
+            data.cities = cityIds.ToList();
+        }
+
+        if ((data.title_capital <= 0 || !cityById.ContainsKey(data.title_capital)) && data.cities.Count > 0)
+        {
+            data.title_capital = data.cities.First();
+        }
+
+        if (string.IsNullOrWhiteSpace(data.original_actor_asset) &&
+            data.title_capital > 0 &&
+            cityById.TryGetValue(data.title_capital, out City capital))
+        {
+            data.original_actor_asset = capital.kingdom?.king?.asset?.id ?? capital.kingdom?.asset?.id ?? capital.getSpecies();
+        }
+    }
+
+    private static List<KingdomTitleData> RebuildKingdomTitleDataFromCityData(SaveData saveData, Dictionary<long, City> cityById)
+    {
+        List<KingdomTitleData> result = new List<KingdomTitleData>();
+        if (saveData?.cityExtraData == null)
+        {
+            return result;
+        }
+
+        Dictionary<long, List<long>> titleCities = new Dictionary<long, List<long>>();
+        foreach (var cityData in saveData.cityExtraData)
+        {
+            if (cityData == null || cityData.title_id <= 0 || !cityById.ContainsKey(cityData.id))
+            {
+                continue;
+            }
+
+            if (!titleCities.TryGetValue(cityData.title_id, out var cities))
+            {
+                cities = new List<long>();
+                titleCities[cityData.title_id] = cities;
+            }
+
+            cities.Add(cityData.id);
+        }
+
+        foreach (var pair in titleCities)
+        {
+            long capitalId = pair.Value.FirstOrDefault();
+            cityById.TryGetValue(capitalId, out City capital);
+            string name = capital?.SelectKingdomName();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                name = capital?.kingdom?.GetKingdomName() ?? capital?.GetCityName() ?? "";
+            }
+
+            result.Add(new KingdomTitleData
+            {
+                id = pair.Key,
+                cities = pair.Value.Distinct().ToList(),
+                title_capital = capitalId,
+                province_name = capital?.GetCityName(),
+                name = name,
+                original_actor_asset = capital?.kingdom?.king?.asset?.id ?? capital?.kingdom?.asset?.id ?? capital?.getSpecies(),
+                banner_background_id = capital?.kingdom?.data?.banner_background_id ?? 0,
+                banner_icon_id = capital?.kingdom?.data?.banner_icon_id ?? 0,
+                founder_kingdom_id = capital?.kingdom?.id ?? -1L,
+                founder_kingdom_name = capital?.kingdom?.name
+            });
+        }
+
+        return result;
     }
 
 }

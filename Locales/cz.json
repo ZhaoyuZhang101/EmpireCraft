@@ -46,7 +46,7 @@
     "active_tfaction": "激活诉求",
     "active_tfaction_description": "关闭后,诉求将不会被触发",
     "localpush_tfaction": "是否由地方推进",
-    "localpush_tfaction_description": "开启后.本诉求将会仅由地方推进",
+    "localpush_tfaction_description": "开启后，本诉求将会仅由地方推进",
     "add_new_trait": "添加特质",
     "add_new_trait_description": "添加当前派系所需的人才特质",
     "recover_trait": "恢复默认特质",
@@ -414,8 +414,8 @@
     "join_religion_war_log": "$kingdom$ 加入了 $religion$ 圣战",
     "join_rebellion_war_log": "$joiner$ 加入了 $beginner$",
     "religion_war_transfer_log": "$city$ 已受到 $religion$ 的洗礼",
-    "combine_kingdom_log": "$actor$ 已統合治下的所有轄區/國家",
-    "empire_take_back_title_log": "$actor$ 因犯 $crime$ 被帝国收回 $titles$ 的法理",
+    "combine_kingdom_log": "$actor$ 已统合治下的所有辖区/国家",
+    "empire_take_back_title_log": "$actor$ 因犯 $crime$ 被帝国收回 $title$ 的法理",
     "royal_king_become_emperor_log": "在藩王之乱中, $actor$ 趁乱入驻京城登基, 成为$empire$ 的新皇",
     "成为朝贡国": "$kingdom$ 成为了 $empire$ 的朝贡国",
     "history_empire_get_back_land": "$actor$ 发动了收复 $place$ 的战争",
@@ -655,7 +655,7 @@
     "empire_bureau": "帝国行政",
 
     "format_past_emperor": "历经 {0} 帝",
-    "empirecraft_laws_tab_common_setting": "帝國盒子基礎設置",
+    "empirecraft_laws_tab_common_setting": "帝国盒子基础设置",
     "empirecraft_law_realistic_age_title": "真实年龄",
     "empirecraft_law_realistic_age_description": "所有种族的年龄与现实人类一致",
     "world_law_civ_limit_population_50_title": "五十人",
@@ -827,6 +827,7 @@
     ,"support_local_push_claim":"拉拢诉求支持者"
     ,"support_local_push_claim_description":"花费金钱拉拢其他有政治身份者协助推进地方诉求"
     ,"撤换官员":"撤换官员"
+    ,"撤換官員":"撤换官员"
     ,"expose_official_crime":"曝光官员黑料"
     ,"expose_official_crime_description":"花费影响力挖掘并曝光地方官员的犯罪黑料"
     ,"world_law_civ_limit_population_100_title":"一百人"
@@ -841,39 +842,64 @@
     ,"debug_frontline_description":"点击一个国家，显示其战线区块的调试结果"
     ,"debug_frontline_invalid_target":"请选择一个有效的国家来调试战线"
     ,"debug_frontline_triggered":"已触发战线调试显示"
-    ,"occupation_capture_event_log":"$capturer$ 擒獲了 $victim$，$result$"
-    ,"occupation_capture_result_lord":"其所鎮城市被立即佔領"
-    ,"occupation_capture_result_king":"其所屬國家全境投降"
-    ,"occupation_capture_result_emperor":"帝國正統崩潰，所攻目標被迅速攻佔"
-    ,"opinion_same_empire_core":"同爭一套帝國法理"
-    ,"create_empire_core":"新建帝國法理"
-    ,"create_empire_core_description":"從點擊的王國法理新建一套帝國法理"
-    ,"add_title_to_empire_core":"添加王國法理至帝國法理"
-    ,"add_title_to_empire_core_description":"先選擇一個王國法理，再點擊目標帝國法理範圍內的城市，將其納入帝國法理"
-    ,"remove_title_from_empire_core":"刪除王國法理自帝國法理"
-    ,"remove_title_from_empire_core_description":"將點擊的王國法理從當前所屬的帝國法理中移除"
-    ,"destroy_empire_core":"銷毀帝國法理"
-    ,"destroy_empire_core_description":"銷毀點擊城市所屬的整套帝國法理"
-    ,"empire_core_invalid_target":"無效的帝國法理目標"
-    ,"empire_core_select_title_first":"請先選擇一個擁有王國法理的城市"
-    ,"empire_core_title_selected":"已選擇王國法理"
-    ,"create_empire_core_success":"已新建一套帝國法理"
-    ,"add_title_to_empire_core_success":"已將該王國法理納入帝國法理"
-    ,"remove_title_from_empire_core_success":"已將該王國法理移出帝國法理"
-    ,"destroy_empire_core_success":"已銷毀該帝國法理"
+    ,"occupation_capture_event_log":"$capturer$ 擒获了 $victim$，$result$"
+    ,"empire_pressure_surrender_log":"在 $attacker$ 的战事压力下，$defender$ 投降，并被迫割让 $target$"
+    ,"empire_pressure_surrender_city_log":"在 $attacker$ 的战事压力下，$defender$ 被迫割让城市 $target$"
+    ,"empire_core_absorb_title_log":"$empire$ 已将 $title$ 法理纳入 $core$ 帝国法理中"
+    ,"occupation_capture_result_lord":"其所镇城市被立即占领"
+    ,"occupation_capture_result_king":"其所属国家全境投降"
+    ,"occupation_capture_result_emperor":"帝国正统崩溃，所攻目标被迅速攻占"
+    ,"opinion_same_empire_core":"同争一套帝国法理"
+    ,"create_empire_core":"新建帝国法理"
+    ,"create_empire_core_description":"从点击的王国法理新建一套帝国法理"
+    ,"add_title_to_empire_core":"添加王国法理至帝国法理"
+    ,"add_title_to_empire_core_description":"先选择一个王国法理，再点击目标帝国法理范围内的城市，将其纳入帝国法理"
+    ,"remove_title_from_empire_core":"删除王国法理自帝国法理"
+    ,"remove_title_from_empire_core_description":"将点击的王国法理从当前所属的帝国法理中移除"
+    ,"destroy_empire_core":"销毁帝国法理"
+    ,"destroy_empire_core_description":"销毁点击城市所属的整套帝国法理"
+    ,"empire_core_invalid_target":"无效的帝国法理目标"
+    ,"empire_core_select_title_first":"请先选择一个拥有王国法理的城市"
+    ,"empire_core_title_selected":"已选择王国法理"
+    ,"create_empire_core_success":"已新建一套帝国法理"
+    ,"add_title_to_empire_core_success":"已将该王国法理纳入帝国法理"
+    ,"remove_title_from_empire_core_success":"已将该王国法理移出帝国法理"
+    ,"destroy_empire_core_success":"已销毁该帝国法理"
     ,"EmpireCoreWindowTitle":""
-    ,"empire_core_description":"當前帝國法理信息"
-    ,"empire_core_display_name":"法理名稱"
-    ,"empire_core_plate_name":"銘牌簡稱"
-    ,"empire_core_created_time":"創建時間"
-    ,"empire_core_founding_empire":"創建帝國"
-    ,"empire_core_titles_count":"包含法理數"
-    ,"empire_core_cities_count":"包含城市數"
-    ,"empire_core_current_empires":"當前稱帝國家"
-    ,"empire_core_history_collection":"帝國法理歷史合集"
+    ,"empire_core_description":"当前帝国法理信息"
+    ,"empire_core_display_name":"法理名称"
+    ,"empire_core_plate_name":"铭牌简称"
+    ,"empire_core_created_time":"创建时间"
+    ,"empire_core_founding_empire":"创建帝国"
+    ,"empire_core_titles_count":"包含法理数"
+    ,"empire_core_cities_count":"包含城市数"
+    ,"empire_core_current_empires":"当前称帝国家"
+    ,"empire_core_history_collection":"帝国法理历史合集"
     ,"empire_core_history_exists":"仍然存在"
-    ,"empire_core_history_gone":"已經滅亡"
-    ,"empire_core_history_duration":"延續時間"
-    ,"empire_core_history_emperors":"歷任皇帝"
-    ,"empire_core_none":"無"
+    ,"empire_core_history_gone":"已经灭亡"
+    ,"empire_core_history_duration":"延续时间"
+    ,"empire_core_history_emperors":"历任皇帝"
+    ,"empire_core_none":"无"
+    ,"label_none":"无"
+    ,"label_no_royal_clan":"无皇室"
+    ,"label_treasury":"国库"
+    ,"label_mandate":"正统值"
+    ,"label_dominant_faction":"主导派系"
+    ,"label_claim":"诉求"
+    ,"label_member_count":"成员数量"
+    ,"label_total_power":"势力"
+    ,"label_required_traits":"所需特质"
+    ,"label_all_members":"全部成员"
+    ,"label_name":"姓名"
+    ,"label_total_performance":"总绩效"
+    ,"label_rank":"品级"
+    ,"label_all_claims":"全部诉求"
+    ,"label_budget":"预算"
+    ,"label_tributary_target":"朝贡对象"
+    ,"label_no_faction_influence":"无派系影响"
+    ,"label_governor_influence":"长官影响力"
+    ,"label_brutality":"暴虐值"
+    ,"label_corruption":"腐败值"
+    ,"action_add_performance":"增加绩效"
+    ,"action_sub_performance":"减少绩效"
 }

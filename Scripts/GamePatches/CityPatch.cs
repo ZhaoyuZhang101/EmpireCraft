@@ -455,6 +455,10 @@ public class CityPatch : GamePatch
                     return false;
                 }
             }
+            if (TryTriggerEmpirePressureSurrender(__instance, joinAfterCapture, oldKingdom))
+            {
+                return false;
+            }
             if (!__instance.checkRebelWar(joinAfterCapture, pWars))
                 joinAfterCapture.data.timestamp_new_conquest = World.world.getCurWorldTime();
             __instance.removeSoldiers();
@@ -462,6 +466,140 @@ public class CityPatch : GamePatch
         }
 
         return false;
+    }
+
+    private static bool TryTriggerEmpirePressureSurrender(City capturedCity, Kingdom attackerKingdom, Kingdom defenderKingdom)
+    {
+        if (capturedCity == null || attackerKingdom == null || defenderKingdom == null) return false;
+        if (capturedCity.isRekt() || attackerKingdom.isRekt() || defenderKingdom.isRekt()) return false;
+
+        Empire attackerEmpire = attackerKingdom.GetEmpire();
+        Empire defenderEmpire = defenderKingdom.GetEmpire();
+        if (attackerEmpire == null || defenderEmpire == null || attackerEmpire == defenderEmpire) return false;
+        if (defenderEmpire.CoreKingdom == null || defenderEmpire.CoreKingdom.isRekt()) return false;
+        if (defenderEmpire.cities_list == null) return false;
+        if (!attackerKingdom.isInWarWith(defenderEmpire.CoreKingdom) && !defenderEmpire.CoreKingdom.isInWarWith(attackerKingdom)) return false;
+
+        bool hitEmpireCapital = defenderEmpire.CoreKingdom.capital == capturedCity;
+        bool hitKingdomCapital = defenderKingdom.capital == capturedCity;
+        int totalCities = defenderEmpire.cities_list?.Count(c => c != null && !c.isRekt()) ?? 0;
+        if (totalCities <= 0) return false;
+
+        int occupiedCities = 0;
+        for (int i = 0; i < defenderEmpire.cities_list.Count; i++)
+        {
+            City city = defenderEmpire.cities_list[i];
+            if (city == null || city.isRekt()) continue;
+            if (city == capturedCity)
+            {
+                occupiedCities++;
+                continue;
+            }
+
+            Kingdom cityKingdom = city.kingdom;
+            if (cityKingdom != null && !cityKingdom.isRekt() && cityKingdom.IsInSameEmpire(attackerKingdom))
+            {
+                occupiedCities++;
+            }
+        }
+
+        bool reachedThird = occupiedCities * 3 >= totalCities;
+        if (!hitEmpireCapital && !reachedThird) return false;
+
+        int surrenderChance = CalculateEmpirePressureSurrenderChance(defenderEmpire, hitEmpireCapital, reachedThird);
+        if (surrenderChance <= 0) return false;
+        if (surrenderChance < 70 && UnityEngine.Random.Range(0, 100) >= surrenderChance) return false;
+
+        string targetName;
+        bool cityOnly = false;
+        if (hitEmpireCapital)
+        {
+            ForceEmpirePressureSurrenderTo(defenderEmpire, attackerKingdom, capturedCity);
+            targetName = defenderEmpire.CoreKingdom.GetKingdomName();
+        }
+        else if (hitKingdomCapital)
+        {
+            ForceSurrenderKingdomTo(defenderKingdom, attackerKingdom, capturedCity);
+            targetName = defenderKingdom.GetKingdomName();
+        }
+        else
+        {
+            capturedCity.joinAnotherKingdom(attackerKingdom, true);
+            targetName = capturedCity.GetCityName();
+            cityOnly = true;
+        }
+
+        defenderEmpire.CoreKingdom.EndWarWith(attackerEmpire.CoreKingdom);
+        defenderKingdom.EndWarWith(attackerEmpire.CoreKingdom);
+        TranslateHelper.LogEmpirePressureSurrender(attackerEmpire, defenderEmpire, targetName, cityOnly);
+        return true;
+    }
+
+    private static int CalculateEmpirePressureSurrenderChance(Empire defenderEmpire, bool hitEmpireCapital, bool reachedThird)
+    {
+        if (defenderEmpire == null || defenderEmpire.CoreKingdom == null) return 0;
+        int mandate = Mathf.Clamp(defenderEmpire.Mandate, 0, 100);
+        if (mandate > 70) return 0;
+
+        int chance = Mathf.Clamp(70 - mandate, 0, 100);
+        if (reachedThird) chance += 15;
+        if (hitEmpireCapital) chance += 25;
+        if (defenderEmpire.CoreKingdom.GetMoney() <= 0) chance += 35;
+        chance = Mathf.Clamp(chance, 0, 100);
+        return chance;
+    }
+
+    private static void ForceSurrenderKingdomTo(Kingdom defeated, Kingdom occupier, City capturedCity)
+    {
+        if (defeated == null || occupier == null || defeated.isRekt() || occupier.isRekt() || defeated == occupier)
+        {
+            return;
+        }
+
+        List<City> citySnapshot = new List<City>(defeated.cities);
+        if (capturedCity != null && !capturedCity.isRekt() && capturedCity.kingdom == defeated)
+        {
+            capturedCity.joinAnotherKingdom(occupier, true);
+        }
+
+        for (int i = 0; i < citySnapshot.Count; i++)
+        {
+            City targetCity = citySnapshot[i];
+            if (targetCity == null || targetCity.isRekt() || targetCity == capturedCity || targetCity.kingdom != defeated)
+            {
+                continue;
+            }
+
+            targetCity.joinAnotherKingdom(occupier, true);
+        }
+    }
+
+    private static void ForceEmpirePressureSurrenderTo(Empire defenderEmpire, Kingdom occupier, City capturedCity)
+    {
+        if (defenderEmpire == null || occupier == null || occupier.isRekt()) return;
+
+        HashSet<Kingdom> surrenderedKingdoms = new HashSet<Kingdom>();
+        if (defenderEmpire.CoreKingdom != null && !defenderEmpire.CoreKingdom.isRekt())
+        {
+            surrenderedKingdoms.Add(defenderEmpire.CoreKingdom);
+        }
+
+        for (int i = 0; i < defenderEmpire.kingdoms_list.Count; i++)
+        {
+            Kingdom kingdom = defenderEmpire.kingdoms_list[i];
+            if (kingdom == null || kingdom.isRekt() || kingdom == defenderEmpire.CoreKingdom) continue;
+            Regime regime = kingdom.GetRegime();
+            if (regime != null && !regime.IsAllowDiplomacy())
+            {
+                surrenderedKingdoms.Add(kingdom);
+            }
+        }
+
+        foreach (var kingdom in surrenderedKingdoms)
+        {
+            ForceSurrenderKingdomTo(kingdom, occupier, capturedCity);
+            kingdom.EndWarWith(occupier);
+        }
     }
     public static bool countWarriors(City __instance, ref int __result)
     {

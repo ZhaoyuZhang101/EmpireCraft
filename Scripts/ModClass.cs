@@ -27,6 +27,7 @@ using Newtonsoft.Json;
 namespace EmpireCraft.Scripts;
 public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigurable
 {
+    public static string NARROW_SPACE = "\u200A";
     public static bool SAVE_FREEZE = false;
     public static int WAR_END_YEAR = 30;
     public static Transform prefab_library;
@@ -41,11 +42,11 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static ModConfig modConfig;
     public static int MOD_DATA_VERSION = 3;
     public static Dictionary<long, List<EmpireCraftHistory>> ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
+    private static readonly List<Kingdom> _fixedUpdateKingdomBuffer = new();
     public ModDeclare GetDeclaration()
     {
         return _declare;
     }
-
     void Start ()
     {
         IS_CLEAR = false;
@@ -56,16 +57,24 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     {
 
         KINGDOM_TITLE_MANAGER.update(-1L);
-        World.world.kingdoms.ForEach(pKingdom =>
+        _fixedUpdateKingdomBuffer.Clear();
+        foreach (Kingdom kingdom in World.world.kingdoms)
         {
+            _fixedUpdateKingdomBuffer.Add(kingdom);
+        }
+
+        for (int i = 0; i < _fixedUpdateKingdomBuffer.Count; i++)
+        {
+            Kingdom pKingdom = _fixedUpdateKingdomBuffer[i];
+            if (pKingdom == null) continue;
             pKingdom.CheckEmpire();
             EmpireCraftKingdomBehCheckTemporaryFaction.CheckTf(pKingdom);
-            if (pKingdom.isRekt()) return;
-            if (!pKingdom.IsEmpire())  return;
+            if (pKingdom.isRekt()) continue;
+            if (!pKingdom.IsEmpire())  continue;
             Regime regime = pKingdom.GetRegime();
-            if (regime==null)  return;
+            if (regime==null)  continue;
             var ff = regime.GetDominateFaction();
-            if (ff==null)  return;
+            if (ff==null)  continue;
             foreach (var tf in ff.TemporaryFactions)
             {
                 tf.SetEmpire(pKingdom.GetEmpire());
@@ -81,7 +90,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                     tf.CheckNeedToUpdate();
                 }
             }
-        });
+        }
+        _fixedUpdateKingdomBuffer.Clear();
         
     }
 

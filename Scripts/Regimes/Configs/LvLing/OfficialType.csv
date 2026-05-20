@@ -1,47 +1,47 @@
-key,cz
-LvLing_empire,朝
-LvLing_centre,直隶
-LvLing_tempcentre,行在
-LvLing_kingdom,国
-LvLing_jiedushi,军
-LvLing_province,道
-LvLing_jimizhou,羁縻州
+key,cz,en,ch
+LvLing_empire,朝,Dynasty,朝
+LvLing_centre,直隶,Imperial Direct Domain,直隸
+LvLing_tempcentre,行在,Temporary Court,行在
+LvLing_kingdom,国,Kingdom,國
+LvLing_jiedushi,军,Military Region,軍
+LvLing_province,道,Circuit,道
+LvLing_jimizhou,羁縻州,Protectorate Prefecture,羈縻州
 
-LvLing_officiallevel_0,天子
-LvLing_officiallevel_1,中书令
-LvLing_officiallevel_2,尚书令
-LvLing_officiallevel_3,门下侍中
-LvLing_officiallevel_4,尚书
-LvLing_officiallevel_5,王
-LvLing_officiallevel_6,节度使
-LvLing_officiallevel_7,观察使
-LvLing_officiallevel_8,刺史
+LvLing_officiallevel_0,天子,Son of Heaven,天子
+LvLing_officiallevel_1,中书令,Director of the Secretariat,中書令
+LvLing_officiallevel_2,尚书令,Director of the Department of State Affairs,尚書令
+LvLing_officiallevel_3,门下侍中,Attendant-in-Chief,門下侍中
+LvLing_officiallevel_4,尚书,Minister,尚書
+LvLing_officiallevel_5,王,Prince,王
+LvLing_officiallevel_6,节度使,Military Governor,節度使
+LvLing_officiallevel_7,观察使,Inspector-General,觀察使
+LvLing_officiallevel_8,刺史,Prefect,刺史
 
-LvLing_city,县
+LvLing_city,县,County,縣
 
-LvLing_officiallevel_9,羽林大将军
-LvLing_officiallevel_10,都督
-LvLing_officiallevel_11,镇将
-LvLing_officiallevel_12,戍主
+LvLing_officiallevel_9,羽林大将军,Commander of the Imperial Guards,羽林大將軍
+LvLing_officiallevel_10,都督,Commander-Governor,都督
+LvLing_officiallevel_11,镇将,Garrison General,鎮將
+LvLing_officiallevel_12,戍主,Fortress Commander,戍主
 
-LvLing_officiallevel_13, 皇后
-LvLing_officiallevel_14, 德妃
-LvLing_officiallevel_15, 丽妃
-LvLing_officiallevel_16, 庄妃
-LvLing_officiallevel_17, 贤妃
-LvLing_officiallevel_18, 惠妃
-LvLing_officiallevel_19, 安妃
-LvLing_officiallevel_20, 和妃
-LvLing_officiallevel_21, 僖妃
-LvLing_officiallevel_22, 康妃
+LvLing_officiallevel_13,皇后,Empress,皇后
+LvLing_officiallevel_14,德妃,Consort De,德妃
+LvLing_officiallevel_15,丽妃,Consort Li,麗妃
+LvLing_officiallevel_16,庄妃,Consort Zhuang,莊妃
+LvLing_officiallevel_17,贤妃,Consort Xian,賢妃
+LvLing_officiallevel_18,惠妃,Consort Hui,惠妃
+LvLing_officiallevel_19,安妃,Consort An,安妃
+LvLing_officiallevel_20,和妃,Consort He,和妃
+LvLing_officiallevel_21,僖妃,Consort Xi,僖妃
+LvLing_officiallevel_22,康妃,Consort Kang,康妃
 
-libu_full,吏部
-li3bu_full,礼部
-gongbu_full,工部
-xingbu_full,刑部
-bingbu_full,兵部
-hubu_full,户部
+libu_full,吏部,Ministry of Personnel,吏部
+li3bu_full,礼部,Ministry of Rites,禮部
+gongbu_full,工部,Ministry of Works,工部
+xingbu_full,刑部,Ministry of Justice,刑部
+bingbu_full,兵部,Ministry of War,兵部
+hubu_full,户部,Ministry of Revenue,戶部
 
-zhongshusheng_all,中书省
-shangshusheng_all,尚书省
-menxiasheng_all,门下省
+zhongshusheng_all,中书省,Secretariat,中書省
+shangshusheng_all,尚书省,Department of State Affairs,尚書省
+menxiasheng_all,门下省,Chancellery,門下省

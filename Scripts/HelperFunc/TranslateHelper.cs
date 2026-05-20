@@ -31,7 +31,27 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.CoreKingdom.getColor().getColorText(),
             }.add();
         }
-
+        /// <summary>
+        /// 检索所有输入字段的翻译并且拼接在一起
+        /// </summary>
+        /// <param name="args"></param>
+        /// <returns>翻译完成并拼接的字段</returns>
+        public static string TryTranslate(params string[] args)
+        {
+            string result = "";
+            foreach (var text in args)
+            {
+                if (text == " " || text == ModClass.NARROW_SPACE)
+                {
+                    result += text;
+                }
+                else
+                {
+                    result += LM.Get(text);
+                }
+            }
+            return result;
+        }
         public static void LogministerTryAqcuireEmpire(Actor minister, Empire empire)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.minister_try_aqcuire_empire_log, minister.GetTitle(), minister.name, empire.name)
@@ -77,6 +97,34 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = kingdom.getColor()._color_text,
                 color_special3 = title.getColor()._color_text
             }.add();
+        }
+        public static void LogEmpireCoreAbsorbTitle(Empire empire, KingdomTitle title, EmpireCore core)
+        {
+            if (empire == null || title == null || core == null) return;
+            new WorldLogMessage(
+                EmpireCraftWorldLogLibrary.empire_core_absorb_title_log,
+                empire.GetEmpireName(),
+                title.data?.name ?? "",
+                EmpireCoreManager.GetDisplayName(core))
+            {
+                color_special1 = empire.getColor()._color_text,
+                color_special2 = title.getColor()._color_text,
+                color_special3 = empire.getColor()._color_text
+            }.RecordIntoEmpire(empire);
+        }
+        public static void LogEmpirePressureSurrender(Empire attacker, Empire defender, string targetName, bool cityOnly = false)
+        {
+            if (attacker == null || defender == null || string.IsNullOrWhiteSpace(targetName)) return;
+            new WorldLogMessage(
+                cityOnly ? EmpireCraftWorldLogLibrary.empire_pressure_surrender_city_log : EmpireCraftWorldLogLibrary.empire_pressure_surrender_log,
+                attacker.GetEmpireName(),
+                defender.GetEmpireName(),
+                targetName)
+            {
+                color_special1 = attacker.getColor()._color_text,
+                color_special2 = defender.getColor()._color_text,
+                color_special3 = defender.getColor()._color_text
+            }.RecordIntoEmpire(attacker);
         }
         
         public static void LogKingChooseHeir(Kingdom kingdom,string relation, Actor pActor)

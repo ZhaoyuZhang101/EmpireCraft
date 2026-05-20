@@ -17,6 +17,8 @@ namespace EmpireCraft.Scripts.Layer;
 
 public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 {
+    private readonly List<Empire> _empiresToProcess = new();
+
     public EmpireManager() 
     {
         this.type_id = "empire";
@@ -34,11 +36,15 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     {
         base.update(pElapsed);
         // 创建集合副本进行遍历
-        List<Empire> empiresToProcess = new List<Empire>(this);
+        _empiresToProcess.Clear();
+        foreach (Empire empire in this)
+        {
+            _empiresToProcess.Add(empire);
+        }
         double worldTime = World.world.getCurWorldTime();
         if (_lastStatsCacheTimestamp <= 0 || Date.getMonthsSince(_lastStatsCacheTimestamp) >= 1)
         {
-            foreach (Empire e in empiresToProcess)
+            foreach (Empire e in _empiresToProcess)
             {
                 if (e.IsArchived()) continue;
                 int pop = 0;
@@ -48,15 +54,14 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                 for (int i = 0; i < tKingdoms.Count; i++)
                 {
                     var k = tKingdoms[i];
-                    var ked0 = KingdomExtension.GetOrCreate(k);
-                    ked0.last_cached_timestamp = -1L;
+                    var ked = KingdomExtension.GetOrCreate(k);
+                    ked.last_cached_timestamp = -1L;
                     int kp = k.getPopulationPeople();
                     int kw = k.countTotalWarriors();
                     int km = k.countWarriorsMax();
                     pop += kp;
                     warriors += kw;
                     warriorsMax += km;
-                    var ked = KingdomExtension.GetOrCreate(k);
                     ked.cached_population = kp;
                     ked.cached_warriors = kw;
                     ked.last_cached_timestamp = worldTime;
@@ -64,9 +69,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                     for (int j = 0; j < cities.Count; j++)
                     {
                         var c = cities[j];
-                        var ced0 = CityExtension.GetOrCreate(c);
-                        ced0.last_cached_timestamp = -1L;
                         var ced = CityExtension.GetOrCreate(c);
+                        ced.last_cached_timestamp = -1L;
                         ced.cached_population = c.CountLivingPopulation();
                         ced.cached_warriors = c.CountLivingWarriors();
                         ced.last_cached_timestamp = worldTime;
@@ -80,7 +84,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             _lastStatsCacheTimestamp = worldTime;
         }
 
-        foreach (Empire current in empiresToProcess)
+        foreach (Empire current in _empiresToProcess)
         {
             if (current.IsArchived()) continue;
             current.clearCursorOver();
@@ -103,6 +107,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             dissolveEmpire(item);
         }
         _to_dissolve.Clear();
+        _empiresToProcess.Clear();
     }
 
     public void dissolveEmpire(Empire pEmpire)

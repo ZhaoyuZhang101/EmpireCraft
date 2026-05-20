@@ -16,6 +16,7 @@ using System.Numerics;
 using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -64,6 +65,8 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(setCity)));
         new Harmony(nameof(actionLanded)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.actionLanded)),
             postfix: new HarmonyMethod(GetType(), nameof(actionLanded)));
+        new Harmony(nameof(moveTo)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.moveTo), new[] { typeof(WorldTile) }),
+            prefix: new HarmonyMethod(GetType(), nameof(moveTo)));
         new Harmony(nameof(UpdateAge)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.updateAge)),
             postfix: new HarmonyMethod(GetType(), nameof(UpdateAge)));
         new Harmony(nameof(UpdateReligion)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setReligion)),
@@ -74,6 +77,8 @@ public class ActorPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(GetHit)));
         new Harmony(nameof(SetArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setArmy)),
             postfix: new HarmonyMethod(GetType(), nameof(SetArmy)));
+        new Harmony(nameof(UpdateMovement)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.updateMovement)),
+            postfix: new HarmonyMethod(GetType(), nameof(UpdateMovement)));
         new Harmony(nameof(IncreaseKills)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.increaseKills)),
             postfix: new HarmonyMethod(GetType(), nameof(IncreaseKills)));
         new Harmony(nameof(SpawnSkeleton)).Patch(AccessTools.Method(typeof(ActionLibrary), nameof(ActionLibrary.spawnSkeleton)),
@@ -81,6 +86,16 @@ public class ActorPatch : GamePatch
         LogService.LogInfo("角色补丁加载成功");
     }
 
+    public static void UpdateMovement(Actor __instance, float pElapsed, float pWalkedDistance)
+    {
+        // 有敌军就打；
+        // 自己土地被占且无敌军就夺回；
+        // 敌方土地无敌军就占领。
+        if (__instance.hasArmy() && EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode.isEnabled()) 
+        {
+            EmpireCraftActorCheckWarriorMoveAdvanced.HandleCurrentZoneWarState(__instance);
+        }
+    }
     public static bool SpawnSkeleton(BaseSimObject pCaster, WorldTile pTile)
     {
         return EmpireCraftWorldLawLibrary.empirecraft_law_allow_skeleton.isEnabled();
@@ -94,6 +109,22 @@ public class ActorPatch : GamePatch
             __instance.JudgeOfficeLevel();
         }
     }
+
+    public static bool moveTo(Actor __instance, WorldTile pTileTarget)
+    {
+        if (__instance == null || pTileTarget == null)
+        {
+            return true;
+        }
+
+        // if (__instance.ShouldBlockMoveToByFrontLine(pTileTarget))
+        // {
+        //     return false;
+        // }
+
+        return true;
+    }
+
     public static bool GetHit(
         Actor __instance,
         float pDamage,

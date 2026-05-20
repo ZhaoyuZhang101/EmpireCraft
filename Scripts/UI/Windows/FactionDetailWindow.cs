@@ -63,8 +63,8 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         var infoPart = topPart.BeginHoriGroup();
         infoPart.AddActorViewIntoHoriLayout(_faction.GetLeader());
         var leftPart = infoPart.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
-        leftPart.AddTextIntoVertLayout("成员数量: "+_faction.Count);
-        leftPart.AddTextIntoVertLayout("势力: "+_faction.TotalPower);
+        leftPart.AddTextIntoVertLayout($"{LM.Get("label_member_count")}: "+_faction.Count);
+        leftPart.AddTextIntoVertLayout($"{LM.Get("label_total_power")}: "+_faction.TotalPower);
         var rightPart = infoPart.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         rightPart.AddButtonIntoHoriLayout("recover_tfaction", icon: SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(15, 15), showTip:true, action:
             () =>
@@ -192,7 +192,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         Clear();
         InitialTopPart();
         var content = this.BeginVertGroup();
-        content.AddTextIntoVertLayout("全部成员", true, TextAnchor.MiddleCenter, size:new Vector2(40, 15));
+        content.AddTextIntoVertLayout(LM.Get("label_all_members"), true, TextAnchor.MiddleCenter, size:new Vector2(40, 15));
         yield  return CoroutineHelper.wait_for_next_frame;
         var card = content.BeginVertGroup(pSpacing:-5);
         StartCoroutine(ShowAllMembers(card));
@@ -243,19 +243,19 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         var actorSpace = cardSpace.BeginHoriGroup(pAlignment:TextAnchor.MiddleCenter);
         actorSpace.transform.ClearChildren();
         //角色基本信息
-        actorSpace.AddActorViewIntoHoriLayout(pActor, description:pActor.IsOnOffice()?pActor.GetOffice().GetOfficeName():"无");
+        actorSpace.AddActorViewIntoHoriLayout(pActor, description:pActor.IsOnOffice()?pActor.GetOffice().GetOfficeName():LM.Get("label_none"));
         //角色官位信息
         var powerPart = actorSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
-        powerPart.AddTextIntoVertLayout($"姓名: {pActor.name}", anchor: TextAnchor.MiddleLeft);
-        var performanceText = powerPart.AddTextIntoVertLayout($"总绩效: {(int)pActor.GetIdentity().TotalPerformance}", anchor: TextAnchor.MiddleLeft);
-        var levelText = powerPart.AddTextIntoVertLayout($"品级: {pActor.GetIdentity().GetHonoraryOfficialName()}", anchor: TextAnchor.MiddleLeft);
+        powerPart.AddTextIntoVertLayout($"{LM.Get("label_name")}: {pActor.name}", anchor: TextAnchor.MiddleLeft);
+        var performanceText = powerPart.AddTextIntoVertLayout($"{LM.Get("label_total_performance")}: {(int)pActor.GetIdentity().TotalPerformance}", anchor: TextAnchor.MiddleLeft);
+        var levelText = powerPart.AddTextIntoVertLayout($"{LM.Get("label_rank")}: {pActor.GetIdentity().GetHonoraryOfficialName()}", anchor: TextAnchor.MiddleLeft);
         RefreshText(pActor, performanceText, levelText);
         //编辑部分
         var infoSpace = cardSpace.BeginHoriGroup(pAlignment:TextAnchor.MiddleCenter);
         //编辑绩效部分
         var editPerformancePart = infoSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
-        editPerformancePart.AddButtonIntoVertLayout("add_performance", "增加绩效", () => AddPerformance(pActor.GetIdentity(), performanceText, levelText), size: new Vector2(20, 12));
-        editPerformancePart.AddButtonIntoVertLayout("sub_performance", "减少绩效", () => SubPerformance(pActor.GetIdentity(), performanceText, levelText), size: new Vector2(20, 12));
+        editPerformancePart.AddButtonIntoVertLayout("add_performance", LM.Get("action_add_performance"), () => AddPerformance(pActor.GetIdentity(), performanceText, levelText), size: new Vector2(20, 12));
+        editPerformancePart.AddButtonIntoVertLayout("sub_performance", LM.Get("action_sub_performance"), () => SubPerformance(pActor.GetIdentity(), performanceText, levelText), size: new Vector2(20, 12));
         //删改角色部分
         var editActorPart = infoSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
         var leaderTurnOnButton = editActorPart.transform.AddNormalOptionIntoVert(editActorPart, "set_leader", () =>
@@ -319,8 +319,8 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     [Hotfixable]
     public void RefreshText(Actor pActor, SimpleText performance, SimpleText level)
     {
-        performance.text.text = $"总绩效: {(int)pActor.GetIdentity().TotalPerformance}";
-        level.text.text = $"品级: {pActor.GetIdentity().GetHonoraryOfficialName()}";
+        performance.text.text = $"{LM.Get("label_total_performance")}: {(int)pActor.GetIdentity().TotalPerformance}";
+        level.text.text = $"{LM.Get("label_rank")}: {pActor.GetIdentity().GetHonoraryOfficialName()}";
     }
     /// <summary>
     /// 显示和编辑诉求
@@ -332,7 +332,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         Clear();
         InitialTopPart();
         var claimSpace = this.BeginVertGroup();
-        claimSpace.AddTextIntoVertLayout("全部诉求", size: new Vector2(35, 18), hideBackground:true, anchor: TextAnchor.MiddleCenter);
+        claimSpace.AddTextIntoVertLayout(LM.Get("label_all_claims"), size: new Vector2(35, 18), hideBackground:true, anchor: TextAnchor.MiddleCenter);
         foreach (var tf in _faction.TemporaryFactions)
         {
             ShowClaim(tf, claimSpace);
@@ -349,7 +349,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
                 var tFactionContent = selectPart.BeginGridGroup(5, pCellSize: new Vector2(30, 18));
                 foreach (var tf2 in tf.Value)
                 {
-                    tFactionContent.AddButtonIntoGirdLayout(tf2.ToString(), tf2.ToString(), () =>
+                    tFactionContent.AddButtonIntoGirdLayout(tf2.ToString(), LM.Get(tf2.ToString()), () =>
                     {
                         _faction.TemporaryFactionTypesRecord.Add(tf2);
                         _faction.TemporaryFactions = _faction.ConvertToObjectFromFactionType();
@@ -367,8 +367,8 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     {
         var tfSpace = parent.BeginHoriGroup(new Vector2(200, 40), pSpacing:20);
         var firstPart = tfSpace.BeginVertGroup();
-        firstPart.AddTextIntoVertLayout(pFaction.type.ToString(), hideBackground:true);
-        firstPart.AddTextIntoVertLayout($"预算: {pFaction.Budget}");
+        firstPart.AddTextIntoVertLayout(LM.Get(pFaction.type.ToString()), hideBackground:true);
+        firstPart.AddTextIntoVertLayout($"{LM.Get("label_budget")}: {pFaction.Budget}");
         var secondPart = tfSpace.BeginVertGroup(pSpacing:-5);
         var hideButton = secondPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "hide_tfaction", () =>
         {

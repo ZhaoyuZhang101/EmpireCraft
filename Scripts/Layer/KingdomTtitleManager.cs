@@ -11,6 +11,8 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.Layer;
 public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleData>
 {
+    private readonly List<KingdomTitle> _titleUpdateBuffer = new();
+
     public Sprite[] _cached_banner_backgrounds;
 
     public Sprite[] _cached_banner_icons;
@@ -91,7 +93,13 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     {
         base.update(pElapsed);
         if (this.Count <= 0) return;
+        _titleUpdateBuffer.Clear();
         foreach (KingdomTitle kt in this)
+        {
+            _titleUpdateBuffer.Add(kt);
+        }
+
+        foreach (KingdomTitle kt in _titleUpdateBuffer)
         {
             if (!kt.checkActive())
             {
@@ -103,10 +111,12 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
             this.dissolveTitle(kt);
         }
         this._to_dissolve.Clear();
+        _titleUpdateBuffer.Clear();
     }
 
     public void dissolveTitle(KingdomTitle pkt)
     {
+        pkt.generateColor();
         pkt.Dissolve();
         pkt.Dispose();
         this.removeObject(pkt);

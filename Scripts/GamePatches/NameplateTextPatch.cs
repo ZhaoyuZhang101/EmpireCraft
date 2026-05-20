@@ -1,7 +1,10 @@
 using System;
+using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using HarmonyLib;
 using NeoModLoader.api;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
@@ -22,32 +25,88 @@ public class NameplateTextPatch:GamePatch
         __instance._text_name.transform.localScale = Vector3.one;
         __instance._text_name.enabled = true;
         __instance._text_name.gameObject.SetActive(true);
+        __instance._background_image.transform.localPosition = Vector3.zero;
+        __instance._background_image.transform.localScale = Vector3.one;
+        __instance._background_image.type = Image.Type.Sliced;
+        var outline = __instance._text_name.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.enabled = false;
+        }
         __instance.setShowing(true);
         if (pAsset != null)
         {
-            if (pAsset.map_mode == MetaType.Kingdom)
+            switch (pAsset.map_mode)
             {
-                __instance._show_banner_kingdom = true;
-                try
-                {
-                    __instance._banner_kingdoms.load(pMeta);
-                }
-                catch
-                {
-                }
-            }
-            else
-            {
-                __instance._show_banner_kingdom = false;
-            }
-            if (pAsset.map_mode == MetaType.City)
-            {
-                __instance._show_banner_city = true;
-                __instance._banner_city.load(pMeta as City);
-            }
-            else
-            {
-                __instance._show_banner_city = false;
+                case MetaType.Kingdom:
+                    __instance._show_banner_kingdom = true;
+                    __instance._banner_kingdoms.enabled = true;
+                    __instance._banner_kingdoms.gameObject.SetActive(true);
+                    try
+                    {
+                        __instance._banner_kingdoms.load(pMeta);
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+                    break;
+                case MetaType.City:
+                    __instance._show_banner_city = true;
+                    __instance._banner_city.enabled = true;
+                    __instance._banner_city.gameObject.SetActive(true);
+                    __instance._banner_city.load(pMeta as City);
+                    break;
+                case MetaTypeExtension.KingdomTitle:
+                    var capital =(City)pMeta;
+                    __instance.setupMeta(capital.data, capital.GetTitle().getColor());
+                    __instance._text_name.fontStyle = FontStyle.Bold;
+                    __instance._text_name.transform.localPosition = Vector3.zero;
+                    __instance._text_name.transform.localScale = Vector3.one * 1.5f;
+                    __instance._text_name.color = Color.white;
+            
+                    // 给文字加蓝色边框（描边）
+                    if (outline != null)
+                    {
+                        outline.enabled = false;
+                    }
+            
+                    __instance._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
+                    __instance._banner_kingdoms.left_image.gameObject.SetActive(value: false);
+                    __instance._banner_kingdoms.winner_image.gameObject.SetActive(value: false);
+                    __instance._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
+                    __instance._show_banner_city = false;
+                    __instance._show_banner_clan = false;
+                    if (EmpireCraftMetaTypeLibrary.kingdomTitle.getZoneOptionState() == 0)
+                    {
+                        __instance._show_banner_kingdom = false;
+                    }
+                    else
+                    {
+                        __instance._show_banner_kingdom = true;
+                    }
+                    __instance._banner_kingdoms.background.sprite = capital.GetTitle()?.getElementBackground();
+                    __instance._banner_kingdoms.icon.sprite = capital.GetTitle()?.getElementIcon();
+                    var color = capital.GetTitle().kingdomColor.getColorBanner();
+                    color = new Color(color.r, color.g, color.b, 0.5f);
+                    __instance._banner_kingdoms.background.color = color;
+                    __instance._banner_kingdoms.icon.color = color;
+                    __instance._banner_kingdoms.gameObject.transform.localPosition = Vector3.zero;
+                    __instance._banner_kingdoms.gameObject.transform.localScale = Vector3.one*1.5f;
+                    __instance._background_image.enabled = false;
+                    __instance._show_banner_culture = false;
+                    break;
+                case MetaTypeExtension.Empire:
+                    __instance._show_banner_city = false;
+                    __instance._show_banner_clan = false;
+                    __instance._banner_kingdoms.dead_image.gameObject.SetActive(value: false);
+                    __instance._banner_kingdoms.left_image.gameObject.SetActive(value: false);
+                    __instance._banner_kingdoms.winner_image.gameObject.SetActive(value: false);
+                    __instance._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
+                    __instance._show_banner_kingdom = false;
+                    __instance._show_banner_culture = false;
+                    __instance._background_image.enabled = true;
+                    break;
             }
         }
     }

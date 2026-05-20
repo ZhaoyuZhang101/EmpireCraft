@@ -9,6 +9,28 @@ namespace EmpireCraft.Scripts.HelperFunc;
 public static class KingdomFrontLineHelper
 {
     private const float NearSideRange = 400f;
+    private static int _cacheFrame = -1;
+    private static readonly Dictionary<Kingdom, HashSet<TileZone>> _kingdomZonesCache = new();
+    private static readonly Dictionary<Kingdom, HashSet<TileZone>> _effectiveZonesCache = new();
+    private static readonly Dictionary<Kingdom, List<Kingdom>> _friendlyWarKingdomsCache = new();
+    private static readonly Dictionary<Kingdom, HashSet<TileZone>> _occupiedZonesByKingdomCache = new();
+    private static bool _occupiedZonesIndexed;
+
+    private static void EnsureFrameCache()
+    {
+        int frame = Time.frameCount;
+        if (_cacheFrame == frame)
+        {
+            return;
+        }
+
+        _cacheFrame = frame;
+        _kingdomZonesCache.Clear();
+        _effectiveZonesCache.Clear();
+        _friendlyWarKingdomsCache.Clear();
+        _occupiedZonesByKingdomCache.Clear();
+        _occupiedZonesIndexed = false;
+    }
 
     /// <summary>
     /// 获取 actorKingdom 面对所有敌国的有效敌方前线 zone。
@@ -25,7 +47,7 @@ public static class KingdomFrontLineHelper
 
         var enemies = actorKingdom.getEnemiesKingdoms();
 
-        if (enemies == null || enemies.Count() == 0)
+        if (enemies == null)
         {
             return result;
         }
@@ -92,7 +114,7 @@ public static class KingdomFrontLineHelper
             return result;
         }
 
-        HashSet<TileZone> enemyZones = GetKingdomZones(enemyKingdom);
+        HashSet<TileZone> enemyZones = GetEffectiveControlledZones(enemyKingdom);
 
         if (enemyZones.Count == 0)
         {
@@ -129,33 +151,27 @@ public static class KingdomFrontLineHelper
                     continue;
                 }
 
-                Kingdom neighbourKingdom = GetZoneKingdom(neighbour);
-                Kingdom neighbourOccupier = GetZoneOccupier(neighbour);
+                Kingdom neighbourController = GetEffectiveZoneController(neighbour);
 
                 // 友军占领区算作我方控制区
-                if (neighbourOccupier != null && IsFriendlyKingdom(actorKingdom, neighbourOccupier))
+                if (IsFriendlyControlledZone(actorKingdom, neighbour))
                 {
                     touchesFriendlyControlledZone = true;
                     continue;
                 }
 
                 // 自己或同阵营友军原生领土，也算作我方控制区
-                if (neighbourKingdom != null && IsFriendlyKingdom(actorKingdom, neighbourKingdom))
-                {
-                    touchesFriendlyControlledZone = true;
-                    continue;
-                }
 
                 // 敌国自己的 zone，不算边界
-                if (neighbourKingdom == enemyKingdom)
+                if (neighbourController == enemyKingdom)
                 {
                     continue;
                 }
 
                 // 接壤非交战第三方国家的边界，不算当前战争前线
-                if (neighbourKingdom != null &&
-                    !IsFriendlyKingdom(actorKingdom, neighbourKingdom) &&
-                    !actorKingdom.isInWarWith(neighbourKingdom))
+                if (neighbourController != null &&
+                    !IsFriendlyKingdom(actorKingdom, neighbourController) &&
+                    !actorKingdom.isInWarWith(neighbourController))
                 {
                     touchesNonWarKingdom = true;
                     break;
@@ -192,7 +208,7 @@ public static class KingdomFrontLineHelper
         }
 
         HashSet<TileZone> sourceZones = GetFriendlyFrontSourceZonesFacingEnemy(actorKingdom, enemyKingdom);
-        HashSet<TileZone> enemyZones = GetKingdomZones(enemyKingdom);
+        HashSet<TileZone> enemyZones = GetEffectiveControlledZones(enemyKingdom);
 
         if (sourceZones.Count == 0 || enemyZones.Count == 0)
         {
@@ -231,16 +247,16 @@ public static class KingdomFrontLineHelper
                     continue;
                 }
 
-                Kingdom neighbourKingdom = GetZoneKingdom(neighbour);
+                Kingdom neighbourController = GetEffectiveZoneController(neighbour);
 
-                if (neighbourKingdom != enemyKingdom)
+                if (neighbourController != enemyKingdom)
                 {
                     isBorder = true;
 
                     // 如果这段边界接壤的是中立或非当前战争国家，则排除
-                    if (neighbourKingdom != null &&
-                        !IsFriendlyKingdom(actorKingdom, neighbourKingdom) &&
-                        !actorKingdom.isInWarWith(neighbourKingdom))
+                    if (neighbourController != null &&
+                        !IsFriendlyKingdom(actorKingdom, neighbourController) &&
+                        !actorKingdom.isInWarWith(neighbourController))
                     {
                         touchesNonWarKingdom = true;
                         break;
@@ -327,7 +343,7 @@ public static class KingdomFrontLineHelper
             return result;
         }
 
-        HashSet<TileZone> enemyZones = GetKingdomZones(enemyKingdom);
+        HashSet<TileZone> enemyZones = GetEffectiveControlledZones(enemyKingdom);
 
         if (enemyZones.Count == 0)
         {
@@ -335,9 +351,9 @@ public static class KingdomFrontLineHelper
         }
 
         // actorKingdom 自己的国土永远作为基础方向来源
-        foreach (TileZone zone in GetKingdomZones(actorKingdom))
+        foreach (TileZone zone in GetEffectiveControlledZones(actorKingdom))
         {
-            if (IsValidZone(zone))
+            if (IsValidZone(zone) && IsFriendlyControlledZone(actorKingdom, zone))
             {
                 result.Add(zone);
             }
@@ -351,9 +367,14 @@ public static class KingdomFrontLineHelper
                 continue;
             }
 
-            foreach (TileZone zone in GetKingdomZones(friendlyKingdom))
+            foreach (TileZone zone in GetEffectiveControlledZones(friendlyKingdom))
             {
                 if (!IsValidZone(zone))
+                {
+                    continue;
+                }
+
+                if (!IsFriendlyControlledZone(actorKingdom, zone))
                 {
                     continue;
                 }
@@ -389,13 +410,19 @@ public static class KingdomFrontLineHelper
     /// </summary>
     public static List<Kingdom> GetFriendlyWarKingdoms(Kingdom actorKingdom)
     {
-        List<Kingdom> result = new List<Kingdom>();
+        EnsureFrameCache();
 
         if (actorKingdom == null)
         {
-            return result;
+            return new List<Kingdom>();
         }
 
+        if (_friendlyWarKingdomsCache.TryGetValue(actorKingdom, out var cachedResult))
+        {
+            return cachedResult;
+        }
+
+        List<Kingdom> result = new List<Kingdom>();
         foreach (Kingdom kingdom in World.world.kingdoms)
         {
             if (kingdom == null || kingdom.isRekt() || kingdom.isNeutral())
@@ -414,6 +441,7 @@ public static class KingdomFrontLineHelper
             }
         }
 
+        _friendlyWarKingdomsCache[actorKingdom] = result;
         return result;
     }
 
@@ -433,49 +461,11 @@ public static class KingdomFrontLineHelper
 
         foreach (Kingdom friendlyKingdom in GetFriendlyWarKingdoms(actorKingdom))
         {
-            foreach (TileZone zone in GetKingdomZones(friendlyKingdom))
+            foreach (TileZone zone in GetEffectiveControlledZones(friendlyKingdom))
             {
                 if (IsValidZone(zone))
                 {
                     result.Add(zone);
-                }
-            }
-        }
-
-        var enemies = actorKingdom.getEnemiesKingdoms();
-
-        if (enemies == null)
-        {
-            return result;
-        }
-
-        foreach (Kingdom enemy in enemies)
-        {
-            if (enemy == null || enemy.cities == null)
-            {
-                continue;
-            }
-
-            foreach (City city in enemy.cities)
-            {
-                if (city == null || city.zones == null)
-                {
-                    continue;
-                }
-
-                foreach (TileZone zone in city.zones)
-                {
-                    if (!IsValidZone(zone))
-                    {
-                        continue;
-                    }
-
-                    Kingdom occupier = GetZoneOccupier(zone);
-
-                    if (occupier != null && IsFriendlyKingdom(actorKingdom, occupier))
-                    {
-                        result.Add(zone);
-                    }
                 }
             }
         }
@@ -488,11 +478,17 @@ public static class KingdomFrontLineHelper
     /// </summary>
     public static HashSet<TileZone> GetKingdomZones(Kingdom kingdom)
     {
+        EnsureFrameCache();
         HashSet<TileZone> result = new HashSet<TileZone>();
 
         if (kingdom == null || kingdom.cities == null)
         {
             return result;
+        }
+
+        if (_kingdomZonesCache.TryGetValue(kingdom, out var cachedResult))
+        {
+            return cachedResult;
         }
 
         foreach (City city in kingdom.cities)
@@ -511,7 +507,98 @@ public static class KingdomFrontLineHelper
             }
         }
 
+        _kingdomZonesCache[kingdom] = result;
         return result;
+    }
+
+    public static HashSet<TileZone> GetEffectiveControlledZones(Kingdom kingdom)
+    {
+        EnsureFrameCache();
+        HashSet<TileZone> result = new HashSet<TileZone>();
+
+        if (kingdom == null)
+        {
+            return result;
+        }
+
+        if (_effectiveZonesCache.TryGetValue(kingdom, out var cachedResult))
+        {
+            return cachedResult;
+        }
+
+        foreach (TileZone zone in GetKingdomZones(kingdom))
+        {
+            if (!IsValidZone(zone))
+            {
+                continue;
+            }
+
+            Kingdom occupier = GetZoneOccupier(zone);
+            if (occupier == null || occupier == kingdom)
+            {
+                result.Add(zone);
+            }
+        }
+
+        EnsureOccupiedZoneIndex();
+        if (_occupiedZonesByKingdomCache.TryGetValue(kingdom, out var occupiedZones))
+        {
+            foreach (TileZone zone in occupiedZones)
+            {
+                if (IsValidZone(zone))
+                {
+                    result.Add(zone);
+                }
+            }
+        }
+
+        _effectiveZonesCache[kingdom] = result;
+        return result;
+    }
+
+    private static void EnsureOccupiedZoneIndex()
+    {
+        EnsureFrameCache();
+        if (_occupiedZonesIndexed)
+        {
+            return;
+        }
+
+        _occupiedZonesIndexed = true;
+        if (World.world?.cities == null)
+        {
+            return;
+        }
+
+        foreach (City city in World.world.cities)
+        {
+            if (city == null || city.isRekt() || city.zones == null)
+            {
+                continue;
+            }
+
+            foreach (TileZone zone in city.zones)
+            {
+                if (!IsValidZone(zone))
+                {
+                    continue;
+                }
+
+                Kingdom occupier = GetZoneOccupier(zone);
+                if (occupier == null)
+                {
+                    continue;
+                }
+
+                if (!_occupiedZonesByKingdomCache.TryGetValue(occupier, out var zones))
+                {
+                    zones = new HashSet<TileZone>();
+                    _occupiedZonesByKingdomCache[occupier] = zones;
+                }
+
+                zones.Add(zone);
+            }
+        }
     }
 
     /// <summary>
@@ -529,6 +616,8 @@ public static class KingdomFrontLineHelper
             return false;
         }
 
+        HashSet<TileZone> controlledZones = GetEffectiveControlledZones(kingdom);
+
         foreach (TileZone neighbour in zone.neighbours_all)
         {
             if (!IsValidZone(neighbour))
@@ -536,7 +625,7 @@ public static class KingdomFrontLineHelper
                 continue;
             }
 
-            if (GetZoneKingdom(neighbour) == kingdom)
+            if (controlledZones.Contains(neighbour))
             {
                 return true;
             }
@@ -569,6 +658,27 @@ public static class KingdomFrontLineHelper
         }
 
         return zone.city.GetTileZoneOccupier(zone);
+    }
+
+    public static Kingdom GetEffectiveZoneController(TileZone zone)
+    {
+        if (zone == null || zone.city == null)
+        {
+            return null;
+        }
+
+        return GetZoneOccupier(zone) ?? GetZoneKingdom(zone);
+    }
+
+    public static bool IsFriendlyControlledZone(Kingdom actorKingdom, TileZone zone)
+    {
+        if (actorKingdom == null || !IsValidZone(zone))
+        {
+            return false;
+        }
+
+        Kingdom controller = GetEffectiveZoneController(zone);
+        return controller != null && IsFriendlyKingdom(actorKingdom, controller);
     }
 
     /// <summary>
@@ -669,7 +779,7 @@ public static class KingdomFrontLineHelper
 
         var enemies = actorKingdom.getEnemiesKingdoms();
 
-        if (enemies == null || enemies.Count() == 0)
+        if (enemies == null)
         {
             LogService.LogInfo("FrontLine Debug: no enemies");
             return;

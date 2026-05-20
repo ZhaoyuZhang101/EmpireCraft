@@ -17,12 +17,12 @@
   "Southern": "南",
   "Northern": "北",
   "Later": "後",
-  "rebelling": "叛乱",
+  "rebelling": "叛亂",
   "Year": "年",
-  "Harems": "后宮",
+  "Harems": "後宮",
   "Peerages": "爵位",
   "i_population": "人口",
-  "regime": "政权",
+  "regime": "政權",
   "i_age": "年齡",
   "main_title": "主法理",
   "no_main_title": "尚無主法理",
@@ -31,7 +31,7 @@
   "plot_group_empirecraft_diplomacy": "帝國",
   "recover_faction": "恢復默認派系",
   "recover_faction_description": "將當前的設定的派系恢復至默認值",
-  "save_faction_setting": "存储派系配置",
+  "save_faction_setting": "存儲派系配置",
   "save_into_current_title": "保存派系至體制",
   "save_into_current_title_description": "開啓後再點擊右側的保存時會同時將派系存入體制中",
   "remove_member": "移除成員",
@@ -43,8 +43,8 @@
   "hide_tfaction_1_description": "開啟後，訴求將不會在派系卡片上顯示",
   "active_tfaction": "啟用訴求",
   "active_tfaction_description": "關閉後，訴求將不會被觸發",
-  "localpush_tfaction": "是否由地方推进",
-  "localpush_tfaction_description": "开启后.本诉求将会仅由地方推进",
+  "localpush_tfaction": "是否由地方推進",
+  "localpush_tfaction_description": "開啟後，本訴求將會僅由地方推進",
   "show_tfaction_as_plot_1": "訴求通過謀劃顯示",
   "show_tfaction_as_plot_1_description": "開啓後訴求將通過謀劃的方式執行",
   "add_new_trait": "新增特質",
@@ -260,7 +260,7 @@
   "SpecificClanListWindowTitle": "世界宗族視窗",
   "TraitsSelectWindowTitle": "新增特質",
   "AddFactionMemberWindowTitle": "新增成員",
-  "AddFactionWindowTitle": "添加派系",
+  "AddFactionWindowTitle": "新增派系",
   "empire_setting": "帝國設定",
   "empire_setting_description": "設定帝國配置，例如是否顯示年號等，後續還會完善",
   "GreaterGeneral": "天策上將",
@@ -366,7 +366,7 @@
   "kingdom_royal_clan_changed_2": "$new_clan$ 擊敗了 $old_clan$，成為 $kingdom$ 的新統治者",
   "opinion_empire_powerful_minister": "節制天下兵馬",
   "opinion_religion_place": "宗教聖地",
-  "opinion_empire_maintained": "国库维稳支出",
+  "opinion_empire_maintained": "國庫維穩支出",
   "opinion_different_faction": "不同派系",
   "opinion_occupied_title": "占據法理地盤",
   "opinion_empire_polite": "天朝上國",
@@ -399,9 +399,9 @@
   "join_religion_war_log": "$kingdom$ 加入了 $religion$ 聖戰",
   "join_rebellion_war_log": "$joiner$ 加入了 $beginner$",
   "religion_war_transfer_log": "$city$ 已受到 $religion$ 的洗禮",
-  "combine_kingdom_log": "$actor$ 已统合治下的所有辖区/国家",
-  "empire_take_back_title_log": "$actor$ 因犯 $crime$ 被帝国收回 $titles$ 的法理",
-  "royal_king_become_emperor_log": "在藩王之乱中, $actor$ 趁乱入驻京城登基, 成为$empire$ 的新皇",
+  "combine_kingdom_log": "$actor$ 已統合治下的所有轄區／國家",
+  "empire_take_back_title_log": "$actor$ 因犯 $crime$ 被帝國收回 $title$ 的法理",
+  "royal_king_become_emperor_log": "在藩王之亂中，$actor$ 趁亂入駐京城登基，成為 $empire$ 的新皇",
   "成为朝贡国": "$kingdom$ 成為 $empire$ 的朝貢國",
   "history_empire_get_back_land": "$actor$ 發動了收復 $place$ 的戰爭",
   "join_empire_war_log": "$kingdom$ 加入了 $empire$ 的戰爭",
@@ -410,7 +410,7 @@
   "officer_build_specific_clan": "$actor$ 建立了 $clan_name$ 氏族譜",
   "king_choose_heir_log": "$kingdom$ 已選定其 $relation$ $actor$ 作為下一任接班人",
   "officer_join_faction": "$office$ $actor$ 已加入 $faction$",
-  "minister_select_emperor_log": "先皇膝下无子, 重臣推举 $actor$ 成为 $empire$ 的新皇帝",
+  "minister_select_emperor_log": "先皇膝下無子，重臣推舉 $actor$ 成為 $empire$ 的新皇帝",
   "log_actor_full_name_format": "$office$$actor$",
   "empire_law_crime_detail_with_date": "於 $date$ 犯下 $crime$",
   "empire_law_crime_detail_without_date": "犯下了 $crime$",
@@ -551,6 +551,9 @@
   "plot_minister_acquire_title_info_base": "權臣試圖索取封號",
   "plot_empirecraft_war": "開戰",
   "plot_empirecraft_war_info_base": "開戰",
+  "plot_kingdom_start_join_taken_alliance": "加入朝貢體系",
+  "plot_kingdom_start_join_taken_alliance_info": "加入朝貢體系",
+  "plot_kingdom_start_join_taken_alliance_info_base": "加入朝貢體系",
   "plot_empire_enfeoff": "帝國分封",
   "plot_province_change_to_kingdom": "省份轉變為節度使",
   "plot_province_change_to_kingdom_info_base": "省份轉變為節度使",
@@ -734,48 +737,48 @@
   ,"temporary_faction_failed_crime_log":"$target$虽因犯$crime$被提议执行$claim$，但执行失败"
   ,"temporary_faction_official_fall_log":"$actor$因犯$crime$而落马"
   ,"temporary_faction_reduce_feudatory_log":"$kingdom$被削藩"
-  ,"temporary_faction_revoke_war_right_log":"$kingdom$的开战权被撤销"
-  ,"temporary_faction_revoke_military_region_log":"$kingdom$被撤销军府"
-  ,"temporary_faction_raise_tax_log":"$empire$提高了赋税"
-  ,"供养宗室":"供养宗室"
-  ,"允许诸侯自由开战":"允许诸侯自由开战"
+  ,"temporary_faction_revoke_war_right_log":"$kingdom$ 的開戰權被撤銷"
+  ,"temporary_faction_revoke_military_region_log":"$kingdom$ 被撤銷軍府"
+  ,"temporary_faction_raise_tax_log":"$empire$ 提高了賦稅"
+  ,"供养宗室":"供養宗室"
+  ,"允许诸侯自由开战":"允許諸侯自由開戰"
   ,"分封":"分封"
-  ,"划地给教廷":"划地给教廷"
+  ,"划地给教廷":"劃地給教廷"
   ,"制度融入":"制度融入"
   ,"削藩":"削藩"
   ,"割让城池":"割让城池"
-  ,"加强神权":"加强神权"
+  ,"加强神权":"加強神權"
   ,"劫掠":"劫掠"
-  ,"地方官叛乱":"地方官叛乱"
-  ,"复辟帝制":"复辟帝制"
-  ,"夺取诸侯开战权":"夺取诸侯开战权"
+  ,"地方官叛乱":"地方官叛亂"
+  ,"复辟帝制":"復辟帝制"
+  ,"夺取诸侯开战权":"奪取諸侯開戰權"
   ,"宗教同化":"宗教同化"
   ,"宗教融入":"宗教融入"
-  ,"对外扩张":"对外扩张"
-  ,"开放移民":"开放移民"
-  ,"开科取士":"开科取士"
-  ,"强者继承法":"强者继承法"
-  ,"恢复圣地":"恢复圣地"
-  ,"扩张地盘":"扩张地盘"
-  ,"扶持革命党":"扶持革命党"
-  ,"拓展金融霸权":"拓展金融霸权"
-  ,"提供岁币":"提供岁币"
+  ,"对外扩张":"對外擴張"
+  ,"开放移民":"開放移民"
+  ,"开科取士":"開科取士"
+  ,"强者继承法":"強者繼承法"
+  ,"恢复圣地":"恢復聖地"
+  ,"扩张地盘":"擴張地盤"
+  ,"扶持革命党":"扶持革命黨"
+  ,"拓展金融霸权":"拓展金融霸權"
+  ,"提供岁币":"提供歲幣"
   ,"提高福利":"提高福利"
-  ,"提高赋税":"提高赋税"
-  ,"撤销军府":"撤销军府"
-  ,"收回地盘":"收回地盘"
-  ,"汉化":"汉化"
+  ,"提高赋税":"提高賦稅"
+  ,"撤销军府":"撤銷軍府"
+  ,"收回地盘":"收回地盤"
+  ,"汉化":"漢化"
   ,"清除移民":"清除移民"
   ,"渴望共和":"渴望共和"
-  ,"游牧化":"游牧化"
-  ,"游牧扩张":"游牧扩张"
-  ,"确立国教":"确立国教"
-  ,"神授君权":"神授君权"
+  ,"游牧化":"遊牧化"
+  ,"游牧扩张":"遊牧擴張"
+  ,"确立国教":"確立國教"
+  ,"神授君权":"神授君權"
   ,"索取皇位":"索取皇位"
-  ,"缩减金融霸权":"缩减金融霸权"
+  ,"缩减金融霸权":"縮減金融霸權"
   ,"自由信仰":"自由信仰"
-  ,"设置行政区":"设置行政区"
-  ,"谋求统一":"谋求统一"
+  ,"设置行政区":"設置行政區"
+  ,"谋求统一":"謀求統一"
   ,"转世袭":"转世袭"
   ,"转军府":"转军府"
   ,"转周制":"转周制"
@@ -789,6 +792,7 @@
   ,"support_local_push_claim":"拉攏訴求支持者"
   ,"support_local_push_claim_description":"花費金錢拉攏其他有政治身份者協助推進地方訴求"
   ,"撤換官員":"撤換官員"
+  ,"撤换官员":"撤換官員"
   ,"expose_official_crime":"曝光官員黑料"
   ,"expose_official_crime_description":"花費影響力挖掘並曝光地方官員的犯罪黑料"
   ,"world_law_civ_limit_population_100_title":"一百人"
@@ -803,39 +807,64 @@
   ,"debug_frontline_description":"點擊一個國家，顯示其戰線區塊的調試結果"
   ,"debug_frontline_invalid_target":"請選擇一個有效的國家來調試戰線"
   ,"debug_frontline_triggered":"已觸發戰線調試顯示"
-  ,"occupation_capture_event_log":"$capturer$ 擒获了 $victim$，$result$"
-  ,"occupation_capture_result_lord":"其所镇城市被立即占领"
-  ,"occupation_capture_result_king":"其所属国家全境投降"
-  ,"occupation_capture_result_emperor":"帝国正统崩溃，所攻目标被迅速攻占"
-  ,"opinion_same_empire_core":"同争一套帝国法理"
-  ,"create_empire_core":"新建帝国法理"
-  ,"create_empire_core_description":"从点击的王国法理新建一套帝国法理"
-  ,"add_title_to_empire_core":"添加王国法理至帝国法理"
-  ,"add_title_to_empire_core_description":"先选择一个王国法理，再点击目标帝国法理范围内的城市，将其纳入帝国法理"
-  ,"remove_title_from_empire_core":"删除王国法理自帝国法理"
-  ,"remove_title_from_empire_core_description":"将点击的王国法理从当前所属的帝国法理中移除"
-  ,"destroy_empire_core":"销毁帝国法理"
-  ,"destroy_empire_core_description":"销毁点击城市所属的整套帝国法理"
-  ,"empire_core_invalid_target":"无效的帝国法理目标"
-  ,"empire_core_select_title_first":"请先选择一个拥有王国法理的城市"
-  ,"empire_core_title_selected":"已选择王国法理"
-  ,"create_empire_core_success":"已新建一套帝国法理"
-  ,"add_title_to_empire_core_success":"已将该王国法理纳入帝国法理"
-  ,"remove_title_from_empire_core_success":"已将该王国法理移出帝国法理"
-  ,"destroy_empire_core_success":"已销毁该帝国法理"
+  ,"occupation_capture_event_log":"$capturer$ 擒獲了 $victim$，$result$"
+  ,"empire_pressure_surrender_log":"在 $attacker$ 的戰事壓力下，$defender$ 投降，並被迫割讓 $target$"
+  ,"empire_pressure_surrender_city_log":"在 $attacker$ 的戰事壓力下，$defender$ 被迫割讓城市 $target$"
+  ,"empire_core_absorb_title_log":"$empire$ 已將 $title$ 法理納入 $core$ 帝國法理中"
+  ,"occupation_capture_result_lord":"其所鎮城市被立即佔領"
+  ,"occupation_capture_result_king":"其所屬國家全境投降"
+  ,"occupation_capture_result_emperor":"帝國正統崩潰，所攻目標被迅速攻佔"
+  ,"opinion_same_empire_core":"同爭一套帝國法理"
+  ,"create_empire_core":"新建帝國法理"
+  ,"create_empire_core_description":"從點擊的王國法理新建一套帝國法理"
+  ,"add_title_to_empire_core":"添加王國法理至帝國法理"
+  ,"add_title_to_empire_core_description":"先選擇一個王國法理，再點擊目標帝國法理範圍內的城市，將其納入帝國法理"
+  ,"remove_title_from_empire_core":"刪除王國法理自帝國法理"
+  ,"remove_title_from_empire_core_description":"將點擊的王國法理從當前所屬的帝國法理中移除"
+  ,"destroy_empire_core":"銷毀帝國法理"
+  ,"destroy_empire_core_description":"銷毀點擊城市所屬的整套帝國法理"
+  ,"empire_core_invalid_target":"無效的帝國法理目標"
+  ,"empire_core_select_title_first":"請先選擇一個擁有王國法理的城市"
+  ,"empire_core_title_selected":"已選擇王國法理"
+  ,"create_empire_core_success":"已新建一套帝國法理"
+  ,"add_title_to_empire_core_success":"已將該王國法理納入帝國法理"
+  ,"remove_title_from_empire_core_success":"已將該王國法理移出帝國法理"
+  ,"destroy_empire_core_success":"已銷毀該帝國法理"
   ,"EmpireCoreWindowTitle":""
-  ,"empire_core_description":"当前帝国法理信息"
-  ,"empire_core_display_name":"法理名称"
-  ,"empire_core_plate_name":"铭牌简称"
-  ,"empire_core_created_time":"创建时间"
-  ,"empire_core_founding_empire":"创建帝国"
-  ,"empire_core_titles_count":"包含法理数"
-  ,"empire_core_cities_count":"包含城市数"
-  ,"empire_core_current_empires":"当前称帝国家"
-  ,"empire_core_history_collection":"帝国法理历史合集"
+  ,"empire_core_description":"當前帝國法理資訊"
+  ,"empire_core_display_name":"法理名稱"
+  ,"empire_core_plate_name":"銘牌簡稱"
+  ,"empire_core_created_time":"創建時間"
+  ,"empire_core_founding_empire":"創建帝國"
+  ,"empire_core_titles_count":"包含法理數"
+  ,"empire_core_cities_count":"包含城市數"
+  ,"empire_core_current_empires":"當前稱帝國家"
+  ,"empire_core_history_collection":"帝國法理歷史合集"
   ,"empire_core_history_exists":"仍然存在"
-  ,"empire_core_history_gone":"已经灭亡"
-  ,"empire_core_history_duration":"延续时间"
-  ,"empire_core_history_emperors":"历任皇帝"
-  ,"empire_core_none":"无"
+  ,"empire_core_history_gone":"已經滅亡"
+  ,"empire_core_history_duration":"延續時間"
+  ,"empire_core_history_emperors":"歷任皇帝"
+  ,"empire_core_none":"無"
+  ,"label_none":"無"
+  ,"label_no_royal_clan":"無皇室"
+  ,"label_treasury":"國庫"
+  ,"label_mandate":"正統值"
+  ,"label_dominant_faction":"主導派系"
+  ,"label_claim":"訴求"
+  ,"label_member_count":"成員數量"
+  ,"label_total_power":"勢力"
+  ,"label_required_traits":"所需特質"
+  ,"label_all_members":"全部成員"
+  ,"label_name":"姓名"
+  ,"label_total_performance":"總績效"
+  ,"label_rank":"品級"
+  ,"label_all_claims":"全部訴求"
+  ,"label_budget":"預算"
+  ,"label_tributary_target":"朝貢對象"
+  ,"label_no_faction_influence":"無派系影響"
+  ,"label_governor_influence":"長官影響力"
+  ,"label_brutality":"暴虐值"
+  ,"label_corruption":"腐敗值"
+  ,"action_add_performance":"增加績效"
+  ,"action_sub_performance":"減少績效"
 }

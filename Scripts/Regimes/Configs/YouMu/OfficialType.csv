@@ -1,14 +1,14 @@
-key,cz
-YouMu_empire,兀鲁斯
-YouMu_centre,斡里朵
-YouMu_kingdom,汗国
-YouMu_bu,部
+key,cz,en,ch
+YouMu_empire,匈鲁斯,Khanate,匈魯斯
+YouMu_centre,斡里朵,Ordo,斡里朵
+YouMu_kingdom,汗国,Khanate Realm,汗國
+YouMu_bu,部,Tribe,部
 
-YouMu_officiallevel_0,大可汗
-YouMu_officiallevel_1,宰相
-YouMu_officiallevel_2,军政总管
-YouMu_officiallevel_3,可汗
-YouMu_officiallevel_4,部那颜
-YouMu_officiallevel_5,帐那颜
+YouMu_officiallevel_0,大可汗,Great Khan,大可汗
+YouMu_officiallevel_1,宰相,Vizier,宰相
+YouMu_officiallevel_2,军政总管,Grand Administrator,軍政總管
+YouMu_officiallevel_3,可汗,Khan,可汗
+YouMu_officiallevel_4,部那颜,Tribal Noyan,部那顏
+YouMu_officiallevel_5,帐那颜,Camp Noyan,帳那顏
 
-YouMu_city,帐
+YouMu_city,市,City,市

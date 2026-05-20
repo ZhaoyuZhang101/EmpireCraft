@@ -77,7 +77,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 case ConditionType.another_race:
                 {
                     var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
-                    var actual = empire != null && empire.CoreKingdom != null && kingdom.species_id != empire.CoreKingdom.species_id;
+                    var actual = empire is { CoreKingdom: not null } && kingdom.species_id != empire.CoreKingdom.species_id;
                     if (actual != expect) return false;
                     break;
                 }
@@ -178,7 +178,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         pKingdom.CacheData();
         pKingdom.CheckEmpire();
         var ked = pKingdom.GetOrCreate();
-        if (ked != null && ked.last_kingdom_status_ts > 0)
+        if (ked is { last_kingdom_status_ts: > 0 })
         {
             if (Date.getMonthsSince(ked.last_kingdom_status_ts) < 1)
             {
@@ -306,7 +306,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             }
         }
         var kingdomBack = LM.Get(newkingdomType.ToString());
-        pKingdom.SetKindomName(string.Join("\u200A", kingdomFront, kingdomBack));
+        pKingdom.SetKingdomName(string.Join("\u200A", kingdomFront, kingdomBack));
         foreach (var city in pKingdom.cities)
         {
             var cityBack = LM.Get(city.GetCityType().ToString());

@@ -65,11 +65,26 @@ public static class CityExtension
         public double last_cached_timestamp = -1L;
         public double last_army_check_ts = -1L;
         public double last_law_scan_ts = -1L;
-        public Dictionary<Kingdom, List<TileZone>> OccupiedStatus= new ();
+        [JsonConverter(typeof(OccupiedStatusConverter))]
+        public Dictionary<long, List<int>> OccupiedStatus = new();
         [JsonIgnore]
-        public Dictionary<TileZone, Kingdom> OccupiedZoneOwners = new();
+        public Dictionary<int, long> OccupiedZoneOwners = new();
     }
-    private static Dictionary<TileZone, Kingdom> GetOccupiedZoneOwnerMap(this City city)
+    
+    private static int GetZoneId(TileZone zone)
+    {
+        return zone?.id ?? -1;
+    }
+    private static TileZone GetZoneById(int zoneId)
+    {
+        if (zoneId < 0 || World.world?.zone_calculator == null)
+        {
+            return null;
+        }
+
+        return World.world.zone_calculator.getZoneByID(zoneId);
+    }
+    private static Dictionary<int, long> GetOccupiedZoneOwnerMap(this City city)
     {
         if (city == null)
         {
@@ -77,7 +92,7 @@ public static class CityExtension
         }
 
         CityExtraData data = city.GetOrCreate();
-        data.OccupiedZoneOwners ??= new Dictionary<TileZone, Kingdom>();
+        data.OccupiedZoneOwners ??= new Dictionary<int, long>();
 
         if (data.OccupiedZoneOwners.Count == 0 && data.OccupiedStatus != null && data.OccupiedStatus.Count > 0)
         {
@@ -90,13 +105,13 @@ public static class CityExtension
 
                 for (int i = 0; i < pair.Value.Count; i++)
                 {
-                    TileZone zone = pair.Value[i];
-                    if (zone == null)
+                    int zoneId = pair.Value[i];
+                    if (zoneId < 0)
                     {
                         continue;
                     }
 
-                    data.OccupiedZoneOwners[zone] = pair.Key;
+                    data.OccupiedZoneOwners[zoneId] = pair.Key;
                 }
             }
         }
@@ -359,7 +374,54 @@ public static class CityExtension
             return false;
         }
 
+        if (!city.CanOccupyZoneFromFriendlyEdge(occupier, zone))
+        {
+            return false;
+        }
+
         return true;
+    }
+    private static bool CanOccupyZoneFromFriendlyEdge(this City city, Kingdom occupier, TileZone zone)
+    {
+        if (city == null || occupier == null || zone == null)
+        {
+            return false;
+        }
+
+        if (zone.neighbours_all == null || zone.neighbours_all.Count() == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < zone.neighbours_all.Count(); i++)
+        {
+            TileZone neighbour = zone.neighbours_all[i];
+
+            if (neighbour == null || neighbour.world_edge)
+            {
+                continue;
+            }
+
+            City neighbourCity = neighbour.city;
+            if (neighbourCity == null || neighbourCity.isRekt())
+            {
+                continue;
+            }
+
+            Kingdom neighbourOccupier = neighbourCity.GetTileZoneOccupier(neighbour);
+            if (neighbourOccupier != null && KingdomFrontLineHelper.IsFriendlyKingdom(occupier, neighbourOccupier))
+            {
+                return true;
+            }
+
+            Kingdom neighbourOwner = neighbourCity.kingdom;
+            if (neighbourOccupier == null && neighbourOwner != null && KingdomFrontLineHelper.IsFriendlyKingdom(occupier, neighbourOwner))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
     private static bool AddOccupiedTileZoneByMandateSpread(this City city, Kingdom occupier, TileZone tileZone)
     {
@@ -373,7 +435,12 @@ public static class CityExtension
             return false;
         }
 
-        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        if (!city.CanOccupyZoneFromFriendlyEdge(occupier, tileZone))
+        {
+            return false;
+        }
+
+        Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
 
         if (occupiedStatus == null)
         {
@@ -397,26 +464,27 @@ public static class CityExtension
             city.RemoveOccupiedTileZone(currentOccupier, tileZone);
         }
 
-        if (!occupiedStatus.ContainsKey(occupier))
+        if (!occupiedStatus.ContainsKey(occupier.id))
         {
-            occupiedStatus[occupier] = new List<TileZone>();
+            occupiedStatus[occupier.id] = new List<int>();
         }
 
-        List<TileZone> zones = occupiedStatus[occupier];
+        List<int> zones = occupiedStatus[occupier.id];
 
         if (zones == null)
         {
-            zones = new List<TileZone>();
-            occupiedStatus[occupier] = zones;
+            zones = new List<int>();
+            occupiedStatus[occupier.id] = zones;
         }
 
-        if (zones.Contains(tileZone))
+        int tileZoneId = GetZoneId(tileZone);
+        if (tileZoneId < 0 || zones.Contains(tileZoneId))
         {
             return false;
         }
 
-        zones.Add(tileZone);
-        city.GetOccupiedZoneOwnerMap()[tileZone] = occupier;
+        zones.Add(tileZoneId);
+        city.GetOccupiedZoneOwnerMap()[tileZoneId] = occupier.id;
         if (city.TryTriggerOccupationCaptureEvent(occupier, tileZone, zoneOccupationMode:true))
         {
             return true;
@@ -426,6 +494,7 @@ public static class CityExtension
     }
     public static bool AddOccupiedTileZone(this City city, Kingdom occupier, TileZone tileZone, Actor capturer = null)
     {
+        var occupierId = occupier?.id??-1L;
         if (city == null || occupier == null || tileZone == null)
         {
             return false;
@@ -436,7 +505,12 @@ public static class CityExtension
             return false;
         }
 
-        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        if (!city.CanOccupyZoneFromFriendlyEdge(occupier, tileZone))
+        {
+            return false;
+        }
+
+        Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
 
         if (occupiedStatus == null)
         {
@@ -463,26 +537,27 @@ public static class CityExtension
             city.RemoveOccupiedTileZone(currentOccupier, tileZone);
         }
 
-        if (!occupiedStatus.ContainsKey(occupier))
+        if (!occupiedStatus.ContainsKey(occupierId))
         {
-            occupiedStatus[occupier] = new List<TileZone>();
+            occupiedStatus[occupierId] = new List<int>();
         }
 
-        List<TileZone> zones = occupiedStatus[occupier];
+        List<int> zones = occupiedStatus[occupierId];
 
         if (zones == null)
         {
-            zones = new List<TileZone>();
-            occupiedStatus[occupier] = zones;
+            zones = new List<int>();
+            occupiedStatus[occupierId] = zones;
         }
 
-        if (zones.Contains(tileZone))
+        int tileZoneId = GetZoneId(tileZone);
+        if (tileZoneId < 0 || zones.Contains(tileZoneId))
         {
             return false;
         }
 
-        zones.Add(tileZone);
-        city.GetOccupiedZoneOwnerMap()[tileZone] = occupier;
+        zones.Add(tileZoneId);
+        city.GetOccupiedZoneOwnerMap()[tileZoneId] = occupierId;
 
         // 高正统占领自动扩张：只在手动/士兵占领成功后触发
         city.TrySpreadOccupiedZonesByMandate(occupier, tileZone);
@@ -494,39 +569,41 @@ public static class CityExtension
     }
     public static bool RemoveOccupiedTileZone(this City city, Kingdom occupier, TileZone tileZone)
     {
+        var occupierId = occupier?.id??-1L;
         if (city == null || occupier == null || tileZone == null)
         {
             return false;
         }
 
-        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
 
         if (occupiedStatus == null)
         {
             return false;
         }
 
-        if (!occupiedStatus.TryGetValue(occupier, out var zones))
+        if (!occupiedStatus.TryGetValue(occupierId, out var zones))
         {
             return false;
         }
 
         if (zones == null)
         {
-            occupiedStatus.Remove(occupier);
+            occupiedStatus.Remove(occupierId);
             return false;
         }
 
-        bool removed = zones.Remove(tileZone);
-        Dictionary<TileZone, Kingdom> ownerMap = city.GetOccupiedZoneOwnerMap();
-        if (ownerMap != null && ownerMap.TryGetValue(tileZone, out var currentOwner) && currentOwner == occupier)
+        int tileZoneId = GetZoneId(tileZone);
+        bool removed = tileZoneId >= 0 && zones.Remove(tileZoneId);
+        Dictionary<int, long> ownerMap = city.GetOccupiedZoneOwnerMap();
+        if (tileZoneId >= 0 && ownerMap != null && ownerMap.TryGetValue(tileZoneId, out var currentOwner) && currentOwner == occupierId)
         {
-            ownerMap.Remove(tileZone);
+            ownerMap.Remove(tileZoneId);
         }
 
         if (zones.Count == 0)
         {
-            occupiedStatus.Remove(occupier);
+            occupiedStatus.Remove(occupierId);
         }
         return removed;
     }
@@ -574,7 +651,36 @@ public static class CityExtension
             return null;
         }
 
-        return city.GetOrCreate().OccupiedStatus;
+        Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        Dictionary<Kingdom, List<TileZone>> result = new Dictionary<Kingdom, List<TileZone>>();
+
+        if (occupiedStatus == null)
+        {
+            return result;
+        }
+
+        foreach (var pair in occupiedStatus)
+        {
+            var kingdom = World.world.kingdoms.get(pair.Key);
+            if (kingdom == null || pair.Value == null)
+            {
+                continue;
+            }
+
+            List<TileZone> zones = new List<TileZone>();
+            for (int i = 0; i < pair.Value.Count; i++)
+            {
+                TileZone zone = GetZoneById(pair.Value[i]);
+                if (zone != null)
+                {
+                    zones.Add(zone);
+                }
+            }
+
+            result[kingdom] = zones;
+        }
+
+        return result;
     }
     public static bool RemoveOccupiedTileZoneFromAll(this City city, TileZone tileZone)
     {
@@ -583,26 +689,27 @@ public static class CityExtension
             return false;
         }
 
-        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
-        Dictionary<TileZone, Kingdom> ownerMap = city.GetOccupiedZoneOwnerMap();
+        Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        Dictionary<int, long> ownerMap = city.GetOccupiedZoneOwnerMap();
 
         if (occupiedStatus == null || occupiedStatus.Count == 0)
         {
             return false;
         }
 
-        if (ownerMap != null && ownerMap.TryGetValue(tileZone, out var directOwner))
+        int tileZoneId = GetZoneId(tileZone);
+        if (tileZoneId >= 0 && ownerMap != null && ownerMap.TryGetValue(tileZoneId, out var directOwner))
         {
-            return city.RemoveOccupiedTileZone(directOwner, tileZone);
+            return city.RemoveOccupiedTileZone(World.world.kingdoms.get(directOwner), tileZone);
         }
 
         bool removedAny = false;
 
-        List<Kingdom> emptyKingdoms = new List<Kingdom>();
+        List<long> emptyKingdoms = new List<long>();
 
         foreach (var pair in occupiedStatus)
         {
-            List<TileZone> zones = pair.Value;
+            List<int> zones = pair.Value;
 
             if (zones == null)
             {
@@ -610,7 +717,7 @@ public static class CityExtension
                 continue;
             }
 
-            if (zones.Remove(tileZone))
+            if (tileZoneId >= 0 && zones.Remove(tileZoneId))
             {
                 removedAny = true;
             }
@@ -621,14 +728,17 @@ public static class CityExtension
             }
         }
 
-        foreach (Kingdom kingdom in emptyKingdoms)
+        foreach (long kingdom in emptyKingdoms)
         {
             occupiedStatus.Remove(kingdom);
         }
 
         if (removedAny)
         {
-            ownerMap?.Remove(tileZone);
+            if (tileZoneId >= 0)
+            {
+                ownerMap?.Remove(tileZoneId);
+            }
         }
 
         return removedAny;
@@ -640,14 +750,20 @@ public static class CityExtension
             return null;
         }
 
-        Dictionary<TileZone, Kingdom> ownerMap = city.GetOccupiedZoneOwnerMap();
+        Dictionary<int, long> ownerMap = city.GetOccupiedZoneOwnerMap();
         if (ownerMap == null || ownerMap.Count == 0)
         {
             return null;
         }
 
-        ownerMap.TryGetValue(tileZone, out var occupier);
-        return occupier;
+        int tileZoneId = GetZoneId(tileZone);
+        if (tileZoneId < 0)
+        {
+            return null;
+        }
+
+        ownerMap.TryGetValue(tileZoneId, out var occupier);
+        return World.world.kingdoms.get(occupier);
     }
     public static bool IsTileZoneOccupied(this City city, TileZone tileZone)
     {
@@ -660,19 +776,17 @@ public static class CityExtension
             return 0;
         }
 
-        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
 
         if (occupiedStatus == null)
         {
             return 0;
         }
 
-        if (!occupiedStatus.ContainsKey(occupier))
+        if (!occupiedStatus.TryGetValue(occupier?.id??-1L, out var zones))
         {
             return 0;
         }
-
-        List<TileZone> zones = occupiedStatus[occupier];
 
         if (zones == null)
         {
@@ -715,7 +829,7 @@ public static class CityExtension
             return null;
         }
 
-        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
 
         if (occupiedStatus == null || occupiedStatus.Count == 0)
         {
@@ -730,13 +844,13 @@ public static class CityExtension
         }
 
         Dictionary<Kingdom, int> validOccupiedCountMap = new Dictionary<Kingdom, int>();
-        Dictionary<TileZone, Kingdom> ownerMap = city.GetOccupiedZoneOwnerMap();
+        Dictionary<int, long> ownerMap = city.GetOccupiedZoneOwnerMap();
         int allEnemyOccupiedCount = 0;
 
         foreach (var pair in occupiedStatus)
         {
-            Kingdom occupier = pair.Key;
-            List<TileZone> zones = pair.Value;
+            Kingdom occupier = World.world.kingdoms.get(pair.Key);
+            List<int> zones = pair.Value;
 
             if (occupier == null || zones == null || zones.Count == 0)
             {
@@ -763,14 +877,15 @@ public static class CityExtension
 
             for (int i = 0; i < zones.Count; i++)
             {
-                TileZone zone = zones[i];
+                TileZone zone = GetZoneById(zones[i]);
 
                 if (!city.IsValidCaptureZone(zone))
                 {
                     continue;
                 }
 
-                if (ownerMap != null && ownerMap.TryGetValue(zone, out var currentOwner) && currentOwner != occupier)
+                int zoneId = GetZoneId(zone);
+                if (ownerMap != null && zoneId >= 0 && ownerMap.TryGetValue(zoneId, out var currentOwner) && currentOwner != pair.Key)
                 {
                     continue;
                 }
@@ -1050,14 +1165,14 @@ public static class CityExtension
         {
             return;
         }
-
-        Dictionary<Kingdom, List<TileZone>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
-        if (!occupiedStatus.ContainsKey(occupier))
+        var occupierId = occupier?.id??-1L;
+        Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        if (!occupiedStatus.ContainsKey(occupierId))
         {
-            occupiedStatus[occupier] = new List<TileZone>();
+            occupiedStatus[occupierId] = new List<int>();
         }
 
-        List<TileZone> occupierZones = occupiedStatus[occupier];
+        List<int> occupierZones = occupiedStatus[occupierId];
         for (int i = 0; i < city.zones.Count; i++)
         {
             TileZone currentZone = city.zones[i];
@@ -1072,12 +1187,18 @@ public static class CityExtension
                 city.RemoveOccupiedTileZone(currentOccupier, currentZone);
             }
 
-            if (!occupierZones.Contains(currentZone))
+            int currentZoneId = GetZoneId(currentZone);
+            if (currentZoneId < 0)
             {
-                occupierZones.Add(currentZone);
+                continue;
             }
 
-            city.GetOccupiedZoneOwnerMap()[currentZone] = occupier;
+            if (!occupierZones.Contains(currentZoneId))
+            {
+                occupierZones.Add(currentZoneId);
+            }
+
+            city.GetOccupiedZoneOwnerMap()[currentZoneId] = occupierId;
         }
     }
 
@@ -1197,7 +1318,7 @@ public static class CityExtension
             data.OccupiedZoneOwners?.Clear();
             return;
         }
-        data.OccupiedStatus = new Dictionary<Kingdom, List<TileZone>>();
+        data.OccupiedStatus = new Dictionary<long, List<int>>();
         data.OccupiedZoneOwners?.Clear();
     }
     public static EmpireCore GetEmpireCore(this City c)

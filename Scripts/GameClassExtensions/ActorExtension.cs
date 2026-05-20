@@ -24,6 +24,7 @@ using System.Runtime.Serialization;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using System.Security.Principal;
 using EmpireCraft.Scripts.AI.ActorAI;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -334,6 +335,9 @@ public static class ActorExtension
         public float death_rate = 0.0f;
         public List<long> banned_office_empire_ids = new List<long>();
         public Dictionary<string, double> law_check_timestamps = new Dictionary<string, double>();
+        public double target_tile_timestamp = -1;
+        [JsonIgnore]
+        public WorldTile target_tile = null;
     }
     /// <summary>
     /// 初始化执行
@@ -379,6 +383,185 @@ public static class ActorExtension
 
         return a.subspecies.species_id == "skeleton";
     }
+
+    public static void SetFrontLineMoveTarget(this Actor a, WorldTile tile)
+    {
+        if (a == null)
+        {
+            return;
+        }
+
+        var data = a.GetOrCreate();
+
+        if (tile == null)
+        {
+            data.target_tile = null;
+            data.target_tile_timestamp = -1;
+            return;
+        }
+        a.tile_target = tile;
+        a.beh_tile_target = tile;
+        data.target_tile = tile;
+        data.target_tile_timestamp = World.world.getCurWorldTime();
+    }
+
+    public static void ClearFrontLineMoveTarget(this Actor a)
+    {
+        if (a == null)
+        {
+            return;
+        }
+
+        var data = a.GetOrCreate();
+        data.target_tile = null;
+    }
+
+    public static WorldTile GetFrontLineMoveTarget(this Actor a)
+    {
+        return a.GetOrCreate().target_tile;
+    }
+
+    public static bool HasFrontLineMoveTarget(this Actor a)
+    {
+        if (a == null)
+        {
+            return false;
+        }
+
+        var data = a.GetOrCreate();
+        return data.target_tile != null;
+    }
+
+    public static bool IsFrontLineMoveTarget(this Actor a, WorldTile tile)
+    {
+        if (a == null || tile == null || !a.HasFrontLineMoveTarget())
+        {
+            return false;
+        }
+
+        var data = a.GetOrCreate();
+        return data.target_tile == tile;
+    }
+
+    public static bool ShouldBlockMoveToByFrontLine(this Actor a, WorldTile requestedTile)
+    {
+        if (a == null || requestedTile == null)
+        {
+            return false;
+        }
+
+        if (!EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode.isEnabled())
+        {
+            return false;
+        }
+
+        if (!a.hasArmy() || a.kingdom == null || !a.kingdom.hasEnemies())
+        {
+            return false;
+        }
+
+        if (a.HasNearbyEnemyAttackOpportunity())
+        {
+            return false;
+        }
+
+        var data = a.GetOrCreate();
+
+        if (data.target_tile == null)
+        {
+            WorldTile frontTile = EmpireCraftActorCheckWarriorMoveAdvanced.TryGetFrontLineMoveTileForActor(a);
+
+            if (frontTile == null)
+            {
+                return false;
+            }
+
+            // 这里只设置目标，不要 goTo，否则递归
+            a.SetFrontLineMoveTarget(frontTile);
+        }
+
+        WorldTile targetTile = data.target_tile;
+
+        if (targetTile == null)
+        {
+            return false;
+        }
+
+        // 原版这次 moveTo 本来就是去目标 tile，则放行
+        if (requestedTile == targetTile)
+        {
+            return false;
+        }
+
+        // 原版如果是在目标 zone 内移动，也放行，避免卡死寻路
+        if (requestedTile.zone != null && targetTile.zone != null && requestedTile.zone == targetTile.zone)
+        {
+            return false;
+        }
+
+        // 其他乱走目标全部拦截
+        return true;
+    }
+
+    public static bool HasNearbyEnemyAttackOpportunity(this Actor a)
+    {
+        if (a == null || a.kingdom == null || a.current_tile?.zone == null)
+        {
+            return false;
+        }
+
+        TileZone currentZone = a.current_tile.zone;
+        if (HasEnemyArmyInZone(a, currentZone))
+        {
+            return true;
+        }
+
+        if (currentZone.neighbours_all == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < currentZone.neighbours_all.Length; i++)
+        {
+            TileZone neighbour = currentZone.neighbours_all[i];
+            if (HasEnemyArmyInZone(a, neighbour))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasEnemyArmyInZone(Actor actor, TileZone zone)
+    {
+        if (actor == null || zone == null)
+        {
+            return false;
+        }
+
+        City city = zone.city;
+        if (city?.units == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < city.units.Count; i++)
+        {
+            Actor other = city.units[i];
+            if (other == null || other == actor || !other.hasArmy() || other.current_tile?.zone != zone)
+            {
+                continue;
+            }
+
+            if (other.kingdom != null && actor.kingdom.isInWarWith(other.kingdom))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
     public static bool IsNeedToAddLover(this Actor a)
     {
         return a.GetOrCreate().last_add_lover_timestamp < 0 ||
@@ -412,11 +595,12 @@ public static class ActorExtension
     }
     public static FixedFaction GetFaction(this Actor a)
     {
-        foreach (var empire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
+        foreach (var empire in ModClass.EMPIRE_MANAGER)
         {
+            if (empire == null || empire.IsArchived()) continue;
             var regime = empire.CoreKingdom?.GetRegime();
             if (regime == null) continue;
-            foreach (var faction in regime.GetPlayerFactions().ToList())
+            foreach (var faction in regime.GetPlayerFactions())
             {
                 var id = faction?.GetID();
                 if (id == a.GetOrCreate()?.factionID)
@@ -1374,7 +1558,7 @@ public static class ActorExtension
             {
                 if (a.kingdom.GetKingdomName()==title.data.name)
                 {
-                    a.kingdom.SetKindomName(a.kingdom.capital.GetCityName());
+                    a.kingdom.SetKingdomName(a.kingdom.capital.GetCityName());
                     a.kingdom.EmpireLeave();
                 }
                 if (a.kingdom.GetMainTitle() == title)

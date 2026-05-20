@@ -11,6 +11,25 @@ public static class EmpireCoreManager
 {
     public static Dictionary<long, EmpireCore> EmpireCores = new Dictionary<long, EmpireCore>();
 
+    public static void SyncCitiesFromTitles(EmpireCore core)
+    {
+        if (core == null) return;
+        HashSet<City> targetCities = GetCities(core).Where(c => c != null && !c.isRekt()).ToHashSet();
+
+        foreach (var city in World.world.cities.list)
+        {
+            if (city == null || city.isRekt()) continue;
+            if (targetCities.Contains(city))
+            {
+                city.SetEmpireCore(core);
+            }
+            else if (city.GetEmpireCoreID() == core.id)
+            {
+                city.SetEmpireCore(null);
+            }
+        }
+    }
+
     public static EmpireCore newEmpireCore(Empire empire)
     {
         var empireCore = new EmpireCore()
@@ -18,19 +37,16 @@ public static class EmpireCoreManager
             id = OverallHelperFunc.IdGenerator.NextId(),
             empire_id = empire.id,
             culture = empire.CoreKingdom.culture.id,
-            name =  empire.CoreKingdom.name,
+            name =  empire.GetEmpireName().AppendWithNarrowSpace("EmpireText".GetLocal()),
             create_timestamp = empire.data.created_time,
-            citiesRecord = empire.cities_list.Select(c=>(World.world.getCurWorldTime(), c.id)).ToList(),
-            empire_history_ids = new List<long>()
+            titlesRecord = empire.CoreKingdom.GetControlledTitles().Select(t=>(World.world.getCurWorldTime(), t.id)).ToList(),
+            empire_history_ids = new List<long>(),
+            CoreCapital = empire.CoreKingdom.capital.id
         };
         EmpireCores[empireCore.id] = empireCore;
         empire.data.empire_core_id = empireCore.id;
         RegisterEmpireHistory(empireCore, empire.id);
-        foreach (var city in empire.cities_list)
-        {
-            if (city == null || city.isRekt()) continue;
-            city.SetEmpireCore(empireCore);
-        }
+        SyncCitiesFromTitles(empireCore);
         return empireCore;
     }
 
@@ -47,15 +63,15 @@ public static class EmpireCoreManager
     public static List<City> GetCities(EmpireCore core)
     {
         List<City> cities = new();
-        if (core?.citiesRecord == null) return cities;
-        foreach (var record in core.citiesRecord)
+        foreach (var title in GetTitles(core))
         {
-            City city = World.world.cities.get(record.cityId);
-            if (city == null || city.isRekt()) continue;
-            if (city.GetEmpireCoreID() != core.id) continue;
-            if (!cities.Contains(city))
+            foreach (var city in title.getCities())
             {
-                cities.Add(city);
+                if (city == null || city.isRekt()) continue;
+                if (!cities.Contains(city))
+                {
+                    cities.Add(city);
+                }
             }
         }
         return cities;
@@ -67,6 +83,11 @@ public static class EmpireCoreManager
         return ModClass.EMPIRE_MANAGER.ToList()
             .Where(e => e != null && !e.IsArchived() && e.data?.empire_core_id == core.id)
             .ToList();
+    }
+
+    public static int GetActiveEmpireCount(EmpireCore core)
+    {
+        return GetEmpires(core).Count;
     }
 
     public static void RegisterEmpireHistory(EmpireCore core, long empireId)
@@ -82,23 +103,35 @@ public static class EmpireCoreManager
     public static City GetRepresentativeCity(EmpireCore core)
     {
         if (core == null) return null;
-        foreach (var empire in GetEmpires(core))
+        var city = core.GetCoreCapital();
+        if (city == null)
         {
-            if (empire?.CoreKingdom?.capital != null && !empire.CoreKingdom.capital.isRekt())
-            {
-                return empire.CoreKingdom.capital;
-            }
+            KingdomTitle firstTitle = GetTitles(core).FirstOrDefault(t => t?.title_capital != null && !t.title_capital.isRekt());
+            if (firstTitle == null) return null;
+            core.SetCoreCapital(firstTitle.title_capital);
+        }
+        city = core.GetCoreCapital();
+        return city;
+    }
+
+    public static KingdomTitle GetColorTitle(EmpireCore core)
+    {
+        if (core == null) return null;
+        KingdomTitle capitalTitle = GetRepresentativeCity(core)?.GetTitle();
+        if (capitalTitle != null && !capitalTitle.isRekt() && ContainsTitle(core, capitalTitle))
+        {
+            return capitalTitle;
         }
 
-        foreach (var title in GetTitles(core))
-        {
-            if (title?.title_capital != null && !title.title_capital.isRekt())
-            {
-                return title.title_capital;
-            }
-        }
+        return GetTitles(core).FirstOrDefault(t => t != null && !t.isRekt());
+    }
 
-        return GetCities(core).FirstOrDefault(c => c != null && !c.isRekt());
+    public static bool GenerateColor(EmpireCore core)
+    {
+        KingdomTitle colorTitle = GetColorTitle(core);
+        if (colorTitle == null) return false;
+        colorTitle.generateColor();
+        return true;
     }
 
     public static string GetCultureDisplayName(EmpireCore core)
@@ -213,9 +246,10 @@ public static class EmpireCoreManager
     public static List<KingdomTitle> GetTitles(EmpireCore core)
     {
         List<KingdomTitle> titles = new();
-        foreach (var city in GetCities(core))
+        if (core?.titlesRecord == null) return titles;
+        foreach (var record in core.titlesRecord)
         {
-            KingdomTitle title = city.GetTitle();
+            KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(record.titleId);
             if (title == null || title.isRekt()) continue;
             if (!titles.Contains(title))
             {
@@ -290,13 +324,12 @@ public static class EmpireCoreManager
         int cost = GetAssimilationCost(empire, title);
         if (empire.CurrentMoney < cost) return false;
         empire.CoreKingdom.SubMoney(cost);
-        foreach (var city in title.getCities())
+        bool result = AddTitleToCore(core, title);
+        if (result)
         {
-            if (city == null || city.isRekt()) continue;
-            city.SetEmpireCore(core);
-            core.AddCity(city);
+            TranslateHelper.LogEmpireCoreAbsorbTitle(empire, title, core);
         }
-        return true;
+        return result;
     }
 
     public static void RebindEmpire(Empire empire, EmpireCore core)
@@ -306,12 +339,7 @@ public static class EmpireCoreManager
         core.empire_id = empire.id;
         empire.data.empire_core_id = core.id;
         RegisterEmpireHistory(core, empire.id);
-        foreach (var city in empire.cities_list)
-        {
-            if (city == null || city.isRekt()) continue;
-            city.SetEmpireCore(core);
-            core.AddCity(city);
-        }
+        SyncCitiesFromTitles(core);
         if (previousEmpireId > 0 && previousEmpireId != empire.id)
         {
             if (ModClass.ALL_HISTORY_DATA.TryGetValue(previousEmpireId, out var oldHistory) && oldHistory != null && oldHistory.Count > 0)
@@ -347,7 +375,7 @@ public static class EmpireCoreManager
             culture = kingdom?.culture?.id ?? -1L,
             name = string.IsNullOrWhiteSpace(title.data?.name) ? (kingdom?.name ?? capital.GetCityName()) : title.data.name,
             create_timestamp = World.world.getCurWorldTime(),
-            citiesRecord = new List<(double time, long cityId)>()
+            titlesRecord = new List<(double time, long titleId)>()
         };
         EmpireCores[core.id] = core;
         AddTitleToCore(core, title);
@@ -365,44 +393,27 @@ public static class EmpireCoreManager
             RemoveTitleFromCore(previousCore, title);
         }
 
-        foreach (var city in title.getCities())
+        if (core.AddTitle(title))
         {
-            if (city == null || city.isRekt()) continue;
-            city.SetEmpireCore(core);
-            if (core.AddCity(city))
-            {
-                changed = true;
-            }
+            changed = true;
         }
 
-        if (!string.IsNullOrWhiteSpace(title.data?.name))
-        {
-            core.name = title.data.name;
-        }
+        SyncCitiesFromTitles(core);
         return changed;
     }
 
     public static bool RemoveTitleFromCore(EmpireCore core, KingdomTitle title)
     {
         if (core == null || title == null || title.isRekt()) return false;
-        bool changed = false;
-        foreach (var city in title.getCities())
-        {
-            if (city == null || city.isRekt()) continue;
-            if (city.GetEmpireCoreID() != core.id) continue;
-            city.SetEmpireCore(null);
-            if (core.RemoveCity(city))
-            {
-                changed = true;
-            }
-        }
+        bool changed = core.RemoveTitle(title);
+        SyncCitiesFromTitles(core);
         return changed;
     }
 
     public static bool DestroyEmpireCore(EmpireCore core)
     {
         if (core == null) return false;
-        foreach (var city in GetCities(core))
+        foreach (var city in World.world.cities.list)
         {
             if (city == null || city.isRekt()) continue;
             if (city.GetEmpireCoreID() == core.id)
