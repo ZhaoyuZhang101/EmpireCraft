@@ -65,7 +65,7 @@ public static class ClanExtension
     public static bool HasHistoryEmpire(this Clan a)
     {
         string name = GetOrCreate(a).historical_empire_name;
-        return !string.IsNullOrEmpty(name);
+        return name != null && name!="";
     }
 
     public static void ClearHistoricalName(this Clan __instance)
