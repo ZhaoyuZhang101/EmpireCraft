@@ -846,7 +846,7 @@ public static class EmpireCraftNamePlateLibrary
                     var capital = (City)pMeta;
                     nameplateText.setupMeta(capital.data, capital.GetTitle().getColor());
                     nameplateText._text_name.fontStyle = FontStyle.Bold;
-                    nameplateText._text_name.transform.localPosition = Vector3.left*30;
+                    nameplateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.zero;
                     nameplateText._text_name.transform.localScale = Vector3.one * 1.5f;
                     nameplateText._text_name.color = Color.white;
                     
@@ -858,7 +858,7 @@ public static class EmpireCraftNamePlateLibrary
                     color = new Color(color.r, color.g, color.b, 0.5f);
                     nameplateText._banner_kingdoms.background.color = color;
                     nameplateText._banner_kingdoms.icon.color = color;
-                    nameplateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.right*30;
+                    nameplateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.zero;
                     nameplateText._banner_kingdoms.gameObject.transform.localScale = Vector3.one * 1.5f;
                     
                     nameplateText._banner_city.enabled = false;
@@ -1144,6 +1144,8 @@ public static class EmpireCraftNamePlateLibrary
         plateText.priority_population = EmpireCoreManager.GetCities(core).Count;
         plateText.transform.SetAsLastSibling();
         plateText.nano_object = repCity;
+        plateText._banner_kingdoms.enabled = false;
+        plateText._banner_kingdoms.gameObject.SetActive(false);
     }
 
     private static Vector3 GetEmpireDisplayPosition(Empire empire)
@@ -1320,14 +1322,9 @@ public static class EmpireCraftNamePlateLibrary
             plateText._banner_kingdoms.loser_image.gameObject.SetActive(value: false);
             plateText._show_banner_city = false;
             plateText._show_banner_clan = false;
-            if (EmpireCraftMetaTypeLibrary.kingdomTitle.getZoneOptionState() == 0)
-            {
-                plateText._show_banner_kingdom = false;
-            }
-            else
-            {
-                plateText._show_banner_kingdom = true;
-            }
+            plateText._show_banner_kingdom = true;
+            plateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.zero;
+            plateText._banner_kingdoms.gameObject.transform.localScale = Vector3.one * 1.5f;
         }
         catch
         {
