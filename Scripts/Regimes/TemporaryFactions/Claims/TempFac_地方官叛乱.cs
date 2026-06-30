@@ -11,7 +11,6 @@ public class TempFac_地方官叛乱 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
-        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 

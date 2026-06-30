@@ -122,14 +122,12 @@ public class OfficeObject
                 if (officer.isRekt()) return;
                 if (GetPregnantYear() > 2)
                 {
-                    LogService.LogInfo("检测生育");
                     var kingdom = (Kingdom) meta_object;
                     if (kingdom != null)
                     {
                         if (OverallHelperFunc.HasChangeToGiveBirth(officer, kingdom.king))
                         {
                             BabyMaker.makeBaby(kingdom.king, officer); 
-                            LogService.LogInfo("生育权能触发");
                         } 
                     }
                     last_pregnant_timestamp = World.world.getCurWorldTime();

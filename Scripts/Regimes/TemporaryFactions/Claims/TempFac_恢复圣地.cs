@@ -14,7 +14,6 @@ public class TempFac_恢复圣地 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
-        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
     

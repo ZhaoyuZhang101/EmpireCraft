@@ -17,7 +17,6 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
-        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 

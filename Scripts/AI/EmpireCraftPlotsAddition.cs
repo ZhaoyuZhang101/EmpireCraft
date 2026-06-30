@@ -28,6 +28,10 @@ namespace EmpireCraft.Scripts.AI
     {
         public static PlotAsset Rebellion;
         private static readonly HashSet<string> s_guardedPlotIds = new HashSet<string>();
+        private const int MinMandateToJoinEmpireOrTribute = 60;
+        private const int MaxMandateToLeaveTribute = 30;
+        private const int MaxMandateToLeaveEmpire = 30;
+        private const int RecentEmpireJoinYearLimit = 10;
 
         private static void GuardAllPlotAssets()
         {
@@ -174,6 +178,127 @@ namespace EmpireCraft.Scripts.AI
             }
 
             return null;
+        }
+
+        private static bool CanJoinTargetEmpire(Empire empire)
+        {
+            return empire != null && !empire.IsArchived() && empire.Mandate >= MinMandateToJoinEmpireOrTribute;
+        }
+
+        private static void EnsureCanJoinEmpireOrLog(Kingdom kingdom, Empire empire, string decisionName)
+        {
+            if (kingdom == null || empire == null || CanJoinTargetEmpire(empire))
+            {
+                return;
+            }
+
+            TranslateHelper.LogDecisionBlocked(kingdom, decisionName, "帝国正统不足六成，决议被阻止", empire);
+        }
+
+        private static bool CanLeaveTakenAllianceByMandate(Kingdom kingdom, Empire empire)
+        {
+            if (kingdom == null || empire == null)
+            {
+                return false;
+            }
+
+            if (kingdom.hasEnemies())
+            {
+                return false;
+            }
+
+            if (empire.Mandate >= MaxMandateToLeaveTribute)
+            {
+                return false;
+            }
+
+            if (kingdom.GetLeaveTakenAlliancePreference() >= 0.3f)
+            {
+                return true;
+            }
+
+            if (!kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom))
+            {
+                return true;
+            }
+
+            return kingdom.countTotalWarriors() * 6 >= Math.Max(1, empire.countWarriors());
+        }
+
+        private static bool CanLeaveEmpireForLowMandate(Kingdom kingdom, Empire empire)
+        {
+            if (kingdom == null || empire == null)
+            {
+                return false;
+            }
+
+            if (empire.Mandate >= MaxMandateToLeaveEmpire)
+            {
+                return false;
+            }
+
+            if (!kingdom.IsRecentEmpireJoin(RecentEmpireJoinYearLimit, empire))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static War FindWarBetween(Kingdom attacker, Kingdom defender)
+        {
+            if (attacker == null || defender == null)
+            {
+                return null;
+            }
+
+            var wars = KingdomExtension.GetWarsCached(attacker, false);
+            for (int i = 0; i < wars.Count; i++)
+            {
+                War war = wars[i];
+                if (war == null || war.isRekt() || war.hasEnded())
+                {
+                    continue;
+                }
+
+                if (war.getMainAttacker() == attacker && war.getMainDefender() == defender)
+                {
+                    return war;
+                }
+            }
+
+            return null;
+        }
+
+        private static War EnsureEmpireSuppressionWar(Kingdom rebelKingdom, Kingdom localKingdom, Empire empire, EmpireWarType warType)
+        {
+            if (rebelKingdom == null || localKingdom == null || empire == null || empire.IsArchived())
+            {
+                return null;
+            }
+
+            Kingdom coreKingdom = empire.CoreKingdom;
+            if (coreKingdom == null || coreKingdom == localKingdom || coreKingdom == rebelKingdom)
+            {
+                return null;
+            }
+
+            War localWar = FindWarBetween(rebelKingdom, localKingdom);
+            War suppressionWar = FindWarBetween(rebelKingdom, coreKingdom);
+            if (suppressionWar == null)
+            {
+                suppressionWar = DiplomacyHelpers.wars.newWar(rebelKingdom, coreKingdom, WarTypeLibrary.normal);
+                suppressionWar.SetEmpireWarType(warType, pre: rebelKingdom.name, nanoObject: empire);
+                TranslateHelper.LogJoinRebellionWar(coreKingdom, rebelKingdom, empire);
+            }
+
+            if (localWar != null && suppressionWar != null)
+            {
+                localWar.SetLinkedWar(suppressionWar);
+                suppressionWar.SetLinkedWar(localWar);
+            }
+
+            return suppressionWar;
         }
 
         public static void init()
@@ -419,6 +544,111 @@ namespace EmpireCraft.Scripts.AI
 		    });
             AssetManager.plots_library.add(new PlotAsset
             {
+                id = "empire_abandon_rebel_suppression",
+                is_basic_plot = true,
+                path_icon = "plots/icons/plot_stop_war",
+                group_id = "empirecraft_diplomacy",
+                min_level = 4,
+                money_cost = 0,
+                can_be_done_by_king = true,
+                check_target_war = true,
+                requires_diplomacy = false,
+                check_is_possible = delegate(Actor pActor)
+                {
+                    if (pActor == null || !pActor.isKing())
+                    {
+                        return false;
+                    }
+
+                    Kingdom kingdom = pActor.kingdom;
+                    if (kingdom == null || !kingdom.IsEmpire() || kingdom.GetMoney() > 0)
+                    {
+                        return false;
+                    }
+
+                    var wars = KingdomExtension.GetWarsCached(kingdom, true);
+                    for (int i = 0; i < wars.Count; i++)
+                    {
+                        War war = wars[i];
+                        if (war == null || war.hasEnded())
+                        {
+                            continue;
+                        }
+
+                        EmpireWarType warType = war.GetEmpireWarType();
+                        if (war.getMainDefender() == kingdom && (warType == EmpireWarType.地方叛乱 || warType == EmpireWarType.地方独立))
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                },
+                try_to_start_advanced = delegate(Actor pActor, PlotAsset pPlotAsset, bool pForced)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    War targetWar = null;
+                    var wars = KingdomExtension.GetWarsCached(kingdom, true);
+                    for (int i = 0; i < wars.Count; i++)
+                    {
+                        War war = wars[i];
+                        if (war == null || war.hasEnded())
+                        {
+                            continue;
+                        }
+
+                        EmpireWarType warType = war.GetEmpireWarType();
+                        if (war.getMainDefender() == kingdom && (warType == EmpireWarType.地方叛乱 || warType == EmpireWarType.地方独立))
+                        {
+                            targetWar = war;
+                            break;
+                        }
+                    }
+
+                    if (targetWar == null)
+                    {
+                        return false;
+                    }
+
+                    foreach (Plot plot3 in World.world.plots)
+                    {
+                        if (plot3.isActive() && plot3.isSameType(pPlotAsset) && plot3.target_war == targetWar)
+                        {
+                            pActor.setPlot(plot3);
+                            return true;
+                        }
+                    }
+
+                    Plot plot = World.world.plots.newPlot(pActor, pPlotAsset, pForced);
+                    plot.target_war = targetWar;
+                    return plot.checkInitiatorAndTargets();
+                },
+                check_should_continue = delegate(Actor pActor)
+                {
+                    Plot plot = pActor.plot;
+                    return plot != null && plot.target_war != null && !plot.target_war.hasEnded();
+                },
+                action = delegate(Actor pActor)
+                {
+                    Plot plot = pActor.plot;
+                    if (plot == null || plot.target_war == null || plot.target_war.hasEnded())
+                    {
+                        return false;
+                    }
+
+                    Empire empire = pActor.kingdom.GetEmpire();
+                    Kingdom rebel = plot.target_war.getMainAttacker();
+                    if (empire != null && rebel != null)
+                    {
+                        TranslateHelper.LogEmpireAbandonRebellion(empire, rebel);
+                    }
+
+                    World.world.wars.endWar(plot.target_war, WarWinner.Peace);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
                 id = "empire_move_back_to_capital",
                 path_icon = "EmperorQuest.png",
                 group_id = "empirecraft_diplomacy",
@@ -474,7 +704,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     if (kingdom.IsInEmpire()) return false;
                     if (kingdom.HasTakenAlliance()) return false;
-                    return FindTakenAllianceEmpireCandidate(kingdom, true) != null;
+                    return CanJoinTargetEmpire(FindTakenAllianceEmpireCandidate(kingdom, true));
                 },
                 action = delegate (Actor pActor)
                 {
@@ -484,8 +714,55 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
+                    if (!CanJoinTargetEmpire(empire))
+                    {
+                        EnsureCanJoinEmpireOrLog(kingdom, empire, "加入朝贡");
+                        return false;
+                    }
                     kingdom.JoinTakenAlliance(empire);
                     TranslateHelper.LogJoinTakenAlliance(kingdom, empire);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "kingdom_leave_taken_alliance",
+                path_icon = "EmperorQuest.png",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 3,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    if (pActor == null || !pActor.isKing())
+                    {
+                        return false;
+                    }
+
+                    Kingdom kingdom = pActor.kingdom;
+                    if (kingdom == null || !kingdom.HasTakenAlliance())
+                    {
+                        return false;
+                    }
+
+                    return CanLeaveTakenAllianceByMandate(kingdom, kingdom.GetTakenAllianceEmpire());
+                },
+                action = delegate (Actor pActor)
+                {
+                    Kingdom kingdom = pActor.kingdom;
+                    Empire empire = kingdom.GetTakenAllianceEmpire();
+                    if (!CanLeaveTakenAllianceByMandate(kingdom, empire))
+                    {
+                        if (empire != null)
+                        {
+                            TranslateHelper.LogDecisionBlocked(kingdom, "退出朝贡", "帝国正统未低于三成或局势尚不足以脱离", empire);
+                        }
+                        return false;
+                    }
+
+                    kingdom.RemoveTakenAlliance();
+                    TranslateHelper.LogLeaveTakenAlliance(kingdom, empire);
                     return true;
                 }
             });
@@ -579,6 +856,7 @@ namespace EmpireCraft.Scripts.AI
                             war.SetEmpireWarType(EmpireWarType.地方叛乱, pre: kingdom.name, nanoObject:empire, belongingFaction:target.king?.GetFaction());
                             empire.leave(target, true, true);
                             target.StartLocalRebelling(EmpireWarType.地方叛乱);
+                            EnsureEmpireSuppressionWar(target, kingdom, empire, EmpireWarType.地方叛乱);
                         }
                         else
                         {
@@ -957,7 +1235,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsInEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     Regime regime = kingdom.GetRegime();
-                    if (empire.Mandate > 40) return false;
+                    if (!CanLeaveEmpireForLowMandate(kingdom, empire)) return false;
                     if (regime == null) return false;
                     if (regime.type != RegimeType.Feudalism && regime.type != RegimeType.Arabic) return false;
                     if (!regime.IsAllowDiplomacy()) return false;
@@ -973,9 +1251,15 @@ namespace EmpireCraft.Scripts.AI
                     kingdom.FinishedSelfPlot();
                     Empire empire = kingdom.GetEmpire();
                     if (empire.isRekt()) return false;
+                    if (!CanLeaveEmpireForLowMandate(kingdom, empire))
+                    {
+                        TranslateHelper.LogDecisionBlocked(kingdom, "脱离帝国", "需要加入帝国未满十年且帝国正统低于三成", empire);
+                        return false;
+                    }
                     empire.leave(kingdom);
                     var war = DiplomacyHelpers.wars.newWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
                     war.SetEmpireWarType(EmpireWarType.地方独立);
+                    TranslateHelper.LogLeaveEmpire(kingdom, empire);
                     return true;
                 }
             });
@@ -1339,7 +1623,7 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom.HasMainTitle()) return false;
                     if (kingdom.IsEmpire()) return false;
                     if (kingdom.IsInEmpire()) return false;
-                    if (!kingdom.GetEmpiresCanBeJoined().Any()) return false;
+                    if (!kingdom.GetEmpiresCanBeJoined().Any(CanJoinTargetEmpire)) return false;
                     return true;
                 },
                 check_should_continue = delegate (Actor pActor)
@@ -1347,13 +1631,19 @@ namespace EmpireCraft.Scripts.AI
                     if (pActor == null) return false;
                     Kingdom kingdom = pActor.kingdom;
                     if (kingdom.IsInEmpire()) return false;
-                    if (!kingdom.GetEmpiresCanBeJoined().Any()) return false;
+                    if (!kingdom.GetEmpiresCanBeJoined().Any(CanJoinTargetEmpire)) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
                 {
                     Kingdom kingdom = pActor.kingdom;
-                    kingdom.GetEmpiresCanBeJoined().First().join(kingdom);
+                    Empire targetEmpire = kingdom.GetEmpiresCanBeJoined().FirstOrDefault(CanJoinTargetEmpire);
+                    if (targetEmpire == null)
+                    {
+                        EnsureCanJoinEmpireOrLog(kingdom, kingdom.GetEmpiresCanBeJoined().FirstOrDefault(), "加入帝国");
+                        return false;
+                    }
+                    targetEmpire.join(kingdom);
                     var warsList5 = KingdomExtension.GetWarsCached(kingdom, false);
                     for (int wi = 0; wi < warsList5.Count; wi++)
                     {
@@ -1698,7 +1988,7 @@ namespace EmpireCraft.Scripts.AI
                         pActor.kingdom.StartLocalRebelling(EmpireWarType.地方独立, pre: pActor.city.GetCityName());
                         if (pActor.plot.target_kingdom.IsInEmpire() && !pActor.plot.target_kingdom.IsEmpire())
                         {
-                            war.joinDefenders(pActor.plot.target_kingdom.GetEmpire().CoreKingdom);
+                            EnsureEmpireSuppressionWar(pActor.kingdom, pActor.plot.target_kingdom, pActor.plot.target_kingdom.GetEmpire(), EmpireWarType.地方独立);
                         }
                     }
 				    return true;

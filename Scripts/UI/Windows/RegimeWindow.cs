@@ -170,7 +170,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     {
         _kingdom = SelectedMetas.selected_kingdom;
         var text = _kingdom.name;
-        UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset:new Vector2(0, 152), default_text:text, input:_regimeInput);
+        this.transform.parent.transform.parent.GenerateTextInput(offset:new Vector2(0, 152), default_text:text, input:_regimeInput);
     }
 
     public void ChangeKingdomName(string text)

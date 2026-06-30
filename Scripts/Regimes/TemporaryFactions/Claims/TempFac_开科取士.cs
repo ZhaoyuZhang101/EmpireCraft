@@ -13,7 +13,6 @@ public class TempFac_开科取士 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
-        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 

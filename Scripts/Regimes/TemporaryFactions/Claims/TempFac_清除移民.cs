@@ -11,7 +11,6 @@ public class TempFac_清除移民 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
-        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 

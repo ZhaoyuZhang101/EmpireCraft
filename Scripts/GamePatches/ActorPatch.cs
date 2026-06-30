@@ -16,10 +16,12 @@ using System.Numerics;
 using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
+using ai.behaviours;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NCMS.Extensions;
 using UnityEngine;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 
@@ -63,8 +65,6 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(setParent2)));
         new Harmony(nameof(setCity)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setCity)),
             postfix: new HarmonyMethod(GetType(), nameof(setCity)));
-        new Harmony(nameof(actionLanded)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.actionLanded)),
-            postfix: new HarmonyMethod(GetType(), nameof(actionLanded)));
         new Harmony(nameof(moveTo)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.moveTo), new[] { typeof(WorldTile) }),
             prefix: new HarmonyMethod(GetType(), nameof(moveTo)));
         new Harmony(nameof(UpdateAge)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.updateAge)),
@@ -266,11 +266,6 @@ public class ActorPatch : GamePatch
                 __instance.addTrait("death_mark");
             } 
         }
-    }
-
-    public static void actionLanded(Actor __instance)
-    {
-        __instance.setTask("do_mod_actor_beh");
     }
     public static void setCity(Actor __instance, City pCity)
     {

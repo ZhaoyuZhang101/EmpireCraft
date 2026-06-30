@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using ai.behaviours;
@@ -15,9 +16,13 @@ namespace EmpireCraft.Scripts.AI;
 //此处为模组AI的统一接口。通过继承ActorAI/CityAI/KingdomAI/目录下的基类并填充自己的逻辑来控制国家/城市/角色的行为
 public static class GameAIMain
 {
-    public static void KingdomAIs(this BehaviourTaskKingdom t, BehaviourTaskKingdomLibrary lib)
+    public static List<GameAIKingdomBase> KingdomAis = new();
+    public static List<GameAIEmpireBase> EmpireAis = new();
+    public static List<GameAIKingdomMindBase> KingdomMindAis = new();
+    public static List<GameAICityBase> CityAis = new();
+    public static List<GameAIActorBase> ActorAis = new();
+    public static void KingdomAIs(BehaviourTaskKingdomLibrary lib)
     {
-        t.addBeh(new KingdomBehCheckCapital());
         var asm = Assembly.GetExecutingAssembly();
         var types = asm.GetTypes()
             .Where(ty =>
@@ -40,12 +45,11 @@ public static class GameAIMain
                 }
             }
             beh.create();
-            t.addBeh(beh);
+            KingdomAis.Add(beh);
         }
     }
-    public static void KingdomMindAIs(this BehaviourTaskKingdom t, BehaviourTaskKingdomLibrary lib)
+    public static void KingdomMindAIs(BehaviourTaskKingdomLibrary lib)
     {
-        t.addBeh(new KingdomBehCheckCapital());
         var asm = Assembly.GetExecutingAssembly();
         var types = asm.GetTypes()
             .Where(ty =>
@@ -68,12 +72,11 @@ public static class GameAIMain
                 }
             }
             beh.create();
-            t.addBeh(beh);
+            KingdomMindAis.Add(beh);
         }
     }
-    public static void EmpireAIs(this BehaviourTaskKingdom t, BehaviourTaskKingdomLibrary lib)
+    public static void EmpireAIs(BehaviourTaskKingdomLibrary lib)
     {
-        t.addBeh(new KingdomBehCheckCapital());
         var asm = Assembly.GetExecutingAssembly();
         var types = asm.GetTypes()
             .Where(ty =>
@@ -96,10 +99,10 @@ public static class GameAIMain
                 }
             }
             beh.create();
-            t.addBeh(beh);
+            EmpireAis.Add(beh);
         }
     }
-    public static void CityAIs(this BehaviourTaskCity t, BehaviourTaskCityLibrary lib)
+    public static void CityAIs(BehaviourTaskCityLibrary lib)
     {
         var asm = Assembly.GetExecutingAssembly();
         var types = asm.GetTypes()
@@ -124,10 +127,10 @@ public static class GameAIMain
                 }
             }
             beh.create();
-            t.addBeh(beh);
+            CityAis.Add(beh);
         }
     }
-    public static void ActorAIs(this BehaviourTaskActor t, BehaviourTaskActorLibrary lib)
+    public static void ActorAIs(BehaviourTaskActorLibrary lib)
     {
         var asm = Assembly.GetExecutingAssembly();
         var types = asm.GetTypes()
@@ -158,7 +161,7 @@ public static class GameAIMain
 
             if (isReplace) continue;
             beh.create();
-            t.addBeh(beh);
+            ActorAis.Add(beh);
         }
     }
 }

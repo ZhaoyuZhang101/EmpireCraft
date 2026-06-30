@@ -26,7 +26,7 @@ public class TemporaryPushProgress
     public const int InfluenceCostPerYear = 50;
     public const int SupportBaseMoneyCost = 50;
     public bool StartedToPushTf = false;
-    public TemporaryFactionType TfType = TemporaryFactionType.供养宗室;
+    public TemporaryFaction Claim = null;
     public int Progress = 0;
     public long pusher = -1L;
     public List<(double date, long actor, int duration)> Supporters = new  List<(double, long, int)>();
@@ -77,17 +77,18 @@ public class TemporaryPushProgress
         Progress = 0;
         pusher = -1L;
         StartTimestamp = -1L;
+        Claim = null;
         Supporters.Clear();
     }
     /// <summary>
     /// 开始推动
     /// </summary>
     /// <param name="pActor"></param>
-    public void StartToPush(Actor pActor, TemporaryFactionType tfType)
+    public void StartToPush(Actor pActor, TemporaryFaction claim)
     {
         if (pActor == null || pActor.isRekt()) return;
         pusher = pActor.id;
-        TfType = tfType;
+        Claim = claim;
         StartTimestamp = World.world.getCurWorldTime();
         StartedToPushTf = true;
         Progress = 0;
@@ -177,13 +178,11 @@ public class TemporaryPushProgress
         if (!(pPusher?.isKing())??true) return;
         Kingdom kingdom = pPusher.kingdom;
         if (kingdom == null) return;
-        var faction = pPusher.GetFaction();
-        var claim = faction.TemporaryFactions.Find(tf => tf.type == TfType);
-        if (claim != null)
+        if (Claim != null)
         {
             if (kingdom.GetEmpire()?.RunningTemporaryFaction == null)
             {
-                claim.Start();
+                Claim.Start();
                 Stop();
             }
         }
@@ -191,7 +190,7 @@ public class TemporaryPushProgress
 
     public override string ToString ()
     {
-        var text = $"\n正在推进: {TfType.ToString()} | 进度: {Progress.ToString()}%";
+        var text = $"\n正在推进: {Claim.type.ToString()} | 进度: {Progress.ToString()}%";
         if (StartedToPushTf) return text;
         return "";
     }
@@ -243,6 +242,10 @@ public static class KingdomExtension
         public double last_given_alliance_timestamp = -1L;
         //上一次加入朝贡国的时间
         public double last_taken_alliance_timestamp = -1L;
+        //上一次加入帝国的时间
+        public double last_join_empire_timestamp = -1L;
+        //上一次加入的帝国
+        public long last_join_empire_id = -1L;
         public double last_kingdom_status_ts = -1L;
         public double last_tf_check_ts = -1L;
         public double last_plots_check_ts = -1L;
@@ -636,17 +639,33 @@ public static class KingdomExtension
         var progressObject = k.GetOrCreate().PushProgress;
         progressObject.Stop();
     }
-    public static void PushProgress(this Kingdom k, TemporaryFactionType type=default)
+    public static TemporaryPushProgress GetClaimProgress(this Kingdom k)
+    {
+        if (k == null) return null;
+        return k.GetOrCreate().PushProgress;
+    }
+    public static void PushProgress(this Kingdom k, TemporaryFaction claim = null)
     {
         if (k?.king == null) return;
         var progressObject = k.GetOrCreate().PushProgress;
         if (k.king.renown > 50)
         {
-            if (!progressObject.StartedToPushTf && type != default)
+            if (progressObject==null) return;
+            if (!progressObject.StartedToPushTf && claim != null)
             {
-                progressObject.StartToPush(k.king, type);
+                progressObject.StartToPush(k.king, claim);
+                k.king.addRenown(-50);
+                return;
             }
-            progressObject.PushOneMonths();
+
+            if (progressObject.StartedToPushTf&&progressObject.Claim!=null)
+            {
+                progressObject.PushOneMonths();
+                k.king.addRenown(-50);
+                return;
+            }
+            
+            progressObject.Stop();
         }
     }
     public static void SystemChange(this Kingdom kingdom)
@@ -1759,6 +1778,8 @@ public static class KingdomExtension
     {
         GetOrCreate(kingdom).EmpireID = pEmpire.data.id;
         GetOrCreate(kingdom).TimestampEmpire = World.world.getCurWorldTime();
+        GetOrCreate(kingdom).last_join_empire_timestamp = World.world.getCurWorldTime();
+        GetOrCreate(kingdom).last_join_empire_id = pEmpire.id;
     }
 
     public static bool IsEmpire(this Kingdom kingdom)
@@ -1786,6 +1807,27 @@ public static class KingdomExtension
         kingdom.generateColor();
         GetOrCreate(kingdom).EmpireID = -1L;
         kingdom.GetOrCreate().isEmpire = false;
+    }
+
+    public static bool IsRecentEmpireJoin(this Kingdom kingdom, int yearLimit, Empire empire = null)
+    {
+        if (kingdom == null || yearLimit < 0)
+        {
+            return false;
+        }
+
+        var data = kingdom.GetOrCreate();
+        if (data == null || data.last_join_empire_timestamp < 0)
+        {
+            return false;
+        }
+
+        if (empire != null && data.last_join_empire_id != empire.id)
+        {
+            return false;
+        }
+
+        return Date.getYearsSince(data.last_join_empire_timestamp) <= yearLimit;
     }
     public static int GetLevel(this Kingdom kingdom)
     {

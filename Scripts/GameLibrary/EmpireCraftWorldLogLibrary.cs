@@ -54,8 +54,12 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset king_choose_heir_log;
     public static WorldLogAsset 官员品级调动;
     public static WorldLogAsset 成为朝贡国;
+    public static WorldLogAsset 退出朝贡国;
     public static WorldLogAsset 邀请入派系;
     public static WorldLogAsset 追加罪行;
+    public static WorldLogAsset 帝国决议受阻;
+    public static WorldLogAsset 脱离帝国;
+    public static WorldLogAsset 帝国放弃平叛;
     public static WorldLogAsset officer_join_faction;
     public static WorldLogAsset officer_become_faction_leader;
     public static WorldLogAsset empire_law_arrest_log;
@@ -243,6 +247,18 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$empire$", 2);
             }
         });
+        退出朝贡国 = wl.add(new WorldLogAsset
+        {
+            id = nameof(退出朝贡国),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$empire$", 2);
+            }
+        });
         邀请入派系 = wl.add(new WorldLogAsset
         {
             id = nameof(邀请入派系),
@@ -267,6 +283,43 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$victim$", 2);
                 wl.updateText(ref pText, pMessage, "$crime$", 3);
+            }
+        });
+        帝国决议受阻 = wl.add(new WorldLogAsset
+        {
+            id = nameof(帝国决议受阻),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$decision$", 2);
+                wl.updateText(ref pText, pMessage, "$reason$", 3);
+            }
+        });
+        脱离帝国 = wl.add(new WorldLogAsset
+        {
+            id = nameof(脱离帝国),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$empire$", 2);
+            }
+        });
+        帝国放弃平叛 = wl.add(new WorldLogAsset
+        {
+            id = nameof(帝国放弃平叛),
+            group = "wars",
+            path_icon = "iconWar",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$rebel$", 2);
             }
         });
         officer_build_specific_clan = wl.add(new WorldLogAsset

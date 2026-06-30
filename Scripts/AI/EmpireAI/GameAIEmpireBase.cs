@@ -13,4 +13,9 @@ public abstract class GameAIEmpireBase : BehaviourActionKingdom
         if (!pObject.IsEmpire()) return BehResult.Stop;
         return BehResult.Continue;
     }
+
+    public virtual bool Detect(Kingdom pKingdom)
+    {
+        return execute(pKingdom) != BehResult.Stop;
+    }
 }

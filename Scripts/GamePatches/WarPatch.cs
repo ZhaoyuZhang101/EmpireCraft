@@ -43,6 +43,24 @@ public class WarPatch: GamePatch
     
     public static void update(War __instance)
     {
+        if (__instance != null)
+        {
+            EmpireWarType warType = __instance.GetEmpireWarType();
+            if ((warType == EmpireWarType.地方叛乱 || warType == EmpireWarType.地方独立) && __instance.getMainDefender() != null)
+            {
+                Kingdom defenderKingdom = __instance.getMainDefender();
+                if (defenderKingdom.IsEmpire() && defenderKingdom.GetMoney() <= 0)
+                {
+                    var abandonPlot = AssetManager.plots_library.basic_plots.Find(p => p.id == "empire_abandon_rebel_suppression");
+                    Actor defenderKing = defenderKingdom.king;
+                    if (defenderKing != null && (!defenderKing.plot?.isSameType(abandonPlot) ?? true))
+                    {
+                        abandonPlot?.try_to_start_advanced(defenderKing, abandonPlot, true);
+                    }
+                }
+            }
+        }
+
         if (__instance.getDuration() > ModClass.WAR_END_YEAR)
         {
             var attacker = __instance.getMainAttacker()?.king;
@@ -163,7 +181,10 @@ public class WarPatch: GamePatch
                 case EmpireWarType.地方叛乱:
                 case EmpireWarType.地方独立:
                     Kingdom attacker1 = pWar.getMainAttacker();
-                    attacker1.EndLocalRebelling();
+                    if (!pWar.HasAliveLinkedWar())
+                    {
+                        attacker1.EndLocalRebelling();
+                    }
                     break;
                 case EmpireWarType.索取法理:
                     KingdomTitle title = pWar.GetTitleTarget();

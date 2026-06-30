@@ -38,7 +38,6 @@ public abstract class TemporaryFaction
     public long EmpireID = -1L;
     public long KingdomID = -1L;
     public long TargetID = -1L;
-    public bool canBePushByLocal = false;
     public MetaType pusherType = MetaType.None;
     public MetaType TargetType = MetaType.None;
     [JsonIgnore]
@@ -50,6 +49,10 @@ public abstract class TemporaryFaction
     private bool started = false;
     public double timestamp = -1L;
     public double countDownTimestamp = -1L;
+    [JsonIgnore]
+    public Regime lRegime = null;
+    [JsonIgnore]
+    public Empire lEmpire = null;
     [JsonProperty("started")]
     public bool StartedState
     {
@@ -58,6 +61,8 @@ public abstract class TemporaryFaction
     }
     [JsonIgnore]
     public virtual bool RequireCrimeTarget => false;
+    [JsonIgnore]
+    public virtual bool canBePushByLocal => false;
     [JsonIgnore]
     public virtual bool RequireRenown => false;
     public virtual float RequireRenownMultiplier => 1f;
@@ -81,7 +86,6 @@ public abstract class TemporaryFaction
         EmpireID = other.EmpireID;
         KingdomID = other.KingdomID;
         TargetID = other.TargetID;
-        canBePushByLocal = other.canBePushByLocal;
         pusherType = other.pusherType;
         TargetType = other.TargetType;
         progress = other.progress;
@@ -515,15 +519,19 @@ public abstract class TemporaryFaction
                 End();
                 return;
             }
-            if (GetEmpire().CoreKingdom.GetRegime().has_cabinet)
+
+            if (!canBePushByLocal)
             {
-                if (GetEmpire().CoreKingdom.GetRegime().type != RegimeType.Feudalism)
+                if (GetEmpire().CoreKingdom.GetRegime().has_cabinet)
                 {
-                    if (GetEmpire().GetCabinetLeader()?.GetFaction().GetID() != factionID)
+                    if (GetEmpire().CoreKingdom.GetRegime().type != RegimeType.Feudalism)
                     {
-                        End();
-                        return;
-                    } 
+                        if (GetEmpire().GetCabinetLeader()?.GetFaction().GetID() != factionID)
+                        {
+                            End();
+                            return;
+                        } 
+                    }
                 }
             }
             if (!ShowAsPlot)
@@ -562,7 +570,6 @@ public abstract class TemporaryFaction
     public void CheckNeedToUpdate()
     {
         if (Date.getMonthsSince(timestamp) < 1) return;
-        LogService.LogInfo("更新进度");
         Update();
         timestamp = World.world.getCurWorldTime();
     }
@@ -583,11 +590,15 @@ public abstract class TemporaryFaction
 
     public virtual bool CheckLocalContinue(Kingdom actor)
     {
+        if (!canBePushByLocal) return false;
+        if (actor.GetRegime() == null) return false;
         if (GetEmpire()==null) return false;
         if (actor?.king==null) return false;
         var actorFaction = actor.king.GetFaction();
         if (actorFaction == null) return false;
         if (actorFaction != GetFaction()) return false;
+        lEmpire =  GetEmpire();
+        lRegime = actor.GetRegime();
         return true;
     }
 

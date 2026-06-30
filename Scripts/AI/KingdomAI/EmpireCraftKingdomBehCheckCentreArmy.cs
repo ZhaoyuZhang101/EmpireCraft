@@ -17,5 +17,4 @@ public class EmpireCraftKingdomBehCheckCentreArmy:GameAIKingdomBase
         }
         return BehResult.Continue;
     }
-    
 }

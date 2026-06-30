@@ -1,3 +1,4 @@
+using System.Security.Policy;
 using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.services;
 using EmpireCraft.Scripts.Layer;
@@ -5,6 +6,8 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
 public class TempFac_供养宗室 : TemporaryFaction
 {
+    public override bool canBePushByLocal => true;
+
     public override TemporaryFaction Clone(FixedFaction faction)
     {
         var res = new TempFac_供养宗室();
@@ -12,7 +15,6 @@ public class TempFac_供养宗室 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
-        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
     
@@ -26,7 +28,21 @@ public class TempFac_供养宗室 : TemporaryFaction
         FinishedAction();
         End();
     }
-    
+
+    public override bool CheckLocalCondition(Kingdom actor)
+    {
+        if (!base.CheckLocalCondition(actor)) return false;
+        if (lRegime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession &&
+            actor.king.GetSpecificClan() == lEmpire.EmpireSpecificClan)
+        {
+            if (actor.king.renown > 500)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();

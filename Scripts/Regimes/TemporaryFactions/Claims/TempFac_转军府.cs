@@ -13,7 +13,6 @@ public class TempFac_转军府 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
-        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 
@@ -29,6 +28,20 @@ public class TempFac_转军府 : TemporaryFaction
             regime.SetTaxLevel(TaxLevel.None);
         }
         End();
+    }
+
+    public override bool CheckLocalCondition(Kingdom actor)
+    {
+        if (!base.CheckLocalCondition(actor)) return false;
+        if (actor.GetKingdomType() != KingdomType.LvLing_jiedushi)
+        {
+            if (actor.IsBorder()||actor.king.renown>1000)
+            {
+                SetKingdomTarget(actor);
+                return true;
+            }
+        }
+        return false;
     }
 
     public override bool CheckCondition()

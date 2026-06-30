@@ -13,7 +13,6 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
-        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 
@@ -29,15 +28,25 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
         End();
     }
 
+    public override bool CheckLocalCondition(Kingdom actor)
+    {
+        if (!base.CheckLocalCondition(actor)) return false;
+        if ((actor.king?.renown??0) < 300) return false;
+        if (!lRegime.IsAllowDiplomacy())
+        {
+            SetKingdomTarget(actor);
+            return true;
+        }
+        return false;
+    }
+
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire.HasEmperor())
-        {
-            if (!empire.Emperor.hasTrait("ambitious")) return false;
-        }
+        if (empire.Mandate > 30) return false;
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
+            if ((kingdom.king?.renown??0) < 300) continue;
             Regime regime = kingdom.GetRegime();
             if (!regime.IsAllowDiplomacy())
             {

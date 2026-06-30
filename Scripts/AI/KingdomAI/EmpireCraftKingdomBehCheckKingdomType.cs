@@ -285,7 +285,14 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 }
             }
         }
-
+        else
+        {
+            if (RegimeManager.regimes.TryGetValue(pKingdom.GetRegime().type, out Regime defaultRegime))
+            {
+                pKingdom.GetRegime().SetLeaderSelectMethod(defaultRegime.GetLeaderSelectMethod());
+            }
+        }
+ 
         if (pKingdom.IsEmpire())
         {
             kingdomFront = pKingdom.GetEmpire()?.GetEmpireName();
