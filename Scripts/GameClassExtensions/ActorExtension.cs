@@ -832,7 +832,7 @@ public static class ActorExtension
         }
     }
 
-    public static void OpenAI(this Actor a)
+    public static void OpenAI(this Actor a, bool isWarrior=false)
     {
         if (a == null || a.isRekt())
         {
@@ -840,15 +840,31 @@ public static class ActorExtension
         }
 
         var data = a.GetOrCreate();
-        if (!data.ai_disabled && a.ai != null)
+        if (a.ai == null)
         {
             return;
         }
 
-        for (int i = 0; i < a._decision_disabled.Length; i++)
+        if (!isWarrior)
         {
-            a.setDecisionState(i, true);
+            for (int i = 0; i < a._decision_disabled.Length; i++)
+            {
+                a.setDecisionState(i, true);
+            }
         }
+        else
+        {
+            for (int i = 0; i < a._decision_disabled.Length; i++)
+            {
+                a.setDecisionState(i, false);
+            }
+            var index = a.decisions.ToList().Find(d=>d.id=="check_warrior_transport").decision_index;
+            var index2 = a.decisions.ToList().Find(d=>d.id=="warrior_try_join_army_group").decision_index;
+            a.setDecisionState(index, true);
+            a.setDecisionState(index2, true);
+        }
+
+        data.ai_disabled = false;
     }
 
     public static void WarriorMoveTo(this Actor a, WorldTile pTileTarget)

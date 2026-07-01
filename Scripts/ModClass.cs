@@ -253,7 +253,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 continue;
             }
 
-            actor.OpenAI();
+            actor.OpenAI(actor.isWarrior());
             for (int j = 0; j < GameAIMain.ActorAis.Count; j++)
             {
                 GameAIMain.ActorAis[j]?.Detect(actor);
