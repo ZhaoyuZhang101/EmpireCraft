@@ -236,6 +236,18 @@ public class ActorPatch : GamePatch
     public static void Die(Actor __instance, bool pDestroy = false, AttackType pType = AttackType.Other, bool pCountDeath = true,
         bool pLogFavorite = true)
     {
+        // This runs before the actor and its kingdom links are torn down. The
+        // identity-only overload avoids touching the actor again during Dispose.
+        if (!ModClass.IS_CLEAR)
+        {
+            PersonalClanIdentity identity = __instance.GetPersonalIdentity();
+            if (identity != null && !identity.death_history_recorded)
+            {
+                identity.death_history_recorded = true;
+                identity.RecordPersonalHistory(LM.Get("personal_history_died"));
+            }
+        }
+
         foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
         {
             var list = pEmpire.data.CabinetMembers;
@@ -333,6 +345,7 @@ public class ActorPatch : GamePatch
 
                 __instance.GetModName().familyName = pParentActor.GetModName().familyName;
                 __instance.GetModName().SetName(__instance);
+                EnsureChildName(__instance, pParentActor);
                 parent_identity.addChild(__instance, true);
             }
         }
@@ -352,9 +365,19 @@ public class ActorPatch : GamePatch
 
                 __instance.GetModName().familyName = pActor.GetModName().familyName;
                 __instance.GetModName().SetName(__instance);
+                EnsureChildName(__instance, pActor);
                 parent_identity.addChild(__instance, true);
             }
         }
+    }
+
+    private static void EnsureChildName(Actor child, Actor parent)
+    {
+        if (child == null || parent?.culture == null || child.GetModName().hasFirstName(child)) return;
+        string firstName = parent.culture.getOnomasticData(MetaType.Unit)
+            .generateName(child.isSexMale() ? ActorSex.Male : ActorSex.Female);
+        child.SetFirstName(firstName);
+        child.GetModName().SetName(child);
     }
 
     public static void setLover(Actor __instance, Actor pActor)
@@ -542,7 +565,7 @@ public class ActorPatch : GamePatch
                 }
                 catch (Exception e)
                 {
-                    LogService.LogInfo("设置姓名失败");
+                    LogService.LogError($"设置姓名失败: {e}");
                 }
 
                 __instance.SetFamilyName(__instance.clan.GetClanName());
@@ -562,6 +585,7 @@ public class ActorPatch : GamePatch
 
         }
         __instance.GetModName().SetName(__instance);
+        __instance.GetPersonalIdentity()?.RecordPendingChildBirthHistory();
     }
 
     public static int Getmonth()

@@ -11,6 +11,7 @@ using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
 using NCMS.Extensions;
+using NeoModLoader.General;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.services;
 using Newtonsoft.Json;
@@ -499,15 +500,19 @@ public class FixedFaction
 
     public void SetLeader(Actor pActor=null, long id=-1L)
     {
-        Leader = pActor?.id??id;
-        if (!Members.Contains(pActor?.id??id))
+        long newLeaderId = pActor?.id ?? id;
+        if (newLeaderId <= 0 || Leader == newLeaderId) return;
+        Leader = newLeaderId;
+        if (!Members.Contains(newLeaderId))
         {
-            Members.Add(pActor?.id??id);
+            Members.Add(newLeaderId);
         }
 
-        if (GetLeader() != null)
+        Actor leader = GetLeader();
+        if (leader != null)
         {
-            TranslateHelper.LogOfficerBecomeFactionLeader(GetLeader(),this);
+            TranslateHelper.LogOfficerBecomeFactionLeader(leader,this);
+            leader.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_faction_leader"), Name));
         }
     }
 

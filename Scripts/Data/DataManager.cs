@@ -209,7 +209,11 @@ public static class DataManager
                 saveData.empireDatas.Add(empire.data);
             } catch (Exception e)
             {
-                LogService.LogInfo($"存在帝国数据出错，跳过该帝国存档: {e.ToString()}");
+                LogService.LogError($"帝国存档更新失败，保留现有数据: {e}");
+                if (empire?.data != null && !saveData.empireDatas.Contains(empire.data))
+                {
+                    saveData.empireDatas.Add(empire.data);
+                }
             }
 
         }
@@ -220,9 +224,13 @@ public static class DataManager
                 kt.save();
                 saveData.kingdomTitleDatas.Add(kt.data);
             } 
-            catch
+            catch (Exception e)
             {
-                LogService.LogInfo("存在头衔数据出错，跳过该头衔存档");
+                LogService.LogError($"头衔存档更新失败，保留现有数据: {e}");
+                if (kt?.data != null && !saveData.kingdomTitleDatas.Contains(kt.data))
+                {
+                    saveData.kingdomTitleDatas.Add(kt.data);
+                }
             }
 
         }

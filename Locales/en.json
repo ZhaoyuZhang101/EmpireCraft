@@ -112,6 +112,7 @@
     "empire_personal_history": "Personal History",
     "empire_capital": "Imperial Capital",
     "year_name": "Era Name",
+    "empire_reign_duration": "Reign",
     "current_selected_province": "Currently Selected Province",
     "province_name": "Province Name",
     "province_leader": "Local Official",
@@ -713,11 +714,16 @@
     "禁党": "Ban factions",
     "国_打击贪腐": "Fight corruption",
     "occupation_capture_event_log": "$capturer$ captured $victim$, $result$",
+    "honorary_peerage_granted_log": "$empire$ invested $actor$ as $title$",
+    "honorary_peerage_inherited_log": "$heir$ inherited the $title$ of $predecessor$",
     "empire_pressure_surrender_log": "Under the pressure of $attacker$'s war, $defender$ surrendered and ceded $target$",
     "empire_pressure_surrender_city_log": "Under the pressure of $attacker$'s war, $defender$ ceded the city of $target$",
     "empire_core_absorb_title_log": "$empire$ has incorporated the title $title$ into the imperial core of $core$",
     "occupation_capture_result_lord": "the city fell immediately",
     "occupation_capture_result_king": "the whole kingdom surrendered",
+    "occupation_capture_result_king_released": "the king was captured and released; the war ended",
+    "occupation_capture_result_king_war_released": "the king was captured and released; the war was resolved by its declared type",
+    "occupation_capture_result_king_city": "the king was not released, and the city fell immediately",
     "occupation_capture_result_emperor": "imperial mandate collapsed and the occupied target was overrun",
     "opinion_same_empire_core": "Rival claim to the same imperial legacy",
     "create_empire_core": "Create Imperial Core",
@@ -899,4 +905,21 @@
   ,"label_corruption":"Corruption"
   ,"action_add_performance":"Add Performance"
   ,"action_sub_performance":"Reduce Performance"
+  ,"Arabic_caliphate":"Caliphate", "Arabic_emirate":"Emirate", "Arabic_province":"Province", "Arabic_sultanate":"Sultanate"
+  ,"Feudalism_county":"County", "Feudalism_duchy":"Duchy", "Feudalism_empire":"Empire", "Feudalism_grand_duchy":"Grand Duchy", "Feudalism_kingdom":"Kingdom", "Feudalism_march":"March", "Feudalism_papal_state":"Papal State"
+  ,"LvLing_centre":"Central Court", "LvLing_jiedushi":"Military Governorship", "LvLing_jimizhou":"Jimi Prefecture", "LvLing_kingdom":"Kingdom", "LvLing_province":"Circuit"
+  ,"Modern_autonomous_prefecture":"Autonomous Prefecture", "Modern_centre":"Central Government", "Modern_province":"Province", "Modern_state":"State"
+  ,"Origin_centre":"Centre", "Origin_kingdom":"Kingdom", "YouMu_bu":"Tribe", "YouMu_centre":"Khan's Court", "YouMu_kingdom":"Khanate"
+  ,"ZhouFeudalism_bo":"Bo State", "ZhouFeudalism_empire":"Son of Heaven's Realm", "ZhouFeudalism_gong":"Duke State", "ZhouFeudalism_hou":"Marquis State", "ZhouFeudalism_zi":"Viscount State", "default_country_post":"State"
+  ,"Arabic_city":"City", "Feudalism_city":"City", "Feudalism_dirC":"Direct City", "Feudalism_religion_district":"Diocese", "LvLing_city":"City", "Modern_city":"City", "Origin_city":"Settlement", "YouMu_city":"Camp", "ZhouFeudalism_city":"Yi"
+  ,"empire_virtual_peerages":"Peerage Register", "empire_virtual_peerages_description":"View title-based and honorary peerages; virtual enfeoffments never transfer land or title ownership."
+  ,"empire_bureau_offices":"Bureau", "empire_bureau_offices_description":"Return to the cabinet, central departments, and provincial offices."
+  ,"specific_clan_relations":"Relations", "specific_clan_relations_description":"Return to the selected person's family relations.", "specific_clan_history":"Personal History", "specific_clan_history_description":"View life events recorded for the selected person in the genealogy.", "personal_history_empty":"No personal history has been recorded.", "personal_history_peerage_granted":"Invested by {0} as {1}.", "personal_history_peerage_inherited":"Inherited {0} from {1}."
+  ,"personal_history_office_started":"Appointed as {0}.", "personal_history_office_reappointed":"Reappointed as {0}.", "personal_history_office_left":"Left office as {0}.", "personal_history_became_king":"Became king of {0}.", "personal_history_became_emperor":"Ascended as emperor of {0}.", "personal_history_left_king":"Ceased to rule {0}.", "personal_history_died":"Died.", "personal_history_new_year_name":"Proclaimed the era name \"{0}\".", "personal_history_born":"Was born.", "personal_history_child_born":"Welcomed child {0}.", "personal_history_married":"Married {0}.", "personal_history_took_concubine":"Took {0} as a concubine.", "personal_history_became_concubine":"Became {0}'s concubine.", "personal_history_exam_city_attended":"Sat the local examination.", "personal_history_exam_city_passed":"Passed the local examination and became a Juren.", "personal_history_exam_province_attended":"Sat the provincial examination.", "personal_history_exam_province_passed":"Passed the provincial examination and became a Gongshi.", "personal_history_exam_empire_attended":"Sat the palace examination.", "personal_history_exam_empire_passed":"Passed the palace examination and became a Jinshi.", "personal_history_joined_cabinet":"Joined the cabinet.", "personal_history_became_cabinet_leader":"Became the chief minister.", "personal_history_became_elector":"Became an elector.", "personal_history_became_chief_elector":"Became the chief elector.", "personal_history_joined_faction":"Joined the {0} faction.", "personal_history_became_faction_leader":"Became leader of the {0} faction."
+  ,"tang_peerage_qinwang":"Prince of the First Rank", "tang_peerage_si_wang":"Heir Apparent Prince", "tang_peerage_junwang":"Commandery Prince", "tang_peerage_guogong":"Duke of the State", "tang_peerage_jungong":"Duke of the Commandery", "tang_peerage_xiangong":"Duke of the County", "tang_peerage_kaiguo_jungong":"Founding Duke of the Commandery", "tang_peerage_kaiguo_xiangong":"Founding Duke of the County", "tang_peerage_kaiguo_hou":"Founding Marquis", "tang_peerage_kaiguo_bo":"Founding Count", "tang_peerage_kaiguo_zi":"Founding Viscount", "tang_peerage_kaiguo_nan":"Founding Baron"
+  ,"label_fief":"Fief"
+  ,"label_vacant":"Vacant"
+  ,"label_honorary":"Honorary Peerage", "empire_legal_virtual_peerages":"Title-Based Peerages", "empire_honorary_virtual_peerages":"Honorary Peerages", "empire_history":"Imperial History"
+  ,"tang_honorary_anle_gong":"Duke of Anle", "tang_honorary_zhongyi_hou":"Marquis of Loyalty", "tang_honorary_wenan_gong":"Duke of Wen'an", "tang_honorary_longxi_gong":"Duke of Longxi", "tang_honorary_wujun_hou":"Marquis of Martial Eminence", "tang_honorary_zhongyong_hou":"Marquis of Loyal Valor", "tang_honorary_huaide_hou":"Marquis of Cherished Virtue"
+  ,"specific_clan_related_history":"Related History", "specific_clan_related_history_description":"View events in other characters' histories that involve this person.", "related_history_empty":"No history records are associated with this person.", "related_history_owner":"Related person", "related_history_event":"Related: {0}", "related_history_owner_unknown":"Unknown person"
 }

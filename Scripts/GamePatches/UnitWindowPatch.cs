@@ -126,29 +126,31 @@ public class UnitWindowPatch: GamePatch
 
     private static void set_stats_rows(UnitWindow __instance)
     {
-        Actor actor = __instance.actor;
-        PeeragesLevel peeragesLevel = __instance.actor.GetPeeragesLevel();
-        __instance.showStatRow("Peerages", LM.Get("default_" + peeragesLevel.ToString()), MetaType.Unit, -1L);
+        Actor actor = __instance?.actor;
+        if (actor == null || actor.isRekt()) return;
+        __instance.showStatRow("Peerages", actor.GetPeerageDisplayName(), MetaType.Unit, -1L);
         SocialClass socialClass = actor.GetOrCreate().socialClass;
         __instance.showStatRow("SocialClass", socialClass.ToTranslate(), MetaType.Unit, -1L);
-        if (__instance.actor.HasTitle()&&__instance.actor.isKing())
+        if (actor.HasTitle() && actor.isKing())
         {
-            string value = __instance.actor.kingdom.HasMainTitle() ? __instance.actor.kingdom.GetMainTitle().data.name: __instance.actor.GetTitle();
+            string value = actor.kingdom != null && actor.kingdom.HasMainTitle() ? actor.kingdom.GetMainTitle().data.name : actor.GetTitle();
             __instance.showStatRow("EmpireTitle", value, MetaType.None, -1L, pTooltipId: "all_titles",  pTooltipData: GetTooltipAllTitles);
         }
 
-        if (actor.city.kingdom.IsInEmpire())
+        Kingdom kingdom = actor.city?.kingdom;
+        if (kingdom?.IsInEmpire() == true)
         {
-            Empire empire = actor.city.kingdom.GetEmpire();
-            OfficeIdentity identity = __instance.actor.GetIdentity();
-            if (empire.CoreKingdom.GetRegime().type == RegimeType.LvLing)
+            Empire empire = kingdom.GetEmpire();
+            OfficeIdentity identity = actor.GetIdentity();
+            Regime regime = empire?.CoreKingdom?.GetRegime();
+            if (regime?.type == RegimeType.LvLing && identity != null)
             {
                 string empireMeritString = String.Join("_", "Huaxia", "meritlevel", identity.peerageType, identity.meritLevel);
                 string empireHonoraryOfficialString = String.Join("_", "Huaxia", "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
                 __instance.showStatRow("EmpireMerit", LM.Get(empireMeritString));
                 __instance.showStatRow("EmpireHonoraryOfficial", LM.Get(empireHonoraryOfficialString)+$" ({identity.honoraryOfficial+1}品)");
             }
-            if (__instance.actor.isOfficer())
+            if (actor.isOfficer() && identity != null)
             {
                 string empireOfficialLevelString = OfficeManager.Offices.TryGetValue(identity.GetOfficeId(), out var value)? value.GetName() : "";
                 if (!string.IsNullOrEmpty(empireOfficialLevelString))

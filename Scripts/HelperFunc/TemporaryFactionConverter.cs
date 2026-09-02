@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
+using NeoModLoader.services;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -37,7 +39,7 @@ public sealed class TemporaryFactionConverter : JsonConverter
 
         var className = "TempFac_" + typeEnum;
         var t = AppDomain.CurrentDomain.GetAssemblies()
-            .SelectMany(a => { try { return a.GetTypes(); } catch { return Array.Empty<Type>(); } })
+            .SelectMany(GetLoadableTypes)
             .FirstOrDefault(x => x != null
                               && x.Name == className
                               && typeof(TemporaryFaction).IsAssignableFrom(x)
@@ -48,6 +50,24 @@ public sealed class TemporaryFactionConverter : JsonConverter
         var inst = Activator.CreateInstance(t);
         serializer.Populate(jo.CreateReader(), inst);
         return inst;
+    }
+
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException e)
+        {
+            LogService.LogWarning($"TemporaryFaction 扫描程序集失败: {assembly.FullName}, {e}");
+            return e.Types.Where(type => type != null);
+        }
+        catch (Exception e)
+        {
+            LogService.LogWarning($"TemporaryFaction 扫描程序集失败: {assembly.FullName}, {e}");
+            return Array.Empty<Type>();
+        }
     }
 
     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)

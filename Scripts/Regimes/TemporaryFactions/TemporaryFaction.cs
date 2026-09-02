@@ -562,7 +562,6 @@ public abstract class TemporaryFaction
     public void CheckNeedToUpdate()
     {
         if (Date.getMonthsSince(timestamp) < 1) return;
-        LogService.LogInfo("更新进度");
         Update();
         timestamp = World.world.getCurWorldTime();
     }

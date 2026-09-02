@@ -36,6 +36,8 @@ public class TempFac_转军府 : TemporaryFaction
         //
         Empire empire = GetEmpire();
         if (empire == null) return false;
+        // 律令制不允许军府借由转制取得独立国家地位。
+        if (empire.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing) return false;
         foreach (var k in empire.kingdoms_list)
         {
             if (k.IsEmpire()) continue;

@@ -73,20 +73,29 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         var empire = war?.GetEmpireTarget();
         if  (empire == null) return;
         var faction = war.GetEmpireFaction();
+        var rebelData = pKingdom.GetOrCreate();
+        if (rebelData.rebellion_auto_expand_remaining < 0)
+        {
+            rebelData.rebellion_auto_expand_remaining = (int)Math.Ceiling(pKingdom.getMaxCities() * 1.5d);
+        }
         foreach (var k in empire.kingdoms_list.ToList())
         {
+            if (k == null || k.isRekt() || !k.hasKing() || k.king == null) continue;
             if (k.IsEmpire()) continue;
             if (k == pKingdom) continue;
-            if (k == null || k.isRekt() || !k.hasKing() || k.king == null) continue;
             if (!k.king.HasFaction()) continue;
             if (k.GetHighestFactionRatio()!=faction) continue;
             if (k.getRenown()>pKingdom.getRenown()) continue;
+            int joiningCityCount = k.cities?.Count ?? 0;
+            if (joiningCityCount <= 0 || rebelData.rebellion_auto_expand_remaining < joiningCityCount) continue;
             pKingdom.addRenown(-k.getRenown());
             TranslateHelper.LogJoinRebellionWar(k, pKingdom, empire);
             foreach (var c in k.cities.ToList())
             {
                 c.joinAnotherKingdom(pKingdom);
             }
+            rebelData.rebellion_auto_expand_remaining -= joiningCityCount;
+            if (rebelData.rebellion_auto_expand_remaining <= 0) return;
         }
         
     }

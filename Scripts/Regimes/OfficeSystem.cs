@@ -98,7 +98,11 @@ public class OfficeObject
     {
         var flag = pre.Contains("_all");
         var preX = string.IsNullOrEmpty(pre) ? pre : LM.Get(pre);
-        switch (pNano?.meta_type)
+        if (pNano is Army army && army._city != null)
+        {
+            preX = army._city.GetCityName();
+        }
+        else switch (pNano?.meta_type)
         {
             case MetaType.Kingdom:
                 preX = ((Kingdom)pNano).GetKingdomName();
@@ -122,14 +126,12 @@ public class OfficeObject
                 if (officer.isRekt()) return;
                 if (GetPregnantYear() > 2)
                 {
-                    LogService.LogInfo("检测生育");
                     var kingdom = (Kingdom) meta_object;
                     if (kingdom != null)
                     {
                         if (OverallHelperFunc.HasChangeToGiveBirth(officer, kingdom.king))
                         {
                             BabyMaker.makeBaby(kingdom.king, officer); 
-                            LogService.LogInfo("生育权能触发");
                         } 
                     }
                     last_pregnant_timestamp = World.world.getCurWorldTime();
@@ -185,7 +187,7 @@ public class OfficeObject
     public void SetActor (Actor actor)
     {
         var originalActor = GetActor();
-        if (!originalActor.isRekt())
+        if (originalActor != null && !originalActor.isRekt())
         {
             originalActor.EndOffice();
             if (originalActor.HasOfficeIdentity())
@@ -203,6 +205,7 @@ public class OfficeObject
         {
             return;
         }
+        bool isReappointment = history_officers.Contains(actor.data.name);
         if(!actor.hasCulture())
         {
             actor.setCulture(actor.kingdom.culture);
@@ -240,6 +243,10 @@ public class OfficeObject
         }
         var personalId = actor.GetPersonalIdentity();
         personalId?.SetOfficeName(empireName+GetName());
+        // Kings and city leaders are also offices. Record their appointment here
+        // once instead of creating a second king/leader-specific history entry.
+        string officeHistoryKey = isReappointment ? "personal_history_office_reappointed" : "personal_history_office_started";
+        actor.RecordPersonalHistory(string.Format(LM.Get(officeHistoryKey), GetName(meta_object)));
         if(!is_local) return;
         switch (meta_object.meta_type)
         {
@@ -304,6 +311,11 @@ public class OfficeObject
                 actor.addTrait("officerLeave");
             }
             history_officers.Add(actor.data.name);
+            PersonalClanIdentity personalIdentity = actor.GetPersonalIdentity();
+            if (personalIdentity != null && !personalIdentity.death_history_recorded && actor.isAlive() && !actor.isRekt())
+            {
+                actor.RecordPersonalHistory(string.Format(LM.Get("personal_history_office_left"), GetName(meta_object)));
+            }
             actor.EndOffice();
             if (officeType is > 13 and <= 22)
             {

@@ -40,6 +40,10 @@ public static class CityExtension
     private const float OccupationCaptureLordChance = 0.20f;
     private const float OccupationCaptureKingChance = 0.35f;
     private const float OccupationCaptureEmperorChance = 0.50f;
+    private const float OccupationCaptureKingReleaseChance = 0.50f;
+    // Temporary isolation guard: capture resolution must never run while testing
+    // the war-start crash. Occupation progress remains enabled.
+    private const bool EnableOccupationCaptureEvents = false;
     public class CityExtraData: ExtraDataBase
     {
         public string kingdom_names = "";
@@ -1229,7 +1233,13 @@ public static class CityExtension
 
     public static bool TryTriggerOccupationCaptureEvent(this City city, Kingdom occupier, TileZone zone = null, Actor capturer = null, bool zoneOccupationMode = false)
     {
-        if (city == null || occupier == null || city.kingdom == null || city.kingdom == occupier)
+        if (!EnableOccupationCaptureEvents)
+        {
+            return false;
+        }
+
+        // Only a concrete occupied battle zone can produce a capture event.
+        if (city == null || occupier == null || zone == null || city.kingdom == null || city.kingdom == occupier)
         {
             return false;
         }
@@ -1273,8 +1283,69 @@ public static class CityExtension
 
         if (victim.isKing())
         {
-            victim.kingdom.ForceKingdomSurrenderTo(occupier, city);
-            TranslateHelper.LogOccupationCaptureEvent(captureActor, victim, "occupation_capture_result_king", occupier.GetEmpire());
+            Kingdom victimKingdom = victim.kingdom;
+            if (victimKingdom == null || victimKingdom.isRekt()) return false;
+            War activeWar = null;
+            War typedWar = null;
+            foreach (War war in occupier.getWars())
+            {
+                if (war == null || !war.isAlive())
+                {
+                    continue;
+                }
+
+                bool occupierParticipates = war._list_attackers.Contains(occupier) || war._list_defenders.Contains(occupier);
+                bool victimParticipates = war._list_attackers.Contains(victimKingdom) || war._list_defenders.Contains(victimKingdom);
+                if (!occupierParticipates || !victimParticipates)
+                {
+                    continue;
+                }
+
+                activeWar ??= war;
+                if (war.GetEmpireWarType() != EmpireWarType.None)
+                {
+                    typedWar = war;
+                    break;
+                }
+            }
+
+            if (typedWar != null)
+            {
+                typedWar.lostWar(victimKingdom);
+                if (occupier.GetEmpire()?.CoreKingdom?.GetRegime()?.enable_auto_honorary_peerages == true)
+                {
+                    captureActor.GrantHonoraryPeerage(occupier.GetEmpire(), "tang_honorary_zhongyi_hou");
+                }
+                TranslateHelper.LogOccupationCaptureEvent(captureActor, victim, "occupation_capture_result_king_war_released", occupier.GetEmpire());
+                return true;
+            }
+
+            if (activeWar != null)
+            {
+                activeWar.lostWar(victimKingdom);
+                if (occupier.GetEmpire()?.CoreKingdom?.GetRegime()?.enable_auto_honorary_peerages == true)
+                {
+                    captureActor.GrantHonoraryPeerage(occupier.GetEmpire(), "tang_honorary_zhongyi_hou");
+                }
+            }
+
+            if (UnityEngine.Random.value <= OccupationCaptureKingReleaseChance)
+            {
+                TranslateHelper.LogOccupationCaptureEvent(captureActor, victim, "occupation_capture_result_king_released", occupier.GetEmpire());
+                return true;
+            }
+
+            if (zoneOccupationMode)
+            {
+                city.ForceOccupyAllRemainingZones(occupier);
+                city.CheckFinishedCapture();
+            }
+            else
+            {
+                city.finishCapture(occupier);
+            }
+
+            TranslateHelper.LogOccupationCaptureEvent(captureActor, victim, "occupation_capture_result_king_city", occupier.GetEmpire());
             return true;
         }
 

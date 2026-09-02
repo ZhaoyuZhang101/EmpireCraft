@@ -136,15 +136,20 @@ namespace EmpireCraft.Scripts.UI.Windows
         //显示势力范围
         public IEnumerator ShowKingdomList()
         {
+            if (_empire?.CoreKingdom == null || _empire.CoreKingdom.isRekt()) yield break;
             Clear();
             InitialTopPartInfo();
             var parent = CommonInitial("empire_controlled_kingdoms");
+            if (parent == null) yield break;
             yield return CoroutineHelper.wait_for_next_frame;
+            if (parent == null || parent.gameObject == null) yield break;
             UIHelper.InitialFactionSpace(parent.BeginHoriGroup(), _empire.CoreKingdom);
             yield return CoroutineHelper.wait_for_next_frame;
+            if (parent == null || parent.gameObject == null) yield break;
             parent.AddTextIntoVertLayout("", true, TextAnchor.MiddleCenter);
             parent.AddTextIntoVertLayout(LM.Get("kingdom_list"), true, TextAnchor.MiddleCenter);
             yield return CoroutineHelper.wait_for_next_frame;
+            if (parent == null || parent.gameObject == null) yield break;
             StartCoroutine(ShowKingdoms(parent));
         }
         //显示君主世系
@@ -190,26 +195,29 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             Clear();
             InitialTopPartInfo();
-            var parent = CommonInitial("empire_personal_history");
             var currentHistory = ConfigData.CURRENT_SELECTED_HISTORY;
-            string text1 = "";
-            string text2 = "";
-            SimpleText titleText = Instantiate(SimpleText.Prefab, null);
-            text1 = currentHistory.emperor + "\n" + _empire.GetEmpireName() + currentHistory.year_name + LM.Get("emperor");
-            if (!string.IsNullOrEmpty(currentHistory.miaohao_name))
-            {
-                text2 =
-                    _empire.GetEmpireName() + LM.Get(currentHistory.miaohao_name) + LM.Get(currentHistory.miaohao_suffix) + "-" +
-                    _empire.GetEmpireName() + LM.Get(currentHistory.shihao_name) + LM.Get("emperor_suffix");
-            }
-            else
-            {
-                text2 = LM.Get("waiting_for_naming");
-            }
-            string text = text1 + "\n" + text2;
-            titleText.Setup(text, TextAnchor.MiddleCenter, new Vector2(50, 50));
-            titleText.background.enabled = false;
-            parent.AddChild(titleText.gameObject);
+            if (currentHistory == null) return;
+
+            var parent = this.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
+            AddIntoGroup("empire_reign_history", parent.gameObject);
+            string eraName = string.IsNullOrWhiteSpace(currentHistory.year_name)
+                ? LM.Get("waiting_for_naming")
+                : currentHistory.year_name;
+            string emperorName = string.IsNullOrWhiteSpace(currentHistory.emperor)
+                ? _empire.Emperor?.getName() ?? ""
+                : currentHistory.emperor;
+            int reignYears = currentHistory == _empire.data.currentHistory
+                ? _empire.GetEmperorYear()
+                : Mathf.Max(1, currentHistory.total_time);
+
+            var reignCard = parent.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter,
+                pSize: new Vector2(196, 34));
+            AddReignInfoColumn(reignCard, LM.Get("year_name"), eraName, new Color(1f, 0.78f, 0.2f), new Vector2(52, 30), 9);
+            AddReignInfoColumn(reignCard, LM.Get("emperor"), emperorName, _empire.getColor()._color_text, new Vector2(82, 30), 11);
+            AddReignInfoColumn(reignCard, LM.Get("empire_reign_duration"), $"{reignYears}{LM.Get("Year")}",
+                new Color(0.25f, 0.9f, 0.8f), new Vector2(52, 30), 9);
+            reignCard.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(196, 34));
+
             if (currentHistory.descriptions != null)
             {
                 HistoryDescription lasDes = new HistoryDescription()
@@ -224,6 +232,20 @@ namespace EmpireCraft.Scripts.UI.Windows
                     lasDes = d;
                 }
             }
+        }
+
+        // Keep the ruler prominent while the era and reign length remain readable context.
+        private static void AddReignInfoColumn(AutoHoriLayoutGroup parent, string label, string value, Color valueColor,
+            Vector2 size, int valueFontSize)
+        {
+            var column = parent.BeginVertGroup(size, pSpacing: -2, pAlignment: TextAnchor.MiddleCenter,
+                pPadding: new RectOffset(0, 0, 1, 1));
+            var labelText = column.AddTextIntoVertLayout(label.ColorString(pColor: new Color(0.65f, 0.72f, 0.72f)), true,
+                TextAnchor.MiddleCenter, new Vector2(size.x - 2, 8));
+            labelText.UseFixedFontSize(5, HorizontalWrapMode.Overflow);
+            var valueText = column.AddTextIntoVertLayout(value.ColorString(pColor: valueColor), true,
+                TextAnchor.MiddleCenter, new Vector2(size.x - 2, 18));
+            valueText.UseFixedFontSize(valueFontSize, HorizontalWrapMode.Overflow);
         }
         //显示行政窗口
         public void ShowBureau(WindowMetaTab pArg0)

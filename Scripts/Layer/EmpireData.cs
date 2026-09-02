@@ -86,6 +86,8 @@ public class EmpireData : MetaObjectData
     public double last_office_exam_timestamp { get; set; } = -1L;
     
     public double last_educate_timestamp { get; set; } = -1L;
+    public double last_honorary_peerage_timestamp { get; set; } = -1L;
+    public Dictionary<string, long> honorary_peerage_holders { get; set; } = new Dictionary<string, long>();
 
     public bool archived { get; set; } = false;
     
@@ -150,4 +152,7 @@ public class HistoryDescription
     public string time;
     public List<string> cities;
     public string description;
+    public double timestamp = -1L;
+    public long actor_id = -1L;
+    public long kingdom_id = -1L;
 }

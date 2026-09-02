@@ -129,7 +129,12 @@ public class KingdomPatch : GamePatch
             }
             if (__instance.IsEmpire())
             {
-                __instance.GetEmpire().NewEmperor(pActor);
+                Empire empire = __instance.GetEmpire();
+                empire?.NewEmperor(pActor);
+                if (!pFromLoad && empire != null)
+                {
+                    pActor.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_emperor"), empire.GetEmpireName()));
+                }
                 LogService.LogInfo("触发原版选择国王");
             }
             __instance.RemoveHeir();
@@ -139,10 +144,11 @@ public class KingdomPatch : GamePatch
     public static void emperor_left(Kingdom __instance)
     {
         if (ModClass.IS_CLEAR) return;
+        Actor king = __instance.king;
         if (__instance.HasMainCrime()) __instance.RemoveMainCrime();
-        if (__instance.king.HasOfficeIdentity())
+        if (king != null && king.HasOfficeIdentity())
         {
-            var officeIdentity = __instance.king.GetIdentity();
+            var officeIdentity = king.GetIdentity();
             officeIdentity?.RemoveOffice();
         }
         if (__instance.IsEmpire())

@@ -124,7 +124,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             long oldestId = oldest?.getID() ?? -1L;
             var avatar = UIHelper.CreateAvatarView(oldestId, () => { if (oldest != null) UIHelper.actorClick(oldest); }, pIsAlive: oldest != null);
             card.AddChild(avatar.gameObject);
-            card.AddButtonIntoVertLayout("open_history", LM.Get("empire_personal_history"), () =>
+            card.AddButtonIntoVertLayout("open_history", LM.Get("empire_history"), () =>
             {
                 if (empire.CoreKingdom != null) SelectedMetas.selected_kingdom = empire.CoreKingdom;
                 EmpireCraftMetaTypeLibrary.selected_empire = empire;

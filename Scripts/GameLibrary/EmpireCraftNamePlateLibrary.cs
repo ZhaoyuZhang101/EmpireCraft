@@ -321,7 +321,7 @@ public static class EmpireCraftNamePlateLibrary
                         var t = _cached_titles[i];
                         if (t == null || t.isRekt() || t.title_capital == null || t.title_capital.isRekt()) continue;
                         if (!isWithinCamera(t.title_capital.city_center)) continue;
-                        var npt = prepareNext(pManager, pAsset, t, 37, 12, 39, 11);
+                        var npt = prepareNext(pManager, pAsset, t.title_capital, 37, 12, 39, 11);
                         showTextTitle(npt, t.title_capital);
                     }
                     for (int i = 0; i < _cached_cities_no_title.Count; i++)
@@ -525,6 +525,9 @@ public static class EmpireCraftNamePlateLibrary
     }
     public static void showTextKingdom(NameplateText npt, Kingdom pMetaObject)
     {
+        if (pMetaObject?.data == null) return;
+        if (pMetaObject.data.banner_background_id < 0) pMetaObject.data.banner_background_id = 0;
+        if (pMetaObject.data.banner_icon_id < 0) pMetaObject.data.banner_icon_id = 0;
         npt.setupMeta((MetaObjectData) pMetaObject.data, pMetaObject.getColor());
         string pNewText = $"{pMetaObject.name}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
         int num;
@@ -843,8 +846,17 @@ public static class EmpireCraftNamePlateLibrary
             switch (pAsset.map_mode)
             {
                 case MetaTypeExtension.KingdomTitle:
-                    var capital = (City)pMeta;
-                    nameplateText.setupMeta(capital.data, capital.GetTitle().getColor());
+                    City capital = pMeta as City;
+                    if (capital == null)
+                    {
+                        capital = (pMeta as KingdomTitle)?.title_capital;
+                    }
+                    KingdomTitle title = capital?.GetTitle();
+                    if (capital == null || capital.isRekt() || title == null || title.isRekt()) break;
+                    if (title.data.banner_background_id < 0) title.data.banner_background_id = 0;
+                    if (title.data.banner_icon_id < 0) title.data.banner_icon_id = 0;
+
+                    nameplateText.setupMeta(capital.data, title.getColor());
                     nameplateText._text_name.fontStyle = FontStyle.Bold;
                     nameplateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.zero;
                     nameplateText._text_name.transform.localScale = Vector3.one * 1.5f;
@@ -852,9 +864,9 @@ public static class EmpireCraftNamePlateLibrary
                     
                     nameplateText._banner_kingdoms.enabled = true;
                     nameplateText._banner_kingdoms.gameObject.SetActive(true);
-                    nameplateText._banner_kingdoms.background.sprite = capital.GetTitle()?.getElementBackground();
-                    nameplateText._banner_kingdoms.icon.sprite = capital.GetTitle()?.getElementIcon();
-                    var color = capital.GetTitle().kingdomColor.getColorBanner();
+                    nameplateText._banner_kingdoms.background.sprite = title.getElementBackground();
+                    nameplateText._banner_kingdoms.icon.sprite = title.getElementIcon();
+                    var color = title.kingdomColor.getColorBanner();
                     color = new Color(color.r, color.g, color.b, 0.5f);
                     nameplateText._banner_kingdoms.background.color = color;
                     nameplateText._banner_kingdoms.icon.color = color;

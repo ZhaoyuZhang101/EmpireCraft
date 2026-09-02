@@ -1,6 +1,9 @@
 ﻿using System.Collections;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
@@ -34,6 +37,27 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         _clanInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
         _clanInput.Setup("", ChangeClanName);
     }
+    private void InitialTabButtons()
+    {
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_relations"))
+        {
+            var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            tab.Setup("specific_clan_relations", ScrollWindowComponent, action: _ => refreshAll(),
+                sprite: SpriteTextureLoader.getSprite("ui/iconOptions"));
+        }
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_history"))
+        {
+            var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            tab.Setup("specific_clan_history", ScrollWindowComponent, action: ShowPersonalHistory,
+                sprite: SpriteTextureLoader.getSprite("ui/iconHistory"));
+        }
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_related_history"))
+        {
+            var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            tab.Setup("specific_clan_related_history", ScrollWindowComponent, action: ShowRelatedHistory,
+                sprite: SpriteTextureLoader.getSprite("ui/iconHistory"));
+        }
+    }
 
     public void ChangeClanName(string text)
     {
@@ -61,6 +85,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         if (!this._actor.HasSpecificClan()) return;
         _sc = _actor.GetSpecificClan();
         _identity = _actor.GetPersonalIdentity();
+        InitialTabButtons();
         refreshAll();
     }
 
@@ -80,6 +105,198 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         ShowGrandChildGenerationSpace();
         ShowSameGenerationSpace();
         ShowSiblingChildGenerationSpace();
+    }
+    private void ShowPersonalHistory(WindowMetaTab _)
+    {
+        if (_identity == null) return;
+        Clear();
+        InitialTextInput();
+        InitialTop();
+        var historySpace = this.BeginVertGroup();
+        var heading = GameObject.Instantiate(SimpleText.Prefab);
+        heading.Setup(LM.Get("specific_clan_history"), TextAnchor.MiddleCenter, new Vector2(180, 22));
+        heading.UseFixedFontSize(13);
+        historySpace.AddChild(heading.gameObject);
+
+        _identity.BackfillCurrentEraNameHistory();
+        _identity.BackfillChildBirthHistoryNames();
+        List<PersonalHistoryRecord> records = (_identity.personal_history ?? new List<PersonalHistoryRecord>())
+            .OrderBy(record => record.timestamp)
+            .ToList();
+        if (records.Count == 0)
+        {
+            historySpace.AddTextIntoVertLayout(LM.Get("personal_history_empty"), true, TextAnchor.MiddleCenter, new Vector2(180, 22));
+        }
+        else
+        {
+            foreach (IGrouping<string, PersonalHistoryRecord> yearRecords in records.GroupBy(GetHistoryYear))
+            {
+                var yearText = historySpace.AddTextIntoVertLayout(yearRecords.Key.ColorString(pColor: new Color(1f, 0.78f, 0.2f)), true,
+                    TextAnchor.MiddleCenter, new Vector2(130, 18));
+                yearText.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+
+                foreach (PersonalHistoryRecord record in yearRecords)
+                {
+                    PersonalClanIdentity relatedIdentity = GetRelatedHistoryIdentity(record);
+                    bool hasRelatedAvatar = relatedIdentity != null;
+                    var eventCard = this.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(196, 28));
+                    var dateText = eventCard.AddTextIntoHoriLayout(GetHistoryMonthDay(record).ColorString(pColor: new Color(0.25f, 0.9f, 0.8f)), true,
+                        TextAnchor.MiddleCenter, new Vector2(38, 22));
+                    dateText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+                    string kingdomSuffix = string.IsNullOrWhiteSpace(record.kingdom_name) ? "" : $" · {record.kingdom_name}";
+                    var contentText = eventCard.AddTextIntoHoriLayout(GetHistoryContent(record) + kingdomSuffix, true, TextAnchor.MiddleLeft,
+                        new Vector2(hasRelatedAvatar ? 108 : 136, 22));
+                    contentText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+                    if (hasRelatedAvatar)
+                    {
+                        AutoVertLayoutGroup avatarLayout = this.BeginVertGroup(new Vector2(24, 24), pSpacing: 0,
+                            pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
+                        SimpleButton avatar = UIHelper.CreateAvatarView(relatedIdentity.actor_id,
+                            () => ShowRelatedPersonHistory(relatedIdentity), pIsAlive: relatedIdentity.is_alive);
+                        avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
+                        avatarLayout.AddChild(avatar.gameObject);
+                        avatarLayout.transform.localPosition = Vector3.zero;
+                        eventCard.AddChild(avatarLayout.gameObject);
+                    }
+                    AddHistoryButton(eventCard, record);
+                    eventCard.transform.AddStretchBackground("clanFrame", size: new Vector2(196, 28));
+                    historySpace.AddChild(eventCard.gameObject);
+                }
+            }
+        }
+        AddChild(historySpace.gameObject);
+        _groups["personal_history"] = historySpace;
+    }
+
+    private static void AddHistoryButton(AutoHoriLayoutGroup parent, PersonalHistoryRecord record)
+    {
+        Empire empire = record?.empire_id > 0 ? ModClass.EMPIRE_MANAGER.get(record.empire_id) : null;
+        if (empire == null || empire.IsArchived() || empire.data == null) return;
+
+        EmpireCraftHistory history = empire.data.currentHistory ?? empire.data.history?.LastOrDefault();
+        if (history == null) return;
+
+        parent.AddButtonIntoHoriLayout("open_history", "", () =>
+        {
+            EmpireCraftMetaTypeLibrary.selected_empire = empire;
+            ConfigData.CURRENT_SELECTED_HISTORY = history;
+            ScrollWindow.showWindow(nameof(EmpireHistoryWindow));
+        }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(14, 14), showTip: true);
+    }
+
+    private static string GetHistoryContent(PersonalHistoryRecord record)
+    {
+        if (record?.event_key != "personal_history_child_born") return record?.content ?? "";
+        if (!record.content?.Contains("§") ?? true) return record.content ?? "";
+        PersonalClanIdentity childIdentity = record.related_personal_identity_id > 0
+            ? SpecificClanManager.getPerson(record.related_personal_identity_id)
+            : record.related_actor_id > 0 ? World.world.units.get(record.related_actor_id)?.GetPersonalIdentity() : null;
+        childIdentity?.BackfillRelatedHistoryRecords();
+        return record.content;
+    }
+
+    private static PersonalClanIdentity GetRelatedHistoryIdentity(PersonalHistoryRecord record)
+    {
+        if (record == null) return null;
+        if (record.related_personal_identity_id > 0)
+        {
+            return SpecificClanManager.getPerson(record.related_personal_identity_id);
+        }
+        return record.related_actor_id > 0
+            ? World.world.units.get(record.related_actor_id)?.GetPersonalIdentity()
+            : null;
+    }
+
+    private void ShowRelatedPersonHistory(PersonalClanIdentity identity)
+    {
+        if (identity == null) return;
+        _identity = identity;
+        _sc = identity._specificClan;
+        ShowPersonalHistory(null);
+    }
+
+    private void ShowRelatedHistory(WindowMetaTab _)
+    {
+        if (_identity == null) return;
+        Clear();
+        InitialTextInput();
+        InitialTop();
+
+        var historySpace = this.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
+        var heading = GameObject.Instantiate(SimpleText.Prefab);
+        heading.Setup(LM.Get("specific_clan_related_history"), TextAnchor.MiddleCenter, new Vector2(180, 22));
+        heading.UseFixedFontSize(13);
+        historySpace.AddChild(heading.gameObject);
+
+        _identity.BackfillRelatedHistoryRecords();
+        List<PersonalHistoryRecord> records = (_identity.related_history_records ?? new List<PersonalHistoryRecord>())
+            .Where(record => record != null)
+            .OrderByDescending(record => record.timestamp)
+            .ToList();
+        if (records.Count == 0)
+        {
+            historySpace.AddTextIntoVertLayout(LM.Get("related_history_empty"), true, TextAnchor.MiddleCenter,
+                new Vector2(180, 24));
+        }
+        else
+        {
+            foreach (PersonalHistoryRecord record in records)
+            {
+                PersonalClanIdentity owner = record.owner_personal_identity_id > 0
+                    ? SpecificClanManager.getPerson(record.owner_personal_identity_id)
+                    : null;
+                bool hasOwnerAvatar = owner != null;
+                var eventCard = this.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleLeft,
+                    pSize: new Vector2(196, 28));
+                var dateText = eventCard.AddTextIntoHoriLayout(GetHistoryMonthDay(record).ColorString(
+                    pColor: new Color(0.25f, 0.9f, 0.8f)), true, TextAnchor.MiddleCenter, new Vector2(38, 22));
+                dateText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+
+                var details = this.BeginVertGroup(pSpacing: -2, pAlignment: TextAnchor.MiddleLeft,
+                    pSize: new Vector2(hasOwnerAvatar ? 124 : 150, 24));
+                string ownerName = owner?.name;
+                if (string.IsNullOrWhiteSpace(ownerName)) ownerName = LM.Get("related_history_owner_unknown");
+                var ownerText = details.AddTextIntoVertLayout($"{LM.Get("related_history_owner")}: {ownerName}".ColorString(
+                    pColor: new Color(1f, 0.78f, 0.2f)), true, TextAnchor.MiddleLeft, new Vector2(hasOwnerAvatar ? 122 : 148, 11));
+                ownerText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+                var contentText = details.AddTextIntoVertLayout(string.Format(LM.Get("related_history_event"), GetHistoryContent(record)),
+                    true, TextAnchor.MiddleLeft, new Vector2(hasOwnerAvatar ? 122 : 148, 11));
+                contentText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+                eventCard.AddChild(details.gameObject);
+
+                if (owner != null)
+                {
+                    // Match the genealogy cards so dead related people keep their tombstone avatar.
+                    AutoVertLayoutGroup avatarLayout = this.BeginVertGroup(new Vector2(24, 24), pSpacing: 0,
+                        pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
+                    SimpleButton avatar = UIHelper.CreateAvatarView(owner.actor_id,
+                        () => ShowRelatedPersonHistory(owner), pIsAlive: owner.is_alive);
+                    avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
+                    avatarLayout.AddChild(avatar.gameObject);
+                    avatarLayout.transform.localPosition = Vector3.zero;
+                    eventCard.AddChild(avatarLayout.gameObject);
+                }
+                eventCard.transform.AddStretchBackground("clanFrame", size: new Vector2(196, 28));
+                historySpace.AddChild(eventCard.gameObject);
+            }
+        }
+        AddChild(historySpace.gameObject);
+        _groups["related_history"] = historySpace;
+    }
+
+    private static string GetHistoryYear(PersonalHistoryRecord record)
+    {
+        string date = record?.date ?? "";
+        int yearEnd = date.IndexOf('年');
+        return yearEnd >= 0 ? date.Substring(0, yearEnd + 1) : date;
+    }
+
+    private static string GetHistoryMonthDay(PersonalHistoryRecord record)
+    {
+        if (record == null) return "";
+        string date = Date.getDate(record.timestamp);
+        int yearEnd = date.IndexOf('年');
+        return yearEnd >= 0 ? date.Substring(yearEnd + 1) : date;
     }
     public void ShowFatherSideSpace()
     {

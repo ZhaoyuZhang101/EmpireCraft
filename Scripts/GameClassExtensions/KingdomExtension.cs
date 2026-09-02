@@ -225,6 +225,8 @@ public static class KingdomExtension
         public double last_exam_timestamp = -1L;
         public bool isFactionRebelling = false;
         public bool isLocalRebelling = false;
+        // 地方叛乱自动吸纳政权时可再接收的城市数。
+        public int rebellion_auto_expand_remaining = -1;
         public bool isNeedToMaintainGoodOpinion = false;
         public double last_tax_timestamp = -1L;
         public double last_office_exam_timestamp = -1L;
@@ -1025,13 +1027,25 @@ public static class KingdomExtension
                 kingdom.data.name =  (string.IsNullOrEmpty(pre)?kingdom.GetKingdomName():pre)+'\u200A' + '\u200A' + LM.Get("rebelling");
                 break;
         }
-        kingdom.GetOrCreate().isLocalRebelling = true;
+        var extraData = kingdom.GetOrCreate();
+        extraData.isLocalRebelling = true;
+        if (warType == EmpireWarType.地方叛乱)
+        {
+            // 叛军规模由其领袖的既有城市容量决定，避免战时无限扩张。
+            extraData.rebellion_auto_expand_remaining = Mathf.CeilToInt(kingdom.getMaxCities() * 1.5f);
+        }
+        else
+        {
+            extraData.rebellion_auto_expand_remaining = -1;
+        }
         return true;
     }
 
     public static void EndLocalRebelling(this Kingdom k)
     {
-        k.GetOrCreate().isLocalRebelling = false;
+        var extraData = k.GetOrCreate();
+        extraData.isLocalRebelling = false;
+        extraData.rebellion_auto_expand_remaining = -1;
     }
 
     public static bool IsLocalRebelling(this Kingdom k)

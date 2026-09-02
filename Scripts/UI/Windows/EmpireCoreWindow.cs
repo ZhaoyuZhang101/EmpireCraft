@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
@@ -20,11 +21,12 @@ namespace EmpireCraft.Scripts.UI.Windows
         private readonly Dictionary<long, bool> _historyExpandedStates = new Dictionary<long, bool>();
         private TextInput _nameInput;
         private EmpireCore _core;
+        private AutoVertLayoutGroup _topPart;
 
         protected override void Init()
         {
             layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 60, 3);
+            layout.padding = new RectOffset(3, 3, 95, 3);
             _nameInput = Object.Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
             _nameInput.Setup("", ChangeName);
         }
@@ -36,13 +38,18 @@ namespace EmpireCraft.Scripts.UI.Windows
                 Destroy(container.Value);
             }
             _groups.Clear();
+            if (_topPart != null)
+            {
+                Destroy(_topPart.gameObject);
+                _topPart = null;
+            }
         }
 
         public override void OnNormalEnable()
         {
             base.OnNormalEnable();
             layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 60, 3);
+            layout.padding = new RectOffset(3, 3, 95, 3);
             _core = EmpireCraftMetaTypeLibrary.selected_empireCore;
             Clear();
             if (_core == null) return;
@@ -71,22 +78,32 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void ShowOverview()
         {
-            var parent = CommonInitial("EmpireCoreWindowTitle");
-            parent.AddTextIntoVertLayout($"{LM.Get("empire_core_display_name")}: {EmpireCoreManager.GetDisplayName(_core)}", true, TextAnchor.MiddleCenter, new Vector2(120, 12));
-            parent.AddTextIntoVertLayout($"{LM.Get("empire_core_plate_name")}: {EmpireCoreManager.GetPlateName(_core)}", true, TextAnchor.MiddleCenter, new Vector2(120, 12));
-            parent.AddTextIntoVertLayout($"{LM.Get("empire_core_created_time")}: {Date.getDate(_core.create_timestamp)}", true, TextAnchor.MiddleCenter, new Vector2(120, 12));
+            _topPart = this.BeginVertGroup(pSpacing: 5, pAlignment: TextAnchor.UpperCenter);
 
+            var summary = _topPart.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.MiddleCenter);
+            summary.AddTextIntoVertLayout(EmpireCoreManager.GetDisplayName(_core).ColorString(pColor: new Color(1f, 0.78f, 0.28f)),
+                true, TextAnchor.MiddleCenter, new Vector2(150, 16));
+            summary.AddTextIntoVertLayout($"{LM.Get("empire_core_plate_name")}: {EmpireCoreManager.GetPlateName(_core)}",
+                true, TextAnchor.MiddleCenter, new Vector2(150, 10));
             string foundingEmpire = EmpireCoreManager.GetFoundingEmpireName(_core);
-            if (!string.IsNullOrWhiteSpace(foundingEmpire))
-            {
-                parent.AddTextIntoVertLayout($"{LM.Get("empire_core_founding_empire")}: {foundingEmpire}", true, TextAnchor.MiddleCenter, new Vector2(120, 12));
-            }
-
-            parent.AddTextIntoVertLayout($"{LM.Get("empire_core_titles_count")}: {EmpireCoreManager.GetTitles(_core).Count}", true, TextAnchor.MiddleCenter, new Vector2(120, 12));
-            parent.AddTextIntoVertLayout($"{LM.Get("empire_core_cities_count")}: {EmpireCoreManager.GetCities(_core).Count}", true, TextAnchor.MiddleCenter, new Vector2(120, 12));
+            string founderText = string.IsNullOrWhiteSpace(foundingEmpire) ? LM.Get("empire_core_none") : foundingEmpire;
+            summary.AddTextIntoVertLayout($"{LM.Get("empire_core_founding_empire")}: {founderText}",
+                true, TextAnchor.MiddleCenter, new Vector2(150, 10));
+            summary.AddTextIntoVertLayout($"{LM.Get("empire_core_created_time")}: {Date.getDate(_core.create_timestamp)}",
+                true, TextAnchor.MiddleCenter, new Vector2(150, 10));
+            summary.transform.AddStretchBackground("clanFrame", new Vector2(205, 56));
 
             var empires = EmpireCoreManager.GetEmpires(_core);
-            parent.AddTextIntoVertLayout(LM.Get("empire_core_current_empires"), true, TextAnchor.MiddleCenter, new Vector2(80, 12));
+            var metrics = _topPart.BeginHoriGroup(pSpacing: 3, pAlignment: TextAnchor.MiddleCenter);
+            AddMetricCard(metrics, LM.Get("empire_core_titles_count"), EmpireCoreManager.GetTitles(_core).Count.ToString(), new Color(0.45f, 0.82f, 1f));
+            AddMetricCard(metrics, LM.Get("empire_core_cities_count"), EmpireCoreManager.GetCities(_core).Count.ToString(), new Color(0.45f, 0.95f, 0.55f));
+            AddMetricCard(metrics, LM.Get("empire_core_current_empires"), empires.Count.ToString(), new Color(1f, 0.72f, 0.32f));
+            _topPart.gameObject.AdjustTopPart(transform.parent.transform, new Vector2(0, 1));
+
+            var parent = this.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
+            _groups["EmpireCoreWindowContent"] = parent.gameObject;
+            AddSectionTitle(parent, LM.Get("empire_core_current_empires"));
+
             if (empires.Count == 0)
             {
                 parent.AddTextIntoVertLayout(LM.Get("empire_core_none"), true, TextAnchor.MiddleCenter, new Vector2(80, 10));
@@ -95,32 +112,67 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 foreach (var empire in empires)
                 {
-                    parent.AddButtonIntoVertLayout("open_empire", empire.GetEmpireName(), () =>
-                    {
-                        EmpireCraftMetaTypeLibrary.selected_empire = empire;
-                        ScrollWindow.showWindow(nameof(EmpireWindow));
-                    }, size: new Vector2(80, 12));
+                    AddEmpireCard(parent, empire);
                 }
             }
 
-            parent.AddTextIntoVertLayout(LM.Get("all_titles"), true, TextAnchor.MiddleCenter, new Vector2(80, 12));
+            AddSectionTitle(parent, LM.Get("all_titles"));
             foreach (var title in EmpireCoreManager.GetTitles(_core))
             {
                 if (title == null || title.isRekt()) continue;
-                parent.AddButtonIntoVertLayout("open_title", title.data.name, () =>
-                {
-                    EmpireCraftMetaTypeLibrary.selected_kingdomTitle = title;
-                    ScrollWindow.showWindow(nameof(KingdomTitleWindow));
-                }, size: new Vector2(80, 12));
+                AddTitleCard(parent, title);
             }
 
-            parent.AddTextIntoVertLayout(LM.Get("empire_core_history_collection"), true, TextAnchor.MiddleCenter, new Vector2(100, 12));
+            AddSectionTitle(parent, LM.Get("empire_core_history_collection"));
             if ((_core?.empire_history_ids?.Count ?? 0) == 0)
             {
                 parent.AddTextIntoVertLayout(LM.Get("empire_core_none"), true, TextAnchor.MiddleCenter, new Vector2(80, 10));
                 return;
             }
             ShowHistoryCards(parent, empires);
+        }
+
+        private void AddMetricCard(AutoHoriLayoutGroup parent, string label, string value, Color color)
+        {
+            var card = parent.BeginVertGroup(pSize: new Vector2(62, 28), pSpacing: -2, pAlignment: TextAnchor.MiddleCenter);
+            card.AddTextIntoVertLayout(value.ColorString(pColor: color), true, TextAnchor.MiddleCenter, new Vector2(30, 12));
+            card.AddTextIntoVertLayout(label, true, TextAnchor.MiddleCenter, new Vector2(58, 10));
+            card.transform.AddStretchBackground("FactionFrame", new Vector2(62, 28));
+        }
+
+        private void AddSectionTitle(AutoVertLayoutGroup parent, string title)
+        {
+            parent.AddTextIntoVertLayout(title.ColorString(pColor: new Color(0.7f, 0.9f, 1f)), true, TextAnchor.MiddleCenter,
+                new Vector2(130, 13));
+        }
+
+        private void AddEmpireCard(AutoVertLayoutGroup parent, Empire empire)
+        {
+            var card = parent.BeginHoriGroup(pSize: new Vector2(200, 30), pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
+            var details = card.BeginVertGroup(pSize: new Vector2(145, 28), pSpacing: -2, pAlignment: TextAnchor.MiddleLeft);
+            details.AddTextIntoVertLayout(empire.GetEmpireName().ColorString(empire.getColor().color_text), true,
+                TextAnchor.MiddleLeft, new Vector2(140, 12));
+            details.AddTextIntoVertLayout($"{LM.Get("i_population")}: {empire.CountPopulation()}  |  {LM.Get("label_mandate")}: {empire.Mandate}",
+                true, TextAnchor.MiddleLeft, new Vector2(140, 10));
+            card.AddButtonIntoHoriLayout("open_empire", "", () =>
+            {
+                EmpireCraftMetaTypeLibrary.selected_empire = empire;
+                ScrollWindow.showWindow(nameof(EmpireWindow));
+            }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(16, 16), showTip: true);
+            card.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(200, 30));
+        }
+
+        private void AddTitleCard(AutoVertLayoutGroup parent, KingdomTitle title)
+        {
+            var card = parent.BeginHoriGroup(pSize: new Vector2(200, 24), pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
+            card.AddTextIntoHoriLayout(title.data.name.ColorString(pColor: new Color(0.82f, 0.9f, 1f)), true,
+                TextAnchor.MiddleLeft, new Vector2(165, 12));
+            card.AddButtonIntoHoriLayout("open_title", "", () =>
+            {
+                EmpireCraftMetaTypeLibrary.selected_kingdomTitle = title;
+                ScrollWindow.showWindow(nameof(KingdomTitleWindow));
+            }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(14, 14), showTip: true);
+            card.transform.AddStretchBackground("FactionFrame", new Vector2(200, 24));
         }
 
         private void ShowHistoryCards(AutoVertLayoutGroup parent, List<Empire> currentEmpires)
@@ -136,15 +188,21 @@ namespace EmpireCraft.Scripts.UI.Windows
                 int duration = histories.Sum(h => h?.total_time ?? 0);
                 bool exists = liveEmpire != null && !liveEmpire.isRekt() && !liveEmpire.IsArchived();
                 string stateText = exists ? LM.Get("empire_core_history_exists") : LM.Get("empire_core_history_gone");
-                string header = $"{empireName} ({duration}{LM.Get("Year")})";
-                string subText = $"{LM.Get("empire_core_history_duration")}: {duration}{LM.Get("Year")} | {stateText}";
-
-                parent.AddButtonIntoVertLayout("empire_core_history_card", header, () =>
+                var historyCard = parent.BeginHoriGroup(pSize: new Vector2(200, 30), pSpacing: 2,
+                    pAlignment: TextAnchor.MiddleCenter);
+                var historyDetails = historyCard.BeginVertGroup(pSize: new Vector2(175, 28), pSpacing: -2,
+                    pAlignment: TextAnchor.MiddleLeft);
+                Color empireColor = liveEmpire?.getColor()._color_main ?? new Color(0.68f, 0.88f, 1f);
+                historyDetails.AddTextIntoVertLayout(empireName.ColorString(pColor: empireColor), true,
+                    TextAnchor.MiddleLeft, new Vector2(170, 12));
+                historyDetails.AddTextIntoVertLayout($"{LM.Get("empire_core_history_duration")}: {duration}{LM.Get("Year")}  |  {stateText}", true,
+                    TextAnchor.MiddleLeft, new Vector2(170, 10));
+                historyCard.AddButtonIntoHoriLayout("empire_core_history_card", "", () =>
                 {
                     _historyExpandedStates[empireId] = !_historyExpandedStates.TryGetValue(empireId, out bool expanded) || !expanded;
                     RefreshWindow();
-                }, size: new Vector2(120, 14));
-                parent.AddTextIntoVertLayout(subText, true, TextAnchor.MiddleCenter, new Vector2(120, 10));
+                }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(16, 16), showTip: true);
+                historyCard.transform.AddStretchBackground(exists ? "FactionFrame_dominate" : "FactionFrame", new Vector2(200, 30));
 
                 if (!_historyExpandedStates.TryGetValue(empireId, out bool isExpanded) || !isExpanded)
                 {
@@ -155,13 +213,25 @@ namespace EmpireCraft.Scripts.UI.Windows
                 foreach (var history in histories)
                 {
                     if (history == null) continue;
-                    string emperorLine = BuildEmperorHistoryText(history);
-                    parent.AddButtonIntoVertLayout("open_history", emperorLine, () =>
+                    var emperorCard = parent.BeginHoriGroup(pSize: new Vector2(200, 26), pSpacing: 2,
+                        pAlignment: TextAnchor.MiddleCenter);
+                    var emperorDetails = emperorCard.BeginVertGroup(pSize: new Vector2(175, 24), pSpacing: -2,
+                        pAlignment: TextAnchor.MiddleLeft);
+                    string titleText = BuildEmperorTitleText(history);
+                    string displayName = string.IsNullOrEmpty(titleText)
+                        ? history.emperor
+                        : $"{history.emperor}  |  {titleText}";
+                    emperorDetails.AddTextIntoVertLayout(displayName.ColorString(pColor: new Color(0.82f, 0.9f, 1f)), true,
+                        TextAnchor.MiddleLeft, new Vector2(170, 11));
+                    string reignText = $"{history.year_name}  ·  {history.total_time}{LM.Get("Year")}";
+                    emperorDetails.AddTextIntoVertLayout(reignText, true, TextAnchor.MiddleLeft, new Vector2(170, 9));
+                    emperorCard.AddButtonIntoHoriLayout("open_history", "", () =>
                     {
                         ConfigData.CURRENT_SELECTED_HISTORY = history;
                         EmpireCraftMetaTypeLibrary.selected_empire = liveEmpire ?? currentEmpires.FirstOrDefault();
                         ScrollWindow.showWindow(nameof(EmpireHistoryWindow));
-                    }, size: new Vector2(120, 12));
+                    }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(14, 14), showTip: true);
+                    emperorCard.transform.AddStretchBackground("clanFrame", new Vector2(200, 26));
                 }
             }
         }
@@ -190,10 +260,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             return result.OrderByDescending(h => h?.total_time ?? 0).ToList();
         }
 
-        private string BuildEmperorHistoryText(EmpireCraftHistory history)
+        private string BuildEmperorTitleText(EmpireCraftHistory history)
         {
-            string emperor = history?.emperor ?? "";
-            string yearName = history?.year_name ?? "";
             string titleText = "";
 
             if (!string.IsNullOrEmpty(history?.miaohao_name))
@@ -210,8 +278,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 titleText += $"{history.empire_name}{LM.Get(history.shihao_name)}{LM.Get("emperor_suffix")}";
             }
 
-            string suffix = string.IsNullOrEmpty(titleText) ? "" : $" | {titleText}";
-            return $"{emperor} ({history?.total_time ?? 0}{LM.Get("Year")}) | {yearName}{suffix}";
+            return titleText;
         }
 
         private void RefreshWindow()

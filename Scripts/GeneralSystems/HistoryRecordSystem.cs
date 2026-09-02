@@ -10,6 +10,22 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.System;
 public static class HistoryRecordSystem
 {
+    private static long FindRecordActorId(Empire empire, Dictionary<string, string> recordInfo)
+    {
+        if (recordInfo != null && recordInfo.TryGetValue("actor_id", out string actorIdText) &&
+            long.TryParse(actorIdText, out long actorId)) return actorId;
+        if (recordInfo == null || !recordInfo.TryGetValue("actor", out string actorName) ||
+            string.IsNullOrWhiteSpace(actorName)) return -1L;
+
+        if (empire?.Emperor != null && (empire.Emperor.getName() == actorName || empire.Emperor.data.name == actorName))
+        {
+            return empire.Emperor.id;
+        }
+        Actor actor = World.world?.units?.FirstOrDefault(unit => unit != null &&
+            (unit.getName() == actorName || unit.data.name == actorName));
+        return actor?.id ?? -1L;
+    }
+
     private static List<string> GetPreviousFinalCities(this Empire empire)
     {
         if (empire?.data?.history == null || empire.data.history.Count <= 0)
@@ -40,7 +56,8 @@ public static class HistoryRecordSystem
         return new List<string>();
     }
 
-    public static void RecordHistory(this Empire empire, EmpireHistoryType type = default, Dictionary<string, string> recordInfo = null, string directContent=null)
+    public static void RecordHistory(this Empire empire, EmpireHistoryType type = default, Dictionary<string, string> recordInfo = null,
+        string directContent = null, long actorId = -1L, long kingdomId = -1L)
     {
         if (empire == null || empire.isRekt()) return;
         if (empire.data == null) return;
@@ -66,7 +83,10 @@ public static class HistoryRecordSystem
             {
                 time = empire.GetYearNameWithTime(),
                 cities = empire.cities_list.Select(c=>c.name).ToList(),
-                description = directContent
+                description = directContent,
+                timestamp = World.world.getCurWorldTime(),
+                actor_id = actorId,
+                kingdom_id = kingdomId
             };
             empire.data.currentHistory.descriptions.Add(description);
             return;
@@ -139,7 +159,9 @@ public static class HistoryRecordSystem
             {
                 time = empire.GetYearNameWithTime(),
                 cities = empire.cities_list.Select(c=>c.name).ToList(),
-                description = replacedText
+                description = replacedText,
+                timestamp = World.world.getCurWorldTime(),
+                actor_id = FindRecordActorId(empire, recordInfo)
             };
             empire.data.currentHistory.descriptions.Add(description);
         }

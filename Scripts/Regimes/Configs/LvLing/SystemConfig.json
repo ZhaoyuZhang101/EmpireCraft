@@ -9,6 +9,13 @@
     "leader_select_method": "Succession",
     "default_kingdom": "LvLing_kingdom",
     "centre_empire_separate": true,
+    "enfeoff_only_royal": true,
+    "enfeoff_virtual_only": true,
+    "enfeoff_virtual_can_use_empire_titles": true,
+    "enable_auto_honorary_peerages": true,
+    "virtual_peerages": ["peerages_1", "peerages_2", "peerages_3", "peerages_4", "peerages_5"],
+    "virtual_peerage_names": ["tang_peerage_qinwang", "tang_peerage_si_wang", "tang_peerage_junwang", "tang_peerage_guogong", "tang_peerage_jungong", "tang_peerage_xiangong", "tang_peerage_kaiguo_jungong", "tang_peerage_kaiguo_xiangong", "tang_peerage_kaiguo_hou", "tang_peerage_kaiguo_bo", "tang_peerage_kaiguo_zi", "tang_peerage_kaiguo_nan"],
+    "virtual_honorary_peerages": ["tang_honorary_anle_gong", "tang_honorary_zhongyi_hou", "tang_honorary_wenan_gong", "tang_honorary_longxi_gong", "tang_honorary_wujun_hou", "tang_honorary_zhongyong_hou", "tang_honorary_huaide_hou"],
     "laws": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55],
     "Factions": [
       {

@@ -207,7 +207,7 @@ public class SpecificClan
                     foreach (var child in actor.getChildren())
                     {
                         child.setClan(pci._actor.clan);
-                        pci.addChild(child, true);
+                        pci.addChild(child, true, recordHistory: false);
                     }
                 }
             }
@@ -304,6 +304,23 @@ public static class SpecificClanManager
                         if (!motherPci.children.Contains(pci.id))
                             motherPci.children.Add(pci.id);
                     }
+                }
+            }
+            foreach (PersonalClanIdentity pci in _globalPersonLookup.Values)
+            {
+                pci.related_history_records = new List<PersonalHistoryRecord>();
+            }
+            foreach (PersonalClanIdentity owner in _globalPersonLookup.Values)
+            {
+                foreach (PersonalHistoryRecord record in owner.personal_history ?? new List<PersonalHistoryRecord>())
+                {
+                    record.owner_personal_identity_id = owner.id;
+                    PersonalClanIdentity related = record.related_personal_identity_id > 0
+                        ? getPerson(record.related_personal_identity_id)
+                        : record.related_actor_id > 0 && _actorToPersonLookup.TryGetValue(record.related_actor_id, out var actorIdentity)
+                            ? actorIdentity
+                            : null;
+                    related?.AddRelatedHistoryRecord(record);
                 }
             }
         }
@@ -793,7 +810,7 @@ public static class SpecificClanManager
             if (parent != null)
             {
                 parent?.GetSpecificClan().addActor(actor);
-                actor.GetPersonalIdentity()?.setParent(parent.GetPersonalIdentity());
+                actor.GetPersonalIdentity()?.setParent(parent.GetPersonalIdentity(), recordHistory: false);
                 return;
             }
             // Fix: Check if we can restore the link from existing data
@@ -834,6 +851,7 @@ public static class SpecificClanManager
 
 public class PersonalClanIdentity
 {
+    private const string UnresolvedChildNameMarker = "§";
     public long id { get; set; }
     public long specific_clan_id { get; set; }
     public long actor_id { get; set; }
@@ -871,6 +889,11 @@ public class PersonalClanIdentity
     public List<(long specific_clan, long identity)> concubines = new(); //小妾/情人
     public List<long> children = new List<long>();
     public List<CrimeRecord> crime_records = new List<CrimeRecord>();
+    public List<PersonalHistoryRecord> personal_history = new List<PersonalHistoryRecord>();
+    [JsonIgnore]
+    public List<PersonalHistoryRecord> related_history_records = new List<PersonalHistoryRecord>();
+    public List<long> pending_child_birth_history_parents = new List<long>();
+    public bool death_history_recorded = false;
 
     public void newPersonalClanIdentity(SpecificClan specificClan, Actor a)
     {
@@ -945,7 +968,7 @@ public class PersonalClanIdentity
         return is_main&&IsHeirPriority()&&is_alive&&identity?.id!=id;
     }
 
-    public void setLover(Actor actor, bool isCus = false)
+    public void setLover(Actor actor, bool isCus = false, bool recordHistory = true)
     {
         if (actor == null) return;
         if (!isCus)
@@ -963,6 +986,17 @@ public class PersonalClanIdentity
             lover.specific_clan = lpci.specific_clan_id;
             lover.identity = lpci.id;
             is_main = IsHeirPriority();
+            if (recordHistory)
+            {
+                string partnerName = actor.getName();
+                if (string.IsNullOrWhiteSpace(partnerName)) partnerName = lpci.name;
+                string selfName = _actor?.getName();
+                if (string.IsNullOrWhiteSpace(selfName)) selfName = name;
+                _actor?.RecordPersonalHistory(string.Format(LM.Get("personal_history_married"), partnerName),
+                    "personal_history_married", actor.id, lpci.id);
+                actor.RecordPersonalHistory(string.Format(LM.Get("personal_history_married"), selfName),
+                    "personal_history_married", _actor?.id ?? -1L, id);
+            }
         }
         else
         {
@@ -973,11 +1007,22 @@ public class PersonalClanIdentity
                 is_main = true;
                 lpci.is_concubine = true;
                 concubines.Add((lpci._specificClan.id, lpci.id));
+                if (recordHistory)
+                {
+                    string concubineName = actor.getName();
+                    if (string.IsNullOrWhiteSpace(concubineName)) concubineName = lpci.name;
+                    string selfName = _actor?.getName();
+                    if (string.IsNullOrWhiteSpace(selfName)) selfName = name;
+                    _actor?.RecordPersonalHistory(string.Format(LM.Get("personal_history_took_concubine"), concubineName),
+                        "personal_history_took_concubine", actor.id, lpci.id);
+                    actor.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_concubine"), selfName),
+                        "personal_history_became_concubine", _actor?.id ?? -1L, id);
+                }
             }
         }
     }
 
-    public void setParent(PersonalClanIdentity identity)
+    public void setParent(PersonalClanIdentity identity, bool recordHistory = true)
     {
         if (identity==null) return;
         if (identity.sex==ActorSex.Male)
@@ -988,10 +1033,19 @@ public class PersonalClanIdentity
             mother = identity.id;
         }
 
-        if (!identity.children.Contains(this.id))
+        bool addedChild = !identity.children.Contains(this.id);
+        if (addedChild)
         {
             identity.children.Add(this.id);
             rank = identity.children.Count;
+            if (recordHistory)
+            {
+                string childName = _actor?.GetModName()?.has_whole_name(_actor) == true
+                    ? _actor.getName()
+                    : UnresolvedChildNameMarker;
+                identity._actor?.RecordPersonalHistory(string.Format(LM.Get("personal_history_child_born"), childName),
+                    "personal_history_child_born", _actor?.id ?? -1L, id);
+            }
         }
 
         if (identity.is_main&&identity.is_alive)
@@ -1003,9 +1057,161 @@ public class PersonalClanIdentity
         generation = identity.generation + 1;
     }
 
-    public void addChild(Actor actor, bool isNeedSetParentBoth=true)
+    public void RecordPendingChildBirthHistory()
     {
-        PersonalClanIdentity pci = actor.GetPersonalIdentity() ?? actor.InitialPersonalIdentity(_specificClan);
+        if (pending_child_birth_history_parents == null || pending_child_birth_history_parents.Count == 0) return;
+        if (_actor?.GetModName()?.has_whole_name(_actor) != true) return;
+        string childName = _actor.getName();
+
+        name = childName;
+        foreach (long parentId in pending_child_birth_history_parents.ToList())
+        {
+            SpecificClanManager.getPerson(parentId)?._actor?.RecordPersonalHistory(
+                string.Format(LM.Get("personal_history_child_born"), childName), "personal_history_child_born",
+                _actor?.id ?? -1L, id);
+        }
+        pending_child_birth_history_parents.Clear();
+    }
+
+    public void AddRelatedHistoryRecord(PersonalHistoryRecord record)
+    {
+        if (record == null) return;
+        related_history_records ??= new List<PersonalHistoryRecord>();
+        if (!related_history_records.Contains(record))
+        {
+            related_history_records.Add(record);
+        }
+    }
+
+    public void BackfillRelatedHistoryRecords()
+    {
+        Actor actor = _actor;
+        if (actor == null || actor.GetModName()?.has_whole_name(actor) != true) return;
+        string fullName = actor.getName();
+        if (string.IsNullOrWhiteSpace(fullName)) return;
+
+        foreach (PersonalHistoryRecord record in related_history_records ?? new List<PersonalHistoryRecord>())
+        {
+            if (record?.event_key == "personal_history_child_born" &&
+                record.content?.Contains(UnresolvedChildNameMarker) == true)
+            {
+                record.content = string.Format(LM.Get(record.event_key), fullName);
+            }
+        }
+    }
+
+    public void BackfillCurrentEraNameHistory()
+    {
+        Actor actor = _actor;
+        Empire empire = actor?.GetEmpire();
+        if (actor == null || empire == null || empire.Emperor != actor || !empire.HasYearName() ||
+            empire.data.newEmperor_timestamp < 0) return;
+
+        string content = string.Format(LM.Get("personal_history_new_year_name"), empire.data.year_name);
+        if (personal_history?.Any(record => record?.content == content) == true) return;
+
+        personal_history ??= new List<PersonalHistoryRecord>();
+        personal_history.Add(new PersonalHistoryRecord
+        {
+            timestamp = empire.data.newEmperor_timestamp,
+            date = empire.data.year_name + "\u200A1" + LM.Get("Year"),
+            content = content,
+            kingdom_name = actor.kingdom?.GetKingdomName() ?? "",
+            empire_id = empire.id,
+            event_key = "personal_history_new_year_name",
+            owner_personal_identity_id = id
+        });
+    }
+
+    public void BackfillChildBirthHistoryNames()
+    {
+        if (personal_history == null || children == null || children.Count == 0) return;
+        var namedChildren = children
+            .Select(SpecificClanManager.getPerson)
+            .Where(child => child != null && !string.IsNullOrWhiteSpace(GetChildName(child)))
+            .ToList();
+        if (namedChildren.Count == 0) return;
+
+        var recordsByDay = personal_history
+            .Where(IsUnnamedChildBirthRecord)
+            .GroupBy(record => GetHistoryDay(record.timestamp));
+        foreach (var recordGroup in recordsByDay)
+        {
+            List<PersonalClanIdentity> candidates = namedChildren
+                .Where(child => GetHistoryDay(child.birthday) == recordGroup.Key)
+                .ToList();
+            if (candidates.Count == 0) continue;
+
+            var assignedChildren = new HashSet<long>();
+            foreach (PersonalHistoryRecord knownRecord in personal_history.Where(record => GetHistoryDay(record.timestamp) == recordGroup.Key))
+            {
+                foreach (PersonalClanIdentity child in candidates)
+                {
+                    string childName = GetChildName(child);
+                    if (IsChildBirthRecord(knownRecord) && !IsUnnamedChildBirthRecord(knownRecord) &&
+                        knownRecord.content?.Contains(childName) == true)
+                    {
+                        assignedChildren.Add(child.id);
+                    }
+                }
+            }
+
+            foreach (PersonalHistoryRecord record in recordGroup.OrderBy(record => record.timestamp))
+            {
+                PersonalClanIdentity child = candidates.FirstOrDefault(candidate => !assignedChildren.Contains(candidate.id));
+                if (child == null) break;
+                string childName = GetChildName(child);
+                record.content = string.Format(LM.Get("personal_history_child_born"), childName);
+                record.event_key = "personal_history_child_born";
+                record.related_actor_id = child.actor_id;
+                record.related_personal_identity_id = child.id;
+                child.AddRelatedHistoryRecord(record);
+                assignedChildren.Add(child.id);
+            }
+        }
+    }
+
+    private static bool IsUnnamedChildBirthRecord(PersonalHistoryRecord record)
+    {
+        if (record == null) return false;
+        string emptyRecord = string.Format(LM.Get("personal_history_child_born"), "");
+        return record.content == emptyRecord || record.content == "诞下子嗣。" || record.content == "誕下子嗣。" ||
+               record.content?.Contains(UnresolvedChildNameMarker) == true;
+    }
+
+    private static bool IsChildBirthRecord(PersonalHistoryRecord record)
+    {
+        if (record?.content == null) return false;
+        string template = LM.Get("personal_history_child_born");
+        int placeholderIndex = template.IndexOf("{0}", StringComparison.Ordinal);
+        string prefix = placeholderIndex >= 0 ? template.Substring(0, placeholderIndex) : template;
+        return record.content.StartsWith(prefix, StringComparison.Ordinal) || record.content.StartsWith("诞下子嗣", StringComparison.Ordinal) ||
+               record.content.StartsWith("誕下子嗣", StringComparison.Ordinal);
+    }
+
+    private static string GetChildName(PersonalClanIdentity child)
+    {
+        Actor actor = child?._actor;
+        return actor?.GetModName()?.has_whole_name(actor) == true ? actor.getName() : "";
+    }
+
+    private static string GetHistoryDay(double timestamp)
+    {
+        return GetHistoryDay(Date.getDate(timestamp));
+    }
+
+    private static string GetHistoryDay(string date)
+    {
+        if (string.IsNullOrWhiteSpace(date)) return "";
+        int yearEnd = date.LastIndexOf('年');
+        return yearEnd >= 0 ? date.Substring(yearEnd + 1) : date;
+    }
+
+    public void addChild(Actor actor, bool isNeedSetParentBoth=true, bool recordHistory = true)
+    {
+        PersonalClanIdentity existingIdentity = actor.GetPersonalIdentity();
+        bool isNewIdentity = existingIdentity == null;
+        PersonalClanIdentity pci = existingIdentity ?? actor.InitialPersonalIdentity(_specificClan);
 
         if (isNeedSetParentBoth)
         {
@@ -1015,23 +1221,40 @@ public class PersonalClanIdentity
                 {
                     parent.CheckSpecificClan(false);
                     PersonalClanIdentity pIdentity = parent.GetPersonalIdentity();
-                    pci.setParent(pIdentity);
+                    pci.setParent(pIdentity, recordHistory);
                 }
             }
             else
             {
-                pci.setParent(this);
+                pci.setParent(this, recordHistory);
             }
         }
         else
         {
-            pci.setParent(this);
+            pci.setParent(this, recordHistory);
         }
         pci.generation = this.generation + 1;
         _specificClan.addActor(actor);
+        if (recordHistory && isNewIdentity)
+        {
+            actor.RecordPersonalHistory(LM.Get("personal_history_born"));
+        }
         actor.kingdom?.StartToChooseHeir();
         actor.kingdom?.RemoveCalcHeirStatus();
     }
+}
+
+public class PersonalHistoryRecord
+{
+    public double timestamp { get; set; } = -1L;
+    public string date { get; set; } = "";
+    public string content { get; set; } = "";
+    public string kingdom_name { get; set; } = "";
+    public long empire_id { get; set; } = -1L;
+    public string event_key { get; set; } = "";
+    public long related_actor_id { get; set; } = -1L;
+    public long related_personal_identity_id { get; set; } = -1L;
+    public long owner_personal_identity_id { get; set; } = -1L;
 }
 
 public class CrimeRecord

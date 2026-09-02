@@ -599,6 +599,10 @@ public static class EmpireCraftMetaTypeLibrary
     public static bool inspectEmpireCoreOrKingdomTitle(WorldTile pTile = null, string pPower = null)
     {
       if (pTile?.zone == null) return false;
+      if (kingdomTitle.getZoneOptionState() != 0)
+      {
+        return inspectKingdomTitle(pTile, pPower);
+      }
       EmpireCore core = getTitleLayerEmpireCore(pTile.zone);
       if (core != null)
       {

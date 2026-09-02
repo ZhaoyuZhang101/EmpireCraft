@@ -5,6 +5,8 @@ using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using NeoModLoader.General;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.EmpireAI;
 
@@ -116,6 +118,8 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
 
     public void SetCabinetForFeudalism(Empire empire)
     {
+        List<long> previousElectors = empire.data.CabinetMembers?.ToList() ?? new List<long>();
+        long previousChiefElector = previousElectors.FirstOrDefault(id => id > 0);
         List<long> religionLeaderList = new();
         List<long> normalKingList = empire.kingdoms_list.FindAll(k => k.hasKing()&&!k.IsEmpire()
                 &&k.GetRegime()?.GetReligionLevel() != ReligionLevel.High)
@@ -143,5 +147,16 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         }
         religionLeaderList.AddRange(normalKingList);
         empire.data.CabinetMembers = religionLeaderList;
+
+        foreach (long electorId in religionLeaderList.Where(id => id > 0 && !previousElectors.Contains(id)))
+        {
+            world.units.get(electorId)?.RecordPersonalHistory(LM.Get("personal_history_became_elector"));
+        }
+
+        long chiefElector = religionLeaderList.FirstOrDefault(id => id > 0);
+        if (chiefElector > 0 && chiefElector != previousChiefElector)
+        {
+            world.units.get(chiefElector)?.RecordPersonalHistory(LM.Get("personal_history_became_chief_elector"));
+        }
     }
 }

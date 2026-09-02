@@ -18,10 +18,11 @@ namespace EmpireCraft.Scripts.UI.Windows
     {
         private readonly Dictionary<string, GameObject> _groups = new Dictionary<string, GameObject>();
         private Empire _empire;
+        private EmpireCraftHistory _expandedHistory;
         protected override void Init()
         {
             layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 60, 3);
+            layout.padding = new RectOffset(3, 3, 3, 3);
         }
         public void Clear()
         {
@@ -35,67 +36,130 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             base.OnNormalEnable();
             layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 60, 3);
+            layout.padding = new RectOffset(3, 3, 3, 3);
             _empire = EmpireCraftMetaTypeLibrary.selected_empire;
+            _expandedHistory = null;
             Clear();
             ShowPersonalHistory();
-        }
-        private AutoVertLayoutGroup CommonInitial(string titleName)
-        {
-            var container = this.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
-            SimpleText title = UnityEngine.Object.Instantiate(SimpleText.Prefab, null);
-            string t = LM.Get(titleName);
-            title.Setup($"{t}", TextAnchor.MiddleCenter, new Vector2(40, 15));
-            title.background.enabled = false;
-            container.AddChild(title.gameObject);
-            var content = this.BeginVertGroup(pSpacing: 3);
-            container.AddChild(content.gameObject);
-            if (!_groups.ContainsKey(titleName)) _groups.Add(titleName, container.gameObject);
-            return content;
         }
         public void ShowPersonalHistory()
         {
             Clear();
-            var parent = CommonInitial("empire_personal_history");
-            var currentHistory = ConfigData.CURRENT_SELECTED_HISTORY;
-            if (currentHistory == null) return;
-            string text1 = "";
-            string text2 = "";
-            SimpleText titleText = UnityEngine.Object.Instantiate(SimpleText.Prefab, null);
-            text1 = currentHistory.emperor + "\n" + currentHistory.empire_name + currentHistory.year_name + LM.Get("emperor");
-            if (!string.IsNullOrEmpty(currentHistory.miaohao_name))
+            var parent = this.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
+            _groups["empire_history_records"] = parent.gameObject;
+            foreach (EmpireCraftHistory history in GetDisplayHistories())
             {
-                text2 = currentHistory.empire_name + LM.Get(currentHistory.miaohao_name) + LM.Get(currentHistory.miaohao_suffix) + "-" +
-                        currentHistory.empire_name + LM.Get(currentHistory.shihao_name) + LM.Get("emperor_suffix");
+                AddEmperorHistoryCard(parent, history);
             }
-            else
+        }
+
+        private List<EmpireCraftHistory> GetDisplayHistories()
+        {
+            var result = new List<EmpireCraftHistory>();
+            EmpireCraftHistory currentHistory = _empire?.data?.currentHistory;
+            if (currentHistory != null)
             {
-                text2 = LM.Get("waiting_for_naming");
+                result.Add(currentHistory);
             }
-            string text = text1 + "\n" + text2;
-            titleText.Setup(text, TextAnchor.MiddleCenter, new Vector2(50, 50));
-            titleText.background.enabled = false;
-            parent.AddChild(titleText.gameObject);
-            if (currentHistory.descriptions != null)
+            if (_empire?.data?.history != null)
             {
-                HistoryDescription lasDes = new HistoryDescription()
+                for (int i = _empire.data.history.Count - 1; i >= 0; i--)
                 {
-                    cities = currentHistory.initial_cities != null ? new List<string>(currentHistory.initial_cities) : new List<string>(),
-                    description = "",
-                    time = ""
-                };
-                foreach (var d in currentHistory.descriptions)
-                {
-                    ListHistoryDescriptions(lasDes, d, parent);
-                    lasDes = d;
+                    EmpireCraftHistory history = _empire.data.history[i];
+                    if (history != null && !result.Contains(history)) result.Add(history);
                 }
+            }
+            EmpireCraftHistory selectedHistory = ConfigData.CURRENT_SELECTED_HISTORY;
+            if (selectedHistory != null && !result.Contains(selectedHistory)) result.Add(selectedHistory);
+            return result;
+        }
+
+        private void AddEmperorHistoryCard(AutoVertLayoutGroup parent, EmpireCraftHistory history)
+        {
+            bool expanded = object.ReferenceEquals(_expandedHistory, history);
+            var card = parent.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(196, 34));
+            Actor actor = history.id > 0 ? World.world.units.get(history.id) : null;
+            var avatar = UIHelper.CreateAvatarView(history.id, actor == null ? null : () => UIHelper.actorClick(actor),
+                pIsAlive: actor != null && actor.isAlive());
+            avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(28, 28);
+            card.AddChild(avatar.gameObject);
+
+            var details = card.BeginVertGroup(new Vector2(146, 30), pSpacing: -2, pAlignment: TextAnchor.MiddleLeft,
+                pPadding: new RectOffset(0, 0, 1, 1));
+            Color empireColor = _empire?.getColor()._color_text ?? new Color(0.55f, 0.85f, 1f);
+            string emperorName = string.IsNullOrWhiteSpace(history.emperor) ? LM.Get("waiting_for_naming") : history.emperor;
+            var nameText = details.AddTextIntoVertLayout(emperorName.ColorString(pColor: empireColor), true,
+                TextAnchor.MiddleLeft, new Vector2(142, 15));
+            nameText.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+            string eraName = string.IsNullOrWhiteSpace(history.year_name) ? LM.Get("waiting_for_naming") : history.year_name;
+            int reignYears = object.ReferenceEquals(_empire?.data?.currentHistory, history)
+                ? _empire.GetEmperorYear()
+                : Mathf.Max(1, history.total_time);
+            var reignText = details.AddTextIntoVertLayout(
+                $"{LM.Get("year_name")}: {eraName.ColorString(pColor: new Color(1f, 0.78f, 0.2f))}  ·  {reignYears}{LM.Get("Year")}".ColorString(pColor: new Color(0.25f, 0.9f, 0.8f)),
+                true, TextAnchor.MiddleLeft, new Vector2(142, 12));
+            reignText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            var stateText = card.AddTextIntoHoriLayout((expanded ? "−" : "+").ColorString(pColor: expanded
+                    ? new Color(1f, 0.78f, 0.2f)
+                    : new Color(0.65f, 0.82f, 1f)),
+                true, TextAnchor.MiddleCenter, new Vector2(14, 20));
+            stateText.UseFixedFontSize(10, HorizontalWrapMode.Overflow);
+            card.transform.AddStretchBackground(expanded ? "FactionFrame_dominate" : "clanFrame", new Vector2(196, 34));
+            AddHistoryCardClickLayer(card, history);
+
+            if (!expanded) return;
+            AddExpandedHistoryDetails(parent, history);
+        }
+
+        private void AddHistoryCardClickLayer(AutoHoriLayoutGroup card, EmpireCraftHistory history)
+        {
+            var overlay = new GameObject("EmpireHistoryCardClick", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            overlay.transform.SetParent(card.transform, false);
+            var overlayRect = overlay.GetComponent<RectTransform>();
+            overlayRect.anchorMin = Vector2.zero;
+            overlayRect.anchorMax = Vector2.one;
+            overlayRect.offsetMin = Vector2.zero;
+            overlayRect.offsetMax = Vector2.zero;
+            var overlayImage = overlay.GetComponent<Image>();
+            overlayImage.color = Color.clear;
+            overlayImage.raycastTarget = true;
+            var overlayLayout = overlay.GetComponent<LayoutElement>();
+            overlayLayout.ignoreLayout = true;
+            var overlayButton = overlay.GetComponent<Button>();
+            overlayButton.targetGraphic = overlayImage;
+            overlayButton.transition = Selectable.Transition.None;
+            overlayButton.onClick.AddListener(() =>
+            {
+                _expandedHistory = object.ReferenceEquals(_expandedHistory, history) ? null : history;
+                ShowPersonalHistory();
+            });
+            overlay.transform.SetAsLastSibling();
+        }
+
+        private void AddExpandedHistoryDetails(AutoVertLayoutGroup parent, EmpireCraftHistory history)
+        {
+            if (history.descriptions == null || history.descriptions.Count == 0) return;
+            var detailSpace = parent.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
+            HistoryDescription lastDesc = new HistoryDescription()
+            {
+                cities = history.initial_cities != null ? new List<string>(history.initial_cities) : new List<string>(),
+                description = "",
+                time = ""
+            };
+            foreach (HistoryDescription description in history.descriptions)
+            {
+                ListHistoryDescriptions(lastDesc, description, detailSpace);
+                lastDesc = description;
             }
         }
         public static void ListHistoryDescriptions(HistoryDescription lastDesc, HistoryDescription desc, AutoVertLayoutGroup parent)
         {
             if (lastDesc.time != desc.time)
             {
-                parent.AddTextIntoVertLayout(desc.time.ColorString(pColor:new Color(0.5f, 0.8f, 1.0f)), false, TextAnchor.MiddleCenter, new Vector2(50, 23));
+                // Era changes are quiet timeline markers, so they deliberately have no card background.
+                var eraText = parent.AddTextIntoVertLayout(desc.time.ColorString(pColor:new Color(0.35f, 0.82f, 1.0f)), true,
+                    TextAnchor.MiddleCenter, new Vector2(130, 18));
+                eraText.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
                 string content = "";
                 string com = "";
                 int init = 0;
@@ -121,11 +185,41 @@ namespace EmpireCraft.Scripts.UI.Windows
                         content += com + lCity.ColorString(pColor:new Color(1.0f, 0.3f, 0.3f)) +$"({LM.Get("lost_city")})";
                     }
                 }
-                var cityChangeText = parent.AddTextIntoVertLayout(content, false, TextAnchor.MiddleCenter, new Vector2(200, 15));
-                cityChangeText.UseFixedFontSize(8);
-                cityChangeText.RefreshAutoHeight(15);
+                var cityChangeText = parent.AddTextIntoVertLayout(content, false, TextAnchor.MiddleCenter, new Vector2(196, 16));
+                cityChangeText.UseFixedFontSize(8, HorizontalWrapMode.Wrap);
+                cityChangeText.RefreshAutoHeight(16, 4);
             }
-            parent.AddTextIntoVertLayout(desc.description, false, TextAnchor.MiddleLeft, new Vector2(200, 10));
+            Actor actor = desc.actor_id > 0 ? World.world.units.get(desc.actor_id) : null;
+            Kingdom kingdom = actor == null && desc.kingdom_id > 0 ? World.world.kingdoms.get(desc.kingdom_id) : null;
+            bool hasMarker = actor != null || kingdom != null;
+            var eventCard = parent.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(196, 28));
+            string date = desc.timestamp >= 0 ? Date.getDate(desc.timestamp) : "";
+            int yearEnd = date.IndexOf('年');
+            string monthDay = yearEnd >= 0 ? date.Substring(yearEnd + 1) : date;
+            var dateText = eventCard.AddTextIntoHoriLayout(monthDay.ColorString(pColor: new Color(0.25f, 0.9f, 0.8f)), true, TextAnchor.MiddleCenter, new Vector2(38, 22));
+            dateText.UseFixedFontSize(8);
+            var contentText = eventCard.AddTextIntoHoriLayout(desc.description, true, TextAnchor.MiddleLeft, new Vector2(hasMarker ? 126 : 152, 22));
+            contentText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+            if (actor != null)
+            {
+                var avatarLayout = eventCard.BeginVertGroup(new Vector2(24, 24), pSpacing: 0,
+                    pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
+                var avatar = UIHelper.CreateAvatarView(actor.id, () => UIHelper.actorClick(actor), pIsAlive: actor.isAlive());
+                avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
+                avatarLayout.AddChild(avatar.gameObject);
+                avatarLayout.transform.localPosition = Vector3.zero;
+                avatarLayout.transform.SetAsLastSibling();
+            }
+            else if (kingdom != null)
+            {
+                KingdomBanner banner = Instantiate(Resources.Load<KingdomBanner>("ui/PrefabBannerKingdom"), eventCard.transform);
+                banner.enable_default_click = true;
+                banner.load(kingdom);
+                banner.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
+                eventCard.AddChild(banner.gameObject);
+                banner.transform.SetAsLastSibling();
+            }
+            eventCard.transform.AddStretchBackground("clanFrame", new Vector2(196, 28));
         }
     }
 }

@@ -54,6 +54,7 @@ public class CulturePatch : GamePatch
         }
         catch (Exception e)
         {
+            LogService.LogError($"文化命名失败: {e}");
         }
 
     }

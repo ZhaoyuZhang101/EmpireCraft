@@ -186,6 +186,7 @@
     "empire_personal_history": "个人历史",
     "empire_capital": "帝国首府",
     "year_name": "年号",
+    "empire_reign_duration": "在位",
     "current_selected_province": "当前选择的省份",
     "province_name": "省份名称",
     "province_leader": "地方官员",
@@ -843,11 +844,16 @@
     ,"debug_frontline_invalid_target":"请选择一个有效的国家来调试战线"
     ,"debug_frontline_triggered":"已触发战线调试显示"
     ,"occupation_capture_event_log":"$capturer$ 擒获了 $victim$，$result$"
+    ,"honorary_peerage_granted_log":"$empire$ 册封 $actor$ 为 $title$"
+    ,"honorary_peerage_inherited_log":"$heir$ 承袭 $predecessor$ 的 $title$"
     ,"empire_pressure_surrender_log":"在 $attacker$ 的战事压力下，$defender$ 投降，并被迫割让 $target$"
     ,"empire_pressure_surrender_city_log":"在 $attacker$ 的战事压力下，$defender$ 被迫割让城市 $target$"
     ,"empire_core_absorb_title_log":"$empire$ 已将 $title$ 法理纳入 $core$ 帝国法理中"
     ,"occupation_capture_result_lord":"其所镇城市被立即占领"
     ,"occupation_capture_result_king":"其所属国家全境投降"
+    ,"occupation_capture_result_king_released":"国王被俘后获释，战争结束"
+    ,"occupation_capture_result_king_war_released":"国王被俘后获释，战争按既定类型结算"
+    ,"occupation_capture_result_king_city":"国王未获释，其所在城市被立即占领"
     ,"occupation_capture_result_emperor":"帝国正统崩溃，所攻目标被迅速攻占"
     ,"opinion_same_empire_core":"同争一套帝国法理"
     ,"create_empire_core":"新建帝国法理"
@@ -902,4 +908,21 @@
     ,"label_corruption":"腐败值"
     ,"action_add_performance":"增加绩效"
     ,"action_sub_performance":"减少绩效"
+    ,"Arabic_caliphate":"哈里发国", "Arabic_emirate":"埃米尔国", "Arabic_province":"行省", "Arabic_sultanate":"苏丹国"
+    ,"Feudalism_county":"伯国", "Feudalism_duchy":"公国", "Feudalism_empire":"帝国", "Feudalism_grand_duchy":"大公国", "Feudalism_kingdom":"王国", "Feudalism_march":"边区", "Feudalism_papal_state":"教宗国"
+    ,"LvLing_centre":"中央", "LvLing_jiedushi":"军府", "LvLing_jimizhou":"羁縻州", "LvLing_kingdom":"国", "LvLing_province":"道"
+    ,"Modern_autonomous_prefecture":"自治区", "Modern_centre":"中央", "Modern_province":"省", "Modern_state":"州"
+    ,"Origin_centre":"中央", "Origin_kingdom":"王国", "YouMu_bu":"部", "YouMu_centre":"王庭", "YouMu_kingdom":"汗国"
+    ,"ZhouFeudalism_bo":"伯国", "ZhouFeudalism_empire":"天子之国", "ZhouFeudalism_gong":"公国", "ZhouFeudalism_hou":"侯国", "ZhouFeudalism_zi":"子国", "default_country_post":"国家"
+    ,"Arabic_city":"城市", "Feudalism_city":"城市", "Feudalism_dirC":"直辖市", "Feudalism_religion_district":"教区", "LvLing_city":"城", "Modern_city":"市", "Origin_city":"聚落", "YouMu_city":"营地", "ZhouFeudalism_city":"邑"
+    ,"empire_virtual_peerages":"封爵册", "empire_virtual_peerages_description":"查看法理封爵与恩赏封爵；虚封不移交土地或法理所有权。"
+    ,"empire_bureau_offices":"官僚机构", "empire_bureau_offices_description":"返回内阁、中央部门与地方官员页面。"
+    ,"specific_clan_relations":"亲属关系", "specific_clan_relations_description":"返回当前人物的亲属关系页面。", "specific_clan_history":"个人历史", "specific_clan_history_description":"查看当前人物记录在族谱中的生平事件。", "personal_history_empty":"暂无个人历史记录", "personal_history_peerage_granted":"受{0}册封，获授{1}。", "personal_history_peerage_inherited":"承袭{0}，前任为{1}。"
+    ,"personal_history_office_started":"就任{0}。", "personal_history_office_reappointed":"仍领{0}之职。", "personal_history_office_left":"离任{0}。", "personal_history_became_king":"成为{0}的国王。", "personal_history_became_emperor":"登基为{0}皇帝。", "personal_history_left_king":"不再担任{0}的国王。", "personal_history_died":"逝世。", "personal_history_new_year_name":"颁布年号“{0}”。", "personal_history_born":"出生。", "personal_history_child_born":"诞下子嗣{0}。", "personal_history_married":"与{0}结为夫妻。", "personal_history_took_concubine":"纳{0}为妾。", "personal_history_became_concubine":"成为{0}的妾室。", "personal_history_exam_city_attended":"赴乡试。", "personal_history_exam_city_passed":"乡试中举，获举人。", "personal_history_exam_province_attended":"赴会试。", "personal_history_exam_province_passed":"会试登第，获贡士。", "personal_history_exam_empire_attended":"赴殿试。", "personal_history_exam_empire_passed":"殿试及第，获进士。", "personal_history_joined_cabinet":"入阁。", "personal_history_became_cabinet_leader":"拜内阁首辅。", "personal_history_became_elector":"列名选帝侯。", "personal_history_became_chief_elector":"成为首席选帝侯。", "personal_history_joined_faction":"加入{0}。", "personal_history_became_faction_leader":"执掌{0}。"
+    ,"tang_peerage_qinwang":"亲王", "tang_peerage_si_wang":"嗣王", "tang_peerage_junwang":"郡王", "tang_peerage_guogong":"国公", "tang_peerage_jungong":"郡公", "tang_peerage_xiangong":"县公", "tang_peerage_kaiguo_jungong":"开国郡公", "tang_peerage_kaiguo_xiangong":"开国县公", "tang_peerage_kaiguo_hou":"开国侯", "tang_peerage_kaiguo_bo":"开国伯", "tang_peerage_kaiguo_zi":"开国子", "tang_peerage_kaiguo_nan":"开国男"
+    ,"label_fief":"封地"
+    ,"label_vacant":"待授"
+    ,"label_honorary":"恩赏封爵", "empire_legal_virtual_peerages":"法理封爵", "empire_honorary_virtual_peerages":"恩赏封爵", "empire_history":"帝国历史"
+    ,"tang_honorary_anle_gong":"安乐公", "tang_honorary_zhongyi_hou":"忠义侯", "tang_honorary_wenan_gong":"文安公", "tang_honorary_longxi_gong":"陇西公", "tang_honorary_wujun_hou":"武俊侯", "tang_honorary_zhongyong_hou":"忠勇侯", "tang_honorary_huaide_hou":"怀德侯"
+    ,"specific_clan_related_history":"关联历史", "specific_clan_related_history_description":"查看其他人物历史中与当前人物关联的事件。", "related_history_empty":"暂无与此人关联的历史记录", "related_history_owner":"关联者", "related_history_event":"关联：{0}", "related_history_owner_unknown":"未知人物"
 }

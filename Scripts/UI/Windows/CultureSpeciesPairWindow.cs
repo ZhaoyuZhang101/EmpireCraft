@@ -90,7 +90,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
             }
             catch (Exception e)
             {
-                LogService.LogInfo("储存用户文化配置数据失败");
+                LogService.LogError($"储存用户文化配置数据失败: {e}");
             }
             return;
         }
@@ -131,7 +131,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
         }
         catch (Exception e)
         {
-            LogService.LogInfo("储存用户文化配置数据失败");
+            LogService.LogError($"储存用户文化配置数据失败: {e}");
         }
     }
 

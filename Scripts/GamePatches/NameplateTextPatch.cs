@@ -1,6 +1,7 @@
 using System;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
 using NeoModLoader.api;
 using UnityEngine;
@@ -52,14 +53,37 @@ public class NameplateTextPatch:GamePatch
                     }
                     break;
                 case MetaType.City:
+                    City city = pMeta as City;
+                    if (city == null || city.isRekt())
+                    {
+                        __instance.setShowing(false);
+                        break;
+                    }
                     __instance._show_banner_city = true;
                     __instance._banner_city.enabled = true;
                     __instance._banner_city.gameObject.SetActive(true);
-                    __instance._banner_city.load(pMeta as City);
+                    __instance._banner_city.load(city);
                     break;
                 case MetaTypeExtension.KingdomTitle:
-                    var capital =(City)pMeta;
-                    __instance.setupMeta(capital.data, capital.GetTitle().getColor());
+                    City capital = pMeta as City;
+                    if (capital == null && pMeta is KingdomTitle title)
+                    {
+                        capital = title.title_capital;
+                    }
+                    if (capital == null || capital.isRekt() || !capital.hasTitle())
+                    {
+                        __instance.setShowing(false);
+                        break;
+                    }
+
+                    KingdomTitle kingdomTitle = capital.GetTitle();
+                    if (kingdomTitle == null)
+                    {
+                        __instance.setShowing(false);
+                        break;
+                    }
+
+                    __instance.setupMeta(capital.data, kingdomTitle.getColor());
                     __instance._text_name.fontStyle = FontStyle.Bold;
                     __instance._text_name.transform.localPosition = Vector3.zero;
                     __instance._text_name.transform.localScale = Vector3.one * 1.5f;
@@ -85,9 +109,9 @@ public class NameplateTextPatch:GamePatch
                     {
                         __instance._show_banner_kingdom = true;
                     }
-                    __instance._banner_kingdoms.background.sprite = capital.GetTitle()?.getElementBackground();
-                    __instance._banner_kingdoms.icon.sprite = capital.GetTitle()?.getElementIcon();
-                    var color = capital.GetTitle().kingdomColor.getColorBanner();
+                    __instance._banner_kingdoms.background.sprite = kingdomTitle.getElementBackground();
+                    __instance._banner_kingdoms.icon.sprite = kingdomTitle.getElementIcon();
+                    var color = kingdomTitle.kingdomColor.getColorBanner();
                     color = new Color(color.r, color.g, color.b, 0.5f);
                     __instance._banner_kingdoms.background.color = color;
                     __instance._banner_kingdoms.icon.color = color;

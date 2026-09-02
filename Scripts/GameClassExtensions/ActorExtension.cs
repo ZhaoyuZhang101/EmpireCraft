@@ -179,6 +179,10 @@ public class Name
                 actor.data.name = firstName;
             }
         }
+        if (has_whole_name(actor))
+        {
+            actor.GetPersonalIdentity()?.BackfillRelatedHistoryRecords();
+        }
     }
 }
 public class OfficeIdentity
@@ -318,6 +322,12 @@ public static class ActorExtension
         public PeerageType peerageType;
         public List<long> want_acuired_title = new List<long>();
         public List<long> owned_title = new List<long>();
+        // 虚封仅保留名义爵位与封地，不改变城市、王国或法理的所有权。
+        public bool virtual_enfeoff = false;
+        public long virtual_enfeoff_title_id = -1L;
+        public long virtual_enfeoff_empire_id = -1L;
+        public string honorary_peerage_key = "";
+        public long honorary_peerage_empire_id = -1L;
         public string factionID = "";
         public Name name;
         public bool has_become_cleric = false;
@@ -614,9 +624,13 @@ public static class ActorExtension
 
     public static void SetFaction(this Actor a, FixedFaction faction)
     {
+        if (a == null) return;
         var lastFaction = a.GetFaction();
+        if (lastFaction == faction) return;
         lastFaction?.RemoveMember(a);
-        faction?.AddMember(a);
+        if (faction == null) return;
+        a.RecordPersonalHistory(string.Format(LM.Get("personal_history_joined_faction"), faction.Name));
+        faction.AddMember(a);
     }
 
     public static void RemoveFaction(this Actor a)
@@ -869,6 +883,44 @@ public static class ActorExtension
         var ed = a.GetOrCreate();
         return SpecificClanManager.getPerson(ed.personal_identity);
     }
+    public static void RecordPersonalHistory(this Actor a, string content, string eventKey = "", long relatedActorId = -1L,
+        long relatedPersonalIdentityId = -1L)
+    {
+        if (a == null || World.world == null || ModClass.IS_CLEAR) return;
+        PersonalClanIdentity identity = a.GetPersonalIdentity();
+        Kingdom kingdom = a.kingdom;
+        Empire empire = kingdom?.GetEmpire();
+        string historyDate = empire?.GetYearNameWithTime();
+        identity.RecordPersonalHistory(content, historyDate, kingdom?.GetKingdomName(), empire?.id ?? -1L, eventKey,
+            relatedActorId, relatedPersonalIdentityId);
+    }
+
+    public static void RecordPersonalHistory(this PersonalClanIdentity identity, string content, string historyDate = null,
+        string kingdomName = "", long empireId = -1L, string eventKey = "", long relatedActorId = -1L,
+        long relatedPersonalIdentityId = -1L)
+    {
+        if (identity == null || World.world == null || ModClass.IS_CLEAR || string.IsNullOrWhiteSpace(content)) return;
+        double now = World.world.getCurWorldTime();
+        if (string.IsNullOrWhiteSpace(historyDate)) historyDate = Date.getDate(now);
+        identity.personal_history ??= new List<PersonalHistoryRecord>();
+        var record = new PersonalHistoryRecord
+        {
+            timestamp = now,
+            date = historyDate,
+            content = content,
+            kingdom_name = kingdomName ?? "",
+            empire_id = empireId,
+            event_key = eventKey ?? "",
+            related_actor_id = relatedActorId,
+            related_personal_identity_id = relatedPersonalIdentityId,
+            owner_personal_identity_id = identity.id
+        };
+        identity.personal_history.Add(record);
+        PersonalClanIdentity relatedIdentity = relatedPersonalIdentityId > 0
+            ? SpecificClanManager.getPerson(relatedPersonalIdentityId)
+            : relatedActorId > 0 ? World.world.units.get(relatedActorId)?.GetPersonalIdentity() : null;
+        relatedIdentity?.AddRelatedHistoryRecord(record);
+    }
     public static void RemoveSpecificClan(this Actor a)
     {
         if (a == null) return;
@@ -900,7 +952,7 @@ public static class ActorExtension
         a.SetPersonalIdentity (pci);
         if (a.hasLover())
         {
-            pci.setLover(a.lover);
+            pci.setLover(a.lover, recordHistory: false);
         }
         return pci;
     }
@@ -964,6 +1016,32 @@ public static class ActorExtension
         {
             return ModClass.EMPIRE_MANAGER.get(GetOrCreate(a).empire_id);
         }
+    }
+    public static bool HasVirtualEnfeoff(this Actor a, Empire empire = null)
+    {
+        if (a == null || (empire != null && empire.data == null)) return false;
+        var data = GetOrCreate(a);
+        return data.virtual_enfeoff && (empire == null || data.virtual_enfeoff_empire_id == empire.data.id);
+    }
+    public static bool HasHonoraryPeerage(this Actor a, Empire empire = null)
+    {
+        if (a == null || (empire != null && empire.data == null)) return false;
+        var data = GetOrCreate(a);
+        return !string.IsNullOrEmpty(data.honorary_peerage_key) &&
+               (empire == null || data.honorary_peerage_empire_id == empire.data.id);
+    }
+    public static bool GrantHonoraryPeerage(this Actor a, Empire empire, string peerageKey)
+    {
+        if (a == null || a.isRekt() || empire == null || string.IsNullOrEmpty(peerageKey)) return false;
+        Regime regime = empire.CoreKingdom?.GetRegime();
+        if (regime?.virtual_honorary_peerages?.Contains(peerageKey) != true || a.HasHonoraryPeerage(empire)) return false;
+        var data = GetOrCreate(a);
+        data.honorary_peerage_key = peerageKey;
+        data.honorary_peerage_empire_id = empire.data.id;
+        empire.data.honorary_peerage_holders ??= new Dictionary<string, long>();
+        empire.data.honorary_peerage_holders[peerageKey] = a.getID();
+        TranslateHelper.LogHonoraryPeerageGranted(a, empire, peerageKey);
+        return true;
     }
     public static void editRenown(this Actor a, int value)
     {
@@ -1497,6 +1575,11 @@ public static class ActorExtension
         }
         foreach(KingdomTitle t in titles)
         {
+            if (IsLvLingTitleProtected(t, a, out Empire protector))
+            {
+                StartLvLingTitleProtection(protector, a.kingdom);
+                continue;
+            }
             if (t.main_kingdom!=null)
             {
                 t.main_kingdom.RemoveMainTitle();
@@ -1523,6 +1606,42 @@ public static class ActorExtension
             }
         }
         return takedTitles;
+    }
+
+    private static bool IsLvLingTitleProtected(KingdomTitle title, Actor claimant, out Empire empire)
+    {
+        empire = null;
+        EmpireCore core = title?.title_capital?.GetEmpireCore();
+        if (core == null || claimant == null) return false;
+        empire = EmpireCoreManager.GetEmpires(core).FirstOrDefault(e =>
+            e?.CoreKingdom?.GetRegime()?.enfeoff_only_royal == true);
+        return empire != null && claimant.GetSpecificClan() != empire.EmpireSpecificClan;
+    }
+
+    private static void StartLvLingTitleProtection(Empire empire, Kingdom offender)
+    {
+        if (empire == null || offender == null || offender.isRekt()) return;
+        Kingdom coreKingdom = empire.CoreKingdom;
+        if (coreKingdom == null || coreKingdom.isRekt() || coreKingdom == offender) return;
+
+        // Starting several wars in the same tick mutates diplomacy collections while
+        // they are being processed. Create one imperial war, then add each vassal.
+        War war = coreKingdom.isInWarWith(offender)
+            ? coreKingdom.getWars().FirstOrDefault(candidate => candidate != null && candidate.isAlive() && candidate.hasKingdom(offender))
+            : DiplomacyHelpers.wars.newWar(coreKingdom, offender, WarTypeLibrary.normal);
+        if (war == null) return;
+        war.SetEmpireWarType(EmpireWarType.伐不臣);
+
+        List<Kingdom> defenders = empire.kingdoms_list?
+            .Where(kingdom => kingdom != null)
+            .ToList();
+        if (defenders == null) return;
+
+        foreach (Kingdom defender in defenders)
+        {
+            if (defender == null || defender.isRekt() || defender == coreKingdom || defender == offender || war.hasKingdom(defender)) continue;
+            war.joinDefenders(defender);
+        }
     }
 
     public static void AddAcquireTitle(this Actor a, KingdomTitle title)
@@ -1626,5 +1745,24 @@ public static class ActorExtension
         var data = GetOrCreate(a);
         data.id = a.getID();
         data.peeragesLevel = lvl;
+    }
+
+    public static string GetPeerageDisplayName(this Actor a)
+    {
+        if (a == null) return "";
+        string suffix = LM.Get("default_" + a.GetPeeragesLevel()) ?? "";
+        string prefix = "";
+        if (a.HasVirtualEnfeoff())
+        {
+            long titleId = GetOrCreate(a).virtual_enfeoff_title_id;
+            prefix = titleId > 0 ? ModClass.KINGDOM_TITLE_MANAGER.get(titleId)?.data?.name : null;
+            prefix ??= a.city?.GetCityName() ?? "";
+        }
+        else if (a.HasTitle())
+        {
+            prefix = a.GetTitle();
+        }
+        if (prefix?.Length == 1 && (suffix == "公" || suffix == "侯")) prefix += "国";
+        return prefix + suffix;
     }
 }

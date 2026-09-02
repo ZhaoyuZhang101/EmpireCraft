@@ -72,7 +72,7 @@ internal static class MainTab
         AddFactionWindow.CreateWindow(nameof(AddFactionWindow),
             nameof(AddFactionWindow) + "Title");
         EmpireHistoryWindow.CreateWindow(nameof(EmpireHistoryWindow),
-            "empire_personal_history");
+            "empire_history");
         EmpireCoreWindow.CreateWindow(nameof(EmpireCoreWindow),
             "EmpireCoreWindowTitle");
     }

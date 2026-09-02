@@ -24,6 +24,7 @@ public class Empire : MetaObject<EmpireData>
     public BannerAsset BannerAsset;
     private Vector3 _lastEmpireCenter;
     private Vector3 _empireCenter;
+    private bool _updatingHonoraryPeerages;
     public EmpireAddition Additions => data.additions;
     private readonly List<TileZone> _zoneScratch = new();
     private readonly int _avgCitiesPerKingdom = 3;
@@ -452,7 +453,7 @@ public class Empire : MetaObject<EmpireData>
                 }
                 catch (Exception e) 
                 {
-                    LogService.LogInfo("转化失败");
+                    LogService.LogError($"帝国省份转化失败: {e}");
                 }
 
             }
@@ -630,9 +631,9 @@ public class Empire : MetaObject<EmpireData>
         try
         {
             _capitalCenter = kingdom.capital.city_center;
-        } catch
+        } catch (Exception e)
         {
-            LogService.LogInfo("找不到帝国首都");
+            LogService.LogError($"读取帝国首都失败: {e}");
         }
         generateNewMetaObject();
         string empireName = kingdom.GetKingdomName();
@@ -657,9 +658,9 @@ public class Empire : MetaObject<EmpireData>
                 }
             }
 
-        } catch
+        } catch (Exception e)
         {
-            LogService.LogInfo("读取氏族历史帝国名称失败");
+            LogService.LogError($"读取氏族历史帝国名称失败: {e}");
         }
         SetEmpireName(empireName);
         try
@@ -698,9 +699,9 @@ public class Empire : MetaObject<EmpireData>
             NewEmperor(kingdom.king, !isSplit);
             kingdom.king?.GetSpecificClan()?.RecordHistoryEmpire(this, CoreKingdom.capital);
 
-        } catch
+        } catch (Exception e)
         {
-            LogService.LogInfo("继承帝国信息失败");
+            LogService.LogError($"继承帝国信息失败: {e}");
         }
 
         kingdom.data.name = this.data.name;
@@ -742,9 +743,10 @@ public class Empire : MetaObject<EmpireData>
         if (!actor.HasOfficeIdentity()) return false;
         OfficeIdentity identity = actor.GetIdentity();
         if (identity.IsCabinet()) return false;
-        identity.EnterCabinet();
         if (data.CabinetMembers.Contains(actor.id)) return false;
+        identity.EnterCabinet();
         data.CabinetMembers.Add(actor.id);
+        actor.RecordPersonalHistory(LM.Get("personal_history_joined_cabinet"));
         return true;
     }
 
@@ -752,10 +754,17 @@ public class Empire : MetaObject<EmpireData>
     {
         if (actor == null) return false;
         if (!actor.HasOfficeIdentity()) return false;
+        if (GetCabinetLeader()?.id == actor.id) return false;
         OfficeIdentity identity = actor.GetIdentity();
+        bool wasCabinetMember = data.CabinetMembers.Contains(actor.id);
         RemoveCabinetMember(actor);
         data.CabinetMembers.Insert(0, actor.id);
         identity.EnterCabinet();
+        if (!wasCabinetMember)
+        {
+            actor.RecordPersonalHistory(LM.Get("personal_history_joined_cabinet"));
+        }
+        actor.RecordPersonalHistory(LM.Get("personal_history_became_cabinet_leader"));
         return true;
     }
 
@@ -1159,6 +1168,81 @@ public class Empire : MetaObject<EmpireData>
 
     public void update()
     {
+        if (data == null || World.world == null || _updatingHonoraryPeerages) return;
+        Kingdom coreKingdom = CoreKingdom;
+        if (coreKingdom == null || coreKingdom.isRekt()) return;
+        Regime regime = coreKingdom.GetRegime();
+        if (regime?.enfeoff_virtual_only != true || !regime.enable_auto_honorary_peerages ||
+            (data.last_honorary_peerage_timestamp >= 0 && Date.getYearsSince(data.last_honorary_peerage_timestamp) < 1)) return;
+
+        _updatingHonoraryPeerages = true;
+        try
+        {
+            data.last_honorary_peerage_timestamp = World.world.getCurWorldTime();
+            ProcessHonoraryPeerageInheritance(regime);
+
+            List<Actor> candidates = getUnits()
+                .Where(a => a != null && !a.isRekt() && !a.isKing() && !a.HasHonoraryPeerage(this))
+                .ToList();
+            foreach (string peerageKey in regime.virtual_honorary_peerages ?? new List<string>())
+            {
+                Actor candidate = GetHonoraryPeerageCandidate(candidates, peerageKey);
+                if (candidate != null && candidate.GrantHonoraryPeerage(this, peerageKey)) return;
+            }
+        }
+        finally
+        {
+            _updatingHonoraryPeerages = false;
+        }
+    }
+
+    private static Actor GetHonoraryPeerageCandidate(IEnumerable<Actor> candidates, string peerageKey)
+    {
+        bool IsCivilMerit(Actor a) => !a.isWarrior() && (a.GetOrCreate().officeIdentity?.TotalPerformance ?? 0) >= 500 && a.renown >= 100;
+        bool IsMilitaryMerit(Actor a) => a.isWarrior() && a.renown >= 120;
+        return peerageKey switch
+        {
+            "tang_honorary_anle_gong" => candidates.Where(IsCivilMerit).OrderByDescending(a => a.GetOrCreate().officeIdentity.TotalPerformance).FirstOrDefault(),
+            "tang_honorary_wenan_gong" or "tang_honorary_longxi_gong" => candidates.Where(IsCivilMerit).OrderByDescending(a => a.renown).FirstOrDefault(),
+            "tang_honorary_wujun_hou" => candidates.Where(a => IsMilitaryMerit(a) && a.renown >= 250).OrderByDescending(a => a.renown).FirstOrDefault(),
+            "tang_honorary_zhongyong_hou" => candidates.Where(a => IsMilitaryMerit(a) && (a.GetOrCreate().officeIdentity?.TotalPerformance ?? 0) >= 150).OrderByDescending(a => a.renown).FirstOrDefault(),
+            "tang_honorary_huaide_hou" => candidates.Where(a => !a.isWarrior() && (a.GetOrCreate().officeIdentity?.TotalPerformance ?? 0) >= 350).OrderByDescending(a => a.GetOrCreate().officeIdentity.TotalPerformance).FirstOrDefault(),
+            _ => null
+        };
+    }
+
+    private void ProcessHonoraryPeerageInheritance(Regime regime)
+    {
+        data.honorary_peerage_holders ??= new Dictionary<string, long>();
+        foreach (Actor actor in getUnits().Where(a => a != null && !a.isRekt() && a.HasHonoraryPeerage(this)))
+        {
+            data.honorary_peerage_holders[actor.GetOrCreate().honorary_peerage_key] = actor.getID();
+        }
+
+        foreach (string peerageKey in (regime.virtual_honorary_peerages ?? new List<string>()).ToList())
+        {
+            if (!data.honorary_peerage_holders.TryGetValue(peerageKey, out long holderId)) continue;
+            Actor holder = World.world.units.get(holderId);
+            if (holder != null && !holder.isRekt()) continue;
+
+            Actor heir = holder?.getChildren()?.FirstOrDefault(a => a != null && !a.isRekt() && !a.isKing() &&
+                a.kingdom?.GetEmpire() == this && !a.HasHonoraryPeerage(this));
+            if (heir == null)
+            {
+                data.honorary_peerage_holders.Remove(peerageKey);
+                continue;
+            }
+
+            if (holder != null)
+            {
+                holder.GetOrCreate().honorary_peerage_key = "";
+                holder.GetOrCreate().honorary_peerage_empire_id = -1L;
+            }
+            heir.GetOrCreate().honorary_peerage_key = peerageKey;
+            heir.GetOrCreate().honorary_peerage_empire_id = data.id;
+            data.honorary_peerage_holders[peerageKey] = heir.getID();
+            TranslateHelper.LogHonoraryPeerageInherited(heir, holder, this, peerageKey);
+        }
     }
 
     public bool TryRepairState(string reason = "")
@@ -1179,6 +1263,7 @@ public class Empire : MetaObject<EmpireData>
         data.taken_Kingdoms ??= new List<long>();
         data.history_emperrors ??= new List<string>();
         data.PreviousYearsMoney ??= new List<int>();
+        data.honorary_peerage_holders ??= new Dictionary<string, long>();
 
         bool repaired = false;
         HashSet<Kingdom> rebuiltKingdoms = new HashSet<Kingdom>();
@@ -1288,8 +1373,9 @@ public class Empire : MetaObject<EmpireData>
         {
             data.centerOffice.Init(CoreKingdom);
         }
-        catch
+        catch (Exception e)
         {
+            LogService.LogError($"中央官署初始化失败，正在重置: {e}");
             data.centerOffice = new CenterOffice();
             data.centerOffice.Init(CoreKingdom);
             repaired = true;
@@ -1529,10 +1615,10 @@ public class Empire : MetaObject<EmpireData>
         {
             this.data.empire_clan = this.EmpireClan == null ? -1L : this.EmpireClan.data.id;
         }
-        catch
+        catch (Exception e)
         {
             this.data.empire_clan = -1L;
-            LogService.LogInfo("存储帝国氏族失败");
+            LogService.LogError($"存储帝国氏族失败: {e}");
         }
 
     }
@@ -1958,7 +2044,33 @@ public class Empire : MetaObject<EmpireData>
 
     public void AutoEnfeoff()
     {
-        var allCities = this.CoreKingdom.cities;
+        Kingdom coreKingdom = CoreKingdom;
+        if (data == null || coreKingdom == null || coreKingdom.isRekt()) return;
+        Regime regime = coreKingdom.GetRegime();
+        if (regime != null && regime.enfeoff_virtual_only)
+        {
+            // 律令制的自动分封沿用分封候选规则，但只迁居与授予名义封号。
+            Actor candidate = Emperor?.getChildren()?.FirstOrDefault(a => !a.isKing() && !a.HasVirtualEnfeoff(this) &&
+                (!regime.enfeoff_only_royal || a.GetSpecificClan() == EmpireSpecificClan));
+            City capital = coreKingdom.cities.FirstOrDefault(c => c != null && !c.isRekt() &&
+                !c.isCapitalCity() && (EmpireCoreManager.Get(this) == null || c.GetEmpireCore() != EmpireCoreManager.Get(this)));
+            if (candidate != null && capital != null)
+            {
+                KingdomTitle title = capital.GetTitle();
+                var data = candidate.GetOrCreate();
+                data.virtual_enfeoff = true;
+                data.virtual_enfeoff_empire_id = this.data.id;
+                data.virtual_enfeoff_title_id = regime.enfeoff_virtual_can_use_empire_titles
+                    ? title?.data.id ?? -1L
+                    : -1L;
+                candidate.SetPeeragesLevel(PeeragesLevel.peerages_1);
+                candidate.joinCity(capital);
+                candidate.goTo(capital._city_tile);
+            }
+            return;
+        }
+        var allCities = coreKingdom.cities;
+        EmpireCore empireCore = EmpireCoreManager.Get(this);
         if (allCities == null)
         {
             return;
@@ -1988,7 +2100,13 @@ public class Empire : MetaObject<EmpireData>
                     }
                 }
             }
-            region = region.FindAll(c => c.getID() != CoreKingdom.capital.getID());
+            region = region.FindAll(c =>
+            {
+                if (c == null || c.isRekt() || c.getID() == CoreKingdom.capital.getID()) return false;
+                if (empireCore != null && c.GetEmpireCore() == empireCore) return false;
+                KingdomTitle title = c.GetTitle();
+                return title == null || !string.Equals(title.data.name, GetEmpireName(), StringComparison.Ordinal);
+            });
             CoreKingdom.getMaxCities();
             if (region.Count > 0)
             {

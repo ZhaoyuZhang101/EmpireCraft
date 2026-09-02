@@ -26,6 +26,7 @@ namespace EmpireCraft.Scripts.AI
 {
     public static class EmpireCraftPlotsAddition
     {
+        private static readonly HashSet<string> FailedPlotExecutions = new();
         public static PlotAsset Rebellion;
         private static readonly HashSet<string> s_guardedPlotIds = new HashSet<string>();
 
@@ -125,7 +126,17 @@ namespace EmpireCraft.Scripts.AI
         private static void LogPlotGuardException(string plotId, string stage, Actor actor, Exception ex)
         {
             string actorName = actor?.data?.name ?? "unknown_actor";
-            Debug.LogWarning($"[EmpireCraftPlotsAddition] plot '{plotId}' {stage} failed for actor '{actorName}': {ex}");
+            // A failed plot may already have changed state; stop it instead of retrying it every AI tick.
+            if (actor?.plot?.name == plotId)
+            {
+                actor.plot.setAlive(false);
+            }
+
+            string errorKey = $"{plotId}:{stage}";
+            if (FailedPlotExecutions.Add(errorKey))
+            {
+                Debug.LogWarning($"[EmpireCraftPlotsAddition] plot '{plotId}' {stage} was stopped for actor '{actorName}': {ex}");
+            }
         }
 
         private static List<Kingdom> GetKingdomsRuledByActor(Actor actor)
@@ -540,21 +551,24 @@ namespace EmpireCraft.Scripts.AI
                     Empire empire = kingdom.GetEmpire();
                     if (empire == null) return false;
                     if (!pActor.HasFaction()) return false;
-                    return empire.kingdoms_list.Any(k => (k.king?.GetFaction()!=pActor.GetFaction())&&(((k.king?.renown??99999)/2)<pActor.renown)&&k.king.GetViolateValue()>=0&&k!=kingdom);
+                    return empire.kingdoms_list.Any(k => k != null && !k.isRekt() && k != kingdom && k.king != null &&
+                        k.king.GetFaction() != pActor.GetFaction() && (k.king.renown / 2) < pActor.renown && k.king.GetViolateValue() >= 0);
                 },
                 action = delegate (Actor pActor)
                 {
-                    Kingdom kingdom = pActor.kingdom;
-                    var empire = kingdom.GetEmpire();
-                    if (!pActor.HasFaction()) return false;
-                    var target = empire?.kingdoms_list?.Find(k => k.king?.GetFaction()!=pActor.GetFaction()&&((k.king?.renown??99999)/2)<pActor.renown&&k.king.GetViolateValue()>=0&&k!=kingdom);
+                    Kingdom kingdom = pActor?.kingdom;
+                    Empire empire = kingdom?.GetEmpire();
+                    if (pActor == null || kingdom == null || empire == null || !pActor.HasFaction()) return false;
+                    Kingdom target = empire.kingdoms_list?.Find(k => k != null && !k.isRekt() && k != kingdom && k.king != null &&
+                        k.king.GetFaction() != pActor.GetFaction() && (k.king.renown / 2) < pActor.renown && k.king.GetViolateValue() >= 0);
                     if (target == null)
                     {
                         return false;
                     }
-                    pActor.data.renown -= (target.king?.renown/2)??0;
-                    target.king.AddTyrantValue(30);
-                    if (target.king.GetViolateValue() >= 100)
+                    Actor targetKing = target.king;
+                    pActor.data.renown -= targetKing.renown / 2;
+                    targetKing.AddTyrantValue(30);
+                    if (targetKing.GetViolateValue() >= 100)
                     {
                         var potentialCrimes = new List<LawType>()
                         {
@@ -566,7 +580,7 @@ namespace EmpireCraft.Scripts.AI
                             LawType.走私
                         };
                         var crime = potentialCrimes.FindAll(c=>target.HasLaw(c)).GetRandom();
-                        target.king.TryTriggerProbabilisticLaw(crime, 1f, _ => { });
+                        targetKing.TryTriggerProbabilisticLaw(crime, 1f, _ => { });
                         double rebellingPossibility = 0.2f;
                         if (!target.isOpinionTowardsKingdomGood(empire.CoreKingdom))
                         {
@@ -582,9 +596,10 @@ namespace EmpireCraft.Scripts.AI
                         }
                         else
                         {
-                            var context = target.king.TryEnforceLaw(crime, kingdom);
+                            var context = targetKing.TryEnforceLaw(crime, kingdom);
+                            if (context == null) return false;
                             //当影响力小于两百, 或者脱罪次数达到2的上限则进行惩罚
-                            if (target.king?.renown <= 200&&target.king.EscapeFromPunishment(true))
+                            if (targetKing.renown <= 200 && targetKing.EscapeFromPunishment(true))
                             {
                                 var punishments = new List<PunishmentLevel>()
                                 {
@@ -599,11 +614,11 @@ namespace EmpireCraft.Scripts.AI
                             }
                             else
                             {
-                                target.king?.addRenown(-200);
+                                targetKing.addRenown(-200);
                                 EmpireLawSystem.ApplyPunishment(context, PunishmentLevel.无罪);
-                                target.king.AddTyrantValue(-30);
+                                targetKing.AddTyrantValue(-30);
                                 context.AppliedPunishments = new List<PunishmentLevel>() {PunishmentLevel.无罪};
-                                target.king.EscapeFromPunishment();
+                                targetKing.EscapeFromPunishment();
                             }
                             TranslateHelper.LogLawEnforcement(context);
                         }
@@ -798,8 +813,11 @@ namespace EmpireCraft.Scripts.AI
                 action = delegate(Actor pActor) 
                 {
                     Kingdom kingdom = pActor.kingdom;
-                    kingdom.GetEmpire().create_year_name();
-                    TranslateHelper.LogNewEmperor(pActor, kingdom.capital, kingdom.GetEmpire().data.year_name);
+                    Empire empire = kingdom?.GetEmpire();
+                    if (empire == null) return false;
+
+                    empire.create_year_name();
+                    TranslateHelper.LogEmperorNewYearName(pActor, empire);
                     return true;
                 }
             });
