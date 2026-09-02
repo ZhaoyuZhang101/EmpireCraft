@@ -11,7 +11,7 @@ public class EmpireCraftKingdomBehCheckReligionKingdom: GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
-        var ked = pKingdom.GetOrCreate();
+        var ked = KingdomExtension.GetOrCreate(pKingdom);
         if (ked != null && ked.last_religion_check_ts > 0)
         {
             if (Date.getMonthsSince(ked.last_religion_check_ts) < 1) return BehResult.Continue;

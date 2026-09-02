@@ -15,7 +15,7 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
     public override Type OriginalBeh => typeof(CityBehCheckArmy);
     public override BehResult execute(City pCity)
     {
-        var ced = CityExtension.GetOrCreate(pCity);
+        var ced = pCity.GetOrCreate();
         if (ced != null && ced.last_army_check_ts > 0)
         {
             if (Date.getMonthsSince(ced.last_army_check_ts) < 1)

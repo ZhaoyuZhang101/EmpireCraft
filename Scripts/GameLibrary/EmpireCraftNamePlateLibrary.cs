@@ -594,11 +594,6 @@ public static class EmpireCraftNamePlateLibrary
             case 0:
                 if (pMetaObject.IsInEmpire())
                 {
-                    var claimProgressObject = pMetaObject.GetClaimProgress();
-                    if (claimProgressObject?.StartedToPushTf ?? false)
-                    {
-                        pNewText += "\n" + claimProgressObject.Claim.type + $"{claimProgressObject.Progress}%"; 
-                    }
                     WorldTile mouseTilePosCachedFrame = World.world.getMouseTilePosCachedFrame();
                     if (mouseTilePosCachedFrame?.zone_city?.kingdom==pMetaObject)
                     {
@@ -848,6 +843,8 @@ public static class EmpireCraftNamePlateLibrary
             switch (pAsset.map_mode)
             {
                 case MetaTypeExtension.KingdomTitle:
+                    var capital = (City)pMeta;
+                    nameplateText.setupMeta(capital.data, capital.GetTitle().getColor());
                     nameplateText._text_name.fontStyle = FontStyle.Bold;
                     nameplateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.zero;
                     nameplateText._text_name.transform.localScale = Vector3.one * 1.5f;
@@ -855,6 +852,12 @@ public static class EmpireCraftNamePlateLibrary
                     
                     nameplateText._banner_kingdoms.enabled = true;
                     nameplateText._banner_kingdoms.gameObject.SetActive(true);
+                    nameplateText._banner_kingdoms.background.sprite = capital.GetTitle()?.getElementBackground();
+                    nameplateText._banner_kingdoms.icon.sprite = capital.GetTitle()?.getElementIcon();
+                    var color = capital.GetTitle().kingdomColor.getColorBanner();
+                    color = new Color(color.r, color.g, color.b, 0.5f);
+                    nameplateText._banner_kingdoms.background.color = color;
+                    nameplateText._banner_kingdoms.icon.color = color;
                     nameplateText._banner_kingdoms.gameObject.transform.localPosition = Vector3.zero;
                     nameplateText._banner_kingdoms.gameObject.transform.localScale = Vector3.one * 1.5f;
                     
@@ -1311,13 +1314,6 @@ public static class EmpireCraftNamePlateLibrary
             plateText.nano_object = capital;
             string text = capital.GetTitle().data.name;
             setTextIfChanged(plateText, text, capital.city_center);
-            plateText.setupMeta(capital.data, capital.GetTitle().getColor());
-            plateText._banner_kingdoms.background.sprite = capital.GetTitle()?.getElementBackground();
-            plateText._banner_kingdoms.icon.sprite = capital.GetTitle()?.getElementIcon();
-            var color = capital.GetTitle().kingdomColor.getColorBanner();
-            color = new Color(color.r, color.g, color.b, 0.5f);
-            plateText._banner_kingdoms.background.color = color;
-            plateText._banner_kingdoms.icon.color = color;
             plateText._background_image.enabled = false;
             plateText._show_banner_culture = false;
             plateText._banner_kingdoms.dead_image.gameObject.SetActive(value: false);

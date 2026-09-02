@@ -87,7 +87,8 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     public int countPopulation()
     {
         int res = 0;
-        foreach(City city in city_list_hash) {
+        foreach(City city in city_list_hash)
+        {
             res += city.getPopulationPeople();
         }
         return res;

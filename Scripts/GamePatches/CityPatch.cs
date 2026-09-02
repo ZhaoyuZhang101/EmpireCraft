@@ -121,11 +121,6 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(TryToMakeWarrior))
         );
 
-        new Harmony(nameof(MakeWarrior)).Patch(
-            AccessTools.Method(typeof(City), nameof(City.makeWarrior)),
-            postfix: new HarmonyMethod(GetType(), nameof(MakeWarrior))
-        );
-
         new Harmony(nameof(newCity)).Patch(
             AccessTools.Method(typeof(City), nameof(City.newCityEvent)),
             prefix: new HarmonyMethod(GetType(), nameof(newCity))
@@ -284,17 +279,6 @@ public class CityPatch : GamePatch
     {
         return false;
     }
-
-    public static void MakeWarrior(City __instance, Actor pActor)
-    {
-        if (pActor == null || pActor.isRekt())
-        {
-            return;
-        }
-
-        pActor.OpenAI();
-    }
-
     public static bool FinishedCapture(City __instance, Kingdom pNewKingdom)
     {
         Kingdom oldKingdom = __instance.kingdom;

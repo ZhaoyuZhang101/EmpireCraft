@@ -14,6 +14,7 @@ public class TempFac_割让城池 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
+        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 

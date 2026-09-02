@@ -285,14 +285,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 }
             }
         }
-        else
-        {
-            if (RegimeManager.regimes.TryGetValue(pKingdom.GetRegime().type, out Regime defaultRegime))
-            {
-                pKingdom.GetRegime().SetLeaderSelectMethod(defaultRegime.GetLeaderSelectMethod());
-            }
-        }
- 
+
         if (pKingdom.IsEmpire())
         {
             kingdomFront = pKingdom.GetEmpire()?.GetEmpireName();
@@ -364,6 +357,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 }
             }
         }
+        LogService.LogInfo(regime.default_kingdom.ToString());
         return  regime.default_kingdom;
     }
     private static int GetOption(Regime regime, ConditionType key)

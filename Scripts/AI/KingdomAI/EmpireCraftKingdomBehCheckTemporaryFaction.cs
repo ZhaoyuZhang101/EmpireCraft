@@ -17,38 +17,14 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         var ked = pKingdom.GetOrCreate();
-        if (ked is { last_tf_check_ts: > 0 })
+        if (ked != null && ked.last_tf_check_ts > 0)
         {
             if (Date.getMonthsSince(ked.last_tf_check_ts) < 1)
             {
                 return BehResult.Continue;
             }
         }
-        //是否有对应的本地诉求进程
-        var hasValidLocalProgress = false;
-        if (pKingdom.IsInEmpire())
-        {
-            var empire = pKingdom.GetEmpire();
-            var dominateFaction = pKingdom.GetHighestFactionRatio();
-            if (dominateFaction != null && empire!=null)
-            {
-                var validLocalFactions = dominateFaction.TemporaryFactions.FindAll(tf => tf.CheckLocalCondition(pKingdom));
-                if (validLocalFactions.Count > 0)
-                {
-                    var factionNeedToBePush = validLocalFactions.GetRandom();
-                    if (factionNeedToBePush != null)
-                    {
-                        pKingdom.PushProgress(factionNeedToBePush);
-                        hasValidLocalProgress = true;
-                    }
-                }
-            }
-        }
-
-        if (!hasValidLocalProgress)
-        {
-            CheckTf(pKingdom);
-        }
+        CheckTf(pKingdom);
         if (ked != null) ked.last_tf_check_ts = World.world.getCurWorldTime();
         return BehResult.Continue;
     }
@@ -80,20 +56,12 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         }
 
         var run = dominateFaction.GetAnyTFactionRuns();
-        if (run != null)
+        if (run?.ShowAsPlot??false)
         {
-            if (run.canBePushByLocal)
+            if ((pKingdom.king?.plot?.name ?? "") != (run?.type.ToString() ?? "-"))
             {
                 run?.End();
                 return;
-            }
-            if (run?.ShowAsPlot??false)
-            {
-                if ((pKingdom.king?.plot?.name ?? "") != (run?.type.ToString() ?? "-"))
-                {
-                    run?.End();
-                    return;
-                }
             }
         }
         if (dominateFaction.IsAnyTFactionRuns()) return;

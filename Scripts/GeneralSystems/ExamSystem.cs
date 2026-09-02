@@ -100,7 +100,7 @@ public static class ExamSystem
         int takeNum = 1;
         if (sorted.Count() > takeNum)
         {
-            sorted?.Take(takeNum)?.ForEach(item =>
+            sorted.Take(takeNum).ForEach(item =>
             {
                 item.Key.addTrait("gongshi");
                 OfficeIdentity identity = item.Key.GetIdentity();

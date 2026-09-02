@@ -23,14 +23,12 @@ using System.Text.RegularExpressions;
 using System.Runtime.Serialization;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using System.Security.Principal;
-using ai.behaviours;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
-using NCMS.Extensions;
 using NeoModLoader.General.UI.Window.Layout;
 using UnityEngine;
 using Vector2 = UnityEngine.Vector2;
@@ -340,7 +338,6 @@ public static class ActorExtension
         public double target_tile_timestamp = -1;
         [JsonIgnore]
         public WorldTile target_tile = null;
-        public bool ai_disabled = false;
     }
     /// <summary>
     /// 初始化执行
@@ -811,62 +808,6 @@ public static class ActorExtension
         if (!k.hasKingdom()) return false;
         return Date.getYearsSince(k.GetLastTaxTime()) >= 1;
     }
-
-    public static void CloseAI(this Actor a)
-    {
-        if (a == null || a.isRekt())
-        {
-            return;
-        }
-
-        var data = a.GetOrCreate();
-        if (data.ai_disabled)
-        {
-            return;
-        }
-
-        data.ai_disabled = true;
-        for (int i = 0; i < a._decision_disabled.Length; i++)
-        {
-            a.setDecisionState(i, false);
-        }
-    }
-
-    public static void OpenAI(this Actor a, bool isWarrior=false)
-    {
-        if (a == null || a.isRekt())
-        {
-            return;
-        }
-
-        var data = a.GetOrCreate();
-        if (a.ai == null)
-        {
-            return;
-        }
-
-        if (!isWarrior)
-        {
-            for (int i = 0; i < a._decision_disabled.Length; i++)
-            {
-                a.setDecisionState(i, true);
-            }
-        }
-        else
-        {
-            for (int i = 0; i < a._decision_disabled.Length; i++)
-            {
-                a.setDecisionState(i, false);
-            }
-            var index = a.decisions.ToList().Find(d=>d.id=="check_warrior_transport").decision_index;
-            var index2 = a.decisions.ToList().Find(d=>d.id=="warrior_try_join_army_group").decision_index;
-            a.setDecisionState(index, true);
-            a.setDecisionState(index2, true);
-        }
-
-        data.ai_disabled = false;
-    }
-
     public static void WarriorMoveTo(this Actor a, WorldTile pTileTarget)
     {
         if (a == null || pTileTarget == null)

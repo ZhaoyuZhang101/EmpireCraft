@@ -37,6 +37,7 @@ public class EmpireCraftActorAddLover:GameAIActorBase
                     if (OverallHelperFunc.HasChangeToGiveBirth(cActor, pActor)&&cActor.IsNeedToGiveBirth())
                     {
                         BabyMaker.makeBaby(pActor, cActor); 
+                        LogService.LogInfo("生育权能触发");
                         cActor.RecordGiveBirthTime();
                     }
                 }

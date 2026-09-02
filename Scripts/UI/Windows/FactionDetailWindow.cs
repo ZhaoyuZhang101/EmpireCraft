@@ -375,6 +375,11 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
             pFaction.Hide = !pFaction.Hide;
             pFaction.hideButton?.SetStatus(pFaction.Hide);
         }, pFaction.Hide, size: new Vector2(12, 12), isOption:true);
+        var localPushButton = secondPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "localpush_tfaction", () =>
+        {
+            pFaction.canBePushByLocal = !pFaction.canBePushByLocal;
+            pFaction.localPushButton?.SetStatus(pFaction.canBePushByLocal);
+        }, pFaction.Hide, size: new Vector2(12, 12), isOption:false, hasTitle:false);
         var activeButton = secondPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "active_tfaction", () =>
         {
             pFaction.Active = !pFaction.Active;
@@ -382,6 +387,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         }, pFaction.Active, size: new Vector2(12, 12), isOption:false, hasTitle:false);
         pFaction.hideButton =  hideButton;
         pFaction.activeButton =  activeButton;
+        pFaction.localPushButton = localPushButton;
         var thirdPart = tfSpace.BeginVertGroup(new Vector2(30, 30));
         var showButton = thirdPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "show_tfaction_as_plot", () =>
         {

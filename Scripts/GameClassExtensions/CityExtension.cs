@@ -1038,8 +1038,8 @@ public static class CityExtension
             sameCulture = false;
         }
 
-        // 基础值：默认需要 70% 土地被敌对势力占领
-        float requiredRate = 0.70f;
+        // 基础值：默认需要 80% 土地被敌对势力占领
+        float requiredRate = 0.80f;
 
         // 正统差距：进攻方正统越高，越容易完成占领；防守方正统越高，越难完成占领
         int mandateDiff = captureMandate - originMandate;

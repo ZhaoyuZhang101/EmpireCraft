@@ -6,9 +6,4 @@ namespace EmpireCraft.Scripts.AI.KingdomAI;
 public abstract class GameAIKingdomBase : BehaviourActionKingdom
 {
     public abstract Type OriginalBeh { get; }
-
-    public virtual bool Detect(Kingdom pKingdom)
-    {
-        return execute(pKingdom) != BehResult.Stop;
-    }
 }

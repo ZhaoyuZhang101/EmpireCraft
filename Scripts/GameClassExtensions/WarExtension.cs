@@ -22,7 +22,6 @@ public static class WarExtension
         public MetaType metaType = MetaType.None;
         public long metaID = -1L;
         public FixedFaction belongingFaction = null;
-        public long linkedWarId = -1L;
     }
 
     public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="", NanoObject nanoObject = null, bool isRebelling = false, FixedFaction belongingFaction = null)
@@ -83,38 +82,6 @@ public static class WarExtension
     public static FixedFaction GetEmpireFaction(this War w)
     {
         return GetOrCreate(w).belongingFaction;
-    }
-
-    public static void SetLinkedWar(this War war, War linkedWar)
-    {
-        if (war == null)
-        {
-            return;
-        }
-
-        war.GetOrCreate().linkedWarId = linkedWar == null ? -1L : linkedWar.getID();
-    }
-
-    public static War GetLinkedWar(this War war)
-    {
-        if (war == null)
-        {
-            return null;
-        }
-
-        long linkedWarId = war.GetOrCreate().linkedWarId;
-        if (linkedWarId < 0 || World.world?.wars == null)
-        {
-            return null;
-        }
-
-        return World.world.wars.get(linkedWarId);
-    }
-
-    public static bool HasAliveLinkedWar(this War war)
-    {
-        War linkedWar = war.GetLinkedWar();
-        return linkedWar != null && !linkedWar.isRekt() && linkedWar.isAlive() && !linkedWar.hasEnded();
     }
     public static WarExtraData GetOrCreate(this War a, bool isSave = false)
     {

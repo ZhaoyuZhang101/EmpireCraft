@@ -21,13 +21,36 @@ using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
-using NCMS.Extensions;
 using UnityEngine;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class ActorPatch : GamePatch
 {
+    public static readonly string[] BlockDecisions =
+    {
+        // 社交
+        "socialize_initial_check",
+
+        // 恋爱/生育
+        "find_lover",
+        "check_lover_city",
+        "sexual_reproduction_try",
+        "asexual_reproduction_divine",
+        "asexual_reproduction_fission",
+        "asexual_reproduction_budding",
+        "asexual_reproduction_parthenogenesis",
+        "asexual_reproduction_spores",
+        "asexual_reproduction_vegetative",
+        "status_soul_harvested",
+
+        // 空闲闲逛/娱乐移动
+        "random_move",
+        "random_fun_move",
+        "random_move_near_house",
+        "random_move_towards_civ_building",
+        "city_idle_walking"
+    };
     public ModDeclare declare { get; set; }
     public static int startSessionMonth { get; set; }
     public static bool isReadyToSet = false;
@@ -65,6 +88,8 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(setParent2)));
         new Harmony(nameof(setCity)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setCity)),
             postfix: new HarmonyMethod(GetType(), nameof(setCity)));
+        new Harmony(nameof(actionLanded)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.actionLanded)),
+            postfix: new HarmonyMethod(GetType(), nameof(actionLanded)));
         new Harmony(nameof(moveTo)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.moveTo), new[] { typeof(WorldTile) }),
             prefix: new HarmonyMethod(GetType(), nameof(moveTo)));
         new Harmony(nameof(UpdateAge)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.updateAge)),
@@ -267,11 +292,30 @@ public class ActorPatch : GamePatch
             } 
         }
     }
+
+    public static void actionLanded(Actor __instance)
+    {
+        __instance.setTask("do_mod_actor_beh");
+    }
     public static void setCity(Actor __instance, City pCity)
     {
         if (pCity.HasReachedPlayerPopLimit())
         {
             __instance.setHealth(0);
+        }
+
+        if (!EmpireCraftWorldLawLibrary.empirecraft_law_allow_social.isEnabled())
+        {
+            foreach (var a in __instance.decisions)
+            {
+                if (a != null)
+                {
+                    if (BlockDecisions.Contains(a.id))
+                    {
+                        __instance.setDecisionState(a._index, false);
+                    }
+                }
+            }
         }
     }
 

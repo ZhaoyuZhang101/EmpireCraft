@@ -15,6 +15,7 @@ public class TempFac_谋求统一 : TemporaryFaction
         res.ShowAsPlot = ShowAsPlot;
         res.Hide = Hide;
         res.Active = Active;
+        res.canBePushByLocal = canBePushByLocal;
         return res;
     }
 
