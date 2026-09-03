@@ -402,6 +402,9 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
+# Local release packages
+dist/
+
 .*
 !.gitignore
 !.gitattribute
