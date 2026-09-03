@@ -12,8 +12,25 @@ Set-StrictMode -Version Latest
 function Invoke-Git {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 
-    $output = & git @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
+    # Capture native streams in files because Windows PowerShell otherwise turns
+    # normal Git stderr messages such as "Everything up-to-date" into errors.
+    $stdoutPath = [IO.Path]::GetTempFileName()
+    $stderrPath = [IO.Path]::GetTempFileName()
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "SilentlyContinue"
+        & git @Arguments 1> $stdoutPath 2> $stderrPath
+        $exitCode = $LASTEXITCODE
+        $output = @()
+        $output += @(Get-Content -LiteralPath $stdoutPath -ErrorAction SilentlyContinue)
+        $output += @(Get-Content -LiteralPath $stderrPath -ErrorAction SilentlyContinue)
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+        Remove-Item -LiteralPath $stdoutPath, $stderrPath -Force -ErrorAction SilentlyContinue
+    }
+
+    if ($exitCode -ne 0) {
         throw "git $($Arguments -join ' ') failed:`n$($output -join [Environment]::NewLine)"
     }
     return $output
