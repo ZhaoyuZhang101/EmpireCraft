@@ -57,6 +57,7 @@ function New-ReleasePackage {
 
     $stageDirectory = Join-Path ([IO.Path]::GetTempPath()) ("EmpireCraft-release-" + [guid]::NewGuid().ToString("N"))
     $packageRoot = Join-Path $stageDirectory "EmpireCraft"
+    $sourceArchive = Join-Path $stageDirectory "repository.zip"
     New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
 
     $excludedPrefixes = @(
@@ -79,31 +80,23 @@ function New-ReleasePackage {
     )
 
     try {
-        $trackedFiles = @(Invoke-Git -c core.quotepath=false ls-files)
-        foreach ($relativePath in $trackedFiles) {
-            $normalizedPath = $relativePath.Replace("\", "/")
-            $isExcluded = $excludedFiles -contains $normalizedPath
-            if (-not $isExcluded) {
-                foreach ($prefix in $excludedPrefixes) {
-                    if ($normalizedPath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
-                        $isExcluded = $true
-                        break
-                    }
-                }
-            }
-            if ($isExcluded) {
-                continue
-            }
+        # Let Git write path bytes directly into an archive so Windows PowerShell
+        # never has to decode tracked file names containing Chinese characters.
+        Invoke-Git archive --format=zip "--output=$sourceArchive" HEAD | Out-Null
+        Expand-Archive -LiteralPath $sourceArchive -DestinationPath $packageRoot -Force
 
-            $sourcePath = Join-Path $RepositoryRoot $relativePath
-            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
-                throw "Tracked file is missing: $relativePath"
+        foreach ($prefix in $excludedPrefixes) {
+            $relativeDirectory = $prefix.TrimEnd("/").Replace("/", "\")
+            $excludedPath = Join-Path $packageRoot $relativeDirectory
+            if (Test-Path -LiteralPath $excludedPath) {
+                Remove-Item -LiteralPath $excludedPath -Recurse -Force
             }
-
-            $destinationPath = Join-Path $packageRoot $relativePath
-            $destinationDirectory = Split-Path -Parent $destinationPath
-            New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
-            Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
+        }
+        foreach ($relativeFile in $excludedFiles) {
+            $excludedPath = Join-Path $packageRoot $relativeFile
+            if (Test-Path -LiteralPath $excludedPath) {
+                Remove-Item -LiteralPath $excludedPath -Force
+            }
         }
 
         if (Test-Path -LiteralPath $ArchivePath) {
