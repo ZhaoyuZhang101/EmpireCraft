@@ -825,10 +825,94 @@ public static class KingdomExtension
         Random random = new Random();
         var possibility = random.NextDouble();
         if (core.GetMoney() <= 0) return;
-        if (k.countTotalWarriors() > empire.countWarriors()) return;
+        if (!empire.CanStartPunitiveWar(k)) return;
         if (!(possibility < 0.2f)) return;
         var war = DiplomacyHelpers.wars.newWar(core, k, WarTypeLibrary.normal);
-        war.SetEmpireWarType(EmpireWarType.伐不臣);
+        war?.SetEmpireWarType(EmpireWarType.伐不臣);
+    }
+
+    public static bool CanStartPunitiveWar(this Empire empire, Kingdom target, float minimumAdvantage = 1.2f)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (empire == null || empire.isRekt() || empire.IsArchived() || core?.data == null ||
+            core.isRekt() || target?.data == null || target.isRekt() || core == target)
+        {
+            return false;
+        }
+
+        if (target.IsInEmpire() && target.GetEmpire() == empire) return false;
+        if (HasAnyActiveEmpireWar(empire) || HasAnyActiveDefenderWar(target, empire))
+        {
+            return false;
+        }
+
+        long attackerStrength = CountCurrentEmpireWarriors(empire);
+        long defenderStrength = CountEffectiveDefenderWarriors(target, empire);
+        if (attackerStrength <= 0 || defenderStrength <= 0) return false;
+        return attackerStrength >= Math.Ceiling(defenderStrength * Math.Max(1f, minimumAdvantage));
+    }
+
+    private static bool HasAnyActiveEmpireWar(Empire empire)
+    {
+        if (World.world?.wars == null || empire?.kingdoms_list == null) return true;
+        for (int i = 0; i < empire.kingdoms_list.Count; i++)
+        {
+            Kingdom member = empire.kingdoms_list[i];
+            if (member?.data != null && !member.isRekt() && World.world.wars.hasWars(member)) return true;
+        }
+        return false;
+    }
+
+    private static long CountCurrentEmpireWarriors(Empire empire)
+    {
+        long total = 0;
+        if (empire?.kingdoms_list == null) return total;
+        for (int i = 0; i < empire.kingdoms_list.Count; i++)
+        {
+            Kingdom member = empire.kingdoms_list[i];
+            if (member?.data == null || member.isRekt()) continue;
+            total += Math.Max(0, member.countTotalWarriors());
+        }
+        return total;
+    }
+
+    private static long CountEffectiveDefenderWarriors(Kingdom target, Empire attackingEmpire)
+    {
+        long strength = Math.Max(0, target.countTotalWarriors());
+        if (target.hasAlliance())
+        {
+            Alliance alliance = target.getAlliance();
+            if (alliance != null) strength = Math.Max(strength, alliance.countWarriors());
+        }
+
+        if (target.IsInEmpire())
+        {
+            Empire targetEmpire = target.GetEmpire();
+            if (targetEmpire != null && targetEmpire != attackingEmpire && !targetEmpire.isRekt() && !targetEmpire.IsArchived())
+            {
+                strength = Math.Max(strength, CountCurrentEmpireWarriors(targetEmpire));
+            }
+        }
+
+        return strength;
+    }
+
+    private static bool HasAnyActiveDefenderWar(Kingdom target, Empire attackingEmpire)
+    {
+        if (World.world?.wars == null || target == null) return true;
+        if (World.world.wars.hasWars(target)) return true;
+        if (target.hasAlliance())
+        {
+            Alliance alliance = target.getAlliance();
+            if (alliance != null && World.world.wars.hasWars(alliance)) return true;
+        }
+
+        if (target.IsInEmpire())
+        {
+            Empire targetEmpire = target.GetEmpire();
+            if (targetEmpire != null && targetEmpire != attackingEmpire && HasAnyActiveEmpireWar(targetEmpire)) return true;
+        }
+        return false;
     }
     /// <summary>
     /// 获取当前国家退出朝贡联盟的倾向
@@ -1640,13 +1724,16 @@ public static class KingdomExtension
 
     public static string GetKingdomName(this Kingdom kingdom)
     {
-        if (kingdom == null) return null;
-        if (string.IsNullOrWhiteSpace(kingdom.name))
+        // CoreSystemObject.name dereferences data directly, but disposed kingdoms keep a
+        // non-null object reference after their data has been cleared.
+        if (kingdom?.data == null) return "";
+        string fullName = kingdom.data.name;
+        if (string.IsNullOrWhiteSpace(fullName))
         {
             return GetKingdomFrontFallback(kingdom);
         }
 
-        string[] nameParts = kingdom.name.Split('\u200A');
+        string[] nameParts = fullName.Split('\u200A');
         string result;
         if (nameParts.Length <= 2)
         {
@@ -1662,6 +1749,9 @@ public static class KingdomExtension
             return GetKingdomFrontFallback(kingdom);
         }
 
+        // Extra data is removed before the original kingdom Dispose completes. Do not
+        // recreate it merely to format a dead kingdom's final office-history entry.
+        if (kingdom.isRekt()) return result;
         var suffix = LM.Get(kingdom.GetKingdomType().ToString());
         if (!string.IsNullOrWhiteSpace(suffix) && string.Equals(result, suffix, StringComparison.Ordinal))
         {
@@ -1671,8 +1761,17 @@ public static class KingdomExtension
         return result;
     }
 
+    public static string GetKingdomFullName(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        return string.IsNullOrWhiteSpace(kingdom.data.name)
+            ? kingdom.GetKingdomName()
+            : kingdom.data.name.Trim();
+    }
+
     private static string GetKingdomFrontFallback(Kingdom kingdom)
     {
+        if (kingdom?.data == null) return "";
         var title = kingdom.GetMainTitle();
         if (!string.IsNullOrWhiteSpace(title?.data?.name))
         {
@@ -1694,7 +1793,7 @@ public static class KingdomExtension
             }
         }
 
-        return kingdom.name ?? "";
+        return kingdom.data.name ?? "";
     }
 
     public static bool IsInSameEmpire(this Kingdom kingdom, Kingdom pKingdomTaget)

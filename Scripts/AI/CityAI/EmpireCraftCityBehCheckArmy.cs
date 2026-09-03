@@ -123,6 +123,7 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
     }
     private static void InitOrUpdateArmyOffice(Kingdom kingdom, Army army)
     {
+        if (kingdom?.data == null || kingdom.isRekt() || army == null) return;
         if (kingdom.GetRegime()==null) return;
         var regime = kingdom.GetRegime();
         var setting = SelectArmySetting(kingdom, regime, army);

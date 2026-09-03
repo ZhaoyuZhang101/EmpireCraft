@@ -1772,9 +1772,10 @@ public static class CityExtension
 
     public static string GetCityName(this City city)
     {
-        if (city == null) return null;
-        if (string.IsNullOrEmpty(city.name)) return null;
-        string[] nameParts = city.name.Split('\u200A');
+        if (city?.data == null) return null;
+        string fullName = city.data.name;
+        if (string.IsNullOrEmpty(fullName)) return null;
+        string[] nameParts = fullName.Split('\u200A');
         string result = null;
 
         if (ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out var culture))

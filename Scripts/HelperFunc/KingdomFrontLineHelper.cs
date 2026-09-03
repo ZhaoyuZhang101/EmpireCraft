@@ -18,7 +18,7 @@ public static class KingdomFrontLineHelper
 
     private static void EnsureFrameCache()
     {
-        int frame = Time.frameCount;
+        int frame = HighPopulationPerformance.GetFrontLineCacheKey();
         if (_cacheFrame == frame)
         {
             return;

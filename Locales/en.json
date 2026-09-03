@@ -300,7 +300,10 @@
     "minister_try_aqcuire_empire_log": "$title$ $minister$ attempted to seize the Mandate of $empire_name$",
     "minister_aqcuire_empire_log": "$title$ $minister$ successfully seized the Mandate and set the state name to $new_empire_name$",
     "emperor_posthumous_name": "$actor$ posthumously honored the former emperor $actor2$",
-    "empire_powerful_minister_aquire_title": "Powerful minister $minister$ demanded a fief from the Son of Heaven of $empire$, styled $title$",
+    "empire_powerful_minister_aquire_title": "$minister$ was enfeoffed as $title$, receiving the privileges of court attendance and bearing arms before the throne.",
+    "powerful_minister_controls_court_log": "In $empire$, $minister$ dominated the court and reduced $emperor$ to a puppet.",
+    "powerful_minister_nine_bestowments_log": "$minister$ received the Nine Bestowments from $empire$ and was elevated to $title$.",
+    "powerful_minister_usurpation_log": "$minister$ seized the Mandate of $old_empire$ and founded $new_empire$.",
     "king_take_title_log": "$kingdom$ $king$ obtained the De Jure of $title_name$",
     "kingdom_change_main_title_log": "$kingdom$ changed its main title to $new_title$",
     "title_been_controlled": "Countries controlling the current De Jure",
@@ -432,6 +435,8 @@
     "plot_minister_acquire_empire_info_base": "Powerful Minister Gains Mandate",
     "plot_minister_acquire_title": "Powerful Minister Seeks Fief",
     "plot_minister_acquire_title_info_base": "Powerful Minister Seeks Fief",
+    "plot_minister_receive_nine_bestowments": "Receive the Nine Bestowments",
+    "plot_minister_receive_nine_bestowments_info_base": "Receive the Nine Bestowments and advance from duke to king",
     "plot_empire_enfeoff": "Imperial Enfeoffment",
     "plot_province_change_to_kingdom": "Province → Jiedushi",
     "plot_province_change_to_kingdom_info_base": "Province becomes a Jiedushi (Military Governorship)",
@@ -536,8 +541,8 @@
     "empirecraft_law_ban_empire_description": "When enabled, empires will not be created automatically in the game",
     "world_law_civ_limit_population_100_title": "One Hundred People",
     "world_law_civ_limit_population_100_description": "Limit maximum town population to 100",
-    "empirecraft_law_simplify_nameplates_title": "Simplify Nameplates",
-    "empirecraft_law_simplify_nameplates_description": "When enabled, empire nameplates use a simplified gold-bordered style",
+    "empirecraft_law_simplify_nameplates_title": "Simplify Kingdom and Empire Labels",
+    "empirecraft_law_simplify_nameplates_description": "Replaces kingdom and empire nameplates with territory-fitted text: gold for empires and white for kingdoms.",
     "empirecraft_law_prevent_building_destroy_title": "Prevent Building Destruction",
     "empirecraft_law_prevent_building_destroy_description": "When enabled, buildings will not take any damage",
     "empirecraft_law_allow_harem_title": "Allow Harem System",
@@ -899,6 +904,7 @@
   ,"label_all_claims":"All Claims"
   ,"label_budget":"Budget"
   ,"label_tributary_target":"Tributary Target"
+  ,"territory_label_tributary_suffix":"(tributary to {0})"
   ,"label_no_faction_influence":"No Faction Influence"
   ,"label_governor_influence":"Governor Influence"
   ,"label_brutality":"Brutality"
@@ -916,10 +922,17 @@
   ,"empire_bureau_offices":"Bureau", "empire_bureau_offices_description":"Return to the cabinet, central departments, and provincial offices."
   ,"specific_clan_relations":"Relations", "specific_clan_relations_description":"Return to the selected person's family relations.", "specific_clan_history":"Personal History", "specific_clan_history_description":"View life events recorded for the selected person in the genealogy.", "personal_history_empty":"No personal history has been recorded.", "personal_history_peerage_granted":"Invested by {0} as {1}.", "personal_history_peerage_inherited":"Inherited {0} from {1}."
   ,"personal_history_office_started":"Appointed as {0}.", "personal_history_office_reappointed":"Reappointed as {0}.", "personal_history_office_left":"Left office as {0}.", "personal_history_became_king":"Became king of {0}.", "personal_history_became_emperor":"Ascended as emperor of {0}.", "personal_history_left_king":"Ceased to rule {0}.", "personal_history_died":"Died.", "personal_history_new_year_name":"Proclaimed the era name \"{0}\".", "personal_history_born":"Was born.", "personal_history_child_born":"Welcomed child {0}.", "personal_history_married":"Married {0}.", "personal_history_took_concubine":"Took {0} as a concubine.", "personal_history_became_concubine":"Became {0}'s concubine.", "personal_history_exam_city_attended":"Sat the local examination.", "personal_history_exam_city_passed":"Passed the local examination and became a Juren.", "personal_history_exam_province_attended":"Sat the provincial examination.", "personal_history_exam_province_passed":"Passed the provincial examination and became a Gongshi.", "personal_history_exam_empire_attended":"Sat the palace examination.", "personal_history_exam_empire_passed":"Passed the palace examination and became a Jinshi.", "personal_history_joined_cabinet":"Joined the cabinet.", "personal_history_became_cabinet_leader":"Became the chief minister.", "personal_history_became_elector":"Became an elector.", "personal_history_became_chief_elector":"Became the chief elector.", "personal_history_joined_faction":"Joined the {0} faction.", "personal_history_became_faction_leader":"Became leader of the {0} faction."
+  ,"powerful_minister_title":"Powerful Minister", "powerful_minister_status_progress":"Power {0}/100", "powerful_minister_status_regent":"Regent {0}/100", "powerful_minister_status_dominant":"Dominates Court", "powerful_minister_status_duke":"Duke", "powerful_minister_status_king":"King", "powerful_minister_status_puppet":"Puppet"
+  ,"history_powerful_minister_controls_court":"{0} dominated the court; Emperor {1} became a puppet.", "history_powerful_minister_duke":"{0} was enfeoffed as {1} and granted exceptional court privileges.", "history_powerful_minister_nine_bestowments":"{0} received the Nine Bestowments and was elevated to {1}.", "history_powerful_minister_usurpation":"{0} usurped the throne and founded {1}."
+  ,"personal_history_powerful_minister_controls_court":"Dominated the court of {0}.", "personal_history_became_puppet":"Was controlled by {0} and became a puppet emperor.", "personal_history_powerful_minister_duke":"Was enfeoffed as {0} with exceptional court privileges.", "personal_history_powerful_minister_nine_bestowments":"Received the Nine Bestowments and advanced from duke to {0}.", "personal_history_deposed_by_powerful_minister":"Was deposed by the powerful minister {0}.", "personal_history_powerful_minister_usurpation":"Seized the Mandate of {0}, ascended the throne, and founded {1}."
   ,"tang_peerage_qinwang":"Prince of the First Rank", "tang_peerage_si_wang":"Heir Apparent Prince", "tang_peerage_junwang":"Commandery Prince", "tang_peerage_guogong":"Duke of the State", "tang_peerage_jungong":"Duke of the Commandery", "tang_peerage_xiangong":"Duke of the County", "tang_peerage_kaiguo_jungong":"Founding Duke of the Commandery", "tang_peerage_kaiguo_xiangong":"Founding Duke of the County", "tang_peerage_kaiguo_hou":"Founding Marquis", "tang_peerage_kaiguo_bo":"Founding Count", "tang_peerage_kaiguo_zi":"Founding Viscount", "tang_peerage_kaiguo_nan":"Founding Baron"
   ,"label_fief":"Fief"
   ,"label_vacant":"Vacant"
-  ,"label_honorary":"Honorary Peerage", "empire_legal_virtual_peerages":"Title-Based Peerages", "empire_honorary_virtual_peerages":"Honorary Peerages", "empire_history":"Imperial History"
+  ,"label_peerage_pending":"Peerage Pending"
+  ,"label_honorary":"Honorary Peerage", "empire_legal_virtual_peerages":"Title-Based Peerages", "empire_honorary_virtual_peerages":"Honorary Peerages", "empire_history":"Imperial History", "empire_list_current":"Current Empires", "empire_list_archived":"Fallen Empires", "empire_list_culture_unknown":"Unknown Culture"
   ,"tang_honorary_anle_gong":"Duke of Anle", "tang_honorary_zhongyi_hou":"Marquis of Loyalty", "tang_honorary_wenan_gong":"Duke of Wen'an", "tang_honorary_longxi_gong":"Duke of Longxi", "tang_honorary_wujun_hou":"Marquis of Martial Eminence", "tang_honorary_zhongyong_hou":"Marquis of Loyal Valor", "tang_honorary_huaide_hou":"Marquis of Cherished Virtue"
   ,"specific_clan_related_history":"Related History", "specific_clan_related_history_description":"View events in other characters' histories that involve this person.", "related_history_empty":"No history records are associated with this person.", "related_history_owner":"Related person", "related_history_event":"Related: {0}", "related_history_owner_unknown":"Unknown person"
+  ,"performance_high_population_toggle":"High Population Performance Mode", "performance_high_population_toggle Description":"At 5,000 units, off-screen civilian AI decisions and actions are frame-sliced; at 20,000 units, ordinary civilian AI decisions and actions run once every 8 simulation ticks and front-line caches are reused for up to 4 frames. Military, rulers, city leaders, favorited, and followed actors remain real-time."
+  ,"performance_hidden_visuals_toggle":"Hidden Actor Animation Optimization", "performance_hidden_visuals_toggle Description":"Skips off-screen actor flip, rotation, jump, and scale animations without affecting movement or simulation."
+  ,"performance_nameplate_overlap_toggle":"Nameplate Overlap Optimization", "performance_nameplate_overlap_toggle Description":"Skips nameplate overlap sorting and pairwise collision checks. Labels may overlap, but map UI load is reduced."
 }

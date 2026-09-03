@@ -99,7 +99,6 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         virtualPeeragesSpace.AddChild(legalHeading.gameObject);
         virtualPeeragesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         Regime regime = _empire.CoreKingdom.GetRegime();
-        List<string> peerages = regime.virtual_peerage_names ?? new List<string>();
         EmpireCore core = EmpireCoreManager.Get(_empire);
         List<KingdomTitle> titles = EmpireCoreManager.GetTitles(core)
             .Where(t => t != null && !t.isRekt() && !string.Equals(t.data.name, _empire.GetEmpireName(), StringComparison.Ordinal))
@@ -112,13 +111,12 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
             .Where(a => a != null && !a.isRekt() && a.HasHonoraryPeerage(_empire))
             .ToList();
 
-        // 法理先生成固定席位；无受封者时仍显示对应的可授封号。
-        for (int index = 0; index < titles.Count; index++)
+        // 法理只生成封地席位；王或国公在实际授予时才确定。
+        foreach (KingdomTitle title in titles)
         {
-            KingdomTitle title = titles[index];
             Actor holder = holders.FirstOrDefault(a => a.GetOrCreate().virtual_enfeoff_title_id == title.id);
-            string peerage = peerages.Count == 0 ? "" : peerages[index % peerages.Count];
-            SetVirtualPeerageView(holder, title, peerage, false, ref virtualPeeragesGroup);
+            string peerageKey = holder?.GetOrCreate().virtual_enfeoff_peerage_key ?? "";
+            SetVirtualPeerageView(holder, title, peerageKey, false, ref virtualPeeragesGroup);
         }
         virtualPeeragesSpace.AddChild(virtualPeeragesGroup.gameObject);
 
@@ -137,11 +135,16 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
     private void SetVirtualPeerageView(Actor actor, KingdomTitle title, string peerageKey, bool honorary, ref AutoGridLayoutGroup parent)
     {
-        string peerage = LM.Get(peerageKey);
         string fief = title?.data?.name ?? actor?.city?.GetCityName() ?? LM.Get("label_none");
         bool isVacant = actor == null;
+        if (!honorary && !isVacant && string.IsNullOrWhiteSpace(peerageKey))
+        {
+            actor.GetPeerageDisplayName();
+            peerageKey = actor.GetOrCreate().virtual_enfeoff_peerage_key;
+        }
+        string peerage = !honorary && isVacant ? LM.Get("label_peerage_pending") : LM.Get(peerageKey);
         string displayName = isVacant
-            ? $"{peerage} ({LM.Get("label_vacant")})"
+            ? honorary ? $"{peerage} ({LM.Get("label_vacant")})" : $"{fief} ({LM.Get("label_peerage_pending")})"
             : honorary ? peerage : FormatVirtualPeerageName(fief, peerage);
         var card = this.BeginHoriGroup(pSpacing: -10, pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(100, 70));
         var avatar = this.BeginVertGroup(pSpacing: -3, pAlignment: TextAnchor.MiddleCenter);

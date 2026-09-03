@@ -370,8 +370,8 @@
     "title_holder": "法理持有者",
     "empirecraft_law_prevent_city_destroy_title": "防止城市摧毁开关",
     "empirecraft_law_prevent_city_destroy_description": "开启后，当城市人口小于1时，国家会主动向城市通过军队的形式转入人口",
-    "empirecraft_law_simplify_nameplates_title": "简化铭牌",
-    "empirecraft_law_simplify_nameplates_description": "开启后帝国铭牌会呈现出金色边框且数据简化的形态",
+    "empirecraft_law_simplify_nameplates_title": "简化王国与帝国铭牌",
+    "empirecraft_law_simplify_nameplates_description": "开启后，王国与帝国铭牌改为贴合国土的纯文字；帝国为金色，王国为白色。",
     "title_capital": "法理首都",
     "EmpireListWindow": "帝国列表",
     "emperor_suffix": "帝",
@@ -397,7 +397,10 @@
     "minister_try_aqcuire_empire_log": "$title$ $minister$妄图夺取$empire_name$的天命",
     "minister_aqcuire_empire_log": "$title$ $minister$成功夺取天命, 定国号$new_empire_name$",
     "emperor_posthumous_name": "$actor$ 追封了先帝 $actor2$",
-    "empire_powerful_minister_aquire_title": "权臣 $minister$ 向 $empire$ 天子索取封号，称 $title$",
+    "empire_powerful_minister_aquire_title": "$minister$ 受封 $title$，入朝不趋，赞拜不名，剑履上殿。",
+    "powerful_minister_controls_court_log": "$empire$ 权臣 $minister$ 权倾朝野，$emperor$ 沦为傀儡。",
+    "powerful_minister_nine_bestowments_log": "$minister$ 受 $empire$ 加九锡，进爵 $title$。",
+    "powerful_minister_usurpation_log": "$minister$ 篡夺 $old_empire$ 天命，定国号 $new_empire$。",
     "king_take_title_log": "$kingdom$ $king$ 获得了 $title_name$ 的法理",
     "kingdom_change_main_title_log": "$kingdom$ 将主法理 变更为 $new_title$",
     "title_been_controlled": "当前控制法理的国家",
@@ -572,6 +575,8 @@
     "plot_minister_acquire_empire_info_base": "权臣获取天命",
     "plot_minister_acquire_title": "权臣试图索取封号",
     "plot_minister_acquire_title_info_base": "权臣试图索取封号",
+    "plot_minister_receive_nine_bestowments": "权臣加九锡",
+    "plot_minister_receive_nine_bestowments_info_base": "受九锡并由国公进爵为王",
     "plot_empirecraft_war": "开战",
     "plot_empirecraft_war_info_base": "开战",
     "plot_empire_enfeoff": "帝国分封",
@@ -902,6 +907,7 @@
     ,"label_all_claims":"全部诉求"
     ,"label_budget":"预算"
     ,"label_tributary_target":"朝贡对象"
+    ,"territory_label_tributary_suffix":"（朝贡于{0}）"
     ,"label_no_faction_influence":"无派系影响"
     ,"label_governor_influence":"长官影响力"
     ,"label_brutality":"暴虐值"
@@ -919,10 +925,17 @@
     ,"empire_bureau_offices":"官僚机构", "empire_bureau_offices_description":"返回内阁、中央部门与地方官员页面。"
     ,"specific_clan_relations":"亲属关系", "specific_clan_relations_description":"返回当前人物的亲属关系页面。", "specific_clan_history":"个人历史", "specific_clan_history_description":"查看当前人物记录在族谱中的生平事件。", "personal_history_empty":"暂无个人历史记录", "personal_history_peerage_granted":"受{0}册封，获授{1}。", "personal_history_peerage_inherited":"承袭{0}，前任为{1}。"
     ,"personal_history_office_started":"就任{0}。", "personal_history_office_reappointed":"仍领{0}之职。", "personal_history_office_left":"离任{0}。", "personal_history_became_king":"成为{0}的国王。", "personal_history_became_emperor":"登基为{0}皇帝。", "personal_history_left_king":"不再担任{0}的国王。", "personal_history_died":"逝世。", "personal_history_new_year_name":"颁布年号“{0}”。", "personal_history_born":"出生。", "personal_history_child_born":"诞下子嗣{0}。", "personal_history_married":"与{0}结为夫妻。", "personal_history_took_concubine":"纳{0}为妾。", "personal_history_became_concubine":"成为{0}的妾室。", "personal_history_exam_city_attended":"赴乡试。", "personal_history_exam_city_passed":"乡试中举，获举人。", "personal_history_exam_province_attended":"赴会试。", "personal_history_exam_province_passed":"会试登第，获贡士。", "personal_history_exam_empire_attended":"赴殿试。", "personal_history_exam_empire_passed":"殿试及第，获进士。", "personal_history_joined_cabinet":"入阁。", "personal_history_became_cabinet_leader":"拜内阁首辅。", "personal_history_became_elector":"列名选帝侯。", "personal_history_became_chief_elector":"成为首席选帝侯。", "personal_history_joined_faction":"加入{0}。", "personal_history_became_faction_leader":"执掌{0}。"
+    ,"powerful_minister_title":"权臣", "powerful_minister_status_progress":"权势 {0}/100", "powerful_minister_status_regent":"辅政 {0}/100", "powerful_minister_status_dominant":"权倾朝野", "powerful_minister_status_duke":"国公", "powerful_minister_status_king":"王", "powerful_minister_status_puppet":"傀儡"
+    ,"history_powerful_minister_controls_court":"{0}权倾朝野，皇帝{1}沦为傀儡。", "history_powerful_minister_duke":"{0}受封{1}，入朝不趋，赞拜不名，剑履上殿。", "history_powerful_minister_nine_bestowments":"{0}受加九锡，进爵{1}。", "history_powerful_minister_usurpation":"{0}篡位称帝，定国号{1}。"
+    ,"personal_history_powerful_minister_controls_court":"在{0}权倾朝野。", "personal_history_became_puppet":"受{0}控制，沦为傀儡皇帝。", "personal_history_powerful_minister_duke":"受封{0}，获入朝不趋、赞拜不名、剑履上殿之权。", "personal_history_powerful_minister_nine_bestowments":"受加九锡，由国公进爵为{0}。", "personal_history_deposed_by_powerful_minister":"被权臣{0}篡位废黜。", "personal_history_powerful_minister_usurpation":"篡夺{0}天命，称帝并定国号{1}。"
     ,"tang_peerage_qinwang":"亲王", "tang_peerage_si_wang":"嗣王", "tang_peerage_junwang":"郡王", "tang_peerage_guogong":"国公", "tang_peerage_jungong":"郡公", "tang_peerage_xiangong":"县公", "tang_peerage_kaiguo_jungong":"开国郡公", "tang_peerage_kaiguo_xiangong":"开国县公", "tang_peerage_kaiguo_hou":"开国侯", "tang_peerage_kaiguo_bo":"开国伯", "tang_peerage_kaiguo_zi":"开国子", "tang_peerage_kaiguo_nan":"开国男"
     ,"label_fief":"封地"
     ,"label_vacant":"待授"
-    ,"label_honorary":"恩赏封爵", "empire_legal_virtual_peerages":"法理封爵", "empire_honorary_virtual_peerages":"恩赏封爵", "empire_history":"帝国历史"
+    ,"label_peerage_pending":"爵位待定"
+    ,"label_honorary":"恩赏封爵", "empire_legal_virtual_peerages":"法理封爵", "empire_honorary_virtual_peerages":"恩赏封爵", "empire_history":"帝国历史", "empire_list_current":"现存帝国", "empire_list_archived":"已亡帝国", "empire_list_culture_unknown":"未知文化"
     ,"tang_honorary_anle_gong":"安乐公", "tang_honorary_zhongyi_hou":"忠义侯", "tang_honorary_wenan_gong":"文安公", "tang_honorary_longxi_gong":"陇西公", "tang_honorary_wujun_hou":"武俊侯", "tang_honorary_zhongyong_hou":"忠勇侯", "tang_honorary_huaide_hou":"怀德侯"
     ,"specific_clan_related_history":"关联历史", "specific_clan_related_history_description":"查看其他人物历史中与当前人物关联的事件。", "related_history_empty":"暂无与此人关联的历史记录", "related_history_owner":"关联者", "related_history_event":"关联：{0}", "related_history_owner_unknown":"未知人物"
+    ,"performance_high_population_toggle":"大人口性能模式", "performance_high_population_toggle Description":"人口达到5000后，对离屏且非军队市民的AI决策和行动进行分帧；达到20000后所有普通市民的AI决策和行动每8个模拟tick执行一次，前线缓存最多复用4帧。军队、国王、城主、关注和跟随角色仍实时更新。"
+    ,"performance_hidden_visuals_toggle":"隐藏角色动画优化", "performance_hidden_visuals_toggle Description":"跳过屏幕外角色的翻转、旋转、跳跃和缩放动画，不影响移动与模拟。"
+    ,"performance_nameplate_overlap_toggle":"名字牌重叠优化", "performance_nameplate_overlap_toggle Description":"跳过名字牌重叠排序和两两碰撞检测；名字牌可能重叠，但可降低地图UI负担。"
 }

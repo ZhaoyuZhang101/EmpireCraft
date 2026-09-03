@@ -197,113 +197,47 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.check_cursor_highlight = (MetaZoneHighlightAction) ((pMetaTypeAsset, pTile, pQAsset) =>
         {
           Color color = pQAsset.color;
-          City city11 = pTile.zone.city;
-          if (city11.isRekt())
-            return;
-          Kingdom kingdom11 = city11.kingdom;
-          if (kingdom11.isRekt()) return;
-          switch (pMetaTypeAsset.getZoneOptionState())
+          int zoneOption = pMetaTypeAsset.getZoneOptionState();
+          IMetaObject target = getEmpireLayerMetaObject(pTile?.zone, zoneOption);
+          if (target is Kingdom kingdom)
           {
-            case 0:
-              if (!kingdom11.IsInEmpire())
-                return;
-              foreach (City city12 in kingdom11.GetEmpire().AllCities())
-                QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
-              break;
-            case 1:
-              Empire empire1 = null;
-              if (kingdom11.HasTakenAlliance())
-              {
-                empire1 = kingdom11.GetTakenAllianceEmpire();
-              } else if (kingdom11.IsInEmpire())
-              {
-                empire1 = kingdom11.GetEmpire();
-              }
-
-              List<City> cities = new List<City>();
-              if (empire1 != null)
-              {
-                cities = empire1.AllCities();
-                foreach (var kingdom in empire1.taken_Kingdoms)
-                {
-                  if (kingdom.isRekt()) continue;
-                  cities = cities.Union(kingdom.cities).ToList();
-                }
-              }
-              foreach (City city12 in cities)
-                QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
-              break;
-            case 2:
-              Empire empire2 = null;
-              if (kingdom11.HasGivenAlliance())
-              {
-                empire2 = kingdom11.GetGivenAllianceEmpire();
-              } else if (kingdom11.IsInEmpire())
-              {
-                if (kingdom11.GetEmpire().CoreKingdom.HasGivenAlliance())
-                {
-                  empire2 = kingdom11.GetEmpire().CoreKingdom.GetGivenAllianceEmpire();
-                }
-                else
-                {
-                  empire2 = kingdom11.GetEmpire();
-                }
-              }
-
-              List<City> cities2 = new List<City>();
-              if (empire2 != null)
-              {
-                cities2 = empire2.AllCities();
-                foreach (var kingdom in empire2.given_Kingdoms)
-                {
-                  cities2 = kingdom.IsInEmpire() ? cities2.Union(kingdom.GetEmpire().getCities()).ToList() : cities2.Union(kingdom.cities).ToList();
-                }
-              }
-              foreach (City city12 in cities2)
-                QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
-              break;
+            highlightKingdomZones(kingdom, pQAsset, color);
+            return;
           }
-
+          if (target is Empire targetEmpire)
+            highlightEmpireZones(targetEmpire, zoneOption, pQAsset, color);
         });
         pAsset13.tile_get_metaobject = (MetaZoneGetMeta) ((pZone, pZoneOption) =>
         {
-          Kingdom kingdomOnZone = pZone.city?.kingdom;
-          if (kingdomOnZone==null)
-            return null;
-          if (kingdomOnZone.IsInEmpire()) return kingdomOnZone.GetEmpire();
-          if (kingdomOnZone.HasTakenAlliance()) return kingdomOnZone.GetTakenAllianceEmpire();
-          return null;
+          return getEmpireLayerMetaObject(pZone, pZoneOption);
         });
-        pAsset13.tile_get_metaobject_0 = (MetaZoneGetMetaSimple) (pZone =>
-        {
-          Kingdom kingdom = pZone?.city?.kingdom;
-          if (kingdom == null) return null;
-          if (kingdom.IsInEmpire()) return kingdom.GetEmpire();
-          if (kingdom.HasTakenAlliance()) return kingdom.GetTakenAllianceEmpire();
-          return null;
-        });
-        pAsset13.tile_get_metaobject_1 = (MetaZoneGetMetaSimple) (pZone => ZoneMetaDataVisualizer.getZoneMetaData(pZone).meta_object);
-        pAsset13.tile_get_metaobject_2 = (MetaZoneGetMetaSimple) (pZone => ZoneMetaDataVisualizer.getZoneMetaData(pZone).meta_object);
+        pAsset13.tile_get_metaobject_0 = (MetaZoneGetMetaSimple) (pZone => getEmpireLayerMetaObject(pZone, 0));
+        pAsset13.tile_get_metaobject_1 = (MetaZoneGetMetaSimple) (pZone => getEmpireLayerMetaObject(pZone, 1));
+        pAsset13.tile_get_metaobject_2 = (MetaZoneGetMetaSimple) (pZone => getEmpireLayerMetaObject(pZone, 2));
         pAsset13.check_tile_has_meta = (MetaZoneTooltipAction) ((pZone, pAsset, pZoneOption) =>
         {
           IMetaObject metaObject = pAsset.tile_get_metaobject(pZone, pZoneOption);
-          Empire m = metaObject as Empire;
-          if (m == null) return false;
-          return m.isRekt();
+          if (metaObject is Empire m) return !m.isRekt() && !m.IsArchived();
+          if (metaObject is Kingdom k) return !k.isRekt() && !k.isNeutral();
+          return false;
         });
         pAsset13.check_cursor_tooltip = new MetaZoneTooltipAction(checkCursorTooltipDefault);
         pAsset13.cursor_tooltip_action = (MetaTooltipShowAction) (pMeta =>
         {
-          Empire pEmpire = pMeta as Empire;
-          if (pEmpire.isRekt() || pEmpire.IsArchived())
+          if (pMeta is Kingdom pKingdom)
+          {
+            if (pKingdom.isRekt() || pKingdom.isNeutral()) return;
+            MetaType.Kingdom.getAsset().cursor_tooltip_action(pKingdom);
             return;
+          }
+          if (!(pMeta is Empire pEmpire) || pEmpire.isRekt() || pEmpire.IsArchived()) return;
           string str = "empire";
           Tooltip.hideTooltip((object) pEmpire, true, str);
           Tooltip.show((object) pEmpire, str, new TooltipData()
           {
-            kingdom = pEmpire.CoreKingdom,
-            tooltip_scale = 0.7f,
-            is_sim_tooltip = true
+              kingdom = pEmpire.CoreKingdom,
+              tooltip_scale = 0.7f,
+              is_sim_tooltip = true
           });
         });
         pAsset13.stat_hover = (MetaStatAction) ((pMetaId, pField) =>
@@ -572,17 +506,84 @@ public static class EmpireCraftMetaTypeLibrary
     }
     public static bool inspectEmpire(WorldTile pTile = null, string pPower = null)
     {
-      if (pTile == null)
-        return false;
-      if (!pTile.hasCity()) return false;
-      if (!pTile.zone_city.hasKingdom()) return false;
-      var kingdom = pTile.zone_city.kingdom;
-      Empire pEmpire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : kingdom.GetTakenAllianceEmpire();
-      if (pEmpire == null || pEmpire.isRekt() || pEmpire.IsArchived()) return false;
-      selected_empire = pEmpire;
-      SelectedMetas.selected_kingdom = selected_empire.CoreKingdom;
-      ScrollWindow.showWindow(nameof(EmpireWindow));
+      if (pTile?.zone == null) return false;
+      IMetaObject target = getEmpireLayerMetaObject(pTile.zone, empire.getZoneOptionState());
+      if (target is Kingdom kingdom)
+      {
+        if (kingdom.isRekt() || kingdom.isNeutral()) return false;
+        MetaType.Kingdom.getAsset().selectAndInspect(kingdom);
+        return true;
+      }
+      if (!(target is Empire pEmpire) || pEmpire.isRekt() || pEmpire.IsArchived()) return false;
+      pEmpire.SelectAndInspect();
       return true;
+    }
+
+    private static IMetaObject getEmpireLayerMetaObject(TileZone pZone, int pZoneOption)
+    {
+      Kingdom kingdom = pZone?.city?.kingdom;
+      if (kingdom == null || kingdom.isRekt() || kingdom.isNeutral()) return null;
+
+      if (pZoneOption == 0)
+      {
+        Empire memberEmpire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : null;
+        return memberEmpire != null && !memberEmpire.isRekt() && !memberEmpire.IsArchived()
+          ? memberEmpire
+          : kingdom;
+      }
+
+      Empire relatedEmpire = null;
+      if (pZoneOption == 1)
+      {
+        relatedEmpire = kingdom.HasTakenAlliance()
+          ? kingdom.GetTakenAllianceEmpire()
+          : kingdom.IsInEmpire() ? kingdom.GetEmpire() : null;
+      }
+      else if (pZoneOption == 2)
+      {
+        if (kingdom.HasGivenAlliance())
+        {
+          relatedEmpire = kingdom.GetGivenAllianceEmpire();
+        }
+        else if (kingdom.IsInEmpire())
+        {
+          Empire ownEmpire = kingdom.GetEmpire();
+          relatedEmpire = ownEmpire?.CoreKingdom?.HasGivenAlliance() == true
+            ? ownEmpire.CoreKingdom.GetGivenAllianceEmpire()
+            : ownEmpire;
+        }
+      }
+
+      return relatedEmpire != null && !relatedEmpire.isRekt() && !relatedEmpire.IsArchived()
+        ? relatedEmpire
+        : kingdom;
+    }
+
+    private static void highlightKingdomZones(Kingdom kingdom, QuantumSpriteAsset pQAsset, Color color)
+    {
+      if (kingdom?.cities == null) return;
+      foreach (City city in kingdom.cities)
+      {
+        if (city == null || city.isRekt()) continue;
+        QuantumSpriteLibrary.colorZones(pQAsset, city.zones, color);
+      }
+    }
+
+    private static void highlightEmpireZones(Empire empire, int pZoneOption, QuantumSpriteAsset pQAsset, Color color)
+    {
+      if (empire == null || empire.isRekt() || empire.IsArchived()) return;
+      foreach (City city in empire.AllCities())
+      {
+        if (city == null || city.isRekt()) continue;
+        QuantumSpriteLibrary.colorZones(pQAsset, city.zones, color);
+      }
+
+      List<Kingdom> associatedKingdoms = pZoneOption == 1
+        ? empire.taken_Kingdoms
+        : pZoneOption == 2 ? empire.given_Kingdoms : null;
+      if (associatedKingdoms == null) return;
+      foreach (Kingdom kingdom in associatedKingdoms)
+        highlightKingdomZones(kingdom, pQAsset, color);
     }
     public static bool inspectKingdomTitle(WorldTile pTile = null, string pPower = null)
     {

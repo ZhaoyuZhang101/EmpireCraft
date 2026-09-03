@@ -26,6 +26,12 @@ public class TempFac_分封 : TemporaryFaction
         Actor actor = GetActorTarget();
         Empire empire = GetEmpire();
         Regime empireRegime = empire.CoreKingdom.GetRegime();
+        if (empireRegime.enfeoff_virtual_only)
+        {
+            empire.TryGrantNextLegalPeerage(actor);
+            End();
+            return;
+        }
         EmpireCore empireCore = EmpireCoreManager.Get(empire);
         if (actor != null)
         {
@@ -35,22 +41,6 @@ public class TempFac_分封 : TemporaryFaction
                 KingdomTitle title = c.GetTitle();
                 if (empireCore != null && c.GetEmpireCore() == empireCore) continue;
                 if (title != null && string.Equals(title.data.name, empire.GetEmpireName(), StringComparison.Ordinal)) continue;
-
-                if (empireRegime.enfeoff_virtual_only)
-                {
-                    // 虚封只给名义封号和封地首府，不创建属国，也不移交法理。
-                    var data = actor.GetOrCreate();
-                    data.virtual_enfeoff = true;
-                    data.virtual_enfeoff_empire_id = empire.data.id;
-                    data.virtual_enfeoff_title_id = empireRegime.enfeoff_virtual_can_use_empire_titles
-                        ? title?.data.id ?? -1L
-                        : -1L;
-                    actor.SetPeeragesLevel(PeeragesLevel.peerages_1);
-                    actor.joinCity(c);
-                    actor.goTo(c._city_tile);
-                    empire.AddMandate(10);
-                    break;
-                }
 
                 var kingdom = c.makeOwnKingdom(actor);
                 kingdom.SetRegimeType(empireRegime.type);
@@ -77,6 +67,13 @@ public class TempFac_分封 : TemporaryFaction
         Empire empire = GetEmpire();
         if (empire == null || empire.CoreKingdom == null) return false;
         Regime regime = empire.CoreKingdom.GetRegime();
+        if (regime.enfeoff_virtual_only)
+        {
+            Actor candidate = empire.GetNextLegalPeerageCandidate();
+            if (candidate == null) return false;
+            SetActorTarget(candidate);
+            return true;
+        }
         if (empire.CoreKingdom.cities.Count>1)
         {
             List<Actor> actor = empire.Emperor?.getChildren()?.ToList().FindAll(c =>

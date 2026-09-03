@@ -37,6 +37,9 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static bool REAL_NUM_SWITCH = false;
     public static bool KINGDOM_TITLE_FREEZE = false;
     public static int TITLE_BEEN_DESTROY_TIME = 50;
+    public static bool PERFORMANCE_HIGH_POPULATION_MODE = true;
+    public static bool PERFORMANCE_SKIP_HIDDEN_VISUALS = true;
+    public static bool PERFORMANCE_SKIP_NAMEPLATE_OVERLAP = true;
     public static ModDeclare _declare;
     private GameObject _modObject;
     public static ModConfig modConfig;

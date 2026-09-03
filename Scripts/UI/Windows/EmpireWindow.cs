@@ -34,7 +34,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         protected override void Init()
         {
             layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 60, 3);
+            layout.padding = new RectOffset(3, 3, 70, 3);
             _empireNameInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
             _empireNameInput.Setup("", name_change);
         }
@@ -90,38 +90,64 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void InitialTopPartInfo()
         {
             //总容器
-            var topSpace = this.BeginHoriGroup();
-            topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 55));
+            var topSpace = this.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter,
+                pSize: new Vector2(196, 64), pPadding: new RectOffset(0, 6, 0, 0));
+            topSpace.transform.AddStretchBackground("clanFrame", new Vector2(208, 68));
             
             //左侧信息栏
-            var leftPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
-            leftPart.AddTextIntoVertLayout($"{LM.Get("empire_clan")}: {(_empire.EmpireSpecificClan?.name??""+ " " + LM.Get("Clan")).ColorString(_empire.EmpireSpecificClan?.color??"#FFFFFF")}");
-            leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count??0)}");
-            leftPart.AddTextIntoVertLayout($"{LM.Get("i_population")}: {_empire.CountPopulation()}/{_empire.countMaxPopulation()}");
-            
-            var leftPart2 = topSpace.BeginVertGroup(pAlignment:TextAnchor.LowerCenter, pPadding: new RectOffset(0,0,6,0));
-            leftPart2.AddTextIntoVertLayout(LM.Get("empire_heir").ColorString(pColor:new Color(0.8f,0.0f,1f)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
-            leftPart2.AddActorViewIntoVertLayout(_empire.CoreKingdom.GetHeir());
+            var leftPart = topSpace.BeginVertGroup(new Vector2(50, 36), pSpacing: 0,
+                pAlignment:TextAnchor.MiddleCenter);
+            leftPart.AddTextIntoVertLayout($"{LM.Get("empire_clan")}: {(_empire.EmpireSpecificClan?.name??""+ " " + LM.Get("Clan")).ColorString(_empire.EmpireSpecificClan?.color??"#FFFFFF")}", size:new Vector2(50, 10));
+            leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count??0)}", size:new Vector2(50, 10));
+            leftPart.AddTextIntoVertLayout($"{LM.Get("i_population")}: {_empire.CountPopulation()}/{_empire.countMaxPopulation()}", size:new Vector2(50, 10));
+
+            // 人物区固定为 hori(继任者, vert(皇帝, 权臣), 皇后)。
+            var avatarRow = topSpace.BeginHoriGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleCenter,
+                pSize: new Vector2(92, 62));
+            avatarRow.AddActorViewIntoHoriLayout(_empire.CoreKingdom.GetHeir(),
+                description:LM.Get("empire_heir").ColorString(pColor:new Color(0.8f,0.0f,1f)));
             
             //中央信息栏
-            var centerPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.UpperCenter, pPadding: new RectOffset(0,0,0,4));
-            centerPart.AddTextIntoVertLayout(LM.Get(_empire.HasEmperor()?_empire.Emperor.isSexFemale()?"actor_emperor_G":"actor_emperor_B":"actor_emperor_B").ColorString(pColor:new Color(1,0.8f,0)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
-            centerPart.AddActorViewIntoVertLayout(_empire.Emperor);
+            var centerPart = avatarRow.BeginVertGroup(new Vector2(30, 60), pSpacing:0,
+                pAlignment:TextAnchor.MiddleCenter);
+            string emperorTitle = LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B")
+                .ColorString(pColor:new Color(1,0.8f,0));
+            if (_empire.data.is_been_controlled)
+            {
+                emperorTitle += "\n" + LM.Get("powerful_minister_status_puppet").ColorString(pColor:new Color(0.65f,0.75f,0.85f));
+            }
+            centerPart.AddActorViewIntoVertLayout(_empire.Emperor, description:emperorTitle);
+            Actor powerfulMinister = _empire.GetPowerfulMinister();
+            string powerfulMinisterDescription = LM.Get("powerful_minister_title")
+                .ColorString(pColor:new Color(1f,0.55f,0.1f));
+            string powerfulMinisterStatus = _empire.GetPowerfulMinisterStatusText();
+            if (!string.IsNullOrWhiteSpace(powerfulMinisterStatus))
+            {
+                powerfulMinisterDescription += "\n" +
+                    powerfulMinisterStatus.ColorString(pColor:new Color(0.1f,1f,0.8f));
+            }
+            centerPart.AddActorViewIntoVertLayout(powerfulMinister, description:powerfulMinisterDescription);
             
-            var rightPart2 = topSpace.BeginVertGroup(pAlignment:TextAnchor.LowerCenter, pPadding: new RectOffset(0,0,6,0));
-            rightPart2.AddTextIntoVertLayout(LM.Get(_empire.HasEmperor()?_empire.Emperor.hasLover()?_empire.Emperor.lover.isSexFemale()?"empire_lover_G":"empire_lover_B":"empire_lover_B":"empire_lover_B").ColorString(pColor:new Color(1f,0.1f,0.5f)),true, TextAnchor.MiddleCenter, size:new Vector2(15, 10));
-            rightPart2.AddActorViewIntoVertLayout(_empire.Emperor?.lover);
+            Actor lover = _empire.Emperor?.lover;
+            avatarRow.AddActorViewIntoHoriLayout(lover,
+                description:LM.Get(lover?.isSexFemale() == false ? "empire_lover_B" : "empire_lover_G")
+                    .ColorString(pColor:new Color(1f,0.1f,0.5f)));
             
             //右侧信息栏
-            var rightPart = topSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
+            var rightPart = topSpace.BeginVertGroup(new Vector2(50, 36), pSpacing: 0,
+                pAlignment:TextAnchor.MiddleCenter);
             rightPart.AddTextIntoVertLayout($"{LM.Get("official_students_num")}: " +
                                             $"{_empire.GetMembersWithTrait("jingshi").Count.ToString().ColorString("#E16A54")}/" +
                                             $"{_empire.GetMembersWithTrait("gongshi").Count.ToString().ColorString("#CB9DF0")}/" +
-                                            $"{_empire.GetMembersWithTrait("juren").Count.ToString()}".ColorString("#A2D2DF"));
-            rightPart.AddTextIntoVertLayout($"{_empire.GetYearNameWithTime().ColorString(pColor:_empire.getColor()._color_text)}");
-            rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.CoreKingdom.getAge()}");
+                                            $"{_empire.GetMembersWithTrait("juren").Count.ToString()}".ColorString("#A2D2DF"), size:new Vector2(50, 10));
+            rightPart.AddTextIntoVertLayout($"{_empire.GetYearNameWithTime().ColorString(pColor:_empire.getColor()._color_text)}", size:new Vector2(50, 10));
+            rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.CoreKingdom.getAge()}", size:new Vector2(50, 10));
             
             topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 1));
+            RectTransform topRect = topSpace.GetComponent<RectTransform>();
+            topRect.sizeDelta = new Vector2(196, 64);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(topRect);
+            _empireNameInput?.transform.SetAsLastSibling();
             
             AddIntoGroup("top_space", topSpace.gameObject);
         }
@@ -288,7 +314,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             base.OnFirstEnable();
             this.DORestart();
             layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 60, 3);
+            layout.padding = new RectOffset(3, 3, 70, 3);
             _empire = EmpireCraftMetaTypeLibrary.selected_empire;
             _empireNameInput.input.text = _empire.GetEmpireName();
             Clear();
@@ -300,7 +326,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             base.OnNormalEnable();
             layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 60, 3);
+            layout.padding = new RectOffset(3, 3, 70, 3);
             _empire = EmpireCraftMetaTypeLibrary.selected_empire;
             _empireNameInput.input.text = _empire.GetEmpireName();
             Clear();

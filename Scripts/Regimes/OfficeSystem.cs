@@ -96,22 +96,34 @@ public class OfficeObject
     
     public string GetName(NanoObject pNano = null)
     {
-        var flag = pre.Contains("_all");
-        var preX = string.IsNullOrEmpty(pre) ? pre : LM.Get(pre);
-        if (pNano is Army army && army._city != null)
+        string officePrefix = pre ?? "";
+        bool flag = officePrefix.Contains("_all");
+        string preX = string.IsNullOrEmpty(officePrefix) ? "" : LM.Get(officePrefix);
+        if (pNano is Army army && army._city?.data != null)
         {
-            preX = army._city.GetCityName();
+            string cityName = army._city.GetCityName();
+            if (!string.IsNullOrWhiteSpace(cityName)) preX = cityName;
         }
         else switch (pNano?.meta_type)
         {
             case MetaType.Kingdom:
-                preX = ((Kingdom)pNano).GetKingdomName();
+                Kingdom kingdom = (Kingdom)pNano;
+                if (kingdom.data != null)
+                {
+                    string kingdomName = kingdom.GetKingdomName();
+                    if (!string.IsNullOrWhiteSpace(kingdomName)) preX = kingdomName;
+                }
                 break;
             case MetaType.City:
-                preX = ((City)pNano).GetCityName();
+                City city = (City)pNano;
+                if (city.data != null)
+                {
+                    string cityName = city.GetCityName();
+                    if (!string.IsNullOrWhiteSpace(cityName)) preX = cityName;
+                }
                 break;
         }
-        var post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
+        string post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType)) ?? "";
         return flag? post: preX + post;
     }
     public void DetectPower(Empire empire)
@@ -151,19 +163,24 @@ public class OfficeObject
     }
     public string GetOfficeName(NanoObject pNano = null)
     {
-        var flag = pre.Contains("full")||pre.Contains("all");
+        string officePrefix = pre ?? "";
+        var flag = officePrefix.Contains("full")||officePrefix.Contains("all");
         var preX = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
-        if (flag) preX = LM.Get(pre);
+        if (flag) preX = LM.Get(officePrefix);
         switch (pNano?.meta_type)
         {
             case MetaType.Kingdom:
-                preX = ((Kingdom)pNano).name;
+                Kingdom kingdom = (Kingdom)pNano;
+                if (kingdom.data != null && !string.IsNullOrWhiteSpace(kingdom.data.name))
+                    preX = kingdom.data.name;
                 break;
             case MetaType.City:
-                preX = ((City)pNano).name;
+                City city = (City)pNano;
+                if (city.data != null && !string.IsNullOrWhiteSpace(city.data.name))
+                    preX = city.data.name;
                 break;
         }
-        return preX;
+        return preX ?? "";
     }
     public void InitialOffice(BureauSetting config, Action action = null, bool isNew = true)
     {

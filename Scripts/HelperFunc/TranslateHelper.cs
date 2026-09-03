@@ -77,14 +77,40 @@ namespace EmpireCraft.Scripts.HelperFunc
             {
                 color_special1 = minister.kingdom.getColor()._color_text,
                 color_special2 = empire.CoreKingdom.getColor()._color_text
-
             }.add();
-            empire.RecordHistory(EmpireHistoryType.powerful_minister_history, new Dictionary<string, string>()
+        }
+
+        public static void LogPowerfulMinisterControlsCourt(Actor minister, Empire empire)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.powerful_minister_controls_court_log,
+                minister.getName(), empire.Emperor?.getName() ?? "", empire.GetEmpireName())
             {
-                ["actor"] = minister.getName(),
-                ["empire"] = empire.GetEmpireName(),
-                ["title"] = title
-            });
+                color_special1 = minister.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text,
+                color_special3 = empire.getColor()._color_text
+            }.add();
+        }
+
+        public static void LogPowerfulMinisterNineBestowments(Actor minister, Empire empire, string title)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.powerful_minister_nine_bestowments_log,
+                minister.getName(), title, empire.GetEmpireName())
+            {
+                color_special1 = minister.getColor()._color_text,
+                color_special2 = minister.getColor()._color_text,
+                color_special3 = empire.getColor()._color_text
+            }.add();
+        }
+
+        public static void LogPowerfulMinisterUsurpation(Actor minister, Empire empire, string newEmpireName)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.powerful_minister_usurpation_log,
+                minister.getName(), empire.GetEmpireName(), newEmpireName)
+            {
+                color_special1 = minister.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text,
+                color_special3 = minister.getColor()._color_text
+            }.add();
         }
         public static void LogCreateTitle(Kingdom kingdom, KingdomTitle title)
         {

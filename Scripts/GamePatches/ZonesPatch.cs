@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GamePatches;
 using HarmonyLib;
@@ -7,12 +9,21 @@ namespace EmpireCraft.Scripts.GameClassExtensions;
 
 public class ZonesPatch:GamePatch
 {
+    // Prevent a malformed original-game zone from failing the same city every AI tick.
+    private static readonly HashSet<City> _invalidZoneClaimCities = new();
+
     public ModDeclare declare { get; set; }
     public void Initialize()
     {
         new Harmony(nameof(GetCurrentMapBorderMode)).Patch(
             AccessTools.Method(typeof(Zones), nameof(Zones.getCurrentMapBorderMode)),
             prefix: new HarmonyMethod(GetType(), nameof(GetCurrentMapBorderMode))
+        );
+
+        new Harmony(nameof(CanBeClaimedByCityPrefix)).Patch(
+            AccessTools.Method(typeof(TileZone), nameof(TileZone.canBeClaimedByCity)),
+            prefix: new HarmonyMethod(GetType(), nameof(CanBeClaimedByCityPrefix)),
+            finalizer: new HarmonyMethod(GetType(), nameof(CanBeClaimedByCityFinalizer))
         );
     }
     
@@ -80,5 +91,26 @@ public class ZonesPatch:GamePatch
         }
         __result = MetaType.City;
         return false;
+    }
+
+    public static bool CanBeClaimedByCityPrefix(City pCity, ref bool __result)
+    {
+        if (pCity != null && !_invalidZoneClaimCities.Contains(pCity))
+            return true;
+
+        __result = false;
+        return false;
+    }
+
+    public static Exception CanBeClaimedByCityFinalizer(City pCity, Exception __exception, ref bool __result)
+    {
+        if (!(__exception is NullReferenceException))
+            return __exception;
+
+        if (pCity != null)
+            _invalidZoneClaimCities.Add(pCity);
+
+        __result = false;
+        return null;
     }
 }

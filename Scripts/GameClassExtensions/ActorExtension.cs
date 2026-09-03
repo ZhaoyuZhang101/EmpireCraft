@@ -326,6 +326,7 @@ public static class ActorExtension
         public bool virtual_enfeoff = false;
         public long virtual_enfeoff_title_id = -1L;
         public long virtual_enfeoff_empire_id = -1L;
+        public string virtual_enfeoff_peerage_key = "";
         public string honorary_peerage_key = "";
         public long honorary_peerage_empire_id = -1L;
         public string factionID = "";
@@ -1623,24 +1624,21 @@ public static class ActorExtension
         if (empire == null || offender == null || offender.isRekt()) return;
         Kingdom coreKingdom = empire.CoreKingdom;
         if (coreKingdom == null || coreKingdom.isRekt() || coreKingdom == offender) return;
+        if (!empire.CanStartPunitiveWar(offender)) return;
 
-        // Starting several wars in the same tick mutates diplomacy collections while
-        // they are being processed. Create one imperial war, then add each vassal.
-        War war = coreKingdom.isInWarWith(offender)
-            ? coreKingdom.getWars().FirstOrDefault(candidate => candidate != null && candidate.isAlive() && candidate.hasKingdom(offender))
-            : DiplomacyHelpers.wars.newWar(coreKingdom, offender, WarTypeLibrary.normal);
+        War war = DiplomacyHelpers.wars.newWar(coreKingdom, offender, WarTypeLibrary.normal);
         if (war == null) return;
         war.SetEmpireWarType(EmpireWarType.伐不臣);
 
-        List<Kingdom> defenders = empire.kingdoms_list?
+        List<Kingdom> imperialAttackers = empire.kingdoms_list?
             .Where(kingdom => kingdom != null)
             .ToList();
-        if (defenders == null) return;
+        if (imperialAttackers == null) return;
 
-        foreach (Kingdom defender in defenders)
+        foreach (Kingdom attacker in imperialAttackers)
         {
-            if (defender == null || defender.isRekt() || defender == coreKingdom || defender == offender || war.hasKingdom(defender)) continue;
-            war.joinDefenders(defender);
+            if (attacker == null || attacker.isRekt() || attacker == coreKingdom || attacker == offender || war.hasKingdom(attacker)) continue;
+            war.joinAttackers(attacker);
         }
     }
 
@@ -1750,11 +1748,24 @@ public static class ActorExtension
     public static string GetPeerageDisplayName(this Actor a)
     {
         if (a == null) return "";
-        string suffix = LM.Get("default_" + a.GetPeeragesLevel()) ?? "";
+        var data = GetOrCreate(a);
+        string peerageKey = data.virtual_enfeoff_peerage_key;
+        if (a.HasVirtualEnfeoff() && string.IsNullOrWhiteSpace(peerageKey))
+        {
+            Empire empire = ModClass.EMPIRE_MANAGER.get(data.virtual_enfeoff_empire_id);
+            peerageKey = a.GetSpecificClan() != null && a.GetSpecificClan() == empire?.EmpireSpecificClan
+                ? "default_peerages_2"
+                : "tang_peerage_guogong";
+            data.virtual_enfeoff_peerage_key = peerageKey;
+            a.SetPeeragesLevel(peerageKey == "default_peerages_2"
+                ? PeeragesLevel.peerages_2
+                : PeeragesLevel.peerages_3);
+        }
+        string suffix = LM.Get(string.IsNullOrWhiteSpace(peerageKey) ? "default_" + a.GetPeeragesLevel() : peerageKey) ?? "";
         string prefix = "";
         if (a.HasVirtualEnfeoff())
         {
-            long titleId = GetOrCreate(a).virtual_enfeoff_title_id;
+            long titleId = data.virtual_enfeoff_title_id;
             prefix = titleId > 0 ? ModClass.KINGDOM_TITLE_MANAGER.get(titleId)?.data?.name : null;
             prefix ??= a.city?.GetCityName() ?? "";
         }

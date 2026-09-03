@@ -255,6 +255,11 @@ public class ActorPatch : GamePatch
             {
                 list.Remove(__instance.getID());
             }
+            if (pEmpire.data.legal_peerage_holders?.ContainsValue(__instance.getID()) == true)
+            {
+                // Let the empire resolve this vacancy on its next update instead of waiting a full year.
+                pEmpire.data.last_legal_peerage_timestamp = -1L;
+            }
         }
 
         var faction = __instance.GetFaction();

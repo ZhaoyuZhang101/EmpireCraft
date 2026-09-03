@@ -10,12 +10,6 @@
         <DefineConstants>DEBUG;TRACE</DefineConstants>
     </PropertyGroup>
     <ItemGroup>
-      <Compile Include="Locales\Cultures\MiaoHaoPrefixes.csv" />
-      <Compile Include="Locales\Cultures\MiaoHaoSuffixes.csv" />
-      <Compile Include="Locales\Cultures\ShiHao.csv" />
-      <Compile Include="Locales\Cultures\YearName1.csv" />
-      <Compile Include="Locales\Cultures\YearName2.csv" />
-      <Compile Include="Locales\MeritLevel.csv" />
       <Compile Remove="Scripts\Layer\Province.cs" />
       <Compile Remove="Scripts\Layer\ProvinceData.cs" />
       <Compile Remove="Scripts\Layer\ProvinceManager.cs" />
@@ -32,7 +26,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="DoTween" Version="1.0.0" />
       <PackageReference Include="Lib.Harmony" Version="2.3.6" />
       <PackageReference Include="Microsoft.AspNet.SignalR.Core" Version="2.4.3" />
       <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />

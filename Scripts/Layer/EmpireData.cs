@@ -88,6 +88,18 @@ public class EmpireData : MetaObjectData
     public double last_educate_timestamp { get; set; } = -1L;
     public double last_honorary_peerage_timestamp { get; set; } = -1L;
     public Dictionary<string, long> honorary_peerage_holders { get; set; } = new Dictionary<string, long>();
+    public double last_legal_peerage_timestamp { get; set; } = -1L;
+    public Dictionary<long, long> legal_peerage_holders { get; set; } = new Dictionary<long, long>();
+    public Dictionary<long, long> legal_peerage_holder_identities { get; set; } = new Dictionary<long, long>();
+    public Dictionary<long, string> legal_peerage_types { get; set; } = new Dictionary<long, string>();
+    [DefaultValue(-1L)]
+    public long powerful_minister_id { get; set; } = -1L;
+    public int powerful_minister_progress { get; set; } = 0;
+    public int powerful_minister_stage { get; set; } = 0;
+    public bool powerful_minister_is_regent { get; set; } = false;
+    [DefaultValue(-1L)]
+    public long powerful_minister_title_id { get; set; } = -1L;
+    public double last_powerful_minister_timestamp { get; set; } = -1L;
 
     public bool archived { get; set; } = false;
     

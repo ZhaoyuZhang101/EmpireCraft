@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
@@ -9,6 +10,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using NeoModLoader.General;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI;
 using EmpireCraft.Scripts.UI.Components;
 using UnityEngine.UI;
@@ -79,10 +81,15 @@ namespace EmpireCraft.Scripts.UI.Windows
             bool expanded = object.ReferenceEquals(_expandedHistory, history);
             var card = parent.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(196, 34));
             Actor actor = history.id > 0 ? World.world.units.get(history.id) : null;
+            PersonalClanIdentity identity = FindHistoryIdentity(history.id);
+            bool isAlive = identity?.is_alive ?? (actor != null && actor.isAlive());
+            var avatarLayout = card.BeginVertGroup(new Vector2(28, 28), pSpacing: 0,
+                pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
             var avatar = UIHelper.CreateAvatarView(history.id, actor == null ? null : () => UIHelper.actorClick(actor),
-                pIsAlive: actor != null && actor.isAlive());
+                pIsAlive: isAlive);
             avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(28, 28);
-            card.AddChild(avatar.gameObject);
+            avatarLayout.AddChild(avatar.gameObject);
+            avatarLayout.transform.localPosition = Vector3.zero;
 
             var details = card.BeginVertGroup(new Vector2(146, 30), pSpacing: -2, pAlignment: TextAnchor.MiddleLeft,
                 pPadding: new RectOffset(0, 0, 1, 1));
@@ -99,6 +106,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 $"{LM.Get("year_name")}: {eraName.ColorString(pColor: new Color(1f, 0.78f, 0.2f))}  ·  {reignYears}{LM.Get("Year")}".ColorString(pColor: new Color(0.25f, 0.9f, 0.8f)),
                 true, TextAnchor.MiddleLeft, new Vector2(142, 12));
             reignText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            details.transform.localPosition = Vector3.zero;
             var stateText = card.AddTextIntoHoriLayout((expanded ? "−" : "+").ColorString(pColor: expanded
                     ? new Color(1f, 0.78f, 0.2f)
                     : new Color(0.65f, 0.82f, 1f)),
@@ -109,6 +117,16 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             if (!expanded) return;
             AddExpandedHistoryDetails(parent, history);
+        }
+
+        private static PersonalClanIdentity FindHistoryIdentity(long actorId)
+        {
+            if (actorId <= 0) return null;
+            foreach (PersonalClanIdentity identity in SpecificClanManager._globalPersonLookup.Values)
+            {
+                if (identity.actor_id == actorId) return identity;
+            }
+            return null;
         }
 
         private void AddHistoryCardClickLayer(AutoHoriLayoutGroup card, EmpireCraftHistory history)
@@ -130,10 +148,40 @@ namespace EmpireCraft.Scripts.UI.Windows
             overlayButton.transition = Selectable.Transition.None;
             overlayButton.onClick.AddListener(() =>
             {
-                _expandedHistory = object.ReferenceEquals(_expandedHistory, history) ? null : history;
-                ShowPersonalHistory();
+                ToggleExpandedHistory(history);
             });
             overlay.transform.SetAsLastSibling();
+        }
+
+        private void ToggleExpandedHistory(EmpireCraftHistory history)
+        {
+            RectTransform content = ScrollWindowComponent?.transform_content;
+            Vector3 previousScrollPosition = content == null ? Vector3.zero : content.localPosition;
+            bool restoreScrollPosition = content != null;
+
+            _expandedHistory = object.ReferenceEquals(_expandedHistory, history) ? null : history;
+            ShowPersonalHistory();
+
+            if (restoreScrollPosition)
+            {
+                StartCoroutine(RestoreScrollPosition(previousScrollPosition));
+            }
+        }
+
+        private IEnumerator RestoreScrollPosition(Vector3 position)
+        {
+            yield return CoroutineHelper.wait_for_next_frame;
+
+            ScrollWindow window = ScrollWindowComponent;
+            if (window?.transform_content == null)
+            {
+                yield break;
+            }
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(window.transform_content);
+            window.transform_content.localPosition = position;
+            window.scrollRect?.StopMovement();
         }
 
         private void AddExpandedHistoryDetails(AutoVertLayoutGroup parent, EmpireCraftHistory history)

@@ -18,6 +18,7 @@ using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
@@ -62,102 +63,181 @@ namespace EmpireCraft.Scripts.UI.Windows
                 ShowTop();
             }, size: new Vector2(60, 12));
             ListPool.Add(toolbar.gameObject);
-            var columnsRow = TopLayout.BeginHoriGroup(pSpacing: 8, pAlignment: TextAnchor.MiddleCenter);
-            var colLeft = columnsRow.BeginVertGroup(pSpacing: 6, pAlignment: TextAnchor.UpperCenter);
-            var colRight = columnsRow.BeginVertGroup(pSpacing: 6, pAlignment: TextAnchor.UpperCenter);
-            int idx = 0;
-            foreach (var empire in ModClass.EMPIRE_MANAGER)
+
+            var cultureGroups = new Dictionary<string, List<Empire>>();
+            foreach (Empire empire in ModClass.EMPIRE_MANAGER)
             {
-                try
+                if (empire == null || empire.data == null) continue;
+                string culture = GetEmpireCulture(empire);
+                if (!cultureGroups.TryGetValue(culture, out List<Empire> empires))
                 {
-                    var card = BuildEmpireCard(empire);
-                    if (idx % 2 == 0) colLeft.AddChild(card);
-                    else colRight.AddChild(card);
-                    idx++;
-                } 
-                catch 
-                {
-                    LogService.LogInfo("帝国列表生成失败");
+                    empires = new List<Empire>();
+                    cultureGroups[culture] = empires;
                 }
+                empires.Add(empire);
+            }
+
+            foreach (var cultureGroup in cultureGroups.OrderBy(group => GetCultureDisplayName(group.Key)))
+            {
+                AddCultureTimeline(cultureGroup.Key, cultureGroup.Value);
             }
         }
-        
-        private GameObject BuildEmpireCard(Empire empire)
+
+        private void AddCultureTimeline(string culture, List<Empire> empires)
         {
-            bool alive = !empire.IsArchived();
-            var card = TopLayout.BeginVertGroup(pSpacing: 4, pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(50, 80));
-            string name = empire.GetEmpireName() + (alive ? "" : "(已灭亡)");
-            card.AddTextIntoVertLayout(name, hideBackground: true, TextAnchor.MiddleCenter, new Vector2(90, 12));
-            Clan clan = null;
-            if (alive)
+            var section = TopLayout.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
+            ListPool.Add(section.gameObject);
+            string cultureName = GetCultureDisplayName(culture);
+            var title = section.AddTextIntoVertLayout(cultureName.ColorString(pColor: new Color(0.45f, 0.85f, 1f)), true,
+                TextAnchor.MiddleCenter, new Vector2(196, 16));
+            title.UseFixedFontSize(10, HorizontalWrapMode.Overflow);
+
+            List<Empire> aliveEmpires = empires.Where(empire => !empire.IsArchived())
+                .OrderBy(empire => empire.data.timestamp_established_time).ToList();
+            List<Empire> archivedEmpires = empires.Where(empire => empire.IsArchived())
+                .OrderBy(empire => empire.data.timestamp_established_time).ToList();
+            AddTimelineState(section, LM.Get("empire_list_current"), aliveEmpires, true);
+            AddTimelineState(section, LM.Get("empire_list_archived"), archivedEmpires, false);
+        }
+
+        private void AddTimelineState(AutoVertLayoutGroup parent, string stateName, List<Empire> empires, bool alive)
+        {
+            if (empires.Count == 0) return;
+            var stateText = parent.AddTextIntoVertLayout(stateName.ColorString(pColor: alive
+                    ? new Color(0.35f, 0.9f, 0.55f)
+                    : new Color(0.65f, 0.72f, 0.78f)),
+                true, TextAnchor.MiddleLeft, new Vector2(190, 11));
+            stateText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            foreach (Empire empire in empires)
             {
-                clan = empire.EmpireClan ?? empire.CoreKingdom?.getKingClan();
+                AddEmpireTimelineCard(parent, empire, alive);
             }
-            else
+        }
+
+        private void AddEmpireTimelineCard(AutoVertLayoutGroup parent, Empire empire, bool alive)
+        {
+            var card = parent.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(196, 36));
+            var timeColumn = this.BeginVertGroup(new Vector2(38, 32), pSpacing: -2, pAlignment: TextAnchor.MiddleCenter,
+                pPadding: new RectOffset(0, 0, 1, 1));
+            string foundedAt = empire.data.timestamp_established_time > 0
+                ? Date.getDate(empire.data.timestamp_established_time)
+                : "";
+            int yearEnd = foundedAt.IndexOf('年');
+            string foundedYear = yearEnd >= 0 ? foundedAt.Substring(0, yearEnd + 1) : foundedAt;
+            var foundedText = timeColumn.AddTextIntoVertLayout(foundedYear.ColorString(pColor: new Color(1f, 0.78f, 0.2f)), true,
+                TextAnchor.MiddleCenter, new Vector2(36, 16));
+            foundedText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            var stateText = timeColumn.AddTextIntoVertLayout((alive ? LM.Get("empire_list_current") : LM.Get("empire_list_archived")).ColorString(
+                pColor: alive ? new Color(0.35f, 0.9f, 0.55f) : new Color(0.65f, 0.72f, 0.78f)), true,
+                TextAnchor.MiddleCenter, new Vector2(36, 10));
+            stateText.UseFixedFontSize(5, HorizontalWrapMode.Overflow);
+            timeColumn.transform.localPosition = Vector3.zero;
+            card.AddChild(timeColumn.gameObject);
+
+            var details = this.BeginVertGroup(new Vector2(126, 32), pSpacing: -2, pAlignment: TextAnchor.MiddleLeft,
+                pPadding: new RectOffset(0, 0, 1, 1));
+            string name = empire.GetEmpireFullName();
+            var nameText = details.AddTextIntoVertLayout(name.ColorString(pColor: empire.getColor()._color_text), true,
+                TextAnchor.MiddleLeft, new Vector2(122, 16));
+            nameText.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+            int duration = alive && empire.data.timestamp_established_time > 0
+                ? Mathf.Max(1, Date.getYearsSince(empire.data.timestamp_established_time) + 1)
+                : GetEmpireRecordedDuration(empire);
+            var durationText = details.AddTextIntoVertLayout($"{LM.Get("empire_core_history_duration")}: {duration}{LM.Get("Year")}", true,
+                TextAnchor.MiddleLeft, new Vector2(122, 11));
+            durationText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            details.transform.localPosition = Vector3.zero;
+            card.AddChild(details.gameObject);
+
+            EmpireCraftHistory history = GetRepresentativeHistory(empire);
+            long actorId = history?.id ?? empire.data.emperor;
+            PersonalClanIdentity identity = FindPersonByActorId(actorId);
+            Actor actor = actorId > 0 ? World.world.units.get(actorId) : null;
+            bool isAlive = identity?.is_alive ?? (actor != null && actor.isAlive());
+            var avatarLayout = this.BeginVertGroup(new Vector2(28, 28), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter,
+                pPadding: new RectOffset(0, 0, 0, 0));
+            var avatar = UIHelper.CreateAvatarView(actorId, actor == null ? null : () => UIHelper.actorClick(actor), pIsAlive: isAlive);
+            avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(28, 28);
+            avatarLayout.AddChild(avatar.gameObject);
+            avatarLayout.transform.localPosition = Vector3.zero;
+            card.AddChild(avatarLayout.gameObject);
+            card.transform.AddStretchBackground(alive ? "FactionFrame_dominate" : "clanFrame", new Vector2(196, 36));
+            AddTimelineCardClickLayer(card, empire);
+        }
+
+        private static int GetEmpireRecordedDuration(Empire empire)
+        {
+            int duration = 0;
+            foreach (EmpireCraftHistory history in empire.data.history ?? new List<EmpireCraftHistory>())
             {
-                var clanId = empire.data.empire_clan;
-                clan = clanId != -1L ? World.world.clans.get(clanId) : null;
-                if (clan == null)
-                {
-                    clan = empire.EmpireClan;
-                }
+                duration += history?.total_time ?? 0;
             }
-            string clanName = clan != null ? clan.GetClanName() : "无";
-            card.AddTextIntoVertLayout($"最后掌控的氏族：{clanName}", hideBackground: true, TextAnchor.MiddleCenter, new Vector2(90, 10));
-            Actor oldest = null;
-            if (clan != null && !clan.isRekt() && clan.units != null)
+            return Mathf.Max(1, duration);
+        }
+
+        private string GetEmpireCulture(Empire empire)
+        {
+            try
             {
-                int maxAge = int.MinValue;
-                for (int i = 0; i < clan.units.Count; i++)
-                {
-                    var a = clan.units[i];
-                    if (a == null) continue;
-                    if (!a.isAlive()) continue;
-                    int age = a.getAge();
-                    if (age > maxAge)
-                    {
-                        maxAge = age;
-                        oldest = a;
-                    }
-                }
+                string activeCulture = empire.GetCulture();
+                if (!string.IsNullOrWhiteSpace(activeCulture)) return activeCulture;
             }
-            long oldestId = oldest?.getID() ?? -1L;
-            var avatar = UIHelper.CreateAvatarView(oldestId, () => { if (oldest != null) UIHelper.actorClick(oldest); }, pIsAlive: oldest != null);
-            card.AddChild(avatar.gameObject);
-            card.AddButtonIntoVertLayout("open_history", LM.Get("empire_history"), () =>
+            catch
             {
-                if (empire.CoreKingdom != null) SelectedMetas.selected_kingdom = empire.CoreKingdom;
-                EmpireCraftMetaTypeLibrary.selected_empire = empire;
-                var history = empire.data.currentHistory ?? empire.data.history?.LastOrDefault();
-                if (history == null)
-                {
-                    Actor emActor = alive ? empire.Emperor : World.world.units.get(empire.data.emperor);
-                    history = new EmpireCraftHistory
-                    {
-                        id = emActor?.data.id ?? -1L,
-                        year_name = empire.data.year_name,
-                        emperor = emActor?.getName() ?? "",
-                        empire_name = empire.GetEmpireName(),
-                        dynasty_name = empire.GetEmpireName(),
-                        royal_surname = emActor?.GetSpecificClan()?.name ?? "",
-                        descriptions = new List<HistoryDescription>(),
-                    };
-                }
-                ConfigData.CURRENT_SELECTED_HISTORY = history;
-                ScrollWindow.showWindow(nameof(EmpireHistoryWindow));
-            }, size: new Vector2(40, 12));
-            if (!alive)
-            {
-                card.AddButtonIntoVertLayout("delete_empire", LM.Get("delete_empire"), () =>
-                {
-                    ModClass.EMPIRE_MANAGER.RemoveArchivedEmpire(empire);
-                    Clear();
-                    ShowTop();
-                }, size: new Vector2(40, 12));
+                // Archived empires no longer have a core kingdom, so fall through to their last emperor.
             }
-            card.transform.AddStretchBackground(alive ? "FactionFrame" : "clanFrame", size: new Vector2(50, 80));
-            ListPool.Add(card.gameObject);
-            return card.gameObject;
+            EmpireCraftHistory history = GetRepresentativeHistory(empire);
+            PersonalClanIdentity identity = FindPersonByActorId(history?.id ?? empire.data.emperor);
+            return string.IsNullOrWhiteSpace(identity?.culture) ? "unknown" : identity.culture;
+        }
+
+        private static string GetCultureDisplayName(string culture)
+        {
+            if (string.IsNullOrWhiteSpace(culture) || culture == "unknown") return LM.Get("empire_list_culture_unknown");
+            return OnomasticsRule.ALL_CULTURE_TRANSLATE.ContainsKey(culture) ? culture.GetCultureTranslate() : culture;
+        }
+
+        private static EmpireCraftHistory GetRepresentativeHistory(Empire empire)
+        {
+            return empire.data.currentHistory ?? empire.data.history?.LastOrDefault();
+        }
+
+        private static PersonalClanIdentity FindPersonByActorId(long actorId)
+        {
+            if (actorId <= 0) return null;
+            foreach (PersonalClanIdentity identity in SpecificClanManager._globalPersonLookup.Values)
+            {
+                if (identity.actor_id == actorId) return identity;
+            }
+            return null;
+        }
+
+        private void AddTimelineCardClickLayer(AutoHoriLayoutGroup card, Empire empire)
+        {
+            var overlay = new GameObject("EmpireTimelineCardClick", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            overlay.transform.SetParent(card.transform, false);
+            var rect = overlay.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            var image = overlay.GetComponent<Image>();
+            image.color = Color.clear;
+            image.raycastTarget = true;
+            overlay.GetComponent<LayoutElement>().ignoreLayout = true;
+            var button = overlay.GetComponent<Button>();
+            button.targetGraphic = image;
+            button.transition = Selectable.Transition.None;
+            button.onClick.AddListener(() => OpenEmpireHistory(empire));
+            overlay.transform.SetAsLastSibling();
+        }
+
+        private void OpenEmpireHistory(Empire empire)
+        {
+            if (empire.CoreKingdom != null) SelectedMetas.selected_kingdom = empire.CoreKingdom;
+            EmpireCraftMetaTypeLibrary.selected_empire = empire;
+            ConfigData.CURRENT_SELECTED_HISTORY = GetRepresentativeHistory(empire);
+            ScrollWindow.showWindow(nameof(EmpireHistoryWindow));
         }
     }
 }
