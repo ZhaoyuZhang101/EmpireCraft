@@ -47,6 +47,7 @@ public class UnitWindowPatch: GamePatch
 
     public static bool applyInputName(UnitWindow __instance, string pInput)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(SelectedUnit._unit_main)) return true;
         if (!string.IsNullOrEmpty(pInput) && __instance.actor != null && __instance.actor.data != null)
         {
             __instance.actor.initializeActorName();
@@ -101,6 +102,7 @@ public class UnitWindowPatch: GamePatch
 
     public static void OnEnable(UnitWindow __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(SelectedUnit._unit_main)) return;
         Transform space = __instance.tabs.transform.Find("space (1)");
         if (space != null)
         {
@@ -126,6 +128,7 @@ public class UnitWindowPatch: GamePatch
 
     private static void set_stats_rows(UnitWindow __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(SelectedUnit._unit_main)) return;
         Actor actor = __instance?.actor;
         if (actor == null || actor.isRekt()) return;
         __instance.showStatRow("Peerages", actor.GetPeerageDisplayName(), MetaType.Unit, -1L);

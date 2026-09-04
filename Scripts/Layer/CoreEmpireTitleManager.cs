@@ -81,7 +81,8 @@ public static class EmpireCoreManager
     {
         if (core == null) return new List<Empire>();
         return ModClass.EMPIRE_MANAGER.ToList()
-            .Where(e => e != null && !e.IsArchived() && e.data?.empire_core_id == core.id)
+            .Where(e => e != null && !e.IsArchived() && e.data?.empire_core_id == core.id &&
+                !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(e.CoreKingdom))
             .ToList();
     }
 
@@ -396,6 +397,10 @@ public static class EmpireCoreManager
         if (core.AddTitle(title))
         {
             changed = true;
+            foreach (Empire empire in GetEmpires(core))
+            {
+                empire.data.last_legal_peerage_timestamp = -1L;
+            }
         }
 
         SyncCitiesFromTitles(core);

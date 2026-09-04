@@ -25,6 +25,7 @@ public class ReligionPatch : GamePatch
 
     private static void set_religion_name(Religion __instance, Actor pActor, WorldTile pTile, bool pAddDefaultTraits)
     {
+        if (__instance?.data == null) return;
         string species = __instance.species_id;
         LogService.LogInfo("当前文化物种: " + species);
         if (ConfigData.speciesCulturePair.TryGetValue(species, out string culture))

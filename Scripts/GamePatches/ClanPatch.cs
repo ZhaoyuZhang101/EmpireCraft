@@ -44,6 +44,8 @@ public class ClanPatch : GamePatch
 
     public static void set_clan_name(Clan __instance, Actor pFounder, bool pAddDefaultTraits)
     {
+        if (__instance?.data == null || pFounder?.data == null) return;
+        CulturePatch.EnsureEmpireNaming(pFounder.culture);
         if (pFounder.GetModName().hasFamilyName(pFounder))
         {
             __instance.data.name = pFounder.GetModName().familyName+ "\u200A" + LM.Get("Clan");

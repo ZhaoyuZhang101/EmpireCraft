@@ -30,6 +30,19 @@ namespace EmpireCraft.Scripts.AI
         public static PlotAsset Rebellion;
         private static readonly HashSet<string> s_guardedPlotIds = new HashSet<string>();
 
+        private static Kingdom FindLocalFactionInfluenceTarget(Actor actor)
+        {
+            if (actor == null || actor.isRekt() || !actor.isKing() || !actor.HasFaction() ||
+                actor.data.renown < 50) return null;
+            Kingdom source = actor.kingdom;
+            Empire empire = source?.GetEmpire();
+            if (empire == null || empire.IsArchived() || source == empire.CoreKingdom ||
+                source.king != actor || actor.GetFaction()?.Empire != empire) return null;
+            return empire.kingdoms_list.FirstOrDefault(target => target != null && !target.isRekt() &&
+                target != source && target != empire.CoreKingdom && !target.IsEmpire() &&
+                target.GetEmpire() == empire && target.IsNeighbourWith(source));
+        }
+
         private static void GuardAllPlotAssets()
         {
             foreach (var asset in AssetManager.plots_library.getList())
@@ -139,6 +152,17 @@ namespace EmpireCraft.Scripts.AI
             }
         }
 
+        private static bool CanRunKingdomGetTitlePlot(Actor actor)
+        {
+            if (actor == null || !actor.isKing() || !actor.hasKingdom()) return false;
+            Kingdom kingdom = actor.kingdom;
+            if (kingdom == null || kingdom.isRekt() || !actor.canTakeTitle()) return false;
+            if (kingdom.GetWarsCached(false).Count > 0) return false;
+            if (!kingdom.IsInEmpire()) return true;
+            Regime regime = kingdom.GetRegime();
+            return regime != null && regime.IsAllowDiplomacy();
+        }
+
         private static List<Kingdom> GetKingdomsRuledByActor(Actor actor)
         {
             List<Kingdom> result = new List<Kingdom>();
@@ -209,9 +233,10 @@ namespace EmpireCraft.Scripts.AI
                 progress_needed = 60f,
                 can_be_done_by_king = true,
                 check_is_possible = pActor => false,
-                check_can_be_forced = (Actor pActor) => true,
+                check_can_be_forced = pActor => !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pActor?.kingdom),
                 try_to_start_advanced = delegate(Actor pActor, PlotAsset pPlotAsset, bool pForced)
                 {
+                    if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pActor?.kingdom)) return false;
                     foreach (Plot plot3 in World.world.plots)
                     {
                         if (plot3.isActive() && plot3.isSameType(pPlotAsset))
@@ -223,7 +248,7 @@ namespace EmpireCraft.Scripts.AI
                     World.world.plots.newPlot(pActor, pPlotAsset, pForced);
                     return true;
                 },
-                check_should_continue = (Actor pActor) => true,
+                check_should_continue = pActor => !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pActor?.kingdom),
                 action = BecomeEmpireAndStartEnfeoff
             });  
             AssetManager.plots_library.add(new PlotAsset
@@ -318,11 +343,11 @@ namespace EmpireCraft.Scripts.AI
                     var kingdom = pActor.kingdom;
                     var regime = kingdom?.GetRegime();
                     if (regime == null) return false;
-                    var run = regime.GetDominateFaction()?.GetAnyTFactionRuns();
+                    var run = kingdom.GetEmpire()?.RunningTemporaryFaction;
                     if (run == null) return false;
                     foreach (Plot plot3 in World.world.plots)
                     {
-                        if (plot3.isActive() && plot3.isSameType(pPlotAsset))
+                        if (plot3 == pActor.plot && plot3.isActive() && plot3.isSameType(pPlotAsset))
                         {
                             pActor.setPlot(plot3);
                             plot3._plot_asset.progress_needed = run.progressMax - run.acceleration;
@@ -340,9 +365,10 @@ namespace EmpireCraft.Scripts.AI
                     var kingdom = pActor.kingdom;
                     var regime = kingdom?.GetRegime();
                     if (regime == null) return false;
-                    var run = regime.GetDominateFaction()?.GetAnyTFactionRuns();
+                    var run = kingdom.GetEmpire()?.RunningTemporaryFaction;
                     if (run == null) return false;
                     if (!run.CheckContinue()) return false;
+                    if (run.IsLocallyPushed && !run.CheckLocalContinue(run.GetKingdom())) return false;
                     if (!run.IsStarted()) return false;
                     if (!run.CheckTarget()) return false;
                     return true;
@@ -351,8 +377,14 @@ namespace EmpireCraft.Scripts.AI
                 {
                     var kingdom = pActor.kingdom;
                     var regime = kingdom?.GetRegime();
-                    var run = regime?.GetDominateFaction()?.GetAnyTFactionRuns();
+                    var run = kingdom?.GetEmpire()?.RunningTemporaryFaction;
                     if (run == null) return false;
+                    if (!run.CheckContinue() || !run.CheckTarget() ||
+                        (run.IsLocallyPushed && !run.CheckLocalContinue(run.GetKingdom())))
+                    {
+                        run.End();
+                        return false;
+                    }
                     run.Execute();
                     return true;
                 }
@@ -518,15 +550,14 @@ namespace EmpireCraft.Scripts.AI
                     Empire empire = kingdom.GetEmpire();
                     if (empire == null) return false;
                     if (!pActor.HasFaction()) return false;
-                    return empire.kingdoms_list.Any(k=>k!=kingdom&&k.IsNeighbourWith(kingdom)&&!kingdom.IsEmpire());
+                    return FindLocalFactionInfluenceTarget(pActor) != null;
                 },
+                check_should_continue = actor => FindLocalFactionInfluenceTarget(actor) != null,
                 action = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
-                    var empire = kingdom.GetEmpire();
-                    if (!pActor.HasFaction()) return false;
-                    var target = empire?.kingdoms_list?.Find(k=>k!=kingdom&&k.IsNeighbourWith(kingdom)&&!kingdom.IsEmpire());
-                    kingdom.TryIncreaseFactionRatio(pActor.GetFaction(), 1);
+                    Kingdom target = FindLocalFactionInfluenceTarget(pActor);
+                    if (target == null || !target.TryIncreaseFactionRatio(pActor.GetFaction(), 1)) return false;
                     pActor.data.renown -= 50;
                     TranslateHelper.LogInviteIntoFaction(kingdom, target, pActor.GetFaction());
                     return true;
@@ -1238,25 +1269,11 @@ namespace EmpireCraft.Scripts.AI
                 min_level = 1,
                 progress_needed = 15f,
                 can_be_done_by_king = true,
-                check_is_possible = delegate (Actor pActor)
-                {
-                    if (pActor == null) return false;
-                    if (!pActor.isKing()) return false;
-                    if (!pActor.canTakeTitle()) return false;
-                    var warsList4 = pActor.kingdom.GetWarsCached(false);
-                    if (warsList4.Count > 0) return false;
-                    Kingdom kingdom = pActor.kingdom;
-                    if (kingdom.isRekt()) return false;
-                    if (kingdom.IsInEmpire())
-                    {
-                        var regime = kingdom.GetRegime();
-                        if (regime == null) return false;
-                        if (!regime.IsAllowDiplomacy()) return false;
-                    }
-                    return true;
-                },
+                check_is_possible = CanRunKingdomGetTitlePlot,
+                check_should_continue = CanRunKingdomGetTitlePlot,
                 action = delegate(Actor pActor) 
                 {
+                    if (!CanRunKingdomGetTitlePlot(pActor)) return false;
                     Kingdom kingdom = pActor.kingdom;
                     List<KingdomTitle> titles = pActor.takeTitle();
                     foreach(KingdomTitle title in titles)
@@ -1266,7 +1283,7 @@ namespace EmpireCraft.Scripts.AI
                             TranslateHelper.LogKingTakeTitle(kingdom, title);
                         }
                     }
-                    return true;
+                    return titles.Count > 0;
                 }
             }); 
             AssetManager.plots_library.add(new PlotAsset

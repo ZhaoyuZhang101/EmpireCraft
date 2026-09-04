@@ -17,6 +17,7 @@ public class LaunguagePatch : GamePatch
 
     private static void set_Language_name(Language __instance, Actor pActor)
     {
+        if (__instance?.data == null || pActor?.data == null) return;
         __instance.data.name = pActor.kingdom.GetKingdomName()+ LM.Get("Language") + pActor.city.GetCityName() + LM.Get("Dialect");
     }
 }

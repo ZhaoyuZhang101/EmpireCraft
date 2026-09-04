@@ -12,6 +12,7 @@ using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
@@ -117,10 +118,12 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
 
             AddSectionTitle(parent, LM.Get("all_titles"));
+            var titleGrid = parent.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount,
+                pCellSize: new Vector2(48, 34), pSpacing: new Vector2(2, 2));
             foreach (var title in EmpireCoreManager.GetTitles(_core))
             {
                 if (title == null || title.isRekt()) continue;
-                AddTitleCard(parent, title);
+                AddTitleCard(titleGrid, title);
             }
 
             AddSectionTitle(parent, LM.Get("empire_core_history_collection"));
@@ -148,10 +151,12 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void AddEmpireCard(AutoVertLayoutGroup parent, Empire empire)
         {
-            var card = parent.BeginHoriGroup(pSize: new Vector2(200, 30), pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
-            var details = card.BeginVertGroup(pSize: new Vector2(145, 28), pSpacing: -2, pAlignment: TextAnchor.MiddleLeft);
-            details.AddTextIntoVertLayout(empire.GetEmpireName().ColorString(empire.getColor().color_text), true,
-                TextAnchor.MiddleLeft, new Vector2(140, 12));
+            var card = parent.BeginHoriGroup(pSize: new Vector2(200, 42), pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
+            var details = card.BeginVertGroup(pSize: new Vector2(175, 38), pSpacing: 1, pAlignment: TextAnchor.MiddleLeft);
+            HoverMarqueeText.Attach(details.AddTextIntoVertLayout(empire.GetEmpireFullName().ColorString(empire.getColor().color_text), true,
+                TextAnchor.MiddleLeft, new Vector2(170, 12)));
+            HoverMarqueeText.Attach(details.AddTextIntoVertLayout($"{LM.Get("empire_core_royal_surname")}: {empire.EmpireSpecificClan?.name ?? LM.Get("empire_core_none")}",
+                true, TextAnchor.MiddleLeft, new Vector2(170, 10)));
             details.AddTextIntoVertLayout($"{LM.Get("i_population")}: {empire.CountPopulation()}  |  {LM.Get("label_mandate")}: {empire.Mandate}",
                 true, TextAnchor.MiddleLeft, new Vector2(140, 10));
             card.AddButtonIntoHoriLayout("open_empire", "", () =>
@@ -159,20 +164,20 @@ namespace EmpireCraft.Scripts.UI.Windows
                 EmpireCraftMetaTypeLibrary.selected_empire = empire;
                 ScrollWindow.showWindow(nameof(EmpireWindow));
             }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(16, 16), showTip: true);
-            card.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(200, 30));
+            card.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(200, 42));
         }
 
-        private void AddTitleCard(AutoVertLayoutGroup parent, KingdomTitle title)
+        private void AddTitleCard(AutoGridLayoutGroup parent, KingdomTitle title)
         {
-            var card = parent.BeginHoriGroup(pSize: new Vector2(200, 24), pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
-            card.AddTextIntoHoriLayout(title.data.name.ColorString(pColor: new Color(0.82f, 0.9f, 1f)), true,
-                TextAnchor.MiddleLeft, new Vector2(165, 12));
-            card.AddButtonIntoHoriLayout("open_title", "", () =>
+            var card = parent.BeginVertGroup(pSize: new Vector2(48, 34), pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
+            HoverMarqueeText.Attach(card.AddTextIntoVertLayout(title.data.name.ColorString(pColor: new Color(0.82f, 0.9f, 1f)), true,
+                TextAnchor.MiddleCenter, new Vector2(44, 12)));
+            card.AddButtonIntoVertLayout("open_title", "", () =>
             {
                 EmpireCraftMetaTypeLibrary.selected_kingdomTitle = title;
                 ScrollWindow.showWindow(nameof(KingdomTitleWindow));
             }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(14, 14), showTip: true);
-            card.transform.AddStretchBackground("FactionFrame", new Vector2(200, 24));
+            card.transform.AddStretchBackground("FactionFrame", new Vector2(48, 34));
         }
 
         private void ShowHistoryCards(AutoVertLayoutGroup parent, List<Empire> currentEmpires)
@@ -183,18 +188,27 @@ namespace EmpireCraft.Scripts.UI.Windows
                 if (histories.Count == 0) continue;
 
                 Empire liveEmpire = currentEmpires.FirstOrDefault(e => e != null && e.id == empireId);
-                EmpireCraftHistory firstHistory = histories.FirstOrDefault();
-                string empireName = firstHistory?.empire_name ?? LM.Get("empire_core_none");
-                int duration = histories.Sum(h => h?.total_time ?? 0);
+                Empire storedEmpire = ModClass.EMPIRE_MANAGER.get(empireId);
+                EmpireCraftHistory lastHistory = histories.LastOrDefault();
+                string empireName = liveEmpire?.GetEmpireFullName() ?? EmpireHistoryDisplay.FullName(
+                    lastHistory?.empire_full_name, lastHistory?.empire_name, storedEmpire?.data?.name,
+                    string.IsNullOrWhiteSpace(storedEmpire?.data?.name) ? null : storedEmpire.GetEmpireName(), LM.Get("empire_core_none"));
+                string royalSurnames = string.Join(" / ", histories.Select(h => h.royal_surname)
+                    .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct());
+                if (string.IsNullOrWhiteSpace(royalSurnames))
+                    royalSurnames = storedEmpire?.EmpireSpecificClan?.name ?? LM.Get("empire_core_none");
+                int duration = histories.Sum(h => GetReignDuration(h, liveEmpire));
                 bool exists = liveEmpire != null && !liveEmpire.isRekt() && !liveEmpire.IsArchived();
                 string stateText = exists ? LM.Get("empire_core_history_exists") : LM.Get("empire_core_history_gone");
-                var historyCard = parent.BeginHoriGroup(pSize: new Vector2(200, 30), pSpacing: 2,
+                var historyCard = parent.BeginHoriGroup(pSize: new Vector2(200, 42), pSpacing: 2,
                     pAlignment: TextAnchor.MiddleCenter);
-                var historyDetails = historyCard.BeginVertGroup(pSize: new Vector2(175, 28), pSpacing: -2,
+                var historyDetails = historyCard.BeginVertGroup(pSize: new Vector2(175, 38), pSpacing: 1,
                     pAlignment: TextAnchor.MiddleLeft);
                 Color empireColor = liveEmpire?.getColor()._color_main ?? new Color(0.68f, 0.88f, 1f);
-                historyDetails.AddTextIntoVertLayout(empireName.ColorString(pColor: empireColor), true,
-                    TextAnchor.MiddleLeft, new Vector2(170, 12));
+                HoverMarqueeText.Attach(historyDetails.AddTextIntoVertLayout(empireName.ColorString(pColor: empireColor), true,
+                    TextAnchor.MiddleLeft, new Vector2(170, 12)));
+                HoverMarqueeText.Attach(historyDetails.AddTextIntoVertLayout($"{LM.Get("empire_core_royal_surname")}: {royalSurnames}",
+                    true, TextAnchor.MiddleLeft, new Vector2(170, 10)));
                 historyDetails.AddTextIntoVertLayout($"{LM.Get("empire_core_history_duration")}: {duration}{LM.Get("Year")}  |  {stateText}", true,
                     TextAnchor.MiddleLeft, new Vector2(170, 10));
                 historyCard.AddButtonIntoHoriLayout("empire_core_history_card", "", () =>
@@ -202,7 +216,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                     _historyExpandedStates[empireId] = !_historyExpandedStates.TryGetValue(empireId, out bool expanded) || !expanded;
                     RefreshWindow();
                 }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(16, 16), showTip: true);
-                historyCard.transform.AddStretchBackground(exists ? "FactionFrame_dominate" : "FactionFrame", new Vector2(200, 30));
+                historyCard.transform.AddStretchBackground(exists ? "FactionFrame_dominate" : "FactionFrame", new Vector2(200, 42));
 
                 if (!_historyExpandedStates.TryGetValue(empireId, out bool isExpanded) || !isExpanded)
                 {
@@ -223,7 +237,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                         : $"{history.emperor}  |  {titleText}";
                     emperorDetails.AddTextIntoVertLayout(displayName.ColorString(pColor: new Color(0.82f, 0.9f, 1f)), true,
                         TextAnchor.MiddleLeft, new Vector2(170, 11));
-                    string reignText = $"{history.year_name}  ·  {history.total_time}{LM.Get("Year")}";
+                    string reignText = $"{history.year_name}  ·  {GetReignDuration(history, liveEmpire)}{LM.Get("Year")}";
                     emperorDetails.AddTextIntoVertLayout(reignText, true, TextAnchor.MiddleLeft, new Vector2(170, 9));
                     emperorCard.AddButtonIntoHoriLayout("open_history", "", () =>
                     {
@@ -234,6 +248,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                     emperorCard.transform.AddStretchBackground("clanFrame", new Vector2(200, 26));
                 }
             }
+        }
+
+        private static int GetReignDuration(EmpireCraftHistory history, Empire liveEmpire)
+        {
+            return history != null && liveEmpire?.data?.currentHistory == history
+                ? Date.getYearsSince(liveEmpire.data.newEmperor_timestamp) : history?.total_time ?? 0;
         }
 
         private List<EmpireCraftHistory> GetHistoriesForEmpire(long empireId)
@@ -257,7 +277,10 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }
             }
 
-            return result.OrderByDescending(h => h?.total_time ?? 0).ToList();
+            if (activeEmpire != null && !activeEmpire.isRekt() && activeEmpire.data?.currentHistory != null &&
+                result.All(h => h.id != activeEmpire.data.currentHistory.id))
+                result.Add(activeEmpire.data.currentHistory);
+            return result;
         }
 
         private string BuildEmperorTitleText(EmpireCraftHistory history)

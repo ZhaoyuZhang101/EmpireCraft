@@ -649,6 +649,9 @@ public static class EmpireCraftMetaTypeLibrary
         {
           return empireMeta;
         }
+        // A de jure empire exists before (and after) its political empire. Use one shared
+        // representative meta object so both fill colors and internal borders stay unified.
+        return EmpireCoreManager.GetColorTitle(core) ?? title;
       }
       return title;
     }

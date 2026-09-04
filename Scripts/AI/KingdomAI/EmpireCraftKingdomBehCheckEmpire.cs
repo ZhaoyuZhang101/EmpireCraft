@@ -166,6 +166,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     /// <returns></returns>
     public void CheckPossible(Kingdom pKingdom)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom)) return;
         if (pKingdom.isRekt()) return;
         Empire empire = pKingdom.GetEmpire();
         if (empire != null)

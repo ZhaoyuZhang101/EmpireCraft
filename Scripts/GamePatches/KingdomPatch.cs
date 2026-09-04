@@ -62,6 +62,7 @@ public class KingdomPatch : GamePatch
 
     public static bool GetMaxCities(Kingdom __instance, ref int __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         int maxCities = __instance.getActorAsset().civ_base_cities;
         if (__instance.hasKing())
             maxCities += (int) __instance.king.stats["cities"];
@@ -73,6 +74,7 @@ public class KingdomPatch : GamePatch
 
     public static void removeData(Kingdom __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance == null)
         {
             return;
@@ -91,13 +93,14 @@ public class KingdomPatch : GamePatch
 
         if (__instance.HasTakenAlliance())
         {
-            __instance.RemoveTakenAlliance();
+            __instance.RemoveTakenAlliance(recordHistory: false);
         }
         __instance.RemoveExtraData<Kingdom, KingdomExtraData>();
     }
 
     public static void new_emperor(Kingdom __instance, Actor pActor, bool pFromLoad)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (!ModClass.IS_CLEAR)
         {
             pActor.CheckSpecificClan();
@@ -143,6 +146,7 @@ public class KingdomPatch : GamePatch
 
     public static void emperor_left(Kingdom __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (ModClass.IS_CLEAR) return;
         Actor king = __instance.king;
         if (__instance.HasMainCrime()) __instance.RemoveMainCrime();
@@ -159,6 +163,7 @@ public class KingdomPatch : GamePatch
 
     public static void NewCivKingdom(Kingdom __instance, Actor pActor)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         __instance.SetLevel(4);
         __instance.SetEmpireID(-1L);
         var culture = ConfigData.speciesCulturePair.TryGetValue(pActor.asset.id, out string speciesCulture)? speciesCulture : "Western";
@@ -173,6 +178,7 @@ public class KingdomPatch : GamePatch
     }
     public static void RemovePatchData(Kingdom __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         Empire empire = __instance.GetEmpire();
         if (empire == null) return;
         if (__instance.IsEmpire())
@@ -186,6 +192,7 @@ public class KingdomPatch : GamePatch
     }
     public static bool countTotalWarriors(Kingdom __instance, ref int __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         var ed = __instance.GetOrCreate();
         if (ed is { last_cached_timestamp: > 0 })
         {
@@ -196,6 +203,7 @@ public class KingdomPatch : GamePatch
     }
     public static bool getPopulationPeople(Kingdom __instance, ref int __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         var ed = __instance.GetOrCreate();
         if (ed is { last_cached_timestamp: > 0 })
         {

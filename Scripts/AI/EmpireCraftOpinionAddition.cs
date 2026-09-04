@@ -101,7 +101,8 @@ public static class EmpireCraftOpinionAddition
                 {
                     if (pTarget.IsEmpire())
                     {
-                        if (pMain.IsNeedToMaintainGoodOpinion())
+                        if (pMain.IsNeedToMaintainGoodOpinion() &&
+                            (pTarget.GetEmpire()?.GetMinisterOppositionPenalty() ?? 0) == 0)
                         {
                             result = 99999;
                         }
@@ -259,6 +260,17 @@ public static class EmpireCraftOpinionAddition
                     result = 999;
                 }
                 return result;
+            }
+        });
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_minister_usurpation",
+            translation_key_negative = "opinion_minister_usurpation",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                if (pMain == null || pTarget == null || pMain == pTarget ||
+                    !pMain.IsInSameEmpire(pTarget) || !pTarget.IsEmpire()) return 0;
+                return pTarget.GetEmpire()?.GetMinisterOppositionPenalty() ?? 0;
             }
         });
         opl.add(new OpinionAsset

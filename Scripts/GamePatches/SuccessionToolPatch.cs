@@ -22,6 +22,7 @@ namespace EmpireCraft.Scripts.GamePatches
 
         public static bool findNextHeir(Kingdom pKingdom, Actor pExculdeActor, ref Actor __result)
         {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pKingdom)) return true;
             __result = pKingdom.GetHeir();
             return false;
         }

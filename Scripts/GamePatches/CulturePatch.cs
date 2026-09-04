@@ -18,6 +18,8 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Data;
 using System.Configuration;
 using EmpireCraft.Scripts.GameClassExtensions;
+using System.Runtime.CompilerServices;
+using EmpireCraft.Scripts.Compatibility;
 namespace EmpireCraft.Scripts.GamePatches;
 
 public class CulturePatch : GamePatch
@@ -37,6 +39,7 @@ public class CulturePatch : GamePatch
 
     private static void set_default_culture_name(Actor __instance, string pCultureName)
     {
+        EnsureEmpireNaming(__instance?.culture);
         try
         {
             var beforeKingdomName = __instance.kingdom.data.name;
@@ -61,8 +64,10 @@ public class CulturePatch : GamePatch
 
     private static void set_culture_name(Culture __instance, Actor pActor)
     {
+        if (__instance?.data == null || pActor?.data == null) return;
         __instance.data.name = pActor.kingdom.GetKingdomName() + "-" + pActor.city.GetCityName() + LM.Get("Culture");
-        setDefaultNameTemplate(__instance);
+        if (!AncientWarfareCompatibility.Owns(pActor)) setDefaultNameTemplate(__instance);
+        EnsureEmpireNaming(__instance);
         
     }
     private static void clone_culture_name(Culture __instance)
@@ -77,7 +82,29 @@ public class CulturePatch : GamePatch
         insertCultureTemplate(culture, insertCulture);
     }
 
-    public static void insertCultureTemplate(Culture culture, string cultureName)
+    private sealed class NamingTemplateState
+    {
+        public NamingTemplateState() { }
+        internal string signature;
+        internal object data;
+    }
+    private static readonly ConditionalWeakTable<Culture, NamingTemplateState> NamingTemplates = new();
+
+    internal static void EnsureEmpireNaming(Culture culture)
+    {
+        if (!AncientWarfareCompatibility.Loaded || culture?.data == null) return;
+        string cultureName = OverallHelperFunc.GetCultureFromSpecies(culture.data.creator_species_id);
+        if (!OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(cultureName)) return;
+        string signature = cultureName + "/" + PlayerConfig.detectLanguage();
+        NamingTemplateState state = NamingTemplates.GetOrCreateValue(culture);
+        if (state.signature == signature && ReferenceEquals(state.data, culture.data)) return;
+        // Repair saved/previously AW-created templates, without adding EC political traits.
+        insertCultureTemplate(culture, cultureName, false);
+        state.signature = signature;
+        state.data = culture.data;
+    }
+
+    public static void insertCultureTemplate(Culture culture, string cultureName, bool addTraits = true)
     {
         OnomasticsData kindomData = culture.getOnomasticData(MetaType.Kingdom);
         OnomasticsData clanData = culture.getOnomasticData(MetaType.Clan);
@@ -96,7 +123,7 @@ public class CulturePatch : GamePatch
         ClanSetting clanSetting = setting.Clan;
         CitySetting citySetting = setting.City;
         List<string> traits = setting.traits;
-        foreach (string trait in traits)
+        foreach (string trait in addTraits ? traits : new List<string>())
         {
             if (!culture.hasTrait(trait))
             {

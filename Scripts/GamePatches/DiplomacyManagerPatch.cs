@@ -28,6 +28,7 @@ public class DiplomacyManagerPatch : GamePatch
 
     public static bool get_alliance_target(Kingdom pKingdomStarter, ref Kingdom __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pKingdomStarter)) return true;
         if (pKingdomStarter.isSupreme())
         {
             __result = null;
@@ -64,6 +65,7 @@ public class DiplomacyManagerPatch : GamePatch
 
     static bool get_war_target(Kingdom pInitiatorKingdom, ref Kingdom __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pInitiatorKingdom)) return true;
         Kingdom tBestTarget = null;
         float tBestFastDist = float.MaxValue;
         int tCurrentArmy = pInitiatorKingdom.countTotalWarriors();

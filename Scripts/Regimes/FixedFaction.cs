@@ -149,22 +149,9 @@ public static class FactionManager
     public static void ConvertToObjectFromFactionType()
     {
 
-        // 收集所有可用类型（避免 ReflectionTypeLoadException）
-        var allTypes = new List<Type>();
-        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-        {
-            try { allTypes.AddRange(asm.GetTypes()); }
-            catch (ReflectionTypeLoadException e)
-            {
-                allTypes.AddRange(e.Types.Where(t => t != null));
-            }
-        }
-
-        // 只保留派生自 TemporaryFaction 的具体类型
-        var candidateTypes = allTypes
-            .Where(t => t != null
-                        && typeof(TemporaryFaction).IsAssignableFrom(t)
-                        && !t.IsAbstract)
+        var candidateTypes = EmpireCraft.Scripts.HelperFunc.SafeTypeDiscovery.GetConcreteDerivedTypes(
+                typeof(TemporaryFaction), AppDomain.CurrentDomain.GetAssemblies(),
+                message => LogService.LogWarning(message))
             .ToList();
 
         foreach (var e in candidateTypes)
@@ -292,18 +279,23 @@ public class FixedFaction
     [JsonIgnore] public List<Actor> AllMembers => Members.Select(id => World.world.units.get(id)).Where(actor=>!actor.isRekt()).ToList();
     [JsonIgnore]
     public int Count => Members.Count;
-    private int _cachedPower = -1;
     [JsonIgnore]
     public int TotalPower 
     {
         get 
         {
-            if (_cachedPower >= 0) return _cachedPower;
-            return (int) Members.Sum(a=>World.world.units.get(a)?.GetIdentity()?.TotalPerformance??0);
-        }
-        set
-        {
-            _cachedPower = value;
+            Kingdom core = Empire?.CoreKingdom;
+            if (core == null || core.isRekt()) return 0;
+            // Local membership is retained, but only the central court contributes power.
+            return (int)Members.Sum(id =>
+            {
+                Actor actor = World.world.units.get(id);
+                if (actor == null || actor.isRekt() || actor.kingdom != core) return 0d;
+                OfficeObject office = actor.GetOffice();
+                if (actor != core.king && (office == null || office.is_local ||
+                    office.meta_object != core || office.actor_id != actor.id)) return 0d;
+                return actor.GetIdentity()?.TotalPerformance ?? 0d;
+            });
         }
     }
     //倾向于推动的政策

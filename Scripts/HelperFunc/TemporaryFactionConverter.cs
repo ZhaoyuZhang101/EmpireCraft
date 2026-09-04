@@ -38,36 +38,15 @@ public sealed class TemporaryFactionConverter : JsonConverter
         }
 
         var className = "TempFac_" + typeEnum;
-        var t = AppDomain.CurrentDomain.GetAssemblies()
-            .SelectMany(GetLoadableTypes)
-            .FirstOrDefault(x => x != null
-                              && x.Name == className
-                              && typeof(TemporaryFaction).IsAssignableFrom(x)
-                              && !x.IsAbstract);
+        var t = SafeTypeDiscovery.GetConcreteDerivedTypes(typeof(TemporaryFaction),
+                AppDomain.CurrentDomain.GetAssemblies(), message => LogService.LogWarning(message))
+            .FirstOrDefault(x => x.Name == className);
         if (t == null)
             throw new JsonSerializationException($"TemporaryFaction 反序列化失败：未找到类型 {className}");
 
         var inst = Activator.CreateInstance(t);
         serializer.Populate(jo.CreateReader(), inst);
         return inst;
-    }
-
-    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
-    {
-        try
-        {
-            return assembly.GetTypes();
-        }
-        catch (ReflectionTypeLoadException e)
-        {
-            LogService.LogWarning($"TemporaryFaction 扫描程序集失败: {assembly.FullName}, {e}");
-            return e.Types.Where(type => type != null);
-        }
-        catch (Exception e)
-        {
-            LogService.LogWarning($"TemporaryFaction 扫描程序集失败: {assembly.FullName}, {e}");
-            return Array.Empty<Type>();
-        }
     }
 
     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
@@ -89,6 +68,10 @@ public sealed class TemporaryFactionConverter : JsonConverter
             ["Hide"]        = tf.Hide,
             ["Active"]      = tf.Active,
             ["ShowAsPlot"]  = tf.ShowAsPlot,
+            ["canBePushByLocal"] = tf.canBePushByLocal,
+            ["pusherType"] = JToken.FromObject(tf.pusherType, serializer),
+            ["progressMax"] = tf.progressMax,
+            ["Acc"] = tf.Acc,
             ["CountDown"]   = tf.CountDown,
             ["timestamp"]   = tf.timestamp,
             ["countDownTimestamp"] = tf.countDownTimestamp,

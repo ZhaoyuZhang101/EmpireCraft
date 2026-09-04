@@ -52,6 +52,7 @@ public class BuildingPatch: GamePatch
         bool pMetallicWeapon,
         bool pCheckDamageReduction)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pAttacker)) return true;
         return !EmpireCraftWorldLawLibrary.empirecraft_law_prevent_building_destroy.isEnabled() || __instance.asset.building_type != BuildingType.Building_Civ || __instance.asset.tower;
     }
 }

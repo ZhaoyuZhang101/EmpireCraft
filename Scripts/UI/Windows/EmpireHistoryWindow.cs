@@ -246,8 +246,11 @@ namespace EmpireCraft.Scripts.UI.Windows
             string monthDay = yearEnd >= 0 ? date.Substring(yearEnd + 1) : date;
             var dateText = eventCard.AddTextIntoHoriLayout(monthDay.ColorString(pColor: new Color(0.25f, 0.9f, 0.8f)), true, TextAnchor.MiddleCenter, new Vector2(38, 22));
             dateText.UseFixedFontSize(8);
-            var contentText = eventCard.AddTextIntoHoriLayout(desc.description, true, TextAnchor.MiddleLeft, new Vector2(hasMarker ? 126 : 152, 22));
+            // Older peerage logs omitted the third replacement color; repair display only.
+            string eventText = (desc.description ?? "").Replace("<color=>", "<color=#FFFFFFFF>");
+            var contentText = eventCard.AddTextIntoHoriLayout(eventText, true, TextAnchor.MiddleLeft, new Vector2(hasMarker ? 126 : 152, 22));
             contentText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+            HoverMarqueeText.Attach(contentText);
             if (actor != null)
             {
                 var avatarLayout = eventCard.BeginVertGroup(new Vector2(24, 24), pSpacing: 0,

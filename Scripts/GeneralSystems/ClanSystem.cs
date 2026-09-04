@@ -792,6 +792,7 @@ public static class SpecificClanManager
 
     public static void CheckSpecificClan(this Actor actor, bool show_log = false)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(actor)) return;
         if (actor.isRekt()||actor.hasDied()) return;
         if (!actor.hasClan())
         {
@@ -804,26 +805,39 @@ public static class SpecificClanManager
                 return;
             }
         }
-        if (!actor.HasSpecificClan())
+        PersonalClanIdentity currentIdentity = actor.GetPersonalIdentity();
+        if (currentIdentity != null) return;
+        if (actor.HasSpecificClan()) actor.RemoveSpecificClan();
+
+        // Reuse saved identity and clan links before creating a new specific clan. This
+        // prevents uninitialized children from splitting away from their parent's house.
+        if (_actorToPersonLookup.TryGetValue(actor.getID(), out var existingPci))
         {
-            var parent = actor.getParents().ToList().Find(a => a.GetPersonalIdentity()?.is_main ?? false);
-            if (parent != null)
-            {
-                parent?.GetSpecificClan().addActor(actor);
-                actor.GetPersonalIdentity()?.setParent(parent.GetPersonalIdentity(), recordHistory: false);
-                return;
-            }
-            // Fix: Check if we can restore the link from existing data
-            if (_actorToPersonLookup.TryGetValue(actor.getID(), out var existingPci))
-            {
-                actor.SetPersonalIdentity(existingPci);
-                return;
-            }
-            
-            newSpecificClan(actor, show_log);
+            actor.SetPersonalIdentity(existingPci);
             return;
         }
-        actor.GetSpecificClan();
+
+        SpecificClan actorClan = actor.clan?.GetSpecificClan();
+        if (actorClan != null)
+        {
+            actorClan.addActor(actor);
+            var clanParent = actor.getParents().ToList().Find(a => a.GetPersonalIdentity()?.is_main ?? false);
+            if (clanParent != null)
+            {
+                actor.GetPersonalIdentity()?.setParent(clanParent.GetPersonalIdentity(), recordHistory: false);
+            }
+            return;
+        }
+
+        var parent = actor.getParents().ToList().Find(a => a.GetPersonalIdentity()?.is_main ?? false);
+        if (parent != null)
+        {
+            parent.GetSpecificClan()?.addActor(actor);
+            actor.GetPersonalIdentity()?.setParent(parent.GetPersonalIdentity(), recordHistory: false);
+            if (actor.GetPersonalIdentity() != null) return;
+        }
+
+        newSpecificClan(actor, show_log);
     }
 
     public static SpecificClan Get(long id)

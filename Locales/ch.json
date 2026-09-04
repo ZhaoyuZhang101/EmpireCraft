@@ -1,5 +1,16 @@
 ﻿{
   "toggle_mod_title": "帝國盒子",
+  "Empire_layer": "帝國圖層",
+  "KingdomTitle_layer": "法理圖層",
+  "empirecraft_layer_switch_hint": "按[z]、[x]切換視圖",
+  "empirecraft_law_allow_social_title": "允許社交",
+  "empirecraft_law_allow_social_description": "允許文明單位執行社交決策。",
+  "empire_core_royal_surname": "皇族姓氏",
+  "opinion_minister_usurpation": "權臣僭越",
+  "history_minister_dispossessed_royal": "{0}被剝奪{1}爵位，轉授權臣{2}為國公。",
+  "history_minister_opposition_rebellion": "{0}起兵反對權臣{1}僭越中央。",
+  "history_minister_regent": "{0} 在 {2} 出任輔政大臣，輔佐幼帝 {1}。",
+  "history_minister_lost_control": "{0} 在 {2} 失去對朝廷的控制，皇帝 {1} 擺脫傀儡地位。",
   "Culture": "文化",
   "Dialect": "話",
   "Language": "語",
@@ -607,6 +618,7 @@
   "history_war_declared": "$attacker$ 向 $defender$ 宣戰（$type$）",
   "history_war_ended_attacker_victory": "戰爭結束：$attacker$ 擊敗了 $defender$（$type$）",
   "history_war_ended_defender_victory": "戰爭結束：$defender$ 擊退了 $attacker$（$type$）",
+  "history_war_ended_peace": "$attacker$ 與 $defender$ 停戰（$type$）",
   "history_war_join_attacker": "$kingdom$ 加入了 $empire$ 的進攻方",
   "history_war_join_defender": "$kingdom$ 以 $empire$ 的名義參與防禦",
   "history_city_captured": "$attacker$ 從 $defender$ 手中攻克了 $city$",
@@ -815,7 +827,7 @@
   ,"debug_frontline_triggered":"已觸發戰線調試顯示"
   ,"occupation_capture_event_log":"$capturer$ 擒獲了 $victim$，$result$"
   ,"honorary_peerage_granted_log":"$empire$ 冊封 $actor$ 為 $title$"
-  ,"honorary_peerage_inherited_log":"$heir$ 承襲 $predecessor$ 的 $title$"
+  ,"honorary_peerage_inherited_log":"$heir$ 繼承 $predecessor$ 的 $title$"
   ,"empire_pressure_surrender_log":"在 $attacker$ 的戰事壓力下，$defender$ 投降，並被迫割讓 $target$"
   ,"empire_pressure_surrender_city_log":"在 $attacker$ 的戰事壓力下，$defender$ 被迫割讓城市 $target$"
   ,"empire_core_absorb_title_log":"$empire$ 已將 $title$ 法理納入 $core$ 帝國法理中"

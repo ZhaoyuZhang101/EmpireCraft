@@ -1,5 +1,6 @@
 ﻿using db;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Compatibility;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
@@ -98,6 +99,7 @@ public static class EmpireCraftNamePlateLibrary
                 if (EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled())
                 {
                     RenderSimplifiedEmpireLayer();
+                    RenderAncientWarfareKingdoms(pManager);
                     return;
                 }
 
@@ -108,7 +110,7 @@ public static class EmpireCraftNamePlateLibrary
                     for (int i = 0; i < _cached_empires.Count; i++)
                     {
                         var empire = _cached_empires[i];
-                        if (empire == null || empire.IsArchived() || empire.CoreKingdom == null) continue;
+                        if (empire == null || empire.IsArchived() || empire.CoreKingdom == null || AncientWarfareCompatibility.OwnsObject(empire)) continue;
                         Vector3 empirePos = GetEmpireDisplayPosition(empire);
                         if (!isWithinCamera(empirePos)) continue;
                         var npt = prepareNext(pManager, pAsset, empire, 37, 12, 39, 11);
@@ -122,14 +124,14 @@ public static class EmpireCraftNamePlateLibrary
                     _cached_empires.Clear();
                     foreach (var empire in ModClass.EMPIRE_MANAGER)
                     {
-                        if (empire == null || empire.IsArchived() || empire.CoreKingdom == null) continue;
+                        if (empire == null || empire.IsArchived() || empire.CoreKingdom == null || AncientWarfareCompatibility.OwnsObject(empire)) continue;
                         _cached_empires.Add(empire);
                     }
                     _cached_empires.Sort((a, b) => (a?.countWarriors() ?? 0).CompareTo(b?.countWarriors() ?? 0));
                     for (int i = 0; i < _cached_empires.Count; i++)
                     {
                         var empire = _cached_empires[i];
-                        if (empire == null || empire.IsArchived() || empire.CoreKingdom == null) continue;
+                        if (empire == null || empire.IsArchived() || empire.CoreKingdom == null || AncientWarfareCompatibility.OwnsObject(empire)) continue;
                         var npt = prepareNext(pManager, pAsset, empire, 37, 12, 39, 11);
                         npt._showing = true;
                         npt.setPriority(9999999 + empire.CountPopulation());
@@ -403,6 +405,7 @@ public static class EmpireCraftNamePlateLibrary
                 if (EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled())
                 {
                     RenderSimplifiedKingdomLayer();
+                    RenderAncientWarfareKingdoms(pManager);
                     RenderNeutralCities(pManager);
                     return;
                 }
@@ -464,7 +467,8 @@ public static class EmpireCraftNamePlateLibrary
     private static void RenderSimplifiedEmpireLayer()
     {
         int view = EmpireCraftMetaTypeLibrary.empire.getZoneOptionState();
-        Empire hoveredEmpire = view == 0 ? GetHoveredMemberEmpire() : null;
+        Kingdom hoveredKingdom = GetHoveredKingdom();
+        Empire hoveredEmpire = GetHoveredEmpire(hoveredKingdom, view);
 
         TerritoryLabelRenderer.BeginFrame();
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)
@@ -480,7 +484,8 @@ public static class EmpireCraftNamePlateLibrary
                 $"political-empire:{view}:{empire.id}",
                 GetSafeEmpireName(empire),
                 EnumerateEmpireViewCities(empire, view),
-                style);
+                style,
+                view != 0 && empire == hoveredEmpire);
         }
 
         if (view == 0)
@@ -493,7 +498,8 @@ public static class EmpireCraftNamePlateLibrary
                     $"political-kingdom:{kingdom.id}",
                     GetTerritoryKingdomName(kingdom),
                     kingdom.cities,
-                    TerritoryLabelRenderer.KingdomStyle);
+                    GetTerritoryKingdomStyle(kingdom),
+                    kingdom == hoveredKingdom || kingdom.IsInEmpire() && kingdom.GetEmpire() == hoveredEmpire);
             }
         }
         TerritoryLabelRenderer.EndFrame();
@@ -501,6 +507,7 @@ public static class EmpireCraftNamePlateLibrary
 
     private static void RenderSimplifiedKingdomLayer()
     {
+        Kingdom hoveredKingdom = GetHoveredKingdom();
         TerritoryLabelRenderer.BeginFrame();
         foreach (Kingdom kingdom in World.world.kingdoms)
         {
@@ -513,9 +520,22 @@ public static class EmpireCraftNamePlateLibrary
                 $"political-kingdom:{kingdom.id}",
                 text,
                 kingdom.cities,
-                empire == null ? TerritoryLabelRenderer.KingdomStyle : TerritoryLabelRenderer.EmpireStyle);
+                empire == null ? GetTerritoryKingdomStyle(kingdom) : TerritoryLabelRenderer.EmpireStyle,
+                kingdom == hoveredKingdom);
         }
         TerritoryLabelRenderer.EndFrame();
+    }
+
+    private static void RenderAncientWarfareKingdoms(NameplateManager manager)
+    {
+        if (!AncientWarfareCompatibility.Loaded) return;
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+            if (kingdom == null || kingdom.isRekt() || !kingdom.hasCapital() ||
+                !AncientWarfareCompatibility.Owns(kingdom) || !isWithinCamera(kingdom.capital.city_center)) continue;
+            var plate = manager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
+            plate.showTextKingdom(kingdom, kingdom.capital.city_center);
+        }
     }
 
     private static void RenderNeutralCities(NameplateManager manager)
@@ -529,11 +549,20 @@ public static class EmpireCraftNamePlateLibrary
         }
     }
 
-    private static Empire GetHoveredMemberEmpire()
+    private static Kingdom GetHoveredKingdom()
     {
-        Kingdom kingdom = World.world?.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
-        if (kingdom == null || !kingdom.IsInEmpire()) return null;
-        Empire empire = kingdom.GetEmpire();
+        return World.world?.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
+    }
+
+    private static Empire GetHoveredEmpire(Kingdom kingdom, int view)
+    {
+        if (kingdom == null) return null;
+        Empire empire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : view switch
+        {
+            1 when kingdom.HasTakenAlliance() => kingdom.GetTakenAllianceEmpire(),
+            2 when kingdom.HasGivenAlliance() => kingdom.GetGivenAllianceEmpire(),
+            _ => null
+        };
         return IsRenderableEmpire(empire) ? empire : null;
     }
 
@@ -542,7 +571,7 @@ public static class EmpireCraftNamePlateLibrary
         if (empire.cities_list != null)
         {
             foreach (City city in empire.cities_list)
-                if (city != null && !city.isRekt()) yield return city;
+                if (city != null && !city.isRekt() && !AncientWarfareCompatibility.OwnsObject(city)) yield return city;
         }
 
         List<Kingdom> associatedKingdoms = view == 1 ? empire.taken_Kingdoms :
@@ -559,6 +588,7 @@ public static class EmpireCraftNamePlateLibrary
     private static bool IsRenderableEmpire(Empire empire)
     {
         return empire != null && empire.data != null && !empire.IsArchived() &&
+               !AncientWarfareCompatibility.Owns(empire.CoreKingdom) &&
                empire.CoreKingdom != null && empire.CoreKingdom.data != null &&
                !empire.CoreKingdom.isRekt() && empire.cities_list != null && empire.cities_list.Count > 0;
     }
@@ -566,6 +596,7 @@ public static class EmpireCraftNamePlateLibrary
     private static bool IsRenderableKingdom(Kingdom kingdom)
     {
         return kingdom != null && kingdom.data != null && !kingdom.isRekt() &&
+               !AncientWarfareCompatibility.Owns(kingdom) &&
                kingdom.cities != null && kingdom.cities.Count > 0;
     }
 
@@ -586,6 +617,13 @@ public static class EmpireCraftNamePlateLibrary
         if (!IsRenderableEmpire(overlord)) return name;
         string suffix = LM.Get("territory_label_tributary_suffix");
         return $"{name} {suffix.Replace("{0}", GetSafeEmpireName(overlord))}";
+    }
+
+    private static TerritoryLabelStyle GetTerritoryKingdomStyle(Kingdom kingdom)
+    {
+        return kingdom != null && (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling())
+            ? TerritoryLabelRenderer.RebellionKingdomStyle
+            : TerritoryLabelRenderer.KingdomStyle;
     }
 
     private static void RenderLawLayerUntitledCities(NameplateManager manager)
@@ -620,6 +658,11 @@ public static class EmpireCraftNamePlateLibrary
     public static void showTextKingdom(NameplateText npt, Kingdom pMetaObject)
     {
         if (pMetaObject?.data == null) return;
+        if (AncientWarfareCompatibility.Owns(pMetaObject))
+        {
+            npt.showTextKingdom(pMetaObject, pMetaObject.capital.city_center);
+            return;
+        }
         if (pMetaObject.data.banner_background_id < 0) pMetaObject.data.banner_background_id = 0;
         if (pMetaObject.data.banner_icon_id < 0) pMetaObject.data.banner_icon_id = 0;
         npt.setupMeta((MetaObjectData) pMetaObject.data, pMetaObject.getColor());
@@ -676,6 +719,11 @@ public static class EmpireCraftNamePlateLibrary
     }	
     public static void showTextKingdomNoBack(NameplateText npt, Kingdom pMetaObject)
     {
+        if (AncientWarfareCompatibility.Owns(pMetaObject))
+        {
+            npt.showTextKingdom(pMetaObject, pMetaObject.capital.city_center);
+            return;
+        }
         var displayedEmpire = GetDisplayedEmpireForKingdom(pMetaObject);
         var displayColor = pMetaObject.HasTakenAlliance() && displayedEmpire?.CoreKingdom != null
             ? displayedEmpire.CoreKingdom.getColor()
@@ -778,6 +826,11 @@ public static class EmpireCraftNamePlateLibrary
     }
     public static void showTextCity(NameplateText npt, City pMetaObject, Vector2 pPosition)
     {
+        if (AncientWarfareCompatibility.OwnsObject(pMetaObject))
+        {
+            npt.showTextCity(pMetaObject, pPosition);
+            return;
+        }
         npt.setupMeta(pMetaObject.data, pMetaObject.kingdom.getColor());
         if (pMetaObject.isCapitalCity())
         {

@@ -21,6 +21,7 @@ public class NameplateTextPatch:GamePatch
     public static void prepare(NameplateText __instance, NameplateAsset pAsset, NanoObject pMeta, float pGlobalScale,
         NameplateRenderingType pNameplateMode, bool pNanoObjectSet, NanoObject pSelectedNanoObject)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pMeta)) return;
         __instance._banner_kingdoms.transform.localScale = Vector3.one;
         __instance._text_name.fontStyle = FontStyle.Normal;
         __instance._text_name.transform.localScale = Vector3.one;

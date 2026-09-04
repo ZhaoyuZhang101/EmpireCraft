@@ -42,6 +42,8 @@ public abstract class TemporaryFaction
     public MetaType pusherType = MetaType.None;
     public MetaType TargetType = MetaType.None;
     [JsonIgnore]
+    public bool IsLocallyPushed => pusherType == MetaType.Kingdom && KingdomID > 0;
+    [JsonIgnore]
     public Empire Empire => GetEmpire();
     public float progress = 0;
     public float progressMax = 60;
@@ -94,10 +96,9 @@ public abstract class TemporaryFaction
     {
         factionID = faction.GetID();
         EmpireID    = faction.EmpireId;
-        timestamp   = World.world.getCurWorldTime();
-        kingdoms    = new List<long>();
-        started     = false;
-        countDownTimestamp = World.world.getCurWorldTime();
+        if (timestamp < 0) timestamp = World.world.getCurWorldTime();
+        kingdoms ??= new List<long>();
+        if (countDownTimestamp < 0) countDownTimestamp = World.world.getCurWorldTime();
     }
     public abstract TemporaryFaction Clone(FixedFaction faction);
     public bool IsNeedToCountDown()
@@ -434,6 +435,8 @@ public abstract class TemporaryFaction
     }
     public void Start()
     {
+        if (!Active || started || Empire == null ||
+            (Empire.RunningTemporaryFaction?.IsStarted() == true && Empire.RunningTemporaryFaction != this)) return;
         if (CountDown <= 0)
         {
             bool shouldLogPreparing = !started;
@@ -462,9 +465,10 @@ public abstract class TemporaryFaction
                 {
                     if (!emperor.plot?.isSameType(plot) ?? true)
                     {
-                        plot?.try_to_start_advanced(emperor, plot, true);
+                        if (plot?.try_to_start_advanced(emperor, plot, true) != true) End();
                     } 
                 }
+                else End();
             }
         }
     }
@@ -482,6 +486,8 @@ public abstract class TemporaryFaction
         started = false;
         progress = 0;
         Acc = 0;
+        pusherType = MetaType.None;
+        KingdomID = -1L;
         if (Empire != null)
         {
             if ((!Empire.RunningTemporaryFaction?.IsStarted()) ?? true)
@@ -503,7 +509,7 @@ public abstract class TemporaryFaction
     //更新：每年一次共计十年
     private void Update()
     {
-        if (!CheckContinue())
+        if (!CheckContinue() || (IsLocallyPushed && !CheckLocalContinue(GetKingdom())))
         {
             End();
             return;
@@ -515,11 +521,11 @@ public abstract class TemporaryFaction
                 End();
                 return;
             }
-            if (GetEmpire().CoreKingdom.GetRegime().has_cabinet)
+            if (!IsLocallyPushed && GetEmpire().CoreKingdom.GetRegime().has_cabinet)
             {
                 if (GetEmpire().CoreKingdom.GetRegime().type != RegimeType.Feudalism)
                 {
-                    if (GetEmpire().GetCabinetLeader()?.GetFaction().GetID() != factionID)
+                    if (GetEmpire().GetCabinetLeader()?.GetFaction()?.GetID() != factionID)
                     {
                         End();
                         return;
@@ -540,24 +546,16 @@ public abstract class TemporaryFaction
 
     public bool CheckTarget()
     {
-        if (TargetType == MetaType.None) return true;
-        if (GetActorTarget().isRekt())
+        bool exists = TargetType switch
         {
-            if (GetKingdomTarget().isRekt())
-            {
-                if (GetCityTarget().isRekt())
-                {
-                    if (GetReligionTarget().isRekt())
-                    {
-                        if (GetTitleTarget().isRekt())
-                        {
-                            return false;
-                        }
-                    }
-                }
-            }
-        }
-        return true;
+            MetaType.None => !RequireCrimeTarget,
+            MetaType.Unit => GetActorTarget() != null && !GetActorTarget().isRekt(),
+            MetaType.Kingdom => GetKingdomTarget() != null && !GetKingdomTarget().isRekt(),
+            MetaType.City => GetCityTarget() != null && !GetCityTarget().isRekt(),
+            MetaType.Religion => GetReligionTarget() != null && !GetReligionTarget().isRekt(),
+            _ => TargetType == MetaTypeExtension.KingdomTitle && GetTitleTarget() != null && !GetTitleTarget().isRekt()
+        };
+        return exists && HasRequiredCrimeForCurrentTarget();
     }
     public void CheckNeedToUpdate()
     {
@@ -577,15 +575,17 @@ public abstract class TemporaryFaction
     /// <returns></returns>
     public virtual bool CheckLocalCondition(Kingdom actor)
     {
-        return CheckLocalContinue(actor);
+        return CheckLocalContinue(actor) && CheckCondition();
     }
 
     public virtual bool CheckLocalContinue(Kingdom actor)
     {
-        if (GetEmpire()==null) return false;
-        if (actor?.king==null) return false;
+        var empire = GetEmpire();
+        if (empire == null || empire.isRekt() || !Active || !canBePushByLocal) return false;
+        if (actor == null || actor.isRekt() || actor.king == null || actor.king.isRekt() ||
+            actor == empire.CoreKingdom || actor.GetEmpire() != empire || actor.isInWarWith(empire.CoreKingdom)) return false;
         var actorFaction = actor.king.GetFaction();
-        if (actorFaction == null) return false;
+        if (actorFaction == null || actorFaction.Ban) return false;
         if (actorFaction != GetFaction()) return false;
         return true;
     }
@@ -607,8 +607,10 @@ public abstract class TemporaryFaction
     /// <returns>返回条件是否满足的结果</returns>
     public virtual bool CheckContinue()
     {
-        var emperor = GetEmpire().Emperor;
-        if (ShowAsPlot && emperor.isRekt())
+        var empire = GetEmpire();
+        if (empire == null || empire.isRekt() || !Active) return false;
+        var emperor = empire.Emperor;
+        if (ShowAsPlot && (emperor == null || emperor.isRekt()))
         {
             return false;
         }

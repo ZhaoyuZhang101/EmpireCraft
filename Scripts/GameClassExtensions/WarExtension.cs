@@ -22,6 +22,11 @@ public static class WarExtension
         public MetaType metaType = MetaType.None;
         public long metaID = -1L;
         public FixedFaction belongingFaction = null;
+        public bool history_declaration_recorded;
+        public bool history_end_recorded;
+        public List<DefeatedEmpireHouse> attacker_empire_houses = new List<DefeatedEmpireHouse>();
+        public List<DefeatedEmpireHouse> defender_empire_houses = new List<DefeatedEmpireHouse>();
+        public bool royal_houses_recorded;
     }
 
     public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="", NanoObject nanoObject = null, bool isRebelling = false, FixedFaction belongingFaction = null)

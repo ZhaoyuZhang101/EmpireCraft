@@ -82,9 +82,9 @@ public static class FixFunctions
         obj.gameObject.SetActive(true);
         obj.init();
         var tipButton = obj.GetComponent<TipButton>();
-        tipButton.textOnClick = LM.Get(obj.godPower.id);
-        tipButton.textOnClickDescription = LM.Get(obj.godPower.id + "_description");
-        tipButton.text_description_2 = "按[z], [x]切换视图";
+        tipButton.textOnClick = obj.godPower.id;
+        tipButton.textOnClickDescription = obj.godPower.id + "_description";
+        tipButton.text_description_2 = "empirecraft_layer_switch_hint";
         return obj;
     }
     private static void ChangeIcon(string pPower, PowerButton obj)

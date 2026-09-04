@@ -203,6 +203,8 @@ public class OfficeObject
 
     public void SetActor (Actor actor)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(actor) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(meta_object)) return;
         var originalActor = GetActor();
         if (originalActor != null && !originalActor.isRekt())
         {

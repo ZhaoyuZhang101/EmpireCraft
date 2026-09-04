@@ -62,7 +62,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
 
     public bool HasOwner()
     {
-        return !owner.isRekt();
+        return owner != null && !owner.isRekt();
     }
 
     public override ColorAsset getColor()
@@ -491,4 +491,3 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         } 
     }
 }
-

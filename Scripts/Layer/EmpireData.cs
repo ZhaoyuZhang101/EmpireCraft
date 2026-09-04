@@ -88,6 +88,9 @@ public class EmpireData : MetaObjectData
     public double last_educate_timestamp { get; set; } = -1L;
     public double last_honorary_peerage_timestamp { get; set; } = -1L;
     public Dictionary<string, long> honorary_peerage_holders { get; set; } = new Dictionary<string, long>();
+    public Dictionary<string, long> honorary_peerage_holder_identities { get; set; } = new Dictionary<string, long>();
+    public Dictionary<string, string> honorary_peerage_holder_names { get; set; } = new Dictionary<string, string>();
+    public List<DefeatedEmpireHouse> defeated_empire_houses { get; set; } = new List<DefeatedEmpireHouse>();
     public double last_legal_peerage_timestamp { get; set; } = -1L;
     public Dictionary<long, long> legal_peerage_holders { get; set; } = new Dictionary<long, long>();
     public Dictionary<long, long> legal_peerage_holder_identities { get; set; } = new Dictionary<long, long>();
@@ -100,6 +103,10 @@ public class EmpireData : MetaObjectData
     [DefaultValue(-1L)]
     public long powerful_minister_title_id { get; set; } = -1L;
     public double last_powerful_minister_timestamp { get; set; } = -1L;
+    public double powerful_minister_stage_timestamp { get; set; } = -1L;
+    public double powerful_minister_regency_end_timestamp { get; set; } = -1L;
+    public long powerful_minister_emperor_id { get; set; } = -1L;
+    public long minister_usurper_id { get; set; } = -1L;
 
     public bool archived { get; set; } = false;
     
@@ -146,6 +153,7 @@ public class EmpireCraftHistory
     public long id { get; set; }
     public string empire_name { get; set; }
     public string dynasty_name { get; set; }
+    public string empire_full_name { get; set; }
     public string royal_surname { get; set; }
     public bool is_first { get; set; } = false;
     public string year_name { get; set; }

@@ -46,6 +46,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     }
     public KingdomTitle newKingdomTitle(City pCity)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return null;
         long id = OverallHelperFunc.IdGenerator.NextId();
         KingdomTitle title = base.newObjectFromID(id);
         title.newKingdomTitle(pCity);
@@ -68,6 +69,8 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     }
     public bool forceTitle(City pCity1, City pCity2)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity1) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity2)) return false;
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(pCity1.GetTitleID());
         if (title == null)
         {
@@ -101,6 +104,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
 
         foreach (KingdomTitle kt in _titleUpdateBuffer)
         {
+            if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(kt)) continue;
             if (!kt.checkActive())
             {
                 this._to_dissolve.Add(kt);

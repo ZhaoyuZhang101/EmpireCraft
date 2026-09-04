@@ -219,24 +219,42 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
         public static void LogHonoraryPeerageGranted(Actor actor, Empire empire, string peerageKey)
         {
+            LogPeerageGranted(actor, empire, LM.Get(peerageKey));
+        }
+        public static void LogPeerageGranted(Actor actor, Empire empire, string titleName)
+        {
             if (actor == null || empire == null) return;
             new WorldLogMessage(EmpireCraftWorldLogLibrary.honorary_peerage_granted_log,
-                empire.GetEmpireName(), GetActorFullLogName(actor), LM.Get(peerageKey))
+                empire.GetEmpireFullName(), GetActorFullLogName(actor), titleName)
             {
                 color_special1 = empire.CoreKingdom.getColor()._color_text,
-                color_special2 = actor.getColor()._color_text
-            }.RecordIntoEmpire(empire);
+                color_special2 = actor.getColor()._color_text,
+                color_special3 = empire.CoreKingdom.getColor()._color_text
+            }.RecordNationalHistoryIntoEmpire(empire, actor);
+            actor.RecordPersonalHistory(string.Format(LM.Get("personal_history_peerage_granted"),
+                empire.GetEmpireFullName(), titleName), relatedActorId: empire.Emperor?.id ?? -1L);
         }
         public static void LogHonoraryPeerageInherited(Actor heir, Actor predecessor, Empire empire, string peerageKey)
         {
+            LogPeerageInherited(heir, empire, LM.Get(peerageKey), predecessor?.GetPersonalIdentity(),
+                predecessor?.id ?? -1L, predecessor?.getName());
+        }
+        public static void LogPeerageInherited(Actor heir, Empire empire, string titleName,
+            PersonalClanIdentity predecessor, long predecessorId, string predecessorName)
+        {
             if (heir == null || empire == null) return;
+            predecessorName = predecessor?.name ?? predecessorName ?? "";
             new WorldLogMessage(EmpireCraftWorldLogLibrary.honorary_peerage_inherited_log,
-                GetActorFullLogName(heir), GetActorFullLogName(predecessor),
-                $"{LM.Get(peerageKey)} ({empire.GetEmpireName()})")
+                GetActorFullLogName(heir), predecessorName,
+                $"{titleName} ({empire.GetEmpireFullName()})")
             {
                 color_special1 = heir.getColor()._color_text,
-                color_special2 = empire.CoreKingdom.getColor()._color_text
-            }.RecordIntoEmpire(empire);
+                color_special2 = empire.CoreKingdom.getColor()._color_text,
+                color_special3 = empire.CoreKingdom.getColor()._color_text
+            }.RecordNationalHistoryIntoEmpire(empire, heir);
+            heir.RecordPersonalHistory(string.Format(LM.Get("personal_history_peerage_inherited"),
+                titleName, predecessorName), relatedActorId: predecessorId,
+                relatedPersonalIdentityId: predecessor?.id ?? -1L);
         }
         public static void LogLawEnforcement(LawEnforcementContext context)
         {

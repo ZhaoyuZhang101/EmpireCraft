@@ -95,6 +95,7 @@ public class ZonesPatch:GamePatch
 
     public static bool CanBeClaimedByCityPrefix(City pCity, ref bool __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
         if (pCity != null && !_invalidZoneClaimCities.Contains(pCity))
             return true;
 

@@ -1,5 +1,6 @@
 ﻿using NeoModLoader.api;
 using UnityEngine;
+using EmpireCraft.Scripts.Compatibility;
 using NeoModLoader.services;
 using System;
 using System.Reflection;
@@ -58,7 +59,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     private void FixedUpdate()
     {
-
+        AncientWarfareCompatibility.Refresh();
         KINGDOM_TITLE_MANAGER.update(-1L);
         _fixedUpdateKingdomBuffer.Clear();
         foreach (Kingdom kingdom in World.world.kingdoms)
@@ -70,15 +71,17 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         {
             Kingdom pKingdom = _fixedUpdateKingdomBuffer[i];
             if (pKingdom == null) continue;
+            if (AncientWarfareCompatibility.Owns(pKingdom)) continue;
             pKingdom.CheckEmpire();
             EmpireCraftKingdomBehCheckTemporaryFaction.CheckTf(pKingdom);
             if (pKingdom.isRekt()) continue;
             if (!pKingdom.IsEmpire())  continue;
             Regime regime = pKingdom.GetRegime();
             if (regime==null)  continue;
-            var ff = regime.GetDominateFaction();
-            if (ff==null)  continue;
-            foreach (var tf in ff.TemporaryFactions)
+            var factions = regime.GetPlayerFactions();
+            if (factions == null) continue;
+            foreach (var tf in factions.Where(f => f?.TemporaryFactions != null)
+                .SelectMany(f => f.TemporaryFactions).Where(tf => tf != null))
             {
                 tf.SetEmpire(pKingdom.GetEmpire());
                 if (tf.IsNeedToCountDown())
@@ -137,6 +140,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     public void OnLoad(ModDeclare modDeclare, GameObject gameObject)
     {
+        AncientWarfareIsolation.CaptureOriginalCallbacks();
         _declare = modDeclare;
         _modObject = gameObject;
         Config.isEditor = true; // Set this to true if you want to enable editor mode for your mod
@@ -208,6 +212,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 LogService.LogInfo("用户文化配置不存在，启用默认配置");
             }
         }
+        AncientWarfareIsolation.EnableWhenAvailable();
     }
 
     public void LoadUI()
