@@ -12,6 +12,7 @@ namespace EmpireCraft.Scripts.Layer;
 public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleData>
 {
     private readonly List<KingdomTitle> _titleUpdateBuffer = new();
+    private int _scheduledUpdateCursor;
 
     public Sprite[] _cached_banner_backgrounds;
 
@@ -97,22 +98,34 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         base.update(pElapsed);
         if (this.Count <= 0) return;
         _titleUpdateBuffer.Clear();
-        foreach (KingdomTitle kt in this)
+        bool forceFullUpdate = pElapsed < 0f;
+        if (forceFullUpdate)
         {
-            _titleUpdateBuffer.Add(kt);
+            foreach (KingdomTitle title in this) _titleUpdateBuffer.Add(title);
         }
-
-        foreach (KingdomTitle kt in _titleUpdateBuffer)
+        else
         {
-            if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(kt)) continue;
-            if (!kt.checkActive())
+            checkLists();
+            int population = World.world?.units?.Count ?? 0;
+            int budget = EmpireCraftFrameSchedulingRules.ResolveMaximumKingdoms(
+                ModClass.PERFORMANCE_HIGH_POPULATION_MODE, population);
+            int count = Math.Min(this.list.Count, Math.Max(1, budget));
+            for (int index = 0; index < count; index++)
             {
-                this._to_dissolve.Add(kt);
+                if (_scheduledUpdateCursor >= this.list.Count) _scheduledUpdateCursor = 0;
+                _titleUpdateBuffer.Add(this.list[_scheduledUpdateCursor++]);
             }
         }
-        foreach (KingdomTitle kt in this._to_dissolve)
+
+        for (int index = 0; index < _titleUpdateBuffer.Count; index++)
         {
-            this.dissolveTitle(kt);
+            KingdomTitle title = _titleUpdateBuffer[index];
+            if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(title)) continue;
+            if (!title.checkActive()) this._to_dissolve.Add(title);
+        }
+        for (int index = 0; index < this._to_dissolve.Count; index++)
+        {
+            this.dissolveTitle(this._to_dissolve[index]);
         }
         this._to_dissolve.Clear();
         _titleUpdateBuffer.Clear();

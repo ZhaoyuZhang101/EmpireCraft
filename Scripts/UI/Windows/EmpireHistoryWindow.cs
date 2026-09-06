@@ -239,38 +239,37 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             Actor actor = desc.actor_id > 0 ? World.world.units.get(desc.actor_id) : null;
             Kingdom kingdom = actor == null && desc.kingdom_id > 0 ? World.world.kingdoms.get(desc.kingdom_id) : null;
-            bool hasMarker = actor != null || kingdom != null;
-            var eventCard = parent.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(196, 28));
             string date = desc.timestamp >= 0 ? Date.getDate(desc.timestamp) : "";
             int yearEnd = date.IndexOf('年');
             string monthDay = yearEnd >= 0 ? date.Substring(yearEnd + 1) : date;
-            var dateText = eventCard.AddTextIntoHoriLayout(monthDay.ColorString(pColor: new Color(0.25f, 0.9f, 0.8f)), true, TextAnchor.MiddleCenter, new Vector2(38, 22));
-            dateText.UseFixedFontSize(8);
-            // Older peerage logs omitted the third replacement color; repair display only.
-            string eventText = (desc.description ?? "").Replace("<color=>", "<color=#FFFFFFFF>");
-            var contentText = eventCard.AddTextIntoHoriLayout(eventText, true, TextAnchor.MiddleLeft, new Vector2(hasMarker ? 126 : 152, 22));
-            contentText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
-            HoverMarqueeText.Attach(contentText);
+            var markers = new List<HistoryEventRowMarker>();
             if (actor != null)
             {
-                var avatarLayout = eventCard.BeginVertGroup(new Vector2(24, 24), pSpacing: 0,
-                    pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
-                var avatar = UIHelper.CreateAvatarView(actor.id, () => UIHelper.actorClick(actor), pIsAlive: actor.isAlive());
-                avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
-                avatarLayout.AddChild(avatar.gameObject);
-                avatarLayout.transform.localPosition = Vector3.zero;
-                avatarLayout.transform.SetAsLastSibling();
+                markers.Add(new HistoryEventRowMarker(24f, eventCard =>
+                {
+                    var avatarLayout = eventCard.BeginVertGroup(new Vector2(24, 24), pSpacing: 0,
+                        pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
+                    var avatar = UIHelper.CreateAvatarView(actor.id, () => UIHelper.actorClick(actor),
+                        pIsAlive: actor.isAlive());
+                    avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
+                    avatarLayout.AddChild(avatar.gameObject);
+                    avatarLayout.transform.localPosition = Vector3.zero;
+                }));
             }
             else if (kingdom != null)
             {
-                KingdomBanner banner = Instantiate(Resources.Load<KingdomBanner>("ui/PrefabBannerKingdom"), eventCard.transform);
-                banner.enable_default_click = true;
-                banner.load(kingdom);
-                banner.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
-                eventCard.AddChild(banner.gameObject);
-                banner.transform.SetAsLastSibling();
+                markers.Add(new HistoryEventRowMarker(24f, eventCard =>
+                {
+                    KingdomBanner banner = Instantiate(Resources.Load<KingdomBanner>("ui/PrefabBannerKingdom"),
+                        eventCard.transform);
+                    banner.enable_default_click = true;
+                    banner.load(kingdom);
+                    banner.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
+                    eventCard.AddChild(banner.gameObject);
+                }));
             }
-            eventCard.transform.AddStretchBackground("clanFrame", new Vector2(196, 28));
+            HistoryEventRow.Add(parent, monthDay.ColorString(pColor: new Color(0.25f, 0.9f, 0.8f)),
+                desc.description, markers);
         }
     }
 }

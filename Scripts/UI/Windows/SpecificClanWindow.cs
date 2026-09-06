@@ -138,29 +138,17 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
                 foreach (PersonalHistoryRecord record in yearRecords)
                 {
                     PersonalClanIdentity relatedIdentity = GetRelatedHistoryIdentity(record);
-                    bool hasRelatedAvatar = relatedIdentity != null;
-                    var eventCard = this.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(196, 28));
-                    var dateText = eventCard.AddTextIntoHoriLayout(GetHistoryMonthDay(record).ColorString(pColor: new Color(0.25f, 0.9f, 0.8f)), true,
-                        TextAnchor.MiddleCenter, new Vector2(38, 22));
-                    dateText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+                    var markers = new List<HistoryEventRowMarker>();
                     string kingdomSuffix = string.IsNullOrWhiteSpace(record.kingdom_name) ? "" : $" · {record.kingdom_name}";
-                    var contentText = eventCard.AddTextIntoHoriLayout(GetHistoryContent(record) + kingdomSuffix, true, TextAnchor.MiddleLeft,
-                        new Vector2(hasRelatedAvatar ? 108 : 136, 22));
-                    contentText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
-                    if (hasRelatedAvatar)
+                    if (relatedIdentity != null)
                     {
-                        AutoVertLayoutGroup avatarLayout = this.BeginVertGroup(new Vector2(24, 24), pSpacing: 0,
-                            pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
-                        SimpleButton avatar = UIHelper.CreateAvatarView(relatedIdentity.actor_id,
-                            () => ShowRelatedPersonHistory(relatedIdentity), pIsAlive: relatedIdentity.is_alive);
-                        avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
-                        avatarLayout.AddChild(avatar.gameObject);
-                        avatarLayout.transform.localPosition = Vector3.zero;
-                        eventCard.AddChild(avatarLayout.gameObject);
+                        markers.Add(CreatePersonMarker(relatedIdentity));
                     }
-                    AddHistoryButton(eventCard, record);
-                    eventCard.transform.AddStretchBackground("clanFrame", size: new Vector2(196, 28));
-                    historySpace.AddChild(eventCard.gameObject);
+                    HistoryEventRowMarker historyMarker = CreateHistoryButtonMarker(record);
+                    if (historyMarker != null) markers.Add(historyMarker);
+                    HistoryEventRow.Add(historySpace,
+                        GetHistoryMonthDay(record).ColorString(pColor: new Color(0.25f, 0.9f, 0.8f)),
+                        GetHistoryContent(record) + kingdomSuffix, markers);
                 }
             }
         }
@@ -168,20 +156,34 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         _groups["personal_history"] = historySpace;
     }
 
-    private static void AddHistoryButton(AutoHoriLayoutGroup parent, PersonalHistoryRecord record)
+    private HistoryEventRowMarker CreatePersonMarker(PersonalClanIdentity identity)
+    {
+        return new HistoryEventRowMarker(24f, row =>
+        {
+            AutoVertLayoutGroup avatarLayout = row.BeginVertGroup(new Vector2(24, 24), pSpacing: 0,
+                pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
+            SimpleButton avatar = UIHelper.CreateAvatarView(identity.actor_id,
+                () => ShowRelatedPersonHistory(identity), pIsAlive: identity.is_alive);
+            avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
+            avatarLayout.AddChild(avatar.gameObject);
+            avatarLayout.transform.localPosition = Vector3.zero;
+        });
+    }
+
+    private static HistoryEventRowMarker CreateHistoryButtonMarker(PersonalHistoryRecord record)
     {
         Empire empire = record?.empire_id > 0 ? ModClass.EMPIRE_MANAGER.get(record.empire_id) : null;
-        if (empire == null || empire.IsArchived() || empire.data == null) return;
+        if (empire == null || empire.IsArchived() || empire.data == null) return null;
 
         EmpireCraftHistory history = empire.data.currentHistory ?? empire.data.history?.LastOrDefault();
-        if (history == null) return;
+        if (history == null) return null;
 
-        parent.AddButtonIntoHoriLayout("open_history", "", () =>
+        return new HistoryEventRowMarker(14f, parent => parent.AddButtonIntoHoriLayout("open_history", "", () =>
         {
             EmpireCraftMetaTypeLibrary.selected_empire = empire;
             ConfigData.CURRENT_SELECTED_HISTORY = history;
             ScrollWindow.showWindow(nameof(EmpireHistoryWindow));
-        }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(14, 14), showTip: true);
+        }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(14, 14), showTip: true));
     }
 
     private static string GetHistoryContent(PersonalHistoryRecord record)
@@ -245,39 +247,15 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
                 PersonalClanIdentity owner = record.owner_personal_identity_id > 0
                     ? SpecificClanManager.getPerson(record.owner_personal_identity_id)
                     : null;
-                bool hasOwnerAvatar = owner != null;
-                var eventCard = this.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleLeft,
-                    pSize: new Vector2(196, 28));
-                var dateText = eventCard.AddTextIntoHoriLayout(GetHistoryMonthDay(record).ColorString(
-                    pColor: new Color(0.25f, 0.9f, 0.8f)), true, TextAnchor.MiddleCenter, new Vector2(38, 22));
-                dateText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
-
-                var details = this.BeginVertGroup(pSpacing: -2, pAlignment: TextAnchor.MiddleLeft,
-                    pSize: new Vector2(hasOwnerAvatar ? 124 : 150, 24));
                 string ownerName = owner?.name;
                 if (string.IsNullOrWhiteSpace(ownerName)) ownerName = LM.Get("related_history_owner_unknown");
-                var ownerText = details.AddTextIntoVertLayout($"{LM.Get("related_history_owner")}: {ownerName}".ColorString(
-                    pColor: new Color(1f, 0.78f, 0.2f)), true, TextAnchor.MiddleLeft, new Vector2(hasOwnerAvatar ? 122 : 148, 11));
-                ownerText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
-                var contentText = details.AddTextIntoVertLayout(string.Format(LM.Get("related_history_event"), GetHistoryContent(record)),
-                    true, TextAnchor.MiddleLeft, new Vector2(hasOwnerAvatar ? 122 : 148, 11));
-                contentText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
-                eventCard.AddChild(details.gameObject);
-
-                if (owner != null)
-                {
-                    // Match the genealogy cards so dead related people keep their tombstone avatar.
-                    AutoVertLayoutGroup avatarLayout = this.BeginVertGroup(new Vector2(24, 24), pSpacing: 0,
-                        pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
-                    SimpleButton avatar = UIHelper.CreateAvatarView(owner.actor_id,
-                        () => ShowRelatedPersonHistory(owner), pIsAlive: owner.is_alive);
-                    avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
-                    avatarLayout.AddChild(avatar.gameObject);
-                    avatarLayout.transform.localPosition = Vector3.zero;
-                    eventCard.AddChild(avatarLayout.gameObject);
-                }
-                eventCard.transform.AddStretchBackground("clanFrame", size: new Vector2(196, 28));
-                historySpace.AddChild(eventCard.gameObject);
+                var markers = new List<HistoryEventRowMarker>();
+                if (owner != null) markers.Add(CreatePersonMarker(owner));
+                HistoryEventRow.Add(historySpace,
+                    GetHistoryMonthDay(record).ColorString(pColor: new Color(0.25f, 0.9f, 0.8f)),
+                    $"{LM.Get("related_history_owner")}: {ownerName}".ColorString(
+                        pColor: new Color(1f, 0.78f, 0.2f)), markers,
+                    string.Format(LM.Get("related_history_event"), GetHistoryContent(record)));
             }
         }
         AddChild(historySpace.gameObject);

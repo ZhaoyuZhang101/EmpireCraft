@@ -22,6 +22,10 @@ $ui = Get-Content (Join-Path $root 'Scripts/UI/Windows/EmpireCoreWindow.cs') -Ra
 $records = Get-Content (Join-Path $root 'Scripts/GeneralSystems/HistoryRecordSystem.cs') -Raw
 $empire = Get-Content (Join-Path $root 'Scripts/Layer/Empire.cs') -Raw
 $data = Get-Content (Join-Path $root 'Scripts/Layer/EmpireData.cs') -Raw
+$historyWindow = Get-Content (Join-Path $root 'Scripts/UI/Windows/EmpireHistoryWindow.cs') -Raw
+$personalWindow = Get-Content (Join-Path $root 'Scripts/UI/Windows/SpecificClanWindow.cs') -Raw
+$historyRow = Get-Content (Join-Path $root 'Scripts/UI/Components/HistoryEventRow.cs') -Raw
+$marquee = Get-Content (Join-Path $root 'Scripts/UI/Components/HoverMarqueeText.cs') -Raw
 $checks = @{
     'Fixed four-column grid' = $ui.Contains('BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount')
     'Grid cells fit content width' = (4 * 48 + 3 * 2 -le 200) -and $ui.Contains('pCellSize: new Vector2(48, 34)')
@@ -33,6 +37,11 @@ $checks = @{
     'Current reign included' = $ui.Contains('result.Add(activeEmpire.data.currentHistory)')
     'Not ordered by longest reign' = -not $ui.Contains('OrderByDescending(h => h?.total_time')
     'Long names use hover clipping' = $ui.Contains('HoverMarqueeText.Attach(historyDetails.AddTextIntoVertLayout(empireName')
+    'Empire history uses shared event rows' = $historyWindow.Contains('HistoryEventRow.Add(parent,')
+    'Personal histories use shared event rows' = ([regex]::Matches($personalWindow, 'HistoryEventRow\.Add\(historySpace,').Count -eq 2)
+    'Shared rows own marquee behavior' = $historyRow.Contains('HoverMarqueeText.Attach(text);')
+    'Marquee uses a fixed masked viewport' = $marquee.Contains('MarqueeViewport') -and $marquee.Contains('typeof(Mask)')
+    'Marquee hover target stays stationary' = $marquee.Contains('viewportImage.raycastTarget = true') -and $marquee.Contains('_text.raycastTarget = false')
 }
 foreach ($check in $checks.GetEnumerator()) { if (-not $check.Value) { throw $check.Key } }
 Write-Output "$($checks.Count) UI and history wiring checks passed."

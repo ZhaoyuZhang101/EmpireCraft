@@ -1,6 +1,22 @@
 ﻿{
     "toggle_mod_title": "帝国盒子",
-    "Empire_layer": "帝国图层",
+  "bug_report_window_title": "Bug反馈",
+  "bug_report_button": "Bug反馈",
+  "bug_report_button_description": "收集Player.log并发送给帝国盒子作者。",
+  "bug_report_recipient": "收件人：",
+  "bug_report_privacy_notice": "Player.log可能包含本机路径、系统信息及已加载模组。点击发送即表示同意发送这些信息；如打开邮件草稿，请补充复现步骤并手动附加已选中的日志。",
+  "bug_report_log_found": "已找到Player.log，可以发送。",
+  "bug_report_log_missing": "未找到Player.log，无法生成报告。",
+  "bug_report_send": "发送日志",
+  "bug_report_send_description": "生成诊断摘要并发送Player.log。",
+  "bug_report_open_log": "打开日志",
+  "bug_report_open_log_description": "在文件管理器中定位Player.log。",
+  "bug_report_sent": "Bug报告已交给系统邮件客户端发送。",
+  "bug_report_draft_opened": "未能直接发送；已打开邮件草稿并选中日志副本，请手动附加。",
+  "bug_report_cancelled": "已取消发送，日志副本仍保留在报告目录。",
+  "bug_report_failed": "生成或发送Bug报告失败。",
+  "bug_report_log_opened": "已在文件管理器中定位Player.log。",
+  "Empire_layer": "帝国图层",
     "KingdomTitle_layer": "法理图层",
     "empirecraft_layer_switch_hint": "按[z]、[x]切换视图",
     "empirecraft_law_allow_social_title": "允许社交",
@@ -10,6 +26,7 @@
     "history_minister_dispossessed_royal": "{0}被剥夺{1}爵位，转授权臣{2}为国公。",
     "history_minister_opposition_rebellion": "{0}起兵反对权臣{1}僭越中央。",
     "history_minister_regent": "{0} 在 {2} 出任辅政大臣，辅佐幼帝 {1}。",
+    "history_empress_dowager_regent": "太后 {0} 在 {2} 临朝监国，辅佐幼帝 {1}。",
     "history_minister_lost_control": "{0} 在 {2} 失去对朝廷的控制，皇帝 {1} 摆脱傀儡地位。",
     "Culture": "文化",
     "Dialect": "话",
@@ -937,7 +954,7 @@
     ,"empire_bureau_offices":"官僚机构", "empire_bureau_offices_description":"返回内阁、中央部门与地方官员页面。"
     ,"specific_clan_relations":"亲属关系", "specific_clan_relations_description":"返回当前人物的亲属关系页面。", "specific_clan_history":"个人历史", "specific_clan_history_description":"查看当前人物记录在族谱中的生平事件。", "personal_history_empty":"暂无个人历史记录", "personal_history_peerage_granted":"受{0}册封，获授{1}。", "personal_history_peerage_inherited":"承袭{0}，前任为{1}。"
     ,"personal_history_office_started":"就任{0}。", "personal_history_office_reappointed":"仍领{0}之职。", "personal_history_office_left":"离任{0}。", "personal_history_became_king":"成为{0}的国王。", "personal_history_became_emperor":"登基为{0}皇帝。", "personal_history_left_king":"不再担任{0}的国王。", "personal_history_died":"逝世。", "personal_history_new_year_name":"颁布年号“{0}”。", "personal_history_born":"出生。", "personal_history_child_born":"诞下子嗣{0}。", "personal_history_married":"与{0}结为夫妻。", "personal_history_took_concubine":"纳{0}为妾。", "personal_history_became_concubine":"成为{0}的妾室。", "personal_history_exam_city_attended":"赴乡试。", "personal_history_exam_city_passed":"乡试中举，获举人。", "personal_history_exam_province_attended":"赴会试。", "personal_history_exam_province_passed":"会试登第，获贡士。", "personal_history_exam_empire_attended":"赴殿试。", "personal_history_exam_empire_passed":"殿试及第，获进士。", "personal_history_joined_cabinet":"入阁。", "personal_history_became_cabinet_leader":"拜内阁首辅。", "personal_history_became_elector":"列名选帝侯。", "personal_history_became_chief_elector":"成为首席选帝侯。", "personal_history_joined_faction":"加入{0}。", "personal_history_became_faction_leader":"执掌{0}。"
-    ,"powerful_minister_title":"权臣", "powerful_minister_status_progress":"权势 {0}/100", "powerful_minister_status_regent":"辅政 {0}/100", "powerful_minister_status_dominant":"权倾朝野", "powerful_minister_status_duke":"国公", "powerful_minister_status_king":"王", "powerful_minister_status_puppet":"傀儡"
+    ,"powerful_minister_title":"权臣", "empress_dowager_title":"太后", "powerful_minister_status_progress":"权势 {0}/100", "powerful_minister_status_regent":"辅政 {0}/100", "powerful_minister_status_dowager":"监国 {0}/100", "powerful_minister_status_dominant":"权倾朝野", "powerful_minister_status_duke":"国公", "powerful_minister_status_king":"王", "powerful_minister_status_puppet":"傀儡"
     ,"history_powerful_minister_controls_court":"{0}权倾朝野，皇帝{1}沦为傀儡。", "history_powerful_minister_duke":"{0}受封{1}，入朝不趋，赞拜不名，剑履上殿。", "history_powerful_minister_nine_bestowments":"{0}受加九锡，进爵{1}。", "history_powerful_minister_usurpation":"{0}篡位称帝，定国号{1}。"
     ,"personal_history_powerful_minister_controls_court":"在{0}权倾朝野。", "personal_history_became_puppet":"受{0}控制，沦为傀儡皇帝。", "personal_history_powerful_minister_duke":"受封{0}，获入朝不趋、赞拜不名、剑履上殿之权。", "personal_history_powerful_minister_nine_bestowments":"受加九锡，由国公进爵为{0}。", "personal_history_deposed_by_powerful_minister":"被权臣{0}篡位废黜。", "personal_history_powerful_minister_usurpation":"篡夺{0}天命，称帝并定国号{1}。"
     ,"tang_peerage_qinwang":"亲王", "tang_peerage_si_wang":"嗣王", "tang_peerage_junwang":"郡王", "tang_peerage_guogong":"国公", "tang_peerage_jungong":"郡公", "tang_peerage_xiangong":"县公", "tang_peerage_kaiguo_jungong":"开国郡公", "tang_peerage_kaiguo_xiangong":"开国县公", "tang_peerage_kaiguo_hou":"开国侯", "tang_peerage_kaiguo_bo":"开国伯", "tang_peerage_kaiguo_zi":"开国子", "tang_peerage_kaiguo_nan":"开国男"

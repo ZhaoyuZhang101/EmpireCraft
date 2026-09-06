@@ -11,6 +11,7 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Diagnostics;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.GameLibrary;
@@ -46,7 +47,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static ModConfig modConfig;
     public static int MOD_DATA_VERSION = 3;
     public static Dictionary<long, List<EmpireCraftHistory>> ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
-    private static readonly List<Kingdom> _fixedUpdateKingdomBuffer = new();
     public ModDeclare GetDeclaration()
     {
         return _declare;
@@ -57,48 +57,9 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         
     }
 
-    private void FixedUpdate()
+    private void Update()
     {
-        AncientWarfareCompatibility.Refresh();
-        KINGDOM_TITLE_MANAGER.update(-1L);
-        _fixedUpdateKingdomBuffer.Clear();
-        foreach (Kingdom kingdom in World.world.kingdoms)
-        {
-            _fixedUpdateKingdomBuffer.Add(kingdom);
-        }
-
-        for (int i = 0; i < _fixedUpdateKingdomBuffer.Count; i++)
-        {
-            Kingdom pKingdom = _fixedUpdateKingdomBuffer[i];
-            if (pKingdom == null) continue;
-            if (AncientWarfareCompatibility.Owns(pKingdom)) continue;
-            pKingdom.CheckEmpire();
-            EmpireCraftKingdomBehCheckTemporaryFaction.CheckTf(pKingdom);
-            if (pKingdom.isRekt()) continue;
-            if (!pKingdom.IsEmpire())  continue;
-            Regime regime = pKingdom.GetRegime();
-            if (regime==null)  continue;
-            var factions = regime.GetPlayerFactions();
-            if (factions == null) continue;
-            foreach (var tf in factions.Where(f => f?.TemporaryFactions != null)
-                .SelectMany(f => f.TemporaryFactions).Where(tf => tf != null))
-            {
-                tf.SetEmpire(pKingdom.GetEmpire());
-                if (tf.IsNeedToCountDown())
-                {
-                    if (tf.CountDown > 0)
-                    {
-                        tf.CountDown -= 1;
-                    }
-                }
-                if (tf.IsStarted()&&!tf.ShowAsPlot)
-                {
-                    tf.CheckNeedToUpdate();
-                }
-            }
-        }
-        _fixedUpdateKingdomBuffer.Clear();
-        
+        EmpireCraftStrategicScheduler.Tick();
     }
 
     public GameObject GetGameObject()
@@ -143,6 +104,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         AncientWarfareIsolation.CaptureOriginalCallbacks();
         _declare = modDeclare;
         _modObject = gameObject;
+        EmpireCraftDebugProbe.Initialize();
         Config.isEditor = true; // Set this to true if you want to enable editor mode for your mod
         LogService.LogInfo("EmpireCraft Load Finished！！");
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));

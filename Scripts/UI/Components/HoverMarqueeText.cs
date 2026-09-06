@@ -6,12 +6,14 @@ namespace EmpireCraft.Scripts.UI.Components;
 
 public sealed class HoverMarqueeText : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
+    private const string ViewportName = "MarqueeViewport";
     private const float EdgePadding = 2f;
     private const float HoverDelay = 0.35f;
     private const float ScrollSpeed = 18f;
     private const float ReturnSpeed = 48f;
 
     private RectTransform _viewport;
+    private RectTransform _root;
     private RectTransform _content;
     private Text _text;
     private float _startX;
@@ -33,15 +35,40 @@ public sealed class HoverMarqueeText : MonoBehaviour, IPointerEnterHandler, IPoi
 
     private void Configure(SimpleText simpleText)
     {
-        _viewport = simpleText.GetComponent<RectTransform>();
+        _root = simpleText.GetComponent<RectTransform>();
         _text = simpleText.text;
         _content = _text.GetComponent<RectTransform>();
-        if (simpleText.GetComponent<RectMask2D>() == null)
+
+        Transform existingViewport = simpleText.transform.Find(ViewportName);
+        if (existingViewport == null)
         {
-            simpleText.gameObject.AddComponent<RectMask2D>();
+            var viewportObject = new GameObject(ViewportName, typeof(RectTransform), typeof(CanvasRenderer),
+                typeof(Image), typeof(Mask));
+            viewportObject.transform.SetParent(simpleText.transform, false);
+            existingViewport = viewportObject.transform;
         }
 
-        _text.raycastTarget = true;
+        _viewport = existingViewport.GetComponent<RectTransform>();
+        _viewport.anchorMin = Vector2.zero;
+        _viewport.anchorMax = Vector2.one;
+        _viewport.offsetMin = Vector2.zero;
+        _viewport.offsetMax = Vector2.zero;
+        _viewport.localScale = Vector3.one;
+
+        Image viewportImage = existingViewport.GetComponent<Image>();
+        viewportImage.color = Color.white;
+        viewportImage.raycastTarget = true;
+        existingViewport.GetComponent<Mask>().showMaskGraphic = false;
+
+        if (_content.parent != _viewport)
+        {
+            _content.SetParent(_viewport, false);
+        }
+        _content.SetAsFirstSibling();
+        _text.raycastTarget = false;
+
+        RectMask2D oldMask = simpleText.GetComponent<RectMask2D>();
+        if (oldMask != null) oldMask.enabled = false;
         Recalculate(force: true);
     }
 
@@ -61,7 +88,11 @@ public sealed class HoverMarqueeText : MonoBehaviour, IPointerEnterHandler, IPoi
     {
         if (_viewport == null || _content == null || _text == null) return;
         Recalculate(force: false);
-        if (!_overflows) return;
+        if (!_overflows)
+        {
+            _content.anchoredPosition = new Vector2(_startX, 0f);
+            return;
+        }
 
         Vector2 position = _content.anchoredPosition;
         if (_hovered)
@@ -76,10 +107,18 @@ public sealed class HoverMarqueeText : MonoBehaviour, IPointerEnterHandler, IPoi
         _content.anchoredPosition = position;
     }
 
+    private void OnDisable()
+    {
+        _hovered = false;
+        if (_content != null) _content.anchoredPosition = new Vector2(_startX, 0f);
+    }
+
     private void Recalculate(bool force)
     {
         float viewportWidth = _viewport.rect.width;
-        if (viewportWidth <= 0f) viewportWidth = _viewport.sizeDelta.x;
+        if (viewportWidth <= 0f && _root != null) viewportWidth = _root.rect.width;
+        if (viewportWidth <= 0f && _root != null) viewportWidth = _root.sizeDelta.x;
+        if (viewportWidth <= 0f) return;
         if (!force && Mathf.Approximately(viewportWidth, _lastViewportWidth) && _lastText == _text.text) return;
 
         _lastViewportWidth = viewportWidth;
@@ -90,7 +129,9 @@ public sealed class HoverMarqueeText : MonoBehaviour, IPointerEnterHandler, IPoi
         _content.anchorMin = new Vector2(0f, 0.5f);
         _content.anchorMax = new Vector2(0f, 0.5f);
         _content.pivot = new Vector2(0f, 0.5f);
-        _content.sizeDelta = new Vector2(Mathf.Max(contentWidth, viewportWidth), _viewport.rect.height * 0.95f);
+        float viewportHeight = _viewport.rect.height;
+        if (viewportHeight <= 0f && _root != null) viewportHeight = _root.rect.height;
+        _content.sizeDelta = new Vector2(Mathf.Max(contentWidth, viewportWidth), viewportHeight * 0.95f);
         _startX = EdgePadding;
         _endX = viewportWidth - contentWidth - EdgePadding;
         _content.anchoredPosition = new Vector2(_startX, 0f);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ai.behaviours;
+using EmpireCraft.Scripts.Diagnostics;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
@@ -35,12 +36,38 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         }
 
         CheckProgress(pKingdom);
+        CheckPowerfulMinisterPlot(pKingdom);
         //检测加入圣战
         CheckJoinReligionWar(pKingdom);
         CheckMainTitle(pKingdom);
         CheckRebellionWar(pKingdom);
         if (ked != null) ked.last_plots_check_ts = World.world.getCurWorldTime();
         return BehResult.Continue;
+    }
+
+    private static void CheckPowerfulMinisterPlot(Kingdom kingdom)
+    {
+        Empire empire = kingdom?.GetEmpire();
+        if (empire?.CoreKingdom != kingdom) return;
+        Actor minister = empire.GetPowerfulMinister();
+        if (minister == null || minister.isRekt() || minister.plot?.isActive() == true) return;
+
+        string plotId = empire.CanPowerfulMinisterUsurp(minister)
+            ? "minister_acquire_empire"
+            : empire.CanPowerfulMinisterReceiveNineBestowments(minister)
+                ? "minister_receive_nine_bestowments"
+                : empire.CanPowerfulMinisterSeekDukedom(minister)
+                    ? "minister_acquire_title"
+                    : null;
+        if (plotId == null) return;
+
+        PlotAsset plot = AssetManager.plots_library.basic_plots.Find(asset => asset.id == plotId);
+        if (plot?.try_to_start_advanced(minister, plot, true) == true)
+        {
+            EmpireCraftDebugProbe.Hit("powerful_minister.plot_started", () =>
+                $"empire={empire.GetEmpireFullName()}({empire.id}), minister={minister.getName()}" +
+                $"({minister.id}), stage={empire.data.powerful_minister_stage}, plot={plotId}");
+        }
     }
     public void CheckMainTitle(Kingdom pKingdom)
     {

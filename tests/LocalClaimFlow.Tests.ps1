@@ -155,8 +155,11 @@ $converter = Get-Content -LiteralPath (Join-Path $root 'Scripts/HelperFunc/Tempo
 foreach ($field in 'canBePushByLocal','pusherType','KingdomID','progressMax') {
     if (!$converter.Contains('["' + $field + '"]')) { throw "Missing saved claim field: $field" }
 }
-$scheduler = Get-Content -LiteralPath (Join-Path $root 'Scripts/ModClass.cs') -Raw
-if (!$scheduler.Contains('.SelectMany(f => f.TemporaryFactions)')) { throw 'Scheduler excludes non-dominant local claims' }
+$scheduler = Get-Content -LiteralPath (Join-Path $root 'Scripts/GeneralSystems/EmpireCraftStrategicScheduler.cs') -Raw
+if (!$scheduler.Contains('for (int factionIndex = 0; factionIndex < factions.Count; factionIndex++)') -or
+    !$scheduler.Contains('factions[factionIndex]?.TemporaryFactions')) {
+    throw 'Scheduler excludes non-dominant local claims'
+}
 $centralAI = Get-Content -LiteralPath (Join-Path $root 'Scripts/AI/KingdomAI/EmpireCraftKingdomBehCheckTemporaryFaction.cs') -Raw
 if (!$centralAI.Contains('tf.IsLocallyPushed && tf.Active && tf.CheckLocalContinue(tf.GetKingdom())')) {
     throw 'Central AI cancels local submissions'

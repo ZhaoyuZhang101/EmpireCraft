@@ -118,7 +118,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             centerPart.AddActorViewIntoVertLayout(_empire.Emperor, description:emperorTitle);
             Actor powerfulMinister = _empire.GetPowerfulMinister();
-            string powerfulMinisterDescription = LM.Get("powerful_minister_title")
+            string powerfulMinisterDescription = LM.Get(_empire.data.powerful_minister_is_empress_dowager
+                    ? "empress_dowager_title" : "powerful_minister_title")
                 .ColorString(pColor:new Color(1f,0.55f,0.1f));
             string powerfulMinisterStatus = _empire.GetPowerfulMinisterStatusText();
             if (!string.IsNullOrWhiteSpace(powerfulMinisterStatus))

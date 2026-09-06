@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.Diagnostics;
 using EmpireCraft.Scripts.Compatibility;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
@@ -2199,8 +2200,10 @@ public class Empire : MetaObject<EmpireData>
     {
         Actor minister = GetPowerfulMinister();
         if (minister == null) return "";
-        string progress = string.Format(LM.Get(data.powerful_minister_is_regent
-            ? "powerful_minister_status_regent" : "powerful_minister_status_progress"),
+        string statusKey = data.powerful_minister_is_empress_dowager
+            ? "powerful_minister_status_dowager"
+            : data.powerful_minister_is_regent ? "powerful_minister_status_regent" : "powerful_minister_status_progress";
+        string progress = string.Format(LM.Get(statusKey),
             data.powerful_minister_progress);
         return data.powerful_minister_stage switch
         {
@@ -2222,6 +2225,47 @@ public class Empire : MetaObject<EmpireData>
     {
         FixedFaction dominant = currentRegime?.GetDominateFaction();
         return dominant != null && dominant.TotalPower > 0 && actor?.GetFaction() == dominant;
+    }
+
+    private Actor GetEmperorMother()
+    {
+        Actor emperor = Emperor;
+        if (emperor == null || emperor.isRekt()) return null;
+        Actor mother = emperor.getParents()?.Where(parent => parent != null && !parent.isRekt() &&
+            parent.isSexFemale()).OrderByDescending(parent => parent.renown).FirstOrDefault();
+        if (mother == null)
+        {
+            PersonalClanIdentity identity = emperor.GetPersonalIdentity();
+            mother = identity?.mother > 0 ? SpecificClanManager.getPerson(identity.mother)?._actor : null;
+        }
+        return mother != null && !mother.isRekt() && mother.isAdult() && mother.isSexFemale() &&
+            mother.kingdom?.GetEmpire() == this ? mother : null;
+    }
+
+    private bool IsEmpressDowager(Actor actor)
+    {
+        return actor != null && data.powerful_minister_is_empress_dowager &&
+               GetEmperorMother()?.id == actor.id;
+    }
+
+    private bool IsValidRegencyCandidate(Actor actor)
+    {
+        return actor != null && !actor.isRekt() && actor.isAdult() && actor != Emperor &&
+               actor.kingdom?.GetEmpire() == this;
+    }
+
+    private bool HasPowerfulMinisterSupport(Actor actor, Regime currentRegime)
+    {
+        return IsEmpressDowager(actor) ||
+               (data.powerful_minister_is_regent && Emperor?.isAdult() == false &&
+                IsCurrentPowerfulMinister(actor)) || HasCentralMinisterSupport(actor, currentRegime);
+    }
+
+    private bool IsValidPowerfulMinister(Actor actor)
+    {
+        if (IsCentralMinister(actor)) return true;
+        return data.powerful_minister_is_regent && Emperor?.isAdult() == false &&
+               IsCurrentPowerfulMinister(actor) && IsValidRegencyCandidate(actor);
     }
 
     private bool HasStrongEmperor()
@@ -2260,19 +2304,57 @@ public class Empire : MetaObject<EmpireData>
         return !requireInitialInfluence || actor.renown >= PowerfulMinisterRules.EntryInfluence;
     }
 
-    private Actor FindPowerfulMinisterCandidate(Regime currentRegime, out bool isRegent)
+    private Actor FindPowerfulMinisterCandidate(Regime currentRegime, out bool isRegent,
+        out bool isEmpressDowager)
     {
         isRegent = false;
+        isEmpressDowager = false;
         Actor current = GetPowerfulMinister();
-        if (IsCentralMinister(current)) return current;
         Actor cabinetLeader = GetCabinetLeader();
-        if (IsEligiblePowerBase(cabinetLeader, currentRegime, false, out isRegent) && isRegent) return cabinetLeader;
-        if (data.centerOffice == null) return null;
-        // Only examine central office holders, not every resident of the empire.
-        return data.centerOffice.CoreOffices.Concat(data.centerOffice.Divisions).Concat(data.centerOffice.Harems)
+        bool minorEmperor = Emperor != null && !Emperor.isRekt() && !Emperor.isAdult();
+        var centralCandidates = data.centerOffice == null ? new List<Actor>() :
+            data.centerOffice.CoreOffices.Concat(data.centerOffice.Divisions).Concat(data.centerOffice.Harems)
             .Distinct()
             .Select(id => OfficeManager.Offices.TryGetValue(id, out var office) ? office.GetActor() : null)
-            .Where(actor => IsEligiblePowerBase(actor, currentRegime, true, out _))
+            .Where(IsCentralMinister).Distinct().ToList();
+        Actor normalCandidate;
+        if (minorEmperor)
+        {
+            // A child emperor always receives an available adult regent. Office rank and the
+            // ordinary 300-influence entry gate only determine preference, never eligibility.
+            Actor mother = GetEmperorMother();
+            normalCandidate = centralCandidates.Where(actor => actor?.id != mother?.id)
+                .OrderByDescending(actor => actor.id == current?.id)
+                .ThenByDescending(actor => actor.id == cabinetLeader?.id)
+                .ThenByDescending(actor => HasCentralMinisterSupport(actor, currentRegime))
+                .ThenByDescending(actor => actor.renown)
+                .ThenByDescending(actor => actor.GetOrCreate().officeIdentity?.TotalPerformance ?? 0)
+                .FirstOrDefault();
+            normalCandidate ??= getUnits().Where(actor => IsValidRegencyCandidate(actor) &&
+                    actor.id != mother?.id && actor.kingdom == CoreKingdom &&
+                    actor.GetSpecificClan() != EmpireSpecificClan)
+                .OrderByDescending(actor => actor.id == current?.id)
+                .ThenByDescending(actor => actor.renown).ThenBy(actor => actor.id).FirstOrDefault();
+            normalCandidate ??= getUnits().Where(actor => IsValidRegencyCandidate(actor) &&
+                    actor.id != mother?.id && actor.kingdom == CoreKingdom)
+                .OrderByDescending(actor => actor.id == current?.id)
+                .ThenByDescending(actor => actor.renown).ThenBy(actor => actor.id).FirstOrDefault();
+            if (PowerfulMinisterRules.ShouldPreferEmpressDowager(true, mother != null,
+                    mother?.renown ?? 0, normalCandidate != null, normalCandidate?.renown ?? 0))
+            {
+                isRegent = true;
+                isEmpressDowager = true;
+                return mother;
+            }
+            if (normalCandidate != null)
+            {
+                isRegent = true;
+                return normalCandidate;
+            }
+            return null;
+        }
+        if (IsCentralMinister(current)) return current;
+        return centralCandidates.Where(actor => IsEligiblePowerBase(actor, currentRegime, true, out _))
             .OrderByDescending(actor => actor.id == cabinetLeader?.id)
             .ThenByDescending(actor => HasCentralMinisterSupport(actor, currentRegime))
             .ThenByDescending(actor => actor.renown)
@@ -2289,7 +2371,15 @@ public class Empire : MetaObject<EmpireData>
             data.last_powerful_minister_timestamp = World.world.getCurWorldTime();
             return;
         }
-        Actor candidate = FindPowerfulMinisterCandidate(currentRegime, out bool isRegent);
+        Actor candidate = FindPowerfulMinisterCandidate(currentRegime, out bool isRegent,
+            out bool isEmpressDowager);
+        EmpireCraftDebugProbe.Observe("powerful_minister.candidate", id.ToString(),
+            $"{emperor.id}:{candidate?.id ?? -1L}:{isRegent}:{isEmpressDowager}", () =>
+                $"empire={GetEmpireFullName()}({id}), emperor={emperor.getName()}({emperor.id}), " +
+                $"emperorRenown={emperor.renown}, emperorAdult={emperor.isAdult()}, " +
+                $"candidate={candidate?.getName() ?? "none"}({candidate?.id ?? -1L}), " +
+                $"candidateRenown={candidate?.renown ?? 0}, regent={isRegent}, " +
+                $"empressDowager={isEmpressDowager}, regime={currentRegime.type}");
         if (candidate?.id != data.powerful_minister_id && data.is_been_controlled)
         {
             Actor previous = World.world.units.get(data.powerful_minister_id);
@@ -2306,6 +2396,7 @@ public class Empire : MetaObject<EmpireData>
             data.powerful_minister_id = candidate.id;
             data.powerful_minister_progress = 0;
             data.powerful_minister_is_regent = isRegent;
+            data.powerful_minister_is_empress_dowager = isEmpressDowager;
             data.last_powerful_minister_timestamp = World.world.getCurWorldTime();
             data.powerful_minister_emperor_id = emperor.id;
             if (candidate.HasVirtualEnfeoff(this))
@@ -2316,11 +2407,12 @@ public class Empire : MetaObject<EmpireData>
                     ? PowerfulMinisterStageKing : PowerfulMinisterStageDuke;
                 data.powerful_minister_stage_timestamp = World.world.getCurWorldTime();
             }
-            if (isRegent) RecordMinisterTransition(candidate, "history_minister_regent");
+            if (isRegent) RecordMinisterTransition(candidate,
+                isEmpressDowager ? "history_empress_dowager_regent" : "history_minister_regent");
             return;
         }
 
-        isRegent = !emperor.isAdult() && GetCabinetLeader()?.id == candidate.id;
+        isRegent = !emperor.isAdult();
         if (data.powerful_minister_is_regent && !isRegent)
         {
             data.powerful_minister_regency_end_timestamp = World.world.getCurWorldTime();
@@ -2329,9 +2421,11 @@ public class Empire : MetaObject<EmpireData>
         if (isRegent)
         {
             data.powerful_minister_regency_end_timestamp = -1L;
-            if (!data.powerful_minister_is_regent) RecordMinisterTransition(candidate, "history_minister_regent");
+            if (!data.powerful_minister_is_regent) RecordMinisterTransition(candidate,
+                isEmpressDowager ? "history_empress_dowager_regent" : "history_minister_regent");
         }
         data.powerful_minister_is_regent = isRegent;
+        data.powerful_minister_is_empress_dowager = isEmpressDowager;
         if (data.powerful_minister_emperor_id != emperor.id)
         {
             bool isNewEmperor = data.powerful_minister_emperor_id > 0;
@@ -2353,15 +2447,24 @@ public class Empire : MetaObject<EmpireData>
         int elapsedMonths = Date.getMonthsSince(data.last_powerful_minister_timestamp);
         if (elapsedMonths < 1) return;
         data.last_powerful_minister_timestamp = World.world.getCurWorldTime();
-        bool hasSupport = HasCentralMinisterSupport(candidate, currentRegime);
+        bool hasSupport = HasPowerfulMinisterSupport(candidate, currentRegime);
         bool chiefAndLeader = GetCabinetLeader()?.id == candidate.id &&
             hasSupport && candidate.GetFaction()?.GetLeader()?.id == candidate.id;
         int monthlyChange = PowerfulMinisterRules.MonthlyChange(isRegent, chiefAndLeader, hasSupport,
             HasStrongEmperor(), IsRegencyEnding(), HasVulnerableNewEmperor());
         monthlyChange = PowerfulMinisterRules.ApplyMandate(monthlyChange, Mandate);
+        monthlyChange = PowerfulMinisterRules.ApplyEmpressDowagerRate(monthlyChange, isEmpressDowager);
+        int previousProgress = data.powerful_minister_progress;
         data.powerful_minister_progress = PowerfulMinisterRules.Advance(data.powerful_minister_progress,
             candidate.renown, elapsedMonths, monthlyChange, out int cost);
         candidate.data.renown -= cost;
+        EmpireCraftDebugProbe.Hit("powerful_minister.progress", () =>
+            $"empire={GetEmpireFullName()}({id}), emperor={emperor.getName()}({emperor.id}), " +
+            $"minister={candidate.getName()}({candidate.id}), progress={previousProgress}->" +
+            $"{data.powerful_minister_progress}, elapsedMonths={elapsedMonths}, monthlyChange={monthlyChange}, " +
+            $"renownCost={cost}, remainingRenown={candidate.renown}, mandate={Mandate}, " +
+            $"support={hasSupport}, chiefAndLeader={chiefAndLeader}, regent={isRegent}, " +
+            $"empressDowager={isEmpressDowager}");
         if (data.is_been_controlled && data.powerful_minister_progress < PowerfulMinisterRules.ReleaseControlBelow)
         {
             data.is_been_controlled = false;
@@ -2396,6 +2499,7 @@ public class Empire : MetaObject<EmpireData>
         data.powerful_minister_progress = 0;
         data.powerful_minister_stage = PowerfulMinisterStageNone;
         data.powerful_minister_is_regent = false;
+        data.powerful_minister_is_empress_dowager = false;
         data.powerful_minister_title_id = -1L;
         data.last_powerful_minister_timestamp = -1L;
         data.powerful_minister_stage_timestamp = -1L;
@@ -2407,13 +2511,13 @@ public class Empire : MetaObject<EmpireData>
     private bool CanAdvanceMinisterPlot(Actor actor)
     {
         Regime currentRegime = CoreKingdom?.GetRegime();
-        if (!IsCurrentPowerfulMinister(actor) || !IsCentralMinister(actor) ||
+        if (!IsCurrentPowerfulMinister(actor) || !IsValidPowerfulMinister(actor) ||
             currentRegime?.type != RegimeType.LvLing || Emperor == null || Emperor.isRekt() ||
             data.powerful_minister_emperor_id != Emperor.id ||
             data.powerful_minister_stage_timestamp < 0) return false;
         bool regencyEnding = IsRegencyEnding() || (data.powerful_minister_is_regent && Emperor.isAdult());
         return PowerfulMinisterRules.CanAdvance(data.is_been_controlled, data.powerful_minister_progress,
-            HasCentralMinisterSupport(actor, currentRegime), HasStrongEmperor(), regencyEnding,
+            HasPowerfulMinisterSupport(actor, currentRegime), HasStrongEmperor(), regencyEnding,
             HasUsurpingDisposition(actor), Date.getMonthsSince(data.powerful_minister_stage_timestamp),
             data.powerful_minister_stage == PowerfulMinisterStageKing);
     }

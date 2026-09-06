@@ -13,6 +13,20 @@ namespace EmpireCraft.Scripts.Layer
         public const int VulnerableEmperorInfluence = 100;
         public const int EarlyReignMonths = 36;
 
+        public static bool ShouldPreferEmpressDowager(bool isMinorEmperor, bool validMother,
+            int motherInfluence, bool hasMinisterCandidate, int ministerInfluence)
+        {
+            return isMinorEmperor && validMother &&
+                   (!hasMinisterCandidate || motherInfluence > ministerInfluence);
+        }
+
+        public static int ApplyEmpressDowagerRate(int monthlyChange, bool isEmpressDowager)
+        {
+            if (!isEmpressDowager || monthlyChange <= 0) return monthlyChange;
+            return Math.Max(1, (int)Math.Round(monthlyChange * 0.5,
+                MidpointRounding.AwayFromZero));
+        }
+
         public static bool IsVulnerableNewEmperor(int influence, int monthsOnThrone)
         {
             return influence < VulnerableEmperorInfluence && monthsOnThrone >= 0 &&

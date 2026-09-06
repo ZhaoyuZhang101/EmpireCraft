@@ -405,6 +405,10 @@ FodyWeavers.xsd
 # Local release packages
 dist/
 
+# Local runtime diagnostics
+debug_probe.local.json
+EmpireCraft.debug.log
+
 .*
 !.gitignore
 !.gitattribute

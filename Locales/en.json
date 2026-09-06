@@ -1,5 +1,21 @@
 ﻿{
     "toggle_mod_title": "Empire Box",
+    "bug_report_window_title": "Bug Report",
+    "bug_report_button": "Bug Report",
+    "bug_report_button_description": "Collect Player.log and send it to the EmpireCraft author.",
+    "bug_report_recipient": "Recipient: ",
+    "bug_report_privacy_notice": "Player.log may contain local paths, system details, and loaded mods. Clicking Send consents to sharing this information. If an email draft opens, add reproduction steps and attach the selected log copy.",
+    "bug_report_log_found": "Player.log was found and is ready to send.",
+    "bug_report_log_missing": "Player.log could not be found, so no report can be created.",
+    "bug_report_send": "Send Log",
+    "bug_report_send_description": "Create a diagnostic summary and send Player.log.",
+    "bug_report_open_log": "Open Log",
+    "bug_report_open_log_description": "Locate Player.log in the file manager.",
+    "bug_report_sent": "The bug report was handed to the system mail client for delivery.",
+    "bug_report_draft_opened": "Direct delivery was unavailable. An email draft opened and the log copy was selected; attach it manually.",
+    "bug_report_cancelled": "Sending was cancelled. The log copy remains in the report folder.",
+    "bug_report_failed": "The bug report could not be created or sent.",
+    "bug_report_log_opened": "Player.log was selected in the file manager.",
     "Empire_layer": "Empire Layer",
     "KingdomTitle_layer": "De Jure Layer",
     "empirecraft_layer_switch_hint": "Press [z] or [x] to switch views",
@@ -10,6 +26,7 @@
     "history_minister_dispossessed_royal": "{0} was stripped of the title {1}, which was granted to the powerful minister {2} as a dukedom.",
     "history_minister_opposition_rebellion": "{0} rose in rebellion against the powerful minister {1}'s usurpation of central authority.",
     "history_minister_regent": "{0} became regent of {2}, serving the child emperor {1}.",
+    "history_empress_dowager_regent": "Empress Dowager {0} assumed the regency of {2} for the child emperor {1}.",
     "history_minister_lost_control": "{0} lost control of the court of {2}; Emperor {1} was no longer a puppet.",
     "Culture": "Culture",
     "Dialect": "Dialect",
@@ -934,7 +951,7 @@
   ,"empire_bureau_offices":"Bureau", "empire_bureau_offices_description":"Return to the cabinet, central departments, and provincial offices."
   ,"specific_clan_relations":"Relations", "specific_clan_relations_description":"Return to the selected person's family relations.", "specific_clan_history":"Personal History", "specific_clan_history_description":"View life events recorded for the selected person in the genealogy.", "personal_history_empty":"No personal history has been recorded.", "personal_history_peerage_granted":"Invested by {0} as {1}.", "personal_history_peerage_inherited":"Inherited {0} from {1}."
   ,"personal_history_office_started":"Appointed as {0}.", "personal_history_office_reappointed":"Reappointed as {0}.", "personal_history_office_left":"Left office as {0}.", "personal_history_became_king":"Became king of {0}.", "personal_history_became_emperor":"Ascended as emperor of {0}.", "personal_history_left_king":"Ceased to rule {0}.", "personal_history_died":"Died.", "personal_history_new_year_name":"Proclaimed the era name \"{0}\".", "personal_history_born":"Was born.", "personal_history_child_born":"Welcomed child {0}.", "personal_history_married":"Married {0}.", "personal_history_took_concubine":"Took {0} as a concubine.", "personal_history_became_concubine":"Became {0}'s concubine.", "personal_history_exam_city_attended":"Sat the local examination.", "personal_history_exam_city_passed":"Passed the local examination and became a Juren.", "personal_history_exam_province_attended":"Sat the provincial examination.", "personal_history_exam_province_passed":"Passed the provincial examination and became a Gongshi.", "personal_history_exam_empire_attended":"Sat the palace examination.", "personal_history_exam_empire_passed":"Passed the palace examination and became a Jinshi.", "personal_history_joined_cabinet":"Joined the cabinet.", "personal_history_became_cabinet_leader":"Became the chief minister.", "personal_history_became_elector":"Became an elector.", "personal_history_became_chief_elector":"Became the chief elector.", "personal_history_joined_faction":"Joined the {0} faction.", "personal_history_became_faction_leader":"Became leader of the {0} faction."
-  ,"powerful_minister_title":"Powerful Minister", "powerful_minister_status_progress":"Power {0}/100", "powerful_minister_status_regent":"Regent {0}/100", "powerful_minister_status_dominant":"Dominates Court", "powerful_minister_status_duke":"Duke", "powerful_minister_status_king":"King", "powerful_minister_status_puppet":"Puppet"
+  ,"powerful_minister_title":"Powerful Minister", "empress_dowager_title":"Empress Dowager", "powerful_minister_status_progress":"Power {0}/100", "powerful_minister_status_regent":"Regent {0}/100", "powerful_minister_status_dowager":"Regency {0}/100", "powerful_minister_status_dominant":"Dominates Court", "powerful_minister_status_duke":"Duke", "powerful_minister_status_king":"King", "powerful_minister_status_puppet":"Puppet"
   ,"history_powerful_minister_controls_court":"{0} dominated the court; Emperor {1} became a puppet.", "history_powerful_minister_duke":"{0} was enfeoffed as {1} and granted exceptional court privileges.", "history_powerful_minister_nine_bestowments":"{0} received the Nine Bestowments and was elevated to {1}.", "history_powerful_minister_usurpation":"{0} usurped the throne and founded {1}."
   ,"personal_history_powerful_minister_controls_court":"Dominated the court of {0}.", "personal_history_became_puppet":"Was controlled by {0} and became a puppet emperor.", "personal_history_powerful_minister_duke":"Was enfeoffed as {0} with exceptional court privileges.", "personal_history_powerful_minister_nine_bestowments":"Received the Nine Bestowments and advanced from duke to {0}.", "personal_history_deposed_by_powerful_minister":"Was deposed by the powerful minister {0}.", "personal_history_powerful_minister_usurpation":"Seized the Mandate of {0}, ascended the throne, and founded {1}."
   ,"tang_peerage_qinwang":"Prince of the First Rank", "tang_peerage_si_wang":"Heir Apparent Prince", "tang_peerage_junwang":"Commandery Prince", "tang_peerage_guogong":"Duke of the State", "tang_peerage_jungong":"Duke of the Commandery", "tang_peerage_xiangong":"Duke of the County", "tang_peerage_kaiguo_jungong":"Founding Duke of the Commandery", "tang_peerage_kaiguo_xiangong":"Founding Duke of the County", "tang_peerage_kaiguo_hou":"Founding Marquis", "tang_peerage_kaiguo_bo":"Founding Count", "tang_peerage_kaiguo_zi":"Founding Viscount", "tang_peerage_kaiguo_nan":"Founding Baron"

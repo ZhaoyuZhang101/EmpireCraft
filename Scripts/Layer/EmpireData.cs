@@ -100,6 +100,7 @@ public class EmpireData : MetaObjectData
     public int powerful_minister_progress { get; set; } = 0;
     public int powerful_minister_stage { get; set; } = 0;
     public bool powerful_minister_is_regent { get; set; } = false;
+    public bool powerful_minister_is_empress_dowager { get; set; } = false;
     [DefaultValue(-1L)]
     public long powerful_minister_title_id { get; set; } = -1L;
     public double last_powerful_minister_timestamp { get; set; } = -1L;
