@@ -13,6 +13,16 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = $utf8NoBom
 $OutputEncoding = $utf8NoBom
 
+function Get-SafeTrimmedText {
+    param([object]$Value)
+
+    if ($null -eq $Value) {
+        return ""
+    }
+
+    return ([string]$Value).Trim()
+}
+
 function Invoke-Git {
     param(
         [Parameter(ValueFromRemainingArguments = $true)]
@@ -46,7 +56,7 @@ function Invoke-Git {
 
 function Get-GitHubToken {
     if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) {
-        return $env:GITHUB_TOKEN.Trim()
+        return Get-SafeTrimmedText $env:GITHUB_TOKEN
     }
 
     try {
@@ -120,7 +130,6 @@ function Invoke-GitHubCurl {
     }
 
     $responsePath = [IO.Path]::GetTempFileName()
-    $statusPath = [IO.Path]::GetTempFileName()
     $stderrPath = [IO.Path]::GetTempFileName()
     $jsonPath = $null
 
@@ -172,26 +181,21 @@ function Invoke-GitHubCurl {
         $previousErrorActionPreference = $ErrorActionPreference
         try {
             $ErrorActionPreference = "SilentlyContinue"
-            & curl.exe @curlArguments 1> $statusPath 2> $stderrPath
+
+            # The response body goes to $responsePath. curl's --write-out value is
+            # captured directly from stdout, avoiding the Windows PowerShell
+            # empty-file/$null behaviour that caused the previous Null error.
+            $curlStatusOutput = @(& curl.exe @curlArguments 2> $stderrPath)
             $curlExitCode = $LASTEXITCODE
         }
         finally {
             $ErrorActionPreference = $previousErrorActionPreference
         }
 
-        # Get-Content -Raw returns $null for an empty file in Windows PowerShell.
-        # Cast to [string] before Trim() so an empty curl stream does not cause:
-        # "You cannot call a method on a null-valued expression."
-        $statusText = [string](
-            Get-Content -LiteralPath $statusPath -Raw -ErrorAction SilentlyContinue
-        )
-        $statusText = $statusText.Trim()
-
-        $stderrText = [string](
+        $statusText = Get-SafeTrimmedText (($curlStatusOutput | Out-String))
+        $stderrText = Get-SafeTrimmedText (
             Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
         )
-        $stderrText = $stderrText.Trim()
-
         $responseBody = [string](
             Get-Content `
                 -LiteralPath $responsePath `
@@ -377,10 +381,10 @@ try {
         throw "curl.exe is not installed or is not available in PATH."
     }
 
-    $repositoryRoot = (
+    $repositoryRoot = Get-SafeTrimmedText (
         Invoke-Git rev-parse --show-toplevel |
         Select-Object -First 1
-    ).Trim()
+    )
 
     if ([IO.Path]::GetFullPath($repositoryRoot) -ne
         [IO.Path]::GetFullPath($PSScriptRoot)) {
@@ -448,19 +452,19 @@ try {
         throw "-AllowDirty can only be used together with -PackageOnly."
     }
 
-    $branchName = (
+    $branchName = Get-SafeTrimmedText (
         Invoke-Git branch --show-current |
         Select-Object -First 1
-    ).Trim()
+    )
 
     if ([string]::IsNullOrWhiteSpace($branchName)) {
         throw "Releases cannot be created from a detached HEAD."
     }
 
-    $remoteUrl = (
+    $remoteUrl = Get-SafeTrimmedText (
         Invoke-Git remote get-url origin |
         Select-Object -First 1
-    ).Trim()
+    )
 
     $repositoryMatch = [regex]::Match(
         $remoteUrl,
@@ -668,6 +672,19 @@ catch {
     Write-Host ""
     Write-Host "Release failed." -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
+
+    if ($_.InvocationInfo -and $_.InvocationInfo.PositionMessage) {
+        Write-Host ""
+        Write-Host "PowerShell location:" -ForegroundColor Yellow
+        Write-Host $_.InvocationInfo.PositionMessage -ForegroundColor Yellow
+    }
+
+    if ($_.ScriptStackTrace) {
+        Write-Host ""
+        Write-Host "Stack trace:" -ForegroundColor DarkYellow
+        Write-Host $_.ScriptStackTrace -ForegroundColor DarkYellow
+    }
+
     exit 1
 }
 finally {
