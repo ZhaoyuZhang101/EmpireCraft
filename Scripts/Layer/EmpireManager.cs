@@ -39,6 +39,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         _empiresToProcess.Clear();
         foreach (Empire empire in this)
         {
+            if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(empire)) continue;
+            empire.RefreshCompatibilityMembership();
             _empiresToProcess.Add(empire);
         }
         double worldTime = World.world.getCurWorldTime();
@@ -182,6 +184,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
     public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom)) return null;
         if (pKingdom == null || !pKingdom.isAlive())
         {
             return null;
@@ -311,6 +314,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
     public bool forceEmpire(Kingdom pKingdom1, Kingdom pKingdom2)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom1) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom2)) return false;
         Empire empire = ModClass.EMPIRE_MANAGER.get(pKingdom1.GetEmpireID());
         if (empire == null)
         {

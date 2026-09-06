@@ -36,6 +36,7 @@ public class CityWindowPatch : GamePatch
     }
     public static bool showStatsRows(CityWindow __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         City metaObject = __instance.meta_object;
         if (metaObject == null)
             return false;
@@ -58,6 +59,7 @@ public class CityWindowPatch : GamePatch
     }
     public static void startShowingWindow(CityWindow __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         _window = __instance;
         AddSettingTab();
     }

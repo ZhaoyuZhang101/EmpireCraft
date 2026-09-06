@@ -12,8 +12,12 @@ namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftWorldLogLibrary
 {
     public static WorldLogAsset history_new_emperor;
+    public static WorldLogAsset history_emperor_new_year_name;
     public static WorldLogAsset history_new_emperor_west;
     public static WorldLogAsset empire_powerful_minister_aquire_title;
+    public static WorldLogAsset powerful_minister_controls_court_log;
+    public static WorldLogAsset powerful_minister_nine_bestowments_log;
+    public static WorldLogAsset powerful_minister_usurpation_log;
     public static WorldLogAsset powerful_minister_aquire_empire_war;
     public static WorldLogAsset restore_historcial_empire;
     public static WorldLogAsset empire_pianan;
@@ -78,6 +82,8 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset empire_pressure_surrender_log;
     public static WorldLogAsset empire_pressure_surrender_city_log;
     public static WorldLogAsset empire_core_absorb_title_log;
+    public static WorldLogAsset honorary_peerage_granted_log;
+    public static WorldLogAsset honorary_peerage_inherited_log;
 
     public static void init()
     {
@@ -93,6 +99,19 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$place$", 2);
                 wl.updateText(ref pText, pMessage, "$year_name$", 3);
+            }
+        });
+        history_emperor_new_year_name = wl.add(new WorldLogAsset
+        {
+            id = nameof(history_emperor_new_year_name),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$year_name$", 2);
+                wl.updateText(ref pText, pMessage, "$emperor$", 3);
             }
         });
         empire_take_back_title_log = wl.add(new WorldLogAsset
@@ -462,6 +481,32 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$capturer$", 1);
                 wl.updateText(ref pText, pMessage, "$victim$", 2);
                 wl.updateText(ref pText, pMessage, "$result$", 3);
+            }
+        });
+        honorary_peerage_granted_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(honorary_peerage_granted_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$actor$", 2);
+                wl.updateText(ref pText, pMessage, "$title$", 3);
+            }
+        });
+        honorary_peerage_inherited_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(honorary_peerage_inherited_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$heir$", 1);
+                wl.updateText(ref pText, pMessage, "$predecessor$", 2);
+                wl.updateText(ref pText, pMessage, "$title$", 3);
             }
         });
         become_greater_general = wl.add(new WorldLogAsset
@@ -860,6 +905,45 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$minister$", 1);
                 wl.updateText(ref pText, pMessage, "$empire$", 2);
                 wl.updateText(ref pText, pMessage, "$title$", 3);
+            }
+        });
+        powerful_minister_controls_court_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(powerful_minister_controls_court_log),
+            group = "emperors",
+            path_icon = "ministerAcquireTitle.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$minister$", 1);
+                wl.updateText(ref pText, pMessage, "$emperor$", 2);
+                wl.updateText(ref pText, pMessage, "$empire$", 3);
+            }
+        });
+        powerful_minister_nine_bestowments_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(powerful_minister_nine_bestowments_log),
+            group = "emperors",
+            path_icon = "ministerAcquireTitle.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$minister$", 1);
+                wl.updateText(ref pText, pMessage, "$title$", 2);
+                wl.updateText(ref pText, pMessage, "$empire$", 3);
+            }
+        });
+        powerful_minister_usurpation_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(powerful_minister_usurpation_log),
+            group = "emperors",
+            path_icon = "ChineseCrown.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$minister$", 1);
+                wl.updateText(ref pText, pMessage, "$old_empire$", 2);
+                wl.updateText(ref pText, pMessage, "$new_empire$", 3);
             }
         });
         restore_historcial_empire = wl.add(new WorldLogAsset

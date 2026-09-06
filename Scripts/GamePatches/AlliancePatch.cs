@@ -23,6 +23,7 @@ public class AlliancePatch : GamePatch
 
     public static bool can_join(Alliance __instance, Kingdom pKingdom, ref bool __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pKingdom)) return true;
         if (pKingdom.IsInEmpire())
         {
             __result = false;

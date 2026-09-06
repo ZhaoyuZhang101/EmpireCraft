@@ -25,6 +25,7 @@ public class ActorTextureSubAssetPatch : GamePatch
 
     public static bool getUnitTexturePath(ActorTextureSubAsset __instance, Actor pActor, ref string __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pActor)) return true;
         if (string.IsNullOrEmpty(texture_path_emperor))
         {
             texture_path_emperor = __instance._base_path + "emperor";

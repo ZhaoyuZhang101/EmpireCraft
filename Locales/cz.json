@@ -1,5 +1,33 @@
 ﻿{
     "toggle_mod_title": "帝国盒子",
+  "bug_report_window_title": "Bug反馈",
+  "bug_report_button": "Bug反馈",
+  "bug_report_button_description": "收集Player.log并发送给帝国盒子作者。",
+  "bug_report_recipient": "收件人：",
+  "bug_report_privacy_notice": "Player.log可能包含本机路径、系统信息及已加载模组。点击发送即表示同意发送这些信息；如打开邮件草稿，请补充复现步骤并手动附加已选中的日志。",
+  "bug_report_log_found": "已找到Player.log，可以发送。",
+  "bug_report_log_missing": "未找到Player.log，无法生成报告。",
+  "bug_report_send": "发送日志",
+  "bug_report_send_description": "生成诊断摘要并发送Player.log。",
+  "bug_report_open_log": "打开日志",
+  "bug_report_open_log_description": "在文件管理器中定位Player.log。",
+  "bug_report_sent": "Bug报告已交给系统邮件客户端发送。",
+  "bug_report_draft_opened": "未能直接发送；已打开邮件草稿并选中日志副本，请手动附加。",
+  "bug_report_cancelled": "已取消发送，日志副本仍保留在报告目录。",
+  "bug_report_failed": "生成或发送Bug报告失败。",
+  "bug_report_log_opened": "已在文件管理器中定位Player.log。",
+  "Empire_layer": "帝国图层",
+    "KingdomTitle_layer": "法理图层",
+    "empirecraft_layer_switch_hint": "按[z]、[x]切换视图",
+    "empirecraft_law_allow_social_title": "允许社交",
+    "empirecraft_law_allow_social_description": "允许文明单位执行社交决策。",
+    "empire_core_royal_surname": "皇族姓氏",
+    "opinion_minister_usurpation": "权臣僭越",
+    "history_minister_dispossessed_royal": "{0}被剥夺{1}爵位，转授权臣{2}为国公。",
+    "history_minister_opposition_rebellion": "{0}起兵反对权臣{1}僭越中央。",
+    "history_minister_regent": "{0} 在 {2} 出任辅政大臣，辅佐幼帝 {1}。",
+    "history_empress_dowager_regent": "太后 {0} 在 {2} 临朝监国，辅佐幼帝 {1}。",
+    "history_minister_lost_control": "{0} 在 {2} 失去对朝廷的控制，皇帝 {1} 摆脱傀儡地位。",
     "Culture": "文化",
     "Dialect": "话",
     "Language": "语",
@@ -186,6 +214,7 @@
     "empire_personal_history": "个人历史",
     "empire_capital": "帝国首府",
     "year_name": "年号",
+    "empire_reign_duration": "在位",
     "current_selected_province": "当前选择的省份",
     "province_name": "省份名称",
     "province_leader": "地方官员",
@@ -369,8 +398,8 @@
     "title_holder": "法理持有者",
     "empirecraft_law_prevent_city_destroy_title": "防止城市摧毁开关",
     "empirecraft_law_prevent_city_destroy_description": "开启后，当城市人口小于1时，国家会主动向城市通过军队的形式转入人口",
-    "empirecraft_law_simplify_nameplates_title": "简化铭牌",
-    "empirecraft_law_simplify_nameplates_description": "开启后帝国铭牌会呈现出金色边框且数据简化的形态",
+    "empirecraft_law_simplify_nameplates_title": "简化王国与帝国铭牌",
+    "empirecraft_law_simplify_nameplates_description": "开启后，王国与帝国铭牌改为贴合国土的纯文字；帝国为金色，王国为白色。",
     "title_capital": "法理首都",
     "EmpireListWindow": "帝国列表",
     "emperor_suffix": "帝",
@@ -396,7 +425,10 @@
     "minister_try_aqcuire_empire_log": "$title$ $minister$妄图夺取$empire_name$的天命",
     "minister_aqcuire_empire_log": "$title$ $minister$成功夺取天命, 定国号$new_empire_name$",
     "emperor_posthumous_name": "$actor$ 追封了先帝 $actor2$",
-    "empire_powerful_minister_aquire_title": "权臣 $minister$ 向 $empire$ 天子索取封号，称 $title$",
+    "empire_powerful_minister_aquire_title": "$minister$ 受封 $title$，入朝不趋，赞拜不名，剑履上殿。",
+    "powerful_minister_controls_court_log": "$empire$ 权臣 $minister$ 权倾朝野，$emperor$ 沦为傀儡。",
+    "powerful_minister_nine_bestowments_log": "$minister$ 受 $empire$ 加九锡，进爵 $title$。",
+    "powerful_minister_usurpation_log": "$minister$ 篡夺 $old_empire$ 天命，定国号 $new_empire$。",
     "king_take_title_log": "$kingdom$ $king$ 获得了 $title_name$ 的法理",
     "kingdom_change_main_title_log": "$kingdom$ 将主法理 变更为 $new_title$",
     "title_been_controlled": "当前控制法理的国家",
@@ -571,6 +603,8 @@
     "plot_minister_acquire_empire_info_base": "权臣获取天命",
     "plot_minister_acquire_title": "权臣试图索取封号",
     "plot_minister_acquire_title_info_base": "权臣试图索取封号",
+    "plot_minister_receive_nine_bestowments": "权臣加九锡",
+    "plot_minister_receive_nine_bestowments_info_base": "受九锡并由国公进爵为王",
     "plot_empirecraft_war": "开战",
     "plot_empirecraft_war_info_base": "开战",
     "plot_empire_enfeoff": "帝国分封",
@@ -623,6 +657,7 @@
     "history_war_declared": "$attacker$ 向 $defender$ 宣战（$type$）",
     "history_war_ended_attacker_victory": "战争结束：$attacker$ 击败了 $defender$（$type$）",
     "history_war_ended_defender_victory": "战争结束：$defender$ 击退了 $attacker$（$type$）",
+    "history_war_ended_peace": "$attacker$ 与 $defender$ 停战（$type$）",
     "history_war_join_attacker": "$kingdom$ 加入了 $empire$ 的进攻方",
     "history_war_join_defender": "$kingdom$ 以 $empire$ 的名义参与防御",
     "history_city_captured": "$attacker$ 从 $defender$ 手中攻克了 $city$",
@@ -843,11 +878,16 @@
     ,"debug_frontline_invalid_target":"请选择一个有效的国家来调试战线"
     ,"debug_frontline_triggered":"已触发战线调试显示"
     ,"occupation_capture_event_log":"$capturer$ 擒获了 $victim$，$result$"
+    ,"honorary_peerage_granted_log":"$empire$ 册封 $actor$ 为 $title$"
+    ,"honorary_peerage_inherited_log":"$heir$ 继承 $predecessor$ 的 $title$"
     ,"empire_pressure_surrender_log":"在 $attacker$ 的战事压力下，$defender$ 投降，并被迫割让 $target$"
     ,"empire_pressure_surrender_city_log":"在 $attacker$ 的战事压力下，$defender$ 被迫割让城市 $target$"
     ,"empire_core_absorb_title_log":"$empire$ 已将 $title$ 法理纳入 $core$ 帝国法理中"
     ,"occupation_capture_result_lord":"其所镇城市被立即占领"
     ,"occupation_capture_result_king":"其所属国家全境投降"
+    ,"occupation_capture_result_king_released":"国王被俘后获释，战争结束"
+    ,"occupation_capture_result_king_war_released":"国王被俘后获释，战争按既定类型结算"
+    ,"occupation_capture_result_king_city":"国王未获释，其所在城市被立即占领"
     ,"occupation_capture_result_emperor":"帝国正统崩溃，所攻目标被迅速攻占"
     ,"opinion_same_empire_core":"同争一套帝国法理"
     ,"create_empire_core":"新建帝国法理"
@@ -896,10 +936,35 @@
     ,"label_all_claims":"全部诉求"
     ,"label_budget":"预算"
     ,"label_tributary_target":"朝贡对象"
+    ,"territory_label_tributary_suffix":"（朝贡于{0}）"
     ,"label_no_faction_influence":"无派系影响"
     ,"label_governor_influence":"长官影响力"
     ,"label_brutality":"暴虐值"
     ,"label_corruption":"腐败值"
     ,"action_add_performance":"增加绩效"
     ,"action_sub_performance":"减少绩效"
+    ,"Arabic_caliphate":"哈里发国", "Arabic_emirate":"埃米尔国", "Arabic_province":"行省", "Arabic_sultanate":"苏丹国"
+    ,"Feudalism_county":"伯国", "Feudalism_duchy":"公国", "Feudalism_empire":"帝国", "Feudalism_grand_duchy":"大公国", "Feudalism_kingdom":"王国", "Feudalism_march":"边区", "Feudalism_papal_state":"教宗国"
+    ,"LvLing_centre":"中央", "LvLing_jiedushi":"军府", "LvLing_jimizhou":"羁縻州", "LvLing_kingdom":"国", "LvLing_province":"道"
+    ,"Modern_autonomous_prefecture":"自治区", "Modern_centre":"中央", "Modern_province":"省", "Modern_state":"州"
+    ,"Origin_centre":"中央", "Origin_kingdom":"王国", "YouMu_bu":"部", "YouMu_centre":"王庭", "YouMu_kingdom":"汗国"
+    ,"ZhouFeudalism_bo":"伯国", "ZhouFeudalism_empire":"天子之国", "ZhouFeudalism_gong":"公国", "ZhouFeudalism_hou":"侯国", "ZhouFeudalism_zi":"子国", "default_country_post":"国家"
+    ,"Arabic_city":"城市", "Feudalism_city":"城市", "Feudalism_dirC":"直辖市", "Feudalism_religion_district":"教区", "LvLing_city":"城", "Modern_city":"市", "Origin_city":"聚落", "YouMu_city":"营地", "ZhouFeudalism_city":"邑"
+    ,"empire_virtual_peerages":"封爵册", "empire_virtual_peerages_description":"查看法理封爵与恩赏封爵；虚封不移交土地或法理所有权。"
+    ,"empire_bureau_offices":"官僚机构", "empire_bureau_offices_description":"返回内阁、中央部门与地方官员页面。"
+    ,"specific_clan_relations":"亲属关系", "specific_clan_relations_description":"返回当前人物的亲属关系页面。", "specific_clan_history":"个人历史", "specific_clan_history_description":"查看当前人物记录在族谱中的生平事件。", "personal_history_empty":"暂无个人历史记录", "personal_history_peerage_granted":"受{0}册封，获授{1}。", "personal_history_peerage_inherited":"承袭{0}，前任为{1}。"
+    ,"personal_history_office_started":"就任{0}。", "personal_history_office_reappointed":"仍领{0}之职。", "personal_history_office_left":"离任{0}。", "personal_history_became_king":"成为{0}的国王。", "personal_history_became_emperor":"登基为{0}皇帝。", "personal_history_left_king":"不再担任{0}的国王。", "personal_history_died":"逝世。", "personal_history_new_year_name":"颁布年号“{0}”。", "personal_history_born":"出生。", "personal_history_child_born":"诞下子嗣{0}。", "personal_history_married":"与{0}结为夫妻。", "personal_history_took_concubine":"纳{0}为妾。", "personal_history_became_concubine":"成为{0}的妾室。", "personal_history_exam_city_attended":"赴乡试。", "personal_history_exam_city_passed":"乡试中举，获举人。", "personal_history_exam_province_attended":"赴会试。", "personal_history_exam_province_passed":"会试登第，获贡士。", "personal_history_exam_empire_attended":"赴殿试。", "personal_history_exam_empire_passed":"殿试及第，获进士。", "personal_history_joined_cabinet":"入阁。", "personal_history_became_cabinet_leader":"拜内阁首辅。", "personal_history_became_elector":"列名选帝侯。", "personal_history_became_chief_elector":"成为首席选帝侯。", "personal_history_joined_faction":"加入{0}。", "personal_history_became_faction_leader":"执掌{0}。"
+    ,"powerful_minister_title":"权臣", "empress_dowager_title":"太后", "powerful_minister_status_progress":"权势 {0}/100", "powerful_minister_status_regent":"辅政 {0}/100", "powerful_minister_status_dowager":"监国 {0}/100", "powerful_minister_status_dominant":"权倾朝野", "powerful_minister_status_duke":"国公", "powerful_minister_status_king":"王", "powerful_minister_status_puppet":"傀儡"
+    ,"history_powerful_minister_controls_court":"{0}权倾朝野，皇帝{1}沦为傀儡。", "history_powerful_minister_duke":"{0}受封{1}，入朝不趋，赞拜不名，剑履上殿。", "history_powerful_minister_nine_bestowments":"{0}受加九锡，进爵{1}。", "history_powerful_minister_usurpation":"{0}篡位称帝，定国号{1}。"
+    ,"personal_history_powerful_minister_controls_court":"在{0}权倾朝野。", "personal_history_became_puppet":"受{0}控制，沦为傀儡皇帝。", "personal_history_powerful_minister_duke":"受封{0}，获入朝不趋、赞拜不名、剑履上殿之权。", "personal_history_powerful_minister_nine_bestowments":"受加九锡，由国公进爵为{0}。", "personal_history_deposed_by_powerful_minister":"被权臣{0}篡位废黜。", "personal_history_powerful_minister_usurpation":"篡夺{0}天命，称帝并定国号{1}。"
+    ,"tang_peerage_qinwang":"亲王", "tang_peerage_si_wang":"嗣王", "tang_peerage_junwang":"郡王", "tang_peerage_guogong":"国公", "tang_peerage_jungong":"郡公", "tang_peerage_xiangong":"县公", "tang_peerage_kaiguo_jungong":"开国郡公", "tang_peerage_kaiguo_xiangong":"开国县公", "tang_peerage_kaiguo_hou":"开国侯", "tang_peerage_kaiguo_bo":"开国伯", "tang_peerage_kaiguo_zi":"开国子", "tang_peerage_kaiguo_nan":"开国男"
+    ,"label_fief":"封地"
+    ,"label_vacant":"待授"
+    ,"label_peerage_pending":"爵位待定"
+    ,"label_honorary":"恩赏封爵", "empire_legal_virtual_peerages":"法理封爵", "empire_honorary_virtual_peerages":"恩赏封爵", "empire_history":"帝国历史", "empire_list_current":"现存帝国", "empire_list_archived":"已亡帝国", "empire_list_culture_unknown":"未知文化"
+    ,"tang_honorary_anle_gong":"安乐公", "tang_honorary_zhongyi_hou":"忠义侯", "tang_honorary_wenan_gong":"文安公", "tang_honorary_longxi_gong":"陇西公", "tang_honorary_wujun_hou":"武俊侯", "tang_honorary_zhongyong_hou":"忠勇侯", "tang_honorary_huaide_hou":"怀德侯"
+    ,"specific_clan_related_history":"关联历史", "specific_clan_related_history_description":"查看其他人物历史中与当前人物关联的事件。", "related_history_empty":"暂无与此人关联的历史记录", "related_history_owner":"关联者", "related_history_event":"关联：{0}", "related_history_owner_unknown":"未知人物"
+    ,"performance_high_population_toggle":"大人口性能模式", "performance_high_population_toggle Description":"人口达到5000后，对离屏且非军队市民的AI决策和行动进行分帧；达到20000后所有普通市民的AI决策和行动每8个模拟tick执行一次，前线缓存最多复用4帧。军队、国王、城主、关注和跟随角色仍实时更新。"
+    ,"performance_hidden_visuals_toggle":"隐藏角色动画优化", "performance_hidden_visuals_toggle Description":"跳过屏幕外角色的翻转、旋转、跳跃和缩放动画，不影响移动与模拟。"
+    ,"performance_nameplate_overlap_toggle":"名字牌重叠优化", "performance_nameplate_overlap_toggle Description":"跳过名字牌重叠排序和两两碰撞检测；名字牌可能重叠，但可降低地图UI负担。"
 }

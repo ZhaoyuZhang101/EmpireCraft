@@ -1,5 +1,6 @@
 ﻿using NeoModLoader.api;
 using UnityEngine;
+using EmpireCraft.Scripts.Compatibility;
 using NeoModLoader.services;
 using System;
 using System.Reflection;
@@ -10,6 +11,7 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Diagnostics;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.GameLibrary;
@@ -37,12 +39,14 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static bool REAL_NUM_SWITCH = false;
     public static bool KINGDOM_TITLE_FREEZE = false;
     public static int TITLE_BEEN_DESTROY_TIME = 50;
+    public static bool PERFORMANCE_HIGH_POPULATION_MODE = true;
+    public static bool PERFORMANCE_SKIP_HIDDEN_VISUALS = true;
+    public static bool PERFORMANCE_SKIP_NAMEPLATE_OVERLAP = true;
     public static ModDeclare _declare;
     private GameObject _modObject;
     public static ModConfig modConfig;
     public static int MOD_DATA_VERSION = 3;
     public static Dictionary<long, List<EmpireCraftHistory>> ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
-    private static readonly List<Kingdom> _fixedUpdateKingdomBuffer = new();
     public ModDeclare GetDeclaration()
     {
         return _declare;
@@ -53,46 +57,9 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         
     }
 
-    private void FixedUpdate()
+    private void Update()
     {
-
-        KINGDOM_TITLE_MANAGER.update(-1L);
-        _fixedUpdateKingdomBuffer.Clear();
-        foreach (Kingdom kingdom in World.world.kingdoms)
-        {
-            _fixedUpdateKingdomBuffer.Add(kingdom);
-        }
-
-        for (int i = 0; i < _fixedUpdateKingdomBuffer.Count; i++)
-        {
-            Kingdom pKingdom = _fixedUpdateKingdomBuffer[i];
-            if (pKingdom == null) continue;
-            pKingdom.CheckEmpire();
-            EmpireCraftKingdomBehCheckTemporaryFaction.CheckTf(pKingdom);
-            if (pKingdom.isRekt()) continue;
-            if (!pKingdom.IsEmpire())  continue;
-            Regime regime = pKingdom.GetRegime();
-            if (regime==null)  continue;
-            var ff = regime.GetDominateFaction();
-            if (ff==null)  continue;
-            foreach (var tf in ff.TemporaryFactions)
-            {
-                tf.SetEmpire(pKingdom.GetEmpire());
-                if (tf.IsNeedToCountDown())
-                {
-                    if (tf.CountDown > 0)
-                    {
-                        tf.CountDown -= 1;
-                    }
-                }
-                if (tf.IsStarted()&&!tf.ShowAsPlot)
-                {
-                    tf.CheckNeedToUpdate();
-                }
-            }
-        }
-        _fixedUpdateKingdomBuffer.Clear();
-        
+        EmpireCraftStrategicScheduler.Tick();
     }
 
     public GameObject GetGameObject()
@@ -134,8 +101,10 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     public void OnLoad(ModDeclare modDeclare, GameObject gameObject)
     {
+        AncientWarfareIsolation.CaptureOriginalCallbacks();
         _declare = modDeclare;
         _modObject = gameObject;
+        EmpireCraftDebugProbe.Initialize();
         Config.isEditor = true; // Set this to true if you want to enable editor mode for your mod
         LogService.LogInfo("EmpireCraft Load Finished！！");
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
@@ -205,6 +174,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 LogService.LogInfo("用户文化配置不存在，启用默认配置");
             }
         }
+        AncientWarfareIsolation.EnableWhenAvailable();
     }
 
     public void LoadUI()

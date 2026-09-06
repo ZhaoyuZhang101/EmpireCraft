@@ -77,14 +77,40 @@ namespace EmpireCraft.Scripts.HelperFunc
             {
                 color_special1 = minister.kingdom.getColor()._color_text,
                 color_special2 = empire.CoreKingdom.getColor()._color_text
-
             }.add();
-            empire.RecordHistory(EmpireHistoryType.powerful_minister_history, new Dictionary<string, string>()
+        }
+
+        public static void LogPowerfulMinisterControlsCourt(Actor minister, Empire empire)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.powerful_minister_controls_court_log,
+                minister.getName(), empire.Emperor?.getName() ?? "", empire.GetEmpireName())
             {
-                ["actor"] = minister.getName(),
-                ["empire"] = empire.GetEmpireName(),
-                ["title"] = title
-            });
+                color_special1 = minister.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text,
+                color_special3 = empire.getColor()._color_text
+            }.add();
+        }
+
+        public static void LogPowerfulMinisterNineBestowments(Actor minister, Empire empire, string title)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.powerful_minister_nine_bestowments_log,
+                minister.getName(), title, empire.GetEmpireName())
+            {
+                color_special1 = minister.getColor()._color_text,
+                color_special2 = minister.getColor()._color_text,
+                color_special3 = empire.getColor()._color_text
+            }.add();
+        }
+
+        public static void LogPowerfulMinisterUsurpation(Actor minister, Empire empire, string newEmpireName)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.powerful_minister_usurpation_log,
+                minister.getName(), empire.GetEmpireName(), newEmpireName)
+            {
+                color_special1 = minister.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text,
+                color_special3 = minister.getColor()._color_text
+            }.add();
         }
         public static void LogCreateTitle(Kingdom kingdom, KingdomTitle title)
         {
@@ -183,7 +209,52 @@ namespace EmpireCraft.Scripts.HelperFunc
         public static void RecordIntoEmpire(this WorldLogMessage worldLog, Empire pEmpire = null)
         {
             worldLog.add();
-            pEmpire?.RecordHistory(directContent: worldLog.GetEmpireHistoryFormatedText());
+        }
+        public static void RecordNationalHistoryIntoEmpire(this WorldLogMessage worldLog, Empire empire,
+            Actor actor = null, Kingdom kingdom = null)
+        {
+            worldLog.add();
+            empire?.RecordHistory(directContent: worldLog.GetEmpireHistoryFormatedText(),
+                actorId: actor?.id ?? -1L, kingdomId: kingdom?.id ?? -1L);
+        }
+        public static void LogHonoraryPeerageGranted(Actor actor, Empire empire, string peerageKey)
+        {
+            LogPeerageGranted(actor, empire, LM.Get(peerageKey));
+        }
+        public static void LogPeerageGranted(Actor actor, Empire empire, string titleName)
+        {
+            if (actor == null || empire == null) return;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.honorary_peerage_granted_log,
+                empire.GetEmpireFullName(), GetActorFullLogName(actor), titleName)
+            {
+                color_special1 = empire.CoreKingdom.getColor()._color_text,
+                color_special2 = actor.getColor()._color_text,
+                color_special3 = empire.CoreKingdom.getColor()._color_text
+            }.RecordNationalHistoryIntoEmpire(empire, actor);
+            actor.RecordPersonalHistory(string.Format(LM.Get("personal_history_peerage_granted"),
+                empire.GetEmpireFullName(), titleName), relatedActorId: empire.Emperor?.id ?? -1L);
+        }
+        public static void LogHonoraryPeerageInherited(Actor heir, Actor predecessor, Empire empire, string peerageKey)
+        {
+            LogPeerageInherited(heir, empire, LM.Get(peerageKey), predecessor?.GetPersonalIdentity(),
+                predecessor?.id ?? -1L, predecessor?.getName());
+        }
+        public static void LogPeerageInherited(Actor heir, Empire empire, string titleName,
+            PersonalClanIdentity predecessor, long predecessorId, string predecessorName)
+        {
+            if (heir == null || empire == null) return;
+            predecessorName = predecessor?.name ?? predecessorName ?? "";
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.honorary_peerage_inherited_log,
+                GetActorFullLogName(heir), predecessorName,
+                $"{titleName} ({empire.GetEmpireFullName()})")
+            {
+                color_special1 = heir.getColor()._color_text,
+                color_special2 = empire.CoreKingdom.getColor()._color_text,
+                color_special3 = empire.CoreKingdom.getColor()._color_text
+            }.RecordNationalHistoryIntoEmpire(empire, heir);
+            heir.RecordPersonalHistory(string.Format(LM.Get("personal_history_peerage_inherited"),
+                titleName, predecessorName), relatedActorId: predecessorId,
+                relatedPersonalIdentityId: predecessor?.id ?? -1L);
         }
         public static void LogLawEnforcement(LawEnforcementContext context)
         {
@@ -677,7 +748,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = empire.CoreKingdom.getColor()._color_text,
                 color_special2 = empire.CoreKingdom.getColor()._color_text
 
-            }.RecordIntoEmpire(pActor.GetEmpire());
+                }.RecordNationalHistoryIntoEmpire(pActor.GetEmpire(), pActor);
         }
         public static void LogDestroyTitle(Kingdom kingdom, KingdomTitle title)
         {
@@ -748,7 +819,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = kingdom.getColor()._color_text,
                 color_special2 = empire.getColor()._color_text
 
-            }.RecordIntoEmpire(empire);
+            }.RecordNationalHistoryIntoEmpire(empire);
         }
         public static void LogEmpireJoinWar(Empire empire, Kingdom kingdom)
         {
@@ -760,7 +831,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = empire.getColor()._color_text,
                 color_special2 = kingdom.getColor()._color_text
 
-            }.RecordIntoEmpire(empire);
+            }.RecordNationalHistoryIntoEmpire(empire);
         }
         public static void LogJoinReligionWar(Kingdom kingdom, Religion religion)
         {
@@ -784,7 +855,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = joiner.getColor()._color_text,
                 color_special2 = beginner.getColor()._color_text
 
-            }.RecordIntoEmpire(empire);
+            }.RecordNationalHistoryIntoEmpire(empire);
         }
         public static void LogOfficerBuildSpecificClan(Actor actor, SpecificClan sc)
         {
@@ -821,11 +892,13 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = kingdom.getColor()._color_text,
                 color_special2 = empire.getColor()._color_text
 
-            }.RecordIntoEmpire(empire);
+            }.RecordNationalHistoryIntoEmpire(empire);
         }
         public static void LogNewEmperor(Actor emperor, City city, string year_name, bool isNew = false)
         {
+            if (emperor == null || emperor.data == null || emperor.kingdom == null || city == null) return;
             var empire = emperor.GetEmpire();
+            if (empire?.data == null) return;
             new WorldLogMessage(EmpireCraftWorldLogLibrary.history_new_emperor,
                 emperor.data.name,
                 city.GetCityName(),
@@ -836,10 +909,33 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special3 = emperor.kingdom.getColor()._color_text
 
             }.RecordIntoEmpire(empire);
-            if (empire != null)
+            if (empire.data.currentHistory != null)
             {
                 empire.data.currentHistory.is_first = isNew;
             }
+            if (!string.IsNullOrWhiteSpace(year_name))
+            {
+                emperor.RecordPersonalHistory(string.Format(LM.Get("personal_history_new_year_name"), year_name),
+                    "personal_history_new_year_name");
+            }
+        }
+        public static void LogEmperorNewYearName(Actor emperor, Empire empire)
+        {
+            if (emperor == null || empire == null || !empire.HasYearName()) return;
+
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.history_emperor_new_year_name,
+                empire.GetEmpireName(),
+                empire.data.year_name,
+                emperor.getName())
+            {
+                location = empire.CoreKingdom != null ? empire.CoreKingdom.location : emperor.current_position,
+                color_special1 = empire.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text,
+                color_special3 = emperor.getColor()._color_text
+            }.RecordIntoEmpire(empire);
+
+            emperor.RecordPersonalHistory(string.Format(LM.Get("personal_history_new_year_name"), empire.data.year_name),
+                "personal_history_new_year_name");
         }
         public static void LogNewEmperorWest(Actor emperor, City city, bool isNew = false)
         {

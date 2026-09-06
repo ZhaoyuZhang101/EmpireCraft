@@ -15,7 +15,7 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
     public override Type OriginalBeh => typeof(CityBehCheckArmy);
     public override BehResult execute(City pCity)
     {
-        var ced = CityExtension.GetOrCreate(pCity);
+        var ced = pCity.GetOrCreate();
         if (ced != null && ced.last_army_check_ts > 0)
         {
             if (Date.getMonthsSince(ced.last_army_check_ts) < 1)
@@ -123,6 +123,7 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
     }
     private static void InitOrUpdateArmyOffice(Kingdom kingdom, Army army)
     {
+        if (kingdom?.data == null || kingdom.isRekt() || army == null) return;
         if (kingdom.GetRegime()==null) return;
         var regime = kingdom.GetRegime();
         var setting = SelectArmySetting(kingdom, regime, army);

@@ -27,6 +27,9 @@ public class FamilyPatch : GamePatch
 
     public static void set_family_name(Family __instance, Actor pActor1, Actor pActor2, WorldTile pTile)
     {
+        if (__instance?.data == null) return;
+        CulturePatch.EnsureEmpireNaming(pActor1?.culture);
+        CulturePatch.EnsureEmpireNaming(pActor2?.culture);
         Culture culture = null;
         if (pActor1 != null)
         {

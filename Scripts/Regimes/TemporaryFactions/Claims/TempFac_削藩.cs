@@ -46,18 +46,18 @@ public class TempFac_削藩 : TemporaryFaction
 
     public override bool CheckLocalCondition(Kingdom actor)
     {
-        if (!base.CheckLocalCondition(actor)) return false;
+        if (!base.CheckLocalContinue(actor)) return false;
         Empire empire = GetEmpire();
         var target = empire.kingdoms_list.ToList().Find(k =>
         {
+            if (k == null || k.isRekt() || k == actor || k == empire.CoreKingdom) return false;
             if (!k.hasKing()) return false;
             if (k.king.GetFaction()==GetFaction()) return false;
             if (k.king.renown>actor.king.renown) return false;
             if (k.GetRegime().GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;
             return true;
         });
-        SetKingdomTarget(target);
-        return true;
+        return TrySetTarget(target);
     }
 
     public override bool CheckCondition()

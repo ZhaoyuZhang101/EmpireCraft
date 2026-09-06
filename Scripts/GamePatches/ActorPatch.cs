@@ -16,6 +16,7 @@ using System.Numerics;
 using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
+using ai.behaviours;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Regimes;
@@ -26,6 +27,30 @@ using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 namespace EmpireCraft.Scripts.GamePatches;
 public class ActorPatch : GamePatch
 {
+    public static readonly string[] BlockDecisions =
+    {
+        // 社交
+        "socialize_initial_check",
+
+        // 恋爱/生育
+        "find_lover",
+        "check_lover_city",
+        "sexual_reproduction_try",
+        "asexual_reproduction_divine",
+        "asexual_reproduction_fission",
+        "asexual_reproduction_budding",
+        "asexual_reproduction_parthenogenesis",
+        "asexual_reproduction_spores",
+        "asexual_reproduction_vegetative",
+        "status_soul_harvested",
+
+        // 空闲闲逛/娱乐移动
+        "random_move",
+        "random_fun_move",
+        "random_move_near_house",
+        "random_move_towards_civ_building",
+        "city_idle_walking"
+    };
     public ModDeclare declare { get; set; }
     public static int startSessionMonth { get; set; }
     public static bool isReadyToSet = false;
@@ -88,6 +113,7 @@ public class ActorPatch : GamePatch
 
     public static void UpdateMovement(Actor __instance, float pElapsed, float pWalkedDistance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         // 有敌军就打；
         // 自己土地被占且无敌军就夺回；
         // 敌方土地无敌军就占领。
@@ -98,11 +124,13 @@ public class ActorPatch : GamePatch
     }
     public static bool SpawnSkeleton(BaseSimObject pCaster, WorldTile pTile)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCaster)) return true;
         return EmpireCraftWorldLawLibrary.empirecraft_law_allow_skeleton.isEnabled();
     }
 
     public static void IncreaseKills(Actor __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.GetIdentity() != null)
         {
             __instance.GetIdentity().TotalPerformance += 100;
@@ -112,6 +140,7 @@ public class ActorPatch : GamePatch
 
     public static bool moveTo(Actor __instance, WorldTile pTileTarget)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance == null || pTileTarget == null)
         {
             return true;
@@ -135,6 +164,7 @@ public class ActorPatch : GamePatch
         bool pMetallicWeapon = false,
         bool pCheckDamageReduction = true)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance.IsEmperor() && !__instance.isAdult())
         {
             return false;
@@ -144,6 +174,7 @@ public class ActorPatch : GamePatch
 
     public static void SetArmy(Actor __instance, Army pObject)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.GetIdentity() == null)
         {
             OfficeIdentity identity = new OfficeIdentity
@@ -156,6 +187,7 @@ public class ActorPatch : GamePatch
     }
     public static void UpdateStats(Actor __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (!__instance.hasKingdom()) return;
         if (!__instance.kingdom.IsInEmpire()) return;
         if (__instance.meta_type!=MetaType.Unit) return;
@@ -181,6 +213,7 @@ public class ActorPatch : GamePatch
     }
     public static void UpdateReligion(Actor __instance, Religion pObject)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.hasCity())
         {
             if (pObject.GetCity() == null)
@@ -211,12 +244,30 @@ public class ActorPatch : GamePatch
     public static void Die(Actor __instance, bool pDestroy = false, AttackType pType = AttackType.Other, bool pCountDeath = true,
         bool pLogFavorite = true)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        // This runs before the actor and its kingdom links are torn down. The
+        // identity-only overload avoids touching the actor again during Dispose.
+        if (!ModClass.IS_CLEAR)
+        {
+            PersonalClanIdentity identity = __instance.GetPersonalIdentity();
+            if (identity != null && !identity.death_history_recorded)
+            {
+                identity.death_history_recorded = true;
+                identity.RecordPersonalHistory(LM.Get("personal_history_died"));
+            }
+        }
+
         foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
         {
             var list = pEmpire.data.CabinetMembers;
             if (list.Any(id => id == __instance.getID()))
             {
                 list.Remove(__instance.getID());
+            }
+            if (pEmpire.data.legal_peerage_holders?.ContainsValue(__instance.getID()) == true)
+            {
+                // Let the empire resolve this vacancy on its next update instead of waiting a full year.
+                pEmpire.data.last_legal_peerage_timestamp = -1L;
             }
         }
 
@@ -254,6 +305,7 @@ public class ActorPatch : GamePatch
 
     public static void UpdateAge(Actor __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.age > 70)
         {
             __instance.ChangeDeathRate(0.01f);
@@ -270,18 +322,35 @@ public class ActorPatch : GamePatch
 
     public static void actionLanded(Actor __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         __instance.setTask("do_mod_actor_beh");
     }
     public static void setCity(Actor __instance, City pCity)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (pCity.HasReachedPlayerPopLimit())
         {
             __instance.setHealth(0);
+        }
+
+        if (!EmpireCraftWorldLawLibrary.empirecraft_law_allow_social.isEnabled())
+        {
+            foreach (var a in __instance.decisions)
+            {
+                if (a != null)
+                {
+                    if (BlockDecisions.Contains(a.id))
+                    {
+                        __instance.setDecisionState(a._index, false);
+                    }
+                }
+            }
         }
     }
 
     public static void setParent(Actor __instance,Actor pParentActor, bool pIncreaseChildren)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (pParentActor.HasSpecificClan())
         {
             PersonalClanIdentity parent_identity = pParentActor.GetPersonalIdentity();
@@ -294,6 +363,7 @@ public class ActorPatch : GamePatch
 
                 __instance.GetModName().familyName = pParentActor.GetModName().familyName;
                 __instance.GetModName().SetName(__instance);
+                EnsureChildName(__instance, pParentActor);
                 parent_identity.addChild(__instance, true);
             }
         }
@@ -301,6 +371,7 @@ public class ActorPatch : GamePatch
 
     public static void setParent2(Actor __instance, Actor pActor, bool pIncreaseChildren = true)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (pActor.HasSpecificClan())
         {
             PersonalClanIdentity parent_identity = pActor.GetPersonalIdentity();
@@ -313,13 +384,24 @@ public class ActorPatch : GamePatch
 
                 __instance.GetModName().familyName = pActor.GetModName().familyName;
                 __instance.GetModName().SetName(__instance);
+                EnsureChildName(__instance, pActor);
                 parent_identity.addChild(__instance, true);
             }
         }
     }
 
+    private static void EnsureChildName(Actor child, Actor parent)
+    {
+        if (child == null || parent?.culture == null || child.GetModName().hasFirstName(child)) return;
+        string firstName = parent.culture.getOnomasticData(MetaType.Unit)
+            .generateName(child.isSexMale() ? ActorSex.Male : ActorSex.Female);
+        child.SetFirstName(firstName);
+        child.GetModName().SetName(child);
+    }
+
     public static void setLover(Actor __instance, Actor pActor)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (pActor==null) return;
         if(__instance.HasSpecificClan())
         {
@@ -329,6 +411,7 @@ public class ActorPatch : GamePatch
     }
     public static bool showTooltip(Actor __instance, object pUiObject)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         string pType = (__instance.IsEmperor()?"actor_emperor":(__instance.isKing() ? "actor_king" : ((!__instance.isCityLeader()) ? "actor" : (__instance.isOfficer()? "actor_officer": "actor_leader"))));
         Tooltip.show(pUiObject, pType, new TooltipData
         {
@@ -338,6 +421,7 @@ public class ActorPatch : GamePatch
     }
     public static void setKingdom(Actor __instance, Kingdom pKingdomToSet)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.city == null) return;
         if (__instance.city.kingdom == null) return;
         if (!pKingdomToSet.IsInEmpire())
@@ -374,6 +458,7 @@ public class ActorPatch : GamePatch
     }
     public static bool setArmy(Actor __instance, Army pObject)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance.city == null) return false;
         if (__instance.city.kingdom == null) return false;
         if(__instance.city.kingdom.IsInEmpire())
@@ -398,6 +483,7 @@ public class ActorPatch : GamePatch
 
     public static void removeFromArmy(Actor __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if(__instance.hasArmy())
         {
             if (__instance.hasTrait("empireArmedProvinceSoldier"))
@@ -413,6 +499,7 @@ public class ActorPatch : GamePatch
     }
     public static void removeData(Actor __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.HasSpecificClan())
         {
             PersonalClanIdentity pci = __instance.GetPersonalIdentity();
@@ -430,6 +517,7 @@ public class ActorPatch : GamePatch
 
     public static void set_actor_peerages(Actor __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.data == null)
         {
             return;
@@ -449,6 +537,7 @@ public class ActorPatch : GamePatch
         {
             return;
         }
+        CulturePatch.EnsureEmpireNaming(pCulture);
         if (__instance.GetModName().has_whole_name(__instance))
         {
             return;
@@ -503,7 +592,7 @@ public class ActorPatch : GamePatch
                 }
                 catch (Exception e)
                 {
-                    LogService.LogInfo("设置姓名失败");
+                    LogService.LogError($"设置姓名失败: {e}");
                 }
 
                 __instance.SetFamilyName(__instance.clan.GetClanName());
@@ -523,6 +612,7 @@ public class ActorPatch : GamePatch
 
         }
         __instance.GetModName().SetName(__instance);
+        __instance.GetPersonalIdentity()?.RecordPendingChildBirthHistory();
     }
 
     public static int Getmonth()
@@ -538,6 +628,7 @@ public class ActorPatch : GamePatch
         {
             return;
         }
+        CulturePatch.EnsureEmpireNaming(__instance.culture);
         if (__instance.GetModName().hasFamilyName(__instance))
         {
             return;
@@ -580,7 +671,8 @@ public class ActorPatch : GamePatch
         }
         __instance.initializeActorName();
         __instance.GetModName().SetName(__instance);
-        if (__instance.hasClan() && __instance.HasSpecificClan()&&__instance.getChildren().Any())
+        if (!EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance) &&
+            __instance.hasClan() && __instance.HasSpecificClan()&&__instance.getChildren().Any())
         {
             PersonalClanIdentity pci = __instance.GetPersonalIdentity();
             if (pci.is_main)
@@ -600,6 +692,7 @@ public class ActorPatch : GamePatch
         {
             return;
         }
+        CulturePatch.EnsureEmpireNaming(__instance.culture);
         if (__instance.GetModName().hasFamilyName(__instance))
         {
             if (__instance.hasClan())

@@ -1,5 +1,7 @@
 using NeoModLoader.services;
 using EmpireCraft.Scripts;
+using EmpireCraft.Scripts.GamePatches;
+using NCMS.Extensions;
 
 namespace EmpireCraft.Scripts.GameLibrary;
 
@@ -15,6 +17,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_allow_harem;
     public static WorldLawAsset empirecraft_law_allow_skeleton;
     public static WorldLawAsset empirecraft_law_switch_occupy_mode;
+    public static WorldLawAsset empirecraft_law_allow_social;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -110,9 +113,35 @@ public static class EmpireCraftWorldLawLibrary
             icon_path = "ui/icons/iconWar",
             default_state = true
         });
+        //允许社交
+        AssetManager.world_laws_library.add(empirecraft_law_allow_social = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_allow_social),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconWar",
+            on_state_change = AllowSocialChange,
+            default_state = false
+        });
         
     }
 
+    private static void AllowSocialChange(PlayerOptionData pOption)
+    {
+        World.world.units.ForEach(a =>
+        {
+            if (a.asset.civ)
+            {
+                foreach (var decision in a.decisions)
+                {
+                    if (ActorPatch.BlockDecisions.Contains(decision.id))
+                    {
+                        a.setDecisionState(decision._index, pOption.boolVal);
+                    }
+                }
+            }
+        });
+    }
+    
     private static void Population20On(PlayerOptionData pOption)
     {
         world_law_civ_limit_population_50.toggle(false);

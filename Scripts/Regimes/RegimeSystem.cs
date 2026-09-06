@@ -119,6 +119,14 @@ public class Regime
     public bool has_cabinet;
     public int cabinet_number;
     public KingdomType default_kingdom;
+    // 分封规则由体制配置决定，避免把律令制的虚封逻辑写死到通用帝国流程中。
+    public bool enfeoff_only_royal;
+    public bool enfeoff_virtual_only;
+    public bool enfeoff_virtual_can_use_empire_titles;
+    public bool enable_auto_honorary_peerages;
+    public List<PeeragesLevel> virtual_peerages;
+    public List<string> virtual_peerage_names;
+    public List<string> virtual_honorary_peerages;
     //宗教點數
     public int religion_point = 0;
     public FixedFaction CentreMind;
@@ -167,6 +175,13 @@ public class Regime
             cabinet_number = this.cabinet_number,
             centre_empire_separate = this.centre_empire_separate,
             default_kingdom = this.default_kingdom,
+            enfeoff_only_royal = this.enfeoff_only_royal,
+            enfeoff_virtual_only = this.enfeoff_virtual_only,
+            enfeoff_virtual_can_use_empire_titles = this.enfeoff_virtual_can_use_empire_titles,
+            enable_auto_honorary_peerages = this.enable_auto_honorary_peerages,
+            virtual_peerages = this.virtual_peerages?.ToList() ?? new List<PeeragesLevel>(),
+            virtual_peerage_names = this.virtual_peerage_names?.ToList() ?? new List<string>(),
+            virtual_honorary_peerages = this.virtual_honorary_peerages?.ToList() ?? new List<string>(),
             Factions = this.Factions.Select(f => f.Clone()).ToList()
         };
         var hasConfig = FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out var factions);

@@ -3,6 +3,8 @@ using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using NCMS.Extensions;
+using NeoModLoader.General;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 public static class ExamSystem
@@ -43,6 +45,7 @@ public static class ExamSystem
             if (actor.hasTrait("jingshi")) continue;
             if (actor.hasTrait("juren")) continue;
             if (actor.hasTrait("gongshi")) continue;
+            actor.RecordPersonalHistory(LM.Get("personal_history_exam_city_attended"));
             mark = actor.startCityExam();
             if (mark > 0)
             {
@@ -63,6 +66,7 @@ public static class ExamSystem
             sorted.Take(takeNum).ForEach(item=>
             {
                 item.Key.addTrait("juren");
+                item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_city_passed"));
                 OfficeIdentity identity = new OfficeIdentity
                 {
                     actor_id = item.Key.getID()
@@ -75,6 +79,7 @@ public static class ExamSystem
             sorted.ForEach(item =>
             {
                 item.Key.addTrait("juren");
+                item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_city_passed"));
                 OfficeIdentity identity = new OfficeIdentity
                 {
                     actor_id = item.Key.getID()
@@ -92,6 +97,7 @@ public static class ExamSystem
         {
             foreach (Actor actor in city.units.FindAll(a => a.hasTrait("juren")))
             {
+                actor.RecordPersonalHistory(LM.Get("personal_history_exam_province_attended"));
                 double mark = actor.startProvinceExam();
                 MarksData.Add(actor, mark);
             }
@@ -102,7 +108,12 @@ public static class ExamSystem
         {
             sorted.Take(takeNum).ForEach(item =>
             {
+                bool newlyPassed = !item.Key.hasTrait("gongshi");
                 item.Key.addTrait("gongshi");
+                if (newlyPassed)
+                {
+                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_province_passed"));
+                }
                 OfficeIdentity identity = item.Key.GetIdentity();
                 identity.TotalPerformance += 200;
             });
@@ -111,7 +122,12 @@ public static class ExamSystem
         {
             sorted.ForEach(item =>
             {
+                bool newlyPassed = !item.Key.hasTrait("gongshi");
                 item.Key.addTrait("gongshi");
+                if (newlyPassed)
+                {
+                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_province_passed"));
+                }
                 OfficeIdentity identity = item.Key.GetIdentity();
                 identity.TotalPerformance += 200;
             });
@@ -129,6 +145,7 @@ public static class ExamSystem
             {
                 if (!MarksData.TryGetValue(actor, out double m))
                 {
+                    actor.RecordPersonalHistory(LM.Get("personal_history_exam_empire_attended"));
                     double mark = actor.startEmpireExam();
                     MarksData.Add(actor, mark);
                 }
@@ -139,7 +156,12 @@ public static class ExamSystem
         if (sorted.Count() > takeNum)
         {
             sorted.Take(takeNum).ForEach(item => { 
+                bool newlyPassed = !item.Key.hasTrait("jingshi");
                 item.Key.addTrait("jingshi");
+                if (newlyPassed)
+                {
+                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_empire_passed"));
+                }
                 OfficeIdentity identity = item.Key.GetIdentity();
                 identity.TotalPerformance += 300;
             });
@@ -147,7 +169,12 @@ public static class ExamSystem
         else
         {
             sorted.ForEach(item => {
+                bool newlyPassed = !item.Key.hasTrait("jingshi");
                 item.Key.addTrait("jingshi");
+                if (newlyPassed)
+                {
+                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_empire_passed"));
+                }
                 OfficeIdentity identity = item.Key.GetIdentity();
                 identity.TotalPerformance += 300;
             });

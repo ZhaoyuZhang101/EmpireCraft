@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
+using NeoModLoader.services;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -36,12 +38,9 @@ public sealed class TemporaryFactionConverter : JsonConverter
         }
 
         var className = "TempFac_" + typeEnum;
-        var t = AppDomain.CurrentDomain.GetAssemblies()
-            .SelectMany(a => { try { return a.GetTypes(); } catch { return Array.Empty<Type>(); } })
-            .FirstOrDefault(x => x != null
-                              && x.Name == className
-                              && typeof(TemporaryFaction).IsAssignableFrom(x)
-                              && !x.IsAbstract);
+        var t = SafeTypeDiscovery.GetConcreteDerivedTypes(typeof(TemporaryFaction),
+                AppDomain.CurrentDomain.GetAssemblies(), message => LogService.LogWarning(message))
+            .FirstOrDefault(x => x.Name == className);
         if (t == null)
             throw new JsonSerializationException($"TemporaryFaction 反序列化失败：未找到类型 {className}");
 
@@ -69,6 +68,10 @@ public sealed class TemporaryFactionConverter : JsonConverter
             ["Hide"]        = tf.Hide,
             ["Active"]      = tf.Active,
             ["ShowAsPlot"]  = tf.ShowAsPlot,
+            ["canBePushByLocal"] = tf.canBePushByLocal,
+            ["pusherType"] = JToken.FromObject(tf.pusherType, serializer),
+            ["progressMax"] = tf.progressMax,
+            ["Acc"] = tf.Acc,
             ["CountDown"]   = tf.CountDown,
             ["timestamp"]   = tf.timestamp,
             ["countDownTimestamp"] = tf.countDownTimestamp,

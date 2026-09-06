@@ -31,6 +31,12 @@ public class EmpireCraftEmpireBehCheckMandate : GameAIEmpireBase
             }
             foreach (var k in empire.kingdoms_list.ToList())
             {
+                if (k == null || k.isRekt()) continue;
+                if (empire.GetMinisterOppositionPenalty() < 0)
+                {
+                    k.EndMaintainGoodOpinion();
+                    continue;
+                }
                 if (empire.CurrentMoney > 0)
                 {
                     int opinionValue = World.world.diplomacy.getOpinion(k, empire.CoreKingdom).total;

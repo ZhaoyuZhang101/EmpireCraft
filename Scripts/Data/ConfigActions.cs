@@ -24,5 +24,17 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.SAVE_FREEZE = on;
         }
+        public static void HighPopulationPerformanceCallBack(bool on)
+        {
+            ModClass.PERFORMANCE_HIGH_POPULATION_MODE = on;
+        }
+        public static void HiddenVisualsPerformanceCallBack(bool on)
+        {
+            ModClass.PERFORMANCE_SKIP_HIDDEN_VISUALS = on;
+        }
+        public static void NameplateOverlapPerformanceCallBack(bool on)
+        {
+            ModClass.PERFORMANCE_SKIP_NAMEPLATE_OVERLAP = on;
+        }
     }
 }

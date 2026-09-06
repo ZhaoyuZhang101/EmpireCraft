@@ -31,6 +31,7 @@ public class TemporaryPushProgress
     public long pusher = -1L;
     public List<(double date, long actor, int duration)> Supporters = new  List<(double, long, int)>();
     public double StartTimestamp = -1L;
+    public TemporaryFaction PendingClaim;
     public static int CalcPolicyProgressAdd(double p, int currentProgress)
     {
         int add;
@@ -63,7 +64,8 @@ public class TemporaryPushProgress
     /// <param name="duration">持续时间/年</param>
     public void AddSupporter(Actor supporter, int duration)
     {
-        if (supporter == null || supporter.isRekt()) return;
+        if (supporter == null || supporter.isRekt() || duration <= 0 || supporter.id == pusher) return;
+        Supporters ??= new List<(double date, long actor, int duration)>();
         if (Supporters.Any(s => s.actor == supporter.id)) return;
         this.Supporters.Add((World.world.getCurWorldTime(), supporter.id, duration));
     }
@@ -77,7 +79,8 @@ public class TemporaryPushProgress
         Progress = 0;
         pusher = -1L;
         StartTimestamp = -1L;
-        Supporters.Clear();
+        Supporters?.Clear();
+        PendingClaim = null;
     }
     /// <summary>
     /// 开始推动
@@ -85,7 +88,18 @@ public class TemporaryPushProgress
     /// <param name="pActor"></param>
     public void StartToPush(Actor pActor, TemporaryFactionType tfType)
     {
-        if (pActor == null || pActor.isRekt()) return;
+        if (StartedToPushTf || !IsLocalPusher(pActor)) return;
+        var faction = pActor.GetFaction();
+        var template = faction?.TemporaryFactions?.Find(tf => tf != null && tf.type == tfType);
+        if (faction == null || faction.Ban || template == null || !template.Active || !template.canBePushByLocal ||
+            template.CountDown > 0 || template.IsStarted()) return;
+        var request = template.Clone(faction);
+        request.SetEmpire(pActor.kingdom.GetEmpire());
+        request.SetKingdom(pActor.kingdom);
+        request.pusherType = MetaType.Kingdom;
+        if (!request.CheckLocalCondition(pActor.kingdom) || !request.CheckTarget()) return;
+        PendingClaim = request;
+        Supporters = new List<(double date, long actor, int duration)>();
         pusher = pActor.id;
         TfType = tfType;
         StartTimestamp = World.world.getCurWorldTime();
@@ -98,73 +112,52 @@ public class TemporaryPushProgress
     /// <param name="pActor"></param>
     public void Push(Actor pActor)
     {
-        if (!StartedToPushTf) return;
-        var identity = pActor.GetIdentity();
-        if (identity == null)
-        {
-            Progress = 0;
-            StartedToPushTf = false;
-            return;
-        }
-        int add = CalcPolicyProgressAdd(identity.TotalPerformance, Progress);
-        Progress = Math.Min(100, Progress + add);
-        if (Progress >= 100)
-        {
-            
-        }
+        if (pActor?.id == pusher) PushOneMonths();
     }
     public int ConsumeInfluenceAndCalcAdd(Actor actor)
     {
         if (actor == null || actor.isRekt()) return 0;
-        if (actor.GetIdentity() == null) return 0;
         if (actor.data == null || actor.data.renown < InfluenceCostPerYear) return 0;
-        actor.editRenown(-InfluenceCostPerYear);
-        return CalcPolicyProgressAdd(actor.GetIdentity().TotalPerformance, Progress);
+        actor.data.renown -= InfluenceCostPerYear;
+        return CalcPolicyProgressAdd(actor.GetIdentity()?.TotalPerformance ?? 0, Progress);
     }
 
     public int PushOneMonths()
     {
         if (!StartedToPushTf) return 0;
-        if (StartTimestamp>0&&Date.getMonthsSince(StartTimestamp)<1)  return 0;
+        if (!ValidateRequest()) { Stop(); return 0; }
+        if (Progress >= 100) { Execute(); return 0; }
+        if (StartTimestamp >= 0 && Date.getMonthsSince(StartTimestamp) < 1) return 0;
         int totalAdd = 0;
         var pusherActor = GetPusher();
-        if (pusherActor == null || pusherActor.isRekt() || pusherActor.GetIdentity() == null)
-        {
-            Stop();
-            return 0;
-        }
         totalAdd += ConsumeInfluenceAndCalcAdd(pusherActor);
 
+        Supporters ??= new List<(double date, long actor, int duration)>();
         for (int i = Supporters.Count - 1; i >= 0; i--)
         {
             var record = Supporters[i];
             var supporter = World.world.units.get(record.actor);
-            if (supporter == null || supporter.isRekt() || supporter.GetIdentity() == null)
+            if (supporter == null || supporter.isRekt() || record.duration <= 0 ||
+                supporter.kingdom?.GetEmpire() != pusherActor.kingdom.GetEmpire() ||
+                supporter.GetFaction() != pusherActor.GetFaction() || supporter.id == pusher)
             {
                 Supporters.RemoveAt(i);
                 continue;
             }
 
-            if (Date.getMonth(record.date) < 1)
+            // duration is in years; the contribution itself is monthly.
+            if (Date.getYearsSince(record.date) >= record.duration)
             {
+                Supporters.RemoveAt(i);
                 continue;
             }
-
+            if (Date.getMonthsSince(record.date) < 1 || Progress + totalAdd >= 100) continue;
             totalAdd += ConsumeInfluenceAndCalcAdd(supporter);
-            int nextDuration = record.duration - 1;
-            if (nextDuration <= 0)
-            {
-                Supporters.RemoveAt(i);
-            }
-            else
-            {
-                Supporters[i] = (World.world.getCurWorldTime(), record.actor, nextDuration);
-            }
         }
 
         Progress = Math.Min(100, Progress + totalAdd);
         StartTimestamp = World.world.getCurWorldTime();
-        if (Progress > 100)
+        if (Progress >= 100)
         {
             Execute();
         }
@@ -173,19 +166,55 @@ public class TemporaryPushProgress
 
     public void Execute()
     {
+        if (!StartedToPushTf || Progress < 100) return;
+        if (!ValidateRequest()) { Stop(); return; }
         var pPusher = GetPusher();
-        if (!(pPusher?.isKing())??true) return;
         Kingdom kingdom = pPusher.kingdom;
-        if (kingdom == null) return;
         var faction = pPusher.GetFaction();
-        var claim = faction.TemporaryFactions.Find(tf => tf.type == TfType);
-        if (claim != null)
+        var claim = faction.TemporaryFactions.Find(tf => tf != null && tf.type == TfType);
+        var empire = kingdom.GetEmpire();
+        if (empire.RunningTemporaryFaction?.IsStarted() == true || claim.IsStarted() || claim.CountDown > 0) return;
+        var factions = empire.CoreKingdom?.GetRegime()?.GetPlayerFactions();
+        if (factions == null || factions.Any(f => f?.TemporaryFactions?.Any(tf => tf?.IsStarted() == true) == true)) return;
+        if (claim.ShowAsPlot && empire.Emperor?.plot?.isActive() == true) return;
+        claim.SetEmpire(empire);
+        claim.SetKingdom(kingdom);
+        claim.pusherType = MetaType.Kingdom;
+        claim.TargetID = PendingClaim.TargetID;
+        claim.TargetType = PendingClaim.TargetType;
+        claim.Start();
+        if (claim.IsStarted()) Stop();
+    }
+
+    public static bool IsLocalPusher(Actor actor)
+    {
+        if (actor == null || actor.isRekt() || !actor.isKing()) return false;
+        var kingdom = actor.kingdom;
+        var empire = kingdom?.GetEmpire();
+        return empire != null && !empire.isRekt() && kingdom != empire.CoreKingdom &&
+            kingdom.king == actor && !kingdom.isInWarWith(empire.CoreKingdom);
+    }
+
+    private bool ValidateRequest()
+    {
+        var actor = GetPusher();
+        if (!IsLocalPusher(actor) || PendingClaim == null || PendingClaim.type != TfType) return false;
+        var faction = actor.GetFaction();
+        var template = faction?.TemporaryFactions?.Find(tf => tf != null && tf.type == TfType);
+        if (faction == null || faction.Ban || template == null || !template.Active || !template.canBePushByLocal ||
+            PendingClaim.factionID != faction.GetID() || PendingClaim.EmpireID != actor.kingdom.GetEmpire().id ||
+            PendingClaim.KingdomID != actor.kingdom.id) return false;
+        return PendingClaim.CheckLocalContinue(actor.kingdom) && PendingClaim.CheckContinue() && PendingClaim.CheckTarget();
+    }
+
+    public static void TrySubmitReadyRequests(Empire empire)
+    {
+        foreach (var request in empire.kingdoms_list.Where(k => k != null && !k.isRekt() && k != empire.CoreKingdom)
+            .Select(k => k.GetOrCreate().PushProgress).Where(p => p != null && p.StartedToPushTf && p.Progress >= 100)
+            .OrderBy(p => p.StartTimestamp).ThenBy(p => p.pusher).ToList())
         {
-            if (kingdom.GetEmpire()?.RunningTemporaryFaction == null)
-            {
-                claim.Start();
-                Stop();
-            }
+            request.Execute();
+            if (empire.RunningTemporaryFaction?.IsStarted() == true) return;
         }
     }
 
@@ -225,6 +254,8 @@ public static class KingdomExtension
         public double last_exam_timestamp = -1L;
         public bool isFactionRebelling = false;
         public bool isLocalRebelling = false;
+        // 地方叛乱自动吸纳政权时可再接收的城市数。
+        public int rebellion_auto_expand_remaining = -1;
         public bool isNeedToMaintainGoodOpinion = false;
         public double last_tax_timestamp = -1L;
         public double last_office_exam_timestamp = -1L;
@@ -636,18 +667,30 @@ public static class KingdomExtension
         var progressObject = k.GetOrCreate().PushProgress;
         progressObject.Stop();
     }
-    public static void PushProgress(this Kingdom k, TemporaryFactionType type=default)
+    public static void PushProgress(this Kingdom k, TemporaryFactionType? type = null)
     {
         if (k?.king == null) return;
-        var progressObject = k.GetOrCreate().PushProgress;
-        if (k.king.renown > 50)
+        var progressObject = k.GetOrCreate().PushProgress ??= new TemporaryPushProgress();
+        if (!TemporaryPushProgress.IsLocalPusher(k.king)) { progressObject.Stop(); return; }
+        if (!progressObject.StartedToPushTf && k.king.renown >= TemporaryPushProgress.InfluenceCostPerYear)
         {
-            if (!progressObject.StartedToPushTf && type != default)
+            if (type.HasValue) progressObject.StartToPush(k.king, type.Value);
+            else
             {
-                progressObject.StartToPush(k.king, type);
+                var claims = k.king.GetFaction()?.TemporaryFactions?.Where(tf => tf != null && tf.Active &&
+                    tf.canBePushByLocal && tf.CountDown <= 0 && !tf.IsStarted()).ToList();
+                if (claims != null)
+                {
+                    claims.Shuffle();
+                    foreach (var claim in claims)
+                    {
+                        progressObject.StartToPush(k.king, claim.type);
+                        if (progressObject.StartedToPushTf) break;
+                    }
+                }
             }
-            progressObject.PushOneMonths();
         }
+        progressObject.PushOneMonths();
     }
     public static void SystemChange(this Kingdom kingdom)
     {
@@ -823,10 +866,96 @@ public static class KingdomExtension
         Random random = new Random();
         var possibility = random.NextDouble();
         if (core.GetMoney() <= 0) return;
-        if (k.countTotalWarriors() > empire.countWarriors()) return;
+        if (!empire.CanStartPunitiveWar(k)) return;
         if (!(possibility < 0.2f)) return;
         var war = DiplomacyHelpers.wars.newWar(core, k, WarTypeLibrary.normal);
-        war.SetEmpireWarType(EmpireWarType.伐不臣);
+        war?.SetEmpireWarType(EmpireWarType.伐不臣);
+    }
+
+    public static bool CanStartPunitiveWar(this Empire empire, Kingdom target, float minimumAdvantage = 1.2f)
+    {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(target) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(empire)) return false;
+        Kingdom core = empire?.CoreKingdom;
+        if (empire == null || empire.isRekt() || empire.IsArchived() || core?.data == null ||
+            core.isRekt() || target?.data == null || target.isRekt() || core == target)
+        {
+            return false;
+        }
+
+        if (target.IsInEmpire() && target.GetEmpire() == empire) return false;
+        if (HasAnyActiveEmpireWar(empire) || HasAnyActiveDefenderWar(target, empire))
+        {
+            return false;
+        }
+
+        long attackerStrength = CountCurrentEmpireWarriors(empire);
+        long defenderStrength = CountEffectiveDefenderWarriors(target, empire);
+        if (attackerStrength <= 0 || defenderStrength <= 0) return false;
+        return attackerStrength >= Math.Ceiling(defenderStrength * Math.Max(1f, minimumAdvantage));
+    }
+
+    private static bool HasAnyActiveEmpireWar(Empire empire)
+    {
+        if (World.world?.wars == null || empire?.kingdoms_list == null) return true;
+        for (int i = 0; i < empire.kingdoms_list.Count; i++)
+        {
+            Kingdom member = empire.kingdoms_list[i];
+            if (member?.data != null && !member.isRekt() && World.world.wars.hasWars(member)) return true;
+        }
+        return false;
+    }
+
+    private static long CountCurrentEmpireWarriors(Empire empire)
+    {
+        long total = 0;
+        if (empire?.kingdoms_list == null) return total;
+        for (int i = 0; i < empire.kingdoms_list.Count; i++)
+        {
+            Kingdom member = empire.kingdoms_list[i];
+            if (member?.data == null || member.isRekt()) continue;
+            total += Math.Max(0, member.countTotalWarriors());
+        }
+        return total;
+    }
+
+    private static long CountEffectiveDefenderWarriors(Kingdom target, Empire attackingEmpire)
+    {
+        long strength = Math.Max(0, target.countTotalWarriors());
+        if (target.hasAlliance())
+        {
+            Alliance alliance = target.getAlliance();
+            if (alliance != null) strength = Math.Max(strength, alliance.countWarriors());
+        }
+
+        if (target.IsInEmpire())
+        {
+            Empire targetEmpire = target.GetEmpire();
+            if (targetEmpire != null && targetEmpire != attackingEmpire && !targetEmpire.isRekt() && !targetEmpire.IsArchived())
+            {
+                strength = Math.Max(strength, CountCurrentEmpireWarriors(targetEmpire));
+            }
+        }
+
+        return strength;
+    }
+
+    private static bool HasAnyActiveDefenderWar(Kingdom target, Empire attackingEmpire)
+    {
+        if (World.world?.wars == null || target == null) return true;
+        if (World.world.wars.hasWars(target)) return true;
+        if (target.hasAlliance())
+        {
+            Alliance alliance = target.getAlliance();
+            if (alliance != null && World.world.wars.hasWars(alliance)) return true;
+        }
+
+        if (target.IsInEmpire())
+        {
+            Empire targetEmpire = target.GetEmpire();
+            if (targetEmpire != null && targetEmpire != attackingEmpire && HasAnyActiveEmpireWar(targetEmpire)) return true;
+        }
+        return false;
     }
     /// <summary>
     /// 获取当前国家退出朝贡联盟的倾向
@@ -863,6 +992,8 @@ public static class KingdomExtension
     }
     public static void JoinGivenAlliance(this Kingdom k, Empire empire)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(k) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(empire)) return;
         k.GetOrCreate().last_given_alliance_timestamp = World.world.getCurWorldTime();
         k.GetOrCreate().given_empire = empire.id;
         empire.given_Kingdoms.Add(k);
@@ -893,9 +1024,19 @@ public static class KingdomExtension
 
     public static void JoinTakenAlliance(this Kingdom k, Empire empire)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(k) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(empire)) return;
         if (k == null || empire == null || empire.IsArchived())
         {
             return;
+        }
+
+        Empire previousEmpire = k.GetTakenAllianceEmpire();
+        bool alreadyJoined = previousEmpire == empire && (empire.taken_Kingdoms?.Contains(k) ?? false);
+        if (alreadyJoined) return;
+        if (previousEmpire != null && previousEmpire != empire)
+        {
+            k.RemoveTakenAlliance();
         }
 
         k.GetOrCreate().last_taken_alliance_timestamp = World.world.getCurWorldTime();
@@ -907,8 +1048,13 @@ public static class KingdomExtension
             empire.taken_Kingdoms.Add(k);
             k.updateColor(empire.CoreKingdom.getColor());
         }
+        empire.RecordHistory(EmpireHistoryType.join_taken_alliance_history, new Dictionary<string, string>
+        {
+            ["kingdom"] = k.GetKingdomFullName(),
+            ["empire"] = empire.GetEmpireFullName()
+        }, kingdomId: k.id);
     }
-    public static void RemoveTakenAlliance(this Kingdom k)
+    public static void RemoveTakenAlliance(this Kingdom k, bool recordHistory = true)
     {
         Empire empire = k.GetTakenAllianceEmpire();
         if (empire != null)
@@ -916,6 +1062,15 @@ public static class KingdomExtension
             empire.taken_Kingdoms.Remove(k);
         }
         k.GetOrCreate().taken_empire = -1L;
+        if (!k.isRekt()) k.generateColor();
+        if (recordHistory && empire != null && !empire.IsArchived() && !empire.isRekt())
+        {
+            empire.RecordHistory(EmpireHistoryType.leave_taken_alliance_history, new Dictionary<string, string>
+            {
+                ["kingdom"] = k.GetKingdomFullName(),
+                ["empire"] = empire.GetEmpireFullName()
+            }, kingdomId: k.id);
+        }
     }
     public static bool NeedToRemoveTakenAlliance(this Kingdom k)
     {
@@ -924,18 +1079,22 @@ public static class KingdomExtension
     }
     public static bool HasGivenAlliance(this Kingdom k)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(k)) return false;
         return k.GetOrCreate().given_empire != -1L;
     }
     public static bool HasTakenAlliance(this Kingdom k)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(k)) return false;
         return k.GetOrCreate().taken_empire != -1L;
     }
     public static Empire GetGivenAllianceEmpire(this Kingdom k)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(k)) return null;
         return ModClass.EMPIRE_MANAGER.get(k.GetOrCreate().given_empire);
     }
     public static Empire GetTakenAllianceEmpire(this Kingdom k)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(k)) return null;
         return ModClass.EMPIRE_MANAGER.get(k.GetOrCreate().taken_empire);
     }
 
@@ -1025,13 +1184,25 @@ public static class KingdomExtension
                 kingdom.data.name =  (string.IsNullOrEmpty(pre)?kingdom.GetKingdomName():pre)+'\u200A' + '\u200A' + LM.Get("rebelling");
                 break;
         }
-        kingdom.GetOrCreate().isLocalRebelling = true;
+        var extraData = kingdom.GetOrCreate();
+        extraData.isLocalRebelling = true;
+        if (warType == EmpireWarType.地方叛乱)
+        {
+            // 叛军规模由其领袖的既有城市容量决定，避免战时无限扩张。
+            extraData.rebellion_auto_expand_remaining = Mathf.CeilToInt(kingdom.getMaxCities() * 1.5f);
+        }
+        else
+        {
+            extraData.rebellion_auto_expand_remaining = -1;
+        }
         return true;
     }
 
     public static void EndLocalRebelling(this Kingdom k)
     {
-        k.GetOrCreate().isLocalRebelling = false;
+        var extraData = k.GetOrCreate();
+        extraData.isLocalRebelling = false;
+        extraData.rebellion_auto_expand_remaining = -1;
     }
 
     public static bool IsLocalRebelling(this Kingdom k)
@@ -1544,6 +1715,7 @@ public static class KingdomExtension
 
     public static bool CanBecomeEmpire(this Kingdom k)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(k)) return false;
         if (!k.hasKing()) return false;
         if (k.IsInEmpire()) return false;
         if (k.isRekt() || k.IsEmpire()) return false;
@@ -1626,13 +1798,17 @@ public static class KingdomExtension
 
     public static string GetKingdomName(this Kingdom kingdom)
     {
-        if (kingdom == null) return null;
-        if (string.IsNullOrWhiteSpace(kingdom.name))
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
+        // CoreSystemObject.name dereferences data directly, but disposed kingdoms keep a
+        // non-null object reference after their data has been cleared.
+        if (kingdom?.data == null) return "";
+        string fullName = kingdom.data.name;
+        if (string.IsNullOrWhiteSpace(fullName))
         {
             return GetKingdomFrontFallback(kingdom);
         }
 
-        string[] nameParts = kingdom.name.Split('\u200A');
+        string[] nameParts = fullName.Split('\u200A');
         string result;
         if (nameParts.Length <= 2)
         {
@@ -1648,6 +1824,9 @@ public static class KingdomExtension
             return GetKingdomFrontFallback(kingdom);
         }
 
+        // Extra data is removed before the original kingdom Dispose completes. Do not
+        // recreate it merely to format a dead kingdom's final office-history entry.
+        if (kingdom.isRekt()) return result;
         var suffix = LM.Get(kingdom.GetKingdomType().ToString());
         if (!string.IsNullOrWhiteSpace(suffix) && string.Equals(result, suffix, StringComparison.Ordinal))
         {
@@ -1657,8 +1836,17 @@ public static class KingdomExtension
         return result;
     }
 
+    public static string GetKingdomFullName(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        return string.IsNullOrWhiteSpace(kingdom.data.name)
+            ? kingdom.GetKingdomName()
+            : kingdom.data.name.Trim();
+    }
+
     private static string GetKingdomFrontFallback(Kingdom kingdom)
     {
+        if (kingdom?.data == null) return "";
         var title = kingdom.GetMainTitle();
         if (!string.IsNullOrWhiteSpace(title?.data?.name))
         {
@@ -1680,7 +1868,7 @@ public static class KingdomExtension
             }
         }
 
-        return kingdom.name ?? "";
+        return kingdom.data.name ?? "";
     }
 
     public static bool IsInSameEmpire(this Kingdom kingdom, Kingdom pKingdomTaget)
@@ -1701,9 +1889,11 @@ public static class KingdomExtension
     }    
     public static Empire GetEmpire(this Kingdom kingdom)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return null;
         if (ModClass.EMPIRE_MANAGER == null) return null;
         if (kingdom == null) return null;
-        return ModClass.EMPIRE_MANAGER.get(kingdom.GetEmpireID());
+        Empire empire = ModClass.EMPIRE_MANAGER.get(kingdom.GetEmpireID());
+        return EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(empire?.CoreKingdom) ? null : empire;
     }
 
     public static void CheckEmpire(this Kingdom kingdom)
@@ -1763,6 +1953,7 @@ public static class KingdomExtension
 
     public static bool IsEmpire(this Kingdom kingdom)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return false;
         if (kingdom == null) return false;
         if (kingdom.data == null) return false;
         var ed = GetOrCreate(kingdom);
@@ -1934,6 +2125,7 @@ public static class KingdomExtension
 
     public static bool IsInEmpire(this Kingdom kingdom)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return false;
         if (kingdom == null || kingdom.isRekt()) return false;
         var ed = kingdom.GetOrCreate();
         if (ed == null) return false;
@@ -1941,7 +2133,8 @@ public static class KingdomExtension
         if (id == -1L) return false;
         if (ModClass.EMPIRE_MANAGER == null) return false;
         var emp = ModClass.EMPIRE_MANAGER.get(id);
-        return emp != null && !emp.IsArchived() && !emp.isRekt();
+        return emp != null && !emp.IsArchived() && !emp.isRekt() &&
+            !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(emp.CoreKingdom);
     }
     public static void EndWarWith(this Kingdom kingdom, Kingdom kingdom2)
     {

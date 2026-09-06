@@ -357,7 +357,6 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 }
             }
         }
-        LogService.LogInfo(regime.default_kingdom.ToString());
         return  regime.default_kingdom;
     }
     private static int GetOption(Regime regime, ConditionType key)

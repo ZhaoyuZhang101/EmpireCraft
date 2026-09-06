@@ -35,7 +35,6 @@ public class SimpleWindowTab : APrefab<SimpleWindowTab>
         {
             this.AddComponent<CanvasGroup>();
             _tab._canvas_group = _tab.GetComponent<CanvasGroup>();
-            LogService.LogInfo("添加渲染组");
         }
         window.tabs._tabs.Add(_tab);
         if (contents != null)
@@ -92,7 +91,8 @@ public class SimpleWindowTab : APrefab<SimpleWindowTab>
         tip_button.text_description_2 = "AdditionalTab_description_2";
         obj.AddComponent<WindowMetaTab>();
         obj.AddComponent<ScrollableButton>();
-        obj.AddComponent<DragOrderElement>();
+        // This tab is fixed in its container. DragOrderElement requires the game's
+        // drag setup and otherwise throws from Start while the window is rebuilt.
         obj.AddComponent<ButtonSfx>();
         obj.transform.SetParent(ModClass.prefab_library);
 

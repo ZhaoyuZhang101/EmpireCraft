@@ -70,6 +70,7 @@ public class BabyHelperPatch : GamePatch
         bool pCloneTraits, int pMutationRate, WorldTile pTile, bool pAddToFamily,
         bool pJoinFamily, ref Actor __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pParent1)) return;
         if (__result == null) return;
         if (__result.HasSpecificClan())
         {
@@ -100,12 +101,14 @@ public class BabyHelperPatch : GamePatch
     }
     public static void ApplyParentsMeta(Actor pParent1, Actor pParent2, Actor pBaby)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pBaby)) return;
         JudgeBabyJoinMainParent(pBaby, pParent1);
         JudgeBabyJoinMainParent(pBaby, pParent2);
     }
 
     public static bool CheckReproduction(Actor pActor, ref BehResult __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pActor)) return true;
         if (BabyHelper.isMetaLimitsReached(pActor))
         {
             __result = BehResult.Stop;
@@ -117,6 +120,7 @@ public class BabyHelperPatch : GamePatch
 
     public static bool SpawnBabyFromSpore(Actor pActor, Vector3 pPosition)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pActor)) return true;
         if (BabyHelper.isMetaLimitsReached(pActor))
         {
             return false;
@@ -126,6 +130,7 @@ public class BabyHelperPatch : GamePatch
 
     public static bool MakeBabyFromMiracle(Actor pActor, ActorSex pSex = ActorSex.None, bool pAddToFamily = false)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pActor)) return true;
         if (BabyHelper.isMetaLimitsReached(pActor))
         {
             return false;
@@ -135,6 +140,7 @@ public class BabyHelperPatch : GamePatch
     
     public static bool ActionBabyFinish(BaseSimObject pTarget, WorldTile pTile, ref bool __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pTarget)) return true;
         if (!pTarget.isAlive())
         {
             __result = false;
@@ -151,6 +157,7 @@ public class BabyHelperPatch : GamePatch
 
     public static bool IsMetaLimitsReached(Actor pActor, ref bool __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pActor)) return true;
         __result = false;
         if (pActor==null) return false;
         if (pActor.subspecies.hasReachedPopulationLimit())
@@ -195,6 +202,7 @@ public class BabyHelperPatch : GamePatch
 
     public static bool CanMakeBabies(Actor pActor, ref bool __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pActor)) return true;
         if (!pActor.isAdult())
         {
             __result = false;

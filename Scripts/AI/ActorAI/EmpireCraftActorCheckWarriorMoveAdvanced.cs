@@ -135,7 +135,7 @@ public class EmpireCraftActorCheckWarriorMoveAdvanced : GameAIActorBase
     }
     private static void EnsureZoneWarriorCache()
     {
-        int frame = Time.frameCount;
+        int frame = HighPopulationPerformance.GetFrontLineCacheKey();
         if (_zoneWarriorCacheFrame == frame)
         {
             return;

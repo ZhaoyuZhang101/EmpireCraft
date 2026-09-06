@@ -25,7 +25,7 @@ public class TempFac_割让城池 : TemporaryFaction
         if (kingdom != null)
         {
             City city = kingdom.cities.ToList().Select(c => c.neighbours_cities.ToList().Find(nc =>
-                nc.kingdom.IsInSameEmpire(GetEmpire().CoreKingdom) && (!c.kingdom.IsEmpire() || !c.isCapitalCity()))).First();
+                nc.kingdom.IsInSameEmpire(GetEmpire().CoreKingdom) && (!c.kingdom.IsEmpire() || !c.isCapitalCity()))).FirstOrDefault(found => found != null);
             city?.joinAnotherKingdom(kingdom);
             if (kingdom.isInWarWith(GetEmpire().CoreKingdom))
             {
@@ -48,7 +48,7 @@ public class TempFac_割让城池 : TemporaryFaction
                     if (!empire.IsNeighbourWith(enemy)) continue;
                     if (enemy.IsInSameEmpire(coreKingdom)) continue;
                     City city = enemy.cities.ToList().Select(c => c.neighbours_cities.ToList().Find(nc =>
-                        nc.kingdom.IsInSameEmpire(GetEmpire().CoreKingdom) && (!c.kingdom.IsEmpire() || !c.isCapitalCity()))).First();
+                        nc.kingdom.IsInSameEmpire(GetEmpire().CoreKingdom) && (!c.kingdom.IsEmpire() || !c.isCapitalCity()))).FirstOrDefault(found => found != null);
                     if (city == null) continue;
                     if (!(enemy.countTotalWarriors() * 1.5 >= empire.countWarriors())) continue;
                     SetKingdomTarget(enemy);

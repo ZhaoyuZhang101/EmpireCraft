@@ -6,7 +6,7 @@ namespace EmpireCraft.Scripts.GameLibrary;
 
 public static class EmpireCraftBuildingLibrary
 {
-    public static List<string> VALID_CULTURE_BUILDING = new List<string> { "Huaxia", "Western", "Youmu", "Arabic" };
+    public static List<string> VALID_CULTURE_BUILDING = new List<string> { "Huaxia", "Shanhai", "Japan", "Western", "Youmu", "Aztec", "Ojibwe", "Arab", "Egypt", "Persepolis", "India" };
     public static void init()
     {
         var lib = AssetManager.buildings;

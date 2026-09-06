@@ -17,6 +17,6 @@ public class NameplateManagerPatch : GamePatch
 
     public static bool UpdateOverlappingPosition(NameplateManager __instance)
     {
-        return false;
+        return !ModClass.PERFORMANCE_SKIP_NAMEPLATE_OVERLAP;
     }
 }

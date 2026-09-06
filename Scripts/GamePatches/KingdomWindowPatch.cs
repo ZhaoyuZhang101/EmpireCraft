@@ -29,6 +29,7 @@ public class KingdomWindowPatch: GamePatch
 
     public static void OnEnable(KingdomWindow __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(SelectedMetas.selected_kingdom)) return;
         if (__instance.meta_type != MetaType.Kingdom) return;
         _kingdom = SelectedMetas.selected_kingdom;
         Transform space = __instance.tabs.transform.Find("space (1)");
@@ -44,6 +45,7 @@ public class KingdomWindowPatch: GamePatch
     }
     public static bool showStatsRows(KingdomWindow __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(SelectedMetas.selected_kingdom)) return true;
         Kingdom metaObject = __instance.meta_object;
         __instance.tryShowPastNames();
         if (metaObject.HasMainTitle())

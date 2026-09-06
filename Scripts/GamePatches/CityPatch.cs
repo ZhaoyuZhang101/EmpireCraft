@@ -164,6 +164,7 @@ public class CityPatch : GamePatch
     }
     public static bool CanUseBuildAsset(CityBehBuild __instance, BuildOrder pBuildAsset, City pCity, ref bool __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
         BuildingAsset buildingAsset = pBuildAsset.getBuildingAsset(pCity);
         if (pBuildAsset.min_zones != 0 && pCity.zones.Count < pBuildAsset.min_zones)
         {
@@ -222,6 +223,7 @@ public class CityPatch : GamePatch
     }
     public static bool GetHouseLimit(City __instance, ref int __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance.buildings.Any(b => b.asset.id.Contains("city_")))
         {
             __result = 1;
@@ -231,6 +233,7 @@ public class CityPatch : GamePatch
     } 
     private static bool RecalculateMaxHouses(City __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance.buildings.Any(b => b.asset.id.Contains("city_")))
         {
             __instance.status.houses_max = 0;
@@ -240,6 +243,7 @@ public class CityPatch : GamePatch
     }
     public static bool AddCapturePoints(City __instance, Kingdom pKingdom, int pValue)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode.isEnabled()) return false;
         if (__instance.TryTriggerOccupationCaptureEvent(pKingdom))
         {
@@ -267,6 +271,7 @@ public class CityPatch : GamePatch
     }
     public static bool getMainSubspecies(City __instance, ref Subspecies __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance.CountLivingPopulation() == 0)
         {
             __result = null;
@@ -277,10 +282,12 @@ public class CityPatch : GamePatch
 
     public static bool TryToMakeWarrior(City __instance, Actor pActor)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         return false;
     }
     public static bool FinishedCapture(City __instance, Kingdom pNewKingdom)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         Kingdom oldKingdom = __instance.kingdom;
         bool isEmpireCapital = oldKingdom.IsEmpire() && oldKingdom.capital == __instance;
         Empire targetEmpire = oldKingdom.GetEmpire();
@@ -603,16 +610,19 @@ public class CityPatch : GamePatch
     }
     public static bool countWarriors(City __instance, ref int __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         __result = __instance.CountLivingWarriors();
         return false;
     }
     public static bool getPopulationPeople(City __instance, ref int __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         __result = __instance.CountLivingPopulation();
         return false;
     }
     public static bool isArmyOverLimit(City __instance, ref bool __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance.kingdom.IsEmpire())
         {
             __result = false;
@@ -628,6 +638,7 @@ public class CityPatch : GamePatch
     }
     public static bool getPopulationMaximum(City __instance, ref int __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance.GetMaxPopulationLimitStats())
         {
             __result = __instance.GetMaxPopulation();
@@ -651,6 +662,7 @@ public class CityPatch : GamePatch
     }
     public static bool HasReachedWorldLawLimit(City __instance, ref bool __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (WorldLawLibrary.world_law_civ_limit_population_100.isEnabled() && __instance.getPopulationPeople() >= 100)
         {
             __result = true;
@@ -671,6 +683,7 @@ public class CityPatch : GamePatch
     }
     public static void removeLeader(City __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.leader!=null)
         {
             if (__instance.leader.HasOfficeIdentity())
@@ -683,6 +696,7 @@ public class CityPatch : GamePatch
 
     public static bool setLeader(City __instance, Actor pActor, bool pNew)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (pActor != null && __instance.kingdom.king != pActor)
         {
             __instance.leader = pActor;
@@ -702,6 +716,7 @@ public class CityPatch : GamePatch
     }
     public static bool joinAnotherKingdom(City __instance, Kingdom pNewSetKingdom, bool pCaptured = false, bool pRebellion = false)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         // 参数检查
         if (__instance == null || pNewSetKingdom == null)
         {
@@ -767,6 +782,7 @@ public class CityPatch : GamePatch
     }
     public static bool removeZone(City __instance, TileZone pZone)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
         {
             return false;
@@ -776,6 +792,7 @@ public class CityPatch : GamePatch
     }
     public static bool addZone(City __instance, TileZone pZone)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (!__instance.zones.Contains(pZone))
         {
             if (pZone.city != null)
@@ -799,6 +816,7 @@ public class CityPatch : GamePatch
     }
     public static bool makeOwnKingdom(City __instance, Actor pActor, bool pRebellion, bool pFellApart, ref Kingdom __result)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance == null || pActor == null)
         {
             return false;
@@ -831,6 +849,7 @@ public class CityPatch : GamePatch
 
     public static void city_update(City __instance, float pElapsed)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         /*
         if (__instance.hasTitle())
         {
@@ -843,11 +862,13 @@ public class CityPatch : GamePatch
     }
     public static bool removeObject(CityManager __instance, City pObject)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pObject)) return true;
         return true;
     }
 
     public static void setKingdom(City __instance, Kingdom pKingdom)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         Regime regime = pKingdom.GetRegime();
         if (regime != null)
         {
@@ -883,6 +904,7 @@ public class CityPatch : GamePatch
 
     public static void setKingdom_Postfix(City __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.hasTitle())
         {
             __instance.GetTitle().isBeenControlled();
@@ -892,11 +914,13 @@ public class CityPatch : GamePatch
     //创建新城市时触发
     public static void newCity(City __instance, Actor pActor)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         
     }
 
     public static bool zone_steal(CityBehBorderSteal __instance, City pCity)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
         if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
         {
             return false;
@@ -906,6 +930,7 @@ public class CityPatch : GamePatch
 
     public static void destroy_city(City __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         foreach (var religion in World.world.religions)
         {
             if (religion.GetCity() == __instance)
@@ -936,6 +961,7 @@ public class CityPatch : GamePatch
     }
     public static void removeData(City __instance)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         __instance.RemoveExtraData<City, CityExtraData>();
     }
 }

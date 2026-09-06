@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.UI.Windows;
@@ -9,6 +10,7 @@ using NeoModLoader.General;
 using NeoModLoader.General.UI.Tab;
 using NeoModLoader.services;
 using NeoModLoader.utils;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI;
 
@@ -72,9 +74,11 @@ internal static class MainTab
         AddFactionWindow.CreateWindow(nameof(AddFactionWindow),
             nameof(AddFactionWindow) + "Title");
         EmpireHistoryWindow.CreateWindow(nameof(EmpireHistoryWindow),
-            "empire_personal_history");
+            "empire_history");
         EmpireCoreWindow.CreateWindow(nameof(EmpireCoreWindow),
             "EmpireCoreWindowTitle");
+        BugReportWindow.CreateWindow(nameof(BugReportWindow),
+            "bug_report_window_title");
     }
     [Hotfixable]
     private static void _addButtons()
@@ -146,6 +150,19 @@ internal static class MainTab
         tab.AddPowerButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("debug_frontline",
                 SpriteTextureLoader.getSprite("ui/icons/iconWar")));
+
+        var bugReportButton = PowerButtonCreator.CreateWindowButton("bug_report_button", nameof(BugReportWindow),
+            GetOriginalBugIcon());
+        tab.AddPowerButton(EMPIRE_GROUP, bugReportButton);
+        bugReportButton._button.OnHover(() =>
+        {
+            Tooltip.show(bugReportButton, "normal", new TooltipData
+            {
+                tip_name = "bug_report_button",
+                tip_description = "bug_report_button_description"
+            });
+        });
+        bugReportButton._button.OnHoverOut(Tooltip.hideTooltip);
         //帝国势力列表
         var empireListButon = PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
             SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png"));
@@ -212,5 +229,22 @@ internal static class MainTab
         PowerButton pb4 = PowerButtonCreator.CreateToggleButton("real_num",
             SpriteTextureLoader.getSprite("ui/realNumToggle"));
         tab.AddPowerButton(EMPIRE_GROUP, pb4);
+    }
+
+    private static Sprite GetOriginalBugIcon()
+    {
+        Sprite originalIcon = SpriteTextureLoader.getSprite("ui/icons/iconDebug");
+        if (originalIcon != null) return originalIcon;
+
+        string[] exactNames = { "iconDebug", "iconBug", "icon_bug", "bug" };
+        Sprite[] sprites = Resources.FindObjectsOfTypeAll<Sprite>();
+        foreach (string name in exactNames)
+        {
+            foreach (Sprite sprite in sprites)
+            {
+                if (string.Equals(sprite.name, name, StringComparison.OrdinalIgnoreCase)) return sprite;
+            }
+        }
+        return SpriteTextureLoader.getSprite("ui/icons/iconInfo");
     }
 }

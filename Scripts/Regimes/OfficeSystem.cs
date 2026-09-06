@@ -96,18 +96,34 @@ public class OfficeObject
     
     public string GetName(NanoObject pNano = null)
     {
-        var flag = pre.Contains("_all");
-        var preX = string.IsNullOrEmpty(pre) ? pre : LM.Get(pre);
-        switch (pNano?.meta_type)
+        string officePrefix = pre ?? "";
+        bool flag = officePrefix.Contains("_all");
+        string preX = string.IsNullOrEmpty(officePrefix) ? "" : LM.Get(officePrefix);
+        if (pNano is Army army && army._city?.data != null)
+        {
+            string cityName = army._city.GetCityName();
+            if (!string.IsNullOrWhiteSpace(cityName)) preX = cityName;
+        }
+        else switch (pNano?.meta_type)
         {
             case MetaType.Kingdom:
-                preX = ((Kingdom)pNano).GetKingdomName();
+                Kingdom kingdom = (Kingdom)pNano;
+                if (kingdom.data != null)
+                {
+                    string kingdomName = kingdom.GetKingdomName();
+                    if (!string.IsNullOrWhiteSpace(kingdomName)) preX = kingdomName;
+                }
                 break;
             case MetaType.City:
-                preX = ((City)pNano).GetCityName();
+                City city = (City)pNano;
+                if (city.data != null)
+                {
+                    string cityName = city.GetCityName();
+                    if (!string.IsNullOrWhiteSpace(cityName)) preX = cityName;
+                }
                 break;
         }
-        var post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
+        string post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType)) ?? "";
         return flag? post: preX + post;
     }
     public void DetectPower(Empire empire)
@@ -122,14 +138,12 @@ public class OfficeObject
                 if (officer.isRekt()) return;
                 if (GetPregnantYear() > 2)
                 {
-                    LogService.LogInfo("检测生育");
                     var kingdom = (Kingdom) meta_object;
                     if (kingdom != null)
                     {
                         if (OverallHelperFunc.HasChangeToGiveBirth(officer, kingdom.king))
                         {
                             BabyMaker.makeBaby(kingdom.king, officer); 
-                            LogService.LogInfo("生育权能触发");
                         } 
                     }
                     last_pregnant_timestamp = World.world.getCurWorldTime();
@@ -149,19 +163,24 @@ public class OfficeObject
     }
     public string GetOfficeName(NanoObject pNano = null)
     {
-        var flag = pre.Contains("full")||pre.Contains("all");
+        string officePrefix = pre ?? "";
+        var flag = officePrefix.Contains("full")||officePrefix.Contains("all");
         var preX = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
-        if (flag) preX = LM.Get(pre);
+        if (flag) preX = LM.Get(officePrefix);
         switch (pNano?.meta_type)
         {
             case MetaType.Kingdom:
-                preX = ((Kingdom)pNano).name;
+                Kingdom kingdom = (Kingdom)pNano;
+                if (kingdom.data != null && !string.IsNullOrWhiteSpace(kingdom.data.name))
+                    preX = kingdom.data.name;
                 break;
             case MetaType.City:
-                preX = ((City)pNano).name;
+                City city = (City)pNano;
+                if (city.data != null && !string.IsNullOrWhiteSpace(city.data.name))
+                    preX = city.data.name;
                 break;
         }
-        return preX;
+        return preX ?? "";
     }
     public void InitialOffice(BureauSetting config, Action action = null, bool isNew = true)
     {
@@ -184,8 +203,10 @@ public class OfficeObject
 
     public void SetActor (Actor actor)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(actor) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(meta_object)) return;
         var originalActor = GetActor();
-        if (!originalActor.isRekt())
+        if (originalActor != null && !originalActor.isRekt())
         {
             originalActor.EndOffice();
             if (originalActor.HasOfficeIdentity())
@@ -203,6 +224,7 @@ public class OfficeObject
         {
             return;
         }
+        bool isReappointment = history_officers.Contains(actor.data.name);
         if(!actor.hasCulture())
         {
             actor.setCulture(actor.kingdom.culture);
@@ -240,6 +262,10 @@ public class OfficeObject
         }
         var personalId = actor.GetPersonalIdentity();
         personalId?.SetOfficeName(empireName+GetName());
+        // Kings and city leaders are also offices. Record their appointment here
+        // once instead of creating a second king/leader-specific history entry.
+        string officeHistoryKey = isReappointment ? "personal_history_office_reappointed" : "personal_history_office_started";
+        actor.RecordPersonalHistory(string.Format(LM.Get(officeHistoryKey), GetName(meta_object)));
         if(!is_local) return;
         switch (meta_object.meta_type)
         {
@@ -304,6 +330,11 @@ public class OfficeObject
                 actor.addTrait("officerLeave");
             }
             history_officers.Add(actor.data.name);
+            PersonalClanIdentity personalIdentity = actor.GetPersonalIdentity();
+            if (personalIdentity != null && !personalIdentity.death_history_recorded && actor.isAlive() && !actor.isRekt())
+            {
+                actor.RecordPersonalHistory(string.Format(LM.Get("personal_history_office_left"), GetName(meta_object)));
+            }
             actor.EndOffice();
             if (officeType is > 13 and <= 22)
             {

@@ -20,7 +20,6 @@ public static class OfficeSelector
         LeaderSelectMethod method = office.leader_select_method;
         if (office.leader_select_method == LeaderSelectMethod.Default)
         {
-            LogService.LogInfo("触发默认");
             method =  regime.GetLeaderSelectMethod();
         }
         switch (method)

@@ -18,5 +18,11 @@ public enum EmpireHistoryType
     give_posthumous_to_previous_emperor_history,
     change_capital_history,
     back_to_original_capital_history,
-    rebuild_empire_history
+    rebuild_empire_history,
+    war_declared_history,
+    war_ended_attacker_victory_history,
+    war_ended_defender_victory_history,
+    war_ended_peace_history,
+    join_taken_alliance_history,
+    leave_taken_alliance_history
 }

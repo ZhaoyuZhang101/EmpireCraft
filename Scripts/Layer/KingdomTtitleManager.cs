@@ -12,6 +12,7 @@ namespace EmpireCraft.Scripts.Layer;
 public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleData>
 {
     private readonly List<KingdomTitle> _titleUpdateBuffer = new();
+    private int _scheduledUpdateCursor;
 
     public Sprite[] _cached_banner_backgrounds;
 
@@ -46,6 +47,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     }
     public KingdomTitle newKingdomTitle(City pCity)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return null;
         long id = OverallHelperFunc.IdGenerator.NextId();
         KingdomTitle title = base.newObjectFromID(id);
         title.newKingdomTitle(pCity);
@@ -68,6 +70,8 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     }
     public bool forceTitle(City pCity1, City pCity2)
     {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity1) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity2)) return false;
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(pCity1.GetTitleID());
         if (title == null)
         {
@@ -94,21 +98,34 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         base.update(pElapsed);
         if (this.Count <= 0) return;
         _titleUpdateBuffer.Clear();
-        foreach (KingdomTitle kt in this)
+        bool forceFullUpdate = pElapsed < 0f;
+        if (forceFullUpdate)
         {
-            _titleUpdateBuffer.Add(kt);
+            foreach (KingdomTitle title in this) _titleUpdateBuffer.Add(title);
         }
-
-        foreach (KingdomTitle kt in _titleUpdateBuffer)
+        else
         {
-            if (!kt.checkActive())
+            checkLists();
+            int population = World.world?.units?.Count ?? 0;
+            int budget = EmpireCraftFrameSchedulingRules.ResolveMaximumKingdoms(
+                ModClass.PERFORMANCE_HIGH_POPULATION_MODE, population);
+            int count = Math.Min(this.list.Count, Math.Max(1, budget));
+            for (int index = 0; index < count; index++)
             {
-                this._to_dissolve.Add(kt);
+                if (_scheduledUpdateCursor >= this.list.Count) _scheduledUpdateCursor = 0;
+                _titleUpdateBuffer.Add(this.list[_scheduledUpdateCursor++]);
             }
         }
-        foreach (KingdomTitle kt in this._to_dissolve)
+
+        for (int index = 0; index < _titleUpdateBuffer.Count; index++)
         {
-            this.dissolveTitle(kt);
+            KingdomTitle title = _titleUpdateBuffer[index];
+            if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(title)) continue;
+            if (!title.checkActive()) this._to_dissolve.Add(title);
+        }
+        for (int index = 0; index < this._to_dissolve.Count; index++)
+        {
+            this.dissolveTitle(this._to_dissolve[index]);
         }
         this._to_dissolve.Clear();
         _titleUpdateBuffer.Clear();
