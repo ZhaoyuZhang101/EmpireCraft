@@ -2310,6 +2310,23 @@ public class Empire : MetaObject<EmpireData>
         isRegent = false;
         isEmpressDowager = false;
         Actor current = GetPowerfulMinister();
+
+        // Once powerful-minister progress is above 70%, the current holder is
+        // protected from replacement. Resolve the stored actor directly so
+        // losing an office, faction position, or other candidacy condition does
+        // not replace them. Normal selection resumes only after that actor dies
+        // or is otherwise removed from the world.
+        if (data.powerful_minister_progress > 70 && data.powerful_minister_id > 0)
+        {
+            Actor lockedCurrent = World.world.units.get(data.powerful_minister_id);
+            if (lockedCurrent != null && !lockedCurrent.isRekt())
+            {
+                isRegent = Emperor != null && !Emperor.isRekt() && !Emperor.isAdult();
+                isEmpressDowager = IsEmpressDowager(lockedCurrent);
+                return lockedCurrent;
+            }
+        }
+
         Actor cabinetLeader = GetCabinetLeader();
         bool minorEmperor = Emperor != null && !Emperor.isRekt() && !Emperor.isAdult();
         var centralCandidates = data.centerOffice == null ? new List<Actor>() :
