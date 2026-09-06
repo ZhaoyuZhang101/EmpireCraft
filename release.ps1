@@ -179,19 +179,26 @@ function Invoke-GitHubCurl {
             $ErrorActionPreference = $previousErrorActionPreference
         }
 
-        $statusText = (
+        # Get-Content -Raw returns $null for an empty file in Windows PowerShell.
+        # Cast to [string] before Trim() so an empty curl stream does not cause:
+        # "You cannot call a method on a null-valued expression."
+        $statusText = [string](
             Get-Content -LiteralPath $statusPath -Raw -ErrorAction SilentlyContinue
-        ).Trim()
+        )
+        $statusText = $statusText.Trim()
 
-        $stderrText = (
+        $stderrText = [string](
             Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
-        ).Trim()
+        )
+        $stderrText = $stderrText.Trim()
 
-        $responseBody = Get-Content `
-            -LiteralPath $responsePath `
-            -Raw `
-            -Encoding UTF8 `
-            -ErrorAction SilentlyContinue
+        $responseBody = [string](
+            Get-Content `
+                -LiteralPath $responsePath `
+                -Raw `
+                -Encoding UTF8 `
+                -ErrorAction SilentlyContinue
+        )
 
         if ($curlExitCode -ne 0) {
             $details = if ([string]::IsNullOrWhiteSpace($stderrText)) {
@@ -205,8 +212,12 @@ function Invoke-GitHubCurl {
         }
 
         $statusCode = 0
+        if ([string]::IsNullOrWhiteSpace($statusText)) {
+            throw "curl.exe returned no HTTP status code. stderr: $stderrText"
+        }
+
         if (-not [int]::TryParse($statusText, [ref]$statusCode)) {
-            throw "GitHub returned an unreadable HTTP status: '$statusText'"
+            throw "GitHub returned an unreadable HTTP status: '$statusText'. stderr: $stderrText"
         }
 
         if ($statusCode -lt 200 -or $statusCode -ge 300) {
