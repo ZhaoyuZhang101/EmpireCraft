@@ -9,6 +9,11 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+# Keep Rider/cmd/PowerShell output readable when GitHub returns UTF-8 text.
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8NoBom
+$OutputEncoding = $utf8NoBom
+
 function Invoke-Git {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 
@@ -148,7 +153,7 @@ try {
     }
 
     $assetBaseName = "EmpireCraft_Ver_$version"
-    $tagName = "v$version"
+    $tagName = $version
     $releaseTitle = "EmpireCraft Ver $version"
     $distDirectory = Join-Path $repositoryRoot "dist"
     $archivePath = Join-Path $distDirectory "$assetBaseName.zip"
@@ -191,7 +196,7 @@ try {
         throw "Unable to query tags from origin."
     }
     if ($existingTag) {
-        throw "Tag $tagName already exists on GitHub. Update mod.json before releasing again."
+        Write-Host "Tag $tagName already exists on GitHub; continuing and checking the release state..." -ForegroundColor Yellow
     }
 
     Write-Host "Pushing branch $branchName..." -ForegroundColor Cyan
@@ -235,6 +240,7 @@ try {
     }
     else {
         Write-Host "GitHub CLI not found; using the GitHub API..." -ForegroundColor Yellow
+
         $token = Get-GitHubToken
         $headers = @{
             Accept = "application/vnd.github+json"
@@ -247,9 +253,13 @@ try {
             tag_name = $tagName
             target_commitish = $branchName
             name = $releaseTitle
+
+            # Create as a draft first so a failed asset upload never leaves a
+            # half-published release. It is published after the ZIP succeeds.
             draft = $true
             prerelease = [bool]$isPrerelease
         }
+
         if ($resolvedNotesFile) {
             $releaseData.body = Get-Content -LiteralPath $resolvedNotesFile -Raw -Encoding UTF8
         }
@@ -258,15 +268,155 @@ try {
         }
 
         $apiUrl = "https://api.github.com/repos/$repositorySlug/releases"
-        $release = Invoke-RestMethod -Method Post -Uri $apiUrl -Headers $headers -ContentType "application/json; charset=utf-8" -Body ($releaseData | ConvertTo-Json)
-        $uploadBaseUrl = $release.upload_url -replace '\{\?name,label\}$', ''
-        $assetName = [Uri]::EscapeDataString([IO.Path]::GetFileName($archivePath))
-        Invoke-RestMethod -Method Post -Uri "${uploadBaseUrl}?name=$assetName" -Headers $headers -ContentType "application/zip" -InFile $archivePath | Out-Null
-        if (-not $Draft) {
-            $publishUrl = "https://api.github.com/repos/$repositorySlug/releases/$($release.id)"
-            $release = Invoke-RestMethod -Method Patch -Uri $publishUrl -Headers $headers -ContentType "application/json; charset=utf-8" -Body (@{ draft = $false } | ConvertTo-Json)
+
+        try {
+            # A previous failed run may already have created the draft release.
+            # Search drafts too, rather than blindly POSTing another release and
+            # receiving GitHub's 422 "already_exists" validation error.
+            $allReleases = @(
+                Invoke-RestMethod `
+                    -Method Get `
+                    -Uri "${apiUrl}?per_page=100" `
+                    -Headers $headers
+            )
+
+            $release = $allReleases |
+                Where-Object { $_.tag_name -eq $tagName } |
+                Select-Object -First 1
+
+            if ($release) {
+                if (-not $release.draft) {
+                    throw "Release '$tagName' already exists and is already published: $($release.html_url)"
+                }
+
+                Write-Host "Existing draft release found; reusing it..." -ForegroundColor Yellow
+
+                # Keep an existing draft's metadata in sync with the current run.
+                $updateUrl = "https://api.github.com/repos/$repositorySlug/releases/$($release.id)"
+                $updateData = @{
+                    tag_name = $tagName
+                    target_commitish = $branchName
+                    name = $releaseTitle
+                    draft = $true
+                    prerelease = [bool]$isPrerelease
+                }
+
+                if ($resolvedNotesFile) {
+                    $updateData.body = Get-Content -LiteralPath $resolvedNotesFile -Raw -Encoding UTF8
+                }
+                else {
+                    # PATCH does not support generate_release_notes. Preserve the
+                    # existing body if no explicit notes file was supplied.
+                    $updateData.body = [string]$release.body
+                }
+
+                $updateJson = $updateData | ConvertTo-Json -Depth 10
+                $release = Invoke-RestMethod `
+                    -Method Patch `
+                    -Uri $updateUrl `
+                    -Headers $headers `
+                    -ContentType "application/json; charset=utf-8" `
+                    -Body ([Text.Encoding]::UTF8.GetBytes($updateJson))
+            }
+            else {
+                Write-Host "Creating GitHub draft release $tagName..." -ForegroundColor Cyan
+
+                $jsonBody = $releaseData | ConvertTo-Json -Depth 10
+                $release = Invoke-RestMethod `
+                    -Method Post `
+                    -Uri $apiUrl `
+                    -Headers $headers `
+                    -ContentType "application/json; charset=utf-8" `
+                    -Body ([Text.Encoding]::UTF8.GetBytes($jsonBody))
+            }
+
+            $archiveFileName = [IO.Path]::GetFileName($archivePath)
+
+            # If a previous run uploaded the asset before failing later, replace
+            # that asset instead of hitting another GitHub 422 duplicate-name error.
+            $existingAsset = @($release.assets) |
+                Where-Object { $_.name -eq $archiveFileName } |
+                Select-Object -First 1
+
+            if ($existingAsset) {
+                Write-Host "Removing existing asset $archiveFileName..." -ForegroundColor Yellow
+
+                Invoke-RestMethod `
+                    -Method Delete `
+                    -Uri $existingAsset.url `
+                    -Headers $headers |
+                    Out-Null
+            }
+
+            $uploadBaseUrl = $release.upload_url -replace '\{\?name,label\}$', ''
+            $assetName = [Uri]::EscapeDataString($archiveFileName)
+
+            Write-Host "Uploading $archiveFileName..." -ForegroundColor Cyan
+
+            Invoke-RestMethod `
+                -Method Post `
+                -Uri "${uploadBaseUrl}?name=$assetName" `
+                -Headers $headers `
+                -ContentType "application/zip" `
+                -InFile $archivePath |
+                Out-Null
+
+            if (-not $Draft) {
+                Write-Host "Publishing release..." -ForegroundColor Cyan
+
+                $publishUrl = "https://api.github.com/repos/$repositorySlug/releases/$($release.id)"
+                $publishBody = @{
+                    draft = $false
+                    prerelease = [bool]$isPrerelease
+                } | ConvertTo-Json
+
+                $release = Invoke-RestMethod `
+                    -Method Patch `
+                    -Uri $publishUrl `
+                    -Headers $headers `
+                    -ContentType "application/json; charset=utf-8" `
+                    -Body ([Text.Encoding]::UTF8.GetBytes($publishBody))
+            }
+
+            Write-Host "Release URL: $($release.html_url)" -ForegroundColor Green
         }
-        Write-Host "Release URL: $($release.html_url)" -ForegroundColor Green
+        catch {
+            Write-Host ""
+            Write-Host "GitHub API request failed." -ForegroundColor Red
+            Write-Host "Message: $($_.Exception.Message)" -ForegroundColor Red
+
+            if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+                Write-Host ""
+                Write-Host "GitHub response:" -ForegroundColor Yellow
+                Write-Host $_.ErrorDetails.Message -ForegroundColor Yellow
+            }
+            elseif ($_.Exception.Response) {
+                # Windows PowerShell sometimes does not populate ErrorDetails.
+                # Try to read the raw response body before rethrowing.
+                try {
+                    $responseStream = $_.Exception.Response.GetResponseStream()
+                    if ($responseStream) {
+                        $reader = New-Object IO.StreamReader($responseStream, [Text.Encoding]::UTF8)
+                        try {
+                            $responseBody = $reader.ReadToEnd()
+                            if (-not [string]::IsNullOrWhiteSpace($responseBody)) {
+                                Write-Host ""
+                                Write-Host "GitHub response:" -ForegroundColor Yellow
+                                Write-Host $responseBody -ForegroundColor Yellow
+                            }
+                        }
+                        finally {
+                            $reader.Dispose()
+                        }
+                    }
+                }
+                catch {
+                    # Preserve the original GitHub error.
+                }
+            }
+
+            throw
+        }
     }
 
     & git fetch origin "refs/tags/$tagName`:refs/tags/$tagName" 2>$null | Out-Null
