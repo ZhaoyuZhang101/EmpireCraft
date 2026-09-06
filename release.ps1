@@ -282,7 +282,7 @@ function Invoke-GitHubCurl {
     }
     finally {
         Remove-Item `
-            -LiteralPath $responsePath, $statusPath, $stderrPath `
+            -LiteralPath $responsePath, $stderrPath `
             -Force `
             -ErrorAction SilentlyContinue
 
