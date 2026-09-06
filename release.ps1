@@ -477,20 +477,31 @@ try {
     Write-Host "Pushing branch $branchName..." -ForegroundColor Cyan
     Invoke-Git push origin $branchName | Out-Host
 
-    $existingTag = & git ls-remote `
-        --tags `
-        origin `
-        "refs/tags/$tagName" `
-        2>$null
+    # Create the Git tag explicitly before creating the GitHub Release.
+    # This makes the tag visible in the local repository and on GitHub even
+    # before the Release API call runs.
+    $localTag = (Invoke-Git tag --list $tagName | Select-Object -First 1)
+
+    if ([string]::IsNullOrWhiteSpace([string]$localTag)) {
+        Write-Host "Creating local git tag $tagName..." -ForegroundColor Cyan
+        Invoke-Git tag $tagName | Out-Null
+    }
+    else {
+        Write-Host "Local git tag $tagName already exists." -ForegroundColor Yellow
+    }
+
+    $remoteTag = & git ls-remote --tags origin "refs/tags/$tagName" 2>$null
 
     if ($LASTEXITCODE -ne 0) {
         throw "Unable to query tags from origin."
     }
 
-    if ($existingTag) {
-        Write-Host `
-            "Tag $tagName already exists on GitHub; checking release state..." `
-            -ForegroundColor Yellow
+    if (-not $remoteTag) {
+        Write-Host "Pushing git tag $tagName..." -ForegroundColor Cyan
+        Invoke-Git push origin $tagName | Out-Host
+    }
+    else {
+        Write-Host "Git tag $tagName already exists on GitHub." -ForegroundColor Yellow
     }
 
     $isPrerelease = $version -match '(?i)(alpha|beta|preview|rc)'
@@ -650,18 +661,6 @@ try {
     }
 
     Write-Host "Release URL: $($release.html_url)" -ForegroundColor Green
-
-    & git fetch `
-        origin `
-        "refs/tags/$tagName`:refs/tags/$tagName" `
-        2>$null |
-        Out-Null
-
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host `
-            "Warning: release succeeded, but the new tag could not be fetched locally." `
-            -ForegroundColor Yellow
-    }
 
     Write-Host "Release completed: $releaseTitle" -ForegroundColor Green
 }
