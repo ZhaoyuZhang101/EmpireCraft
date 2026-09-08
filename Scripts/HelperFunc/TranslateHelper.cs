@@ -1019,6 +1019,19 @@ namespace EmpireCraft.Scripts.HelperFunc
             }.add();
         }
 
+        public static void LogFactionLeaderInfluenceLocalKingdom(Actor actor, Kingdom target, FixedFaction faction)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.faction_leader_influence_local_kingdom_log,
+                actor.getName(),
+                target.name,
+                faction.Name)
+            {
+                color_special1 = actor.kingdom?.getColor()._color_text ?? Toolbox.color_log_good,
+                color_special2 = target.getColor()._color_text,
+                color_special3 = faction.Empire?.CoreKingdom?.getColor()._color_text ?? Toolbox.color_log_good
+            }.RecordIntoEmpire(faction.Empire);
+        }
+
         /// <summary>
         /// 罪加罪行
         /// </summary>

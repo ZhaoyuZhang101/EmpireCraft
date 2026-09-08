@@ -358,7 +358,7 @@
     "i_none_lover": "<color=#FFD700>未婚</color>",
     "real_num": "拟真人口数字",
     "real_num_description": "将显示的人口数字乘以1000",
-    "simple_nameplate": "简易铭牌",
+    "simple_nameplate": "隐藏后缀",
     "simple_nameplate_description": "地图上的帝国与王国铭牌不显示国家后缀，但保留方位词和正式国名数据",
 
     "past_emperors": "君主世系",
@@ -440,6 +440,7 @@
     "become_kingdom_log": "$actor$ 因获得 $title$ 的法理 改国名为 $kingdom$",
     "city_add_to_title_log": "$city$ 已被纳入 $title_name$ 的法理范围",
     "邀请入派系": "$invitor$ 正在代表 $faction$ 對 $target$ 施加影響，以提升該派系的影響占比。",
+    "faction_leader_influence_local_kingdom_log": "$actor$ 消耗个人影响力，在 $target$ 扩大了 $faction$ 的派系占比。",
     "province_change_to_kingdom_log": "$province$ 已被转为 $province_level$",
     "new_jingshi_log": "$empire$ 殿试已毕，$actor$ 于金銮殿对策中高列名次，授进士第，荣耀九族！",
     "cotrolled_country_log": "$actor$ 已经完全控制 $empire$ 内阁！",
@@ -1000,6 +1001,6 @@
     ,"purge_recent_100_years":"清理灭亡超过一百年的历史帝国"
     ,"原始":"原始派", "尊王":"尊王派", "诸侯":"诸侯派", "中央":"中央派", "自治":"自治派", "攘夷":"主战派", "绥靖":"绥靖派", "血脉":"血脉派", "僭主":"僭主派", "神权":"神权派", "共和":"共和派", "民主":"民主派", "革命":"革命派", "融入":"融入派", "同化":"同化派", "共产":"共产派", "无":"无派系"
     ,"Default":"默认", "past_emperors_description":"查看历代君主记录", "past_emperor":"历代君主", "empire_bureau_description":"查看帝国行政机构", "regime_description":"查看或调整政体"
-    ,"plot_kingdom_start_invite_to_faction":"邀请加入派系", "plot_kingdom_expose_crime":"揭发罪行", "plot_force_stop_war":"强制停战", "plot_combine_kingdom":"合并国家", "plot_kingdom_allow_succession":"允许继承", "plot_empire_take_back_title":"收回法理", "plot_kingdom_add_city_into_title":"将城市纳入法理", "task_unit_do_mod_actor_beh":"帝国模组人物行为"
+    ,"plot_kingdom_start_invite_to_faction":"邀请加入派系", "plot_faction_leader_influence_local_kingdom":"影响地方派系", "plot_kingdom_expose_crime":"揭发罪行", "plot_force_stop_war":"强制停战", "plot_combine_kingdom":"合并国家", "plot_kingdom_allow_succession":"允许继承", "plot_empire_take_back_title":"收回法理", "plot_kingdom_add_city_into_title":"将城市纳入法理", "task_unit_do_mod_actor_beh":"帝国模组人物行为"
     ,"统一":"统一", "地方叛乱":"地方叛乱", "地方独立":"地方独立", "帝国正统":"帝国正统", "帝国扩张":"帝国扩张"
 }

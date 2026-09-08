@@ -1051,11 +1051,13 @@ public static class ActorExtension
     }
     public static void editRenown(this Actor a, int value)
     {
-        a.data.renown += value;
-        if (value <= 0)
-        {
-            a.data.renown = 0;
-        }
+        if (a?.data == null) return;
+        a.data.renown = Math.Max(0, a.data.renown + value);
+    }
+
+    public static int CalculateAnnualInfluenceGain(double annualPerformance)
+    {
+        return Math.Max(0, Math.Min(100, (int)Math.Floor(annualPerformance)));
     }
     public static void AddOfficeExamLevel(this Actor actor, EmpireExamLevel level)
     {

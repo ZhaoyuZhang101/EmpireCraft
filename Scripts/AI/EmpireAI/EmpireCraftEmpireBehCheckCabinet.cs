@@ -22,11 +22,13 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         Empire empire = pKingdom.GetEmpire();
         Regime regime = empire?.CoreKingdom?.GetRegime();
         if (regime == null) return BehResult.Continue;
-        foreach (var ff in regime.GetPlayerFactions())
+        List<FixedFaction> factions = regime.GetPlayerFactions();
+        foreach (var ff in factions)
         {
             ff.FixMissedTemporaryFactions();
             ff.Update();
         }
+        pKingdom.ApplyAnnualFactionLeaderGrowth(factions);
         switch (regime.type)
         {
             case RegimeType.LvLing:

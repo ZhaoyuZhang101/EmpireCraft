@@ -409,6 +409,9 @@ dist/
 debug_probe.local.json
 EmpireCraft.debug.log
 
+# Local regression tests
+/tests/
+
 .*
 !.gitignore
 !.gitattribute

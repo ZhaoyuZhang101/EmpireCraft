@@ -184,7 +184,7 @@ public class Empire : MetaObject<EmpireData>
 
     public bool IsNeedToOfficeExam()
     {
-        if (data.last_exam_timestamp == -1L) return true;
+        if (data.last_office_exam_timestamp == -1L) return true;
         if (Date.getYearsSince(data.last_office_exam_timestamp)>=1)
         {
             return true;
@@ -436,6 +436,10 @@ public class Empire : MetaObject<EmpireData>
         } 
         
         data.empire_specific_clan = currentSpecificClan.id;
+        if (isNew)
+        {
+            data.dynasty_founder_actor_id = actor.id;
+        }
         EmpireClan = actor.clan;
         CoreKingdom?.SetSpecificClan(currentSpecificClan);
         //设定天子身份并移居首都
@@ -451,11 +455,11 @@ public class Empire : MetaObject<EmpireData>
         if (data.has_year_name)
         {
             //公屏提示
-            TranslateHelper.LogNewEmperor(actor, CoreKingdom.capital, data.year_name); 
+            TranslateHelper.LogNewEmperor(actor, CoreKingdom.capital, data.year_name, isNew);
         }
         else
         {
-            TranslateHelper.LogNewEmperorWest(actor, CoreKingdom.capital);
+            TranslateHelper.LogNewEmperorWest(actor, CoreKingdom.capital, isNew);
         }
         
         
@@ -636,6 +640,7 @@ public class Empire : MetaObject<EmpireData>
             shihao_name = "",
             descriptions = new List<HistoryDescription>()
         };
+        RepairFoundingEmperorMarker();
         this.RecordHistory(
             Emperor.isAlive() ? EmpireHistoryType.emperor_left_history : EmpireHistoryType.emperor_die_history,
             new Dictionary<string, string>()
@@ -1185,7 +1190,72 @@ public class Empire : MetaObject<EmpireData>
         Actor king = pKingdom.king;
         empireData.founder_actor_name = king?.getName();
         empireData.founder_actor_id = king?.getID() ?? -1L;
+        if (empireData.dynasty_founder_actor_id <= 0)
+        {
+            empireData.dynasty_founder_actor_id = empireData.founder_actor_id;
+        }
+        RepairFoundingEmperorMarker();
         join(pKingdom, true, true);
+    }
+
+    public bool IsFoundingEmperorHistory(EmpireCraftHistory history)
+    {
+        if (history == null) return false;
+        long dynastyFounderId = ResolveDynastyFounderActorId();
+        return history.is_first ||
+               data?.founder_actor_id > 0 && history.id == data.founder_actor_id ||
+               dynastyFounderId > 0 && history.id == dynastyFounderId;
+    }
+
+    public void RepairFoundingEmperorMarker()
+    {
+        if (data == null) return;
+        long dynastyFounderId = ResolveDynastyFounderActorId();
+        if (data.currentHistory != null &&
+            (data.currentHistory.id == data.founder_actor_id || data.currentHistory.id == dynastyFounderId))
+        {
+            data.currentHistory.is_first = true;
+        }
+        if (data.history == null) return;
+        foreach (EmpireCraftHistory history in data.history)
+        {
+            if (history != null &&
+                (history.id == data.founder_actor_id || history.id == dynastyFounderId))
+            {
+                history.is_first = true;
+            }
+        }
+    }
+
+    private long ResolveDynastyFounderActorId()
+    {
+        if (data == null) return -1L;
+        if (data.dynasty_founder_actor_id > 0) return data.dynasty_founder_actor_id;
+
+        string dynastyName = data.currentHistory?.dynasty_name ?? GetEmpireName();
+        string royalSurname = data.currentHistory?.royal_surname ?? EmpireSpecificClan?.name ?? "";
+        bool MatchesCurrentDynasty(EmpireCraftHistory history)
+        {
+            if (history == null) return false;
+            bool dynastyMatches = string.IsNullOrWhiteSpace(dynastyName) || history.dynasty_name == dynastyName;
+            bool surnameMatches = string.IsNullOrWhiteSpace(royalSurname) || history.royal_surname == royalSurname;
+            return dynastyMatches && surnameMatches;
+        }
+
+        EmpireCraftHistory founder = data.history?.LastOrDefault(history =>
+            history?.is_first == true && MatchesCurrentDynasty(history));
+        founder ??= data.history?.FirstOrDefault(MatchesCurrentDynasty);
+        if (founder == null && MatchesCurrentDynasty(data.currentHistory))
+        {
+            founder = data.currentHistory;
+        }
+
+        data.dynasty_founder_actor_id = founder?.id > 0
+            ? founder.id
+            : data.founder_actor_id > 0
+                ? data.founder_actor_id
+                : Emperor?.id ?? -1L;
+        return data.dynasty_founder_actor_id;
     }
 
     public void update()
@@ -1855,6 +1925,7 @@ public class Empire : MetaObject<EmpireData>
         }
         this.EmpireClan = World.world.clans.get(pData.empire_clan);
         this.OriginalCapital = World.world.cities.get(pData.original_capital);
+        RepairFoundingEmperorMarker();
         this.recalculate();
     }
 

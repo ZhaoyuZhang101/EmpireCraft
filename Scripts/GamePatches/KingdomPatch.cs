@@ -102,9 +102,10 @@ public class KingdomPatch : GamePatch
         __instance.RemoveExtraData<Kingdom, KingdomExtraData>();
     }
 
-    public static void new_emperor(Kingdom __instance, Actor pActor, bool pFromLoad)
+    public static void new_emperor(Kingdom __instance, Actor pActor, bool pFromLoad, Actor __state)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        if (pActor == null) return;
         if (!ModClass.IS_CLEAR)
         {
             pActor.CheckSpecificClan();
@@ -149,10 +150,18 @@ public class KingdomPatch : GamePatch
             if (__instance.IsEmpire())
             {
                 Empire empire = __instance.GetEmpire();
-                empire?.NewEmperor(pActor);
-                if (!pFromLoad && empire != null)
+                bool isActualSuccession = !pFromLoad && (__state == null || __state.id != pActor.id);
+                if (isActualSuccession)
                 {
-                    pActor.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_emperor"), empire.GetEmpireName()));
+                    empire?.NewEmperor(pActor);
+                    if (empire != null)
+                    {
+                        pActor.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_emperor"), empire.GetEmpireName()));
+                    }
+                }
+                else
+                {
+                    empire?.RepairFoundingEmperorMarker();
                 }
                 LogService.LogInfo("触发原版选择国王");
             }
@@ -160,8 +169,9 @@ public class KingdomPatch : GamePatch
         }
     }
 
-    public static void before_new_emperor(Kingdom __instance)
+    public static void before_new_emperor(Kingdom __instance, out Actor __state)
     {
+        __state = __instance?.king;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (ModClass.IS_CLEAR || __instance == null) return;
         __instance.SyncRealmTitlesFromRuler(__instance.king);

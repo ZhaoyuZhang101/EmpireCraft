@@ -343,7 +343,7 @@
   "i_none_lover": "<color=#FFD700>未婚</color>",
   "real_num": "擬真人口數字",
   "real_num_description": "將顯示的人口數字乘以1000",
-  "simple_nameplate": "簡易銘牌",
+  "simple_nameplate": "隐藏後缀",
   "simple_nameplate_description": "地圖上的帝國與王國銘牌不顯示國家後綴，但保留方位詞和正式國名資料",
   "past_emperors": "君主世系",
   "empire_list_window": "帝國列表",
@@ -424,6 +424,7 @@
   "become_kingdom_log": "$actor$ 因獲得 $title$ 的法理改國名為 $kingdom$",
   "city_add_to_title_log": "$city$ 已被納入 $title_name$ 的法理範圍",
   "邀请入派系": "$invitor$ 正在代表 $faction$ 对 $target$ 施加影响，以提升该派系的影响占比。",
+  "faction_leader_influence_local_kingdom_log": "$actor$ 消耗個人影響力，在 $target$ 擴大了 $faction$ 的派系占比。",
   "追加罪行": "$actor$ 的统治者 试图给 $victim$ 的统治者 追加 $crime$ 罪行",
   "province_change_to_kingdom_log": "$province$ 已被轉為 $province_level$",
   "new_jingshi_log": "$empire$ 殿試已畢，$actor$ 於金鑾殿對策中高列名次，授進士第，榮耀九族！",
@@ -965,6 +966,6 @@
   ,"purge_recent_100_years":"清理滅亡超過一百年的歷史帝國"
   ,"原始":"原始派", "尊王":"尊王派", "诸侯":"諸侯派", "中央":"中央派", "自治":"自治派", "攘夷":"主戰派", "绥靖":"綏靖派", "血脉":"血脈派", "僭主":"僭主派", "神权":"神權派", "共和":"共和派", "民主":"民主派", "革命":"革命派", "融入":"融入派", "同化":"同化派", "共产":"共產派", "无":"無派系"
   ,"Default":"預設", "past_emperors_description":"查看歷代君主記錄", "past_emperor":"歷代君主", "empire_bureau_description":"查看帝國行政機構", "regime_description":"查看或調整政體"
-  ,"plot_kingdom_start_invite_to_faction":"邀請加入派系", "plot_kingdom_expose_crime":"揭發罪行", "plot_force_stop_war":"強制停戰", "plot_combine_kingdom":"合併國家", "plot_kingdom_allow_succession":"允許繼承", "plot_empire_take_back_title":"收回法理", "plot_kingdom_add_city_into_title":"將城市納入法理", "task_unit_do_mod_actor_beh":"帝國模組人物行為"
+  ,"plot_kingdom_start_invite_to_faction":"邀請加入派系", "plot_faction_leader_influence_local_kingdom":"影響地方派系", "plot_kingdom_expose_crime":"揭發罪行", "plot_force_stop_war":"強制停戰", "plot_combine_kingdom":"合併國家", "plot_kingdom_allow_succession":"允許繼承", "plot_empire_take_back_title":"收回法理", "plot_kingdom_add_city_into_title":"將城市納入法理", "task_unit_do_mod_actor_beh":"帝國模組人物行為"
   ,"统一":"統一", "地方叛乱":"地方叛亂", "地方独立":"地方獨立", "帝国正统":"帝國正統", "帝国扩张":"帝國擴張"
 }

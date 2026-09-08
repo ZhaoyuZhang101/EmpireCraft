@@ -26,6 +26,7 @@ namespace EmpireCraft.Scripts.AI
 {
     public static class EmpireCraftPlotsAddition
     {
+        private const int FactionLeaderLocalInfluenceCost = 50;
         private static readonly HashSet<string> FailedPlotExecutions = new();
         public static PlotAsset Rebellion;
         private static readonly HashSet<string> s_guardedPlotIds = new HashSet<string>();
@@ -40,6 +41,36 @@ namespace EmpireCraft.Scripts.AI
                 source.king != actor || actor.GetFaction()?.Empire != empire) return null;
             Kingdom core = empire.CoreKingdom;
             return core != null && !core.isRekt() && core.GetEmpire() == empire ? core : null;
+        }
+
+        private static FixedFaction GetLeadingFaction(Actor actor)
+        {
+            if (actor == null || actor.isRekt() || !actor.HasFaction()) return null;
+            FixedFaction faction = actor.GetFaction();
+            return faction?.GetLeader()?.id == actor.id ? faction : null;
+        }
+
+        private static bool CanFactionLeaderInfluenceLocalKingdom(Actor actor, Kingdom target)
+        {
+            FixedFaction faction = GetLeadingFaction(actor);
+            Empire empire = faction?.Empire;
+            return actor?.data != null && actor.data.renown >= FactionLeaderLocalInfluenceCost &&
+                   empire != null && !empire.isRekt() && !empire.IsArchived() &&
+                   target != null && !target.isRekt() && target != empire.CoreKingdom &&
+                   target.GetEmpire() == empire && target.GetFactionRatioValue(faction) < 100;
+        }
+
+        private static Kingdom FindFactionLeaderLocalInfluenceTarget(Actor actor)
+        {
+            FixedFaction faction = GetLeadingFaction(actor);
+            Empire empire = faction?.Empire;
+            if (empire?.kingdoms_list == null || actor?.data == null ||
+                actor.data.renown < FactionLeaderLocalInfluenceCost) return null;
+            return empire.kingdoms_list
+                .Where(target => CanFactionLeaderInfluenceLocalKingdom(actor, target))
+                .OrderBy(target => target.GetFactionRatioValue(faction))
+                .ThenByDescending(target => target.getPopulationPeople())
+                .FirstOrDefault();
         }
 
         private static void GuardAllPlotAssets()
@@ -600,6 +631,41 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.add(new PlotAsset
             {
+                id = "faction_leader_influence_local_kingdom",
+                path_icon = "EmperorQuest.png",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                min_renown_actor = FactionLeaderLocalInfluenceCost,
+                can_be_done_by_king = true,
+                can_be_done_by_leader = true,
+                check_target_kingdom = true,
+                check_is_possible = actor => FindFactionLeaderLocalInfluenceTarget(actor) != null,
+                try_to_start_advanced = delegate(Actor actor, PlotAsset plotAsset, bool forced)
+                {
+                    Kingdom target = FindFactionLeaderLocalInfluenceTarget(actor);
+                    if (target == null) return false;
+                    Plot plot = World.world.plots.newPlot(actor, plotAsset, forced);
+                    plot.target_kingdom = target;
+                    plot.setName($"{actor.getName()}正在扩大派系对{target.name}的影响");
+                    return true;
+                },
+                check_should_continue = actor => actor?.plot != null &&
+                                                  CanFactionLeaderInfluenceLocalKingdom(actor, actor.plot.target_kingdom),
+                action = delegate(Actor actor)
+                {
+                    Kingdom target = actor?.plot?.target_kingdom;
+                    FixedFaction faction = GetLeadingFaction(actor);
+                    if (faction == null || !CanFactionLeaderInfluenceLocalKingdom(actor, target) ||
+                        !target.TryIncreaseFactionRatio(faction, 1)) return false;
+                    actor.editRenown(-FactionLeaderLocalInfluenceCost);
+                    TranslateHelper.LogFactionLeaderInfluenceLocalKingdom(actor, target, faction);
+                    return true;
+                }
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
                 id = "kingdom_expose_crime",
                 path_icon = "EmperorQuest.png",
                 group_id = "empirecraft_diplomacy",
@@ -791,6 +857,7 @@ namespace EmpireCraft.Scripts.AI
                             LogService.LogInfo($"New Empire Name：{new_name}，Original Empire Name：{empire.GetEmpireName()}");
                             empire.SetEmpireName(new_name.Split('\u200A')[0].Split(' ').Last());
                             LogService.LogInfo($"Empire Name has been changed to：{empire.GetEmpireName()}");
+                            empire.data.dynasty_founder_actor_id = pActor.id;
                             empire.data.currentHistory.is_first = true;
                             empire.data.currentHistory.empire_name = empire.GetEmpireName();
                         }
@@ -1106,19 +1173,21 @@ namespace EmpireCraft.Scripts.AI
                             }
                             if (string.IsNullOrEmpty(cHistory.shihao_name))
                             {
+                                Empire empire = kingdom.GetEmpire();
                                 bool isFirst = false;
                                 bool isLast = false;
                                 bool isGood = true;
                                 {
-                                    isFirst = cHistory.is_first;
+                                    isFirst = empire.IsFoundingEmperorHistory(cHistory);
+                                    if (isFirst) cHistory.is_first = true;
                                 }
-                                var names = PosthumousNameGenerator.GenerateBoth(kingdom.GetEmpire(), 1, isFirst, isLast, isGood);
+                                var names = PosthumousNameGenerator.GenerateBoth(empire, 1, isFirst, isLast, isGood);
                                 cHistory.shihao_name = names.shi;
                                 cHistory.miaohao_name = names.miao.pre;
                                 cHistory.miaohao_suffix = names.miao.suf;
-                                kingdom.GetEmpire().RecordHistory(EmpireHistoryType.give_posthumous_to_previous_emperor_history, new Dictionary<string, string>
+                                empire.RecordHistory(EmpireHistoryType.give_posthumous_to_previous_emperor_history, new Dictionary<string, string>
                                 {
-                                    ["actor"] = kingdom.GetEmpire().Emperor.data.name,
+                                    ["actor"] = empire.Emperor.data.name,
                                     ["actor2"] = cHistory.emperor,
                                     ["shihao"] = LM.Get(cHistory.shihao_name),
                                     ["miaohao"] = LM.Get(cHistory.miaohao_name) + LM.Get(cHistory.miaohao_suffix)

@@ -311,6 +311,8 @@ public static class KingdomExtension
         public int annual_power_economy = 0;
         public double annual_power_index = 0d;
         public double last_national_power_timestamp = -1L;
+        public double last_faction_ratio_growth_timestamp = -1L;
+        public Dictionary<string, float> faction_ratio_growth_progress = new Dictionary<string, float>();
         
         public Dictionary<FixedFaction, int> FactionRatio = new Dictionary<FixedFaction, int>();
     }
@@ -353,6 +355,67 @@ public static class KingdomExtension
 
         data.FactionRatio = reconciled;
         kingdom.ClampFactionRatio();
+    }
+
+    public const float FactionLeaderInfluenceForMaximumGrowth = 1000f;
+    public const int MaximumAnnualFactionRatioGrowth = 2;
+
+    public static float CalculateAnnualFactionRatioGrowth(int leaderInfluence)
+    {
+        float normalizedInfluence = Mathf.Clamp01(Mathf.Max(0, leaderInfluence) /
+                                                   FactionLeaderInfluenceForMaximumGrowth);
+        return 1f + normalizedInfluence;
+    }
+
+    /// <summary>
+    /// 结算直隶派系的年度自然竞争。小数增长会跨年累积，满额后沿用统一占比接口挤压其他派系。
+    /// </summary>
+    public static bool ApplyAnnualFactionLeaderGrowth(this Kingdom kingdom, IEnumerable<FixedFaction> factions)
+    {
+        if (kingdom == null || kingdom.isRekt() || factions == null) return false;
+        KingdomExtraData data = kingdom.GetOrCreate();
+        double now = World.world.getCurWorldTime();
+        if (data.last_faction_ratio_growth_timestamp < 0)
+        {
+            data.last_faction_ratio_growth_timestamp = now;
+            return false;
+        }
+        if (Date.getYearsSince(data.last_faction_ratio_growth_timestamp) < 1) return false;
+        data.last_faction_ratio_growth_timestamp = now;
+
+        List<FixedFaction> configuredFactions = factions
+            .Where(faction => faction != null)
+            .ToList();
+        List<(FixedFaction faction, Actor leader, int influence)> activeFactions = configuredFactions
+            .Where(faction => !faction.Ban)
+            .Select(faction => (faction, leader: faction.GetLeader()))
+            .Where(entry => entry.leader != null)
+            .Select(entry => (entry.faction, entry.leader, influence: Mathf.Max(0, entry.leader.data.renown)))
+            .OrderBy(entry => entry.influence)
+            .ThenBy(entry => entry.faction.GetID())
+            .ToList();
+        if (activeFactions.Count == 0) return false;
+
+        kingdom.ReconcileFactionRatios(configuredFactions);
+        data.faction_ratio_growth_progress ??= new Dictionary<string, float>();
+        var activeIds = new HashSet<string>(activeFactions.Select(entry => entry.faction.GetID()));
+        foreach (string staleId in data.faction_ratio_growth_progress.Keys
+                     .Where(id => !activeIds.Contains(id)).ToList())
+        {
+            data.faction_ratio_growth_progress.Remove(staleId);
+        }
+
+        bool changed = false;
+        foreach (var entry in activeFactions)
+        {
+            string factionId = entry.faction.GetID();
+            data.faction_ratio_growth_progress.TryGetValue(factionId, out float carriedGrowth);
+            float accumulatedGrowth = carriedGrowth + CalculateAnnualFactionRatioGrowth(entry.influence);
+            int increase = Mathf.Min(MaximumAnnualFactionRatioGrowth, Mathf.FloorToInt(accumulatedGrowth));
+            data.faction_ratio_growth_progress[factionId] = accumulatedGrowth - increase;
+            if (increase > 0 && kingdom.TryIncreaseFactionRatio(entry.faction, increase)) changed = true;
+        }
+        return changed;
     }
     /// <summary>
     /// 增加派系占比

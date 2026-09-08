@@ -21,6 +21,12 @@ public class PlotAssetPatch : GamePatch
     public static bool canBeDoneByRole(PlotAsset __instance, Actor pActor, ref bool __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pActor)) return true;
+        if (pActor != null && __instance.id == "faction_leader_influence_local_kingdom" &&
+            pActor?.GetFaction()?.GetLeader()?.id == pActor.id)
+        {
+            __result = true;
+            return false;
+        }
         if (__instance.can_be_done_by_king && pActor.isKing())
         {
             __result = true;

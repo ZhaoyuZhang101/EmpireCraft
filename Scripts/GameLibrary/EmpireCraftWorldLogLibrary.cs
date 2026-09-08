@@ -61,6 +61,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset 官员品级调动;
     public static WorldLogAsset 成为朝贡国;
     public static WorldLogAsset 邀请入派系;
+    public static WorldLogAsset faction_leader_influence_local_kingdom_log;
     public static WorldLogAsset 追加罪行;
     public static WorldLogAsset officer_join_faction;
     public static WorldLogAsset officer_become_faction_leader;
@@ -274,6 +275,19 @@ public static class EmpireCraftWorldLogLibrary
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$invitor$", 1);
+                wl.updateText(ref pText, pMessage, "$target$", 2);
+                wl.updateText(ref pText, pMessage, "$faction$", 3);
+            }
+        });
+        faction_leader_influence_local_kingdom_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(faction_leader_influence_local_kingdom_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$target$", 2);
                 wl.updateText(ref pText, pMessage, "$faction$", 3);
             }

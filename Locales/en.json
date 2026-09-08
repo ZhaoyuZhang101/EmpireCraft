@@ -274,7 +274,7 @@
     "i_none_lover": "<color=#FFD700>Unmarried</color>",
     "real_num": "Simulated Realistic Population",
     "real_num_description": "Multiply displayed population by 1000",
-    "simple_nameplate": "Simple Nameplates",
+    "simple_nameplate": "Hide Kingdom Type",
     "simple_nameplate_description": "Hide realm suffixes on empire and kingdom map labels while preserving directional prefixes and formal realm names",
 
     "past_emperors": "Lineage of Monarchs",
@@ -343,6 +343,7 @@
     "become_kingdom_log": "$actor$, upon obtaining the De Jure of $title$, changed the state name to $kingdom$",
     "city_add_to_title_log": "$city$ has been included in the De Jure scope of $title_name$",
     "邀请入派系": "$invitor$ is exerting influence on $target$ on behalf of $faction$, increasing that faction's influence share.",
+    "faction_leader_influence_local_kingdom_log": "$actor$ spent personal influence to expand $faction$'s share in $target$.",
     "追加罪行": "the lord of $actor$ try to expose the crime $crime$ to the lord of $victim$",
     "province_change_to_kingdom_log": "$province$ has been converted to $province_level$",
     "new_jingshi_log": "The palace examination of $empire$ has concluded. In the imperial hall, $actor$ ranked highly and was granted the Jinshi degree, bringing glory to nine generations!",
@@ -997,6 +998,6 @@
   ,"purge_recent_100_years":"Purge empires that fell over 100 years ago"
   ,"原始":"Traditionalists", "尊王":"Royalists", "诸侯":"Feudatories", "中央":"Centralists", "自治":"Autonomists", "攘夷":"War Party", "绥靖":"Appeasement Party", "血脉":"Dynastic Faction", "僭主":"Usurper Faction", "神权":"Theocrats", "共和":"Republicans", "民主":"Democrats", "革命":"Revolutionaries", "融入":"Integrationists", "同化":"Assimilationists", "共产":"Communists", "无":"No Faction"
   ,"Default":"Default", "past_emperors_description":"View the records of past rulers", "past_emperor":"Past Rulers", "empire_bureau_description":"View the imperial administration", "regime_description":"View or adjust the government"
-  ,"plot_kingdom_start_invite_to_faction":"Invite to Faction", "plot_kingdom_expose_crime":"Expose a Crime", "plot_force_stop_war":"Enforce Peace", "plot_combine_kingdom":"Unify Realms", "plot_kingdom_allow_succession":"Permit Succession", "plot_empire_take_back_title":"Reclaim De Jure Title", "plot_kingdom_add_city_into_title":"Add City to De Jure Title", "task_unit_do_mod_actor_beh":"EmpireCraft Character Behaviour"
+  ,"plot_kingdom_start_invite_to_faction":"Invite to Faction", "plot_faction_leader_influence_local_kingdom":"Influence Local Faction", "plot_kingdom_expose_crime":"Expose a Crime", "plot_force_stop_war":"Enforce Peace", "plot_combine_kingdom":"Unify Realms", "plot_kingdom_allow_succession":"Permit Succession", "plot_empire_take_back_title":"Reclaim De Jure Title", "plot_kingdom_add_city_into_title":"Add City to De Jure Title", "task_unit_do_mod_actor_beh":"EmpireCraft Character Behaviour"
   ,"统一":"Unification", "地方叛乱":"Local Rebellion", "地方独立":"Local Independence", "帝国正统":"Imperial Legitimacy", "帝国扩张":"Imperial Expansion"
 }
