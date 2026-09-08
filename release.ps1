@@ -122,7 +122,9 @@ function Invoke-GitHubCurl {
 
         [string]$ContentType = "application/json; charset=utf-8",
 
-        [int]$MaxTimeSeconds = 120
+        [int]$MaxTimeSeconds = 120,
+
+        [switch]$ShowProgress
     )
 
     if (-not (Get-Command curl.exe -ErrorAction SilentlyContinue)) {
@@ -140,7 +142,6 @@ function Invoke-GitHubCurl {
         }
 
         $curlArguments = @(
-            "--silent",
             "--show-error",
             "--location",
             "--connect-timeout", "15",
@@ -151,6 +152,22 @@ function Invoke-GitHubCurl {
             "--header", "X-GitHub-Api-Version: 2022-11-28",
             "--header", "User-Agent: EmpireCraft-Release-Script"
         )
+
+        if ($ShowProgress) {
+            $curlArguments += @(
+                "--progress-bar",
+                "--no-buffer",
+                "--http1.1",
+                "--retry", "3",
+                "--retry-delay", "2",
+                "--retry-connrefused",
+                "--speed-limit", "1024",
+                "--speed-time", "30"
+            )
+        }
+        else {
+            $curlArguments += "--silent"
+        }
 
         if ($PSBoundParameters.ContainsKey("JsonBody")) {
             $jsonPath = [IO.Path]::GetTempFileName()
@@ -168,6 +185,7 @@ function Invoke-GitHubCurl {
 
             $curlArguments += @(
                 "--header", "Content-Type: $ContentType",
+                "--header", "Expect:",
                 "--data-binary", "@$InFile"
             )
         }
@@ -185,7 +203,14 @@ function Invoke-GitHubCurl {
             # The response body goes to $responsePath. curl's --write-out value is
             # captured directly from stdout, avoiding the Windows PowerShell
             # empty-file/$null behaviour that caused the previous Null error.
-            $curlStatusOutput = @(& curl.exe @curlArguments 2> $stderrPath)
+            if ($ShowProgress) {
+                # Keep curl's progress meter visible. The response body is already
+                # redirected to a file, so stdout contains only the final status.
+                $curlStatusOutput = @(& curl.exe @curlArguments)
+            }
+            else {
+                $curlStatusOutput = @(& curl.exe @curlArguments 2> $stderrPath)
+            }
             $curlExitCode = $LASTEXITCODE
         }
         finally {
@@ -193,9 +218,14 @@ function Invoke-GitHubCurl {
         }
 
         $statusText = Get-SafeTrimmedText (($curlStatusOutput | Out-String))
-        $stderrText = Get-SafeTrimmedText (
-            Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
-        )
+        $stderrText = if ($ShowProgress) {
+            "See the curl output above for transfer details."
+        }
+        else {
+            Get-SafeTrimmedText (
+                Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
+            )
+        }
         $responseBody = [string](
             Get-Content `
                 -LiteralPath $responsePath `
@@ -317,7 +347,8 @@ function New-ReleasePackage {
         "bin/",
         "dist/",
         "obj/",
-        "RegimeEditor/"
+        "RegimeEditor/",
+        "tests/"
     )
 
     $excludedFiles = @(
@@ -630,7 +661,8 @@ try {
     $assetName = [Uri]::EscapeDataString($archiveFileName)
     $uploadUrl = "${uploadBaseUrl}?name=$assetName"
 
-    Write-Host "Uploading $archiveFileName..." -ForegroundColor Cyan
+    Write-Host "Uploading $archiveFileName (live progress enabled)..." -ForegroundColor Cyan
+    Write-Host "A stalled transfer is retried automatically and fails after 30 seconds without useful traffic." -ForegroundColor DarkGray
 
     $uploadResponse = Invoke-GitHubCurl `
         -Method POST `
@@ -638,7 +670,8 @@ try {
         -Token $token `
         -InFile $archivePath `
         -ContentType "application/zip" `
-        -MaxTimeSeconds 300
+        -MaxTimeSeconds 300 `
+        -ShowProgress
 
     if (-not $uploadResponse.Json -or -not $uploadResponse.Json.id) {
         throw "GitHub did not confirm the uploaded release asset."
