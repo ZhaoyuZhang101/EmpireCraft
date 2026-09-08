@@ -412,6 +412,10 @@ EmpireCraft.debug.log
 # Local regression tests
 /tests/
 
+# Local release automation
+/release.ps1
+/release.cmd
+
 .*
 !.gitignore
 !.gitattribute
