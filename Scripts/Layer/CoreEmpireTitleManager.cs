@@ -63,18 +63,28 @@ public static class EmpireCoreManager
     public static List<City> GetCities(EmpireCore core)
     {
         List<City> cities = new();
-        foreach (var title in GetTitles(core))
+        foreach (City city in EnumerateCities(core))
         {
-            foreach (var city in title.getCities())
+            if (!cities.Contains(city))
             {
-                if (city == null || city.isRekt()) continue;
-                if (!cities.Contains(city))
-                {
-                    cities.Add(city);
-                }
+                cities.Add(city);
             }
         }
         return cities;
+    }
+
+    public static IEnumerable<City> EnumerateCities(EmpireCore core)
+    {
+        if (core?.titlesRecord == null) yield break;
+        foreach (var record in core.titlesRecord)
+        {
+            KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(record.titleId);
+            if (title == null || title.isRekt()) continue;
+            foreach (City city in title.getCities())
+            {
+                if (city != null && !city.isRekt()) yield return city;
+            }
+        }
     }
 
     public static List<Empire> GetEmpires(EmpireCore core)
@@ -107,7 +117,7 @@ public static class EmpireCoreManager
         var city = core.GetCoreCapital();
         if (city == null)
         {
-            KingdomTitle firstTitle = GetTitles(core).FirstOrDefault(t => t?.title_capital != null && !t.title_capital.isRekt());
+            KingdomTitle firstTitle = GetFirstLivingTitleWithCapital(core);
             if (firstTitle == null) return null;
             core.SetCoreCapital(firstTitle.title_capital);
         }
@@ -124,7 +134,13 @@ public static class EmpireCoreManager
             return capitalTitle;
         }
 
-        return GetTitles(core).FirstOrDefault(t => t != null && !t.isRekt());
+        if (core.titlesRecord == null) return null;
+        foreach (var record in core.titlesRecord)
+        {
+            KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(record.titleId);
+            if (title != null && !title.isRekt()) return title;
+        }
+        return null;
     }
 
     public static bool GenerateColor(EmpireCore core)
@@ -263,7 +279,24 @@ public static class EmpireCoreManager
     public static bool ContainsTitle(EmpireCore core, KingdomTitle title)
     {
         if (core == null || title == null || title.isRekt()) return false;
-        return GetTitles(core).Contains(title);
+        if (core.titlesRecord == null) return false;
+        long titleId = title.id;
+        for (int i = 0; i < core.titlesRecord.Count; i++)
+        {
+            if (core.titlesRecord[i].titleId == titleId) return true;
+        }
+        return false;
+    }
+
+    private static KingdomTitle GetFirstLivingTitleWithCapital(EmpireCore core)
+    {
+        if (core?.titlesRecord == null) return null;
+        foreach (var record in core.titlesRecord)
+        {
+            KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(record.titleId);
+            if (title?.title_capital != null && !title.isRekt() && !title.title_capital.isRekt()) return title;
+        }
+        return null;
     }
 
     public static EmpireCore GetRiseCandidateCore(Kingdom kingdom)
@@ -301,9 +334,11 @@ public static class EmpireCoreManager
 
     public static int GetRequiredRiseTitleCount(EmpireCore core)
     {
+        //todo: 称帝条件,暂时设定为获取最多三个帝国下法理就称能帝
         int total = GetTitles(core).Count;
-        if (total <= 0) return int.MaxValue;
-        return (int)Math.Ceiling(total / 2.0);
+        // if (total <= 0) return int.MaxValue;
+        // return (int)Math.Ceiling(total / 2.0);
+        return Math.Min(total, 3);
     }
 
     public static int GetAssimilationCost(Empire empire, KingdomTitle title)

@@ -14,6 +14,8 @@ using UnityEngine.Assertions;
 namespace EmpireCraft.Scripts.Layer;
 public class KingdomTitle : MetaObject<KingdomTitleData>
 {
+    public const string JurisdictionHolder = "holder";
+    public const string JurisdictionAdministration = "administration";
     public BannerAsset BannerAsset;
     public HashSet<City> city_list_hash = new HashSet<City>();
     public List<City> city_list = new List<City>();
@@ -48,6 +50,10 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         this.data.created_time = World.world.getCurWorldTime();
         this.data.banner_icon_id = city.kingdom.data.banner_icon_id;
         this.data.banner_background_id = city.kingdom.data.banner_background_id;
+        this.data.founder_kingdom_id = city.kingdom.id;
+        this.data.founder_kingdom_name = city.kingdom.data.name;
+        this.data.timestamp_established_time = World.world.getCurWorldTime();
+        this.data.jurisdiction_history = new List<KingdomTitleJurisdictionRecord>();
         this.owner = null;
         string kingdomName = city.SelectKingdomName();
         data.province_name = title_capital.GetCityName();
@@ -65,6 +71,45 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         return owner != null && !owner.isRekt();
     }
 
+    public void RecordJurisdiction(Kingdom kingdom, string relation)
+    {
+        if (data == null || kingdom == null || kingdom.isRekt() || string.IsNullOrWhiteSpace(relation)) return;
+        data.jurisdiction_history ??= new List<KingdomTitleJurisdictionRecord>();
+        double now = World.world.getCurWorldTime();
+        KingdomTitleJurisdictionRecord current = data.jurisdiction_history.LastOrDefault(record =>
+            record != null && record.end_time < 0);
+        if (current != null && current.kingdom_id == kingdom.id && current.relation == relation)
+        {
+            current.kingdom_name = kingdom.data?.name ?? current.kingdom_name;
+            return;
+        }
+        foreach (KingdomTitleJurisdictionRecord record in data.jurisdiction_history.Where(record =>
+                     record != null && record.end_time < 0))
+        {
+            record.end_time = now;
+        }
+        data.jurisdiction_history.Add(new KingdomTitleJurisdictionRecord
+        {
+            kingdom_id = kingdom.id,
+            kingdom_name = kingdom.data?.name ?? "",
+            relation = relation,
+            start_time = now,
+            end_time = -1L
+        });
+    }
+
+    public void EndJurisdiction(Kingdom kingdom, string relation)
+    {
+        if (data?.jurisdiction_history == null || kingdom == null) return;
+        double now = World.world.getCurWorldTime();
+        foreach (KingdomTitleJurisdictionRecord record in data.jurisdiction_history.Where(record =>
+                     record != null && record.end_time < 0 && record.kingdom_id == kingdom.id &&
+                     record.relation == relation))
+        {
+            record.end_time = now;
+        }
+    }
+
     public override ColorAsset getColor()
     {
         if (_cached_color == null)
@@ -77,12 +122,42 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
 
     public Sprite getElementIcon()
     {
-        return AssetManager.kingdom_banners_library.getSpriteIcon(data.banner_icon_id, getActorAsset().banner_id);
+        try
+        {
+            return AssetManager.kingdom_banners_library.getSpriteIcon(data.banner_icon_id, getActorAsset().banner_id);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            data.banner_icon_id = 0;
+            try
+            {
+                return AssetManager.kingdom_banners_library.getSpriteIcon(0, getActorAsset().banner_id);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return null;
+            }
+        }
     }
     
     public Sprite getElementBackground()
     {
-        return AssetManager.kingdom_banners_library.getSpriteBackground(data.banner_background_id, getActorAsset().banner_id);
+        try
+        {
+            return AssetManager.kingdom_banners_library.getSpriteBackground(data.banner_background_id, getActorAsset().banner_id);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            data.banner_background_id = 0;
+            try
+            {
+                return AssetManager.kingdom_banners_library.getSpriteBackground(0, getActorAsset().banner_id);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return null;
+            }
+        }
     }
     public int countPopulation()
     {
@@ -481,6 +556,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         this.city_list.AddRange(this.city_list_hash);
         this.owner = this.data.owner == -1L? null:World.world.units.get(this.data.owner);
         this.main_kingdom = this.data.main_kingdom == -1L ? null : World.world.kingdoms.get(this.data.main_kingdom);
+        pData.jurisdiction_history ??= new List<KingdomTitleJurisdictionRecord>();
         if (string.IsNullOrWhiteSpace(this.data.original_actor_asset) && this.title_capital != null)
         {
             this.data.original_actor_asset = this.title_capital.kingdom?.king?.asset?.id ?? this.title_capital.kingdom?.asset?.id ?? this.title_capital.getSpecies();

@@ -81,18 +81,20 @@ public class BabyHelperPatch : GamePatch
 
     public static void JudgeBabyJoinMainParent(Actor pBaby, Actor pParent)
     {
-        if (pParent != null)
+        if (pBaby?.data != null && !pBaby.isRekt() && pParent?.data != null && !pParent.isRekt())
         {
             if (pParent.HasSpecificClan())
             {
                 PersonalClanIdentity pci = pParent.GetPersonalIdentity();
-                if (pci.is_main)
+                if (pci?.is_main == true)
                 {
                     if (pParent.hasCulture())
                     {
                         pBaby.setCulture(pParent.GetCulture());
                     }
+                    if (pParent.clan?.data == null) return;
                     pBaby.setClan(pParent.clan);
+                    if (pBaby.clan?.data == null) return;
                     pBaby.GetModName().familyName = pBaby.clan.GetClanName();
                     pBaby.GetModName().SetName(pBaby);
                 }

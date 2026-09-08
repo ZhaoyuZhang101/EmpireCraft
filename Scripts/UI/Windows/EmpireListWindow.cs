@@ -151,12 +151,13 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             EmpireCraftHistory history = GetRepresentativeHistory(empire);
             long actorId = history?.id ?? empire.data.emperor;
-            PersonalClanIdentity identity = FindPersonByActorId(actorId);
+            PersonalClanIdentity identity = FindPersonByActorId(actorId, history?.emperor);
             Actor actor = actorId > 0 ? World.world.units.get(actorId) : null;
             bool isAlive = identity?.is_alive ?? (actor != null && actor.isAlive());
             var avatarLayout = this.BeginVertGroup(new Vector2(28, 28), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter,
                 pPadding: new RectOffset(0, 0, 0, 0));
-            var avatar = UIHelper.CreateAvatarView(actorId, actor == null ? null : () => UIHelper.actorClick(actor), pIsAlive: isAlive);
+            var avatar = UIHelper.CreateAvatarView(actorId, actor == null ? null : () => UIHelper.actorClick(actor),
+                pIsAlive: isAlive, pIdentity: identity);
             avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(28, 28);
             avatarLayout.AddChild(avatar.gameObject);
             avatarLayout.transform.localPosition = Vector3.zero;
@@ -187,7 +188,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 // Archived empires no longer have a core kingdom, so fall through to their last emperor.
             }
             EmpireCraftHistory history = GetRepresentativeHistory(empire);
-            PersonalClanIdentity identity = FindPersonByActorId(history?.id ?? empire.data.emperor);
+            PersonalClanIdentity identity = FindPersonByActorId(history?.id ?? empire.data.emperor, history?.emperor);
             return string.IsNullOrWhiteSpace(identity?.culture) ? "unknown" : identity.culture;
         }
 
@@ -202,14 +203,20 @@ namespace EmpireCraft.Scripts.UI.Windows
             return empire.data.currentHistory ?? empire.data.history?.LastOrDefault();
         }
 
-        private static PersonalClanIdentity FindPersonByActorId(long actorId)
+        private static PersonalClanIdentity FindPersonByActorId(long actorId, string actorName = null)
         {
-            if (actorId <= 0) return null;
-            foreach (PersonalClanIdentity identity in SpecificClanManager._globalPersonLookup.Values)
+            if (actorId > 0)
             {
-                if (identity.actor_id == actorId) return identity;
+                foreach (PersonalClanIdentity identity in SpecificClanManager._globalPersonLookup.Values)
+                {
+                    if (identity.actor_id == actorId) return identity;
+                }
             }
-            return null;
+            if (string.IsNullOrWhiteSpace(actorName)) return null;
+            List<PersonalClanIdentity> legacyMatches = SpecificClanManager._globalPersonLookup.Values
+                .Where(identity => identity != null && !identity.is_alive && identity.actor_id <= 0 &&
+                    identity.name == actorName).Take(2).ToList();
+            return legacyMatches.Count == 1 ? legacyMatches[0] : null;
         }
 
         private void AddTimelineCardClickLayer(AutoHoriLayoutGroup card, Empire empire)

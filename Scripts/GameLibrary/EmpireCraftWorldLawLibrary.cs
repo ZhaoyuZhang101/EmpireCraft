@@ -2,6 +2,7 @@ using NeoModLoader.services;
 using EmpireCraft.Scripts;
 using EmpireCraft.Scripts.GamePatches;
 using NCMS.Extensions;
+using System.Linq;
 
 namespace EmpireCraft.Scripts.GameLibrary;
 
@@ -127,12 +128,14 @@ public static class EmpireCraftWorldLawLibrary
 
     private static void AllowSocialChange(PlayerOptionData pOption)
     {
+        if (World.world?.units == null || pOption == null) return;
         World.world.units.ForEach(a =>
         {
-            if (a.asset.civ)
+            if (a?.asset?.civ == true && a.decisions != null)
             {
-                foreach (var decision in a.decisions)
+                foreach (var decision in a.decisions.ToList())
                 {
+                    if (decision == null) continue;
                     if (ActorPatch.BlockDecisions.Contains(decision.id))
                     {
                         a.setDecisionState(decision._index, pOption.boolVal);

@@ -54,7 +54,8 @@ public static class TerritoryLabelRenderer
     {
         text_color = new Color(1f, 1f, 1f, 0.8f),
         outline_color = new Color32(54, 46, 20, 204),
-        size_multiplier = 0.94f,
+        size_multiplier = 1f,
+        territory_padding = 0.94f,
         min_font_size = 7,
         font_style = FontStyle.Normal,
         use_gold_gradient = true
@@ -64,7 +65,8 @@ public static class TerritoryLabelRenderer
     {
         text_color = new Color(1f, 1f, 1f, 0.224f),
         outline_color = new Color32(54, 46, 20, 49),
-        size_multiplier = 0.94f,
+        size_multiplier = 1f,
+        territory_padding = 0.94f,
         min_font_size = 7,
         font_style = FontStyle.Normal,
         use_gold_gradient = true
@@ -96,10 +98,8 @@ public static class TerritoryLabelRenderer
             foreach (EmpireCore core in EmpireCoreManager.EmpireCores.Values)
             {
                 if (core == null || core.id <= 0) continue;
-                List<City> cities = EmpireCoreManager.GetCities(core);
-                if (cities.Count == 0) continue;
-                SubmitCities($"law-empire:{core.id}", EmpireCoreManager.GetDisplayName(core), cities, EmpireStyle,
-                    hoveredCity != null && cities.Contains(hoveredCity));
+                SubmitEmpireCore($"law-empire:{core.id}", EmpireCoreManager.GetDisplayName(core), core, EmpireStyle,
+                    hoveredCity != null && hoveredCity.GetEmpireCoreID() == core.id);
             }
         }
 
@@ -126,6 +126,14 @@ public static class TerritoryLabelRenderer
         if (string.IsNullOrWhiteSpace(id) || cities == null || !EnsureHost()) return;
         MarkSubmissionFrame();
         GetOrCreateLabel(id).UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque);
+    }
+
+    public static void SubmitEmpireCore(string id, string text, EmpireCore core, TerritoryLabelStyle style,
+        bool fullyOpaque = false)
+    {
+        if (string.IsNullOrWhiteSpace(id) || core == null || !EnsureHost()) return;
+        MarkSubmissionFrame();
+        GetOrCreateLabel(id).UpdateFromEmpireCore(text, core, style ?? EmpireStyle, fullyOpaque);
     }
 
     // Future country layers can use zones to get the same exact containment as the law layer.
@@ -208,6 +216,8 @@ public static class TerritoryLabelRenderer
 
     private static bool IsClaimedByEmpireCore(KingdomTitle title)
     {
+        EmpireCore capitalCore = title?.title_capital?.GetEmpireCore();
+        if (capitalCore != null) return EmpireCoreManager.ContainsTitle(capitalCore, title);
         foreach (City city in title.getCities())
         {
             EmpireCore core = city?.GetEmpireCore();
@@ -304,6 +314,19 @@ public static class TerritoryLabelRenderer
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
             {
                 CollectCityZones(cities, _zones, _zone_ids);
+                RefreshZonePlacement(text, style, inputsChanged);
+            }
+            QueueRender(text, style, fullyOpaque);
+        }
+
+        public void UpdateFromEmpireCore(string text, EmpireCore core, TerritoryLabelStyle style,
+            bool fullyOpaque)
+        {
+            last_seen_frame = Time.frameCount;
+            bool inputsChanged = PlacementInputsChanged(text, style);
+            if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
+            {
+                CollectCityZones(EmpireCoreManager.EnumerateCities(core), _zones, _zone_ids);
                 RefreshZonePlacement(text, style, inputsChanged);
             }
             QueueRender(text, style, fullyOpaque);

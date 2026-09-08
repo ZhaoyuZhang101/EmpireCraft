@@ -32,6 +32,7 @@ public class SaveData
     public List<string> yearNameSubspecies = new List<string>();
     public Dictionary<long, List<EmpireCraftHistory>> all_history;
     public bool switch_real_num = false;
+    public bool switch_simple_nameplate = false;
     public List<SpecificClan> specificClans = new List<SpecificClan>();
     public Dictionary<long, OfficeObject>  officeObjects = new Dictionary<long, OfficeObject>();
     public int mod_version = 0;

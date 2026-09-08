@@ -61,6 +61,16 @@ public enum TemporaryFactionType
     划地给教廷,
     [Description("获得教宗国的认可与法理,并赋予神圣前缀")]
     神授君权,
+    [Description("以选帝侯会议决定下一任皇帝")]
+    颁布金玺诏书,
+    [Description("废除选帝制并恢复皇位世袭")]
+    恢复世袭皇权,
+    [Description("禁止诸侯私战并要求诸侯军队支援帝国")]
+    颁布帝国治安令,
+    [Description("恢复一名诸侯的私战权并免除其中央军役")]
+    确认诸侯特权,
+    [Description("皇权派与神权派争夺主教叙任权")]
+    争夺主教叙任权,
     [Description("释放圣城并建立教宗国")]
     恢复圣地,
     [Description("将税收的一部分用来供养宗室,获得供养的宗室生育率会提高")]

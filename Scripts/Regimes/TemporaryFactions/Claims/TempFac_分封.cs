@@ -58,6 +58,8 @@ public class TempFac_分封 : TemporaryFaction
                 kingdom.king?.AddOwnedTitle(title);
             }
             empire.join(kingdom, pForce:true);
+            kingdom.ReconcileMainTitle(title == null ? null : new[] { title });
+            empire.SynchronizeLandedLegalTitles(kingdom);
             empire.AddMandate(10);
             actor.CheckSpecificClan(false);
             TranslateHelper.LogPeerageGranted(actor, empire,

@@ -412,7 +412,10 @@ public class CenterOffice
         var empire = pKingdom.GetEmpire();
         empire?.kingdoms_list.ForEach(k =>
         {
-            k.RemoveFactionRatio();
+            if (k == empire.CoreKingdom)
+                k.ReconcileFactionRatios(pKingdom.GetRegime().GetPlayerFactions());
+            else
+                k.RemoveFactionRatio();
         });
     }
 

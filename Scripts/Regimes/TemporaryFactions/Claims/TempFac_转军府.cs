@@ -1,4 +1,5 @@
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -27,6 +28,7 @@ public class TempFac_转军府 : TemporaryFaction
             regime.SetAllowDiplomacy(true);
             regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
             regime.SetTaxLevel(TaxLevel.None);
+            EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
         }
         End();
     }

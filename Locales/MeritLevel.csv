@@ -1,28 +1,28 @@
-﻿key,cz
+key,cz,en,ch
 
-Huaxia_meritlevel_Military_0, 上柱国
-Huaxia_meritlevel_Military_1, 柱国
-Huaxia_meritlevel_Military_2, 上护军
-Huaxia_meritlevel_Military_3, 护军
-Huaxia_meritlevel_Military_4, 上轻车都尉
-Huaxia_meritlevel_Military_5, 轻车都尉
-Huaxia_meritlevel_Military_6, 上骑都尉
-Huaxia_meritlevel_Military_7, 骑都尉
-Huaxia_meritlevel_Military_8, 骁骑尉
-Huaxia_meritlevel_Military_9, 飞骑尉
-Huaxia_meritlevel_Military_10, 武骑尉
+Huaxia_meritlevel_Military_0,上柱国,Supreme Pillar of State,上柱國
+Huaxia_meritlevel_Military_1,柱国,Pillar of State,柱國
+Huaxia_meritlevel_Military_2,上护军,Senior Protector-General,上護軍
+Huaxia_meritlevel_Military_3,护军,Protector-General,護軍
+Huaxia_meritlevel_Military_4,上轻车都尉,Senior Commandant of Light Chariots,上輕車都尉
+Huaxia_meritlevel_Military_5,轻车都尉,Commandant of Light Chariots,輕車都尉
+Huaxia_meritlevel_Military_6,上骑都尉,Senior Commandant of Cavalry,上騎都尉
+Huaxia_meritlevel_Military_7,骑都尉,Commandant of Cavalry,騎都尉
+Huaxia_meritlevel_Military_8,骁骑尉,Commandant of Valiant Cavalry,驍騎尉
+Huaxia_meritlevel_Military_9,飞骑尉,Commandant of Flying Cavalry,飛騎尉
+Huaxia_meritlevel_Military_10,武骑尉,Commandant of Martial Cavalry,武騎尉
 
-Huaxia_meritlevel_Both_0, 上柱国
-Huaxia_meritlevel_Both_1, 柱国
+Huaxia_meritlevel_Both_0,上柱国,Supreme Pillar of State,上柱國
+Huaxia_meritlevel_Both_1,柱国,Pillar of State,柱國
 
-Huaxia_meritlevel_Civil_0, 上柱国
-Huaxia_meritlevel_Civil_1, 柱国
-Huaxia_meritlevel_Civil_2, 正治上卿
-Huaxia_meritlevel_Civil_3, 正治卿
-Huaxia_meritlevel_Civil_4, 资治尹
-Huaxia_meritlevel_Civil_5, 资治少尹
-Huaxia_meritlevel_Civil_6, 赞治尹
-Huaxia_meritlevel_Civil_7, 赞治少尹
-Huaxia_meritlevel_Civil_8, 修正庶尹
-Huaxia_meritlevel_Civil_9, 协正庶尹
-Huaxia_meritlevel_Civil_10, -
+Huaxia_meritlevel_Civil_0,上柱国,Supreme Pillar of State,上柱國
+Huaxia_meritlevel_Civil_1,柱国,Pillar of State,柱國
+Huaxia_meritlevel_Civil_2,正治上卿,Senior Minister of Upright Governance,正治上卿
+Huaxia_meritlevel_Civil_3,正治卿,Minister of Upright Governance,正治卿
+Huaxia_meritlevel_Civil_4,资治尹,Director of Aiding Governance,資治尹
+Huaxia_meritlevel_Civil_5,资治少尹,Junior Director of Aiding Governance,資治少尹
+Huaxia_meritlevel_Civil_6,赞治尹,Director of Assisting Governance,贊治尹
+Huaxia_meritlevel_Civil_7,赞治少尹,Junior Director of Assisting Governance,贊治少尹
+Huaxia_meritlevel_Civil_8,修正庶尹,Administrator of Rectification,修正庶尹
+Huaxia_meritlevel_Civil_9,协正庶尹,Assistant Administrator of Rectification,協正庶尹
+Huaxia_meritlevel_Civil_10,-,-,-

@@ -88,13 +88,17 @@ public static class EmpireCraftMetaTypeLibrary
                     continue;
                   }
                 }
-                drawDefaultMeta(kingdom.meta_type_asset);
+                // drawDefaultMeta() traverses every kingdom. Calling it once per
+                // independent kingdom made this branch quadratic on large worlds.
+                drawForCities(kingdom.meta_type_asset, kingdom.getCities(),
+                  getZoneDelegate(kingdom.meta_type_asset));
               }
               WorldTile mouseTilePosCachedFrame = World.world.getMouseTilePosCachedFrame();
               var kingdomSelect = mouseTilePosCachedFrame?.zone_city?.kingdom;
-              foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
+              foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
               {
-                  foreach (City city in pEmpire.getCities().ToList())
+                  if (pEmpire == null || pEmpire.IsArchived()) continue;
+                  foreach (City city in pEmpire.getCities())
                   {
                     if (kingdomSelect == null)
                     {
@@ -107,7 +111,7 @@ public static class EmpireCraftMetaTypeLibrary
                     }
                     else
                     {
-                      if (!kingdomSelect.cities.Contains(city))
+                      if (city.kingdom != kingdomSelect)
                       {
                         foreach (TileZone zone in city.zones)
                         {
@@ -131,44 +135,28 @@ public static class EmpireCraftMetaTypeLibrary
 			        break;
 		        case 1:
 
-			        foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
+			        foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
 			        {
+                if (pEmpire == null || pEmpire.IsArchived()) continue;
                 if (pEmpire.CoreKingdom.HasTakenAlliance()) continue;
-                var cities = pEmpire.AllCities();
+                drawEmpireViewCities(pEmpire, pEmpire.getCities());
                 foreach (var kingdom in pEmpire.taken_Kingdoms)
                 {
                   if (kingdom.isRekt()) continue;
-                  cities = cities.Union(kingdom.cities).ToList();
-                }
-                foreach (City city in cities)
-                {
-                  foreach (TileZone zone in city.zones)
-                  {
-                    zone_manager.drawBegin();
-                    drawZoneEmpireWithKingdomBorder(zone, pEmpire);
-                    zone_manager.drawEnd(zone);
-                  }
+                  drawEmpireViewCities(pEmpire, kingdom.cities);
                 }
 			        }
 			        break;
 		        case 2:
-              foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
+              foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
               {
+                if (pEmpire == null || pEmpire.IsArchived()) continue;
                 if (pEmpire.CoreKingdom.HasGivenAlliance()) continue;
-                var cities = pEmpire.AllCities();
+                drawEmpireViewCities(pEmpire, pEmpire.getCities());
                 foreach (var kingdom in pEmpire.given_Kingdoms)
                 {
                   if (kingdom.isRekt()) continue;
-                  cities = cities.Union(kingdom.cities).ToList();
-                }
-                foreach (City city in cities)
-                {
-                  foreach (TileZone zone in city.zones)
-                  {
-                    zone_manager.drawBegin();
-                    drawZoneEmpireWithKingdomBorder(zone, pEmpire);
-                    zone_manager.drawEnd(zone);
-                  }
+                  drawEmpireViewCities(pEmpire, kingdom.cities);
                 }
               }
 			        break;
@@ -221,7 +209,18 @@ public static class EmpireCraftMetaTypeLibrary
           if (metaObject is Kingdom k) return !k.isRekt() && !k.isNeutral();
           return false;
         });
-        pAsset13.check_cursor_tooltip = new MetaZoneTooltipAction(checkCursorTooltipDefault);
+        pAsset13.check_cursor_tooltip = (pZone, pAsset, pZoneOption) =>
+        {
+          IMetaObject metaObject = pAsset.tile_get_metaobject(pZone, pZoneOption);
+          if (metaObject == null) return false;
+          if (metaObject is Empire hoveredEmpire)
+          {
+            ShowEmpireCursorTooltip(hoveredEmpire, pZone?.city?.kingdom, pZone?.city);
+            return true;
+          }
+          pAsset.cursor_tooltip_action(metaObject as NanoObject);
+          return true;
+        };
         pAsset13.cursor_tooltip_action = (MetaTooltipShowAction) (pMeta =>
         {
           if (pMeta is Kingdom pKingdom)
@@ -236,6 +235,7 @@ public static class EmpireCraftMetaTypeLibrary
           Tooltip.show((object) pEmpire, str, new TooltipData()
           {
               kingdom = pEmpire.CoreKingdom,
+              tip_description = pEmpire.id.ToString(),
               tooltip_scale = 0.7f,
               is_sim_tooltip = true
           });
@@ -247,7 +247,8 @@ public static class EmpireCraftMetaTypeLibrary
             return;
           Tooltip.show((object) pField, "empire", new TooltipData()
           {
-            kingdom = pObject.CoreKingdom
+            kingdom = pObject.CoreKingdom,
+            tip_description = pObject.id.ToString()
           });
         });
         pAsset13.stat_click = (MetaStatAction) ((pMetaId, _) =>
@@ -307,7 +308,10 @@ public static class EmpireCraftMetaTypeLibrary
               foreach (var city in World.world.cities)
               { 
                 if (city.hasTitle()) continue;
-                drawDefaultMeta(city.meta_type_asset);
+                // Only this untitled city needs its vanilla color. The old call
+                // redrew every city in the world for every untitled city.
+                drawZonesForMeta(city.meta_type_asset, city.zones,
+                  getZoneDelegate(city.meta_type_asset));
               }
 			        drawDefaultMeta(pMetaTypeAsset);
               drawForCities(pMetaTypeAsset, WildKingdomsManager.neutral.getCities(), getZoneDelegate(pMetaTypeAsset));
@@ -331,8 +335,10 @@ public static class EmpireCraftMetaTypeLibrary
 			        break;
 	        }
         });
+        double _last_dynamic_zones_ts = -1L;
         pAsset13.dynamic_zones = (MetaZoneDynamicAction) (() =>
         {
+          if (_last_dynamic_zones_ts > 0 && Date.getMonthsSince(_last_dynamic_zones_ts) < 1) return;
           List<Actor> simpleList = World.world.units.getSimpleList();
           double curWorldTime = World.world.getCurWorldTime();
           int index = 0;
@@ -347,6 +353,7 @@ public static class EmpireCraftMetaTypeLibrary
                   ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) actor.city.GetTitle(), curWorldTime);
             }
           }
+          _last_dynamic_zones_ts = curWorldTime;
         });
         pAsset13.check_cursor_highlight = (MetaZoneHighlightAction) ((pMetaTypeAsset, pTile, pQAsset) =>
         {
@@ -559,6 +566,26 @@ public static class EmpireCraftMetaTypeLibrary
         : kingdom;
     }
 
+    private static void ShowEmpireCursorTooltip(Empire empireMeta, Kingdom hoveredKingdom, City hoveredCity)
+    {
+      if (empireMeta == null || empireMeta.isRekt() || empireMeta.IsArchived()) return;
+      Kingdom tooltipKingdom = hoveredKingdom != null && !hoveredKingdom.isRekt()
+        ? hoveredKingdom
+        : empireMeta.CoreKingdom;
+      if (tooltipKingdom == null) return;
+
+      object tooltipOwner = hoveredCity != null ? (object)hoveredCity : empireMeta;
+      const string tooltipType = "empire";
+      Tooltip.hideTooltip(tooltipOwner, true, tooltipType);
+      Tooltip.show(tooltipOwner, tooltipType, new TooltipData
+      {
+        kingdom = tooltipKingdom,
+        tip_description = empireMeta.id.ToString(),
+        tooltip_scale = 0.7f,
+        is_sim_tooltip = true
+      });
+    }
+
     private static void highlightKingdomZones(Kingdom kingdom, QuantumSpriteAsset pQAsset, Color color)
     {
       if (kingdom?.cities == null) return;
@@ -585,6 +612,22 @@ public static class EmpireCraftMetaTypeLibrary
       foreach (Kingdom kingdom in associatedKingdoms)
         highlightKingdomZones(kingdom, pQAsset, color);
     }
+
+    private static void drawEmpireViewCities(Empire empire, IEnumerable<City> cities)
+    {
+      if (empire == null || cities == null) return;
+      foreach (City city in cities)
+      {
+        if (city == null || city.isRekt()) continue;
+        foreach (TileZone zone in city.zones)
+        {
+          zone_manager.drawBegin();
+          drawZoneEmpireWithKingdomBorder(zone, empire);
+          zone_manager.drawEnd(zone);
+        }
+      }
+    }
+
     public static bool inspectKingdomTitle(WorldTile pTile = null, string pPower = null)
     {
       if (pTile == null)

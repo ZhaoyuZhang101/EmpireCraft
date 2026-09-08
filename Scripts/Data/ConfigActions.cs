@@ -28,6 +28,11 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.PERFORMANCE_HIGH_POPULATION_MODE = on;
         }
+        public static void AdaptiveThroughputPerformanceCallBack(bool on)
+        {
+            ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE = on;
+            EmpireCraft.Scripts.System.EmpireCraftStrategicScheduler.Reset();
+        }
         public static void HiddenVisualsPerformanceCallBack(bool on)
         {
             ModClass.PERFORMANCE_SKIP_HIDDEN_VISUALS = on;

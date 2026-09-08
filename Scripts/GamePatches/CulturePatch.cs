@@ -44,6 +44,7 @@ public class CulturePatch : GamePatch
         {
             var beforeKingdomName = __instance.kingdom.data.name;
             __instance.kingdom.data.name = __instance.culture.getOnomasticData(MetaType.Kingdom).generateName();
+            __instance.kingdom.RememberInitialRandomKingdomName(__instance.kingdom.data.name, overwrite: true);
             var afterKingdomName = __instance.kingdom.data.name;
             TranslateHelper.LogChangeKingdomName(__instance, __instance.kingdom, beforeKingdomName, afterKingdomName);
             var beforeCityName = __instance.city.data.name;

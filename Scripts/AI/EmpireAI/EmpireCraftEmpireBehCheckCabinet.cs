@@ -16,15 +16,19 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
     
     public override BehResult execute(Kingdom pKingdom)
     {
+        if (pKingdom?.data == null || pKingdom.isRekt()) return BehResult.Continue;
         pKingdom.CheckEmpire();
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
         Regime regime = empire?.CoreKingdom?.GetRegime();
         if (regime == null) return BehResult.Continue;
-        foreach (var ff in regime.GetPlayerFactions())
+        List<FixedFaction> factions = regime.GetPlayerFactions();
+        foreach (var ff in factions)
         {
             ff.FixMissedTemporaryFactions();
+            ff.Update();
         }
+        pKingdom.ApplyAnnualFactionLeaderGrowth(factions);
         switch (regime.type)
         {
             case RegimeType.LvLing:
@@ -55,8 +59,12 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
     public static bool IsCabinetControlEmpire(Kingdom pKingdom)
     {
         //todo: 派系完全控制内閣
-        var dominate = pKingdom.GetRegime().GetDominateFaction();
-        return pKingdom.GetEmpire().GetCabinetMembers().All(m=>m.GetFaction()?.GetID()==dominate?.GetID());
+        Regime regime = pKingdom?.GetRegime();
+        Empire empire = pKingdom?.GetEmpire();
+        if (regime == null || empire == null) return false;
+        var dominate = regime.GetDominateFaction();
+        List<Actor> members = empire.GetCabinetMembers();
+        return members != null && members.All(m=>m?.GetFaction()?.GetID()==dominate?.GetID());
     }
 
     public void SetCabinetForLvLing(Empire empire)
@@ -118,22 +126,30 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
 
     public void SetCabinetForFeudalism(Empire empire)
     {
+        if (empire?.data == null || empire.kingdoms_list == null) return;
         List<long> previousElectors = empire.data.CabinetMembers?.ToList() ?? new List<long>();
         long previousChiefElector = previousElectors.FirstOrDefault(id => id > 0);
         List<long> religionLeaderList = new();
-        List<long> normalKingList = empire.kingdoms_list.FindAll(k => k.hasKing()&&!k.IsEmpire()
-                &&k.GetRegime()?.GetReligionLevel() != ReligionLevel.High)
+        List<Kingdom> activeKingdoms = empire.kingdoms_list
+            .Where(k => k?.data != null && !k.isRekt())
+            .ToList();
+        List<long> normalKingList = activeKingdoms.FindAll(k => k.hasKing() && k.king?.data != null && !k.IsEmpire()
+                && k.GetRegime()?.GetReligionLevel() != ReligionLevel.High)
             .OrderByDescending(k => k.countTotalWarriors()).Select(k => k.king.id).Take(4).ToList();
-        if (!empire.Religion.isRekt())
+        if (empire.Religion != null && !empire.Religion.isRekt())
         {
-            foreach (var kingdom in empire.kingdoms_list)
+            foreach (var kingdom in activeKingdoms)
             {
                 if (kingdom.IsEmpire()) continue;
                 var regime = kingdom.GetRegime();
-                if (regime.GetReligionLevel() != ReligionLevel.High) continue;
+                if (regime == null || regime.GetReligionLevel() != ReligionLevel.High) continue;
                 if (religionLeaderList.Count >= 3) continue;
-                var religionAreas = kingdom.cities.OrderByDescending(c => c.countWarriors());
-                religionLeaderList.AddRange(from area in religionAreas where area.hasLeader() select area.leader.id);
+                var religionAreas = kingdom.cities
+                    .Where(c => c?.data != null && !c.isRekt())
+                    .OrderByDescending(c => c.countWarriors());
+                religionLeaderList.AddRange(from area in religionAreas
+                    where area.hasLeader() && area.leader?.data != null
+                    select area.leader.id);
             }
         }
         while (religionLeaderList.Count < 3)

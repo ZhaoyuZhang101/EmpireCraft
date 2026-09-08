@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.services;
@@ -155,6 +157,7 @@ public class Regime
 
     public Regime Clone(Kingdom kingdom)
     {
+        if (kingdom?.data == null || kingdom.isRekt()) return null;
         var res = new Regime
         {
             type = this.type,
@@ -164,7 +167,7 @@ public class Regime
             },
             description = this.description,
             control_kingdom_id = kingdom.getID(),
-            options = this.options.ToDictionary(
+            options = (this.options ?? new Dictionary<string, int[]>()).ToDictionary(
                 entry => entry.Key,
                 entry => (int[])entry.Value.Clone()
             ),
@@ -182,23 +185,38 @@ public class Regime
             virtual_peerages = this.virtual_peerages?.ToList() ?? new List<PeeragesLevel>(),
             virtual_peerage_names = this.virtual_peerage_names?.ToList() ?? new List<string>(),
             virtual_honorary_peerages = this.virtual_honorary_peerages?.ToList() ?? new List<string>(),
-            Factions = this.Factions.Select(f => f.Clone()).ToList()
+            Factions = (this.Factions ?? new List<FixedFaction>()).Select(f => f.Clone()).ToList()
         };
-        var hasConfig = FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out var factions);
-        res.PlayerFactions = hasConfig ? factions.Select(f => f.DeepClone()).ToList() : Factions.Select(f => f.DeepClone()).ToList();
+        List<FixedFaction> factions = null;
+        var hasConfig = FactionManager.Config?.PlayerRegimeFactions != null &&
+                        FactionManager.Config.PlayerRegimeFactions.TryGetValue(type, out factions);
+        res.PlayerFactions = hasConfig
+            ? factions.Select(f => f.DeepClone()).ToList()
+            : res.Factions.Select(f => f.DeepClone()).ToList();
         return res;
     }
 
     public void RecoverFactions()
     {
         PlayerFactions = Factions.Select(f => f.Clone()).ToList();
+        Kingdom kingdom = World.world.kingdoms.get(control_kingdom_id);
+        Empire empire = kingdom?.GetEmpire();
+        if (kingdom == null || empire == null || kingdom != empire.CoreKingdom) return;
+
+        foreach (FixedFaction faction in PlayerFactions)
+        {
+            faction.EmpireId = empire.getID();
+            faction.FixMissedTemporaryFactions();
+        }
+        kingdom.ReconcileFactionRatios(PlayerFactions);
+        PlayerFactions.ForEach(faction => faction.Update());
     }
 
     public FixedFaction GetDominateFaction()
     {
         if ((PlayerFactions?.Count??0)<=0) return null;
         var force = PlayerFactions.Find(f => f.Force);
-        return force ?? PlayerFactions.OrderByDescending(a=>a.TotalPower).First();
+        return force ?? PlayerFactions.OrderByDescending(faction => faction.CentralRatio).First();
     }
 
     public List<Actor> GetAllFactionMembers()

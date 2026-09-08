@@ -188,10 +188,12 @@ public class WarPatch: GamePatch
                         if (title != null)
                         {
                             Kingdom kingdom = pWar.getMainAttacker();
-                            if (kingdom != null)
+                            if (kingdom != null && !kingdom.HasTakenAlliance())
                             {
                                 title.SetOwner(kingdom.king);
                                 kingdom.king.AddOwnedTitle(title);
+                                kingdom.ReconcileMainTitle(new[] { title });
+                                kingdom.GetEmpire()?.SynchronizeLandedLegalTitles(kingdom);
                                 TranslateHelper.LogKingTakeTitle(kingdom, title);
                             }
                         }

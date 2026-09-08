@@ -24,6 +24,7 @@ using System.Runtime.Serialization;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
 using System.Security.Principal;
 using EmpireCraft.Scripts.AI.ActorAI;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Regimes;
@@ -1050,11 +1051,13 @@ public static class ActorExtension
     }
     public static void editRenown(this Actor a, int value)
     {
-        a.data.renown += value;
-        if (value <= 0)
-        {
-            a.data.renown = 0;
-        }
+        if (a?.data == null) return;
+        a.data.renown = Math.Max(0, a.data.renown + value);
+    }
+
+    public static int CalculateAnnualInfluenceGain(double annualPerformance)
+    {
+        return Math.Max(0, Math.Min(100, (int)Math.Floor(annualPerformance)));
     }
     public static void AddOfficeExamLevel(this Actor actor, EmpireExamLevel level)
     {
@@ -1248,7 +1251,7 @@ public static class ActorExtension
         if (a.isKing())
         {
             Kingdom k = a.kingdom;
-            if (!(k.GetRegime()?.IsAllowDiplomacy()??false)) return false;
+            if (!k.CanPursueDeJureTitle()) return false;
             foreach (City city in k.cities)
             {
                 if (city.hasTitle())
@@ -1261,6 +1264,7 @@ public static class ActorExtension
                     }
                     if (title.data != null && !a.GetOwnedTitle().Contains(title.data.id))
                     {
+                        if (IsLvLingTitleProtected(title, a, out _)) continue;
                         foreach(City tCity in title.city_list)
                         {
                             if (tCity.kingdom != k && tCity.kingdom.countTotalWarriors()<k.countTotalWarriors())
@@ -1534,6 +1538,7 @@ public static class ActorExtension
         if (a == null || !a.isKing() || a.kingdom == null) return takedTitles;
 
         Kingdom kingdom = a.kingdom;
+        if (kingdom.HasTakenAlliance()) return takedTitles;
         List<KingdomTitle> titles = GetTakeableTitles(a);
         foreach(KingdomTitle t in titles)
         {
@@ -1597,9 +1602,8 @@ public static class ActorExtension
         empire = null;
         EmpireCore core = title?.title_capital?.GetEmpireCore();
         if (core == null || claimant == null) return false;
-        empire = EmpireCoreManager.GetEmpires(core).FirstOrDefault(e =>
-            e?.CoreKingdom?.GetRegime()?.enfeoff_only_royal == true);
-        return empire != null && claimant.GetSpecificClan() != empire.EmpireSpecificClan;
+        empire = EmpireCoreManager.GetEmpires(core).FirstOrDefault(e => e != null && !e.IsArchived());
+        return empire != null && claimant.kingdom.IsDeJureTitleAcquisitionBlocked(empire);
     }
 
     public static void AddAcquireTitle(this Actor a, KingdomTitle title)
@@ -1621,6 +1625,10 @@ public static class ActorExtension
             ed.owned_title.Add(title.data.id);
             title.owner = a;
         }
+        if (a.isKing() && a.kingdom != null && a.kingdom.IsTitleWithinRealm(title))
+        {
+            a.kingdom.RegisterRealmTitle(title);
+        }
     }
 
     public static void removeTitle(this Actor a, KingdomTitle title)
@@ -1637,16 +1645,20 @@ public static class ActorExtension
             {
                 if (a.kingdom.GetKingdomName()==title.data.name)
                 {
-                    a.kingdom.SetKingdomName(a.kingdom.capital.GetCityName());
                     a.kingdom.EmpireLeave();
                 }
                 if (a.kingdom.GetMainTitle() == title)
                 {
                     a.kingdom.RemoveMainTitle();
+                    EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(a.kingdom);
                 }
             }
             ed.owned_title.Remove(title.data.id);
             title.owner = null;
+            if (a.isKing() && a.kingdom != null)
+            {
+                a.kingdom.UnregisterRealmTitle(title);
+            }
         }
     }
 
@@ -1686,7 +1698,10 @@ public static class ActorExtension
     {
         if (a==null) return false;
         var empire = ModClass.EMPIRE_MANAGER.get(GetOrCreate(a).empire_id);
-        return empire?.Emperor==a;
+        if (empire?.Emperor == a) return true;
+
+        Empire kingdomEmpire = a.kingdom?.GetEmpire();
+        return kingdomEmpire?.CoreKingdom == a.kingdom && kingdomEmpire.Emperor == a;
     }
 
     public static void SetEmpire(this Actor a, Empire empire)
@@ -1712,6 +1727,16 @@ public static class ActorExtension
     {
         if (a == null) return "";
         var data = GetOrCreate(a);
+        if (a.IsEmperor())
+        {
+            if (data.peeragesLevel != PeeragesLevel.peerages_0)
+            {
+                a.SetPeeragesLevel(PeeragesLevel.peerages_0);
+            }
+            string emperorSuffix = LM.Get("emperor_suffix") ?? LM.Get("default_peerages_0") ?? "";
+            return a.GetTitle() + emperorSuffix;
+        }
+
         string peerageKey = data.virtual_enfeoff_peerage_key;
         if (a.HasVirtualEnfeoff() && string.IsNullOrWhiteSpace(peerageKey))
         {

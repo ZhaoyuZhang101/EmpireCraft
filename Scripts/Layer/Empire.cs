@@ -184,7 +184,7 @@ public class Empire : MetaObject<EmpireData>
 
     public bool IsNeedToOfficeExam()
     {
-        if (data.last_exam_timestamp == -1L) return true;
+        if (data.last_office_exam_timestamp == -1L) return true;
         if (Date.getYearsSince(data.last_office_exam_timestamp)>=1)
         {
             return true;
@@ -264,6 +264,43 @@ public class Empire : MetaObject<EmpireData>
         return imperialName.EndsWith(empireSuffix, StringComparison.Ordinal)
             ? imperialName
             : imperialName + empireSuffix;
+    }
+
+    private EmpireFoundingNameChoice SelectFoundingEmpireName(Kingdom kingdom, EmpireCore riseCore)
+    {
+        KingdomTitle mainTitle = kingdom?.GetMainTitle();
+        SpecificClan clan = kingdom?.king?.GetSpecificClan();
+        string ancestralEmpireName = "";
+        Vector2 ancestralEmpirePosition = default;
+        if (clan?.HasHistoryEmpire() == true)
+        {
+            var historyRecord = clan.GetHistoryEmpire();
+            ancestralEmpireName = historyRecord.name;
+            ancestralEmpirePosition = historyRecord.pos;
+        }
+
+        KingdomTitle ancestralTitle = kingdom?.GetAncestralMainTitleCandidate();
+        KingdomTitle ownedTitle = kingdom?.king?.GetMainTitle();
+        string coreName = EmpireCoreManager.GetFoundingEmpireName(riseCore);
+        if (string.IsNullOrWhiteSpace(coreName)) coreName = riseCore?.name;
+        EmpireFoundingNameChoice choice = EmpireFoundingNameRules.Select(mainTitle?.data?.name,
+            ancestralEmpireName, ancestralTitle?.data?.name, ownedTitle?.data?.name, coreName,
+            kingdom?.GetKingdomName());
+        if (choice.Source == EmpireFoundingNameSource.AncestralEmpire)
+        {
+            data.directPre = GetDir(ancestralEmpirePosition);
+        }
+        return choice;
+    }
+
+    private void RecordFoundingNameHistory(EmpireFoundingNameChoice choice, Actor founder)
+    {
+        if (choice == null || founder == null) return;
+        string source = string.Format(LM.Get(choice.SourceLocalizationKey), choice.SourceName);
+        string content = string.Format(LM.Get("history_empire_name_selected"), founder.getName(), source,
+            GetEmpireName());
+        this.RecordHistory(directContent: content, actorId: founder.id,
+            kingdomId: CoreKingdom?.id ?? -1L, prepend: true);
     }
 
     private void MoveToEmpireCapital(Actor actor)
@@ -399,14 +436,18 @@ public class Empire : MetaObject<EmpireData>
         } 
         
         data.empire_specific_clan = currentSpecificClan.id;
+        if (isNew)
+        {
+            data.dynasty_founder_actor_id = actor.id;
+        }
         EmpireClan = actor.clan;
         CoreKingdom?.SetSpecificClan(currentSpecificClan);
         //设定天子身份并移居首都
         if (actor.isOfficer())
         {
             actor.RemoveIdentity();
-            actor.SetPeeragesLevel(PeeragesLevel.peerages_0);
         }
+        actor.SetPeeragesLevel(PeeragesLevel.peerages_0);
         
         actor.data.renown += 20;
         MoveToEmpireCapital(actor);
@@ -414,11 +455,11 @@ public class Empire : MetaObject<EmpireData>
         if (data.has_year_name)
         {
             //公屏提示
-            TranslateHelper.LogNewEmperor(actor, CoreKingdom.capital, data.year_name); 
+            TranslateHelper.LogNewEmperor(actor, CoreKingdom.capital, data.year_name, isNew);
         }
         else
         {
-            TranslateHelper.LogNewEmperorWest(actor, CoreKingdom.capital);
+            TranslateHelper.LogNewEmperorWest(actor, CoreKingdom.capital, isNew);
         }
         
         
@@ -599,6 +640,7 @@ public class Empire : MetaObject<EmpireData>
             shihao_name = "",
             descriptions = new List<HistoryDescription>()
         };
+        RepairFoundingEmperorMarker();
         this.RecordHistory(
             Emperor.isAlive() ? EmpireHistoryType.emperor_left_history : EmpireHistoryType.emperor_die_history,
             new Dictionary<string, string>()
@@ -734,49 +776,13 @@ public class Empire : MetaObject<EmpireData>
             LogService.LogError($"读取帝国首都失败: {e}");
         }
         generateNewMetaObject();
-        string empireName = kingdom.GetKingdomName();
         EmpireCore riseCore = EmpireCoreManager.GetRiseCandidateCore(kingdom);
-        if (riseCore != null && !string.IsNullOrWhiteSpace(riseCore.name))
-        {
-            empireName = riseCore.name;
-        }
-        if (kingdom.king.HasTitle())
-        {
-            empireName = kingdom.king.GetTitle();
-        }
+        EmpireFoundingNameChoice foundingName = SelectFoundingEmpireName(kingdom, riseCore);
+        SetEmpireName(foundingName.Name);
         try
         {
-            if (kingdom.getKingClan() != null)
-            {
-                if (kingdom.king?.GetSpecificClan()?.HasHistoryEmpire()??false)
-                {
-                    var historyRecord = kingdom.king.GetSpecificClan().GetHistoryEmpire();
-                    this.data.directPre = GetDir(historyRecord.pos);
-                    empireName = historyRecord.name;
-                }
-            }
-
-        } catch (Exception e)
-        {
-            LogService.LogError($"读取氏族历史帝国名称失败: {e}");
-        }
-        SetEmpireName(empireName);
-        try
-        {
-            this.data.currentHistory = new EmpireCraftHistory
-            {
-                id = kingdom.king?.data?.id??-1L,
-                year_name = data.year_name,
-                emperor = kingdom.king?.getName()??"",
-                empire_name = this.GetEmpireName(),
-                empire_full_name = this.GetEmpireFullName(),
-                dynasty_name = this.GetEmpireName(),
-                royal_surname = kingdom.king?.GetSpecificClan()?.name??"",
-                is_first = true,
-                miaohao_name = "",
-                shihao_name = "",
-                descriptions = new List<HistoryDescription>(),
-            };
+            NewEmperor(kingdom.king, !isSplit);
+            RecordFoundingNameHistory(foundingName, kingdom.king);
             if (data.has_year_name)
             {
                 this.RecordHistory(EmpireHistoryType.new_empire_history, new Dictionary<string, string>()
@@ -784,7 +790,7 @@ public class Empire : MetaObject<EmpireData>
                     ["actor"] = kingdom.king?.getName()??"",
                     ["place"] = kingdom.capital.GetCityName(),
                     ["name"] = GetEmpireName(),
-                });
+                }, actorId: kingdom.king.id, kingdomId: kingdom.id, prepend: true);
             }
             else
             {
@@ -793,9 +799,8 @@ public class Empire : MetaObject<EmpireData>
                     ["actor"] = kingdom.king?.getName()??"",
                     ["place"] = kingdom.capital.GetCityName(),
                     ["name"] = GetEmpireName(),
-                });
+                }, actorId: kingdom.king.id, kingdomId: kingdom.id, prepend: true);
             }
-            NewEmperor(kingdom.king, !isSplit);
             kingdom.king?.GetSpecificClan()?.RecordHistoryEmpire(this, CoreKingdom.capital);
 
         } catch (Exception e)
@@ -1031,9 +1036,10 @@ public class Empire : MetaObject<EmpireData>
                 newEmpire.SetEmpireName(empireName);
             }
         }
-        if (newKingdom.king.HasTitle())
+        KingdomTitle newMainTitle = newKingdom.GetMainTitle();
+        if (!string.IsNullOrWhiteSpace(newMainTitle?.data?.name))
         {
-            newEmpire.SetEmpireName(newKingdom.king.GetTitle());
+            newEmpire.SetEmpireName(newMainTitle.data.name);
         }
 
         if (newKingdom.king.HasSpecificClan())
@@ -1184,7 +1190,72 @@ public class Empire : MetaObject<EmpireData>
         Actor king = pKingdom.king;
         empireData.founder_actor_name = king?.getName();
         empireData.founder_actor_id = king?.getID() ?? -1L;
+        if (empireData.dynasty_founder_actor_id <= 0)
+        {
+            empireData.dynasty_founder_actor_id = empireData.founder_actor_id;
+        }
+        RepairFoundingEmperorMarker();
         join(pKingdom, true, true);
+    }
+
+    public bool IsFoundingEmperorHistory(EmpireCraftHistory history)
+    {
+        if (history == null) return false;
+        long dynastyFounderId = ResolveDynastyFounderActorId();
+        return history.is_first ||
+               data?.founder_actor_id > 0 && history.id == data.founder_actor_id ||
+               dynastyFounderId > 0 && history.id == dynastyFounderId;
+    }
+
+    public void RepairFoundingEmperorMarker()
+    {
+        if (data == null) return;
+        long dynastyFounderId = ResolveDynastyFounderActorId();
+        if (data.currentHistory != null &&
+            (data.currentHistory.id == data.founder_actor_id || data.currentHistory.id == dynastyFounderId))
+        {
+            data.currentHistory.is_first = true;
+        }
+        if (data.history == null) return;
+        foreach (EmpireCraftHistory history in data.history)
+        {
+            if (history != null &&
+                (history.id == data.founder_actor_id || history.id == dynastyFounderId))
+            {
+                history.is_first = true;
+            }
+        }
+    }
+
+    private long ResolveDynastyFounderActorId()
+    {
+        if (data == null) return -1L;
+        if (data.dynasty_founder_actor_id > 0) return data.dynasty_founder_actor_id;
+
+        string dynastyName = data.currentHistory?.dynasty_name ?? GetEmpireName();
+        string royalSurname = data.currentHistory?.royal_surname ?? EmpireSpecificClan?.name ?? "";
+        bool MatchesCurrentDynasty(EmpireCraftHistory history)
+        {
+            if (history == null) return false;
+            bool dynastyMatches = string.IsNullOrWhiteSpace(dynastyName) || history.dynasty_name == dynastyName;
+            bool surnameMatches = string.IsNullOrWhiteSpace(royalSurname) || history.royal_surname == royalSurname;
+            return dynastyMatches && surnameMatches;
+        }
+
+        EmpireCraftHistory founder = data.history?.LastOrDefault(history =>
+            history?.is_first == true && MatchesCurrentDynasty(history));
+        founder ??= data.history?.FirstOrDefault(MatchesCurrentDynasty);
+        if (founder == null && MatchesCurrentDynasty(data.currentHistory))
+        {
+            founder = data.currentHistory;
+        }
+
+        data.dynasty_founder_actor_id = founder?.id > 0
+            ? founder.id
+            : data.founder_actor_id > 0
+                ? data.founder_actor_id
+                : Emperor?.id ?? -1L;
+        return data.dynasty_founder_actor_id;
     }
 
     public void update()
@@ -1532,9 +1603,10 @@ public class Empire : MetaObject<EmpireData>
         if (string.IsNullOrWhiteSpace(data.name))
         {
             string empireName = CoreKingdom.GetKingdomName();
-            if (CoreKingdom.king != null && CoreKingdom.king.HasTitle())
+            KingdomTitle mainTitle = CoreKingdom.GetMainTitle();
+            if (!string.IsNullOrWhiteSpace(mainTitle?.data?.name))
             {
-                empireName = CoreKingdom.king.GetTitle();
+                empireName = mainTitle.data.name;
             }
             SetEmpireName(empireName);
             repaired = true;
@@ -1698,12 +1770,40 @@ public class Empire : MetaObject<EmpireData>
     // Token: 0x06001127 RID: 4391 RVA: 0x000C7834 File Offset: 0x000C5A34
     public bool canJoin(Kingdom pKingdom)
     {
+        if (pKingdom == null || pKingdom.isRekt()) return false;
         if (AncientWarfareCompatibility.Owns(CoreKingdom) || AncientWarfareCompatibility.Owns(pKingdom)) return false;
+        if (!CanAcceptVoluntarySubmission() || pKingdom.HasRebelledAgainst(this)) return false;
+        if (!ContainsKingdomCapitalInCore(pKingdom) || !MeetsSubmissionPowerThreshold(pKingdom)) return false;
         if (!pKingdom.isOpinionTowardsKingdomGood(CoreKingdom))
         {
             return false;
         }
         return true;
+    }
+
+    public bool CanAcceptVoluntarySubmission()
+    {
+        return !isRekt() && !IsArchived() && CoreKingdom != null && !CoreKingdom.isRekt() &&
+               EmpireSubmissionRules.CanAcceptVoluntarySubmission(Mandate, CoreKingdom.GetMoney());
+    }
+
+    public bool ContainsKingdomCapitalInCore(Kingdom kingdom)
+    {
+        if (kingdom?.capital == null || kingdom.capital.isRekt()) return false;
+        EmpireCore core = EmpireCoreManager.Get(this);
+        return core != null && kingdom.capital.GetEmpireCore() == core;
+    }
+
+    public bool MeetsTributaryPowerThreshold(Kingdom kingdom)
+    {
+        return kingdom != null && NationalPowerRules.IsWithinShare(kingdom.GetNationalPower(),
+            GetNationalPower(), NationalPowerRules.TributaryMaximumShare);
+    }
+
+    public bool MeetsSubmissionPowerThreshold(Kingdom kingdom)
+    {
+        return kingdom != null && NationalPowerRules.IsWithinShare(kingdom.GetNationalPower(),
+            GetNationalPower(), NationalPowerRules.SubmissionMaximumShare);
     }
     public override void save()
     {
@@ -1825,17 +1925,22 @@ public class Empire : MetaObject<EmpireData>
         }
         this.EmpireClan = World.world.clans.get(pData.empire_clan);
         this.OriginalCapital = World.world.cities.get(pData.original_capital);
+        RepairFoundingEmperorMarker();
         this.recalculate();
     }
 
     // Token: 0x06001128 RID: 4392 RVA: 0x000C7890 File Offset: 0x000C5A90
     public void join(Kingdom pKingdom, bool pRecalc = true, bool pForce = false)
     {
+        if (pKingdom == null || pKingdom.isRekt()) return;
         if (AncientWarfareCompatibility.Owns(CoreKingdom) || AncientWarfareCompatibility.Owns(pKingdom)) return;
         if (hasKingdom(pKingdom))
         {
             return;
         }
+        // A rebel polity can never return to an empire it previously rebelled against,
+        // including through forced or scripted membership changes.
+        if (pKingdom.HasRebelledAgainst(this)) return;
         if (!pForce && !this.canJoin(pKingdom))
         {
             return;
@@ -1868,6 +1973,10 @@ public class Empire : MetaObject<EmpireData>
 
     public void leave(Kingdom pKingdom, bool pRecalc = true, bool isLeave = false)
     {
+        if (isLeave)
+        {
+            pKingdom.RememberRebellionOrigin(this);
+        }
         bool isCoreKingdom = pKingdom != null && (pKingdom == CoreKingdom || pKingdom.IsEmpire());
         this.kingdoms_hashset.Remove(pKingdom);
         pKingdom.EmpireLeave(isLeave);
@@ -1947,6 +2056,49 @@ public class Empire : MetaObject<EmpireData>
     public int CountPopulation()
     {
         return data.cached_population;
+    }
+
+    public void RefreshNationalPower(bool force = false)
+    {
+        if (data == null || isRekt() || IsArchived()) return;
+        if (!force && data.last_national_power_timestamp > 0 &&
+            Date.getYearsSince(data.last_national_power_timestamp) < 1)
+        {
+            return;
+        }
+
+        int population = 0;
+        int military = 0;
+        int economy = 0;
+        foreach (Kingdom kingdom in kingdoms_list)
+        {
+            if (kingdom == null || kingdom.isRekt()) continue;
+            kingdom.RefreshNationalPower(force);
+            KingdomExtension.KingdomExtraData kingdomData = kingdom.GetOrCreate();
+            population += kingdomData.annual_power_population;
+            military += kingdomData.annual_power_military;
+            economy += kingdomData.annual_power_economy;
+        }
+
+        data.annual_power_population = population;
+        data.annual_power_military = military;
+        data.annual_power_economy = economy;
+        data.annual_power_index = NationalPowerRules.Calculate(population, military, economy);
+        data.last_national_power_timestamp = World.world.getCurWorldTime();
+    }
+
+    public double GetNationalPower()
+    {
+        RefreshNationalPower();
+        return data?.annual_power_index ?? 0d;
+    }
+
+    public string GetNationalPowerBreakdown()
+    {
+        RefreshNationalPower();
+        return data == null
+            ? "0 / 0 / 0"
+            : $"{data.annual_power_population} / {data.annual_power_military} / {data.annual_power_economy}";
     }
 
 
@@ -2173,6 +2325,297 @@ public class Empire : MetaObject<EmpireData>
             .ToList();
     }
 
+    public int ReclaimTitles(Kingdom sourceKingdom, IEnumerable<KingdomTitle> titles)
+    {
+        if (sourceKingdom == null || sourceKingdom.isRekt() || sourceKingdom.GetEmpire() != this ||
+            Emperor == null || Emperor.isRekt()) return 0;
+        List<KingdomTitle> reclaimedTitles = (titles ?? Enumerable.Empty<KingdomTitle>())
+            .Where(title => title != null && !title.isRekt() && title.data != null)
+            .Distinct()
+            .ToList();
+        if (reclaimedTitles.Count == 0) return 0;
+
+        Actor formerHolder = sourceKingdom.king;
+        long storedMainTitleId = sourceKingdom.GetOrCreate().MainTitle;
+        if (reclaimedTitles.Any(title => title.id == storedMainTitleId))
+        {
+            sourceKingdom.RemoveMainTitle();
+        }
+
+        foreach (KingdomTitle title in reclaimedTitles)
+        {
+            title.EndJurisdiction(sourceKingdom, KingdomTitle.JurisdictionHolder);
+            if (title.main_kingdom == sourceKingdom) title.main_kingdom = null;
+            formerHolder?.GetOwnedTitle()?.Remove(title.id);
+            sourceKingdom.UnregisterRealmTitle(title);
+            if (title.owner == formerHolder) title.owner = null;
+
+            foreach (Actor virtualHolder in getUnits().Where(actor => actor != null && !actor.isRekt() &&
+                         actor.HasVirtualEnfeoff(this) &&
+                         actor.GetOrCreate().virtual_enfeoff_title_id == title.id).ToList())
+            {
+                var holderData = virtualHolder.GetOrCreate();
+                holderData.virtual_enfeoff = false;
+                holderData.virtual_enfeoff_empire_id = -1L;
+                holderData.virtual_enfeoff_title_id = -1L;
+                holderData.virtual_enfeoff_peerage_key = "";
+            }
+
+            data.legal_peerage_holders?.Remove(title.id);
+            data.legal_peerage_holder_identities?.Remove(title.id);
+            data.legal_peerage_types?.Remove(title.id);
+            data.legal_peerage_kingdoms?.Remove(title.id);
+            Emperor.AddOwnedTitle(title);
+            title.owner = Emperor;
+        }
+
+        EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(sourceKingdom);
+        return reclaimedTitles.Count;
+    }
+
+    public KingdomTitle GetTributaryPetitionTitle(Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.isRekt() || !kingdom.hasKing() || !kingdom.hasCapital()) return null;
+        bool isTributary = kingdom.GetTakenAllianceEmpire() == this;
+        KingdomOpinion opinion = World.world?.diplomacy?.getOpinion(CoreKingdom, kingdom);
+        if (!TributaryTitlePetitionRules.CanPetition(isTributary, kingdom.HasMainTitle(),
+                opinion?.total ?? int.MinValue, kingdom.king.renown)) return null;
+
+        EmpireCore core = EmpireCoreManager.Get(this);
+        if (core == null) return null;
+        KingdomTitle capitalTitle = kingdom.capital.GetTitle();
+        KingdomTitle bestTitle = null;
+        int bestControlledCount = -1;
+        foreach (KingdomTitle title in EmpireCoreManager.GetTitles(core))
+        {
+            if (title == null || title.isRekt() || title.data == null || title.title_capital == null ||
+                title.title_capital.isRekt() || title.title_capital.kingdom != kingdom) continue;
+            if (title.main_kingdom != null && title.main_kingdom != kingdom) continue;
+            Kingdom landedHolder = GetLandedLegalTitleKingdom(title);
+            if (landedHolder != null && landedHolder != kingdom) continue;
+            if (title.HasOwner() && title.owner != Emperor && title.owner != kingdom.king && title.owner.isKing())
+                continue;
+
+            List<City> titleCities = title.city_list
+                .Where(city => city != null && !city.isRekt())
+                .ToList();
+            int controlledCount = titleCities.Count(city => city.kingdom == kingdom);
+            if (!TributaryTitlePetitionRules.ControlsRequiredTerritory(true, controlledCount,
+                    titleCities.Count, title.data.title_controlled_rate)) continue;
+
+            bool preferCurrentCapital = title == capitalTitle && bestTitle != capitalTitle;
+            if (bestTitle == null || preferCurrentCapital ||
+                bestTitle != capitalTitle && controlledCount > bestControlledCount)
+            {
+                bestTitle = title;
+                bestControlledCount = controlledCount;
+            }
+        }
+        return bestTitle;
+    }
+
+    public bool GrantTributaryPetitionTitle(Kingdom kingdom, KingdomTitle requestedTitle)
+    {
+        if (requestedTitle == null || GetTributaryPetitionTitle(kingdom) != requestedTitle) return false;
+        Actor ruler = kingdom.king;
+        foreach (Actor holder in getUnits().Where(actor => actor != null && !actor.isRekt() &&
+                     actor.HasVirtualEnfeoff(this) &&
+                     actor.GetOrCreate().virtual_enfeoff_title_id == requestedTitle.id).ToList())
+        {
+            var holderData = holder.GetOrCreate();
+            holderData.virtual_enfeoff = false;
+            holderData.virtual_enfeoff_empire_id = -1L;
+            holderData.virtual_enfeoff_title_id = -1L;
+            holderData.virtual_enfeoff_peerage_key = "";
+            if (!holder.isKing() && (holder.GetOwnedTitle()?.Count ?? 0) == 0)
+                holder.SetPeeragesLevel(PeeragesLevel.peerages_6);
+        }
+
+        data.legal_peerage_holders?.Remove(requestedTitle.id);
+        data.legal_peerage_holder_identities?.Remove(requestedTitle.id);
+        data.legal_peerage_types?.Remove(requestedTitle.id);
+        data.legal_peerage_kingdoms?.Remove(requestedTitle.id);
+        if (requestedTitle.owner != null && requestedTitle.owner != ruler)
+            requestedTitle.owner.GetOwnedTitle()?.Remove(requestedTitle.id);
+        ruler.AddOwnedTitle(requestedTitle);
+        requestedTitle.owner = ruler;
+        if (!kingdom.ReconcileMainTitle(new[] { requestedTitle }) && kingdom.GetMainTitle() != requestedTitle)
+            return false;
+        SynchronizeLandedLegalTitle(requestedTitle, kingdom);
+        if (GetLandedLegalTitleKingdom(requestedTitle) != kingdom ||
+            GetLegalPeerageHolder(requestedTitle) != ruler) return false;
+
+        ruler.data.renown -= TributaryTitlePetitionRules.PetitionInfluenceCost;
+        TranslateHelper.LogTributaryTitleGranted(kingdom, this, requestedTitle);
+        return true;
+    }
+
+    public Kingdom GetLandedLegalTitleKingdom(KingdomTitle title)
+    {
+        if (title == null || title.isRekt()) return null;
+        Kingdom landedKingdom = null;
+        if (data.legal_peerage_kingdoms?.TryGetValue(title.id, out long kingdomId) == true)
+        {
+            Kingdom savedKingdom = World.world.kingdoms.get(kingdomId);
+            bool ownsTerritory = savedKingdom?.cities != null &&
+                (title.city_list_hash.Any(savedKingdom.cities.Contains) ||
+                 title.city_list.Any(savedKingdom.cities.Contains));
+            bool hasBinding = title.main_kingdom == savedKingdom || title.owner == savedKingdom?.king ||
+                              ((title.owner == null || title.owner.isRekt() || !title.owner.isKing()) &&
+                               ownsTerritory);
+            bool delegatedOnly = savedKingdom?.GetAdministrativeTitle() == title &&
+                                 title.main_kingdom != savedKingdom && title.owner != savedKingdom?.king;
+            if (savedKingdom != null && !savedKingdom.isRekt() && savedKingdom != CoreKingdom &&
+                IsLandedLegalTitleRealm(savedKingdom) && hasBinding && !delegatedOnly)
+                landedKingdom = savedKingdom;
+        }
+        landedKingdom ??= title.main_kingdom;
+        if (landedKingdom == null || landedKingdom.isRekt() || landedKingdom == CoreKingdom ||
+            !IsLandedLegalTitleRealm(landedKingdom))
+        {
+            Actor owner = title.owner;
+            Kingdom ownerKingdom = owner != null && !owner.isRekt() && owner.isKing()
+                ? owner.kingdom
+                : null;
+            bool ownsTerritory = ownerKingdom?.cities != null &&
+                (title.city_list_hash.Any(ownerKingdom.cities.Contains) ||
+                 title.city_list.Any(ownerKingdom.cities.Contains));
+            landedKingdom = ownerKingdom != null && ownerKingdom != CoreKingdom &&
+                            IsLandedLegalTitleRealm(ownerKingdom) && ownsTerritory
+                ? ownerKingdom
+                : null;
+        }
+        return landedKingdom;
+    }
+
+    private Actor GetLivingVirtualLegalPeerageHolder(long titleId)
+    {
+        Actor holder = getUnits().FirstOrDefault(actor => actor != null && !actor.isRekt() &&
+            actor.HasVirtualEnfeoff(this) && actor.GetOrCreate().virtual_enfeoff_title_id == titleId);
+        if (holder != null) return holder;
+        if (data.legal_peerage_holders?.TryGetValue(titleId, out long holderId) != true) return null;
+        holder = World.world.units.get(holderId);
+        return holder != null && !holder.isRekt() && holder.HasVirtualEnfeoff(this) &&
+            holder.GetOrCreate().virtual_enfeoff_title_id == titleId ? holder : null;
+    }
+
+    public Actor GetLegalPeerageHolder(KingdomTitle title)
+    {
+        Kingdom landedKingdom = GetLandedLegalTitleKingdom(title);
+        return landedKingdom != null
+            ? landedKingdom.king
+            : GetLivingVirtualLegalPeerageHolder(title?.id ?? -1L);
+    }
+
+    public bool SynchronizeLandedLegalTitles(Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.isRekt() || kingdom == CoreKingdom || !kingdom.hasKing()) return false;
+        bool isMember = kingdom.GetEmpire() == this;
+        bool isTributary = kingdom.GetTakenAllianceEmpire() == this;
+        if (!isTributary && (!isMember || CoreKingdom?.GetRegime()?.type != RegimeType.LvLing)) return false;
+        bool changed = false;
+        foreach (KingdomTitle title in GetLegalPeerageTitles())
+        {
+            Kingdom landedKingdom = GetLandedLegalTitleKingdom(title);
+            if (landedKingdom != kingdom) continue;
+            changed |= SynchronizeLandedLegalTitle(title, kingdom);
+        }
+        return changed;
+    }
+
+    private bool IsLandedLegalTitleRealm(Kingdom kingdom)
+    {
+        return kingdom != null && (kingdom.GetEmpire() == this || kingdom.GetTakenAllianceEmpire() == this);
+    }
+
+    private bool SynchronizeLandedLegalTitle(KingdomTitle title, Kingdom kingdom)
+    {
+        Actor ruler = kingdom?.king;
+        if (title == null || ruler == null || ruler.isRekt()) return false;
+        bool changed = false;
+
+        foreach (Actor duplicate in getUnits().Where(actor => actor != null && actor.id != ruler.id &&
+                     !actor.isRekt() && actor.HasVirtualEnfeoff(this) &&
+                     actor.GetOrCreate().virtual_enfeoff_title_id == title.id).ToList())
+        {
+            var duplicateData = duplicate.GetOrCreate();
+            duplicateData.virtual_enfeoff = false;
+            duplicateData.virtual_enfeoff_empire_id = -1L;
+            duplicateData.virtual_enfeoff_title_id = -1L;
+            duplicateData.virtual_enfeoff_peerage_key = "";
+            if (!duplicate.isKing() && (duplicate.GetOwnedTitle()?.Count ?? 0) == 0)
+                duplicate.SetPeeragesLevel(PeeragesLevel.peerages_6);
+            changed = true;
+        }
+
+        Actor previousOwner = title.owner;
+        if (previousOwner != null && previousOwner.id != ruler.id)
+        {
+            previousOwner.GetOwnedTitle()?.Remove(title.id);
+            changed = true;
+        }
+        if (!(ruler.GetOwnedTitle()?.Contains(title.id) ?? false))
+        {
+            ruler.AddOwnedTitle(title);
+            changed = true;
+        }
+        title.owner = ruler;
+
+        var rulerData = ruler.GetOrCreate();
+        if (rulerData.virtual_enfeoff && rulerData.virtual_enfeoff_empire_id == data.id &&
+            rulerData.virtual_enfeoff_title_id == title.id)
+        {
+            rulerData.virtual_enfeoff = false;
+            rulerData.virtual_enfeoff_empire_id = -1L;
+            rulerData.virtual_enfeoff_title_id = -1L;
+            rulerData.virtual_enfeoff_peerage_key = "";
+            changed = true;
+        }
+
+        bool isImperialClan = ruler.GetSpecificClan() != null && ruler.GetSpecificClan() == EmpireSpecificClan;
+        bool isPetitionedTributaryTitle = kingdom.GetTakenAllianceEmpire() == this;
+        bool receivesKingPeerage = isImperialClan || isPetitionedTributaryTitle;
+        string peerageKey = DeJureTitleBindingRules.GetLandedPeerageKey(receivesKingPeerage);
+        PeeragesLevel peerageLevel = receivesKingPeerage
+            ? PeeragesLevel.peerages_2
+            : PeeragesLevel.peerages_3;
+        if (ruler.GetPeeragesLevel() != peerageLevel)
+        {
+            ruler.SetPeeragesLevel(peerageLevel);
+            changed = true;
+        }
+
+        data.legal_peerage_holders ??= new Dictionary<long, long>();
+        data.legal_peerage_holder_identities ??= new Dictionary<long, long>();
+        data.legal_peerage_types ??= new Dictionary<long, string>();
+        data.legal_peerage_kingdoms ??= new Dictionary<long, long>();
+        long identityId = ruler.GetPersonalIdentity()?.id ?? -1L;
+        if (!data.legal_peerage_holders.TryGetValue(title.id, out long holderId) || holderId != ruler.id ||
+            !data.legal_peerage_holder_identities.TryGetValue(title.id, out long savedIdentityId) ||
+            savedIdentityId != identityId || !data.legal_peerage_types.TryGetValue(title.id, out string savedType) ||
+            savedType != peerageKey)
+        {
+            data.legal_peerage_holders[title.id] = ruler.id;
+            data.legal_peerage_holder_identities[title.id] = identityId;
+            data.legal_peerage_types[title.id] = peerageKey;
+            changed = true;
+        }
+        if (!data.legal_peerage_kingdoms.TryGetValue(title.id, out long savedKingdomId) ||
+            savedKingdomId != kingdom.id)
+        {
+            data.legal_peerage_kingdoms[title.id] = kingdom.id;
+            changed = true;
+        }
+
+        if (data.powerful_minister_title_id == title.id && ruler.id != data.powerful_minister_id)
+        {
+            data.powerful_minister_title_id = -1L;
+            data.powerful_minister_stage = PowerfulMinisterStageDominant;
+            data.powerful_minister_stage_timestamp = World.world.getCurWorldTime();
+        }
+        return changed;
+    }
+
     private Actor GetLivingLegalPeerageHolder(long titleId)
     {
         Actor holder = getUnits().FirstOrDefault(actor => actor != null && !actor.isRekt() &&
@@ -2242,10 +2685,36 @@ public class Empire : MetaObject<EmpireData>
             mother.kingdom?.GetEmpire() == this ? mother : null;
     }
 
+    private Actor GetPreviousEmperorWife()
+    {
+        EmpireCraftHistory previousReign = data.history?.LastOrDefault(history => history != null && history.id > 0);
+        if (previousReign == null) return null;
+        Actor previousEmperor = World.world.units.get(previousReign.id);
+        SpecificClanManager._actorToPersonLookup.TryGetValue(previousReign.id, out var previousIdentity);
+        previousIdentity ??= previousEmperor?.GetPersonalIdentity();
+        Actor wife = previousIdentity?.hasLover() == true
+            ? SpecificClanManager.getPerson(previousIdentity.lover.identity)?._actor
+            : null;
+        wife ??= previousEmperor?.lover;
+        return IsValidRegencyCandidate(wife) && wife.isSexFemale() ? wife : null;
+    }
+
+    private Actor GetPreferredEmpressDowager(out bool isFormerEmpress)
+    {
+        Actor formerEmpress = GetPreviousEmperorWife();
+        if (formerEmpress != null)
+        {
+            isFormerEmpress = true;
+            return formerEmpress;
+        }
+        isFormerEmpress = false;
+        return GetEmperorMother();
+    }
+
     private bool IsEmpressDowager(Actor actor)
     {
         return actor != null && data.powerful_minister_is_empress_dowager &&
-               GetEmperorMother()?.id == actor.id;
+               data.powerful_minister_id == actor.id;
     }
 
     private bool IsValidRegencyCandidate(Actor actor)
@@ -2305,10 +2774,11 @@ public class Empire : MetaObject<EmpireData>
     }
 
     private Actor FindPowerfulMinisterCandidate(Regime currentRegime, out bool isRegent,
-        out bool isEmpressDowager)
+        out bool isEmpressDowager, out bool isFormerEmpress)
     {
         isRegent = false;
         isEmpressDowager = false;
+        isFormerEmpress = false;
         Actor current = GetPowerfulMinister();
 
         // Once powerful-minister progress is above 70%, the current holder is
@@ -2322,7 +2792,9 @@ public class Empire : MetaObject<EmpireData>
             if (lockedCurrent != null && !lockedCurrent.isRekt())
             {
                 isRegent = Emperor != null && !Emperor.isRekt() && !Emperor.isAdult();
-                isEmpressDowager = IsEmpressDowager(lockedCurrent);
+                isEmpressDowager = data.powerful_minister_is_empress_dowager;
+                isFormerEmpress = data.powerful_minister_is_former_empress ||
+                    (isEmpressDowager && GetPreviousEmperorWife()?.id == lockedCurrent.id);
                 return lockedCurrent;
             }
         }
@@ -2339,8 +2811,8 @@ public class Empire : MetaObject<EmpireData>
         {
             // A child emperor always receives an available adult regent. Office rank and the
             // ordinary 300-influence entry gate only determine preference, never eligibility.
-            Actor mother = GetEmperorMother();
-            normalCandidate = centralCandidates.Where(actor => actor?.id != mother?.id)
+            Actor dowager = GetPreferredEmpressDowager(out bool dowagerIsFormerEmpress);
+            normalCandidate = centralCandidates.Where(actor => actor?.id != dowager?.id)
                 .OrderByDescending(actor => actor.id == current?.id)
                 .ThenByDescending(actor => actor.id == cabinetLeader?.id)
                 .ThenByDescending(actor => HasCentralMinisterSupport(actor, currentRegime))
@@ -2348,20 +2820,21 @@ public class Empire : MetaObject<EmpireData>
                 .ThenByDescending(actor => actor.GetOrCreate().officeIdentity?.TotalPerformance ?? 0)
                 .FirstOrDefault();
             normalCandidate ??= getUnits().Where(actor => IsValidRegencyCandidate(actor) &&
-                    actor.id != mother?.id && actor.kingdom == CoreKingdom &&
+                    actor.id != dowager?.id && actor.kingdom == CoreKingdom &&
                     actor.GetSpecificClan() != EmpireSpecificClan)
                 .OrderByDescending(actor => actor.id == current?.id)
                 .ThenByDescending(actor => actor.renown).ThenBy(actor => actor.id).FirstOrDefault();
             normalCandidate ??= getUnits().Where(actor => IsValidRegencyCandidate(actor) &&
-                    actor.id != mother?.id && actor.kingdom == CoreKingdom)
+                    actor.id != dowager?.id && actor.kingdom == CoreKingdom)
                 .OrderByDescending(actor => actor.id == current?.id)
                 .ThenByDescending(actor => actor.renown).ThenBy(actor => actor.id).FirstOrDefault();
-            if (PowerfulMinisterRules.ShouldPreferEmpressDowager(true, mother != null,
-                    mother?.renown ?? 0, normalCandidate != null, normalCandidate?.renown ?? 0))
+            if (PowerfulMinisterRules.ShouldPreferEmpressDowager(true, dowager != null,
+                    dowager?.renown ?? 0, normalCandidate != null, normalCandidate?.renown ?? 0))
             {
                 isRegent = true;
                 isEmpressDowager = true;
-                return mother;
+                isFormerEmpress = dowagerIsFormerEmpress;
+                return dowager;
             }
             if (normalCandidate != null)
             {
@@ -2389,14 +2862,14 @@ public class Empire : MetaObject<EmpireData>
             return;
         }
         Actor candidate = FindPowerfulMinisterCandidate(currentRegime, out bool isRegent,
-            out bool isEmpressDowager);
+            out bool isEmpressDowager, out bool isFormerEmpress);
         EmpireCraftDebugProbe.Observe("powerful_minister.candidate", id.ToString(),
-            $"{emperor.id}:{candidate?.id ?? -1L}:{isRegent}:{isEmpressDowager}", () =>
+            $"{emperor.id}:{candidate?.id ?? -1L}:{isRegent}:{isEmpressDowager}:{isFormerEmpress}", () =>
                 $"empire={GetEmpireFullName()}({id}), emperor={emperor.getName()}({emperor.id}), " +
                 $"emperorRenown={emperor.renown}, emperorAdult={emperor.isAdult()}, " +
                 $"candidate={candidate?.getName() ?? "none"}({candidate?.id ?? -1L}), " +
                 $"candidateRenown={candidate?.renown ?? 0}, regent={isRegent}, " +
-                $"empressDowager={isEmpressDowager}, regime={currentRegime.type}");
+                $"empressDowager={isEmpressDowager}, formerEmpress={isFormerEmpress}, regime={currentRegime.type}");
         if (candidate?.id != data.powerful_minister_id && data.is_been_controlled)
         {
             Actor previous = World.world.units.get(data.powerful_minister_id);
@@ -2414,6 +2887,7 @@ public class Empire : MetaObject<EmpireData>
             data.powerful_minister_progress = 0;
             data.powerful_minister_is_regent = isRegent;
             data.powerful_minister_is_empress_dowager = isEmpressDowager;
+            data.powerful_minister_is_former_empress = isFormerEmpress;
             data.last_powerful_minister_timestamp = World.world.getCurWorldTime();
             data.powerful_minister_emperor_id = emperor.id;
             if (candidate.HasVirtualEnfeoff(this))
@@ -2443,6 +2917,7 @@ public class Empire : MetaObject<EmpireData>
         }
         data.powerful_minister_is_regent = isRegent;
         data.powerful_minister_is_empress_dowager = isEmpressDowager;
+        data.powerful_minister_is_former_empress = isFormerEmpress;
         if (data.powerful_minister_emperor_id != emperor.id)
         {
             bool isNewEmperor = data.powerful_minister_emperor_id > 0;
@@ -2517,6 +2992,7 @@ public class Empire : MetaObject<EmpireData>
         data.powerful_minister_stage = PowerfulMinisterStageNone;
         data.powerful_minister_is_regent = false;
         data.powerful_minister_is_empress_dowager = false;
+        data.powerful_minister_is_former_empress = false;
         data.powerful_minister_title_id = -1L;
         data.last_powerful_minister_timestamp = -1L;
         data.powerful_minister_stage_timestamp = -1L;
@@ -2539,9 +3015,72 @@ public class Empire : MetaObject<EmpireData>
             data.powerful_minister_stage == PowerfulMinisterStageKing);
     }
 
+    private Actor GetEmpressDowagerPreferredSon(Actor dowager)
+    {
+        if (dowager == null || dowager.isRekt()) return null;
+        PersonalClanIdentity dowagerIdentity = dowager.GetPersonalIdentity();
+        bool IsEligibleSon(Actor son) => son != null && !son.isRekt() && son.isSexMale() &&
+            son.id != (Emperor?.id ?? -1L) && son.kingdom?.GetEmpire() == this;
+        Actor son = SpecificClanManager.getChildren(dowagerIdentity)
+            .Select(item => item.Item2)
+            .Where(identity => identity != null && identity.isMale() &&
+                identity.mother == dowagerIdentity?.id && IsEligibleSon(identity._actor))
+            .OrderBy(identity => identity.rank).ThenBy(identity => identity.id)
+            .Select(identity => identity._actor).FirstOrDefault();
+        if (son != null) return son;
+        return dowager.getChildren().Where(IsEligibleSon)
+            .Where(child => child.GetPersonalIdentity()?.mother == dowagerIdentity?.id ||
+                child.getParents().Any(parent => parent?.id == dowager.id))
+            .OrderByDescending(child => child.isAdult()).ThenByDescending(child => child.getAge())
+            .ThenBy(child => child.id).FirstOrDefault();
+    }
+
+    public bool CanEmpressDowagerInstallSon(Actor actor)
+    {
+        return data.powerful_minister_is_former_empress && IsEmpressDowager(actor) &&
+            data.powerful_minister_stage == PowerfulMinisterStageDominant &&
+            CanAdvanceMinisterPlot(actor) && GetEmpressDowagerPreferredSon(actor) != null;
+    }
+
+    public bool CompleteEmpressDowagerInstallSon(Actor dowager)
+    {
+        if (!CanEmpressDowagerInstallSon(dowager)) return false;
+        Actor son = GetEmpressDowagerPreferredSon(dowager);
+        Actor deposedEmperor = Emperor;
+        Kingdom coreKingdom = CoreKingdom;
+        City capital = coreKingdom?.capital;
+        if (son == null || deposedEmperor == null || coreKingdom == null || capital == null) return false;
+
+        TranslateHelper.LogEmpressDowagerInstallsSon(dowager, deposedEmperor, son);
+        this.RecordHistory(directContent: string.Format(LM.Get("history_empress_dowager_installs_son"),
+            dowager.getName(), deposedEmperor.getName(), son.getName()), actorId: dowager.id);
+        deposedEmperor.RecordPersonalHistory(string.Format(
+            LM.Get("personal_history_deposed_by_empress_dowager"), dowager.getName(), son.getName()),
+            relatedActorId: dowager.id);
+        dowager.RecordPersonalHistory(string.Format(
+            LM.Get("personal_history_empress_dowager_deposed_emperor"), deposedEmperor.getName(), son.getName()),
+            relatedActorId: deposedEmperor.id);
+        son.RecordPersonalHistory(string.Format(
+            LM.Get("personal_history_installed_by_empress_dowager"), dowager.getName(), deposedEmperor.getName()),
+            relatedActorId: dowager.id);
+
+        Kingdom formerKingdom = son.kingdom;
+        if (son.isKing() && formerKingdom != coreKingdom) formerKingdom.removeKing();
+        if (coreKingdom.king?.id == deposedEmperor.id) coreKingdom.removeKing();
+        son.joinCity(capital);
+        son.setKingdom(coreKingdom);
+        // Palace deposition has its own outcome and must not trigger the generic dynasty-usurpation revolt.
+        _completingMinisterUsurpation = true;
+        try { coreKingdom.setKing(son); }
+        finally { _completingMinisterUsurpation = false; }
+        if (Emperor?.id != son.id) return false;
+        ClearPowerfulMinister();
+        return true;
+    }
+
     public bool CanPowerfulMinisterSeekDukedom(Actor actor)
     {
-        return CanAdvanceMinisterPlot(actor) &&
+        return !data.powerful_minister_is_former_empress && CanAdvanceMinisterPlot(actor) &&
             data.powerful_minister_stage == PowerfulMinisterStageDominant && !actor.HasVirtualEnfeoff(this) &&
             FindMinisterDukedomTarget() != null;
     }
@@ -2565,7 +3104,9 @@ public class Empire : MetaObject<EmpireData>
             return holder != null && !holder.isRekt() && holder.HasVirtualEnfeoff(this) &&
                 holder.GetOrCreate().virtual_enfeoff_title_id == titleId ? holder : null;
         }
-        var titles = GetLegalPeerageTitles().Select(title => new
+        var titles = GetLegalPeerageTitles()
+            .Where(title => GetLandedLegalTitleKingdom(title) == null)
+            .Select(title => new
         {
             Title = title,
             Holder = FindHolder(title.id)
@@ -2625,7 +3166,8 @@ public class Empire : MetaObject<EmpireData>
 
     public bool CanPowerfulMinisterReceiveNineBestowments(Actor actor)
     {
-        return CanAdvanceMinisterPlot(actor) && data.powerful_minister_stage == PowerfulMinisterStageDuke &&
+        return !data.powerful_minister_is_former_empress && CanAdvanceMinisterPlot(actor) &&
+            data.powerful_minister_stage == PowerfulMinisterStageDuke &&
             actor.HasVirtualEnfeoff(this) && actor.GetOrCreate().virtual_enfeoff_title_id == data.powerful_minister_title_id;
     }
 
@@ -2656,7 +3198,8 @@ public class Empire : MetaObject<EmpireData>
 
     public bool CanPowerfulMinisterUsurp(Actor actor)
     {
-        if (!CanAdvanceMinisterPlot(actor) || data.powerful_minister_stage != PowerfulMinisterStageKing ||
+        if (data.powerful_minister_is_former_empress || !CanAdvanceMinisterPlot(actor) ||
+            data.powerful_minister_stage != PowerfulMinisterStageKing ||
             data.powerful_minister_title_id <= 0) return false;
         return actor.HasVirtualEnfeoff(this) &&
             actor.GetOrCreate().virtual_enfeoff_title_id == data.powerful_minister_title_id;
@@ -2833,7 +3376,8 @@ public class Empire : MetaObject<EmpireData>
 
     private bool GrantLegalPeerage(Actor actor, KingdomTitle title, PersonalClanIdentity predecessor = null)
     {
-        if (actor == null || title == null || GetLivingLegalPeerageHolder(title.id) != null) return false;
+        if (actor == null || title == null || GetLandedLegalTitleKingdom(title) != null ||
+            GetLivingLegalPeerageHolder(title.id) != null) return false;
         bool isRoyal = actor.GetSpecificClan() != null && actor.GetSpecificClan() == EmpireSpecificClan;
         if (!isRoyal) return false;
         if (!AssignLegalPeerage(actor, title, "default_peerages_2", PeeragesLevel.peerages_2,
@@ -2849,7 +3393,8 @@ public class Empire : MetaObject<EmpireData>
     private bool AssignLegalPeerage(Actor actor, KingdomTitle title, string peerageKey,
         PeeragesLevel peeragesLevel, int mandateChange, bool relocate = true)
     {
-        if (actor == null || title == null || GetLivingLegalPeerageHolder(title.id) != null) return false;
+        if (actor == null || title == null || GetLandedLegalTitleKingdom(title) != null ||
+            GetLivingLegalPeerageHolder(title.id) != null) return false;
         actor.CheckSpecificClan(false);
         var actorData = actor.GetOrCreate();
         actorData.virtual_enfeoff = true;
@@ -2880,13 +3425,20 @@ public class Empire : MetaObject<EmpireData>
         data.legal_peerage_holders ??= new Dictionary<long, long>();
         data.legal_peerage_holder_identities ??= new Dictionary<long, long>();
         data.legal_peerage_types ??= new Dictionary<long, string>();
+        data.legal_peerage_kingdoms ??= new Dictionary<long, long>();
         List<KingdomTitle> legalTitles = GetLegalPeerageTitles();
+        foreach (KingdomTitle title in legalTitles)
+        {
+            Kingdom landedKingdom = GetLandedLegalTitleKingdom(title);
+            if (landedKingdom != null) SynchronizeLandedLegalTitle(title, landedKingdom);
+        }
         HashSet<long> validTitleIds = legalTitles.Select(title => title.id).ToHashSet();
         foreach (long obsoleteTitleId in data.legal_peerage_holders.Keys.Where(id => !validTitleIds.Contains(id)).ToList())
         {
             data.legal_peerage_holders.Remove(obsoleteTitleId);
             data.legal_peerage_holder_identities.Remove(obsoleteTitleId);
             data.legal_peerage_types.Remove(obsoleteTitleId);
+            data.legal_peerage_kingdoms.Remove(obsoleteTitleId);
         }
 
         foreach (Actor holder in getUnits().Where(actor => actor != null && !actor.isRekt() && actor.HasVirtualEnfeoff(this)))
@@ -2901,6 +3453,9 @@ public class Empire : MetaObject<EmpireData>
 
         foreach (KingdomTitle title in legalTitles)
         {
+            if (Emperor != null && title.owner == Emperor &&
+                Emperor.GetOwnedTitle()?.Contains(title.id) == true) continue;
+            if (GetLandedLegalTitleKingdom(title) != null) continue;
             if (GetLivingLegalPeerageHolder(title.id) != null) continue;
             // New legal titles have no saved holder/type yet. They are royal peerages by default;
             // non-royal dukedoms keep their separate powerful-minister succession rules.
@@ -2916,6 +3471,13 @@ public class Empire : MetaObject<EmpireData>
         Kingdom coreKingdom = CoreKingdom;
         if (data == null || coreKingdom == null || coreKingdom.isRekt()) return;
         Regime regime = coreKingdom.GetRegime();
+        //律令制的道、军府是行政授权，不属于虚封法理，必须优先处理。
+        if (regime?.type == RegimeType.LvLing)
+        {
+            AutoEstablishLvLingAdministrativeDivisions();
+            World.world.zone_calculator.dirtyAndClear();
+            return;
+        }
         if (regime != null && regime.enfeoff_virtual_only)
         {
             data.last_legal_peerage_timestamp = -1L;
@@ -3018,6 +3580,73 @@ public class Empire : MetaObject<EmpireData>
             }
         }
         World.world.zone_calculator.dirtyAndClear();
+    }
+
+    private void AutoEstablishLvLingAdministrativeDivisions()
+    {
+        Kingdom coreKingdom = CoreKingdom;
+        EmpireCore empireCore = EmpireCoreManager.Get(this);
+        if (coreKingdom?.cities == null) return;
+
+        List<KingdomTitle> titles = coreKingdom.cities
+            .Where(city => city != null && !city.isRekt() && city.hasTitle())
+            .Select(city => city.GetTitle())
+            .Where(title => title != null && !title.isRekt() && title.title_capital != null &&
+                !title.title_capital.isRekt() && title.title_capital.kingdom == coreKingdom &&
+                title.title_capital != coreKingdom.capital &&
+                !string.Equals(title.data?.name, GetEmpireName(), StringComparison.Ordinal))
+            .Distinct().OrderBy(title => title.id).ToList();
+
+        foreach (KingdomTitle title in titles)
+        {
+            List<City> region = title.city_list
+                .Where(city => city != null && !city.isRekt() && city.kingdom == coreKingdom &&
+                    city != coreKingdom.capital && (empireCore == null || city.GetEmpireCore() != empireCore))
+                .Distinct().ToList();
+            City capital = title.title_capital;
+            if (!region.Contains(capital)) continue;
+
+            Actor governor = coreKingdom.getKingClan()?.getUnits()
+                .FirstOrDefault(actor => actor != null && actor.isActor() && actor.isAlive() && actor.isAdult() &&
+                    !actor.isKing() && actor.id != coreKingdom.king?.id);
+            governor ??= getUnits().FirstOrDefault(actor => actor != null && actor.isAlive() && actor.isAdult() &&
+                !actor.isKing() && actor.isUnitFitToRule());
+            governor ??= capital.hasLeader() ? capital.leader : capital.getUnits().FirstOrDefault();
+            if (governor == null || governor.isRekt()) continue;
+
+            Kingdom newKingdom = SetEnfeoff(capital, governor);
+            if (newKingdom == null) continue;
+            foreach (City city in region)
+            {
+                if (city != capital) city.joinAnotherKingdom(newKingdom);
+            }
+            newKingdom.setCapital(capital);
+            newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
+            join(newKingdom, true, true);
+            WorldLog.logNewKingdom(newKingdom);
+            newKingdom.SetRegimeType(RegimeType.LvLing);
+            newKingdom.LoadRegime();
+            Regime administrativeRegime = newKingdom.GetRegime();
+            administrativeRegime?.SetAllowDiplomacy(false);
+            administrativeRegime?.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+            newKingdom.RemoveMainTitle();
+            newKingdom.SetAdministrativeTitle(title);
+            EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(newKingdom);
+
+            if (governor.GetSpecificClan() != null && governor.GetSpecificClan() == EmpireSpecificClan)
+            {
+                TranslateHelper.LogPeerageGranted(governor, this,
+                    newKingdom.data.name + LM.Get("default_peerages_2"));
+            }
+            else
+            {
+                new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_enfeoff_log, name)
+                {
+                    location = coreKingdom.location,
+                    color_special1 = coreKingdom.getColor().getColorText()
+                }.RecordNationalHistoryIntoEmpire(this, governor, newKingdom);
+            }
+        }
     }
 
 

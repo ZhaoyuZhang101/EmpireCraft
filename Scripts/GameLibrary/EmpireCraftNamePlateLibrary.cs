@@ -604,14 +604,45 @@ public static class EmpireCraftNamePlateLibrary
     {
         if (!IsRenderableEmpire(empire)) return "";
         string empireName = empire.GetEmpireFullName();
-        return string.IsNullOrWhiteSpace(empireName)
-            ? empire.CoreKingdom.GetKingdomFullName()
-            : empireName;
+        if (string.IsNullOrWhiteSpace(empireName)) return GetSafeKingdomName(empire.CoreKingdom);
+        if (!ModClass.SIMPLE_NAMEPLATE_SWITCH) return empireName;
+
+        Regime regime = empire.CoreKingdom?.GetRegime();
+        string suffixKey = regime == null ? "EmpireText" : $"{regime.type}_empire";
+        string suffix = LM.Get(suffixKey);
+        if (string.IsNullOrWhiteSpace(suffix) || string.Equals(suffix, suffixKey, StringComparison.Ordinal))
+        {
+            suffix = LM.Get("EmpireText");
+        }
+        string simpleName = RemoveNameplateSuffix(empireName, suffix);
+        return string.IsNullOrWhiteSpace(simpleName) ? empire.GetEmpireName() : simpleName;
+    }
+
+    private static string GetSafeKingdomName(Kingdom kingdom)
+    {
+        string kingdomName = kingdom?.GetKingdomFullName() ?? "";
+        if (!ModClass.SIMPLE_NAMEPLATE_SWITCH || string.IsNullOrWhiteSpace(kingdomName)) return kingdomName;
+
+        string suffixKey = kingdom.GetKingdomType().ToString();
+        string suffix = LM.Get(suffixKey);
+        string simpleName = RemoveNameplateSuffix(kingdomName, suffix);
+        return string.IsNullOrWhiteSpace(simpleName) ? kingdom.GetKingdomName() : simpleName;
+    }
+
+    private static string RemoveNameplateSuffix(string fullName, string suffix)
+    {
+        string result = fullName?.Trim() ?? "";
+        if (!string.IsNullOrWhiteSpace(suffix)
+            && result.EndsWith(suffix, StringComparison.Ordinal))
+        {
+            result = result.Substring(0, result.Length - suffix.Length).Trim();
+        }
+        return result.Replace(ModClass.NARROW_SPACE, "");
     }
 
     private static string GetTerritoryKingdomName(Kingdom kingdom)
     {
-        string name = kingdom.GetKingdomFullName();
+        string name = GetSafeKingdomName(kingdom);
         if (!kingdom.HasTakenAlliance()) return name;
         Empire overlord = kingdom.GetTakenAllianceEmpire();
         if (!IsRenderableEmpire(overlord)) return name;
@@ -666,7 +697,7 @@ public static class EmpireCraftNamePlateLibrary
         if (pMetaObject.data.banner_background_id < 0) pMetaObject.data.banner_background_id = 0;
         if (pMetaObject.data.banner_icon_id < 0) pMetaObject.data.banner_icon_id = 0;
         npt.setupMeta((MetaObjectData) pMetaObject.data, pMetaObject.getColor());
-        string pNewText = $"{pMetaObject.name}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
+        string pNewText = $"{GetSafeKingdomName(pMetaObject)}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
         int num;
         if (DebugConfig.isOn(DebugOption.ShowWarriorsCityText))
         {
@@ -702,9 +733,9 @@ public static class EmpireCraftNamePlateLibrary
         npt.priority_population = pMetaObject.units.Count;
         npt.showSpecies(pMetaObject.getSpriteIcon());
         npt._text_name.supportRichText = true;
-        npt._show_banner_kingdom = true;
-        npt._banner_kingdoms.enabled = true;
-        npt._banner_kingdoms.load((NanoObject) pMetaObject);
+        bool bannerLoaded = TryLoadKingdomBanner(npt, pMetaObject);
+        npt._show_banner_kingdom = bannerLoaded;
+        npt._banner_kingdoms.enabled = bannerLoaded;
         float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
         npt.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
         Clan kingClan = pMetaObject.getKingClan();
@@ -716,7 +747,33 @@ public static class EmpireCraftNamePlateLibrary
         }
         npt.transform.SetAsFirstSibling();
         npt.nano_object = (NanoObject) pMetaObject;
-    }	
+    }
+
+    private static bool TryLoadKingdomBanner(NameplateText nameplate, Kingdom kingdom)
+    {
+        if (nameplate?._banner_kingdoms == null || kingdom?.data == null) return false;
+        try
+        {
+            nameplate._banner_kingdoms.load((NanoObject)kingdom);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            kingdom.generateBanner();
+            try
+            {
+                nameplate._banner_kingdoms.load((NanoObject)kingdom);
+                return true;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                kingdom.data.banner_background_id = 0;
+                kingdom.data.banner_icon_id = 0;
+                return false;
+            }
+        }
+    }
+
     public static void showTextKingdomNoBack(NameplateText npt, Kingdom pMetaObject)
     {
         if (AncientWarfareCompatibility.Owns(pMetaObject))
@@ -729,10 +786,10 @@ public static class EmpireCraftNamePlateLibrary
             ? displayedEmpire.CoreKingdom.getColor()
             : pMetaObject.getColor();
         npt.setupMeta(pMetaObject.data, displayColor);
-        string pNewText = $"{pMetaObject.name} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
+        string pNewText = $"{GetSafeKingdomName(pMetaObject)} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
         if (pMetaObject.HasTakenAlliance() && displayedEmpire != null)
         {
-            pNewText += $"\n{LM.Get("label_tributary_target")}: {displayedEmpire.GetEmpireFullName()}";
+            pNewText += $"\n{LM.Get("label_tributary_target")}: {GetSafeEmpireName(displayedEmpire)}";
         }
         switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
         {
@@ -1188,7 +1245,7 @@ public static class EmpireCraftNamePlateLibrary
         plateText.setPriority(99999999);
         plateText._showing = true;
         plateText.setupMeta(pMetaObject.data, pMetaObject.getColor());
-        string text = empire.GetEmpireFullName() + "  " + empire.CountPopulation() + additionNum;
+        string text = GetSafeEmpireName(empire) + "  " + empire.CountPopulation() + additionNum;
         text = text.ColorString(pColor: new Color(1, 1, 1));
         int difference = (empire.data.PreviousYearsMoney.Count > 2
             ? (empire.data.PreviousYearsMoney.Last() -
@@ -1204,7 +1261,7 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     if (empire.HasYearName())
                     {
-                        text = empire.GetEmpireFullName() + "\u200A" + empire.GetYearNameWithTime() + "\u200A" +
+                        text = GetSafeEmpireName(empire) + "\u200A" + empire.GetYearNameWithTime() + "\u200A" +
                                empire.CountPopulation();
                     }
                 }

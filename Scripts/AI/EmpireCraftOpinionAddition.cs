@@ -289,6 +289,19 @@ public static class EmpireCraftOpinionAddition
                 return result;
             }
         });
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_rebel_against_empire",
+            translation_key_negative = "opinion_rebel_against_empire",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                if (pMain == null || pTarget == null || pMain == pTarget || !pMain.IsEmpire()) return 0;
+                Empire empire = pMain.GetEmpire();
+                return pTarget.HasRebelledAgainst(empire)
+                    ? EmpireSubmissionRules.RebellionOpinionPenalty
+                    : 0;
+            }
+        });
 
     }
 }

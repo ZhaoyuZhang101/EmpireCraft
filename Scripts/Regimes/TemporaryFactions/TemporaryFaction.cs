@@ -62,6 +62,8 @@ public abstract class TemporaryFaction
     public virtual bool RequireCrimeTarget => false;
     [JsonIgnore]
     public virtual bool RequireRenown => false;
+    [JsonIgnore]
+    public string CompletionOutcome { get; protected set; }
     public virtual float RequireRenownMultiplier => 1f;
 
     public bool OwnEnoughRenown(Kingdom target)
@@ -116,17 +118,18 @@ public abstract class TemporaryFaction
     }  
     public void SetKingdom(Kingdom pKingdom)
     {
-        this.KingdomID = pKingdom.getID();
+        this.KingdomID = pKingdom?.data == null || pKingdom.isRekt() ? -1L : pKingdom.getID();
     }    
     public Kingdom GetKingdom()
     {
-        return World.world.kingdoms.get(KingdomID);
+        Kingdom kingdom = World.world?.kingdoms?.get(KingdomID);
+        return kingdom?.data == null || kingdom.isRekt() ? null : kingdom;
     }    
     
     // 统一入口：设定“国家目标”
     public void SetKingdomTarget(Kingdom k, string reason = "")
     {
-        var id = k?.getID() ?? -1L; // 一律用 base_id
+        var id = k?.data == null || k.isRekt() ? -1L : k.getID();
         TargetID = id;
         TargetType = MetaType.Kingdom;
     }
@@ -134,13 +137,14 @@ public abstract class TemporaryFaction
     protected Kingdom GetKingdomTarget()
     {
         if (TargetType != MetaType.Kingdom || TargetID < 0) return null;
-        return World.world.kingdoms.get(TargetID);
+        Kingdom kingdom = World.world?.kingdoms?.get(TargetID);
+        return kingdom?.data == null || kingdom.isRekt() ? null : kingdom;
     }      
     
     // 统一入口：设定“头衔目标”
     protected void SetTitleTarget(KingdomTitle k, string reason = "")
     {
-        var id = k?.getID() ?? -1L; // 一律用 base_id
+        var id = k?.data == null || k.isRekt() ? -1L : k.getID();
         TargetID = id;
         TargetType = MetaTypeExtension.KingdomTitle;
     }
@@ -148,13 +152,14 @@ public abstract class TemporaryFaction
     protected KingdomTitle GetTitleTarget()
     {
         if (TargetType != MetaTypeExtension.KingdomTitle || TargetID < 0) return null;
-        return ModClass.KINGDOM_TITLE_MANAGER.get(TargetID);
+        KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER?.get(TargetID);
+        return title?.data == null || title.isRekt() ? null : title;
     }    
     
     // 统一入口：设定“国家目标”
     protected void SetCityTarget(City k, string reason = "")
     {
-        var id = k?.getID() ?? -1L; // 一律用 base_id
+        var id = k?.data == null || k.isRekt() ? -1L : k.getID();
         TargetID = id;
         TargetType = MetaType.City;
     }
@@ -162,13 +167,14 @@ public abstract class TemporaryFaction
     protected City GetCityTarget()
     {
         if (TargetType != MetaType.City || TargetID < 0) return null;
-        return World.world.cities.get(TargetID);
+        City city = World.world?.cities?.get(TargetID);
+        return city?.data == null || city.isRekt() ? null : city;
     }   
     
     // 统一入口：设定“宗教目标”
     protected void SetReligionTarget(Religion k, string reason = "")
     {
-        var id = k?.getID() ?? -1L; // 一律用 base_id
+        var id = k?.data == null || k.isRekt() ? -1L : k.getID();
         TargetID = id;
         TargetType = MetaType.Religion;
     }
@@ -176,20 +182,22 @@ public abstract class TemporaryFaction
     protected Religion GetReligionTarget()
     {
         if (TargetType != MetaType.Religion || TargetID < 0) return null;
-        return World.world.religions.get(TargetID);
+        Religion religion = World.world?.religions?.get(TargetID);
+        return religion?.data == null || religion.isRekt() ? null : religion;
     }
     
     protected void SetActorTarget(Actor pActor)
     {
         this.TargetType = MetaType.Unit;
-        this.TargetID = pActor.getID();
+        this.TargetID = pActor?.data == null || pActor.isRekt() ? -1L : pActor.getID();
     }
 
     protected Actor GetActorTarget()
     {
         if (TargetType == MetaType.Unit)
         {
-            return World.world.units.get(TargetID);
+            Actor actor = World.world?.units?.get(TargetID);
+            return actor?.data == null || actor.isRekt() ? null : actor;
         }
 
         return null;
@@ -197,6 +205,7 @@ public abstract class TemporaryFaction
 
     protected bool TrySetTarget(Kingdom kingdom, string reason = "")
     {
+        if (kingdom?.data == null || kingdom.isRekt()) return false;
         if (!CanUseCrimeRestrictedTarget(kingdom?.king, kingdom))
         {
             return false;
@@ -208,6 +217,7 @@ public abstract class TemporaryFaction
 
     protected bool TrySetTarget(Actor actor)
     {
+        if (actor?.data == null || actor.isRekt()) return false;
         if (!CanUseCrimeRestrictedTarget(actor, actor?.kingdom))
         {
             return false;
@@ -219,6 +229,7 @@ public abstract class TemporaryFaction
 
     protected bool TrySetTarget(City city, string reason = "")
     {
+        if (city?.data == null || city.isRekt()) return false;
         Actor actor = city?.leader ?? city?.kingdom?.king;
         Kingdom kingdom = city?.kingdom;
         if (!CanUseCrimeRestrictedTarget(actor, kingdom))
@@ -232,6 +243,7 @@ public abstract class TemporaryFaction
 
     protected bool TrySetTarget(Religion religion, string reason = "")
     {
+        if (religion?.data == null || religion.isRekt()) return false;
         if (RequireCrimeTarget)
         {
             return false;
@@ -243,6 +255,7 @@ public abstract class TemporaryFaction
 
     protected bool TrySetTarget(KingdomTitle title, string reason = "")
     {
+        if (title?.data == null || title.isRekt()) return false;
         Kingdom kingdom = title?.title_capital?.kingdom;
         if (!CanUseCrimeRestrictedTarget(kingdom?.king, kingdom))
         {
@@ -441,6 +454,7 @@ public abstract class TemporaryFaction
         {
             bool shouldLogPreparing = !started;
             started = true;
+            CompletionOutcome = null;
             timestamp = World.world.getCurWorldTime();
             if (countDownTimestamp < 0)
             {

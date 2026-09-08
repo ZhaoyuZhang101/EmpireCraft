@@ -68,7 +68,7 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
                     if (identity == null) continue;
                     if (identity.performanceEvents == null) continue;
                     (PerformanceEvent pEvent, double pValue) performance = identity.performanceEvents.TriggerEvent(actor);
-                    actor.editRenown((int)(performance.pValue*0.4));
+                    actor.editRenown(ActorExtension.CalculateAnnualInfluenceGain(performance.pValue));
                     //记录事件
                     pData[actor] = performance.pValue;
                     identity.TotalPerformance += performance.pValue;

@@ -18,6 +18,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset powerful_minister_controls_court_log;
     public static WorldLogAsset powerful_minister_nine_bestowments_log;
     public static WorldLogAsset powerful_minister_usurpation_log;
+    public static WorldLogAsset empress_dowager_installs_son_log;
     public static WorldLogAsset powerful_minister_aquire_empire_war;
     public static WorldLogAsset restore_historcial_empire;
     public static WorldLogAsset empire_pianan;
@@ -30,6 +31,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset minister_try_aqcuire_empire_log;
     public static WorldLogAsset minister_aqcuire_empire_log;
     public static WorldLogAsset king_take_title_log;
+    public static WorldLogAsset tributary_title_granted_log;
     public static WorldLogAsset kingdom_change_main_title_log;
     public static WorldLogAsset change_city_name_log;
     public static WorldLogAsset change_kingdom_name_log;
@@ -59,6 +61,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset 官员品级调动;
     public static WorldLogAsset 成为朝贡国;
     public static WorldLogAsset 邀请入派系;
+    public static WorldLogAsset faction_leader_influence_local_kingdom_log;
     public static WorldLogAsset 追加罪行;
     public static WorldLogAsset officer_join_faction;
     public static WorldLogAsset officer_become_faction_leader;
@@ -70,6 +73,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset temporary_faction_success_log;
     public static WorldLogAsset temporary_faction_success_no_target_log;
     public static WorldLogAsset temporary_faction_success_crime_log;
+    public static WorldLogAsset temporary_faction_success_outcome_log;
     public static WorldLogAsset temporary_faction_failed_log;
     public static WorldLogAsset temporary_faction_failed_no_target_log;
     public static WorldLogAsset temporary_faction_failed_crime_log;
@@ -174,7 +178,7 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$religion$", 2);
             }
         });
-        join_religion_war_log = wl.add(new WorldLogAsset
+        join_rebellion_war_log = wl.add(new WorldLogAsset
         {
             id = nameof(join_rebellion_war_log),
             group = "emperors",
@@ -271,6 +275,19 @@ public static class EmpireCraftWorldLogLibrary
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$invitor$", 1);
+                wl.updateText(ref pText, pMessage, "$target$", 2);
+                wl.updateText(ref pText, pMessage, "$faction$", 3);
+            }
+        });
+        faction_leader_influence_local_kingdom_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(faction_leader_influence_local_kingdom_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
                 wl.updateText(ref pText, pMessage, "$target$", 2);
                 wl.updateText(ref pText, pMessage, "$faction$", 3);
             }
@@ -374,6 +391,19 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$target$", 1);
                 wl.updateText(ref pText, pMessage, "$crime$", 2);
                 wl.updateText(ref pText, pMessage, "$claim$", 3);
+            }
+        });
+        temporary_faction_success_outcome_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(temporary_faction_success_outcome_log),
+            group = "emperors",
+            path_icon = "EmperorQuest",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$claim$", 2);
+                wl.updateText(ref pText, pMessage, "$outcome$", 3);
             }
         });
         temporary_faction_failed_log = wl.add(new WorldLogAsset
@@ -770,6 +800,19 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$title_name$", 3);
             }
         });
+        tributary_title_granted_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(tributary_title_granted_log),
+            group = "emperors",
+            path_icon = "TitleAcquire.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$kingdom$", 2);
+                wl.updateText(ref pText, pMessage, "$title_name$", 3);
+            }
+        });
         kingdom_change_main_title_log = wl.add(new WorldLogAsset
         {
             id = nameof(kingdom_change_main_title_log),
@@ -944,6 +987,19 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$minister$", 1);
                 wl.updateText(ref pText, pMessage, "$old_empire$", 2);
                 wl.updateText(ref pText, pMessage, "$new_empire$", 3);
+            }
+        });
+        empress_dowager_installs_son_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(empress_dowager_installs_son_log),
+            group = "emperors",
+            path_icon = "ChineseCrown.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$dowager$", 1);
+                wl.updateText(ref pText, pMessage, "$deposed$", 2);
+                wl.updateText(ref pText, pMessage, "$son$", 3);
             }
         });
         restore_historcial_empire = wl.add(new WorldLogAsset

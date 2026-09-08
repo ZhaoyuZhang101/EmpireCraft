@@ -329,7 +329,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             {
                 return false;
             }
-            empire.join(pKingdom2);
+            empire.join(pKingdom2, pForce: true);
             result = true;
         }
         else

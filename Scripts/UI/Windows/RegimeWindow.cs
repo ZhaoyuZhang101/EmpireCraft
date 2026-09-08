@@ -79,6 +79,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
             optionButton.SetStatus(option==index);
             index++;
         }
+        RefreshKingdomStatus();
     }
 
 
@@ -94,6 +95,14 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
             _kingdom.GetRegime().options[option][0] = 0;
         }
         _toggleButtons[option].SetStatus(Convert.ToBoolean(_kingdom.GetRegime().options[option][0]));
+        RefreshKingdomStatus();
+    }
+
+    private void RefreshKingdomStatus()
+    {
+        if (_kingdom == null || _kingdom.isRekt()) return;
+        EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(_kingdom);
+        if (_regimeInput?.input != null) _regimeInput.input.text = _kingdom.data?.name ?? "";
     }
 
     private void Clear()
@@ -147,6 +156,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         }
         _kingdom.SetRegimeType(pType);
         _kingdom.LoadRegime();
+        RefreshKingdomStatus();
         foreach (var option in _kingdom.GetRegime().options)
         {
             if (option.Key.Contains("toggle_"))
@@ -169,6 +179,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     public void InitialTextInput()
     {
         _kingdom = SelectedMetas.selected_kingdom;
+        RefreshKingdomStatus();
         var text = _kingdom.name;
         UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset:new Vector2(0, 152), default_text:text, input:_regimeInput);
     }

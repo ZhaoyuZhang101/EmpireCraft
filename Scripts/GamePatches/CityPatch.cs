@@ -426,7 +426,7 @@ public class CityPatch : GamePatch
                 Empire empire = joinAfterCapture.GetEmpire();
                 if (__instance.isCapitalCity())
                 {
-                    __instance.kingdom.JoinTakenAlliance(empire);
+                    __instance.kingdom.JoinTakenAlliance(empire, pForce: true);
                     chaoGongWar.lostWar(__instance.kingdom);
                     return false;
                 }
@@ -834,6 +834,7 @@ public class CityPatch : GamePatch
             pHappinessEvent = "kingdom_fell_apart";
         }
         Kingdom pKingdom = __instance.kingdom;
+        Empire rebellionOrigin = pRebellion ? pKingdom?.GetEmpire() : null;
         __instance.removeFromCurrentKingdom();
         __instance.removeLeader();
         Kingdom kingdom = World.world.kingdoms.makeNewCivKingdom(pActor);
@@ -842,6 +843,7 @@ public class CityPatch : GamePatch
         __instance.switchedKingdom();
         kingdom.copyMetasFromOtherKingdom(pKingdom);
         kingdom.setCityMetas(__instance);
+        kingdom.RememberRebellionOrigin(rebellionOrigin);
         __result = kingdom;
         return false;
     }

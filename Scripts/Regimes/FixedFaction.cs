@@ -57,13 +57,19 @@ public static class FactionManager
                 new List<TemporaryFactionType>
                 {
                     TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘,
-                    TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一
+                    TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一,
+                    TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.颁布帝国治安令,
+                    TemporaryFactionType.争夺主教叙任权
                 }
             },
             {
                 FactionType.自治,
                 new List<TemporaryFactionType>
-                    { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战, TemporaryFactionType.索取皇位 }
+                {
+                    TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战,
+                    TemporaryFactionType.索取皇位, TemporaryFactionType.颁布金玺诏书,
+                    TemporaryFactionType.确认诸侯特权
+                }
             },
             {
                 FactionType.攘夷,
@@ -116,7 +122,8 @@ public static class FactionManager
                 {
                     TemporaryFactionType.宗教同化, TemporaryFactionType.划地给教廷,
                     TemporaryFactionType.恢复圣地, TemporaryFactionType.确立国教, TemporaryFactionType.神授君权,
-                    TemporaryFactionType.索取皇位
+                    TemporaryFactionType.索取皇位, TemporaryFactionType.颁布金玺诏书,
+                    TemporaryFactionType.争夺主教叙任权
                 }
             },
             {
@@ -218,6 +225,17 @@ public static class FactionManager
                 {
                     string text = File.ReadAllText(path);
                     Config = JsonConvert.DeserializeObject<PlayerFactionConfig>(text);
+                    if (Config?.PlayerRegimeFactions != null &&
+                        Config.PlayerRegimeFactions.TryGetValue(RegimeType.Feudalism, out List<FixedFaction> factions))
+                    {
+                        foreach (FixedFaction faction in factions)
+                        {
+                            if (faction != null && faction.ClaimCatalogVersion < FixedFaction.CurrentClaimCatalogVersion)
+                            {
+                                faction.MigrateFeudalClaimCatalog();
+                            }
+                        }
+                    }
                     return;
                 }
             }
@@ -258,6 +276,7 @@ public enum FactionType
 }
 public class FixedFaction
 {
+    public const int CurrentClaimCatalogVersion = 1;
     public string _id;
     public bool only_king;
     //特质需求（拥有该特质的人会更加倾向于加入此派系）
@@ -276,33 +295,20 @@ public class FixedFaction
     [JsonIgnore] 
     public Empire Empire => ModClass.EMPIRE_MANAGER.get(EmpireId);
     public List<long> Members = new();
-    [JsonIgnore] public List<Actor> AllMembers => Members.Select(id => World.world.units.get(id)).Where(actor=>!actor.isRekt()).ToList();
+    [JsonIgnore] public List<Actor> AllMembers => Members.Select(id => World.world.units.get(id))
+        .Where(actor => actor != null && !actor.isRekt()).ToList();
     [JsonIgnore]
     public int Count => Members.Count;
     [JsonIgnore]
-    public int TotalPower 
-    {
-        get 
-        {
-            Kingdom core = Empire?.CoreKingdom;
-            if (core == null || core.isRekt()) return 0;
-            // Local membership is retained, but only the central court contributes power.
-            return (int)Members.Sum(id =>
-            {
-                Actor actor = World.world.units.get(id);
-                if (actor == null || actor.isRekt() || actor.kingdom != core) return 0d;
-                OfficeObject office = actor.GetOffice();
-                if (actor != core.king && (office == null || office.is_local ||
-                    office.meta_object != core || office.actor_id != actor.id)) return 0d;
-                return actor.GetIdentity()?.TotalPerformance ?? 0d;
-            });
-        }
-    }
+    public int CentralRatio => Empire?.CoreKingdom?.GetFactionRatioValue(this) ?? 0;
+    [JsonIgnore]
+    public int TotalPower => CentralRatio;
     //倾向于推动的政策
     [JsonIgnore]
     public List<TemporaryFactionType> TemporaryFactionTypes => FactionManager.FactionConfig.TryGetValue(Type, out var tfList)? tfList : null;
     public List<TemporaryFactionType> TemporaryFactionTypesRecord;
     public List<TemporaryFaction> TemporaryFactions;
+    public int ClaimCatalogVersion;
     public long Leader = -1L;
     [JsonIgnore]
     public float LastJoinProb { get; private set; } // 记录最近一次计算结果(0~1)
@@ -334,7 +340,8 @@ public class FixedFaction
             EmpireId = EmpireId,
             Members = new (),
             Leader = -1L,
-            TemporaryFactionTypesRecord = new List<TemporaryFactionType>(TemporaryFactionTypes)
+            TemporaryFactionTypesRecord = new List<TemporaryFactionType>(TemporaryFactionTypes),
+            ClaimCatalogVersion = CurrentClaimCatalogVersion
         };
         TemporaryFactionTypesRecord = new List<TemporaryFactionType>(TemporaryFactionTypes);
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
@@ -356,7 +363,8 @@ public class FixedFaction
             Members = new (),
             Leader = -1L,
             TemporaryFactions = TemporaryFactions,
-            TemporaryFactionTypesRecord = TemporaryFactionTypesRecord
+            TemporaryFactionTypesRecord = TemporaryFactionTypesRecord,
+            ClaimCatalogVersion = ClaimCatalogVersion
         };
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
         newFaction.TemporaryFactions.ForEach(tf=>tf.Init(newFaction));
@@ -365,7 +373,13 @@ public class FixedFaction
 
     public void FixMissedTemporaryFactions()
     {
-        if (TemporaryFactions == null || TemporaryFactions.Count == 0 || TemporaryFactions.Any(tf => tf == null))
+        bool catalogChanged = false;
+        if (ClaimCatalogVersion < CurrentClaimCatalogVersion &&
+            Empire?.CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism)
+        {
+            catalogChanged = MigrateFeudalClaimCatalog();
+        }
+        if (catalogChanged || TemporaryFactions == null || TemporaryFactions.Count == 0 || TemporaryFactions.Any(tf => tf == null))
         {
             TemporaryFactions = ConvertToObjectFromFactionType();
             foreach (var tf in TemporaryFactions)
@@ -380,6 +394,41 @@ public class FixedFaction
                 tf.SetEmpire(Empire); // ← 始终把 EmpireId 等运行时信息灌进去
             }
         }
+    }
+
+    public bool MigrateFeudalClaimCatalog()
+    {
+        TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
+        IEnumerable<TemporaryFactionType> additions = Type switch
+        {
+            FactionType.中央 => new[]
+            {
+                TemporaryFactionType.恢复世袭皇权,
+                TemporaryFactionType.颁布帝国治安令,
+                TemporaryFactionType.争夺主教叙任权
+            },
+            FactionType.自治 => new[]
+            {
+                TemporaryFactionType.颁布金玺诏书,
+                TemporaryFactionType.确认诸侯特权
+            },
+            FactionType.神权 => new[]
+            {
+                TemporaryFactionType.颁布金玺诏书,
+                TemporaryFactionType.争夺主教叙任权
+            },
+            _ => Array.Empty<TemporaryFactionType>()
+        };
+
+        bool changed = false;
+        foreach (TemporaryFactionType addition in additions)
+        {
+            if (TemporaryFactionTypesRecord.Contains(addition)) continue;
+            TemporaryFactionTypesRecord.Add(addition);
+            changed = true;
+        }
+        ClaimCatalogVersion = CurrentClaimCatalogVersion;
+        return changed;
     }
     /// <summary>
     /// 将诉求类别转化为实例
@@ -434,9 +483,10 @@ public class FixedFaction
     }
     public void AddMember(Actor pActor)
     {
+        if (pActor == null || pActor.isRekt()) return;
         pActor.GetOrCreate().factionID = GetID();
-        Members.Add(pActor.id);
-        if (Members.Count == 1)
+        if (!Members.Contains(pActor.id)) Members.Add(pActor.id);
+        if (GetLeader() == null)
         {
             SetLeader(pActor);
         }
@@ -444,25 +494,45 @@ public class FixedFaction
 
     public void Update()
     {
-        if (GetLeader() == null)
+        if (Ban || Empire == null || Empire.isRekt() || Empire.IsArchived()) return;
+        Members ??= new List<long>();
+        Members.RemoveAll(id =>
         {
-            if (Members.Count > 0)
-            {
-                var best = Members
-                    .Select(id => new
-                    {
-                        Id   = id,
-                        Perf = World.world.units.get(id)?.GetIdentity()?.TotalPerformance ?? 0
-                    })
-                    .OrderByDescending(x => x.Perf)
-                    .FirstOrDefault();
+            Actor member = World.world.units.get(id);
+            return member == null || member.isRekt() || !member.isAlive() || member.kingdom?.GetEmpire() != Empire ||
+                   member.GetFaction() != this;
+        });
 
-                if (best != null)
-                {
-                    SetLeader(id: best.Id);
-                }
-            }
+        if (GetLeader() != null) return;
+        Actor candidate = Members.Select(id => World.world.units.get(id))
+            .Where(IsEligibleLeader)
+            .OrderByDescending(actor => actor.data?.renown ?? 0)
+            .ThenByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? 0d)
+            .FirstOrDefault();
+        candidate ??= Empire.getUnits().Where(actor => IsEligibleLeader(actor) && !actor.HasFaction() &&
+                actor.IsOnOffice() && actor.HasOfficeIdentity())
+            .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+        candidate ??= Empire.getUnits().Where(actor => IsEligibleLeader(actor) && !actor.HasFaction())
+            .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+        if (candidate == null) return;
+        if (candidate.GetFaction() != this) candidate.SetFaction(this);
+        else SetLeader(candidate);
+    }
+
+    private bool IsEligibleLeader(Actor actor)
+    {
+        return actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
+               actor != Empire?.Emperor && actor.kingdom?.GetEmpire() == Empire;
+    }
+
+    public Actor GetLeader()
+    {
+        Actor leader = World.world.units.get(Leader);
+        if (!IsEligibleLeader(leader) || Members?.Contains(Leader) != true || leader.GetFaction() != this)
+        {
+            return null;
         }
+        return leader;
     }
 
     public void BanFaction()
@@ -493,7 +563,14 @@ public class FixedFaction
     public void SetLeader(Actor pActor=null, long id=-1L)
     {
         long newLeaderId = pActor?.id ?? id;
-        if (newLeaderId <= 0 || Leader == newLeaderId) return;
+        Actor newLeader = pActor ?? World.world.units.get(newLeaderId);
+        if (newLeaderId <= 0 || !IsEligibleLeader(newLeader)) return;
+        if (newLeader.GetFaction() != this)
+        {
+            newLeader.SetFaction(this);
+            if (Leader == newLeaderId) return;
+        }
+        if (Leader == newLeaderId) return;
         Leader = newLeaderId;
         if (!Members.Contains(newLeaderId))
         {
@@ -506,11 +583,6 @@ public class FixedFaction
             TranslateHelper.LogOfficerBecomeFactionLeader(leader,this);
             leader.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_faction_leader"), Name));
         }
-    }
-
-    public Actor GetLeader()
-    {
-        return World.world.units.get(Leader);
     }
 
     public void RemoveLeader()

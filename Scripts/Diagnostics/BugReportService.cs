@@ -28,7 +28,7 @@ public sealed class BugReportSendResult
 
 public static class BugReportService
 {
-    public const string Recipient = "EmpireCraft developer";
+    public const string Recipient = "zhangzhaoyu101@gmail.com";
 
     // Primary first, workers.dev fallback second.
     // If the primary endpoint fails, the same report is automatically

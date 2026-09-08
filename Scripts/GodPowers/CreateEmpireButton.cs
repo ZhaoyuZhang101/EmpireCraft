@@ -123,7 +123,7 @@ internal static class CreateEmpireButton
         {
             return;
         }
-        empire.join(JoinKingdom);
+        empire.join(JoinKingdom, pForce: true);
         
     }
 }

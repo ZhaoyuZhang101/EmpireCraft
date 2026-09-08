@@ -30,10 +30,6 @@ public class EmpireCraftKingdomBehCheckTax : GameAIKingdomBase
             if (empire != null && !empire.isRekt() && !empire.IsArchived())
             {
                 pEmpireKingdom = empire.CoreKingdom;
-                if (pKingdom == pEmpireKingdom)
-                {
-                    CheckFactionInfluence(pKingdom);
-                }
             }
         }
         int money = pKingdom.GetMoney();
@@ -71,18 +67,4 @@ public class EmpireCraftKingdomBehCheckTax : GameAIKingdomBase
         return BehResult.Continue;
     }
 
-    public void CheckFactionInfluence(Kingdom pkingdom)
-    {
-        Empire empire = pkingdom?.GetEmpire();
-        if (empire == null || empire.isRekt() || empire.IsArchived() || empire.CoreKingdom != pkingdom) return;
-        if (!pkingdom.hasKing()) return;
-        var king = pkingdom.king;
-        if (king.isRekt()) return;
-        if (!king.HasFaction()) return;
-        var faction = king.GetFaction();
-        if (faction == null) return;
-        if (king.data.renown < 10) return;
-        king.data.renown -= 10;
-        pkingdom.TryIncreaseFactionRatio(faction, 1);
-    }
 }

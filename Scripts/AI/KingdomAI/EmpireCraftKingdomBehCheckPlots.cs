@@ -52,17 +52,20 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         Actor minister = empire.GetPowerfulMinister();
         if (minister == null || minister.isRekt() || minister.plot?.isActive() == true) return;
 
-        string plotId = empire.CanPowerfulMinisterUsurp(minister)
-            ? "minister_acquire_empire"
-            : empire.CanPowerfulMinisterReceiveNineBestowments(minister)
-                ? "minister_receive_nine_bestowments"
-                : empire.CanPowerfulMinisterSeekDukedom(minister)
-                    ? "minister_acquire_title"
-                    : null;
+        string plotId = empire.CanEmpressDowagerInstallSon(minister)
+            ? "empress_dowager_install_son"
+            : empire.CanPowerfulMinisterUsurp(minister)
+                ? "minister_acquire_empire"
+                : empire.CanPowerfulMinisterReceiveNineBestowments(minister)
+                    ? "minister_receive_nine_bestowments"
+                    : empire.CanPowerfulMinisterSeekDukedom(minister)
+                        ? "minister_acquire_title"
+                        : null;
         if (plotId == null) return;
 
-        PlotAsset plot = AssetManager.plots_library.basic_plots.Find(asset => asset.id == plotId);
-        if (plot?.try_to_start_advanced(minister, plot, true) == true)
+        PlotAsset plot = AssetManager.plots_library?.basic_plots?.Find(asset => asset?.id == plotId);
+        if (plot?.try_to_start_advanced == null) return;
+        if (plot.try_to_start_advanced(minister, plot, true))
         {
             EmpireCraftDebugProbe.Hit("powerful_minister.plot_started", () =>
                 $"empire={empire.GetEmpireFullName()}({empire.id}), minister={minister.getName()}" +
@@ -71,18 +74,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     }
     public void CheckMainTitle(Kingdom pKingdom)
     {
-        if (pKingdom.HasMainTitle())
-        {
-            return;
-        }
-        if (pKingdom.hasKing())
-        {
-            var king = pKingdom.king;
-            if (king.GetOwnedTitle()?.Contains(pKingdom.capital.GetTitleID())??false)
-            {
-                pKingdom.SetMainTitle(pKingdom.capital.GetTitle());
-            }
-        }
+        pKingdom.ReconcileMainTitle();
     }
     public void CheckProgress(Kingdom pKingdom)
     {

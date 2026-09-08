@@ -35,6 +35,8 @@ public class EmpireCraftActorCheckOffice:GameAIActorBase
                 if (mainTitle.owner.isRekt())
                 {
                     pActor.AddOwnedTitle(mainTitle);
+                    (pActor.kingdom.GetEmpire() ?? pActor.kingdom.GetTakenAllianceEmpire())?
+                        .SynchronizeLandedLegalTitles(pActor.kingdom);
                 }
             }
         }
