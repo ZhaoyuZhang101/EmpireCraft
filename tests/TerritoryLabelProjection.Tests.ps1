@@ -36,4 +36,6 @@ Assert-True (!$renderer.Contains('_text.fontSize = fittedSize')) 'Zoom still reb
 Assert-True ($renderer.Contains('label.RenderSubmitted();')) 'Late camera projection not wired'
 Assert-True ($renderer.Contains('overlayCanvas.overridePixelPerfect = true;')) 'Overlay still inherits pixel snapping'
 Assert-True ($renderer.Contains('GeometryRefreshInterval = 0.75f;')) 'Territory cache refresh unexpectedly changed'
-Write-Output '5 renderer wiring checks passed; Unity rendering is not exercised by this test.'
+Assert-True (($renderer | Select-String -Pattern 'territory_padding = 0\.94f' -AllMatches).Matches.Count -ge 2) `
+    'Empire labels no longer use their larger safe territory footprint'
+Write-Output '6 renderer wiring checks passed; Unity rendering is not exercised by this test.'

@@ -31,7 +31,7 @@ public static class OfficeSelector
                 actor = TryGetClanOfficer(pKingdom)??TryGetProfessionOfficer(pKingdom);
                 break;
             case LeaderSelectMethod.Vote:
-                actor = TryGetProfessionOfficer(pKingdom);
+                actor = TryGetFeudalElectiveRuler(office, pKingdom) ?? TryGetProfessionOfficer(pKingdom);
                 break;
             case LeaderSelectMethod.Army:
                 actor = TryGetStrongerLeader(office, pKingdom)??TryGetProfessionOfficer(pKingdom);
@@ -102,6 +102,32 @@ public static class OfficeSelector
 
         return null;
     }
+    private static Actor TryGetFeudalElectiveRuler(OfficeObject office, Kingdom pKingdom)
+    {
+        if (office == null || pKingdom == null || !pKingdom.IsEmpire() ||
+            pKingdom.GetRegime()?.type != RegimeType.Feudalism || office != pKingdom.GetOffice())
+        {
+            return null;
+        }
+
+        Empire empire = pKingdom.GetEmpire();
+        if (empire == null) return null;
+        List<Actor> electors = empire.GetCabinetMembers()
+            .Where(elector => elector != null && !elector.isRekt())
+            .ToList();
+
+        return empire.kingdoms_list
+            .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom != pKingdom && kingdom.hasKing())
+            .Select(kingdom => kingdom.king)
+            .Where(candidate => candidate != null && !candidate.isRekt() && candidate.isAdult() &&
+                                candidate.isUnitFitToRule() && candidate.CanServeOffice(pKingdom) &&
+                                !candidate.IsSkeleton())
+            .OrderByDescending(candidate => electors.Count(elector => elector.GetFaction() == candidate.GetFaction()))
+            .ThenByDescending(candidate => candidate.renown)
+            .ThenByDescending(candidate => candidate.kingdom?.countTotalWarriors() ?? 0)
+            .FirstOrDefault();
+    }
+
     private static Actor TryGetStrongerLeader(OfficeObject pOffice, Kingdom pKingdom)
     {
         if (pOffice.meta_object.isRekt()) return null;

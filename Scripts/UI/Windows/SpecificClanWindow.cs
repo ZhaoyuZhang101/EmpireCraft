@@ -163,7 +163,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
             AutoVertLayoutGroup avatarLayout = row.BeginVertGroup(new Vector2(24, 24), pSpacing: 0,
                 pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
             SimpleButton avatar = UIHelper.CreateAvatarView(identity.actor_id,
-                () => ShowRelatedPersonHistory(identity), pIsAlive: identity.is_alive);
+                () => ShowRelatedPersonHistory(identity), pIsAlive: identity.is_alive, pIdentity: identity);
             avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 24);
             avatarLayout.AddChild(avatar.gameObject);
             avatarLayout.transform.localPosition = Vector3.zero;
@@ -531,7 +531,8 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         //右边头像
         AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:12, pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
         
-        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, () => ChangeActor(actor), pIsAlive:actor.is_alive);
+        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, () => ChangeActor(actor),
+            pIsAlive:actor.is_alive, pIdentity:actor);
         avatarLayoutGroup.AddChild(clickframe.gameObject);
         avatarLayoutGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(avatarLayoutGroup.gameObject);
@@ -582,7 +583,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         backToMain.Setup(refreshAll, null, LM.Get("i_back_to_main"), new Vector2(20,10));
 
 
-        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, pIsAlive:actor.is_alive);
+        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, pIsAlive:actor.is_alive, pIdentity:actor);
 
         avatarLayoutGroup.AddChild(backToMain.gameObject);
         avatarLayoutGroup.AddChild(clickframe.gameObject);

@@ -55,6 +55,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     [Hotfixable]
     public void InitialTopPart()
     {
+        _faction?.Update();
         if (topPart)
         {
             Destroy(topPart.gameObject);
@@ -64,7 +65,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         infoPart.AddActorViewIntoHoriLayout(_faction.GetLeader());
         var leftPart = infoPart.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
         leftPart.AddTextIntoVertLayout($"{LM.Get("label_member_count")}: "+_faction.Count);
-        leftPart.AddTextIntoVertLayout($"{LM.Get("label_total_power")}: "+_faction.TotalPower);
+        leftPart.AddTextIntoVertLayout($"{LM.Get("label_central_ratio")}: {_faction.CentralRatio}%");
         var rightPart = infoPart.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         rightPart.AddButtonIntoHoriLayout("recover_tfaction", icon: SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(15, 15), showTip:true, action:
             () =>

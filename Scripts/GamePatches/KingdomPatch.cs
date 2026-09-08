@@ -18,6 +18,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -38,6 +39,7 @@ public class KingdomPatch : GamePatch
         );       
         new Harmony(nameof(new_emperor)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.setKing)),
+            prefix: new HarmonyMethod(GetType(), nameof(before_new_emperor)),
             postfix: new HarmonyMethod(GetType(), nameof(new_emperor))
         );           
         new Harmony(nameof(emperor_left)).Patch(
@@ -79,13 +81,15 @@ public class KingdomPatch : GamePatch
         {
             return;
         }
-        if (__instance.HasMainTitle())
+        KingdomExtraData extraData = __instance.GetOrCreate();
+        KingdomTitle mainTitle = ModClass.KINGDOM_TITLE_MANAGER.get(extraData.MainTitle);
+        if (mainTitle != null)
         {
-            if (__instance.GetMainTitle() != null)
-            {
-                __instance.GetMainTitle().main_kingdom = null;
-            }
+            mainTitle.EndJurisdiction(__instance, KingdomTitle.JurisdictionHolder);
+            if (mainTitle.main_kingdom == __instance) mainTitle.main_kingdom = null;
         }
+        KingdomTitle administrativeTitle = ModClass.KINGDOM_TITLE_MANAGER.get(extraData.AdministrativeTitle);
+        administrativeTitle?.EndJurisdiction(__instance, KingdomTitle.JurisdictionAdministration);
         if (__instance.HasGivenAlliance())
         {
             __instance.RemoveGivenAlliance();
@@ -105,25 +109,37 @@ public class KingdomPatch : GamePatch
         {
             pActor.CheckSpecificClan();
             __instance.SetSpecificClan(pActor.GetSpecificClan());
+            __instance.TransferRealmTitlesToRuler(pActor);
+            (__instance.GetEmpire() ?? __instance.GetTakenAllianceEmpire())?
+                .SynchronizeLandedLegalTitles(__instance);
             foreach (var kt in ModClass.KINGDOM_TITLE_MANAGER)
             {
                 if (kt.main_kingdom == __instance)
                 {
-                    pActor.AddOwnedTitle(kt);
+                    if (kt.owner != pActor) pActor.AddOwnedTitle(kt);
                 }
             }
 
-            if (__instance.HasMainTitle())
+            Regime regime = __instance.GetRegime();
+            if (regime?.type == RegimeType.Feudalism)
+            {
+                KingdomType kingdomType = EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(__instance);
+                if (WesternPeerageRules.TryGetRulerLevel(kingdomType, out PeeragesLevel level))
+                {
+                    pActor.SetPeeragesLevel(level);
+                }
+            }
+            else if (__instance.HasMainTitle())
             {
                 if (__instance.IsInEmpire() && !__instance.IsEmpire())
                 {
-                    if (pActor.clan == __instance.GetEmpire().EmpireClan)
-                    {
-                        pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_1);
-                    } else
-                    {
-                        pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_2);
-                    }
+                    Empire localEmpire = __instance.GetEmpire();
+                    bool isImperialClan = pActor.GetSpecificClan() != null &&
+                                           pActor.GetSpecificClan() == localEmpire?.EmpireSpecificClan;
+                    pActor.SetPeeragesLevel(isImperialClan
+                        ? Enums.PeeragesLevel.peerages_2
+                        : Enums.PeeragesLevel.peerages_3);
+                    localEmpire?.SynchronizeLandedLegalTitles(__instance);
 
                 } else if (!__instance.IsInEmpire())
                 {
@@ -144,11 +160,19 @@ public class KingdomPatch : GamePatch
         }
     }
 
+    public static void before_new_emperor(Kingdom __instance)
+    {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        if (ModClass.IS_CLEAR || __instance == null) return;
+        __instance.SyncRealmTitlesFromRuler(__instance.king);
+    }
+
     public static void emperor_left(Kingdom __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (ModClass.IS_CLEAR) return;
         Actor king = __instance.king;
+        __instance.SyncRealmTitlesFromRuler(king);
         if (__instance.HasMainCrime()) __instance.RemoveMainCrime();
         if (king != null && king.HasOfficeIdentity())
         {
@@ -164,6 +188,7 @@ public class KingdomPatch : GamePatch
     public static void NewCivKingdom(Kingdom __instance, Actor pActor)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        __instance.RememberInitialRandomKingdomName();
         __instance.SetLevel(4);
         __instance.SetEmpireID(-1L);
         var culture = ConfigData.speciesCulturePair.TryGetValue(pActor.asset.id, out string speciesCulture)? speciesCulture : "Western";

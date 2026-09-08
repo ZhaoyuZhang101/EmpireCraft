@@ -175,13 +175,24 @@ public static class DataManager
         LogService.LogInfo("Sync history Data");
         ModClass.ALL_HISTORY_DATA = saveData.all_history ?? new Dictionary<long, List<EmpireCraftHistory>>();
         PlayerConfig.dict["switch_real_num"].boolVal = saveData.switch_real_num;
-        if (isOldSave)
+        ModClass.REAL_NUM_SWITCH = saveData.switch_real_num;
+        if (PlayerConfig.dict.TryGetValue("switch_simple_nameplate", out PlayerOptionData simpleNameplateOption))
         {
-            foreach (var worldKingdom in World.world.kingdoms)
+            simpleNameplateOption.boolVal = saveData.switch_simple_nameplate;
+        }
+        ModClass.SIMPLE_NAMEPLATE_SWITCH = saveData.switch_simple_nameplate;
+        foreach (var worldKingdom in World.world.kingdoms)
+        {
+            if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(worldKingdom)) continue;
+            if (isOldSave)
             {
                 worldKingdom.InitialRegime();
-                EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
             }
+            worldKingdom.SyncRealmTitlesFromRuler();
+            if (worldKingdom.hasKing()) worldKingdom.TransferRealmTitlesToRuler(worldKingdom.king);
+            worldKingdom.ReconcileMainTitle();
+            worldKingdom.GetInitialRandomKingdomName();
+            EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
         }
     }
     public static void SaveAll(string saveRootPath)
@@ -238,6 +249,7 @@ public static class DataManager
         saveData.all_history = ModClass.ALL_HISTORY_DATA;
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
+        saveData.switch_simple_nameplate = ModClass.SIMPLE_NAMEPLATE_SWITCH;
         string json = JsonConvert.SerializeObject(saveData, Formatting.Indented);
         LogService.LogInfo("" + saveData.actorsExtraData.Count());
         LogService.LogInfo("" + saveData.warExtraData.Count());

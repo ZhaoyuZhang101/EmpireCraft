@@ -29,6 +29,8 @@ public class TempFac_恢复圣地 : TemporaryFaction
             empire.join(kingdom, pForce:true);
             kingdom.SetMainTitle(city.GetTitle());
             kingdom.king.AddOwnedTitle(city.GetTitle());
+            kingdom.ReconcileMainTitle(new[] { city.GetTitle() });
+            empire.SynchronizeLandedLegalTitles(kingdom);
             kingdom.GetRegime().SetReligionLevel(ReligionLevel.High);
         }
         End();

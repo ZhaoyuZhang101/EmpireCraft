@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using NeoModLoader.General.UI.Window;
@@ -81,12 +82,12 @@ namespace EmpireCraft.Scripts.UI.Windows
             bool expanded = object.ReferenceEquals(_expandedHistory, history);
             var card = parent.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(196, 34));
             Actor actor = history.id > 0 ? World.world.units.get(history.id) : null;
-            PersonalClanIdentity identity = FindHistoryIdentity(history.id);
+            PersonalClanIdentity identity = FindHistoryIdentity(history.id, history.emperor);
             bool isAlive = identity?.is_alive ?? (actor != null && actor.isAlive());
             var avatarLayout = card.BeginVertGroup(new Vector2(28, 28), pSpacing: 0,
                 pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
             var avatar = UIHelper.CreateAvatarView(history.id, actor == null ? null : () => UIHelper.actorClick(actor),
-                pIsAlive: isAlive);
+                pIsAlive: isAlive, pIdentity: identity);
             avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(28, 28);
             avatarLayout.AddChild(avatar.gameObject);
             avatarLayout.transform.localPosition = Vector3.zero;
@@ -119,14 +120,20 @@ namespace EmpireCraft.Scripts.UI.Windows
             AddExpandedHistoryDetails(parent, history);
         }
 
-        private static PersonalClanIdentity FindHistoryIdentity(long actorId)
+        private static PersonalClanIdentity FindHistoryIdentity(long actorId, string actorName = null)
         {
-            if (actorId <= 0) return null;
-            foreach (PersonalClanIdentity identity in SpecificClanManager._globalPersonLookup.Values)
+            if (actorId > 0)
             {
-                if (identity.actor_id == actorId) return identity;
+                foreach (PersonalClanIdentity identity in SpecificClanManager._globalPersonLookup.Values)
+                {
+                    if (identity.actor_id == actorId) return identity;
+                }
             }
-            return null;
+            if (string.IsNullOrWhiteSpace(actorName)) return null;
+            List<PersonalClanIdentity> legacyMatches = SpecificClanManager._globalPersonLookup.Values
+                .Where(identity => identity != null && !identity.is_alive && identity.actor_id <= 0 &&
+                    identity.name == actorName).Take(2).ToList();
+            return legacyMatches.Count == 1 ? legacyMatches[0] : null;
         }
 
         private void AddHistoryCardClickLayer(AutoHoriLayoutGroup card, EmpireCraftHistory history)

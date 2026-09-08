@@ -878,10 +878,16 @@ public class PersonalClanIdentity
     public string educationLevel = "";
     public string culture = "";
     public string officeName = "";
+    public string fullOfficeName = "";
+    public string clanName = "";
+    public string familyName = "";
+    public string factionName = "";
+    public List<string> ownedTitleNames = new List<string>();
     public string name { get; set; }
     [JsonIgnore]
     public SpecificClan _specificClan => SpecificClanManager.Get(specific_clan_id);
     public ActorSex sex { get; set; }
+    public int recordedAge { get; set; } = -1;
     public string birthday { get; set; }
     public string deathday { get; set; }
     public string species { get; set; }
@@ -892,7 +898,14 @@ public class PersonalClanIdentity
     public bool is_concubine {  get; set; } = false; //是否是小妾/男宠（当小妾/男宠无自身宗族时，会加入丈夫/妻子氏族并标记为小妾/男宠身份）
     public bool is_main { get; set; } = true; //在婚姻关系中是否为主要角色（对于爱人来说是嫁/入赘，还是娶/招亲）
     [JsonIgnore]
-    public int age => is_alive?_actor.getAge():0;
+    public int age
+    {
+        get
+        {
+            Actor actor = _actor;
+            return is_alive && actor != null ? actor.getAge() : recordedAge;
+        }
+    }
     [JsonIgnore] public string isMainText => hasLover()?(is_main ? "i_first" : "i_second"):"i_none_lover";
     public int generation { get; set; }
     public long mother { get; set; } = -1L; //母亲
@@ -918,6 +931,7 @@ public class PersonalClanIdentity
         name = a.getName();
         birthday = a.getBirthday();
         sex = a.data.sex;
+        recordedAge = a.getAge();
         species = a.asset.id;
         is_main = true;
         culture = ConfigData.speciesCulturePair.TryGetValue(species, out string culturePair)? culturePair:"Western";
@@ -933,6 +947,7 @@ public class PersonalClanIdentity
         culture = ConfigData.speciesCulturePair.TryGetValue(species, out string culturePair)? culturePair:"Western";
         Actor actor = _actor;
         if (actor == null) return;
+        recordedAge = actor.getAge();
         OfficeIdentity identity = null;
         if (actor.hasCity())
         {
@@ -949,7 +964,16 @@ public class PersonalClanIdentity
         if (actor.GetOffice() != null)
         {
             officeName = actor.GetOffice().GetOfficeName();
+            fullOfficeName = actor.GetOffice().GetName(actor.GetOffice().meta_object);
         }
+        clanName = actor.hasClan() ? actor.clan.data.name : "";
+        familyName = actor.hasFamily() ? actor.family.data.name : "";
+        factionName = actor.GetFaction()?.Name ?? "";
+        ownedTitleNames = (actor.GetOwnedTitle() ?? new List<long>())
+            .Select(titleId => ModClass.KINGDOM_TITLE_MANAGER.get(titleId)?.data?.name)
+            .Where(titleName => !string.IsNullOrWhiteSpace(titleName))
+            .Distinct()
+            .ToList();
         educationLevel = (actor.hasTrait("jingshi") ? "trait_jingshi" : "") +"/" +(actor.hasTrait("gongshi") ? "trait_gongshi" : "") +"/"+ (actor.hasTrait("juren")?"trait_juren":"");
         PeeragesLevel = string.Join("_", culture, actor.GetPeeragesLevel().ToString());
     }

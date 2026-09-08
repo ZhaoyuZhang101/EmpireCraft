@@ -95,12 +95,14 @@ public class EmpireData : MetaObjectData
     public Dictionary<long, long> legal_peerage_holders { get; set; } = new Dictionary<long, long>();
     public Dictionary<long, long> legal_peerage_holder_identities { get; set; } = new Dictionary<long, long>();
     public Dictionary<long, string> legal_peerage_types { get; set; } = new Dictionary<long, string>();
+    public Dictionary<long, long> legal_peerage_kingdoms { get; set; } = new Dictionary<long, long>();
     [DefaultValue(-1L)]
     public long powerful_minister_id { get; set; } = -1L;
     public int powerful_minister_progress { get; set; } = 0;
     public int powerful_minister_stage { get; set; } = 0;
     public bool powerful_minister_is_regent { get; set; } = false;
     public bool powerful_minister_is_empress_dowager { get; set; } = false;
+    public bool powerful_minister_is_former_empress { get; set; } = false;
     [DefaultValue(-1L)]
     public long powerful_minister_title_id { get; set; } = -1L;
     public double last_powerful_minister_timestamp { get; set; } = -1L;
@@ -115,6 +117,11 @@ public class EmpireData : MetaObjectData
     public int cached_warriors { get; set; } = 0;
     public int cached_warriors_max { get; set; } = 0;
     public double last_cached_timestamp { get; set; } = -1L;
+    public int annual_power_population { get; set; } = 0;
+    public int annual_power_military { get; set; } = 0;
+    public int annual_power_economy { get; set; } = 0;
+    public double annual_power_index { get; set; } = 0d;
+    public double last_national_power_timestamp { get; set; } = -1L;
 }
 
 public enum RoyalFeedLevel

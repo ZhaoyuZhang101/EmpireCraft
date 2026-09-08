@@ -125,7 +125,7 @@
     "hunter":"猎人",
     "woodcutter": "伐木工人",
     "miner":"矿工",
-    "miner_deposit": "",
+    "miner_deposit": "矿藏工人",
     "road_builder":"修路工人",
     "cleaner": "清洁工人",
     "manure_cleaner":"粪便清理工人",
@@ -358,6 +358,8 @@
     "i_none_lover": "<color=#FFD700>未婚</color>",
     "real_num": "拟真人口数字",
     "real_num_description": "将显示的人口数字乘以1000",
+    "simple_nameplate": "简易铭牌",
+    "simple_nameplate_description": "地图上的帝国与王国铭牌不显示国家后缀，但保留方位词和正式国名数据",
 
     "past_emperors": "君主世系",
     "empire_list_window": "帝国列表",
@@ -637,6 +639,13 @@
 
     "history_new_empire": "$actor$ 在 $place$ 称帝，定国号 $name$，定都 $place$",
     "history_new_empire_west": "$actor$ 在 $place$ 加冕为 $name$ 的皇帝",
+    "history_empire_name_selected": "{0}以{1}为依据，定国号为{2}。",
+    "empire_name_source_main_title": "王国主法理“{0}”",
+    "empire_name_source_ancestral_empire": "先祖沿用的帝国国号“{0}”",
+    "empire_name_source_ancestral_title": "先祖爵位“{0}”",
+    "empire_name_source_owned_title": "君主首要爵位“{0}”",
+    "empire_name_source_empire_core": "所继承的帝国核心“{0}”",
+    "empire_name_source_kingdom_name": "称帝前的王国国名“{0}”",
     "history_new_emperor": "$actor$ 在 $place$ 登基, 年号 $year_name$",
     "history_new_emperor_west": "$actor$ 在 $place$ 加冕为皇帝",
     "history_powerful_minister": "$title$ $actor$ 把持了朝政, $actor2$ 沦为了傀儡",
@@ -717,19 +726,19 @@
     "option_tax_level1": "低",
     "option_tax_level2": "中",
     "option_tax_level3": "高",
-    "option_tax_level0_description": "",
-    "option_tax_level1_description": "",
-    "option_tax_level2_description": "",
-    "option_tax_level3_description": "",
+    "option_tax_level0_description": "该政权不向中央缴纳税款",
+    "option_tax_level1_description": "较低税负能减轻地方负担，但中央收入较少",
+    "option_tax_level2_description": "地方负担与中央收入保持均衡",
+    "option_tax_level3_description": "中央获得更多收入，但地方负担与不满也会增加",
 
     "option_leader_select_method": "继承制度",
 
     "option_leader_select_method0": "氏族继承",
     "option_leader_select_method1": "官员选拔",
     "option_leader_select_method2": "票选",
-    "option_leader_select_method0_description": "",
-    "option_leader_select_method1_description": "",
-    "option_leader_select_method2_description": "",
+    "option_leader_select_method0_description": "统治权依照当前继承顺序在统治氏族内传承",
+    "option_leader_select_method1_description": "从符合条件的官员中选拔下一任统治者",
+    "option_leader_select_method2_description": "通过票选决定下一任统治者",
 
     "option_religion_type": "宗教等级",
 
@@ -737,10 +746,10 @@
     "option_religion_type1": "低",
     "option_religion_type2": "中",
     "option_religion_type3": "高",
-    "option_religion_type0_description": "",
-    "option_religion_type1_description": "",
-    "option_religion_type2_description": "",
-    "option_religion_type3_description": "",
+    "option_religion_type0_description": "不设国教，各宗教可自由传播",
+    "option_religion_type1_description": "设有国教，但允许其他宗教存在",
+    "option_religion_type2_description": "优待国教并限制其他宗教",
+    "option_religion_type3_description": "政教合一，强力压制其他宗教",
     "office_config_title": "官位配置",
     "office_tab_armies": "军队",
     "office_tab_kingdoms": "国家",
@@ -920,6 +929,24 @@
     ,"empire_core_history_duration":"延续时间"
     ,"empire_core_history_emperors":"历任皇帝"
     ,"empire_core_none":"无"
+    ,"kingdom_title_capital":"法理首府"
+    ,"kingdom_title_cities":"所属城市"
+    ,"kingdom_title_zones":"领地区块"
+    ,"kingdom_title_current_relations":"当前归属"
+    ,"kingdom_title_holder":"法理持有者"
+    ,"kingdom_title_landed_holder":"法理封王"
+    ,"kingdom_title_unlanded_holder":"无地法理持有者"
+    ,"kingdom_title_administration":"授权行政区"
+    ,"kingdom_title_administrator":"授权管理者"
+    ,"kingdom_title_no_administration":"尚未授权"
+    ,"kingdom_title_details":"详情"
+    ,"kingdom_title_controller":"实际控制国"
+    ,"kingdom_title_history":"历代国家与行政区"
+    ,"kingdom_title_history_holder":"法理封国"
+    ,"kingdom_title_history_administration":"行政区"
+    ,"kingdom_title_history_founder":"创建国家"
+    ,"kingdom_title_unknown_date":"年代不详"
+    ,"kingdom_title_current":"至今"
     ,"label_none":"无"
     ,"label_no_royal_clan":"无皇室"
     ,"label_treasury":"国库"
@@ -927,7 +954,7 @@
     ,"label_dominant_faction":"主导派系"
     ,"label_claim":"诉求"
     ,"label_member_count":"成员数量"
-    ,"label_total_power":"势力"
+    ,"label_total_power":"势力", "label_central_ratio":"中央占比"
     ,"label_required_traits":"所需特质"
     ,"label_all_members":"全部成员"
     ,"label_name":"姓名"
@@ -943,13 +970,6 @@
     ,"label_corruption":"腐败值"
     ,"action_add_performance":"增加绩效"
     ,"action_sub_performance":"减少绩效"
-    ,"Arabic_caliphate":"哈里发国", "Arabic_emirate":"埃米尔国", "Arabic_province":"行省", "Arabic_sultanate":"苏丹国"
-    ,"Feudalism_county":"伯国", "Feudalism_duchy":"公国", "Feudalism_empire":"帝国", "Feudalism_grand_duchy":"大公国", "Feudalism_kingdom":"王国", "Feudalism_march":"边区", "Feudalism_papal_state":"教宗国"
-    ,"LvLing_centre":"中央", "LvLing_jiedushi":"军府", "LvLing_jimizhou":"羁縻州", "LvLing_kingdom":"国", "LvLing_province":"道"
-    ,"Modern_autonomous_prefecture":"自治区", "Modern_centre":"中央", "Modern_province":"省", "Modern_state":"州"
-    ,"Origin_centre":"中央", "Origin_kingdom":"王国", "YouMu_bu":"部", "YouMu_centre":"王庭", "YouMu_kingdom":"汗国"
-    ,"ZhouFeudalism_bo":"伯国", "ZhouFeudalism_empire":"天子之国", "ZhouFeudalism_gong":"公国", "ZhouFeudalism_hou":"侯国", "ZhouFeudalism_zi":"子国", "default_country_post":"国家"
-    ,"Arabic_city":"城市", "Feudalism_city":"城市", "Feudalism_dirC":"直辖市", "Feudalism_religion_district":"教区", "LvLing_city":"城", "Modern_city":"市", "Origin_city":"聚落", "YouMu_city":"营地", "ZhouFeudalism_city":"邑"
     ,"empire_virtual_peerages":"封爵册", "empire_virtual_peerages_description":"查看法理封爵与恩赏封爵；虚封不移交土地或法理所有权。"
     ,"empire_bureau_offices":"官僚机构", "empire_bureau_offices_description":"返回内阁、中央部门与地方官员页面。"
     ,"specific_clan_relations":"亲属关系", "specific_clan_relations_description":"返回当前人物的亲属关系页面。", "specific_clan_history":"个人历史", "specific_clan_history_description":"查看当前人物记录在族谱中的生平事件。", "personal_history_empty":"暂无个人历史记录", "personal_history_peerage_granted":"受{0}册封，获授{1}。", "personal_history_peerage_inherited":"承袭{0}，前任为{1}。"
@@ -957,14 +977,29 @@
     ,"powerful_minister_title":"权臣", "empress_dowager_title":"太后", "powerful_minister_status_progress":"权势 {0}/100", "powerful_minister_status_regent":"辅政 {0}/100", "powerful_minister_status_dowager":"监国 {0}/100", "powerful_minister_status_dominant":"权倾朝野", "powerful_minister_status_duke":"国公", "powerful_minister_status_king":"王", "powerful_minister_status_puppet":"傀儡"
     ,"history_powerful_minister_controls_court":"{0}权倾朝野，皇帝{1}沦为傀儡。", "history_powerful_minister_duke":"{0}受封{1}，入朝不趋，赞拜不名，剑履上殿。", "history_powerful_minister_nine_bestowments":"{0}受加九锡，进爵{1}。", "history_powerful_minister_usurpation":"{0}篡位称帝，定国号{1}。"
     ,"personal_history_powerful_minister_controls_court":"在{0}权倾朝野。", "personal_history_became_puppet":"受{0}控制，沦为傀儡皇帝。", "personal_history_powerful_minister_duke":"受封{0}，获入朝不趋、赞拜不名、剑履上殿之权。", "personal_history_powerful_minister_nine_bestowments":"受加九锡，由国公进爵为{0}。", "personal_history_deposed_by_powerful_minister":"被权臣{0}篡位废黜。", "personal_history_powerful_minister_usurpation":"篡夺{0}天命，称帝并定国号{1}。"
+    ,"plot_empress_dowager_install_son":"太后废帝立子", "plot_empress_dowager_install_son_info_base":"废黜当前皇帝，拥立太后的亲生儿子即位", "empress_dowager_installs_son_log":"太后$dowager$废黜皇帝$deposed$，拥立亲子$son$即位。", "history_empress_dowager_installs_son":"{0}废黜皇帝{1}，拥立亲子{2}即位。", "personal_history_deposed_by_empress_dowager":"被太后{0}废黜，皇位改授{1}。", "personal_history_empress_dowager_deposed_emperor":"废黜皇帝{0}，拥立亲子{1}即位。", "personal_history_installed_by_empress_dowager":"由太后{0}拥立为帝，取代{1}。"
+    ,"opinion_rebel_against_empire":"曾背叛帝国"
+    ,"plot_kingdom_petition_title":"请封法理", "plot_kingdom_petition_title_info_base":"消耗300影响力，请求宗主帝国授予本国所控制的帝国核心法理"
+    ,"tributary_title_granted_log":"$empire$ 应 $kingdom$ 请封，将 $title_name$ 法理授予其君主。", "personal_history_tributary_title_granted":"受{0}册封，获得{1}法理。"
     ,"tang_peerage_qinwang":"亲王", "tang_peerage_si_wang":"嗣王", "tang_peerage_junwang":"郡王", "tang_peerage_guogong":"国公", "tang_peerage_jungong":"郡公", "tang_peerage_xiangong":"县公", "tang_peerage_kaiguo_jungong":"开国郡公", "tang_peerage_kaiguo_xiangong":"开国县公", "tang_peerage_kaiguo_hou":"开国侯", "tang_peerage_kaiguo_bo":"开国伯", "tang_peerage_kaiguo_zi":"开国子", "tang_peerage_kaiguo_nan":"开国男"
     ,"label_fief":"封地"
     ,"label_vacant":"待授"
     ,"label_peerage_pending":"爵位待定"
-    ,"label_honorary":"恩赏封爵", "empire_legal_virtual_peerages":"法理封爵", "empire_honorary_virtual_peerages":"恩赏封爵", "empire_history":"帝国历史", "empire_list_current":"现存帝国", "empire_list_archived":"已亡帝国", "empire_list_culture_unknown":"未知文化"
+    ,"label_honorary":"恩赏封爵", "label_fief_status":"封国", "label_landed_fief":"有封国", "label_unlanded_fief":"无封国", "empire_legal_virtual_peerages":"法理封爵", "empire_honorary_virtual_peerages":"恩赏封爵", "empire_history":"帝国历史", "empire_list_current":"现存帝国", "empire_list_archived":"已亡帝国", "empire_list_culture_unknown":"未知文化"
     ,"tang_honorary_anle_gong":"安乐公", "tang_honorary_zhongyi_hou":"忠义侯", "tang_honorary_wenan_gong":"文安公", "tang_honorary_longxi_gong":"陇西公", "tang_honorary_wujun_hou":"武俊侯", "tang_honorary_zhongyong_hou":"忠勇侯", "tang_honorary_huaide_hou":"怀德侯"
     ,"specific_clan_related_history":"关联历史", "specific_clan_related_history_description":"查看其他人物历史中与当前人物关联的事件。", "related_history_empty":"暂无与此人关联的历史记录", "related_history_owner":"关联者", "related_history_event":"关联：{0}", "related_history_owner_unknown":"未知人物"
     ,"performance_high_population_toggle":"大人口性能模式", "performance_high_population_toggle Description":"人口达到5000后，对离屏且非军队市民的AI决策和行动进行分帧；达到20000后所有普通市民的AI决策和行动每8个模拟tick执行一次，前线缓存最多复用4帧。军队、国王、城主、关注和跟随角色仍实时更新。"
+    ,"performance_adaptive_throughput_toggle":"自适应吞吐加速", "performance_adaptive_throughput_toggle Description":"帧率有余量时使用更多主线程预算，加快帝国、王国、谋划和法理检查；帧耗时升高时自动恢复保守批次。不会在后台线程访问游戏对象，可单独关闭。"
     ,"performance_hidden_visuals_toggle":"隐藏角色动画优化", "performance_hidden_visuals_toggle Description":"跳过屏幕外角色的翻转、旋转、跳跃和缩放动画，不影响移动与模拟。"
     ,"performance_nameplate_overlap_toggle":"名字牌重叠优化", "performance_nameplate_overlap_toggle Description":"跳过名字牌重叠排序和两两碰撞检测；名字牌可能重叠，但可降低地图UI负担。"
+    ,"颁布金玺诏书":"颁布金玺诏书", "恢复世袭皇权":"恢复世袭皇权", "颁布帝国治安令":"颁布帝国治安令", "确认诸侯特权":"确认诸侯特权", "争夺主教叙任权":"争夺主教叙任权"
+    ,"temporary_faction_success_outcome_log":"$empire$完成了$claim$：$outcome$", "holy_roman_outcome_golden_bull":"帝位继承改为选帝制，选帝侯将从候选人中选出新皇帝。", "holy_roman_outcome_hereditary":"帝位继承恢复为世袭制。", "holy_roman_outcome_imperial_peace":"所有诸侯失去独立外交与开战权，并必须向帝国中央供给军队。", "holy_roman_outcome_princely_privileges":"{0}恢复独立外交与开战权，并不再强制向中央供给军队。", "holy_roman_outcome_investiture_crown":"皇权取得主教叙任主导权，帝国宗教管控调整为中等。", "holy_roman_outcome_investiture_clergy":"神权派取得主教叙任主导权，帝国宗教管控提高至最高。"
+    ,"empirecraft_actor_tooltip":"帝国人物档案", "empirecraft_actor_live_description":"帝国模组人物身份与族谱资料", "empirecraft_actor_history_description":"帝国模组保存的历史人物资料", "empirecraft_actor_unknown":"未知人物", "empirecraft_actor_full_name":"全名", "empirecraft_actor_age":"年龄", "empirecraft_actor_gender":"性别", "empirecraft_actor_gender_male":"男", "empirecraft_actor_gender_female":"女", "empirecraft_actor_gender_unknown":"未知", "empirecraft_actor_realm":"所属政权", "empirecraft_actor_titles":"拥有法理", "empirecraft_actor_office":"完整官职", "empirecraft_actor_peerage":"爵位", "empirecraft_actor_faction":"派系", "empirecraft_actor_specific_clan":"宗族", "empirecraft_actor_clan":"氏族", "empirecraft_actor_family":"家族", "empirecraft_actor_parents":"父母", "empirecraft_actor_father":"父", "empirecraft_actor_mother":"母", "empirecraft_actor_spouse":"配偶"
+    ,"empire_tooltip_core":"帝国核心", "empire_tooltip_ascension_title":"称帝法理", "empire_tooltip_running_claim":"执行诉求", "empire_tooltip_claim_format":"{0}（{1}，{2}）", "empire_tooltip_province_ruler":"省份统治者", "empire_tooltip_province_type":"国家类别", "empire_tooltip_province_titles":"拥有法理"
+    ,"national_power":"综合国力", "national_power_breakdown":"人口60% / 军力30% / 经济10%"
+    ,"purge_recent_100_years":"清理灭亡超过一百年的历史帝国"
+    ,"原始":"原始派", "尊王":"尊王派", "诸侯":"诸侯派", "中央":"中央派", "自治":"自治派", "攘夷":"主战派", "绥靖":"绥靖派", "血脉":"血脉派", "僭主":"僭主派", "神权":"神权派", "共和":"共和派", "民主":"民主派", "革命":"革命派", "融入":"融入派", "同化":"同化派", "共产":"共产派", "无":"无派系"
+    ,"Default":"默认", "past_emperors_description":"查看历代君主记录", "past_emperor":"历代君主", "empire_bureau_description":"查看帝国行政机构", "regime_description":"查看或调整政体"
+    ,"plot_kingdom_start_invite_to_faction":"邀请加入派系", "plot_kingdom_expose_crime":"揭发罪行", "plot_force_stop_war":"强制停战", "plot_combine_kingdom":"合并国家", "plot_kingdom_allow_succession":"允许继承", "plot_empire_take_back_title":"收回法理", "plot_kingdom_add_city_into_title":"将城市纳入法理", "task_unit_do_mod_actor_beh":"帝国模组人物行为"
+    ,"统一":"统一", "地方叛乱":"地方叛乱", "地方独立":"地方独立", "帝国正统":"帝国正统", "帝国扩张":"帝国扩张"
 }

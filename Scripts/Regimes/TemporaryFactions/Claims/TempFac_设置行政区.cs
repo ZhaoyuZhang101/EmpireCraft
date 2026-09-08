@@ -1,4 +1,5 @@
 using System.Linq;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.services;
 using EmpireCraft.Scripts.Layer;
@@ -56,6 +57,9 @@ public class TempFac_设置行政区 : TemporaryFaction
                     c.joinAnotherKingdom(k);
                 }
                 empire.join(k, pForce:true);
+                k.RemoveMainTitle();
+                k.SetAdministrativeTitle(title);
+                EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(k);
             }
         }
         CountDown = 2;

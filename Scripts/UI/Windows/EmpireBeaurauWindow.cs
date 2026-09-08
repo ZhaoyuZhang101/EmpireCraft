@@ -104,9 +104,6 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
             .Where(t => t != null && !t.isRekt() && !string.Equals(t.data.name, _empire.GetEmpireName(), StringComparison.Ordinal))
             .OrderBy(t => t.data.name)
             .ToList();
-        List<Actor> holders = _empire.getUnits()
-            .Where(a => a != null && !a.isRekt() && a.HasVirtualEnfeoff(_empire))
-            .ToList();
         List<Actor> honoraryHolders = _empire.getUnits()
             .Where(a => a != null && !a.isRekt() && a.HasHonoraryPeerage(_empire))
             .ToList();
@@ -114,9 +111,19 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         // 法理只生成封地席位；王或国公在实际授予时才确定。
         foreach (KingdomTitle title in titles)
         {
-            Actor holder = holders.FirstOrDefault(a => a.GetOrCreate().virtual_enfeoff_title_id == title.id);
-            string peerageKey = holder?.GetOrCreate().virtual_enfeoff_peerage_key ?? "";
-            SetVirtualPeerageView(holder, title, peerageKey, false, ref virtualPeeragesGroup);
+            Kingdom landedKingdom = _empire.GetLandedLegalTitleKingdom(title);
+            Actor holder = _empire.GetLegalPeerageHolder(title);
+            bool isLanded = landedKingdom != null;
+            bool isImperialClan = holder?.GetSpecificClan() != null &&
+                                   holder.GetSpecificClan() == _empire.EmpireSpecificClan;
+            bool isPetitionedTributaryTitle = landedKingdom?.GetTakenAllianceEmpire() == _empire;
+            string peerageKey = _empire.data.legal_peerage_types?.TryGetValue(title.id, out string savedType) == true
+                ? savedType
+                : isLanded && holder != null
+                    ? DeJureTitleBindingRules.GetLandedPeerageKey(isImperialClan || isPetitionedTributaryTitle)
+                    : holder?.GetOrCreate().virtual_enfeoff_peerage_key ?? "";
+            SetVirtualPeerageView(holder, title, peerageKey, false, isLanded,
+                ref virtualPeeragesGroup);
         }
         virtualPeeragesSpace.AddChild(virtualPeeragesGroup.gameObject);
 
@@ -127,20 +134,30 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         foreach (string peerage in regime.virtual_honorary_peerages ?? new List<string>())
         {
             Actor holder = honoraryHolders.FirstOrDefault(a => a.GetOrCreate().honorary_peerage_key == peerage);
-            SetVirtualPeerageView(holder, null, peerage, true, ref honoraryGroup);
+            SetVirtualPeerageView(holder, null, peerage, true, false, ref honoraryGroup);
         }
         virtualPeeragesSpace.AddChild(honoraryGroup.gameObject);
         AddChild(virtualPeeragesSpace.gameObject);
     }
 
-    private void SetVirtualPeerageView(Actor actor, KingdomTitle title, string peerageKey, bool honorary, ref AutoGridLayoutGroup parent)
+    private void SetVirtualPeerageView(Actor actor, KingdomTitle title, string peerageKey, bool honorary,
+        bool hasLandedFief, ref AutoGridLayoutGroup parent)
     {
         string fief = title?.data?.name ?? actor?.city?.GetCityName() ?? LM.Get("label_none");
         bool isVacant = actor == null;
         if (!honorary && !isVacant && string.IsNullOrWhiteSpace(peerageKey))
         {
-            actor.GetPeerageDisplayName();
-            peerageKey = actor.GetOrCreate().virtual_enfeoff_peerage_key;
+            if (hasLandedFief)
+            {
+                bool isImperialClan = actor.GetSpecificClan() != null &&
+                                       actor.GetSpecificClan() == _empire.EmpireSpecificClan;
+                peerageKey = DeJureTitleBindingRules.GetLandedPeerageKey(isImperialClan);
+            }
+            else
+            {
+                actor.GetPeerageDisplayName();
+                peerageKey = actor.GetOrCreate().virtual_enfeoff_peerage_key;
+            }
         }
         string peerage = !honorary && isVacant ? LM.Get("label_peerage_pending") : LM.Get(peerageKey);
         string displayName = isVacant
@@ -156,10 +173,12 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         var details = this.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
         string holderName = actor?.getName() ?? LM.Get("label_vacant");
         string fiefText = honorary ? LM.Get("label_honorary") : fief;
+        string fiefStatus = hasLandedFief ? LM.Get("label_landed_fief") : LM.Get("label_unlanded_fief");
         details.AddTextIntoVertLayout(
             $"{LM.Get("i_name")}: {holderName.ColorString(pColor: isVacant ? Color.gray : new Color(0.25f, 0.9f, 0.55f))}\n" +
             $"{LM.Get("OfficialLevel")}: {peerage.ColorString(pColor: titleColor)}\n" +
-            $"{LM.Get("label_fief")}: {fiefText.ColorString(pColor: honorary ? new Color(1f, 0.6f, 0.35f) : new Color(0.35f, 0.85f, 1f))}",
+            $"{LM.Get("label_fief")}: {fiefText.ColorString(pColor: honorary ? new Color(1f, 0.6f, 0.35f) : new Color(0.35f, 0.85f, 1f))}" +
+            (honorary ? "" : $"\n{LM.Get("label_fief_status")}: {fiefStatus.ColorString(pColor: hasLandedFief ? new Color(0.25f, 0.9f, 0.55f) : Color.gray)}"),
             true, TextAnchor.MiddleCenter, new Vector2(40, 25));
         card.AddChild(details.gameObject);
         parent.AddChild(card.gameObject);
@@ -175,26 +194,37 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     [Hotfixable]
     private void InitialTopPartInfoLvLing()
     {
+        if (_empire?.CoreKingdom?.data == null) return;
         //总容器
         topSpace = this.BeginHoriGroup();
         topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
 
         var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
         centerPart.AddTextIntoVertLayout("内阁首辅", true, TextAnchor.MiddleCenter);
-        centerPart.AddActorViewIntoVertLayout(_empire.GetCabinetLeader(), 
-            description:_empire.GetCabinetLeader()?.GetFaction()?.Name.ColorString(pColor:new Color(0.0f, 1, 0.5f))??"无");
+        Actor cabinetLeader = _empire.GetCabinetLeader();
+        string leaderFaction = cabinetLeader?.data == null ? null : cabinetLeader.GetFaction()?.Name;
+        centerPart.AddActorViewIntoVertLayout(cabinetLeader,
+            description:string.IsNullOrWhiteSpace(leaderFaction)
+                ? LM.Get("label_none")
+                : leaderFaction.ColorString(pColor:new Color(0.0f, 1, 0.5f)));
         centerPart.AddTextIntoVertLayout("内阁大臣", true, TextAnchor.MiddleCenter);
         var cabinetMemberSpace = centerPart.BeginHoriGroup(pSpacing:-5);
-        var members = _empire.GetCabinetMembers();
+        var members = _empire.GetCabinetMembers() ?? new List<Actor>();
         for(int i=1; i<5; i++)
         {
             int cCount = members.Count;
-            cabinetMemberSpace.AddActorViewIntoHoriLayout(i<cCount?members[i]:null, description: i < cCount
-                ? members[i].GetFaction().Name.ColorString(pColor:new Color(0.0f, 1, 0.5f))
-                : "无");
+            Actor member = i < cCount && members[i]?.data != null && !members[i].isRekt() ? members[i] : null;
+            string factionName = member?.GetFaction()?.Name;
+            cabinetMemberSpace.AddActorViewIntoHoriLayout(member, description: string.IsNullOrWhiteSpace(factionName)
+                ? LM.Get("label_none")
+                : factionName.ColorString(pColor:new Color(0.0f, 1, 0.5f)));
         }
-        
-        UIHelper.AddFactionCard(_empire.CoreKingdom.GetRegime().GetDominateFaction(), _empire.CoreKingdom, parentH:topSpace);
+
+        FixedFaction dominateFaction = _empire.CoreKingdom.GetRegime()?.GetDominateFaction();
+        if (dominateFaction != null)
+        {
+            UIHelper.AddFactionCard(dominateFaction, _empire.CoreKingdom, parentH:topSpace);
+        }
         
         topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
     }

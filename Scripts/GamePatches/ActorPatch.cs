@@ -245,6 +245,9 @@ public class ActorPatch : GamePatch
         bool pLogFavorite = true)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        Kingdom rulingKingdom = __instance.isKing() ? __instance.kingdom : null;
+        rulingKingdom?.SyncRealmTitlesFromRuler(__instance);
+        HashSet<long> realmTitleIds = rulingKingdom?.GetRealmTitleIds().ToHashSet() ?? new HashSet<long>();
         // This runs before the actor and its kingdom links are torn down. The
         // identity-only overload avoids touching the actor again during Dispose.
         if (!ModClass.IS_CLEAR)
@@ -294,7 +297,15 @@ public class ActorPatch : GamePatch
                 foreach (var titleID in titles)
                 {
                     var title = ModClass.KINGDOM_TITLE_MANAGER.get(titleID);
-                    title?.SetOwner(null);
+                    if (realmTitleIds.Contains(titleID))
+                    {
+                        __instance.GetOwnedTitle()?.Remove(titleID);
+                        if (title?.owner == __instance) title.owner = null;
+                    }
+                    else
+                    {
+                        title?.SetOwner(null);
+                    }
                 }
             }
         }
@@ -505,10 +516,10 @@ public class ActorPatch : GamePatch
             PersonalClanIdentity pci = __instance.GetPersonalIdentity();
             if (pci != null)
             {
-                pci.is_alive = false;
-                pci.actor_id = -1L;
-                pci.deathday = Date.getDate(World.world.getCurWorldTime());
+                // Preserve the actor id for history/avatar lookups and snapshot live-only data before removal.
                 pci.recordAllInfo();
+                pci.is_alive = false;
+                pci.deathday = Date.getDate(World.world.getCurWorldTime());
                 pci._specificClan.checkDispose();
             }
         }

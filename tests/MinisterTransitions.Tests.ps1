@@ -106,7 +106,7 @@ public class EmpireData {
     public long id = 1, powerful_minister_title_id = -1, minister_usurper_id = -1;
     public int powerful_minister_stage = 1;
     public double powerful_minister_stage_timestamp;
-    public bool is_been_controlled;
+    public bool is_been_controlled, powerful_minister_is_former_empress;
     public Dictionary<long, long> legal_peerage_holders = new(), legal_peerage_holder_identities = new();
     public Dictionary<long, string> legal_peerage_types = new();
 }
@@ -119,6 +119,7 @@ public partial class Empire : NanoObject {
     public List<Actor> getUnits() => units.Where(a => a.kingdom?.GetEmpire() == this).ToList();
     public Actor GetPowerfulMinister() => minister;
     private List<KingdomTitle> GetLegalPeerageTitles() => titles;
+    public Kingdom GetLandedLegalTitleKingdom(KingdomTitle title) => null;
     private bool CanAdvanceMinisterPlot(Actor actor) => actor == minister;
     public void AddMandate(int n) => mandate += n;
     public void RecordHistory(string directContent, long actorId) => history.Add(directContent);

@@ -69,6 +69,7 @@ public class KingdomWindowPatch: GamePatch
         }
         
         __instance.showStatRow("tribute", (object) metaObject.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
+        __instance.showStatRow("national_power", (object) metaObject.GetNationalPower().ToString("0.##"), "#FFD34E", pIconPath: "iconKings");
         __instance.tryToShowMetaSpecies("founder_species", metaObject.getFounderSpecies().id);
         return false;
     }

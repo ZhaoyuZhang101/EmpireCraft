@@ -52,7 +52,8 @@ public class TemporaryFactionExecutePatch : GamePatch
 
             if (__exception == null)
             {
-                TranslateHelper.LogTemporaryFactionSucceeded(empire, claimName, targetName, crimeName);
+                TranslateHelper.LogTemporaryFactionSucceeded(empire, claimName, targetName, crimeName,
+                    __instance.CompletionOutcome);
             }
             else
             {

@@ -91,15 +91,16 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             //总容器
             var topSpace = this.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter,
-                pSize: new Vector2(196, 64), pPadding: new RectOffset(0, 6, 0, 0));
-            topSpace.transform.AddStretchBackground("clanFrame", new Vector2(208, 68));
+                pSize: new Vector2(196, 68), pPadding: new RectOffset(0, 6, 0, 0));
+            topSpace.transform.AddStretchBackground("clanFrame", new Vector2(208, 72));
             
             //左侧信息栏
-            var leftPart = topSpace.BeginVertGroup(new Vector2(50, 36), pSpacing: 0,
+            var leftPart = topSpace.BeginVertGroup(new Vector2(50, 46), pSpacing: 0,
                 pAlignment:TextAnchor.MiddleCenter);
             leftPart.AddTextIntoVertLayout($"{LM.Get("empire_clan")}: {(_empire.EmpireSpecificClan?.name??""+ " " + LM.Get("Clan")).ColorString(_empire.EmpireSpecificClan?.color??"#FFFFFF")}", size:new Vector2(50, 10));
             leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count??0)}", size:new Vector2(50, 10));
             leftPart.AddTextIntoVertLayout($"{LM.Get("i_population")}: {_empire.CountPopulation()}/{_empire.countMaxPopulation()}", size:new Vector2(50, 10));
+            leftPart.AddTextIntoVertLayout($"{LM.Get("national_power")}: {_empire.GetNationalPower():0.##}", size:new Vector2(50, 10));
 
             // 人物区固定为 hori(继任者, vert(皇帝, 权臣), 皇后)。
             var avatarRow = topSpace.BeginHoriGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleCenter,
@@ -146,7 +147,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             
             topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 1));
             RectTransform topRect = topSpace.GetComponent<RectTransform>();
-            topRect.sizeDelta = new Vector2(196, 64);
+            topRect.sizeDelta = new Vector2(196, 68);
             LayoutRebuilder.ForceRebuildLayoutImmediate(topRect);
             _empireNameInput?.transform.SetAsLastSibling();
             

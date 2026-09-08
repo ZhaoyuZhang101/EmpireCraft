@@ -57,15 +57,28 @@ public static class EmpireCraftStrategicScheduler
         int population = currentWorld.units?.Count ?? 0;
         double frameMilliseconds = Math.Max(0d, Time.unscaledDeltaTime * 1000d);
         double budgetMilliseconds = EmpireCraftFrameSchedulingRules.ResolveBudgetMilliseconds(
-            ModClass.PERFORMANCE_HIGH_POPULATION_MODE, population, frameMilliseconds);
+            ModClass.PERFORMANCE_HIGH_POPULATION_MODE, ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE,
+            population, frameMilliseconds);
         int maximumKingdoms = EmpireCraftFrameSchedulingRules.ResolveMaximumKingdoms(
-            ModClass.PERFORMANCE_HIGH_POPULATION_MODE, population);
+            ModClass.PERFORMANCE_HIGH_POPULATION_MODE, ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE,
+            population);
+        int maximumEmpires = EmpireCraftFrameSchedulingRules.ResolveMaximumEmpires(
+            ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE, population);
         long started = Stopwatch.GetTimestamp();
 
         // Titles are internally sliced. Calling once per render frame avoids a full
         // title scan on every physics tick.
         ModClass.KINGDOM_TITLE_MANAGER?.update(0f);
-        ProcessNextEmpire(realtime);
+
+        int processedEmpires = 0;
+        do
+        {
+            if (!ProcessNextEmpire(realtime)) break;
+            processedEmpires++;
+        }
+        while (EmpireCraftFrameSchedulingRules.CanContinue(processedEmpires, 1, maximumEmpires,
+            ElapsedMilliseconds(started), Math.Max(MinimumEmpireBudgetMilliseconds,
+                budgetMilliseconds * EmpireBudgetShare)));
 
         int processed = 0;
         do
@@ -158,18 +171,21 @@ public static class EmpireCraftStrategicScheduler
         }
     }
 
-    private static void ProcessNextEmpire(float realtime)
+    private const double EmpireBudgetShare = 0.35d;
+    private const double MinimumEmpireBudgetMilliseconds = 0.25d;
+
+    private static bool ProcessNextEmpire(float realtime)
     {
         var manager = ModClass.EMPIRE_MANAGER;
         manager?.checkLists();
         var empires = manager?.list;
-        if (empires == null || empires.Count == 0) return;
+        if (empires == null || empires.Count == 0) return false;
         if (_empireCursor >= empires.Count) _empireCursor = 0;
         Empire empire = empires[_empireCursor++];
         if (empire == null || empire.IsArchived() || empire.isRekt() ||
-            AncientWarfareCompatibility.OwnsObject(empire)) return;
+            AncientWarfareCompatibility.OwnsObject(empire)) return true;
         long faultKey = unchecked(long.MinValue + empire.id);
-        if (FaultRetryTimes.TryGetValue(faultKey, out float retryAt) && realtime < retryAt) return;
+        if (FaultRetryTimes.TryGetValue(faultKey, out float retryAt) && realtime < retryAt) return true;
         try
         {
             if (!EmpireStates.TryGetValue(empire.id, out EmpireScheduleState state))
@@ -193,6 +209,7 @@ public static class EmpireCraftStrategicScheduler
             FaultRetryTimes[faultKey] = realtime + 5f;
             LogService.LogWarning($"[EmpireCraft] Strategic empire slice failed for {empire.id}: {error}");
         }
+        return true;
     }
 
     private static double ElapsedMilliseconds(long started)

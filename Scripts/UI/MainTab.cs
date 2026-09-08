@@ -229,6 +229,11 @@ internal static class MainTab
         PowerButton pb4 = PowerButtonCreator.CreateToggleButton("real_num",
             SpriteTextureLoader.getSprite("ui/realNumToggle"));
         tab.AddPowerButton(EMPIRE_GROUP, pb4);
+
+        SwitchSimpleNameplateButton.init();
+        PowerButton simpleNameplateButton = PowerButtonCreator.CreateToggleButton("simple_nameplate",
+            SpriteTextureLoader.getSprite("ui/icons/iconHideUI"));
+        tab.AddPowerButton(EMPIRE_GROUP, simpleNameplateButton);
     }
 
     private static Sprite GetOriginalBugIcon()

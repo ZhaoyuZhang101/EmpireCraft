@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Windows;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
@@ -156,7 +157,8 @@ public static class UIHelper
         LogService.LogInfo("点击角色");
     }
     [Hotfixable]
-    public static SimpleButton CreateAvatarView(long actor_id, UnityAction action=null, bool pIsAlive=true)
+    public static SimpleButton CreateAvatarView(long actor_id, UnityAction action=null, bool pIsAlive=true,
+        PersonalClanIdentity pIdentity=null)
     {
         UnitAvatarLoader pPrefab = Resources.Load<UnitAvatarLoader>($"ui/AvatarLoaderFramed");
         SimpleButton clickFrame = UnityEngine.Object.Instantiate(SimpleButton.Prefab);
@@ -169,6 +171,7 @@ public static class UIHelper
         clickFrame.Icon.raycastTarget = true;
 
         Actor actor = World.world.units.get(actor_id);
+        if (actor?.data == null || actor.isRekt()) actor = null;
         if (action == null)
         {
             clickFrame.Setup(() => actorClick(actor), SpriteTextureLoader.getSprite(""), pSize: new Vector2(30, 30));
@@ -179,13 +182,21 @@ public static class UIHelper
         }
         clickFrame.Background.color = new Color(0, 0, 0, 0.0f);
         clickFrame.Icon.color = new Color(0, 0, 0, 0.0f);
-        if (actor != null)
+        if (actor != null || actor_id > 0 || pIdentity != null)
         {
             clickFrame.Button.OnHover(() =>
             {
-                actor.showTooltip(unitLoader);
+                Tooltip.show(unitLoader, "empirecraft_actor", new TooltipData
+                {
+                    actor = actor,
+                    tip_name = actor_id.ToString(),
+                    tip_description = (pIdentity?.id ?? -1L).ToString()
+                });
             });
             clickFrame.Button.OnHoverOut(Tooltip.hideTooltip);
+        }
+        if (actor != null)
+        {
             unitLoader._actor_image.gameObject.SetActive(true);
             unitLoader.load(actor);
         }
@@ -249,7 +260,7 @@ public static class UIHelper
     {
         AutoVertLayoutGroup avatarLayoutGroup = layout.BeginVertGroup(new Vector2(30, 30), pSpacing:15, pAlignment: TextAnchor.MiddleCenter);
 
-        long id = actor?.getID() ?? -1L;
+        long id = actor?.data == null || actor.isRekt() ? -1L : actor.getID();
         SimpleButton clickFrame = CreateAvatarView(id, pIsAlive:true);
         if (button != null)
         {
@@ -322,7 +333,7 @@ public static class UIHelper
     {
         AutoVertLayoutGroup avatarLayoutGroup = layout.BeginVertGroup(new Vector2(30, 30), pSpacing:15, pAlignment: TextAnchor.MiddleCenter);
 
-        long id = actor?.getID() ?? -1L;
+        long id = actor?.data == null || actor.isRekt() ? -1L : actor.getID();
         SimpleButton clickFrame = CreateAvatarView(id, pIsAlive:true);
         if (button != null)
         {
@@ -558,12 +569,13 @@ public static class UIHelper
     public static void AddFactionCard(FixedFaction faction, Kingdom kingdom, AutoHoriLayoutGroup parentH = null, AutoVertLayoutGroup parentV = null, bool addMode = false, UnityAction action=null)
     {
         if (parentH == null&&parentV==null) return;
+        faction.Update();
         var isDominate = kingdom.GetRegime().GetDominateFaction() == faction;
         var factionPart = parentH?.BeginVertGroup(pSpacing:-3)??parentV?.BeginVertGroup(pSpacing:-3);
         factionPart.AddTextIntoVertLayout(faction.Name+$"{(kingdom.IsEmpire()?isDominate?"(主导)".ColorString(pColor:new Color(0.0f, 1, 0.5f)):"":"(未激活)".ColorString(pColor:new Color(0.8f, 0, 0.2f)))}", true, TextAnchor.LowerCenter);
         factionPart.AddActorViewIntoVertLayout(faction.GetLeader());
         factionPart.AddTextIntoVertLayout($"人数：{faction.Count}\n", true, TextAnchor.MiddleCenter);
-        factionPart.AddTextIntoVertLayout($"综合力量：{faction.TotalPower}\n", true, TextAnchor.MiddleCenter);
+        factionPart.AddTextIntoVertLayout($"{LM.Get("label_central_ratio")}：{faction.CentralRatio}%\n", true, TextAnchor.MiddleCenter);
         var content = "<核心诉求>\n";
         foreach (var tempFac in faction.TemporaryFactions)
         {

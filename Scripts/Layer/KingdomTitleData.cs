@@ -6,6 +6,15 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace EmpireCraft.Scripts.Layer;
+public class KingdomTitleJurisdictionRecord
+{
+    public long kingdom_id = -1L;
+    public string kingdom_name = "";
+    public string relation = "";
+    public double start_time = -1L;
+    public double end_time = -1L;
+}
+
 public class KingdomTitleData: MetaObjectData
 {
     public int banner_background_id { get; set; }
@@ -28,6 +37,7 @@ public class KingdomTitleData: MetaObjectData
 
     public List<long> cities;
     public List<string> history_emperrors;
+    public List<KingdomTitleJurisdictionRecord> jurisdiction_history = new List<KingdomTitleJurisdictionRecord>();
     public long main_kingdom { get; set; } = -1L;
 
     public double timestamp_been_controlled;

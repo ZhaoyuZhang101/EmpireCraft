@@ -20,10 +20,15 @@ public class TempFac_宗教同化 : TemporaryFaction
     {
         LogService.LogInfo($"执行{this.type}");
         var kingdom = GetKingdomTarget();
-        if (!CheckRebelling(kingdom))
+        Empire empire = GetEmpire();
+        if (kingdom?.data != null && !kingdom.isRekt() && empire?.Religion != null &&
+            !empire.Religion.isRekt() && !CheckRebelling(kingdom))
         {
-            kingdom.setReligion(GetEmpire().Religion);
-            kingdom.units.ForEach(u=>u.setReligion(GetEmpire().Religion));
+            kingdom.setReligion(empire.Religion);
+            kingdom.units?.ForEach(u =>
+            {
+                if (u?.data != null && !u.isRekt()) u.setReligion(empire.Religion);
+            });
         }
         End();
     }
@@ -31,9 +36,11 @@ public class TempFac_宗教同化 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire.Religion.isRekt()) return false;
+        if (empire == null || empire.IsArchived() || empire.isRekt() ||
+            empire.Religion == null || empire.Religion.isRekt() || empire.kingdoms_list == null) return false;
         foreach (var kingdom in empire.kingdoms_list)
         {
+            if (kingdom?.data == null || kingdom.isRekt()) continue;
             if (kingdom.religion != empire.Religion)
             {
                 SetKingdomTarget(kingdom);

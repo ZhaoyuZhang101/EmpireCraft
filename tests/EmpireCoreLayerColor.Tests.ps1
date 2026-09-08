@@ -24,13 +24,17 @@ public class Empire : IMetaObject {
     public bool IsArchived() => archived;
 }
 public class KingdomTitle : IMetaObject {
+    static long nextId;
+    public long id = ++nextId;
     public bool dead; public string color;
+    public KingdomTitle() { ModClass.KINGDOM_TITLE_MANAGER.items[id] = this; }
     public bool isRekt() => dead;
 }
 public class EmpireCore {
     public long empire_id = -1;
     public City capital;
     public List<KingdomTitle> titles = new();
+    public List<(double time, long titleId)> titlesRecord => titles.Select(t => (0d, t.id)).ToList();
 }
 public class City {
     public KingdomTitle title; public EmpireCore core;
@@ -42,7 +46,14 @@ public class EmpireManager {
     public Dictionary<long, Empire> items = new();
     public Empire get(long id) => items.GetValueOrDefault(id);
 }
-public static class ModClass { public static EmpireManager EMPIRE_MANAGER = new(); }
+public class KingdomTitleManager {
+    public Dictionary<long, KingdomTitle> items = new();
+    public KingdomTitle get(long id) => items.GetValueOrDefault(id);
+}
+public static class ModClass {
+    public static EmpireManager EMPIRE_MANAGER = new();
+    public static KingdomTitleManager KINGDOM_TITLE_MANAGER = new();
+}
 public static partial class EmpireCoreManager {
     public static City GetRepresentativeCity(EmpireCore core) => core.capital;
     public static bool ContainsTitle(EmpireCore core, KingdomTitle title) => core.titles.Contains(title);

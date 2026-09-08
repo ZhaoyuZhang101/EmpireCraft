@@ -274,6 +274,8 @@
     "i_none_lover": "<color=#FFD700>Unmarried</color>",
     "real_num": "Simulated Realistic Population",
     "real_num_description": "Multiply displayed population by 1000",
+    "simple_nameplate": "Simple Nameplates",
+    "simple_nameplate_description": "Hide realm suffixes on empire and kingdom map labels while preserving directional prefixes and formal realm names",
 
     "past_emperors": "Lineage of Monarchs",
     "empire_list_window": "Empire List",
@@ -493,6 +495,13 @@
 
     "history_new_empire": "$actor$ proclaimed himself emperor at $place$, naming the state $name$ and setting the capital at $place$",
     "history_new_empire_west": "$actor$ was crowned Emperor of $name$ at $place$",
+    "history_empire_name_selected": "{0} adopted {2} as the imperial name on the basis of {1}.",
+    "empire_name_source_main_title": "the kingdom's primary de jure title, {0}",
+    "empire_name_source_ancestral_empire": "the ancestral imperial name {0}",
+    "empire_name_source_ancestral_title": "the ancestral title {0}",
+    "empire_name_source_owned_title": "the ruler's primary title, {0}",
+    "empire_name_source_empire_core": "the inherited imperial core of {0}",
+    "empire_name_source_kingdom_name": "the pre-imperial kingdom name {0}",
     "history_new_emperor": "$actor$ ascended the throne at $place$, era name $year_name$",
     "history_new_emperor_west": "$actor$ was crowned Emperor at $place$",
     "history_powerful_minister": "$title$ $actor$ monopolized state affairs; $actor2$ became a puppet",
@@ -600,19 +609,19 @@
     "option_tax_level1": "Low",
     "option_tax_level2": "Medium",
     "option_tax_level3": "High",
-    "option_tax_level0_description": "",
-    "option_tax_level1_description": "",
-    "option_tax_level2_description": "",
-    "option_tax_level3_description": "",
+    "option_tax_level0_description": "This realm pays no taxes to the central government.",
+    "option_tax_level1_description": "Lower taxes ease the local burden but provide less central revenue.",
+    "option_tax_level2_description": "Local burden and central revenue remain balanced.",
+    "option_tax_level3_description": "The center gains more revenue, but local burden and discontent increase.",
 
     "option_leader_select_method": "Succession System",
 
     "option_leader_select_method0": "Clan Inheritance",
     "option_leader_select_method1": "Official Appointment",
     "option_leader_select_method2": "Election",
-    "option_leader_select_method0_description": "",
-    "option_leader_select_method1_description": "",
-    "option_leader_select_method2_description": "",
+    "option_leader_select_method0_description": "Rule passes within the ruling clan under the current succession order.",
+    "option_leader_select_method1_description": "The next ruler is selected from eligible officials.",
+    "option_leader_select_method2_description": "The next ruler is chosen by election.",
 
     "option_religion_type": "Religion Level",
 
@@ -620,10 +629,10 @@
     "option_religion_type1": "Low",
     "option_religion_type2": "Medium",
     "option_religion_type3": "High",
-    "option_religion_type0_description": "",
-    "option_religion_type1_description": "",
-    "option_religion_type2_description": "",
-    "option_religion_type3_description": "",
+    "option_religion_type0_description": "There is no state religion, and all faiths may spread freely.",
+    "option_religion_type1_description": "A state religion exists, but other faiths are tolerated.",
+    "option_religion_type2_description": "The state religion is favored while other faiths are restricted.",
+    "option_religion_type3_description": "Religious and political authority are united, strongly suppressing other faiths.",
     "office_config_title": "Office Config",
     "office_tab_armies": "Armies",
     "office_tab_kingdoms": "Kingdoms",
@@ -872,14 +881,14 @@
     ,"opinion_occupied_title":"Occupied Titled Land"
     ,"opinion_empire_polite":"Celestial Empire"
     ,"become_new_empire_west_log":"$emperor$ was crowned Emperor of $kingdom_name$"
-    ,"官员品级调动":"Official Rank Transfer"
+    ,"官员品级调动":"$actor$ was promoted to $officeName$ (rank $level$)"
     ,"join_religion_war_log":"$kingdom$ joined the holy war of $religion$"
     ,"join_rebellion_war_log":"$joiner$ joined $beginner$"
     ,"religion_war_transfer_log":"$city$ has been consecrated by $religion$"
     ,"combine_kingdom_log":"$actor$ has unified all subordinate territories and states"
     ,"empire_take_back_title_log":"$actor$ lost the title claims of $title$ after committing $crime$"
     ,"royal_king_become_emperor_log":"During the war of the royal princes, $actor$ seized the capital and ascended the throne as the new emperor of $empire$"
-    ,"成为朝贡国":"Become Tributary"
+    ,"成为朝贡国":"$kingdom$ became a tributary of $empire$"
     ,"officer_join_faction":"$office$ $actor$ joined $faction$"
     ,"minister_select_emperor_log":"The late emperor left no son, so the ministers selected $actor$ as the new emperor of $empire$"
     ,"officer_become_faction_leader":"$actor$ became the leader of $faction$"
@@ -917,6 +926,24 @@
   ,"empire_core_history_duration":"Duration"
   ,"empire_core_history_emperors":"Emperor History"
   ,"empire_core_none":"None"
+  ,"kingdom_title_capital":"De Jure Capital"
+  ,"kingdom_title_cities":"Cities"
+  ,"kingdom_title_zones":"Territory Zones"
+  ,"kingdom_title_current_relations":"Current Status"
+  ,"kingdom_title_holder":"Title Holder"
+  ,"kingdom_title_landed_holder":"Enfeoffed Title Holder"
+  ,"kingdom_title_unlanded_holder":"Unlanded Holder"
+  ,"kingdom_title_administration":"Delegated Administration"
+  ,"kingdom_title_administrator":"Delegated Administrator"
+  ,"kingdom_title_no_administration":"Not Delegated"
+  ,"kingdom_title_details":"Details"
+  ,"kingdom_title_controller":"Territorial Controller"
+  ,"kingdom_title_history":"States and Administrations"
+  ,"kingdom_title_history_holder":"De Jure State"
+  ,"kingdom_title_history_administration":"Administration"
+  ,"kingdom_title_history_founder":"Founding State"
+  ,"kingdom_title_unknown_date":"Unknown Date"
+  ,"kingdom_title_current":"Present"
   ,"label_none":"None"
   ,"label_no_royal_clan":"No Royal Clan"
   ,"label_treasury":"Treasury"
@@ -924,7 +951,7 @@
   ,"label_dominant_faction":"Dominant Faction"
   ,"label_claim":"Claim"
   ,"label_member_count":"Members"
-  ,"label_total_power":"Power"
+    ,"label_total_power":"Power", "label_central_ratio":"Central Share"
   ,"label_required_traits":"Required Traits"
   ,"label_all_members":"All Members"
   ,"label_name":"Name"
@@ -940,13 +967,6 @@
   ,"label_corruption":"Corruption"
   ,"action_add_performance":"Add Performance"
   ,"action_sub_performance":"Reduce Performance"
-  ,"Arabic_caliphate":"Caliphate", "Arabic_emirate":"Emirate", "Arabic_province":"Province", "Arabic_sultanate":"Sultanate"
-  ,"Feudalism_county":"County", "Feudalism_duchy":"Duchy", "Feudalism_empire":"Empire", "Feudalism_grand_duchy":"Grand Duchy", "Feudalism_kingdom":"Kingdom", "Feudalism_march":"March", "Feudalism_papal_state":"Papal State"
-  ,"LvLing_centre":"Central Court", "LvLing_jiedushi":"Military Governorship", "LvLing_jimizhou":"Jimi Prefecture", "LvLing_kingdom":"Kingdom", "LvLing_province":"Circuit"
-  ,"Modern_autonomous_prefecture":"Autonomous Prefecture", "Modern_centre":"Central Government", "Modern_province":"Province", "Modern_state":"State"
-  ,"Origin_centre":"Centre", "Origin_kingdom":"Kingdom", "YouMu_bu":"Tribe", "YouMu_centre":"Khan's Court", "YouMu_kingdom":"Khanate"
-  ,"ZhouFeudalism_bo":"Bo State", "ZhouFeudalism_empire":"Son of Heaven's Realm", "ZhouFeudalism_gong":"Duke State", "ZhouFeudalism_hou":"Marquis State", "ZhouFeudalism_zi":"Viscount State", "default_country_post":"State"
-  ,"Arabic_city":"City", "Feudalism_city":"City", "Feudalism_dirC":"Direct City", "Feudalism_religion_district":"Diocese", "LvLing_city":"City", "Modern_city":"City", "Origin_city":"Settlement", "YouMu_city":"Camp", "ZhouFeudalism_city":"Yi"
   ,"empire_virtual_peerages":"Peerage Register", "empire_virtual_peerages_description":"View title-based and honorary peerages; virtual enfeoffments never transfer land or title ownership."
   ,"empire_bureau_offices":"Bureau", "empire_bureau_offices_description":"Return to the cabinet, central departments, and provincial offices."
   ,"specific_clan_relations":"Relations", "specific_clan_relations_description":"Return to the selected person's family relations.", "specific_clan_history":"Personal History", "specific_clan_history_description":"View life events recorded for the selected person in the genealogy.", "personal_history_empty":"No personal history has been recorded.", "personal_history_peerage_granted":"Invested by {0} as {1}.", "personal_history_peerage_inherited":"Inherited {0} from {1}."
@@ -954,14 +974,29 @@
   ,"powerful_minister_title":"Powerful Minister", "empress_dowager_title":"Empress Dowager", "powerful_minister_status_progress":"Power {0}/100", "powerful_minister_status_regent":"Regent {0}/100", "powerful_minister_status_dowager":"Regency {0}/100", "powerful_minister_status_dominant":"Dominates Court", "powerful_minister_status_duke":"Duke", "powerful_minister_status_king":"King", "powerful_minister_status_puppet":"Puppet"
   ,"history_powerful_minister_controls_court":"{0} dominated the court; Emperor {1} became a puppet.", "history_powerful_minister_duke":"{0} was enfeoffed as {1} and granted exceptional court privileges.", "history_powerful_minister_nine_bestowments":"{0} received the Nine Bestowments and was elevated to {1}.", "history_powerful_minister_usurpation":"{0} usurped the throne and founded {1}."
   ,"personal_history_powerful_minister_controls_court":"Dominated the court of {0}.", "personal_history_became_puppet":"Was controlled by {0} and became a puppet emperor.", "personal_history_powerful_minister_duke":"Was enfeoffed as {0} with exceptional court privileges.", "personal_history_powerful_minister_nine_bestowments":"Received the Nine Bestowments and advanced from duke to {0}.", "personal_history_deposed_by_powerful_minister":"Was deposed by the powerful minister {0}.", "personal_history_powerful_minister_usurpation":"Seized the Mandate of {0}, ascended the throne, and founded {1}."
+  ,"plot_empress_dowager_install_son":"Empress Dowager Deposes the Emperor", "plot_empress_dowager_install_son_info_base":"Depose the reigning emperor and enthrone the empress dowager's biological son", "empress_dowager_installs_son_log":"Empress Dowager $dowager$ deposed Emperor $deposed$ and enthroned her son $son$.", "history_empress_dowager_installs_son":"{0} deposed Emperor {1} and enthroned her son {2}.", "personal_history_deposed_by_empress_dowager":"Was deposed by Empress Dowager {0}, who gave the throne to {1}.", "personal_history_empress_dowager_deposed_emperor":"Deposed Emperor {0} and enthroned her son {1}.", "personal_history_installed_by_empress_dowager":"Was enthroned by Empress Dowager {0} in place of {1}."
+  ,"opinion_rebel_against_empire":"Rebelled against the empire"
+  ,"plot_kingdom_petition_title":"Petition for a De Jure Title", "plot_kingdom_petition_title_info_base":"Spend 300 influence to petition the suzerain empire for an imperial-core title controlled by this tributary"
+  ,"tributary_title_granted_log":"$empire$ granted $kingdom$ the de jure title of $title_name$ by petition.", "personal_history_tributary_title_granted":"Received the de jure title of {1} from {0}."
   ,"tang_peerage_qinwang":"Prince of the First Rank", "tang_peerage_si_wang":"Heir Apparent Prince", "tang_peerage_junwang":"Commandery Prince", "tang_peerage_guogong":"Duke of the State", "tang_peerage_jungong":"Duke of the Commandery", "tang_peerage_xiangong":"Duke of the County", "tang_peerage_kaiguo_jungong":"Founding Duke of the Commandery", "tang_peerage_kaiguo_xiangong":"Founding Duke of the County", "tang_peerage_kaiguo_hou":"Founding Marquis", "tang_peerage_kaiguo_bo":"Founding Count", "tang_peerage_kaiguo_zi":"Founding Viscount", "tang_peerage_kaiguo_nan":"Founding Baron"
   ,"label_fief":"Fief"
   ,"label_vacant":"Vacant"
   ,"label_peerage_pending":"Peerage Pending"
-  ,"label_honorary":"Honorary Peerage", "empire_legal_virtual_peerages":"Title-Based Peerages", "empire_honorary_virtual_peerages":"Honorary Peerages", "empire_history":"Imperial History", "empire_list_current":"Current Empires", "empire_list_archived":"Fallen Empires", "empire_list_culture_unknown":"Unknown Culture"
+  ,"label_honorary":"Honorary Peerage", "label_fief_status":"Fief Status", "label_landed_fief":"Landed", "label_unlanded_fief":"Unlanded", "empire_legal_virtual_peerages":"Title-Based Peerages", "empire_honorary_virtual_peerages":"Honorary Peerages", "empire_history":"Imperial History", "empire_list_current":"Current Empires", "empire_list_archived":"Fallen Empires", "empire_list_culture_unknown":"Unknown Culture"
   ,"tang_honorary_anle_gong":"Duke of Anle", "tang_honorary_zhongyi_hou":"Marquis of Loyalty", "tang_honorary_wenan_gong":"Duke of Wen'an", "tang_honorary_longxi_gong":"Duke of Longxi", "tang_honorary_wujun_hou":"Marquis of Martial Eminence", "tang_honorary_zhongyong_hou":"Marquis of Loyal Valor", "tang_honorary_huaide_hou":"Marquis of Cherished Virtue"
   ,"specific_clan_related_history":"Related History", "specific_clan_related_history_description":"View events in other characters' histories that involve this person.", "related_history_empty":"No history records are associated with this person.", "related_history_owner":"Related person", "related_history_event":"Related: {0}", "related_history_owner_unknown":"Unknown person"
   ,"performance_high_population_toggle":"High Population Performance Mode", "performance_high_population_toggle Description":"At 5,000 units, off-screen civilian AI decisions and actions are frame-sliced; at 20,000 units, ordinary civilian AI decisions and actions run once every 8 simulation ticks and front-line caches are reused for up to 4 frames. Military, rulers, city leaders, favorited, and followed actors remain real-time."
+  ,"performance_adaptive_throughput_toggle":"Adaptive Throughput Acceleration", "performance_adaptive_throughput_toggle Description":"Uses spare main-thread frame time to process more empires, kingdoms, plots, and titles, then returns to conservative batches when frames become busy. It never accesses game objects from background threads and can be disabled independently."
   ,"performance_hidden_visuals_toggle":"Hidden Actor Animation Optimization", "performance_hidden_visuals_toggle Description":"Skips off-screen actor flip, rotation, jump, and scale animations without affecting movement or simulation."
   ,"performance_nameplate_overlap_toggle":"Nameplate Overlap Optimization", "performance_nameplate_overlap_toggle Description":"Skips nameplate overlap sorting and pairwise collision checks. Labels may overlap, but map UI load is reduced."
+  ,"颁布金玺诏书":"Issue the Golden Bull", "恢复世袭皇权":"Restore Hereditary Imperial Succession", "颁布帝国治安令":"Proclaim the Imperial Peace", "确认诸侯特权":"Confirm Princely Privileges", "争夺主教叙任权":"Contest Episcopal Investiture"
+  ,"temporary_faction_success_outcome_log":"$empire$ completed $claim$: $outcome$", "holy_roman_outcome_golden_bull":"Imperial succession is now elective; the electors will choose the next emperor from eligible candidates.", "holy_roman_outcome_hereditary":"Imperial succession has returned to hereditary rule.", "holy_roman_outcome_imperial_peace":"Every prince loses independent diplomacy and war rights and must supply troops to the imperial center.", "holy_roman_outcome_princely_privileges":"{0} regains independent diplomacy and war rights and no longer has to supply troops to the center.", "holy_roman_outcome_investiture_crown":"The crown gains control of episcopal investiture, setting imperial religious control to medium.", "holy_roman_outcome_investiture_clergy":"The theocratic faction gains control of episcopal investiture, raising imperial religious control to the highest level."
+  ,"empirecraft_actor_tooltip":"Imperial Character Record", "empirecraft_actor_live_description":"EmpireCraft identity and genealogy records", "empirecraft_actor_history_description":"Historical character data preserved by EmpireCraft", "empirecraft_actor_unknown":"Unknown Character", "empirecraft_actor_full_name":"Full Name", "empirecraft_actor_age":"Age", "empirecraft_actor_gender":"Gender", "empirecraft_actor_gender_male":"Male", "empirecraft_actor_gender_female":"Female", "empirecraft_actor_gender_unknown":"Unknown", "empirecraft_actor_realm":"Realm", "empirecraft_actor_titles":"De Jure Titles", "empirecraft_actor_office":"Full Office", "empirecraft_actor_peerage":"Peerage", "empirecraft_actor_faction":"Faction", "empirecraft_actor_specific_clan":"Dynasty", "empirecraft_actor_clan":"Clan", "empirecraft_actor_family":"Family", "empirecraft_actor_parents":"Parents", "empirecraft_actor_father":"Father", "empirecraft_actor_mother":"Mother", "empirecraft_actor_spouse":"Spouse"
+  ,"empire_tooltip_core":"Imperial Core", "empire_tooltip_ascension_title":"Ascension Title", "empire_tooltip_running_claim":"Active Claim", "empire_tooltip_claim_format":"{0} ({1}, {2})", "empire_tooltip_province_ruler":"Province Ruler", "empire_tooltip_province_type":"Realm Type", "empire_tooltip_province_titles":"Owned De Jure Titles"
+  ,"national_power":"National Power", "national_power_breakdown":"Population 60% / Military 30% / Economy 10%"
+  ,"purge_recent_100_years":"Purge empires that fell over 100 years ago"
+  ,"原始":"Traditionalists", "尊王":"Royalists", "诸侯":"Feudatories", "中央":"Centralists", "自治":"Autonomists", "攘夷":"War Party", "绥靖":"Appeasement Party", "血脉":"Dynastic Faction", "僭主":"Usurper Faction", "神权":"Theocrats", "共和":"Republicans", "民主":"Democrats", "革命":"Revolutionaries", "融入":"Integrationists", "同化":"Assimilationists", "共产":"Communists", "无":"No Faction"
+  ,"Default":"Default", "past_emperors_description":"View the records of past rulers", "past_emperor":"Past Rulers", "empire_bureau_description":"View the imperial administration", "regime_description":"View or adjust the government"
+  ,"plot_kingdom_start_invite_to_faction":"Invite to Faction", "plot_kingdom_expose_crime":"Expose a Crime", "plot_force_stop_war":"Enforce Peace", "plot_combine_kingdom":"Unify Realms", "plot_kingdom_allow_succession":"Permit Succession", "plot_empire_take_back_title":"Reclaim De Jure Title", "plot_kingdom_add_city_into_title":"Add City to De Jure Title", "task_unit_do_mod_actor_beh":"EmpireCraft Character Behaviour"
+  ,"统一":"Unification", "地方叛乱":"Local Rebellion", "地方独立":"Local Independence", "帝国正统":"Imperial Legitimacy", "帝国扩张":"Imperial Expansion"
 }

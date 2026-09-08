@@ -114,8 +114,11 @@ $dataSource = Get-Content (Join-Path $root 'Scripts/Layer/EmpireData.cs') -Raw
 $uiSource = Get-Content (Join-Path $root 'Scripts/UI/Windows/EmpireWindow.cs') -Raw
 $plotCheckSource = Get-Content (Join-Path $root 'Scripts/AI/KingdomAI/EmpireCraftKingdomBehCheckPlots.cs') -Raw
 Assert-Equal $true $dataSource.Contains('powerful_minister_is_empress_dowager') 'Dowager role persists in save data'
-Assert-Equal $true $empireSource.Contains('private Actor GetEmperorMother()') 'Emperor mother resolved explicitly'
-Assert-Equal $true $empireSource.Contains('ShouldPreferEmpressDowager(true, mother != null') 'Mother compared with minister candidate'
+Assert-Equal $true $dataSource.Contains('powerful_minister_is_former_empress') 'Former-empress role persists in save data'
+Assert-Equal $true $empireSource.Contains('private Actor GetPreviousEmperorWife()') 'Previous emperor wife resolved first'
+Assert-Equal $true $empireSource.Contains('return GetEmperorMother();') 'Current emperor mother remains the fallback dowager'
+Assert-Equal $true $empireSource.Contains('GetPreviousEmperorWife()?.id == lockedCurrent.id') 'Locked dowagers migrate from older saves'
+Assert-Equal $true $empireSource.Contains('ShouldPreferEmpressDowager(true, dowager != null') 'Preferred dowager compared with minister candidate'
 Assert-Equal $true $empireSource.Contains('ordinary 300-influence entry gate only determine preference') 'Minor regency bypasses entry influence gate'
 Assert-Equal $true $empireSource.Contains('normalCandidate ??= getUnits().Where') 'Minor emperor receives fallback regent'
 Assert-Equal $true $empireSource.Contains('ApplyEmpressDowagerRate(monthlyChange, isEmpressDowager)') 'Dowager progress multiplier wired after mandate'
@@ -124,5 +127,9 @@ Assert-Equal $true $uiSource.Contains('"empress_dowager_title"') 'Dowager avatar
 Assert-Equal $true $plotCheckSource.Contains('CheckPowerfulMinisterPlot(pKingdom);') 'Monthly strategy check schedules minister plots'
 Assert-Equal $true $plotCheckSource.Contains('minister.plot?.isActive() == true') 'Minister plot scheduling does not interrupt active plots'
 Assert-Equal $true $plotCheckSource.Contains('empire.CanPowerfulMinisterUsurp(minister)') 'Usurpation receives highest stage priority'
-Assert-Equal $true $plotCheckSource.Contains('plot?.try_to_start_advanced(minister, plot, true)') 'Eligible minister plot starts directly instead of waiting for random AI selection'
+Assert-Equal $true $plotCheckSource.Contains('empire.CanEmpressDowagerInstallSon(minister)') 'Former empress receives the dedicated deposition plot'
+Assert-Equal $true $empireSource.Contains('personal_history_deposed_by_empress_dowager') 'Deposed emperor receives personal history'
+Assert-Equal $true $empireSource.Contains('personal_history_empress_dowager_deposed_emperor') 'Deposing dowager receives personal history'
+Assert-Equal $true $plotCheckSource.Contains('plot?.try_to_start_advanced == null') 'Missing plot starters are rejected safely'
+Assert-Equal $true $plotCheckSource.Contains('plot.try_to_start_advanced(minister, plot, true)') 'Eligible minister plot starts directly instead of waiting for random AI selection'
 Write-Output "$script:passed balance-rule assertions passed."

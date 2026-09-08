@@ -57,7 +57,7 @@ public static class HistoryRecordSystem
     }
 
     public static void RecordHistory(this Empire empire, EmpireHistoryType type = default, Dictionary<string, string> recordInfo = null,
-        string directContent = null, long actorId = -1L, long kingdomId = -1L)
+        string directContent = null, long actorId = -1L, long kingdomId = -1L, bool prepend = false)
     {
         if (empire == null || empire.isRekt()) return;
         if (empire.data == null) return;
@@ -89,7 +89,8 @@ public static class HistoryRecordSystem
                 actor_id = actorId,
                 kingdom_id = kingdomId
             };
-            empire.data.currentHistory.descriptions.Add(description);
+            if (prepend) empire.data.currentHistory.descriptions.Insert(0, description);
+            else empire.data.currentHistory.descriptions.Add(description);
             return;
         }
         string id = "";
@@ -184,7 +185,8 @@ public static class HistoryRecordSystem
                 actor_id = actorId > 0 ? actorId : FindRecordActorId(empire, recordInfo),
                 kingdom_id = kingdomId
             };
-            empire.data.currentHistory.descriptions.Add(description);
+            if (prepend) empire.data.currentHistory.descriptions.Insert(0, description);
+            else empire.data.currentHistory.descriptions.Add(description);
         }
     }
     

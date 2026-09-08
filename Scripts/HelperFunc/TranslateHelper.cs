@@ -112,6 +112,17 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special3 = minister.getColor()._color_text
             }.add();
         }
+
+        public static void LogEmpressDowagerInstallsSon(Actor dowager, Actor deposed, Actor son)
+        {
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.empress_dowager_installs_son_log,
+                dowager.getName(), deposed.getName(), son.getName())
+            {
+                color_special1 = dowager.getColor()._color_text,
+                color_special2 = deposed.getColor()._color_text,
+                color_special3 = son.getColor()._color_text
+            }.add();
+        }
         public static void LogCreateTitle(Kingdom kingdom, KingdomTitle title)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.king_create_title_log,
@@ -590,10 +601,20 @@ namespace EmpireCraft.Scripts.HelperFunc
                 targetName ?? "").RecordIntoEmpire(empire);
         }
 
-        public static void LogTemporaryFactionSucceeded(Empire empire, string claimName, string targetName = null, string crimeName = null)
+        public static void LogTemporaryFactionSucceeded(Empire empire, string claimName, string targetName = null,
+            string crimeName = null, string outcome = null)
         {
             if (empire == null || string.IsNullOrWhiteSpace(claimName))
             {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(outcome))
+            {
+                CreateTemporaryFactionMessage(EmpireCraftWorldLogLibrary.temporary_faction_success_outcome_log,
+                    empire, empire.GetEmpireName() ?? empire.data?.name ?? "",
+                    GetTemporaryFactionClaimText(claimName), outcome)
+                    .RecordNationalHistoryIntoEmpire(empire, empire.Emperor);
                 return;
             }
 
@@ -847,6 +868,8 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
         public static void LogJoinRebellionWar(Kingdom joiner, Kingdom beginner, Empire empire)
         {
+            if (joiner?.data == null || beginner?.data == null || empire == null ||
+                EmpireCraftWorldLogLibrary.join_rebellion_war_log == null) return;
             new WorldLogMessage(EmpireCraftWorldLogLibrary.join_rebellion_war_log,
                 joiner.data.name,
                 beginner.data.name
@@ -939,16 +962,21 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
         public static void LogNewEmperorWest(Actor emperor, City city, bool isNew = false)
         {
+            if (emperor?.data == null || emperor.isRekt() || emperor.kingdom?.data == null) return;
             var empire = emperor.GetEmpire();
+            if (empire == null || empire.data == null || empire.IsArchived()) return;
+            string cityName = city?.data != null && !city.isRekt()
+                ? city.GetCityName()
+                : emperor.kingdom.capital?.GetCityName() ?? "";
             new WorldLogMessage(EmpireCraftWorldLogLibrary.history_new_emperor_west,
                 emperor.data.name,
-                city.GetCityName())
+                cityName)
             {
                 color_special1 = emperor.kingdom.getColor()._color_text,
                 color_special2 = emperor.kingdom.getColor()._color_text
 
             }.RecordIntoEmpire(empire);
-            if (empire != null)
+            if (empire.data.currentHistory != null)
             {
                 empire.data.currentHistory.is_first = isNew;
             }
@@ -1034,6 +1062,20 @@ namespace EmpireCraft.Scripts.HelperFunc
                     color_special3 = title.getColor()._color_text
 
                 }.add();
+        }
+
+        public static void LogTributaryTitleGranted(Kingdom kingdom, Empire empire, KingdomTitle title)
+        {
+            if (kingdom == null || empire == null || title == null) return;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.tributary_title_granted_log,
+                empire.GetEmpireFullName(), kingdom.GetKingdomFullName(), title.data.name)
+            {
+                color_special1 = empire.CoreKingdom.getColor()._color_text,
+                color_special2 = kingdom.getColor()._color_text,
+                color_special3 = title.getColor()._color_text
+            }.RecordNationalHistoryIntoEmpire(empire, kingdom.king, kingdom);
+            kingdom.king?.RecordPersonalHistory(string.Format(LM.Get("personal_history_tributary_title_granted"),
+                empire.GetEmpireFullName(), title.data.name), relatedActorId: empire.Emperor?.id ?? -1L);
         }
 
         public static void LogKingdomChangeMainTitle(Kingdom kingdom, KingdomTitle newTitle)

@@ -107,8 +107,10 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         {
             checkLists();
             int population = World.world?.units?.Count ?? 0;
-            int budget = EmpireCraftFrameSchedulingRules.ResolveMaximumKingdoms(
-                ModClass.PERFORMANCE_HIGH_POPULATION_MODE, population);
+            int budget = EmpireCraftFrameSchedulingRules.ResolveMaximumTitles(
+                ModClass.PERFORMANCE_HIGH_POPULATION_MODE,
+                ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE, population,
+                Math.Max(0d, Time.unscaledDeltaTime * 1000d));
             int count = Math.Min(this.list.Count, Math.Max(1, budget));
             for (int index = 0; index < count; index++)
             {

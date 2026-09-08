@@ -231,6 +231,11 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         //获取国家政体后同步国家官位
         var regime = pKingdom.GetRegime();
         if (regime == null) return;
+        if (regime.type == RegimeType.Feudalism && pKingdom.hasKing() &&
+            WesternPeerageRules.TryGetRulerLevel(newkingdomType, out PeeragesLevel rulerLevel))
+        {
+            pKingdom.king.SetPeeragesLevel(rulerLevel);
+        }
         var needSyncOffice = pKingdom.GetOffice() == null || pKingdom.GetOffice()?.regimeType != regime.type || originalKingdomType != newkingdomType;
         if (needSyncOffice)
         {
@@ -262,29 +267,13 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             }
         }
         
-        var kingdomFront = pKingdom.GetKingdomName();
-        if (pKingdom.hasCapital())
-        {
-            if (!pKingdom.capital.hasTitle())
-            {
-                kingdomFront = pKingdom.GetKingdomName();
-            }
-            else
-            {
-                kingdomFront = pKingdom.capital.GetCityName();
-            }
-        }
-        
-        if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
-        {
-            if (pKingdom.HasMainTitle())
-            {
-                if (pKingdom.GetMainTitle()?.name != null)
-                {
-                    kingdomFront = pKingdom.GetMainTitle().name;
-                }
-            }
-        }
+        string administrativeName = pKingdom.GetAdministrativeProvinceName();
+        KingdomTitle mainTitle = pKingdom.GetMainTitle();
+        var kingdomFront = !string.IsNullOrWhiteSpace(administrativeName)
+            ? administrativeName
+            : !string.IsNullOrWhiteSpace(mainTitle?.name)
+            ? mainTitle.name
+            : pKingdom.GetUntitledKingdomName();
 
         if (pKingdom.IsEmpire())
         {
@@ -292,18 +281,11 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         }
         if (string.IsNullOrWhiteSpace(kingdomFront))
         {
-            if (pKingdom.HasMainTitle() && !string.IsNullOrWhiteSpace(pKingdom.GetMainTitle()?.name))
+            if (!string.IsNullOrWhiteSpace(mainTitle?.name))
             {
-                kingdomFront = pKingdom.GetMainTitle().name;
+                kingdomFront = mainTitle.name;
             }
-            else if (pKingdom.hasCapital() && pKingdom.capital != null)
-            {
-                kingdomFront = pKingdom.capital.GetCityName();
-            }
-            else
-            {
-                kingdomFront = pKingdom.GetKingdomName();
-            }
+            else kingdomFront = pKingdom.GetUntitledKingdomName();
         }
         var kingdomBack = LM.Get(newkingdomType.ToString());
         pKingdom.SetKingdomName(string.Join("\u200A", kingdomFront, kingdomBack));
@@ -341,6 +323,13 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
     {
         var regime = kingdom.GetRegime();
         if (regime == null) return KingdomType.LvLing_kingdom;
+        // A hereditary landed title is a vassal kingdom, never an administrative
+        // circuit or military governorship left over from an earlier configuration.
+        if (regime.type == RegimeType.LvLing && !kingdom.IsEmpire() && kingdom.HasMainTitle() &&
+            regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
+        {
+            return KingdomType.LvLing_kingdom;
+        }
         if (kingdom.IsInEmpire()||regime.default_kingdom == KingdomType.default_country_post)
         {
             if (regime.bureau_config is { kingdoms: not null })

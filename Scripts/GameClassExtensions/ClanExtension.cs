@@ -48,18 +48,22 @@ public static class ClanExtension
 
     public static string GetClanName(this Clan clan, ActorSex sex = ActorSex.None, bool hasSexPost = false)
     {
+        if (clan?.data == null || string.IsNullOrWhiteSpace(clan.name)) return "";
         var nameParts = clan.name.Split('\u200A');
-        if (ConfigData.speciesCulturePair.TryGetValue(clan.species_id, out var culture))
+        string culture = null;
+        if (ConfigData.speciesCulturePair.TryGetValue(clan.species_id, out culture))
         {
             if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
             {
-                if (nameParts.Length - 1 >= setting.Clan.name_pos)
+                if (setting?.Clan != null && setting.Clan.name_pos >= 0 && nameParts.Length > setting.Clan.name_pos)
                 {
                     return hasSexPost ? nameParts[setting.Clan.name_pos] + LM.Get($"{culture}_sex_post_{sex.ToString()}"): nameParts[setting.Clan.name_pos];
                 }
             }
         }
-        return hasSexPost ? nameParts[0]+LM.Get($"{culture}_sex_post_{sex.ToString()}"): nameParts[0];
+        return hasSexPost && !string.IsNullOrWhiteSpace(culture)
+            ? nameParts[0] + LM.Get($"{culture}_sex_post_{sex}")
+            : nameParts[0];
     }
 
     public static bool HasHistoryEmpire(this Clan a)
