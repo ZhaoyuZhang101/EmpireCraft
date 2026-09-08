@@ -40,6 +40,8 @@ public class EmpireData : MetaObjectData
     public string founder_actor_name { get; set; }
     [DefaultValue(-1L)]
     public long founder_actor_id { get; set; } = -1L;
+    [DefaultValue(-1L)]
+    public long dynasty_founder_actor_id { get; set; } = -1L;
     public string founder_kingdom_name { get; set; }
     public string year_name = "";
     public List<EmpireCraftHistory> history = new List<EmpireCraftHistory>();

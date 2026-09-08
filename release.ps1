@@ -104,6 +104,86 @@ function ConvertTo-Utf8JsonFile {
     )
 }
 
+function ConvertTo-NativeCommandLineArgument {
+    param([AllowEmptyString()][string]$Argument)
+
+    if ([string]::IsNullOrEmpty($Argument)) {
+        return '""'
+    }
+
+    if ($Argument -notmatch '[\s"]') {
+        return $Argument
+    }
+
+    # Follow the Windows CommandLineToArgvW escaping rules so headers and paths
+    # remain single arguments when ProcessStartInfo receives one command line.
+    $escaped = [regex]::Replace($Argument, '(\\*)"', '$1$1\"')
+    $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+    return '"' + $escaped + '"'
+}
+
+function Invoke-CurlProcess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TimeoutSeconds,
+
+        [switch]$ShowProgress
+    )
+
+    $curlCommand = Get-Command curl.exe -ErrorAction Stop
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $curlCommand.Source
+    $startInfo.Arguments = (($Arguments | ForEach-Object {
+        ConvertTo-NativeCommandLineArgument ([string]$_)
+    }) -join ' ')
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = -not $ShowProgress
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+
+    try {
+        $null = $process.Start()
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = if ($startInfo.RedirectStandardError) {
+            $process.StandardError.ReadToEndAsync()
+        }
+        else {
+            $null
+        }
+
+        # curl has its own --max-time. This outer deadline protects against a
+        # dead native-process pipeline or a curl process that fails to exit.
+        if (-not $process.WaitForExit(($TimeoutSeconds + 10) * 1000)) {
+            try { $process.Kill() } catch { }
+            throw "curl.exe exceeded the hard timeout of $($TimeoutSeconds + 10) seconds."
+        }
+
+        $process.WaitForExit()
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $stderr = if ($stderrTask) {
+            $stderrTask.GetAwaiter().GetResult()
+        }
+        else {
+            ""
+        }
+
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            StdOut   = $stdout
+            StdErr   = $stderr
+        }
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
 function Invoke-GitHubCurl {
     param(
         [Parameter(Mandatory = $true)]
@@ -132,7 +212,6 @@ function Invoke-GitHubCurl {
     }
 
     $responsePath = [IO.Path]::GetTempFileName()
-    $stderrPath = [IO.Path]::GetTempFileName()
     $jsonPath = $null
 
     try {
@@ -196,35 +275,18 @@ function Invoke-GitHubCurl {
             $Uri
         )
 
-        $previousErrorActionPreference = $ErrorActionPreference
-        try {
-            $ErrorActionPreference = "SilentlyContinue"
+        $curlResult = Invoke-CurlProcess `
+            -Arguments $curlArguments `
+            -TimeoutSeconds $MaxTimeSeconds `
+            -ShowProgress:$ShowProgress
 
-            # The response body goes to $responsePath. curl's --write-out value is
-            # captured directly from stdout, avoiding the Windows PowerShell
-            # empty-file/$null behaviour that caused the previous Null error.
-            if ($ShowProgress) {
-                # Keep curl's progress meter visible. The response body is already
-                # redirected to a file, so stdout contains only the final status.
-                $curlStatusOutput = @(& curl.exe @curlArguments)
-            }
-            else {
-                $curlStatusOutput = @(& curl.exe @curlArguments 2> $stderrPath)
-            }
-            $curlExitCode = $LASTEXITCODE
-        }
-        finally {
-            $ErrorActionPreference = $previousErrorActionPreference
-        }
-
-        $statusText = Get-SafeTrimmedText (($curlStatusOutput | Out-String))
+        $curlExitCode = $curlResult.ExitCode
+        $statusText = Get-SafeTrimmedText $curlResult.StdOut
         $stderrText = if ($ShowProgress) {
             "See the curl output above for transfer details."
         }
         else {
-            Get-SafeTrimmedText (
-                Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
-            )
+            Get-SafeTrimmedText $curlResult.StdErr
         }
         $responseBody = [string](
             Get-Content `
@@ -312,7 +374,7 @@ function Invoke-GitHubCurl {
     }
     finally {
         Remove-Item `
-            -LiteralPath $responsePath, $stderrPath `
+            -LiteralPath $responsePath `
             -Force `
             -ErrorAction SilentlyContinue
 
