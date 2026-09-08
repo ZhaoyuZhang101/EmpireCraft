@@ -7,12 +7,4 @@
 5. 完善派系中央占比、派系领导人、权臣辅政及太后干政机制。
 6. 简易铭牌开关和自适应性能优化, 以及可开关的隐藏后缀按钮
 7. Bug修复。
-
-Update Notes
-1. Reworked kingdom naming, primary de jure title, and de jure succession logic, fixing duplicate kingdom names, lost de jure titles, and incorrect imperial titles upon proclaiming an empire.
-2. Improved the systems for landless de jure titles, landed de jure titles, administrative region authorization, and tributary investiture requests.
-3. Optimized the De Jure window and Empire character tooltip displays, adding information on affiliation, titles, administrative regions, and empire details.
-4. Adjusted the rules for tributary relationships, voluntary submission, post-rebellion reintegration, and overall national power calculations.
-5. Improved faction mechanics, including central influence share, faction leadership, powerful minister regencies, and Empress Dowager political intervention.
-6. Added a Simple Nameplate toggle and adaptive performance optimizations, as well as an optional button for hiding suffixes.
-7. Bug fixes.
+8. 模组自更新推送
