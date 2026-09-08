@@ -177,6 +177,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
             }
         }
         AncientWarfareIsolation.EnableWhenAvailable();
+        EmpireCraftUpdateService.Initialize();
     }
 
     public void LoadUI()

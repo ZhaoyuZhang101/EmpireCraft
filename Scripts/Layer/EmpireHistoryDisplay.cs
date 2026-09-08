@@ -1,4 +1,5 @@
 using System;
+using EmpireCraft.Scripts.HelperFunc;
 
 namespace EmpireCraft.Scripts.Layer
 {
@@ -11,7 +12,7 @@ namespace EmpireCraft.Scripts.Layer
             // Older histories only saved the short name. Reuse surviving data only for the same name.
             if (!string.IsNullOrWhiteSpace(storedFullName) &&
                 string.Equals(shortName, storedShortName, StringComparison.Ordinal))
-                return storedFullName.Replace("\u200A", "");
+                return storedFullName.UseLocalizedNameSeparator();
             return string.IsNullOrWhiteSpace(shortName) ? unknown : shortName;
         }
     }

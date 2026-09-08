@@ -1389,7 +1389,7 @@ public static class KingdomExtension
         if (!k.IsFactionRebelling() && k.getWars().Count() <= 0 && !k.IsLocalRebelling())
         {
             k.RememberInitialRandomKingdomName();
-            k.data.name = kindomName;
+            k.data.name = kindomName.UseLocalizedNameSeparator();
         }
     }
 
@@ -1482,7 +1482,7 @@ public static class KingdomExtension
     private static string ExtractKingdomFront(string fullName)
     {
         if (string.IsNullOrWhiteSpace(fullName)) return "";
-        string[] parts = fullName.Split('\u200A');
+        string[] parts = fullName.SplitNameParts();
         string result = parts.Length <= 2 ? parts[0] : parts[parts.Length - 2];
         return result?.Trim() ?? "";
     }
@@ -2383,7 +2383,7 @@ public static class KingdomExtension
             return GetKingdomFrontFallback(kingdom);
         }
 
-        string[] nameParts = fullName.Split('\u200A');
+        string[] nameParts = fullName.SplitNameParts();
         string result;
         if (nameParts.Length <= 2)
         {
@@ -2416,7 +2416,7 @@ public static class KingdomExtension
         if (kingdom?.data == null) return "";
         return string.IsNullOrWhiteSpace(kingdom.data.name)
             ? kingdom.GetKingdomName()
-            : kingdom.data.name.Trim();
+            : kingdom.data.name.UseLocalizedNameSeparator();
     }
 
     private static string GetKingdomFrontFallback(Kingdom kingdom)

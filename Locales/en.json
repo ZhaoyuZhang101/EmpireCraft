@@ -2,16 +2,21 @@
     "toggle_mod_title": "Empire Box",
     "bug_report_window_title": "Bug Report",
     "bug_report_button": "Bug Report",
-    "bug_report_button_description": "Collect Player.log and send it to the EmpireCraft author.",
-    "bug_report_recipient": "Recipient: ",
-    "bug_report_privacy_notice": "Player.log may contain local paths, system details, and loaded mods. Clicking Send consents to sharing this information. If an email draft opens, add reproduction steps and attach the selected log copy.",
+    "bug_report_button_description": "Collect Player.log and optionally attach the current EmpireCraft save data before sending it to the author.",
+    "bug_report_recipient": "Mod author: ",
+    "bug_report_privacy_notice": "Player.log may contain local paths, system details, and loaded mods. Enabling save upload also shares world, polity, and character data. Clicking Send consents to sharing the selected information.",
     "bug_report_log_found": "Player.log was found and is ready to send.",
     "bug_report_log_missing": "Player.log could not be found, so no report can be created.",
     "bug_report_send": "Send Log",
-    "bug_report_send_description": "Create a diagnostic summary and send Player.log.",
+    "bug_report_send_description": "Send Player.log and a diagnostic summary; include the current EmpireCraft save when the toggle is enabled.",
     "bug_report_open_log": "Open Log",
     "bug_report_open_log_description": "Locate Player.log in the file manager.",
-    "bug_report_sent": "The bug report was handed to the system mail client for delivery.",
+    "bug_report_sent": "The bug report and selected diagnostic data were sent.",
+    "bug_report_include_save_data": "Upload current save data",
+    "bug_report_include_save_data_description": "When enabled, the current world's EmpireCraftModData.json is included in the bug report.",
+    "bug_report_save_disabled": "Save-data upload is disabled; only logs will be sent.",
+    "bug_report_save_found": "The current world's EmpireCraft save data was found and will be included.",
+    "bug_report_save_missing": "No EmpireCraft save data was found for the current world; only logs will be sent.",
     "bug_report_draft_opened": "Direct delivery was unavailable. An email draft opened and the log copy was selected; attach it manually.",
     "bug_report_cancelled": "Sending was cancelled. The log copy remains in the report folder.",
     "bug_report_failed": "The bug report could not be created or sent.",
@@ -1000,4 +1005,8 @@
   ,"Default":"Default", "past_emperors_description":"View the records of past rulers", "past_emperor":"Past Rulers", "empire_bureau_description":"View the imperial administration", "regime_description":"View or adjust the government"
   ,"plot_kingdom_start_invite_to_faction":"Invite to Faction", "plot_faction_leader_influence_local_kingdom":"Influence Local Faction", "plot_kingdom_expose_crime":"Expose a Crime", "plot_force_stop_war":"Enforce Peace", "plot_combine_kingdom":"Unify Realms", "plot_kingdom_allow_succession":"Permit Succession", "plot_empire_take_back_title":"Reclaim De Jure Title", "plot_kingdom_add_city_into_title":"Add City to De Jure Title", "task_unit_do_mod_actor_beh":"EmpireCraft Character Behaviour"
   ,"统一":"Unification", "地方叛乱":"Local Rebellion", "地方独立":"Local Independence", "帝国正统":"Imperial Legitimacy", "帝国扩张":"Imperial Expansion"
+  ,"online_update_window_title":"Online Update", "online_update_button":"Online Update", "online_update_button_description":"Check for and download EmpireCraft updates through Cloudflare"
+  ,"online_update_check":"Check for Updates", "online_update_check_description":"Check Cloudflare for the latest version now", "online_update_download":"Download Update", "online_update_download_description":"Download and verify the update; install it after the game exits"
+  ,"online_update_versions":"Current: {0}\nLatest: {1}", "online_update_notes":"Release Notes", "online_update_no_notes":"No release notes are available"
+  ,"online_update_idle":"Updates have not been checked yet", "online_update_checking":"Checking for updates...", "online_update_up_to_date":"EmpireCraft is up to date", "online_update_available":"A new version is available to download", "online_update_downloading":"Downloading and verifying: {0}%", "online_update_install_scheduled":"Update verified; it will install after the game exits", "online_update_manual_install":"The update was downloaded but cannot replace this installation automatically:\n{0}", "online_update_failed":"Update check or download failed; the mod will continue to run normally"
 }

@@ -5,6 +5,7 @@ using ai.behaviours;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -288,11 +289,11 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             else kingdomFront = pKingdom.GetUntitledKingdomName();
         }
         var kingdomBack = LM.Get(newkingdomType.ToString());
-        pKingdom.SetKingdomName(string.Join("\u200A", kingdomFront, kingdomBack));
+        pKingdom.SetKingdomName(OverallHelperFunc.JoinNameParts(kingdomFront, kingdomBack));
         foreach (var city in pKingdom.cities)
         {
             var cityBack = LM.Get(city.GetCityType().ToString());
-            city.data.name = string.Join("\u200A", city.GetCityName(), cityBack);
+            city.data.name = OverallHelperFunc.JoinNameParts(city.GetCityName(), cityBack);
         }
     }
 

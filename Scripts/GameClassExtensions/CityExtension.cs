@@ -1775,7 +1775,7 @@ public static class CityExtension
         if (city?.data == null) return null;
         string fullName = city.data.name;
         if (string.IsNullOrEmpty(fullName)) return null;
-        string[] nameParts = fullName.Split('\u200A');
+        string[] nameParts = fullName.SplitNameParts();
         string result = null;
 
         if (ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out var culture))
@@ -1836,7 +1836,7 @@ public static class CityExtension
     {
         if (city == null) return "";
         var names = (GetOrCreate(city).kingdom_names ?? "")
-            .Split('\u200A')
+            .SplitNameParts()
             .Where(n => !string.IsNullOrWhiteSpace(n))
             .ToList();
         return names.Count > 0 ? names.GetRandom() : "";

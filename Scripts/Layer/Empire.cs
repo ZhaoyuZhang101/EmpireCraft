@@ -227,7 +227,7 @@ public class Empire : MetaObject<EmpireData>
 
     public string GetEmpireName()
     {
-        string[] nameParts = this.data.name.Split('\u200A');
+        string[] nameParts = this.data.name.SplitNameParts();
         if (nameParts.Length == 1)
         {
             return nameParts[0].Split(' ').Last();
@@ -256,14 +256,16 @@ public class Empire : MetaObject<EmpireData>
             empireSuffix = LM.Get("EmpireText");
         if (string.IsNullOrWhiteSpace(empireSuffix)) return storedName;
 
-        string[] parts = storedName.Split(new[] { '\u200A' }, StringSplitOptions.RemoveEmptyEntries);
+        string[] parts = storedName.SplitNameParts();
         if (parts.Length <= 1)
-            return storedName.EndsWith(empireSuffix, StringComparison.Ordinal) ? storedName : storedName + empireSuffix;
+            return storedName.EndsWith(empireSuffix, StringComparison.Ordinal)
+                ? storedName
+                : OverallHelperFunc.JoinNameParts(storedName, empireSuffix);
 
-        string imperialName = string.Concat(parts.Take(parts.Length - 1));
+        string imperialName = OverallHelperFunc.JoinNameParts(parts.Take(parts.Length - 1).ToArray());
         return imperialName.EndsWith(empireSuffix, StringComparison.Ordinal)
             ? imperialName
-            : imperialName + empireSuffix;
+            : OverallHelperFunc.JoinNameParts(imperialName, empireSuffix);
     }
 
     private EmpireFoundingNameChoice SelectFoundingEmpireName(Kingdom kingdom, EmpireCore riseCore)
@@ -944,14 +946,17 @@ public class Empire : MetaObject<EmpireData>
         {
             if (regime.centre_empire_separate)
             {
-                originalName += "\u200A" + LM.Get($"{regime.type}_empire");
+                originalName = OverallHelperFunc.JoinNameParts(originalName, LM.Get($"{regime.type}_empire"));
             }
             else
             {
-                originalName += "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(core).ToString());
+                originalName = OverallHelperFunc.JoinNameParts(originalName,
+                    LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(core).ToString()));
             }
         }
-        data.name = string.IsNullOrEmpty(data.directPre)?originalName: string.Join("\u200A", data.directPre, originalName);
+        data.name = string.IsNullOrEmpty(data.directPre)
+            ? originalName.UseLocalizedNameSeparator()
+            : OverallHelperFunc.JoinNameParts(data.directPre, originalName);
         if (core.data != null) core.data.name = data.name;
         if (data.currentHistory != null && data.currentHistory.id == Emperor?.id)
             data.currentHistory.empire_full_name = GetEmpireFullName();

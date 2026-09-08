@@ -175,7 +175,7 @@ public static class EmpireCoreManager
         string cultureName = GetCultureDisplayName(core);
         if (!string.IsNullOrWhiteSpace(cultureName))
         {
-            return cultureName[0] + "\u200A" + LM.Get("EmpireText");
+            return OverallHelperFunc.JoinNameParts(cultureName[0].ToString(), LM.Get("EmpireText"));
         }
 
         return LM.Get("EmpireText");
@@ -187,7 +187,7 @@ public static class EmpireCoreManager
         string cultureName = GetCultureDisplayName(core);
         if (!string.IsNullOrWhiteSpace(cultureName))
         {
-            return cultureName[0] + "\u200A" + LM.Get("EmpireText");
+            return OverallHelperFunc.JoinNameParts(cultureName[0].ToString(), LM.Get("EmpireText"));
         }
 
         return GetDisplayName(core);

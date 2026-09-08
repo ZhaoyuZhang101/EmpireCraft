@@ -22,9 +22,13 @@ namespace EmpireCraft.Scripts.Data;
 
 public static class DataManager
 {
+    public const string EmpireCraftSaveFileName = "EmpireCraftModData.json";
+    public static string CurrentSaveDataPath { get; private set; } = "";
+
     public static void LoadAll(string loadRootPath)
     {
-        string loadPath = Path.Combine(loadRootPath, "EmpireCraftModData.json");
+        string loadPath = Path.Combine(loadRootPath, EmpireCraftSaveFileName);
+        CurrentSaveDataPath = loadPath;
         if (!File.Exists(loadPath))
         {
             foreach (var worldKingdom in World.world.kingdoms)
@@ -197,7 +201,8 @@ public static class DataManager
     }
     public static void SaveAll(string saveRootPath)
     {
-        string savePath = Path.Combine(saveRootPath, "EmpireCraftModData.json");
+        string savePath = Path.Combine(saveRootPath, EmpireCraftSaveFileName);
+        CurrentSaveDataPath = savePath;
         SaveData saveData = new SaveData();
         saveData.actorsExtraData = World.world.units.Select(a=>a.GetExtraData<Actor, ActorExtraData>(true)).Where(ed=>ed!=null).ToList();
         saveData.cityExtraData = World.world.cities.Select(a => a.GetExtraData<City, CityExtraData>(true)).Where(ed => ed != null).ToList();

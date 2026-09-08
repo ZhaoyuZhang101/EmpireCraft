@@ -14,6 +14,8 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
 {
     private readonly List<GameObject> _groups = new();
     private SimpleText _status;
+    private AdvancedButton _saveDataToggle;
+    private bool _includeSaveData;
 
     protected override void Init()
     {
@@ -38,7 +40,7 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
         _groups.Clear();
 
         AutoVertLayoutGroup panel = this.BeginVertGroup(
-            new Vector2(196, 132),
+            new Vector2(196, 160),
             pSpacing: 4,
             pAlignment: TextAnchor.UpperCenter,
             pPadding: new RectOffset(3, 3, 3, 3)
@@ -46,7 +48,7 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
 
         SimpleText recipient = panel.AddTextIntoVertLayout(
             LM.Get("bug_report_recipient") +
-            BugReportService.Recipient,
+            BugReportService.GetModAuthor(),
             true,
             TextAnchor.MiddleCenter,
             new Vector2(188, 18)
@@ -61,7 +63,7 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
             LM.Get("bug_report_privacy_notice"),
             true,
             TextAnchor.MiddleLeft,
-            new Vector2(188, 40)
+            new Vector2(188, 44)
         );
 
         notice.UseFixedFontSize(
@@ -69,18 +71,33 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
             HorizontalWrapMode.Wrap
         );
 
-        notice.RefreshAutoHeight(40, 4);
+        notice.RefreshAutoHeight(44, 4);
 
         _status = panel.AddTextIntoVertLayout(
             GetInitialStatus(),
             true,
             TextAnchor.MiddleCenter,
-            new Vector2(188, 22)
+            new Vector2(188, 28)
         );
 
         _status.UseFixedFontSize(
             7,
             HorizontalWrapMode.Wrap
+        );
+
+        AutoHoriLayoutGroup saveDataOption =
+            panel.BeginHoriGroup(
+                new Vector2(188, 18),
+                TextAnchor.MiddleCenter,
+                4
+            );
+
+        _saveDataToggle = panel.transform.AddNormalOptionIntoHori(
+            saveDataOption,
+            "bug_report_include_save_data",
+            ToggleSaveData,
+            _includeSaveData,
+            size: new Vector2(12, 12)
         );
 
         AutoHoriLayoutGroup buttons =
@@ -108,7 +125,7 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
 
         panel.transform.AddStretchBackground(
             "regimeFrame",
-            new Vector2(196, 132)
+            new Vector2(196, 160)
         );
 
         _groups.Add(panel.gameObject);
@@ -116,17 +133,40 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
 
     private string GetInitialStatus()
     {
-        return global::System.IO.File.Exists(
+        string logStatus = global::System.IO.File.Exists(
             BugReportService.FindPlayerLog()
         )
             ? LM.Get("bug_report_log_found")
             : LM.Get("bug_report_log_missing");
+
+        string saveStatus;
+        if (!_includeSaveData)
+        {
+            saveStatus = LM.Get("bug_report_save_disabled");
+        }
+        else
+        {
+            saveStatus = global::System.IO.File.Exists(
+                BugReportService.FindEmpireCraftSaveData()
+            )
+                ? LM.Get("bug_report_save_found")
+                : LM.Get("bug_report_save_missing");
+        }
+
+        return logStatus + "\n" + saveStatus;
+    }
+
+    private void ToggleSaveData()
+    {
+        _includeSaveData = !_includeSaveData;
+        _saveDataToggle?.SetStatus(_includeSaveData);
+        SetStatus(GetInitialStatus());
     }
 
     private void SendReport()
     {
         BugReportSendResult result =
-            BugReportService.Send();
+            BugReportService.Send(_includeSaveData);
 
         string key = result.Status switch
         {
@@ -169,6 +209,6 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
             return;
 
         _status.text.text = text;
-        _status.RefreshAutoHeight(22, 4);
+        _status.RefreshAutoHeight(28, 4);
     }
 }

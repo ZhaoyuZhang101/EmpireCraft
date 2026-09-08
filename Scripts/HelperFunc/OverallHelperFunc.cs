@@ -43,7 +43,39 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
         public static string AppendWithNarrowSpace(this string textA, string textB)
         {
-            return textA + ModClass.NARROW_SPACE + textB;
+            return JoinNameParts(textA, textB);
+        }
+
+        public static string NamePartSeparator
+        {
+            get
+            {
+                // English needs a visible word gap, while CJK names intentionally remain compact.
+                return string.Equals(PlayerConfig.detectLanguage(), "en", StringComparison.OrdinalIgnoreCase)
+                    ? ModClass.NARROW_SPACE + ModClass.NARROW_SPACE
+                    : ModClass.NARROW_SPACE;
+            }
+        }
+
+        public static string JoinNameParts(params string[] parts)
+        {
+            if (parts == null || parts.Length == 0) return "";
+            return string.Join(NamePartSeparator, parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+        }
+
+        public static string[] SplitNameParts(this string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return Array.Empty<string>();
+            return text.Split(new[] { '\u200A' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => part.Trim())
+                .Where(part => part.Length > 0)
+                .ToArray();
+        }
+
+        public static string UseLocalizedNameSeparator(this string text)
+        {
+            string[] parts = text.SplitNameParts();
+            return parts.Length <= 1 ? text?.Trim() ?? "" : JoinNameParts(parts);
         }
         public static EmpireAddition CalcPower(this Actor officer, OfficerPowerType type, Empire empire)
         {

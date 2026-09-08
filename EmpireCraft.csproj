@@ -72,6 +72,8 @@
         <Reference Include="UnityEngine.UI">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.UI.dll</HintPath>
         </Reference>
+        <Reference Include="System.IO.Compression" />
+        <Reference Include="System.IO.Compression.FileSystem" />
     </ItemGroup>
     <ItemGroup>
       <Folder Include="dist\" />

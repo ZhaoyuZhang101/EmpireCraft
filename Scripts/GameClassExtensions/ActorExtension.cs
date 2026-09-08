@@ -137,11 +137,11 @@ public class Name
                 familyName = real_family_name;
                 if (actor.hasClan())
                 {
-                    actor.clan.data.name = real_family_name + "\u200A" + LM.Get("Clan");
+                    actor.clan.data.name = OverallHelperFunc.JoinNameParts(real_family_name, LM.Get("Clan"));
                 }
                 if (actor.hasFamily())
                 {
-                    actor.family.data.name = real_family_name + "\u200A" + LM.Get("Family");
+                    actor.family.data.name = OverallHelperFunc.JoinNameParts(real_family_name, LM.Get("Family"));
                     actor.family.SetFamilyCityPre(false);
                 }
             }
@@ -155,7 +155,9 @@ public class Name
                     real_family_name += post;
                 }
             }
-            actor.data.name = is_invert ? firstName + "\u200A" + real_family_name : real_family_name + "\u200A" + firstName;
+            actor.data.name = is_invert
+                ? OverallHelperFunc.JoinNameParts(firstName, real_family_name)
+                : OverallHelperFunc.JoinNameParts(real_family_name, firstName);
             if (actor.HasSpecificClan())
             {
                 PersonalClanIdentity identity = actor.GetPersonalIdentity();
@@ -1373,7 +1375,7 @@ public static class ActorExtension
     {
         if (a == null) return null;
         if (string.IsNullOrEmpty(a.name)) return null;
-        string[] nameParts = a.name.Split('\u200A');
+        string[] nameParts = a.name.SplitNameParts();
 
         if (ConfigData.speciesCulturePair.TryGetValue(a.asset.id, out var culture))
         {
