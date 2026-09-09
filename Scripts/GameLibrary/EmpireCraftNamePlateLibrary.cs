@@ -40,10 +40,7 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly List<City> _cached_neutral_cities = new List<City>();
     private static readonly List<Kingdom> _render_kingdoms_buffer = new List<Kingdom>();
     private static readonly List<Kingdom> _render_kingdoms_no_back_buffer = new List<Kingdom>();
-    private static readonly Queue<City> _empire_city_queue = new Queue<City>();
-    private static readonly HashSet<long> _empire_city_visited = new HashSet<long>();
     private static readonly HashSet<long> _empire_city_members = new HashSet<long>();
-    private static readonly List<City> _empire_component_cities = new List<City>();
     private static readonly List<City> _empire_best_component_cities = new List<City>();
     private static bool _is_camera_moving_this_frame;
     private static Empire GetDisplayedEmpireForKingdom(Kingdom kingdom)
@@ -607,38 +604,16 @@ public static class EmpireCraftNamePlateLibrary
         string empireName = empire.GetEmpireFullName();
         if (string.IsNullOrWhiteSpace(empireName)) return GetSafeKingdomName(empire.CoreKingdom);
         if (!ModClass.SIMPLE_NAMEPLATE_SWITCH) return empireName;
-
-        Regime regime = empire.CoreKingdom?.GetRegime();
-        string suffixKey = regime == null ? "EmpireText" : $"{regime.type}_empire";
-        string suffix = LM.Get(suffixKey);
-        if (string.IsNullOrWhiteSpace(suffix) || string.Equals(suffix, suffixKey, StringComparison.Ordinal))
-        {
-            suffix = LM.Get("EmpireText");
-        }
-        string simpleName = RemoveNameplateSuffix(empireName, suffix);
-        return string.IsNullOrWhiteSpace(simpleName) ? empire.GetEmpireName() : simpleName;
+        if (empire.CoreKingdom?.HasCustomCountryNaming() == true) return empire.GetEmpireName();
+        return OverallHelperFunc.JoinNameParts(OverallHelperFunc.LocalizeDirectPrefix(empire.data),
+            empire.GetEmpireName());
     }
 
     private static string GetSafeKingdomName(Kingdom kingdom)
     {
         string kingdomName = kingdom?.GetKingdomFullName() ?? "";
         if (!ModClass.SIMPLE_NAMEPLATE_SWITCH || string.IsNullOrWhiteSpace(kingdomName)) return kingdomName;
-
-        string suffixKey = kingdom.GetKingdomType().ToString();
-        string suffix = LM.Get(suffixKey);
-        string simpleName = RemoveNameplateSuffix(kingdomName, suffix);
-        return string.IsNullOrWhiteSpace(simpleName) ? kingdom.GetKingdomName() : simpleName;
-    }
-
-    private static string RemoveNameplateSuffix(string fullName, string suffix)
-    {
-        string result = fullName?.Trim() ?? "";
-        if (!string.IsNullOrWhiteSpace(suffix)
-            && result.EndsWith(suffix, StringComparison.Ordinal))
-        {
-            result = result.Substring(0, result.Length - suffix.Length).Trim();
-        }
-        return result.Replace(ModClass.NARROW_SPACE, "");
+        return kingdom.GetKingdomName();
     }
 
     private static string GetTerritoryKingdomName(Kingdom kingdom)
@@ -698,7 +673,8 @@ public static class EmpireCraftNamePlateLibrary
         if (pMetaObject.data.banner_background_id < 0) pMetaObject.data.banner_background_id = 0;
         if (pMetaObject.data.banner_icon_id < 0) pMetaObject.data.banner_icon_id = 0;
         npt.setupMeta((MetaObjectData) pMetaObject.data, pMetaObject.getColor());
-        string pNewText = $"{GetSafeKingdomName(pMetaObject)}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
+        string displayName = OverallHelperFunc.WrapEnglishDisplayName(GetSafeKingdomName(pMetaObject));
+        string pNewText = $"{displayName}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
         int num;
         if (DebugConfig.isOn(DebugOption.ShowWarriorsCityText))
         {
@@ -787,7 +763,8 @@ public static class EmpireCraftNamePlateLibrary
             ? displayedEmpire.CoreKingdom.getColor()
             : pMetaObject.getColor();
         npt.setupMeta(pMetaObject.data, displayColor);
-        string pNewText = $"{GetSafeKingdomName(pMetaObject)} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
+        string displayName = OverallHelperFunc.WrapEnglishDisplayName(GetSafeKingdomName(pMetaObject));
+        string pNewText = $"{displayName} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
         if (pMetaObject.HasTakenAlliance() && displayedEmpire != null)
         {
             pNewText += $"\n{LM.Get("label_tributary_target")}: {GetSafeEmpireName(displayedEmpire)}";
@@ -1246,7 +1223,8 @@ public static class EmpireCraftNamePlateLibrary
         plateText.setPriority(99999999);
         plateText._showing = true;
         plateText.setupMeta(pMetaObject.data, pMetaObject.getColor());
-        string text = GetSafeEmpireName(empire) + "  " + empire.CountPopulation() + additionNum;
+        string displayName = OverallHelperFunc.WrapEnglishDisplayName(GetSafeEmpireName(empire));
+        string text = displayName + "  " + empire.CountPopulation() + additionNum;
         text = text.ColorString(pColor: new Color(1, 1, 1));
         int difference = (empire.data.PreviousYearsMoney.Count > 2
             ? (empire.data.PreviousYearsMoney.Last() -
@@ -1262,7 +1240,7 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     if (empire.HasYearName())
                     {
-                        text = OverallHelperFunc.JoinNameParts(GetSafeEmpireName(empire),
+                        text = OverallHelperFunc.JoinNameParts(displayName,
                             empire.GetYearNameWithTime(), empire.CountPopulation().ToString());
                     }
                 }
@@ -1312,11 +1290,14 @@ public static class EmpireCraftNamePlateLibrary
             outline.enabled = true;
         }
 
-        outline.effectColor = new Color(0f, 0f, 0f, 0.75f);
-        outline.effectDistance = new Vector2(2f, -2f);
+        bool containsLatin = displayName.Any(character =>
+            (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z'));
+        float outlineDistance = containsLatin ? 3f : 2f;
+        outline.effectColor = new Color(0f, 0f, 0f, containsLatin ? 0.92f : 0.75f);
+        outline.effectDistance = new Vector2(outlineDistance, -outlineDistance);
         
         float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
-        plateText.forceScale((scale>0.4f?0.4f:scale)*Vector2.one);
+        plateText.forceScale((scale > 0.4f ? 0.5f : scale * 1.25f) * Vector2.one);
         plateText._background_image.enabled = EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled();
         plateText._text_name.color = Color.white;
         
@@ -1352,68 +1333,26 @@ public static class EmpireCraftNamePlateLibrary
             _empire_position_cache_time[empireId] = now;
             return fallback;
         }
-        Vector3 result = GetDominantCitiesDisplayPosition(cities, fallback);
+        Vector3 result = GetNationwideCitiesDisplayPosition(cities, fallback);
         _empire_position_cache[empireId] = result;
         _empire_position_cache_time[empireId] = now;
         return result;
     }
 
-    private static Vector3 GetDominantCitiesDisplayPosition(List<City> cities, Vector3 fallback)
+    private static Vector3 GetNationwideCitiesDisplayPosition(List<City> cities, Vector3 fallback)
     {
         if (cities == null || cities.Count <= 0)
         {
             return fallback;
         }
 
-        _empire_city_visited.Clear();
         _empire_city_members.Clear();
         _empire_best_component_cities.Clear();
-        int bestWeight = -1;
         for (int i = 0; i < cities.Count; i++)
         {
             City city = cities[i];
             if (city == null || city.isRekt()) continue;
-            _empire_city_members.Add(city.getID());
-        }
-
-        for (int i = 0; i < cities.Count; i++)
-        {
-            City city = cities[i];
-            if (city == null || city.isRekt()) continue;
-            long cityId = city.getID();
-            if (!_empire_city_visited.Add(cityId)) continue;
-
-            _empire_component_cities.Clear();
-            _empire_city_queue.Clear();
-            _empire_city_queue.Enqueue(city);
-            _empire_component_cities.Add(city);
-
-            int componentWeight = 0;
-            while (_empire_city_queue.Count > 0)
-            {
-                City current = _empire_city_queue.Dequeue();
-                if (current == null || current.isRekt()) continue;
-
-                componentWeight += current.zones?.Count ?? 0;
-                if (current.neighbours_cities == null) continue;
-
-                foreach (City neighbour in current.neighbours_cities)
-                {
-                    if (neighbour == null || neighbour.isRekt()) continue;
-                    long neighbourId = neighbour.getID();
-                    if (!_empire_city_members.Contains(neighbourId)) continue;
-                    if (!_empire_city_visited.Add(neighbourId)) continue;
-                    _empire_city_queue.Enqueue(neighbour);
-                    _empire_component_cities.Add(neighbour);
-                }
-            }
-
-            if (componentWeight > bestWeight)
-            {
-                bestWeight = componentWeight;
-                _empire_best_component_cities.Clear();
-                _empire_best_component_cities.AddRange(_empire_component_cities);
-            }
+            if (_empire_city_members.Add(city.getID())) _empire_best_component_cities.Add(city);
         }
 
         if (_empire_best_component_cities.Count <= 0)

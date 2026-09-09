@@ -241,6 +241,9 @@ public static class KingdomExtension
         public KingdomType kingdomType;
         public string core_name = "";
         public string core_name_source = "";
+        // Player-facing overrides are kept separate so clearing them restores automatic naming.
+        public string custom_country_name = "";
+        public string custom_country_suffix = "";
         public SpecificClan kingdomSpecificClan;
         public int Money = 0;
         public long CenterArmID = -1L;
@@ -2448,13 +2451,56 @@ public static class KingdomExtension
         return coreName;
     }
 
+    public static bool HasCustomCountryNaming(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return false;
+        KingdomExtraData data = kingdom.GetOrCreate();
+        return !string.IsNullOrWhiteSpace(data.custom_country_name) ||
+               !string.IsNullOrWhiteSpace(data.custom_country_suffix);
+    }
+
+    public static string GetCustomCountryName(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        return kingdom.GetOrCreate().custom_country_name?.Trim() ?? "";
+    }
+
+    public static string GetCustomCountrySuffix(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        return kingdom.GetOrCreate().custom_country_suffix?.Trim() ?? "";
+    }
+
+    public static void SetCustomCountryName(this Kingdom kingdom, string value)
+    {
+        if (kingdom?.data == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
+        kingdom.GetOrCreate().custom_country_name = value ?? "";
+    }
+
+    public static void SetCustomCountrySuffix(this Kingdom kingdom, string value)
+    {
+        if (kingdom?.data == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
+        kingdom.GetOrCreate().custom_country_suffix = value ?? "";
+    }
+
+    public static string GetAutomaticKingdomName(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
+        return kingdom.EnsureKingdomCoreName();
+    }
+
     public static string GetKingdomName(this Kingdom kingdom)
     {
         // CoreSystemObject.name dereferences data directly, but disposed kingdoms keep a
         // non-null object reference after their data has been cleared.
         if (kingdom?.data == null) return "";
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
-        return kingdom.EnsureKingdomCoreName();
+        string customName = kingdom.GetCustomCountryName();
+        return !string.IsNullOrWhiteSpace(customName) ? customName : kingdom.GetAutomaticKingdomName();
     }
 
     public static string GetKingdomFullName(this Kingdom kingdom)
@@ -2463,6 +2509,11 @@ public static class KingdomExtension
         try
         {
             if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
+            if (kingdom.HasCustomCountryNaming())
+            {
+                return OverallHelperFunc.JoinNameParts(kingdom.GetKingdomName(),
+                    kingdom.GetCustomCountrySuffix());
+            }
             if (!kingdom.isRekt() && (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling()))
                 return kingdom.data.name?.UseLocalizedNameSeparator() ?? "";
             string coreName = kingdom.EnsureKingdomCoreName();

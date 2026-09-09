@@ -350,7 +350,7 @@
   "real_num": "擬真人口數字",
   "real_num_description": "將顯示的人口數字乘以1000",
   "simple_nameplate": "隐藏後缀",
-  "simple_nameplate_description": "地圖上的帝國與王國銘牌不顯示國家後綴，但保留方位詞和正式國名資料",
+  "simple_nameplate_description": "地圖上的帝國與王國銘牌保留方位詞和核心國名，不顯示國家類別或後綴",
   "past_emperors": "君主世系",
   "empire_list_window": "帝國列表",
   "empire_list_window_description": "顯示所有目前已有的帝國",
@@ -978,4 +978,5 @@
   ,"online_update_check":"檢查更新", "online_update_check_description":"立即檢查 Cloudflare 上的最新版本", "online_update_download":"下載更新", "online_update_download_description":"下載並校驗更新；退出遊戲後自動安裝"
   ,"online_update_versions":"目前版本：{0}\n最新版本：{1}", "online_update_notes":"更新說明", "online_update_no_notes":"暫無更新說明"
   ,"online_update_idle":"尚未檢查更新", "online_update_checking":"正在檢查更新……", "online_update_up_to_date":"目前已是最新版本", "online_update_available":"發現新版本，可以下載更新", "online_update_downloading":"正在下載並校驗更新：{0}%", "online_update_install_scheduled":"更新已校驗，將在退出遊戲後自動安裝", "online_update_manual_install":"更新已下載，但目前環境不會自動覆蓋。安裝包：\n{0}", "online_update_failed":"更新檢查或下載失敗；這不會影響模組運行"
+  ,"kingdom_custom_naming":"自訂國名", "kingdom_custom_name":"國家名稱", "kingdom_custom_suffix":"國家後綴"
 }

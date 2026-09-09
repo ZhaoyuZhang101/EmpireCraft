@@ -78,7 +78,7 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
                     string honoraryOfficial = "";
                     string PeeragesLevel = "";
                     string officialLevel = "";
-                    string kingdomName = actor.kingdom.name;
+                    string kingdomName = actor.kingdom.GetKingdomFullName();
                     string cityName = actor.city.name;
                     string officer = actor.isOfficer() ? "officer" + LM.Get("actor_officer") : "";
                     string name = "";

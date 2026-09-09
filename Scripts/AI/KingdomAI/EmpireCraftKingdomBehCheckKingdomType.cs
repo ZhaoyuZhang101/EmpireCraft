@@ -227,7 +227,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
-            empire?.SetEmpireName(pKingdom.GetKingdomName());
+            // Keep automatic empire naming alive beneath any temporary player-facing override.
+            empire?.SetEmpireName(pKingdom.GetAutomaticKingdomName());
         }
         //获取国家政体后同步国家官位
         var regime = pKingdom.GetRegime();

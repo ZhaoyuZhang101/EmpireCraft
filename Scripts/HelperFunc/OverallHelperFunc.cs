@@ -94,6 +94,53 @@ namespace EmpireCraft.Scripts.HelperFunc
             return parts.Length <= 1 ? text.Trim() : JoinNameParts(parts);
         }
 
+        public static string WrapEnglishDisplayName(string text, float maxLineWeight = 11f)
+        {
+            if (!IsEnglishLanguage() || string.IsNullOrWhiteSpace(text) || text.IndexOf('\n') >= 0) return text ?? "";
+            string[] words = text.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length < 2 || MeasureEnglishText(text) <= maxLineWeight) return text;
+
+            int splitIndex = -1;
+            for (int i = 1; i < words.Length - 1; i++)
+            {
+                if (string.Equals(words[i], "of", StringComparison.OrdinalIgnoreCase))
+                {
+                    splitIndex = i + 1;
+                    break;
+                }
+            }
+            if (splitIndex < 1 || splitIndex >= words.Length)
+            {
+                float bestDifference = float.MaxValue;
+                for (int i = 1; i < words.Length; i++)
+                {
+                    float left = MeasureEnglishText(string.Join(" ", words.Take(i)));
+                    float right = MeasureEnglishText(string.Join(" ", words.Skip(i)));
+                    float difference = Mathf.Abs(left - right);
+                    if (difference >= bestDifference) continue;
+                    bestDifference = difference;
+                    splitIndex = i;
+                }
+            }
+            if (splitIndex < 1 || splitIndex >= words.Length) return text;
+            return JoinNameParts(words.Take(splitIndex).ToArray()) + "\n" +
+                   JoinNameParts(words.Skip(splitIndex).ToArray());
+        }
+
+        private static float MeasureEnglishText(string text)
+        {
+            float width = 0f;
+            if (string.IsNullOrEmpty(text)) return width;
+            for (int i = 0; i < text.Length; i++)
+            {
+                char character = text[i];
+                if (char.IsWhiteSpace(character)) width += 0.35f;
+                else if (char.IsUpper(character)) width += 0.72f;
+                else width += 0.58f;
+            }
+            return width;
+        }
+
         public static bool UsesEnglishCountryTypePrefix(string cultureName)
         {
             if (!IsEnglishLanguage()) return false;

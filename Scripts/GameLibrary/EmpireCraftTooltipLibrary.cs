@@ -120,7 +120,7 @@ public static class EmpireCraftTooltipLibrary
 		pTooltip.setSpeciesIcon(kingdom.getSpeciesIcon());
 		string color_text = kingdom.getColor().color_text;
 		KingdomType type = kingdom.GetKingdomType();
-		pTooltip.setTitle(kingdom.name, type.ToString(), kingdom.getColor().color_text);
+		pTooltip.setTitle(kingdom.GetKingdomFullName(), type.ToString(), kingdom.getColor().color_text);
 		pTooltip.transform.FindRecursive("Stats").gameObject.SetActive(value: true);
 		AssetManager.tooltips.setIconValue(pTooltip, "i_age", kingdom.getAge());
 		AssetManager.tooltips.setIconValue(pTooltip, "i_population", kingdom.getPopulationPeople());
@@ -248,7 +248,7 @@ public static class EmpireCraftTooltipLibrary
                 pTooltip.addLineText("empire_clan", pEmpire.EmpireClan.data.name, pEmpire.EmpireClan.getColor().color_text, false, true, 21);
             }
         }
-        pTooltip.addLineText("empire_capital", pEmpire.CoreKingdom.data.name, "#CC6CE7", false, true, 21);
+        pTooltip.addLineText("empire_capital", pEmpire.CoreKingdom.GetKingdomFullName(), "#CC6CE7", false, true, 21);
         Regime regime = pEmpire.CoreKingdom.GetRegime();
         if (regime?.HasEraName() == true && pEmpire.HasYearName())
         {

@@ -280,7 +280,7 @@
     "real_num": "Simulated Realistic Population",
     "real_num_description": "Multiply displayed population by 1000",
     "simple_nameplate": "Hide Kingdom Type",
-    "simple_nameplate_description": "Hide realm suffixes on empire and kingdom map labels while preserving directional prefixes and formal realm names",
+    "simple_nameplate_description": "Show directional prefixes and the core country name on map labels, without realm types or suffixes",
 
     "past_emperors": "Lineage of Monarchs",
     "empire_list_window": "Empire List",
@@ -1010,4 +1010,5 @@
   ,"online_update_check":"Check for Updates", "online_update_check_description":"Check Cloudflare for the latest version now", "online_update_download":"Download Update", "online_update_download_description":"Download and verify the update; install it after the game exits"
   ,"online_update_versions":"Current: {0}\nLatest: {1}", "online_update_notes":"Release Notes", "online_update_no_notes":"No release notes are available"
   ,"online_update_idle":"Updates have not been checked yet", "online_update_checking":"Checking for updates...", "online_update_up_to_date":"EmpireCraft is up to date", "online_update_available":"A new version is available to download", "online_update_downloading":"Downloading and verifying: {0}%", "online_update_install_scheduled":"Update verified; it will install after the game exits", "online_update_manual_install":"The update was downloaded but cannot replace this installation automatically:\n{0}", "online_update_failed":"Update check or download failed; the mod will continue to run normally"
+  ,"kingdom_custom_naming":"Custom Country Naming", "kingdom_custom_name":"Country Name", "kingdom_custom_suffix":"Country Suffix"
 }
