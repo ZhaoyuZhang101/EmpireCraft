@@ -588,16 +588,16 @@ public class ActorPatch : GamePatch
             {
                 if (!__instance.clan.units.Any(p=>p.hasCulture()))
                 {
-                    __instance.clan.data.name = pCulture.getOnomasticData(MetaType.Clan).generateName();
+                    __instance.clan.data.name = pCulture.getOnomasticData(MetaType.Clan).generateName()
+                        .UseLocalizedNameSeparator();
                 }
 
                 try
                 {
                     if (__instance.hasFamily())
                     {
-                        __instance.family.data.name = __instance.city?.data?.name ??
-                                                      "" + "\u200A" + __instance.clan?.GetClanName() + "\u200A" +
-                                                      LM.Get("Family");
+                        __instance.family.data.name = OverallHelperFunc.JoinNameParts(
+                            __instance.city?.data?.name ?? "", __instance.clan?.GetClanName(), LM.Get("Family"));
                         __instance.family.SetFamilyCityPre();
                     }
                 }
@@ -613,7 +613,8 @@ public class ActorPatch : GamePatch
                 {
                     if (!__instance.family.HasBeenSetBefored())
                     {
-                        __instance.family.data.name = pCulture.getOnomasticData(MetaType.Family).generateName();
+                        __instance.family.data.name = pCulture.getOnomasticData(MetaType.Family).generateName()
+                            .UseLocalizedNameSeparator();
                         __instance.family.SetFamilyCityPre(false);
                         __instance.SetFamilyName(__instance.family.GetFamilyName());
                     }
@@ -653,13 +654,13 @@ public class ActorPatch : GamePatch
             if (__instance.city != null)
             {
                 string cityName = __instance.city.GetCityName();
-                __instance.family.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
+                __instance.family.data.name = OverallHelperFunc.JoinNameParts(cityName, clanName, familyEnd);
                 __instance.family.SetFamilyCityPre();
             } else
             {
                 if (!__instance.family.HasBeenSetBefored())
                 {
-                    __instance.family.data.name = string.Join("\u200A", clanName, familyEnd);
+                    __instance.family.data.name = OverallHelperFunc.JoinNameParts(clanName, familyEnd);
                     __instance.family.SetFamilyCityPre(false);
                 }
             }
@@ -673,7 +674,8 @@ public class ActorPatch : GamePatch
         {
             if (__instance.hasCulture())
             {
-                pObject.data.name = __instance.culture.getOnomasticData(MetaType.Clan).generateName();
+                pObject.data.name = __instance.culture.getOnomasticData(MetaType.Clan).generateName()
+                    .UseLocalizedNameSeparator();
                 __instance.SetFamilyName(pObject.GetClanName());
             }
         } else
@@ -713,7 +715,7 @@ public class ActorPatch : GamePatch
                 if (__instance.city != null)
                 {
                     string cityName = __instance.city.GetCityName();
-                    pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
+                    pObject.data.name = OverallHelperFunc.JoinNameParts(cityName, clanName, familyEnd);
                     pObject.SetFamilyCityPre();
                     __instance.SetFamilyName(pObject.GetFamilyName());
                 }
@@ -721,7 +723,7 @@ public class ActorPatch : GamePatch
                 {
                     if (!pObject.HasBeenSetBefored())
                     {
-                        pObject.data.name = string.Join("\u200A", clanName, familyEnd);
+                        pObject.data.name = OverallHelperFunc.JoinNameParts(clanName, familyEnd);
                         pObject.SetFamilyCityPre(false);
                         __instance.SetFamilyName(pObject.GetFamilyName());
                     }
@@ -740,14 +742,14 @@ public class ActorPatch : GamePatch
                 if (__instance.city != null)
                 {
                     string cityName = __instance.city.GetCityName();
-                    pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
+                    pObject.data.name = OverallHelperFunc.JoinNameParts(cityName, clanName, familyEnd);
                     pObject.SetFamilyCityPre();
                 }
                 else
                 {
                     if (!pObject.HasBeenSetBefored())
                     {
-                        pObject.data.name = string.Join("\u200A", clanName, familyEnd);
+                        pObject.data.name = OverallHelperFunc.JoinNameParts(clanName, familyEnd);
                         pObject.SetFamilyCityPre(false);
                     }
                 }
@@ -764,7 +766,8 @@ public class ActorPatch : GamePatch
                 {
                     if (!pObject.HasBeenSetBefored())
                     {
-                        pObject.data.name = __instance.culture.getOnomasticData(MetaType.Family).generateName();
+                        pObject.data.name = __instance.culture.getOnomasticData(MetaType.Family).generateName()
+                            .UseLocalizedNameSeparator();
                         pObject.SetFamilyCityPre(false);
                     }
                 }
@@ -772,7 +775,8 @@ public class ActorPatch : GamePatch
             {
                 if (!pObject.HasBeenSetBefored())
                 {
-                    pObject.data.name = __instance.culture.getOnomasticData(MetaType.Family).generateName();
+                    pObject.data.name = __instance.culture.getOnomasticData(MetaType.Family).generateName()
+                        .UseLocalizedNameSeparator();
                     pObject.SetFamilyCityPre(false);
                 }
             }
@@ -791,14 +795,14 @@ public class ActorPatch : GamePatch
                 if (__instance.city != null)
                 {
                     string cityName = __instance.city.GetCityName();
-                    pObject.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
+                    pObject.data.name = OverallHelperFunc.JoinNameParts(cityName, clanName, familyEnd);
                     pObject.SetFamilyCityPre();
                 }
                 else
                 {
                     if (!pObject.HasBeenSetBefored())
                     {
-                        pObject.data.name = string.Join("\u200A", clanName, familyEnd);
+                        pObject.data.name = OverallHelperFunc.JoinNameParts(clanName, familyEnd);
                         pObject.SetFamilyCityPre(false);
                     }
                 }

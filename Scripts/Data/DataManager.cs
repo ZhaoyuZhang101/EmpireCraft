@@ -17,14 +17,20 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.Compatibility;
 
 namespace EmpireCraft.Scripts.Data;
 
 public static class DataManager
 {
+    public const string EmpireCraftSaveFileName = "EmpireCraftModData.json";
+    public static string CurrentSaveDataPath { get; private set; } = "";
+
     public static void LoadAll(string loadRootPath)
     {
-        string loadPath = Path.Combine(loadRootPath, "EmpireCraftModData.json");
+        string loadPath = Path.Combine(loadRootPath, EmpireCraftSaveFileName);
+        CurrentSaveDataPath = loadPath;
+        NormalizeLoadedNameSeparators();
         if (!File.Exists(loadPath))
         {
             foreach (var worldKingdom in World.world.kingdoms)
@@ -195,9 +201,37 @@ public static class DataManager
             EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
         }
     }
+
+    private static void NormalizeLoadedNameSeparators()
+    {
+        if (World.world == null) return;
+
+        foreach (Actor actor in World.world.units)
+        {
+            if (actor?.data == null || AncientWarfareCompatibility.OwnsObject(actor)) continue;
+            actor.data.name = actor.data.name.UseLocalizedNameSeparator();
+            if (actor.clan?.data != null)
+                actor.clan.data.name = actor.clan.data.name.UseLocalizedNameSeparator();
+            if (actor.family?.data != null)
+                actor.family.data.name = actor.family.data.name.UseLocalizedNameSeparator();
+        }
+
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+            if (kingdom?.data == null || AncientWarfareCompatibility.Owns(kingdom)) continue;
+            kingdom.data.name = kingdom.data.name.UseLocalizedNameSeparator();
+        }
+
+        foreach (City city in World.world.cities)
+        {
+            if (city?.data == null || AncientWarfareCompatibility.Owns(city.kingdom)) continue;
+            city.data.name = city.data.name.UseLocalizedNameSeparator();
+        }
+    }
     public static void SaveAll(string saveRootPath)
     {
-        string savePath = Path.Combine(saveRootPath, "EmpireCraftModData.json");
+        string savePath = Path.Combine(saveRootPath, EmpireCraftSaveFileName);
+        CurrentSaveDataPath = savePath;
         SaveData saveData = new SaveData();
         saveData.actorsExtraData = World.world.units.Select(a=>a.GetExtraData<Actor, ActorExtraData>(true)).Where(ed=>ed!=null).ToList();
         saveData.cityExtraData = World.world.cities.Select(a => a.GetExtraData<City, CityExtraData>(true)).Where(ed => ed != null).ToList();

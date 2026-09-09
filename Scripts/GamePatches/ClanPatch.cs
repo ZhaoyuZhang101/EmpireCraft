@@ -48,7 +48,7 @@ public class ClanPatch : GamePatch
         CulturePatch.EnsureEmpireNaming(pFounder.culture);
         if (pFounder.GetModName().hasFamilyName(pFounder))
         {
-            __instance.data.name = pFounder.GetModName().familyName+ "\u200A" + LM.Get("Clan");
+            __instance.data.name = OverallHelperFunc.JoinNameParts(pFounder.GetModName().familyName, LM.Get("Clan"));
             if (pFounder.hasFamily())
             {
                 string clanName = __instance.GetClanName();
@@ -56,14 +56,14 @@ public class ClanPatch : GamePatch
                 if (pFounder.city != null)
                 {
                     string cityName = pFounder.city.GetCityName();
-                    pFounder.family.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
+                    pFounder.family.data.name = OverallHelperFunc.JoinNameParts(cityName, clanName, familyEnd);
                     OverallHelperFunc.SetFamilyCityPre(pFounder.family);
                 }
                 else
                 {
                     if (!pFounder.family.HasBeenSetBefored())
                     {
-                        pFounder.family.data.name = string.Join("\u200A", clanName, familyEnd);
+                        pFounder.family.data.name = OverallHelperFunc.JoinNameParts(clanName, familyEnd);
                         OverallHelperFunc.SetFamilyCityPre(pFounder.family, false);
                     }
                 }
@@ -72,7 +72,8 @@ public class ClanPatch : GamePatch
         {
             if (pFounder.hasCulture())
             {
-                __instance.data.name = pFounder.culture.getOnomasticData(MetaType.Clan).generateName();
+                __instance.data.name = pFounder.culture.getOnomasticData(MetaType.Clan).generateName()
+                    .UseLocalizedNameSeparator();
                 pFounder.SetFamilyName(__instance.GetClanName());
                 if (pFounder.hasFamily())
                 {
@@ -81,14 +82,14 @@ public class ClanPatch : GamePatch
                     if (pFounder.city != null)
                     {
                         string cityName = pFounder.city.GetCityName();
-                        pFounder.family.data.name = string.Join("\u200A", cityName, clanName, familyEnd);
+                        pFounder.family.data.name = OverallHelperFunc.JoinNameParts(cityName, clanName, familyEnd);
                         OverallHelperFunc.SetFamilyCityPre(pFounder.family);
                     }
                     else
                     {
                         if (!pFounder.family.HasBeenSetBefored())
                         {
-                            pFounder.family.data.name = string.Join("\u200A", clanName, familyEnd);
+                            pFounder.family.data.name = OverallHelperFunc.JoinNameParts(clanName, familyEnd);
                             OverallHelperFunc.SetFamilyCityPre(pFounder.family, false);
                         }
                     }

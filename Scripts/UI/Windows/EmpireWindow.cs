@@ -297,7 +297,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             GameObject kingdomListElement = PrefabHelper.FindPrefabByName("list_element_kingdom");
             GameObject inst = GameObject.Instantiate(kingdomListElement);
             KingdomListElement kl = inst.GetComponent<KingdomListElement>();
-            kl.kingdomName.text = e.name;
+            kl.kingdomName.text = e.GetKingdomFullName();
             kl.textAge._text.text = e.getAge().ToString();
             kl.textPopulation._text.text = e.countUnits().ToString();
             kl.textArmy._text.text = e.countTotalWarriors().ToString();

@@ -214,7 +214,17 @@ public class Empire : MetaObject<EmpireData>
 
     public string GetCulture()
     {
-        return ConfigData.speciesCulturePair.TryGetValue(CoreKingdom.getSpecies(), out var culture) ? culture : "";
+        return CoreKingdom != null && ConfigData.speciesCulturePair.TryGetValue(CoreKingdom.getSpecies(), out var culture)
+            ? culture
+            : "";
+    }
+
+    private string GetNamingCulture()
+    {
+        string cultureName = GetCulture();
+        return !string.IsNullOrWhiteSpace(cultureName) || CoreKingdom == null
+            ? cultureName
+            : OverallHelperFunc.GetCultureFromSpecies(CoreKingdom.getSpecies());
     }
     public bool IsAllowToMakeWar()
     {
@@ -225,45 +235,110 @@ public class Empire : MetaObject<EmpireData>
         return false;
     }
 
+    public string EnsureEmpireCoreName()
+    {
+        if (data == null) return "";
+        if (!string.IsNullOrWhiteSpace(data.core_name)) return data.core_name;
+        string coreName = "";
+        try
+        {
+            coreName = ExtractEmpireCoreName();
+            if (string.IsNullOrWhiteSpace(coreName)) coreName = CoreKingdom?.GetKingdomName() ?? "";
+        }
+        catch
+        {
+            coreName = "";
+        }
+        if (string.IsNullOrWhiteSpace(coreName)) coreName = data.name ?? "";
+        if (!string.IsNullOrWhiteSpace(coreName))
+        {
+            try { data.core_name = coreName; } catch { }
+        }
+        return coreName;
+    }
+
+    private string ExtractEmpireCoreName()
+    {
+        if (string.IsNullOrWhiteSpace(data.name)) return "";
+        if (OverallHelperFunc.TryExtractEnglishPrefixedCountryName(data.name, out string prefixedName))
+        {
+            string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
+            string[] coreParts = prefixedName.SplitNameParts();
+            if (!string.IsNullOrWhiteSpace(localizedPrefix) && coreParts.Length > 1 &&
+                string.Equals(coreParts[0], localizedPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return OverallHelperFunc.JoinNameParts(coreParts.Skip(1).ToArray());
+            }
+            return prefixedName;
+        }
+
+        string typeKey = string.IsNullOrWhiteSpace(data.empire_type_key)
+            ? OverallHelperFunc.ResolveEmpireTypeKey(CoreKingdom?.GetRegime(), CoreKingdom)
+            : data.empire_type_key;
+        string typeName = string.IsNullOrWhiteSpace(typeKey) ? "" : LM.Get(typeKey);
+        string strippedName = OverallHelperFunc.StripLocalizedTypeSuffix(data.name, typeName);
+        if (!string.Equals(strippedName, data.name.Trim(), StringComparison.Ordinal))
+        {
+            string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
+            if (!string.IsNullOrWhiteSpace(localizedPrefix))
+            {
+                string[] separators = { ModClass.NARROW_SPACE + ModClass.NARROW_SPACE, ModClass.NARROW_SPACE, " " };
+                foreach (string separator in separators)
+                {
+                    string prefix = localizedPrefix + separator;
+                    if (!strippedName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                    strippedName = strippedName.Substring(prefix.Length).Trim();
+                    break;
+                }
+            }
+            return strippedName.UseLocalizedNameSeparator();
+        }
+
+        string[] nameParts = data.name.SplitNameParts();
+        return nameParts.Length > 0 ? nameParts[0] : "";
+    }
+
     public string GetEmpireName()
     {
-        string[] nameParts = this.data.name.Split('\u200A');
-        if (nameParts.Length == 1)
+        if (CoreKingdom?.HasCustomCountryNaming() == true)
         {
-            return nameParts[0].Split(' ').Last();
-        } 
-        else if (nameParts.Length > 1)
-        {
-            return nameParts[nameParts.Length - 2];
-
-        } else
-        {
-            return "";
+            string customName = CoreKingdom.GetCustomCountryName();
+            if (!string.IsNullOrWhiteSpace(customName)) return customName;
         }
+        if (data == null) return CoreKingdom?.GetKingdomName() ?? "";
+        if (!string.IsNullOrWhiteSpace(data.core_name)) return data.core_name;
+        if (string.IsNullOrWhiteSpace(data.name)) return CoreKingdom?.GetKingdomName() ?? "";
+        return EnsureEmpireCoreName();
     }
 
     public string GetEmpireFullName()
     {
         if (data == null) return "";
-        string storedName = data.name?.Trim();
-        if (string.IsNullOrWhiteSpace(storedName))
-            storedName = CoreKingdom?.GetKingdomFullName() ?? "";
+        try
+        {
+            if (CoreKingdom?.HasCustomCountryNaming() == true)
+            {
+                return OverallHelperFunc.JoinNameParts(GetEmpireName(),
+                    CoreKingdom.GetCustomCountrySuffix());
+            }
+            string coreName = EnsureEmpireCoreName();
+            if (string.IsNullOrWhiteSpace(coreName)) return data.name ?? "";
 
-        Regime regime = CoreKingdom?.GetRegime();
-        string suffixKey = regime == null ? "EmpireText" : $"{regime.type}_empire";
-        string empireSuffix = LM.Get(suffixKey);
-        if (string.IsNullOrWhiteSpace(empireSuffix) || string.Equals(empireSuffix, suffixKey, StringComparison.Ordinal))
-            empireSuffix = LM.Get("EmpireText");
-        if (string.IsNullOrWhiteSpace(empireSuffix)) return storedName;
+            if (string.IsNullOrWhiteSpace(data.empire_type_key))
+                data.empire_type_key = OverallHelperFunc.ResolveEmpireTypeKey(CoreKingdom?.GetRegime(), CoreKingdom);
 
-        string[] parts = storedName.Split(new[] { '\u200A' }, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length <= 1)
-            return storedName.EndsWith(empireSuffix, StringComparison.Ordinal) ? storedName : storedName + empireSuffix;
+            string typeKey = data.empire_type_key;
+            string typeName = string.IsNullOrWhiteSpace(typeKey) ? "" : LM.Get(typeKey);
+            if (string.IsNullOrWhiteSpace(typeName) || string.Equals(typeName, typeKey, StringComparison.Ordinal))
+                typeName = "";
 
-        string imperialName = string.Concat(parts.Take(parts.Length - 1));
-        return imperialName.EndsWith(empireSuffix, StringComparison.Ordinal)
-            ? imperialName
-            : imperialName + empireSuffix;
+            string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
+            return OverallHelperFunc.FormatEmpireFullName(coreName, typeName, localizedPrefix, GetNamingCulture());
+        }
+        catch
+        {
+            return data.name ?? "";
+        }
     }
 
     private EmpireFoundingNameChoice SelectFoundingEmpireName(Kingdom kingdom, EmpireCore riseCore)
@@ -537,8 +612,8 @@ public class Empire : MetaObject<EmpireData>
         }
         newEmpire.UpdateCapital(this.OriginalCapital);
         newEmpire.data.history.InsertRange(0, this.data.history);
-        newEmpire.SetEmpireName(this.GetEmpireName());
         newEmpire.data.directPre = this.CalcDir(kingdom.capital.city_center, CoreKingdom.capital.city_center);
+        newEmpire.SetEmpireName(this.GetEmpireName());
         
         var provinces = new List<City>() {};
         StartSplit(newEmpire, startProvince, ref provinces);
@@ -704,7 +779,7 @@ public class Empire : MetaObject<EmpireData>
             {
                 if (this.data.year_name != "" || this.data.year_name != null)
                 {
-                    return this.data.year_name + "\u200A" + GetEmperorYear() + LM.Get("Year");
+                    return OverallHelperFunc.JoinNameParts(this.data.year_name, GetEmperorYear() + LM.Get("Year"));
                 }
             }
         }
@@ -714,7 +789,8 @@ public class Empire : MetaObject<EmpireData>
             {
                 if (this.data.year_name != "" || this.data.year_name != null)
                 {
-                    return Emperor.GetModName().firstName + "\u200A" + GetEmperorYear() + LM.Get("Year");
+                    return OverallHelperFunc.JoinNameParts(Emperor.GetModName().firstName,
+                        GetEmperorYear() + LM.Get("Year"));
                 }
             }
         }
@@ -743,7 +819,7 @@ public class Empire : MetaObject<EmpireData>
         {
             if (regime.type == RegimeType.YouMu)
             {
-                data.directPre = LM.Get("great");
+                data.directPre = "great";
             }
             data.has_year_name = regime.HasEraName();
             regime.GetPlayerFactions().ForEach(f=>
@@ -899,15 +975,15 @@ public class Empire : MetaObject<EmpireData>
         float ay = Math.Abs(v.y- _capitalCenter.y);
         if (ax > ay)
         {
-            return LM.Get(_capitalCenter.x > v.x ?"Eastern" : "Western");
+            return _capitalCenter.x > v.x ? "Eastern" : "Western";
         }
         else if (ay > ax)
         {
-            return LM.Get(_capitalCenter.y > v.y ? "Northern" : "Southern");
+            return _capitalCenter.y > v.y ? "Northern" : "Southern";
         }
         else
         {
-            return LM.Get("Later");
+            return "Later";
         }
     }
 
@@ -917,15 +993,15 @@ public class Empire : MetaObject<EmpireData>
         float ay = Math.Abs(v.y- ori_v.y);
         if (ax > ay)
         {
-            return LM.Get(ori_v.x > v.x ?"Eastern" : "Western");
+            return ori_v.x > v.x ? "Eastern" : "Western";
         }
         else if (ay > ax)
         {
-            return LM.Get(ori_v.y > v.y ? "Northern" : "Southern");
+            return ori_v.y > v.y ? "Northern" : "Southern";
         }
         else
         {
-            return LM.Get("Later");
+            return "Later";
         }
     }
 
@@ -938,21 +1014,31 @@ public class Empire : MetaObject<EmpireData>
     {
         var core = CoreKingdom;
         if (core == null) return;
-        Regime regime = core.GetRegime();
-        var originalName = name;
-        if (regime != null)
+        name = name?.Trim() ?? "";
+        data.empire_type_key = OverallHelperFunc.ResolveEmpireTypeKey(core.GetRegime(), core);
+        string typeKey = data.empire_type_key;
+        string typeName = string.IsNullOrWhiteSpace(typeKey) ? "" : LM.Get(typeKey);
+        if (string.IsNullOrWhiteSpace(typeName) || string.Equals(typeName, typeKey, StringComparison.Ordinal))
+            typeName = "";
+        if (OverallHelperFunc.TryExtractEnglishPrefixedCountryName(name, out string extractedName))
+            name = extractedName;
+        else
+            name = OverallHelperFunc.StripLocalizedTypeSuffix(name, typeName);
+        string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
+        if (!string.IsNullOrWhiteSpace(localizedPrefix))
         {
-            if (regime.centre_empire_separate)
+            string[] separators = { ModClass.NARROW_SPACE + ModClass.NARROW_SPACE, ModClass.NARROW_SPACE, " " };
+            foreach (string separator in separators)
             {
-                originalName += "\u200A" + LM.Get($"{regime.type}_empire");
-            }
-            else
-            {
-                originalName += "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(core).ToString());
+                string prefix = localizedPrefix + separator;
+                if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                name = name.Substring(prefix.Length).Trim();
+                break;
             }
         }
-        data.name = string.IsNullOrEmpty(data.directPre)?originalName: string.Join("\u200A", data.directPre, originalName);
-        if (core.data != null) core.data.name = data.name;
+        data.core_name = name;
+        data.name = OverallHelperFunc.FormatEmpireFullName(name, typeName, localizedPrefix, GetNamingCulture());
+        if (core.data != null) core.SetKingdomCoreName(name, data.name);
         if (data.currentHistory != null && data.currentHistory.id == Emperor?.id)
             data.currentHistory.empire_full_name = GetEmpireFullName();
     }
@@ -976,7 +1062,8 @@ public class Empire : MetaObject<EmpireData>
                 if (kingdom.king.HasSpecificClan())
                     if (kingdom.king.GetSpecificClan() == EmpireSpecificClan)
                     {
-                        if (heirEmpire.isRekt() || kingdom.countTotalWarriors() > heirEmpire.countTotalWarriors())
+                        if (heirEmpire == null || heirEmpire.isRekt() ||
+                            kingdom.countTotalWarriors() > heirEmpire.countTotalWarriors())
                         {
                             heirEmpire = kingdom;
                         }
@@ -1020,10 +1107,10 @@ public class Empire : MetaObject<EmpireData>
         newEmpire.SetEmpireName(newKingdom.GetKingdomName());
         newKingdom.GetOrCreate().isEmpire = true;
         newEmpire.data.Mandate = data.Mandate - 50;
-        data.directPre = "";
+        newEmpire.data.directPre = "";
         if (newKingdom.capital.HasKingdomName()) 
         {
-            SetEmpireName(newKingdom.capital.SelectKingdomName());
+            newEmpire.SetEmpireName(newKingdom.capital.SelectKingdomName());
         }
 
         if (newKingdom.king.HasSpecificClan())
@@ -1031,7 +1118,7 @@ public class Empire : MetaObject<EmpireData>
             if (newKingdom.king.GetSpecificClan().HasHistoryEmpire())
             {
                 var historyRecord = newKingdom.king.GetSpecificClan().GetHistoryEmpire();
-                data.directPre = newEmpire.GetDir(historyRecord.pos);
+                newEmpire.data.directPre = newEmpire.GetDir(historyRecord.pos);
                 string empireName = historyRecord.name;
                 newEmpire.SetEmpireName(empireName);
             }
@@ -1046,7 +1133,7 @@ public class Empire : MetaObject<EmpireData>
         {
             if (newKingdom.king.GetSpecificClan() == EmpireSpecificClan)
             {
-                data.directPre = newEmpire.GetDir(this._empireCenter);
+                newEmpire.data.directPre = newEmpire.GetDir(this._empireCenter);
                 newEmpire.SetEmpireName(GetEmpireName());
             }
         }
@@ -1082,7 +1169,7 @@ public class Empire : MetaObject<EmpireData>
             TranslateHelper.LogNewEmperorWest(newKingdom.king, newKingdom.capital);
         }
         
-        newKingdom.data.name = newEmpire.data.name;
+        newKingdom.SetKingdomCoreName(newEmpire.GetEmpireName(), newEmpire.data.name);
         ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
     }
     public sealed override void setDefaultValues()

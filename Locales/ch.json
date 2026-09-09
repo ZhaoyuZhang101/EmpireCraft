@@ -2,16 +2,21 @@
   "toggle_mod_title": "帝國盒子",
   "bug_report_window_title": "Bug回報",
   "bug_report_button": "Bug回報",
-  "bug_report_button_description": "收集Player.log並傳送給帝國盒子作者。",
-  "bug_report_recipient": "收件人：",
-  "bug_report_privacy_notice": "Player.log可能包含本機路徑、系統資訊及已載入模組。點擊傳送即表示同意傳送這些資訊；如開啟郵件草稿，請補充重現步驟並手動附加已選取的日誌。",
+  "bug_report_button_description": "收集Player.log，並可選擇附加目前帝國模組存檔後傳送給帝國盒子作者。",
+  "bug_report_recipient": "模組作者：",
+  "bug_report_privacy_notice": "Player.log可能包含本機路徑、系統資訊及已載入模組。開啟存檔上傳後還會傳送目前世界、國家和人物資料；點擊傳送即表示同意分享所選資訊。",
   "bug_report_log_found": "已找到Player.log，可以傳送。",
   "bug_report_log_missing": "未找到Player.log，無法產生報告。",
   "bug_report_send": "傳送日誌",
-  "bug_report_send_description": "產生診斷摘要並傳送Player.log。",
+  "bug_report_send_description": "產生診斷摘要並傳送Player.log；開啟開關時一併傳送目前帝國模組存檔。",
   "bug_report_open_log": "開啟日誌",
   "bug_report_open_log_description": "在檔案管理器中定位Player.log。",
-  "bug_report_sent": "Bug報告已交給系統郵件用戶端傳送。",
+  "bug_report_sent": "Bug報告及選擇的診斷資料已傳送。",
+  "bug_report_include_save_data": "上傳目前存檔資料",
+  "bug_report_include_save_data_description": "開啟後會將目前世界的EmpireCraftModData.json加入Bug報告。",
+  "bug_report_save_disabled": "存檔資料上傳未開啟，將僅傳送日誌。",
+  "bug_report_save_found": "已找到目前世界的帝國模組存檔，可以一併傳送。",
+  "bug_report_save_missing": "未找到目前世界的帝國模組存檔，將僅傳送日誌。",
   "bug_report_draft_opened": "未能直接傳送；已開啟郵件草稿並選取日誌副本，請手動附加。",
   "bug_report_cancelled": "已取消傳送，日誌副本仍保留在報告目錄。",
   "bug_report_failed": "產生或傳送Bug報告失敗。",
@@ -40,6 +45,7 @@
   "City": "縣",
   "Clan": "氏",
   "great": "大",
+  "empire_prefix_holy": "神聖",
   "Western": "西",
   "Eastern": "東",
   "Southern": "南",
@@ -344,7 +350,7 @@
   "real_num": "擬真人口數字",
   "real_num_description": "將顯示的人口數字乘以1000",
   "simple_nameplate": "隐藏後缀",
-  "simple_nameplate_description": "地圖上的帝國與王國銘牌不顯示國家後綴，但保留方位詞和正式國名資料",
+  "simple_nameplate_description": "地圖上的帝國與王國銘牌保留方位詞和核心國名，不顯示國家類別或後綴",
   "past_emperors": "君主世系",
   "empire_list_window": "帝國列表",
   "empire_list_window_description": "顯示所有目前已有的帝國",
@@ -968,4 +974,9 @@
   ,"Default":"預設", "past_emperors_description":"查看歷代君主記錄", "past_emperor":"歷代君主", "empire_bureau_description":"查看帝國行政機構", "regime_description":"查看或調整政體"
   ,"plot_kingdom_start_invite_to_faction":"邀請加入派系", "plot_faction_leader_influence_local_kingdom":"影響地方派系", "plot_kingdom_expose_crime":"揭發罪行", "plot_force_stop_war":"強制停戰", "plot_combine_kingdom":"合併國家", "plot_kingdom_allow_succession":"允許繼承", "plot_empire_take_back_title":"收回法理", "plot_kingdom_add_city_into_title":"將城市納入法理", "task_unit_do_mod_actor_beh":"帝國模組人物行為"
   ,"统一":"統一", "地方叛乱":"地方叛亂", "地方独立":"地方獨立", "帝国正统":"帝國正統", "帝国扩张":"帝國擴張"
+  ,"online_update_window_title":"線上更新", "online_update_button":"線上更新", "online_update_button_description":"透過 Cloudflare 檢查並下載 EmpireCraft 更新"
+  ,"online_update_check":"檢查更新", "online_update_check_description":"立即檢查 Cloudflare 上的最新版本", "online_update_download":"下載更新", "online_update_download_description":"下載並校驗更新；退出遊戲後自動安裝"
+  ,"online_update_versions":"目前版本：{0}\n最新版本：{1}", "online_update_notes":"更新說明", "online_update_no_notes":"暫無更新說明"
+  ,"online_update_idle":"尚未檢查更新", "online_update_checking":"正在檢查更新……", "online_update_up_to_date":"目前已是最新版本", "online_update_available":"發現新版本，可以下載更新", "online_update_downloading":"正在下載並校驗更新：{0}%", "online_update_install_scheduled":"更新已校驗，將在退出遊戲後自動安裝", "online_update_manual_install":"更新已下載，但目前環境不會自動覆蓋。安裝包：\n{0}", "online_update_failed":"更新檢查或下載失敗；這不會影響模組運行"
+  ,"kingdom_custom_naming":"自訂國名", "kingdom_custom_name":"國家名稱", "kingdom_custom_suffix":"國家後綴"
 }

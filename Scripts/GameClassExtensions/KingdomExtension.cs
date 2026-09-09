@@ -239,6 +239,11 @@ public static class KingdomExtension
         public Regime regime;
         public RegimeType regimeType;
         public KingdomType kingdomType;
+        public string core_name = "";
+        public string core_name_source = "";
+        // Player-facing overrides are kept separate so clearing them restores automatic naming.
+        public string custom_country_name = "";
+        public string custom_country_suffix = "";
         public SpecificClan kingdomSpecificClan;
         public int Money = 0;
         public long CenterArmID = -1L;
@@ -859,7 +864,10 @@ public static class KingdomExtension
 
     public static string GetEmpireCraftCulture(this Kingdom kingdom, bool allowTranslate = false)
     {
-        if (ConfigData.speciesCulturePair.TryGetValue(kingdom.getSpecies(), out string culture))
+        if (kingdom == null) return null;
+        string species = kingdom.getSpecies();
+        if (species == null) return null;
+        if (ConfigData.speciesCulturePair.TryGetValue(species, out string culture))
         {
             if (allowTranslate)
             {
@@ -1325,7 +1333,7 @@ public static class KingdomExtension
                 kingdom.GetRegime().SetAllowSupportCenterArmy(false);
                 kingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Succession);
                 kingdom.getWars().ForEach(w=>DiplomacyHelpers.wars.endWar(w));
-                var language = PlayerConfig.detectLanguage();
+                var language = PlayerConfig.dict["language"].stringVal;
                 if (language == "en")
                 {
                     kingdom.data.name = $"The Regime of {kingdom.GetMainTitle().name}'s {LM.Get("default_" + kingdom.king.GetPeeragesLevel())}";
@@ -1389,8 +1397,19 @@ public static class KingdomExtension
         if (!k.IsFactionRebelling() && k.getWars().Count() <= 0 && !k.IsLocalRebelling())
         {
             k.RememberInitialRandomKingdomName();
-            k.data.name = kindomName;
+            k.data.name = kindomName.UseLocalizedNameSeparator();
+            string coreName = ExtractKingdomFront(k, k.data.name);
+            if (!string.IsNullOrWhiteSpace(coreName)) k.SetKingdomCoreName(coreName, k.data.name);
         }
+    }
+
+    public static void SetKingdomCoreName(this Kingdom kingdom, string coreName, string storedFullName = null)
+    {
+        if (kingdom?.data == null || string.IsNullOrWhiteSpace(coreName)) return;
+        KingdomExtraData data = kingdom.GetOrCreate();
+        data.core_name = coreName.Trim();
+        if (storedFullName != null) kingdom.data.name = storedFullName.UseLocalizedNameSeparator();
+        data.core_name_source = kingdom.data.name ?? "";
     }
 
     public static void RememberInitialRandomKingdomName(this Kingdom kingdom, string name = null,
@@ -1400,7 +1419,7 @@ public static class KingdomExtension
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
         KingdomExtraData data = kingdom.GetOrCreate();
         if (!overwrite && !string.IsNullOrWhiteSpace(data.initial_random_name)) return;
-        string candidate = ExtractKingdomFront(name ?? kingdom.data.name);
+        string candidate = ExtractKingdomFront(kingdom, name ?? kingdom.data.name);
         if (!overwrite)
         {
             string capitalName = kingdom.hasCapital() && kingdom.capital != null && !kingdom.capital.isRekt()
@@ -1423,7 +1442,7 @@ public static class KingdomExtension
         KingdomExtraData data = kingdom.GetOrCreate();
         if (!string.IsNullOrWhiteSpace(data.initial_random_name)) return data.initial_random_name;
 
-        string candidate = ExtractKingdomFront(kingdom.data.name);
+        string candidate = ExtractKingdomFront(kingdom, kingdom.data.name);
         string capitalName = kingdom.hasCapital() && kingdom.capital != null && !kingdom.capital.isRekt()
             ? kingdom.capital.GetCityName()
             : null;
@@ -1447,7 +1466,7 @@ public static class KingdomExtension
             }
         }
 
-        if (string.IsNullOrWhiteSpace(candidate)) candidate = ExtractKingdomFront(kingdom.data.name);
+        if (string.IsNullOrWhiteSpace(candidate)) candidate = ExtractKingdomFront(kingdom, kingdom.data.name);
         data.initial_random_name = candidate ?? "";
         return data.initial_random_name;
     }
@@ -1479,12 +1498,21 @@ public static class KingdomExtension
         return kingdom.GetInitialRandomKingdomName();
     }
 
-    private static string ExtractKingdomFront(string fullName)
+    private static string ExtractKingdomFront(Kingdom kingdom, string fullName)
     {
         if (string.IsNullOrWhiteSpace(fullName)) return "";
-        string[] parts = fullName.Split('\u200A');
-        string result = parts.Length <= 2 ? parts[0] : parts[parts.Length - 2];
-        return result?.Trim() ?? "";
+        if (OverallHelperFunc.TryExtractEnglishPrefixedCountryName(fullName, out string prefixedName))
+            return prefixedName;
+
+        string typeName = "";
+        try { typeName = LM.Get(kingdom.GetKingdomType().ToString()); }
+        catch { }
+        string strippedName = OverallHelperFunc.StripLocalizedTypeSuffix(fullName, typeName);
+        if (!string.Equals(strippedName, fullName.Trim(), StringComparison.Ordinal))
+            return strippedName.UseLocalizedNameSeparator();
+
+        string[] parts = fullName.SplitNameParts();
+        return parts.Length == 0 ? "" : parts[0].Trim();
     }
 
     public static Army GetCenterArmy(this Kingdom k)
@@ -2371,52 +2399,133 @@ public static class KingdomExtension
         GetOrCreate(k).TimestampBeFeifed = v;
     }
 
+    public static string EnsureKingdomCoreName(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
+        bool rekt = kingdom.isRekt();
+        if (!rekt)
+        {
+            KingdomExtraData data = kingdom.GetOrCreate();
+            if (!string.IsNullOrWhiteSpace(data.core_name))
+            {
+                if (string.IsNullOrEmpty(data.core_name_source))
+                {
+                    data.core_name_source = kingdom.data.name ?? "";
+                    return data.core_name;
+                }
+                if (string.Equals(data.core_name_source, kingdom.data.name ?? "", StringComparison.Ordinal) ||
+                    kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling()) return data.core_name;
+            }
+        }
+
+        string coreName = "";
+        try
+        {
+            coreName = ExtractKingdomFront(kingdom, kingdom.data.name);
+            if (!rekt && !string.IsNullOrWhiteSpace(coreName))
+            {
+                string suffix = LM.Get(kingdom.GetKingdomType().ToString());
+                if (!string.IsNullOrWhiteSpace(suffix) && string.Equals(coreName, suffix, StringComparison.Ordinal))
+                {
+                    coreName = "";
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(coreName))
+            {
+                if (rekt) return kingdom.data.name?.Trim() ?? "";
+                coreName = GetKingdomFrontFallback(kingdom);
+            }
+        }
+        catch
+        {
+            coreName = "";
+        }
+
+        if (string.IsNullOrWhiteSpace(coreName)) coreName = kingdom.data.name?.Trim() ?? "";
+        if (!rekt && !string.IsNullOrWhiteSpace(coreName))
+        {
+            try { kingdom.SetKingdomCoreName(coreName); } catch { }
+        }
+        return coreName;
+    }
+
+    public static bool HasCustomCountryNaming(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return false;
+        KingdomExtraData data = kingdom.GetOrCreate();
+        return !string.IsNullOrWhiteSpace(data.custom_country_name) ||
+               !string.IsNullOrWhiteSpace(data.custom_country_suffix);
+    }
+
+    public static string GetCustomCountryName(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        return kingdom.GetOrCreate().custom_country_name?.Trim() ?? "";
+    }
+
+    public static string GetCustomCountrySuffix(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        return kingdom.GetOrCreate().custom_country_suffix?.Trim() ?? "";
+    }
+
+    public static void SetCustomCountryName(this Kingdom kingdom, string value)
+    {
+        if (kingdom?.data == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
+        kingdom.GetOrCreate().custom_country_name = value ?? "";
+    }
+
+    public static void SetCustomCountrySuffix(this Kingdom kingdom, string value)
+    {
+        if (kingdom?.data == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
+        kingdom.GetOrCreate().custom_country_suffix = value ?? "";
+    }
+
+    public static string GetAutomaticKingdomName(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
+        return kingdom.EnsureKingdomCoreName();
+    }
+
     public static string GetKingdomName(this Kingdom kingdom)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
         // CoreSystemObject.name dereferences data directly, but disposed kingdoms keep a
         // non-null object reference after their data has been cleared.
         if (kingdom?.data == null) return "";
-        string fullName = kingdom.data.name;
-        if (string.IsNullOrWhiteSpace(fullName))
-        {
-            return GetKingdomFrontFallback(kingdom);
-        }
-
-        string[] nameParts = fullName.Split('\u200A');
-        string result;
-        if (nameParts.Length <= 2)
-        {
-            result = nameParts[0];
-        }
-        else
-        {
-            result = nameParts[nameParts.Length - 2];
-        }
-
-        if (string.IsNullOrWhiteSpace(result))
-        {
-            return GetKingdomFrontFallback(kingdom);
-        }
-
-        // Extra data is removed before the original kingdom Dispose completes. Do not
-        // recreate it merely to format a dead kingdom's final office-history entry.
-        if (kingdom.isRekt()) return result;
-        var suffix = LM.Get(kingdom.GetKingdomType().ToString());
-        if (!string.IsNullOrWhiteSpace(suffix) && string.Equals(result, suffix, StringComparison.Ordinal))
-        {
-            return GetKingdomFrontFallback(kingdom);
-        }
-
-        return result;
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
+        string customName = kingdom.GetCustomCountryName();
+        return !string.IsNullOrWhiteSpace(customName) ? customName : kingdom.GetAutomaticKingdomName();
     }
 
     public static string GetKingdomFullName(this Kingdom kingdom)
     {
         if (kingdom?.data == null) return "";
-        return string.IsNullOrWhiteSpace(kingdom.data.name)
-            ? kingdom.GetKingdomName()
-            : kingdom.data.name.Trim();
+        try
+        {
+            if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
+            if (kingdom.HasCustomCountryNaming())
+            {
+                return OverallHelperFunc.JoinNameParts(kingdom.GetKingdomName(),
+                    kingdom.GetCustomCountrySuffix());
+            }
+            if (!kingdom.isRekt() && (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling()))
+                return kingdom.data.name?.UseLocalizedNameSeparator() ?? "";
+            string coreName = kingdom.EnsureKingdomCoreName();
+            if (string.IsNullOrWhiteSpace(coreName)) return kingdom.data.name ?? "";
+            if (kingdom.isRekt()) return coreName;
+            string typeName = LM.Get(kingdom.GetKingdomType().ToString());
+            return OverallHelperFunc.FormatKingdomFullName(coreName, typeName, kingdom.GetEmpireCraftCulture());
+        }
+        catch
+        {
+            return kingdom.data.name?.UseLocalizedNameSeparator() ?? "";
+        }
     }
 
     private static string GetKingdomFrontFallback(Kingdom kingdom)

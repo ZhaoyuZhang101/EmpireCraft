@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using EmpireCraft;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,10 +23,11 @@ public sealed class TerritoryLabelStyle
     public TerritoryLabelOrientation orientation = TerritoryLabelOrientation.Auto;
     public float size_multiplier = 0.9f;
     public float territory_padding = 0.82f;
-    public int min_font_size = 6;
+    public int min_font_size = 3;
     public int max_font_size = 512;
     public FontStyle font_style = FontStyle.Normal;
     public bool use_gold_gradient;
+    public bool bridge_internal_gaps;
     public Color gold_top = new Color32(255, 244, 194, 255);
     public Color gold_bottom = new Color32(184, 156, 68, 255);
 }
@@ -34,12 +36,15 @@ public sealed class TerritoryLabelStyle
 public static class TerritoryLabelRenderer
 {
     private const float GeometryRefreshInterval = 0.75f;
+    private const float LatinOutlineDistance = 8f;
     private static readonly Dictionary<string, RuntimeLabel> _labels = new Dictionary<string, RuntimeLabel>();
     private static TerritoryLabelRendererHost _host;
     private static RectTransform _root;
     private static Text _text_template;
     private static Font _clerical_font;
     private static bool _clerical_font_resolved;
+    private static Font _latin_font;
+    private static bool _latin_font_resolved;
     private static int _submission_frame = -1;
 
     private static readonly string[] ClericalFontNames =
@@ -50,33 +55,43 @@ public static class TerritoryLabelRenderer
         "华文隶书"
     };
 
+    private static readonly string[] LatinFontNames =
+    {
+        "Georgia",
+        "Arial Black",
+        "Trebuchet MS",
+        "Segoe UI"
+    };
+
     public static readonly TerritoryLabelStyle EmpireStyle = new TerritoryLabelStyle
     {
         text_color = new Color(1f, 1f, 1f, 0.8f),
         outline_color = new Color32(54, 46, 20, 204),
-        size_multiplier = 1f,
-        territory_padding = 0.94f,
-        min_font_size = 7,
+        size_multiplier = 0.90f,
+        territory_padding = 0.95f,
+        min_font_size = 1,
         font_style = FontStyle.Normal,
-        use_gold_gradient = true
+        use_gold_gradient = true,
+        bridge_internal_gaps = true
     };
 
     public static readonly TerritoryLabelStyle FadedEmpireStyle = new TerritoryLabelStyle
     {
         text_color = new Color(1f, 1f, 1f, 0.224f),
         outline_color = new Color32(54, 46, 20, 49),
-        size_multiplier = 1f,
-        territory_padding = 0.94f,
-        min_font_size = 7,
+        size_multiplier = 0.90f,
+        territory_padding = 0.95f,
+        min_font_size = 1,
         font_style = FontStyle.Normal,
-        use_gold_gradient = true
+        use_gold_gradient = true,
+        bridge_internal_gaps = true
     };
 
     public static readonly TerritoryLabelStyle KingdomStyle = new TerritoryLabelStyle
     {
-        text_color = new Color(0.97f, 0.97f, 0.94f, 0.8f),
-        size_multiplier = 0.9f,
-        min_font_size = 6,
+        text_color = new Color(1f, 1f, 1f, 0.9f),
+        size_multiplier = 0.95f,
+        min_font_size = 3,
         font_style = FontStyle.Normal
     };
 
@@ -85,7 +100,7 @@ public static class TerritoryLabelRenderer
         text_color = new Color32(235, 65, 57, 204),
         outline_color = new Color32(74, 15, 12, 204),
         size_multiplier = 0.9f,
-        min_font_size = 6,
+        min_font_size = 3,
         font_style = FontStyle.Normal
     };
 
@@ -161,31 +176,49 @@ public static class TerritoryLabelRenderer
             if (label.last_seen_frame != _submission_frame) label.Hide();
     }
 
-    private static Font ResolveClericalFont(Font fallback)
+    private static bool ContainsLatin(string text)
     {
-        if (_clerical_font_resolved) return _clerical_font ?? fallback;
-        _clerical_font_resolved = true;
+        if (string.IsNullOrEmpty(text)) return false;
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) return true;
+        }
+        return false;
+    }
+
+    private static Font ResolveInstalledFont(string[] candidates, Font fallback, ref Font cachedFont, ref bool resolved)
+    {
+        if (resolved) return cachedFont ?? fallback;
+        resolved = true;
 
         try
         {
             string[] installedFonts = Font.GetOSInstalledFontNames();
-            for (int candidateIndex = 0; candidateIndex < ClericalFontNames.Length; candidateIndex++)
+            for (int candidateIndex = 0; candidateIndex < candidates.Length; candidateIndex++)
             {
-                string candidate = ClericalFontNames[candidateIndex];
+                string candidate = candidates[candidateIndex];
                 for (int installedIndex = 0; installedIndex < installedFonts.Length; installedIndex++)
                 {
                     if (!string.Equals(installedFonts[installedIndex], candidate, StringComparison.OrdinalIgnoreCase)) continue;
-                    _clerical_font = Font.CreateDynamicFontFromOSFont(installedFonts[installedIndex], 64);
-                    if (_clerical_font != null) return _clerical_font;
+                    cachedFont = Font.CreateDynamicFontFromOSFont(installedFonts[installedIndex], 64);
+                    if (cachedFont != null) return cachedFont;
                 }
             }
         }
         catch (Exception exception)
         {
-            Debug.LogWarning($"EmpireCraft could not load a clerical-script font: {exception.Message}");
+            Debug.LogWarning($"EmpireCraft could not load a territory label font: {exception.Message}");
         }
 
         return fallback;
+    }
+
+    private static Font ResolveTerritoryFont(Font fallback, string text)
+    {
+        return ContainsLatin(text)
+            ? ResolveInstalledFont(LatinFontNames, fallback, ref _latin_font, ref _latin_font_resolved)
+            : ResolveInstalledFont(ClericalFontNames, fallback, ref _clerical_font, ref _clerical_font_resolved);
     }
 
     public static void HideAll()
@@ -291,6 +324,7 @@ public static class TerritoryLabelRenderer
         private string _placement_text;
         private TerritoryLabelOrientation _placement_orientation;
         private float _placement_padding;
+        private bool _placement_bridges_gaps;
         private float _next_geometry_refresh;
         private bool _has_geometry_result;
         private string _render_text;
@@ -300,6 +334,7 @@ public static class TerritoryLabelRenderer
         private string _metrics_text;
         private FontStyle _metrics_style;
         private Font _metrics_font;
+        private Font _fallback_font;
         private float _reference_width;
         private float _reference_height;
         public int last_seen_frame;
@@ -309,6 +344,7 @@ public static class TerritoryLabelRenderer
         public void UpdateFromCities(string text, IEnumerable<City> cities, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
+            text = OverallHelperFunc.WrapEnglishDisplayName(text);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -322,6 +358,7 @@ public static class TerritoryLabelRenderer
         public void UpdateFromEmpireCore(string text, EmpireCore core, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
+            text = OverallHelperFunc.WrapEnglishDisplayName(text);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -335,6 +372,7 @@ public static class TerritoryLabelRenderer
         public void UpdateFromZones(string text, IEnumerable<TileZone> zones, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
+            text = OverallHelperFunc.WrapEnglishDisplayName(text);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -348,6 +386,7 @@ public static class TerritoryLabelRenderer
         public void UpdateFromPoints(string text, IEnumerable<Vector3> points, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
+            text = OverallHelperFunc.WrapEnglishDisplayName(text);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -399,7 +438,8 @@ public static class TerritoryLabelRenderer
         {
             return !string.Equals(_placement_text, text, StringComparison.Ordinal) ||
                    _placement_orientation != style.orientation ||
-                   !Mathf.Approximately(_placement_padding, style.territory_padding);
+                   !Mathf.Approximately(_placement_padding, style.territory_padding) ||
+                   _placement_bridges_gaps != style.bridge_internal_gaps;
         }
 
         private void RefreshZonePlacement(string text, TerritoryLabelStyle style, bool inputsChanged)
@@ -407,9 +447,16 @@ public static class TerritoryLabelRenderer
             int signature = CalculateZoneSignature(_zones);
             if (!_has_geometry_result || inputsChanged || signature != _source_signature)
             {
-                FindLargestConnectedComponent(_zones, _zone_ids, _walk_component, _largest_component,
-                    _visited_ids, _zone_queue);
-                _placement = BuildZonePlacement(_largest_component, _zone_ids, text, style);
+                if (style.bridge_internal_gaps)
+                {
+                    _placement = BuildZoneEnvelopePlacement(_zones, text, style);
+                }
+                else
+                {
+                    FindLargestConnectedComponent(_zones, _zone_ids, _walk_component, _largest_component,
+                        _visited_ids, _zone_queue);
+                    _placement = BuildZonePlacement(_largest_component, _zone_ids, text, style);
+                }
                 _source_signature = signature;
                 RememberPlacementInputs(text, style);
                 _has_geometry_result = true;
@@ -422,6 +469,7 @@ public static class TerritoryLabelRenderer
             _placement_text = text;
             _placement_orientation = style.orientation;
             _placement_padding = style.territory_padding;
+            _placement_bridges_gaps = style.bridge_internal_gaps;
         }
 
         private void Render(string value, TerritoryLabelStyle style, bool fullyOpaque)
@@ -457,25 +505,46 @@ public static class TerritoryLabelRenderer
 
             EnsureText();
             if (_text == null) return;
+
+            string trimmedValue = value.Trim();
+            Font desiredFont = ResolveTerritoryFont(_fallback_font ?? _text.font, trimmedValue);
+            if (_text.font != desiredFont)
+            {
+                _text.font = desiredFont;
+                Text template = GetTextTemplate();
+                if (desiredFont == _fallback_font && template?.material != null)
+                    _text.material = template.material;
+                else if (desiredFont?.material != null)
+                    _text.material = desiredFont.material;
+
+                _metrics_text = null;
+                _metrics_font = null;
+            }
+
             if (_gold_gradient == null)
                 _gold_gradient = _text.GetComponent<TerritoryLabelGoldGradient>() ??
                                  _text.gameObject.AddComponent<TerritoryLabelGoldGradient>();
             RectTransform rect = _text.rectTransform;
-            string trimmedValue = value.Trim();
-            if (_metrics_text != trimmedValue || _metrics_style != style.font_style || _metrics_font != _text.font)
+            bool containsLatin = ContainsLatin(trimmedValue);
+            FontStyle effectiveFontStyle = containsLatin ? FontStyle.Bold : style.font_style;
+            if (_metrics_text != trimmedValue || _metrics_style != effectiveFontStyle || _metrics_font != _text.font)
             {
                 _text.text = trimmedValue;
                 _text.fontSize = TerritoryLabelProjection.ReferenceFontSize;
-                _text.fontStyle = style.font_style;
+                _text.fontStyle = effectiveFontStyle;
                 _reference_width = Mathf.Max(1f, _text.preferredWidth);
                 _reference_height = Mathf.Max(1f, _text.preferredHeight);
                 rect.sizeDelta = new Vector2(_reference_width + 2f, _reference_height + 2f);
                 _metrics_text = trimmedValue;
-                _metrics_style = style.font_style;
+                _metrics_style = effectiveFontStyle;
                 _metrics_font = _text.font;
             }
+            float outlineDistance = containsLatin
+                ? LatinOutlineDistance
+                : TerritoryLabelProjection.OutlineDistance;
             float scale = TerritoryLabelProjection.FitScale(availableWidth, availableHeight,
-                _reference_width, _reference_height, style.size_multiplier, style.max_font_size);
+                _reference_width, _reference_height, style.size_multiplier, style.max_font_size,
+                outlineDistance);
             float visibility = TerritoryLabelProjection.Visibility(scale, style.min_font_size);
             if (visibility <= 0f) { Hide(); return; }
             float textAlpha = (fullyOpaque ? 1f : style.text_color.a) * visibility;
@@ -492,11 +561,13 @@ public static class TerritoryLabelRenderer
                 _gold_gradient.DisableGradient();
             }
             _outline.enabled = true;
-            Color outlineColor = style.outline_color;
+            Color outlineColor = containsLatin
+                ? new Color(0f, 0f, 0f, style.outline_color.a)
+                : style.outline_color;
             if (fullyOpaque && outlineColor.a > 0f) outlineColor.a = 1f;
             outlineColor.a *= visibility;
             _outline.effectColor = outlineColor;
-            _outline.effectDistance = new Vector2(TerritoryLabelProjection.OutlineDistance, -TerritoryLabelProjection.OutlineDistance);
+            _outline.effectDistance = new Vector2(outlineDistance, -outlineDistance);
 
             rect.position = centerScreen;
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(alongDelta.y, alongDelta.x) * Mathf.Rad2Deg);
@@ -513,8 +584,8 @@ public static class TerritoryLabelRenderer
             _text = textObject.GetComponent<Text>();
             Text template = GetTextTemplate();
             Font fallbackFont = template?.font ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
-            Font labelFont = ResolveClericalFont(fallbackFont);
-            _text.font = labelFont;
+            _fallback_font = fallbackFont;
+            _text.font = fallbackFont;
             _text.fontSize = TerritoryLabelProjection.ReferenceFontSize;
             _text.alignment = TextAnchor.MiddleCenter;
             _text.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -522,10 +593,10 @@ public static class TerritoryLabelRenderer
             _text.resizeTextForBestFit = false;
             _text.supportRichText = false;
             _text.raycastTarget = false;
-            if (labelFont == fallbackFont && template?.material != null)
+            if (template?.material != null)
                 _text.material = template.material;
-            else if (labelFont?.material != null)
-                _text.material = labelFont.material;
+            else if (fallbackFont?.material != null)
+                _text.material = fallbackFont.material;
             RectTransform rect = _text.rectTransform;
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -608,6 +679,27 @@ public static class TerritoryLabelRenderer
             float halfHeight = Mathf.Min((maxAlong - minAlong) / (2f * aspect),
                 (maxAcross - minAcross) * 0.5f) * Mathf.Clamp(style.territory_padding, 0.5f, 0.94f);
             return halfHeight <= 0.2f ? default : TerritoryPlacement.Create(centroid, axis, halfHeight * aspect, halfHeight);
+        }
+
+        private static TerritoryPlacement BuildZoneEnvelopePlacement(List<TileZone> zones, string text,
+            TerritoryLabelStyle style)
+        {
+            if (zones == null || zones.Count == 0) return default;
+            Vector3 centroid = CalculateZoneCentroid(zones);
+            float angle = style.orientation == TerritoryLabelOrientation.Horizontal ? 0f :
+                style.orientation == TerritoryLabelOrientation.Vertical ? 90f : CalculatePrincipalAngle(zones, centroid);
+            float radians = angle * Mathf.Deg2Rad;
+            Vector3 axis = new Vector3(Mathf.Cos(radians), Mathf.Sin(radians));
+            Vector3 normal = new Vector3(-axis.y, axis.x);
+            GetProjectedBounds(zones, axis, normal, out float minAlong, out float maxAlong,
+                out float minAcross, out float maxAcross);
+            float aspect = EstimateTextAspect(text);
+            float halfHeight = Mathf.Min((maxAlong - minAlong) / (2f * aspect),
+                (maxAcross - minAcross) * 0.5f) * Mathf.Clamp(style.territory_padding, 0.5f, 0.98f);
+            if (halfHeight <= 0.2f) return default;
+            Vector3 center = axis * ((minAlong + maxAlong) * 0.5f) +
+                             normal * ((minAcross + maxAcross) * 0.5f);
+            return TerritoryPlacement.Create(center, axis, halfHeight * aspect, halfHeight);
         }
 
         private static bool FitsInsideSparse(Vector3 center, Vector3 axis, Vector3 normal,
@@ -781,15 +873,25 @@ public static class TerritoryLabelRenderer
         {
             if (string.IsNullOrWhiteSpace(value)) return 1.5f;
             float width = 0f;
+            float maxWidth = 0f;
+            int lineCount = 1;
             for (int i = 0; i < value.Length; i++)
             {
                 char character = value[i];
+                if (character == '\n')
+                {
+                    maxWidth = Mathf.Max(maxWidth, width);
+                    width = 0f;
+                    lineCount++;
+                    continue;
+                }
                 if (char.IsWhiteSpace(character)) width += 0.35f;
                 else if (character >= '\u3400' && character <= '\u9fff') width += 1f;
                 else if (char.IsUpper(character)) width += 0.72f;
                 else width += 0.58f;
             }
-            return Mathf.Clamp(width * 1.08f, 1.4f, 24f);
+            maxWidth = Mathf.Max(maxWidth, width);
+            return Mathf.Clamp(maxWidth * 1.08f / Mathf.Max(1f, lineCount * 0.92f), 1.4f, 24f);
         }
     }
 

@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Text;
+using EmpireCraft.Scripts.Data;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 
@@ -28,8 +29,6 @@ public sealed class BugReportSendResult
 
 public static class BugReportService
 {
-    public const string Recipient = "zhangzhaoyu101@gmail.com";
-
     // Primary first, workers.dev fallback second.
     // If the primary endpoint fails, the same report is automatically
     // retried against the fallback endpoint.
@@ -41,6 +40,7 @@ public static class BugReportService
 
     private const int UploadTimeoutMilliseconds = 20000;
     private const long MaximumCombinedUploadBytes = 20L * 1024L * 1024L;
+    private const long SummarySizeReserveBytes = 256L * 1024L;
 
     private sealed class InMemoryReportFile
     {
@@ -125,7 +125,7 @@ public static class BugReportService
             : "Player.log";
     }
 
-    public static BugReportSendResult Send()
+    public static BugReportSendResult Send(bool includeSaveData = false)
     {
         // Remove report folders left behind by older versions of the service.
         // The new implementation does not create local bug-report copies.
@@ -144,7 +144,7 @@ public static class BugReportService
         try
         {
             List<InMemoryReportFile> files =
-                BuildReportInMemory(playerLog);
+                BuildReportInMemory(playerLog, includeSaveData);
 
             UploadWithFallback(files);
 
@@ -165,6 +165,17 @@ public static class BugReportService
         }
     }
 
+    public static string FindEmpireCraftSaveData()
+    {
+        string path = DataManager.CurrentSaveDataPath;
+        return string.IsNullOrWhiteSpace(path) ? "" : path;
+    }
+
+    public static string GetModAuthor()
+    {
+        return GetManifestValue("author", "EmpireCraft");
+    }
+
     public static bool OpenPlayerLogFolder()
     {
         string path = FindPlayerLog();
@@ -177,7 +188,8 @@ public static class BugReportService
     }
 
     private static List<InMemoryReportFile> BuildReportInMemory(
-        string playerLog
+        string playerLog,
+        bool includeSaveData
     )
     {
         var files = new List<InMemoryReportFile>();
@@ -190,18 +202,6 @@ public static class BugReportService
                 Name = "Player.log",
                 ContentType = "text/plain",
                 Data = playerLogBytes
-            }
-        );
-
-        byte[] summaryBytes =
-            new UTF8Encoding(false).GetBytes(BuildSummary());
-
-        files.Add(
-            new InMemoryReportFile
-            {
-                Name = "EmpireCraft-report.txt",
-                ContentType = "text/plain; charset=utf-8",
-                Data = summaryBytes
             }
         );
 
@@ -221,6 +221,60 @@ public static class BugReportService
                 }
             );
         }
+
+        bool saveDataIncluded = false;
+        string saveDataStatus = includeSaveData
+            ? "not available for the current world"
+            : "not requested by the user";
+        string saveDataPath = includeSaveData ? FindEmpireCraftSaveData() : "";
+        if (includeSaveData && !string.IsNullOrWhiteSpace(saveDataPath) && File.Exists(saveDataPath))
+        {
+            try
+            {
+                long collectedBytes = 0;
+                foreach (InMemoryReportFile file in files)
+                {
+                    collectedBytes += file.Data?.LongLength ?? 0L;
+                }
+
+                long saveDataLength = new FileInfo(saveDataPath).Length;
+                long availableBytes = MaximumCombinedUploadBytes - collectedBytes - SummarySizeReserveBytes;
+                if (saveDataLength > 0 && saveDataLength <= availableBytes)
+                {
+                    files.Add(
+                        new InMemoryReportFile
+                        {
+                            Name = DataManager.EmpireCraftSaveFileName,
+                            ContentType = "application/json; charset=utf-8",
+                            Data = ReadOpenFile(saveDataPath)
+                        }
+                    );
+                    saveDataIncluded = true;
+                    saveDataStatus = "included as " + DataManager.EmpireCraftSaveFileName;
+                }
+                else
+                {
+                    saveDataStatus = "not included because it exceeds the upload size limit";
+                }
+            }
+            catch
+            {
+                saveDataStatus = "not included because it could not be read";
+            }
+        }
+
+        byte[] summaryBytes = new UTF8Encoding(false).GetBytes(
+            BuildSummary(saveDataIncluded, saveDataStatus)
+        );
+
+        files.Add(
+            new InMemoryReportFile
+            {
+                Name = "EmpireCraft-report.txt",
+                ContentType = "text/plain; charset=utf-8",
+                Data = summaryBytes
+            }
+        );
 
         long totalBytes = 0;
 
@@ -257,7 +311,10 @@ public static class BugReportService
         }
     }
 
-    private static string BuildSummary()
+    private static string BuildSummary(
+        bool saveDataIncluded,
+        string saveDataStatus
+    )
     {
         var text = new StringBuilder();
 
@@ -280,11 +337,22 @@ public static class BugReportService
         text.AppendLine(
             "Player.log is included automatically."
         );
+        text.AppendLine(
+            "EmpireCraft save data: " +
+            (saveDataIncluded
+                ? saveDataStatus
+                : saveDataStatus + ".")
+        );
 
         return text.ToString();
     }
 
     private static string GetModVersion()
+    {
+        return GetManifestValue("version", "unknown");
+    }
+
+    private static string GetManifestValue(string key, string fallback)
     {
         try
         {
@@ -297,8 +365,8 @@ public static class BugReportService
             {
                 return JObject
                     .Parse(File.ReadAllText(path))
-                    .Value<string>("version")
-                    ?? "unknown";
+                    .Value<string>(key)
+                    ?? fallback;
             }
         }
         catch
@@ -306,7 +374,7 @@ public static class BugReportService
             // A malformed manifest should not prevent collecting a report.
         }
 
-        return "unknown";
+        return fallback;
     }
 
     private static void UploadWithFallback(

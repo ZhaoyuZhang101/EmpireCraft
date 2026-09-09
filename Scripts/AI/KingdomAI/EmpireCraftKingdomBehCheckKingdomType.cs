@@ -5,6 +5,7 @@ using ai.behaviours;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -226,7 +227,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         if (pKingdom.IsEmpire())
         {
             Empire empire = pKingdom.GetEmpire();
-            empire?.SetEmpireName(pKingdom.GetKingdomName());
+            // Keep automatic empire naming alive beneath any temporary player-facing override.
+            empire?.SetEmpireName(pKingdom.GetAutomaticKingdomName());
         }
         //获取国家政体后同步国家官位
         var regime = pKingdom.GetRegime();
@@ -288,11 +290,12 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             else kingdomFront = pKingdom.GetUntitledKingdomName();
         }
         var kingdomBack = LM.Get(newkingdomType.ToString());
-        pKingdom.SetKingdomName(string.Join("\u200A", kingdomFront, kingdomBack));
+        string cultureName = OverallHelperFunc.GetCultureFromSpecies(pKingdom.getSpecies());
+        pKingdom.SetKingdomName(OverallHelperFunc.FormatCountryTypeName(kingdomFront, kingdomBack, cultureName));
         foreach (var city in pKingdom.cities)
         {
             var cityBack = LM.Get(city.GetCityType().ToString());
-            city.data.name = string.Join("\u200A", city.GetCityName(), cityBack);
+            city.data.name = OverallHelperFunc.JoinNameParts(city.GetCityName(), cityBack);
         }
     }
 

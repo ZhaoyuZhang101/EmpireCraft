@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.Data;
 public class CultureRule
@@ -65,6 +66,7 @@ public class KingdomSetting
     public Dictionary<string, string> groups;
     public OnomasticsType[] rule;
     public int name_pos;
+    public bool english_type_prefix = true;
 }
 
 public class CitySetting
@@ -93,7 +95,7 @@ public static class OnomasticsRule
 
     public static string GetCultureTranslate(this string culture)
     {
-        var language = PlayerConfig.detectLanguage();
+        var language = PlayerConfig.dict["language"].stringVal;
         var tc = ALL_CULTURE_TRANSLATE[culture];
         var translate = "";
         switch (language)

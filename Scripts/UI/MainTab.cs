@@ -79,6 +79,8 @@ internal static class MainTab
             "EmpireCoreWindowTitle");
         BugReportWindow.CreateWindow(nameof(BugReportWindow),
             "bug_report_window_title");
+        OnlineUpdateWindow.CreateWindow(nameof(OnlineUpdateWindow),
+            "online_update_window_title");
     }
     [Hotfixable]
     private static void _addButtons()
@@ -163,6 +165,23 @@ internal static class MainTab
             });
         });
         bugReportButton._button.OnHoverOut(Tooltip.hideTooltip);
+
+        Sprite updateIcon = SpriteTextureLoader.getSprite("ui/icons/iconDownload") ??
+                            SpriteTextureLoader.getSprite("ui/icons/iconSteam");
+        var updateButton = PowerButtonCreator.CreateWindowButton(
+            "online_update_button",
+            nameof(OnlineUpdateWindow),
+            updateIcon);
+        tab.AddPowerButton(EMPIRE_GROUP, updateButton);
+        updateButton._button.OnHover(() =>
+        {
+            Tooltip.show(updateButton, "normal", new TooltipData
+            {
+                tip_name = "online_update_button",
+                tip_description = "online_update_button_description"
+            });
+        });
+        updateButton._button.OnHoverOut(Tooltip.hideTooltip);
         //帝国势力列表
         var empireListButon = PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
             SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png"));

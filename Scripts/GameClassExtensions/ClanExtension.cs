@@ -49,7 +49,7 @@ public static class ClanExtension
     public static string GetClanName(this Clan clan, ActorSex sex = ActorSex.None, bool hasSexPost = false)
     {
         if (clan?.data == null || string.IsNullOrWhiteSpace(clan.name)) return "";
-        var nameParts = clan.name.Split('\u200A');
+        var nameParts = clan.name.SplitNameParts();
         string culture = null;
         if (ConfigData.speciesCulturePair.TryGetValue(clan.species_id, out culture))
         {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
@@ -21,6 +22,9 @@ namespace EmpireCraft.Scripts.UI.Windows;
 public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
 {
     private TextInput _regimeInput;
+    private TextInput _customCountryNameInput;
+    private TextInput _customCountrySuffixInput;
+    private bool _refreshingNameInputs;
     private Kingdom _kingdom;
     private Regime _regime => _kingdom.GetRegime();
     private Dictionary<string, AdvancedButton> _toggleButtons = new Dictionary<string, AdvancedButton>();
@@ -46,8 +50,48 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     {
         Clear();
         InitialRegimeSelection();
+        InitialCustomNaming();
         UIHelper.InitialFactionSpace(this.BeginHoriGroup(), _kingdom, _groups);
         InitialSetting();
+    }
+
+    private void InitialCustomNaming()
+    {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(_kingdom)) return;
+        var namingSpace = this.BeginVertGroup(pSize: new Vector2(200, 63), pSpacing: 2,
+            pAlignment: TextAnchor.MiddleCenter);
+        namingSpace.AddTextIntoVertLayout(LM.Get("kingdom_custom_naming"), true,
+            TextAnchor.MiddleCenter, new Vector2(190, 15));
+
+        _refreshingNameInputs = true;
+        try
+        {
+            AddNamingInputRow(namingSpace, LM.Get("kingdom_custom_name"),
+                _kingdom.GetCustomCountryName(), ChangeCustomCountryName, out _customCountryNameInput);
+            AddNamingInputRow(namingSpace, LM.Get("kingdom_custom_suffix"),
+                _kingdom.GetCustomCountrySuffix(), ChangeCustomCountrySuffix, out _customCountrySuffixInput);
+        }
+        finally
+        {
+            _refreshingNameInputs = false;
+        }
+
+        namingSpace.transform.AddStretchBackground("regimeFrame", size: new Vector2(200, 63));
+        _groups.Add(namingSpace.gameObject);
+    }
+
+    private static void AddNamingInputRow(AutoVertLayoutGroup parent, string label, string value,
+        UnityAction<string> action, out TextInput input)
+    {
+        var row = parent.BeginHoriGroup(pSize: new Vector2(194, 19), pSpacing: 2,
+            pAlignment: TextAnchor.MiddleCenter);
+        var labelText = row.AddTextIntoHoriLayout(label, true, TextAnchor.MiddleRight,
+            new Vector2(64, 15));
+        labelText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        input = UnityEngine.Object.Instantiate(TextInput.Prefab, null);
+        input.Setup(value ?? "", action);
+        input.SetSize(new Vector2(124, 18));
+        row.AddChild(input.gameObject);
     }
 
     private void InitialSetting()
@@ -102,7 +146,39 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     {
         if (_kingdom == null || _kingdom.isRekt()) return;
         EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(_kingdom);
-        if (_regimeInput?.input != null) _regimeInput.input.text = _kingdom.data?.name ?? "";
+        RefreshNameInputs();
+    }
+
+    private void RefreshNameInputs()
+    {
+        if (_kingdom?.data == null) return;
+        _refreshingNameInputs = true;
+        try
+        {
+            if (_regimeInput?.input != null) _regimeInput.input.text = _kingdom.GetKingdomFullName();
+            if (_customCountryNameInput?.input != null)
+                _customCountryNameInput.input.text = _kingdom.GetCustomCountryName();
+            if (_customCountrySuffixInput?.input != null)
+                _customCountrySuffixInput.input.text = _kingdom.GetCustomCountrySuffix();
+        }
+        finally
+        {
+            _refreshingNameInputs = false;
+        }
+    }
+
+    private void RefreshHeaderName()
+    {
+        if (_kingdom?.data == null || _regimeInput?.input == null) return;
+        _refreshingNameInputs = true;
+        try
+        {
+            _regimeInput.input.text = _kingdom.GetKingdomFullName();
+        }
+        finally
+        {
+            _refreshingNameInputs = false;
+        }
     }
 
     private void Clear()
@@ -122,6 +198,8 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         }
         _toggleButtons.Clear();
         _groups.Clear();
+        _customCountryNameInput = null;
+        _customCountrySuffixInput = null;
     }
     [Hotfixable]
     private void InitialRegimeSelection()
@@ -180,13 +258,50 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     {
         _kingdom = SelectedMetas.selected_kingdom;
         RefreshKingdomStatus();
-        var text = _kingdom.name;
-        UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset:new Vector2(0, 152), default_text:text, input:_regimeInput);
+        _refreshingNameInputs = true;
+        try
+        {
+            UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset: new Vector2(0, 152),
+                default_text: _kingdom.GetKingdomFullName(), input: _regimeInput);
+        }
+        finally
+        {
+            _refreshingNameInputs = false;
+        }
     }
 
     public void ChangeKingdomName(string text)
     {
-        var namePart = text.Split('\u200A');
-        _regimeInput.input.text = namePart[0] + "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(_kingdom).ToString());
+        if (_refreshingNameInputs || _kingdom?.data == null) return;
+        _kingdom.SetCustomCountryName(text);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            RefreshNameInputs();
+            return;
+        }
+        if (_customCountryNameInput?.input == null) return;
+        _refreshingNameInputs = true;
+        try
+        {
+            _customCountryNameInput.input.text = text ?? "";
+        }
+        finally
+        {
+            _refreshingNameInputs = false;
+        }
+    }
+
+    private void ChangeCustomCountryName(string text)
+    {
+        if (_refreshingNameInputs || _kingdom?.data == null) return;
+        _kingdom.SetCustomCountryName(text);
+        RefreshHeaderName();
+    }
+
+    private void ChangeCustomCountrySuffix(string text)
+    {
+        if (_refreshingNameInputs || _kingdom?.data == null) return;
+        _kingdom.SetCustomCountrySuffix(text);
+        RefreshHeaderName();
     }
 }

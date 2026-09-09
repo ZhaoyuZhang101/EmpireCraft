@@ -855,7 +855,8 @@ namespace EmpireCraft.Scripts.AI
                         {
                             string new_name = pActor.generateName(MetaType.Kingdom, IdGenerator.NextId());
                             LogService.LogInfo($"New Empire Name：{new_name}，Original Empire Name：{empire.GetEmpireName()}");
-                            empire.SetEmpireName(new_name.Split('\u200A')[0].Split(' ').Last());
+                            string[] nameParts = new_name.SplitNameParts();
+                            empire.SetEmpireName(nameParts.Length > 0 ? nameParts[0] : new_name);
                             LogService.LogInfo($"Empire Name has been changed to：{empire.GetEmpireName()}");
                             empire.data.dynasty_founder_actor_id = pActor.id;
                             empire.data.currentHistory.is_first = true;

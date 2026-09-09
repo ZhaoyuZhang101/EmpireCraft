@@ -38,7 +38,7 @@ public class FamilyPatch : GamePatch
                 string cityName = pActor1.city.GetCityName();
                 string familyName = pActor1.GetModName().familyName;
                 string familyEnd = LM.Get("Family");
-                __instance.data.name = string.Join("\u200A", cityName, familyName, familyEnd);
+                __instance.data.name = OverallHelperFunc.JoinNameParts(cityName, familyName, familyEnd);
                 OverallHelperFunc.SetFamilyCityPre(__instance);
             }
             else
@@ -46,7 +46,8 @@ public class FamilyPatch : GamePatch
                 if ( pActor1.hasCulture())
                 {
                     culture = pActor1.culture;
-                    __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName();
+                    __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName()
+                        .UseLocalizedNameSeparator();
                     OverallHelperFunc.SetFamilyCityPre(__instance, false);
                     if (!pActor1.GetModName().hasFamilyName(pActor1))
                     {
@@ -82,7 +83,7 @@ public class FamilyPatch : GamePatch
                 string cityName = pActor2.city.GetCityName();
                 string familyName = pActor2.GetModName().familyName;
                 string familyEnd = LM.Get("Family");
-                __instance.data.name = string.Join("\u200A", cityName, familyName, familyEnd);
+                __instance.data.name = OverallHelperFunc.JoinNameParts(cityName, familyName, familyEnd);
                 OverallHelperFunc.SetFamilyCityPre(__instance);
             }
             else
@@ -90,7 +91,8 @@ public class FamilyPatch : GamePatch
                 if (pActor2.hasCulture())
                 {
                     culture = pActor2.culture;
-                    __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName();
+                    __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName()
+                        .UseLocalizedNameSeparator();
                     OverallHelperFunc.SetFamilyCityPre(__instance, false);
                     if (!pActor2.GetModName().hasFamilyName(pActor2))
                     {

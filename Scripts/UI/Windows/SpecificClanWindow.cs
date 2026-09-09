@@ -61,8 +61,9 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 
     public void ChangeClanName(string text)
     {
-        var namePart = text.Split('\u200A');
-        _clanInput.input.text = namePart[0] + "\u200A" + LM.Get("specific_clan");
+        var namePart = text.SplitNameParts();
+        if (namePart.Length == 0) return;
+        _clanInput.input.text = OverallHelperFunc.JoinNameParts(namePart[0], LM.Get("specific_clan"));
         _sc.name = namePart[0];
         foreach (var member in _sc._cache.Where(member => member.Value.is_alive))
         {
@@ -70,7 +71,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
             member.Value._actor.GetModName().SetName(member.Value._actor);
             if (member.Value._actor.hasClan())
             {
-                member.Value._actor.clan.data.name = namePart[0] + "\u200A" + LM.Get("Clan");
+                member.Value._actor.clan.data.name = OverallHelperFunc.JoinNameParts(namePart[0], LM.Get("Clan"));
             }
         }
         LogService.LogInfo("changing clan name");
@@ -394,7 +395,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 
     public void InitialTextInput()
     {
-        string text = _sc.name + "\u200A" + LM.Get("specific_clan");
+        string text = OverallHelperFunc.JoinNameParts(_sc.name, LM.Get("specific_clan"));
         UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset:new Vector2(0, 152), default_text:text, input:_clanInput);
     }
 

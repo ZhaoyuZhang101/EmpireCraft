@@ -1,4 +1,5 @@
-﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.AI.KingdomAI;
+using EmpireCraft.Scripts.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +12,7 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
+using NeoModLoader.services;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.HelperFunc
@@ -43,7 +45,238 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
         public static string AppendWithNarrowSpace(this string textA, string textB)
         {
-            return textA + ModClass.NARROW_SPACE + textB;
+            return JoinNameParts(textA, textB);
+        }
+
+        public static string NamePartSeparator
+        {
+            get
+            {
+                // English uses a paired narrow-space separator for compatibility with
+                // the mod's existing name parsers; CJK names remain compact.
+                return IsEnglishLanguage()
+                    ? ModClass.NARROW_SPACE + ModClass.NARROW_SPACE
+                    : ModClass.NARROW_SPACE;
+            }
+        }
+
+        public static bool IsEnglishLanguage()
+        {
+            string language = PlayerConfig.dict["language"].stringVal;
+            return !string.IsNullOrWhiteSpace(language) &&
+                   language == "en";
+        }
+
+        public static string JoinNameParts(params string[] parts)
+        {
+            if (parts == null || parts.Length == 0) return "";
+            return string.Join(NamePartSeparator, parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+        }
+
+        public static string[] SplitNameParts(this string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return Array.Empty<string>();
+            return text.Split(new[] { '\u200A' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => part.Trim())
+                .Where(part => part.Length > 0)
+                .ToArray();
+        }
+
+        public static string ReduceNarrowSpaces(this string text)
+        {
+            return text.UseLocalizedNameSeparator();
+        }
+
+        public static string UseLocalizedNameSeparator(this string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "";
+            string[] parts = text.SplitNameParts();
+            return parts.Length <= 1 ? text.Trim() : JoinNameParts(parts);
+        }
+
+        public static string WrapEnglishDisplayName(string text, float maxLineWeight = 11f)
+        {
+            if (!IsEnglishLanguage() || string.IsNullOrWhiteSpace(text) || text.IndexOf('\n') >= 0) return text ?? "";
+            string[] words = text.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length < 2 || MeasureEnglishText(text) <= maxLineWeight) return text;
+
+            int splitIndex = -1;
+            for (int i = 1; i < words.Length - 1; i++)
+            {
+                if (string.Equals(words[i], "of", StringComparison.OrdinalIgnoreCase))
+                {
+                    splitIndex = i + 1;
+                    break;
+                }
+            }
+            if (splitIndex < 1 || splitIndex >= words.Length)
+            {
+                float bestDifference = float.MaxValue;
+                for (int i = 1; i < words.Length; i++)
+                {
+                    float left = MeasureEnglishText(string.Join(" ", words.Take(i)));
+                    float right = MeasureEnglishText(string.Join(" ", words.Skip(i)));
+                    float difference = Mathf.Abs(left - right);
+                    if (difference >= bestDifference) continue;
+                    bestDifference = difference;
+                    splitIndex = i;
+                }
+            }
+            if (splitIndex < 1 || splitIndex >= words.Length) return text;
+            return JoinNameParts(words.Take(splitIndex).ToArray()) + "\n" +
+                   JoinNameParts(words.Skip(splitIndex).ToArray());
+        }
+
+        private static float MeasureEnglishText(string text)
+        {
+            float width = 0f;
+            if (string.IsNullOrEmpty(text)) return width;
+            for (int i = 0; i < text.Length; i++)
+            {
+                char character = text[i];
+                if (char.IsWhiteSpace(character)) width += 0.35f;
+                else if (char.IsUpper(character)) width += 0.72f;
+                else width += 0.58f;
+            }
+            return width;
+        }
+
+        public static bool UsesEnglishCountryTypePrefix(string cultureName)
+        {
+            if (!IsEnglishLanguage()) return false;
+            if (!string.IsNullOrWhiteSpace(cultureName) &&
+                OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(cultureName, out Setting setting) &&
+                setting?.Kingdom != null)
+            {
+                return setting.Kingdom.english_type_prefix;
+            }
+
+            // New cultures and species should follow English grammar unless their
+            // culture configuration explicitly opts into suffix-style names.
+            return true;
+        }
+
+        public static string FormatCountryTypeName(string coreName, string typeName, string cultureName)
+        {
+            coreName = coreName.UseLocalizedNameSeparator();
+            if (string.IsNullOrWhiteSpace(typeName)) return coreName;
+            return UsesEnglishCountryTypePrefix(cultureName)
+                ? JoinNameParts("The", typeName, "of", coreName)
+                : JoinNameParts(coreName, typeName);
+        }
+
+        public static bool TryExtractEnglishPrefixedCountryName(string fullName, out string coreName)
+        {
+            coreName = "";
+            if (string.IsNullOrWhiteSpace(fullName)) return false;
+            Match match = Regex.Match(fullName.Trim(), @"^The\s+(.+?)\s+of\s+(.+)$", RegexOptions.IgnoreCase);
+            if (!match.Success) return false;
+            coreName = match.Groups[2].Value.Trim();
+            return !string.IsNullOrWhiteSpace(coreName);
+        }
+
+        public static string FormatKingdomFullName(string coreName, string typeName, string cultureName)
+        {
+            if (string.IsNullOrWhiteSpace(coreName)) return "";
+            if (string.IsNullOrWhiteSpace(typeName)) return coreName;
+            string result;
+            if (UsesEnglishCountryTypePrefix(cultureName))
+            {
+                result = JoinNameParts("The", typeName, "of", coreName);
+            }
+            else
+            {
+                result = JoinNameParts(coreName, typeName);
+            }
+            return result.ReduceNarrowSpaces();
+        }
+
+        public static string FormatEmpireFullName(string coreName, string typeName, string localizedPrefix,
+            string cultureName)
+        {
+            if (string.IsNullOrWhiteSpace(coreName)) return "";
+            if (UsesEnglishCountryTypePrefix(cultureName) && !string.IsNullOrWhiteSpace(typeName))
+            {
+                return JoinNameParts("The", localizedPrefix, typeName, "of", coreName);
+            }
+            return JoinNameParts(localizedPrefix, coreName, typeName);
+        }
+
+        public static string FormatCityFullName(string coreName, string typeName)
+        {
+            string result = coreName ?? "";
+            if (!string.IsNullOrWhiteSpace(typeName))
+            {
+                result = JoinNameParts(result, typeName);
+            }
+            return result.ReduceNarrowSpaces();
+        }
+
+        public static string StripLocalizedTypeSuffix(string fullName, string typeName)
+        {
+            if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(typeName)) return fullName?.Trim() ?? "";
+            string value = fullName.Trim();
+            string[] separators = { ModClass.NARROW_SPACE + ModClass.NARROW_SPACE, ModClass.NARROW_SPACE, " " };
+            foreach (string separator in separators)
+            {
+                string suffix = separator + typeName;
+                if (value.EndsWith(suffix, StringComparison.Ordinal))
+                    return value.Substring(0, value.Length - suffix.Length).Trim();
+            }
+            return string.Equals(value, typeName, StringComparison.Ordinal) ? "" : value;
+        }
+
+        public static string ResolveEmpireTypeKey(Regime regime, Kingdom coreKingdom)
+        {
+            string key = null;
+            if (regime != null && regime.centre_empire_separate)
+            {
+                key = $"{regime.type}_empire";
+            }
+            else if (coreKingdom != null && !coreKingdom.isRekt())
+            {
+                key = EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(coreKingdom).ToString();
+            }
+
+            if (string.IsNullOrWhiteSpace(key)) return "EmpireText";
+            string translated = LM.Get(key);
+            if (string.IsNullOrWhiteSpace(translated) || string.Equals(translated, key, StringComparison.Ordinal))
+                return "EmpireText";
+            return key;
+        }
+
+        private static readonly Dictionary<string, string> DirectPrefixKeyMap = new()
+        {
+            { "神圣", "empire_prefix_holy" },
+            { "神聖", "empire_prefix_holy" },
+            { "Holy", "empire_prefix_holy" },
+            { "大", "great" },
+            { "Great", "great" },
+            { "西", "Western" },
+            { "West", "Western" },
+            { "东", "Eastern" },
+            { "東", "Eastern" },
+            { "East", "Eastern" },
+            { "南", "Southern" },
+            { "South", "Southern" },
+            { "北", "Northern" },
+            { "North", "Northern" },
+            { "后", "Later" },
+            { "後", "Later" },
+            { "Later", "Later" },
+        };
+
+        public static string LocalizeDirectPrefix(EmpireData data)
+        {
+            if (data == null || string.IsNullOrWhiteSpace(data.directPre)) return "";
+            string raw = data.directPre.Trim();
+            string key = DirectPrefixKeyMap.TryGetValue(raw, out string mapped) ? mapped : raw;
+            string translated = LM.Get(key);
+            if (!string.IsNullOrWhiteSpace(translated) && !string.Equals(translated, key, StringComparison.Ordinal))
+            {
+                return translated;
+            }
+            return IsEnglishLanguage() ? "" : raw;
         }
         public static EmpireAddition CalcPower(this Actor officer, OfficerPowerType type, Empire empire)
         {
