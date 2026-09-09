@@ -3,6 +3,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Compatibility;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -898,7 +899,7 @@ public static class EmpireCraftNamePlateLibrary
             npt.setNameplateSprite("ui/nameplates/nameplate_city");
         }
         int populationPeople = pMetaObject.getPopulationPeople();
-        string text = npt.getStringForNameplate(pMetaObject.name, populationPeople) + additionNum;
+        string text = npt.getStringForNameplate(pMetaObject.GetCityFullName(), populationPeople) + additionNum;
         if (pMetaObject?.kingdom?.IsInEmpire()??false)
         {
             var corruption = (int)(pMetaObject.GetCorruptionRate()*100);
@@ -1261,8 +1262,8 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     if (empire.HasYearName())
                     {
-                        text = GetSafeEmpireName(empire) + "\u200A" + empire.GetYearNameWithTime() + "\u200A" +
-                               empire.CountPopulation();
+                        text = OverallHelperFunc.JoinNameParts(GetSafeEmpireName(empire),
+                            empire.GetYearNameWithTime(), empire.CountPopulation().ToString());
                     }
                 }
 

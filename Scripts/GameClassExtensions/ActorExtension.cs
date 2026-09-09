@@ -77,7 +77,7 @@ public class Name
         this.has_sex_post = setting.Clan.has_sex_post;
         this.use_local_as_family_name = setting.Clan.use_local_as_lastname;
         this.is_invert = setting.Unit.is_invert;
-        var language = PlayerConfig.detectLanguage();
+        var language = PlayerConfig.dict["language"].stringVal;
         switch (language)
         {
             case "ch":

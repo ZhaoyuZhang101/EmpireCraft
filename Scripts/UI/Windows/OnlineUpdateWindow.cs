@@ -49,15 +49,21 @@ public class OnlineUpdateWindow : AutoLayoutWindow<OnlineUpdateWindow>
             pPadding: new RectOffset(4, 4, 4, 4));
 
         _version = _panel.AddTextIntoVertLayout("", true, TextAnchor.MiddleCenter, new Vector2(194, 22));
-        _version.UseFixedFontSize(8, HorizontalWrapMode.Wrap);
+        _version.UseFixedFontSize(8, HorizontalWrapMode.Wrap, VerticalWrapMode.Truncate);
+        SetFixedHeight(_version.gameObject, 22);
 
         _status = _panel.AddTextIntoVertLayout("", true, TextAnchor.MiddleCenter, new Vector2(194, 42));
         _status.UseFixedFontSize(8, HorizontalWrapMode.Wrap);
+        SetFixedHeight(_status.gameObject, 42);
+        HoverVerticalScrollText.Attach(_status);
 
         _notes = _panel.AddTextIntoVertLayout("", true, TextAnchor.UpperLeft, new Vector2(194, 70));
         _notes.UseFixedFontSize(7, HorizontalWrapMode.Wrap);
+        SetFixedHeight(_notes.gameObject, 70);
+        HoverVerticalScrollText.Attach(_notes);
 
         AutoHoriLayoutGroup buttons = _panel.BeginHoriGroup(new Vector2(194, 24), TextAnchor.MiddleCenter, 4);
+        SetFixedHeight(buttons.gameObject, 24);
         buttons.AddButtonIntoHoriLayout(
             "online_update_check",
             LM.Get("online_update_check"),
@@ -90,12 +96,17 @@ public class OnlineUpdateWindow : AutoLayoutWindow<OnlineUpdateWindow>
         string notes = string.IsNullOrWhiteSpace(snapshot.ReleaseNotes)
             ? LM.Get("online_update_no_notes")
             : snapshot.ReleaseNotes;
-        if (notes.Length > 320) notes = notes.Substring(0, 320) + "...";
         _notes.text.text = LM.Get("online_update_notes") + "\n" + notes;
+    }
 
-        _version.RefreshAutoHeight(22, 4);
-        _status.RefreshAutoHeight(42, 4);
-        _notes.RefreshAutoHeight(70, 4);
+    private static void SetFixedHeight(GameObject target, float height)
+    {
+        RectTransform rect = target.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
+        LayoutElement layoutElement = target.GetComponent<LayoutElement>() ?? target.AddComponent<LayoutElement>();
+        layoutElement.minHeight = height;
+        layoutElement.preferredHeight = height;
+        layoutElement.flexibleHeight = 0f;
     }
 
     private static string BuildStatus(EmpireCraftUpdateSnapshot snapshot)

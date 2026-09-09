@@ -1123,7 +1123,7 @@ namespace EmpireCraft.Scripts.HelperFunc
 
         public static void LogRoyalKingBecomeEmperor(Empire empire,KingdomTitle title, Actor actor)
         {
-            var language = PlayerConfig.detectLanguage();
+            var language = PlayerConfig.dict["language"].stringVal;
             var text = "";
             if (language == "en")
             {

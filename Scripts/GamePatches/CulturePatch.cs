@@ -39,16 +39,25 @@ public class CulturePatch : GamePatch
 
     private static void set_default_culture_name(Actor __instance, string pCultureName)
     {
+        if (__instance?.data == null || AncientWarfareCompatibility.Owns(__instance)) return;
         EnsureEmpireNaming(__instance?.culture);
         try
         {
             var beforeKingdomName = __instance.kingdom.data.name;
-            __instance.kingdom.data.name = __instance.culture.getOnomasticData(MetaType.Kingdom).generateName();
+            __instance.kingdom.data.name = __instance.culture.getOnomasticData(MetaType.Kingdom).generateName()
+                .UseLocalizedNameSeparator();
             __instance.kingdom.RememberInitialRandomKingdomName(__instance.kingdom.data.name, overwrite: true);
+            __instance.kingdom.GetOrCreate().core_name = "";
+            __instance.kingdom.GetOrCreate().core_name_source = "";
+            __instance.kingdom.EnsureKingdomCoreName();
             var afterKingdomName = __instance.kingdom.data.name;
             TranslateHelper.LogChangeKingdomName(__instance, __instance.kingdom, beforeKingdomName, afterKingdomName);
             var beforeCityName = __instance.city.data.name;
-            __instance.city.data.name = __instance.culture.getOnomasticData(MetaType.City).generateName();
+            __instance.city.data.name = __instance.culture.getOnomasticData(MetaType.City).generateName()
+                .UseLocalizedNameSeparator();
+            __instance.city.GetOrCreate().core_name = "";
+            __instance.city.GetOrCreate().core_name_source = "";
+            __instance.city.EnsureCityCoreName();
             var afterCityName = __instance.city.data.name;
             TranslateHelper.LogChangeCityName(__instance, __instance.city, beforeCityName, afterCityName);
             __instance.language.data.name = __instance.kingdom.GetKingdomName() + LM.Get("Language") +
@@ -66,14 +75,27 @@ public class CulturePatch : GamePatch
     private static void set_culture_name(Culture __instance, Actor pActor)
     {
         if (__instance?.data == null || pActor?.data == null) return;
+        if (AncientWarfareCompatibility.Owns(pActor)) return;
         __instance.data.name = pActor.kingdom.GetKingdomName() + "-" + pActor.city.GetCityName() + LM.Get("Culture");
-        if (!AncientWarfareCompatibility.Owns(pActor)) setDefaultNameTemplate(__instance);
+        setDefaultNameTemplate(__instance);
         EnsureEmpireNaming(__instance);
         
     }
     private static void clone_culture_name(Culture __instance)
     {
-        __instance.data.name = __instance.data.creator_kingdom_name.Split('\u200A')[0].Split(' ').Last()+"-"+ __instance.data.creator_city_name.Split('\u200A')[0].Split(' ').Last()+ LM.Get("EvolvedCulture");
+        if (__instance?.data == null) return;
+        string kingdomName = ExtractStoredCoreName(__instance.data.creator_kingdom_name);
+        string cityName = ExtractStoredCoreName(__instance.data.creator_city_name);
+        __instance.data.name = kingdomName + "-" + cityName + LM.Get("EvolvedCulture");
+    }
+
+    private static string ExtractStoredCoreName(string storedName)
+    {
+        if (string.IsNullOrWhiteSpace(storedName)) return "";
+        if (OverallHelperFunc.TryExtractEnglishPrefixedCountryName(storedName, out string prefixedName))
+            return prefixedName;
+        string[] parts = storedName.SplitNameParts();
+        return parts.Length > 0 ? parts[0] : storedName.Trim();
     }
     private static void setDefaultNameTemplate(Culture culture)
     {

@@ -1,4 +1,5 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.UI.Components;
 using HarmonyLib;
 using NeoModLoader.api;
@@ -36,7 +37,7 @@ public class ClanWindowPatch : GamePatch
                 string[] namePart;
                 if (pInput.Contains("\u200A"))
                 {
-                    namePart = pInput.Split('\u200A');
+                    namePart = pInput.SplitNameParts();
                 }
                 else
                 {
@@ -44,7 +45,7 @@ public class ClanWindowPatch : GamePatch
                 }
                 if (namePart.Length >= 1)
                 {
-                    clan.data.name = namePart[0] + "\u200A" + LM.Get("Clan");
+                    clan.data.name = OverallHelperFunc.JoinNameParts(namePart[0], LM.Get("Clan"));
                     foreach (Actor actor in clan.units)
                     {
                         actor.initializeActorName();

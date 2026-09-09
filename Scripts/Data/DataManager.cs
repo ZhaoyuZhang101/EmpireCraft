@@ -17,6 +17,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.Compatibility;
 
 namespace EmpireCraft.Scripts.Data;
 
@@ -29,6 +30,7 @@ public static class DataManager
     {
         string loadPath = Path.Combine(loadRootPath, EmpireCraftSaveFileName);
         CurrentSaveDataPath = loadPath;
+        NormalizeLoadedNameSeparators();
         if (!File.Exists(loadPath))
         {
             foreach (var worldKingdom in World.world.kingdoms)
@@ -197,6 +199,33 @@ public static class DataManager
             worldKingdom.ReconcileMainTitle();
             worldKingdom.GetInitialRandomKingdomName();
             EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
+        }
+    }
+
+    private static void NormalizeLoadedNameSeparators()
+    {
+        if (World.world == null) return;
+
+        foreach (Actor actor in World.world.units)
+        {
+            if (actor?.data == null || AncientWarfareCompatibility.OwnsObject(actor)) continue;
+            actor.data.name = actor.data.name.UseLocalizedNameSeparator();
+            if (actor.clan?.data != null)
+                actor.clan.data.name = actor.clan.data.name.UseLocalizedNameSeparator();
+            if (actor.family?.data != null)
+                actor.family.data.name = actor.family.data.name.UseLocalizedNameSeparator();
+        }
+
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+            if (kingdom?.data == null || AncientWarfareCompatibility.Owns(kingdom)) continue;
+            kingdom.data.name = kingdom.data.name.UseLocalizedNameSeparator();
+        }
+
+        foreach (City city in World.world.cities)
+        {
+            if (city?.data == null || AncientWarfareCompatibility.Owns(city.kingdom)) continue;
+            city.data.name = city.data.name.UseLocalizedNameSeparator();
         }
     }
     public static void SaveAll(string saveRootPath)

@@ -57,6 +57,8 @@ public class EmpireData : MetaObjectData
     public long founder_kingdom_id { get; set; } = -1L;
 
     public string directPre = "";
+    public string core_name = "";
+    public string empire_type_key = "";
     public long emperor { get; set; } = -1L;
     public long empire_clan { get; set; } = -1L;
     public long empire_core_id { get; set; } = -1L;

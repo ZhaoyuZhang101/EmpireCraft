@@ -25,8 +25,8 @@ public class TempFac_神授君权 : TemporaryFaction
         var kingdom = GetKingdomTarget();
         if (kingdom != null)
         {
+            empire.data.directPre = "empire_prefix_holy";
             empire.SetEmpireName(kingdom.capital.GetTitle().name);
-            empire.data.directPre = "神圣";
         }
         
         End();

@@ -63,6 +63,8 @@ public static class CityExtension
         [JsonIgnore]
         public SimpleButton limitToggle { get; set; }
         public CityType cityType { get; set; }
+        public string core_name = "";
+        public string core_name_source = "";
         public long office_id { get; set; } = -1L;
         public int cached_warriors = 0;
         public int cached_population = 0;
@@ -1770,42 +1772,101 @@ public static class CityExtension
         GetOrCreate(c).title_id = -1L;
     }
 
-    public static string GetCityName(this City city)
+    public static string EnsureCityCoreName(this City city)
     {
         if (city?.data == null) return null;
+        CityExtraData data = city.GetOrCreate();
+        if (!string.IsNullOrWhiteSpace(data.core_name))
+        {
+            if (string.IsNullOrEmpty(data.core_name_source))
+            {
+                data.core_name_source = city.data.name ?? "";
+                return data.core_name;
+            }
+            if (string.Equals(data.core_name_source, city.data.name ?? "", StringComparison.Ordinal))
+                return data.core_name;
+        }
+
         string fullName = city.data.name;
         if (string.IsNullOrEmpty(fullName)) return null;
         string[] nameParts = fullName.SplitNameParts();
         string result = null;
 
-        if (ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out var culture))
+        string citySuffix = "";
+        try { citySuffix = LM.Get(city.GetCityType().ToString()); }
+        catch { }
+        if (nameParts.Length <= 1)
         {
-            if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
+            string strippedName = OverallHelperFunc.StripLocalizedTypeSuffix(fullName, citySuffix);
+            if (!string.Equals(strippedName, fullName.Trim(), StringComparison.Ordinal)) result = strippedName;
+        }
+
+        try
+        {
+            if (result == null && ConfigData.speciesCulturePair.TryGetValue(city.getSpecies(), out var culture))
             {
-                if (nameParts.Length-1 >= setting.City.name_pos)
+                if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
                 {
-                    result = nameParts[setting.City.name_pos].Split(' ').Last();
+                    if (nameParts.Length - 1 >= setting.City.name_pos)
+                    {
+                        result = nameParts[setting.City.name_pos];
+                    }
                 }
             }
         }
-        result ??= nameParts[0].Split(' ').Last();
+        catch
+        {
+            result = null;
+        }
+        result ??= nameParts[0];
         if (string.IsNullOrWhiteSpace(result))
         {
-            return result;
+            return fullName;
         }
 
-        if (city.hasKingdom())
+        try
         {
-            string citySuffix = LM.Get(city.GetCityType().ToString());
-            if (!string.IsNullOrWhiteSpace(citySuffix) &&
-                result.Length > citySuffix.Length &&
-                result.EndsWith(citySuffix, StringComparison.Ordinal))
+            if (city.hasKingdom())
             {
-                result = result.Substring(0, result.Length - citySuffix.Length);
+                if (!string.IsNullOrWhiteSpace(citySuffix) &&
+                    result.Length > citySuffix.Length &&
+                    result.EndsWith(citySuffix, StringComparison.Ordinal))
+                {
+                    result = result.Substring(0, result.Length - citySuffix.Length);
+                }
             }
         }
+        catch
+        {
+        }
 
-        return result;
+        if (!string.IsNullOrWhiteSpace(result))
+        {
+            try
+            {
+                data.core_name = result.Trim();
+                data.core_name_source = city.data.name ?? "";
+            }
+            catch { }
+        }
+        return string.IsNullOrWhiteSpace(result) ? fullName : result;
+    }
+
+    public static string GetCityName(this City city)
+    {
+        if (city?.data == null) return null;
+        return city.EnsureCityCoreName();
+    }
+
+    public static string GetCityFullName(this City city)
+    {
+        if (city?.data == null) return "";
+        string coreName = city.EnsureCityCoreName();
+        if (string.IsNullOrWhiteSpace(coreName)) return city.data.name ?? "";
+        string typeName = "";
+        try { typeName = LM.Get(city.GetCityType().ToString()); }
+        catch { }
+        return OverallHelperFunc.FormatCityFullName(coreName, typeName);
     }
 
     public static string GetKingdomNames(this City city)

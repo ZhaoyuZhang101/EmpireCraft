@@ -1,6 +1,7 @@
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using EmpireCraft.Scripts.UI.Windows;
@@ -56,7 +57,7 @@ public class UnitWindowPatch: GamePatch
             string[] namePart;
             if (pInput.Contains("\u200A"))
             {
-                namePart = pInput.Split('\u200A');
+                namePart = pInput.SplitNameParts();
             } else
             {
                 namePart = pInput.Split(' ');

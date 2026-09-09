@@ -79,7 +79,9 @@
                     "group_1": "CountryNames"
                 },
                 "rule": [ "group_1" ],
-                "name_pos": 0
+                "name_pos": 0,
+                // 英文界面是否使用 The {国家类别} of {国名}；false 为 {国名} {国家类别}
+                "english_type_prefix": false
             }
         }
     },
@@ -147,7 +149,8 @@
                     "group_1": "CountryNames"
                 },
                 "rule": [ "group_1" ],
-                "name_pos": 0
+                "name_pos": 0,
+                "english_type_prefix": true
             }
         }
     },
@@ -286,7 +289,8 @@
                     "group_1": "CountryNames"
                 },
                 "rule": [ "group_1" ],
-                "name_pos": 0
+                "name_pos": 0,
+                "english_type_prefix": true
             }
         },
         "beaurau_config": {
@@ -854,7 +858,8 @@
                     "group_1": "CountryNames"
                 },
                 "rule": [ "group_1" ],
-                "name_pos": 0
+                "name_pos": 0,
+                "english_type_prefix": false
             }
         },
         "beaurau_config": {

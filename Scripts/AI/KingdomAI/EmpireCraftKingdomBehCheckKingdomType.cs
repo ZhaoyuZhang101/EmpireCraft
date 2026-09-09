@@ -289,7 +289,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             else kingdomFront = pKingdom.GetUntitledKingdomName();
         }
         var kingdomBack = LM.Get(newkingdomType.ToString());
-        pKingdom.SetKingdomName(OverallHelperFunc.JoinNameParts(kingdomFront, kingdomBack));
+        string cultureName = OverallHelperFunc.GetCultureFromSpecies(pKingdom.getSpecies());
+        pKingdom.SetKingdomName(OverallHelperFunc.FormatCountryTypeName(kingdomFront, kingdomBack, cultureName));
         foreach (var city in pKingdom.cities)
         {
             var cityBack = LM.Get(city.GetCityType().ToString());

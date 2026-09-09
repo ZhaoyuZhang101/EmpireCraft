@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EmpireCraft.Scripts.HelperFunc;
 
 namespace EmpireCraft.Scripts.GamePatches
 {
@@ -23,7 +24,7 @@ namespace EmpireCraft.Scripts.GamePatches
             if (family == null || string.IsNullOrWhiteSpace(family.name))
                 return "";
 
-            var nameParts = family.name.Split(new[] { '\u200A' }, StringSplitOptions.RemoveEmptyEntries);
+            var nameParts = family.name.SplitNameParts();
 
             if (nameParts.Length == 0)
                 return "";

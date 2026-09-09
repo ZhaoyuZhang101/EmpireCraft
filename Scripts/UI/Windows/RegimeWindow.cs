@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
@@ -186,7 +187,13 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
 
     public void ChangeKingdomName(string text)
     {
-        var namePart = text.Split('\u200A');
-        _regimeInput.input.text = namePart[0] + "\u200A" + LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(_kingdom).ToString());
+        var namePart = text.SplitNameParts();
+        if (namePart.Length == 0) return;
+        string kingdomName = OverallHelperFunc.TryExtractEnglishPrefixedCountryName(text, out string prefixedName)
+            ? prefixedName
+            : namePart[0];
+        string typeName = LM.Get(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(_kingdom).ToString());
+        string cultureName = OverallHelperFunc.GetCultureFromSpecies(_kingdom.getSpecies());
+        _regimeInput.input.text = OverallHelperFunc.FormatCountryTypeName(kingdomName, typeName, cultureName);
     }
 }

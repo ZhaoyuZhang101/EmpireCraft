@@ -791,6 +791,7 @@
     "remove_title_from_empire_core_success": "The kingdom title has been removed from the imperial core",
     "destroy_empire_core_success": "The imperial core has been destroyed"
     ,"great":"Great"
+    ,"empire_prefix_holy":"Holy"
     ,"Harems":"Harems"
     ,"religion_point":"Religion Points"
     ,"tf_starting":"In Progress"

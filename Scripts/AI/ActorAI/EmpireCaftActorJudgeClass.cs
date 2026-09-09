@@ -5,6 +5,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.services;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.AI.ActorAI;
 
