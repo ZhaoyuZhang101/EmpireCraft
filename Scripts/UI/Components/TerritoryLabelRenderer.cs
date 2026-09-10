@@ -120,23 +120,38 @@ public static class TerritoryLabelRenderer
     {
         BeginFrame();
         City hoveredCity = World.world?.getMouseTilePosCachedFrame()?.zone_city;
+        EmpireCore hoveredEmpireCore = hoveredCity?.GetEmpireCore();
+        long hoveredEmpireId = hoveredEmpireCore != null && hoveredEmpireCore.id > 0 ? hoveredEmpireCore.id : 0;
+
         if (zoneOptionState == 0)
         {
             foreach (EmpireCore core in EmpireCoreManager.EmpireCores.Values)
             {
                 if (core == null || core.id <= 0) continue;
-                SubmitEmpireCore($"law-empire:{core.id}", EmpireCoreManager.GetDisplayName(core), core, EmpireStyle,
-                    hoveredCity != null && hoveredCity.GetEmpireCoreID() == core.id);
+                bool expanded = hoveredEmpireId == core.id;
+                SubmitEmpireCore($"law-empire:{core.id}", EmpireCoreManager.GetDisplayName(core), core,
+                    expanded ? FadedEmpireStyle : EmpireStyle);
             }
         }
 
         foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER)
         {
             if (title == null || title.isRekt() || title.data == null) continue;
-            if (zoneOptionState == 0 && IsClaimedByEmpireCore(title)) continue;
+
+            EmpireCore claimingCore = GetClaimingEmpireCore(title);
+            bool claimedByEmpire = claimingCore != null;
+            bool expandedByHover = zoneOptionState == 0 && claimedByEmpire && claimingCore.id == hoveredEmpireId;
+
+            // In the empire overview, imperial subjects stay collapsed until the mouse enters that empire.
+            if (zoneOptionState == 0 && claimedByEmpire && !expandedByHover) continue;
+
             IEnumerable<City> cities = title.getCities();
-            SubmitCities($"law-kingdom:{title.id}", title.data.name, cities, KingdomStyle,
-                hoveredCity?.GetTitle() == title);
+            bool fullyOpaque = expandedByHover || hoveredCity?.GetTitle() == title;
+
+            // Expanded imperial subjects must remain visible even if their bounds cross the faded empire label
+            // (or another expanded subject label). Other labels keep the normal anti-overlap behaviour.
+            SubmitCities($"law-kingdom:{title.id}", title.data.name, cities, KingdomStyle, fullyOpaque,
+                expandedByHover);
         }
         EndFrame();
     }
@@ -148,11 +163,11 @@ public static class TerritoryLabelRenderer
     }
 
     public static void SubmitCities(string id, string text, IEnumerable<City> cities, TerritoryLabelStyle style,
-        bool fullyOpaque = false)
+        bool fullyOpaque = false, bool ignoreOverlap = false)
     {
         if (string.IsNullOrWhiteSpace(id) || cities == null || !EnsureHost()) return;
         MarkSubmissionFrame();
-        GetOrCreateLabel(id).UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque);
+        GetOrCreateLabel(id).UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque, ignoreOverlap);
     }
 
     public static void SubmitEmpireCore(string id, string text, EmpireCore core, TerritoryLabelStyle style,
@@ -266,17 +281,22 @@ public static class TerritoryLabelRenderer
         if (_submission_frame != Time.frameCount) _submission_frame = Time.frameCount;
     }
 
-    private static bool IsClaimedByEmpireCore(KingdomTitle title)
+    private static EmpireCore GetClaimingEmpireCore(KingdomTitle title)
     {
-        EmpireCore capitalCore = title?.title_capital?.GetEmpireCore();
-        if (capitalCore != null) return EmpireCoreManager.ContainsTitle(capitalCore, title);
+        if (title == null) return null;
+
+        EmpireCore capitalCore = title.title_capital?.GetEmpireCore();
+        if (capitalCore != null && EmpireCoreManager.ContainsTitle(capitalCore, title)) return capitalCore;
+
         foreach (City city in title.getCities())
         {
             EmpireCore core = city?.GetEmpireCore();
-            if (core != null && EmpireCoreManager.ContainsTitle(core, title)) return true;
+            if (core != null && EmpireCoreManager.ContainsTitle(core, title)) return core;
         }
-        return false;
+        return null;
     }
+
+    private static bool IsClaimedByEmpireCore(KingdomTitle title) => GetClaimingEmpireCore(title) != null;
 
     private static RuntimeLabel GetOrCreateLabel(string id)
     {
@@ -353,6 +373,7 @@ public static class TerritoryLabelRenderer
         private string _render_text;
         private TerritoryLabelStyle _render_style;
         private bool _render_fully_opaque;
+        private bool _render_ignore_overlap;
         private bool _render_requested;
         private string _metrics_text;
         private FontStyle _metrics_style;
@@ -374,7 +395,7 @@ public static class TerritoryLabelRenderer
         public RuntimeLabel(string id) => _id = id;
 
         public void UpdateFromCities(string text, IEnumerable<City> cities, TerritoryLabelStyle style,
-            bool fullyOpaque)
+            bool fullyOpaque, bool ignoreOverlap = false)
         {
             text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
@@ -384,7 +405,7 @@ public static class TerritoryLabelRenderer
                 CollectCityZones(cities, _zones, _zone_ids);
                 RefreshZonePlacement(text, style, inputsChanged);
             }
-            QueueRender(text, style, fullyOpaque);
+            QueueRender(text, style, fullyOpaque, ignoreOverlap);
         }
 
         public void UpdateFromEmpireCore(string text, EmpireCore core, TerritoryLabelStyle style,
@@ -452,11 +473,12 @@ public static class TerritoryLabelRenderer
             if (_text != null && _text.gameObject.activeSelf) _text.gameObject.SetActive(false);
         }
 
-        private void QueueRender(string text, TerritoryLabelStyle style, bool fullyOpaque)
+        private void QueueRender(string text, TerritoryLabelStyle style, bool fullyOpaque, bool ignoreOverlap = false)
         {
             _render_text = text;
             _render_style = style;
             _render_fully_opaque = fullyOpaque;
+            _render_ignore_overlap = ignoreOverlap;
             _render_requested = true;
         }
 
@@ -469,7 +491,7 @@ public static class TerritoryLabelRenderer
         public void RenderSubmitted()
         {
             if (last_seen_frame != Time.frameCount) { Hide(); return; }
-            if (_render_requested) Render(_render_text, _render_style, _render_fully_opaque);
+            if (_render_requested) Render(_render_text, _render_style, _render_fully_opaque, _render_ignore_overlap);
         }
 
         private bool PlacementInputsChanged(string text, TerritoryLabelStyle style)
@@ -509,7 +531,7 @@ public static class TerritoryLabelRenderer
             _placement_bridges_gaps = style.bridge_internal_gaps;
         }
 
-        private void Render(string value, TerritoryLabelStyle style, bool fullyOpaque)
+        private void Render(string value, TerritoryLabelStyle style, bool fullyOpaque, bool ignoreOverlap)
         {
             if (!_placement.valid || string.IsNullOrWhiteSpace(value) || World.world?.camera == null)
             {
@@ -618,7 +640,7 @@ public static class TerritoryLabelRenderer
             Rect screenBounds = Rect.MinMaxRect(centerScreen.x - boundWidth * 0.5f,
                 centerScreen.y - boundHeight * 0.5f, centerScreen.x + boundWidth * 0.5f,
                 centerScreen.y + boundHeight * 0.5f);
-            if (OverlapsSubmittedLabel(screenBounds))
+            if (!ignoreOverlap && OverlapsSubmittedLabel(screenBounds))
             {
                 Hide();
                 return;
@@ -631,6 +653,7 @@ public static class TerritoryLabelRenderer
             TerritoryLabelArc arc = _text.GetComponent<TerritoryLabelArc>() ??
                                     _text.gameObject.AddComponent<TerritoryLabelArc>();
             arc.Configure(style.arc_curvature);
+            if (ignoreOverlap) rect.SetAsLastSibling();
             if (!_text.gameObject.activeSelf) _text.gameObject.SetActive(true);
             _text.enabled = true;
         }
