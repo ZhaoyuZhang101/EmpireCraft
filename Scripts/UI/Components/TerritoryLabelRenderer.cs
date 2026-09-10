@@ -27,7 +27,11 @@ public sealed class TerritoryLabelStyle
     public int max_font_size = 512;
     public FontStyle font_style = FontStyle.Normal;
     public bool use_gold_gradient;
+    // Only the Empire label may wrap long Latin names; ordinary nameplates stay single-line.
+    public bool wrap_english_name;
     public bool bridge_internal_gaps;
+    // A shallow arc follows broad, irregular territories without changing the label's anchor.
+    public float arc_curvature;
     public Color gold_top = new Color32(255, 244, 194, 255);
     public Color gold_bottom = new Color32(184, 156, 68, 255);
 }
@@ -38,6 +42,8 @@ public static class TerritoryLabelRenderer
     private const float GeometryRefreshInterval = 0.75f;
     private const float LatinOutlineDistance = 8f;
     private static readonly Dictionary<string, RuntimeLabel> _labels = new Dictionary<string, RuntimeLabel>();
+    private static readonly List<RuntimeLabel> _render_order = new List<RuntimeLabel>();
+    private static readonly List<Rect> _occupied_label_bounds = new List<Rect>();
     private static TerritoryLabelRendererHost _host;
     private static RectTransform _root;
     private static Text _text_template;
@@ -72,7 +78,9 @@ public static class TerritoryLabelRenderer
         min_font_size = 1,
         font_style = FontStyle.Normal,
         use_gold_gradient = true,
-        bridge_internal_gaps = true
+        wrap_english_name = true,
+        bridge_internal_gaps = true,
+        arc_curvature = 0.035f
     };
 
     public static readonly TerritoryLabelStyle FadedEmpireStyle = new TerritoryLabelStyle
@@ -84,7 +92,9 @@ public static class TerritoryLabelRenderer
         min_font_size = 1,
         font_style = FontStyle.Normal,
         use_gold_gradient = true,
-        bridge_internal_gaps = true
+        wrap_english_name = true,
+        bridge_internal_gaps = true,
+        arc_curvature = 0.035f
     };
 
     public static readonly TerritoryLabelStyle KingdomStyle = new TerritoryLabelStyle
@@ -92,7 +102,8 @@ public static class TerritoryLabelRenderer
         text_color = new Color(1f, 1f, 1f, 0.9f),
         size_multiplier = 0.95f,
         min_font_size = 3,
-        font_style = FontStyle.Normal
+        font_style = FontStyle.Normal,
+        arc_curvature = 0.025f
     };
 
     public static readonly TerritoryLabelStyle RebellionKingdomStyle = new TerritoryLabelStyle
@@ -101,7 +112,8 @@ public static class TerritoryLabelRenderer
         outline_color = new Color32(74, 15, 12, 204),
         size_multiplier = 0.9f,
         min_font_size = 3,
-        font_style = FontStyle.Normal
+        font_style = FontStyle.Normal,
+        arc_curvature = 0.025f
     };
 
     public static void RenderLawLayer(int zoneOptionState)
@@ -230,7 +242,12 @@ public static class TerritoryLabelRenderer
     {
         if (host != _host) return;
         if (_submission_frame != Time.frameCount) { HideAll(); return; }
-        foreach (RuntimeLabel label in _labels.Values) label.RenderSubmitted();
+        _render_order.Clear();
+        foreach (RuntimeLabel label in _labels.Values)
+            if (label.last_seen_frame == Time.frameCount) _render_order.Add(label);
+        _render_order.Sort((left, right) => right.RenderPriority.CompareTo(left.RenderPriority));
+        _occupied_label_bounds.Clear();
+        foreach (RuntimeLabel label in _render_order) label.RenderSubmitted();
     }
 
     internal static void HostDestroyed(TerritoryLabelRendererHost host)
@@ -240,6 +257,8 @@ public static class TerritoryLabelRenderer
         _root = null;
         _text_template = null;
         _labels.Clear();
+        _render_order.Clear();
+        _occupied_label_bounds.Clear();
     }
 
     private static void MarkSubmissionFrame()
@@ -314,8 +333,12 @@ public static class TerritoryLabelRenderer
         private readonly List<TileZone> _walk_component = new List<TileZone>(64);
         private readonly List<TileZone> _largest_component = new List<TileZone>(64);
         private readonly HashSet<int> _zone_ids = new HashSet<int>();
+        private readonly HashSet<int> _component_zone_ids = new HashSet<int>();
         private readonly HashSet<int> _visited_ids = new HashSet<int>();
         private readonly Queue<TileZone> _zone_queue = new Queue<TileZone>();
+        private readonly Queue<Vector2Int> _gap_queue = new Queue<Vector2Int>();
+        private readonly HashSet<int> _gap_tiles = new HashSet<int>();
+        private readonly Dictionary<int, bool> _small_gap_cache = new Dictionary<int, bool>();
         private TerritoryPlacement _placement;
         private Text _text;
         private TerritoryLabelGoldGradient _gold_gradient;
@@ -339,12 +362,21 @@ public static class TerritoryLabelRenderer
         private float _reference_height;
         public int last_seen_frame;
 
+        public float RenderPriority
+        {
+            get
+            {
+                float area = _placement.valid ? _placement.half_width * _placement.half_height : 0f;
+                return (_render_style?.wrap_english_name == true ? 1000000f : 0f) + area;
+            }
+        }
+
         public RuntimeLabel(string id) => _id = id;
 
         public void UpdateFromCities(string text, IEnumerable<City> cities, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
-            text = OverallHelperFunc.WrapEnglishDisplayName(text);
+            text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -358,7 +390,7 @@ public static class TerritoryLabelRenderer
         public void UpdateFromEmpireCore(string text, EmpireCore core, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
-            text = OverallHelperFunc.WrapEnglishDisplayName(text);
+            text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -372,7 +404,7 @@ public static class TerritoryLabelRenderer
         public void UpdateFromZones(string text, IEnumerable<TileZone> zones, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
-            text = OverallHelperFunc.WrapEnglishDisplayName(text);
+            text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -386,7 +418,7 @@ public static class TerritoryLabelRenderer
         public void UpdateFromPoints(string text, IEnumerable<Vector3> points, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
-            text = OverallHelperFunc.WrapEnglishDisplayName(text);
+            text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -428,6 +460,12 @@ public static class TerritoryLabelRenderer
             _render_requested = true;
         }
 
+        private static string FormatDisplayText(string text, TerritoryLabelStyle style)
+        {
+            text ??= string.Empty;
+            return style?.wrap_english_name == true ? OverallHelperFunc.WrapEnglishDisplayName(text) : text;
+        }
+
         public void RenderSubmitted()
         {
             if (last_seen_frame != Time.frameCount) { Hide(); return; }
@@ -447,16 +485,15 @@ public static class TerritoryLabelRenderer
             int signature = CalculateZoneSignature(_zones);
             if (!_has_geometry_result || inputsChanged || signature != _source_signature)
             {
-                if (style.bridge_internal_gaps)
-                {
-                    _placement = BuildZoneEnvelopePlacement(_zones, text, style);
-                }
-                else
-                {
-                    FindLargestConnectedComponent(_zones, _zone_ids, _walk_component, _largest_component,
-                        _visited_ids, _zone_queue);
-                    _placement = BuildZonePlacement(_largest_component, _zone_ids, text, style);
-                }
+                // Never join exclaves. Only the dominant connected territory is allowed to host its label.
+                FindLargestConnectedComponent(_zones, _zone_ids, _walk_component, _largest_component,
+                    _visited_ids, _zone_queue);
+                _component_zone_ids.Clear();
+                for (int i = 0; i < _largest_component.Count; i++)
+                    _component_zone_ids.Add(_largest_component[i].id);
+                _small_gap_cache.Clear();
+                _placement = BuildZonePlacement(_largest_component, _component_zone_ids, text, style,
+                    style.bridge_internal_gaps);
                 _source_signature = signature;
                 RememberPlacementInputs(text, style);
                 _has_geometry_result = true;
@@ -569,11 +606,40 @@ public static class TerritoryLabelRenderer
             _outline.effectColor = outlineColor;
             _outline.effectDistance = new Vector2(outlineDistance, -outlineDistance);
 
+            float rotation = Mathf.Atan2(alongDelta.y, alongDelta.x) * Mathf.Rad2Deg;
+            float arcHeight = Mathf.Abs(style.arc_curvature) * _reference_width * scale * canvasScale;
+            float widthPixels = _reference_width * scale * canvasScale + outlineDistance * 2f;
+            float heightPixels = _reference_height * scale * canvasScale + outlineDistance * 2f + arcHeight;
+            float radians = rotation * Mathf.Deg2Rad;
+            float boundWidth = Mathf.Abs(Mathf.Cos(radians)) * widthPixels +
+                               Mathf.Abs(Mathf.Sin(radians)) * heightPixels;
+            float boundHeight = Mathf.Abs(Mathf.Sin(radians)) * widthPixels +
+                                Mathf.Abs(Mathf.Cos(radians)) * heightPixels;
+            Rect screenBounds = Rect.MinMaxRect(centerScreen.x - boundWidth * 0.5f,
+                centerScreen.y - boundHeight * 0.5f, centerScreen.x + boundWidth * 0.5f,
+                centerScreen.y + boundHeight * 0.5f);
+            if (OverlapsSubmittedLabel(screenBounds))
+            {
+                Hide();
+                return;
+            }
+            _occupied_label_bounds.Add(screenBounds);
+
             rect.position = centerScreen;
-            rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(alongDelta.y, alongDelta.x) * Mathf.Rad2Deg);
+            rect.localRotation = Quaternion.Euler(0f, 0f, rotation);
             rect.localScale = new Vector3(scale, scale, 1f);
+            TerritoryLabelArc arc = _text.GetComponent<TerritoryLabelArc>() ??
+                                    _text.gameObject.AddComponent<TerritoryLabelArc>();
+            arc.Configure(style.arc_curvature);
             if (!_text.gameObject.activeSelf) _text.gameObject.SetActive(true);
             _text.enabled = true;
+        }
+
+        private static bool OverlapsSubmittedLabel(Rect bounds)
+        {
+            for (int i = 0; i < _occupied_label_bounds.Count; i++)
+                if (_occupied_label_bounds[i].Overlaps(bounds)) return true;
+            return false;
         }
 
         private void EnsureText()
@@ -603,10 +669,11 @@ public static class TerritoryLabelRenderer
             rect.pivot = new Vector2(0.5f, 0.5f);
             _gold_gradient = textObject.AddComponent<TerritoryLabelGoldGradient>();
             _outline = textObject.AddComponent<Outline>();
+            textObject.AddComponent<TerritoryLabelArc>();
         }
 
-        private static TerritoryPlacement BuildZonePlacement(List<TileZone> component, HashSet<int> zoneIds,
-            string text, TerritoryLabelStyle style)
+        private TerritoryPlacement BuildZonePlacement(List<TileZone> component, HashSet<int> zoneIds,
+            string text, TerritoryLabelStyle style, bool allowSmallEmptyGaps)
         {
             if (component == null || component.Count == 0) return default;
             float textAspect = EstimateTextAspect(text);
@@ -638,7 +705,8 @@ public static class TerritoryLabelRenderer
                     for (int iteration = 0; iteration < SearchIterations; iteration++)
                     {
                         float candidate = (low + high) * 0.5f;
-                        if (FitsInsideSparse(center, axis, normal, candidate * textAspect, candidate, zoneIds)) low = candidate;
+                        if (FitsInsideSparse(center, axis, normal, candidate * textAspect, candidate, zoneIds,
+                                allowSmallEmptyGaps)) low = candidate;
                         else high = candidate;
                     }
                     if (low <= bestHalfHeight) continue;
@@ -649,16 +717,18 @@ public static class TerritoryLabelRenderer
             }
 
             if (bestHalfHeight <= 0.2f) return default;
-            float halfHeight = bestHalfHeight * Mathf.Clamp(style.territory_padding, 0.5f, 0.94f);
+            float halfHeight = bestHalfHeight * Mathf.Clamp(style.territory_padding, 0.5f, 0.98f);
             float halfWidth = halfHeight * textAspect;
             Vector3 bestNormal = new Vector3(-bestAxis.y, bestAxis.x);
             for (int attempt = 0; attempt < 12 &&
-                 !FitsInsideDense(bestCenter, bestAxis, bestNormal, halfWidth, halfHeight, zoneIds); attempt++)
+                 !FitsInsideDense(bestCenter, bestAxis, bestNormal, halfWidth, halfHeight, zoneIds,
+                     allowSmallEmptyGaps); attempt++)
             {
                 halfWidth *= 0.9f;
                 halfHeight *= 0.9f;
             }
-            if (!FitsInsideDense(bestCenter, bestAxis, bestNormal, halfWidth, halfHeight, zoneIds)) return default;
+            if (!FitsInsideDense(bestCenter, bestAxis, bestNormal, halfWidth, halfHeight, zoneIds,
+                    allowSmallEmptyGaps)) return default;
             return TerritoryPlacement.Create(bestCenter, bestAxis, halfWidth, halfHeight);
         }
 
@@ -681,29 +751,8 @@ public static class TerritoryLabelRenderer
             return halfHeight <= 0.2f ? default : TerritoryPlacement.Create(centroid, axis, halfHeight * aspect, halfHeight);
         }
 
-        private static TerritoryPlacement BuildZoneEnvelopePlacement(List<TileZone> zones, string text,
-            TerritoryLabelStyle style)
-        {
-            if (zones == null || zones.Count == 0) return default;
-            Vector3 centroid = CalculateZoneCentroid(zones);
-            float angle = style.orientation == TerritoryLabelOrientation.Horizontal ? 0f :
-                style.orientation == TerritoryLabelOrientation.Vertical ? 90f : CalculatePrincipalAngle(zones, centroid);
-            float radians = angle * Mathf.Deg2Rad;
-            Vector3 axis = new Vector3(Mathf.Cos(radians), Mathf.Sin(radians));
-            Vector3 normal = new Vector3(-axis.y, axis.x);
-            GetProjectedBounds(zones, axis, normal, out float minAlong, out float maxAlong,
-                out float minAcross, out float maxAcross);
-            float aspect = EstimateTextAspect(text);
-            float halfHeight = Mathf.Min((maxAlong - minAlong) / (2f * aspect),
-                (maxAcross - minAcross) * 0.5f) * Mathf.Clamp(style.territory_padding, 0.5f, 0.98f);
-            if (halfHeight <= 0.2f) return default;
-            Vector3 center = axis * ((minAlong + maxAlong) * 0.5f) +
-                             normal * ((minAcross + maxAcross) * 0.5f);
-            return TerritoryPlacement.Create(center, axis, halfHeight * aspect, halfHeight);
-        }
-
-        private static bool FitsInsideSparse(Vector3 center, Vector3 axis, Vector3 normal,
-            float halfWidth, float halfHeight, HashSet<int> zoneIds)
+        private bool FitsInsideSparse(Vector3 center, Vector3 axis, Vector3 normal,
+            float halfWidth, float halfHeight, HashSet<int> zoneIds, bool allowSmallEmptyGaps)
         {
             if (halfWidth <= 0f || halfHeight <= 0f) return false;
             int steps = Mathf.Max(4, Mathf.CeilToInt(halfWidth * 2f / SampleSpacing));
@@ -713,14 +762,15 @@ public static class TerritoryLabelRenderer
                 for (int step = 0; step <= steps; step++)
                 {
                     float along = Mathf.Lerp(-halfWidth, halfWidth, step / (float)steps);
-                    if (!ContainsTerritoryPoint(center + axis * along + normal * across, zoneIds)) return false;
+                    if (!ContainsTerritoryPoint(center + axis * along + normal * across, zoneIds,
+                            allowSmallEmptyGaps)) return false;
                 }
             }
             return true;
         }
 
-        private static bool FitsInsideDense(Vector3 center, Vector3 axis, Vector3 normal,
-            float halfWidth, float halfHeight, HashSet<int> zoneIds)
+        private bool FitsInsideDense(Vector3 center, Vector3 axis, Vector3 normal,
+            float halfWidth, float halfHeight, HashSet<int> zoneIds, bool allowSmallEmptyGaps)
         {
             int xSteps = Mathf.Max(2, Mathf.CeilToInt(halfWidth * 2f / SampleSpacing));
             int ySteps = Mathf.Max(2, Mathf.CeilToInt(halfHeight * 2f / SampleSpacing));
@@ -730,17 +780,89 @@ public static class TerritoryLabelRenderer
                 for (int x = 0; x <= xSteps; x++)
                 {
                     float along = Mathf.Lerp(-halfWidth, halfWidth, x / (float)xSteps);
-                    if (!ContainsTerritoryPoint(center + axis * along + normal * across, zoneIds)) return false;
+                    if (!ContainsTerritoryPoint(center + axis * along + normal * across, zoneIds,
+                            allowSmallEmptyGaps)) return false;
                 }
             }
             return true;
         }
 
-        private static bool ContainsTerritoryPoint(Vector3 point, HashSet<int> zoneIds)
+        private bool ContainsTerritoryPoint(Vector3 point, HashSet<int> zoneIds, bool allowSmallEmptyGaps)
         {
             if (World.world == null) return false;
-            WorldTile tile = World.world.GetTile(Mathf.FloorToInt(point.x), Mathf.FloorToInt(point.y));
-            return tile?.zone != null && zoneIds.Contains(tile.zone.id);
+            int x = Mathf.FloorToInt(point.x);
+            int y = Mathf.FloorToInt(point.y);
+            WorldTile tile = World.world.GetTile(x, y);
+            if (tile?.zone != null && zoneIds.Contains(tile.zone.id)) return true;
+            return allowSmallEmptyGaps && IsSmallNeutralGap(x, y, zoneIds);
+        }
+
+        // A gap is usable only when it is a tiny, closed neutral pocket. City-owned enclaves always reject it.
+        private bool IsSmallNeutralGap(int startX, int startY, HashSet<int> zoneIds)
+        {
+            const int maxGapTiles = 20;
+            int startKey = GetTileKey(startX, startY);
+            if (_small_gap_cache.TryGetValue(startKey, out bool cached)) return cached;
+
+            _gap_queue.Clear();
+            _gap_tiles.Clear();
+            _gap_queue.Enqueue(new Vector2Int(startX, startY));
+            _gap_tiles.Add(startKey);
+            int friendlyBorder = 0;
+            bool valid = true;
+
+            while (_gap_queue.Count > 0 && valid)
+            {
+                Vector2Int point = _gap_queue.Dequeue();
+                WorldTile tile = World.world.GetTile(point.x, point.y);
+                if (tile == null || tile.zone_city != null)
+                {
+                    valid = false;
+                    break;
+                }
+
+                for (int direction = 0; direction < 4; direction++)
+                {
+                    int x = point.x + (direction == 0 ? 1 : direction == 1 ? -1 : 0);
+                    int y = point.y + (direction == 2 ? 1 : direction == 3 ? -1 : 0);
+                    WorldTile neighbour = World.world.GetTile(x, y);
+                    if (neighbour == null)
+                    {
+                        valid = false;
+                        break;
+                    }
+                    if (neighbour.zone != null && zoneIds.Contains(neighbour.zone.id))
+                    {
+                        friendlyBorder++;
+                        continue;
+                    }
+                    // Even a very small country inside another country is never treated as empty space.
+                    if (neighbour.zone_city != null)
+                    {
+                        valid = false;
+                        break;
+                    }
+                    int key = GetTileKey(x, y);
+                    if (_gap_tiles.Add(key))
+                    {
+                        if (_gap_tiles.Count > maxGapTiles)
+                        {
+                            valid = false;
+                            break;
+                        }
+                        _gap_queue.Enqueue(new Vector2Int(x, y));
+                    }
+                }
+            }
+
+            valid &= friendlyBorder >= 4;
+            foreach (int key in _gap_tiles) _small_gap_cache[key] = valid;
+            return valid;
+        }
+
+        private static int GetTileKey(int x, int y)
+        {
+            unchecked { return x * 486187739 + y; }
         }
 
         private static List<float> BuildCandidateAngles(float principalAngle, TerritoryLabelOrientation orientation)
@@ -1050,6 +1172,46 @@ public sealed class TerritoryLabelGoldGradient : BaseMeshEffect
             Color color = Color.Lerp(_bottom, _top, (vertex.position.y - minY) / height);
             color.a *= _alpha;
             vertex.color = color;
+            vertexHelper.SetUIVertex(vertex, i);
+        }
+    }
+}
+
+// Bends the baseline very slightly along the territory's main axis. It is disabled for zero curvature.
+public sealed class TerritoryLabelArc : BaseMeshEffect
+{
+    private float _curvature;
+
+    public void Configure(float curvature)
+    {
+        curvature = Mathf.Clamp(curvature, -0.12f, 0.12f);
+        bool changed = !Mathf.Approximately(_curvature, curvature);
+        _curvature = curvature;
+        enabled = !Mathf.Approximately(_curvature, 0f);
+        if (changed && graphic != null) graphic.SetVerticesDirty();
+    }
+
+    public override void ModifyMesh(VertexHelper vertexHelper)
+    {
+        if (!IsActive() || vertexHelper.currentVertCount == 0) return;
+        UIVertex vertex = default;
+        float minX = float.MaxValue;
+        float maxX = float.MinValue;
+        for (int i = 0; i < vertexHelper.currentVertCount; i++)
+        {
+            vertexHelper.PopulateUIVertex(ref vertex, i);
+            minX = Mathf.Min(minX, vertex.position.x);
+            maxX = Mathf.Max(maxX, vertex.position.x);
+        }
+
+        float halfSpan = (maxX - minX) * 0.5f;
+        if (halfSpan <= 0.01f) return;
+        float centerX = (minX + maxX) * 0.5f;
+        for (int i = 0; i < vertexHelper.currentVertCount; i++)
+        {
+            vertexHelper.PopulateUIVertex(ref vertex, i);
+            float normalized = (vertex.position.x - centerX) / halfSpan;
+            vertex.position.y += _curvature * halfSpan * (1f - normalized * normalized);
             vertexHelper.SetUIVertex(vertex, i);
         }
     }

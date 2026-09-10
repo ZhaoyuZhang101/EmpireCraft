@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using System;
@@ -292,7 +293,7 @@ public static class EmpireCraftTooltipLibrary
     private static string FormatRunningClaim(TemporaryFaction claim, Regime regime)
     {
         if (claim == null) return "";
-        string claimName = LM.Get(claim.type.ToString()) ?? claim.type.ToString();
+        string claimName = TranslateHelper.GetTemporaryFactionClaimText(claim.type);
         FixedFaction sponsor = regime?.GetPlayerFactions()?.FirstOrDefault(faction => faction?.GetID() == claim.factionID);
         string sponsorName = sponsor?.Name ?? LM.Get("label_none");
         int progress = claim.progressMax > 0

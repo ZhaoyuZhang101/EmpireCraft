@@ -119,11 +119,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             var card = parent.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(196, 36));
             var timeColumn = this.BeginVertGroup(new Vector2(38, 32), pSpacing: -2, pAlignment: TextAnchor.MiddleCenter,
                 pPadding: new RectOffset(0, 0, 1, 1));
-            string foundedAt = empire.data.timestamp_established_time > 0
-                ? Date.getDate(empire.data.timestamp_established_time)
+            string foundedYear = empire.data.timestamp_established_time > 0
+                ? HistoryDateFormatter.GetYear(empire.data.timestamp_established_time)
                 : "";
-            int yearEnd = foundedAt.IndexOf('年');
-            string foundedYear = yearEnd >= 0 ? foundedAt.Substring(0, yearEnd + 1) : foundedAt;
             var foundedText = timeColumn.AddTextIntoVertLayout(foundedYear.ColorString(pColor: new Color(1f, 0.78f, 0.2f)), true,
                 TextAnchor.MiddleCenter, new Vector2(36, 16));
             foundedText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);

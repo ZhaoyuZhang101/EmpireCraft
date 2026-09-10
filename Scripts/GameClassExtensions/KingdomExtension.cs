@@ -319,6 +319,7 @@ public static class KingdomExtension
         public double last_faction_ratio_growth_timestamp = -1L;
         public Dictionary<string, float> faction_ratio_growth_progress = new Dictionary<string, float>();
         
+        [JsonConverter(typeof(FactionRatioConverter))]
         public Dictionary<FixedFaction, int> FactionRatio = new Dictionary<FixedFaction, int>();
     }
     public static LawType GetMainCrime(this Kingdom kingdom)

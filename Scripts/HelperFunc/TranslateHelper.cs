@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using UnityEngine;
 
@@ -454,11 +455,35 @@ namespace EmpireCraft.Scripts.HelperFunc
             };
         }
 
-        private static string GetTemporaryFactionClaimText(string claimName)
+        public static string GetTemporaryFactionClaimText(TemporaryFactionType claimType)
+        {
+            string fallback = claimType.ToString();
+            string key = $"temporary_faction_claim_{(int)claimType}";
+            string localized = LM.Get(key);
+            if (!string.IsNullOrWhiteSpace(localized) && !string.Equals(localized, key, StringComparison.Ordinal))
+            {
+                return localized;
+            }
+
+            return GetTemporaryFactionClaimText(fallback);
+        }
+
+        public static string GetTemporaryFactionClaimText(string claimName)
         {
             if (string.IsNullOrWhiteSpace(claimName))
             {
                 return "";
+            }
+
+            if (Enum.TryParse(claimName, out TemporaryFactionType claimType))
+            {
+                string key = $"temporary_faction_claim_{(int)claimType}";
+                string localizedByStableKey = LM.Get(key);
+                if (!string.IsNullOrWhiteSpace(localizedByStableKey) &&
+                    !string.Equals(localizedByStableKey, key, StringComparison.Ordinal))
+                {
+                    return localizedByStableKey;
+                }
             }
 
             string localized = LM.Get(claimName);

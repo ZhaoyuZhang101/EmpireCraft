@@ -1235,14 +1235,12 @@ public class PersonalClanIdentity
 
     private static string GetHistoryDay(double timestamp)
     {
-        return GetHistoryDay(Date.getDate(timestamp));
+        return HistoryDateFormatter.GetMonthDay(timestamp);
     }
 
-    private static string GetHistoryDay(string date)
+    private static string GetHistoryDay(string formattedDate)
     {
-        if (string.IsNullOrWhiteSpace(date)) return "";
-        int yearEnd = date.LastIndexOf('年');
-        return yearEnd >= 0 ? date.Substring(yearEnd + 1) : date;
+        return HistoryDateFormatter.GetMonthDay(-1, formattedDate);
     }
 
     public void addChild(Actor actor, bool isNeedSetParentBoth=true, bool recordHistory = true)

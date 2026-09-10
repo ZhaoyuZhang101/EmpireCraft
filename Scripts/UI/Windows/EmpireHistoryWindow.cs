@@ -9,6 +9,7 @@ using UnityEngine;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.General;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.System;
@@ -246,9 +247,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             Actor actor = desc.actor_id > 0 ? World.world.units.get(desc.actor_id) : null;
             Kingdom kingdom = actor == null && desc.kingdom_id > 0 ? World.world.kingdoms.get(desc.kingdom_id) : null;
-            string date = desc.timestamp >= 0 ? Date.getDate(desc.timestamp) : "";
-            int yearEnd = date.IndexOf('年');
-            string monthDay = yearEnd >= 0 ? date.Substring(yearEnd + 1) : date;
+            string monthDay = HistoryDateFormatter.GetMonthDay(desc.timestamp);
             var markers = new List<HistoryEventRowMarker>();
             if (actor != null)
             {

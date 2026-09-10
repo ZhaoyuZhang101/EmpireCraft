@@ -350,7 +350,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
                 var tFactionContent = selectPart.BeginGridGroup(5, pCellSize: new Vector2(30, 18));
                 foreach (var tf2 in tf.Value)
                 {
-                    tFactionContent.AddButtonIntoGirdLayout(tf2.ToString(), LM.Get(tf2.ToString()), () =>
+                    tFactionContent.AddButtonIntoGirdLayout(tf2.ToString(), TranslateHelper.GetTemporaryFactionClaimText(tf2), () =>
                     {
                         _faction.TemporaryFactionTypesRecord.Add(tf2);
                         _faction.TemporaryFactions = _faction.ConvertToObjectFromFactionType();
@@ -368,7 +368,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     {
         var tfSpace = parent.BeginHoriGroup(new Vector2(200, 40), pSpacing:20);
         var firstPart = tfSpace.BeginVertGroup();
-        firstPart.AddTextIntoVertLayout(LM.Get(pFaction.type.ToString()), hideBackground:true);
+        firstPart.AddTextIntoVertLayout(TranslateHelper.GetTemporaryFactionClaimText(pFaction.type), hideBackground:true);
         firstPart.AddTextIntoVertLayout($"{LM.Get("label_budget")}: {pFaction.Budget}");
         var secondPart = tfSpace.BeginVertGroup(pSpacing:-5);
         var hideButton = secondPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "hide_tfaction", () =>

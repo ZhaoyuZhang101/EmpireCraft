@@ -41,7 +41,10 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly List<Kingdom> _render_kingdoms_buffer = new List<Kingdom>();
     private static readonly List<Kingdom> _render_kingdoms_no_back_buffer = new List<Kingdom>();
     private static readonly HashSet<long> _empire_city_members = new HashSet<long>();
+    private static readonly HashSet<long> _empire_city_visited = new HashSet<long>();
+    private static readonly List<City> _empire_component_cities = new List<City>();
     private static readonly List<City> _empire_best_component_cities = new List<City>();
+    private static readonly Queue<City> _empire_city_queue = new Queue<City>();
     private static bool _is_camera_moving_this_frame;
     private static Empire GetDisplayedEmpireForKingdom(Kingdom kingdom)
     {
@@ -673,7 +676,7 @@ public static class EmpireCraftNamePlateLibrary
         if (pMetaObject.data.banner_background_id < 0) pMetaObject.data.banner_background_id = 0;
         if (pMetaObject.data.banner_icon_id < 0) pMetaObject.data.banner_icon_id = 0;
         npt.setupMeta((MetaObjectData) pMetaObject.data, pMetaObject.getColor());
-        string displayName = OverallHelperFunc.WrapEnglishDisplayName(GetSafeKingdomName(pMetaObject));
+        string displayName = GetSafeKingdomName(pMetaObject);
         string pNewText = $"{displayName}  {pMetaObject.getPopulationPeople().ToString()+additionNum}";
         int num;
         if (DebugConfig.isOn(DebugOption.ShowWarriorsCityText))
@@ -763,7 +766,7 @@ public static class EmpireCraftNamePlateLibrary
             ? displayedEmpire.CoreKingdom.getColor()
             : pMetaObject.getColor();
         npt.setupMeta(pMetaObject.data, displayColor);
-        string displayName = OverallHelperFunc.WrapEnglishDisplayName(GetSafeKingdomName(pMetaObject));
+        string displayName = GetSafeKingdomName(pMetaObject);
         string pNewText = $"{displayName} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
         if (pMetaObject.HasTakenAlliance() && displayedEmpire != null)
         {
@@ -1256,7 +1259,7 @@ public static class EmpireCraftNamePlateLibrary
                             $"\n{(empire.EmpireClan?.name ?? LM.Get("label_no_royal_clan")).ColorString(pColor: Color.yellow)} | {LM.Get("label_dominant_faction")}: {faction.Name}" +
                             moneyText + "\n"+ $"{LM.Get("label_mandate")}:{empire.Mandate}" + "\n" +
                             text +
-                            $"\n{LM.Get("label_claim")}:{(tf!=null ? LM.Get(tf.type.ToString()) : LM.Get("label_none"))}".ColorString(
+                            $"\n{LM.Get("label_claim")}:{(tf!=null ? TranslateHelper.GetTemporaryFactionClaimText(tf.type) : LM.Get("label_none"))}".ColorString(
                                 pColor: new Color(0.5f, 0.9f, 0.5f)) +
                             (tf!=null?tf.ShowAsPlot?$"({LM.Get("tf_starting")})"
                                 : $"({(int)(tf.progress / tf.progressMax * 100)}/100)"
@@ -1333,13 +1336,14 @@ public static class EmpireCraftNamePlateLibrary
             _empire_position_cache_time[empireId] = now;
             return fallback;
         }
-        Vector3 result = GetNationwideCitiesDisplayPosition(cities, fallback);
+        Vector3 result = GetDominantCitiesDisplayPosition(cities, fallback);
         _empire_position_cache[empireId] = result;
         _empire_position_cache_time[empireId] = now;
         return result;
     }
 
-    private static Vector3 GetNationwideCitiesDisplayPosition(List<City> cities, Vector3 fallback)
+    // Nameplates belong to the principal landmass; detached possessions must not pull them across the map.
+    private static Vector3 GetDominantCitiesDisplayPosition(List<City> cities, Vector3 fallback)
     {
         if (cities == null || cities.Count <= 0)
         {
@@ -1347,18 +1351,51 @@ public static class EmpireCraftNamePlateLibrary
         }
 
         _empire_city_members.Clear();
+        _empire_city_visited.Clear();
+        _empire_component_cities.Clear();
         _empire_best_component_cities.Clear();
         for (int i = 0; i < cities.Count; i++)
         {
             City city = cities[i];
             if (city == null || city.isRekt()) continue;
-            if (_empire_city_members.Add(city.getID())) _empire_best_component_cities.Add(city);
+            _empire_city_members.Add(city.getID());
         }
 
-        if (_empire_best_component_cities.Count <= 0)
+        if (_empire_city_members.Count <= 0)
         {
             return fallback;
         }
+
+        int bestWeight = -1;
+        for (int i = 0; i < cities.Count; i++)
+        {
+            City start = cities[i];
+            if (start == null || start.isRekt() || !_empire_city_visited.Add(start.getID())) continue;
+            _empire_component_cities.Clear();
+            _empire_city_queue.Clear();
+            _empire_city_queue.Enqueue(start);
+            int componentWeight = 0;
+            while (_empire_city_queue.Count > 0)
+            {
+                City city = _empire_city_queue.Dequeue();
+                _empire_component_cities.Add(city);
+                componentWeight += city.zones?.Count ?? 0;
+                if (city.neighbours_cities == null) continue;
+                foreach (City neighbour in city.neighbours_cities)
+                {
+                    if (neighbour == null || neighbour.isRekt() ||
+                        !_empire_city_members.Contains(neighbour.getID()) ||
+                        !_empire_city_visited.Add(neighbour.getID())) continue;
+                    _empire_city_queue.Enqueue(neighbour);
+                }
+            }
+            if (componentWeight <= bestWeight) continue;
+            bestWeight = componentWeight;
+            _empire_best_component_cities.Clear();
+            _empire_best_component_cities.AddRange(_empire_component_cities);
+        }
+
+        if (_empire_best_component_cities.Count <= 0) return fallback;
 
         float avgX = 0f;
         float avgY = 0f;

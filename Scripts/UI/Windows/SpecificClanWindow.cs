@@ -265,17 +265,13 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 
     private static string GetHistoryYear(PersonalHistoryRecord record)
     {
-        string date = record?.date ?? "";
-        int yearEnd = date.IndexOf('年');
-        return yearEnd >= 0 ? date.Substring(0, yearEnd + 1) : date;
+        return HistoryDateFormatter.GetYear(record?.timestamp ?? -1, record?.date);
     }
 
     private static string GetHistoryMonthDay(PersonalHistoryRecord record)
     {
         if (record == null) return "";
-        string date = Date.getDate(record.timestamp);
-        int yearEnd = date.IndexOf('年');
-        return yearEnd >= 0 ? date.Substring(yearEnd + 1) : date;
+        return HistoryDateFormatter.GetMonthDay(record.timestamp, record.date);
     }
     public void ShowFatherSideSpace()
     {

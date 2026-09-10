@@ -41,7 +41,12 @@ public static class DataManager
             return;
         }
         var json = File.ReadAllText(loadPath);
+        FactionRatioConverter.ResetLegacyDiscardCount();
         var saveData = JsonConvert.DeserializeObject<SaveData>(json);
+        if (FactionRatioConverter.DiscardedLegacyEntryCount > 0)
+        {
+            LogService.LogWarning($"已迁移旧存档中 {FactionRatioConverter.DiscardedLegacyEntryCount} 条无法识别的派系占比；将在加载后按当前派系配置重建。");
+        }
         LogService.LogInfo("初始化模组数据模板");
         bool isOldSave = saveData == null || saveData.mod_version < ModClass.MOD_DATA_VERSION;
 
