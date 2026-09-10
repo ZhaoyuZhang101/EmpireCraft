@@ -494,13 +494,17 @@ public static class EmpireCraftNamePlateLibrary
             foreach (Kingdom kingdom in World.world.kingdoms)
             {
                 if (!IsRenderableKingdom(kingdom)) continue;
-                if (kingdom.IsInEmpire() && kingdom.GetEmpire() != hoveredEmpire) continue;
+                bool belongsToHoveredEmpire = kingdom.IsInEmpire() && kingdom.GetEmpire() == hoveredEmpire;
+                if (kingdom.IsInEmpire() && !belongsToHoveredEmpire) continue;
                 TerritoryLabelRenderer.SubmitCities(
                     $"political-kingdom:{kingdom.id}",
                     GetTerritoryKingdomName(kingdom),
                     kingdom.cities,
                     GetTerritoryKingdomStyle(kingdom),
-                    kingdom == hoveredKingdom || kingdom.IsInEmpire() && kingdom.GetEmpire() == hoveredEmpire);
+                    kingdom == hoveredKingdom || belongsToHoveredEmpire,
+                    // The faded empire caption is only contextual while hovered;
+                    // its member administrative labels must render above it.
+                    belongsToHoveredEmpire);
             }
         }
         TerritoryLabelRenderer.EndFrame();

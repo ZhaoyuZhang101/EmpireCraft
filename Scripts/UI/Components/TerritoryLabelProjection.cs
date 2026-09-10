@@ -25,5 +25,14 @@ namespace EmpireCraft.Scripts.UI.Components
             float t = Math.Max(0f, Math.Min(1f, (scale * ReferenceFontSize - minFontSize) / 2f));
             return t * t * (3f - 2f * t);
         }
+
+        // Large map labels should become contextual instead of obscuring the map.
+        public static float ScreenCoverageVisibility(float widthCoverage, float heightCoverage)
+        {
+            float coverage = Math.Max(widthCoverage, heightCoverage);
+            float t = Math.Max(0f, Math.Min(1f, (coverage - 0.70f) / 0.30f));
+            float smooth = t * t * (3f - 2f * t);
+            return 1f - 0.82f * smooth;
+        }
     }
 }

@@ -30,7 +30,7 @@ public sealed class TerritoryLabelStyle
     // Only the Empire label may wrap long Latin names; ordinary nameplates stay single-line.
     public bool wrap_english_name;
     public bool bridge_internal_gaps;
-    // A shallow arc follows broad, irregular territories without changing the label's anchor.
+    // Maximum bend for a baseline fitted from the territory's actual center line.
     public float arc_curvature;
     public Color gold_top = new Color32(255, 244, 194, 255);
     public Color gold_bottom = new Color32(184, 156, 68, 255);
@@ -75,12 +75,12 @@ public static class TerritoryLabelRenderer
         outline_color = new Color32(54, 46, 20, 204),
         size_multiplier = 0.90f,
         territory_padding = 0.95f,
-        min_font_size = 1,
+        min_font_size = 6,
         font_style = FontStyle.Normal,
         use_gold_gradient = true,
         wrap_english_name = true,
         bridge_internal_gaps = true,
-        arc_curvature = 0.035f
+        arc_curvature = 0.1f
     };
 
     public static readonly TerritoryLabelStyle FadedEmpireStyle = new TerritoryLabelStyle
@@ -89,12 +89,12 @@ public static class TerritoryLabelRenderer
         outline_color = new Color32(54, 46, 20, 49),
         size_multiplier = 0.90f,
         territory_padding = 0.95f,
-        min_font_size = 1,
+        min_font_size = 6,
         font_style = FontStyle.Normal,
         use_gold_gradient = true,
         wrap_english_name = true,
         bridge_internal_gaps = true,
-        arc_curvature = 0.035f
+        arc_curvature = 0.1f
     };
 
     public static readonly TerritoryLabelStyle KingdomStyle = new TerritoryLabelStyle
@@ -103,7 +103,7 @@ public static class TerritoryLabelRenderer
         size_multiplier = 0.95f,
         min_font_size = 3,
         font_style = FontStyle.Normal,
-        arc_curvature = 0.025f
+        arc_curvature = 0.08f
     };
 
     public static readonly TerritoryLabelStyle RebellionKingdomStyle = new TerritoryLabelStyle
@@ -113,14 +113,17 @@ public static class TerritoryLabelRenderer
         size_multiplier = 0.9f,
         min_font_size = 3,
         font_style = FontStyle.Normal,
-        arc_curvature = 0.025f
+        arc_curvature = 0.08f
     };
 
     public static void RenderLawLayer(int zoneOptionState)
     {
         BeginFrame();
         City hoveredCity = World.world?.getMouseTilePosCachedFrame()?.zone_city;
-        EmpireCore hoveredEmpireCore = hoveredCity?.GetEmpireCore();
+        // A city cache can be stale after an old-save load or a title reassignment.
+        // The title remains the authoritative source for an imperial administrative area.
+        EmpireCore hoveredEmpireCore = hoveredCity?.GetEmpireCore() ??
+                                        GetClaimingEmpireCore(hoveredCity?.GetTitle());
         long hoveredEmpireId = hoveredEmpireCore != null && hoveredEmpireCore.id > 0 ? hoveredEmpireCore.id : 0;
 
         if (zoneOptionState == 0)
@@ -629,7 +632,7 @@ public static class TerritoryLabelRenderer
             _outline.effectDistance = new Vector2(outlineDistance, -outlineDistance);
 
             float rotation = Mathf.Atan2(alongDelta.y, alongDelta.x) * Mathf.Rad2Deg;
-            float arcHeight = Mathf.Abs(style.arc_curvature) * _reference_width * scale * canvasScale;
+            float arcHeight = Mathf.Abs(_placement.curvature) * _reference_width * scale * canvasScale;
             float widthPixels = _reference_width * scale * canvasScale + outlineDistance * 2f;
             float heightPixels = _reference_height * scale * canvasScale + outlineDistance * 2f + arcHeight;
             float radians = rotation * Mathf.Deg2Rad;
@@ -640,6 +643,23 @@ public static class TerritoryLabelRenderer
             Rect screenBounds = Rect.MinMaxRect(centerScreen.x - boundWidth * 0.5f,
                 centerScreen.y - boundHeight * 0.5f, centerScreen.x + boundWidth * 0.5f,
                 centerScreen.y + boundHeight * 0.5f);
+            float screenCoverageVisibility = TerritoryLabelProjection.ScreenCoverageVisibility(
+                boundWidth / Mathf.Max(1f, Screen.width), boundHeight / Mathf.Max(1f, Screen.height));
+            if (screenCoverageVisibility < 1f)
+            {
+                textAlpha *= screenCoverageVisibility;
+                if (style.use_gold_gradient)
+                    _gold_gradient.Configure(style.gold_top, style.gold_bottom, textAlpha);
+                else
+                {
+                    Color textColor = style.text_color;
+                    textColor.a = textAlpha;
+                    _text.color = textColor;
+                }
+
+                outlineColor.a *= screenCoverageVisibility;
+                _outline.effectColor = outlineColor;
+            }
             if (!ignoreOverlap && OverlapsSubmittedLabel(screenBounds))
             {
                 Hide();
@@ -652,7 +672,7 @@ public static class TerritoryLabelRenderer
             rect.localScale = new Vector3(scale, scale, 1f);
             TerritoryLabelArc arc = _text.GetComponent<TerritoryLabelArc>() ??
                                     _text.gameObject.AddComponent<TerritoryLabelArc>();
-            arc.Configure(style.arc_curvature);
+            arc.Configure(_placement.curvature);
             if (ignoreOverlap) rect.SetAsLastSibling();
             if (!_text.gameObject.activeSelf) _text.gameObject.SetActive(true);
             _text.enabled = true;
@@ -752,7 +772,9 @@ public static class TerritoryLabelRenderer
             }
             if (!FitsInsideDense(bestCenter, bestAxis, bestNormal, halfWidth, halfHeight, zoneIds,
                     allowSmallEmptyGaps)) return default;
-            return TerritoryPlacement.Create(bestCenter, bestAxis, halfWidth, halfHeight);
+            float curvature = CalculateTerritoryCurvature(component, bestCenter, bestAxis, halfWidth,
+                halfHeight, style.arc_curvature);
+            return TerritoryPlacement.Create(bestCenter, bestAxis, halfWidth, halfHeight, curvature);
         }
 
         private static TerritoryPlacement BuildPointPlacement(List<Vector3> points, string text, TerritoryLabelStyle style)
@@ -771,7 +793,11 @@ public static class TerritoryLabelRenderer
             float aspect = EstimateTextAspect(text);
             float halfHeight = Mathf.Min((maxAlong - minAlong) / (2f * aspect),
                 (maxAcross - minAcross) * 0.5f) * Mathf.Clamp(style.territory_padding, 0.5f, 0.94f);
-            return halfHeight <= 0.2f ? default : TerritoryPlacement.Create(centroid, axis, halfHeight * aspect, halfHeight);
+            if (halfHeight <= 0.2f) return default;
+            float halfWidth = halfHeight * aspect;
+            float curvature = CalculateTerritoryCurvature(points, centroid, axis, halfWidth, halfHeight,
+                style.arc_curvature);
+            return TerritoryPlacement.Create(centroid, axis, halfWidth, halfHeight, curvature);
         }
 
         private bool FitsInsideSparse(Vector3 center, Vector3 axis, Vector3 normal,
@@ -974,6 +1000,75 @@ public static class TerritoryLabelRenderer
             return result / zones.Count;
         }
 
+        // Measure the territory's middle path in seven slices. This preserves a straight label for
+        // straight countries and only bends labels where the country itself bends.
+        private static float CalculateTerritoryCurvature(List<TileZone> zones, Vector3 center, Vector3 axis,
+            float halfWidth, float halfHeight, float maximumCurvature)
+        {
+            if (zones == null || zones.Count < 3) return 0f;
+            Vector3[] points = new Vector3[zones.Count];
+            for (int i = 0; i < zones.Count; i++) points[i] = ZoneCenter(zones[i]);
+            return CalculateTerritoryCurvature(points, center, axis, halfWidth, halfHeight, maximumCurvature);
+        }
+
+        private static float CalculateTerritoryCurvature(IList<Vector3> points, Vector3 center, Vector3 axis,
+            float halfWidth, float halfHeight, float maximumCurvature)
+        {
+            const int sliceCount = 7;
+            if (points == null || points.Count < 3 || halfWidth <= 0.01f || halfHeight <= 0.01f) return 0f;
+            Vector3 normal = new Vector3(-axis.y, axis.x);
+            float minAlong = float.MaxValue;
+            float maxAlong = float.MinValue;
+            for (int i = 0; i < points.Count; i++)
+            {
+                float along = Vector3.Dot(points[i] - center, axis);
+                minAlong = Mathf.Min(minAlong, along);
+                maxAlong = Mathf.Max(maxAlong, along);
+            }
+            float span = maxAlong - minAlong;
+            if (span <= 0.1f) return 0f;
+
+            float[] offsets = new float[sliceCount];
+            int[] counts = new int[sliceCount];
+            for (int i = 0; i < points.Count; i++)
+            {
+                Vector3 delta = points[i] - center;
+                float along = Vector3.Dot(delta, axis);
+                int slice = Mathf.Clamp(Mathf.FloorToInt((along - minAlong) / span * sliceCount), 0,
+                    sliceCount - 1);
+                offsets[slice] += Vector3.Dot(delta, normal);
+                counts[slice]++;
+            }
+
+            int first = -1;
+            int last = -1;
+            for (int i = 0; i < sliceCount; i++)
+            {
+                if (counts[i] == 0) continue;
+                offsets[i] /= counts[i];
+                if (first < 0) first = i;
+                last = i;
+            }
+            if (first < 0 || last - first < 2) return 0f;
+
+            float residualSum = 0f;
+            float weightSum = 0f;
+            for (int i = first + 1; i < last; i++)
+            {
+                if (counts[i] == 0) continue;
+                float progress = (i - first) / (float)(last - first);
+                float baseline = Mathf.Lerp(offsets[first], offsets[last], progress);
+                float profile = 4f * progress * (1f - progress);
+                residualSum += (offsets[i] - baseline) * profile;
+                weightSum += profile * profile;
+            }
+            if (weightSum <= 0.01f) return 0f;
+
+            float bend = residualSum / weightSum;
+            float usableCurvature = Mathf.Min(Mathf.Abs(maximumCurvature), halfHeight * 0.45f / halfWidth);
+            return Mathf.Clamp(bend / halfWidth, -usableCurvature, usableCurvature);
+        }
+
         private static void GetProjectedBounds(List<TileZone> zones, Vector3 axis, Vector3 normal,
             out float minAlong, out float maxAlong, out float minAcross, out float maxAcross)
         {
@@ -1048,8 +1143,10 @@ public static class TerritoryLabelRenderer
         public Vector3 normal;
         public float half_width;
         public float half_height;
+        public float curvature;
 
-        public static TerritoryPlacement Create(Vector3 center, Vector3 axis, float halfWidth, float halfHeight)
+        public static TerritoryPlacement Create(Vector3 center, Vector3 axis, float halfWidth, float halfHeight,
+            float curvature = 0f)
         {
             axis.Normalize();
             return new TerritoryPlacement
@@ -1059,7 +1156,8 @@ public static class TerritoryLabelRenderer
                 axis = axis,
                 normal = new Vector3(-axis.y, axis.x),
                 half_width = halfWidth,
-                half_height = halfHeight
+                half_height = halfHeight,
+                curvature = curvature
             };
         }
     }
@@ -1200,14 +1298,14 @@ public sealed class TerritoryLabelGoldGradient : BaseMeshEffect
     }
 }
 
-// Bends the baseline very slightly along the territory's main axis. It is disabled for zero curvature.
+// Bends the baseline along the territory-specific path calculated by TerritoryLabelRenderer.
 public sealed class TerritoryLabelArc : BaseMeshEffect
 {
     private float _curvature;
 
     public void Configure(float curvature)
     {
-        curvature = Mathf.Clamp(curvature, -0.12f, 0.12f);
+        curvature = Mathf.Clamp(curvature, -0.16f, 0.16f);
         bool changed = !Mathf.Approximately(_curvature, curvature);
         _curvature = curvature;
         enabled = !Mathf.Approximately(_curvature, 0f);
