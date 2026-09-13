@@ -27,6 +27,8 @@ namespace EmpireCraft.Scripts.UI.Windows
     {
         private TextInput _empireNameInput;
         private Empire _empire;
+        private Empire _textInputEmpire;
+        private bool _textInputInitialized;
         private readonly Dictionary<string, GameObject> _groups = new Dictionary<string, GameObject>();
         private int _renderGeneration;
 
@@ -160,7 +162,32 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void InitialTextInput()
         {
             string text = _empire.GetEmpireName();
-            UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset:new Vector2(0, 152), default_text:text, input:_empireNameInput);
+            this.transform.parent.transform.parent.GenerateTextInput(offset:new Vector2(0, 152), default_text:text, input:_empireNameInput);
+        }
+
+        // Initialize the text input once. Re-opening the same empire must not overwrite
+        // what the player is currently typing; switching to another empire should sync it.
+        private void SyncEmpireNameInput(bool forceValueSync = false)
+        {
+            if (_empireNameInput == null || _empire == null) return;
+
+            bool empireChanged = _textInputEmpire != _empire;
+
+            if (!_textInputInitialized)
+            {
+                InitialTextInput();
+                _textInputInitialized = true;
+                _textInputEmpire = _empire;
+                return;
+            }
+
+            if (forceValueSync || empireChanged)
+            {
+                _empireNameInput.input.text = _empire.GetEmpireName();
+                _textInputEmpire = _empire;
+            }
+
+            _empireNameInput.transform.SetAsLastSibling();
         }
         
         //显示势力范围
@@ -348,7 +375,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 Clear();
                 return;
             }
-            _empireNameInput.input.text = _empire.GetEmpireName();
+            SyncEmpireNameInput(forceValueSync: true);
             InitialTabButtons();
             StartCoroutine(ShowKingdomList());
         }
@@ -363,7 +390,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 Clear();
                 return;
             }
-            _empireNameInput.input.text = _empire.GetEmpireName();
+            SyncEmpireNameInput();
             InitialTabButtons();
             StartCoroutine(ShowKingdomList());
         }

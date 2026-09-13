@@ -48,6 +48,7 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
 
     private sealed class MobilizeEntry
     {
+        public long actorId;
         public Actor actor;
         public Kingdom kingdom;
     }
@@ -61,6 +62,7 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
 
     private sealed class TaxiEntry
     {
+        public long actorId;
         public Actor actor;
         public WorldTile target;
     }
@@ -101,7 +103,7 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
     // ------------------------------------------------------------
 
     private static readonly Dictionary<long, ActorMoveState> _moveStates = new();
-    private static List<Actor> _movementWatchdogSnapshot = new();
+    private static List<KeyValuePair<long, ActorMoveState>> _movementWatchdogSnapshot = new();
     private static int _movementWatchdogIndex;
     private static int _movementWatchdogSnapshotFrame = -1;
 
@@ -263,6 +265,7 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
     public static void QueueActorForWarMobilization(Actor actor, Kingdom kingdom)
     {
         if (actor == null ||
+            actor.data == null ||
             kingdom == null ||
             !actor.isAlive() ||
             !actor.isWarrior() ||
@@ -278,6 +281,7 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
 
         _mobilizeQueue.Enqueue(new MobilizeEntry
         {
+            actorId = id,
             actor = actor,
             kingdom = kingdom
         });
@@ -304,10 +308,10 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
         if (_movementWatchdogSnapshotFrame < 0 ||
             frame - _movementWatchdogSnapshotFrame >= MovementWatchdogSnapshotFrames)
         {
-            _movementWatchdogSnapshot = _moveStates.Values
-                .Select(state => state.actor)
-                .Where(actor => actor != null)
-                .ToList();
+            // Snapshot both the ActorMoveState and its already-known Actor ID.
+            // Never rediscover the ID from an Actor that may have been destroyed
+            // between frames.
+            _movementWatchdogSnapshot = _moveStates.ToList();
             _movementWatchdogIndex = 0;
             _movementWatchdogSnapshotFrame = frame;
         }
@@ -315,20 +319,43 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
         int budget = MovementWatchdogActorsPerFrame;
         while (budget-- > 0 && _movementWatchdogIndex < _movementWatchdogSnapshot.Count)
         {
-            Actor actor = _movementWatchdogSnapshot[_movementWatchdogIndex++];
-            if (actor == null || !actor.isAlive() || !actor.isWarrior() ||
-                actor.kingdom == null || !actor.kingdom.hasEnemies() ||
-                actor.current_tile?.zone == null)
+            KeyValuePair<long, ActorMoveState> snapshotEntry =
+                _movementWatchdogSnapshot[_movementWatchdogIndex++];
+
+            long actorId = snapshotEntry.Key;
+
+            // The state may have been removed/replaced after this snapshot was built.
+            // In that case the snapshot entry is stale and must not touch the new state.
+            if (!_moveStates.TryGetValue(actorId, out ActorMoveState state) ||
+                state == null ||
+                !ReferenceEquals(state, snapshotEntry.Value))
             {
-                ClearActorMoveState(actor);
                 continue;
             }
 
-            ActorMoveState state = GetState(actor);
+            Actor actor = state.actor;
+
+            // WorldBox can leave a non-null Actor wrapper whose BaseSimObject data
+            // has already been released. Calling getID() on that object throws from
+            // BaseSimObject.getID(), so remove it by the dictionary key instead.
+            if (actor == null || actor.data == null)
+            {
+                _moveStates.Remove(actorId);
+                continue;
+            }
+
+            if (!actor.isAlive() || !actor.isWarrior() ||
+                actor.kingdom == null || !actor.kingdom.hasEnemies() ||
+                actor.current_tile?.zone == null)
+            {
+                ClearActorMoveState(actorId, actor);
+                continue;
+            }
+
             WorldTile target = state.targetTile;
             if (!IsValidFrontTarget(actor, target))
             {
-                ClearActorMoveState(actor);
+                ClearActorMoveState(actorId, actor);
                 continue;
             }
 
@@ -340,7 +367,7 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
 
             if (actor.current_tile.zone == target.zone)
             {
-                ClearActorMoveState(actor);
+                ClearActorMoveState(actorId, actor);
                 continue;
             }
 
@@ -366,12 +393,10 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
             Actor actor = entry.actor;
             Kingdom kingdom = entry.kingdom;
 
-            if (actor != null)
-            {
-                _queuedMobilizeActorIds.Remove(actor.getID());
-            }
+            _queuedMobilizeActorIds.Remove(entry.actorId);
 
             if (actor == null ||
+                actor.data == null ||
                 kingdom == null ||
                 !actor.isAlive() ||
                 actor.kingdom != kingdom ||
@@ -432,6 +457,7 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
     private static void QueueTaxi(Actor actor, WorldTile target)
     {
         if (actor == null ||
+            actor.data == null ||
             target == null ||
             !actor.isAlive())
         {
@@ -445,6 +471,7 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
 
         _taxiQueue.Enqueue(new TaxiEntry
         {
+            actorId = id,
             actor = actor,
             target = target
         });
@@ -462,12 +489,10 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
             Actor actor = entry.actor;
             WorldTile target = entry.target;
 
-            if (actor != null)
-            {
-                _queuedTaxiActorIds.Remove(actor.getID());
-            }
+            _queuedTaxiActorIds.Remove(entry.actorId);
 
             if (actor == null ||
+                actor.data == null ||
                 target == null ||
                 !actor.isAlive() ||
                 actor.kingdom == null ||
@@ -1026,10 +1051,39 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
 
     private static void ClearActorMoveState(Actor actor)
     {
-        if (actor == null)
+        if (actor == null || actor.data == null)
             return;
 
-        actor.ClearFrontLineMoveTarget();
-        _moveStates.Remove(actor.getID());
+        long actorId;
+        try
+        {
+            actorId = actor.getID();
+        }
+        catch
+        {
+            // The BaseSimObject may already be partially disposed.
+            return;
+        }
+
+        ClearActorMoveState(actorId, actor);
+    }
+
+    private static void ClearActorMoveState(long actorId, Actor actor)
+    {
+        // actorId comes from _moveStates / queue bookkeeping and remains usable
+        // even after the Actor's BaseSimObject data has been released.
+        if (actor != null && actor.data != null)
+        {
+            try
+            {
+                actor.ClearFrontLineMoveTarget();
+            }
+            catch
+            {
+                // Cleanup must never break the simulation update loop.
+            }
+        }
+
+        _moveStates.Remove(actorId);
     }
 }
