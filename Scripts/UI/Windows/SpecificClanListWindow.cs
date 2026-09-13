@@ -145,11 +145,17 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
     {
         var vertCard = grid.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
         Empire empire = ModClass.EMPIRE_MANAGER.ToList().Find(e => e.EmpireSpecificClan == specificClan && !e.IsArchived());
-        vertCard.AddTextIntoVertLayout(specificClan.name + LM.Get("specific_clan")+$"{(empire.isRekt()?"":("("+empire.GetEmpireName()+"皇室)").ColorString(pColor:empire.CoreKingdom.getColor()._color_main))}", hideBackground:true, TextAnchor.MiddleCenter, size:new Vector2(49, 10));
+        bool hasActiveEmpire = empire != null && !empire.isRekt() && empire.CoreKingdom != null;
+        string empireLabel = hasActiveEmpire
+            ? ("(" + empire.GetEmpireName() + "皇室)").ColorString(pColor: empire.CoreKingdom.getColor()._color_main)
+            : "";
+        vertCard.AddTextIntoVertLayout((specificClan?.name ?? "") + LM.Get("specific_clan") + empireLabel,
+            hideBackground:true, TextAnchor.MiddleCenter, size:new Vector2(49, 10));
         var actor = specificClan.AllAliveMembers.ToList()?.OrderByDescending(a => a?.age??0)?
             .FirstOrDefault();
         vertCard.AddActorViewIntoVertLayout(actor);
-        vertCard.AddTextIntoVertLayout($"{LM.Get("i_founder")}：{SpecificClanManager.getPerson(specificClan.founder).name}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
+        string founderName = SpecificClanManager.getPerson(specificClan.founder)?.name ?? LM.Get("none");
+        vertCard.AddTextIntoVertLayout($"{LM.Get("i_founder")}：{founderName}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
         vertCard.AddTextIntoVertLayout($"{LM.Get("total_sc_count")}：{specificClan.AllAliveMembers.Count}/{specificClan._cache.Count}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
         var hori = vertCard.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         if (empire != null && !empire.isRekt())

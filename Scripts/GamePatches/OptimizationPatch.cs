@@ -46,10 +46,10 @@ namespace EmpireCraft.Scripts.GamePatches
 
             PatchPrefix(harmony, AccessTools.Method(typeof(BatchActors), "b6_0_updateDecision"),
                 nameof(Prefix_BeginCivilianAiTick));
-            PatchPrefix(harmony, AccessTools.Method(typeof(Actor), "b6_0_updateDecision"),
-                nameof(Prefix_CivilianAi));
-            PatchPrefix(harmony, AccessTools.Method(typeof(Actor), "b6_updateAI"),
-                nameof(Prefix_CivilianAi));
+            // Do not throttle Actor.updateDecision/updateAI as a whole. Reproduction,
+            // relationships, housing and other simulation-critical decisions share that
+            // pipeline, so skipping it makes the performance threshold behave like a
+            // population cap. Only throttle the expensive optional target search below.
             PatchPrefix(harmony, AccessTools.Method(typeof(Actor), "b3_findEnemyTarget"),
                 nameof(Prefix_CivilianAi));
             PatchPrefix(harmony, AccessTools.Method(typeof(ActorManager), "calculateVisibleActors"),

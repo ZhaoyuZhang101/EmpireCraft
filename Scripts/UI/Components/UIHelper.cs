@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Windows;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
@@ -525,15 +526,34 @@ public static class UIHelper
     /// <param name="kingdom">派系所属国家</param>
     public static void InitialFactionSpace(AutoHoriLayoutGroup layout, Kingdom kingdom, List<GameObject> groups=null)
     {
+        if (layout == null || kingdom == null || kingdom.isRekt()) return;
         var factionSpace = layout;
-        foreach (FixedFaction faction in kingdom.GetRegime().GetPlayerFactions())
+        Regime regime = kingdom.GetRegime();
+        if (regime == null)
         {
-            AddFactionCard(faction, kingdom, factionSpace);
+            kingdom.LoadRegime();
+            regime = kingdom.GetRegime();
+        }
+        if (regime == null) return;
+
+        List<FixedFaction> factions = regime.GetPlayerFactions()?.Where(faction => faction != null).ToList()
+                                      ?? new List<FixedFaction>();
+        foreach (FixedFaction faction in factions)
+        {
+            try
+            {
+                faction.FixMissedTemporaryFactions();
+                AddFactionCard(faction, kingdom, factionSpace);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogError($"派系卡片绘制失败 ({faction.Name ?? faction.Type.ToString()}): {exception}");
+            }
         }
         
-        if (kingdom.GetRegime().GetPlayerFactions().Count < 3)
+        if (factions.Count < 3)
         {
-            for (int i = 0; i < 3-kingdom.GetRegime().GetPlayerFactions().Count; i++)
+            for (int i = 0; i < 3-factions.Count; i++)
             {
                 var addFaction = factionSpace.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(55, 90));
                 addFaction.AddButtonIntoVertLayout("add_faction", "", () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(15, 15));
@@ -541,7 +561,7 @@ public static class UIHelper
             }
         }
         factionSpace.transform.AddStretchBackground("regimeFrame", size:new Vector2(180, 100));
-        kingdom.GetRegime().FactionSpace = factionSpace;
+        regime.FactionSpace = factionSpace;
         var bottom = factionSpace.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         bottom.AddButtonIntoHoriLayout("recover_faction", "", () =>
         {
@@ -577,8 +597,9 @@ public static class UIHelper
         factionPart.AddTextIntoVertLayout($"人数：{faction.Count}\n", true, TextAnchor.MiddleCenter);
         factionPart.AddTextIntoVertLayout($"{LM.Get("label_central_ratio")}：{faction.CentralRatio}%\n", true, TextAnchor.MiddleCenter);
         var content = "<核心诉求>\n";
-        foreach (var tempFac in faction.TemporaryFactions)
+        foreach (TemporaryFaction tempFac in faction.TemporaryFactions ?? new List<TemporaryFaction>())
         {
+            if (tempFac == null) continue;
             if (!tempFac.Hide||tempFac.IsStarted())
             {
                 var startContent = tempFac.ShowAsPlot?$"({LM.Get("tf_starting")})":$"\n{LM.Get("tf_starting")}:({(int)((tempFac.progress/(tempFac.progressMax))*100.0f)}/100)";

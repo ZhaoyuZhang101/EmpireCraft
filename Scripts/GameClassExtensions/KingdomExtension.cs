@@ -269,6 +269,9 @@ public static class KingdomExtension
         public List<long> rebellion_origin_empire_ids = new List<long>();
         // 地方叛乱自动吸纳政权时可再接收的城市数。
         public int rebellion_auto_expand_remaining = -1;
+        public int rebellion_origin_city_value = -1;
+        public bool rebellion_origin_city_isolated = false;
+        public double last_rebellion_exclave_disengagement_roll = -1L;
         public bool isNeedToMaintainGoodOpinion = false;
         public double last_tax_timestamp = -1L;
         public double last_office_exam_timestamp = -1L;
@@ -316,6 +319,12 @@ public static class KingdomExtension
         public int annual_power_economy = 0;
         public double annual_power_index = 0d;
         public double last_national_power_timestamp = -1L;
+        [JsonIgnore]
+        public Vector2 city_value_quality_center;
+        [JsonIgnore]
+        public float city_value_core_radius = 24f;
+        [JsonIgnore]
+        public double last_city_value_context_timestamp = -1L;
         public double last_faction_ratio_growth_timestamp = -1L;
         public Dictionary<string, float> faction_ratio_growth_progress = new Dictionary<string, float>();
         
@@ -1193,7 +1202,9 @@ public static class KingdomExtension
         if (!empire.taken_Kingdoms.Contains(k))
         {
             empire.taken_Kingdoms.Add(k);
-            k.updateColor(empire.CoreKingdom.getColor());
+            // Tributary status is diplomatic, not an annexation. Keeping the native color avoids
+            // scattered imperial-colored enclaves on the normal kingdom map.
+            k.RestoreOriginalKingdomColor();
         }
         empire.RecordHistory(EmpireHistoryType.join_taken_alliance_history, new Dictionary<string, string>
         {
@@ -1223,7 +1234,7 @@ public static class KingdomExtension
             empire.taken_Kingdoms.Remove(k);
         }
         k.GetOrCreate().taken_empire = -1L;
-        if (!k.isRekt()) k.generateColor();
+        if (!k.isRekt()) k.RestoreOriginalKingdomColor();
         if (recordHistory && empire != null && !empire.IsArchived() && !empire.isRekt())
         {
             empire.RecordHistory(EmpireHistoryType.leave_taken_alliance_history, new Dictionary<string, string>
@@ -1237,6 +1248,23 @@ public static class KingdomExtension
     {
         Empire empire = k.GetTakenAllianceEmpire();
         return empire == null||k.IsInEmpire();
+    }
+
+    // updateColor is used by older releases when a tributary joins. Restore the persistent
+    // pre-existing kingdom color rather than generating a new random one when it leaves.
+    public static void RestoreOriginalKingdomColor(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return;
+        var colors = kingdom.getColorLibrary()?.list;
+        int originalColorId = kingdom.data.original_color_id;
+        if (colors != null && originalColorId >= 0 && originalColorId < colors.Count)
+        {
+            kingdom.updateColor(colors[originalColorId]);
+            return;
+        }
+
+        // Corrupt or legacy saves may not retain a valid original color entry.
+        kingdom.generateColor();
     }
     public static bool HasGivenAlliance(this Kingdom k)
     {
@@ -1349,6 +1377,10 @@ public static class KingdomExtension
                 break;
         }
         var extraData = kingdom.GetOrCreate();
+        if (extraData.rebellion_origin_city_value < 0 && kingdom.capital != null)
+        {
+            kingdom.SetRebellionOriginCityValue(kingdom.capital.GetCityStrategicValue());
+        }
         extraData.isLocalRebelling = true;
         if (warType == EmpireWarType.地方叛乱)
         {
@@ -1367,11 +1399,23 @@ public static class KingdomExtension
         var extraData = k.GetOrCreate();
         extraData.isLocalRebelling = false;
         extraData.rebellion_auto_expand_remaining = -1;
+        extraData.rebellion_origin_city_value = -1;
+        extraData.rebellion_origin_city_isolated = false;
+        extraData.last_rebellion_exclave_disengagement_roll = -1L;
     }
 
     public static bool IsLocalRebelling(this Kingdom k)
     {
         return k.GetOrCreate().isLocalRebelling;
+    }
+
+    public static void SetRebellionOriginCityValue(this Kingdom kingdom, CityValueSnapshot value)
+    {
+        if (kingdom == null || kingdom.isRekt()) return;
+        KingdomExtraData data = kingdom.GetOrCreate();
+        data.rebellion_origin_city_value = value.Total;
+        data.rebellion_origin_city_isolated = value.IsIsolated;
+        data.last_rebellion_exclave_disengagement_roll = -1L;
     }
 
     public static void RememberRebellionOrigin(this Kingdom kingdom, Empire empire)

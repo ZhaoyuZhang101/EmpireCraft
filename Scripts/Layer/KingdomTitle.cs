@@ -44,6 +44,8 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     }
     public void newKingdomTitle(City city)
     {
+        if (city == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt() ||
+            city.kingdom.king == null || city.kingdom.king.isRekt() || city.kingdom.king.asset == null) return;
         this.title_capital = city;
         this.data.founder_actor_id = city.kingdom.king.getID();
         this.data.founder_actor_name = city.kingdom.king.name;
@@ -122,16 +124,18 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
 
     public Sprite getElementIcon()
     {
+        ActorAsset actorAsset = getActorAsset();
+        if (actorAsset == null) return null;
         try
         {
-            return AssetManager.kingdom_banners_library.getSpriteIcon(data.banner_icon_id, getActorAsset().banner_id);
+            return AssetManager.kingdom_banners_library.getSpriteIcon(data.banner_icon_id, actorAsset.banner_id);
         }
         catch (ArgumentOutOfRangeException)
         {
             data.banner_icon_id = 0;
             try
             {
-                return AssetManager.kingdom_banners_library.getSpriteIcon(0, getActorAsset().banner_id);
+                return AssetManager.kingdom_banners_library.getSpriteIcon(0, actorAsset.banner_id);
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -142,16 +146,18 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     
     public Sprite getElementBackground()
     {
+        ActorAsset actorAsset = getActorAsset();
+        if (actorAsset == null) return null;
         try
         {
-            return AssetManager.kingdom_banners_library.getSpriteBackground(data.banner_background_id, getActorAsset().banner_id);
+            return AssetManager.kingdom_banners_library.getSpriteBackground(data.banner_background_id, actorAsset.banner_id);
         }
         catch (ArgumentOutOfRangeException)
         {
             data.banner_background_id = 0;
             try
             {
-                return AssetManager.kingdom_banners_library.getSpriteBackground(0, getActorAsset().banner_id);
+                return AssetManager.kingdom_banners_library.getSpriteBackground(0, actorAsset.banner_id);
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -197,13 +203,27 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     public override void generateColor()
     {
         ActorAsset actorAsset = getActorAsset();
+        if (actorAsset == null)
+        {
+            data.setColorID(0);
+            return;
+        }
         int nextColorIndex = getColorLibrary().getNextColorIndex(actorAsset);
         data.setColorID(nextColorIndex);
     }
 
     public ActorAsset getFounderSpecies()
     {
-        return AssetManager.actor_library.get(data.original_actor_asset);
+        if (!string.IsNullOrWhiteSpace(data?.original_actor_asset))
+        {
+            ActorAsset storedAsset = AssetManager.actor_library.get(data.original_actor_asset);
+            if (storedAsset != null) return storedAsset;
+        }
+
+        ActorAsset recoveredAsset = title_capital?.kingdom?.king?.asset ??
+                                    city_list.FirstOrDefault(city => city?.kingdom?.king?.asset != null)?.kingdom.king.asset;
+        if (recoveredAsset != null && data != null) data.original_actor_asset = recoveredAsset.id;
+        return recoveredAsset;
     }
 
 

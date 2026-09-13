@@ -1641,6 +1641,30 @@ public class Empire : MetaObject<EmpireData>
             return false;
         }
 
+        // Only the actual core kingdom may retain the empire-center marker. Older
+        // saves and capital transfers could leave the previous core marked as a
+        // second direct domain, which also kept its stale local office/type.
+        foreach (Kingdom kingdom in kingdoms_list.ToList())
+        {
+            if (kingdom == null || kingdom.isRekt()) continue;
+            bool shouldBeCore = kingdom == CoreKingdom;
+            KingdomExtension.KingdomExtraData extraData = kingdom.GetOrCreate();
+            bool markerChanged = extraData.isEmpire != shouldBeCore;
+            if (markerChanged)
+            {
+                extraData.isEmpire = shouldBeCore;
+                repaired = true;
+            }
+
+            KingdomType currentType = kingdom.GetKingdomType();
+            bool staleCentralType = !shouldBeCore && currentType is KingdomType.LvLing_centre or
+                KingdomType.Modern_centre or KingdomType.Origin_centre or KingdomType.YouMu_centre;
+            if (markerChanged || staleCentralType)
+            {
+                EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+            }
+        }
+
         if (data.centerOffice == null)
         {
             data.centerOffice = new CenterOffice();

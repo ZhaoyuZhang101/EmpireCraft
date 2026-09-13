@@ -110,6 +110,7 @@ public class SpecificClan
     }
     public void RecordHistoryEmpire(Empire empire, City capital)
     {
+        if (empire == null || empire.isRekt() || capital == null || capital.isRekt()) return;
         empire_name = empire.GetEmpireName();
         capital_city_id = capital.getID();
         capital_city_pos_x = capital.city_center.x;

@@ -47,7 +47,9 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     }
     public KingdomTitle newKingdomTitle(City pCity)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return null;
+        if (pCity == null || pCity.isRekt() || pCity.kingdom == null || pCity.kingdom.isRekt() ||
+            pCity.kingdom.king == null || pCity.kingdom.king.isRekt() || pCity.kingdom.king.asset == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return null;
         long id = OverallHelperFunc.IdGenerator.NextId();
         KingdomTitle title = base.newObjectFromID(id);
         title.newKingdomTitle(pCity);
@@ -81,6 +83,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         if (title == null)
         {
             title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(pCity1);
+            if (title == null) return false;
             title.addCity(pCity2);
             result = true;
         }

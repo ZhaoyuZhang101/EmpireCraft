@@ -5,9 +5,11 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Net;
+using System.Net.Cache;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using EmpireCraft.Scripts.HelperFunc;
 using Newtonsoft.Json.Linq;
 using NeoModLoader.services;
 
@@ -129,59 +131,21 @@ public static class EmpireCraftUpdateService
 
     internal static int CompareVersions(string left, string right)
     {
-        List<string> leftParts = TokenizeVersion(left);
-        List<string> rightParts = TokenizeVersion(right);
-        int count = Math.Max(leftParts.Count, rightParts.Count);
-
-        for (int i = 0; i < count; i++)
-        {
-            string l = i < leftParts.Count ? leftParts[i] : "0";
-            string r = i < rightParts.Count ? rightParts[i] : "0";
-            bool lNumber = long.TryParse(l, NumberStyles.None, CultureInfo.InvariantCulture, out long ln);
-            bool rNumber = long.TryParse(r, NumberStyles.None, CultureInfo.InvariantCulture, out long rn);
-
-            int comparison;
-            if (lNumber && rNumber)
-                comparison = ln.CompareTo(rn);
-            else if (lNumber != rNumber)
-                comparison = lNumber ? 1 : -1;
-            else
-                comparison = CompareVersionLabels(l, r);
-
-            if (comparison != 0) return comparison;
-        }
-
-        return 0;
+        return EmpireCraftVersionRules.Compare(left, right);
     }
 
     private static void CheckWorker()
     {
         var failures = new List<string>();
+        UpdateManifest newestManifest = null;
 
         foreach (string endpoint in ManifestEndpoints)
         {
             try
             {
                 UpdateManifest manifest = ParseManifest(DownloadText(endpoint));
-                string currentVersion = ReadInstalledVersion();
-                bool available = CompareVersions(manifest.Version, currentVersion) > 0;
-
-                lock (Sync)
-                {
-                    _manifest = available ? manifest : null;
-                    _busy = false;
-                    _snapshot.CurrentVersion = currentVersion;
-                    _snapshot.AvailableVersion = manifest.Version;
-                    _snapshot.ReleaseNotes = manifest.ReleaseNotes;
-                    _snapshot.Error = null;
-                    PublishLocked(available
-                        ? EmpireCraftUpdateStatus.UpdateAvailable
-                        : EmpireCraftUpdateStatus.UpToDate);
-                }
-
-                if (available)
-                    LogService.LogInfo("EmpireCraft update available: " + manifest.Version);
-                return;
+                if (newestManifest == null || CompareVersions(manifest.Version, newestManifest.Version) > 0)
+                    newestManifest = manifest;
             }
             catch (Exception error)
             {
@@ -189,7 +153,29 @@ public static class EmpireCraftUpdateService
             }
         }
 
-        Fail(string.Join("\n", failures));
+        if (newestManifest == null)
+        {
+            Fail(string.Join("\n", failures));
+            return;
+        }
+
+        string currentVersion = ReadInstalledVersion();
+        bool available = CompareVersions(newestManifest.Version, currentVersion) > 0;
+        lock (Sync)
+        {
+            _manifest = available ? newestManifest : null;
+            _busy = false;
+            _snapshot.CurrentVersion = currentVersion;
+            _snapshot.AvailableVersion = newestManifest.Version;
+            _snapshot.ReleaseNotes = newestManifest.ReleaseNotes;
+            _snapshot.Error = null;
+            PublishLocked(available
+                ? EmpireCraftUpdateStatus.UpdateAvailable
+                : EmpireCraftUpdateStatus.UpToDate);
+        }
+
+        if (available)
+            LogService.LogInfo("EmpireCraft update available: " + newestManifest.Version);
     }
 
     private static void DownloadWorker(UpdateManifest manifest)
@@ -283,7 +269,12 @@ public static class EmpireCraftUpdateService
 
     private static string DownloadText(string url)
     {
-        Uri uri = new(url);
+        var builder = new UriBuilder(url);
+        string cacheBust = "ec_check=" + DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture);
+        builder.Query = string.IsNullOrEmpty(builder.Query)
+            ? cacheBust
+            : builder.Query.TrimStart('?') + "&" + cacheBust;
+        Uri uri = builder.Uri;
         if (uri.Scheme != Uri.UriSchemeHttps) throw new Exception("Update manifest must use HTTPS.");
 
         HttpWebRequest request = CreateRequest(uri);
@@ -340,6 +331,7 @@ public static class EmpireCraftUpdateService
         request.ReadWriteTimeout = NetworkTimeoutMilliseconds;
         request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
         request.KeepAlive = false;
+        request.CachePolicy = new RequestCachePolicy(RequestCacheLevel.BypassCache);
         return request;
     }
 
@@ -502,59 +494,6 @@ public static class EmpireCraftUpdateService
     {
         if (Directory.Exists(path)) Directory.Delete(path, true);
         Directory.CreateDirectory(path);
-    }
-
-    private static List<string> TokenizeVersion(string version)
-    {
-        var parts = new List<string>();
-        if (string.IsNullOrWhiteSpace(version)) return parts;
-        var token = new StringBuilder();
-        bool? numeric = null;
-        foreach (char c in version.Trim().ToLowerInvariant())
-        {
-            if (!char.IsLetterOrDigit(c))
-            {
-                FlushToken(parts, token);
-                numeric = null;
-                continue;
-            }
-            bool isNumeric = char.IsDigit(c);
-            if (numeric.HasValue && numeric.Value != isNumeric) FlushToken(parts, token);
-            token.Append(c);
-            numeric = isNumeric;
-        }
-        FlushToken(parts, token);
-        return parts;
-    }
-
-    private static void FlushToken(List<string> parts, StringBuilder token)
-    {
-        if (token.Length == 0) return;
-        parts.Add(token.ToString());
-        token.Clear();
-    }
-
-    private static int CompareVersionLabels(string left, string right)
-    {
-        int leftRank = VersionLabelRank(left);
-        int rightRank = VersionLabelRank(right);
-        return leftRank != rightRank
-            ? leftRank.CompareTo(rightRank)
-            : string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static int VersionLabelRank(string label)
-    {
-        return label switch
-        {
-            "dev" => 0,
-            "alpha" or "a" => 1,
-            "beta" or "b" => 2,
-            "preview" or "pre" => 3,
-            "rc" => 4,
-            "stable" or "release" => 5,
-            _ => 2
-        };
     }
 
     private static bool IsWindows()

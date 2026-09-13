@@ -1346,6 +1346,7 @@ namespace EmpireCraft.Scripts.AI
                     }else
                     {
                         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(kingdom.capital);
+                        if (title == null) return false;
                         kingdom.SetMainTitle(title);
                         foreach (City city in kingdom.cities)
                         {
@@ -1485,6 +1486,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (kingdom.HasTakenAlliance()) return false;
                     KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(kingdom.capital);
+                    if (title == null) return false;
                     TranslateHelper.LogCreateTitle(kingdom, title);
                     title.owner = pActor;
                     pActor.AddOwnedTitle(title);
@@ -1690,10 +1692,11 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
-				    if (city.isHappy())
-				    {
-					    return false;
-				    }
+                    CityValueSnapshot cityValue = city.GetCityStrategicValue();
+                    if (city.isHappy() && !CityValueRules.CanRebelWhileContent(cityValue))
+                    {
+                        return false;
+                    }
                     if (!kingdom.IsInEmpire())
                     {
                         float num = city.countWarriors();

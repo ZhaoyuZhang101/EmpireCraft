@@ -8,3 +8,5 @@
 
 3. 派系诉求英语本地化更新。  
    Updated the English localization for faction demands.
+
+4. Bug修复与更新推送调整

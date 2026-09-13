@@ -43,8 +43,13 @@ public class CulturePatch : GamePatch
         EnsureEmpireNaming(__instance?.culture);
         try
         {
+            if (__instance.kingdom?.data == null || __instance.city?.data == null ||
+                __instance.culture?.data == null || __instance.language?.data == null) return;
+            OnomasticsData kingdomNames = __instance.culture.getOnomasticData(MetaType.Kingdom);
+            OnomasticsData cityNames = __instance.culture.getOnomasticData(MetaType.City);
+            if (kingdomNames == null || cityNames == null) return;
             var beforeKingdomName = __instance.kingdom.data.name;
-            __instance.kingdom.data.name = __instance.culture.getOnomasticData(MetaType.Kingdom).generateName()
+            __instance.kingdom.data.name = kingdomNames.generateName()
                 .UseLocalizedNameSeparator();
             __instance.kingdom.RememberInitialRandomKingdomName(__instance.kingdom.data.name, overwrite: true);
             __instance.kingdom.GetOrCreate().core_name = "";
@@ -53,7 +58,7 @@ public class CulturePatch : GamePatch
             var afterKingdomName = __instance.kingdom.data.name;
             TranslateHelper.LogChangeKingdomName(__instance, __instance.kingdom, beforeKingdomName, afterKingdomName);
             var beforeCityName = __instance.city.data.name;
-            __instance.city.data.name = __instance.culture.getOnomasticData(MetaType.City).generateName()
+            __instance.city.data.name = cityNames.generateName()
                 .UseLocalizedNameSeparator();
             __instance.city.GetOrCreate().core_name = "";
             __instance.city.GetOrCreate().core_name_source = "";

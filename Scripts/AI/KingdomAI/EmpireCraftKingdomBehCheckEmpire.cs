@@ -213,6 +213,11 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         {
             pKingdom.RemoveTakenAlliance();
         }
+        else if (pKingdom.HasTakenAlliance())
+        {
+            // Repair tributaries saved by older versions that were recolored as imperial land.
+            pKingdom.RestoreOriginalKingdomColor();
+        }
         if (pKingdom.NeedToRemoveGivenAlliance())
         {
             pKingdom.RemoveGivenAlliance();

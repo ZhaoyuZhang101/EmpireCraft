@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.UI.Components;
+using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.api.attributes;
@@ -51,6 +52,10 @@ public class CityWindowPatch : GamePatch
         __instance.tryToShowActor("village_statistics_leader", pObject: metaObject.leader, pIconPath: "iconLeaders");
         if (metaObject.hasLeader())
             __instance.showStatRow("ruler_money", (object) metaObject.GetMoney(), "#43FF43", pIconPath: "iconMoney");
+        CityValueSnapshot cityValue = metaObject.GetCityStrategicValue();
+        string cityValueText = $"{cityValue.Total}/100" +
+                               (cityValue.IsIsolated ? $" ({LM.Get("city_value_isolated")})" : "");
+        __instance.showStatRow("city_value", cityValueText, "#FFD34E", pIconPath: "iconKings");
         __instance.showStatRow("tax", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_local_low");
         __instance.showStatRow("tribute", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
         __instance.tryToShowActor("king", pObject: metaObject.kingdom.king, pIconPath: "iconKings");

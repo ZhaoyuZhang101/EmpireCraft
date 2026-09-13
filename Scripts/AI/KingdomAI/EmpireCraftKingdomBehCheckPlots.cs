@@ -93,6 +93,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         if  (empire == null) return;
         var faction = war.GetEmpireFaction();
         var rebelData = pKingdom.GetOrCreate();
+        if (TryEndExclaveRebellionWar(pKingdom, war, rebelData)) return;
         if (rebelData.rebellion_auto_expand_remaining < 0)
         {
             rebelData.rebellion_auto_expand_remaining = (int)Math.Ceiling(pKingdom.getMaxCities() * 1.5d);
@@ -117,6 +118,27 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
             if (rebelData.rebellion_auto_expand_remaining <= 0) return;
         }
         
+    }
+
+    private static bool TryEndExclaveRebellionWar(Kingdom rebels, War war,
+        KingdomExtension.KingdomExtraData rebelData)
+    {
+        if (rebels == null || war == null || rebelData == null || !rebelData.rebellion_origin_city_isolated ||
+            rebelData.rebellion_origin_city_value < 0) return false;
+        double now = World.world.getCurWorldTime();
+        if (rebelData.last_rebellion_exclave_disengagement_roll >= 0 &&
+            Date.getYearsSince(rebelData.last_rebellion_exclave_disengagement_roll) < 1) return false;
+        rebelData.last_rebellion_exclave_disengagement_roll = now;
+
+        CityValueSnapshot origin = new CityValueSnapshot
+        {
+            Total = rebelData.rebellion_origin_city_value,
+            IsIsolated = true
+        };
+        float chance = CityValueRules.GetExclaveDisengagementChance(origin, rebels.countCities());
+        if (chance <= 0f || !Randy.randomChance(chance)) return false;
+        World.world.wars.endWar(war, WarWinner.Peace);
+        return true;
     }
     public void CheckJoinReligionWar(Kingdom pKingdom)
     {

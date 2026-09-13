@@ -86,6 +86,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
             .ToList();
             foreach (var dir in dirs) 
             {
+                string header = File.ReadLines(dir).FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(header) || !header.Contains(',')) continue;
                 LogService.LogInfo(dir);
                 LM.LoadLocales(dir);
             }

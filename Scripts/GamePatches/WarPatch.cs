@@ -1,4 +1,5 @@
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
@@ -20,6 +21,9 @@ namespace EmpireCraft.Scripts.GamePatches;
 public class WarPatch: GamePatch
 {
     public ModDeclare declare { get; set; }
+
+    // 同一 Kingdom 在同一场 War 里只排队一次开战动员。
+    private static readonly Dictionary<War, HashSet<long>> _warMobilizedKingdoms = new();
     public void Initialize()
     {
         new Harmony(nameof(end_war)).Patch(
@@ -33,6 +37,13 @@ public class WarPatch: GamePatch
         new Harmony(nameof(update)).Patch(
             AccessTools.Method(typeof(War), nameof(War.update)),
             postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(update))
+        );
+
+        // V3：把分帧征兵、分帧出征、和平/战争都可运行的 Warrior 生育
+        // 统一挂在 ArmyManager.update，而不是 War.update。
+        new Harmony(nameof(army_update_population)).Patch(
+            AccessTools.Method(typeof(ArmyManager), nameof(ArmyManager.update)),
+            postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(army_update_population))
         );
         new Harmony(nameof(new_war)).Patch(
             AccessTools.Method(typeof(WarManager), nameof(WarManager.newWar)),
@@ -52,6 +63,7 @@ public class WarPatch: GamePatch
     public static void update(War __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+
         RecordWarDeclared(__instance);
         if (__instance.getDuration() > ModClass.WAR_END_YEAR)
         {
@@ -77,9 +89,20 @@ public class WarPatch: GamePatch
             }
         }
     }
+    public static void army_update_population(
+        ArmyManager __instance,
+        float pElapsed)
+    {
+        // 这三个函数内部都有限额/错峰，不会在同一帧处理全部人口。
+        EmpireCraftActorCheckWarrior.ProcessArmyPopulationMaintenance();
+        EmpireCraftActorCheckWarriorMove.ProcessQueuedMovementJobs();
+    }
+
     public static void removeData(War __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+
+        _warMobilizedKingdoms.Remove(__instance);
         __instance.RemoveExtraData<War, WarExtraData>();
     }
 
@@ -98,6 +121,10 @@ public class WarPatch: GamePatch
             __instance.warStateChanged();
             pWar.endForSides(pWinner);
             pWar.data.died_time = World.world.getCurWorldTime();
+
+            // 不在 endWar 同一帧直接复员。
+            // 延后由 ArmyManager.update 检查，避免战争关系尚未完全刷新。
+            EmpireCraftActorCheckWarrior.RequestDemobilizationCheck();
             Kingdom aKingdom = null;
             Kingdom dKingdom = null;
             aKingdom = pWar.getMainAttacker();
@@ -209,25 +236,85 @@ public class WarPatch: GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
         if (__result == null) return;
+
         RecordWarDeclared(__result);
         DetachHostileTributaries(__result);
+
+        // 只“排队”，这里不再同步扫描全国人口/军队。
+        QueueWarSideMobilization(__result, __result._list_attackers);
+        QueueWarSideMobilization(__result, __result._list_defenders);
+
+        QueueKingdomMobilizationOnce(__result, __result.getMainAttacker());
+        QueueKingdomMobilizationOnce(__result, __result.getMainDefender());
+
         Kingdom aKingdom = __result.getMainAttacker();
         Kingdom dKingdom = __result.getMainDefender();
+
         if (aKingdom != null && aKingdom.IsEmpire())
         {
             Empire empire = aKingdom.GetEmpire();
         }
+
         if (dKingdom != null && dKingdom.IsEmpire())
         {
             Empire empire = dKingdom.GetEmpire();
         }
     }
 
-    public static void join_war_side(War __instance)
+    // 同一个 Postfix 兼容 joinAttackers(Kingdom) / joinDefenders(Kingdom)。
+    public static void join_war_side(War __instance, Kingdom pKingdom)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+
         CaptureWarRoyalHouses(__instance);
         DetachHostileTributaries(__instance);
+
+        QueueKingdomMobilizationOnce(__instance, pKingdom);
+    }
+
+    private static void QueueWarSideMobilization(
+        War war,
+        IEnumerable<Kingdom> side)
+    {
+        if (war == null || side == null)
+            return;
+
+        foreach (Kingdom kingdom in side)
+        {
+            QueueKingdomMobilizationOnce(war, kingdom);
+        }
+    }
+
+    private static void QueueKingdomMobilizationOnce(
+        War war,
+        Kingdom kingdom)
+    {
+        if (war == null ||
+            kingdom == null ||
+            kingdom.isRekt())
+        {
+            return;
+        }
+
+        if (!_warMobilizedKingdoms.TryGetValue(
+                war,
+                out HashSet<long> mobilized))
+        {
+            mobilized = new HashSet<long>();
+            _warMobilizedKingdoms[war] = mobilized;
+        }
+
+        if (!mobilized.Add(kingdom.id))
+            return;
+
+        // 1. 原有 Warrior 马上进入“分帧出征队列”。
+        EmpireCraftActorCheckWarriorMove
+            .QueueKingdomMobilizationOnWarStart(kingdom);
+
+        // 2. 缺少的 Warrior 进入“分帧征兵队列”。
+        // 每征出一个新兵，它会自动追加到上面的移动队列。
+        EmpireCraftActorCheckWarrior
+            .QueueWarStartFill(kingdom);
     }
 
     private static void CaptureWarRoyalHouses(War war)

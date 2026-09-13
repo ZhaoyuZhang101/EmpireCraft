@@ -95,11 +95,11 @@ public static class ExamSystem
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
         foreach(City city in province.cities)
         {
-            foreach (Actor actor in city.units.FindAll(a => a.hasTrait("juren")))
+            foreach (Actor actor in city.units.FindAll(a => a != null && !a.isRekt() && a.hasTrait("juren")))
             {
                 actor.RecordPersonalHistory(LM.Get("personal_history_exam_province_attended"));
                 double mark = actor.startProvinceExam();
-                MarksData.Add(actor, mark);
+                MarksData[actor] = mark;
             }
         }
         var sorted = MarksData.OrderByDescending(kv => kv.Value).ToList();
@@ -114,7 +114,7 @@ public static class ExamSystem
                 {
                     item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_province_passed"));
                 }
-                OfficeIdentity identity = item.Key.GetIdentity();
+                OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 200;
             });
         }
@@ -128,7 +128,7 @@ public static class ExamSystem
                 {
                     item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_province_passed"));
                 }
-                OfficeIdentity identity = item.Key.GetIdentity();
+                OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 200;
             });
         }
@@ -139,9 +139,10 @@ public static class ExamSystem
     {
         Empire empire = (Empire)nano;
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
-        foreach (Kingdom province in empire.kingdoms_hashset) 
+        if (empire == null || empire.isRekt()) return;
+        foreach (Kingdom province in empire.kingdoms_hashset.Where(province => province != null && !province.isRekt()))
         {
-            foreach (Actor actor in province.AllGongshi())
+            foreach (Actor actor in province.AllGongshi().Where(actor => actor != null && !actor.isRekt()))
             {
                 if (!MarksData.TryGetValue(actor, out double m))
                 {
@@ -162,7 +163,7 @@ public static class ExamSystem
                 {
                     item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_empire_passed"));
                 }
-                OfficeIdentity identity = item.Key.GetIdentity();
+                OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 300;
             });
         }
@@ -175,10 +176,19 @@ public static class ExamSystem
                 {
                     item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_empire_passed"));
                 }
-                OfficeIdentity identity = item.Key.GetIdentity();
+                OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 300;
             });
         }
+    }
+
+    private static OfficeIdentity EnsureExamIdentity(Actor actor)
+    {
+        OfficeIdentity identity = actor.GetIdentity();
+        if (identity != null) return identity;
+        identity = new OfficeIdentity { actor_id = actor.getID() };
+        actor.SetIdentity(identity, true);
+        return identity;
     }
 
     public static double startCityExam(this Actor actor) 

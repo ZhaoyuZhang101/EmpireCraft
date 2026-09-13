@@ -444,7 +444,7 @@ public abstract class TemporaryFaction
 
     public Empire GetEmpire()
     {
-        return ModClass.EMPIRE_MANAGER.get(EmpireID);
+        return ModClass.EMPIRE_MANAGER?.get(EmpireID);
     }
     public void Start()
     {
@@ -496,6 +496,7 @@ public abstract class TemporaryFaction
     {
         TargetID = -1L;
         TargetType = MetaType.None;
+        kingdoms ??= new List<long>();
         kingdoms.Clear();
         started = false;
         progress = 0;

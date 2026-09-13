@@ -43,6 +43,8 @@
     "EmpireText": "Empire",
     "CountryLevel": "Country Level",
     "City": "County",
+    "city_value": "Strategic Value",
+    "city_value_isolated": "Exclave",
     "Clan": "Clan",
     "Western": "West",
     "Eastern": "East",

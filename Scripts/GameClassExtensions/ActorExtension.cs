@@ -457,7 +457,7 @@ public static class ActorExtension
         return data.target_tile == tile;
     }
 
-    public static bool ShouldBlockMoveToByFrontLine(this Actor a, WorldTile requestedTile)
+    public static bool ShouldBlockGoToByFrontLine(this Actor a, WorldTile requestedTile)
     {
         if (a == null || requestedTile == null)
         {
@@ -474,24 +474,18 @@ public static class ActorExtension
             return false;
         }
 
-        if (a.HasNearbyEnemyAttackOpportunity())
+        if (a.IsNearbyEnemyAttackTarget(requestedTile))
         {
             return false;
         }
 
         var data = a.GetOrCreate();
 
+        // Target selection belongs to EmpireCraftActorCheckWarriorMove. Creating a
+        // second target here used the legacy planner and let two military AIs compete.
         if (data.target_tile == null)
         {
-            WorldTile frontTile = EmpireCraftActorCheckWarriorMoveAdvanced.TryGetFrontLineMoveTileForActor(a);
-
-            if (frontTile == null)
-            {
-                return false;
-            }
-
-            // 这里只设置目标，不要 goTo，否则递归
-            a.SetFrontLineMoveTarget(frontTile);
+            return false;
         }
 
         WorldTile targetTile = data.target_tile;
@@ -545,6 +539,21 @@ public static class ActorExtension
         }
 
         return false;
+    }
+
+    private static bool IsNearbyEnemyAttackTarget(this Actor a, WorldTile requestedTile)
+    {
+        TileZone currentZone = a?.current_tile?.zone;
+        TileZone requestedZone = requestedTile?.zone;
+        if (currentZone == null || requestedZone == null)
+        {
+            return false;
+        }
+
+        bool isNearby = requestedZone == currentZone ||
+                        (currentZone.neighbours_all != null &&
+                         currentZone.neighbours_all.Contains(requestedZone));
+        return isNearby && HasEnemyArmyInZone(a, requestedZone);
     }
 
     private static bool HasEnemyArmyInZone(Actor actor, TileZone zone)

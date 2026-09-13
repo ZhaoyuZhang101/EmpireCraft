@@ -117,7 +117,8 @@ public static class EmpireCraftTooltipLibrary
     }
 	public static void showKingdom(Tooltip pTooltip, string pType, TooltipData pData)
 	{
-		Kingdom kingdom = pData.kingdom;
+		Kingdom kingdom = pData?.kingdom;
+		if (pTooltip == null || kingdom == null || kingdom.isRekt()) return;
 		pTooltip.setSpeciesIcon(kingdom.getSpeciesIcon());
 		string color_text = kingdom.getColor().color_text;
 		KingdomType type = kingdom.GetKingdomType();
@@ -180,11 +181,15 @@ public static class EmpireCraftTooltipLibrary
 		pTooltip.addLineIntText("deaths", kingdom.getTotalDeaths());
 		pTooltip.addLineIntText("kills", kingdom.getTotalKills());
 		pTooltip.addLineBreak();
-		pTooltip.addLineText("species", kingdom.getActorAsset().getTranslatedName());
+		ActorAsset actorAsset = kingdom.getActorAsset();
+		if (actorAsset != null)
+		{
+			pTooltip.addLineText("species", actorAsset.getTranslatedName());
+		}
 		KingdomBanner[] array = pTooltip.transform.FindAllRecursive<KingdomBanner>();
 		for (int i = 0; i < array.Length; i++)
 		{
-			array[i].load(kingdom);
+			TryLoadKingdomBanner(array[i], kingdom);
 		}
 		TooltipKingdomTraitsRow componentInChildren = pTooltip.GetComponentInChildren<TooltipKingdomTraitsRow>(includeInactive: true);
 		if (componentInChildren != null)
@@ -221,7 +226,7 @@ public static class EmpireCraftTooltipLibrary
         KingdomBanner[] array = pTooltip.transform.FindAllRecursive<KingdomBanner>();
         for (int i = 0; i < array.Length; i++)
         {
-            array[i].load(tKingdom);
+            TryLoadKingdomBanner(array[i], tKingdom);
         }
         long explicitEmpireId;
         Empire pEmpire = long.TryParse(pData.tip_description, out explicitEmpireId)
@@ -279,6 +284,32 @@ public static class EmpireCraftTooltipLibrary
             LM.Get(tKingdom.GetKingdomType().ToString()), "#8FE7FF", true);
         AddTooltipLine(pTooltip, "empire_tooltip_province_titles",
             GetOwnedTitleNames(tKingdom.king, null), "#FFD34E", true);
+    }
+
+    private static bool TryLoadKingdomBanner(KingdomBanner banner, Kingdom kingdom)
+    {
+        if (banner == null || kingdom?.data == null) return false;
+        try
+        {
+            banner.load(kingdom);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            kingdom.generateBanner();
+            try
+            {
+                banner.load(kingdom);
+                return true;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                kingdom.data.banner_background_id = 0;
+                kingdom.data.banner_icon_id = 0;
+                banner.gameObject.SetActive(false);
+                return false;
+            }
+        }
     }
 
     private static TemporaryFaction GetRunningClaim(Empire empire, Regime regime)

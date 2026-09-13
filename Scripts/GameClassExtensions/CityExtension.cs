@@ -69,6 +69,10 @@ public static class CityExtension
         public int cached_warriors = 0;
         public int cached_population = 0;
         public double last_cached_timestamp = -1L;
+        public int city_value = 0;
+        public float city_value_distance_to_core = 0f;
+        public bool city_value_isolated = false;
+        public double last_city_value_timestamp = -1L;
         public double last_army_check_ts = -1L;
         public double last_law_scan_ts = -1L;
         [JsonConverter(typeof(OccupiedStatusConverter))]
@@ -1501,6 +1505,116 @@ public static class CityExtension
     public static int GetMoney(this City c)
     {
         return c.GetOrCreate().Money;
+    }
+
+    public static CityValueSnapshot GetCityStrategicValue(this City city)
+    {
+        if (city == null || city.isRekt() || city.kingdom == null) return default;
+        CityExtraData data = city.GetOrCreate();
+        if (data.last_city_value_timestamp >= 0 && World.world != null &&
+            Date.getYearsSince(data.last_city_value_timestamp) < 1)
+        {
+            return new CityValueSnapshot
+            {
+                Total = data.city_value,
+                IsIsolated = data.city_value_isolated,
+                DistanceToCore = data.city_value_distance_to_core
+            };
+        }
+
+        Kingdom kingdom = city.kingdom;
+        GetCityValueContext(kingdom, out Vector2 qualityCenter, out float coreRadius);
+        Vector2 cityPosition = GetCityValuePosition(city);
+        Vector2 capitalPosition = GetCityValuePosition(kingdom.capital);
+        float distanceToCore = Mathf.Min(Vector2.Distance(cityPosition, capitalPosition),
+            Vector2.Distance(cityPosition, qualityCenter));
+        CityValueSnapshot value = CityValueRules.Evaluate(city.countUnits(), city.GetMoney(), distanceToCore,
+            coreRadius, !city.IsConnectedToKingdomCapital());
+        data.city_value = value.Total;
+        data.city_value_distance_to_core = value.DistanceToCore;
+        data.city_value_isolated = value.IsIsolated;
+        data.last_city_value_timestamp = World.world?.getCurWorldTime() ?? -1L;
+        return value;
+    }
+
+    public static void InvalidateCityStrategicValue(this City city)
+    {
+        if (city == null) return;
+        city.GetOrCreate().last_city_value_timestamp = -1L;
+    }
+
+    public static void InvalidateCityValueContext(this Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.isRekt()) return;
+        kingdom.GetOrCreate().last_city_value_context_timestamp = -1L;
+    }
+
+    public static bool IsConnectedToKingdomCapital(this City city)
+    {
+        Kingdom kingdom = city?.kingdom;
+        City capital = kingdom?.capital;
+        if (city == null || capital == null || kingdom == null) return false;
+        if (city == capital) return true;
+        if (city.neighbours_cities == null) return false;
+
+        var visited = new HashSet<long> { city.id };
+        var queue = new Queue<City>();
+        queue.Enqueue(city);
+        while (queue.Count > 0)
+        {
+            City current = queue.Dequeue();
+            if (current == capital) return true;
+            if (current?.neighbours_cities == null) continue;
+            foreach (City neighbour in current.neighbours_cities)
+            {
+                if (neighbour == null || neighbour.isRekt() || neighbour.kingdom != kingdom ||
+                    !visited.Add(neighbour.id)) continue;
+                queue.Enqueue(neighbour);
+            }
+        }
+        return false;
+    }
+
+    private static void GetCityValueContext(Kingdom kingdom, out Vector2 qualityCenter, out float coreRadius)
+    {
+        var data = kingdom.GetOrCreate();
+        if (data.last_city_value_context_timestamp >= 0 && World.world != null &&
+            Date.getYearsSince(data.last_city_value_context_timestamp) < 1)
+        {
+            qualityCenter = data.city_value_quality_center;
+            coreRadius = data.city_value_core_radius;
+            return;
+        }
+
+        Vector2 total = Vector2.zero;
+        float totalWeight = 0f;
+        foreach (City candidate in kingdom.cities)
+        {
+            if (candidate == null || candidate.isRekt()) continue;
+            float weight = 1f + Mathf.Sqrt(Mathf.Max(0, candidate.countUnits())) +
+                           Mathf.Sqrt(Mathf.Max(0, candidate.GetMoney())) * 0.25f;
+            total += GetCityValuePosition(candidate) * weight;
+            totalWeight += weight;
+        }
+        qualityCenter = totalWeight > 0f ? total / totalWeight : GetCityValuePosition(kingdom.capital);
+
+        float weightedDistance = 0f;
+        foreach (City candidate in kingdom.cities)
+        {
+            if (candidate == null || candidate.isRekt()) continue;
+            float weight = 1f + Mathf.Sqrt(Mathf.Max(0, candidate.countUnits())) +
+                           Mathf.Sqrt(Mathf.Max(0, candidate.GetMoney())) * 0.25f;
+            weightedDistance += Vector2.Distance(GetCityValuePosition(candidate), qualityCenter) * weight;
+        }
+        coreRadius = Mathf.Max(24f, totalWeight > 0f ? weightedDistance / totalWeight : 24f);
+        data.city_value_quality_center = qualityCenter;
+        data.city_value_core_radius = coreRadius;
+        data.last_city_value_context_timestamp = World.world?.getCurWorldTime() ?? -1L;
+    }
+
+    private static Vector2 GetCityValuePosition(City city)
+    {
+        return city?.getTile()?.posV ?? Vector2.zero;
     }
 
     public static void AddMoney(this City c, int money)

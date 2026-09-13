@@ -28,6 +28,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         private TextInput _empireNameInput;
         private Empire _empire;
         private readonly Dictionary<string, GameObject> _groups = new Dictionary<string, GameObject>();
+        private int _renderGeneration;
 
         private Dictionary<string, Text> _infosTrans = new Dictionary<string, Text>();
 
@@ -40,9 +41,10 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
         public void Clear()
         {
+            _renderGeneration++;
             foreach (var container in _groups)
             {
-                Destroy(container.Value);
+                if (container.Value != null) Destroy(container.Value);
             }
             _groups.Clear();
         }
@@ -164,21 +166,30 @@ namespace EmpireCraft.Scripts.UI.Windows
         //显示势力范围
         public IEnumerator ShowKingdomList()
         {
-            if (_empire?.CoreKingdom == null || _empire.CoreKingdom.isRekt()) yield break;
             Clear();
+            if (_empire?.CoreKingdom == null || _empire.CoreKingdom.isRekt()) yield break;
+            int renderGeneration = _renderGeneration;
+            Empire renderedEmpire = _empire;
             InitialTopPartInfo();
             var parent = CommonInitial("empire_controlled_kingdoms");
             if (parent == null) yield break;
             yield return CoroutineHelper.wait_for_next_frame;
-            if (parent == null || parent.gameObject == null) yield break;
-            UIHelper.InitialFactionSpace(parent.BeginHoriGroup(), _empire.CoreKingdom);
+            if (!IsCurrentRender(renderGeneration, renderedEmpire, parent)) yield break;
+            try
+            {
+                UIHelper.InitialFactionSpace(parent.BeginHoriGroup(), renderedEmpire.CoreKingdom);
+            }
+            catch (Exception exception)
+            {
+                NeoModLoader.services.LogService.LogError($"帝国派系界面绘制失败，继续显示行政区: {exception}");
+            }
             yield return CoroutineHelper.wait_for_next_frame;
-            if (parent == null || parent.gameObject == null) yield break;
+            if (!IsCurrentRender(renderGeneration, renderedEmpire, parent)) yield break;
             parent.AddTextIntoVertLayout("", true, TextAnchor.MiddleCenter);
             parent.AddTextIntoVertLayout(LM.Get("kingdom_list"), true, TextAnchor.MiddleCenter);
             yield return CoroutineHelper.wait_for_next_frame;
-            if (parent == null || parent.gameObject == null) yield break;
-            StartCoroutine(ShowKingdoms(parent));
+            if (!IsCurrentRender(renderGeneration, renderedEmpire, parent)) yield break;
+            yield return ShowKingdoms(parent, renderGeneration, renderedEmpire);
         }
         //显示君主世系
         public void ShowEmperors(WindowMetaTab pArg0)
@@ -282,21 +293,35 @@ namespace EmpireCraft.Scripts.UI.Windows
             ScrollWindow.showWindow(nameof(EmpireBeaurauWindow));
         }
 
-        public IEnumerator ShowKingdoms(AutoVertLayoutGroup parent)
+        public IEnumerator ShowKingdoms(AutoVertLayoutGroup parent, int renderGeneration, Empire renderedEmpire)
         {
-            
-            foreach (var e in _empire.kingdoms_list)
+            foreach (var e in renderedEmpire.kingdoms_list.ToList())
             {
+                if (!IsCurrentRender(renderGeneration, renderedEmpire, parent)) yield break;
+                if (e == null || e.isRekt()) continue;
                 PrepareKingdom(e, parent);
                 yield return CoroutineHelper.wait_for_next_frame;
             }
         }
 
+        private bool IsCurrentRender(int generation, Empire renderedEmpire, AutoVertLayoutGroup parent)
+        {
+            return generation == _renderGeneration && renderedEmpire != null && renderedEmpire == _empire &&
+                   !renderedEmpire.isRekt() && parent != null && parent.gameObject != null;
+        }
+
         public void PrepareKingdom(Kingdom e, AutoVertLayoutGroup parent)
         {
+            if (e == null || e.isRekt() || parent == null) return;
             GameObject kingdomListElement = PrefabHelper.FindPrefabByName("list_element_kingdom");
+            if (kingdomListElement == null) return;
             GameObject inst = GameObject.Instantiate(kingdomListElement);
             KingdomListElement kl = inst.GetComponent<KingdomListElement>();
+            if (kl == null)
+            {
+                Destroy(inst);
+                return;
+            }
             kl.kingdomName.text = e.GetKingdomFullName();
             kl.textAge._text.text = e.getAge().ToString();
             kl.textPopulation._text.text = e.countUnits().ToString();
@@ -318,10 +343,13 @@ namespace EmpireCraft.Scripts.UI.Windows
             layout.spacing = 3;
             layout.padding = new RectOffset(3, 3, 70, 3);
             _empire = EmpireCraftMetaTypeLibrary.selected_empire;
+            if (_empire == null || _empire.isRekt())
+            {
+                Clear();
+                return;
+            }
             _empireNameInput.input.text = _empire.GetEmpireName();
-            Clear();
             InitialTabButtons();
-            ShowTopPart();
             StartCoroutine(ShowKingdomList());
         }
         public override void OnNormalEnable()
@@ -330,11 +358,20 @@ namespace EmpireCraft.Scripts.UI.Windows
             layout.spacing = 3;
             layout.padding = new RectOffset(3, 3, 70, 3);
             _empire = EmpireCraftMetaTypeLibrary.selected_empire;
+            if (_empire == null || _empire.isRekt())
+            {
+                Clear();
+                return;
+            }
             _empireNameInput.input.text = _empire.GetEmpireName();
-            Clear();
             InitialTabButtons();
-            ShowTopPart();
             StartCoroutine(ShowKingdomList());
+        }
+
+        public override void OnNormalDisable()
+        {
+            base.OnNormalDisable();
+            Clear();
         }
 
         public void ListPastEmperor(EmpireCraftStatsRow statsRow, EmpireCraftHistory history)

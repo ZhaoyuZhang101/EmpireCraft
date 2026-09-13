@@ -3,6 +3,7 @@ using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 
 namespace EmpireCraft.Scripts.AI.CityAI;
@@ -38,9 +39,10 @@ public class EmpireCraftCityBehCheckReligion: GameAICityBase
                         return BehResult.Continue;
                     }
                 }
-                ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(pCity);
-                pCity.kingdom?.SetMainTitle(pCity.GetTitle());
-                pCity.kingdom?.king.AddOwnedTitle(pCity.GetTitle());
+                KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(pCity);
+                if (title == null) return BehResult.Continue;
+                pCity.kingdom?.SetMainTitle(title);
+                pCity.kingdom?.king?.AddOwnedTitle(title);
             }
         }
         return BehResult.Continue;

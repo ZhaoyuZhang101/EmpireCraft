@@ -55,7 +55,7 @@ public class NameplateTextPatch:GamePatch
                     break;
                 case MetaType.City:
                     City city = pMeta as City;
-                    if (city == null || city.isRekt())
+                    if (city == null || city.isRekt() || __instance._banner_city == null)
                     {
                         __instance.setShowing(false);
                         break;
@@ -63,7 +63,14 @@ public class NameplateTextPatch:GamePatch
                     __instance._show_banner_city = true;
                     __instance._banner_city.enabled = true;
                     __instance._banner_city.gameObject.SetActive(true);
-                    __instance._banner_city.load(city);
+                    try
+                    {
+                        __instance._banner_city.load(city);
+                    }
+                    catch
+                    {
+                        __instance.setShowing(false);
+                    }
                     break;
                 case MetaTypeExtension.KingdomTitle:
                     City capital = pMeta as City;

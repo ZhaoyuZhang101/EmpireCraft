@@ -43,6 +43,8 @@
     "EmpireText": "帝国",
     "CountryLevel": "国家级别",
     "City": "县",
+    "city_value": "城市价值",
+    "city_value_isolated": "飞地",
     "Clan": "氏",
     "great": "大",
     "empire_prefix_holy": "神圣",
