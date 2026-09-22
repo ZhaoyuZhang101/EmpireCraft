@@ -7,6 +7,9 @@ public class EmpireCore
     public long id { get; set; }
     public long empire_id { get; set; } = -1L;
     public long culture { get; set; }
+    // Stable EmpireCraft culture key inherited by de jure kingdom titles.
+    public string default_culture { get; set; } = "";
+    public bool culture_locked { get; set; }
     public string name { get; set; }
     public double create_timestamp { get; set; }
     public long CoreCapital { get; set; }

@@ -52,7 +52,7 @@ public enum TemporaryFactionType
     劫掠,
     [Description("开启对外扩张战争")]
     对外扩张,
-    汉化,
+    文化同化,
     收回地盘,
     开放移民,
     谋求统一,
@@ -76,5 +76,7 @@ public enum TemporaryFactionType
     [Description("将税收的一部分用来供养宗室,获得供养的宗室生育率会提高")]
     供养宗室,
     禁党,
-    国_打击贪腐
+    国_打击贪腐,
+    [Description("当某一文化已经成为首都及至少三分之二城市的主流文化，但还不是法理的默认文化时，融入派系可发起决议将其定为法理默认文化")]
+    文化转化
 }

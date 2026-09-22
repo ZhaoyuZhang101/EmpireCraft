@@ -46,6 +46,9 @@ public class EmpireCraftActorCheckWarrior : GameAIActorBase
     private const int FertilityInitialMaxDelayFrames = 600;
 
     private static readonly Dictionary<long, int> _nextFertilityCheckFrame = new();
+    private static readonly List<long> _staleFertilityActorIds = new();
+    private const int FertilitySchedulePruneFrames = 1800;
+    private static int _nextFertilitySchedulePruneFrame = -1;
 
     // 只 snapshot Army 列表；不 snapshot 全世界人口。
     private static List<Army> _fertilityArmySnapshot = new();
@@ -99,6 +102,23 @@ public class EmpireCraftActorCheckWarrior : GameAIActorBase
 
     private static readonly Queue<KingdomRecruitJob> _recruitJobs = new();
     private static readonly HashSet<long> _queuedRecruitKingdomIds = new();
+
+    public static void ClearRuntimeState()
+    {
+        _emergencyConscripts.Clear();
+        _demobilizationCheckRequested = false;
+        _demobilizationCheckFrame = -1;
+        _nextFertilityCheckFrame.Clear();
+        _staleFertilityActorIds.Clear();
+        _nextFertilitySchedulePruneFrame = -1;
+        _fertilityArmySnapshot = new List<Army>();
+        _fertilityArmyIndex = 0;
+        _fertilityUnitIndex = 0;
+        _fertilitySnapshotRefreshFrame = -1;
+        _lastRecruitQueueProcessFrame = -1;
+        _recruitJobs.Clear();
+        _queuedRecruitKingdomIds.Clear();
+    }
 
     public override BehResult execute(Actor pActor)
     {
@@ -584,6 +604,7 @@ public class EmpireCraftActorCheckWarrior : GameAIActorBase
 
     private static void ProcessSoldierFertilityBudget()
     {
+        PruneFertilityScheduleIfNeeded();
         RefreshFertilityArmySnapshotIfNeeded();
 
         if (_fertilityArmySnapshot == null ||
@@ -630,6 +651,49 @@ public class EmpireCraftActorCheckWarrior : GameAIActorBase
             budget--;
 
             TrySoldierPregnancyIndependent(actor);
+        }
+    }
+
+    private static void PruneFertilityScheduleIfNeeded()
+    {
+        int frame = Time.frameCount;
+        if (_nextFertilitySchedulePruneFrame >= 0 && frame < _nextFertilitySchedulePruneFrame)
+        {
+            return;
+        }
+
+        _nextFertilitySchedulePruneFrame = frame + FertilitySchedulePruneFrames;
+        _staleFertilityActorIds.Clear();
+        foreach (var pair in _nextFertilityCheckFrame)
+        {
+            Actor actor = null;
+            try
+            {
+                actor = World.world?.units?.get(pair.Key);
+            }
+            catch
+            {
+                actor = null;
+            }
+
+            if (actor == null || !actor.isAlive() || actor.isRekt() || !actor.isWarrior())
+            {
+                _staleFertilityActorIds.Add(pair.Key);
+            }
+        }
+
+        for (int i = 0; i < _staleFertilityActorIds.Count; i++)
+        {
+            _nextFertilityCheckFrame.Remove(_staleFertilityActorIds[i]);
+        }
+        _staleFertilityActorIds.Clear();
+
+        foreach (Actor actor in _emergencyConscripts.ToList())
+        {
+            if (actor == null || !actor.isAlive() || actor.isRekt())
+            {
+                _emergencyConscripts.Remove(actor);
+            }
         }
     }
 

@@ -126,6 +126,30 @@ public class EmpireData : MetaObjectData
     public int annual_power_economy { get; set; } = 0;
     public double annual_power_index { get; set; } = 0d;
     public double last_national_power_timestamp { get; set; } = -1L;
+    [DefaultValue(-1L)]
+    public long legitimacy_rival_empire_id { get; set; } = -1L;
+    public bool legitimacy_rivalry_recognized { get; set; } = false;
+    public bool legitimacy_challenger { get; set; } = false;
+    public bool auto_enfeoff_tracking_initialized { get; set; } = false;
+    public List<long> auto_enfeoff_observed_title_ids { get; set; } = new List<long>();
+    public List<long> auto_enfeoff_observed_city_ids { get; set; } = new List<long>();
+    public double last_auto_enfeoff_check_timestamp { get; set; } = -1L;
+    public string conquest_founder_culture { get; set; } = "";
+    public string ruling_culture { get; set; } = "";
+    public string institutional_culture { get; set; } = "";
+    public string external_identity_culture { get; set; } = "";
+    public string military_tradition { get; set; } = "";
+    public CompositeEmpireIntegrationStage composite_integration_stage { get; set; } = CompositeEmpireIntegrationStage.None;
+    public int composite_integration { get; set; } = 0;
+    public int central_plains_legitimacy { get; set; } = 0;
+    public int ruling_tradition_legitimacy { get; set; } = 0;
+    public double composite_identity_adopted_timestamp { get; set; } = -1L;
+    public double last_composite_identity_update_timestamp { get; set; } = -1L;
+    public bool composite_cultural_name_adopted { get; set; } = false;
+    public string composite_cultural_name { get; set; } = "";
+    public string composite_cultural_name_culture { get; set; } = "";
+    public string composite_cultural_name_source { get; set; } = "";
+    public double composite_cultural_name_adopted_timestamp { get; set; } = -1L;
 }
 
 public enum RoyalFeedLevel

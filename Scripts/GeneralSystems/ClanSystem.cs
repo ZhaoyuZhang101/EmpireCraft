@@ -11,6 +11,7 @@ using NeoModLoader.services;
 using Newtonsoft.Json;
 using UnityEngine;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.System;
 public enum SpecificClanType
@@ -935,7 +936,8 @@ public class PersonalClanIdentity
         recordedAge = a.getAge();
         species = a.asset.id;
         is_main = true;
-        culture = ConfigData.speciesCulturePair.TryGetValue(species, out string culturePair)? culturePair:"Western";
+        culture = CultureService.GetActorCulture(a);
+        if (!CultureService.IsValidCulture(culture)) culture = "Western";
         generation = 0;
     }
 
@@ -945,9 +947,10 @@ public class PersonalClanIdentity
     }
     public void recordAllInfo()
     {
-        culture = ConfigData.speciesCulturePair.TryGetValue(species, out string culturePair)? culturePair:"Western";
         Actor actor = _actor;
         if (actor == null) return;
+        culture = CultureService.GetActorCulture(actor);
+        if (!CultureService.IsValidCulture(culture)) culture = "Western";
         recordedAge = actor.getAge();
         OfficeIdentity identity = null;
         if (actor.hasCity())

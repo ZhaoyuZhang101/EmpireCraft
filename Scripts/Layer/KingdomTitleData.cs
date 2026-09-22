@@ -43,4 +43,16 @@ public class KingdomTitleData: MetaObjectData
     public double timestamp_been_controlled;
 
     public double timestamp_established_time;
+
+    // EmpireCraft culture key (for example Huaxia), not a vanilla species or Culture id.
+    public string culture = "";
+    public bool culture_explicit = false;
+    public bool culture_locked = false;
+    public double last_culture_check_timestamp = -1L;
+
+    // 每种文化在这个法理头衔/省份上出现过的名字：key 是文化 key。一旦某个文化记录过名字就
+    // 永久保留，只有玩家在法理界面手动删除才会清除，不会被文化转变逻辑自动覆盖或清空
+    // （见 CultureService.ResolveCulturalTitleName）。
+    public Dictionary<string, string> title_name_history = new Dictionary<string, string>();
+    public Dictionary<string, string> province_name_history = new Dictionary<string, string>();
 }

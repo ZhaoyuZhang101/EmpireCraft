@@ -20,6 +20,7 @@ using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
@@ -70,6 +71,9 @@ public class KingdomPatch : GamePatch
             maxCities += (int) __instance.king.stats["cities"];
         if (maxCities < 1)
             maxCities = 1;
+        // A ruler's legal domain is administered through its title and does not consume
+        // personal city capacity. Losing the title removes this allowance immediately.
+        maxCities += __instance.CountDeJureCapacityExemptCities();
         __result = maxCities;
         return false;
     }
@@ -201,13 +205,15 @@ public class KingdomPatch : GamePatch
         __instance.RememberInitialRandomKingdomName();
         __instance.SetLevel(4);
         __instance.SetEmpireID(-1L);
-        var culture = ConfigData.speciesCulturePair.TryGetValue(pActor.asset.id, out string speciesCulture)? speciesCulture : "Western";
-        RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
-            ? setting.regime
-            : RegimeType.Feudalism;
-        __instance.SetRegimeType(regimeType);
-        __instance.LoadRegime();
+        CultureService.ApplyFounderCulture(__instance, pActor);
         Regime regime = __instance.GetRegime();
+        if (regime == null)
+        {
+            __instance.SetRegimeType(RegimeType.Feudalism);
+            __instance.LoadRegime();
+            regime = __instance.GetRegime();
+        }
+        if (regime == null) return;
         regime.SetAllowDiplomacy(true);
         regime.SetAllowArmy(true);
     }

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.Compatibility;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
@@ -40,6 +42,7 @@ public static class EmpireCraftStrategicScheduler
     private static int _kingdomCursor;
     private static int _empireCursor;
     private static float _nextCompatibilityRefresh;
+    private static float _nextStatePrune;
 
     public static void Tick()
     {
@@ -56,6 +59,7 @@ public static class EmpireCraftStrategicScheduler
 
         int population = currentWorld.units?.Count ?? 0;
         double frameMilliseconds = Math.Max(0d, Time.unscaledDeltaTime * 1000d);
+        double elapsedSeconds = Math.Max(0d, Time.unscaledDeltaTime);
         double budgetMilliseconds = EmpireCraftFrameSchedulingRules.ResolveBudgetMilliseconds(
             ModClass.PERFORMANCE_HIGH_POPULATION_MODE, ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE,
             population, frameMilliseconds);
@@ -64,6 +68,34 @@ public static class EmpireCraftStrategicScheduler
             population);
         int maximumEmpires = EmpireCraftFrameSchedulingRules.ResolveMaximumEmpires(
             ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE, population);
+
+        var kingdomManager = currentWorld.kingdoms;
+        kingdomManager?.checkLists();
+        IList<Kingdom> kingdoms = kingdomManager?.list;
+        var empireManager = ModClass.EMPIRE_MANAGER;
+        empireManager?.checkLists();
+        IList<Empire> empires = empireManager?.list;
+
+        int kingdomCount = kingdoms?.Count ?? 0;
+        int empireCount = empires?.Count ?? 0;
+        if (realtime >= _nextStatePrune)
+        {
+            PruneStaleStates(kingdoms, empires);
+            _nextStatePrune = realtime + 10f;
+        }
+
+        maximumKingdoms = Math.Min(kingdomCount, maximumKingdoms);
+        maximumEmpires = Math.Min(empireCount, maximumEmpires);
+        int minimumKingdoms = ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE
+            ? EmpireCraftFrameSchedulingRules.ResolveMinimumItemsForSweep(kingdomCount, elapsedSeconds,
+                EmpireCraftFrameSchedulingRules.KingdomSweepTargetSeconds, 64)
+            : Math.Min(1, kingdomCount);
+        int minimumEmpires = ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE
+            ? EmpireCraftFrameSchedulingRules.ResolveMinimumItemsForSweep(empireCount, elapsedSeconds,
+                EmpireCraftFrameSchedulingRules.EmpireSweepTargetSeconds, 32)
+            : Math.Min(1, empireCount);
+        maximumKingdoms = Math.Max(maximumKingdoms, minimumKingdoms);
+        maximumEmpires = Math.Max(maximumEmpires, minimumEmpires);
         long started = Stopwatch.GetTimestamp();
 
         // Titles are internally sliced. Calling once per render frame avoids a full
@@ -73,20 +105,20 @@ public static class EmpireCraftStrategicScheduler
         int processedEmpires = 0;
         do
         {
-            if (!ProcessNextEmpire(realtime)) break;
+            if (!ProcessNextEmpire(realtime, empires)) break;
             processedEmpires++;
         }
-        while (EmpireCraftFrameSchedulingRules.CanContinue(processedEmpires, 1, maximumEmpires,
+        while (EmpireCraftFrameSchedulingRules.CanContinue(processedEmpires, minimumEmpires, maximumEmpires,
             ElapsedMilliseconds(started), Math.Max(MinimumEmpireBudgetMilliseconds,
                 budgetMilliseconds * EmpireBudgetShare)));
 
         int processed = 0;
         do
         {
-            if (!ProcessNextKingdom(realtime)) break;
+            if (!ProcessNextKingdom(realtime, kingdoms)) break;
             processed++;
         }
-        while (EmpireCraftFrameSchedulingRules.CanContinue(processed, 1, maximumKingdoms,
+        while (EmpireCraftFrameSchedulingRules.CanContinue(processed, minimumKingdoms, maximumKingdoms,
             ElapsedMilliseconds(started), budgetMilliseconds));
     }
 
@@ -101,16 +133,75 @@ public static class EmpireCraftStrategicScheduler
         _kingdomCursor = 0;
         _empireCursor = 0;
         _nextCompatibilityRefresh = 0f;
+        _nextStatePrune = 0f;
         KingdomStates.Clear();
         EmpireStates.Clear();
         FaultRetryTimes.Clear();
     }
 
-    private static bool ProcessNextKingdom(float realtime)
+    private static void PruneStaleStates(IList<Kingdom> kingdoms, IList<Empire> empires)
     {
-        var manager = World.world?.kingdoms;
-        manager?.checkLists();
-        var kingdoms = manager?.list;
+        HashSet<long> liveKingdomIds = new HashSet<long>();
+        if (kingdoms != null)
+        {
+            for (int i = 0; i < kingdoms.Count; i++)
+            {
+                Kingdom kingdom = kingdoms[i];
+                if (kingdom != null && !kingdom.isRekt())
+                {
+                    liveKingdomIds.Add(kingdom.id);
+                }
+            }
+        }
+
+        HashSet<long> liveEmpireIds = new HashSet<long>();
+        if (empires != null)
+        {
+            for (int i = 0; i < empires.Count; i++)
+            {
+                Empire empire = empires[i];
+                if (empire != null && !empire.IsArchived() && !empire.isRekt())
+                {
+                    liveEmpireIds.Add(empire.id);
+                }
+            }
+        }
+
+        foreach (long key in KingdomStates.Keys.ToList())
+        {
+            if (!liveKingdomIds.Contains(key))
+            {
+                KingdomStates.Remove(key);
+            }
+        }
+
+        foreach (long key in EmpireStates.Keys.ToList())
+        {
+            if (!liveEmpireIds.Contains(key))
+            {
+                EmpireStates.Remove(key);
+            }
+        }
+
+        foreach (long key in FaultRetryTimes.Keys.ToList())
+        {
+            if (liveKingdomIds.Contains(key))
+            {
+                continue;
+            }
+
+            long empireId = unchecked(key - long.MinValue);
+            if (liveEmpireIds.Contains(empireId))
+            {
+                continue;
+            }
+
+            FaultRetryTimes.Remove(key);
+        }
+    }
+
+    private static bool ProcessNextKingdom(float realtime, IList<Kingdom> kingdoms)
+    {
         if (kingdoms == null || kingdoms.Count == 0) return false;
         if (_kingdomCursor >= kingdoms.Count) _kingdomCursor = 0;
         Kingdom kingdom = kingdoms[_kingdomCursor++];
@@ -136,6 +227,8 @@ public static class EmpireCraftStrategicScheduler
                 double now = World.world.getCurWorldTime();
                 state.LastStrategicWorldTime = now;
                 KingdomTypeCheck.execute(kingdom);
+                CultureService.UpdateCityCultureShiftCandidates(kingdom);
+                CultureService.UpdateCulturalAssimilationDuty(kingdom);
                 PlotCheck.execute(kingdom);
                 TemporaryFactionCheck.execute(kingdom);
                 ReligionKingdomCheck.execute(kingdom);
@@ -174,11 +267,8 @@ public static class EmpireCraftStrategicScheduler
     private const double EmpireBudgetShare = 0.35d;
     private const double MinimumEmpireBudgetMilliseconds = 0.25d;
 
-    private static bool ProcessNextEmpire(float realtime)
+    private static bool ProcessNextEmpire(float realtime, IList<Empire> empires)
     {
-        var manager = ModClass.EMPIRE_MANAGER;
-        manager?.checkLists();
-        var empires = manager?.list;
         if (empires == null || empires.Count == 0) return false;
         if (_empireCursor >= empires.Count) _empireCursor = 0;
         Empire empire = empires[_empireCursor++];

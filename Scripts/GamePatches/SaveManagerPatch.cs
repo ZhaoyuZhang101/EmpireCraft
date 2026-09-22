@@ -13,6 +13,9 @@ using System.Collections;
 using UnityEngine;
 using Newtonsoft.Json;
 using System.IO;
+using EmpireCraft.Scripts.AI.ActorAI;
+using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class SaveManagerPatch : GamePatch
@@ -56,21 +59,22 @@ public class SaveManagerPatch : GamePatch
     {
         ModClass.IS_CLEAR = true;
         DBManagerPatch.AllClear();
+        ClearPersistentWorldState();
+        ClearRuntimeState();
     }
 
     public static bool save_mod_data(SaveManager __instance, string pFolder, bool pCompress)
     {
-        if (ModClass.SAVE_FREEZE)
-        {
-            return false;
-        }
-        DataManager.SaveAll(pFolder);
-
         if (string.IsNullOrEmpty(pFolder))
         {
             LogService.LogError("保存路径为空，无法保存mod数据");
             return true;
         }
+        if (ModClass.SAVE_FREEZE)
+        {
+            return false;
+        }
+        DataManager.SaveAll(pFolder);
         return true;
 
     }    
@@ -81,10 +85,13 @@ public class SaveManagerPatch : GamePatch
         ActorPatch.isReadyToSet = false;
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
+        ClearPersistentWorldState();
+        ClearRuntimeState();
 
         if (pData == null)
         {
             LogService.LogError("数据为空，无法加载mod数据");
+            ModClass.IS_CLEAR = false;
             return;
         }
         SmoothLoader.add(delegate
@@ -97,7 +104,27 @@ public class SaveManagerPatch : GamePatch
             {
                 LogService.LogError("加载mod数据失败: " + ex.ToString());
             }
+            finally
+            {
+                ModClass.IS_CLEAR = false;
+            }
         }, "LOADING EMPIRE MOD DATA", false, 0.001f);
-        ModClass.IS_CLEAR = false;
+    }
+
+    private static void ClearRuntimeState()
+    {
+        EmpireCraftStrategicScheduler.Reset();
+        KingdomFrontLineHelper.ClearCache();
+        EmpireCraftActorCheckWarrior.ClearRuntimeState();
+        EmpireCraftActorCheckWarriorMove.ClearRuntimeState();
+        EmpireCraftActorCheckWarriorMoveAdvanced.ClearRuntimeState();
+    }
+
+    private static void ClearPersistentWorldState()
+    {
+        ModClass.ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
+        SpecificClanManager._specificClans = new List<SpecificClan>();
+        SpecificClanManager.RebuildCache();
+        EmpireCoreManager.EmpireCores = new Dictionary<long, EmpireCore>();
     }
 }

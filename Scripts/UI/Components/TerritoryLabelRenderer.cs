@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using EmpireCraft;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using UnityEngine;
@@ -41,9 +42,10 @@ public static class TerritoryLabelRenderer
 {
     private const float GeometryRefreshInterval = 0.75f;
     private const float LatinOutlineDistance = 8f;
+    private const float CollisionSeparationPixels = 2f;
     private static readonly Dictionary<string, RuntimeLabel> _labels = new Dictionary<string, RuntimeLabel>();
     private static readonly List<RuntimeLabel> _render_order = new List<RuntimeLabel>();
-    private static readonly List<Rect> _occupied_label_bounds = new List<Rect>();
+    private static readonly List<ScreenLabelBounds> _occupied_label_bounds = new List<ScreenLabelBounds>();
     private static TerritoryLabelRendererHost _host;
     private static RectTransform _root;
     private static Text _text_template;
@@ -51,7 +53,10 @@ public static class TerritoryLabelRenderer
     private static bool _clerical_font_resolved;
     private static Font _latin_font;
     private static bool _latin_font_resolved;
+    private static Sprite _culture_lock_sprite;
+    private static Texture2D _culture_lock_texture;
     private static int _submission_frame = -1;
+    private static MetaType _submission_mode = MetaType.None;
 
     private static readonly string[] ClericalFontNames =
     {
@@ -118,7 +123,7 @@ public static class TerritoryLabelRenderer
 
     public static void RenderLawLayer(int zoneOptionState)
     {
-        BeginFrame();
+        BeginFrame(MetaTypeExtension.KingdomTitle);
         City hoveredCity = World.world?.getMouseTilePosCachedFrame()?.zone_city;
         // A city cache can be stale after an old-save load or a title reassignment.
         // The title remains the authoritative source for an imperial administrative area.
@@ -153,24 +158,28 @@ public static class TerritoryLabelRenderer
 
             // Expanded imperial subjects must remain visible even if their bounds cross the faded empire label
             // (or another expanded subject label). Other labels keep the normal anti-overlap behaviour.
+            bool showCultureLock = title.data.culture_locked &&
+                                   !CultureService.IsFixedDeJureCultureEnabled();
             SubmitCities($"law-kingdom:{title.id}", title.data.name, cities, KingdomStyle, fullyOpaque,
-                expandedByHover);
+                expandedByHover, showCultureLock);
         }
         EndFrame();
     }
 
-    public static void BeginFrame()
+    public static void BeginFrame(MetaType mode)
     {
         if (!EnsureHost()) return;
         _submission_frame = Time.frameCount;
+        _submission_mode = mode;
     }
 
     public static void SubmitCities(string id, string text, IEnumerable<City> cities, TerritoryLabelStyle style,
-        bool fullyOpaque = false, bool ignoreOverlap = false)
+        bool fullyOpaque = false, bool ignoreOverlap = false, bool showCultureLock = false)
     {
         if (string.IsNullOrWhiteSpace(id) || cities == null || !EnsureHost()) return;
         MarkSubmissionFrame();
-        GetOrCreateLabel(id).UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque, ignoreOverlap);
+        GetOrCreateLabel(id).UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque, ignoreOverlap,
+            showCultureLock);
     }
 
     public static void SubmitEmpireCore(string id, string text, EmpireCore core, TerritoryLabelStyle style,
@@ -254,18 +263,27 @@ public static class TerritoryLabelRenderer
     public static void HideAll()
     {
         foreach (RuntimeLabel label in _labels.Values) label.Hide();
+        _submission_frame = -1;
+        _submission_mode = MetaType.None;
     }
 
     internal static void HostLateUpdate(TerritoryLabelRendererHost host)
     {
         if (host != _host) return;
-        if (_submission_frame != Time.frameCount) { HideAll(); return; }
+        Canvas canvas = CanvasMain.instance == null ? null : CanvasMain.instance.canvas_map_names;
+        NameplateManager manager = canvas == null ? null : canvas.GetComponent<NameplateManager>();
+        if (_submission_frame < 0 || !Zones.showMapNames() || manager == null ||
+            manager.getCurrentMode() != _submission_mode)
+        {
+            HideAll();
+            return;
+        }
         _render_order.Clear();
         foreach (RuntimeLabel label in _labels.Values)
-            if (label.last_seen_frame == Time.frameCount) _render_order.Add(label);
+            if (label.last_seen_frame == _submission_frame) _render_order.Add(label);
         _render_order.Sort((left, right) => right.RenderPriority.CompareTo(left.RenderPriority));
         _occupied_label_bounds.Clear();
-        foreach (RuntimeLabel label in _render_order) label.RenderSubmitted();
+        foreach (RuntimeLabel label in _render_order) label.RenderSubmitted(_submission_frame);
     }
 
     internal static void HostDestroyed(TerritoryLabelRendererHost host)
@@ -277,6 +295,8 @@ public static class TerritoryLabelRenderer
         _labels.Clear();
         _render_order.Clear();
         _occupied_label_bounds.Clear();
+        _submission_frame = -1;
+        _submission_mode = MetaType.None;
     }
 
     private static void MarkSubmissionFrame()
@@ -343,6 +363,67 @@ public static class TerritoryLabelRenderer
         return _text_template;
     }
 
+    private static Sprite GetCultureLockSprite()
+    {
+        if (_culture_lock_sprite != null) return _culture_lock_sprite;
+
+        const int width = 12;
+        const int height = 14;
+        var pixels = new Color32[width * height];
+        Color32 outline = new Color32(67, 45, 12, 255);
+        Color32 gold = new Color32(235, 181, 48, 255);
+        Color32 highlight = new Color32(255, 226, 112, 255);
+
+        void Set(int x, int y, Color32 color)
+        {
+            if (x >= 0 && x < width && y >= 0 && y < height)
+                pixels[y * width + x] = color;
+        }
+
+        void Fill(int minX, int maxX, int minY, int maxY, Color32 color)
+        {
+            for (int y = minY; y <= maxY; y++)
+                for (int x = minX; x <= maxX; x++)
+                    Set(x, y, color);
+        }
+
+        Fill(1, 10, 1, 8, outline);
+        Fill(2, 9, 2, 7, gold);
+        Fill(2, 9, 7, 7, highlight);
+
+        Fill(4, 7, 13, 13, outline);
+        Fill(3, 8, 12, 12, outline);
+        Fill(4, 7, 12, 12, highlight);
+        for (int y = 9; y <= 11; y++)
+        {
+            Set(2, y, outline);
+            Set(3, y, gold);
+            Set(8, y, gold);
+            Set(9, y, outline);
+        }
+
+        Fill(5, 6, 4, 6, outline);
+        Set(5, 3, outline);
+        Set(6, 3, outline);
+
+        _culture_lock_texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+        {
+            name = "EmpireCraftCultureLock",
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp
+        };
+        _culture_lock_texture.SetPixels32(pixels);
+        _culture_lock_texture.Apply(false, true);
+        _culture_lock_sprite = Sprite.Create(
+            _culture_lock_texture,
+            new Rect(0f, 0f, width, height),
+            new Vector2(0.5f, 0.5f),
+            height
+        );
+        _culture_lock_sprite.name = "EmpireCraftCultureLock";
+        return _culture_lock_sprite;
+    }
+
     private sealed class RuntimeLabel
     {
         private const int MaxCandidateCenters = 48;
@@ -364,6 +445,7 @@ public static class TerritoryLabelRenderer
         private readonly Dictionary<int, bool> _small_gap_cache = new Dictionary<int, bool>();
         private TerritoryPlacement _placement;
         private Text _text;
+        private Image _culture_lock_badge;
         private TerritoryLabelGoldGradient _gold_gradient;
         private Outline _outline;
         private int _source_signature;
@@ -377,6 +459,7 @@ public static class TerritoryLabelRenderer
         private TerritoryLabelStyle _render_style;
         private bool _render_fully_opaque;
         private bool _render_ignore_overlap;
+        private bool _render_show_culture_lock;
         private bool _render_requested;
         private string _metrics_text;
         private FontStyle _metrics_style;
@@ -398,7 +481,7 @@ public static class TerritoryLabelRenderer
         public RuntimeLabel(string id) => _id = id;
 
         public void UpdateFromCities(string text, IEnumerable<City> cities, TerritoryLabelStyle style,
-            bool fullyOpaque, bool ignoreOverlap = false)
+            bool fullyOpaque, bool ignoreOverlap = false, bool showCultureLock = false)
         {
             text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
@@ -408,7 +491,7 @@ public static class TerritoryLabelRenderer
                 CollectCityZones(cities, _zones, _zone_ids);
                 RefreshZonePlacement(text, style, inputsChanged);
             }
-            QueueRender(text, style, fullyOpaque, ignoreOverlap);
+            QueueRender(text, style, fullyOpaque, ignoreOverlap, showCultureLock);
         }
 
         public void UpdateFromEmpireCore(string text, EmpireCore core, TerritoryLabelStyle style,
@@ -474,14 +557,18 @@ public static class TerritoryLabelRenderer
         {
             _render_requested = false;
             if (_text != null && _text.gameObject.activeSelf) _text.gameObject.SetActive(false);
+            if (_culture_lock_badge != null && _culture_lock_badge.gameObject.activeSelf)
+                _culture_lock_badge.gameObject.SetActive(false);
         }
 
-        private void QueueRender(string text, TerritoryLabelStyle style, bool fullyOpaque, bool ignoreOverlap = false)
+        private void QueueRender(string text, TerritoryLabelStyle style, bool fullyOpaque, bool ignoreOverlap = false,
+            bool showCultureLock = false)
         {
             _render_text = text;
             _render_style = style;
             _render_fully_opaque = fullyOpaque;
             _render_ignore_overlap = ignoreOverlap;
+            _render_show_culture_lock = showCultureLock;
             _render_requested = true;
         }
 
@@ -491,10 +578,12 @@ public static class TerritoryLabelRenderer
             return style?.wrap_english_name == true ? OverallHelperFunc.WrapEnglishDisplayName(text) : text;
         }
 
-        public void RenderSubmitted()
+        public void RenderSubmitted(int activeSubmissionFrame)
         {
-            if (last_seen_frame != Time.frameCount) { Hide(); return; }
-            if (_render_requested) Render(_render_text, _render_style, _render_fully_opaque, _render_ignore_overlap);
+            if (last_seen_frame != activeSubmissionFrame) { Hide(); return; }
+            if (_render_requested)
+                Render(_render_text, _render_style, _render_fully_opaque, _render_ignore_overlap,
+                    _render_show_culture_lock);
         }
 
         private bool PlacementInputsChanged(string text, TerritoryLabelStyle style)
@@ -534,7 +623,8 @@ public static class TerritoryLabelRenderer
             _placement_bridges_gaps = style.bridge_internal_gaps;
         }
 
-        private void Render(string value, TerritoryLabelStyle style, bool fullyOpaque, bool ignoreOverlap)
+        private void Render(string value, TerritoryLabelStyle style, bool fullyOpaque, bool ignoreOverlap,
+            bool showCultureLock)
         {
             if (!_placement.valid || string.IsNullOrWhiteSpace(value) || World.world?.camera == null)
             {
@@ -609,6 +699,9 @@ public static class TerritoryLabelRenderer
                 outlineDistance);
             float visibility = TerritoryLabelProjection.Visibility(scale, style.min_font_size);
             if (visibility <= 0f) { Hide(); return; }
+            float renderedFontPixels = scale * TerritoryLabelProjection.ReferenceFontSize * canvasScale;
+            bool displayCultureLock = showCultureLock && (fullyOpaque || renderedFontPixels >= 14f);
+            float lockReferenceSize = Mathf.Clamp(_reference_height * 0.26f, 20f, 40f);
             float textAlpha = (fullyOpaque ? 1f : style.text_color.a) * visibility;
             if (style.use_gold_gradient)
             {
@@ -634,15 +727,16 @@ public static class TerritoryLabelRenderer
             float rotation = Mathf.Atan2(alongDelta.y, alongDelta.x) * Mathf.Rad2Deg;
             float arcHeight = Mathf.Abs(_placement.curvature) * _reference_width * scale * canvasScale;
             float widthPixels = _reference_width * scale * canvasScale + outlineDistance * 2f;
+            if (displayCultureLock)
+                widthPixels += lockReferenceSize * scale * canvasScale * 1.45f;
             float heightPixels = _reference_height * scale * canvasScale + outlineDistance * 2f + arcHeight;
             float radians = rotation * Mathf.Deg2Rad;
             float boundWidth = Mathf.Abs(Mathf.Cos(radians)) * widthPixels +
                                Mathf.Abs(Mathf.Sin(radians)) * heightPixels;
             float boundHeight = Mathf.Abs(Mathf.Sin(radians)) * widthPixels +
                                 Mathf.Abs(Mathf.Cos(radians)) * heightPixels;
-            Rect screenBounds = Rect.MinMaxRect(centerScreen.x - boundWidth * 0.5f,
-                centerScreen.y - boundHeight * 0.5f, centerScreen.x + boundWidth * 0.5f,
-                centerScreen.y + boundHeight * 0.5f);
+            ScreenLabelBounds collisionBounds = new ScreenLabelBounds((Vector2)centerScreen,
+                widthPixels * 0.5f, heightPixels * 0.5f, radians);
             float screenCoverageVisibility = TerritoryLabelProjection.ScreenCoverageVisibility(
                 boundWidth / Mathf.Max(1f, Screen.width), boundHeight / Mathf.Max(1f, Screen.height));
             if (screenCoverageVisibility < 1f)
@@ -660,12 +754,12 @@ public static class TerritoryLabelRenderer
                 outlineColor.a *= screenCoverageVisibility;
                 _outline.effectColor = outlineColor;
             }
-            if (!ignoreOverlap && OverlapsSubmittedLabel(screenBounds))
+            if (!ignoreOverlap && OverlapsSubmittedLabel(collisionBounds))
             {
                 Hide();
                 return;
             }
-            _occupied_label_bounds.Add(screenBounds);
+            _occupied_label_bounds.Add(collisionBounds);
 
             rect.position = centerScreen;
             rect.localRotation = Quaternion.Euler(0f, 0f, rotation);
@@ -673,15 +767,17 @@ public static class TerritoryLabelRenderer
             TerritoryLabelArc arc = _text.GetComponent<TerritoryLabelArc>() ??
                                     _text.gameObject.AddComponent<TerritoryLabelArc>();
             arc.Configure(_placement.curvature);
+            UpdateCultureLockBadge(displayCultureLock, lockReferenceSize,
+                (fullyOpaque ? 1f : 0.78f) * visibility * screenCoverageVisibility);
             if (ignoreOverlap) rect.SetAsLastSibling();
             if (!_text.gameObject.activeSelf) _text.gameObject.SetActive(true);
             _text.enabled = true;
         }
 
-        private static bool OverlapsSubmittedLabel(Rect bounds)
+        private static bool OverlapsSubmittedLabel(ScreenLabelBounds bounds)
         {
             for (int i = 0; i < _occupied_label_bounds.Count; i++)
-                if (_occupied_label_bounds[i].Overlaps(bounds)) return true;
+                if (bounds.Overlaps(_occupied_label_bounds[i])) return true;
             return false;
         }
 
@@ -713,6 +809,49 @@ public static class TerritoryLabelRenderer
             _gold_gradient = textObject.AddComponent<TerritoryLabelGoldGradient>();
             _outline = textObject.AddComponent<Outline>();
             textObject.AddComponent<TerritoryLabelArc>();
+        }
+
+        private void UpdateCultureLockBadge(bool visible, float referenceSize, float alpha)
+        {
+            if (!visible)
+            {
+                if (_culture_lock_badge != null)
+                    _culture_lock_badge.gameObject.SetActive(false);
+                return;
+            }
+
+            if (_culture_lock_badge == null)
+            {
+                GameObject badgeObject = new GameObject(
+                    $"CultureLockBadge_{_id}",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image)
+                );
+                badgeObject.transform.SetParent(_text.transform, false);
+                _culture_lock_badge = badgeObject.GetComponent<Image>();
+                _culture_lock_badge.sprite = GetCultureLockSprite();
+                _culture_lock_badge.preserveAspect = true;
+                _culture_lock_badge.raycastTarget = false;
+
+                RectTransform badgeRect = _culture_lock_badge.rectTransform;
+                badgeRect.anchorMin = new Vector2(0.5f, 0.5f);
+                badgeRect.anchorMax = new Vector2(0.5f, 0.5f);
+                badgeRect.pivot = new Vector2(0.5f, 0.5f);
+            }
+
+            RectTransform rect = _culture_lock_badge.rectTransform;
+            rect.sizeDelta = new Vector2(referenceSize, referenceSize);
+            rect.anchoredPosition = new Vector2(
+                _reference_width * 0.5f + referenceSize * 0.8f,
+                _reference_height * 0.02f
+            );
+            rect.localRotation = Quaternion.identity;
+            rect.localScale = Vector3.one;
+            _culture_lock_badge.color = new Color(1f, 1f, 1f, Mathf.Clamp01(alpha));
+            _culture_lock_badge.transform.SetAsLastSibling();
+            if (!_culture_lock_badge.gameObject.activeSelf)
+                _culture_lock_badge.gameObject.SetActive(true);
         }
 
         private TerritoryPlacement BuildZonePlacement(List<TileZone> component, HashSet<int> zoneIds,
@@ -1132,6 +1271,30 @@ public static class TerritoryLabelRenderer
             }
             maxWidth = Mathf.Max(maxWidth, width);
             return Mathf.Clamp(maxWidth * 1.08f / Mathf.Max(1f, lineCount * 0.92f), 1.4f, 24f);
+        }
+    }
+
+    private readonly struct ScreenLabelBounds
+    {
+        private readonly Vector2 _center;
+        private readonly float _half_width;
+        private readonly float _half_height;
+        private readonly float _radians;
+
+        public ScreenLabelBounds(Vector2 center, float halfWidth, float halfHeight, float radians)
+        {
+            _center = center;
+            _half_width = halfWidth;
+            _half_height = halfHeight;
+            _radians = radians;
+        }
+
+        public bool Overlaps(ScreenLabelBounds other)
+        {
+            return TerritoryLabelProjection.OrientedRectanglesOverlap(
+                _center.x, _center.y, _half_width, _half_height, _radians,
+                other._center.x, other._center.y, other._half_width, other._half_height,
+                other._radians, CollisionSeparationPixels);
         }
     }
 

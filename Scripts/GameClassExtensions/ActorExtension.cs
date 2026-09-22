@@ -1146,7 +1146,8 @@ public static class ActorExtension
     
     public static void initializeActorName(this Actor a)
     {
-        string culture_name = GetCultureFromSpecies(a.getActorAsset().id);
+        string culture_name = CultureService.GetActorCulture(a);
+        if (!CultureService.IsValidCulture(culture_name)) culture_name = "Western";
         if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture_name, out Setting setting))
         {
             a.GetModName().Initialize(setting, culture_name);
@@ -1259,35 +1260,8 @@ public static class ActorExtension
 
     public static bool CanAcquireTitle(this Actor a)
     {
-        if (a.isKing())
-        {
-            Kingdom k = a.kingdom;
-            if (!k.CanPursueDeJureTitle()) return false;
-            foreach (City city in k.cities)
-            {
-                if (city.hasTitle())
-                {
-                    KingdomTitle title = city.GetTitle();
-                    if (title == null) continue;
-                    if (title.data == null)
-                    {
-                        ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
-                    }
-                    if (title.data != null && !a.GetOwnedTitle().Contains(title.data.id))
-                    {
-                        if (IsLvLingTitleProtected(title, a, out _)) continue;
-                        foreach(City tCity in title.city_list)
-                        {
-                            if (tCity.kingdom != k && tCity.kingdom.countTotalWarriors()<k.countTotalWarriors())
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return false;
+        return a != null && a.isKing() && a.kingdom != null &&
+               a.kingdom.CanPursueDeJureTitle() && a.getAcquireTitle().Any();
     }
 
     public static void UpgradeOfficial(this Actor a, bool merit = false, int direct = -1)
@@ -1386,7 +1360,8 @@ public static class ActorExtension
         if (string.IsNullOrEmpty(a.name)) return null;
         string[] nameParts = a.name.SplitNameParts();
 
-        if (ConfigData.speciesCulturePair.TryGetValue(a.asset.id, out var culture))
+        string culture = CultureService.GetActorCulture(a);
+        if (CultureService.IsValidCulture(culture))
         {
             if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
             {
@@ -1408,7 +1383,7 @@ public static class ActorExtension
     public static List<KingdomTitle> getAcquireTitle(this Actor a)
     {
         List<KingdomTitle> titles = new();
-        if (a.isKing())
+        if (a != null && a.isKing() && a.kingdom != null)
         {
             Kingdom k = a.kingdom;
             foreach (City city in k.cities)
@@ -1416,7 +1391,11 @@ public static class ActorExtension
                 if (city.hasTitle())
                 {
                     KingdomTitle title = city.GetTitle();
-                    if (!titles.Contains(title)&&!a.GetOwnedTitle().Contains(title.data.id))
+                    if (title?.data == null) continue;
+                    Kingdom holder = title?.FindRealmTitleHolder();
+                    if (title != null && !titles.Contains(title) &&
+                        !a.GetOwnedTitle().Contains(title.data.id) &&
+                        k.CanDeclareDeJureTitleWar(holder, title))
                     {
                         titles.Add(title);
                     }
@@ -1553,6 +1532,16 @@ public static class ActorExtension
         List<KingdomTitle> titles = GetTakeableTitles(a);
         foreach(KingdomTitle t in titles)
         {
+            if (kingdom.CanAcquireDeJureTitleWithoutWar(t))
+            {
+                Kingdom previousRealm = t.FindRealmTitleHolder();
+                if (kingdom.InheritRealmTitles(previousRealm, new[] { t.id }).Contains(t))
+                {
+                    takedTitles.Add(t);
+                    if (kingdom.GetMainTitle() == null) kingdom.SetMainTitle(t);
+                }
+                continue;
+            }
             if(t.HasOwner()&&t.owner.IsEmperor())
             {
                 a.AddAcquireTitle(t);
@@ -1587,14 +1576,9 @@ public static class ActorExtension
             .Where(title => title != null && !title.isRekt() && title.data != null)
             .ToHashSet();
 
-        foreach (City city in kingdom.cities)
+        foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER)
         {
-            KingdomTitle title = city?.GetTitle();
-            if (title == null || title.isRekt() || title.data == null || title.HasOwner()) continue;
-            List<City> titleCities = title.getCities().ToList();
-            if (titleCities.Count == 0) continue;
-            float controlledRatio = (float)titleCities.Intersect(kingdom.cities).Count() / titleCities.Count;
-            if (controlledRatio >= 0.5f) candidates.Add(title);
+            if (kingdom.CanAcquireDeJureTitleWithoutWar(title)) candidates.Add(title);
         }
 
         List<long> ownedTitles = actor.GetOwnedTitle();
@@ -1603,6 +1587,9 @@ public static class ActorExtension
         {
             if (ownedTitles.Contains(title.id)) return false;
             if (IsLvLingTitleProtected(title, actor, out _)) return false;
+            if (kingdom.CanAcquireDeJureTitleWithoutWar(title)) return true;
+            Kingdom realmHolder = title.FindRealmTitleHolder();
+            if (realmHolder != null && realmHolder != kingdom) return false;
             if (!title.HasOwner() || !title.owner.IsEmperor()) return true;
             return title.owner.id != actor.id && !acquiredTitles.Contains(title.id);
         }).ToList();
@@ -1748,7 +1735,8 @@ public static class ActorExtension
             return a.GetTitle() + emperorSuffix;
         }
 
-        string peerageKey = data.virtual_enfeoff_peerage_key;
+        bool honorary = a.HasHonoraryPeerage();
+        string peerageKey = honorary ? data.honorary_peerage_key : data.virtual_enfeoff_peerage_key;
         if (a.HasVirtualEnfeoff() && string.IsNullOrWhiteSpace(peerageKey))
         {
             Empire empire = ModClass.EMPIRE_MANAGER.get(data.virtual_enfeoff_empire_id);
@@ -1762,13 +1750,13 @@ public static class ActorExtension
         }
         string suffix = LM.Get(string.IsNullOrWhiteSpace(peerageKey) ? "default_" + a.GetPeeragesLevel() : peerageKey) ?? "";
         string prefix = "";
-        if (a.HasVirtualEnfeoff())
+        if (!honorary && a.HasVirtualEnfeoff())
         {
             long titleId = data.virtual_enfeoff_title_id;
             prefix = titleId > 0 ? ModClass.KINGDOM_TITLE_MANAGER.get(titleId)?.data?.name : null;
             prefix ??= a.city?.GetCityName() ?? "";
         }
-        else if (a.HasTitle())
+        else if (!honorary && a.HasTitle())
         {
             prefix = a.GetTitle();
         }

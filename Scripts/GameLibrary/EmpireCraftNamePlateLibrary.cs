@@ -3,6 +3,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Compatibility;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
@@ -38,6 +39,10 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly List<City> _cached_cities = new List<City>();
     private static readonly List<City> _cached_cities_no_title = new List<City>();
     private static readonly List<City> _cached_neutral_cities = new List<City>();
+    private static readonly List<City> _cached_culture_cities = new List<City>();
+    private static readonly Dictionary<string, (Sprite icon, Sprite background)> _culture_banner_sprite_cache = new Dictionary<string, (Sprite icon, Sprite background)>();
+    // “简化铭牌”文化图层用：按文化分组的城市列表缓存，避免每帧重新分配。
+    private static readonly Dictionary<string, List<City>> _culture_territory_groups = new Dictionary<string, List<City>>();
     private static readonly List<Kingdom> _render_kingdoms_buffer = new List<Kingdom>();
     private static readonly List<Kingdom> _render_kingdoms_no_back_buffer = new List<Kingdom>();
     private static readonly HashSet<long> _empire_city_members = new HashSet<long>();
@@ -45,7 +50,15 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly List<City> _empire_component_cities = new List<City>();
     private static readonly List<City> _empire_best_component_cities = new List<City>();
     private static readonly Queue<City> _empire_city_queue = new Queue<City>();
+    private static MetaType _last_nameplate_mode = MetaType.None;
     private static bool _is_camera_moving_this_frame;
+    public static void RequestRefresh()
+    {
+        _last_plate_update_ts = -1L;
+        _last_nameplate_mode = MetaType.None;
+        _text_cache.Clear();
+        _text_position_cache.Clear();
+    }
     private static Empire GetDisplayedEmpireForKingdom(Kingdom kingdom)
     {
         if (kingdom == null) return null;
@@ -57,7 +70,7 @@ public static class EmpireCraftNamePlateLibrary
     {
         return _is_camera_moving_this_frame;
     }
-    private static bool _shouldThrottle()
+    private static bool _shouldThrottle(MetaType pMode)
     {
         var cam = MoveCamera.instance?.main_camera;
         if (cam == null) return false;
@@ -67,6 +80,14 @@ public static class EmpireCraftNamePlateLibrary
         var moved = UnityEngine.Vector3.Distance(pos, _last_cam_pos);
         float zoomChanged = _last_cam_size < 0f ? 0f : Mathf.Abs(cam.orthographicSize - _last_cam_size);
         _is_camera_moving_this_frame = moved > 0.01f || zoomChanged > 0.01f;
+        if (_last_nameplate_mode != pMode)
+        {
+            _last_nameplate_mode = pMode;
+            _last_cam_pos = pos;
+            _last_cam_size = cam.orthographicSize;
+            _last_plate_update_ts = now;
+            return false;
+        }
         var heavy = (World.world.kingdoms.Count > 120) || (World.world.cities.Count > 250);
         if (_is_camera_moving_this_frame)
         {
@@ -103,8 +124,9 @@ public static class EmpireCraftNamePlateLibrary
                     RenderAncientWarfareKingdoms(pManager);
                     return;
                 }
+                TerritoryLabelRenderer.HideAll();
 
-                bool throttle = _shouldThrottle();
+                bool throttle = _shouldThrottle(MetaTypeExtension.Empire);
                 if (throttle)
                 {
                     _cached_empires.Sort((a, b) => (a?.countWarriors() ?? 0).CompareTo(b?.countWarriors() ?? 0));
@@ -147,7 +169,6 @@ public static class EmpireCraftNamePlateLibrary
                     case 0:
                         if (throttle)
                         {
-                            int budget = 128;
                             _cached_kingdoms_no_back.Clear();
                             _cached_kingdoms.Clear();
                             foreach (Kingdom kingdom in World.world.kingdoms)
@@ -165,18 +186,8 @@ public static class EmpireCraftNamePlateLibrary
                                     _cached_kingdoms.Add(kingdom);
                                 }
                             }
-                            for (int i = 0; i < _cached_kingdoms_no_back.Count && _render_kingdoms_no_back_buffer.Count < budget; i++)
-                            {
-                                var k = _cached_kingdoms_no_back[i];
-                                if (k == null || k.isRekt() || !k.hasCapital()) continue;
-                                _render_kingdoms_no_back_buffer.Add(k);
-                            }
-                            for (int i = 0; i < _cached_kingdoms.Count && _render_kingdoms_buffer.Count + _render_kingdoms_no_back_buffer.Count < budget; i++)
-                            {
-                                var k = _cached_kingdoms[i];
-                                if (k == null || k.isRekt() || !k.hasCapital()) continue;
-                                _render_kingdoms_buffer.Add(k);
-                            }
+                            _render_kingdoms_no_back_buffer.AddRange(_cached_kingdoms_no_back);
+                            _render_kingdoms_buffer.AddRange(_cached_kingdoms);
                         }
                         else
                         {
@@ -211,12 +222,7 @@ public static class EmpireCraftNamePlateLibrary
                                     _cached_kingdoms_no_back.Add(kingdom);
                                 }
                             }
-                            for (int i = 0; i < _cached_kingdoms_no_back.Count && _render_kingdoms_no_back_buffer.Count < 128; i++)
-                            {
-                                var k = _cached_kingdoms_no_back[i];
-                                if (k == null || k.isRekt() || !k.hasCapital()) continue;
-                                _render_kingdoms_no_back_buffer.Add(k);
-                            }
+                            _render_kingdoms_no_back_buffer.AddRange(_cached_kingdoms_no_back);
                         }
                         else
                         {
@@ -242,12 +248,7 @@ public static class EmpireCraftNamePlateLibrary
                                     _cached_kingdoms_no_back.Add(kingdom);
                                 }
                             }
-                            for (int i = 0; i < _cached_kingdoms_no_back.Count && _render_kingdoms_no_back_buffer.Count < 128; i++)
-                            {
-                                var k = _cached_kingdoms_no_back[i];
-                                if (k == null || k.isRekt() || !k.hasCapital()) continue;
-                                _render_kingdoms_no_back_buffer.Add(k);
-                            }
+                            _render_kingdoms_no_back_buffer.AddRange(_cached_kingdoms_no_back);
                         }
                         else
                         {
@@ -325,7 +326,7 @@ public static class EmpireCraftNamePlateLibrary
             action_main = delegate(NameplateManager pManager, NameplateAsset _)
             {
                 int num = 0;
-                bool throttle = _shouldThrottle();
+                bool throttle = _shouldThrottle(MetaType.City);
                 if (throttle)
                 {
                     for (int i = 0; i < _cached_cities.Count && num < _.max_nameplate_count; i++)
@@ -410,12 +411,11 @@ public static class EmpireCraftNamePlateLibrary
                     RenderNeutralCities(pManager);
                     return;
                 }
+                TerritoryLabelRenderer.HideAll();
 
-                bool throttle = _shouldThrottle();
+                bool throttle = _shouldThrottle(MetaType.Kingdom);
                 if (throttle)
                 {
-                    int budget = 128;
-                    int processed = 0;
                     for (int i = 0; i < _cached_kingdoms.Count; i++)
                     {
                         var kingdom = _cached_kingdoms[i];
@@ -423,8 +423,9 @@ public static class EmpireCraftNamePlateLibrary
                         if (!isWithinCamera(kingdom.capital.city_center)) continue;
                         NameplateText nameplateText = pManager.prepareNext(pAsset, kingdom);
                         showTextKingdom(nameplateText, kingdom);
-                        if (++processed >= budget) break;
                     }
+                    const int neutralCityBudget = 128;
+                    int renderedNeutralCities = 0;
                     for (int i = 0; i < _cached_neutral_cities.Count; i++)
                     {
                         var city = _cached_neutral_cities[i];
@@ -432,7 +433,7 @@ public static class EmpireCraftNamePlateLibrary
                         if (!isWithinCamera(city.city_center)) continue;
                         var npt = pManager.prepareNext(AssetManager.nameplates_library._plate_city, city);
                         showTextCity(npt, city, city.city_center);
-                        if (++processed >= budget) break;
+                        if (++renderedNeutralCities >= neutralCityBudget) break;
                     }
                 }
                 else
@@ -463,6 +464,304 @@ public static class EmpireCraftNamePlateLibrary
         AssetManager.nameplates_library.dict.Remove("Kingdom");
         AssetManager.nameplates_library.map_modes_nameplates[asset6.map_mode] = asset6;
         AssetManager.nameplates_library.dict["Kingdom"] = asset6;
+
+        // 屏蔽原版"文化"地图图层（原来按 Kingdom.culture / city.getCulture() / 全局 Culture
+        // 实体展示，跟模组自己按占比维护的城市主流文化完全对不上）。改成按模组文化展示：
+        // 每种模组主流文化只显示一块铭牌（不再每座城市都显示一次），铭牌样式跟"王国"
+        // 图层用同一份（同一张 nameplate_kingdom 底板 + 同一个 KingdomBanner 组件），
+        // 只是图标/颜色按文化哈希取，而不是按王国旗帜。
+        NameplateAsset assetCulture = new NameplateAsset
+        {
+            id = "plate_culture",
+            path_sprite = "ui/nameplates/nameplate_kingdom",
+            map_mode = MetaType.Culture,
+            padding_left = 26,
+            padding_right = 26,
+            padding_top = -2,
+            action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
+            {
+                // “简化铭牌”世界法开启时，文化图层跟王国/帝国图层一样改用
+                // TerritoryLabelRenderer：不再按城市去重画方框旗帜铭牌，而是按每种
+                // 模组文化实际占据的城市（不分王国归属）算出一整块领土范围，
+                // 在这块范围内画一条跟随轮廓弯曲的文字标签——逻辑跟
+                // RenderSimplifiedKingdomLayer 对王国领土的处理完全一致，
+                // 只是分组依据从”王国”换成”文化”。
+                // 悬停城市的文化占比 Tooltip 跟具体用哪种铭牌渲染方式无关（简化铭牌的
+                // 领土标签模式下鼠标依然可能停在某座城市上），所以放在两个分支之前，
+                // 两种模式下都会更新／在切换模式时正确隐藏，不会卡住不消失。
+                City hoveredCity = GetHoveredCultureCity();
+                UpdateCultureShareTooltip(hoveredCity);
+
+                if (EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled())
+                {
+                    RenderSimplifiedCultureLayer();
+                    return;
+                }
+                TerritoryLabelRenderer.HideAll();
+
+                int num = 0;
+                bool throttle = _shouldThrottle(MetaType.Culture);
+                if (throttle)
+                {
+                    for (int i = 0; i < _cached_culture_cities.Count && num < pAsset.max_nameplate_count; i++)
+                    {
+                        City current = _cached_culture_cities[i];
+                        if (current == null || current.isRekt()) continue;
+                        if (!isWithinCamera(current.city_center)) continue;
+                        string cultureKey = CultureService.GetMainCulture(current);
+                        if (!CultureService.IsValidCulture(cultureKey)) continue;
+                        // 悬停城市不再跳过常规铭牌——文化占比改用真正的 Tooltip 展示，
+                        // 不需要再挪用这个槽位画透明详情铭牌。
+                        NameplateText nameplateText = pManager.prepareNext(pAsset, current);
+                        showTextCultureForCity(nameplateText, current, cultureKey);
+                        num++;
+                    }
+                }
+                else
+                {
+                    _cached_culture_cities.Clear();
+                    // 同一种文化只保留第一座（遍历顺序中最先遇到的）城市来显示铭牌，
+                    // 避免同一个文化在地图上重复刷出一大堆一模一样的铭牌。
+                    var shownCultures = new HashSet<string>();
+                    foreach (City city in World.world.cities)
+                    {
+                        if (num >= pAsset.max_nameplate_count) break;
+                        if (city == null || city.isRekt()) continue;
+                        if (AncientWarfareCompatibility.OwnsObject(city)) continue;
+                        if (!isWithinCamera(city.city_center)) continue;
+                        string cultureKey = CultureService.GetMainCulture(city);
+                        if (!CultureService.IsValidCulture(cultureKey)) continue;
+                        if (!shownCultures.Add(cultureKey)) continue;
+                        _cached_culture_cities.Add(city);
+                        // 悬停城市不再跳过常规铭牌——文化占比改用真正的 Tooltip 展示，
+                        // 不需要再挪用这个槽位画透明详情铭牌。
+                        NameplateText nameplateText = pManager.prepareNext(pAsset, city);
+                        showTextCultureForCity(nameplateText, city, cultureKey);
+                        num++;
+                    }
+                }
+            }
+        };
+        AssetManager.nameplates_library.dict.Remove("Culture");
+        AssetManager.nameplates_library.map_modes_nameplates[assetCulture.map_mode] = assetCulture;
+        AssetManager.nameplates_library.dict["Culture"] = assetCulture;
+
+        // 上面这个 assetCulture 只是铭牌（NameplateAsset），管的是文字/旗帜怎么画；
+        // 地图上那一块块的地块底色、以及鼠标悬停/选中时的高亮，走的是完全独立的另一
+        // 套东西——原版内建的 MetaType.Culture 对应的 MetaTypeAsset（draw_zones /
+        // check_cursor_highlight 字段），下面单独接管它。
+        HookVanillaCultureMapModeColoring();
+    }
+
+    // 接管原版“文化”地图图层的地块染色（常驻底色）与鼠标悬停高亮。
+    //
+    // 一个 MetaTypeAsset 的地块底色其实分两套完全独立、分别触发的机制：draw_zones
+    // （每帧都自己重画，走 ZoneCalculator.drawZoneMeta，需要一个真正的 IMetaObject，
+    // 其 .data 是 MetaObjectData 派生类，靠一个 color_id 去查该对象专属的
+    // ColorLibrary 取色）负责“不管有没有悬停都一直看得到”的常驻底色；
+    // check_cursor_highlight 只是叠加在它上面的一层临时高亮特效，只有鼠标真的停在
+    // 某个地块上那一帧才会被引擎调用，用引擎塞过来的 QuantumSpriteAsset 调
+    // QuantumSpriteLibrary.colorZones 补一层颜色，不会自己持续画（对照
+    // EmpireCraftMetaTypeLibrary 里“empire”/“kingdomTitle”这两个真正常驻的自定义
+    // 图层能看到两者都用了）。只接 check_cursor_highlight、不接 draw_zones，地块
+    // 颜色就只会在鼠标悬停的那些帧被短暂盖过去，鼠标一移开又变回原版自己的底色——
+    // 这正是"图层颜色时对时不对"的根本原因，不是染色算错了。
+    //
+    // 这里直接实现 draw_zones，而且不用造假对象：CultureService.ResolveNativeCulture
+    // （通过只读包装 GetNativeCultureObject）会在 World.world.cultures 里找一个
+    // 已经被 SetRealmCulture/SyncActorToCityMainCulture 等既有逻辑打上标记、真正属于
+    // 原版的 Culture 对象——那些既有逻辑本来就会在王国/演员的文化被设置成某个模组文化
+    // 时，顺手在原版那边创建/关联一个真正的 Culture 实体（不然王国自己的“文化”铭牌、
+    // 图腾都没法画）。既然这个真实对象本来就存在，直接拿它去调用
+    // zone_manager.drawZoneMeta(nativeCulture, zone, 边框标志×4, nativeCulture.data,
+    // cultureMapAsset) 就行——跟 drawZoneKingdomTitleWithCityBorder 用的是同一个 API，
+    // 只是这次的 IMetaObject 换成“这座城市当前模组主流文化”所对应的原版 Culture 对象，
+    // 颜色也就直接是原版给这个 Culture 分配的真实颜色（ColorLibrary/color_id）——
+    // 用户明确要求“直接读、用原版文化自己的颜色就好”，所以这里不再自己配一份颜色。
+    // 找不到对应原版 Culture 对象的城市（极少数情况：这座城市的主流文化从没有被同步
+    // 到任何一个原版演员/王国身上）会被跳过、不画——特意不在渲染回调里顺手创建新的
+    // Culture 对象（虽然 ResolveNativeCulture 支持这么做），因为在每帧都跑的画面
+    // 回调里触发有副作用的世界状态变更不是好习惯；实际游玩中一座城市只要曾经走过
+    // 城市/王国文化转变的既有流程，早就已经创建好对应的原版 Culture 对象了。
+    //
+    // check_cursor_highlight 简化成跟 highlightKingdomZones 完全一样的做法：直接用
+    // 引擎塞过来的 pQAsset.color（跟其它地图模式的高亮用的是同一份），只把悬停城市
+    // 所属文化的所有城市（跨王国）的地块重新涂一遍——因为下面已经有 draw_zones 提供
+    // 的、真正常驻正确的原版底色了，高亮只需要在它上面叠一层引擎自己的高亮色。
+    private static void HookVanillaCultureMapModeColoring()
+    {
+        MetaTypeAsset cultureMapAsset = MetaType.Culture.getAsset();
+        if (cultureMapAsset == null) return;
+
+        cultureMapAsset.draw_zones = (MetaZoneDrawAction)(pMetaTypeAsset =>
+        {
+            foreach (City city in World.world.cities)
+            {
+                if (city == null || city.isRekt()) continue;
+                if (AncientWarfareCompatibility.OwnsObject(city)) continue;
+                string cultureKey = CultureService.GetMainCulture(city);
+                if (!CultureService.IsValidCulture(cultureKey)) continue;
+                Culture nativeCulture = CultureService.GetNativeCultureObject(cultureKey);
+                if (nativeCulture == null) continue;
+
+                foreach (TileZone zone in city.zones)
+                {
+                    EmpireCraftMetaTypeLibrary.zone_manager.drawBegin();
+                    drawZoneCultureWithCityBorder(zone, cultureKey, nativeCulture, pMetaTypeAsset);
+                    EmpireCraftMetaTypeLibrary.zone_manager.drawEnd(zone);
+                }
+            }
+        });
+
+        cultureMapAsset.check_cursor_highlight = (MetaZoneHighlightAction)((pMetaTypeAsset, pTile, pQAsset) =>
+        {
+            City hoveredCity = pTile?.zone?.city;
+            if (hoveredCity == null || hoveredCity.isRekt()) return;
+            string hoveredCulture = CultureService.GetMainCulture(hoveredCity);
+            if (!CultureService.IsValidCulture(hoveredCulture)) return;
+
+            Color color = pQAsset.color;
+            foreach (City city in World.world.cities)
+            {
+                if (city == null || city.isRekt()) continue;
+                if (!string.Equals(CultureService.GetMainCulture(city), hoveredCulture, StringComparison.Ordinal)) continue;
+                QuantumSpriteLibrary.colorZones(pQAsset, city.zones, color);
+            }
+        });
+    }
+
+    // 跟 EmpireCraftMetaTypeLibrary.drawZoneKingdomTitleWithCityBorder 是同一个模式：
+    // 相邻地块只要不属于同一种模组主流文化就当作边界。
+    private static void drawZoneCultureWithCityBorder(TileZone pZone, string pCulture, Culture pNativeCulture, MetaTypeAsset pCultureMapAsset)
+    {
+        bool pUp = isBorderColor_culture(pZone.zone_up, pCulture);
+        bool pDown = isBorderColor_culture(pZone.zone_down, pCulture);
+        bool pLeft = isBorderColor_culture(pZone.zone_left, pCulture);
+        bool pRight = isBorderColor_culture(pZone.zone_right, pCulture);
+        EmpireCraftMetaTypeLibrary.zone_manager.drawZoneMeta(pNativeCulture, pZone, pUp, pDown, pLeft, pRight, pNativeCulture.data, pCultureMapAsset);
+    }
+
+    private static bool isBorderColor_culture(TileZone pZone, string pCulture)
+    {
+        if (pZone == null) return true;
+        string cultureOnZone = pZone.city != null && !pZone.city.isRekt()
+            ? CultureService.GetMainCulture(pZone.city)
+            : null;
+        return !string.Equals(cultureOnZone, pCulture, StringComparison.Ordinal);
+    }
+
+    public static void showTextCultureForCity(NameplateText npt, City city, string cultureKey)
+    {
+        if (npt == null || city?.data == null || string.IsNullOrEmpty(cultureKey)) return;
+        ColorAsset colorAsset = GetCultureBannerColor(cultureKey);
+        if (colorAsset == null) return;
+
+        npt._background_image.enabled = true;
+        npt._text_name.fontStyle = FontStyle.Normal;
+        var leftoverOutline = npt._text_name.GetComponent<Outline>();
+        if (leftoverOutline != null)
+        {
+            leftoverOutline.enabled = false;
+        }
+
+        npt.setupMeta(city.data, colorAsset);
+        string cultureName = cultureKey.GetCultureTranslate();
+        string text = npt.getStringForNameplate(cultureName, city.getPopulationPeople()) + additionNum;
+        setTextIfChanged(npt, text, city.city_center);
+        npt.setPriority(city.getPopulationPeople());
+
+        Subspecies mainSubspecies = null;
+        try { mainSubspecies = city.getMainSubspecies(); } catch { }
+        if (mainSubspecies != null && !mainSubspecies.isRekt())
+        {
+            npt.showSpecies(mainSubspecies.getActorAsset().getSpriteIcon());
+        }
+
+        // 不再用单独的文化铭牌（CultureBanner/_banner_culture），改成跟"王国"图层
+        // 完全同一份铭牌组件（KingdomBanner/_banner_kingdoms），只是图标颜色按文化哈希取。
+        npt._show_banner_culture = false;
+        if (npt._banner_culture != null)
+        {
+            npt._banner_culture.enabled = false;
+            npt._banner_culture.gameObject.SetActive(false);
+        }
+        npt._show_banner_kingdom = true;
+        KingdomBanner banner = npt._banner_kingdoms;
+        if (banner != null)
+        {
+            banner.enabled = true;
+            banner.gameObject.SetActive(true);
+            ApplyCultureBannerVisual(banner, cultureKey, colorAsset);
+        }
+    }
+
+    // 鼠标当前悬停的城市（文化图层用）——取当前帧鼠标所在瓦块归属的城市，跟相机是否在动无关。
+    private static City GetHoveredCultureCity()
+    {
+        return World.world?.getMouseTilePosCachedFrame()?.zone_city;
+    }
+
+    // 悬停某座城市时，用真正的鼠标悬停 Tooltip 展示它自己的文化占比前三
+    // （不要求它是所属文化的代表城市），取代原来伪造一块透明铭牌顶替常规铭牌的做法。
+    // 用法跟 EmpireCraftMetaTypeLibrary.ShowEmpireCursorTooltip（”empire”图层悬停
+    // 帝国用的那个）完全一致：同一帧内先 hideTooltip 再 show，让内容随悬停城市
+    // 每帧刷新；实际内容渲染在 EmpireCraftTooltipLibrary.showCultureShareTooltip
+    // （TooltipAsset id=”empirecraft_culture_share”）。
+    private const string CultureShareTooltipType = "empirecraft_culture_share";
+    private static object _last_culture_tooltip_owner;
+
+    private static void UpdateCultureShareTooltip(City hoveredCity)
+    {
+        if (hoveredCity != null && !hoveredCity.isRekt() && isWithinCamera(hoveredCity.city_center))
+        {
+            string hoveredCulture = CultureService.GetMainCulture(hoveredCity);
+            if (CultureService.IsValidCulture(hoveredCulture))
+            {
+                object owner = hoveredCity;
+                Tooltip.hideTooltip(owner, true, CultureShareTooltipType);
+                Tooltip.show(owner, CultureShareTooltipType, new TooltipData
+                {
+                    city = hoveredCity,
+                    tooltip_scale = 0.7f,
+                    is_sim_tooltip = true
+                });
+                _last_culture_tooltip_owner = owner;
+                return;
+            }
+        }
+
+        // 鼠标移出、或移到没有有效追踪文化的城市上——显式收起上一次显示的 tooltip，
+        // 否则它会卡在原地不消失（这里没有引擎自带的悬停自动收起机制可以依赖）。
+        if (_last_culture_tooltip_owner != null)
+        {
+            Tooltip.hideTooltip(_last_culture_tooltip_owner, true, CultureShareTooltipType);
+            _last_culture_tooltip_owner = null;
+        }
+    }
+
+    private static void ApplyCultureBannerVisual(KingdomBanner banner, string cultureKey, ColorAsset colorAsset)
+    {
+        if (banner.background == null || banner.icon == null) return;
+        if (!_culture_banner_sprite_cache.TryGetValue(cultureKey, out var sprites))
+        {
+            int iconIndex = Math.Abs(cultureKey.GetHashCode()) % 8;
+            int decorIndex = Math.Abs((cultureKey + "_decor").GetHashCode()) % 9;
+            sprites = (AssetManager.culture_banners_library.getSpriteIcon(iconIndex),
+                AssetManager.culture_banners_library.getSpriteBackground(decorIndex));
+            _culture_banner_sprite_cache[cultureKey] = sprites;
+        }
+        banner.icon.sprite = sprites.icon;
+        banner.background.sprite = sprites.background;
+        banner.icon.color = colorAsset.getColorBanner();
+        banner.background.color = colorAsset.getColorMainSecond();
+    }
+
+    private static ColorAsset GetCultureBannerColor(string cultureKey)
+    {
+        List<ColorAsset> list = AssetManager.culture_colors_library?.list;
+        if (list == null || list.Count == 0) return null;
+        int idx = Math.Abs(cultureKey.GetHashCode()) % list.Count;
+        return AssetManager.culture_colors_library.getColorByIndex(idx);
     }
 
     private static void RenderSimplifiedEmpireLayer()
@@ -471,7 +770,7 @@ public static class EmpireCraftNamePlateLibrary
         Kingdom hoveredKingdom = GetHoveredKingdom();
         Empire hoveredEmpire = GetHoveredEmpire(hoveredKingdom, view);
 
-        TerritoryLabelRenderer.BeginFrame();
+        TerritoryLabelRenderer.BeginFrame(MetaTypeExtension.Empire);
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)
         {
             if (!IsRenderableEmpire(empire)) continue;
@@ -513,7 +812,7 @@ public static class EmpireCraftNamePlateLibrary
     private static void RenderSimplifiedKingdomLayer()
     {
         Kingdom hoveredKingdom = GetHoveredKingdom();
-        TerritoryLabelRenderer.BeginFrame();
+        TerritoryLabelRenderer.BeginFrame(MetaType.Kingdom);
         foreach (Kingdom kingdom in World.world.kingdoms)
         {
             if (!IsRenderableKingdom(kingdom)) continue;
@@ -527,6 +826,47 @@ public static class EmpireCraftNamePlateLibrary
                 kingdom.cities,
                 empire == null ? GetTerritoryKingdomStyle(kingdom) : TerritoryLabelRenderer.EmpireStyle,
                 kingdom == hoveredKingdom);
+        }
+        TerritoryLabelRenderer.EndFrame();
+    }
+
+    // 文化图层的“简化铭牌”渲染：按模组主流文化把全图城市分组（不看王国归属，
+    // 一座城市只看它自己的 CultureService.GetMainCulture），每种文化提交一次
+    // TerritoryLabelRenderer.SubmitCities，样式跟王国领土标签同一份
+    // （TerritoryLabelRenderer.KingdomStyle），悬停城市所属的那种文化标签
+    // 用 fullyOpaque 高亮——跟 RenderSimplifiedKingdomLayer 里
+    // "kingdom == hoveredKingdom" 的处理方式一致，只是换成按文化比较。
+    private static void RenderSimplifiedCultureLayer()
+    {
+        City hoveredCity = GetHoveredCultureCity();
+        string hoveredCulture = hoveredCity != null && !hoveredCity.isRekt()
+            ? CultureService.GetMainCulture(hoveredCity)
+            : null;
+
+        TerritoryLabelRenderer.BeginFrame(MetaType.Culture);
+
+        _culture_territory_groups.Clear();
+        foreach (City city in World.world.cities)
+        {
+            if (city == null || city.isRekt()) continue;
+            if (AncientWarfareCompatibility.OwnsObject(city)) continue;
+            string cultureKey = CultureService.GetMainCulture(city);
+            if (!CultureService.IsValidCulture(cultureKey)) continue;
+            if (!_culture_territory_groups.TryGetValue(cultureKey, out List<City> cities))
+            {
+                cities = new List<City>();
+                _culture_territory_groups[cultureKey] = cities;
+            }
+            cities.Add(city);
+        }
+
+        foreach (KeyValuePair<string, List<City>> group in _culture_territory_groups)
+        {
+            string cultureKey = group.Key;
+            bool isHoveredCulture = hoveredCulture != null &&
+                                     string.Equals(cultureKey, hoveredCulture, StringComparison.Ordinal);
+            TerritoryLabelRenderer.SubmitCities($"culture:{cultureKey}", cultureKey.GetCultureTranslate(),
+                group.Value, TerritoryLabelRenderer.KingdomStyle, isHoveredCulture);
         }
         TerritoryLabelRenderer.EndFrame();
     }
@@ -573,10 +913,36 @@ public static class EmpireCraftNamePlateLibrary
 
     private static IEnumerable<City> EnumerateEmpireViewCities(Empire empire, int view)
     {
-        if (empire.cities_list != null)
+        HashSet<City> yieldedCities = new HashSet<City>();
+        if (empire.kingdoms_list != null)
+        {
+            foreach (Kingdom member in empire.kingdoms_list)
+            {
+                if (!IsRenderableKingdom(member)) continue;
+                foreach (City city in member.cities)
+                {
+                    if (city != null && !city.isRekt() && yieldedCities.Add(city)) yield return city;
+                }
+            }
+        }
+
+        if (yieldedCities.Count == 0 && empire.CoreKingdom?.cities != null)
+        {
+            foreach (City city in empire.CoreKingdom.cities)
+            {
+                if (city != null && !city.isRekt() &&
+                    !AncientWarfareCompatibility.OwnsObject(city) && yieldedCities.Add(city)) yield return city;
+            }
+        }
+
+        // Old saves can restore the aggregate cache before kingdom membership is rebuilt.
+        if (yieldedCities.Count == 0 && empire.cities_list != null)
         {
             foreach (City city in empire.cities_list)
-                if (city != null && !city.isRekt() && !AncientWarfareCompatibility.OwnsObject(city)) yield return city;
+            {
+                if (city != null && !city.isRekt() &&
+                    !AncientWarfareCompatibility.OwnsObject(city) && yieldedCities.Add(city)) yield return city;
+            }
         }
 
         List<Kingdom> associatedKingdoms = view == 1 ? empire.taken_Kingdoms :
@@ -586,16 +952,20 @@ public static class EmpireCraftNamePlateLibrary
         {
             if (!IsRenderableKingdom(kingdom)) continue;
             foreach (City city in kingdom.cities)
-                if (city != null && !city.isRekt()) yield return city;
+                if (city != null && !city.isRekt() && yieldedCities.Add(city)) yield return city;
         }
     }
 
     private static bool IsRenderableEmpire(Empire empire)
     {
+        bool hasTerritory = empire?.CoreKingdom?.cities?.Count > 0 ||
+                            empire?.kingdoms_list?.Any(kingdom => kingdom != null &&
+                                !kingdom.isRekt() && kingdom.cities?.Count > 0) == true ||
+                            empire?.cities_list?.Count > 0;
         return empire != null && empire.data != null && !empire.IsArchived() &&
                !AncientWarfareCompatibility.Owns(empire.CoreKingdom) &&
                empire.CoreKingdom != null && empire.CoreKingdom.data != null &&
-               !empire.CoreKingdom.isRekt() && empire.cities_list != null && empire.cities_list.Count > 0;
+               !empire.CoreKingdom.isRekt() && hasTerritory;
     }
 
     private static bool IsRenderableKingdom(Kingdom kingdom)
@@ -642,7 +1012,7 @@ public static class EmpireCraftNamePlateLibrary
 
     private static void RenderLawLayerUntitledCities(NameplateManager manager)
     {
-        bool throttle = _shouldThrottle();
+        bool throttle = _shouldThrottle(MetaTypeExtension.KingdomTitle);
         if (throttle)
         {
             for (int i = 0; i < _cached_cities_no_title.Count; i++)

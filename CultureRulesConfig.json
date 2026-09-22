@@ -1,6 +1,7 @@
 [
     {
         "name": "Huaxia",
+        "color": "#D4AF37",
         "translate_cz": "华夏",
         "setting": {
             "regime": "LvLing",
@@ -87,9 +88,10 @@
     },
     {
         "name": "China",
+        "color": "#DE2910",
         "translate_cz": "现代中国",
         "setting": {
-            "regime": "Republic",
+            "regime": "Modern",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -156,6 +158,7 @@
     },
     {
         "name": "Shanhai",
+        "color": "#2E8B57",
         "translate_cz": "山海经",
         "setting": {
             "regime": "ZhouFeudalism",
@@ -222,9 +225,10 @@
     },
     {
         "name": "Western",
+        "color": "#4A6FA5",
         "translate_cz": "西方",
         "setting": {
-            "regime": "Republic",
+            "regime": "Feudalism",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -300,6 +304,7 @@
     },
     {
         "name": "ElfFancy",
+        "color": "#3FA796",
         "translate_cz": "精灵幻想",
         "setting": {
             "regime": "Feudalism",
@@ -369,6 +374,7 @@
     },
     {
         "name": "Youmu",
+        "color": "#B08968",
         "translate_cz": "游牧",
         "setting": {
             "regime": "YouMu",
@@ -442,6 +448,7 @@
     },
     {
         "name": "Roma",
+        "color": "#7B2D26",
         "translate_cz": "罗马",
         "setting": {
             "regime": "Feudalism",
@@ -508,6 +515,7 @@
     },
     {
         "name": "Frankish",
+        "color": "#3457D5",
         "translate_cz": "法兰克",
         "setting": {
             "regime": "Feudalism",
@@ -585,6 +593,7 @@
     },
     {
         "name": "Germanic",
+        "color": "#8B4513",
         "translate_cz": "日耳曼",
         "setting": {
             "regime": "Feudalism",
@@ -660,6 +669,7 @@
     },
     {
         "name": "Slavonic",
+        "color": "#5DADE2",
         "translate_cz": "斯拉夫",
         "setting": {
             "regime": "Feudalism",
@@ -725,6 +735,7 @@
     },
     {
         "name": "Arab",
+        "color": "#1E8449",
         "translate_cz": "阿拉伯",
         "setting": {
             "regime": "Arabic",
@@ -794,6 +805,7 @@
     },
     {
         "name": "Japan",
+        "color": "#BC002D",
         "translate_cz": "日本",
         "setting": {
             "regime": "ZhouFeudalism",
@@ -869,6 +881,7 @@
     },
     {
         "name": "Kosher",
+        "color": "#0038B8",
         "translate_cz": "犹太",
         "setting": {
             "regime": "Feudalism",
@@ -939,6 +952,7 @@
     },
     {
         "name": "Viking",
+        "color": "#4682B4",
         "translate_cz": "维京",
         "setting": {
             "regime": "Feudalism",
@@ -1015,6 +1029,7 @@
     },
     {
         "name": "Egypt",
+        "color": "#C9A227",
         "translate_cz": "埃及",
         "setting": {
             "regime": "Arabic",
@@ -1083,6 +1098,7 @@
     },
     {
         "name": "Persepolis",
+        "color": "#7D3C98",
         "translate_cz": "波斯",
         "setting": {
             "regime": "Arabic",
@@ -1149,6 +1165,7 @@
     },
     {
         "name": "Aztec",
+        "color": "#E67E22",
         "translate_cz": "阿兹特克",
         "setting": {
             "regime": "Origin",
@@ -1218,6 +1235,7 @@
     },
     {
         "name": "India",
+        "color": "#FF9933",
         "translate_cz": "印度",
         "setting": {
             "regime": "Origin",
@@ -1284,6 +1302,7 @@
     },
     {
         "name": "Ojibwe",
+        "color": "#2D6A4F",
         "translate_cz": "奥吉布瓦",
         "setting": {
             "regime": "Origin",
@@ -1350,9 +1369,10 @@
     },
     {
         "name": "Corporate",
+        "color": "#00B4D8",
         "translate_cz": "企业",
         "setting": {
-            "regime": "Republic",
+            "regime": "Modern",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -1420,6 +1440,7 @@
     },
     {
         "name": "Emperor",
+        "color": "#6A0DAD",
         "translate_cz": "帝皇",
         "setting": {
             "regime": "Feudalism",

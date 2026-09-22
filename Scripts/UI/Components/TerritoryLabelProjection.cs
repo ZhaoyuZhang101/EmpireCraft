@@ -34,5 +34,37 @@ namespace EmpireCraft.Scripts.UI.Components
             float smooth = t * t * (3f - 2f * t);
             return 1f - 0.82f * smooth;
         }
+
+        public static bool OrientedRectanglesOverlap(float firstX, float firstY,
+            float firstHalfWidth, float firstHalfHeight, float firstRadians,
+            float secondX, float secondY, float secondHalfWidth, float secondHalfHeight,
+            float secondRadians, float separationPadding = 0f)
+        {
+            if (firstHalfWidth <= 0f || firstHalfHeight <= 0f ||
+                secondHalfWidth <= 0f || secondHalfHeight <= 0f) return false;
+
+            double firstCos = Math.Cos(firstRadians);
+            double firstSin = Math.Sin(firstRadians);
+            double secondCos = Math.Cos(secondRadians);
+            double secondSin = Math.Sin(secondRadians);
+            double deltaX = secondX - firstX;
+            double deltaY = secondY - firstY;
+            double padding = Math.Max(0f, separationPadding);
+
+            return OverlapsOnAxis(firstCos, firstSin) &&
+                   OverlapsOnAxis(-firstSin, firstCos) &&
+                   OverlapsOnAxis(secondCos, secondSin) &&
+                   OverlapsOnAxis(-secondSin, secondCos);
+
+            bool OverlapsOnAxis(double axisX, double axisY)
+            {
+                double distance = Math.Abs(deltaX * axisX + deltaY * axisY);
+                double firstRadius = firstHalfWidth * Math.Abs(firstCos * axisX + firstSin * axisY) +
+                                     firstHalfHeight * Math.Abs(-firstSin * axisX + firstCos * axisY);
+                double secondRadius = secondHalfWidth * Math.Abs(secondCos * axisX + secondSin * axisY) +
+                                      secondHalfHeight * Math.Abs(-secondSin * axisX + secondCos * axisY);
+                return distance < Math.Max(0d, firstRadius + secondRadius - padding);
+            }
+        }
     }
 }

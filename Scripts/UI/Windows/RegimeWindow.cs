@@ -35,6 +35,15 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     {
         layout.spacing = 3;
         layout.padding = new RectOffset(3, 3, 3, 3);
+        // 这个窗口跟 KingdomTitleWindow 不一样：它没有一个统一的 _content 包一层再把
+        // 各个板块（军政选择/自定义国名/阵营位/杂项设置）都塞进去居中对齐，而是直接把
+        // InitialRegimeSelection/InitialCustomNaming/InitialSetting 各自建的组当成
+        // layout 自己的直接子节点。这些子组各自的宽度（比如自定义国名卡是 200）通常都
+        // 小于窗口本身的可用宽度，而 VerticalLayoutGroup 的 childAlignment 缺省是
+        // UpperLeft，于是每个板块都贴着窗口左边，看起来整体偏左、不居中。这里显式把
+        // layout 自己的 childAlignment 设成 UpperCenter（参考 UIHelper.cs 里同样的
+        // 用法），让这些顶层子组统一在窗口宽度内居中，不用逐个板块再单独改。
+        layout.childAlignment = TextAnchor.UpperCenter;
         _regimeInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
         _regimeInput.Setup("", ChangeKingdomName);
     }

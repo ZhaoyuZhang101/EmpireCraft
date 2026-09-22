@@ -2,6 +2,8 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.services;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Regimes;
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
 public class TempFac_游牧扩张 : TemporaryFaction
@@ -33,6 +35,8 @@ public class TempFac_游牧扩张 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire?.CoreKingdom?.GetRegime()?.type != RegimeType.YouMu &&
+            !CompositeEmpireService.UsesMilitaryTradition(empire, RegimeType.YouMu)) return false;
         if (empire.CoreKingdom.hasEnemies()) return false;
         var neighbours = empire.GetKingdomNeighbours();
         if (neighbours.Any())

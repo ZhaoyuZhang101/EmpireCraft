@@ -4,6 +4,8 @@ using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.General;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Data;
 
 namespace EmpireCraft.Scripts.Layer;
 
@@ -37,6 +39,7 @@ public static class EmpireCoreManager
             id = OverallHelperFunc.IdGenerator.NextId(),
             empire_id = empire.id,
             culture = empire.CoreKingdom.culture.id,
+            default_culture = CultureService.GetRealmCulture(empire.CoreKingdom),
             name =  empire.GetEmpireName().AppendWithNarrowSpace("EmpireText".GetLocal()),
             create_timestamp = empire.data.created_time,
             titlesRecord = empire.CoreKingdom.GetControlledTitles().Select(t=>(World.world.getCurWorldTime(), t.id)).ToList(),
@@ -91,7 +94,8 @@ public static class EmpireCoreManager
     {
         if (core == null) return new List<Empire>();
         return ModClass.EMPIRE_MANAGER.ToList()
-            .Where(e => e != null && !e.IsArchived() && e.data?.empire_core_id == core.id &&
+            .Where(e => e != null && !e.isRekt() && e.data?.empire_core_id == core.id &&
+                e.CoreKingdom != null && !e.CoreKingdom.isRekt() &&
                 !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(e.CoreKingdom))
             .ToList();
     }
@@ -154,6 +158,10 @@ public static class EmpireCoreManager
     public static string GetCultureDisplayName(EmpireCore core)
     {
         if (core == null) return "";
+        if (CultureService.IsValidCulture(core.default_culture))
+        {
+            return core.default_culture.GetCultureTranslate();
+        }
         Culture culture = World.world.cultures.get(core.culture);
         if (culture != null && !string.IsNullOrWhiteSpace(culture.data?.name))
         {
@@ -409,6 +417,7 @@ public static class EmpireCoreManager
             id = OverallHelperFunc.IdGenerator.NextId(),
             empire_id = -1L,
             culture = kingdom?.culture?.id ?? -1L,
+            default_culture = CultureService.GetRealmCulture(kingdom),
             name = string.IsNullOrWhiteSpace(title.data?.name) ? (kingdom?.name ?? capital.GetCityName()) : title.data.name,
             create_timestamp = World.world.getCurWorldTime(),
             titlesRecord = new List<(double time, long titleId)>()

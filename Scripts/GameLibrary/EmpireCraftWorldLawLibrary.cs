@@ -1,6 +1,7 @@
 using NeoModLoader.services;
 using EmpireCraft.Scripts;
 using EmpireCraft.Scripts.GamePatches;
+using EmpireCraft.Scripts.GeneralSystems;
 using NCMS.Extensions;
 using System.Linq;
 
@@ -19,6 +20,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_allow_skeleton;
     public static WorldLawAsset empirecraft_law_switch_occupy_mode;
     public static WorldLawAsset empirecraft_law_allow_social;
+    public static WorldLawAsset empirecraft_law_fixed_de_jure_culture;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -123,7 +125,32 @@ public static class EmpireCraftWorldLawLibrary
             on_state_change = AllowSocialChange,
             default_state = false
         });
+        // 固定法理文化及其辖内城市的官方主流文化。居民文化与人口流动继续运行，
+        // 因而解锁后城市仍可从当时的人口结构重新开始文化转变流程。
+        AssetManager.world_laws_library.add(empirecraft_law_fixed_de_jure_culture = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_fixed_de_jure_culture),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconCulture",
+            on_state_change = FixedDeJureCultureChange,
+            default_state = false
+        });
         
+    }
+
+    private static void FixedDeJureCultureChange(PlayerOptionData pOption)
+    {
+        if (World.world == null) return;
+        if (World.world.cities != null)
+        {
+            foreach (City city in World.world.cities)
+                CultureService.UpdateCityCultureShiftCandidate(city);
+        }
+        if (World.world.kingdoms != null)
+        {
+            foreach (Kingdom kingdom in World.world.kingdoms)
+                CultureService.UpdateCulturalAssimilationDuty(kingdom);
+        }
     }
 
     private static void AllowSocialChange(PlayerOptionData pOption)

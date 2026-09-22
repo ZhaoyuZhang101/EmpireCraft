@@ -28,7 +28,7 @@ public sealed class TemporaryFactionConverter : JsonConverter
         else if (jo.TryGetValue("$type", out var t2))  // 兼容老存档
         {
             var full = t2.ToString();
-            var cls  = full.Split(',')[0].Split('.').Last(); // TempFac_汉化
+            var cls  = full.Split(',')[0].Split('.').Last(); // TempFac_文化同化
             var name = cls.StartsWith("TempFac_") ? cls.Substring("TempFac_".Length) : cls;
             if (!Enum.TryParse(name, out typeEnum)) return null; // 跳过这一项
         }

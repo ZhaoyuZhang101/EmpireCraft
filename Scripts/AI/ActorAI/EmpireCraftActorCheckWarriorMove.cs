@@ -85,6 +85,9 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
     }
 
     private static readonly Dictionary<Kingdom, FrontZoneCacheEntry> _frontZoneCache = new();
+    private static readonly List<Kingdom> _staleKingdomCacheKeys = new();
+    private const int RuntimeCachePruneFrames = 1800;
+    private static int _nextRuntimeCachePruneFrame = -1;
 
     // 同一次开战分配中记录已计划去各 Zone 的人数，
     // 防止同一批士兵全部扎到第一个目标。
@@ -116,6 +119,26 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
         public int lastCheckFrame;
         public int lastTaxiFrame = -TaxiRetryIntervalFrames;
         public int recoveryCount;
+    }
+
+    public static void ClearRuntimeState()
+    {
+        _mobilizeQueue.Clear();
+        _queuedMobilizeActorIds.Clear();
+        _taxiQueue.Clear();
+        _queuedTaxiActorIds.Clear();
+        _lastQueueProcessFrame = -1;
+        _frontZoneCache.Clear();
+        _staleKingdomCacheKeys.Clear();
+        _nextRuntimeCachePruneFrame = -1;
+        _plannedFrontCounts.Clear();
+        _zoneWarriorCacheFrame = -1;
+        _zoneWarriors.Clear();
+        _zoneWarriorCounts.Clear();
+        _moveStates.Clear();
+        _movementWatchdogSnapshot = new List<KeyValuePair<long, ActorMoveState>>();
+        _movementWatchdogIndex = 0;
+        _movementWatchdogSnapshotFrame = -1;
     }
 
     public override BehResult execute(Actor pActor)
@@ -296,10 +319,66 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
             return;
 
         _lastQueueProcessFrame = frame;
+        PruneRuntimeCachesIfNeeded(frame);
 
         ProcessMobilizeQueue();
         ProcessActiveMovementWatchdog();
         ProcessTaxiQueue();
+    }
+
+    private static void PruneRuntimeCachesIfNeeded(int frame)
+    {
+        if (_nextRuntimeCachePruneFrame >= 0 && frame < _nextRuntimeCachePruneFrame)
+        {
+            return;
+        }
+
+        _nextRuntimeCachePruneFrame = frame + RuntimeCachePruneFrames;
+        _staleKingdomCacheKeys.Clear();
+        foreach (Kingdom kingdom in _frontZoneCache.Keys)
+        {
+            if (IsStaleKingdomCacheKey(kingdom))
+            {
+                _staleKingdomCacheKeys.Add(kingdom);
+            }
+        }
+
+        for (int i = 0; i < _staleKingdomCacheKeys.Count; i++)
+        {
+            _frontZoneCache.Remove(_staleKingdomCacheKeys[i]);
+        }
+
+        _staleKingdomCacheKeys.Clear();
+        foreach (Kingdom kingdom in _plannedFrontCounts.Keys)
+        {
+            if (IsStaleKingdomCacheKey(kingdom))
+            {
+                _staleKingdomCacheKeys.Add(kingdom);
+            }
+        }
+
+        for (int i = 0; i < _staleKingdomCacheKeys.Count; i++)
+        {
+            _plannedFrontCounts.Remove(_staleKingdomCacheKeys[i]);
+        }
+        _staleKingdomCacheKeys.Clear();
+    }
+
+    private static bool IsStaleKingdomCacheKey(Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.isRekt())
+        {
+            return true;
+        }
+
+        try
+        {
+            return !kingdom.hasEnemies();
+        }
+        catch
+        {
+            return true;
+        }
     }
 
     private static void ProcessActiveMovementWatchdog()

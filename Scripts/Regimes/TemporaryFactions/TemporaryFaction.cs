@@ -349,15 +349,18 @@ public abstract class TemporaryFaction
 
     protected bool CheckRebelling(Kingdom kingdom)
     {
+        Empire empire = GetEmpire();
+        if (kingdom == null || kingdom.isRekt() || empire == null || empire.isRekt() ||
+            empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
         var targetFaction = kingdom?.king?.GetFaction();
         //全部势力
         var cities = new List<City>();
         if (targetFaction != null)
         {
-            var targetMembers = targetFaction.Members.ToList();
+            var targetMembers = targetFaction.Members?.ToList() ?? new List<long>();
             if (targetFaction != GetFaction())
             {
-                foreach (var a in targetFaction.Members)
+                foreach (var a in targetMembers.ToList())
                 {
                     if (targetMembers.Contains(a))
                     {
@@ -365,9 +368,9 @@ public abstract class TemporaryFaction
                         if (actor?.isKing() ?? false)
                         {
                             targetMembers.Remove(a);
-                            foreach (var city in actor.kingdom.cities)
+                            foreach (var city in actor.kingdom.cities.Where(city => city != null && !city.isRekt()))
                             {
-                                if (GetEmpire().CoreKingdom.capital!=city)
+                                if (empire.CoreKingdom.capital != city)
                                 {
                                     cities.Add(city);
                                 }
@@ -378,7 +381,7 @@ public abstract class TemporaryFaction
                         {
                             if (actor?.isCityLeader() ?? false)
                             {
-                                if (GetEmpire().CoreKingdom.capital!=actor.city)
+                                if (empire.CoreKingdom.capital != actor.city)
                                 {
                                     cities.Add(actor.city);
                                 }
@@ -389,12 +392,14 @@ public abstract class TemporaryFaction
                 }
             }
         }
-        var totalWarriors = cities.Sum(c => c.countWarriors());
-        if (totalWarriors >= (GetEmpire()?.countWarriors()??9999) - totalWarriors || (kingdom?.GetEmpire()?.CoreKingdom?.GetMoney()??9999)<0)
+        var totalWarriors = cities.Where(city => city != null && !city.isRekt()).Sum(c => c.countWarriors());
+        if (totalWarriors >= empire.countWarriors() - totalWarriors || (kingdom.GetEmpire()?.CoreKingdom?.GetMoney() ?? 9999) < 0)
         {
             var leader = targetFaction?.GetLeader()??kingdom?.king;
-            var royalMembers = targetFaction?.Members.Select(id => World.world.units.get(id)).ToList().FindAll(a =>
-                a.GetSpecificClan() == GetEmpire().EmpireSpecificClan && a != null);
+            var royalMembers = targetFaction?.Members?
+                .Select(id => World.world.units.get(id))
+                .Where(actor => actor != null && !actor.isRekt() && actor.GetSpecificClan() == empire.EmpireSpecificClan)
+                .ToList();
             if (royalMembers?.Any()??false)
             {
                 leader = royalMembers?.OrderByDescending(a => a.age).First();
@@ -409,7 +414,7 @@ public abstract class TemporaryFaction
                     c.joinAnotherKingdom(kingdom);
                 }
 
-                var war = World.world.diplomacy.startWar(kingdom, GetEmpire().CoreKingdom,
+                var war = World.world.diplomacy.startWar(kingdom, empire.CoreKingdom,
                     WarTypeLibrary.normal);
                 if (war == null)
                 {

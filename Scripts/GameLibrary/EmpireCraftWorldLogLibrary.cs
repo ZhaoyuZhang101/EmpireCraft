@@ -88,10 +88,230 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset empire_core_absorb_title_log;
     public static WorldLogAsset honorary_peerage_granted_log;
     public static WorldLogAsset honorary_peerage_inherited_log;
+    public static WorldLogAsset de_jure_culture_changed_log;
+    public static WorldLogAsset city_culture_shift_log;
+    public static WorldLogAsset foreign_culture_occupation_log;
+    public static WorldLogAsset culture_restoration_available_log;
+    public static WorldLogAsset city_culture_restored_log;
+    public static WorldLogAsset cultural_assimilation_duty_log;
+    public static WorldLogAsset cultural_assimilation_duty_assigned_log;
+    public static WorldLogAsset cultural_assimilation_duty_assigned_city_log;
+    public static WorldLogAsset cultural_assimilation_duty_completed_log;
+    public static WorldLogAsset kingdom_regime_conversion_log;
+    public static WorldLogAsset cultural_name_changed_log;
+    public static WorldLogAsset cultural_name_restored_log;
+    public static WorldLogAsset composite_empire_adoption_started_log;
+    public static WorldLogAsset composite_empire_adopted_log;
+    public static WorldLogAsset composite_empire_stage_changed_log;
+    public static WorldLogAsset composite_empire_cultural_name_adopted_log;
 
     public static void init()
     {
         WorldLogLibrary wl = AssetManager.world_log_library;
+        composite_empire_adoption_started_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(composite_empire_adoption_started_log),
+            group = "emperors",
+            path_icon = "ChineseCrown.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$ruling_culture$", 2);
+                wl.updateText(ref pText, pMessage, "$institutional_culture$", 3);
+            }
+        });
+        composite_empire_adopted_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(composite_empire_adopted_log),
+            group = "emperors",
+            path_icon = "ChineseCrown.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$ruling_culture$", 2);
+                wl.updateText(ref pText, pMessage, "$institutional_culture$", 3);
+            }
+        });
+        composite_empire_stage_changed_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(composite_empire_stage_changed_log),
+            group = "emperors",
+            path_icon = "ChineseCrown.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$old_stage$", 2);
+                wl.updateText(ref pText, pMessage, "$new_stage$", 3);
+            }
+        });
+        composite_empire_cultural_name_adopted_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(composite_empire_cultural_name_adopted_log),
+            group = "emperors",
+            path_icon = "ChineseCrown.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$empire$", 1);
+                wl.updateText(ref pText, pMessage, "$new_name$", 2);
+                wl.updateText(ref pText, pMessage, "$culture$", 3);
+            }
+        });
+        de_jure_culture_changed_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(de_jure_culture_changed_log),
+            group = "emperors",
+            path_icon = "crown2",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$title$", 1);
+                wl.updateText(ref pText, pMessage, "$old_culture$", 2);
+                wl.updateText(ref pText, pMessage, "$new_culture$", 3);
+            }
+        });
+        city_culture_shift_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(city_culture_shift_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$city$", 1);
+                wl.updateText(ref pText, pMessage, "$old_culture$", 2);
+                wl.updateText(ref pText, pMessage, "$new_culture$", 3);
+            }
+        });
+        foreign_culture_occupation_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(foreign_culture_occupation_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_warning,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$city$", 1);
+                wl.updateText(ref pText, pMessage, "$old_culture$", 2);
+                wl.updateText(ref pText, pMessage, "$new_culture$", 3);
+            }
+        });
+        culture_restoration_available_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(culture_restoration_available_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$city$", 1);
+                wl.updateText(ref pText, pMessage, "$culture$", 2);
+            }
+        });
+        city_culture_restored_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(city_culture_restored_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$city$", 1);
+                wl.updateText(ref pText, pMessage, "$old_culture$", 2);
+                wl.updateText(ref pText, pMessage, "$new_culture$", 3);
+            }
+        });
+        cultural_assimilation_duty_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(cultural_assimilation_duty_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$city$", 1);
+                wl.updateText(ref pText, pMessage, "$culture$", 2);
+                wl.updateText(ref pText, pMessage, "$cost$", 3);
+            }
+        });
+        cultural_assimilation_duty_assigned_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(cultural_assimilation_duty_assigned_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$culture$", 2);
+            }
+        });
+        cultural_assimilation_duty_assigned_city_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(cultural_assimilation_duty_assigned_city_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$city$", 1);
+                wl.updateText(ref pText, pMessage, "$culture$", 2);
+            }
+        });
+        cultural_assimilation_duty_completed_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(cultural_assimilation_duty_completed_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$target$", 1);
+                wl.updateText(ref pText, pMessage, "$culture$", 2);
+            }
+        });
+        kingdom_regime_conversion_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(kingdom_regime_conversion_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$old_regime$", 2);
+                wl.updateText(ref pText, pMessage, "$new_regime$", 3);
+            }
+        });
+        cultural_name_changed_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(cultural_name_changed_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$pre$", 1);
+                wl.updateText(ref pText, pMessage, "$after$", 2);
+                wl.updateText(ref pText, pMessage, "$culture$", 3);
+            }
+        });
+        cultural_name_restored_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(cultural_name_restored_log),
+            group = "emperors",
+            path_icon = "ui/icons/iconCulture",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$pre$", 1);
+                wl.updateText(ref pText, pMessage, "$after$", 2);
+                wl.updateText(ref pText, pMessage, "$culture$", 3);
+            }
+        });
         history_new_emperor = wl.add(new WorldLogAsset
         {
             id = nameof(history_new_emperor),

@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using ai.behaviours;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.GeneralSystems;
 using UnityEngine;
 using static Unity.IO.LowLevel.Unsafe.AsyncReadManagerMetrics;
 
@@ -72,6 +73,10 @@ public class BabyHelperPatch : GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pParent1)) return;
         if (__result == null) return;
+        City birthCity = __result.city ?? pParent1?.city ?? pParent2?.city;
+        float localCultureChance = CultureService.GetNewbornLocalCultureChance(birthCity);
+        if (birthCity != null && UnityEngine.Random.value < localCultureChance)
+            CultureService.SyncActorToCityMainCulture(__result, birthCity);
         if (__result.HasSpecificClan())
         {
             PersonalClanIdentity pci = __result.GetPersonalIdentity();

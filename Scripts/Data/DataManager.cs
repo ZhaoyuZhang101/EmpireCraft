@@ -18,6 +18,9 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.Compatibility;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.GamePatches;
+using EmpireCraft.Scripts.Enums;
 
 namespace EmpireCraft.Scripts.Data;
 
@@ -43,6 +46,7 @@ public static class DataManager
         var json = File.ReadAllText(loadPath);
         FactionRatioConverter.ResetLegacyDiscardCount();
         var saveData = JsonConvert.DeserializeObject<SaveData>(json);
+        NormalizeSaveData(saveData);
         if (FactionRatioConverter.DiscardedLegacyEntryCount > 0)
         {
             LogService.LogWarning($"已迁移旧存档中 {FactionRatioConverter.DiscardedLegacyEntryCount} 条无法识别的派系占比；将在加载后按当前派系配置重建。");
@@ -62,23 +66,26 @@ public static class DataManager
         var clanById = World.world.clans.ToDictionary(c => c.getID());
         var warById = World.world.wars.ToDictionary(w => w.getID());
         var religionById = World.world.religions.ToDictionary(r => r.getID());
+        CulturePatch.ImportCultureBindings(saveData.cultureBindings);
         LogService.LogInfo("准备各项数据");
         OfficeManager.Offices = saveData.officeObjects;
         // 批量同步
         foreach (var entry in saveData.actorsExtraData)
         {
+            if (entry == null) continue;
             if (unitById.TryGetValue(entry.id, out Actor actor))
                 actor.SyncData(entry);
         }
         LogService.LogInfo("Sync Actor Data");
         foreach (var entry in saveData.kingdomExtraData)
         {
+            if (entry == null) continue;
             if (kingdomById.TryGetValue(entry.id, out var kingdom))
             {
                 kingdom.SyncData(entry);
                 if (kingdom.GetOfficeID() == -1L)
                 {
-                    var culture = ConfigData.speciesCulturePair.TryGetValue(kingdom.asset.id, out string speciesCulture)? speciesCulture : "Western";
+                    var culture = CultureService.GetRealmCulture(kingdom);
                     RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
                         ? setting.regime
                         : RegimeType.Feudalism;
@@ -91,16 +98,20 @@ public static class DataManager
         LogService.LogInfo("Sync Kingdom Data");
         foreach (var entry in saveData.cityExtraData)
         {
+            if (entry == null) continue;
             if (cityById.TryGetValue(entry.id, out var city))
             {
                 city.SyncData(entry);
-                if (city.GetOfficeID() == -1L)
+                if (city.GetOfficeID() == -1L && city.kingdom != null && !city.kingdom.isRekt())
                 {
                     Regime regime = city.kingdom.GetRegime();
-                    if (regime != null)
+                    if (regime?.bureau_config?.cities != null)
                     {
                         CityType cityType = EmpireCraftKingdomBehCheckKingdomType.CalcCityType(city.kingdom);
-                        BureauSetting citySetting = regime.bureau_config.cities[cityType];
+                        if (!regime.bureau_config.cities.TryGetValue(cityType, out BureauSetting citySetting))
+                        {
+                            continue;
+                        }
                         OfficeObject officeObject = city.GetOffice();
                         if (officeObject != null)
                         {
@@ -121,18 +132,21 @@ public static class DataManager
         LogService.LogInfo("Sync City Data");
         foreach (var entry in saveData.clanExtraData)
         {
+            if (entry == null) continue;
             if (clanById.TryGetValue(entry.id, out var clan))
                 clan.SyncData(entry);
         }
         LogService.LogInfo("Sync Clan Data");
         foreach (var entry in saveData.warExtraData)
         {
+            if (entry == null) continue;
             if (warById.TryGetValue(entry.id, out var war))
                 war.SyncData(entry);
         }
         LogService.LogInfo("Sync War Data");
         foreach (var entry in saveData.religionExtraData)
         {
+            if (entry == null) continue;
             if (religionById.TryGetValue(entry.id, out var religion))
                 religion.SyncData(entry);
         }
@@ -140,24 +154,32 @@ public static class DataManager
         foreach (EmpireData empireData in saveData.empireDatas)
         {
             if (empireData == null) continue;
-            Empire empire = new Empire();
-            empire.loadData(empireData);
-            ModClass.EMPIRE_MANAGER.addObject(empire);
-            LogService.LogInfo($"加载帝国{empire.name}");
-            if (empire.data.centerOffice == null && empire.CoreKingdom != null)
+            try
             {
-                empire.data.centerOffice = new CenterOffice();
-                empire.data.centerOffice.Init(empire.CoreKingdom);
-                empire.CoreKingdom.SetLevel(0);
+                NormalizeEmpireData(empireData);
+                Empire empire = new Empire();
+                empire.loadData(empireData);
+                ModClass.EMPIRE_MANAGER.addObject(empire);
+                LogService.LogInfo($"加载帝国{empire.name}");
+                if (empire.data.centerOffice == null && empire.CoreKingdom != null)
+                {
+                    empire.data.centerOffice = new CenterOffice();
+                    empire.data.centerOffice.Init(empire.CoreKingdom);
+                    empire.CoreKingdom.SetLevel(0);
+                }
+                if (empire.data.centerOffice != null && empire.CoreKingdom != null)
+                {
+                    empire.data.centerOffice.SyncMetaObject(empire.CoreKingdom);
+                }
             }
-            if (empire.data.centerOffice != null && empire.CoreKingdom != null)
+            catch (Exception e)
             {
-                empire.data.centerOffice.SyncMetaObject(empire.CoreKingdom);
+                LogService.LogError($"加载帝国数据失败，已跳过: {e}");
             }
         }
         ModClass.EMPIRE_MANAGER.update(-1L);
         LogService.LogInfo("Sync Empire Data");
-        EmpireCoreManager.EmpireCores = saveData.empireCoreDatas?.Where(c => c != null).ToDictionary(c => c.id) ?? new Dictionary<long, EmpireCore>();
+        EmpireCoreManager.EmpireCores = BuildEmpireCoreMap(saveData.empireCoreDatas);
 
         List<KingdomTitleData> titleDatas = saveData.kingdomTitleDatas;
         if (titleDatas == null || titleDatas.Count == 0)
@@ -168,24 +190,35 @@ public static class DataManager
         foreach (KingdomTitleData kingdomTitleData in titleDatas)
         {
             if (kingdomTitleData == null) continue;
-            NormalizeKingdomTitleData(kingdomTitleData, saveData, cityById);
-            KingdomTitle kt = new KingdomTitle();
-            kt.loadData(kingdomTitleData);
-            if (kt.getCities().Any())
+            try
             {
-                kt.isBeenControlled();
+                NormalizeKingdomTitleData(kingdomTitleData, saveData, cityById);
+                KingdomTitle kt = new KingdomTitle();
+                kt.loadData(kingdomTitleData);
+                if (kt.getCities().Any())
+                {
+                    kt.isBeenControlled();
+                }
+                ModClass.KINGDOM_TITLE_MANAGER.addObject(kt);
             }
-            ModClass.KINGDOM_TITLE_MANAGER.addObject(kt);
+            catch (Exception e)
+            {
+                LogService.LogError($"加载法理头衔数据失败，已跳过: {e}");
+            }
 
         }
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
+        CultureService.MigrateWorldCultureData();
         SpecificClanManager._specificClans = saveData.specificClans;
         SpecificClanManager.RebuildCache();
         LogService.LogInfo("Sync Titles Data");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         LogService.LogInfo("Sync history Data");
-        ModClass.ALL_HISTORY_DATA = saveData.all_history ?? new Dictionary<long, List<EmpireCraftHistory>>();
-        PlayerConfig.dict["switch_real_num"].boolVal = saveData.switch_real_num;
+        ModClass.ALL_HISTORY_DATA = saveData.all_history;
+        if (PlayerConfig.dict.TryGetValue("switch_real_num", out PlayerOptionData realNumOption))
+        {
+            realNumOption.boolVal = saveData.switch_real_num;
+        }
         ModClass.REAL_NUM_SWITCH = saveData.switch_real_num;
         if (PlayerConfig.dict.TryGetValue("switch_simple_nameplate", out PlayerOptionData simpleNameplateOption))
         {
@@ -194,6 +227,7 @@ public static class DataManager
         ModClass.SIMPLE_NAMEPLATE_SWITCH = saveData.switch_simple_nameplate;
         foreach (var worldKingdom in World.world.kingdoms)
         {
+            if (worldKingdom == null || worldKingdom.isRekt()) continue;
             if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(worldKingdom)) continue;
             if (isOldSave)
             {
@@ -204,6 +238,19 @@ public static class DataManager
             worldKingdom.ReconcileMainTitle();
             worldKingdom.GetInitialRandomKingdomName();
             EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
+        }
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER
+                     .Where(value => value != null && !value.IsArchived() && !value.isRekt()).ToList())
+        {
+            try
+            {
+                CompositeEmpireService.SynchronizeRegionalInstitutions(empire);
+                CompositeEmpireService.TryAdoptInstitutionalCultureName(empire);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogError($"复合帝国地方制度迁移失败，保留原制度: {exception}");
+            }
         }
     }
 
@@ -235,8 +282,14 @@ public static class DataManager
     }
     public static void SaveAll(string saveRootPath)
     {
+        if (string.IsNullOrEmpty(saveRootPath))
+        {
+            LogService.LogError("保存路径为空，无法保存mod数据");
+            return;
+        }
         string savePath = Path.Combine(saveRootPath, EmpireCraftSaveFileName);
         CurrentSaveDataPath = savePath;
+        CultureService.MigrateWorldCultureData();
         SaveData saveData = new SaveData();
         saveData.actorsExtraData = World.world.units.Select(a=>a.GetExtraData<Actor, ActorExtraData>(true)).Where(ed=>ed!=null).ToList();
         saveData.cityExtraData = World.world.cities.Select(a => a.GetExtraData<City, CityExtraData>(true)).Where(ed => ed != null).ToList();
@@ -247,6 +300,7 @@ public static class DataManager
         saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
         saveData.empireCoreDatas = EmpireCoreManager.EmpireCores.Values.Where(c => c != null).ToList();
         saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
+        saveData.cultureBindings = CulturePatch.ExportCultureBindings();
         ModClass.EMPIRE_MANAGER.update(-1L);
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
         saveData.officeObjects = OfficeManager.Offices;
@@ -289,14 +343,113 @@ public static class DataManager
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
         saveData.switch_simple_nameplate = ModClass.SIMPLE_NAMEPLATE_SWITCH;
-        string json = JsonConvert.SerializeObject(saveData, Formatting.Indented);
-        LogService.LogInfo("" + saveData.actorsExtraData.Count());
-        LogService.LogInfo("" + saveData.warExtraData.Count());
-        LogService.LogInfo("" + saveData.kingdomExtraData.Count());
-        LogService.LogInfo("" + saveData.cityExtraData.Count());
-        LogService.LogInfo("" + saveData.religionExtraData.Count());
+        string json = JsonConvert.SerializeObject(saveData, Formatting.None);
+        LogService.LogInfo($"Save Data: actors={saveData.actorsExtraData.Count}, wars={saveData.warExtraData.Count}, kingdoms={saveData.kingdomExtraData.Count}, cities={saveData.cityExtraData.Count}, religions={saveData.religionExtraData.Count}");
         File.WriteAllText(savePath, json);
         LogService.LogInfo("Save Finished");
+    }
+
+    private static void NormalizeSaveData(SaveData saveData)
+    {
+        if (saveData == null) return;
+        saveData.actorsExtraData ??= new List<ActorExtraData>();
+        saveData.kingdomExtraData ??= new List<KingdomExtraData>();
+        saveData.cityExtraData ??= new List<CityExtraData>();
+        saveData.clanExtraData ??= new List<ClanExtraData>();
+        saveData.warExtraData ??= new List<WarExtraData>();
+        saveData.religionExtraData ??= new List<ReligionExtension.ReligionExtraData>();
+        saveData.empireDatas ??= new List<EmpireData>();
+        saveData.empireCoreDatas ??= new List<EmpireCore>();
+        saveData.kingdomTitleDatas ??= new List<KingdomTitleData>();
+        saveData.cultureBindings ??= new Dictionary<long, string>();
+        saveData.yearNameSubspecies ??= new List<string>();
+        saveData.all_history ??= new Dictionary<long, List<EmpireCraftHistory>>();
+        saveData.specificClans = saveData.specificClans?.Where(sc => sc != null).ToList() ?? new List<SpecificClan>();
+        saveData.officeObjects ??= new Dictionary<long, OfficeObject>();
+        foreach (EmpireData empireData in saveData.empireDatas)
+        {
+            NormalizeEmpireData(empireData);
+        }
+        foreach (KingdomTitleData titleData in saveData.kingdomTitleDatas)
+        {
+            NormalizeKingdomTitleCollections(titleData);
+        }
+    }
+
+    private static void NormalizeEmpireData(EmpireData data)
+    {
+        if (data == null) return;
+        data.CabinetMembers ??= new List<long>();
+        data.PreviousYearsMoney ??= new List<int>();
+        data.history ??= new List<EmpireCraftHistory>();
+        data.given_Kingdoms ??= new List<long>();
+        data.taken_Kingdoms ??= new List<long>();
+        data.additions ??= new EmpireAddition();
+        data.additions.addition ??= new Dictionary<OfficerPowerType, int>();
+        foreach (OfficerPowerType powerType in OfficeManager.AllPower ?? new List<OfficerPowerType>())
+        {
+            if (!data.additions.addition.ContainsKey(powerType))
+            {
+                data.additions.addition[powerType] = 0;
+            }
+        }
+        data.kingdoms ??= new List<long>();
+        data.cities ??= new List<long>();
+        data.history_emperrors ??= new List<string>();
+        data.honorary_peerage_holders ??= new Dictionary<string, long>();
+        data.honorary_peerage_holder_identities ??= new Dictionary<string, long>();
+        data.honorary_peerage_holder_names ??= new Dictionary<string, string>();
+        data.defeated_empire_houses ??= new List<DefeatedEmpireHouse>();
+        data.legal_peerage_holders ??= new Dictionary<long, long>();
+        data.legal_peerage_holder_identities ??= new Dictionary<long, long>();
+        data.legal_peerage_types ??= new Dictionary<long, string>();
+        data.legal_peerage_kingdoms ??= new Dictionary<long, long>();
+        data.conquest_founder_culture ??= "";
+        data.ruling_culture ??= "";
+        data.institutional_culture ??= "";
+        data.external_identity_culture ??= "";
+        data.military_tradition ??= "";
+        data.composite_cultural_name ??= "";
+        data.composite_cultural_name_culture ??= "";
+        data.composite_cultural_name_source ??= "";
+        data.composite_integration = Math.Max(0, Math.Min(100, data.composite_integration));
+        data.central_plains_legitimacy = Math.Max(0, Math.Min(100, data.central_plains_legitimacy));
+        data.ruling_tradition_legitimacy = Math.Max(0, Math.Min(100, data.ruling_tradition_legitimacy));
+        foreach (EmpireCraftHistory history in data.history)
+        {
+            if (history == null) continue;
+            history.initial_cities ??= new List<string>();
+            history.descriptions ??= new List<HistoryDescription>();
+            foreach (HistoryDescription description in history.descriptions)
+            {
+                if (description == null) continue;
+                description.cities ??= new List<string>();
+            }
+        }
+    }
+
+    private static Dictionary<long, EmpireCore> BuildEmpireCoreMap(IEnumerable<EmpireCore> cores)
+    {
+        Dictionary<long, EmpireCore> result = new Dictionary<long, EmpireCore>();
+        if (cores == null) return result;
+        foreach (EmpireCore core in cores)
+        {
+            if (core == null || core.id <= 0) continue;
+            core.titlesRecord ??= new List<(double time, long titleId)>();
+            core.empire_history_ids ??= new List<long>();
+            result[core.id] = core;
+        }
+        return result;
+    }
+
+    private static void NormalizeKingdomTitleCollections(KingdomTitleData data)
+    {
+        if (data == null) return;
+        data.cities ??= new List<long>();
+        data.history_emperrors ??= new List<string>();
+        data.jurisdiction_history ??= new List<KingdomTitleJurisdictionRecord>();
+        data.title_name_history ??= new Dictionary<string, string>();
+        data.province_name_history ??= new Dictionary<string, string>();
     }
 
     private static void NormalizeKingdomTitleData(KingdomTitleData data, SaveData saveData, Dictionary<long, City> cityById)
@@ -306,7 +459,7 @@ public static class DataManager
             return;
         }
 
-        data.cities ??= new List<long>();
+        NormalizeKingdomTitleCollections(data);
         HashSet<long> cityIds = new HashSet<long>();
         foreach (long cityId in data.cities)
         {

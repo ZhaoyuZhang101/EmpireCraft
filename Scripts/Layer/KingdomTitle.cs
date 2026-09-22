@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Assertions;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.Layer;
 public class KingdomTitle : MetaObject<KingdomTitleData>
@@ -62,6 +63,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         this.data.name = !string.IsNullOrEmpty(kingdomName) ? kingdomName : city.kingdom.GetKingdomName();
         this.addCity(city);
         data.original_actor_asset = city.kingdom.king.asset.id;
+        CultureService.InitializeTitleCulture(this);
         recalculate();
         generateColor();
         LogService.LogInfo("创建头衔成功");
@@ -388,6 +390,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         }
         city.SetTitle(this);
         city_list_hash.Add(city);
+        CultureService.InitializeCityCulture(city);
         EmpireCore core = this.title_capital?.GetEmpireCore();
         if (core != null && EmpireCoreManager.ContainsTitle(core, this))
         {

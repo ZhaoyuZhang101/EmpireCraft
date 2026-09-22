@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.GeneralSystems;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.HelperFunc
@@ -1280,6 +1281,319 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = actor.kingdom.getColor()._color_text,
                 color_special2 = actor.kingdom.getColor()._color_text
             }.RecordIntoEmpire(actor.GetEmpire());
+        }
+
+        public static void LogDeJureCultureChanged(KingdomTitle title, string oldCulture, string newCulture)
+        {
+            if (title?.data == null) return;
+            string oldName = CultureService.IsValidCulture(oldCulture) ? oldCulture.GetCultureTranslate() : LM.Get("label_none");
+            string newName = CultureService.IsValidCulture(newCulture) ? newCulture.GetCultureTranslate() : newCulture;
+            EmpireCore core = CultureService.GetInheritedEmpireCore(title);
+            Empire empire = EmpireCoreManager.GetEmpires(core).FirstOrDefault();
+            WorldLogMessage message = new WorldLogMessage(EmpireCraftWorldLogLibrary.de_jure_culture_changed_log,
+                title.data.name, oldName, newName)
+            {
+                color_special1 = title.getColor()._color_text,
+                color_special2 = title.getColor()._color_text,
+                color_special3 = title.getColor()._color_text
+            };
+            if (empire != null)
+                message.RecordNationalHistoryIntoEmpire(empire, title.owner, title.main_kingdom);
+            else
+                message.add();
+            WorldTip.showNow("de_jure_culture_changed_tip", true, "top", 3f, "#F3961F");
+        }
+
+        public static void LogCityCultureShift(City city, string oldCulture, string newCulture)
+        {
+            if (city?.data == null) return;
+            string oldName = CultureService.IsValidCulture(oldCulture) ? oldCulture.GetCultureTranslate() : LM.Get("label_none");
+            string newName = CultureService.IsValidCulture(newCulture) ? newCulture.GetCultureTranslate() : newCulture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.city_culture_shift_log,
+                city.data.name, oldName, newName)
+            {
+                color_special1 = city.getColor()._color_text,
+                color_special2 = city.getColor()._color_text,
+                color_special3 = city.getColor()._color_text
+            }.add();
+            WorldTip.showNow("city_culture_shift_tip", true, "top", 3f, "#57C2FF");
+        }
+
+        public static void LogForeignCultureOccupation(City city, string oldCulture, string newCulture)
+        {
+            if (city?.data == null) return;
+            string oldName = CultureService.IsValidCulture(oldCulture) ? oldCulture.GetCultureTranslate() : LM.Get("label_none");
+            string newName = CultureService.IsValidCulture(newCulture) ? newCulture.GetCultureTranslate() : newCulture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.foreign_culture_occupation_log,
+                city.data.name, oldName, newName)
+            {
+                color_special1 = city.getColor()._color_text,
+                color_special2 = city.getColor()._color_text,
+                color_special3 = city.getColor()._color_text
+            }.add();
+            WorldTip.showNow("foreign_culture_occupation_tip", true, "top", 3f, "#F3961F");
+        }
+
+        public static void LogCultureRestorationAvailable(City city, string culture)
+        {
+            if (city?.data == null) return;
+            string cultureName = CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : culture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.culture_restoration_available_log,
+                city.data.name, cultureName)
+            {
+                color_special1 = city.getColor()._color_text,
+                color_special2 = city.getColor()._color_text
+            }.add();
+            WorldTip.showNow("culture_restoration_available_tip", true, "top", 3f, "#65E572");
+        }
+
+        public static void LogCityCultureRestored(City city, string oldCulture, string newCulture)
+        {
+            if (city?.data == null) return;
+            string oldName = CultureService.IsValidCulture(oldCulture) ? oldCulture.GetCultureTranslate() : LM.Get("label_none");
+            string newName = CultureService.IsValidCulture(newCulture) ? newCulture.GetCultureTranslate() : newCulture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.city_culture_restored_log,
+                city.data.name, oldName, newName)
+            {
+                color_special1 = city.getColor()._color_text,
+                color_special2 = city.getColor()._color_text,
+                color_special3 = city.getColor()._color_text
+            }.add();
+            WorldTip.showNow("city_culture_restored_tip", true, "top", 3f, "#65E572");
+        }
+
+        /// <summary>
+        /// 城市因为文化转变而改名（这个文化以前在这座城市上没有出现过，现生成了一个新名字）。
+        /// </summary>
+        public static void LogCityNameChanged(City city, string oldName, string newName, string culture)
+        {
+            if (city?.data == null) return;
+            string cultureName = CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : culture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.cultural_name_changed_log,
+                oldName, newName, cultureName)
+            {
+                color_special1 = city.getColor()._color_text,
+                color_special2 = city.getColor()._color_text,
+                color_special3 = city.getColor()._color_text
+            }.add();
+            WorldTip.showNow("cultural_name_changed_tip", true, "top", 3f, "#57C2FF");
+        }
+
+        /// <summary>
+        /// 城市因为文化转变，恢复了这个文化以前在这座城市上用过、被永久记录下来的历史名字。
+        /// </summary>
+        public static void LogCityNameRestored(City city, string oldName, string newName, string culture)
+        {
+            if (city?.data == null) return;
+            string cultureName = CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : culture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.cultural_name_restored_log,
+                oldName, newName, cultureName)
+            {
+                color_special1 = city.getColor()._color_text,
+                color_special2 = city.getColor()._color_text,
+                color_special3 = city.getColor()._color_text
+            }.add();
+            WorldTip.showNow("cultural_name_restored_tip", true, "top", 3f, "#F3961F");
+        }
+
+        /// <summary>
+        /// 法理头衔名 / 省份名因为文化转变而改名（isProvince 区分是头衔名还是省份名）。
+        /// </summary>
+        public static void LogTitleNameChanged(KingdomTitle title, string oldName, string newName, string culture,
+            bool isProvince)
+        {
+            if (title?.data == null) return;
+            string cultureName = CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : culture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.cultural_name_changed_log,
+                oldName, newName, cultureName)
+            {
+                color_special1 = title.getColor()._color_text,
+                color_special2 = title.getColor()._color_text,
+                color_special3 = title.getColor()._color_text
+            }.add();
+            WorldTip.showNow(
+                isProvince ? "cultural_name_changed_province_tip" : "cultural_name_changed_title_tip",
+                true, "top", 3f, "#57C2FF");
+        }
+
+        /// <summary>
+        /// 法理头衔名 / 省份名因为文化转变，恢复了这个文化以前用过、被永久记录下来的历史名字。
+        /// </summary>
+        public static void LogTitleNameRestored(KingdomTitle title, string oldName, string newName, string culture,
+            bool isProvince)
+        {
+            if (title?.data == null) return;
+            string cultureName = CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : culture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.cultural_name_restored_log,
+                oldName, newName, cultureName)
+            {
+                color_special1 = title.getColor()._color_text,
+                color_special2 = title.getColor()._color_text,
+                color_special3 = title.getColor()._color_text
+            }.add();
+            WorldTip.showNow(
+                isProvince ? "cultural_name_restored_province_tip" : "cultural_name_restored_title_tip",
+                true, "top", 3f, "#F3961F");
+        }
+
+        public static void LogCulturalAssimilationDuty(City city, string targetCulture, int influenceCost)
+        {
+            if (city?.data == null) return;
+            string cultureName = CultureService.IsValidCulture(targetCulture) ? targetCulture.GetCultureTranslate() : targetCulture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.cultural_assimilation_duty_log,
+                city.data.name, cultureName, "" + influenceCost)
+            {
+                color_special1 = city.getColor()._color_text,
+                color_special2 = city.getColor()._color_text,
+                color_special3 = city.getColor()._color_text
+            }.add();
+        }
+
+        public static void LogCulturalAssimilationDutyAssigned(Kingdom kingdom, string targetCulture)
+        {
+            if (kingdom?.data == null) return;
+            string cultureName = CultureService.IsValidCulture(targetCulture) ? targetCulture.GetCultureTranslate() : targetCulture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.cultural_assimilation_duty_assigned_log,
+                kingdom.GetKingdomName(), cultureName)
+            {
+                color_special1 = kingdom.getColor()._color_text,
+                color_special2 = kingdom.getColor()._color_text
+            }.add();
+        }
+
+        // "文化同化"决议指定帝国直辖城市（而非整个行政区）时记录，与上面按
+        // 行政区指定的版本是同一事件的两种触发路径，只是主体从王国换成了城市。
+        public static void LogCulturalAssimilationDutyAssignedCity(City city, string targetCulture)
+        {
+            if (city?.data == null) return;
+            string cultureName = CultureService.IsValidCulture(targetCulture) ? targetCulture.GetCultureTranslate() : targetCulture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.cultural_assimilation_duty_assigned_city_log,
+                city.data.name, cultureName)
+            {
+                color_special1 = city.getColor()._color_text,
+                color_special2 = city.getColor()._color_text
+            }.add();
+        }
+
+        public static void LogCulturalAssimilationDutyCompleted(Kingdom kingdom, string targetCulture)
+        {
+            if (kingdom?.data == null) return;
+            LogCulturalAssimilationDutyCompleted(kingdom.GetKingdomName(),
+                kingdom.getColor()._color_text, targetCulture);
+        }
+
+        public static void LogCulturalAssimilationDutyCompleted(City city, string targetCulture)
+        {
+            if (city?.data == null) return;
+            LogCulturalAssimilationDutyCompleted(city.data.name, city.getColor()._color_text, targetCulture);
+        }
+
+        private static void LogCulturalAssimilationDutyCompleted(string targetName, Color color,
+            string targetCulture)
+        {
+            string cultureName = CultureService.IsValidCulture(targetCulture) ? targetCulture.GetCultureTranslate() : targetCulture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.cultural_assimilation_duty_completed_log,
+                targetName, cultureName)
+            {
+                color_special1 = color,
+                color_special2 = color
+            }.add();
+        }
+
+        public static void LogKingdomRegimeConversion(Kingdom kingdom, RegimeType? oldRegime, RegimeType newRegime)
+        {
+            if (kingdom?.data == null) return;
+            string oldName = GetRegimeDisplayName(oldRegime);
+            string newName = GetRegimeDisplayName(newRegime);
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.kingdom_regime_conversion_log,
+                kingdom.GetKingdomName(), oldName, newName)
+            {
+                color_special1 = kingdom.getColor()._color_text,
+                color_special2 = kingdom.getColor()._color_text,
+                color_special3 = kingdom.getColor()._color_text
+            }.add();
+        }
+
+        public static void LogCompositeEmpireAdoptionStarted(Empire empire,
+            CompositeEmpireService.AdoptionStatus status)
+        {
+            if (empire?.CoreKingdom == null || status == null) return;
+            string rulingName = CultureService.IsValidCulture(status.RulingCulture)
+                ? status.RulingCulture.GetCultureTranslate()
+                : status.RulingCulture;
+            string institutionalName = CultureService.IsValidCulture(status.InstitutionalCulture)
+                ? status.InstitutionalCulture.GetCultureTranslate()
+                : status.InstitutionalCulture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.composite_empire_adoption_started_log,
+                empire.GetEmpireFullName(), rulingName, institutionalName)
+            {
+                color_special1 = empire.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text,
+                color_special3 = empire.getColor()._color_text
+            }.RecordNationalHistoryIntoEmpire(empire, empire.Emperor, empire.CoreKingdom);
+            WorldTip.showNow("composite_empire_adoption_started_tip", true, "top", 4f, "#F3C34A");
+        }
+
+        public static void LogCompositeEmpireAdopted(Empire empire, string rulingCulture,
+            string institutionalCulture)
+        {
+            if (empire?.CoreKingdom == null) return;
+            string rulingName = CultureService.IsValidCulture(rulingCulture)
+                ? rulingCulture.GetCultureTranslate()
+                : rulingCulture;
+            string institutionalName = CultureService.IsValidCulture(institutionalCulture)
+                ? institutionalCulture.GetCultureTranslate()
+                : institutionalCulture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.composite_empire_adopted_log,
+                empire.GetEmpireFullName(), rulingName, institutionalName)
+            {
+                color_special1 = empire.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text,
+                color_special3 = empire.getColor()._color_text
+            }.RecordNationalHistoryIntoEmpire(empire, empire.Emperor, empire.CoreKingdom);
+            WorldTip.showNow("composite_empire_adopted_tip", true, "top", 4f, "#F3C34A");
+        }
+
+        public static void LogCompositeEmpireStageChanged(Empire empire,
+            CompositeEmpireIntegrationStage oldStage, CompositeEmpireIntegrationStage newStage)
+        {
+            if (empire?.CoreKingdom == null) return;
+            string oldName = LM.Get($"composite_empire_stage_{oldStage}");
+            string newName = LM.Get($"composite_empire_stage_{newStage}");
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.composite_empire_stage_changed_log,
+                empire.GetEmpireFullName(), oldName, newName)
+            {
+                color_special1 = empire.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text,
+                color_special3 = empire.getColor()._color_text
+            }.RecordNationalHistoryIntoEmpire(empire, empire.Emperor, empire.CoreKingdom);
+            WorldTip.showNow("composite_empire_stage_changed_tip", true, "top", 4f, "#65D6C4");
+        }
+
+        public static void LogCompositeEmpireCulturalNameAdopted(Empire empire, string newName, string culture)
+        {
+            if (empire?.CoreKingdom == null || string.IsNullOrWhiteSpace(newName)) return;
+            string cultureName = CultureService.IsValidCulture(culture)
+                ? culture.GetCultureTranslate()
+                : culture;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.composite_empire_cultural_name_adopted_log,
+                empire.GetEmpireFullName(), newName, cultureName)
+            {
+                color_special1 = empire.getColor()._color_text,
+                color_special2 = empire.getColor()._color_text,
+                color_special3 = empire.getColor()._color_text
+            }.RecordNationalHistoryIntoEmpire(empire, empire.Emperor, empire.CoreKingdom);
+            WorldTip.showNow("composite_empire_cultural_name_adopted_tip", true, "top", 4f, "#F3C34A");
+        }
+
+        private static string GetRegimeDisplayName(RegimeType? regimeType)
+        {
+            if (!regimeType.HasValue) return LM.Get("label_none");
+            string key = $"regime_type_{regimeType.Value}";
+            string localized = LM.Get(key);
+            return string.IsNullOrWhiteSpace(localized) || string.Equals(localized, key, StringComparison.Ordinal)
+                ? regimeType.Value.ToString()
+                : localized;
         }
     }
 }

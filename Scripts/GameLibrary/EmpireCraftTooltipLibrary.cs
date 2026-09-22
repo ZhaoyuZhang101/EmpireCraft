@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
@@ -85,8 +86,17 @@ public static class EmpireCraftTooltipLibrary
             prefab_id = "tooltips/tooltip_normal",
             callback = showEmpireCraftActor
         });
+        // 文化图层悬停城市时用：展示该城市自己的文化影响力前三，用真正的鼠标悬停
+        // Tooltip 呈现（跟"empire"图层的 ShowEmpireCursorTooltip 走同一套
+        // Tooltip.show/hideTooltip API），而不是伪造一块透明铭牌顶在城市上方。
+        tl.add(new TooltipAsset
+        {
+            id = "empirecraft_culture_share",
+            prefab_id = "tooltips/tooltip_normal",
+            callback = showCultureShareTooltip
+        });
     }
-    
+
     private static void showActorNormal(Tooltip pTooltip, string pType, TooltipData pData)
     {
 	    AssetManager.tooltips.showActor("", pTooltip, pData);
@@ -140,6 +150,11 @@ public static class EmpireCraftTooltipLibrary
 		}
 		pTooltip.addLineBreak();
 		pTooltip.addLineText("villages", kingdom.cities.Count.ToText() + "/" + kingdom.getMaxCities().ToText());
+        int deJureExemptCities = kingdom.CountDeJureCapacityExemptCities();
+        if (deJureExemptCities > 0)
+        {
+            pTooltip.addLineText("de_jure_city_capacity_exempt", deJureExemptCities.ToText(), color_text);
+        }
 		pTooltip.addLineIntText("adults", kingdom.countAdults());
 		pTooltip.addLineIntText("children", kingdom.countChildren());
 		pTooltip.addLineIntText("families", kingdom.countFamilies());
@@ -364,6 +379,19 @@ public static class EmpireCraftTooltipLibrary
             ? title.title_capital?.GetCityName()
             : title.data.province_name;
         AddTooltipLine(pTooltip, "province_name", provinceName, "#FFD34E", true);
+        string culture = CultureService.GetEffectiveTitleCulture(title);
+        string cultureName = CultureService.IsValidCulture(culture)
+            ? culture.GetCultureTranslate()
+            : LM.Get("label_none");
+        AddTooltipLine(pTooltip, "kingdom_title_effective_culture", cultureName, "#74D7FF", true);
+        bool globallyLocked = CultureService.IsFixedDeJureCultureEnabled();
+        string cultureStatus = globallyLocked
+            ? LM.Get("kingdom_title_culture_locked_globally")
+            : title.data.culture_locked
+                ? LM.Get("kingdom_title_culture_locked")
+                : LM.Get("kingdom_title_culture_unlocked");
+        AddTooltipLine(pTooltip, "kingdom_title_culture_status", cultureStatus,
+            globallyLocked || title.data.culture_locked ? "#FFD34E" : "#AEB6C2", true);
         AddTooltipLine(pTooltip, "kingdom_title_capital", title.title_capital?.GetCityName(), "#CC6CE7", true);
 
         List<KingdomTitleHolderRelation> holders = KingdomTitleRelationResolver.ResolveCurrentHolders(title);
@@ -454,6 +482,84 @@ public static class EmpireCraftTooltipLibrary
     private static void showEmperor(Tooltip pTooltip, string pType, TooltipData pData)
     {
         AssetManager.tooltips.showActor("actor_emperor", pTooltip, pData);
+    }
+
+    // 文化图层悬停某城市时显示：该城市自己的文化影响力前三（不要求它是所属文化的
+    // “代表城市”），跟原来铭牌库里 showCultureShareDetailForCity 展示的信息完全
+    // 一样，只是从伪造的透明铭牌换成了真正的 Tooltip.show 悬停提示框。
+    private static void showCultureShareTooltip(Tooltip pTooltip, string pType, TooltipData pData)
+    {
+        City city = pData.city;
+        if (city == null || city.isRekt()) return;
+
+        Dictionary<string, float> shares = CultureService.GetCityCultureShares(city);
+        string dominantCulture = CultureService.GetMainCulture(city);
+        List<KeyValuePair<string, float>> topShares = shares
+            .Where(pair => CultureService.IsValidCulture(pair.Key) && pair.Value > 0.05f)
+            .OrderByDescending(pair => pair.Value)
+            .Take(3)
+            .ToList();
+
+        pTooltip.clear();
+        pTooltip.setTitle(city.GetCityFullName(), "empirecraft_culture_share_tooltip", "#FFFFFF");
+        if (topShares.Count == 0) return;
+
+        if (CultureService.IsValidCulture(dominantCulture))
+            pTooltip.addLineText("city_official_culture", dominantCulture.GetCultureTranslate(), "#FFD91A");
+
+        foreach (KeyValuePair<string, float> pair in topShares)
+        {
+            bool isDominant = string.Equals(pair.Key, dominantCulture, StringComparison.Ordinal);
+            string lineColor = isDominant ? "#FFD91A" : null;
+            pTooltip.addLineText(pair.Key.GetCultureTranslate(), $"{pair.Value:0.#}%", lineColor,
+                pPercent: false, pLocalize: false);
+        }
+
+        string occupationCulture = CultureService.GetOccupationCultureTarget(city);
+        if (CultureService.IsValidCulture(occupationCulture))
+        {
+            string status = string.Format(LM.Get("city_occupation_culture_pressure_value"),
+                occupationCulture.GetCultureTranslate(), CultureService.GetCultureShare(city, occupationCulture));
+            pTooltip.addLineText("city_occupation_culture_pressure", status, "#FFB84D");
+        }
+
+        if (CultureService.FindCultureRestorationCandidate(city, city.kingdom, out string restorationCulture))
+            pTooltip.addLineText("city_culture_restoration_available",
+                restorationCulture.GetCultureTranslate(), "#65E572");
+
+        if (CultureService.IsCityMainCultureLocked(city))
+        {
+            string deJureCulture = CultureService.GetEffectiveTitleCulture(city.GetTitle());
+            string status = CultureService.IsValidCulture(deJureCulture)
+                ? deJureCulture.GetCultureTranslate()
+                : LM.Get("label_none");
+            pTooltip.addLineText("city_culture_shift_locked", status, "#9FB7D9");
+        }
+
+        string candidate = CultureService.UpdateCityCultureShiftCandidate(city);
+        if (CultureService.IsValidCulture(candidate))
+        {
+            int stableYears = CultureService.GetCityCultureShiftStableYears(city);
+            int requiredYears = CultureShareRules.CityCultureShiftStableYears;
+            string progress = string.Format(LM.Get("city_culture_shift_candidate_progress"),
+                candidate.GetCultureTranslate(), Math.Min(stableYears, requiredYears), requiredYears);
+            string color = stableYears >= requiredYears ? "#65E572" : "#FFD34E";
+            pTooltip.addLineText("city_culture_shift_candidate", progress, color);
+        }
+
+        string assimilationTarget = CultureService.GetCulturalAssimilationTarget(city);
+        string assimilationPhase = CultureService.GetCulturalAssimilationPhase(city);
+        if (CultureService.IsValidCulture(assimilationTarget) && !string.IsNullOrWhiteSpace(assimilationPhase))
+        {
+            string progress = string.Format(LM.Get("cultural_assimilation_campaign_progress"),
+                assimilationTarget.GetCultureTranslate(),
+                CultureService.GetCultureShare(city, assimilationTarget),
+                LM.Get(assimilationPhase));
+            string color = assimilationPhase == "cultural_assimilation_phase_consolidation"
+                ? "#65E572"
+                : "#FFB84D";
+            pTooltip.addLineText("cultural_assimilation_campaign", progress, color);
+        }
     }
 
     private static void showEmpireCraftActor(Tooltip pTooltip, string pType, TooltipData pData)

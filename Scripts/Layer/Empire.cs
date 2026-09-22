@@ -15,6 +15,7 @@ using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.GeneralSystems;
 using NCMS;
 using UnityEngine;
 using Random = System.Random;
@@ -214,9 +215,7 @@ public class Empire : MetaObject<EmpireData>
 
     public string GetCulture()
     {
-        return CoreKingdom != null && ConfigData.speciesCulturePair.TryGetValue(CoreKingdom.getSpecies(), out var culture)
-            ? culture
-            : "";
+        return CultureService.GetEmpireDefaultCulture(this);
     }
 
     private string GetNamingCulture()
@@ -224,7 +223,7 @@ public class Empire : MetaObject<EmpireData>
         string cultureName = GetCulture();
         return !string.IsNullOrWhiteSpace(cultureName) || CoreKingdom == null
             ? cultureName
-            : OverallHelperFunc.GetCultureFromSpecies(CoreKingdom.getSpecies());
+            : CultureService.GetRealmCulture(CoreKingdom);
     }
     public bool IsAllowToMakeWar()
     {
@@ -809,6 +808,14 @@ public class Empire : MetaObject<EmpireData>
         if (!kingdom.isAlive()) return;
         if (!kingdom.hasKing()) return;
         kingdom.ai.setTask("do_mod_empire_beh");
+        CultureService.ApplyFounderCulture(kingdom, kingdom.king);
+        string founderCulture = CultureService.GetFounderCulture(kingdom.king);
+        if (CultureService.IsValidCulture(founderCulture))
+        {
+            data.conquest_founder_culture = founderCulture;
+            data.ruling_culture = founderCulture;
+            data.external_identity_culture = founderCulture;
+        }
         kingdom.GetOrCreate().isEmpire = true;
         data.history_emperrors = new List<string>();
         data.heir_type = EmpireHeirLawType.eldest_child;
@@ -1010,12 +1017,13 @@ public class Empire : MetaObject<EmpireData>
         return data.original_royal_been_changed;
     }
 
-    public void SetEmpireName(string name)
+    public void SetEmpireName(string name, bool preserveEmpireType = false)
     {
         var core = CoreKingdom;
         if (core == null) return;
         name = name?.Trim() ?? "";
-        data.empire_type_key = OverallHelperFunc.ResolveEmpireTypeKey(core.GetRegime(), core);
+        if (!preserveEmpireType || string.IsNullOrWhiteSpace(data.empire_type_key))
+            data.empire_type_key = OverallHelperFunc.ResolveEmpireTypeKey(core.GetRegime(), core);
         string typeKey = data.empire_type_key;
         string typeName = string.IsNullOrWhiteSpace(typeKey) ? "" : LM.Get(typeKey);
         if (string.IsNullOrWhiteSpace(typeName) || string.Equals(typeName, typeKey, StringComparison.Ordinal))
@@ -1352,9 +1360,11 @@ public class Empire : MetaObject<EmpireData>
         Kingdom coreKingdom = CoreKingdom;
         if (coreKingdom == null || coreKingdom.isRekt()) return;
         Regime regime = coreKingdom.GetRegime();
+        CompositeEmpireService.Update(this);
         if (regime?.type == RegimeType.LvLing)
         {
             UpdatePowerfulMinister(regime);
+            ProcessTerritorialAcquisitionEnfeoff();
         }
         else if (regime != null && data.powerful_minister_id > 0)
         {
@@ -2041,7 +2051,8 @@ public class Empire : MetaObject<EmpireData>
     }
 
     // Token: 0x06001128 RID: 4392 RVA: 0x000C7890 File Offset: 0x000C5A90
-    public void join(Kingdom pKingdom, bool pRecalc = true, bool pForce = false)
+    public void join(Kingdom pKingdom, bool pRecalc = true, bool pForce = false,
+        bool pLegitimacyTransfer = false)
     {
         if (pKingdom == null || pKingdom.isRekt()) return;
         if (AncientWarfareCompatibility.Owns(CoreKingdom) || AncientWarfareCompatibility.Owns(pKingdom)) return;
@@ -2051,7 +2062,7 @@ public class Empire : MetaObject<EmpireData>
         }
         // A rebel polity can never return to an empire it previously rebelled against,
         // including through forced or scripted membership changes.
-        if (pKingdom.HasRebelledAgainst(this)) return;
+        if (!pLegitimacyTransfer && pKingdom.HasRebelledAgainst(this)) return;
         if (!pForce && !this.canJoin(pKingdom))
         {
             return;
@@ -2080,6 +2091,8 @@ public class Empire : MetaObject<EmpireData>
             recalculate();
         }
         data.timestamp_member_joined = World.world.getCurWorldTime();
+        if (CompositeEmpireService.IsComposite(this))
+            CompositeEmpireService.SynchronizeRegionalInstitution(this, pKingdom);
     }
 
     public void leave(Kingdom pKingdom, bool pRecalc = true, bool isLeave = false)
@@ -3582,7 +3595,9 @@ public class Empire : MetaObject<EmpireData>
         Kingdom coreKingdom = CoreKingdom;
         if (data == null || coreKingdom == null || coreKingdom.isRekt()) return;
         Regime regime = coreKingdom.GetRegime();
-        //律令制的道、军府是行政授权，不属于虚封法理，必须优先处理。
+        if (regime == null) return;
+
+        // LvLing's unlanded peerages do not replace its territorial circuits.
         if (regime?.type == RegimeType.LvLing)
         {
             AutoEstablishLvLingAdministrativeDivisions();
@@ -3594,170 +3609,312 @@ public class Empire : MetaObject<EmpireData>
             data.last_legal_peerage_timestamp = -1L;
             return;
         }
-        var allCities = coreKingdom.cities;
-        EmpireCore empireCore = EmpireCoreManager.Get(this);
-        if (allCities == null)
+        AutoEstablishTerritorialDivisions(regime, RegimeSupportsProvince(regime));
+        World.world.zone_calculator.dirtyAndClear();
+    }
+
+    private void ProcessTerritorialAcquisitionEnfeoff()
+    {
+        if (data == null || CoreKingdom?.cities == null || World.world == null) return;
+        double now = World.world.getCurWorldTime();
+        if (data.last_auto_enfeoff_check_timestamp >= 0 &&
+            Date.getMonthsSince(data.last_auto_enfeoff_check_timestamp) < 1) return;
+        data.last_auto_enfeoff_check_timestamp = now;
+
+        HashSet<long> currentCities = CoreKingdom.cities
+            .Where(city => city != null && !city.isRekt() && city.kingdom == CoreKingdom)
+            .Select(city => city.id).ToHashSet();
+        HashSet<long> currentCompleteTitles = ModClass.KINGDOM_TITLE_MANAGER
+            .Where(title => title != null && !title.isRekt())
+            .Where(title =>
+            {
+                List<City> cities = title.getCities()
+                    .Where(city => city != null && !city.isRekt()).Distinct().ToList();
+                return cities.Count > 0 && cities.All(city => city.kingdom?.GetEmpire() == this);
+            })
+            .Select(title => title.id).ToHashSet();
+
+        data.auto_enfeoff_observed_city_ids ??= new List<long>();
+        data.auto_enfeoff_observed_title_ids ??= new List<long>();
+        if (!data.auto_enfeoff_tracking_initialized)
         {
+            data.auto_enfeoff_observed_city_ids = currentCities.OrderBy(id => id).ToList();
+            data.auto_enfeoff_observed_title_ids = currentCompleteTitles.OrderBy(id => id).ToList();
+            data.auto_enfeoff_tracking_initialized = true;
             return;
         }
-        if (allCities.Count == 0) return;
-        var unassigned = new HashSet<City>(allCities);
-        while (unassigned.Count > 0)
-        {
-            var seed = unassigned.First();
-            var region = new List<City> { seed };
-            unassigned.Remove(seed);
-    
-            var queue = new Queue<City>();
-            queue.Enqueue(seed);
-    
-            while (queue.Count > 0 && region.Count < _avgCitiesPerKingdom)
-            {
-                var curr = queue.Dequeue();
-                foreach (var nei in curr.neighbours_cities)
-                {
-                    if (unassigned.Contains(nei))
-                    {
-                        region.Add(nei);
-                        unassigned.Remove(nei);
-                        queue.Enqueue(nei);
-                        if (region.Count >= _avgCitiesPerKingdom) break;
-                    }
-                }
-            }
-            region = region.FindAll(c =>
-            {
-                if (c == null || c.isRekt() || c.getID() == CoreKingdom.capital.getID()) return false;
-                if (empireCore != null && c.GetEmpireCore() == empireCore) return false;
-                KingdomTitle title = c.GetTitle();
-                return title == null || !string.Equals(title.data.name, GetEmpireName(), StringComparison.Ordinal);
-            });
-            CoreKingdom.getMaxCities();
-            if (region.Count > 0)
-            {
-                City capital = region.GetRandom();
-                List<Actor> SatisfiedCandidates = new List<Actor>();
-                if (CoreKingdom.getKingClan()!=null)
-                {
-                    var RoyalCandidates = CoreKingdom.getKingClan().getUnits();
-                    SatisfiedCandidates = RoyalCandidates.TakeWhile(c => c.isActor() && c.isAlive() && c.isAdult() && c.getID() != CoreKingdom.getID() && !c.isKing()).ToList();
-                }
-                else
-                {
-                    SatisfiedCandidates = new List<Actor>();
-                }
-    
-                Kingdom newKingdom;
-                Actor king;
-                if (SatisfiedCandidates.Count() > 0)
-                {
-                    king = SatisfiedCandidates.First();
-                }
-                else
-                {
-                    king = capital.hasLeader()?capital.leader:capital.getUnits().FirstOrDefault();
-                }
-                
-                newKingdom = SetEnfeoff(capital, king);
-                foreach (var city in region)
-                {
-                    city.joinAnotherKingdom(newKingdom);
-                }
-                newKingdom.setCapital(capital);
-                newKingdom.data.name = capital.data.name;
-                newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
-                join(newKingdom, true, true);
-                WorldLog.logNewKingdom(newKingdom);
-                newKingdom.SetRegimeType(CoreKingdom.GetRegime().type);
-                newKingdom.LoadRegime();
-                if (newKingdom.GetRegime().type == RegimeType.LvLing)
-                {
-                    newKingdom.GetRegime().SetAllowDiplomacy(false);
-                    newKingdom.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
-                }
-                if (king?.GetSpecificClan() != null && king.GetSpecificClan() == EmpireSpecificClan)
-                {
-                    TranslateHelper.LogPeerageGranted(king, this,
-                        newKingdom.data.name + LM.Get("default_peerages_2"));
-                }
-                else
-                {
-                    new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_enfeoff_log, this.name)
-                    {
-                        location = this.CoreKingdom.location,
-                        color_special1 = this.CoreKingdom.getColor().getColorText()
-                    }.RecordNationalHistoryIntoEmpire(this, king, newKingdom);
-                }
-            }
-        }
-        World.world.zone_calculator.dirtyAndClear();
+
+        bool acquiredCity = currentCities.Except(data.auto_enfeoff_observed_city_ids).Any();
+        bool completedTitle = currentCompleteTitles.Except(data.auto_enfeoff_observed_title_ids).Any();
+        data.auto_enfeoff_observed_city_ids = currentCities.OrderBy(id => id).ToList();
+        data.auto_enfeoff_observed_title_ids = currentCompleteTitles.OrderBy(id => id).ToList();
+        if (acquiredCity || completedTitle) AutoEnfeoff();
     }
 
     private void AutoEstablishLvLingAdministrativeDivisions()
     {
-        Kingdom coreKingdom = CoreKingdom;
-        EmpireCore empireCore = EmpireCoreManager.Get(this);
-        if (coreKingdom?.cities == null) return;
+        AutoEstablishTerritorialDivisions(CoreKingdom?.GetRegime(), createAdministration: true);
+    }
 
-        List<KingdomTitle> titles = coreKingdom.cities
-            .Where(city => city != null && !city.isRekt() && city.hasTitle())
+    private void AutoEstablishTerritorialDivisions(Regime regime, bool createAdministration)
+    {
+        Kingdom coreKingdom = CoreKingdom;
+        if (regime == null || coreKingdom?.cities == null || coreKingdom.cities.Count == 0) return;
+
+        HashSet<long> protectedCities = GetProtectedDirectCityIds();
+        List<KingdomTitle> titles = coreKingdom.cities.ToList()
+            .Where(city => IsDirectPartitionCandidate(city, protectedCities) && city.hasTitle())
             .Select(city => city.GetTitle())
-            .Where(title => title != null && !title.isRekt() && title.title_capital != null &&
-                !title.title_capital.isRekt() && title.title_capital.kingdom == coreKingdom &&
-                title.title_capital != coreKingdom.capital &&
-                !string.Equals(title.data?.name, GetEmpireName(), StringComparison.Ordinal))
+            .Where(title => title != null && !title.isRekt())
             .Distinct().OrderBy(title => title.id).ToList();
+
+        // Existing grants are authoritative. Complete their de jure territory before creating anything new.
+        foreach (KingdomTitle title in titles)
+        {
+            List<Kingdom> existingPartitions = FindExistingTitlePartitions(title);
+            if (existingPartitions.Count > 0)
+                CompleteTitlePartition(title, existingPartitions, protectedCities);
+        }
 
         foreach (KingdomTitle title in titles)
         {
-            List<City> region = title.city_list
-                .Where(city => city != null && !city.isRekt() && city.kingdom == coreKingdom &&
-                    city != coreKingdom.capital && (empireCore == null || city.GetEmpireCore() != empireCore))
-                .Distinct().ToList();
-            City capital = title.title_capital;
-            if (!region.Contains(capital)) continue;
+            if (!GetPartitionTitleCities(title)
+                    .Any(city => IsDirectPartitionCandidate(city, protectedCities))) continue;
 
-            Actor governor = coreKingdom.getKingClan()?.getUnits()
-                .FirstOrDefault(actor => actor != null && actor.isActor() && actor.isAlive() && actor.isAdult() &&
-                    !actor.isKing() && actor.id != coreKingdom.king?.id);
-            governor ??= getUnits().FirstOrDefault(actor => actor != null && actor.isAlive() && actor.isAdult() &&
-                !actor.isKing() && actor.isUnitFitToRule());
-            governor ??= capital.hasLeader() ? capital.leader : capital.getUnits().FirstOrDefault();
-            if (governor == null || governor.isRekt()) continue;
-
-            Kingdom newKingdom = SetEnfeoff(capital, governor);
-            if (newKingdom == null) continue;
-            foreach (City city in region)
+            List<Kingdom> existingPartitions = FindExistingTitlePartitions(title);
+            if (existingPartitions.Count == 0)
             {
-                if (city != capital) city.joinAnotherKingdom(newKingdom);
-            }
-            newKingdom.setCapital(capital);
-            newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
-            join(newKingdom, true, true);
-            WorldLog.logNewKingdom(newKingdom);
-            newKingdom.SetRegimeType(RegimeType.LvLing);
-            newKingdom.LoadRegime();
-            Regime administrativeRegime = newKingdom.GetRegime();
-            administrativeRegime?.SetAllowDiplomacy(false);
-            administrativeRegime?.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
-            newKingdom.RemoveMainTitle();
-            newKingdom.SetAdministrativeTitle(title);
-            EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(newKingdom);
-
-            if (governor.GetSpecificClan() != null && governor.GetSpecificClan() == EmpireSpecificClan)
-            {
-                TranslateHelper.LogPeerageGranted(governor, this,
-                    newKingdom.data.name + LM.Get("default_peerages_2"));
-            }
-            else
-            {
-                new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_enfeoff_log, name)
+                List<City> region = GetPartitionTitleCities(title)
+                    .Where(city => IsDirectPartitionCandidate(city, protectedCities)).ToList();
+                Regime partitionRegime = regime;
+                bool partitionAsAdministration = createAdministration;
+                string titleCulture = CultureService.GetEffectiveTitleCulture(title);
+                if (CompositeEmpireService.IsComposite(this) &&
+                    CompositeEmpireService.TryGetCultureRegime(titleCulture, out _, out Regime localRegime))
                 {
-                    location = coreKingdom.location,
-                    color_special1 = coreKingdom.getColor().getColorText()
-                }.RecordNationalHistoryIntoEmpire(this, governor, newKingdom);
+                    partitionRegime = localRegime;
+                    partitionAsAdministration = RegimeSupportsProvince(localRegime);
+                }
+                Kingdom created = CreateTerritorialPartition(region, title, partitionRegime,
+                    partitionAsAdministration);
+                if (created != null) existingPartitions.Add(created);
+            }
+            if (existingPartitions.Count > 0)
+                CompleteTitlePartition(title, existingPartitions, protectedCities);
+        }
+
+        AutoEstablishUntitledExclaveDivisions(regime, createAdministration, protectedCities);
+    }
+
+    private HashSet<long> GetProtectedDirectCityIds()
+    {
+        var protectedCities = new HashSet<long>();
+        City capital = CoreKingdom?.capital;
+        if (capital != null && !capital.isRekt()) protectedCities.Add(capital.id);
+
+        KingdomTitle foundingTitle = CoreKingdom?.GetMainTitle();
+        if (foundingTitle == null || foundingTitle.isRekt())
+            foundingTitle = capital?.GetTitle();
+        if (foundingTitle != null && !foundingTitle.isRekt())
+        {
+            foreach (City city in GetPartitionTitleCities(foundingTitle))
+                if (city != null && !city.isRekt()) protectedCities.Add(city.id);
+        }
+        return protectedCities;
+    }
+
+    private bool IsDirectPartitionCandidate(City city, HashSet<long> protectedCities)
+    {
+        return city != null && !city.isRekt() && city.kingdom == CoreKingdom &&
+               (protectedCities == null || !protectedCities.Contains(city.id));
+    }
+
+    private static List<City> GetPartitionTitleCities(KingdomTitle title)
+    {
+        if (title == null || title.isRekt()) return new List<City>();
+        return (title.getCities() ?? Enumerable.Empty<City>())
+            .Where(city => city != null && !city.isRekt()).Distinct().ToList();
+    }
+
+    private List<Kingdom> FindExistingTitlePartitions(KingdomTitle title)
+    {
+        var result = KingdomTitleRelationResolver.FindCurrentAdministrations(title)
+            .Where(IsValidTerritorialPartition).ToList();
+        Kingdom landed = GetLandedLegalTitleKingdom(title);
+        if (IsValidTerritorialPartition(landed) && !result.Contains(landed)) result.Add(landed);
+        return result.OrderBy(kingdom => kingdom.id).ToList();
+    }
+
+    private bool IsValidTerritorialPartition(Kingdom kingdom)
+    {
+        return kingdom != null && !kingdom.isRekt() && kingdom != CoreKingdom &&
+               !AncientWarfareCompatibility.Owns(kingdom) && kingdom.GetEmpire() == this;
+    }
+
+    private void CompleteTitlePartition(KingdomTitle title, List<Kingdom> targets,
+        HashSet<long> protectedCities)
+    {
+        targets = targets?.Where(IsValidTerritorialPartition).Distinct().ToList() ?? new List<Kingdom>();
+        if (targets.Count == 0) return;
+
+        foreach (City city in GetPartitionTitleCities(title))
+        {
+            if (city == null || city.isRekt() || protectedCities.Contains(city.id) ||
+                targets.Contains(city.kingdom)) continue;
+            Kingdom target = SelectNearestPartition(city, targets);
+            if (target == null || !CanTransferPartitionCity(city, target)) continue;
+            city.joinAnotherKingdom(target);
+        }
+        foreach (Kingdom target in targets)
+            EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(target);
+        title.RefreshAdministrativeDivisionNames();
+    }
+
+    private static Kingdom SelectNearestPartition(City city, List<Kingdom> targets)
+    {
+        if (city == null || targets == null) return null;
+        return targets.Where(target => target?.capital != null && !target.capital.isRekt())
+            .OrderBy(target => Vector2.Distance(city.city_center, target.capital.city_center))
+            .ThenBy(target => target.id).FirstOrDefault();
+    }
+
+    private bool CanTransferPartitionCity(City city, Kingdom target)
+    {
+        Kingdom source = city?.kingdom;
+        if (source == null || target == null || source == target) return false;
+        if (source == CoreKingdom) return true;
+        if (source.GetEmpire() != this || AncientWarfareCompatibility.Owns(source)) return false;
+        Regime sourceRegime = source.GetRegime();
+        if (sourceRegime == null || sourceRegime.IsAllowDiplomacy()) return false;
+        KingdomOpinion opinion = World.world?.diplomacy?.getOpinion(source, CoreKingdom);
+        return opinion != null && opinion.total > 0;
+    }
+
+    private Kingdom CreateTerritorialPartition(List<City> region, KingdomTitle title, Regime regime,
+        bool createAdministration)
+    {
+        region = region?.Where(city => city != null && !city.isRekt() && city.kingdom == CoreKingdom)
+            .Distinct().ToList() ?? new List<City>();
+        if (region.Count == 0) return null;
+
+        City capital = title?.title_capital != null && region.Contains(title.title_capital)
+            ? title.title_capital
+            : region.OrderByDescending(city => city.GetCityStrategicValue().Total)
+                .ThenBy(city => city.id).First();
+        Actor governor = FindPartitionGovernor(capital, regime, createAdministration);
+        if (governor == null || governor.isRekt()) return null;
+
+        Kingdom newKingdom = SetEnfeoff(capital, governor);
+        if (newKingdom == null) return null;
+        foreach (City city in region)
+            if (city != capital && city.kingdom == CoreKingdom) city.joinAnotherKingdom(newKingdom);
+
+        newKingdom.setCapital(capital);
+        newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
+        join(newKingdom, true, true);
+        newKingdom.SetRegimeType(regime.type);
+        newKingdom.LoadRegime();
+        Regime localRegime = newKingdom.GetRegime();
+        if (createAdministration)
+        {
+            localRegime?.SetAllowDiplomacy(false);
+            localRegime?.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+            if (regime.type == RegimeType.Modern || regime.type == RegimeType.Republic)
+                localRegime?.SetAllowArmy(false);
+            newKingdom.RemoveMainTitle();
+            if (title != null) newKingdom.SetAdministrativeTitle(title);
+        }
+        else
+        {
+            localRegime?.SetAllowDiplomacy(true);
+            localRegime?.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
+            localRegime?.SetAllowSupportCenterArmy(false);
+            localRegime?.SetTaxLevel(TaxLevel.None);
+            if (title != null)
+            {
+                governor.AddOwnedTitle(title);
+                newKingdom.SetMainTitle(title);
+                newKingdom.ReconcileMainTitle(new[] { title });
             }
         }
+
+        EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(newKingdom);
+        WorldLog.logNewKingdom(newKingdom);
+        RecordAutomaticPartition(governor, newKingdom, title, createAdministration);
+        return newKingdom;
+    }
+
+    private Actor FindPartitionGovernor(City capital, Regime regime, bool createAdministration)
+    {
+        bool IsEligible(Actor actor) => actor != null && !actor.isRekt() && actor.isActor() &&
+            actor.isAlive() && actor.isAdult() && !actor.isKing() && actor.id != (Emperor?.id ?? -1L) &&
+            actor.isUnitFitToRule();
+
+        if (createAdministration)
+        {
+            Actor local = capital?.hasLeader() == true && IsEligible(capital.leader)
+                ? capital.leader
+                : capital?.getUnits()?.FirstOrDefault(IsEligible);
+            if (local != null) return local;
+        }
+
+        Actor royal = CoreKingdom?.getKingClan()?.getUnits()?.FirstOrDefault(IsEligible);
+        if (royal != null) return royal;
+        if (!createAdministration && regime?.enfeoff_only_royal == true) return null;
+        return getUnits().FirstOrDefault(IsEligible) ?? capital?.getUnits()?.FirstOrDefault(IsEligible);
+    }
+
+    private void RecordAutomaticPartition(Actor ruler, Kingdom kingdom, KingdomTitle title,
+        bool administrative)
+    {
+        if (!administrative && ruler?.GetSpecificClan() != null && ruler.GetSpecificClan() == EmpireSpecificClan)
+        {
+            TranslateHelper.LogPeerageGranted(ruler, this,
+                (title?.data?.name ?? kingdom?.data?.name ?? "") + LM.Get("default_peerages_2"));
+            return;
+        }
+        new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_enfeoff_log, name)
+        {
+            location = CoreKingdom.location,
+            color_special1 = CoreKingdom.getColor().getColorText()
+        }.RecordNationalHistoryIntoEmpire(this, ruler, kingdom);
+    }
+
+    private void AutoEstablishUntitledExclaveDivisions(Regime regime, bool createAdministration,
+        HashSet<long> protectedCities)
+    {
+        var remaining = new HashSet<City>(CoreKingdom.cities.ToList().Where(city =>
+            IsDirectPartitionCandidate(city, protectedCities) && !city.hasTitle() &&
+            !city.IsConnectedToKingdomCapital()));
+        while (remaining.Count > 0)
+        {
+            City seed = remaining.OrderByDescending(city => city.GetCityStrategicValue().DistanceToCore)
+                .ThenBy(city => city.id).First();
+            var region = new List<City>();
+            var queue = new Queue<City>();
+            queue.Enqueue(seed);
+            remaining.Remove(seed);
+            while (queue.Count > 0 && region.Count < _avgCitiesPerKingdom)
+            {
+                City current = queue.Dequeue();
+                region.Add(current);
+                if (current.neighbours_cities == null) continue;
+                foreach (City neighbour in current.neighbours_cities.OrderBy(city => city?.id ?? long.MaxValue))
+                {
+                    if (region.Count + queue.Count >= _avgCitiesPerKingdom) break;
+                    if (neighbour == null || !remaining.Remove(neighbour)) continue;
+                    queue.Enqueue(neighbour);
+                }
+            }
+            CreateTerritorialPartition(region, null, regime, createAdministration);
+        }
+    }
+
+    private static bool RegimeSupportsProvince(Regime regime)
+    {
+        if (regime?.type == RegimeType.LvLing) return true;
+        return regime?.bureau_config?.kingdoms?.Keys.Any(type =>
+            type.ToString().EndsWith("_province", StringComparison.OrdinalIgnoreCase)) == true;
     }
 
 

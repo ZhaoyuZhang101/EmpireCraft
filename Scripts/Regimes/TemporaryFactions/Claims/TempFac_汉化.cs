@@ -1,62 +1,7 @@
-using EmpireCraft.Scripts.GameClassExtensions;
-using EmpireCraft.Scripts.Layer;
-using NeoModLoader.services;
-
-namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
-
-public class TempFac_汉化 : TemporaryFaction
-{
-    public override TemporaryFaction Clone(FixedFaction faction)
-    {
-        var res = new TempFac_汉化();
-        res.Init(faction);
-        res.ShowAsPlot = ShowAsPlot;
-        res.Hide = Hide;
-        res.Active = Active;
-        res.canBePushByLocal = canBePushByLocal;
-        return res;
-    }
-
-    public override void Execute()
-    {
-        LogService.LogInfo($"执行{this.type}");
-        Kingdom pKingdom = GetTarget();
-        if (pKingdom != null)
-        {
-            var culture = GetEmpire()?.CoreKingdom?.getCulture();
-            if (culture != null)
-            {
-                pKingdom.setCulture(culture);
-                pKingdom.units.ForEach(u=>u.setCulture(culture));
-                pKingdom.SetRegimeType(GetEmpire().CoreKingdom.GetRegime().type);
-                pKingdom.LoadRegime();  
-            }
-        }
-        End();
-    }
-
-    public Kingdom GetTarget()
-    {
-        if (TargetType == MetaType.Kingdom)
-        {
-            return World.world.kingdoms.get(TargetID);
-        }
-        return null;
-    }
-    public override bool CheckCondition()
-    {
-        Empire empire = GetEmpire();
-        foreach (var k in empire.kingdoms_list)
-        {
-            if (k.IsEmpire()) continue;
-            if (k.isRekt()) continue;
-            if (k.getCulture() != empire.CoreKingdom.getCulture())
-            {
-                TargetType = MetaType.Kingdom;
-                TargetID = k.getID();
-                return true;
-            }
-        }
-        return false;
-    }
-}
+// 这个文件已经不再使用了。
+// "汉化"决议改名成了"文化同化"，逻辑搬到了同目录下的 TempFac_文化同化.cs 里
+// （同时把每次执行只推一座城市，而不是整个王国名下所有城市）。
+// 这个空文件之所以还留着，是因为这次改动是通过文件同步（stage/commit）方式
+// 写回硬盘的，没有直接在硬盘上删除/改名文件的权限——为了不让这个旧类还被
+// 反射发现、干扰新的枚举值解析，这里先把类定义整个清空。等以后能直接操作
+// 硬盘文件的时候，可以把这个文件本身删掉。

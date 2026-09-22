@@ -2,10 +2,12 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
 using NeoModLoader.api;
+using NeoModLoader.General;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
@@ -65,6 +67,22 @@ public class WarPatch: GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
 
         RecordWarDeclared(__instance);
+        if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.索取法理)
+        {
+            KingdomTitle targetTitle = __instance.GetTitleTarget();
+            if (__instance.IsMainDefenderEliminated() ||
+                __instance.AreAllDeJureTitleZonesControlledByAttackers(targetTitle))
+            {
+                World.world.wars.endWar(__instance, WarWinner.Attackers);
+                return;
+            }
+        }
+        if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.去帝号 &&
+            (__instance.IsMainDefenderEliminated() || __instance.HasLegitimacyOccupationThreshold()))
+        {
+            World.world.wars.endWar(__instance, WarWinner.Attackers);
+            return;
+        }
         if (__instance.getDuration() > ModClass.WAR_END_YEAR)
         {
             var attacker = __instance.getMainAttacker()?.king;
@@ -109,6 +127,17 @@ public class WarPatch: GamePatch
     public static bool end_war(WarManager __instance, War pWar, WarWinner pWinner = WarWinner.Nobody)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pWar)) return true;
+        if (pWinner == WarWinner.Attackers && pWar.GetEmpireWarType() == EmpireWarType.索取法理 &&
+            !pWar.IsMainDefenderEliminated() &&
+            !pWar.AreAllDeJureTitleZonesControlledByAttackers(pWar.GetTitleTarget()))
+        {
+            return false;
+        }
+        if (pWinner == WarWinner.Attackers && pWar.GetEmpireWarType() == EmpireWarType.去帝号 &&
+            !pWar.IsMainDefenderEliminated() && !pWar.HasLegitimacyOccupationThreshold())
+        {
+            return false;
+        }
         if (pWar.isAlive() && !pWar.hasEnded())
         {
             RecordWarDeclared(pWar);
@@ -212,20 +241,39 @@ public class WarPatch: GamePatch
                     KingdomTitle title = pWar.GetTitleTarget();
                     if (pWinner == WarWinner.Attackers)
                     {
-                        if (title != null)
+                        Kingdom kingdom = pWar.getMainAttacker();
+                        Kingdom defeatedKingdom = pWar.getMainDefender();
+                        if (kingdom != null && !kingdom.HasTakenAlliance() && pWar.IsMainDefenderEliminated())
                         {
-                            Kingdom kingdom = pWar.getMainAttacker();
+                            List<long> defeatedTitleIds = pWar.GetOrCreate().defender_realm_title_ids ??
+                                                          new List<long>();
+                            if (defeatedTitleIds.Count == 0 && defeatedKingdom != null)
+                                defeatedTitleIds = defeatedKingdom.GetRealmTitleIds().ToList();
+                            List<KingdomTitle> inherited = kingdom.InheritRealmTitles(defeatedKingdom,
+                                defeatedTitleIds);
+                            if (inherited.Count > 0)
+                            {
+                                string notice = string.Format(LM.Get("title_all_inherited_notice"),
+                                    kingdom.GetKingdomName(), pWar.GetOrCreate().defender_kingdom_name);
+                                ActionLibrary.showWhisperTip(notice);
+                                kingdom.king?.RecordPersonalHistory(notice);
+                            }
+                        }
+                        else if (title != null)
+                        {
                             if (kingdom != null && !kingdom.HasTakenAlliance())
                             {
-                                title.SetOwner(kingdom.king);
-                                kingdom.king.AddOwnedTitle(title);
-                                kingdom.ReconcileMainTitle(new[] { title });
-                                kingdom.GetEmpire()?.SynchronizeLandedLegalTitles(kingdom);
-                                TranslateHelper.LogKingTakeTitle(kingdom, title);
+                                List<KingdomTitle> transferred = kingdom.InheritRealmTitles(
+                                    defeatedKingdom, new[] { title.id });
+                                if (transferred.Contains(title))
+                                    TranslateHelper.LogKingTakeTitle(kingdom, title);
                             }
                         }
                         return false;
                     }
+                    break;
+                case EmpireWarType.去帝号:
+                    ImperialLegitimacyChallengeService.ResolveWar(pWar, pWinner);
                     break;
             }
             WorldLog.logWarEnded(pWar);

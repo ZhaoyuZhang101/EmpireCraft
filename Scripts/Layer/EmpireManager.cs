@@ -1,6 +1,7 @@
 using db;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using HarmonyLib;
 using NeoModLoader.services;
@@ -43,6 +44,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             empire.RefreshCompatibilityMembership();
             _empiresToProcess.Add(empire);
         }
+        QueueDuplicateCultureEmpiresForDissolution();
         double worldTime = World.world.getCurWorldTime();
         if (_lastStatsCacheTimestamp <= 0 || Date.getMonthsSince(_lastStatsCacheTimestamp) >= 1)
         {
@@ -88,7 +90,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
         foreach (Empire current in _empiresToProcess)
         {
-            if (current.IsArchived()) continue;
+            if (current.IsArchived() || _to_dissolve.Contains(current)) continue;
             current.clearCursorOver();
 
             if (!current.checkActive())
@@ -110,6 +112,70 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         _to_dissolve.Clear();
         _empiresToProcess.Clear();
+    }
+
+    private void QueueDuplicateCultureEmpiresForDissolution()
+    {
+        var groups = _empiresToProcess
+            .Where(empire => empire != null && !empire.IsArchived() && !empire.isRekt() &&
+                             empire.CoreKingdom != null && !empire.CoreKingdom.isRekt())
+            .Select(empire => new { Empire = empire, Culture = CultureService.GetEmpireDefaultCulture(empire) })
+            .Where(item => CultureService.IsValidCulture(item.Culture))
+            .GroupBy(item => item.Culture, StringComparer.Ordinal);
+
+        foreach (var group in groups)
+        {
+            List<Empire> empires = group.Select(item => item.Empire).ToList();
+            foreach (Empire empire in empires)
+            {
+                if (!empire.data.legitimacy_rivalry_recognized) continue;
+                Empire rival = ModClass.EMPIRE_MANAGER.get(empire.data.legitimacy_rival_empire_id);
+                if (rival == null || rival.IsArchived() || rival.isRekt())
+                {
+                    ImperialLegitimacyChallengeService.ClearRivalry(empire);
+                }
+            }
+
+            HashSet<Empire> protectedRivals = new HashSet<Empire>();
+            foreach (Empire empire in empires)
+            {
+                foreach (Empire other in empires)
+                {
+                    if (empire == other || !ImperialLegitimacyChallengeService.AreRecognizedRivals(empire, other))
+                        continue;
+                    protectedRivals.Add(empire);
+                    protectedRivals.Add(other);
+                }
+            }
+
+            if (protectedRivals.Count == 0)
+            {
+                Empire strongest = empires.Aggregate((incumbent, candidate) =>
+                    IsStrongerCultureEmpire(candidate, incumbent) ? candidate : incumbent);
+                protectedRivals.Add(strongest);
+            }
+
+            foreach (Empire empire in empires)
+            {
+                if (!protectedRivals.Contains(empire) && !_to_dissolve.Contains(empire))
+                    _to_dissolve.Add(empire);
+            }
+        }
+    }
+
+    private static bool IsStrongerCultureEmpire(Empire candidate, Empire incumbent)
+    {
+        double candidatePower = candidate.GetNationalPower();
+        double incumbentPower = incumbent.GetNationalPower();
+        if (Math.Abs(candidatePower - incumbentPower) > 0.0001d)
+            return candidatePower > incumbentPower;
+
+        int candidatePopulation = candidate.CountPopulation();
+        int incumbentPopulation = incumbent.CountPopulation();
+        if (candidatePopulation != incumbentPopulation)
+            return candidatePopulation > incumbentPopulation;
+
+        return candidate.id < incumbent.id;
     }
 
     public void dissolveEmpire(Empire pEmpire)
@@ -182,10 +248,17 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public Sprite[] _cached_banner_icons;
 
 
-    public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false)
+    public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false,
+        bool allowCultureRival = false, bool forceNewCore = false)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom)) return null;
         if (pKingdom == null || !pKingdom.isAlive())
+        {
+            return null;
+        }
+        string culture = CultureService.GetRealmCulture(pKingdom);
+        if (!CultureService.IsValidCulture(culture) ||
+            (!allowCultureRival && CultureService.HasActiveEmpireForCulture(culture)))
         {
             return null;
         }
@@ -205,7 +278,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
-        var riseCore = EmpireCoreManager.GetRiseCandidateCore(pKingdom);
+        var riseCore = forceNewCore ? null : EmpireCoreManager.GetRiseCandidateCore(pKingdom);
         if (riseCore != null)
         {
             EmpireCoreManager.RebindEmpire(empire, riseCore);

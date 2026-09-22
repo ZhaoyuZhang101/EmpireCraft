@@ -5,6 +5,7 @@ using ai.behaviours;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
@@ -27,6 +28,7 @@ public enum ConditionType
     religion_level,
     empire_royal,
     is_border,
+    culture_mismatch,
     None
 }
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
@@ -167,6 +169,21 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                     if (actual != expect) return false;
                     break;
                 }
+                case ConditionType.culture_mismatch:
+                {
+                    // 都护府/羁縻州判定用：这个 administration 实际统治的文化（主流文化）
+                    // 跟它所属帝国的官方文化是否不一致——即异文化地区。跟 another_race
+                    // （物种）是两回事：文化是 CultureService 动态追踪的，同一物种也可能
+                    // 已经被同化/还没被同化成不同的文化。
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    string empireCulture = empire != null ? CultureService.GetEmpireDefaultCulture(empire) : "";
+                    string kingdomCulture = CultureService.GetRealmCulture(kingdom);
+                    bool valid = CultureService.IsValidCulture(empireCulture) &&
+                                 CultureService.IsValidCulture(kingdomCulture);
+                    var actual = valid && !string.Equals(empireCulture, kingdomCulture, StringComparison.Ordinal);
+                    if (actual != expect) return false;
+                    break;
+                }
                 default:
                     return false;
             }
@@ -290,7 +307,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             else kingdomFront = pKingdom.GetUntitledKingdomName();
         }
         var kingdomBack = LM.Get(newkingdomType.ToString());
-        string cultureName = OverallHelperFunc.GetCultureFromSpecies(pKingdom.getSpecies());
+        string cultureName = pKingdom.GetEmpireCraftCulture() ?? "Western";
         pKingdom.SetKingdomName(OverallHelperFunc.FormatCountryTypeName(kingdomFront, kingdomBack, cultureName));
         foreach (var city in pKingdom.cities)
         {

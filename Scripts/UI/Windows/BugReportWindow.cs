@@ -16,6 +16,8 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
     private SimpleText _status;
     private AdvancedButton _saveDataToggle;
     private bool _includeSaveData;
+    private long _lastSendRevision = -1;
+    private float _nextStatusRefresh;
 
     protected override void Init()
     {
@@ -27,6 +29,16 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
     {
         base.OnNormalEnable();
         Rebuild();
+        RefreshSendStatus(true);
+    }
+
+    private void Update()
+    {
+        if (Time.unscaledTime < _nextStatusRefresh)
+            return;
+
+        _nextStatusRefresh = Time.unscaledTime + 0.25f;
+        RefreshSendStatus(false);
     }
 
     private void Rebuild()
@@ -40,7 +52,7 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
         _groups.Clear();
 
         AutoVertLayoutGroup panel = this.BeginVertGroup(
-            new Vector2(196, 160),
+            new Vector2(196, 184),
             pSpacing: 4,
             pAlignment: TextAnchor.UpperCenter,
             pPadding: new RectOffset(3, 3, 3, 3)
@@ -111,11 +123,18 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
             "bug_report_send",
             LM.Get("bug_report_send"),
             SendReport,
-            size: new Vector2(88, 20),
+            size: new Vector2(180, 20),
             showTip: true
         );
 
-        buttons.AddButtonIntoHoriLayout(
+        AutoHoriLayoutGroup fileButtons =
+            panel.BeginHoriGroup(
+                new Vector2(188, 22),
+                TextAnchor.MiddleCenter,
+                4
+            );
+
+        fileButtons.AddButtonIntoHoriLayout(
             "bug_report_open_log",
             LM.Get("bug_report_open_log"),
             OpenLog,
@@ -123,9 +142,17 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
             showTip: true
         );
 
+        fileButtons.AddButtonIntoHoriLayout(
+            "bug_report_open_save",
+            LM.Get("bug_report_open_save"),
+            OpenSave,
+            size: new Vector2(88, 20),
+            showTip: true
+        );
+
         panel.transform.AddStretchBackground(
             "regimeFrame",
-            new Vector2(196, 160)
+            new Vector2(196, 184)
         );
 
         _groups.Add(panel.gameObject);
@@ -160,21 +187,56 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
     {
         _includeSaveData = !_includeSaveData;
         _saveDataToggle?.SetStatus(_includeSaveData);
-        SetStatus(GetInitialStatus());
+        RefreshSendStatus(true);
     }
 
     private void SendReport()
     {
         BugReportSendResult result =
-            BugReportService.Send(_includeSaveData);
+            BugReportService.BeginSend(_includeSaveData);
+
+        ApplySendResult(result);
+    }
+
+    private void RefreshSendStatus(bool force)
+    {
+        BugReportSendResult result =
+            BugReportService.GetSendSnapshot();
+
+        if (!force && result.Revision == _lastSendRevision)
+            return;
+
+        _lastSendRevision = result.Revision;
+        ApplySendResult(result);
+    }
+
+    private void ApplySendResult(BugReportSendResult result)
+    {
+        if (result == null || result.Status == BugReportSendStatus.Idle)
+        {
+            SetStatus(GetInitialStatus());
+            return;
+        }
 
         string key = result.Status switch
         {
+            BugReportSendStatus.Sending =>
+                "bug_report_sending",
+
+            BugReportSendStatus.Sent when result.SaveDataIncluded =>
+                "bug_report_sent_with_save",
+
             BugReportSendStatus.Sent =>
                 "bug_report_sent",
 
             BugReportSendStatus.PlayerLogMissing =>
                 "bug_report_log_missing",
+
+            BugReportSendStatus.SaveDataMissing =>
+                "bug_report_save_required_missing",
+
+            BugReportSendStatus.PayloadTooLarge =>
+                "bug_report_too_large",
 
             _ =>
                 "bug_report_failed"
@@ -182,9 +244,18 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
 
         string text = LM.Get(key);
 
+        if (result.Status == BugReportSendStatus.Sent &&
+            !string.IsNullOrWhiteSpace(result.ReportId))
+        {
+            text += "\n" + string.Format(
+                LM.Get("bug_report_report_id"),
+                result.ReportId
+            );
+        }
+
         if (
-            result.Status ==
-                BugReportSendStatus.Failed &&
+            (result.Status == BugReportSendStatus.Failed ||
+             result.Status == BugReportSendStatus.PayloadTooLarge) &&
             !string.IsNullOrWhiteSpace(result.Error)
         )
         {
@@ -200,6 +271,15 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
             BugReportService.OpenPlayerLogFolder()
                 ? LM.Get("bug_report_log_opened")
                 : LM.Get("bug_report_log_missing")
+        );
+    }
+
+    private void OpenSave()
+    {
+        SetStatus(
+            BugReportService.OpenEmpireCraftSaveFolder()
+                ? LM.Get("bug_report_save_opened")
+                : LM.Get("bug_report_save_missing")
         );
     }
 

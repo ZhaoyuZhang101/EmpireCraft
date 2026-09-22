@@ -1,4 +1,4 @@
-﻿{
+{
   "toggle_mod_title": "帝國盒子",
   "bug_report_window_title": "Bug回報",
   "bug_report_button": "Bug回報",
@@ -11,7 +11,14 @@
   "bug_report_send_description": "產生診斷摘要並傳送Player.log；開啟開關時一併傳送目前帝國模組存檔。",
   "bug_report_open_log": "開啟日誌",
   "bug_report_open_log_description": "在檔案管理器中定位Player.log。",
+  "bug_report_open_save": "開啟存檔",
+  "bug_report_open_save_description": "在檔案管理器中定位目前世界的EmpireCraftModData.json；不會開啟其他世界或預設存檔目錄。",
   "bug_report_sent": "Bug報告及選擇的診斷資料已傳送。",
+  "bug_report_sent_with_save": "Bug報告已傳送，並已確認包含目前的帝國模組存檔。",
+  "bug_report_sending": "正在上傳報告，請勿重複點擊……",
+  "bug_report_save_required_missing": "找不到目前世界的帝國模組存檔，已取消傳送。",
+  "bug_report_too_large": "報告大小超過伺服器允許的上傳上限，未傳送任何資料。",
+  "bug_report_report_id": "報告編號：{0}",
   "bug_report_include_save_data": "上傳目前存檔資料",
   "bug_report_include_save_data_description": "開啟後會將目前世界的EmpireCraftModData.json加入Bug報告。",
   "bug_report_save_disabled": "存檔資料上傳未開啟，將僅傳送日誌。",
@@ -21,6 +28,7 @@
   "bug_report_cancelled": "已取消傳送，日誌副本仍保留在報告目錄。",
   "bug_report_failed": "產生或傳送Bug報告失敗。",
   "bug_report_log_opened": "已在檔案管理器中定位Player.log。",
+  "bug_report_save_opened": "已在檔案管理器中定位目前世界的EmpireCraftModData.json。",
   "Empire_layer": "帝國圖層",
   "KingdomTitle_layer": "法理圖層",
   "empirecraft_layer_switch_hint": "按[z]、[x]切換視圖",
@@ -126,17 +134,17 @@
   "officer": "官員",
   "none": "公民",
   "builder": "建筑工人",
-  "gatherer_bushes":"蔬果采集工人",
+  "gatherer_bushes": "蔬果采集工人",
   "gatherer_herbs": "药草采集工人",
-  "gatherer_honey":"采蜜工人",
+  "gatherer_honey": "采蜜工人",
   "farmer": "农民",
-  "hunter":"猎人",
+  "hunter": "猎人",
   "woodcutter": "伐木工人",
-  "miner":"矿工",
+  "miner": "矿工",
   "miner_deposit": "礦藏工人",
-  "road_builder":"修路工人",
+  "road_builder": "修路工人",
   "cleaner": "清洁工人",
-  "manure_cleaner":"粪便清理工人",
+  "manure_cleaner": "粪便清理工人",
   "attacker": "进攻者",
   "merchant": "商人",
   "class_labour": "工人",
@@ -379,6 +387,7 @@
   "show_culture_config": "文化配置",
   "show_culture_config_description": "為對應宗族配置喜愛的文化風格",
   "KingdomTitleWindowTitle": "法理",
+  "CityNameHistoryWindowTitle": "文化地名歷史",
   "kingdom_title_description": "目前法理資訊",
   "province_description": "目前省份資訊",
   "province_owner": "所屬帝國",
@@ -477,9 +486,12 @@
   "Off": "關",
   "population_limit_text": "開啟開關以設定人口限制",
   "population_limit_title": "設定城市人口限制",
+  "city_setting_name_title": "城市名稱",
+  "city_setting_name_history_title": "文化地名歷史",
+  "city_setting_open_name_history": "編輯地名歷史",
   "kingdom_list": "行政區列表",
   "city_setting": "城市設定",
-  "city_setting_description": "設定城市的基本配置，如人口限制等",
+  "city_setting_description": "設定城市的基本配置，如人口限制、改名等",
   "AdditionalTab": "附加側邊按鈕",
   "AdditionalTab_description": "附加側邊按鈕描述",
   "AdditionalTab_description_2": "帝國盒子 by 長明火",
@@ -583,6 +595,8 @@
   "plot_emperor_year_name_info_base": "頒布年號",
   "plot_become_empire": "稱帝",
   "plot_become_empire_info_base": "稱帝",
+  "plot_usurp_imperial_legitimacy": "篡奪帝國法理核心正統",
+  "plot_usurp_imperial_legitimacy_info_base": "與同文化帝國直接接壤且綜合國力超過其整體後，可自立稱帝並發動去帝號戰爭。佔領舊帝國三分之一領土即可奪取正統。",
   "plot_empire_plots": "派系訴求",
   "plot_empire_plots_info_base": "派系訴求",
   "plot_empire_plots_info": "派系訴求",
@@ -757,233 +771,603 @@
   "office_leader_method3": "選舉",
   "office_leader_method4": "軍功",
   "office_leader_method5": "後宮",
-  "office_honorary_label": "散官等級上限"
-  ,"empire_center":"帝國中心"
-  ,"is_capital":"首都城市"
-  ,"city_is_border":"邊境城市"
-  ,"succession":"宗族繼承"
-  ,"allow_diplomacy":"開啟外交"
-  ,"another_race":"異族統治"
-  ,"controlled_titles":"控制頭銜數量"
-  ,"cities_count":"城市數量"
-  ,"empire_royal":"皇室成員"
-  ,"cond_true":"是"
-  ,"cond_false":"否"
-  ,">=":">="
-  ,"<=":"<="
-  ,">":">"
-  ,"<":"<"
-  ,"==":"等於"
-  ,"OfficeConfigWindowTitle":"官位配置"
-  ,"OfficeConditionEditorWindowTitle":"編輯動態條件"
-  ,"OfficeTraitsSelectWindowTitle":"選擇特質"
-  ,"OfficeNameEditWindowTitle":"編輯名稱"
-  ,"operator":"運算符"
-  ,"temporary_faction_prepare_log":"$empire$准备执行$claim$，目标：$target$"
-  ,"temporary_faction_prepare_no_target_log":"$empire$准备执行$claim$"
-  ,"temporary_faction_prepare_crime_log":"$target$因犯$crime$，即将被执行$claim$"
-  ,"temporary_faction_success_log":"$empire$完成了$claim$，目标：$target$"
-  ,"temporary_faction_success_no_target_log":"$empire$完成了$claim$"
-  ,"temporary_faction_success_crime_log":"$target$因犯$crime$，已被执行$claim$"
-  ,"temporary_faction_failed_log":"$empire$执行$claim$失败，目标：$target$"
-  ,"temporary_faction_failed_no_target_log":"$empire$执行$claim$失败"
-  ,"temporary_faction_failed_crime_log":"$target$虽因犯$crime$被提议执行$claim$，但执行失败"
-  ,"temporary_faction_official_fall_log":"$actor$因犯$crime$而落马"
-  ,"temporary_faction_reduce_feudatory_log":"$kingdom$被削藩"
-  ,"temporary_faction_revoke_war_right_log":"$kingdom$ 的開戰權被撤銷"
-  ,"temporary_faction_revoke_military_region_log":"$kingdom$ 被撤銷軍府"
-  ,"temporary_faction_raise_tax_log":"$empire$ 提高了賦稅"
-  ,"供养宗室":"供養宗室"
-  ,"允许诸侯自由开战":"允許諸侯自由開戰"
-  ,"分封":"分封"
-  ,"划地给教廷":"劃地給教廷"
-  ,"制度融入":"制度融入"
-  ,"削藩":"削藩"
-  ,"割让城池":"割让城池"
-  ,"加强神权":"加強神權"
-  ,"劫掠":"劫掠"
-  ,"地方官叛乱":"地方官叛亂"
-  ,"复辟帝制":"復辟帝制"
-  ,"夺取诸侯开战权":"奪取諸侯開戰權"
-  ,"宗教同化":"宗教同化"
-  ,"宗教融入":"宗教融入"
-  ,"对外扩张":"對外擴張"
-  ,"开放移民":"開放移民"
-  ,"开科取士":"開科取士"
-  ,"强者继承法":"強者繼承法"
-  ,"恢复圣地":"恢復聖地"
-  ,"扩张地盘":"擴張地盤"
-  ,"扶持革命党":"扶持革命黨"
-  ,"拓展金融霸权":"拓展金融霸權"
-  ,"提供岁币":"提供歲幣"
-  ,"提高福利":"提高福利"
-  ,"提高赋税":"提高賦稅"
-  ,"撤销军府":"撤銷軍府"
-  ,"收回地盘":"收回地盤"
-  ,"汉化":"漢化"
-  ,"清除移民":"清除移民"
-  ,"渴望共和":"渴望共和"
-  ,"游牧化":"遊牧化"
-  ,"游牧扩张":"遊牧擴張"
-  ,"确立国教":"確立國教"
-  ,"神授君权":"神授君權"
-  ,"索取皇位":"索取皇位"
-  ,"缩减金融霸权":"縮減金融霸權"
-  ,"自由信仰":"自由信仰"
-  ,"设置行政区":"設置行政區"
-  ,"谋求统一":"謀求統一"
-  ,"转世袭":"转世袭"
-  ,"转军府":"转军府"
-  ,"转周制":"转周制"
-  ,"转天朝制度":"转天朝制度"
-  ,"输出革命":"输出革命"
-  ,"迫使朝贡":"迫使朝贡"
-  ,"降低赋税":"降低赋税"
-  ,"禁党":"禁党"
-  ,"国_打击贪腐":"打击贪腐"
-  ,"opinion_local_claim_failed":"地方推動訴求失敗後的不滿"
-  ,"support_local_push_claim":"拉攏訴求支持者"
-  ,"support_local_push_claim_description":"花費金錢拉攏其他有政治身份者協助推進地方訴求"
-  ,"撤換官員":"撤換官員"
-  ,"撤换官员":"撤換官員"
-  ,"expose_official_crime":"曝光官員黑料"
-  ,"expose_official_crime_description":"花費影響力挖掘並曝光地方官員的犯罪黑料"
-  ,"world_law_civ_limit_population_100_title":"一百人"
-  ,"world_law_civ_limit_population_100_description":"限制村鎮最大人口數為 100"
-  ,"empirecraft_law_allow_harem_title":"允許後宮"
-  ,"empirecraft_law_allow_harem_description":"開啟後，後宮相關系統可以正常運作"
-  ,"empirecraft_law_allow_skeleton_title":"允許骷髏"
-  ,"empirecraft_law_allow_skeleton_description":"開啟後，允許骷髏相關內容出現"
-  ,"empirecraft_law_switch_occupy_mode_title":"帝國占領模式"
-  ,"empirecraft_law_switch_occupy_mode_description":"切換 EmpireCraft 區塊占領與原版城市占領模式"
-  ,"debug_frontline":"戰線調試"
-  ,"debug_frontline_description":"點擊一個國家，顯示其戰線區塊的調試結果"
-  ,"debug_frontline_invalid_target":"請選擇一個有效的國家來調試戰線"
-  ,"debug_frontline_triggered":"已觸發戰線調試顯示"
-  ,"occupation_capture_event_log":"$capturer$ 擒獲了 $victim$，$result$"
-  ,"honorary_peerage_granted_log":"$empire$ 冊封 $actor$ 為 $title$"
-  ,"honorary_peerage_inherited_log":"$heir$ 繼承 $predecessor$ 的 $title$"
-  ,"empire_pressure_surrender_log":"在 $attacker$ 的戰事壓力下，$defender$ 投降，並被迫割讓 $target$"
-  ,"empire_pressure_surrender_city_log":"在 $attacker$ 的戰事壓力下，$defender$ 被迫割讓城市 $target$"
-  ,"empire_core_absorb_title_log":"$empire$ 已將 $title$ 法理納入 $core$ 帝國法理中"
-  ,"occupation_capture_result_lord":"其所鎮城市被立即佔領"
-  ,"occupation_capture_result_king":"其所屬國家全境投降"
-  ,"occupation_capture_result_king_released":"國王被俘後獲釋，戰爭結束"
-  ,"occupation_capture_result_king_war_released":"國王被俘後獲釋，戰爭依既定類型結算"
-  ,"occupation_capture_result_king_city":"國王未獲釋，其所在城市被立即佔領"
-  ,"occupation_capture_result_emperor":"帝國正統崩潰，所攻目標被迅速攻佔"
-  ,"opinion_same_empire_core":"同爭一套帝國法理"
-  ,"create_empire_core":"新建帝國法理"
-  ,"create_empire_core_description":"從點擊的王國法理新建一套帝國法理"
-  ,"add_title_to_empire_core":"添加王國法理至帝國法理"
-  ,"add_title_to_empire_core_description":"先選擇一個王國法理，再點擊目標帝國法理範圍內的城市，將其納入帝國法理"
-  ,"remove_title_from_empire_core":"刪除王國法理自帝國法理"
-  ,"remove_title_from_empire_core_description":"將點擊的王國法理從當前所屬的帝國法理中移除"
-  ,"destroy_empire_core":"銷毀帝國法理"
-  ,"destroy_empire_core_description":"銷毀點擊城市所屬的整套帝國法理"
-  ,"empire_core_invalid_target":"無效的帝國法理目標"
-  ,"empire_core_select_title_first":"請先選擇一個擁有王國法理的城市"
-  ,"empire_core_title_selected":"已選擇王國法理"
-  ,"create_empire_core_success":"已新建一套帝國法理"
-  ,"add_title_to_empire_core_success":"已將該王國法理納入帝國法理"
-  ,"remove_title_from_empire_core_success":"已將該王國法理移出帝國法理"
-  ,"destroy_empire_core_success":"已銷毀該帝國法理"
-  ,"EmpireCoreWindowTitle":""
-  ,"empire_core_description":"當前帝國法理資訊"
-  ,"empire_core_display_name":"法理名稱"
-  ,"empire_core_plate_name":"銘牌簡稱"
-  ,"empire_core_created_time":"創建時間"
-  ,"empire_core_founding_empire":"創建帝國"
-  ,"empire_core_titles_count":"包含法理數"
-  ,"empire_core_cities_count":"包含城市數"
-  ,"empire_core_current_empires":"當前稱帝國家"
-  ,"empire_core_history_collection":"帝國法理歷史合集"
-  ,"empire_core_history_exists":"仍然存在"
-  ,"empire_core_history_gone":"已經滅亡"
-  ,"empire_core_history_duration":"延續時間"
-  ,"empire_core_history_emperors":"歷任皇帝"
-  ,"empire_core_none":"無"
-  ,"kingdom_title_capital":"法理首府"
-  ,"kingdom_title_cities":"所屬城市"
-  ,"kingdom_title_zones":"領地區塊"
-  ,"kingdom_title_current_relations":"目前歸屬"
-  ,"kingdom_title_holder":"法理持有者"
-  ,"kingdom_title_landed_holder":"法理封王"
-  ,"kingdom_title_unlanded_holder":"無地法理持有者"
-  ,"kingdom_title_administration":"授權行政區"
-  ,"kingdom_title_administrator":"授權管理者"
-  ,"kingdom_title_no_administration":"尚未授權"
-  ,"kingdom_title_details":"詳情"
-  ,"kingdom_title_controller":"實際控制國"
-  ,"kingdom_title_history":"歷代國家與行政區"
-  ,"kingdom_title_history_holder":"法理封國"
-  ,"kingdom_title_history_administration":"行政區"
-  ,"kingdom_title_history_founder":"建立國家"
-  ,"kingdom_title_unknown_date":"年代不詳"
-  ,"kingdom_title_current":"至今"
-  ,"label_none":"無"
-  ,"label_no_royal_clan":"無皇室"
-  ,"label_treasury":"國庫"
-  ,"label_mandate":"正統值"
-  ,"label_dominant_faction":"主導派系"
-  ,"label_claim":"訴求"
-  ,"label_member_count":"成員數量"
-  ,"label_total_power":"勢力", "label_central_ratio":"中央占比"
-  ,"label_required_traits":"所需特質"
-  ,"label_all_members":"全部成員"
-  ,"label_name":"姓名"
-  ,"label_total_performance":"總績效"
-  ,"label_rank":"品級"
-  ,"label_all_claims":"全部訴求"
-  ,"label_budget":"預算"
-  ,"label_tributary_target":"朝貢對象"
-  ,"territory_label_tributary_suffix":"（朝貢於{0}）"
-  ,"label_no_faction_influence":"無派系影響"
-  ,"label_governor_influence":"長官影響力"
-  ,"label_brutality":"暴虐值"
-  ,"label_corruption":"腐敗值"
-  ,"action_add_performance":"增加績效"
-  ,"action_sub_performance":"減少績效"
-  ,"empire_virtual_peerages":"封爵冊", "empire_virtual_peerages_description":"查看法理封爵與恩賞封爵；虛封不移交土地或法理所有權。"
-  ,"empire_bureau_offices":"官僚機構", "empire_bureau_offices_description":"返回內閣、中央部門與地方官員頁面。"
-  ,"specific_clan_relations":"親屬關係", "specific_clan_relations_description":"返回目前人物的親屬關係頁面。", "specific_clan_history":"個人歷史", "specific_clan_history_description":"查看目前人物記錄在族譜中的生平事件。", "personal_history_empty":"暫無個人歷史記錄", "personal_history_peerage_granted":"受{0}冊封，獲授{1}。", "personal_history_peerage_inherited":"承襲{0}，前任為{1}。"
-  ,"personal_history_office_started":"就任{0}。", "personal_history_office_reappointed":"仍領{0}之職。", "personal_history_office_left":"離任{0}。", "personal_history_became_king":"成為{0}的國王。", "personal_history_became_emperor":"登基為{0}皇帝。", "personal_history_left_king":"不再擔任{0}的國王。", "personal_history_died":"逝世。", "personal_history_new_year_name":"頒布年號「{0}」。", "personal_history_born":"出生。", "personal_history_child_born":"誕下子嗣{0}。", "personal_history_married":"與{0}結為夫妻。", "personal_history_took_concubine":"納{0}為妾。", "personal_history_became_concubine":"成為{0}的妾室。", "personal_history_exam_city_attended":"赴鄉試。", "personal_history_exam_city_passed":"鄉試中舉，獲舉人。", "personal_history_exam_province_attended":"赴會試。", "personal_history_exam_province_passed":"會試登第，獲貢士。", "personal_history_exam_empire_attended":"赴殿試。", "personal_history_exam_empire_passed":"殿試及第，獲進士。", "personal_history_joined_cabinet":"入閣。", "personal_history_became_cabinet_leader":"拜內閣首輔。", "personal_history_became_elector":"列名選帝侯。", "personal_history_became_chief_elector":"成為首席選帝侯。", "personal_history_joined_faction":"加入{0}。", "personal_history_became_faction_leader":"執掌{0}。"
-  ,"powerful_minister_title":"權臣", "empress_dowager_title":"太后", "powerful_minister_status_progress":"權勢 {0}/100", "powerful_minister_status_regent":"輔政 {0}/100", "powerful_minister_status_dowager":"監國 {0}/100", "powerful_minister_status_dominant":"權傾朝野", "powerful_minister_status_duke":"國公", "powerful_minister_status_king":"王", "powerful_minister_status_puppet":"傀儡"
-  ,"history_powerful_minister_controls_court":"{0}權傾朝野，皇帝{1}淪為傀儡。", "history_powerful_minister_duke":"{0}受封{1}，入朝不趨，贊拜不名，劍履上殿。", "history_powerful_minister_nine_bestowments":"{0}受加九錫，進爵{1}。", "history_powerful_minister_usurpation":"{0}篡位稱帝，定國號{1}。"
-  ,"personal_history_powerful_minister_controls_court":"在{0}權傾朝野。", "personal_history_became_puppet":"受{0}控制，淪為傀儡皇帝。", "personal_history_powerful_minister_duke":"受封{0}，獲入朝不趨、贊拜不名、劍履上殿之權。", "personal_history_powerful_minister_nine_bestowments":"受加九錫，由國公進爵為{0}。", "personal_history_deposed_by_powerful_minister":"被權臣{0}篡位廢黜。", "personal_history_powerful_minister_usurpation":"篡奪{0}天命，稱帝並定國號{1}。"
-  ,"plot_empress_dowager_install_son":"太后廢帝立子", "plot_empress_dowager_install_son_info_base":"廢黜目前皇帝，擁立太后的親生兒子即位", "empress_dowager_installs_son_log":"太后$dowager$廢黜皇帝$deposed$，擁立親子$son$即位。", "history_empress_dowager_installs_son":"{0}廢黜皇帝{1}，擁立親子{2}即位。", "personal_history_deposed_by_empress_dowager":"被太后{0}廢黜，皇位改授{1}。", "personal_history_empress_dowager_deposed_emperor":"廢黜皇帝{0}，擁立親子{1}即位。", "personal_history_installed_by_empress_dowager":"由太后{0}擁立為帝，取代{1}。"
-  ,"opinion_rebel_against_empire":"曾背叛帝國"
-  ,"plot_kingdom_petition_title":"請封法理", "plot_kingdom_petition_title_info_base":"消耗300影響力，請求宗主帝國授予本國所控制的帝國核心法理"
-  ,"tributary_title_granted_log":"$empire$ 應 $kingdom$ 請封，將 $title_name$ 法理授予其君主。", "personal_history_tributary_title_granted":"受{0}冊封，獲得{1}法理。"
-  ,"tang_peerage_qinwang":"親王", "tang_peerage_si_wang":"嗣王", "tang_peerage_junwang":"郡王", "tang_peerage_guogong":"國公", "tang_peerage_jungong":"郡公", "tang_peerage_xiangong":"縣公", "tang_peerage_kaiguo_jungong":"開國郡公", "tang_peerage_kaiguo_xiangong":"開國縣公", "tang_peerage_kaiguo_hou":"開國侯", "tang_peerage_kaiguo_bo":"開國伯", "tang_peerage_kaiguo_zi":"開國子", "tang_peerage_kaiguo_nan":"開國男"
-  ,"label_fief":"封地"
-  ,"label_vacant":"待授"
-  ,"label_peerage_pending":"爵位待定"
-  ,"label_honorary":"恩賞封爵", "label_fief_status":"封國", "label_landed_fief":"有封國", "label_unlanded_fief":"無封國", "empire_legal_virtual_peerages":"法理封爵", "empire_honorary_virtual_peerages":"恩賞封爵", "empire_history":"帝國歷史", "empire_list_current":"現存帝國", "empire_list_archived":"已亡帝國", "empire_list_culture_unknown":"未知文化"
-  ,"tang_honorary_anle_gong":"安乐公", "tang_honorary_zhongyi_hou":"忠义侯", "tang_honorary_wenan_gong":"文安公", "tang_honorary_longxi_gong":"陇西公", "tang_honorary_wujun_hou":"武俊侯", "tang_honorary_zhongyong_hou":"忠勇侯", "tang_honorary_huaide_hou":"怀德侯"
-  ,"specific_clan_related_history":"關聯歷史", "specific_clan_related_history_description":"查看其他人物歷史中與目前人物關聯的事件。", "related_history_empty":"暫無與此人關聯的歷史記錄", "related_history_owner":"關聯者", "related_history_event":"關聯：{0}", "related_history_owner_unknown":"未知人物"
-  ,"performance_high_population_toggle":"大人口效能模式", "performance_high_population_toggle Description":"5,000 人起將離屏、非軍隊市民的 AI 決策和行動分幀；20,000 人起所有普通市民的 AI 決策和行動每 8 個模擬 tick 執行一次，前線快取最多重用 4 幀。軍隊、國王、城主、關注與跟隨角色保持即時更新。"
-  ,"performance_adaptive_throughput_toggle":"自適應吞吐加速", "performance_adaptive_throughput_toggle Description":"幀率有餘量時使用更多主執行緒預算，加快帝國、王國、謀劃和法理檢查；幀耗時升高時自動恢復保守批次。不會在背景執行緒存取遊戲物件，可單獨關閉。"
-  ,"performance_hidden_visuals_toggle":"隱藏角色動畫優化", "performance_hidden_visuals_toggle Description":"跳過螢幕外角色的翻轉、旋轉、跳躍與縮放動畫，不影響移動和模擬。"
-  ,"performance_nameplate_overlap_toggle":"名字牌重疊優化", "performance_nameplate_overlap_toggle Description":"跳過名字牌重疊排序與兩兩碰撞檢測；名字牌可能重疊，但可降低地圖 UI 負擔。"
-  ,"颁布金玺诏书":"頒布金璽詔書", "恢复世袭皇权":"恢復世襲皇權", "颁布帝国治安令":"頒布帝國治安令", "确认诸侯特权":"確認諸侯特權", "争夺主教叙任权":"爭奪主教敘任權"
-  ,"temporary_faction_success_outcome_log":"$empire$完成了$claim$：$outcome$", "holy_roman_outcome_golden_bull":"帝位繼承改為選帝制，選帝侯將從候選人中選出新皇帝。", "holy_roman_outcome_hereditary":"帝位繼承恢復為世襲制。", "holy_roman_outcome_imperial_peace":"所有諸侯失去獨立外交與開戰權，並必須向帝國中央供給軍隊。", "holy_roman_outcome_princely_privileges":"{0}恢復獨立外交與開戰權，並不再強制向中央供給軍隊。", "holy_roman_outcome_investiture_crown":"皇權取得主教敘任主導權，帝國宗教管控調整為中等。", "holy_roman_outcome_investiture_clergy":"神權派取得主教敘任主導權，帝國宗教管控提高至最高。"
-  ,"empirecraft_actor_tooltip":"帝國人物檔案", "empirecraft_actor_live_description":"帝國模組人物身份與族譜資料", "empirecraft_actor_history_description":"帝國模組保存的歷史人物資料", "empirecraft_actor_unknown":"未知人物", "empirecraft_actor_full_name":"全名", "empirecraft_actor_age":"年齡", "empirecraft_actor_gender":"性別", "empirecraft_actor_gender_male":"男", "empirecraft_actor_gender_female":"女", "empirecraft_actor_gender_unknown":"未知", "empirecraft_actor_realm":"所屬政權", "empirecraft_actor_titles":"擁有法理", "empirecraft_actor_office":"完整官職", "empirecraft_actor_peerage":"爵位", "empirecraft_actor_faction":"派系", "empirecraft_actor_specific_clan":"宗族", "empirecraft_actor_clan":"氏族", "empirecraft_actor_family":"家族", "empirecraft_actor_parents":"父母", "empirecraft_actor_father":"父", "empirecraft_actor_mother":"母", "empirecraft_actor_spouse":"配偶"
-  ,"empire_tooltip_core":"帝國核心", "empire_tooltip_ascension_title":"稱帝法理", "empire_tooltip_running_claim":"執行訴求", "empire_tooltip_claim_format":"{0}（{1}，{2}）", "empire_tooltip_province_ruler":"省份統治者", "empire_tooltip_province_type":"國家類別", "empire_tooltip_province_titles":"擁有法理"
-  ,"national_power":"綜合國力", "national_power_breakdown":"人口60% / 軍力30% / 經濟10%"
-  ,"purge_recent_100_years":"清理滅亡超過一百年的歷史帝國"
-  ,"原始":"原始派", "尊王":"尊王派", "诸侯":"諸侯派", "中央":"中央派", "自治":"自治派", "攘夷":"主戰派", "绥靖":"綏靖派", "血脉":"血脈派", "僭主":"僭主派", "神权":"神權派", "共和":"共和派", "民主":"民主派", "革命":"革命派", "融入":"融入派", "同化":"同化派", "共产":"共產派", "无":"無派系"
-  ,"Default":"預設", "past_emperors_description":"查看歷代君主記錄", "past_emperor":"歷代君主", "empire_bureau_description":"查看帝國行政機構", "regime_description":"查看或調整政體"
-  ,"plot_kingdom_start_invite_to_faction":"邀請加入派系", "plot_faction_leader_influence_local_kingdom":"影響地方派系", "plot_kingdom_expose_crime":"揭發罪行", "plot_force_stop_war":"強制停戰", "plot_combine_kingdom":"合併國家", "plot_kingdom_allow_succession":"允許繼承", "plot_empire_take_back_title":"收回法理", "plot_kingdom_add_city_into_title":"將城市納入法理", "task_unit_do_mod_actor_beh":"帝國模組人物行為"
-  ,"统一":"統一", "地方叛乱":"地方叛亂", "地方独立":"地方獨立", "帝国正统":"帝國正統", "帝国扩张":"帝國擴張"
-  ,"online_update_window_title":"線上更新", "online_update_button":"線上更新", "online_update_button_description":"透過 Cloudflare 檢查並下載 EmpireCraft 更新"
-  ,"online_update_check":"檢查更新", "online_update_check_description":"立即檢查 Cloudflare 上的最新版本", "online_update_download":"下載更新", "online_update_download_description":"下載並校驗更新；退出遊戲後自動安裝"
-  ,"online_update_versions":"目前版本：{0}\n最新版本：{1}", "online_update_notes":"更新說明", "online_update_no_notes":"暫無更新說明"
-  ,"online_update_idle":"尚未檢查更新", "online_update_checking":"正在檢查更新……", "online_update_up_to_date":"目前已是最新版本", "online_update_available":"發現新版本，可以下載更新", "online_update_downloading":"正在下載並校驗更新：{0}%", "online_update_install_scheduled":"更新已校驗，將在退出遊戲後自動安裝", "online_update_manual_install":"更新已下載，但目前環境不會自動覆蓋。安裝包：\n{0}", "online_update_failed":"更新檢查或下載失敗；這不會影響模組運行"
-  ,"kingdom_custom_naming":"自訂國名", "kingdom_custom_name":"國家名稱", "kingdom_custom_suffix":"國家後綴"
-  ,"temporary_faction_claim_0":"轉軍府", "temporary_faction_claim_1":"擴張地盤", "temporary_faction_claim_2":"提供歲幣", "temporary_faction_claim_3":"割讓城池", "temporary_faction_claim_4":"轉世襲", "temporary_faction_claim_5":"索取皇位", "temporary_faction_claim_6":"開科取士", "temporary_faction_claim_7":"削藩", "temporary_faction_claim_8":"拓展金融霸權", "temporary_faction_claim_9":"縮減金融霸權"
-  ,"temporary_faction_claim_10":"輸出革命", "temporary_faction_claim_11":"扶持革命黨", "temporary_faction_claim_12":"奪取諸侯開戰權", "temporary_faction_claim_13":"設置行政區", "temporary_faction_claim_14":"轉天朝制度", "temporary_faction_claim_15":"迫使朝貢", "temporary_faction_claim_16":"轉周制", "temporary_faction_claim_17":"加強神權", "temporary_faction_claim_18":"允許諸侯自由開戰", "temporary_faction_claim_19":"分封"
-  ,"temporary_faction_claim_20":"強者繼承法", "temporary_faction_claim_21":"地方官叛亂", "temporary_faction_claim_22":"撤銷軍府", "temporary_faction_claim_23":"降低賦稅", "temporary_faction_claim_24":"提高賦稅", "temporary_faction_claim_25":"提高福利", "temporary_faction_claim_26":"自由信仰", "temporary_faction_claim_27":"渴望共和", "temporary_faction_claim_28":"清除移民", "temporary_faction_claim_29":"復辟帝制"
-  ,"temporary_faction_claim_30":"宗教同化", "temporary_faction_claim_31":"遊牧化", "temporary_faction_claim_32":"遊牧擴張", "temporary_faction_claim_33":"宗教融入", "temporary_faction_claim_34":"制度融入", "temporary_faction_claim_35":"劫掠", "temporary_faction_claim_36":"對外擴張", "temporary_faction_claim_37":"漢化", "temporary_faction_claim_38":"收回地盤", "temporary_faction_claim_39":"開放移民"
-  ,"temporary_faction_claim_40":"謀求統一", "temporary_faction_claim_41":"確立國教", "temporary_faction_claim_42":"劃地給教廷", "temporary_faction_claim_43":"神授君權", "temporary_faction_claim_44":"頒布金璽詔書", "temporary_faction_claim_45":"恢復世襲皇權", "temporary_faction_claim_46":"頒布帝國治安令", "temporary_faction_claim_47":"確認諸侯特權", "temporary_faction_claim_48":"爭奪主教敘任權", "temporary_faction_claim_49":"恢復聖地", "temporary_faction_claim_50":"供養宗室", "temporary_faction_claim_51":"禁黨", "temporary_faction_claim_52":"打擊貪腐"
+  "office_honorary_label": "散官等級上限",
+  "empire_center": "帝國中心",
+  "is_capital": "首都城市",
+  "city_is_border": "邊境城市",
+  "succession": "宗族繼承",
+  "allow_diplomacy": "開啟外交",
+  "another_race": "異族統治",
+  "controlled_titles": "控制頭銜數量",
+  "cities_count": "城市數量",
+  "empire_royal": "皇室成員",
+  "cond_true": "是",
+  "cond_false": "否",
+  ">=": ">=",
+  "<=": "<=",
+  ">": ">",
+  "<": "<",
+  "==": "等於",
+  "OfficeConfigWindowTitle": "官位配置",
+  "OfficeConditionEditorWindowTitle": "編輯動態條件",
+  "OfficeTraitsSelectWindowTitle": "選擇特質",
+  "OfficeNameEditWindowTitle": "編輯名稱",
+  "operator": "運算符",
+  "temporary_faction_prepare_log": "$empire$准备执行$claim$，目标：$target$",
+  "temporary_faction_prepare_no_target_log": "$empire$准备执行$claim$",
+  "temporary_faction_prepare_crime_log": "$target$因犯$crime$，即将被执行$claim$",
+  "temporary_faction_success_log": "$empire$完成了$claim$，目标：$target$",
+  "temporary_faction_success_no_target_log": "$empire$完成了$claim$",
+  "temporary_faction_success_crime_log": "$target$因犯$crime$，已被执行$claim$",
+  "temporary_faction_failed_log": "$empire$执行$claim$失败，目标：$target$",
+  "temporary_faction_failed_no_target_log": "$empire$执行$claim$失败",
+  "temporary_faction_failed_crime_log": "$target$虽因犯$crime$被提议执行$claim$，但执行失败",
+  "temporary_faction_official_fall_log": "$actor$因犯$crime$而落马",
+  "temporary_faction_reduce_feudatory_log": "$kingdom$被削藩",
+  "temporary_faction_revoke_war_right_log": "$kingdom$ 的開戰權被撤銷",
+  "temporary_faction_revoke_military_region_log": "$kingdom$ 被撤銷軍府",
+  "temporary_faction_raise_tax_log": "$empire$ 提高了賦稅",
+  "供养宗室": "供養宗室",
+  "允许诸侯自由开战": "允許諸侯自由開戰",
+  "分封": "分封",
+  "划地给教廷": "劃地給教廷",
+  "制度融入": "制度融入",
+  "削藩": "削藩",
+  "割让城池": "割让城池",
+  "加强神权": "加強神權",
+  "劫掠": "劫掠",
+  "地方官叛乱": "地方官叛亂",
+  "复辟帝制": "復辟帝制",
+  "夺取诸侯开战权": "奪取諸侯開戰權",
+  "宗教同化": "宗教同化",
+  "宗教融入": "宗教融入",
+  "对外扩张": "對外擴張",
+  "开放移民": "開放移民",
+  "开科取士": "開科取士",
+  "强者继承法": "強者繼承法",
+  "恢复圣地": "恢復聖地",
+  "扩张地盘": "擴張地盤",
+  "扶持革命党": "扶持革命黨",
+  "拓展金融霸权": "拓展金融霸權",
+  "提供岁币": "提供歲幣",
+  "提高福利": "提高福利",
+  "提高赋税": "提高賦稅",
+  "撤销军府": "撤銷軍府",
+  "收回地盘": "收回地盤",
+  "文化同化": "文化同化",
+  "文化转化": "文化轉化",
+  "清除移民": "清除移民",
+  "渴望共和": "渴望共和",
+  "游牧化": "遊牧化",
+  "游牧扩张": "遊牧擴張",
+  "确立国教": "確立國教",
+  "神授君权": "神授君權",
+  "索取皇位": "索取皇位",
+  "缩减金融霸权": "縮減金融霸權",
+  "自由信仰": "自由信仰",
+  "设置行政区": "設置行政區",
+  "谋求统一": "謀求統一",
+  "转世袭": "转世袭",
+  "转军府": "转军府",
+  "转周制": "转周制",
+  "转天朝制度": "转天朝制度",
+  "输出革命": "输出革命",
+  "迫使朝贡": "迫使朝贡",
+  "降低赋税": "降低赋税",
+  "禁党": "禁党",
+  "国_打击贪腐": "打击贪腐",
+  "opinion_local_claim_failed": "地方推動訴求失敗後的不滿",
+  "support_local_push_claim": "拉攏訴求支持者",
+  "support_local_push_claim_description": "花費金錢拉攏其他有政治身份者協助推進地方訴求",
+  "撤換官員": "撤換官員",
+  "撤换官员": "撤換官員",
+  "expose_official_crime": "曝光官員黑料",
+  "expose_official_crime_description": "花費影響力挖掘並曝光地方官員的犯罪黑料",
+  "world_law_civ_limit_population_100_title": "一百人",
+  "world_law_civ_limit_population_100_description": "限制村鎮最大人口數為 100",
+  "empirecraft_law_allow_harem_title": "允許後宮",
+  "empirecraft_law_allow_harem_description": "開啟後，後宮相關系統可以正常運作",
+  "empirecraft_law_allow_skeleton_title": "允許骷髏",
+  "empirecraft_law_allow_skeleton_description": "開啟後，允許骷髏相關內容出現",
+  "empirecraft_law_switch_occupy_mode_title": "帝國占領模式",
+  "empirecraft_law_switch_occupy_mode_description": "切換 EmpireCraft 區塊占領與原版城市占領模式",
+  "debug_frontline": "戰線調試",
+  "debug_frontline_description": "點擊一個國家，顯示其戰線區塊的調試結果",
+  "debug_frontline_invalid_target": "請選擇一個有效的國家來調試戰線",
+  "debug_frontline_triggered": "已觸發戰線調試顯示",
+  "occupation_capture_event_log": "$capturer$ 擒獲了 $victim$，$result$",
+  "honorary_peerage_granted_log": "$empire$ 冊封 $actor$ 為 $title$",
+  "honorary_peerage_inherited_log": "$heir$ 繼承 $predecessor$ 的 $title$",
+  "empire_pressure_surrender_log": "在 $attacker$ 的戰事壓力下，$defender$ 投降，並被迫割讓 $target$",
+  "empire_pressure_surrender_city_log": "在 $attacker$ 的戰事壓力下，$defender$ 被迫割讓城市 $target$",
+  "empire_core_absorb_title_log": "$empire$ 已將 $title$ 法理納入 $core$ 帝國法理中",
+  "occupation_capture_result_lord": "其所鎮城市被立即佔領",
+  "occupation_capture_result_king": "其所屬國家全境投降",
+  "occupation_capture_result_king_released": "國王被俘後獲釋，戰爭結束",
+  "occupation_capture_result_king_war_released": "國王被俘後獲釋，戰爭依既定類型結算",
+  "occupation_capture_result_king_city": "國王未獲釋，其所在城市被立即佔領",
+  "occupation_capture_result_emperor": "帝國正統崩潰，所攻目標被迅速攻佔",
+  "occupation_capture_result_lord_death_annexation": "城主陣亡，其城已被佔領七成以上，全城即刻易主",
+  "occupation_capture_result_king_death_kingdom_surrender": "國王陣亡，首都已被佔領七成以上，舉國投降於主要占領方",
+  "occupation_capture_result_king_death_kingdom_split": "國王陣亡，首都已被佔領七成以上，舉國瓦解，各城分別易主",
+  "opinion_same_empire_core": "同爭一套帝國法理",
+  "create_empire_core": "新建帝國法理",
+  "create_empire_core_description": "從點擊的王國法理新建一套帝國法理",
+  "add_title_to_empire_core": "添加王國法理至帝國法理",
+  "add_title_to_empire_core_description": "先選擇一個王國法理，再點擊目標帝國法理範圍內的城市，將其納入帝國法理",
+  "remove_title_from_empire_core": "刪除王國法理自帝國法理",
+  "remove_title_from_empire_core_description": "將點擊的王國法理從當前所屬的帝國法理中移除",
+  "destroy_empire_core": "銷毀帝國法理",
+  "destroy_empire_core_description": "銷毀點擊城市所屬的整套帝國法理",
+  "empire_core_invalid_target": "無效的帝國法理目標",
+  "empire_core_select_title_first": "請先選擇一個擁有王國法理的城市",
+  "empire_core_title_selected": "已選擇王國法理",
+  "create_empire_core_success": "已新建一套帝國法理",
+  "add_title_to_empire_core_success": "已將該王國法理納入帝國法理",
+  "remove_title_from_empire_core_success": "已將該王國法理移出帝國法理",
+  "destroy_empire_core_success": "已銷毀該帝國法理",
+  "EmpireCoreWindowTitle": "",
+  "empire_core_description": "當前帝國法理資訊",
+  "empire_core_display_name": "法理名稱",
+  "empire_core_plate_name": "銘牌簡稱",
+  "empire_core_created_time": "創建時間",
+  "empire_core_founding_empire": "創建帝國",
+  "empire_core_titles_count": "包含法理數",
+  "empire_core_cities_count": "包含城市數",
+  "empire_core_current_empires": "當前稱帝國家",
+  "empire_core_history_collection": "帝國法理歷史合集",
+  "empire_core_history_exists": "仍然存在",
+  "empire_core_history_gone": "已經滅亡",
+  "empire_core_history_duration": "延續時間",
+  "empire_core_history_emperors": "歷任皇帝",
+  "empire_core_none": "無",
+  "kingdom_title_capital": "法理首府",
+  "kingdom_title_cities": "所屬城市",
+  "kingdom_title_zones": "領地區塊",
+  "kingdom_title_current_relations": "目前歸屬",
+  "kingdom_title_holder": "法理持有者",
+  "kingdom_title_landed_holder": "法理封王",
+  "kingdom_title_unlanded_holder": "無地法理持有者",
+  "kingdom_title_administration": "授權行政區",
+  "kingdom_title_administrator": "授權管理者",
+  "kingdom_title_no_administration": "尚未授權",
+  "kingdom_title_details": "詳情",
+  "kingdom_title_controller": "實際控制國",
+  "kingdom_title_history": "歷代國家與行政區",
+  "kingdom_title_history_holder": "法理封國",
+  "kingdom_title_history_administration": "行政區",
+  "kingdom_title_history_founder": "建立國家",
+  "kingdom_title_unknown_date": "年代不詳",
+  "kingdom_title_current": "至今",
+  "label_none": "無",
+  "label_no_royal_clan": "無皇室",
+  "label_treasury": "國庫",
+  "label_mandate": "正統值",
+  "label_dominant_faction": "主導派系",
+  "label_claim": "訴求",
+  "label_member_count": "成員數量",
+  "label_total_power": "勢力",
+  "label_central_ratio": "中央占比",
+  "label_required_traits": "所需特質",
+  "label_all_members": "全部成員",
+  "label_name": "姓名",
+  "label_total_performance": "總績效",
+  "label_rank": "品級",
+  "label_all_claims": "全部訴求",
+  "label_budget": "預算",
+  "label_tributary_target": "朝貢對象",
+  "territory_label_tributary_suffix": "（朝貢於{0}）",
+  "label_no_faction_influence": "無派系影響",
+  "label_governor_influence": "長官影響力",
+  "label_brutality": "暴虐值",
+  "label_corruption": "腐敗值",
+  "action_add_performance": "增加績效",
+  "action_sub_performance": "減少績效",
+  "empire_virtual_peerages": "封爵冊",
+  "empire_virtual_peerages_description": "查看法理封爵與恩賞封爵；虛封不移交土地或法理所有權。",
+  "empire_bureau_offices": "官僚機構",
+  "empire_bureau_offices_description": "返回內閣、中央部門與地方官員頁面。",
+  "specific_clan_relations": "親屬關係",
+  "specific_clan_relations_description": "返回目前人物的親屬關係頁面。",
+  "specific_clan_history": "個人歷史",
+  "specific_clan_history_description": "查看目前人物記錄在族譜中的生平事件。",
+  "personal_history_empty": "暫無個人歷史記錄",
+  "personal_history_peerage_granted": "受{0}冊封，獲授{1}。",
+  "personal_history_peerage_inherited": "承襲{0}，前任為{1}。",
+  "personal_history_office_started": "就任{0}。",
+  "personal_history_office_reappointed": "仍領{0}之職。",
+  "personal_history_office_left": "離任{0}。",
+  "personal_history_became_king": "成為{0}的國王。",
+  "personal_history_became_emperor": "登基為{0}皇帝。",
+  "personal_history_left_king": "不再擔任{0}的國王。",
+  "personal_history_died": "逝世。",
+  "personal_history_new_year_name": "頒布年號「{0}」。",
+  "personal_history_born": "出生。",
+  "personal_history_child_born": "誕下子嗣{0}。",
+  "personal_history_married": "與{0}結為夫妻。",
+  "personal_history_took_concubine": "納{0}為妾。",
+  "personal_history_became_concubine": "成為{0}的妾室。",
+  "personal_history_exam_city_attended": "赴鄉試。",
+  "personal_history_exam_city_passed": "鄉試中舉，獲舉人。",
+  "personal_history_exam_province_attended": "赴會試。",
+  "personal_history_exam_province_passed": "會試登第，獲貢士。",
+  "personal_history_exam_empire_attended": "赴殿試。",
+  "personal_history_exam_empire_passed": "殿試及第，獲進士。",
+  "personal_history_joined_cabinet": "入閣。",
+  "personal_history_became_cabinet_leader": "拜內閣首輔。",
+  "personal_history_became_elector": "列名選帝侯。",
+  "personal_history_became_chief_elector": "成為首席選帝侯。",
+  "personal_history_joined_faction": "加入{0}。",
+  "personal_history_became_faction_leader": "執掌{0}。",
+  "powerful_minister_title": "權臣",
+  "empress_dowager_title": "太后",
+  "powerful_minister_status_progress": "權勢 {0}/100",
+  "powerful_minister_status_regent": "輔政 {0}/100",
+  "powerful_minister_status_dowager": "監國 {0}/100",
+  "powerful_minister_status_dominant": "權傾朝野",
+  "powerful_minister_status_duke": "國公",
+  "powerful_minister_status_king": "王",
+  "powerful_minister_status_puppet": "傀儡",
+  "history_powerful_minister_controls_court": "{0}權傾朝野，皇帝{1}淪為傀儡。",
+  "history_powerful_minister_duke": "{0}受封{1}，入朝不趨，贊拜不名，劍履上殿。",
+  "history_powerful_minister_nine_bestowments": "{0}受加九錫，進爵{1}。",
+  "history_powerful_minister_usurpation": "{0}篡位稱帝，定國號{1}。",
+  "personal_history_powerful_minister_controls_court": "在{0}權傾朝野。",
+  "personal_history_became_puppet": "受{0}控制，淪為傀儡皇帝。",
+  "personal_history_powerful_minister_duke": "受封{0}，獲入朝不趨、贊拜不名、劍履上殿之權。",
+  "personal_history_powerful_minister_nine_bestowments": "受加九錫，由國公進爵為{0}。",
+  "personal_history_deposed_by_powerful_minister": "被權臣{0}篡位廢黜。",
+  "personal_history_powerful_minister_usurpation": "篡奪{0}天命，稱帝並定國號{1}。",
+  "plot_empress_dowager_install_son": "太后廢帝立子",
+  "plot_empress_dowager_install_son_info_base": "廢黜目前皇帝，擁立太后的親生兒子即位",
+  "empress_dowager_installs_son_log": "太后$dowager$廢黜皇帝$deposed$，擁立親子$son$即位。",
+  "history_empress_dowager_installs_son": "{0}廢黜皇帝{1}，擁立親子{2}即位。",
+  "personal_history_deposed_by_empress_dowager": "被太后{0}廢黜，皇位改授{1}。",
+  "personal_history_empress_dowager_deposed_emperor": "廢黜皇帝{0}，擁立親子{1}即位。",
+  "personal_history_installed_by_empress_dowager": "由太后{0}擁立為帝，取代{1}。",
+  "opinion_rebel_against_empire": "曾背叛帝國",
+  "plot_kingdom_petition_title": "請封法理",
+  "plot_kingdom_petition_title_info_base": "消耗300影響力，請求宗主帝國授予本國所控制的帝國核心法理",
+  "tributary_title_granted_log": "$empire$ 應 $kingdom$ 請封，將 $title_name$ 法理授予其君主。",
+  "personal_history_tributary_title_granted": "受{0}冊封，獲得{1}法理。",
+  "tang_peerage_qinwang": "親王",
+  "tang_peerage_si_wang": "嗣王",
+  "tang_peerage_junwang": "郡王",
+  "tang_peerage_guogong": "國公",
+  "tang_peerage_jungong": "郡公",
+  "tang_peerage_xiangong": "縣公",
+  "tang_peerage_kaiguo_jungong": "開國郡公",
+  "tang_peerage_kaiguo_xiangong": "開國縣公",
+  "tang_peerage_kaiguo_hou": "開國侯",
+  "tang_peerage_kaiguo_bo": "開國伯",
+  "tang_peerage_kaiguo_zi": "開國子",
+  "tang_peerage_kaiguo_nan": "開國男",
+  "label_fief": "封地",
+  "label_vacant": "待授",
+  "label_peerage_pending": "爵位待定",
+  "label_honorary": "恩賞封爵",
+  "label_fief_status": "封國",
+  "label_landed_fief": "有封國",
+  "label_unlanded_fief": "無封國",
+  "empire_legal_virtual_peerages": "法理封爵",
+  "empire_honorary_virtual_peerages": "恩賞封爵",
+  "empire_history": "帝國歷史",
+  "empire_list_current": "現存帝國",
+  "empire_list_archived": "已亡帝國",
+  "empire_list_culture_unknown": "未知文化",
+  "tang_honorary_anle_gong": "安乐公",
+  "去帝号": "去帝號",
+  "history_legitimacy_challenge_declared": "{0}以綜合國力壓倒同文化舊朝，自立稱帝並向{1}發動去帝號戰爭。",
+  "history_legitimacy_challenge_victory": "{0}佔領舊朝三分之一國土，擊敗{1}並奪取帝國法理核心正統，{2}成為該文化的新正統帝國。",
+  "history_legitimacy_challenge_failed": "{0}未能奪取{1}三分之一國土，去帝號戰爭失敗；兩朝此後並立。",
+  "history_deposed_emperor_enfeoffed_anle": "舊帝{0}退居{1}封國，受封安樂公。",
+  "tang_honorary_zhongyi_hou": "忠义侯",
+  "tang_honorary_wenan_gong": "文安公",
+  "tang_honorary_longxi_gong": "陇西公",
+  "tang_honorary_wujun_hou": "武俊侯",
+  "tang_honorary_zhongyong_hou": "忠勇侯",
+  "tang_honorary_huaide_hou": "怀德侯",
+  "specific_clan_related_history": "關聯歷史",
+  "specific_clan_related_history_description": "查看其他人物歷史中與目前人物關聯的事件。",
+  "related_history_empty": "暫無與此人關聯的歷史記錄",
+  "related_history_owner": "關聯者",
+  "related_history_event": "關聯：{0}",
+  "related_history_owner_unknown": "未知人物",
+  "performance_high_population_toggle": "大人口效能模式",
+  "performance_high_population_toggle Description": "5,000 人起僅降低普通市民昂貴尋敵搜尋的頻率，並將前線全人口快取重用 0.25 秒；20,000 人起快取重用 0.5 秒。不會跳過生育、關係、住房等完整 AI，軍隊、國王、城主、關注與跟隨角色保持即時更新。",
+  "performance_adaptive_throughput_toggle": "自適應吞吐加速",
+  "performance_adaptive_throughput_toggle Description": "幀率有餘量時使用更多主執行緒預算；幀耗時升高時仍按真實時間保證帝國、王國、謀劃和法理在限定時間內輪轉，避免大人口下長期排隊。不會在背景執行緒存取遊戲物件，可單獨關閉。",
+  "performance_hidden_visuals_toggle": "隱藏角色動畫優化",
+  "performance_hidden_visuals_toggle Description": "跳過螢幕外角色的翻轉、旋轉、跳躍與縮放動畫，不影響移動和模擬。",
+  "performance_nameplate_overlap_toggle": "名字牌重疊優化",
+  "performance_nameplate_overlap_toggle Description": "跳過名字牌重疊排序與兩兩碰撞檢測；名字牌可能重疊，但可降低地圖 UI 負擔。",
+  "颁布金玺诏书": "頒布金璽詔書",
+  "恢复世袭皇权": "恢復世襲皇權",
+  "颁布帝国治安令": "頒布帝國治安令",
+  "确认诸侯特权": "確認諸侯特權",
+  "争夺主教叙任权": "爭奪主教敘任權",
+  "temporary_faction_success_outcome_log": "$empire$完成了$claim$：$outcome$",
+  "holy_roman_outcome_golden_bull": "帝位繼承改為選帝制，選帝侯將從候選人中選出新皇帝。",
+  "holy_roman_outcome_hereditary": "帝位繼承恢復為世襲制。",
+  "holy_roman_outcome_imperial_peace": "所有諸侯失去獨立外交與開戰權，並必須向帝國中央供給軍隊。",
+  "holy_roman_outcome_princely_privileges": "{0}恢復獨立外交與開戰權，並不再強制向中央供給軍隊。",
+  "holy_roman_outcome_investiture_crown": "皇權取得主教敘任主導權，帝國宗教管控調整為中等。",
+  "holy_roman_outcome_investiture_clergy": "神權派取得主教敘任主導權，帝國宗教管控提高至最高。",
+  "empirecraft_actor_tooltip": "帝國人物檔案",
+  "empirecraft_culture_share_tooltip": "城市文化影響",
+  "empirecraft_actor_live_description": "帝國模組人物身份與族譜資料",
+  "empirecraft_actor_history_description": "帝國模組保存的歷史人物資料",
+  "empirecraft_actor_unknown": "未知人物",
+  "empirecraft_actor_full_name": "全名",
+  "empirecraft_actor_age": "年齡",
+  "empirecraft_actor_gender": "性別",
+  "empirecraft_actor_gender_male": "男",
+  "empirecraft_actor_gender_female": "女",
+  "empirecraft_actor_gender_unknown": "未知",
+  "empirecraft_actor_realm": "所屬政權",
+  "empirecraft_actor_titles": "擁有法理",
+  "empirecraft_actor_office": "完整官職",
+  "empirecraft_actor_peerage": "爵位",
+  "empirecraft_actor_faction": "派系",
+  "empirecraft_actor_specific_clan": "宗族",
+  "empirecraft_actor_clan": "氏族",
+  "empirecraft_actor_family": "家族",
+  "empirecraft_actor_parents": "父母",
+  "empirecraft_actor_father": "父",
+  "empirecraft_actor_mother": "母",
+  "empirecraft_actor_spouse": "配偶",
+  "empire_tooltip_core": "帝國核心",
+  "empire_tooltip_ascension_title": "稱帝法理",
+  "empire_tooltip_running_claim": "執行訴求",
+  "empire_tooltip_claim_format": "{0}（{1}，{2}）",
+  "empire_tooltip_province_ruler": "省份統治者",
+  "empire_tooltip_province_type": "國家類別",
+  "empire_tooltip_province_titles": "擁有法理",
+  "national_power": "綜合國力",
+  "national_power_breakdown": "人口60% / 軍力30% / 經濟10%",
+  "purge_recent_100_years": "清理滅亡超過一百年的歷史帝國",
+  "原始": "原始派",
+  "尊王": "尊王派",
+  "诸侯": "諸侯派",
+  "中央": "中央派",
+  "自治": "自治派",
+  "攘夷": "主戰派",
+  "绥靖": "綏靖派",
+  "血脉": "血脈派",
+  "僭主": "僭主派",
+  "神权": "神權派",
+  "共和": "共和派",
+  "民主": "民主派",
+  "革命": "革命派",
+  "融入": "融入派",
+  "同化": "同化派",
+  "共产": "共產派",
+  "无": "無派系",
+  "Default": "預設",
+  "past_emperors_description": "查看歷代君主記錄",
+  "past_emperor": "歷代君主",
+  "empire_bureau_description": "查看帝國行政機構",
+  "regime_description": "查看或調整政體",
+  "plot_kingdom_start_invite_to_faction": "邀請加入派系",
+  "plot_faction_leader_influence_local_kingdom": "影響地方派系",
+  "plot_kingdom_expose_crime": "揭發罪行",
+  "plot_force_stop_war": "強制停戰",
+  "plot_combine_kingdom": "合併國家",
+  "plot_kingdom_allow_succession": "允許繼承",
+  "plot_empire_take_back_title": "收回法理",
+  "plot_kingdom_add_city_into_title": "將城市納入法理",
+  "task_unit_do_mod_actor_beh": "帝國模組人物行為",
+  "统一": "統一",
+  "地方叛乱": "地方叛亂",
+  "地方独立": "地方獨立",
+  "帝国正统": "帝國正統",
+  "帝国扩张": "帝國擴張",
+  "online_update_window_title": "線上更新",
+  "online_update_button": "線上更新",
+  "online_update_button_description": "透過 Cloudflare 檢查並下載 EmpireCraft 更新",
+  "online_update_check": "檢查更新",
+  "online_update_check_description": "立即檢查 Cloudflare 上的最新版本",
+  "online_update_download": "下載更新",
+  "online_update_download_description": "下載並校驗更新；退出遊戲後自動安裝",
+  "online_update_download_zip": "下載 ZIP",
+  "online_update_download_zip_description": "下載並校驗更新 ZIP，將其儲存到 WorldBox/Mods，之後由玩家完全退出遊戲並手動解壓安裝",
+  "online_update_open_mods": "開啟 Mods 資料夾",
+  "online_update_open_mods_description": "開啟目前 WorldBox 實際使用的 Mods 資料夾，方便尋找 ZIP 安裝包或手動安裝更新",
+  "online_update_mods_opened": "已開啟 WorldBox 的 Mods 資料夾。",
+  "online_update_mods_open_failed": "無法定位或開啟 WorldBox 的 Mods 資料夾。",
+  "online_update_manual_mode": "手動 ZIP 安裝",
+  "online_update_manual_mode_description": "開啟後只把經過校驗的 ZIP 安裝包下載到 WorldBox 的 Mods 目錄，不會自動解壓或覆蓋目前模組",
+  "online_update_manual_mode_explanation": "關閉：下載後退出遊戲自動安裝。開啟：只下載並校驗 ZIP 到 Mods，由玩家完全退出遊戲後自行解壓安裝。請勿同時保留多個 EmpireCraft 資料夾。",
+  "online_update_versions": "目前版本：{0}\n最新版本：{1}",
+  "online_update_notes": "更新說明",
+  "online_update_no_notes": "暫無更新說明",
+  "online_update_idle": "尚未檢查更新",
+  "online_update_checking": "正在檢查更新……",
+  "online_update_up_to_date": "目前已是最新版本",
+  "online_update_available": "發現新版本，可以下載更新",
+  "online_update_downloading": "正在下載並校驗更新：{0}%",
+  "online_update_install_scheduled": "更新已校驗，將在退出遊戲後自動安裝",
+  "online_update_install_pending": "安裝程式正在等待遊戲完全退出。請關閉遊戲後稍候再啟動",
+  "online_update_install_succeeded": "更新安裝成功，目前載入版本已核對無誤",
+  "online_update_install_failed": "更新安裝失敗，可手動安裝已下載的更新包：\n{0}",
+  "online_update_manual_package_ready": "ZIP 已下載並校驗：\n{0}\n安裝步驟：完全退出 WorldBox，開啟 ZIP，將其中的 EmpireCraft 資料夾解壓到 WorldBox/Mods。覆蓋前建議備份舊版，並確保 Mods 內只保留一個 EmpireCraft 模組資料夾。",
+  "online_update_manual_install": "更新已下載，但目前環境不會自動覆蓋。安裝包：\n{0}",
+  "online_update_failed": "更新檢查或下載失敗；這不會影響模組運行",
+  "kingdom_custom_naming": "自訂國名",
+  "kingdom_custom_name": "國家名稱",
+  "kingdom_custom_suffix": "國家後綴",
+  "temporary_faction_claim_0": "轉軍府",
+  "temporary_faction_claim_1": "擴張地盤",
+  "temporary_faction_claim_2": "提供歲幣",
+  "temporary_faction_claim_3": "割讓城池",
+  "temporary_faction_claim_4": "轉世襲",
+  "temporary_faction_claim_5": "索取皇位",
+  "temporary_faction_claim_6": "開科取士",
+  "temporary_faction_claim_7": "削藩",
+  "temporary_faction_claim_8": "拓展金融霸權",
+  "temporary_faction_claim_9": "縮減金融霸權",
+  "temporary_faction_claim_10": "輸出革命",
+  "temporary_faction_claim_11": "扶持革命黨",
+  "temporary_faction_claim_12": "奪取諸侯開戰權",
+  "temporary_faction_claim_13": "設置行政區",
+  "temporary_faction_claim_14": "轉天朝制度",
+  "temporary_faction_claim_15": "迫使朝貢",
+  "temporary_faction_claim_16": "轉周制",
+  "temporary_faction_claim_17": "加強神權",
+  "temporary_faction_claim_18": "允許諸侯自由開戰",
+  "temporary_faction_claim_19": "分封",
+  "temporary_faction_claim_20": "強者繼承法",
+  "temporary_faction_claim_21": "地方官叛亂",
+  "temporary_faction_claim_22": "撤銷軍府",
+  "temporary_faction_claim_23": "降低賦稅",
+  "temporary_faction_claim_24": "提高賦稅",
+  "temporary_faction_claim_25": "提高福利",
+  "temporary_faction_claim_26": "自由信仰",
+  "temporary_faction_claim_27": "渴望共和",
+  "temporary_faction_claim_28": "清除移民",
+  "temporary_faction_claim_29": "復辟帝制",
+  "temporary_faction_claim_30": "宗教同化",
+  "temporary_faction_claim_31": "遊牧化",
+  "temporary_faction_claim_32": "遊牧擴張",
+  "temporary_faction_claim_33": "宗教融入",
+  "temporary_faction_claim_34": "制度融入",
+  "temporary_faction_claim_35": "劫掠",
+  "temporary_faction_claim_36": "對外擴張",
+  "temporary_faction_claim_37": "漢化",
+  "temporary_faction_claim_38": "收回地盤",
+  "temporary_faction_claim_39": "開放移民",
+  "temporary_faction_claim_40": "謀求統一",
+  "temporary_faction_claim_41": "確立國教",
+  "temporary_faction_claim_42": "劃地給教廷",
+  "temporary_faction_claim_43": "神授君權",
+  "temporary_faction_claim_44": "頒布金璽詔書",
+  "temporary_faction_claim_45": "恢復世襲皇權",
+  "temporary_faction_claim_46": "頒布帝國治安令",
+  "temporary_faction_claim_47": "確認諸侯特權",
+  "temporary_faction_claim_48": "爭奪主教敘任權",
+  "temporary_faction_claim_49": "恢復聖地",
+  "temporary_faction_claim_50": "供養宗室",
+  "temporary_faction_claim_51": "禁黨",
+  "temporary_faction_claim_52": "打擊貪腐",
+  "temporary_faction_claim_53": "文化歸化",
+  "title_all_inherited_notice": "{0}消滅了{1}，繼承了其全部法理。",
+  "empirecraft_law_fixed_de_jure_culture_title": "固定法理文化",
+  "empirecraft_law_fixed_de_jure_culture_description": "開啟：法理文化、官方名稱及轄內城市主流文化保持固定；居民文化與人口流動仍會正常變化。關閉（預設）：法理與城市主流文化均可透過決議轉變。",
+  "de_jure_culture_changed_log": "$title$法理的預設文化由$old_culture$轉變為$new_culture$。",
+  "de_jure_culture_changed_tip": "一項王國法理的預設文化已經轉變",
+  "plot_empirecraft_city_culture_shift": "更改城市主流文化",
+  "plot_empirecraft_independent_title_culture_conversion": "更改國家法理文化",
+  "plot_empirecraft_restore_native_culture": "恢復本土文化",
+  "city_culture_shift_log": "$city$的主流文化由$old_culture$轉變為$new_culture$。",
+  "foreign_culture_occupation_log": "$city$遭$new_culture$政權攻占；原有$old_culture$官方文化暫時保留，占領者開始施加文化壓力。",
+  "foreign_culture_occupation_tip": "異文化政權開始對被占城市施加文化壓力",
+  "culture_restoration_available_log": "$city$已被$culture$國家收復，可以推行恢復本土文化決議。",
+  "culture_restoration_available_tip": "一座故土城市已被本族收復",
+  "city_culture_restored_log": "$city$完成文化復原，官方文化由$old_culture$恢復為$new_culture$，全體居民被強制同化。",
+  "city_culture_restored_tip": "一座城市已強制恢復本土文化",
+  "plot_empirecraft_cultural_assimilation_duty": "履行同化職責",
+  "cultural_assimilation_duty_log": "行政區長官花費$cost$點影響力，推動$city$同化為$culture$文化。",
+  "cultural_assimilation_duty_assigned_log": "「文化同化」決議命$kingdom$的長官推行$culture$文化同化。",
+  "cultural_assimilation_duty_assigned_city_log": "「文化同化」決議命$city$的長官（帝國直轄）推行$culture$文化同化。",
+  "cultural_assimilation_duty_completed_log": "$target$已完成$culture$文化同化任務。",
+  "plot_empirecraft_kingdom_regime_conversion": "歸化政體",
+  "kingdom_regime_conversion_log": "$kingdom$正式放棄$old_regime$，改行$new_regime$。",
+  "regime_type_LvLing": "律令制",
+  "regime_type_Feudalism": "封建制",
+  "regime_type_ZhouFeudalism": "分封制",
+  "regime_type_Modern": "現代政體",
+  "regime_type_Arabic": "阿拉伯政體",
+  "regime_type_YouMu": "遊牧制",
+  "regime_type_Republic": "共和制",
+  "regime_type_Origin": "原始政體",
+  "de_jure_city_capacity_exempt": "法理城市豁免",
+  "city_culture_shift_tip": "一座城市的主流文化已經轉變",
+  "city_official_culture": "官方文化",
+  "city_occupation_culture_pressure": "占領文化壓力",
+  "city_occupation_culture_pressure_value": "{0} · {1:0.#}%",
+  "city_culture_restoration_available": "可恢復本土文化",
+  "city_culture_shift_candidate": "主流文化候選",
+  "city_culture_shift_candidate_progress": "{0} · 已穩定 {1}/{2} 年",
+  "city_culture_shift_locked": "主流文化已鎖定",
+  "cultural_assimilation_campaign": "帝國同化任務",
+  "cultural_assimilation_campaign_progress": "{0} · {1:0.#}% · {2}",
+  "cultural_assimilation_phase_promotion": "行政推廣",
+  "cultural_assimilation_phase_consolidation": "自然鞏固",
+  "cultural_assimilation_phase_completed": "等待結案",
+  "cultural_name_changed_log": "$pre$因文化轉變，改名為$after$（$culture$文化）。",
+  "cultural_name_changed_tip": "一座城市因文化轉變而改了名字",
+  "cultural_name_changed_title_tip": "一項法理頭銜因文化轉變而改了名字",
+  "cultural_name_changed_province_tip": "一個省份因文化轉變而改了名字",
+  "cultural_name_restored_log": "$pre$因文化轉變，恢復了它在$culture$文化下的歷史名稱$after$。",
+  "cultural_name_restored_tip": "一座城市恢復了歷史名稱",
+  "cultural_name_restored_title_tip": "一項法理頭銜恢復了歷史名稱",
+  "cultural_name_restored_province_tip": "一個省份恢復了歷史名稱",
+  "kingdom_title_culture": "法理文化",
+  "kingdom_title_effective_culture": "目前預設文化",
+  "kingdom_title_inherits_empire_culture": "繼承帝國文化",
+  "kingdom_title_explicit_culture": "王國明確文化",
+  "kingdom_title_culture_locked": "文化鎖定",
+  "kingdom_title_culture_unlocked": "允許透過謀劃轉換",
+  "kingdom_title_culture_status": "文化狀態",
+  "kingdom_title_culture_locked_globally": "由世界法則鎖定",
+  "kingdom_title_city_cultures": "城市文化影響",
+  "kingdom_title_main_culture": "主文化",
+  "kingdom_title_assimilation_progress": "同化進度",
+  "kingdom_title_culture_invalid": "文化設定不存在",
+  "kingdom_title_clear_override": "恢復帝國繼承",
+  "kingdom_title_select_culture": "選擇文化",
+  "kingdom_title_selected_culture": "選中文化",
+  "kingdom_title_set_default_culture": "設為預設文化",
+  "kingdom_title_add_selected_culture": "新增所選文化",
+  "kingdom_title_city_name": "城市名稱",
+  "kingdom_title_name_history": "文化地名歷史",
+  "kingdom_title_name_history_hint": "每種文化各保留一個名字。一旦記錄下來就會永久保留，只有在這裡手動刪除才會消失；當法理的文化重新變回列表裡的某種文化時，會自動恢復對應的名字。",
+  "kingdom_title_name_history_title_section": "頭銜名稱",
+  "kingdom_title_name_history_province_section": "省份名稱",
+  "city_name_history_title": "文化地名歷史",
+  "city_name_history_hint": "每種文化各保留一個名字。一旦記錄下來就會永久保留，只有在這裡手動刪除才會消失；當城市的主流文化重新變回列表裡的某種文化時，會自動恢復對應的名字。",
+  "kingdom_title_culture_share": "文化影響",
+  "kingdom_title_not_mainstream_culture": "未成為主流文化",
+  "kingdom_title_name_history_add_culture": "新增文化",
+  "city_name_history_culture_share": "文化影響",
+  "city_name_history_not_mainstream_culture": "未成為主流文化",
+  "city_name_history_add_culture": "新增文化",
+  "plot_adopt_central_plains_institutions": "採納屬地制度",
+  "plot_adopt_central_plains_institutions_info_base": "遊牧帝國保留統治集團文化和原有軍事傳統，同時採用被征服法理文化的制度，建立雙重正統的複合帝國。需控制該異文化核心至少一半法理且正統不低於40。",
+  "composite_empire_identity_title": "帝國文化特點",
+  "composite_empire_ruling_culture": "統治文化",
+  "composite_empire_institutional_culture": "制度文化",
+  "composite_empire_candidate_culture": "候選制度文化",
+  "composite_empire_current_system": "當前制度",
+  "composite_empire_court_culture": "中央制度文化",
+  "composite_empire_court_system": "中央朝廷制度",
+  "composite_empire_regional_systems": "地方制度分佈",
+  "composite_empire_institutional_system": "內政制度",
+  "composite_empire_military_tradition": "軍事傳統",
+  "composite_empire_external_identity": "對外身份",
+  "composite_empire_integration": "融合度",
+  "composite_empire_dual_legitimacy": "屬地/部族正統",
+  "composite_empire_adoption_plotting": "正在推行屬地制度",
+  "composite_empire_adoption_not_nomadic": "僅具有遊牧統治傳統的帝國可以建立複合體制",
+  "composite_empire_adoption_no_core": "尚未控制可採納制度的異文化法理領地",
+  "composite_empire_adoption_same_culture": "統治文化與當地制度文化相同",
+  "composite_empire_adoption_requirements": "法理控制 {0}/{1}  |  正統 {2}/40",
+  "composite_empire_adoption_title_progress": "法理控制：{0}/{1}（至少 {2}）",
+  "composite_empire_adoption_mandate_progress": "天命：{0}/40",
+  "composite_empire_adoption_start": "採納屬地制度",
+  "composite_empire_stage_None": "單一制度",
+  "composite_empire_stage_DualAdministration": "雙軌統治",
+  "composite_empire_stage_CompositeEmpire": "複合帝國",
+  "composite_empire_stage_IntegratedDynasty": "深度融入",
+  "composite_empire_adopted_log": "$empire$以$ruling_culture$為統治文化，採用$institutional_culture$制度，建立了雙軌統治。",
+  "composite_empire_adopted_tip": "一個遊牧王朝採用了屬地制度，但保留了本族統治與軍事傳統",
+  "composite_empire_adoption_started_log": "$empire$開始在保留$ruling_culture$統治傳統的同時採納$institutional_culture$制度。",
+  "composite_empire_adoption_started_tip": "一個遊牧帝國開始採納被征服地區的制度",
+  "empire_bureau_no_cabinet": "無內閣制",
+  "empire_bureau_direct_rule": "君主直轄中央",
+  "composite_empire_stage_changed_log": "$empire$的文化融合階段由$old_stage$進入$new_stage$。",
+  "composite_empire_stage_changed_tip": "一個複合帝國的融合階段發生了變化",
+  "composite_empire_cultural_name": "本地文化國號",
+  "composite_empire_cultural_name_adopted_log": "$empire$在與$culture$文化深度融合後，採用$new_name$為本地文化國號。",
+  "composite_empire_cultural_name_adopted_tip": "一個複合帝國採用了制度文化的本地國號"
 }

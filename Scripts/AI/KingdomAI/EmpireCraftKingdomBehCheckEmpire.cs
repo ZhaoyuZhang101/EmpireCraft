@@ -3,6 +3,8 @@ using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.services;
@@ -166,7 +168,6 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     /// <returns></returns>
     public void CheckPossible(Kingdom pKingdom)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom)) return;
         if (pKingdom.isRekt()) return;
         Empire empire = pKingdom.GetEmpire();
         if (empire != null)
@@ -182,29 +183,61 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
                 empire.TryRepairState("CheckPossible: core kingdom missing from empire list");
                 return; 
             }
+            if (pKingdom == empire.CoreKingdom && pKingdom.hasKing() &&
+                CompositeEmpireService.CanAdoptCentralInstitutions(pKingdom.king))
+            {
+                var adoptionPlot = AssetManager.plots_library.basic_plots
+                    .Find(p => p.id == "adopt_central_plains_institutions");
+                if (adoptionPlot?.try_to_start_advanced?.Invoke(pKingdom.king, adoptionPlot, true) == true)
+                {
+                    TranslateHelper.LogCompositeEmpireAdoptionStarted(empire,
+                        CompositeEmpireService.GetAdoptionStatus(empire));
+                    return;
+                }
+            }
         }
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return;
-        if ((pKingdom?.GetMoney()??-1)<0) return;
-        if (!pKingdom.hasKing()) return ;
-        if (pKingdom.IsEmpire()) return ;
-        if (pKingdom.IsInEmpire()) return ;
-        if (!pKingdom.HasMainTitle()) return ; //if a kingdom has main title, then it could become an empire
-        int num = 0;
-        foreach (var e in ModClass.EMPIRE_MANAGER)
+        if (pKingdom.hasKing() && ImperialLegitimacyChallengeService.TryFindTarget(pKingdom, out _))
         {
-            if (e == null || e.IsArchived() || e.isRekt()) continue;
-            var core = e.CoreKingdom;
-            if (core == null || core.isRekt()) continue;
-            if (core.getSpecies() != pKingdom.getSpecies()) continue;
-            num += e.getUnits().Count();
+            var challengePlot = AssetManager.plots_library.basic_plots
+                .Find(p => p.id == "usurp_imperial_legitimacy");
+            if (challengePlot?.try_to_start_advanced?.Invoke(pKingdom.king, challengePlot, true) == true)
+                pKingdom.GetRegime()?.SetAllowDiplomacy(true);
+            return;
         }
-        var flag = num > 0 && pKingdom.units.Count > num;
-        if (pKingdom.CanBecomeEmpire() || flag)
+        if (!CanStartEmpireFormation(pKingdom, true)) return;
+
+        var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "become_empire");
+        if (plot?.try_to_start_advanced?.Invoke(pKingdom.king, plot, true) == true)
         {
-            var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "become_empire");
-            plot?.try_to_start_advanced(pKingdom.king, plot, true);
-            pKingdom.GetRegime().SetAllowDiplomacy(true);
+            pKingdom.GetRegime()?.SetAllowDiplomacy(true);
         }
+    }
+
+    public static bool CanStartEmpireFormation(Kingdom pKingdom, bool repairMainTitle = false)
+    {
+        if (pKingdom == null || pKingdom.isRekt()) return false;
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom)) return false;
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
+        if (pKingdom.GetMoney() < 0) return false;
+        if (!pKingdom.hasKing() || pKingdom.king == null || pKingdom.king.isRekt()) return false;
+        if (pKingdom.IsEmpire() || pKingdom.IsInEmpire()) return false;
+
+        if (!pKingdom.HasMainTitle() && repairMainTitle)
+        {
+            pKingdom.ReconcileMainTitle(pKingdom.GetControlledTitle());
+        }
+        if (!pKingdom.HasMainTitle()) return false;
+
+        string culture = CultureService.GetRealmCulture(pKingdom);
+        if (!CultureService.IsValidCulture(culture) ||
+            CultureService.HasActiveEmpireForCulture(culture) ||
+            !pKingdom.IsStrongestEmpireCandidateOfCulture()) return false;
+
+        if (pKingdom.CanBecomeEmpire()) return true;
+
+        // 某文化没有帝国时，允许该文化综合国力最强的合法独立国家兜底称帝。
+        // 其他文化的国家和帝国完全不参与比较，也不会占用这个文化的帝国名额。
+        return true;
     }
 
     public void CheckEmpireAlliance(Kingdom pKingdom)

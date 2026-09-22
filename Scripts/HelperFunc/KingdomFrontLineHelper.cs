@@ -16,6 +16,16 @@ public static class KingdomFrontLineHelper
     private static readonly Dictionary<Kingdom, HashSet<TileZone>> _occupiedZonesByKingdomCache = new();
     private static bool _occupiedZonesIndexed;
 
+    public static void ClearCache()
+    {
+        _cacheFrame = -1;
+        _kingdomZonesCache.Clear();
+        _effectiveZonesCache.Clear();
+        _friendlyWarKingdomsCache.Clear();
+        _occupiedZonesByKingdomCache.Clear();
+        _occupiedZonesIndexed = false;
+    }
+
     private static void EnsureFrameCache()
     {
         int frame = HighPopulationPerformance.GetFrontLineCacheKey();
@@ -24,12 +34,8 @@ public static class KingdomFrontLineHelper
             return;
         }
 
+        ClearCache();
         _cacheFrame = frame;
-        _kingdomZonesCache.Clear();
-        _effectiveZonesCache.Clear();
-        _friendlyWarKingdomsCache.Clear();
-        _occupiedZonesByKingdomCache.Clear();
-        _occupiedZonesIndexed = false;
     }
 
     /// <summary>

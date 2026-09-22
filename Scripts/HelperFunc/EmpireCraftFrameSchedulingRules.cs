@@ -12,6 +12,9 @@ public static class EmpireCraftFrameSchedulingRules
     public const double ExtremePopulationBudgetMilliseconds = 0.75d;
     public const double SpareFrameThresholdMilliseconds = 18d;
     public const double ModerateFrameThresholdMilliseconds = 24d;
+    public const double KingdomSweepTargetSeconds = 2d;
+    public const double EmpireSweepTargetSeconds = 1.5d;
+    public const double TitleSweepTargetSeconds = 3d;
 
     public static double ResolveBudgetMilliseconds(bool enabled, int population, double frameMilliseconds)
     {
@@ -82,5 +85,15 @@ public static class EmpireCraftFrameSchedulingRules
         if (processed < minimum) return true;
         if (processed >= maximum) return false;
         return elapsedMilliseconds < budgetMilliseconds;
+    }
+
+    public static int ResolveMinimumItemsForSweep(int itemCount, double elapsedSeconds,
+        double targetSweepSeconds, int hardCap)
+    {
+        if (itemCount <= 0 || hardCap <= 0) return 0;
+        double safeElapsed = Math.Max(1d / 240d, Math.Min(0.5d, elapsedSeconds));
+        double safeTarget = Math.Max(0.25d, targetSweepSeconds);
+        int required = (int)Math.Ceiling(itemCount * safeElapsed / safeTarget);
+        return Math.Max(1, Math.Min(Math.Min(itemCount, hardCap), required));
     }
 }

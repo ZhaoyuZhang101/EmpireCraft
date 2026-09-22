@@ -13,6 +13,7 @@ using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
 using UnityEngine.UI;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
@@ -105,6 +106,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             _groups["EmpireCoreWindowContent"] = parent.gameObject;
             AddSectionTitle(parent, LM.Get("empire_core_current_empires"));
 
+            AddEmpireCultureEditor(parent);
+
             if (empires.Count == 0)
             {
                 parent.AddTextIntoVertLayout(LM.Get("empire_core_none"), true, TextAnchor.MiddleCenter, new Vector2(80, 10));
@@ -135,6 +138,49 @@ namespace EmpireCraft.Scripts.UI.Windows
             ShowHistoryCards(parent, empires);
         }
 
+        private void AddEmpireCultureEditor(AutoVertLayoutGroup parent)
+        {
+            string culture = _core.default_culture;
+            if (!CultureService.IsValidCulture(culture))
+            {
+                culture = CultureService.GetRealmCulture(EmpireCoreManager.GetEmpires(_core).FirstOrDefault()?.CoreKingdom ??
+                    _core.GetCoreCapital()?.kingdom);
+                _core.default_culture = culture;
+            }
+            var card = parent.BeginVertGroup(pSize: new Vector2(200, 48), pSpacing: 1,
+                pAlignment: TextAnchor.MiddleCenter);
+            string display = CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : LM.Get("label_none");
+            card.AddTextIntoVertLayout($"{LM.Get("kingdom_title_effective_culture")}: {display}", true,
+                TextAnchor.MiddleCenter, new Vector2(190, 11));
+            TextInput input = Object.Instantiate(TextInput.Prefab, null);
+            input.Setup(culture ?? "", value => ChangeCulture(value, input));
+            input.SetSize(new Vector2(190, 18));
+            card.AddChild(input.gameObject);
+            string lockText = _core.culture_locked
+                ? LM.Get("kingdom_title_culture_locked")
+                : LM.Get("kingdom_title_culture_unlocked");
+            card.AddButtonIntoVertLayout("toggle_empire_core_culture_lock", lockText, () =>
+            {
+                // 之前这里只改了 _core.culture_locked 这一个字段，帝国锁定文化后
+                // 下属的王国法理完全不会跟着锁定。现在改用 CultureService 的入口，
+                // 让锁定状态正确级联到帝国旗下所有王国法理。
+                CultureService.SetEmpireCultureLock(_core, !_core.culture_locked);
+                RefreshWindow();
+            }, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), size: new Vector2(190, 14), showTip: false);
+            card.transform.AddStretchBackground("FactionFrame", new Vector2(200, 48));
+        }
+
+        private void ChangeCulture(string value, TextInput input)
+        {
+            if (!CultureService.SetEmpireDefaultCulture(_core, value?.Trim(), _core.culture_locked))
+            {
+                ActionLibrary.showWhisperTip("kingdom_title_culture_invalid");
+                input.input.text = _core.default_culture ?? "";
+                return;
+            }
+            RefreshWindow();
+        }
+
         private void AddMetricCard(AutoHoriLayoutGroup parent, string label, string value, Color color)
         {
             var card = parent.BeginVertGroup(pSize: new Vector2(62, 28), pSpacing: -2, pAlignment: TextAnchor.MiddleCenter);
@@ -151,20 +197,35 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void AddEmpireCard(AutoVertLayoutGroup parent, Empire empire)
         {
-            var card = parent.BeginHoriGroup(pSize: new Vector2(200, 42), pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
-            var details = card.BeginVertGroup(pSize: new Vector2(175, 38), pSpacing: 1, pAlignment: TextAnchor.MiddleLeft);
+            bool composite = CompositeEmpireService.IsComposite(empire);
+            float cardHeight = composite ? 72f : 42f;
+            var card = parent.BeginHoriGroup(pSize: new Vector2(200, cardHeight), pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
+            var details = card.BeginVertGroup(pSize: new Vector2(175, cardHeight - 4f), pSpacing: 1, pAlignment: TextAnchor.MiddleLeft);
             HoverMarqueeText.Attach(details.AddTextIntoVertLayout(empire.GetEmpireFullName().ColorString(empire.getColor().color_text), true,
                 TextAnchor.MiddleLeft, new Vector2(170, 12)));
             HoverMarqueeText.Attach(details.AddTextIntoVertLayout($"{LM.Get("empire_core_royal_surname")}: {empire.EmpireSpecificClan?.name ?? LM.Get("empire_core_none")}",
                 true, TextAnchor.MiddleLeft, new Vector2(170, 10)));
             details.AddTextIntoVertLayout($"{LM.Get("i_population")}: {empire.CountPopulation()}  |  {LM.Get("label_mandate")}: {empire.Mandate}",
                 true, TextAnchor.MiddleLeft, new Vector2(140, 10));
+            if (composite)
+            {
+                string ruling = CompositeEmpireService.GetRulingCulture(empire);
+                string institution = CompositeEmpireService.GetInstitutionalCulture(empire);
+                ruling = CultureService.IsValidCulture(ruling) ? ruling.GetCultureTranslate() : ruling;
+                institution = CultureService.IsValidCulture(institution) ? institution.GetCultureTranslate() : institution;
+                details.AddTextIntoVertLayout($"{LM.Get("composite_empire_ruling_culture")}: {ruling}  |  {LM.Get("composite_empire_institutional_culture")}: {institution}",
+                    true, TextAnchor.MiddleLeft, new Vector2(170, 10));
+                details.AddTextIntoVertLayout($"{LM.Get("composite_empire_military_tradition")}: {CompositeEmpireService.GetMilitaryTraditionName(empire)}  |  {CompositeEmpireService.GetStageName(empire)} {empire.data.composite_integration}%",
+                    true, TextAnchor.MiddleLeft, new Vector2(170, 10));
+                details.AddTextIntoVertLayout($"{LM.Get("composite_empire_dual_legitimacy")}: {empire.data.central_plains_legitimacy}/{empire.data.ruling_tradition_legitimacy}",
+                    true, TextAnchor.MiddleLeft, new Vector2(170, 10));
+            }
             card.AddButtonIntoHoriLayout("open_empire", "", () =>
             {
                 EmpireCraftMetaTypeLibrary.selected_empire = empire;
                 ScrollWindow.showWindow(nameof(EmpireWindow));
             }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(16, 16), showTip: true);
-            card.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(200, 42));
+            card.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(200, cardHeight));
         }
 
         private void AddTitleCard(AutoGridLayoutGroup parent, KingdomTitle title)

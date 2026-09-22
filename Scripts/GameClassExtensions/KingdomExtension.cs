@@ -14,6 +14,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
 using NCMS.Extensions;
 using UnityEngine;
@@ -244,6 +245,8 @@ public static class KingdomExtension
         // Player-facing overrides are kept separate so clearing them restores automatic naming.
         public string custom_country_name = "";
         public string custom_country_suffix = "";
+        // Stable EmpireCraft culture key selected from the founder/ruler's current Culture.
+        public string realm_culture = "";
         public SpecificClan kingdomSpecificClan;
         public int Money = 0;
         public long CenterArmID = -1L;
@@ -251,12 +254,21 @@ public static class KingdomExtension
         public Task<(Actor, string)> CalcTask;
         //拥有法理
         public long MainTitle = -1L;
+        // Prevent the same automatic de jure-capital correction from flooding history.
+        public long last_logged_title_capital_title = -1L;
+        public long last_logged_title_capital_city = -1L;
         //王国已经确立的法理随王位继承，不依赖现任国王的个人继承关系。
         public List<long> RealmTitles = new List<long>();
         //国家创建时的随机名称；失去或尚未取得法理时恢复使用。
         public string initial_random_name = "";
         //律令制行政区受托管理的法理范围，不代表头衔所有权。
         public long AdministrativeTitle = -1L;
+        // 本行政区的文化同化任务。目标文化与发布任务时的帝国作为快照保存；
+        // 旧档若只有 bool 标记，CultureService 会按当前帝国文化自动迁移。
+        public bool cultural_assimilation_duty = false;
+        public long cultural_assimilation_empire_id = -1L;
+        public string cultural_assimilation_target_culture = "";
+        public double cultural_assimilation_started_timestamp = -1d;
         //想要索取的法理
         public List<long> WantedTitle = new List<long>();
         public int IndependentValue = 50;
@@ -874,18 +886,9 @@ public static class KingdomExtension
 
     public static string GetEmpireCraftCulture(this Kingdom kingdom, bool allowTranslate = false)
     {
-        if (kingdom == null) return null;
-        string species = kingdom.getSpecies();
-        if (species == null) return null;
-        if (ConfigData.speciesCulturePair.TryGetValue(species, out string culture))
-        {
-            if (allowTranslate)
-            {
-                return culture.GetCultureTranslate();
-            }
-            return culture;
-        }
-        return null;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (string.IsNullOrWhiteSpace(culture)) return null;
+        return allowTranslate ? culture.GetCultureTranslate() : culture;
     }
 
     public static bool HasSameEmpireCraftCulture(this Kingdom kingdom, Kingdom target)
@@ -1550,7 +1553,7 @@ public static class KingdomExtension
             return prefixedName;
 
         string typeName = "";
-        try { typeName = LM.Get(kingdom.GetKingdomType().ToString()); }
+        try { typeName = kingdom.GetKingdomTypeSuffixText(); }
         catch { }
         string strippedName = OverallHelperFunc.StripLocalizedTypeSuffix(fullName, typeName);
         if (!string.Equals(strippedName, fullName.Trim(), StringComparison.Ordinal))
@@ -1635,6 +1638,20 @@ public static class KingdomExtension
         return baseTax;
     }
     
+    /// <summary>
+    /// 政区类型后缀文本——现在"都护府"（KingdomType.LvLing_duhufu）是政体引擎按
+    /// culture_mismatch 条件真实判定/切换出来的国家类型（见
+    /// EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType 和
+    /// Regimes/Configs/LvLing/SystemConfig.json），不再是"军+文化不一致"的派生显示层，
+    /// 所以这里只需要直接按 KingdomType 查表，不用再特判。
+    /// 名称生成（GetKingdomFullName）和反向解析（ExtractKingdomFront/EnsureKingdomCoreName）
+    /// 都要用这同一个方法，否则会互相认不出对方生成的后缀。
+    /// </summary>
+    public static string GetKingdomTypeSuffixText(this Kingdom kingdom)
+    {
+        return LM.Get(kingdom.GetKingdomType().ToString());
+    }
+
     public static void SetKingdomType(this Kingdom k, KingdomType type)
     {
         k.GetOrCreate().kingdomType = type;
@@ -1774,9 +1791,7 @@ public static class KingdomExtension
     public static void InitialRegime(this Kingdom k)
     {
         if (k?.data == null || k.isRekt()) return;
-        var culture = k.asset != null && ConfigData.speciesCulturePair.TryGetValue(k.asset.id, out string speciesCulture)
-            ? speciesCulture
-            : "Western";
+        var culture = CultureService.GetRealmCulture(k);
         RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
             ? setting.regime
             : RegimeType.Feudalism;
@@ -1968,6 +1983,34 @@ public static class KingdomExtension
         return data.RealmTitles;
     }
 
+    /// <summary>
+    /// Cities inside de jure titles legally held by this realm do not consume the ruler's
+    /// ordinary city capacity. Only cities the kingdom currently controls are exempt, and
+    /// the ruler must still hold the title; stale title ids therefore grant no capacity.
+    /// </summary>
+    public static int CountDeJureCapacityExemptCities(this Kingdom kingdom)
+    {
+        if (kingdom?.cities == null || kingdom.isRekt() || !kingdom.hasKing()) return 0;
+
+        HashSet<long> realmTitleIds = new HashSet<long>(kingdom.GetRealmTitleIds());
+        List<long> rulerTitleIds = kingdom.king.GetOwnedTitle();
+        if (realmTitleIds.Count == 0 || rulerTitleIds == null || rulerTitleIds.Count == 0) return 0;
+        HashSet<long> rulerTitles = new HashSet<long>(rulerTitleIds);
+        HashSet<long> exemptCityIds = new HashSet<long>();
+
+        foreach (City city in kingdom.cities)
+        {
+            if (city?.data == null || city.isRekt() || city.kingdom != kingdom || !city.hasTitle()) continue;
+            KingdomTitle title = city.GetTitle();
+            if (title?.data == null || title.isRekt()) continue;
+            if (!realmTitleIds.Contains(title.id) || !rulerTitles.Contains(title.id)) continue;
+            if (title.owner != null && title.owner != kingdom.king) continue;
+            exemptCityIds.Add(city.id);
+        }
+
+        return exemptCityIds.Count;
+    }
+
     public static bool RegisterRealmTitle(this Kingdom kingdom, KingdomTitle title)
     {
         if (!kingdom.IsTitleWithinRealm(title)) return false;
@@ -2026,8 +2069,6 @@ public static class KingdomExtension
     {
         if (k == null || title == null || title.isRekt()) return;
         if (title.title_capital == null || title.title_capital.isRekt()) return;
-        if (k.capital == null || k.capital.isRekt()) return;
-        if (title.title_capital != k.capital) return;
         var extraData = k.GetOrCreate();
         var current = ModClass.KINGDOM_TITLE_MANAGER.get(extraData.MainTitle);
         if (current == title)
@@ -2093,7 +2134,8 @@ public static class KingdomExtension
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(extraData.AdministrativeTitle);
         KingdomType kingdomType = kingdom.GetKingdomType();
         bool isAdministrative = kingdom.GetRegime()?.type == RegimeType.LvLing &&
-            (kingdomType == KingdomType.LvLing_province || kingdomType == KingdomType.LvLing_jiedushi) &&
+            (kingdomType == KingdomType.LvLing_province || kingdomType == KingdomType.LvLing_jiedushi ||
+             kingdomType == KingdomType.LvLing_duhufu) &&
             kingdom.GetMainTitle() == null;
         if (!isAdministrative)
         {
@@ -2162,7 +2204,10 @@ public static class KingdomExtension
             kt.EndJurisdiction(k, KingdomTitle.JurisdictionHolder);
             kt.main_kingdom = null;
         }
-        k.GetOrCreate().MainTitle = -1L;
+        KingdomExtraData data = k.GetOrCreate();
+        data.MainTitle = -1L;
+        data.last_logged_title_capital_title = -1L;
+        data.last_logged_title_capital_city = -1L;
     }
     
     public static KingdomTitle GetMainTitle(this Kingdom k)
@@ -2173,34 +2218,6 @@ public static class KingdomExtension
         if (title == null || title.isRekt() || title.title_capital == null || title.title_capital.isRekt())
         {
             title?.EndJurisdiction(k, KingdomTitle.JurisdictionHolder);
-            k.GetOrCreate().MainTitle = -1L;
-            return null;
-        }
-
-        Actor ruler = k.hasKing() ? k.king : null;
-        bool rulerListsTitle = ruler?.GetOwnedTitle()?.Contains(title.id) ?? false;
-        if (ruler == null || (title.owner != ruler && !(title.owner == null && rulerListsTitle)))
-        {
-            title.EndJurisdiction(k, KingdomTitle.JurisdictionHolder);
-            if (title.main_kingdom == k)
-            {
-                title.main_kingdom = null;
-            }
-            k.GetOrCreate().MainTitle = -1L;
-            return null;
-        }
-        if (title.owner == null)
-        {
-            title.owner = ruler;
-        }
-
-        if (k.capital == null || k.capital.isRekt() || title.title_capital != k.capital)
-        {
-            title.EndJurisdiction(k, KingdomTitle.JurisdictionHolder);
-            if (title.main_kingdom == k)
-            {
-                title.main_kingdom = null;
-            }
             k.GetOrCreate().MainTitle = -1L;
             return null;
         }
@@ -2216,6 +2233,19 @@ public static class KingdomExtension
         {
             title.main_kingdom = k;
         }
+
+        // The realm owns its established main title. Succession changes the
+        // personal holder, while relocation or loss of the de jure capital does
+        // not silently erase the realm's title and name.
+        Actor ruler = k.hasKing() ? k.king : null;
+        if (ruler != null && title.owner != ruler)
+        {
+            title.owner?.GetOwnedTitle()?.Remove(title.id);
+            ruler.AddOwnedTitle(title);
+            title.owner = ruler;
+        }
+        k.RegisterRealmTitle(title);
+        title.RecordJurisdiction(k, KingdomTitle.JurisdictionHolder);
 
         return title;
     }
@@ -2233,7 +2263,8 @@ public static class KingdomExtension
         bool isLvLing = empire.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing;
         KingdomType kingdomType = kingdom.GetKingdomType();
         bool isProvinceOrMilitary = kingdomType == KingdomType.LvLing_province ||
-                                    kingdomType == KingdomType.LvLing_jiedushi;
+                                    kingdomType == KingdomType.LvLing_jiedushi ||
+                                    kingdomType == KingdomType.LvLing_duhufu;
         return DeJureTitleBindingRules.IsAdministrativeAcquisitionBlocked(isLvLing,
             isProvinceOrMilitary, empire.Mandate);
     }
@@ -2250,7 +2281,8 @@ public static class KingdomExtension
             empire.CoreKingdom?.GetRegime()?.type != RegimeType.LvLing) return false;
         KingdomType kingdomType = kingdom.GetKingdomType();
         bool isProvinceOrMilitary = kingdomType == KingdomType.LvLing_province ||
-                                    kingdomType == KingdomType.LvLing_jiedushi;
+                                    kingdomType == KingdomType.LvLing_jiedushi ||
+                                    kingdomType == KingdomType.LvLing_duhufu;
         return isProvinceOrMilitary && empire.Mandate <= DeJureTitleBindingRules.WeakMandateThreshold;
     }
 
@@ -2259,26 +2291,39 @@ public static class KingdomExtension
     {
         if (kingdom == null || kingdom.isRekt() || !kingdom.hasKing() || !kingdom.hasCapital()) return false;
         Actor king = kingdom.king;
+        KingdomExtraData kingdomData = kingdom.GetOrCreate();
         List<long> ownedTitleIds = king.GetOwnedTitle() ?? new List<long>();
-        KingdomTitle storedTitle = ModClass.KINGDOM_TITLE_MANAGER.get(kingdom.GetOrCreate().MainTitle);
+        KingdomTitle storedTitle = ModClass.KINGDOM_TITLE_MANAGER.get(kingdomData.MainTitle);
 
-        bool IsUsable(KingdomTitle title)
+        bool IsStoredTitleUsable(KingdomTitle title)
+        {
+            return title != null && !title.isRekt() && title.title_capital != null &&
+                   !title.title_capital.isRekt() &&
+                   (title.main_kingdom == null || title.main_kingdom == kingdom);
+        }
+
+        bool IsNewTitleUsable(KingdomTitle title)
         {
             return title != null && !title.isRekt() && title.title_capital != null &&
                    !title.title_capital.isRekt() && title.title_capital.kingdom == kingdom &&
                    kingdom.cities.Contains(title.title_capital) &&
+                   (title.main_kingdom == null || title.main_kingdom == kingdom) &&
                    (title.owner == king || title.owner == null && ownedTitleIds.Contains(title.id));
         }
 
-        // The capital's de jure title always wins. A newly acquired title is the
-        // fallback, followed by a previously owned title for save-game recovery.
-        KingdomTitle preferred = kingdom.GetCapitalMainTitleCandidate();
-        if (!IsUsable(preferred)) preferred = null;
-        if (preferred == null && IsUsable(storedTitle)) preferred = storedTitle;
-        if (preferred == null && newlyAcquiredTitles != null)
-            preferred = newlyAcquiredTitles.FirstOrDefault(IsUsable);
+        // An established realm title has priority over later capital changes.
+        // New titles are considered only when the realm has never had one or its
+        // recorded title was explicitly dissolved/transferred.
+        KingdomTitle preferred = IsStoredTitleUsable(storedTitle) ? storedTitle : null;
         if (preferred == null)
-            preferred = ownedTitleIds.Select(ModClass.KINGDOM_TITLE_MANAGER.get).FirstOrDefault(IsUsable);
+        {
+            preferred = kingdom.GetCapitalMainTitleCandidate();
+            if (!IsNewTitleUsable(preferred)) preferred = null;
+        }
+        if (preferred == null && newlyAcquiredTitles != null)
+            preferred = newlyAcquiredTitles.FirstOrDefault(IsNewTitleUsable);
+        if (preferred == null)
+            preferred = ownedTitleIds.Select(ModClass.KINGDOM_TITLE_MANAGER.get).FirstOrDefault(IsNewTitleUsable);
         if (preferred == null)
         {
             if (storedTitle != null)
@@ -2286,12 +2331,16 @@ public static class KingdomExtension
                 storedTitle.EndJurisdiction(kingdom, KingdomTitle.JurisdictionHolder);
                 if (storedTitle.main_kingdom == kingdom) storedTitle.main_kingdom = null;
             }
-            bool cleared = kingdom.GetOrCreate().MainTitle != -1L;
-            kingdom.GetOrCreate().MainTitle = -1L;
+            bool cleared = kingdomData.MainTitle != -1L;
+            kingdomData.MainTitle = -1L;
+            kingdomData.last_logged_title_capital_title = -1L;
+            kingdomData.last_logged_title_capital_city = -1L;
             return cleared;
         }
 
-        bool capitalChanged = kingdom.capital != preferred.title_capital;
+        bool controlsTitleCapital = preferred.title_capital.kingdom == kingdom &&
+                                    kingdom.cities.Contains(preferred.title_capital);
+        bool capitalChanged = controlsTitleCapital && kingdom.capital != preferred.title_capital;
         bool titleChanged = storedTitle != preferred || storedTitle?.main_kingdom != kingdom;
         if (!capitalChanged && !titleChanged)
         {
@@ -2308,7 +2357,14 @@ public static class KingdomExtension
         kingdom.SetMainTitle(preferred);
         if (kingdom.GetMainTitle() != preferred) return false;
         kingdom.GetEmpire()?.SynchronizeLandedLegalTitles(kingdom);
-        if (capitalChanged) TranslateHelper.LogKingdomChangeCapitalToTitle(kingdom, preferred);
+        if (capitalChanged &&
+            (kingdomData.last_logged_title_capital_title != preferred.id ||
+             kingdomData.last_logged_title_capital_city != preferred.title_capital.id))
+        {
+            kingdomData.last_logged_title_capital_title = preferred.id;
+            kingdomData.last_logged_title_capital_city = preferred.title_capital.id;
+            TranslateHelper.LogKingdomChangeCapitalToTitle(kingdom, preferred);
+        }
         EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
         return true;
     }
@@ -2325,9 +2381,7 @@ public static class KingdomExtension
         if (!shouldReplace && current != title)
         {
             bool currentInvalid = current.title_capital == null || current.title_capital.isRekt();
-            bool currentCapitalMismatch = k.capital == null || current.title_capital != k.capital;
-
-            shouldReplace = currentInvalid || currentCapitalMismatch;
+            shouldReplace = currentInvalid;
         }
 
         if (!shouldReplace) return false;
@@ -2346,6 +2400,133 @@ public static class KingdomExtension
         bool listedAsOwned = kingdom.king.GetOwnedTitle()?.Contains(title.id) ?? false;
         if (title.owner != kingdom.king && !(title.owner == null && listedAsOwned)) return null;
         return title;
+    }
+
+    public static bool CanDeclareDeJureTitleWar(this Kingdom claimant, Kingdom holder,
+        KingdomTitle title)
+    {
+        if (claimant == null || holder == null || title == null || claimant == holder ||
+            claimant.isRekt() || holder.isRekt() || !claimant.hasKing() || !holder.hasKing() ||
+            title.isRekt() || title.data == null || title.title_capital == null ||
+            title.title_capital.isRekt() || title.title_capital.kingdom != claimant ||
+            title.FindMainTitleKingdom() != holder ||
+            title.FindRealmTitleHolder() != holder) return false;
+
+        (int controlled, int total) = claimant.CountOwnedDeJureTitleZones(title);
+        return DeJureTitleClaimRules.CanDeclare(controlled, total,
+            claimant.GetNationalPower(), holder.GetNationalPower());
+    }
+
+    public static Kingdom FindRealmTitleHolder(this KingdomTitle title)
+    {
+        if (title == null || title.isRekt()) return null;
+        if (title.main_kingdom != null && !title.main_kingdom.isRekt() &&
+            title.main_kingdom.GetRealmTitleIds().Contains(title.id))
+        {
+            return title.main_kingdom;
+        }
+
+        Kingdom ownerKingdom = title.owner?.kingdom;
+        if (ownerKingdom != null && !ownerKingdom.isRekt() && ownerKingdom.hasKing() &&
+            ownerKingdom.king == title.owner && ownerKingdom.GetRealmTitleIds().Contains(title.id))
+        {
+            return ownerKingdom;
+        }
+
+        return World.world?.kingdoms?.list?.FirstOrDefault(kingdom => kingdom != null &&
+            !kingdom.isRekt() && kingdom.GetRealmTitleIds().Contains(title.id));
+    }
+
+    public static Kingdom FindMainTitleKingdom(this KingdomTitle title)
+    {
+        if (title == null || title.isRekt()) return null;
+        if (title.main_kingdom != null && !title.main_kingdom.isRekt() &&
+            title.main_kingdom.GetOrCreate().MainTitle == title.id)
+        {
+            return title.main_kingdom;
+        }
+
+        return World.world?.kingdoms?.list?.FirstOrDefault(kingdom => kingdom != null &&
+            !kingdom.isRekt() && kingdom.GetOrCreate().MainTitle == title.id);
+    }
+
+    public static bool CanAcquireDeJureTitleWithoutWar(this Kingdom kingdom,
+        KingdomTitle title)
+    {
+        if (kingdom == null || kingdom.isRekt() || !kingdom.hasKing() ||
+            title?.data == null || title.isRekt() || title.FindMainTitleKingdom() != null)
+            return false;
+
+        bool controlsTitleCapital = title.title_capital != null &&
+                                    !title.title_capital.isRekt() &&
+                                    title.title_capital.kingdom == kingdom;
+        (int controlled, int total) = kingdom.CountOwnedDeJureTitleZones(title);
+        return DeJureTitleClaimRules.CanAcquireWithoutWar(controlsTitleCapital,
+            controlled, total);
+    }
+
+    public static (int controlled, int total) CountOwnedDeJureTitleZones(this Kingdom kingdom,
+        KingdomTitle title)
+    {
+        if (kingdom == null || title == null || title.isRekt()) return (0, 0);
+        int controlled = 0;
+        int total = 0;
+        HashSet<int> seenZones = new HashSet<int>();
+        foreach (City city in title.getCities())
+        {
+            if (city == null || city.isRekt() || city.zones == null) continue;
+            foreach (TileZone zone in city.zones)
+            {
+                if (zone == null || zone.world_edge || zone.city != city || !seenZones.Add(zone.id)) continue;
+                total++;
+                if (city.kingdom == kingdom) controlled++;
+            }
+        }
+        return (controlled, total);
+    }
+
+    public static List<KingdomTitle> InheritRealmTitles(this Kingdom successor,
+        Kingdom defeated, IEnumerable<long> titleIds)
+    {
+        List<KingdomTitle> inherited = new List<KingdomTitle>();
+        if (successor == null || successor.isRekt() || !successor.hasKing() || titleIds == null)
+            return inherited;
+
+        List<long> successorTitles = successor.GetRealmTitleIds();
+        List<long> defeatedTitles = defeated != null && !defeated.isRekt()
+            ? defeated.GetRealmTitleIds()
+            : null;
+        foreach (long titleId in titleIds.Distinct().ToList())
+        {
+            KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(titleId);
+            if (title == null || title.isRekt()) continue;
+            title.owner?.GetOwnedTitle()?.Remove(title.id);
+            if (defeated != null && defeated.GetOrCreate().MainTitle == title.id)
+            {
+                defeated.RemoveMainTitle();
+            }
+            defeatedTitles?.Remove(title.id);
+            title.EndJurisdiction(defeated, KingdomTitle.JurisdictionHolder);
+            if (title.main_kingdom == defeated) title.main_kingdom = null;
+            Kingdom staleMainKingdom = title.main_kingdom;
+            if (staleMainKingdom != null && staleMainKingdom != successor)
+            {
+                if (staleMainKingdom.GetOrCreate().MainTitle == title.id)
+                    staleMainKingdom.RemoveMainTitle();
+                else
+                    staleMainKingdom.UnregisterRealmTitle(title);
+                title.EndJurisdiction(staleMainKingdom, KingdomTitle.JurisdictionHolder);
+                title.main_kingdom = null;
+            }
+            successor.king.AddOwnedTitle(title);
+            title.owner = successor.king;
+            if (!successorTitles.Contains(title.id)) successorTitles.Add(title.id);
+            inherited.Add(title);
+        }
+
+        successor.ReconcileMainTitle(inherited);
+        successor.GetEmpire()?.SynchronizeLandedLegalTitles(successor);
+        return inherited;
     }
 
     public static KingdomTitle GetAncestralMainTitleCandidate(this Kingdom kingdom)
@@ -2367,15 +2548,15 @@ public static class KingdomExtension
         if (!k.hasKing()) return false;
         if (k.IsInEmpire()) return false;
         if (k.isRekt() || k.IsEmpire()) return false;
+        string culture = CultureService.GetRealmCulture(k);
+        if (!CultureService.IsValidCulture(culture) ||
+            CultureService.HasActiveEmpireForCulture(culture) ||
+            !k.IsStrongestEmpireCandidateOfCulture()) return false;
         if (k.countUnits() < 200) return false;
 
         EmpireCore riseCore = EmpireCoreManager.GetRiseCandidateCore(k);
         if (riseCore != null)
         {
-            if (EmpireCoreManager.GetActiveEmpireCount(riseCore) >= 2)
-            {
-                return false;
-            }
             int controlledCount = EmpireCoreManager.GetControlledCoreTitleCount(riseCore, k);
             int requiredCount = EmpireCoreManager.GetRequiredRiseTitleCount(riseCore);
             if (controlledCount < requiredCount)
@@ -2404,29 +2585,48 @@ public static class KingdomExtension
             return true;
         }
 
-        int allEmpireNumInSameSpecies = World.world.kingdoms.ToList().FindAll(p => p.getSpecies() == k.getSpecies() && p.IsEmpire()).Count;
-        return IsStrongestOfSameSpecies(k) && allEmpireNumInSameSpecies < 1;
+        return true;
     }
 
-    private static bool IsStrongestOfSameSpecies(Kingdom k)
+    public static bool IsStrongestEmpireCandidateOfCulture(this Kingdom k)
     {
+        if (!IsEligibleEmpireCultureCandidate(k)) return false;
+        string culture = CultureService.GetRealmCulture(k);
+        if (!CultureService.IsValidCulture(culture)) return false;
         return !World.world.kingdoms.Any(other =>
             other != k &&
-            other.getSpecies() == k.getSpecies() &&
-            !other.isRekt() &&
-            IsStronger(other, k));
+            IsEligibleEmpireCultureCandidate(other) &&
+            string.Equals(CultureService.GetRealmCulture(other), culture, StringComparison.Ordinal) &&
+            IsStrongerEmpireCandidate(other, k));
     }
 
-    private static bool IsStronger(Kingdom a, Kingdom b)
+    private static bool IsEligibleEmpireCultureCandidate(Kingdom kingdom)
     {
-        if (a.IsEmpire())
-        {
-            var emp = a.GetEmpire();
-            var empUnits = emp?.getUnits();
-            if (emp == null || emp.isRekt() || emp.IsArchived() || empUnits == null) return false;
-            return empUnits.Count() > (b?.units?.Count ?? 0);
-        }
-        return a.countUnits() > (b?.countUnits() ?? 0);
+        return kingdom != null && !kingdom.isRekt() && kingdom.hasKing() &&
+               kingdom.king != null && !kingdom.king.isRekt() &&
+               !kingdom.IsEmpire() && !kingdom.IsInEmpire() && kingdom.GetMoney() >= 0 &&
+               !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(kingdom) &&
+               (kingdom.HasMainTitle() || kingdom.GetControlledTitle().Any());
+    }
+
+    private static bool IsStrongerEmpireCandidate(Kingdom candidate, Kingdom incumbent)
+    {
+        double candidatePower = candidate.GetNationalPower();
+        double incumbentPower = incumbent.GetNationalPower();
+        if (Math.Abs(candidatePower - incumbentPower) > 0.0001d)
+            return candidatePower > incumbentPower;
+
+        int candidatePopulation = candidate.getPopulationPeople();
+        int incumbentPopulation = incumbent.getPopulationPeople();
+        if (candidatePopulation != incumbentPopulation)
+            return candidatePopulation > incumbentPopulation;
+
+        int candidateMilitary = candidate.countTotalWarriors();
+        int incumbentMilitary = incumbent.countTotalWarriors();
+        if (candidateMilitary != incumbentMilitary)
+            return candidateMilitary > incumbentMilitary;
+
+        return candidate.id < incumbent.id;
     }
     public static KingdomExtraData GetOrCreate(this Kingdom a, bool isSave = false)
     {
@@ -2470,7 +2670,7 @@ public static class KingdomExtension
             coreName = ExtractKingdomFront(kingdom, kingdom.data.name);
             if (!rekt && !string.IsNullOrWhiteSpace(coreName))
             {
-                string suffix = LM.Get(kingdom.GetKingdomType().ToString());
+                string suffix = kingdom.GetKingdomTypeSuffixText();
                 if (!string.IsNullOrWhiteSpace(suffix) && string.Equals(coreName, suffix, StringComparison.Ordinal))
                 {
                     coreName = "";
@@ -2564,7 +2764,7 @@ public static class KingdomExtension
             string coreName = kingdom.EnsureKingdomCoreName();
             if (string.IsNullOrWhiteSpace(coreName)) return kingdom.data.name ?? "";
             if (kingdom.isRekt()) return coreName;
-            string typeName = LM.Get(kingdom.GetKingdomType().ToString());
+            string typeName = kingdom.GetKingdomTypeSuffixText();
             return OverallHelperFunc.FormatKingdomFullName(coreName, typeName, kingdom.GetEmpireCraftCulture());
         }
         catch

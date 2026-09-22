@@ -4,7 +4,9 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net;
+using System.Net.Cache;
 using System.Text;
+using System.Threading;
 using EmpireCraft.Scripts.Data;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -13,10 +15,14 @@ namespace EmpireCraft.Scripts.Diagnostics;
 
 public enum BugReportSendStatus
 {
+    Idle,
+    Sending,
     Sent,
     DraftOpened,
     Cancelled,
     PlayerLogMissing,
+    SaveDataMissing,
+    PayloadTooLarge,
     Failed
 }
 
@@ -25,6 +31,11 @@ public sealed class BugReportSendResult
     public BugReportSendStatus Status;
     public string ReportDirectory;
     public string Error;
+    public string ReportId;
+    public bool SaveDataIncluded;
+    public bool EmailSent;
+    public int SavedFileCount;
+    public long Revision;
 }
 
 public static class BugReportService
@@ -38,15 +49,45 @@ public static class BugReportService
         "https://empirecraft-bug-report.zhangzhaoyu101.workers.dev/"
     };
 
-    private const int UploadTimeoutMilliseconds = 20000;
-    private const long MaximumCombinedUploadBytes = 20L * 1024L * 1024L;
+    private const int UploadTimeoutMilliseconds = 120000;
+    private const long MaximumCombinedUploadBytes = 90L * 1024L * 1024L;
     private const long SummarySizeReserveBytes = 256L * 1024L;
+    private static readonly object SendSync = new();
+    private static bool _sendBusy;
+    private static BugReportSendResult _sendSnapshot = new()
+    {
+        Status = BugReportSendStatus.Idle
+    };
 
-    private sealed class InMemoryReportFile
+    private sealed class ReportFile
     {
         public string Name;
         public string ContentType;
+        public string SourcePath;
+        public long Length;
         public byte[] Data;
+    }
+
+    private sealed class UploadReceipt
+    {
+        public string ReportId;
+        public int SavedFileCount;
+        public bool EmailSent;
+    }
+
+    private sealed class ReportEnvironment
+    {
+        public string PlayerLogPath;
+        public string SaveDataPath;
+        public string DebugLogPath;
+        public string LegacyReportRoot;
+        public string ModVersion;
+        public string WorldBoxVersion;
+        public string OperatingSystem;
+        public string ProcessorType;
+        public int ProcessorCount;
+        public int SystemMemorySize;
+        public string GraphicsDeviceName;
     }
 
     public static string FindPlayerLog()
@@ -127,31 +168,120 @@ public static class BugReportService
 
     public static BugReportSendResult Send(bool includeSaveData = false)
     {
-        // Remove report folders left behind by older versions of the service.
-        // The new implementation does not create local bug-report copies.
-        CleanupLegacyReportFiles();
+        return Send(CaptureEnvironment(), includeSaveData);
+    }
 
-        string playerLog = FindPlayerLog();
+    public static BugReportSendResult BeginSend(bool includeSaveData = false)
+    {
+        ReportEnvironment environment = CaptureEnvironment();
 
-        if (!File.Exists(playerLog))
+        lock (SendSync)
         {
-            return new BugReportSendResult
+            if (_sendBusy)
+                return CloneResult(_sendSnapshot);
+
+            BugReportSendResult validation;
+            try
             {
-                Status = BugReportSendStatus.PlayerLogMissing
-            };
+                validation = ValidateEnvironment(
+                    environment,
+                    includeSaveData
+                );
+            }
+            catch (Exception error)
+            {
+                validation = new BugReportSendResult
+                {
+                    Status = BugReportSendStatus.Failed,
+                    SaveDataIncluded = includeSaveData,
+                    Error = error.Message
+                };
+            }
+            if (validation != null)
+            {
+                PublishLocked(validation);
+                return CloneResult(_sendSnapshot);
+            }
+
+            _sendBusy = true;
+            PublishLocked(new BugReportSendResult
+            {
+                Status = BugReportSendStatus.Sending,
+                SaveDataIncluded = includeSaveData
+            });
         }
 
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            BugReportSendResult result;
+            try
+            {
+                result = Send(environment, includeSaveData);
+            }
+            catch (Exception error)
+            {
+                result = new BugReportSendResult
+                {
+                    Status = BugReportSendStatus.Failed,
+                    SaveDataIncluded = includeSaveData,
+                    Error = error.Message
+                };
+            }
+
+            lock (SendSync)
+            {
+                _sendBusy = false;
+                PublishLocked(result);
+            }
+        });
+
+        return GetSendSnapshot();
+    }
+
+    public static BugReportSendResult GetSendSnapshot()
+    {
+        lock (SendSync)
+        {
+            return CloneResult(_sendSnapshot);
+        }
+    }
+
+    private static BugReportSendResult Send(
+        ReportEnvironment environment,
+        bool includeSaveData
+    )
+    {
         try
         {
-            List<InMemoryReportFile> files =
-                BuildReportInMemory(playerLog, includeSaveData);
+            CleanupLegacyReportFiles(environment.LegacyReportRoot);
 
-            UploadWithFallback(files);
+            BugReportSendResult validation = ValidateEnvironment(
+                environment,
+                includeSaveData
+            );
+            if (validation != null)
+                return validation;
+
+            List<ReportFile> files = BuildReportFiles(
+                environment,
+                includeSaveData,
+                out bool saveDataIncluded
+            );
+
+            UploadReceipt receipt = UploadWithFallback(
+                files,
+                environment.ModVersion,
+                environment.WorldBoxVersion
+            );
 
             return new BugReportSendResult
             {
                 Status = BugReportSendStatus.Sent,
-                ReportDirectory = null
+                ReportDirectory = null,
+                ReportId = receipt.ReportId,
+                SaveDataIncluded = saveDataIncluded,
+                EmailSent = receipt.EmailSent,
+                SavedFileCount = receipt.SavedFileCount
             };
         }
         catch (Exception error)
@@ -160,6 +290,7 @@ public static class BugReportService
             {
                 Status = BugReportSendStatus.Failed,
                 ReportDirectory = null,
+                SaveDataIncluded = includeSaveData,
                 Error = error.Message
             };
         }
@@ -168,12 +299,119 @@ public static class BugReportService
     public static string FindEmpireCraftSaveData()
     {
         string path = DataManager.CurrentSaveDataPath;
-        return string.IsNullOrWhiteSpace(path) ? "" : path;
+        if (string.IsNullOrWhiteSpace(path))
+            return "";
+
+        try
+        {
+            return Path.GetFullPath(path);
+        }
+        catch
+        {
+            return path;
+        }
     }
 
     public static string GetModAuthor()
     {
         return GetManifestValue("author", "EmpireCraft");
+    }
+
+    private static ReportEnvironment CaptureEnvironment()
+    {
+        return new ReportEnvironment
+        {
+            PlayerLogPath = FindPlayerLog(),
+            SaveDataPath = FindEmpireCraftSaveData(),
+            DebugLogPath = Path.Combine(
+                ModClass._declare?.FolderPath ?? "",
+                "EmpireCraft.debug.log"
+            ),
+            LegacyReportRoot = Path.Combine(
+                Application.persistentDataPath,
+                "EmpireCraftBugReports"
+            ),
+            ModVersion = GetModVersion(),
+            WorldBoxVersion = Application.version,
+            OperatingSystem = SystemInfo.operatingSystem,
+            ProcessorType = SystemInfo.processorType,
+            ProcessorCount = SystemInfo.processorCount,
+            SystemMemorySize = SystemInfo.systemMemorySize,
+            GraphicsDeviceName = SystemInfo.graphicsDeviceName
+        };
+    }
+
+    private static BugReportSendResult ValidateEnvironment(
+        ReportEnvironment environment,
+        bool includeSaveData
+    )
+    {
+        if (!File.Exists(environment.PlayerLogPath))
+        {
+            return new BugReportSendResult
+            {
+                Status = BugReportSendStatus.PlayerLogMissing
+            };
+        }
+
+        if (includeSaveData &&
+            (string.IsNullOrWhiteSpace(environment.SaveDataPath) ||
+             !File.Exists(environment.SaveDataPath)))
+        {
+            return new BugReportSendResult
+            {
+                Status = BugReportSendStatus.SaveDataMissing
+            };
+        }
+
+        long payloadBytes = new FileInfo(environment.PlayerLogPath).Length;
+        if (File.Exists(environment.DebugLogPath))
+            payloadBytes += new FileInfo(environment.DebugLogPath).Length;
+        if (includeSaveData)
+            payloadBytes += new FileInfo(environment.SaveDataPath).Length;
+
+        if (payloadBytes + SummarySizeReserveBytes > MaximumCombinedUploadBytes)
+        {
+            return new BugReportSendResult
+            {
+                Status = BugReportSendStatus.PayloadTooLarge,
+                SaveDataIncluded = includeSaveData,
+                Error = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Report size is {0:0.0} MB; the upload limit is {1} MB.",
+                    payloadBytes / 1024d / 1024d,
+                    MaximumCombinedUploadBytes / 1024L / 1024L
+                )
+            };
+        }
+
+        return null;
+    }
+
+    private static void PublishLocked(BugReportSendResult result)
+    {
+        result ??= new BugReportSendResult
+        {
+            Status = BugReportSendStatus.Failed,
+            Error = "Unknown bug report error."
+        };
+        result.Revision = _sendSnapshot.Revision + 1;
+        _sendSnapshot = result;
+    }
+
+    private static BugReportSendResult CloneResult(BugReportSendResult source)
+    {
+        return new BugReportSendResult
+        {
+            Status = source.Status,
+            ReportDirectory = source.ReportDirectory,
+            Error = source.Error,
+            ReportId = source.ReportId,
+            SaveDataIncluded = source.SaveDataIncluded,
+            EmailSent = source.EmailSent,
+            SavedFileCount = source.SavedFileCount,
+            Revision = source.Revision
+        };
     }
 
     public static bool OpenPlayerLogFolder()
@@ -187,101 +425,86 @@ public static class BugReportService
         return true;
     }
 
-    private static List<InMemoryReportFile> BuildReportInMemory(
-        string playerLog,
-        bool includeSaveData
+    public static bool OpenEmpireCraftSaveFolder()
+    {
+        string path = FindEmpireCraftSaveData();
+
+        if (!File.Exists(path))
+            return false;
+
+        RevealFile(path);
+        return true;
+    }
+
+    private static List<ReportFile> BuildReportFiles(
+        ReportEnvironment environment,
+        bool includeSaveData,
+        out bool saveDataIncluded
     )
     {
-        var files = new List<InMemoryReportFile>();
-
-        byte[] playerLogBytes = ReadOpenFile(playerLog);
+        var files = new List<ReportFile>();
 
         files.Add(
-            new InMemoryReportFile
+            new ReportFile
             {
                 Name = "Player.log",
                 ContentType = "text/plain",
-                Data = playerLogBytes
+                SourcePath = environment.PlayerLogPath,
+                Length = new FileInfo(environment.PlayerLogPath).Length
             }
         );
 
-        string debugLog = Path.Combine(
-            ModClass._declare?.FolderPath ?? "",
-            "EmpireCraft.debug.log"
-        );
-
-        if (File.Exists(debugLog))
+        if (File.Exists(environment.DebugLogPath))
         {
             files.Add(
-                new InMemoryReportFile
+                new ReportFile
                 {
                     Name = "EmpireCraft.debug.log",
                     ContentType = "text/plain",
-                    Data = ReadOpenFile(debugLog)
+                    SourcePath = environment.DebugLogPath,
+                    Length = new FileInfo(environment.DebugLogPath).Length
                 }
             );
         }
 
-        bool saveDataIncluded = false;
+        saveDataIncluded = false;
         string saveDataStatus = includeSaveData
-            ? "not available for the current world"
+            ? "included as " + DataManager.EmpireCraftSaveFileName
             : "not requested by the user";
-        string saveDataPath = includeSaveData ? FindEmpireCraftSaveData() : "";
-        if (includeSaveData && !string.IsNullOrWhiteSpace(saveDataPath) && File.Exists(saveDataPath))
-        {
-            try
-            {
-                long collectedBytes = 0;
-                foreach (InMemoryReportFile file in files)
-                {
-                    collectedBytes += file.Data?.LongLength ?? 0L;
-                }
 
-                long saveDataLength = new FileInfo(saveDataPath).Length;
-                long availableBytes = MaximumCombinedUploadBytes - collectedBytes - SummarySizeReserveBytes;
-                if (saveDataLength > 0 && saveDataLength <= availableBytes)
+        if (includeSaveData)
+        {
+            files.Add(
+                new ReportFile
                 {
-                    files.Add(
-                        new InMemoryReportFile
-                        {
-                            Name = DataManager.EmpireCraftSaveFileName,
-                            ContentType = "application/json; charset=utf-8",
-                            Data = ReadOpenFile(saveDataPath)
-                        }
-                    );
-                    saveDataIncluded = true;
-                    saveDataStatus = "included as " + DataManager.EmpireCraftSaveFileName;
+                    Name = DataManager.EmpireCraftSaveFileName,
+                    ContentType = "application/json; charset=utf-8",
+                    SourcePath = environment.SaveDataPath,
+                    Length = new FileInfo(environment.SaveDataPath).Length
                 }
-                else
-                {
-                    saveDataStatus = "not included because it exceeds the upload size limit";
-                }
-            }
-            catch
-            {
-                saveDataStatus = "not included because it could not be read";
-            }
+            );
+            saveDataIncluded = true;
         }
 
         byte[] summaryBytes = new UTF8Encoding(false).GetBytes(
-            BuildSummary(saveDataIncluded, saveDataStatus)
+            BuildSummary(environment, saveDataIncluded, saveDataStatus)
         );
 
         files.Add(
-            new InMemoryReportFile
+            new ReportFile
             {
                 Name = "EmpireCraft-report.txt",
                 ContentType = "text/plain; charset=utf-8",
+                Length = summaryBytes.LongLength,
                 Data = summaryBytes
             }
         );
 
         long totalBytes = 0;
 
-        foreach (InMemoryReportFile file in files)
+        foreach (ReportFile file in files)
         {
-            if (file.Data != null)
-                totalBytes += file.Data.LongLength;
+            totalBytes += file.Length;
         }
 
         if (totalBytes <= 0)
@@ -297,21 +520,8 @@ public static class BugReportService
         return files;
     }
 
-    private static byte[] ReadOpenFile(string path)
-    {
-        using (var input = new FileStream(
-                   path,
-                   FileMode.Open,
-                   FileAccess.Read,
-                   FileShare.ReadWrite | FileShare.Delete))
-        using (var memory = new MemoryStream())
-        {
-            input.CopyTo(memory);
-            return memory.ToArray();
-        }
-    }
-
     private static string BuildSummary(
+        ReportEnvironment environment,
         bool saveDataIncluded,
         string saveDataStatus
     )
@@ -320,18 +530,18 @@ public static class BugReportService
 
         text.AppendLine("EmpireCraft automatic bug report");
         text.AppendLine($"Created: {DateTime.Now:O}");
-        text.AppendLine($"EmpireCraft: {GetModVersion()}");
-        text.AppendLine($"WorldBox: {Application.version}");
-        text.AppendLine($"Operating system: {SystemInfo.operatingSystem}");
+        text.AppendLine($"EmpireCraft: {environment.ModVersion}");
+        text.AppendLine($"WorldBox: {environment.WorldBoxVersion}");
+        text.AppendLine($"Operating system: {environment.OperatingSystem}");
         text.AppendLine(
-            $"CPU: {SystemInfo.processorType} " +
-            $"({SystemInfo.processorCount} threads)"
+            $"CPU: {environment.ProcessorType} " +
+            $"({environment.ProcessorCount} threads)"
         );
         text.AppendLine(
-            $"Memory: {SystemInfo.systemMemorySize} MB"
+            $"Memory: {environment.SystemMemorySize} MB"
         );
         text.AppendLine(
-            $"GPU: {SystemInfo.graphicsDeviceName}"
+            $"GPU: {environment.GraphicsDeviceName}"
         );
         text.AppendLine();
         text.AppendLine(
@@ -377,10 +587,14 @@ public static class BugReportService
         return fallback;
     }
 
-    private static void UploadWithFallback(
-        IReadOnlyList<InMemoryReportFile> files
+    private static UploadReceipt UploadWithFallback(
+        IReadOnlyList<ReportFile> files,
+        string modVersion,
+        string worldBoxVersion
     )
     {
+        ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+
         string boundary =
             "----------------EmpireCraft" +
             DateTime.UtcNow.Ticks.ToString(
@@ -388,22 +602,28 @@ public static class BugReportService
                 CultureInfo.InvariantCulture
             );
 
-        byte[] requestBody =
-            BuildMultipartBody(files, boundary);
-
         var failures = new List<string>();
 
         foreach (string endpoint in BugReportEndpoints)
         {
             try
             {
-                UploadToEndpoint(
+                UploadReceipt receipt = UploadToEndpoint(
                     endpoint,
                     boundary,
-                    requestBody
+                    files,
+                    modVersion,
+                    worldBoxVersion
                 );
 
-                return;
+                if (receipt.SavedFileCount < files.Count)
+                {
+                    throw new Exception(
+                        $"Server saved {receipt.SavedFileCount} of {files.Count} report files."
+                    );
+                }
+
+                return receipt;
             }
             catch (Exception error)
             {
@@ -419,50 +639,47 @@ public static class BugReportService
         );
     }
 
-    private static byte[] BuildMultipartBody(
-        IReadOnlyList<InMemoryReportFile> files,
-        string boundary
+    private static void WriteMultipartBody(
+        Stream body,
+        IReadOnlyList<ReportFile> files,
+        string boundary,
+        string modVersion,
+        string worldBoxVersion
     )
     {
-        using (var body = new MemoryStream())
+        WriteFormField(
+            body,
+            boundary,
+            "empirecraftVersion",
+            modVersion
+        );
+
+        WriteFormField(
+            body,
+            boundary,
+            "worldboxVersion",
+            worldBoxVersion
+        );
+
+        foreach (ReportFile file in files)
         {
-            WriteFormField(
+            WriteFilePart(
                 body,
                 boundary,
-                "empirecraftVersion",
-                GetModVersion()
+                "files",
+                file
             );
-
-            WriteFormField(
-                body,
-                boundary,
-                "worldboxVersion",
-                Application.version
-            );
-
-            foreach (InMemoryReportFile file in files)
-            {
-                WriteFilePart(
-                    body,
-                    boundary,
-                    "files",
-                    file
-                );
-            }
-
-            WriteUtf8(
-                body,
-                "--" + boundary + "--\r\n"
-            );
-
-            return body.ToArray();
         }
+
+        WriteUtf8(body, "--" + boundary + "--\r\n");
     }
 
-    private static void UploadToEndpoint(
+    private static UploadReceipt UploadToEndpoint(
         string endpoint,
         string boundary,
-        byte[] requestBody
+        IReadOnlyList<ReportFile> files,
+        string modVersion,
+        string worldBoxVersion
     )
     {
 #pragma warning disable SYSLIB0014
@@ -476,13 +693,26 @@ public static class BugReportService
         request.Timeout = UploadTimeoutMilliseconds;
         request.ReadWriteTimeout = UploadTimeoutMilliseconds;
         request.KeepAlive = false;
-        request.ContentLength = requestBody.LongLength;
+        request.ContentLength = CalculateMultipartLength(
+            files,
+            boundary,
+            modVersion,
+            worldBoxVersion
+        );
+        request.AllowWriteStreamBuffering = false;
+        request.Accept = "application/json";
+        request.UserAgent = "EmpireCraft-BugReporter/2.0";
+        request.AutomaticDecompression =
+            DecompressionMethods.GZip | DecompressionMethods.Deflate;
+        request.CachePolicy = new RequestCachePolicy(
+            RequestCacheLevel.BypassCache
+        );
 
         request.Headers["X-EmpireCraft-Version"] =
-            GetModVersion();
+            modVersion;
 
         request.Headers["X-WorldBox-Version"] =
-            Application.version;
+            worldBoxVersion;
 
         request.Headers["X-EmpireCraft-Report-Time"] =
             DateTime.UtcNow.ToString("O");
@@ -491,10 +721,12 @@ public static class BugReportService
         {
             using (Stream requestStream = request.GetRequestStream())
             {
-                requestStream.Write(
-                    requestBody,
-                    0,
-                    requestBody.Length
+                WriteMultipartBody(
+                    requestStream,
+                    files,
+                    boundary,
+                    modVersion,
+                    worldBoxVersion
                 );
             }
 
@@ -509,6 +741,50 @@ public static class BugReportService
                         $"HTTP {statusCode}"
                     );
                 }
+
+                string responseText;
+                using (Stream stream = response.GetResponseStream())
+                using (var reader = new StreamReader(stream))
+                {
+                    responseText = reader.ReadToEnd();
+                }
+
+                JObject payload;
+                try
+                {
+                    payload = JObject.Parse(responseText);
+                }
+                catch (Exception error)
+                {
+                    throw new Exception(
+                        "Bug report server returned an invalid response: " +
+                        error.Message
+                    );
+                }
+
+                if (payload.Value<bool?>("success") != true)
+                {
+                    throw new Exception(
+                        payload.Value<string>("error") ??
+                        "Bug report server did not confirm the upload."
+                    );
+                }
+
+                bool emailSent = payload.Value<bool?>("emailSent") == true;
+                if (!emailSent)
+                {
+                    throw new Exception(
+                        "Report was stored, but the author notification failed: " +
+                        (payload.Value<string>("emailError") ?? "unknown error")
+                    );
+                }
+
+                return new UploadReceipt
+                {
+                    ReportId = payload.Value<string>("reportId"),
+                    SavedFileCount = payload.Value<int?>("savedFiles") ?? 0,
+                    EmailSent = true
+                };
             }
         }
         catch (WebException webError)
@@ -557,6 +833,15 @@ public static class BugReportService
         string value
     )
     {
+        WriteUtf8(stream, BuildFormFieldText(boundary, name, value));
+    }
+
+    private static string BuildFormFieldText(
+        string boundary,
+        string name,
+        string value
+    )
+    {
         var builder = new StringBuilder();
 
         builder.Append("--");
@@ -570,14 +855,39 @@ public static class BugReportService
         builder.Append(value ?? "");
         builder.Append("\r\n");
 
-        WriteUtf8(stream, builder.ToString());
+        return builder.ToString();
     }
 
     private static void WriteFilePart(
         Stream stream,
         string boundary,
         string fieldName,
-        InMemoryReportFile file
+        ReportFile file
+    )
+    {
+        WriteUtf8(
+            stream,
+            BuildFilePartHeader(boundary, fieldName, file)
+        );
+
+        if (file.Data != null)
+        {
+            if (file.Data.LongLength != file.Length)
+                throw new Exception("Bug report data length changed before upload.");
+            stream.Write(file.Data, 0, file.Data.Length);
+        }
+        else
+        {
+            CopyFileToRequest(file, stream);
+        }
+
+        WriteUtf8(stream, "\r\n");
+    }
+
+    private static string BuildFilePartHeader(
+        string boundary,
+        string fieldName,
+        ReportFile file
     )
     {
         var header = new StringBuilder();
@@ -600,18 +910,75 @@ public static class BugReportService
         );
         header.Append("\r\n\r\n");
 
-        WriteUtf8(stream, header.ToString());
+        return header.ToString();
+    }
 
-        if (file.Data != null && file.Data.Length > 0)
+    private static void CopyFileToRequest(
+        ReportFile file,
+        Stream destination
+    )
+    {
+        using var input = new FileStream(
+            file.SourcePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete
+        );
+
+        var buffer = new byte[64 * 1024];
+        long remaining = file.Length;
+        while (remaining > 0)
         {
-            stream.Write(
-                file.Data,
-                0,
-                file.Data.Length
+            int requested = (int)Math.Min(buffer.Length, remaining);
+            int read = input.Read(buffer, 0, requested);
+            if (read <= 0)
+            {
+                throw new Exception(
+                    "A bug report file changed while it was being uploaded: " +
+                    file.Name
+                );
+            }
+
+            destination.Write(buffer, 0, read);
+            remaining -= read;
+        }
+    }
+
+    private static long CalculateMultipartLength(
+        IReadOnlyList<ReportFile> files,
+        string boundary,
+        string modVersion,
+        string worldBoxVersion
+    )
+    {
+        long length = Encoding.UTF8.GetByteCount(
+            BuildFormFieldText(
+                boundary,
+                "empirecraftVersion",
+                modVersion
+            )
+        );
+        length += Encoding.UTF8.GetByteCount(
+            BuildFormFieldText(
+                boundary,
+                "worldboxVersion",
+                worldBoxVersion
+            )
+        );
+
+        foreach (ReportFile file in files)
+        {
+            length += Encoding.UTF8.GetByteCount(
+                BuildFilePartHeader(boundary, "files", file)
             );
+            length += file.Length;
+            length += 2;
         }
 
-        WriteUtf8(stream, "\r\n");
+        length += Encoding.UTF8.GetByteCount(
+            "--" + boundary + "--\r\n"
+        );
+        return length;
     }
 
     private static string EscapeHeaderValue(string value)
@@ -635,15 +1002,10 @@ public static class BugReportService
         stream.Write(bytes, 0, bytes.Length);
     }
 
-    private static void CleanupLegacyReportFiles()
+    private static void CleanupLegacyReportFiles(string legacyRoot)
     {
         try
         {
-            string legacyRoot = Path.Combine(
-                Application.persistentDataPath,
-                "EmpireCraftBugReports"
-            );
-
             if (Directory.Exists(legacyRoot))
                 Directory.Delete(legacyRoot, true);
         }

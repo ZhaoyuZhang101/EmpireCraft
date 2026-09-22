@@ -169,6 +169,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     public void CheckJoinWar(Kingdom pKingdom)
     {
         Empire empire = pKingdom.GetEmpire();
+        if (empire == null || empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return;
         var regime = pKingdom.GetRegime();
         if (regime == null) return;
         if (empire.CoreKingdom.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return;
@@ -186,19 +187,17 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                 {
                     var wars = coreKingdom.GetWarsCached(true);
                     var enumerable = wars.ToArray();
+                    bool joinedAny = false;
                     for (int i = 0; i < enumerable.Count(); i++)
                     {
                         var w = enumerable[i];
-                        if (w.isAttacker(coreKingdom))
-                        {
-                            w.joinAttackers(pKingdom);
-                        }
-                        else if (w.isDefender(coreKingdom))
-                        {
-                            w.joinDefenders(pKingdom);
-                        }
+                        joinedAny |= TryJoinWarOnSameSide(w, coreKingdom, pKingdom);
                     }
-                    TranslateHelper.LogJoinEmpireWar(pKingdom, empire);
+                    if (joinedAny)
+                    {
+                        empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
+                        TranslateHelper.LogJoinEmpireWar(pKingdom, empire);
+                    }
                 } 
             }
             else
@@ -216,21 +215,60 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                     if (!pKingdom.isOpinionTowardsKingdomGood(empireKingdom)&&regime.IsAllowDiplomacy()) continue;
                     var wars2 = empireKingdom.GetWarsCached(true);
                     var enumerable = wars2.ToArray();
+                    bool joinedMemberWar = false;
                     for (int i = 0; i < enumerable.Count(); i++)
                     {
                         var w = enumerable[i];
-                        if (w.isAttacker(empireKingdom))
-                        {
-                            w.joinAttackers(pKingdom);
-                        }
-                        else if (w.isDefender(empireKingdom))
-                        {
-                            w.joinDefenders(pKingdom);
-                        }
+                        joinedMemberWar |= TryJoinWarOnSameSide(w, empireKingdom, pKingdom);
                     }
-                    TranslateHelper.LogEmpireJoinWar(empire, empireKingdom);
+                    if (joinedMemberWar)
+                    {
+                        empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
+                        TranslateHelper.LogEmpireJoinWar(empire, empireKingdom);
+                    }
                 }
             }
         }
+    }
+
+    private static bool TryJoinWarOnSameSide(War war, Kingdom sideKingdom, Kingdom joiningKingdom)
+    {
+        if (war == null ||
+            sideKingdom == null ||
+            joiningKingdom == null ||
+            joiningKingdom.isRekt() ||
+            !war.isAlive() ||
+            war.hasEnded() ||
+            war.GetEmpireWarType() == EmpireWarType.劫掠 ||
+            IsWarMember(war, joiningKingdom))
+        {
+            return false;
+        }
+
+        if (war.isAttacker(sideKingdom))
+        {
+            war.joinAttackers(joiningKingdom);
+        }
+        else if (war.isDefender(sideKingdom))
+        {
+            war.joinDefenders(joiningKingdom);
+        }
+        else
+        {
+            return false;
+        }
+
+        // joinAttackers/joinDefenders 可能因战争正在结算而拒绝加入。
+        // 只有最终真的出现在阵营名单中，才允许播报和写入历史。
+        return IsWarMember(war, joiningKingdom);
+    }
+
+    private static bool IsWarMember(War war, Kingdom kingdom)
+    {
+        if (war == null || kingdom == null)
+            return false;
+
+        return (war._list_attackers != null && war._list_attackers.Contains(kingdom)) ||
+               (war._list_defenders != null && war._list_defenders.Contains(kingdom));
     }
 }

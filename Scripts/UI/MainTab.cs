@@ -53,6 +53,16 @@ internal static class MainTab
             nameof(EmpireWindow) + "Title");
         KingdomTitleWindow.CreateWindow(nameof(KingdomTitleWindow),
             nameof(KingdomTitleWindow) + "Title");
+        // Phase 16 加的 CityNameHistoryWindow 当时漏掉了这一步——每一个自定义
+        // AutoLayoutWindow<T> 窗口都得在这里调一次 CreateWindow 完成注册（标题文本、
+        // WindowLibrary/WindowToolbar 等原版系统需要用到的 WindowAsset 记录都是这一步
+        // 建立的），跟有没有单独的顶栏按钮无关。没注册就直接 ScrollWindow.showWindow(...)
+        // 打开，原版那些"窗口切换时通知所有监听者"的代码（HoveringBgIconManager.animate、
+        // WindowToolbar.toggleShow 等）在自己内部查不到这个窗口 ID 对应的记录，就会各自
+        // 抛空引用异常，把窗口内容还没来得及构建的那一步给打断——表现出来就是点了按钮以后
+        // 窗口只有个空壳，内容一直是原版兜底的"未找到/开发中"占位页。
+        CityNameHistoryWindow.CreateWindow(nameof(CityNameHistoryWindow),
+            nameof(CityNameHistoryWindow) + "Title");
         EmpireBeaurauWindow.CreateWindow(nameof(EmpireBeaurauWindow),
             nameof(EmpireBeaurauWindow) + "Title");
         ChangeUnitWindow.CreateWindow(nameof(ChangeUnitWindow),

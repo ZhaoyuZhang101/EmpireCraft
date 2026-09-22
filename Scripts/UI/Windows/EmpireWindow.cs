@@ -18,6 +18,8 @@ using System.Collections;
 using DG.Tweening;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.api.attributes;
 
@@ -212,11 +214,158 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             yield return CoroutineHelper.wait_for_next_frame;
             if (!IsCurrentRender(renderGeneration, renderedEmpire, parent)) yield break;
+            AddCompositeEmpireStatus(parent, renderedEmpire);
+            yield return CoroutineHelper.wait_for_next_frame;
+            if (!IsCurrentRender(renderGeneration, renderedEmpire, parent)) yield break;
             parent.AddTextIntoVertLayout("", true, TextAnchor.MiddleCenter);
             parent.AddTextIntoVertLayout(LM.Get("kingdom_list"), true, TextAnchor.MiddleCenter);
             yield return CoroutineHelper.wait_for_next_frame;
             if (!IsCurrentRender(renderGeneration, renderedEmpire, parent)) yield break;
             yield return ShowKingdoms(parent, renderGeneration, renderedEmpire);
+        }
+
+        private void AddCompositeEmpireStatus(AutoVertLayoutGroup parent, Empire empire)
+        {
+            if (parent == null || empire?.data == null) return;
+
+            bool composite = CompositeEmpireService.IsComposite(empire);
+            Actor emperor = empire.Emperor;
+            PlotAsset adoptionPlot = AssetManager.plots_library?.basic_plots?
+                .Find(plot => plot?.id == "adopt_central_plains_institutions");
+            bool adoptionInProgress = adoptionPlot != null && emperor?.plot?.isSameType(adoptionPlot) == true;
+            CompositeEmpireService.AdoptionStatus adoption = composite
+                ? null
+                : CompositeEmpireService.GetAdoptionStatus(empire);
+            bool hasCulturalName = composite && empire.data.composite_cultural_name_adopted &&
+                                   !string.IsNullOrWhiteSpace(empire.data.composite_cultural_name);
+            float height = composite ? hasCulturalName ? 166f : 154f :
+                adoption?.HasInstitutionalTarget == true ? 104f : 82f;
+            var panel = parent.BeginVertGroup(new Vector2(196, height), pSpacing: 1,
+                pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(3, 3, 2, 2));
+
+            string titleState = composite
+                ? CompositeEmpireService.GetStageName(empire)
+                : adoptionInProgress
+                    ? LM.Get("composite_empire_adoption_plotting")
+                    : LM.Get("composite_empire_stage_None");
+            panel.AddTextIntoVertLayout(
+                $"{LM.Get("composite_empire_identity_title")} · {titleState}".ColorString(
+                    pColor: composite ? new Color(0.25f, 0.9f, 0.8f) : new Color(0.85f, 0.75f, 0.35f)),
+                true, TextAnchor.MiddleCenter, new Vector2(190, 12));
+
+            if (composite)
+            {
+                string ruling = GetCultureDisplayName(CompositeEmpireService.GetRulingCulture(empire));
+                string institution = GetCultureDisplayName(CompositeEmpireService.GetInstitutionalCulture(empire));
+                string externalIdentity = GetCultureDisplayName(empire.data.external_identity_culture);
+                panel.AddTextIntoVertLayout(
+                    $"{LM.Get("composite_empire_ruling_culture")}: {ruling.ColorString("#F3C34A")}",
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                panel.AddTextIntoVertLayout(
+                    $"{LM.Get("composite_empire_court_culture")}: {institution.ColorString("#65D6C4")}",
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                panel.AddTextIntoVertLayout(
+                    $"{LM.Get("composite_empire_court_system")}: {CompositeEmpireService.GetInstitutionalRegimeName(empire)}",
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                if (hasCulturalName)
+                {
+                    string nameCulture = GetCultureDisplayName(empire.data.composite_cultural_name_culture);
+                    panel.AddTextIntoVertLayout(
+                        $"{LM.Get("composite_empire_cultural_name")}: {empire.data.composite_cultural_name.ColorString("#F3C34A")} ({nameCulture})",
+                        true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                }
+                panel.AddTextIntoVertLayout(
+                    LM.Get("composite_empire_regional_systems"),
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                panel.AddTextIntoVertLayout(CompositeEmpireService.GetRegionalInstitutionSummary(empire),
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 30));
+                panel.AddTextIntoVertLayout(
+                    $"{LM.Get("composite_empire_military_tradition")}: {CompositeEmpireService.GetMilitaryTraditionName(empire).ColorString("#E9A85B")}",
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                panel.AddTextIntoVertLayout(
+                    $"{LM.Get("composite_empire_external_identity")}: {externalIdentity}  |  {LM.Get("composite_empire_integration")}: {empire.data.composite_integration}%",
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                panel.AddTextIntoVertLayout(
+                    $"{LM.Get("composite_empire_dual_legitimacy")}: {empire.data.central_plains_legitimacy}/{empire.data.ruling_tradition_legitimacy}",
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+            }
+            else if (adoption != null)
+            {
+                string ruling = GetCultureDisplayName(adoption.RulingCulture);
+                string institution = adoption.HasInstitutionalTarget
+                    ? GetCultureDisplayName(adoption.InstitutionalCulture)
+                    : LM.Get("label_none");
+                panel.AddTextIntoVertLayout(
+                    $"{LM.Get("composite_empire_ruling_culture")}: {ruling.ColorString("#F3C34A")}",
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                panel.AddTextIntoVertLayout(
+                    $"{LM.Get("composite_empire_current_system")}: {CompositeEmpireService.GetMilitaryTraditionName(empire)}",
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                panel.AddTextIntoVertLayout(
+                    $"{LM.Get("composite_empire_candidate_culture")}: {institution.ColorString("#65D6C4")}",
+                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+
+                string requirement;
+                if (!OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(adoption.RulingCulture, out Setting rulingSetting) ||
+                    rulingSetting.regime != RegimeType.YouMu)
+                {
+                    requirement = LM.Get("composite_empire_adoption_not_nomadic");
+                }
+                else if (!adoption.HasInstitutionalTarget)
+                {
+                    requirement = LM.Get("composite_empire_adoption_no_core");
+                }
+                else if (!adoption.HasDistinctCultures)
+                {
+                    requirement = LM.Get("composite_empire_adoption_same_culture");
+                }
+                else
+                {
+                    int requiredTitles = (adoption.TotalTitles + 1) / 2;
+                    string controlled = adoption.ControlledTitles.ToString().ColorString(
+                        adoption.HasRequiredControl ? "#65D66E" : "#FF6B6B");
+                    string mandate = adoption.Mandate.ToString().ColorString(
+                        adoption.HasRequiredMandate ? "#65D66E" : "#FF6B6B");
+                    requirement = string.Format(LM.Get("composite_empire_adoption_title_progress"),
+                                      controlled, adoption.TotalTitles, requiredTitles) + "\n" +
+                                  string.Format(LM.Get("composite_empire_adoption_mandate_progress"), mandate);
+                }
+                panel.AddTextIntoVertLayout(requirement, true, TextAnchor.MiddleCenter, new Vector2(190, 20));
+
+                if (adoptionInProgress)
+                {
+                    panel.AddTextIntoVertLayout(LM.Get("composite_empire_adoption_plotting").ColorString("#65D6C4"),
+                        true, TextAnchor.MiddleCenter, new Vector2(190, 11));
+                }
+                else if (adoption.IsEligible)
+                {
+                    panel.AddButtonIntoVertLayout("start_composite_empire_adoption",
+                        LM.Get("composite_empire_adoption_start"), () => StartCompositeEmpireAdoption(empire),
+                        SpriteTextureLoader.getSprite("ChineseCrown"), size: new Vector2(188, 15), showTip: false);
+                }
+            }
+
+            panel.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(196, height));
+        }
+
+        private static string GetCultureDisplayName(string culture)
+        {
+            return CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : LM.Get("label_none");
+        }
+
+        private void StartCompositeEmpireAdoption(Empire empire)
+        {
+            Actor emperor = empire?.Emperor;
+            PlotAsset plot = AssetManager.plots_library?.basic_plots?
+                .Find(asset => asset?.id == "adopt_central_plains_institutions");
+            if (emperor == null || plot?.try_to_start_advanced == null ||
+                !CompositeEmpireService.CanAdoptCentralInstitutions(emperor)) return;
+            if (plot.try_to_start_advanced(emperor, plot, true))
+            {
+                TranslateHelper.LogCompositeEmpireAdoptionStarted(empire,
+                    CompositeEmpireService.GetAdoptionStatus(empire));
+                StartCoroutine(ShowKingdomList());
+            }
         }
         //显示君主世系
         public void ShowEmperors(WindowMetaTab pArg0)

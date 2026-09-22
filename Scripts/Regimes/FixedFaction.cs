@@ -75,7 +75,7 @@ public static class FactionManager
                 FactionType.攘夷,
                 new List<TemporaryFactionType>
                 {
-                    TemporaryFactionType.对外扩张, TemporaryFactionType.汉化, TemporaryFactionType.转军府,
+                    TemporaryFactionType.对外扩张, TemporaryFactionType.文化同化, TemporaryFactionType.转军府,
                     TemporaryFactionType.谋求统一, TemporaryFactionType.迫使朝贡, TemporaryFactionType.转周制,
                     TemporaryFactionType.索取皇位
                 }
@@ -132,7 +132,7 @@ public static class FactionManager
                 {
                     TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠,
                     TemporaryFactionType.游牧扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位,
-                    TemporaryFactionType.谋求统一
+                    TemporaryFactionType.谋求统一, TemporaryFactionType.文化转化
                 }
             },
             {

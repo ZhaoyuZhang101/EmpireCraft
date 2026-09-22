@@ -6,6 +6,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.GeneralSystems;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using Newtonsoft.Json;
@@ -227,7 +228,7 @@ public class OfficeObject
         bool isReappointment = history_officers.Contains(actor.data.name);
         if(!actor.hasCulture())
         {
-            actor.setCulture(actor.kingdom.culture);
+            CultureService.SyncActorToCityMainCulture(actor, actor.city ?? actor.kingdom?.capital);
         }
         actor.CheckSpecificClan();
         //初始化角色官职

@@ -213,6 +213,18 @@
     const state={offices:{cores:[],division:[],harems:[],kingdoms:[],cities:[],armies:[]},cultures:[],rawCultureRules:[],factions:[],regimeOptions:{},laws:[]};
     const desktopApi=window.regimeEditorDesktop||null;
 
+    // 重新渲染卡片列表（整段替换 innerHTML）会让浏览器丢失当前的滚动位置，
+    // 表现为“新增/修改一条就把整个窗口滚回顶部”。这里在替换内容前记录窗口滚动位置，
+    // 替换后立刻恢复，并在下一帧再恢复一次以覆盖重新排版导致的二次跳动。
+    function withPreservedScroll(fn){
+      const x=window.scrollX,y=window.scrollY;
+      const result=fn();
+      const restore=()=>window.scrollTo(x,y);
+      restore();
+      requestAnimationFrame(restore);
+      return result;
+    }
+
     function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36)}
     function esc(v){return String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
     function csv(v){const s=String(v??"");return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s}
@@ -604,6 +616,7 @@
     }
 
     function renderMetaSelectors(){
+      withPreservedScroll(()=>{
       document.getElementById("optionsEditor").innerHTML=`<div class="config-list">${regimeOptionDefinitions.map(def=>{
         const arr=state.regimeOptions[def.key]||[def.defaultValue,def.max];
         return `<div class="config-card">
@@ -641,6 +654,7 @@
             <div data-faction-trait-box="${f.id}">${renderTagEditor(f._requiredTraits,traitOptions,"faction","_requiredTraits","",f.id,"输入特质后点添加")}</div>
           </div>
         </div>`).join("")}</div>`;
+      });
     }
 
     function setOfficeTagValue(scope,id,path,values){
@@ -660,19 +674,21 @@
     }
 
     function refreshOfficeDisplay(scope,id){
-      const office=findOffice(scope,id);
-      const root=document.querySelector(`[data-office-root="${scope}:${id}"]`);
-      if(!office || !root) return;
-      const title=root.querySelector("[data-office-title]");
-      if(title) title.textContent=`${scopeLabels[office.scope]}：${office.nameCh||office.key||"未命名官职"}`;
-      const summary=root.querySelector("[data-office-summary]");
-      if(summary) summary.innerHTML=`<div>${esc(officeSummary(office))}</div><div>${esc(office.nameCh||"未填写简体名")} / ${esc(office.nameCz||"未填写繁体名")} / ${esc(office.nameEn||"未填写英文名")}</div>`;
-      const preView=root.querySelector("[data-office-prepreview]");
-      if(preView) preView.value=officePreValue(office);
-      const powerBox=root.querySelector("[data-tag-box='powers']");
-      if(powerBox) powerBox.innerHTML=renderTagEditor(office.powers,powerOptions,"office","powers",scope,id,"输入能力后点添加");
-      const traitBox=root.querySelector("[data-tag-box='requireTraits']");
-      if(traitBox) traitBox.innerHTML=renderTagEditor(office.requireTraits,traitOptions,"office","requireTraits",scope,id,"输入特质后点添加");
+      withPreservedScroll(()=>{
+        const office=findOffice(scope,id);
+        const root=document.querySelector(`[data-office-root="${scope}:${id}"]`);
+        if(!office || !root) return;
+        const title=root.querySelector("[data-office-title]");
+        if(title) title.textContent=`${scopeLabels[office.scope]}：${office.nameCh||office.key||"未命名官职"}`;
+        const summary=root.querySelector("[data-office-summary]");
+        if(summary) summary.innerHTML=`<div>${esc(officeSummary(office))}</div><div>${esc(office.nameCh||"未填写简体名")} / ${esc(office.nameCz||"未填写繁体名")} / ${esc(office.nameEn||"未填写英文名")}</div>`;
+        const preView=root.querySelector("[data-office-prepreview]");
+        if(preView) preView.value=officePreValue(office);
+        const powerBox=root.querySelector("[data-tag-box='powers']");
+        if(powerBox) powerBox.innerHTML=renderTagEditor(office.powers,powerOptions,"office","powers",scope,id,"输入能力后点添加");
+        const traitBox=root.querySelector("[data-tag-box='requireTraits']");
+        if(traitBox) traitBox.innerHTML=renderTagEditor(office.requireTraits,traitOptions,"office","requireTraits",scope,id,"输入特质后点添加");
+      });
     }
 
     function officeCard(office){
@@ -800,29 +816,33 @@
     }
 
     function renderOffices(){
-      const box=document.getElementById("officeCards");
-      let html="";
-      for(const scope of Object.keys(state.offices)){
-        const list=state.offices[scope];
-        html+=`<div class="office-group"><div class="office-group-title">${scopeLabels[scope]}</div>${list.length?list.map(officeCard).join(""):`<div class="note">这个分类下还没有条目。</div>`}</div>`;
-      }
-      box.innerHTML=html||'<div class="note">还没有官职，点击上面的按钮开始添加。</div>';
+      withPreservedScroll(()=>{
+        const box=document.getElementById("officeCards");
+        let html="";
+        for(const scope of Object.keys(state.offices)){
+          const list=state.offices[scope];
+          html+=`<div class="office-group"><div class="office-group-title">${scopeLabels[scope]}</div>${list.length?list.map(officeCard).join(""):`<div class="note">这个分类下还没有条目。</div>`}</div>`;
+        }
+        box.innerHTML=html||'<div class="note">还没有官职，点击上面的按钮开始添加。</div>';
+      });
     }
 
     function renderCultures(){
-      const box=document.getElementById("cultureCards");
-      renderCultureSummary();
-      box.innerHTML=(state.cultures||[]).map(c=>`
-        <div class="culture">
-          <div class="head"><strong>${esc(cultureDisplayName(c))}</strong><label class="check"><input type="checkbox" data-culture-check="${c.id}" ${c.selected?"checked":""} /> 选择</label></div>
-          <div class="grid two">
-            <div class="muted">文化 key：<span class="mono">${esc(c.name||"")}</span></div>
-            <div class="muted">当前政体：<span class="badge mono">${esc(c.regime||"未绑定")}</span></div>
-          </div>
-          <div class="toolbar" style="margin-top:8px">
-            <button type="button" data-culture-apply="${c.id}">绑定当前政体</button>
-          </div>
-        </div>`).join("")||'<div class="note">还没有读取到文化配置，请先点击“读取文化配置”。</div>';
+      withPreservedScroll(()=>{
+        const box=document.getElementById("cultureCards");
+        renderCultureSummary();
+        box.innerHTML=(state.cultures||[]).map(c=>`
+          <div class="culture">
+            <div class="head"><strong>${esc(cultureDisplayName(c))}</strong><label class="check"><input type="checkbox" data-culture-check="${c.id}" ${c.selected?"checked":""} /> 选择</label></div>
+            <div class="grid two">
+              <div class="muted">文化 key：<span class="mono">${esc(c.name||"")}</span></div>
+              <div class="muted">当前政体：<span class="badge mono">${esc(c.regime||"未绑定")}</span></div>
+            </div>
+            <div class="toolbar" style="margin-top:8px">
+              <button type="button" data-culture-apply="${c.id}">绑定当前政体</button>
+            </div>
+          </div>`).join("")||'<div class="note">还没有读取到文化配置，请先点击“读取文化配置”。</div>';
+      });
     }
 
     function refreshPreview(){

@@ -21,6 +21,7 @@ namespace EmpireCraft.Scripts.Enums
         迫使朝贡,
         藩王索取皇位,
         帝国正统,
+        去帝号,
         劫掠,
         游牧扩张,
         帝国扩张,

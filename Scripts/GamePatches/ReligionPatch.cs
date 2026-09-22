@@ -9,6 +9,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class ReligionPatch : GamePatch
@@ -26,9 +27,10 @@ public class ReligionPatch : GamePatch
     private static void set_religion_name(Religion __instance, Actor pActor, WorldTile pTile, bool pAddDefaultTraits)
     {
         if (__instance?.data == null) return;
-        string species = __instance.species_id;
-        LogService.LogInfo("当前文化物种: " + species);
-        if (ConfigData.speciesCulturePair.TryGetValue(species, out string culture))
+        string culture = CultureService.GetMainCulture(pActor?.city, initialize: false);
+        if (!CultureService.IsValidCulture(culture)) culture = CultureService.GetActorCulture(pActor);
+        LogService.LogInfo("当前模组文化: " + culture);
+        if (CultureService.IsValidCulture(culture))
         {
             InsertReligionNameTemplate(__instance, culture);
         }

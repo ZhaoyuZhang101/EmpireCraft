@@ -21,6 +21,7 @@ using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.GeneralSystems;
 using UnityEngine;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
 
@@ -309,6 +310,14 @@ public class ActorPatch : GamePatch
 
         FixedFaction ff = __instance.GetFaction();
         ff?.RemoveMember(__instance);
+
+        // Phase 17：战时兼并——城主/国王真正阵亡时，若其城市/首都已经被单一
+        // 敌对政权占领到 70% 以上，直接判定失守（见 CityExtension.cs 里
+        // TryResolveCityLeaderDeathAnnexation / TryResolveKingDeathAnnexation
+        // 的详细说明）。放在这两个方法之后调用，是为了让上面这段既有的
+        // 头衔/继承人交接逻辑先在王国领土还完整时跑完，再决定谁接手领土。
+        __instance.TryResolveCityLeaderDeathAnnexation();
+        __instance.TryResolveKingDeathAnnexation();
     }
 
     public static void UpdateAge(Actor __instance)
@@ -336,6 +345,11 @@ public class ActorPatch : GamePatch
     public static void setCity(Actor __instance, City pCity)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        if (pCity == null) return;
+        CultureService.InitializeCityCulture(pCity);
+        // Moving to another city does not erase an existing personal culture.
+        if (!__instance.hasCulture())
+            CultureService.SyncActorToCityMainCulture(__instance, pCity);
         if (pCity.HasReachedPlayerPopLimit())
         {
             __instance.setHealth(0);
@@ -400,11 +414,13 @@ public class ActorPatch : GamePatch
 
     private static void EnsureChildName(Actor child, Actor parent)
     {
-        if (child == null || parent?.culture == null || child.GetModName().hasFirstName(child)) return;
-        string firstName = parent.culture.getOnomasticData(MetaType.Unit)
-            .generateName(child.isSexMale() ? ActorSex.Male : ActorSex.Female);
+        Name childName = child?.GetModName();
+        if (childName == null || parent?.culture == null || childName.hasFirstName(child)) return;
+        OnomasticsData unitNames = CulturePatch.GetOnomasticDataSafe(parent.culture, MetaType.Unit);
+        if (unitNames == null) return;
+        string firstName = unitNames.generateName(child.isSexMale() ? ActorSex.Male : ActorSex.Female);
         child.SetFirstName(firstName);
-        child.GetModName().SetName(child);
+        childName.SetName(child);
     }
 
     public static void setLover(Actor __instance, Actor pActor)
@@ -553,7 +569,7 @@ public class ActorPatch : GamePatch
             return;
         }
         __instance.initializeActorName();
-        OnomasticsData unitNames = pCulture.getOnomasticData(MetaType.Unit);
+        OnomasticsData unitNames = CulturePatch.GetOnomasticDataSafe(pCulture, MetaType.Unit);
         if (!modName.hasFirstName(__instance) && unitNames != null)
         {
             string firstName = unitNames.generateName(__instance.isSexMale() ? ActorSex.Male : ActorSex.Female);
@@ -591,7 +607,7 @@ public class ActorPatch : GamePatch
             {
                 if (!__instance.clan.units.Any(p=>p?.hasCulture() == true))
                 {
-                    OnomasticsData clanNames = pCulture.getOnomasticData(MetaType.Clan);
+                    OnomasticsData clanNames = CulturePatch.GetOnomasticDataSafe(pCulture, MetaType.Clan);
                     if (clanNames != null)
                     {
                         __instance.clan.data.name = clanNames.generateName().UseLocalizedNameSeparator();
@@ -619,11 +635,13 @@ public class ActorPatch : GamePatch
                 {
                     if (!__instance.family.HasBeenSetBefored())
                     {
-                        OnomasticsData familyNames = pCulture.getOnomasticData(MetaType.Family);
-                        if (familyNames == null) return;
-                        __instance.family.data.name = familyNames.generateName().UseLocalizedNameSeparator();
-                        __instance.family.SetFamilyCityPre(false);
-                        __instance.SetFamilyName(__instance.family.GetFamilyName());
+                        OnomasticsData familyNames = CulturePatch.GetOnomasticDataSafe(pCulture, MetaType.Family);
+                        if (familyNames != null)
+                        {
+                            __instance.family.data.name = familyNames.generateName().UseLocalizedNameSeparator();
+                            __instance.family.SetFamilyCityPre(false);
+                            __instance.SetFamilyName(__instance.family.GetFamilyName());
+                        }
                     }
                     
                 }
@@ -681,9 +699,12 @@ public class ActorPatch : GamePatch
         {
             if (__instance.hasCulture())
             {
-                pObject.data.name = __instance.culture.getOnomasticData(MetaType.Clan).generateName()
-                    .UseLocalizedNameSeparator();
-                __instance.SetFamilyName(pObject.GetClanName());
+                OnomasticsData clanNames = CulturePatch.GetOnomasticDataSafe(__instance.culture, MetaType.Clan);
+                if (clanNames != null)
+                {
+                    pObject.data.name = clanNames.generateName().UseLocalizedNameSeparator();
+                    __instance.SetFamilyName(pObject.GetClanName());
+                }
             }
         } else
         {
@@ -773,18 +794,24 @@ public class ActorPatch : GamePatch
                 {
                     if (!pObject.HasBeenSetBefored())
                     {
-                        pObject.data.name = __instance.culture.getOnomasticData(MetaType.Family).generateName()
-                            .UseLocalizedNameSeparator();
-                        pObject.SetFamilyCityPre(false);
+                        OnomasticsData familyNames = CulturePatch.GetOnomasticDataSafe(__instance.culture, MetaType.Family);
+                        if (familyNames != null)
+                        {
+                            pObject.data.name = familyNames.generateName().UseLocalizedNameSeparator();
+                            pObject.SetFamilyCityPre(false);
+                        }
                     }
                 }
             } else
             {
                 if (!pObject.HasBeenSetBefored())
                 {
-                    pObject.data.name = __instance.culture.getOnomasticData(MetaType.Family).generateName()
-                        .UseLocalizedNameSeparator();
-                    pObject.SetFamilyCityPre(false);
+                    OnomasticsData familyNames = CulturePatch.GetOnomasticDataSafe(__instance.culture, MetaType.Family);
+                    if (familyNames != null)
+                    {
+                        pObject.data.name = familyNames.generateName().UseLocalizedNameSeparator();
+                        pObject.SetFamilyCityPre(false);
+                    }
                 }
             }
             __instance.SetFamilyName(pObject.GetFamilyName());

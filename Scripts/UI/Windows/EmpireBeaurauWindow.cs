@@ -271,7 +271,9 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
 
         var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
-        centerPart.AddTextIntoVertLayout("无内阁", true, TextAnchor.MiddleCenter, new Vector2(80, 40));
+        centerPart.AddTextIntoVertLayout(
+            $"{LM.Get("empire_bureau_no_cabinet")}\n{LM.Get("empire_bureau_direct_rule")}",
+            true, TextAnchor.MiddleCenter, new Vector2(80, 40));
         var dominate = _empire.CoreKingdom.GetRegime().GetDominateFaction();
         if (dominate != null)
         {

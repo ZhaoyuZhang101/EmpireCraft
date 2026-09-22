@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.Layer;
 public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleData>
@@ -114,6 +115,13 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
                 ModClass.PERFORMANCE_HIGH_POPULATION_MODE,
                 ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE, population,
                 Math.Max(0d, Time.unscaledDeltaTime * 1000d));
+            if (ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE)
+            {
+                int minimumThroughput = EmpireCraftFrameSchedulingRules.ResolveMinimumItemsForSweep(
+                    this.list.Count, Math.Max(0d, Time.unscaledDeltaTime),
+                    EmpireCraftFrameSchedulingRules.TitleSweepTargetSeconds, 96);
+                budget = Math.Max(budget, minimumThroughput);
+            }
             int count = Math.Min(this.list.Count, Math.Max(1, budget));
             for (int index = 0; index < count; index++)
             {
@@ -126,6 +134,8 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         {
             KingdomTitle title = _titleUpdateBuffer[index];
             if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(title)) continue;
+            // 法理默认文化不再由这里按年自动检查/转换：占比够高之后要靠"文治"派系发起
+            // 文化转化决议来正式改变（见 TempFac_文化转化.cs），所以旧的按年计时器已移除。
             if (!title.checkActive()) this._to_dissolve.Add(title);
         }
         for (int index = 0; index < this._to_dissolve.Count; index++)

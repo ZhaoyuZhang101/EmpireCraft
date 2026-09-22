@@ -29,6 +29,7 @@ public class SaveData
     public List<EmpireData> empireDatas = new List<EmpireData>();
     public List<EmpireCore> empireCoreDatas = new List<EmpireCore>();
     public List<KingdomTitleData> kingdomTitleDatas = new List<KingdomTitleData>();
+    public Dictionary<long, string> cultureBindings = new Dictionary<long, string>();
     public List<string> yearNameSubspecies = new List<string>();
     public Dictionary<long, List<EmpireCraftHistory>> all_history;
     public bool switch_real_num = false;

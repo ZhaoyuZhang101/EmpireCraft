@@ -5,6 +5,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.AI.CityAI;
 
@@ -17,7 +18,8 @@ public class EmpireCraftCityBehCheckReligion: GameAICityBase
         if (pCity.isCapitalCity()) return BehResult.Continue;
         if (!pCity.hasKingdom()) return BehResult.Continue;
         if (pCity.kingdom.IsInEmpire())  return BehResult.Continue;
-        var culture = ConfigData.speciesCulturePair.TryGetValue(pCity.getActorAsset().id, out string speciesCulture)? speciesCulture : "Western";
+        var culture = CultureService.GetMainCulture(pCity);
+        if (!CultureService.IsValidCulture(culture)) culture = "Western";
         RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
             ? setting.regime
             : RegimeType.Feudalism;

@@ -1,11 +1,15 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.UI.Components;
+using EmpireCraft.Scripts.UI.Windows;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Data;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
+using NeoModLoader.General.UI.Window;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
@@ -154,8 +158,39 @@ public class CityWindowPatch : GamePatch
         city_setting_contents.Add(title.transform);
         city_setting_contents.Add(hori.transform);
 
+        // 城市改名 + 文化地名历史不再直接摊在设置面板里了（之前那版每次点开设置都要
+        // 把整份可编辑列表都画出来，用户明确要求挪到单独的窗口）。这里只留一个入口
+        // 按钮，点了以后按跟法理窗口"文化地名历史"标签页同一套规范打开的独立窗口
+        // （CityNameHistoryWindow：文化标签 + 可编辑输入框 + 删除按钮，一行一条）。
+        SimpleText nameHistoryTitle = GameObject.Instantiate(SimpleText.Prefab);
+        nameHistoryTitle.Setup(LM.Get("city_setting_name_history_title"), TextAnchor.MiddleCenter, new Vector2(180, 30));
+        nameHistoryTitle.background.enabled = false;
+        var nameHistoryTitleLayout = nameHistoryTitle.gameObject.AddComponent<LayoutElement>();
+        nameHistoryTitleLayout.minWidth = nameHistoryTitleLayout.preferredWidth = 180;
+        nameHistoryTitleLayout.minHeight = nameHistoryTitleLayout.preferredHeight = 30;
+        nameHistoryTitle.transform.localScale = Vector3.one;
+
+        SimpleButton openNameHistoryButton = GameObject.Instantiate(SimpleButton.Prefab);
+        openNameHistoryButton.Setup(OpenCityNameHistoryWindow, SpriteTextureLoader.getSprite("ui/icons/iconCulture"),
+            LM.Get("city_setting_open_name_history"), pSize: new Vector2(200, 30));
+        openNameHistoryButton.transform.localScale = Vector3.one;
+        var openNameHistoryButtonLayout = openNameHistoryButton.gameObject.AddComponent<LayoutElement>();
+        openNameHistoryButtonLayout.minWidth = openNameHistoryButtonLayout.preferredWidth = 200;
+        openNameHistoryButtonLayout.minHeight = openNameHistoryButtonLayout.preferredHeight = 30;
+
+        city_setting_contents.Add(nameHistoryTitle.transform);
+        city_setting_contents.Add(openNameHistoryButton.transform);
+
         return city_setting_contents;
-    }                                                                                   
+    }
+
+    public static void OpenCityNameHistoryWindow()
+    {
+        City city = SelectedMetas.selected_city;
+        if (city == null) return;
+        ScrollWindow.showWindow(nameof(CityNameHistoryWindow));
+    }
+
     public static void InputCityPopLimit(string pName, TextInput textInput)
     {
         City city = SelectedMetas.selected_city;
