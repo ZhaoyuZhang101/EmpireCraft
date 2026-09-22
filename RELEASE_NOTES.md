@@ -1,12 +1,10 @@
 ## 更新内容 (Update Features)
 
-1. 修复铭牌彼此遮挡的问题；修复英文原版名称换行问题；铭牌会根据地图形状适当增加宽度，放大后会逐渐透明，以避免遮挡视线。  
-   Fixed overlapping issues between nameplates and line-wrapping issues with original English names. Nameplates now dynamically adjust their width based on the shape of the territory and gradually become transparent when zoomed in to reduce visual obstruction.
+1. 新增文化系统：城市/头衔/王国追踪文化占比，达标后可决议转化文化或政体，历史地名永久保留可编辑。
+   Added a culture system: cities/titles/kingdoms track culture share; once dominant enough, a decision can convert culture or regime, with permanent editable name history.
 
-2. 修复目前已知旧地图存档无法加载的问题。  
-   Fixed a known issue where save files created on older maps could not be loaded.
+2. 新增"游牧双规制"：文化不同的军事政权识别为都护府（羁縻州），可派总督花费影响力主动同化；游牧等政体也可在文化转变后花费影响力决议转换为对应政体。
+   Added the nomad dual-track system: a culturally different military regime is recognized as a Protectorate (with Autonomous Prefecture cities), whose governor can spend influence to actively assimilate it; a nomadic (or other) regime can likewise be converted via decision once its culture has shifted.
 
-3. 派系诉求英语本地化更新。  
-   Updated the English localization for faction demands.
-
-4. Bug修复与更新推送调整
+3. 文化地图模式（铭牌/染色/高亮/提示）改为读取模组自身文化数据，不再用原版逻辑。
+   Culture map mode (nameplates/tinting/highlight/tooltips) now uses the mod's own culture data instead of vanilla's.
