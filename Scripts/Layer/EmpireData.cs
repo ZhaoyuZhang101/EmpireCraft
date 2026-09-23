@@ -59,6 +59,8 @@ public class EmpireData : MetaObjectData
     public string directPre = "";
     public string core_name = "";
     public string empire_type_key = "";
+    // 西方封建帝国的代数：同名封建帝国反复建立时称"第二帝国""第三帝国"(0/1 表示不加序数)
+    public int western_ordinal = 0;
     public long emperor { get; set; } = -1L;
     public long empire_clan { get; set; } = -1L;
     public long empire_core_id { get; set; } = -1L;
@@ -95,6 +97,8 @@ public class EmpireData : MetaObjectData
     public Dictionary<string, long> honorary_peerage_holder_identities { get; set; } = new Dictionary<string, long>();
     public Dictionary<string, string> honorary_peerage_holder_names { get; set; } = new Dictionary<string, string>();
     public List<DefeatedEmpireHouse> defeated_empire_houses { get; set; } = new List<DefeatedEmpireHouse>();
+    // 西方帝国历代皇帝的即位记录(王号序数用)：同一帝国、同一氏族、同名才累计
+    public List<RegnalRecord> regnal_records { get; set; } = new List<RegnalRecord>();
     public double last_legal_peerage_timestamp { get; set; } = -1L;
     public Dictionary<long, long> legal_peerage_holders { get; set; } = new Dictionary<long, long>();
     public Dictionary<long, long> legal_peerage_holder_identities { get; set; } = new Dictionary<long, long>();
@@ -150,6 +154,8 @@ public class EmpireData : MetaObjectData
     public string composite_cultural_name_culture { get; set; } = "";
     public string composite_cultural_name_source { get; set; } = "";
     public double composite_cultural_name_adopted_timestamp { get; set; } = -1L;
+    public InstitutionEmpireState institution_state { get; set; } = new InstitutionEmpireState();
+    public ConstitutionalEconomyState constitutional_economy { get; set; } = new ConstitutionalEconomyState();
 }
 
 public enum RoyalFeedLevel
@@ -201,6 +207,13 @@ public class EmpireCraftHistory
 
     public List<string> initial_cities = new List<string>();
     public List<HistoryDescription> descriptions =  new List<HistoryDescription>();
+}
+
+public class RegnalRecord
+{
+    public long actor_id = -1L;
+    public long clan_id = -1L;
+    public string given_name = "";
 }
 
 public class HistoryDescription

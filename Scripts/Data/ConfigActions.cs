@@ -16,6 +16,10 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.TITLE_BEEN_DESTROY_TIME = int.Parse(time);
         }
+        public static void TitleMaxCitiesCallBack(string count)
+        {
+            ModClass.TITLE_MAX_CITIES = int.TryParse(count, out int value) ? Math.Max(0, value) : 0;
+        }
         public static void WarEndYearCallBack(string time)
         {
             ModClass.WAR_END_YEAR = int.Parse(time);

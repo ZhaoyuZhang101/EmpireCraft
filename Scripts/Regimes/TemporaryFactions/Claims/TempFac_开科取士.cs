@@ -1,5 +1,7 @@
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Data;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
@@ -21,11 +23,12 @@ public class TempFac_开科取士 : TemporaryFaction
     {
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
-        if (empire != null)
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get("huaxia_examination_officialdom");
+        if (empire != null && node != null)
         {
-            Regime regime = empire.CoreKingdom.GetRegime();
-            regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
-            empire.AddMandate(20);
+            bool force = !InstitutionSystem.CanStartReform(empire, node, out _, false) &&
+                         InstitutionSystem.CanStartReform(empire, node, out _, true);
+            InstitutionSystem.StartReform(empire, node.id, force, factionID);
         }
         End();
     }
@@ -33,14 +36,9 @@ public class TempFac_开科取士 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire != null)
-        {
-            Regime regime = empire.CoreKingdom.GetRegime();
-            if (regime.leader_select_method == LeaderSelectMethod.Succession&&regime.GetLeaderSelectMethod() != LeaderSelectMethod.Exam)
-            {
-                return true;
-            }
-        }
-        return false;
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get("huaxia_examination_officialdom");
+        if (empire == null || node == null) return false;
+        return InstitutionSystem.CanStartReform(empire, node, out _, false) ||
+               InstitutionSystem.CanStartReform(empire, node, out _, true);
     }
 }

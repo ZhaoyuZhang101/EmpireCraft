@@ -9,7 +9,8 @@ public enum SocialClass
     Merchant,   //商人
     Army,       //军人
     Officer,    //官僚
-    Noble       //贵族 
+    Noble,      //贵族
+    Landlord    //地主
 }
 public static class ClassSystem
 {

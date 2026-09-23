@@ -380,6 +380,9 @@ private static void DrawEmpireCraftOccupiedZones(QuantumSpriteAsset pAsset)
                         pSprite = king.has_attack_target ?  _LvLing_jiedushi_sprite_angry: king.hasPlot() ? _LvLing_jiedushi_sprite_surprised : kingdom.hasEnemies() ? _LvLing_jiedushi_sprite_normal : _LvLing_jiedushi_sprite_happy;
                         break;
                     case KingdomType.LvLing_province:
+                    case KingdomType.ZhouFeudalism_jun:
+                    case KingdomType.Feudalism_intendancy:
+                    case KingdomType.Feudalism_diocese:
                         pSprite = king.has_attack_target ?  _LvLing_officer_sprite_angry: king.hasPlot() ? _LvLing_officer_sprite_surprised : kingdom.hasEnemies() ? _LvLing_officer_sprite_normal : _LvLing_officer_sprite_happy;
                         break;
                     default:

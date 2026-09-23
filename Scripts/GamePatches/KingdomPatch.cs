@@ -151,6 +151,10 @@ public class KingdomPatch : GamePatch
                     pActor.SetPeeragesLevel(Enums.PeeragesLevel.peerages_1);
                 }
             }
+            // 推恩令下一人不得兼领两国：他原来统治的封国从宗室另立，或收归郡县
+            if (!pFromLoad) GraceEdictService.OnKingCrowned(__instance, pActor);
+            // 共主联盟：同一君主名下不在帝国里的王国自动结盟，以盟主国的名字命名
+            if (!pFromLoad) PersonalUnionService.OnKingCrowned(__instance, pActor);
             if (__instance.IsEmpire())
             {
                 Empire empire = __instance.GetEmpire();
@@ -168,6 +172,10 @@ public class KingdomPatch : GamePatch
                     empire?.RepairFoundingEmperorMarker();
                 }
                 LogService.LogInfo("触发原版选择国王");
+                __instance.RemoveHeir();
+                // 不论新皇帝是怎么即位的，都在这里处理即位分封(按法理把土地封给新君的兄弟)
+                if (isActualSuccession && empire != null) EnfeoffmentHelper.OnEmperorSucceeded(empire);
+                return;
             }
             __instance.RemoveHeir();
         }

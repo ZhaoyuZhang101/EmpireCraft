@@ -64,6 +64,25 @@ public class CityWindowPatch : GamePatch
         __instance.showStatRow("tribute", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
         __instance.tryToShowActor("king", pObject: metaObject.kingdom.king, pIconPath: "iconKings");
         __instance.tryToShowMetaSpecies("founder_species", metaObject.getFounderSpecies()?.id);
+        CityLandReport land = LandEconomySystem.GetReport(metaObject);
+        string landSystem = land.MarketOpen
+            ? LM.Get("city_land_system_open")
+            : LM.Get("city_land_system_closed");
+        __instance.showStatRow("city_land_system", landSystem,
+            land.MarketOpen ? "#66D98A" : "#F3C34A", pIconPath: "iconKings");
+        __instance.showStatRow("city_household_migration",
+            LM.Get(land.MigrationBlocked ? "city_household_migration_blocked" : "city_household_migration_free"),
+            land.MigrationBlocked ? "#E66B66" : "#66D98A", pIconPath: "iconChildren");
+        __instance.showStatRow("city_landless_population", $"{land.LandlessPopulationRatio:P0}",
+            land.LandlessPopulationRatio >= LandEconomySystem.RebellionLandlessThreshold ? "#E66B66" : "#B8C6CC",
+            pIconPath: "iconChildren");
+        for (int index = 0; index < land.Holders.Count; index++)
+        {
+            CityLandHolderView holder = land.Holders[index];
+            __instance.showStatRow("city_land_owner",
+                $"{index + 1}. {holder.Name}  {holder.Share:0.#}%",
+                holder.Institutional ? "#F3C34A" : "#7FD8EA", pIconPath: "iconKings");
+        }
         return false;
     }
     public static void startShowingWindow(CityWindow __instance)

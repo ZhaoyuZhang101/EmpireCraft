@@ -29,13 +29,14 @@ public class EmpireCaftActorJudgeClass: GameAIActorBase
         {
             return SocialClass.Officer;
         }
+        if (pActor.isWarrior())
+        {
+            return SocialClass.Army;
+        }
         if (pActor.citizen_job != null)
         {
             switch (pActor.citizen_job.id)
             {
-                case "farmer":
-                case "hunter":
-                    return SocialClass.Peasant;
                 case "woodcutter":
                 case "miner":
                 case "miner_deposit":
@@ -46,14 +47,10 @@ public class EmpireCaftActorJudgeClass: GameAIActorBase
                 case "gatherer_bushes":
                 case "gatherer_honey":
                     return SocialClass.Labour;
-                default:
-                    if (pActor.GetPersonalIdentity()?.concubines?.Count > 1)
-                    {
-                        return SocialClass.Merchant;
-                    }
-                    return SocialClass.Peasant;
             }
         }
+        if (LandEconomySystem.IsLandlord(pActor)) return SocialClass.Landlord;
+        if (pActor.GetOrCreate().is_economic_merchant) return SocialClass.Merchant;
         return SocialClass.Peasant;
     }
 }

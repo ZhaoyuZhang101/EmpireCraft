@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.General;
@@ -29,7 +31,11 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
             ff.Update();
         }
         pKingdom.ApplyAnnualFactionLeaderGrowth(factions);
-        switch (regime.type)
+        if (ConstitutionalEconomySystem.HasResponsibleCabinet(empire))
+        {
+            ConstitutionalEconomySystem.EnsureCabinet(empire);
+        }
+        else switch (regime.type)
         {
             case RegimeType.LvLing:
                 SetCabinetForLvLing(empire);
@@ -44,6 +50,9 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
             case RegimeType.Arabic:
                 break;
             case RegimeType.YouMu:
+            case RegimeType.ClassicalRepublic:
+            case RegimeType.Modern:
+            case RegimeType.Origin:
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -62,6 +71,8 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         Regime regime = pKingdom?.GetRegime();
         Empire empire = pKingdom?.GetEmpire();
         if (regime == null || empire == null) return false;
+        if (ConstitutionalEconomySystem.HasResponsibleCabinet(empire))
+            return ConstitutionalEconomySystem.GetParliamentarySupport(empire) >= 50f;
         var dominate = regime.GetDominateFaction();
         List<Actor> members = empire.GetCabinetMembers();
         return members != null && members.All(m=>m?.GetFaction()?.GetID()==dominate?.GetID());
@@ -78,21 +89,15 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         if (S < 3) S = 0; if (S > 15) S = 15;      // 手动 clamp
         int cabinetSize = 1 + (S * regime.cabinet_number-1) / 15;        // 线性映射到 1..5，最多 5 个
 
-        long cabinetLeader = dominateFaction.Members[0];
-        double bestPerformance = world.units.get(cabinetLeader)?.GetIdentity()?.TotalPerformance ?? double.MinValue;
-        for (int i = 1; i < dominateFaction.Members.Count; i++)
+        Actor cabinetLeader = dominateFaction.Members
+            .Select(id => world.units.get(id))
+            .Where(actor => actor != null && !actor.isRekt() && actor.HasOfficeIdentity())
+            .OrderByDescending(actor => OfficeSelector.IsPreferredOfficeCandidate(actor, empire.CoreKingdom))
+            .ThenByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? double.MinValue)
+            .FirstOrDefault();
+        if (cabinetLeader != null && cabinetLeader.id != empire.GetCabinetLeader()?.id)
         {
-            long memberId = dominateFaction.Members[i];
-            double performance = world.units.get(memberId)?.GetIdentity()?.TotalPerformance ?? double.MinValue;
-            if (performance > bestPerformance)
-            {
-                bestPerformance = performance;
-                cabinetLeader = memberId;
-            }
-        }
-        if (cabinetLeader != empire.GetCabinetLeader()?.id)
-        {
-            empire.SetCabinetLeader(world.units.get(cabinetLeader));  
+            empire.SetCabinetLeader(cabinetLeader);
         }
 
         if (empire.data.CabinetMembers.Count > cabinetSize)
@@ -101,25 +106,13 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         }
         else if  (empire.data.CabinetMembers.Count < cabinetSize)
         {
-            Actor newFactionMember = null;
-            double bestCandidatePerformance = double.MinValue;
-            var allFactionMembers = regime.GetAllFactionMembers();
-            for (int i = 0; i < allFactionMembers.Count; i++)
-            {
-                var actor = allFactionMembers[i];
-                long actorId = actor?.id ?? -1L;
-                if (empire.data.CabinetMembers.Contains(actorId))
-                {
-                    continue;
-                }
-                double performance = actor?.GetIdentity()?.TotalPerformance ?? double.MinValue;
-                if (performance > bestCandidatePerformance)
-                {
-                    bestCandidatePerformance = performance;
-                    newFactionMember = actor;
-                }
-            }
-            empire.AddCabinetMember(newFactionMember);
+            Actor newFactionMember = regime.GetAllFactionMembers()
+                .Where(actor => actor != null && !actor.isRekt() && actor.HasOfficeIdentity() &&
+                                !empire.data.CabinetMembers.Contains(actor.id))
+                .OrderByDescending(actor => OfficeSelector.IsPreferredOfficeCandidate(actor, empire.CoreKingdom))
+                .ThenByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? double.MinValue)
+                .FirstOrDefault();
+            if (newFactionMember != null) empire.AddCabinetMember(newFactionMember);
         }
         
     }

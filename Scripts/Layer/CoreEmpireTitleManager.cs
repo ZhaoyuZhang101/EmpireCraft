@@ -365,6 +365,11 @@ public static class EmpireCoreManager
         if (ContainsTitle(core, title)) return false;
         if (EmpireCores.Values.Any(other => other != null && other.id != core.id && ContainsTitle(other, title))) return false;
         if (!empire.kingdoms_hashset.Any(k => k != null && !k.isRekt() && title.getCities().Any(c => c != null && !c.isRekt() && c.kingdom == k))) return false;
+        // 帝国核心法理可以自由扩张(不受王国法理的城市上限约束)，但只能扩张到同文化的法理，异族文化的法理吸收不进来
+        string empireCulture = CultureService.GetEmpireDefaultCulture(empire);
+        string titleCulture = CultureService.GetEffectiveTitleCulture(title);
+        if (CultureService.IsValidCulture(empireCulture) && CultureService.IsValidCulture(titleCulture) &&
+            !string.Equals(empireCulture, titleCulture, StringComparison.Ordinal)) return false;
         int cost = GetAssimilationCost(empire, title);
         if (empire.CurrentMoney < cost) return false;
         empire.CoreKingdom.SubMoney(cost);

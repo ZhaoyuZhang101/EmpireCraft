@@ -1,6 +1,7 @@
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.General;
@@ -23,6 +24,35 @@ public class FamilyPatch : GamePatch
             AccessTools.Method(typeof(Family), nameof(Family.newFamily)),
             postfix: new HarmonyMethod(GetType(), nameof(set_family_name))
         );
+        new Harmony(nameof(showStatsRows)).Patch(
+            AccessTools.Method(typeof(FamilyWindow), nameof(FamilyWindow.showStatsRows)),
+            postfix: new HarmonyMethod(GetType(), nameof(showStatsRows))
+        );
+    }
+
+    public static void showStatsRows(FamilyWindow __instance)
+    {
+        Family family = __instance?.meta_object;
+        if (family == null) return;
+        SocialClass socialClass = LandEconomySystem.GetFamilyEconomicClass(family);
+        __instance.showStatRow("family_economic_class", LM.Get($"class_{socialClass}"), "#F3C34A",
+            pIconPath: "iconKings");
+        List<FamilyLandHoldingView> holdings = LandEconomySystem.GetFamilyHoldings(family);
+        if (holdings.Count == 0)
+        {
+            __instance.showStatRow("family_land_share", LM.Get("family_land_no_city"), "#B8C6CC",
+                pIconPath: "iconKings");
+            return;
+        }
+        foreach (FamilyLandHoldingView holding in holdings.Take(10))
+        {
+            string value = holding.MarketOpen
+                ? string.Format(LM.Get("family_land_private_share"), holding.CityName, holding.OwnershipShare)
+                : string.Format(LM.Get("family_land_feudal_tenure"), holding.CityName, holding.TenureShare);
+            string color = holding.MarketOpen && holding.OwnershipShare <= 0f ? "#E66B66" :
+                holding.MarketOpen ? "#7FD8EA" : "#B8C6CC";
+            __instance.showStatRow("family_land_share", value, color, pIconPath: "iconKings");
+        }
     }
 
     public static void set_family_name(Family __instance, Actor pActor1, Actor pActor2, WorldTile pTile)

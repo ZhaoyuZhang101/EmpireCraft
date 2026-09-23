@@ -44,10 +44,14 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             empire.RefreshCompatibilityMembership();
             _empiresToProcess.Add(empire);
         }
-        QueueDuplicateCultureEmpiresForDissolution();
+        ClearStaleLegitimacyRivalries();
         double worldTime = World.world.getCurWorldTime();
         if (_lastStatsCacheTimestamp <= 0 || Date.getMonthsSince(_lastStatsCacheTimestamp) >= 1)
         {
+            // 禁止原版结盟时，旧存档遗留或其他途径漏进来的原版同盟也一并清掉(模组同盟与神力强制同盟保留)
+            if (ModAllianceService.IsVanillaAllianceBanned()) ModAllianceService.DissolveVanillaAlliances();
+            // 帝国本身及其成员国不留在同盟里(兜底：称帝、继承、读档等途径进帝国的)
+            ModAllianceService.RemoveEmpireMembersFromAlliances();
             foreach (Empire e in _empiresToProcess)
             {
                 if (e.IsArchived()) continue;
@@ -114,73 +118,24 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         _empiresToProcess.Clear();
     }
 
-    private void QueueDuplicateCultureEmpiresForDissolution()
+    // 同文化可以有多个帝国并存(不再自动解散较弱的同文化帝国)；这里只清理对手已不存在的正统之争记录
+    private void ClearStaleLegitimacyRivalries()
     {
-        var groups = _empiresToProcess
-            .Where(empire => empire != null && !empire.IsArchived() && !empire.isRekt() &&
-                             empire.CoreKingdom != null && !empire.CoreKingdom.isRekt())
-            .Select(empire => new { Empire = empire, Culture = CultureService.GetEmpireDefaultCulture(empire) })
-            .Where(item => CultureService.IsValidCulture(item.Culture))
-            .GroupBy(item => item.Culture, StringComparer.Ordinal);
-
-        foreach (var group in groups)
+        foreach (Empire empire in _empiresToProcess)
         {
-            List<Empire> empires = group.Select(item => item.Empire).ToList();
-            foreach (Empire empire in empires)
-            {
-                if (!empire.data.legitimacy_rivalry_recognized) continue;
-                Empire rival = ModClass.EMPIRE_MANAGER.get(empire.data.legitimacy_rival_empire_id);
-                if (rival == null || rival.IsArchived() || rival.isRekt())
-                {
-                    ImperialLegitimacyChallengeService.ClearRivalry(empire);
-                }
-            }
-
-            HashSet<Empire> protectedRivals = new HashSet<Empire>();
-            foreach (Empire empire in empires)
-            {
-                foreach (Empire other in empires)
-                {
-                    if (empire == other || !ImperialLegitimacyChallengeService.AreRecognizedRivals(empire, other))
-                        continue;
-                    protectedRivals.Add(empire);
-                    protectedRivals.Add(other);
-                }
-            }
-
-            if (protectedRivals.Count == 0)
-            {
-                Empire strongest = empires.Aggregate((incumbent, candidate) =>
-                    IsStrongerCultureEmpire(candidate, incumbent) ? candidate : incumbent);
-                protectedRivals.Add(strongest);
-            }
-
-            foreach (Empire empire in empires)
-            {
-                if (!protectedRivals.Contains(empire) && !_to_dissolve.Contains(empire))
-                    _to_dissolve.Add(empire);
-            }
+            if (empire?.data == null || empire.IsArchived() || empire.isRekt() ||
+                !empire.data.legitimacy_rivalry_recognized) continue;
+            Empire rival = ModClass.EMPIRE_MANAGER.get(empire.data.legitimacy_rival_empire_id);
+            if (rival == null || rival.IsArchived() || rival.isRekt())
+                ImperialLegitimacyChallengeService.ClearRivalry(empire);
         }
     }
 
-    private static bool IsStrongerCultureEmpire(Empire candidate, Empire incumbent)
-    {
-        double candidatePower = candidate.GetNationalPower();
-        double incumbentPower = incumbent.GetNationalPower();
-        if (Math.Abs(candidatePower - incumbentPower) > 0.0001d)
-            return candidatePower > incumbentPower;
-
-        int candidatePopulation = candidate.CountPopulation();
-        int incumbentPopulation = incumbent.CountPopulation();
-        if (candidatePopulation != incumbentPopulation)
-            return candidatePopulation > incumbentPopulation;
-
-        return candidate.id < incumbent.id;
-    }
 
     public void dissolveEmpire(Empire pEmpire)
     {
         if (pEmpire == null) return;
+        EmpireFormationService.OnEmpireDissolving(pEmpire);
         pEmpire.dissolve();
         pEmpire.Dispose();
         pEmpire.Archive();
@@ -279,6 +234,10 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.updateColor(pKingdom.getColor());
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
         var riseCore = forceNewCore ? null : EmpireCoreManager.GetRiseCandidateCore(pKingdom);
+        // 候选核心已归属别的现存帝国时不能抢过来(主法理在别国核心里的根本不能称帝，见 EmpireFormationService)；
+        // 此时只可能是都城/其他法理落在别国核心里，主法理本身没有核心，按规则新建核心
+        if (riseCore != null && EmpireCoreManager.GetEmpires(riseCore).Any(other => other != empire && !other.IsArchived()))
+            riseCore = null;
         if (riseCore != null)
         {
             EmpireCoreManager.RebindEmpire(empire, riseCore);
@@ -289,6 +248,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         pKingdom.GetOrCreate().isEmpire = true;
         pKingdom.GetOrCreate().EmpireID = empire.id;
+        EmpireFormationService.OnEmpireCreated(empire);
         if (empire.data.has_year_name)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())

@@ -27,6 +27,7 @@ namespace EmpireCraft.Scripts.Enums
         帝国扩张,
         清君侧,
         索取法理,
-        None
+        None,
+        不奉诏 // 追加在 None 之后，保持旧存档里的枚举值不变
     }
 }

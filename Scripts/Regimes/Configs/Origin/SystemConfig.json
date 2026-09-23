@@ -44,6 +44,10 @@
       "option_religion_type": [
         2,
         4
+      ],
+      "option_succession_law": [
+        0,
+        5
       ]
     },
     "bureau_config": {

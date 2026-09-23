@@ -55,7 +55,7 @@ namespace EmpireCraft.Scripts.Data
             // 法兰克
             {"human", "Frankish" }, // 人类
             {"civ_chicken","Frankish"}, // 鸡族
-            {"civ_acid_sentleman", "Frankish" }, // 酸液绅士
+            {"civ_acid_gentleman", "Frankish" }, // 酸液绅士
 
             // 维京
             {"dwarf", "Viking" }, // 矮人

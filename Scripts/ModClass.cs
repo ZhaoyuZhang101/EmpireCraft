@@ -38,8 +38,11 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static KingdomTitleManager KINGDOM_TITLE_MANAGER;
     public static bool REAL_NUM_SWITCH = false;
     public static bool SIMPLE_NAMEPLATE_SWITCH = false;
+    public static bool EMPIRE_SHOW_ALLIANCE_SWITCH = false;
     public static bool KINGDOM_TITLE_FREEZE = false;
     public static int TITLE_BEEN_DESTROY_TIME = 50;
+    // 法理扩张(未冻结法理)时单个法理最多容纳的城市数，0 表示不限
+    public static int TITLE_MAX_CITIES = 5;
     public static bool PERFORMANCE_HIGH_POPULATION_MODE = true;
     public static bool PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE = true;
     public static bool PERFORMANCE_SKIP_HIDDEN_VISUALS = true;
@@ -49,6 +52,11 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static ModConfig modConfig;
     public static int MOD_DATA_VERSION = 3;
     public static Dictionary<long, List<EmpireCraftHistory>> ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
+    // 文化 → 该文化从何时起没有帝国(用于"兜底称帝"的五十年时限)
+    public static Dictionary<string, double> CULTURE_NO_EMPIRE_SINCE = new Dictionary<string, double>();
+    // 帝国名 → 用这个名字建立过的西方封建帝国 id(用于"第二帝国""第三帝国")
+    public static Dictionary<string, List<long>> FEUDAL_EMPIRE_LINEAGE = new Dictionary<string, List<long>>();
+    public static HashSet<long> MOD_ALLIANCE_IDS = new HashSet<long>();
     public ModDeclare GetDeclaration()
     {
         return _declare;
@@ -170,8 +178,22 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
             string path = Path.Combine(parentFolder, "CultureSpeciesPairPlayerConfig.json");
             if (File.Exists(path))
             {
+                // 玩家配置只覆盖它写到的物种；没写到的(比如新版本加的物种)沿用默认映射，
+                // 否则会一律落到 GetCultureFromSpecies 的兜底文化，凭空冒出玩家没放过的文化。
                 string content = File.ReadAllText(path);
-                ConfigData.speciesCulturePair = JsonConvert.DeserializeObject<Dictionary<string, string>>(content);
+                var playerPairs = JsonConvert.DeserializeObject<Dictionary<string, string>>(content);
+                if (playerPairs != null)
+                {
+                    // 旧版本把酸液绅士的物种 id 拼错成了 civ_acid_sentleman，迁移到真实 id
+                    if (playerPairs.TryGetValue("civ_acid_sentleman", out string acidCulture))
+                    {
+                        playerPairs.Remove("civ_acid_sentleman");
+                        if (!playerPairs.ContainsKey("civ_acid_gentleman"))
+                            playerPairs["civ_acid_gentleman"] = acidCulture;
+                    }
+                    foreach (KeyValuePair<string, string> pair in playerPairs)
+                        ConfigData.speciesCulturePair[pair.Key] = pair.Value;
+                }
             }
             else
             {

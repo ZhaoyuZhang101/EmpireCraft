@@ -150,6 +150,11 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(newCity))
         );
 
+        new Harmony(nameof(CityBuilt)).Patch(
+            AccessTools.Method(typeof(CityManager), nameof(CityManager.buildNewCity)),
+            postfix: new HarmonyMethod(GetType(), nameof(CityBuilt))
+        );
+
         new Harmony(nameof(FinishedCapture)).Patch(
             AccessTools.Method(typeof(City), nameof(City.finishCapture)),
             prefix: new HarmonyMethod(GetType(), nameof(FinishedCapture))
@@ -451,6 +456,18 @@ public class CityPatch : GamePatch
                     ClearResolvedCaptureProgress(__instance);
                     return false;
                 }
+            }
+            // 城邦一城一国：攻下的城由本地贵族立为新城邦入盟，对方只剩一城则整国入盟
+            if (CityStateService.TryResolveCapture(__instance, joinAfterCapture, oldKingdom))
+            {
+                ClearResolvedCaptureProgress(__instance);
+                return false;
+            }
+            // 分封制帝国攻下别国都城：对方称臣归附，已占的该国法理之地全部归还，城市不易主
+            if (FeudalConquestService.TryResolveCapitalConquest(__instance, joinAfterCapture, oldKingdom))
+            {
+                ClearResolvedCaptureProgress(__instance);
+                return false;
             }
             PrepareCompletedCityTransfer(__instance, pNewKingdom, oldKingdom, targetEmpire, isEmpireCapital);
             if (TryTriggerEmpirePressureSurrender(__instance, joinAfterCapture, oldKingdom))
@@ -988,6 +1005,7 @@ public class CityPatch : GamePatch
         // 只要敌对帝国的 Warrior 实际进入本城市任意 Zone，
         // 该城立即归降。
         TryImmediateSurrenderOnImperialArmyArrival(__instance);
+        LandEconomySystem.UpdateCity(__instance);
 
         /*
         if (__instance.hasTitle())
@@ -1007,6 +1025,8 @@ public class CityPatch : GamePatch
     /// 包括可占领战争、帝国压力投降、占领清理、日志等。
     /// 劫掠战争不转移城市，因此不能由这里触发自动归降。
     /// </summary>
+    private const int ImperialArrivalSurrenderPeakWarriors = 10;
+
     private static void TryImmediateSurrenderOnImperialArmyArrival(City city)
     {
         if (city == null || city.isRekt())
@@ -1027,10 +1047,15 @@ public class CityPatch : GamePatch
         // 这里检查的是“整个国家”的存活 Warrior 总数，
         // 不是这座城市自己的 countWarriors()。
         int kingdomWarriors = GetKingdomLivingWarriorCount(defenderKingdom);
+        KingdomExtension.KingdomExtraData defenderData = defenderKingdom.GetOrCreate();
+        if (kingdomWarriors > defenderData.peak_warriors) defenderData.peak_warriors = kingdomWarriors;
 
         // 整个国家只剩 0 / 1 / 2 / 3 个 Warrior 时，
         // 才允许帝国军入城触发该城立即归降。
         if (kingdomWarriors > ImperialArrivalSurrenderWarriorThreshold)
+            return;
+        // 而且必须是"曾经有过军队后崩溃"：新立国(比如刚起事的叛军)还没来得及征兵，不算崩溃
+        if (defenderData.peak_warriors < ImperialArrivalSurrenderPeakWarriors)
             return;
 
         EnsureImperialPresenceCache();
@@ -1488,6 +1513,13 @@ public class CityPatch : GamePatch
     }
     
     //创建新城市时触发
+    // 城邦：开国之城定国名，之后新建的城独立为殖民城邦
+    public static void CityBuilt(City __result, Actor pActor)
+    {
+        if (__result == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
+        CityStateService.OnCityBuilt(__result, pActor);
+    }
+
     public static void newCity(City __instance, Actor pActor)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;

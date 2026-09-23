@@ -98,6 +98,7 @@ public class Empire : MetaObject<EmpireData>
 
     public void AddTaxRate(float addition = 0.1f)
     {
+        if (!ConstitutionalEconomySystem.CanChangeTax(this)) return;
         if (data.TaxRate < 1.0f)
         {
             data.TaxRate += addition;
@@ -112,6 +113,7 @@ public class Empire : MetaObject<EmpireData>
 
     public void SubTaxRate(float substraction = 0.1f)
     {
+        if (!ConstitutionalEconomySystem.CanChangeTax(this)) return;
         if (data.TaxRate > 0.0f)
         {
             data.TaxRate  -= substraction;
@@ -357,7 +359,25 @@ public class Empire : MetaObject<EmpireData>
         KingdomTitle ownedTitle = kingdom?.king?.GetMainTitle();
         string coreName = EmpireCoreManager.GetFoundingEmpireName(riseCore);
         if (string.IsNullOrWhiteSpace(coreName)) coreName = riseCore?.name;
-        EmpireFoundingNameChoice choice = EmpireFoundingNameRules.Select(mainTitle?.data?.name,
+
+        // 按称帝路线定国号：宗室复国沿用前朝国号(加方位)；承续法统而非前朝血脉的，用家族发迹地的
+        // 法理，其次都城所在的法理；其余路线(及非剧情称帝)仍按原规则，主法理优先。
+        EmpireFormationRoute route = kingdom?.GetOrCreate().empire_formation_route ?? EmpireFormationRoute.None;
+        EmpireFoundingNameChoice choice = null;
+        if (route == EmpireFormationRoute.Restoration && !string.IsNullOrWhiteSpace(ancestralEmpireName))
+        {
+            choice = new EmpireFoundingNameChoice(ancestralEmpireName, EmpireFoundingNameSource.AncestralEmpire);
+        }
+        else if (route == EmpireFormationRoute.Legitimacy)
+        {
+            string originTitleName = clan?.GetAncestralCity()?.GetTitle()?.data?.name;
+            string capitalTitleName = kingdom?.capital?.GetTitle()?.data?.name;
+            if (!string.IsNullOrWhiteSpace(originTitleName))
+                choice = new EmpireFoundingNameChoice(originTitleName, EmpireFoundingNameSource.ClanOriginTitle);
+            else if (!string.IsNullOrWhiteSpace(capitalTitleName))
+                choice = new EmpireFoundingNameChoice(capitalTitleName, EmpireFoundingNameSource.CapitalTitle);
+        }
+        choice ??= EmpireFoundingNameRules.Select(mainTitle?.data?.name,
             ancestralEmpireName, ancestralTitle?.data?.name, ownedTitle?.data?.name, coreName,
             kingdom?.GetKingdomName());
         if (choice.Source == EmpireFoundingNameSource.AncestralEmpire)
@@ -421,6 +441,7 @@ public class Empire : MetaObject<EmpireData>
     {
         if (actor == null) return;
         actor.SetEmpire(this);
+        RegnalNameService.OnEmperorCrowned(this, actor);
         if (!isNew)
         {
             AddMandate(-20);
@@ -862,6 +883,8 @@ public class Empire : MetaObject<EmpireData>
         EmpireCore riseCore = EmpireCoreManager.GetRiseCandidateCore(kingdom);
         EmpireFoundingNameChoice foundingName = SelectFoundingEmpireName(kingdom, riseCore);
         SetEmpireName(foundingName.Name);
+        AssignWesternOrdinal(data.core_name);
+        if (data.western_ordinal >= 2) SetEmpireName(data.core_name);
         try
         {
             NewEmperor(kingdom.king, !isSplit);
@@ -1033,6 +1056,13 @@ public class Empire : MetaObject<EmpireData>
         else
             name = OverallHelperFunc.StripLocalizedTypeSuffix(name, typeName);
         string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
+        // 西方封建帝国的第二、第三代：不用方位前缀，改称"某某第二帝国"
+        if (data.western_ordinal >= 2 && core.GetRegime()?.type == RegimeType.Feudalism)
+        {
+            name = OverallHelperFunc.StripLocalizedTypeSuffix(name, GetOrdinalText(data.western_ordinal) + typeName);
+            typeName = GetOrdinalText(data.western_ordinal) + typeName;
+            localizedPrefix = "";
+        }
         if (!string.IsNullOrWhiteSpace(localizedPrefix))
         {
             string[] separators = { ModClass.NARROW_SPACE + ModClass.NARROW_SPACE, ModClass.NARROW_SPACE, " " };
@@ -1051,22 +1081,48 @@ public class Empire : MetaObject<EmpireData>
             data.currentHistory.empire_full_name = GetEmpireFullName();
     }
 
+    private static string GetOrdinalText(int ordinal)
+    {
+        string key = $"empire_ordinal_{ordinal}";
+        string text = LM.Get(key);
+        return string.IsNullOrWhiteSpace(text) || text == key
+            ? string.Format(LM.Get("empire_ordinal_generic"), ordinal)
+            : text;
+    }
+
+    // 建立西方封建帝国时定代数：之前已经灭亡的同名封建帝国有几个，这就是第几+1代。
+    // 只算已经灭亡的，所以"核心王国灭亡后由皇族王国接续"这种延续不会被当成新的一代。
+    private void AssignWesternOrdinal(string coreName)
+    {
+        if (CoreKingdom?.GetRegime()?.type != RegimeType.Feudalism || string.IsNullOrWhiteSpace(coreName)) return;
+        if (!ModClass.FEUDAL_EMPIRE_LINEAGE.TryGetValue(coreName, out List<long> lineage))
+        {
+            lineage = new List<long>();
+            ModClass.FEUDAL_EMPIRE_LINEAGE[coreName] = lineage;
+        }
+        int fallen = lineage.Count(id => id != data.id && ModClass.EMPIRE_MANAGER.get(id) == null);
+        if (!lineage.Contains(data.id)) lineage.Add(data.id);
+        data.western_ordinal = fallen + 1;
+        if (data.western_ordinal >= 2) data.directPre = "";
+    }
+
     public void CheckDissolve(Kingdom mainKingdom)
     {
+        // 核心王国没了(比如最后一座城被叛军攻下)：先把它移出成员，再从剩下的成员里找皇族当国王的
+        // 王国来延续帝国，找不到才解散。之前这里先无条件解散，解散会清空成员列表，导致后面永远找
+        // 不到皇族王国，只要核心王国一亡，帝国就整个没了。
         if (mainKingdom != null)
         {
             this.kingdoms_hashset.Remove(mainKingdom);
             mainKingdom.EmpireLeave(false);
             recalculate();
-            ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
-            LogService.LogInfo("解散帝国1");
         }
         Kingdom heirEmpire = null;
         if (EmpireSpecificClan != null)
         {
             foreach (Kingdom kingdom in kingdoms_list)
             {
-                if (kingdom.isRekt()) continue;
+                if (kingdom == null || kingdom.isRekt() || kingdom == mainKingdom || kingdom.king == null) continue;
                 if (kingdom.king.HasSpecificClan())
                     if (kingdom.king.GetSpecificClan() == EmpireSpecificClan)
                     {
@@ -1081,9 +1137,10 @@ public class Empire : MetaObject<EmpireData>
         if (heirEmpire == null)
         {
             ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
-            LogService.LogInfo("解散帝国2");
+            LogService.LogInfo("核心王国灭亡且没有皇族王国可以延续，解散帝国");
             return;
         }
+        LogService.LogInfo("核心王国灭亡，由皇族王国" + heirEmpire.GetKingdomName() + "延续帝国");
         ReplaceEmpire(heirEmpire);
     }
 
@@ -1112,6 +1169,9 @@ public class Empire : MetaObject<EmpireData>
             return;
         }
         newEmpire.data.history.InsertRange(0, data.history);
+        // 同一帝国的延续：王号序数的即位记录一并接过去
+        newEmpire.data.regnal_records.InsertRange(0, data.regnal_records ?? new List<RegnalRecord>());
+        RegnalNameService.OnEmperorCrowned(newEmpire, newKingdom.king, recompute: true);
         newEmpire.SetEmpireName(newKingdom.GetKingdomName());
         newKingdom.GetOrCreate().isEmpire = true;
         newEmpire.data.Mandate = data.Mandate - 50;
@@ -1361,14 +1421,18 @@ public class Empire : MetaObject<EmpireData>
         if (coreKingdom == null || coreKingdom.isRekt()) return;
         Regime regime = coreKingdom.GetRegime();
         CompositeEmpireService.Update(this);
+        ConstitutionalEconomySystem.Update(this);
+        InstitutionSystem.Update(this);
         if (regime?.type == RegimeType.LvLing)
         {
             UpdatePowerfulMinister(regime);
             ProcessTerritorialAcquisitionEnfeoff();
         }
-        else if (regime != null && data.powerful_minister_id > 0)
+        else
         {
-            ClearPowerfulMinister();
+            // 西方中央集权君主制、神权国家同郡县制一样，直辖的法理要划成辖区/教区
+            if (IsWesternCentralized()) ProcessTerritorialAcquisitionEnfeoff();
+            if (regime != null && data.powerful_minister_id > 0) ClearPowerfulMinister();
         }
         if (regime?.enfeoff_virtual_only != true) return;
         bool legalPeeragesDue = data.last_legal_peerage_timestamp < 0 ||
@@ -2076,6 +2140,8 @@ public class Empire : MetaObject<EmpireData>
         kingdoms_hashset.Add(pKingdom);
         cities_list = cities_list.Union(pKingdom.cities).ToList();
         pKingdom.EmpireJoin(this);
+        // 帝国与同盟不兼容：入帝国即退出原来的同盟
+        ModAllianceService.LeaveAllianceForEmpire(pKingdom);
         pKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
         if (pKingdom.HasTakenAlliance())
         {
@@ -2091,6 +2157,9 @@ public class Empire : MetaObject<EmpireData>
             recalculate();
         }
         data.timestamp_member_joined = World.world.getCurWorldTime();
+        // 古典共和帝国与西方封建帝国本质上是国家联盟：成员完全自治
+        if (PersonalUnionService.IsUnionRegime(CoreKingdom) && pKingdom != CoreKingdom)
+            CityStateService.GrantAutonomy(pKingdom);
         if (CompositeEmpireService.IsComposite(this))
             CompositeEmpireService.SynchronizeRegionalInstitution(this, pKingdom);
     }
@@ -3479,6 +3548,20 @@ public class Empire : MetaObject<EmpireData>
             }
         }
 
+        return GetLegalPeerageCrownCandidate();
+    }
+
+    // 朝廷另选王爵人选：皇帝的兄弟优先，其次太子以外的皇子。excludeId 用于诸侯请封被驳回时
+    // 排除原嗣君。
+    private Actor GetLegalPeerageCrownCandidate(long excludeId = -1L)
+    {
+        bool IsAvailable(Actor actor) => actor != null && !actor.isRekt() && !actor.isKing() &&
+            !actor.HasVirtualEnfeoff(this) && actor.kingdom?.GetEmpire() == this &&
+            actor.id != (CoreKingdom?.GetHeir()?.id ?? -1L) && actor.id != excludeId;
+        bool IsDynasticHeir(PersonalClanIdentity identity, PersonalClanIdentity source) =>
+            identity?._specificClan != null && identity._specificClan == EmpireSpecificClan &&
+            identity.CanHeir(source) && IsAvailable(identity._actor);
+
         PersonalClanIdentity emperorIdentity = Emperor?.GetPersonalIdentity();
         Actor sibling = SpecificClanManager.GetSiblingsWithRelation(emperorIdentity)
             .Select(item => item.Item2)
@@ -3586,6 +3669,10 @@ public class Empire : MetaObject<EmpireData>
             if (data.legal_peerage_types.TryGetValue(title.id, out string peerageType) &&
                 peerageType != "default_peerages_2") continue;
             Actor successor = GetLegalPeerageCandidate(title, out PersonalClanIdentity predecessor);
+            // 支系承袭(有前任藩王)要过一遍册封判定：封国势大时是请封/自立，朝廷可能驳回改立
+            if (successor != null && predecessor != null)
+                successor = VassalInvestitureService.ResolveVirtualSuccession(this, title, successor,
+                    GetLegalPeerageCrownCandidate(successor.id), ref predecessor);
             if (successor != null) GrantLegalPeerage(successor, title, predecessor);
         }
     }
@@ -3609,7 +3696,8 @@ public class Empire : MetaObject<EmpireData>
             data.last_legal_peerage_timestamp = -1L;
             return;
         }
-        AutoEstablishTerritorialDivisions(regime, RegimeSupportsProvince(regime));
+        // 西方中央集权君主制/神权国家：新得的土地不再分封，改设辖区/教区
+        AutoEstablishTerritorialDivisions(regime, RegimeSupportsProvince(regime) || IsWesternCentralized());
         World.world.zone_calculator.dirtyAndClear();
     }
 
@@ -3648,7 +3736,15 @@ public class Empire : MetaObject<EmpireData>
         bool completedTitle = currentCompleteTitles.Except(data.auto_enfeoff_observed_title_ids).Any();
         data.auto_enfeoff_observed_city_ids = currentCities.OrderBy(id => id).ToList();
         data.auto_enfeoff_observed_title_ids = currentCompleteTitles.OrderBy(id => id).ToList();
-        if (acquiredCity || completedTitle) AutoEnfeoff();
+        // 郡县制/中央集权/神权国家：核心王国除开国法理外还直辖别的法理时，一律划出行政区(同"普天之下")
+        if (acquiredCity || completedTitle || HoldsExtraDirectTitles()) AutoEnfeoff();
+    }
+
+    private bool HoldsExtraDirectTitles()
+    {
+        HashSet<long> protectedCities = GetProtectedDirectCityIds();
+        return CoreKingdom.cities.Any(city => IsDirectPartitionCandidate(city, protectedCities) &&
+                                              city.hasTitle() && city.GetTitle() is { } title && !title.isRekt());
     }
 
     private void AutoEstablishLvLingAdministrativeDivisions()
@@ -3784,6 +3880,8 @@ public class Empire : MetaObject<EmpireData>
         if (source == null || target == null || source == target) return false;
         if (source == CoreKingdom) return true;
         if (source.GetEmpire() != this || AncientWarfareCompatibility.Owns(source)) return false;
+        // 郡国并行：郡的土地不能被分封出去
+        if (source.GetKingdomType() == KingdomType.ZhouFeudalism_jun) return false;
         Regime sourceRegime = source.GetRegime();
         if (sourceRegime == null || sourceRegime.IsAllowDiplomacy()) return false;
         KingdomOpinion opinion = World.world?.diplomacy?.getOpinion(source, CoreKingdom);
@@ -3909,6 +4007,28 @@ public class Empire : MetaObject<EmpireData>
             CreateTerritorialPartition(region, null, regime, createAdministration);
         }
     }
+
+    // 把一片已收归核心王国的城市设为行政区(郡县)；title 不为空时由该行政区接管这个法理。
+    // 政体不支持行政区时返回 null，城市留在核心王国直辖。
+    public Kingdom EstablishAdministrativeDivision(List<City> region, KingdomTitle title)
+    {
+        Regime regime = CoreKingdom?.GetRegime();
+        // 政体没有行政区类型(比如还是分封制)时不建行政区，城市就留在王畿直辖；
+        // 施行了郡国并行的分封制可以设郡
+        if (regime == null || !(RegimeSupportsProvince(regime) || GraceEdictService.IsCommanderyKingdomActive(this) ||
+                                IsWesternCentralized()))
+            return null;
+        return CreateTerritorialPartition(region, title, regime, createAdministration: true);
+    }
+
+    // 西方封建制施行中央集权君主制后设辖区(Feudalism_intendancy)，施行神权国家后设教区(Feudalism_diocese)
+    public const string WesternCentralizedNodeId = "western_centralized_monarchy";
+    public const string WesternTheocraticNodeId = "western_theocratic_state";
+
+    public bool IsWesternCentralized() =>
+        CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism &&
+        (InstitutionSystem.IsEnacted(this, WesternCentralizedNodeId) ||
+         InstitutionSystem.IsEnacted(this, WesternTheocraticNodeId));
 
     private static bool RegimeSupportsProvince(Regime regime)
     {

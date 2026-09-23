@@ -59,6 +59,28 @@ public static class EmpireCraftNamePlateLibrary
         _text_cache.Clear();
         _text_position_cache.Clear();
     }
+    public static void ResetWorldState()
+    {
+        RequestRefresh();
+        _empire_position_cache.Clear();
+        _empire_position_cache_time.Clear();
+        _cached_empires.Clear();
+        _cached_kingdoms.Clear();
+        _cached_kingdoms_no_back.Clear();
+        _cached_cities.Clear();
+        _cached_cities_no_title.Clear();
+        _cached_neutral_cities.Clear();
+        _cached_culture_cities.Clear();
+        _culture_territory_groups.Clear();
+        _render_kingdoms_buffer.Clear();
+        _render_kingdoms_no_back_buffer.Clear();
+        _empire_city_members.Clear();
+        _empire_city_visited.Clear();
+        _empire_component_cities.Clear();
+        _empire_best_component_cities.Clear();
+        _empire_city_queue.Clear();
+        TerritoryLabelRenderer.ResetWorldState();
+    }
     private static Empire GetDisplayedEmpireForKingdom(Kingdom kingdom)
     {
         if (kingdom == null) return null;
@@ -284,15 +306,19 @@ public static class EmpireCraftNamePlateLibrary
                     showTextKingdomNoBack(nameplateText, kingdom);
                 }
 
+                bool showAlliances = ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH;
                 for (int i = 0; i < _render_kingdoms_buffer.Count; i++)
                 {
                     Kingdom kingdom = _render_kingdoms_buffer[i];
                     if (kingdom == null || kingdom.isRekt() || !kingdom.hasCapital()) continue;
+                    // 叠加同盟时，同盟成员由同盟铭牌代表(同原版同盟视图)
+                    if (showAlliances && kingdom.hasAlliance()) continue;
                     NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
                     nameplateText._showing = true;
                     nameplateText.setPriority(kingdom.getPopulationPeople());
                     showTextKingdom(nameplateText, kingdom);
                 }
+                RenderEmpireLayerAlliances(pManager);
             }
         };
         AssetManager.nameplates_library.add(asset);
@@ -788,6 +814,29 @@ public static class EmpireCraftNamePlateLibrary
                 view != 0 && empire == hoveredEmpire);
         }
 
+        // 帝国视图的补充：同盟标签覆盖其(不在帝国里的)成员国，悬停时淡出并显示成员国
+        bool showAlliances = ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH && view == 0;
+        Alliance hoveredAlliance = showAlliances && hoveredKingdom != null && !hoveredKingdom.IsInEmpire() &&
+                                   hoveredKingdom.hasAlliance()
+            ? hoveredKingdom.getAlliance()
+            : null;
+        if (showAlliances)
+        {
+            foreach (Alliance alliance in World.world.alliances)
+            {
+                if (alliance == null || !alliance.isAlive()) continue;
+                List<City> cities = alliance.kingdoms_hashset
+                    .Where(member => IsRenderableKingdom(member) && !member.IsInEmpire())
+                    .SelectMany(member => member.cities).ToList();
+                if (cities.Count == 0) continue;
+                TerritoryLabelRenderer.SubmitCities(
+                    $"political-alliance:{alliance.id}",
+                    alliance.data?.name,
+                    cities,
+                    alliance == hoveredAlliance ? TerritoryLabelRenderer.FadedAllianceStyle : TerritoryLabelRenderer.AllianceStyle);
+            }
+        }
+
         if (view == 0)
         {
             foreach (Kingdom kingdom in World.world.kingdoms)
@@ -795,6 +844,9 @@ public static class EmpireCraftNamePlateLibrary
                 if (!IsRenderableKingdom(kingdom)) continue;
                 bool belongsToHoveredEmpire = kingdom.IsInEmpire() && kingdom.GetEmpire() == hoveredEmpire;
                 if (kingdom.IsInEmpire() && !belongsToHoveredEmpire) continue;
+                bool belongsToHoveredAlliance = hoveredAlliance != null && kingdom.getAlliance() == hoveredAlliance;
+                if (showAlliances && !kingdom.IsInEmpire() && kingdom.hasAlliance() && !belongsToHoveredAlliance) continue;
+                belongsToHoveredEmpire |= belongsToHoveredAlliance;
                 TerritoryLabelRenderer.SubmitCities(
                     $"political-kingdom:{kingdom.id}",
                     GetTerritoryKingdomName(kingdom),
@@ -1334,6 +1386,31 @@ public static class EmpireCraftNamePlateLibrary
     {
         return World.world.move_camera.isWithinCameraViewNotPowerBar(pVector);
     }
+    // 帝国视图的补充：开关打开时叠加原版同盟铭牌，放在同盟里最强成员(在镜头内)的都城
+    private static void RenderEmpireLayerAlliances(NameplateManager pManager)
+    {
+        if (!ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH || World.world?.alliances == null) return;
+        if (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState() != 0) return;
+        NameplateAsset allianceAsset = AssetManager.nameplates_library.get("plate_alliance");
+        if (allianceAsset == null) return;
+        foreach (Alliance alliance in World.world.alliances)
+        {
+            if (alliance == null || !alliance.isAlive()) continue;
+            Kingdom strongest = null;
+            foreach (Kingdom member in alliance.kingdoms_hashset)
+            {
+                if (member == null || member.isRekt() || !member.hasCapital()) continue;
+                if (!isWithinCamera(member.capital.city_center)) continue;
+                if (strongest == null || strongest.power < member.power) strongest = member;
+            }
+            if (strongest == null) continue;
+            NameplateText nameplateText = pManager.prepareNext(allianceAsset, alliance);
+            nameplateText._showing = true;
+            nameplateText.setPriority(strongest.getPopulationPeople());
+            nameplateText.showTextAlliance(alliance, strongest.capital);
+        }
+    }
+
     public static NameplateText prepareNext(NameplateManager __instance, NameplateAsset pAsset, NanoObject pMeta, float left = 0, float bottom = 0, float right = 0, float top = 0)
     {
         NameplateText nameplateText;
@@ -1629,6 +1706,32 @@ public static class EmpireCraftNamePlateLibrary
                     if (faction != null)
                     {
                         var tf = empire.RunningTemporaryFaction;
+                        InstitutionReformState reform = empire.data.institution_state?.active_reform;
+                        string reformText = "";
+                        if (reform != null)
+                        {
+                            InstitutionNodeConfig reformNode = InstitutionDefinitionRegistry.Get(reform.node_id);
+                            FixedFaction sponsor = InstitutionSystem.GetReformSponsor(empire, reform);
+                            reformText = "\n" + string.Format(LM.Get("institution_nameplate_reform"),
+                                InstitutionSystem.GetNodeName(reformNode), reform.progress,
+                                sponsor?.Name ?? LM.Get("institution_reform_origin_ruler"), reform.radicalism)
+                                .ColorString(pColor: reform.radicalism >= 70f
+                                    ? new Color(0.9f, 0.35f, 0.3f)
+                                    : new Color(0.95f, 0.75f, 0.25f));
+                        }
+                        Dictionary<SocialClass, float> classShares = InstitutionSystem.BuildClassShares(empire);
+                        KeyValuePair<SocialClass, float> socialTension = InstitutionSystem
+                            .GetClassGrievances(empire)
+                            .Where(pair => classShares.TryGetValue(pair.Key, out float share) && share > 0f)
+                            .OrderByDescending(pair => pair.Value).FirstOrDefault();
+                        string socialText = socialTension.Value >= 50f
+                            ? "\n" + string.Format(LM.Get("institution_nameplate_social_tension"),
+                                LM.Get($"class_{socialTension.Key}"), socialTension.Value)
+                                .ColorString(pColor: socialTension.Value >=
+                                                       InstitutionDefinitionRegistry.Global.social_unrest.rebellion_threshold
+                                    ? new Color(0.9f, 0.25f, 0.2f)
+                                    : new Color(0.9f, 0.55f, 0.25f))
+                            : "";
                         text =
                             $"\n{(empire.EmpireClan?.name ?? LM.Get("label_no_royal_clan")).ColorString(pColor: Color.yellow)} | {LM.Get("label_dominant_faction")}: {faction.Name}" +
                             moneyText + "\n"+ $"{LM.Get("label_mandate")}:{empire.Mandate}" + "\n" +
@@ -1637,7 +1740,7 @@ public static class EmpireCraftNamePlateLibrary
                                 pColor: new Color(0.5f, 0.9f, 0.5f)) +
                             (tf!=null?tf.ShowAsPlot?$"({LM.Get("tf_starting")})"
                                 : $"({(int)(tf.progress / tf.progressMax * 100)}/100)"
-                                : "");
+                                : "") + reformText + socialText;
                     }
                 }
                 break;

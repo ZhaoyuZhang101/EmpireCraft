@@ -182,6 +182,14 @@ public class Name
                 actor.data.name = firstName;
             }
         }
+        // 西方帝国皇帝的王号：名 + 罗马数字序数(不带姓)
+        string regnalSuffix = actor.GetOrCreate()?.regnal_suffix;
+        if (!string.IsNullOrWhiteSpace(regnalSuffix) && hasFirstName(actor))
+        {
+            actor.data.name = OverallHelperFunc.JoinNameParts(firstName, regnalSuffix);
+            PersonalClanIdentity regnalIdentity = actor.GetPersonalIdentity();
+            if (regnalIdentity != null) regnalIdentity.name = actor.data.name;
+        }
         if (has_whole_name(actor))
         {
             actor.GetPersonalIdentity()?.BackfillRelatedHistoryRecords();
@@ -331,11 +339,23 @@ public static class ActorExtension
         public long virtual_enfeoff_empire_id = -1L;
         public string virtual_enfeoff_peerage_key = "";
         public string honorary_peerage_key = "";
+        // 西方帝国皇帝的王号序数(罗马数字)，有值时名字显示为"名 序数"，如"腓特烈 II"
+        public string regnal_suffix = "";
         public long honorary_peerage_empire_id = -1L;
         public string factionID = "";
         public Name name;
         public bool has_become_cleric = false;
         public SocialClass  socialClass = SocialClass.Peasant;
+        // 商人不是职业，而是家庭长期收入形成的经济身份。收入按城市年度结算滚动。
+        public int economic_income_current_year = 0;
+        public int economic_income_previous_year = 0;
+        public int merchant_high_income_years = 0;
+        public int merchant_low_income_years = 0;
+        public bool is_economic_merchant = false;
+        public long pending_trade_origin_city_id = -1L;
+        public long pending_trade_destination_city_id = -1L;
+        public double pending_trade_timestamp = -1d;
+        public bool pending_trade_foreign_kingdom = false;
         public OfficeIdentity officeIdentity { get; set; } = null;
         public double last_tax_timestamp = -1L;
         public double last_add_lover_timestamp = -1L;
@@ -1519,7 +1539,20 @@ public static class ActorExtension
                 }
             }
         }
-        return titles;
+        // 法理扩张有城市上限：销毁一个法理意味着它在本国的城市要并进主法理，并不进去的法理就不销毁
+        int max = KingdomTitleManager.MaxCitiesPerTitle;
+        if (max <= 0) return titles;
+        KingdomTitle mainTitle = a.kingdom?.GetMainTitle();
+        int room = max - (mainTitle != null ? KingdomTitleManager.CountTitleCities(mainTitle) : 1);
+        var destroyable = new List<KingdomTitle>();
+        foreach (KingdomTitle kt in titles)
+        {
+            int absorbed = kt.getCities().Count(city => city != null && !city.isRekt() && city.kingdom == a.kingdom);
+            if (absorbed > room) continue;
+            room -= absorbed;
+            destroyable.Add(kt);
+        }
+        return destroyable;
     }
 
     public static List<KingdomTitle> takeTitle(this Actor a)

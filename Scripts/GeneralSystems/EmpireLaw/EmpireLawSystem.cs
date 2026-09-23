@@ -96,7 +96,8 @@ public enum LawType
     扰乱集市 = 53,
     污染水源 = 54,
     散布恐慌谣言 = 55,
-    过于强大 = 56
+    过于强大 = 56,
+    逃人法 = 57
 }
 
 public enum PunishmentLevel
@@ -984,4 +985,3 @@ public static class EmpireLawSystem
         return true;
     }
 }
-

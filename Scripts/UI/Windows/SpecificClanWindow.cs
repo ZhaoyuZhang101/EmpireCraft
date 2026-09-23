@@ -30,8 +30,14 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     SpecificClan _sc;
     PersonalClanIdentity _identity;
     private TextInput _clanInput;
+
+    // AutoLayoutWindow<T> 不像 AbstractWindow<T> 那样自带静态 Instance——补一个，
+    // 好让 SpecificClanTreeWindow 能拿到这边的 ShowPersonalInfo 直接复用同一张卡片。
+    public static SpecificClanWindow Instance { get; private set; }
+
     protected override void Init()
     {
+        Instance = this;
         this.layout.spacing = 3;
         this.layout.padding = new RectOffset(3, 3, 80, 3);
         _clanInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
@@ -56,6 +62,15 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
             var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
             tab.Setup("specific_clan_related_history", ScrollWindowComponent, action: ShowRelatedHistory,
                 sprite: SpriteTextureLoader.getSprite("ui/iconHistory"));
+        }
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_tree"))
+        {
+            var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            // 族谱树自己开一个单独的宽窗口(SpecificClanTreeWindow)，不再是这个窗口内部的一个页签内容——
+            // 宗族主窗口保持原来的窄卡片布局不变，只有树状图需要更宽的可视区域。
+            tab.Setup("specific_clan_tree", ScrollWindowComponent,
+                action: _ => SpecificClanTreeWindow.ShowFor(_identity),
+                sprite: SpriteTextureLoader.getSprite("ui/specificClanIcon"));
         }
     }
 
@@ -416,6 +431,9 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     }
     public void Clear()
     {
+        // 每次切换页面(卡片视图/历史/树状图)都先把外层窗口的滚动条恢复默认——只有树状图
+        // 自己要关掉它(树本身已经有一套独立的拖拽/缩放了，两层滚动叠在一起会互相抢事件)。
+        SetScrollEnabled(true);
         foreach (var group in _groups)
         {
             Destroy(group.Value.gameObject);
@@ -426,6 +444,12 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
             Destroy(group.Value.gameObject);
         }
         _hGroups.Clear();
+    }
+
+    private void SetScrollEnabled(bool enabled)
+    {
+        ScrollRect scrollRect = ScrollWindowComponent?.scrollRect;
+        if (scrollRect != null) scrollRect.vertical = enabled;
     }
     //显示直系长辈空间
     public AutoVertLayoutGroup ShowParentGenerationSpace()
@@ -519,16 +543,63 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         this._sc = actor_identity._specificClan;
         refreshAll();
     }
-    [Hotfixable]
-    public void ShowPersonalInfo(AutoGridLayoutGroup parent, PersonalClanIdentity actor, ClanRelation relation = ClanRelation.NONE)
+    // parent 允许传 null：树状图那边要把卡片摆到自己的绝对坐标系里，不走网格流式布局，
+    // 所以卡片建好后不在这里挂父节点，由调用方自己 SetParent + 定位；网格视图照常传
+    // 非空 parent，行为完全不变。卡片本身的搭法(头像+信息栏+clanFrame 边框)一个字没动。
+    // 当过皇帝的人，官职栏换成帝号：在位的显示"国号+年号+皇帝"(明永乐皇帝)；
+    // 已故且被追封了庙号的显示"国号+庙号(年号)"(明成祖(永乐))，只有谥号的用"国号+谥号+帝"。
+    // 其余情况(没当过皇帝、被废黜仍在世、已故但还没追封又没有年号)照旧显示记录的官职。
+    private static string GetDisplayOfficeName(PersonalClanIdentity identity)
     {
-        
+        string fallback = string.IsNullOrEmpty(identity?.officeName) ? "无" : identity.officeName;
+        if (identity == null || identity.actor_id <= 0 || ModClass.EMPIRE_MANAGER == null) return fallback;
+
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+        {
+            EmpireCraftHistory current = empire?.data?.currentHistory;
+            if (identity.is_alive && current != null && current.id == identity.actor_id)
+            {
+                string yearName = empire.data.has_year_name ? current.year_name : "";
+                return string.IsNullOrWhiteSpace(yearName)
+                    ? fallback
+                    : $"{current.empire_name}{yearName}{LM.Get("emperor")}";
+            }
+        }
+        if (identity.is_alive) return fallback;
+
+        // 跟帝国核心窗口同一个来源：在世帝国的历代记录 + 已灭亡帝国归档在 ALL_HISTORY_DATA 里的记录，
+        // 亡朝皇帝的庙号/谥号也能查到。
+        IEnumerable<EmpireCraftHistory> liveHistories = ModClass.EMPIRE_MANAGER
+            .Where(empire => empire?.data?.history != null)
+            .SelectMany(empire => empire.data.history);
+        IEnumerable<EmpireCraftHistory> archivedHistories = (ModClass.ALL_HISTORY_DATA ??
+                                                             new Dictionary<long, List<EmpireCraftHistory>>())
+            .Values.Where(list => list != null).SelectMany(list => list);
+        EmpireCraftHistory history = liveHistories.Concat(archivedHistories)
+            .LastOrDefault(record => record != null && record.id == identity.actor_id);
+        if (history == null) return fallback;
+
+        string era = string.IsNullOrWhiteSpace(history.year_name) ? "" : $"({history.year_name})";
+        if (!string.IsNullOrEmpty(history.miaohao_name))
+            return $"{history.empire_name}{LM.Get(history.miaohao_name)}{LM.Get(history.miaohao_suffix)}{era}";
+        if (!string.IsNullOrEmpty(history.shihao_name))
+            return $"{history.empire_name}{LM.Get(history.shihao_name)}{LM.Get("emperor_suffix")}{era}";
+        return string.IsNullOrWhiteSpace(history.year_name)
+            ? fallback
+            : $"{history.empire_name}{history.year_name}{LM.Get("emperor")}";
+    }
+
+    [Hotfixable]
+    public AutoHoriLayoutGroup ShowPersonalInfo(AutoGridLayoutGroup parent, PersonalClanIdentity actor, ClanRelation relation = ClanRelation.NONE, UnityAction<PersonalClanIdentity> onAvatarClick = null)
+    {
+
         AutoHoriLayoutGroup personalGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
 
         //右边头像
         AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:12, pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
-        
-        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, () => ChangeActor(actor),
+
+        UnityAction<PersonalClanIdentity> avatarClick = onAvatarClick ?? ChangeActor;
+        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, () => avatarClick(actor),
             pIsAlive:actor.is_alive, pIdentity:actor);
         avatarLayoutGroup.AddChild(clickframe.gameObject);
         avatarLayoutGroup.transform.localPosition = Vector3.zero;
@@ -541,11 +612,12 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         leftVertGroup.AddTextIntoVertLayout($"<color=#FF4500>{(actor.is_alive?"":LM.Get("is_dead")+"-")}</color>{actor.name} ({LM.Get($"relation_{relation.ToString()}")}-{LM.Get(actor.isMainText)})", size: new Vector2(50, 10));
         leftVertGroup.AddTextIntoVertLayout($"{actor.birthday+"-"+actor.getDeathday()}", size: new Vector2(50, 10));
         var flag = actor.is_alive && actor._actor.IsOnOffice();
-        leftVertGroup.AddTextIntoVertLayout($"官职：{(string.IsNullOrEmpty(actor.officeName)?"无":actor.officeName).ColorString(pColor:flag?Color.yellow:Color.gray)}");
+        leftVertGroup.AddTextIntoVertLayout($"官职：{GetDisplayOfficeName(actor).ColorString(pColor:flag?Color.yellow:Color.gray)}");
         leftVertGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(leftVertGroup.gameObject);
         personalGroup.transform.AddStretchBackground("clanFrame", size: new Vector2(100, 50));
-        parent.AddChild(personalGroup.gameObject);
+        parent?.AddChild(personalGroup.gameObject);
+        return personalGroup;
     }
     [Hotfixable]
     
@@ -561,7 +633,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 
         SimpleText levelText = GameObject.Instantiate(SimpleText.Prefab);
         var flag = actor.is_alive && actor._actor.IsOnOffice();
-        levelText.Setup($"官职：{(string.IsNullOrEmpty(actor.officeName)?"无":actor.officeName).ColorString(pColor:flag?Color.yellow:Color.gray)}", pSize: new Vector2(50, 10));
+        levelText.Setup($"官职：{GetDisplayOfficeName(actor).ColorString(pColor:flag?Color.yellow:Color.gray)}", pSize: new Vector2(50, 10));
 
         SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
         timeText.Setup($"{actor.birthday+"-"+actor.getDeathday()}", pSize: new Vector2(50, 10));

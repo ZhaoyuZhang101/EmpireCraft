@@ -109,9 +109,72 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(UpdateMovement)));
         new Harmony(nameof(IncreaseKills)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.increaseKills)),
             postfix: new HarmonyMethod(GetType(), nameof(IncreaseKills)));
+        new Harmony(nameof(AddMoney)).Patch(
+            AccessTools.Method(typeof(Actor), nameof(Actor.addMoney), new[] { typeof(int) }),
+            prefix: new HarmonyMethod(GetType(), nameof(AddMoney)));
+        new Harmony(nameof(RecordBoatTradeArrival)).Patch(
+            AccessTools.Method(typeof(BehBoatMakeTrade), nameof(BehBoatMakeTrade.execute)),
+            postfix: new HarmonyMethod(GetType(), nameof(RecordBoatTradeArrival)));
+        new Harmony(nameof(BeforeTradeUnload)).Patch(
+            AccessTools.Method(typeof(Actor), nameof(Actor.giveInventoryResourcesToCity)),
+            prefix: new HarmonyMethod(GetType(), nameof(BeforeTradeUnload)),
+            postfix: new HarmonyMethod(GetType(), nameof(AfterTradeUnload)));
+        new Harmony(nameof(CheckInside)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.u1_checkInside)),
+            prefix: new HarmonyMethod(GetType(), nameof(CheckInside)));
+        new Harmony(nameof(ShowWhisperTip)).Patch(AccessTools.Method(typeof(ActionLibrary), nameof(ActionLibrary.showWhisperTip)),
+            prefix: new HarmonyMethod(GetType(), nameof(ShowWhisperTip)));
         new Harmony(nameof(SpawnSkeleton)).Patch(AccessTools.Method(typeof(ActionLibrary), nameof(ActionLibrary.spawnSkeleton)),
             prefix: new HarmonyMethod(GetType(), nameof(SpawnSkeleton)));
         LogService.LogInfo("角色补丁加载成功");
+    }
+
+    // Repairs passengers already stranded in a destroyed boat (e.g. from older saves),
+    // which would otherwise throw a NullReferenceException every frame.
+    public static void CheckInside(Actor __instance)
+    {
+        if (!__instance.is_inside_boat) return;
+        Boat boat = __instance.inside_boat;
+        if (boat?.actor != null && boat.actor.isAlive()) return;
+
+        boat?.removePassenger(__instance);
+        if (__instance.isAlive() && __instance.current_tile != null)
+        {
+            __instance.disembarkTo(boat, __instance.current_tile);
+        }
+        else
+        {
+            __instance.data.transportID = -1L;
+            __instance.exitBoat();
+        }
+    }
+
+    // showWhisperTip treats its argument as a locale key; the mod also passes already
+    // formatted text, which logs "missing text" every time. Show such text as-is.
+    public static bool ShowWhisperTip(string pText)
+    {
+        if (string.IsNullOrEmpty(pText) || LocalizedTextManager.stringExists(pText)) return true;
+        WorldTip.showNow(pText, pTranslate: false, "top", 6f);
+        return false;
+    }
+
+    public static void AddMoney(Actor __instance, int __0)
+    {
+        if (__0 > 0) LandEconomySystem.RecordIncome(__instance, __0);
+    }
+
+    public static void RecordBoatTradeArrival(Actor __0, BehResult __result)
+    {
+        if (__result == BehResult.Continue) ConstitutionalEconomySystem.RecordArrival(__0);
+    }
+
+    public static void BeforeTradeUnload(Actor __instance, out TradeDeliverySnapshot __state)
+    {
+        __state = ConstitutionalEconomySystem.BeforeUnload(__instance);
+    }
+
+    public static void AfterTradeUnload(Actor __instance, TradeDeliverySnapshot __state)
+    {
+        ConstitutionalEconomySystem.AfterUnload(__instance, __state);
     }
 
     public static void UpdateMovement(Actor __instance, float pElapsed, float pWalkedDistance)
@@ -242,8 +305,19 @@ public class ActorPatch : GamePatch
     public static void Die(Actor __instance, bool pDestroy = false, AttackType pType = AttackType.Other, bool pCountDeath = true,
         bool pLogFavorite = true)
     {
+        // Vanilla only unloads passengers from the boat's death callbacks, which run
+        // when it is killed by damage. A direct die()/dieAndDestroy() skips them and
+        // leaves passengers pointing at a disposed boat (NRE in u1_checkInside).
+        if (__instance.asset?.is_boat == true && __instance.current_tile != null)
+        {
+            __instance.getSimpleComponent<Boat>()?.unloadPassengers(__instance.current_tile, pRandomForce: true);
+        }
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         Kingdom rulingKingdom = __instance.isKing() ? __instance.kingdom : null;
+        if (rulingKingdom != null && !rulingKingdom.IsEmpire() && rulingKingdom.IsInEmpire())
+            rulingKingdom.GetOrCreate().last_king_identity_id = __instance.GetPersonalIdentity()?.id ?? -1L;
+        // 共主去世：城邦跟随盟主新君，封建王国按长幼分给子女
+        if (rulingKingdom != null) PersonalUnionService.OnRulerDying(__instance);
         rulingKingdom?.SyncRealmTitlesFromRuler(__instance);
         HashSet<long> realmTitleIds = rulingKingdom?.GetRealmTitleIds().ToHashSet() ?? new HashSet<long>();
         // This runs before the actor and its kingdom links are torn down. The
@@ -323,18 +397,15 @@ public class ActorPatch : GamePatch
     public static void UpdateAge(Actor __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
-        if (__instance.age > 70)
-        {
-            __instance.ChangeDeathRate(0.01f);
-        }
+        if (!EmpireCraftWorldLawLibrary.empirecraft_law_realistic_age.isEnabled() ||
+            __instance.hasTrait("immortal") || __instance.stats == null) return;
 
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_realistic_age.isEnabled())
-        {
-            if (__instance.NeedDead())
-            {
-                __instance.addTrait("death_mark");
-            } 
-        }
+        float lifespan = __instance.stats["lifespan"];
+        if (lifespan <= 0f || __instance.getAge() <= lifespan) return;
+
+        __instance.ChangeDeathRate(0.01f);
+        if (__instance.NeedDead() && !__instance.hasTrait("death_mark"))
+            __instance.addTrait("death_mark");
     }
 
     public static void actionLanded(Actor __instance)

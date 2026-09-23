@@ -18,69 +18,80 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftTooltipLibrary
 {
+    // 覆盖原版同名提示(如 kingdom)：先移除旧的再加，避免 AssetLibrary 报 duplicate asset 错误
+    private static void AddOrReplace(TooltipLibrary tl, TooltipAsset asset)
+    {
+        if (tl.dict.TryGetValue(asset.id, out TooltipAsset existing))
+        {
+            tl.dict.Remove(asset.id);
+            tl.list.Remove(existing);
+        }
+        tl.add(asset);
+    }
+
     public static void init()
     {
         TooltipLibrary tl = AssetManager.tooltips;
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "empire",
             prefab_id = "tooltips/tooltip_kingdom",
             callback = showEmpireToolTip
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "kingdomTitle",
             prefab_id = "tooltips/tooltip_city",
             callback = showKingdomTitleToolTip
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "empireCore",
             prefab_id = "tooltips/tooltip_kingdom",
             callback = showEmpireCoreToolTip
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "actor_officer",
             prefab_id = "tooltips/tooltip_actor",
             callback = showOfficer
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "actor_emperor",
             prefab_id = "tooltips/tooltip_actor",
             callback = showEmperor
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "all_titles",
             callback = showTitleList
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "kingdom",
             prefab_id = "tooltips/tooltip_kingdom",
             callback = showKingdom
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
 	        id = "actor_king",
 	        prefab_id = "tooltips/tooltip_actor",
 	        callback = showKing
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
 	        id = "actor",
 	        prefab_id = "tooltips/tooltip_actor",
 	        callback = showActorNormal
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
 	        id = "actor_leader",
 	        prefab_id = "tooltips/tooltip_actor",
 	        callback = showLeader
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "empirecraft_actor",
             prefab_id = "tooltips/tooltip_normal",
@@ -89,7 +100,7 @@ public static class EmpireCraftTooltipLibrary
         // 文化图层悬停城市时用：展示该城市自己的文化影响力前三，用真正的鼠标悬停
         // Tooltip 呈现（跟"empire"图层的 ShowEmpireCursorTooltip 走同一套
         // Tooltip.show/hideTooltip API），而不是伪造一块透明铭牌顶在城市上方。
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "empirecraft_culture_share",
             prefab_id = "tooltips/tooltip_normal",

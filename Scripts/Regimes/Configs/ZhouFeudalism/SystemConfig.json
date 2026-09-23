@@ -57,6 +57,10 @@
       "option_religion_type": [
         2,
         4
+      ],
+      "option_succession_law": [
+        0,
+        5
       ]
     },
     "bureau_config": {
@@ -236,6 +240,20 @@
           "leader_select_method": "Default",
           "require_traits": [],
           "condition": ["empire_center:true"],
+          "city_type": "ZhouFeudalism_city"
+        },
+        // 郡国并行：分封制下由官员治理的郡(非世袭、无外交)，要排在公侯伯子之前判定
+        "ZhouFeudalism_jun": {
+          "pre": "",
+          "type": 7,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": [],
+          "condition": ["empire_center:false", "succession:false", "allow_diplomacy:false"],
           "city_type": "ZhouFeudalism_city"
         },
         "ZhouFeudalism_gong": {

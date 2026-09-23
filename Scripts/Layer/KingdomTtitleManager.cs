@@ -64,6 +64,19 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         return get(t) != null;
     }
 
+    // 法理扩张(未冻结法理)时，单个王国法理最多容纳的城市数；0 表示不限。只限制决议自动扩张，
+    // 上帝之力手动加城不受影响。
+    public static int MaxCitiesPerTitle => ModClass.KINGDOM_TITLE_FREEZE ? 0 : Math.Max(0, ModClass.TITLE_MAX_CITIES);
+
+    public static int CountTitleCities(KingdomTitle title) =>
+        title?.getCities()?.Count(city => city != null && !city.isRekt()) ?? 0;
+
+    public static bool HasRoomFor(KingdomTitle title, int adding = 1)
+    {
+        int max = MaxCitiesPerTitle;
+        return max <= 0 || title == null || CountTitleCities(title) + adding <= max;
+    }
+
     public void AddCityToTitle(KingdomTitle pTitle, City pCity)
     {
         if (pTitle != null && pCity != null)

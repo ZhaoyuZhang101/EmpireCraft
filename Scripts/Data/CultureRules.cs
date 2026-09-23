@@ -29,6 +29,11 @@ public class Setting
 {
     public List<string> traits = new List<string>();
     public RegimeType regime;
+    // 这个文化归属哪条制度科技线（对应 InstitutionTrees/<线 id>.json 的文件名）。
+    // 制度归属文化而不是政体：政体会被制度节点的 change_regime 效果改掉（华夏线的郡县制
+    // 会把周制改成律令制），但文化所属的线终身不变。
+    // 留空或写了个目录里不存在的 id，会退化成 InstitutionTrees/Settings.json 里的 default_line。
+    public string institution_line = "";
     public CitySetting City;
     public KingdomSetting Kingdom;
     public ClanSetting Clan;
@@ -121,6 +126,17 @@ public static class OnomasticsRule
         Color fallback = Color.HSVToRGB(hue, 0.55f, 0.85f);
         fallback.a = 1f;
         return fallback;
+    }
+
+    // 文化归属的制度科技线 id。返回空串表示没配/配错，由 InstitutionDefinitionRegistry.ResolveLine
+    // 兜底到 Settings.json 的 default_line —— 线是纯字符串而不是枚举，就是为了让加一条新线
+    // 只需要往 InstitutionTrees/ 里丢一个 json，不用改代码。
+    public static string GetInstitutionLine(this string culture)
+    {
+        return !string.IsNullOrEmpty(culture) && ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) &&
+               !string.IsNullOrWhiteSpace(setting?.institution_line)
+            ? setting.institution_line.Trim()
+            : "";
     }
 
     public static string GetCultureTranslate(this string culture)

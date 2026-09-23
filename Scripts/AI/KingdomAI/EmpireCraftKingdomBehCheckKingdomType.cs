@@ -29,6 +29,7 @@ public enum ConditionType
     empire_royal,
     is_border,
     culture_mismatch,
+    empire_institution,
     None
 }
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
@@ -182,6 +183,13 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                                  CultureService.IsValidCulture(kingdomCulture);
                     var actual = valid && !string.Equals(empireCulture, kingdomCulture, StringComparison.Ordinal);
                     if (actual != expect) return false;
+                    break;
+                }
+                case ConditionType.empire_institution:
+                {
+                    // 所属帝国已施行某个制度节点，例："empire_institution:western_theocratic_state"
+                    if (string.IsNullOrEmpty(val) || empire == null) return false;
+                    if (!InstitutionSystem.IsEnacted(empire, val)) return false;
                     break;
                 }
                 default:

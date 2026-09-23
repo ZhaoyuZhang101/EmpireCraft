@@ -35,7 +35,8 @@ public static class ImperialLegitimacyChallengeService
         if (sameCultureEmpires.Count != 1) return false;
 
         Empire incumbent = sameCultureEmpires[0];
-        if (incumbent.CoreKingdom.hasEnemies() || incumbent.data.legitimacy_rivalry_recognized) return false;
+        // 帝国正在打仗也可以趁机发起
+        if (incumbent.data.legitimacy_rivalry_recognized) return false;
         bool sharesLandBorder = SharesLandBorder(kingdom, incumbent);
         if (!ImperialLegitimacyRules.CanChallenge(kingdom.GetNationalPower(), incumbent.GetNationalPower(),
                 sameCultureEmpires.Count, !kingdom.IsInEmpire(), sharesLandBorder)) return false;
@@ -102,6 +103,49 @@ public static class ImperialLegitimacyChallengeService
         return true;
     }
 
+    // 僭越称帝：与主法理所在核心的现存帝国并立，互为正统对手(先不开战)，天命仅 20
+    public static void DeclareUsurpation(Empire usurper, Empire incumbent)
+    {
+        if (!IsActiveEmpire(usurper) || !IsActiveEmpire(incumbent) || usurper == incumbent) return;
+        MarkRivalry(usurper, incumbent, challengerIsClaimant: true);
+        usurper.data.Mandate = EmpireFormationService.UsurpationMandate;
+        string content = string.Format(LM.Get("history_usurpation_declared"),
+            usurper.Emperor?.getName() ?? usurper.GetEmpireFullName(), usurper.GetEmpireFullName(),
+            incumbent.GetEmpireFullName());
+        usurper.RecordHistory(directContent: content, actorId: usurper.Emperor?.id ?? -1L,
+            kingdomId: usurper.CoreKingdom?.id ?? -1L);
+        incumbent.RecordHistory(directContent: content, actorId: usurper.Emperor?.id ?? -1L,
+            kingdomId: usurper.CoreKingdom?.id ?? -1L);
+        ActionLibrary.showWhisperTip(content);
+    }
+
+    // 互为正统对手的两个帝国：较强的一方(双方之间没有战争时)可以发起正统之争；每次检查有一定概率
+    public static bool TryStartRivalryWar(Empire empire)
+    {
+        if (!IsActiveEmpire(empire) || !empire.data.legitimacy_rivalry_recognized) return false;
+        Empire rival = ModClass.EMPIRE_MANAGER?.get(empire.data.legitimacy_rival_empire_id);
+        if (!AreRecognizedRivals(empire, rival)) return false;
+        Kingdom core = empire.CoreKingdom;
+        Kingdom rivalCore = rival.CoreKingdom;
+        if (core == null || rivalCore == null || core.isRekt() || rivalCore.isRekt()) return false;
+        if (core.isInWarWith(rivalCore) || core.GetMoney() < 0) return false;
+        if (empire.GetNationalPower() <= rival.GetNationalPower()) return false;
+        if (UnityEngine.Random.value > RivalryWarChance) return false;
+
+        War war = DiplomacyHelpers.wars.newWar(core, rivalCore, WarTypeLibrary.normal);
+        if (war == null) return false;
+        war.SetEmpireWarType(EmpireWarType.去帝号, nanoObject: rival);
+        war.InitializeLegitimacyChallenge(empire, rival);
+        foreach (Kingdom member in empire.kingdoms_list.ToList())
+            if (member != null && member != core && !member.isRekt()) war.joinAttackers(member);
+        foreach (Kingdom member in rival.kingdoms_list.ToList())
+            if (member != null && member != rivalCore && !member.isRekt()) war.joinDefenders(member);
+        RecordDeclaration(empire, rival, empire.Emperor, rival.Emperor);
+        return true;
+    }
+
+    private const float RivalryWarChance = 0.1f;
+
     public static bool AreRecognizedRivals(Empire first, Empire second)
     {
         if (!IsActiveEmpire(first) || !IsActiveEmpire(second) || first == second) return false;
@@ -146,6 +190,7 @@ public static class ImperialLegitimacyChallengeService
     private static void ResolveVictory(War war, Empire challenger, Empire incumbent)
     {
         if (challenger == null || challenger.IsArchived()) return;
+        bool challengerWasClaimant = challenger.data.legitimacy_challenger;
         WarExtension.WarExtraData warData = war.GetOrCreate();
         Actor challengerEmperor = challenger.Emperor;
         Actor formerEmperor = incumbent?.Emperor ?? World.world?.units?.get(warData.legitimacy_defender_emperor_id);
@@ -207,9 +252,18 @@ public static class ImperialLegitimacyChallengeService
         EmpireCore inheritedCore = EmpireCoreManager.Get(incumbent) ??
                                    EmpireCoreManager.Get(warData.legitimacy_defender_core_id);
         EmpireCore provisionalCore = EmpireCoreManager.Get(challenger);
-        if (provisionalCore != null && provisionalCore != inheritedCore)
-            EmpireCoreManager.DestroyEmpireCore(provisionalCore);
-        if (inheritedCore != null) EmpireCoreManager.RebindEmpire(challenger, inheritedCore);
+        if (challengerWasClaimant)
+        {
+            // 挑战/僭越一方胜出：销毁自己的临时核心，接管原帝国的核心
+            if (provisionalCore != null && provisionalCore != inheritedCore)
+                EmpireCoreManager.DestroyEmpireCore(provisionalCore);
+            if (inheritedCore != null) EmpireCoreManager.RebindEmpire(challenger, inheritedCore);
+        }
+        else if (inheritedCore != null && inheritedCore != provisionalCore)
+        {
+            // 原帝国平定僭越者：保留自己的核心，僭越者的临时核心随之销毁
+            EmpireCoreManager.DestroyEmpireCore(inheritedCore);
+        }
 
         if (incumbent != null && !incumbent.IsArchived()) ModClass.EMPIRE_MANAGER.dissolveEmpire(incumbent);
         if (retirementKingdom != null && !retirementKingdom.isRekt())

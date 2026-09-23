@@ -1,0 +1,58 @@
+{
+  "schema_version": 3,
+  "ai_enabled": true,
+  "default_line": "Roma",
+  "culture_levels": [
+    {
+      "level": 1,
+      "name_key": "institution_culture_level_1",
+      "minimum_advancement": 0
+    },
+    {
+      "level": 2,
+      "name_key": "institution_culture_level_2",
+      "minimum_advancement": 5
+    },
+    {
+      "level": 3,
+      "name_key": "institution_culture_level_3",
+      "minimum_advancement": 9
+    },
+    {
+      "level": 4,
+      "name_key": "institution_culture_level_4",
+      "minimum_advancement": 14
+    }
+  ],
+  "absorption": {
+    "enabled": true,
+    "max_tier_gap": 0,
+    "exposure_per_year": 10.0,
+    "minimum_exposure": 30.0,
+    "minimum_contact_years": 3,
+    "same_empire_weight": 1.0,
+    "land_border_weight": 0.5,
+    "alliance_or_tributary_weight": 0.7,
+    "occupied_city_weight": 1.2
+  },
+  "social_unrest": {
+    "enabled": true,
+    "opposition_target_multiplier": 40.0,
+    "support_relief_multiplier": 3.0,
+    "annual_adjustment_rate": 0.16,
+    "reform_completion_shock": 14.0,
+    "regression_shock": 24.0,
+    "rebellion_threshold": 75.0,
+    "rebellion_cooldown_years": 12
+  },
+  "reform_competition": {
+    "enabled": true,
+    "isolated_duration_years": 50,
+    "country_bonus_per_additional": 0.025,
+    "country_bonus_cap": 0.25,
+    "empire_bonus_per_additional": 0.35,
+    "empire_bonus_cap": 1.05,
+    "advanced_border_bonus": 1.0,
+    "maximum_speed_multiplier": 3.0
+  }
+}

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
@@ -52,6 +53,7 @@ public class TemporaryFactionExecutePatch : GamePatch
 
             if (__exception == null)
             {
+                FactionClassSystem.ApplyClaimOutcome(empire, __instance.factionID, __instance.type);
                 TranslateHelper.LogTemporaryFactionSucceeded(empire, claimName, targetName, crimeName,
                     __instance.CompletionOutcome);
             }

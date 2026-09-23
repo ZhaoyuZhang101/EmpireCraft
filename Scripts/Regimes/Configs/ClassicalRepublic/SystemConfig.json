@@ -1,0 +1,99 @@
+{
+  "ClassicalRepublic": {
+    "description": "西方古典城邦共和制度，公民大会、贵族议事会与选举官员共同治理城邦",
+    "icon_url": "",
+    "era_name": false,
+    "has_cabinet": false,
+    "cabinet_number": 0,
+    "leader_select_method": "Vote",
+    "default_kingdom": "ClassicalRepublic_city_state",
+    "centre_empire_separate": true,
+    "laws": [0,1,2,3,4,5,6,7,8,9,10,11,13,14,16,17,19,20,21,22,24,27,28,29,31,32,33,34,35,36,37,38,39,40,41,46,47,48,50,51,52,53,54,55],
+    "Factions": [
+      {
+        "_id": "6ea56f1a-c3b2-4a79-b2e7-52b172f43f10",
+        "Type": "共和",
+        "Ban": false,
+        "_requiredTraits": ["peaceful"],
+        "Name": "公民派",
+        "only_king": false,
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        "_id": "74e95db6-706a-4cee-a73f-ec15c46bd4e0",
+        "Type": "僭主",
+        "Ban": false,
+        "_requiredTraits": ["ambitious"],
+        "Name": "贵族寡头派",
+        "only_king": false,
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [1],
+      "toggle_allow_army": [1],
+      "toggle_support_army_to_center": [0],
+      "option_tax_level": [1,4],
+      "option_leader_select_method": [2,3],
+      "option_religion_type": [1,4],
+      "option_succession_law": [0, 5]
+    },
+    "bureau_config": {
+      "cores": [],
+      "division": [],
+      "harems": [],
+      "armies": {},
+      "kingdoms": {
+        "ClassicalRepublic_centre": {
+          "pre": "",
+          "type": 0,
+          "description": "",
+          "powers": ["拟定","审核","执行","军事"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": true,
+          "leader_select_method": "Vote",
+          "require_traits": [],
+          "condition": ["empire_center:true"],
+          "city_type": "ClassicalRepublic_city"
+        },
+        "ClassicalRepublic_city_state": {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": true,
+          "leader_select_method": "Vote",
+          "require_traits": [],
+          "condition": ["empire_center:false"],
+          "city_type": "ClassicalRepublic_city"
+        }
+      },
+      "cities": {
+        "ClassicalRepublic_city": {
+          "pre": "",
+          "type": 2,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": true,
+          "leader_select_method": "Vote",
+          "require_traits": [],
+          "condition": []
+        }
+      }
+    }
+  }
+}

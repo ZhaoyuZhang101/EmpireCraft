@@ -9,7 +9,9 @@ public enum EmpireFoundingNameSource
     AncestralTitle,
     OwnedTitle,
     EmpireCore,
-    KingdomName
+    KingdomName,
+    ClanOriginTitle,
+    CapitalTitle
 }
 
 public sealed class EmpireFoundingNameChoice
@@ -25,6 +27,8 @@ public sealed class EmpireFoundingNameChoice
         EmpireFoundingNameSource.AncestralTitle => "empire_name_source_ancestral_title",
         EmpireFoundingNameSource.OwnedTitle => "empire_name_source_owned_title",
         EmpireFoundingNameSource.EmpireCore => "empire_name_source_empire_core",
+        EmpireFoundingNameSource.ClanOriginTitle => "empire_name_source_clan_origin_title",
+        EmpireFoundingNameSource.CapitalTitle => "empire_name_source_capital_title",
         _ => "empire_name_source_kingdom_name"
     };
 

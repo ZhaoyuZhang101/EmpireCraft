@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
@@ -295,6 +296,13 @@ public class FixedFaction
     [JsonIgnore] 
     public Empire Empire => ModClass.EMPIRE_MANAGER.get(EmpireId);
     public List<long> Members = new();
+    // 抽象阶层政治基础：亲和度(-100~100)是派系的长期定位；好感与支持份额(0~100)
+    // 会被诉求、制度和年度竞争改变。它们不代表具体人物入党。
+    public Dictionary<SocialClass, float> ClassAffinities = new();
+    public Dictionary<SocialClass, float> ClassFavor = new();
+    public Dictionary<SocialClass, float> ClassSupport = new();
+    public Dictionary<SocialClass, string> ClassFavorSources = new();
+    [JsonIgnore] public float ClassPower;
     [JsonIgnore] public List<Actor> AllMembers => Members.Select(id => World.world.units.get(id))
         .Where(actor => actor != null && !actor.isRekt()).ToList();
     [JsonIgnore]
@@ -339,6 +347,10 @@ public class FixedFaction
             Name = Name,
             EmpireId = EmpireId,
             Members = new (),
+            ClassAffinities = new Dictionary<SocialClass, float>(ClassAffinities ?? new()),
+            ClassFavor = new Dictionary<SocialClass, float>(ClassFavor ?? new()),
+            ClassSupport = new Dictionary<SocialClass, float>(ClassSupport ?? new()),
+            ClassFavorSources = new Dictionary<SocialClass, string>(ClassFavorSources ?? new()),
             Leader = -1L,
             TemporaryFactionTypesRecord = new List<TemporaryFactionType>(TemporaryFactionTypes),
             ClaimCatalogVersion = CurrentClaimCatalogVersion
@@ -361,6 +373,10 @@ public class FixedFaction
             Name = Name,
             EmpireId = EmpireId,
             Members = new (),
+            ClassAffinities = new Dictionary<SocialClass, float>(ClassAffinities ?? new()),
+            ClassFavor = new Dictionary<SocialClass, float>(ClassFavor ?? new()),
+            ClassSupport = new Dictionary<SocialClass, float>(ClassSupport ?? new()),
+            ClassFavorSources = new Dictionary<SocialClass, string>(ClassFavorSources ?? new()),
             Leader = -1L,
             TemporaryFactions = TemporaryFactions,
             TemporaryFactionTypesRecord = TemporaryFactionTypesRecord,
@@ -495,6 +511,7 @@ public class FixedFaction
     public void Update()
     {
         if (Ban || Empire == null || Empire.isRekt() || Empire.IsArchived()) return;
+        FactionClassSystem.EnsureProfile(this);
         Members ??= new List<long>();
         Members.RemoveAll(id =>
         {
@@ -503,17 +520,34 @@ public class FixedFaction
                    member.GetFaction() != this;
         });
 
-        if (GetLeader() != null) return;
+        Actor currentLeader = GetLeader();
+        if (currentLeader != null)
+        {
+            if (!OfficeSelector.IsPreferredOfficeCandidate(currentLeader, Empire.CoreKingdom))
+            {
+                Actor preferredMember = Members.Select(id => World.world.units.get(id))
+                    .Where(actor => IsEligibleLeader(actor) && actor.IsOnOffice() && actor.HasOfficeIdentity() &&
+                                    OfficeSelector.IsPreferredOfficeCandidate(actor, Empire.CoreKingdom))
+                    .OrderByDescending(actor => actor.data?.renown ?? 0)
+                    .ThenByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? 0d)
+                    .FirstOrDefault();
+                if (preferredMember != null) SetLeader(preferredMember);
+            }
+            return;
+        }
         Actor candidate = Members.Select(id => World.world.units.get(id))
             .Where(IsEligibleLeader)
-            .OrderByDescending(actor => actor.data?.renown ?? 0)
+            .OrderByDescending(actor => OfficeSelector.IsPreferredOfficeCandidate(actor, Empire.CoreKingdom))
+            .ThenByDescending(actor => actor.data?.renown ?? 0)
             .ThenByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? 0d)
             .FirstOrDefault();
         candidate ??= Empire.getUnits().Where(actor => IsEligibleLeader(actor) && !actor.HasFaction() &&
                 actor.IsOnOffice() && actor.HasOfficeIdentity())
-            .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+            .OrderByDescending(actor => OfficeSelector.IsPreferredOfficeCandidate(actor, Empire.CoreKingdom))
+            .ThenByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
         candidate ??= Empire.getUnits().Where(actor => IsEligibleLeader(actor) && !actor.HasFaction())
-            .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+            .OrderByDescending(actor => OfficeSelector.IsPreferredOfficeCandidate(actor, Empire.CoreKingdom))
+            .ThenByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
         if (candidate == null) return;
         if (candidate.GetFaction() != this) candidate.SetFaction(this);
         else SetLeader(candidate);

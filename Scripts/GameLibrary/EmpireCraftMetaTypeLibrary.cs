@@ -88,6 +88,23 @@ public static class EmpireCraftMetaTypeLibrary
                     continue;
                   }
                 }
+                // 帝国视图显示同盟时，同盟成员涂同盟的颜色(保留各国边界)；悬停的成员国显示本国颜色
+                if (ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH && kingdom.hasAlliance())
+                {
+                  Alliance alliance = kingdom.getAlliance();
+                  Kingdom hovered = World.world.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
+                  foreach (City city in kingdom.cities)
+                  {
+                    foreach (TileZone zone in city.zones)
+                    {
+                      zone_manager.drawBegin();
+                      if (hovered == kingdom) drawZoneSelectedEmpireWithKingdomBorder(zone, kingdom);
+                      else drawZoneAllianceWithKingdomBorder(zone, alliance);
+                      zone_manager.drawEnd(zone);
+                    }
+                  }
+                  continue;
+                }
                 // drawDefaultMeta() traverses every kingdom. Calling it once per
                 // independent kingdom made this branch quadratic on large worlds.
                 drawForCities(kingdom.meta_type_asset, kingdom.getCities(),
@@ -165,7 +182,8 @@ public static class EmpireCraftMetaTypeLibrary
         double _last_dynamic_zones_ts = -1L;
         pAsset13.dynamic_zones = (MetaZoneDynamicAction) (() =>
         {
-          if (_last_dynamic_zones_ts > 0 && Date.getMonthsSince(_last_dynamic_zones_ts) < 1) return;
+          if (_last_dynamic_zones_ts > 0 && World.world.getCurWorldTime() >= _last_dynamic_zones_ts &&
+              Date.getMonthsSince(_last_dynamic_zones_ts) < 1) return;
           List<Actor> simpleList = World.world.units.getSimpleList();
           double curWorldTime = World.world.getCurWorldTime();
           int index = 0;
@@ -338,7 +356,8 @@ public static class EmpireCraftMetaTypeLibrary
         double _last_dynamic_zones_ts = -1L;
         pAsset13.dynamic_zones = (MetaZoneDynamicAction) (() =>
         {
-          if (_last_dynamic_zones_ts > 0 && Date.getMonthsSince(_last_dynamic_zones_ts) < 1) return;
+          if (_last_dynamic_zones_ts > 0 && World.world.getCurWorldTime() >= _last_dynamic_zones_ts &&
+              Date.getMonthsSince(_last_dynamic_zones_ts) < 1) return;
           List<Actor> simpleList = World.world.units.getSimpleList();
           double curWorldTime = World.world.getCurWorldTime();
           int index = 0;
@@ -818,6 +837,17 @@ public static class EmpireCraftMetaTypeLibrary
         zone_manager.drawZoneMeta(pEmpire, pZone, pUp, pDown, pLeft, pRight, pEmpire.data, empire);
     }
     
+    public static void drawZoneAllianceWithKingdomBorder(TileZone pZone, Alliance pAlliance)
+    {
+        Kingdom kingdomOnZone = pZone?.city?.kingdom;
+        if (kingdomOnZone == null || pAlliance == null) return;
+        bool pUp = isBorderColor_empire_kingdoms(pZone.zone_up, kingdomOnZone);
+        bool pDown = isBorderColor_empire_kingdoms(pZone.zone_down, kingdomOnZone);
+        bool pLeft = isBorderColor_empire_kingdoms(pZone.zone_left, kingdomOnZone);
+        bool pRight = isBorderColor_empire_kingdoms(pZone.zone_right, kingdomOnZone);
+        zone_manager.drawZoneMeta(pAlliance, pZone, pUp, pDown, pLeft, pRight, pAlliance.data, empire);
+    }
+
     public static void drawZoneSelectedEmpireWithKingdomBorder(TileZone pZone, Kingdom pKingdom)
     {
         Kingdom kingdomOnZone = pZone?.city?.kingdom;

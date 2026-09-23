@@ -4,7 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.UI.Components;
@@ -172,6 +174,173 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
             var pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
             pastEmperorsWindowTab.Setup("show_claims", this.ScrollWindowComponent, action:ShowClaims,
                 sprite:SpriteTextureLoader.getSprite("SplitAllUnderHeaven"));
+        }
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "show_institution_stance"))
+        {
+            var institutionTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            institutionTab.Setup("show_institution_stance", ScrollWindowComponent, action: ShowInstitutionStance,
+                sprite: SpriteTextureLoader.getSprite("ChineseCrown"));
+        }
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "show_faction_class_base"))
+        {
+            var classTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            classTab.Setup("show_faction_class_base", ScrollWindowComponent, action: ShowClassBase,
+                sprite: SpriteTextureLoader.getSprite("ui/icons/actor_traits/iconJingshi"));
+        }
+    }
+
+    [Hotfixable]
+    public void ShowClassBase(WindowMetaTab window = null)
+    {
+        Clear();
+        InitialTopPart();
+        Empire empire = _faction?.Empire ?? _kingdom?.GetEmpire();
+        if (empire == null || _faction == null) return;
+        List<FixedFaction> factions = empire.CoreKingdom?.GetRegime()?.GetPlayerFactions() ?? new List<FixedFaction>();
+        FactionClassSystem.EnsureEmpireProfiles(empire, factions);
+        Dictionary<SocialClass, float> population = InstitutionSystem.BuildClassShares(empire);
+        _faction.ClassPower = population.Sum(pair => pair.Value * _faction.ClassSupport[pair.Key]);
+
+        var content = this.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
+        content.AddTextIntoVertLayout(LM.Get("faction_class_foundation_title").ColorString("#7FD8EA"), true,
+            TextAnchor.MiddleCenter, new Vector2(200, 15));
+        content.AddTextIntoVertLayout(
+            string.Format(LM.Get("faction_class_power_summary"), _faction.ClassPower, _faction.CentralRatio), true,
+            TextAnchor.MiddleCenter, new Vector2(200, 14));
+        content.AddTextIntoVertLayout(LM.Get("faction_class_model_hint").ColorString("#8FA0A8"), true,
+            TextAnchor.MiddleCenter, new Vector2(200, 28));
+
+        List<SocialClass> classes = Enum.GetValues(typeof(SocialClass)).Cast<SocialClass>()
+            .OrderByDescending(socialClass => population.TryGetValue(socialClass, out float share)
+                ? share * _faction.ClassSupport[socialClass]
+                : 0f)
+            .ToList();
+        foreach (SocialClass socialClass in classes)
+        {
+            float populationShare = population.TryGetValue(socialClass, out float share) ? share * 100f : 0f;
+            float affinity = _faction.ClassAffinities[socialClass];
+            float favor = _faction.ClassFavor[socialClass];
+            float support = _faction.ClassSupport[socialClass];
+            float contribution = populationShare * support / 100f;
+            string affinityText = GetAffinityText(affinity);
+            string affinityColor = affinity >= 20f ? "#65D66E" : affinity <= -20f ? "#D98C8C" : "#B8C6CC";
+            string favorColor = favor >= 60f ? "#65D66E" : favor <= 40f ? "#D98C8C" : "#F3C34A";
+
+            var row = content.BeginVertGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
+            row.AddTextIntoVertLayout(
+                $"{LM.Get($"class_{socialClass}").ColorString("#F3C34A")}  " +
+                $"[{LM.Get(FactionClassSystem.GetStratumKey(socialClass))}]  " +
+                string.Format(LM.Get("faction_class_population"), populationShare), true,
+                TextAnchor.MiddleLeft, new Vector2(192, 12));
+            row.AddTextIntoVertLayout(
+                string.Format(LM.Get("faction_class_attitude_line"),
+                    affinityText.ColorString(affinityColor), favor.ToString("0").ColorString(favorColor)), true,
+                TextAnchor.MiddleLeft, new Vector2(192, 12));
+            row.AddTextIntoVertLayout(
+                string.Format(LM.Get("faction_class_support_line"), support, contribution), true,
+                TextAnchor.MiddleLeft, new Vector2(192, 12));
+            row.AddTextIntoVertLayout(
+                string.Format(LM.Get("faction_class_recent_source"),
+                    FactionClassSystem.GetFavorSourceText(_faction, socialClass)).ColorString("#8FA0A8"), true,
+                TextAnchor.MiddleLeft, new Vector2(192, 16));
+            List<string> claimOptions = (_faction.TemporaryFactionTypesRecord ?? new List<TemporaryFactionType>())
+                .Select(claim => (claim, effect: FactionClassSystem.GetClaimClassEffect(claim, socialClass)))
+                .Where(item => item.effect > 0f).OrderByDescending(item => item.effect).Take(2)
+                .Select(item => $"{LM.Get(item.claim.ToString())} +{item.effect:0}").ToList();
+            List<string> institutionOptions = InstitutionSystem.GetFactionInstitutionStance(
+                    InstitutionSystem.GetPrimaryCulture(empire), _faction.Type).supports
+                .Where(node => !InstitutionSystem.IsEnacted(empire, node.id) &&
+                               node.politics.support_classes.TryGetValue(socialClass, out float weight) && weight > 0f)
+                .OrderByDescending(node => node.politics.support_classes[socialClass]).Take(2)
+                .Select(InstitutionSystem.GetNodeName).ToList();
+            string options = string.Join(" · ", claimOptions.Concat(institutionOptions));
+            row.AddTextIntoVertLayout(
+                string.Format(LM.Get("faction_class_courting_options"), string.IsNullOrWhiteSpace(options)
+                    ? LM.Get("faction_class_no_courting_option")
+                    : options).ColorString("#B8C6CC"), true,
+                TextAnchor.MiddleLeft, new Vector2(192, 22));
+        }
+        _groups.Add(content.gameObject);
+    }
+
+    private static string GetAffinityText(float affinity)
+    {
+        if (affinity >= 60f) return LM.Get("faction_class_affinity_core");
+        if (affinity >= 20f) return LM.Get("faction_class_affinity_friendly");
+        if (affinity > -20f) return LM.Get("faction_class_affinity_neutral");
+        if (affinity > -60f) return LM.Get("faction_class_affinity_distant");
+        return LM.Get("faction_class_affinity_hostile");
+    }
+
+    [Hotfixable]
+    public void ShowInstitutionStance(WindowMetaTab window = null)
+    {
+        Clear();
+        InitialTopPart();
+        Empire empire = _faction?.Empire ?? _kingdom?.GetEmpire();
+        if (empire == null || _faction == null) return;
+
+        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        (List<InstitutionNodeConfig> supports, List<InstitutionNodeConfig> opposes) =
+            InstitutionSystem.GetFactionInstitutionStance(culture, _faction.Type);
+        Dictionary<string, InstitutionNodeView> views = InstitutionSystem.BuildLineView(empire)
+            .ToDictionary(view => view.Node.id, view => view);
+
+        var content = this.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
+        content.AddTextIntoVertLayout(LM.Get("institution_faction_stance_title").ColorString("#7FD8EA"), true,
+            TextAnchor.MiddleCenter, new Vector2(200, 16));
+
+        InstitutionReformState active = empire.data.institution_state?.active_reform;
+        if (active != null)
+        {
+            InstitutionNodeConfig activeNode = InstitutionDefinitionRegistry.Get(active.node_id);
+            FixedFaction sponsor = InstitutionSystem.GetReformSponsor(empire, active);
+            string role = sponsor == _faction
+                ? LM.Get("institution_faction_role_sponsor")
+                : activeNode?.politics.support_factions.ContainsKey(_faction.Type) == true
+                    ? LM.Get("institution_faction_role_supporter")
+                    : activeNode?.politics.oppose_factions.ContainsKey(_faction.Type) == true
+                        ? LM.Get("institution_faction_role_opponent")
+                        : LM.Get("institution_faction_role_neutral");
+            content.AddTextIntoVertLayout(string.Format(LM.Get("institution_faction_active_reform"),
+                    InstitutionSystem.GetNodeName(activeNode), role, active.progress, active.radicalism), true,
+                TextAnchor.MiddleCenter, new Vector2(200, 28));
+        }
+
+        AddInstitutionStanceGroup(content, LM.Get("institution_faction_supports"), supports, views, "#65D66E");
+        AddInstitutionStanceGroup(content, LM.Get("institution_faction_opposes"), opposes, views, "#D98C8C");
+        _groups.Add(content.gameObject);
+    }
+
+    private static void AddInstitutionStanceGroup(AutoVertLayoutGroup parent, string title,
+        IEnumerable<InstitutionNodeConfig> nodes, Dictionary<string, InstitutionNodeView> views, string color)
+    {
+        List<InstitutionNodeConfig> list = nodes?.ToList() ?? new List<InstitutionNodeConfig>();
+        parent.AddTextIntoVertLayout(title.ColorString(color), true, TextAnchor.MiddleCenter,
+            new Vector2(200, 14));
+        if (list.Count == 0)
+        {
+            parent.AddTextIntoVertLayout(LM.Get("institution_faction_no_stance").ColorString("#8FA0A8"), true,
+                TextAnchor.MiddleCenter, new Vector2(200, 14));
+            return;
+        }
+
+        foreach (InstitutionNodeConfig node in list)
+        {
+            InstitutionNodeStatus status = views.TryGetValue(node.id, out InstitutionNodeView view)
+                ? view.Status
+                : InstitutionNodeStatus.Locked;
+            string statusText = status switch
+            {
+                InstitutionNodeStatus.Enacted => LM.Get("institution_status_enacted"),
+                InstitutionNodeStatus.Reforming => LM.Get("institution_status_reforming"),
+                InstitutionNodeStatus.Available => LM.Get("institution_status_available"),
+                InstitutionNodeStatus.Forceable => LM.Get("institution_status_force_available"),
+                _ => LM.Get("institution_status_locked")
+            };
+            parent.AddTextIntoVertLayout(
+                $"{InstitutionSystem.GetNodeName(node)}  [{statusText}]".ColorString(color), true,
+                TextAnchor.MiddleLeft, new Vector2(190, 14));
         }
     }
 

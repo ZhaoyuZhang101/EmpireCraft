@@ -30,10 +30,15 @@ public class SaveData
     public List<EmpireCore> empireCoreDatas = new List<EmpireCore>();
     public List<KingdomTitleData> kingdomTitleDatas = new List<KingdomTitleData>();
     public Dictionary<long, string> cultureBindings = new Dictionary<long, string>();
+    public Dictionary<string, CultureInstitutionState> cultureInstitutionStates = new Dictionary<string, CultureInstitutionState>();
     public List<string> yearNameSubspecies = new List<string>();
     public Dictionary<long, List<EmpireCraftHistory>> all_history;
+    public Dictionary<string, double> culture_no_empire_since = new Dictionary<string, double>();
+    public Dictionary<string, List<long>> feudal_empire_lineage = new Dictionary<string, List<long>>();
+    public List<long> mod_alliance_ids = new List<long>();
     public bool switch_real_num = false;
     public bool switch_simple_nameplate = false;
+    public bool switch_empire_show_alliance = false;
     public List<SpecificClan> specificClans = new List<SpecificClan>();
     public Dictionary<long, OfficeObject>  officeObjects = new Dictionary<long, OfficeObject>();
     public int mod_version = 0;

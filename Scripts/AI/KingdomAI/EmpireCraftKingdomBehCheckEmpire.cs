@@ -196,6 +196,9 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
                 }
             }
         }
+        // 互为正统对手(僭越称帝后并立)的帝国：较强一方可发起正统之争
+        if (empire != null && pKingdom == empire.CoreKingdom &&
+            ImperialLegitimacyChallengeService.TryStartRivalryWar(empire)) return;
         if (pKingdom.hasKing() && ImperialLegitimacyChallengeService.TryFindTarget(pKingdom, out _))
         {
             var challengePlot = AssetManager.plots_library.basic_plots
@@ -204,40 +207,39 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
                 pKingdom.GetRegime()?.SetAllowDiplomacy(true);
             return;
         }
+        // 已经在筹备(或进行别的剧情)时不要重新开始，否则会反复覆盖筹备开始时的记录
+        if (!pKingdom.hasKing() || pKingdom.king.plot != null) return;
         if (!CanStartEmpireFormation(pKingdom, true)) return;
 
         var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "become_empire");
-        if (plot?.try_to_start_advanced?.Invoke(pKingdom.king, plot, true) == true)
+        if (plot == null) return;
+        EmpireFormationService.BeginPreparation(pKingdom, EmpireFormationService.GetBestRoute(pKingdom));
+        if (plot.try_to_start_advanced?.Invoke(pKingdom.king, plot, true) == true)
         {
             pKingdom.GetRegime()?.SetAllowDiplomacy(true);
         }
+        else
+        {
+            pKingdom.GetOrCreate().empire_formation_started_timestamp = -1d;
+        }
     }
 
+    // 称帝资格：基础条件 + 不在失败冷却期 + 至少满足一条正统路线(见 EmpireFormationService)
     public static bool CanStartEmpireFormation(Kingdom pKingdom, bool repairMainTitle = false)
     {
         if (pKingdom == null || pKingdom.isRekt()) return false;
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom)) return false;
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
-        if (pKingdom.GetMoney() < 0) return false;
-        if (!pKingdom.hasKing() || pKingdom.king == null || pKingdom.king.isRekt()) return false;
-        if (pKingdom.IsEmpire() || pKingdom.IsInEmpire()) return false;
-
-        if (!pKingdom.HasMainTitle() && repairMainTitle)
+        if (repairMainTitle && pKingdom.hasKing() && !pKingdom.HasMainTitle() &&
+            !pKingdom.IsEmpire() && !pKingdom.IsInEmpire())
         {
             pKingdom.ReconcileMainTitle(pKingdom.GetControlledTitle());
         }
-        if (!pKingdom.HasMainTitle()) return false;
-
-        string culture = CultureService.GetRealmCulture(pKingdom);
-        if (!CultureService.IsValidCulture(culture) ||
-            CultureService.HasActiveEmpireForCulture(culture) ||
-            !pKingdom.IsStrongestEmpireCandidateOfCulture()) return false;
-
-        if (pKingdom.CanBecomeEmpire()) return true;
-
-        // 某文化没有帝国时，允许该文化综合国力最强的合法独立国家兜底称帝。
-        // 其他文化的国家和帝国完全不参与比较，也不会占用这个文化的帝国名额。
-        return true;
+        // 共主兼领的王国(城邦同盟成员等)不单独称帝：称帝剧情由君主发起，筹备记录、失败冷却都记在
+        // 君主本国(actor.kingdom)身上；若让兼领国发起，本国没有筹备记录会立刻判定"被超越"失败，
+        // 而兼领国自己又不进冷却，于是每轮都重新筹备、反复失败
+        if (pKingdom.king == null || pKingdom.king.kingdom != pKingdom) return false;
+        if (!EmpireFormationService.MeetsBaseRequirements(pKingdom)) return false;
+        if (EmpireFormationService.IsInFailureCooldown(pKingdom)) return false;
+        return EmpireFormationService.GetBestRoute(pKingdom) != EmpireFormationRoute.None;
     }
 
     public void CheckEmpireAlliance(Kingdom pKingdom)

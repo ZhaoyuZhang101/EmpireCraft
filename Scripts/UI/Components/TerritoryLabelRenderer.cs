@@ -102,6 +102,33 @@ public static class TerritoryLabelRenderer
         arc_curvature = 0.1f
     };
 
+    // 同盟标签(帝国视图的补充)：蓝色文字，排版同帝国标签
+    public static readonly TerritoryLabelStyle AllianceStyle = new TerritoryLabelStyle
+    {
+        text_color = new Color32(110, 180, 255, 214),
+        outline_color = new Color32(14, 30, 64, 204),
+        size_multiplier = 0.90f,
+        territory_padding = 0.95f,
+        min_font_size = 6,
+        font_style = FontStyle.Normal,
+        wrap_english_name = true,
+        bridge_internal_gaps = true,
+        arc_curvature = 0.1f
+    };
+
+    public static readonly TerritoryLabelStyle FadedAllianceStyle = new TerritoryLabelStyle
+    {
+        text_color = new Color32(110, 180, 255, 57),
+        outline_color = new Color32(14, 30, 64, 49),
+        size_multiplier = 0.90f,
+        territory_padding = 0.95f,
+        min_font_size = 6,
+        font_style = FontStyle.Normal,
+        wrap_english_name = true,
+        bridge_internal_gaps = true,
+        arc_curvature = 0.1f
+    };
+
     public static readonly TerritoryLabelStyle KingdomStyle = new TerritoryLabelStyle
     {
         text_color = new Color(1f, 1f, 1f, 0.9f),
@@ -265,6 +292,18 @@ public static class TerritoryLabelRenderer
         foreach (RuntimeLabel label in _labels.Values) label.Hide();
         _submission_frame = -1;
         _submission_mode = MetaType.None;
+    }
+
+    public static void ResetWorldState()
+    {
+        HideAll();
+        if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
+        _host = null;
+        _root = null;
+        _text_template = null;
+        _labels.Clear();
+        _render_order.Clear();
+        _occupied_label_bounds.Clear();
     }
 
     internal static void HostLateUpdate(TerritoryLabelRendererHost host)

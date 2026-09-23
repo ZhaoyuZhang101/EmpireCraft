@@ -77,6 +77,11 @@ public class WarPatch: GamePatch
                 return;
             }
         }
+        if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.不奉诏)
+        {
+            VassalInvestitureService.CheckDefianceWar(__instance);
+            if (__instance.hasEnded()) return;
+        }
         if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.去帝号 &&
             (__instance.IsMainDefenderEliminated() || __instance.HasLegitimacyOccupationThreshold()))
         {
@@ -158,6 +163,11 @@ public class WarPatch: GamePatch
             Kingdom dKingdom = null;
             aKingdom = pWar.getMainAttacker();
             dKingdom = pWar.getMainDefender();
+            // 正在筹备称帝的国家打了败仗，称帝即失败
+            if (pWinner == WarWinner.Attackers)
+                foreach (Kingdom loser in pWar._list_defenders.ToList()) EmpireFormationService.OnWarLost(loser);
+            else if (pWinner == WarWinner.Defenders)
+                foreach (Kingdom loser in pWar._list_attackers.ToList()) EmpireFormationService.OnWarLost(loser);
             foreach (var a in pWar._list_attackers)
             {
                 a.cities.ForEach(c=>c.ClearOccupiedStatus());
@@ -226,6 +236,10 @@ public class WarPatch: GamePatch
                     break;
                 case EmpireWarType.派系叛乱:
                     Kingdom attacker = pWar.getMainAttacker();
+                    // 在胜方替换帝国核心之前结算改革叛乱，否则原帝国和派系上下文会丢失。
+                    InstitutionSystem.ResolveReformRebellion(pWar, pWinner);
+                    InstitutionSystem.ResolveSocialRebellion(pWar, pWinner);
+                    LandEconomySystem.ResolvePeasantLandRebellion(pWar, pWinner);
                     if (pWinner == WarWinner.Attackers)
                     {
                         attacker.GetEmpire().ReplaceEmpire(attacker);
@@ -235,6 +249,8 @@ public class WarPatch: GamePatch
                 case EmpireWarType.地方叛乱:
                 case EmpireWarType.地方独立:
                     Kingdom attacker1 = pWar.getMainAttacker();
+                    InstitutionSystem.ResolveSocialRebellion(pWar, pWinner);
+                    LandEconomySystem.ResolvePeasantLandRebellion(pWar, pWinner);
                     attacker1.EndLocalRebelling();
                     break;
                 case EmpireWarType.索取法理:
@@ -249,8 +265,10 @@ public class WarPatch: GamePatch
                                                           new List<long>();
                             if (defeatedTitleIds.Count == 0 && defeatedKingdom != null)
                                 defeatedTitleIds = defeatedKingdom.GetRealmTitleIds().ToList();
-                            List<KingdomTitle> inherited = kingdom.InheritRealmTitles(defeatedKingdom,
-                                defeatedTitleIds);
+                            // 西方封建制一法理一国：能另立的法理由获胜君主兼领，其余照旧并入
+                            List<KingdomTitle> inherited = PersonalUnionService.InheritTitlesAsUnion(kingdom,
+                                defeatedKingdom, defeatedTitleIds, out List<long> mergeTitleIds);
+                            inherited.AddRange(kingdom.InheritRealmTitles(defeatedKingdom, mergeTitleIds));
                             if (inherited.Count > 0)
                             {
                                 string notice = string.Format(LM.Get("title_all_inherited_notice"),
@@ -263,8 +281,9 @@ public class WarPatch: GamePatch
                         {
                             if (kingdom != null && !kingdom.HasTakenAlliance())
                             {
-                                List<KingdomTitle> transferred = kingdom.InheritRealmTitles(
-                                    defeatedKingdom, new[] { title.id });
+                                List<KingdomTitle> transferred = PersonalUnionService.InheritTitlesAsUnion(kingdom,
+                                    defeatedKingdom, new[] { title.id }, out List<long> mergeTitleIds);
+                                transferred.AddRange(kingdom.InheritRealmTitles(defeatedKingdom, mergeTitleIds));
                                 if (transferred.Contains(title))
                                     TranslateHelper.LogKingTakeTitle(kingdom, title);
                             }
@@ -274,6 +293,9 @@ public class WarPatch: GamePatch
                     break;
                 case EmpireWarType.去帝号:
                     ImperialLegitimacyChallengeService.ResolveWar(pWar, pWinner);
+                    break;
+                case EmpireWarType.不奉诏:
+                    VassalInvestitureService.ResolveDefianceWar(pWar, pWinner);
                     break;
             }
             WorldLog.logWarEnded(pWar);

@@ -7,6 +7,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Regimes;
 using NCMS.Extensions;
 using static EmpireCraft.Scripts.GameClassExtensions.ActorExtension;
@@ -41,6 +43,35 @@ public static class WarExtension
         public List<long> legitimacy_defender_kingdom_ids = new List<long>();
         public List<long> legitimacy_defender_city_ids = new List<long>();
         public int legitimacy_initial_zone_count;
+        // 制度改革叛乱快照。战争结束时即使政体/派系已经改变，仍能还原叛乱原因。
+        // 不奉诏战争：抗命的封国、它自立的嗣君、天子改立的人选。
+        public long investiture_vassal_kingdom_id = -1L;
+        public long investiture_heir_id = -1L;
+        public long investiture_replacement_id = -1L;
+        public long institution_reform_empire_id = -1L;
+        public string institution_reform_node_id = "";
+        public string institution_reform_reason_key = "";
+        public string institution_reform_sponsor_faction_id = "";
+        public string institution_reform_sponsor_name = "";
+        public string institution_reform_opposition_faction_id = "";
+        public string institution_reform_opposition_name = "";
+        public float institution_reform_support;
+        public float institution_reform_opposition;
+        public float institution_reform_radicalism;
+        public InstitutionReformStage institution_reform_stage = InstitutionReformStage.Debate;
+        public bool institution_reform_forced;
+        // 制度长期后果引发的阶层起义快照。与改革中的派系叛乱分开保存。
+        public long institution_social_rebellion_empire_id = -1L;
+        public SocialClass institution_social_rebellion_class = SocialClass.Peasant;
+        public string institution_social_rebellion_cause = "";
+        public float institution_social_rebellion_grievance;
+        // 由土地兼并触发的农民起义独立于帝国制度，因此单一王国也能完整结算。
+        public bool peasant_land_rebellion;
+        public long peasant_land_rebellion_origin_kingdom_id = -1L;
+        public long peasant_land_rebellion_kingdom_id = -1L;
+        public long peasant_land_rebellion_origin_city_id = -1L;
+        public string peasant_land_rebellion_cause = "";
+        public float peasant_landless_ratio;
     }
 
     public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="", NanoObject nanoObject = null, bool isRebelling = false, FixedFaction belongingFaction = null)

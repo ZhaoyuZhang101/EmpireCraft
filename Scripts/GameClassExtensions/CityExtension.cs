@@ -1,5 +1,6 @@
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General.UI.Prefabs;
 using System;
@@ -120,6 +121,12 @@ public static class CityExtension
         public double cultural_assimilation_started_timestamp = -1d;
         // 每座城市最多每年被同化 Plot 推动一次；行政区任务也复用该城市级冷却。
         public double last_cultural_assimilation_push_timestamp = -1d;
+        // 私有土地份额只在土地交易开放后生效。key 为家庭或无家庭人物的稳定标识。
+        public Dictionary<string, float> household_land_shares = new Dictionary<string, float>();
+        public Dictionary<string, long> household_land_representatives = new Dictionary<string, long>();
+        public double last_land_economy_timestamp = -1d;
+        public double last_land_rebellion_timestamp = -1d;
+        public bool land_redistribution_pending = false;
         [JsonConverter(typeof(OccupiedStatusConverter))]
         public Dictionary<long, List<int>> OccupiedStatus = new();
         [JsonIgnore]
@@ -201,8 +208,8 @@ public static class CityExtension
         Empire occupierEmpire = occupier.GetEmpire();
         Empire defenderEmpire = defender.GetEmpire();
 
-        int occupierMandate = occupierEmpire?.Mandate ?? 0;
-        int defenderMandate = defenderEmpire?.Mandate ?? 0;
+        int occupierMandate = GetOccupationSpreadMandate(occupier, occupierEmpire);
+        int defenderMandate = GetOccupationSpreadMandate(defender, defenderEmpire);
 
         // 进攻方正统不到 80，不触发自动扩张
         if (occupierMandate < OccupySpreadMinMandate && !defenderKingDead)
@@ -285,6 +292,14 @@ public static class CityExtension
             }
         }
     }
+    // 占领扩散用的天命：帝国用帝国天命；阶层起义的叛军以所代表阶层的怨气(民心)作为天命，
+    // 其余不属于帝国的国家为 0。
+    private static int GetOccupationSpreadMandate(Kingdom kingdom, Empire empire)
+    {
+        if (empire != null) return empire.Mandate;
+        return InstitutionSystem.TryGetSocialRebelMandate(kingdom, out int mandate) ? mandate : 0;
+    }
+
     private static int GetEffectiveOccupySpreadMandateDiff(this City city, Kingdom occupier, Kingdom defender)
     {
         if (city == null || occupier == null || defender == null)
@@ -295,8 +310,8 @@ public static class CityExtension
         Empire occupierEmpire = occupier.GetEmpire();
         Empire defenderEmpire = defender.GetEmpire();
 
-        int occupierMandate = occupierEmpire?.Mandate ?? 0;
-        int defenderMandate = defenderEmpire?.Mandate ?? 0;
+        int occupierMandate = GetOccupationSpreadMandate(occupier, occupierEmpire);
+        int defenderMandate = GetOccupationSpreadMandate(defender, defenderEmpire);
 
         int diff = occupierMandate - defenderMandate;
 

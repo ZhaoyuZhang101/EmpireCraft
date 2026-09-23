@@ -75,6 +75,8 @@ public class CulturePatch : GamePatch
                                             __instance.city.GetCityName() + LM.Get("Dialect");
             SyncCultureDisplayName(__instance.culture, realmCulture);
             __instance.culture.data.creator_city_name = __instance.city.data.name;
+            // 城邦国名默认用城市名
+            CityStateService.ApplyCityName(__instance.kingdom);
         }
         catch (Exception e)
         {

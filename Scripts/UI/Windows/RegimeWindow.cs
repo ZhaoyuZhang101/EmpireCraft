@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.AI.KingdomAI;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
@@ -117,15 +120,50 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
             {
                 var optionButton = settingSpace.transform.AddMultipleOption(this.BeginHoriGroup(), option.Key, Option, option.Value[0], option.Value[1], hasIcon:false);
                 _optionButtons[option.Key] = optionButton;
+                if (option.Key == "option_succession_law")
+                {
+                    ApplySuccessionLawLockState(optionButton);
+                }
             }
         }
         settingSpace.transform.AddStretchBackground("regimeFrame", size:new Vector2(200, 137));
         _groups.Add(settingSpace.gameObject);
     }
 
+    // 分割继承法/强者继承法需要文化科技树解锁,未解锁前按钮置灰不可点,tooltip 指向科技树。
+    private void ApplySuccessionLawLockState(List<AdvancedButton> buttons)
+    {
+        var values = (SuccessionLawType[])Enum.GetValues(typeof(SuccessionLawType));
+        for (int i = 0; i < buttons.Count && i < values.Length; i++)
+        {
+            bool unlocked = SuccessionLawSystem.IsSuccessionLawUnlocked(_kingdom, values[i]);
+            buttons[i].Button.interactable = unlocked;
+            buttons[i].Icon.color = unlocked ? Color.white : new Color(1f, 1f, 1f, 0.35f);
+            if (!unlocked && buttons[i].TipButton != null)
+            {
+                buttons[i].TipButton.textOnClickDescription = "succession_law_locked_description";
+            }
+        }
+    }
+
     private void Option(string title, int option)
     {
-        _kingdom.GetRegime().options[title][0] = option;
+        if (title == "option_succession_law")
+        {
+            _kingdom.GetRegime().SetSuccessionLaw((SuccessionLawType)option);
+        }
+        else
+        {
+            if (title == "option_tax_level")
+            {
+                _kingdom.GetRegime().SetTaxLevel((TaxLevel)option);
+                option = (int)_kingdom.GetRegime().GetTaxLevel();
+            }
+            else
+            {
+                _kingdom.GetRegime().options[title][0] = option;
+            }
+        }
         var index = 0;
         foreach (var optionButton in _optionButtons[title])
         {
@@ -215,10 +253,24 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     {
         var regimeSpace = this.BeginVertGroup();
         regimeSpace.AddTextIntoVertLayout(LM.Get("regime_title"), true, TextAnchor.MiddleCenter, new Vector2(25, 15));
+        Empire empire = _kingdom.GetEmpire();
+        if (empire?.CoreKingdom == _kingdom)
+        {
+            ConstitutionalEconomyView economy = ConstitutionalEconomySystem.GetView(empire);
+            if (economy.constitutional || economy.reforming)
+            {
+                string status = economy.constitutional
+                    ? LM.Get("constitution_status_enacted")
+                    : LM.Get("constitution_status_reforming");
+                regimeSpace.AddTextIntoVertLayout($"{LM.Get("constitution_title")} · {status}", true,
+                    TextAnchor.MiddleCenter, new Vector2(180, 15));
+            }
+        }
         var regimeIconPart = this.BeginHoriGroup();
         LoadRegimeButton(regimeIconPart.transform, RegimeType.LvLing);
         LoadRegimeButton(regimeIconPart.transform, RegimeType.ZhouFeudalism);
         LoadRegimeButton(regimeIconPart.transform, RegimeType.Feudalism);
+        LoadRegimeButton(regimeIconPart.transform, RegimeType.ClassicalRepublic);
         LoadRegimeButton(regimeIconPart.transform, RegimeType.Modern);
         
         regimeSpace.AddChild(regimeIconPart.gameObject);

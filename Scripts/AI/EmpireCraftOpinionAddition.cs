@@ -16,6 +16,13 @@ public static class EmpireCraftOpinionAddition
     public static void init()
     {
         OpinionLibrary opl = AssetManager.opinion_library;
+        // 对某国称帝不服：对其帝国核心王国好感大降，二十年内逐渐恢复(武力霸权称帝降得更多)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_empire_proclamation_grudge",
+            translation_key = "opinion_empire_proclamation_grudge",
+            calc = EmpireCraft.Scripts.GeneralSystems.EmpireFormationService.GetGrudgeOpinion
+        });
         opl.add(new OpinionAsset
         {
             id = "opinion_empire_loyalty",

@@ -19,6 +19,21 @@ public static class CultureService
 
     public static IEnumerable<string> CultureKeys => OnomasticsRule.ALL_CULTURE_RULE.Keys.OrderBy(key => key);
 
+    // 当前世界里实际存在的文化(至少有一个王国的法理文化是它)，不是配置文件里全部登记过的文化。
+    // 制度排行榜这类"当前局内有意义"的列表要用这个，而不是 CultureKeys。
+    public static IEnumerable<string> GetActiveCultureKeys()
+    {
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        if (World.world?.kingdoms == null) return result;
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+            if (kingdom?.data == null || kingdom.isRekt()) continue;
+            string culture = GetRealmCulture(kingdom);
+            if (IsValidCulture(culture)) result.Add(culture);
+        }
+        return result.OrderBy(key => key, StringComparer.Ordinal);
+    }
+
     public static bool IsValidCulture(string culture)
     {
         return !string.IsNullOrWhiteSpace(culture) && OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(culture);
@@ -85,6 +100,12 @@ public static class CultureService
         KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
         bool changed = !string.Equals(data.realm_culture, culture, StringComparison.Ordinal);
         data.realm_culture = culture;
+        if (changed)
+        {
+            Empire empire = kingdom.GetEmpire();
+            if (empire?.CoreKingdom == kingdom)
+                ConstitutionalEconomySystem.ResetCultureStability(empire);
+        }
         bool canCreateNativeCulture = kingdom.king?.city?.data != null;
         Culture nativeCulture = ResolveNativeCulture(culture, kingdom.king, canCreateNativeCulture);
         if (nativeCulture != null)
@@ -127,9 +148,13 @@ public static class CultureService
     public static bool ApplyCulturePoliticalSystem(Kingdom kingdom, string culture)
     {
         if (kingdom?.data == null || kingdom.isRekt() || !IsValidCulture(culture)) return false;
-        RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
-            ? setting.regime
-            : RegimeType.Feudalism;
+        // 政体形态由该文化已掌握的制度反推（一级制度 = 初始政体），配置里的 setting.regime
+        // 退居兜底，语义也随之变成"这个文化的政体归宿"而不是"它现在是什么政体"。
+        RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)
+            ? resolvedRegime
+            : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
+                ? setting.regime
+                : RegimeType.Feudalism;
         if (!IsRegimeAvailable(regimeType)) return false;
         if (kingdom.GetRegime()?.type == regimeType) return true;
         kingdom.SetRegimeType(regimeType);
@@ -157,9 +182,11 @@ public static class CultureService
         if (empire == null) return false;
         string culture = GetEmpireDefaultCulture(empire);
         if (!IsValidCulture(culture)) return false;
-        RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
-            ? setting.regime
-            : RegimeType.Feudalism;
+        RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)
+            ? resolvedRegime
+            : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
+                ? setting.regime
+                : RegimeType.Feudalism;
         // 配置里可能保留尚未实现的政体枚举。没有实际注册配置的政体不能生成归化谋划，
         // 否则 LoadRegime 会回退成封建制，而谋划又会在下一轮继续尝试，造成无限刷屏。
         if (!IsRegimeAvailable(regimeType)) return false;

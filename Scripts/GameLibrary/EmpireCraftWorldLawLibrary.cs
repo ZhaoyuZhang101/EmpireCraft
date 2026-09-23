@@ -21,6 +21,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_switch_occupy_mode;
     public static WorldLawAsset empirecraft_law_allow_social;
     public static WorldLawAsset empirecraft_law_fixed_de_jure_culture;
+    public static WorldLawAsset empirecraft_law_ban_vanilla_alliance;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -135,7 +136,21 @@ public static class EmpireCraftWorldLawLibrary
             on_state_change = FixedDeJureCultureChange,
             default_state = false
         });
+        // 禁止原版结盟(默认开启)：原版的建盟/入盟决议不再发起；模组自己的同盟不受影响
+        AssetManager.world_laws_library.add(empirecraft_law_ban_vanilla_alliance = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_ban_vanilla_alliance),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "plots/icons/plot_alliance_create",
+            on_state_change = BanVanillaAllianceChange,
+            default_state = true
+        });
         
+    }
+
+    private static void BanVanillaAllianceChange(PlayerOptionData pOption)
+    {
+        if (pOption?.boolVal == true) ModAllianceService.DissolveVanillaAlliances();
     }
 
     private static void FixedDeJureCultureChange(PlayerOptionData pOption)

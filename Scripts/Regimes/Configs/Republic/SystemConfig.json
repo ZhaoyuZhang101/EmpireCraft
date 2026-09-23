@@ -78,7 +78,8 @@
       "toggle_support_army_to_center": [1],
       "option_tax_level": [2, 4],
       "option_leader_select_method": [2, 3],
-      "option_religion_type": [0, 4]
+      "option_religion_type": [0, 4],
+      "option_succession_law": [0, 5]
     },
     "bureau_config": {
       "cores": [

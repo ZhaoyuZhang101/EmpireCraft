@@ -1,5 +1,7 @@
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -22,44 +24,36 @@ public class TempFac_转天朝制度 : TemporaryFaction
     {
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
-        foreach (Kingdom kingdom in empire.kingdoms_list)
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get("huaxia_prefecture_county_bureaucracy");
+        if (empire != null && node != null)
         {
-            kingdom.SetRegimeType(RegimeType.LvLing);
-            kingdom.LoadRegime();
-            Regime regime = kingdom.GetRegime();
-            if (!kingdom.IsEmpire())
-            {
-                regime.SetAllowDiplomacy(false);
-            }
-            regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+            bool force = !InstitutionSystem.CanStartReform(empire, node, out _, false) &&
+                         InstitutionSystem.CanStartReform(empire, node, out _, true);
+            InstitutionSystem.StartReform(empire, node.id, force, factionID);
         }
-        empire.data.centerOffice.Init(empire.CoreKingdom);
-        empire.CoreKingdom.SystemChange();
         End();
     }
 
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get("huaxia_prefecture_county_bureaucracy");
+        if (empire == null || node == null) return false;
         if (empire.Mandate<70) return false;
         if (empire.CoreKingdom.GetSystemChangeYear() < 50)
         {
             return false;
         }
-        if (empire.kingdoms_list.FindAll(k => !k.IsEmpire()).Sum(k => k.countTotalWarriors()) <
-            empire.CoreKingdom.countTotalWarriors())
+        bool politicallyReady = empire.kingdoms_list.FindAll(k => !k.IsEmpire()).Sum(k => k.countTotalWarriors()) <
+                                empire.CoreKingdom.countTotalWarriors();
+        if (!politicallyReady)
         {
-            return true;
+            politicallyReady = empire.kingdoms_list
+                .Where(k => !k.IsEmpire())
+                .All(k => !k.GetRegime().IsAllowDiplomacy());
         }
-        foreach (var k in empire.kingdoms_list)
-        {
-            if (k.IsEmpire()) continue;
-            Regime regime = k.GetRegime();
-            if (regime.IsAllowDiplomacy())
-            {
-                return false;
-            }
-        }
-        return true;
+        if (!politicallyReady) return false;
+        return InstitutionSystem.CanStartReform(empire, node, out _, false) ||
+               InstitutionSystem.CanStartReform(empire, node, out _, true);
     }
 }

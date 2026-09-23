@@ -2,6 +2,7 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.services;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
 public class TempFac_迫使朝贡 : TemporaryFaction
@@ -35,6 +36,7 @@ public class TempFac_迫使朝贡 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire?.CoreKingdom?.hasEnemies()??true) return false;
+        if (!FeudalConquestService.HasTributeInstitution(empire)) return false;
         foreach (var kingdom in World.world.kingdoms)
         {
             if (kingdom.IsInEmpire()) continue;

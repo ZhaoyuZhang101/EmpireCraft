@@ -119,6 +119,25 @@ namespace EmpireCraft.Scripts.AI
             return false;
         }
 
+        // 世界规则"禁止原版结盟"(默认开启)：原版的建盟/入盟决议不再发起，也不再继续推进。
+        // 模组自己建的同盟(共主联盟、城邦同盟、反帝同盟等)直接调用接口，不受影响。
+        private static void BlockVanillaAlliancePlots()
+        {
+            foreach (PlotAsset plot in new[]
+                     { PlotsLibrary.alliance_create, AssetManager.plots_library.get("alliance_join") })
+            {
+                if (plot == null) continue;
+                var possible = plot.check_is_possible;
+                plot.check_is_possible = pActor =>
+                    !IsVanillaAllianceBlocked() && (possible == null || possible(pActor));
+                var shouldContinue = plot.check_should_continue;
+                plot.check_should_continue = pActor =>
+                    !IsVanillaAllianceBlocked() && (shouldContinue == null || shouldContinue(pActor));
+            }
+        }
+
+        private static bool IsVanillaAllianceBlocked() => ModAllianceService.IsVanillaAllianceBanned();
+
         private static void GuardAllPlotAssets()
         {
             foreach (var asset in AssetManager.plots_library.getList())
@@ -285,6 +304,11 @@ namespace EmpireCraft.Scripts.AI
                     continue;
                 }
 
+                if (!FeudalConquestService.HasTributeInstitution(empire))
+                {
+                    continue;
+                }
+
                 if (!empire.CanAcceptVoluntarySubmission() || kingdom.HasRebelledAgainst(empire) ||
                     !kingdom.CanVoluntarilyBecomeTributaryOf(empire) ||
                     !empire.MeetsTributaryPowerThreshold(kingdom))
@@ -327,10 +351,8 @@ namespace EmpireCraft.Scripts.AI
                 check_is_possible = pActor => false,
                 check_can_be_forced = pActor => !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pActor?.kingdom),
                 try_to_start_advanced = TryStartSimplePlot,
-                check_should_continue = pActor =>
-                    !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pActor?.kingdom) &&
-                    pActor != null && pActor.isKing() && pActor.kingdom?.king == pActor &&
-                    EmpireCraftKingdomBehCheckEmpire.CanStartEmpireFormation(pActor.kingdom),
+                // 筹备期：打败仗、国库转负、被同文化别国超过、不再满足路线都会让称帝失败(进入冷却)
+                check_should_continue = EmpireFormationService.ShouldContinuePreparation,
                 action = BecomeEmpireAndStartEnfeoff
             });
             AssetManager.plots_library.add(new PlotAsset
@@ -379,6 +401,10 @@ namespace EmpireCraft.Scripts.AI
                 {
                     if (!pActor.isKing()) return false;
                     var allKingdoms = GetKingdomsRuledByActor(pActor);
+                    // 推恩令下不允许统合封国(一人本就不得兼领两国)
+                    if (allKingdoms.Any(k => GraceEdictService.IsActive(k.GetEmpire()))) return false;
+                    // 西方封建制与城邦无法整合土地
+                    if (allKingdoms.Any(PersonalUnionService.IsUnionRegime)) return false;
                     if (!pActor.HasTitle()) return false;
                     if (ModClass.KINGDOM_TITLE_MANAGER.get(pActor.GetOwnedTitle()[0])?.title_capital?.kingdom?.king !=
                         pActor) return false;
@@ -388,6 +414,9 @@ namespace EmpireCraft.Scripts.AI
                 {
                     if (!pActor.isKing()) return false;
                     var allKingdoms = GetKingdomsRuledByActor(pActor);
+                    if (allKingdoms.Any(k => GraceEdictService.IsActive(k.GetEmpire()))) return false;
+                    // 西方封建制与城邦无法整合土地
+                    if (allKingdoms.Any(PersonalUnionService.IsUnionRegime)) return false;
                     if (!pActor.HasTitle()) return false;
                     return allKingdoms.Count > 1;
                 },
@@ -1567,10 +1596,11 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom.HasMainTitle())
                     {
                         KingdomTitle title = kingdom.GetMainTitle();
-                        foreach(City city in kingdom.cities)
+                        foreach(City city in kingdom.cities.ToList())
                         {
                             if (city.GetTitle()!=kingdom.GetMainTitle())
                             {
+                                if (!KingdomTitleManager.HasRoomFor(title)) break;
                                 title.addCity(city);
                                 TranslateHelper.LogCityAddToTitle(city, title);
                             }
@@ -1580,10 +1610,11 @@ namespace EmpireCraft.Scripts.AI
                         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(kingdom.capital);
                         if (title == null) return false;
                         kingdom.SetMainTitle(title);
-                        foreach (City city in kingdom.cities)
+                        foreach (City city in kingdom.cities.ToList())
                         {
                             if (city!=kingdom.capital)
                             {
+                                if (!KingdomTitleManager.HasRoomFor(title)) break;
                                 title.addCity(city);
                                 TranslateHelper.LogCityAddToTitle(city, title);
                             }
@@ -1727,6 +1758,7 @@ namespace EmpireCraft.Scripts.AI
                     {
                         if (!c.hasTitle())
                         {
+                            if (!KingdomTitleManager.HasRoomFor(title)) break;
                             title.addCity(c);
                             TranslateHelper.LogCityAddToTitle(c, title);
                             var emp2 = kingdom.GetEmpire();
@@ -1752,6 +1784,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.hasKingdom()) return false; 
                     if (!kingdom.HasMainTitle()) return false;
                     if (kingdom.cities.All(c=>c.hasTitle())) return false;
+                    if (!KingdomTitleManager.HasRoomFor(kingdom.GetMainTitle())) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
@@ -1762,6 +1795,7 @@ namespace EmpireCraft.Scripts.AI
                     var noneTitleCities = kingdom.cities.FindAll(c => !c.hasTitle());
                     foreach (City city in noneTitleCities)
                     {
+                        if (!KingdomTitleManager.HasRoomFor(mainTitle)) break;
                         mainTitle.addCity(city);
                         TranslateHelper.LogCityAddToTitle(city, mainTitle);
                     }
@@ -2327,6 +2361,7 @@ namespace EmpireCraft.Scripts.AI
                     return true;
                 }
             });
+            BlockVanillaAlliancePlots();
             GuardAllPlotAssets();
             LogService.LogInfo($"Currently loaded{AssetManager.plots_library.getList().Count().ToString()} plots");
             AssetManager.plots_library.linkAssets();
@@ -2353,31 +2388,22 @@ namespace EmpireCraft.Scripts.AI
                 return false;
             }
 
-            Empire empire = ModClass.EMPIRE_MANAGER?.NewEmpire(kingdom);
+            // 路线在称帝这一刻最终确定：定国号(SelectFoundingEmpireName 读取)、初始天命与诸国表态都按它来
+            EmpireFormationRoute route = EmpireFormationService.GetBestRoute(kingdom);
+            if (route == EmpireFormationRoute.None) route = kingdom.GetOrCreate().empire_formation_route;
+            kingdom.GetOrCreate().empire_formation_route = route;
+            // 同文化可以有多个帝国并立；主法理在别国核心里的是僭越称帝，先用临时核心，正统之争胜出后再接管原核心
+            Empire contested = EmpireFormationService.GetSeatCoreEmpire(kingdom);
+            Empire empire = ModClass.EMPIRE_MANAGER?.NewEmpire(kingdom, allowCultureRival: true,
+                forceNewCore: contested != null);
             if (empire == null)
             {
+                kingdom.GetOrCreate().empire_formation_route = EmpireFormationRoute.None;
                 return false;
             }
 
-            if (kingdom.hasAlliance())
-            {
-                Alliance alliance = kingdom.getAlliance();
-                if (alliance?.kingdoms_hashset == null)
-                {
-                    return true;
-                }
-
-                foreach (Kingdom kingdom1 in alliance.kingdoms_hashset.ToList()) 
-                {
-                    if (kingdom1 == null || !kingdom1.isAlive())
-                    {
-                        continue;
-                    }
-
-                    kingdom1.SetIndependentValue(50);
-                    empire.join(kingdom1, pForce: true);
-                }
-            }
+            EmpireFormationService.CompleteFormation(empire, kingdom, route);
+            if (contested != null) ImperialLegitimacyChallengeService.DeclareUsurpation(empire, contested);
             return true;
         }
 

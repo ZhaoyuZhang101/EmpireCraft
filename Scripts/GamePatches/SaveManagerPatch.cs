@@ -15,6 +15,7 @@ using Newtonsoft.Json;
 using System.IO;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -83,8 +84,6 @@ public class SaveManagerPatch : GamePatch
         ModClass.IS_CLEAR = true;
         ActorPatch.startSessionMonth = Date.getMonthsSince(World.world.getCurSessionTime());
         ActorPatch.isReadyToSet = false;
-        ModClass.EMPIRE_MANAGER = new EmpireManager();
-        ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         ClearPersistentWorldState();
         ClearRuntimeState();
 
@@ -122,9 +121,20 @@ public class SaveManagerPatch : GamePatch
 
     private static void ClearPersistentWorldState()
     {
+        DataManager.ResetCurrentSaveDataPath();
+        ModClass.EMPIRE_MANAGER = new EmpireManager();
+        ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         ModClass.ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
+        ModClass.CULTURE_NO_EMPIRE_SINCE = new Dictionary<string, double>();
+        ModClass.FEUDAL_EMPIRE_LINEAGE = new Dictionary<string, List<long>>();
+        ModClass.MOD_ALLIANCE_IDS = new HashSet<long>();
         SpecificClanManager._specificClans = new List<SpecificClan>();
         SpecificClanManager.RebuildCache();
         EmpireCoreManager.EmpireCores = new Dictionary<long, EmpireCore>();
+        EmpireCraftMetaTypeLibrary.selected_empire = null;
+        EmpireCraftMetaTypeLibrary.selected_empireCore = null;
+        EmpireCraftMetaTypeLibrary.selected_kingdomTitle = null;
+        EmpireCraftNamePlateLibrary.ResetWorldState();
+        ZoneMetaDataVisualizer.clearAll();
     }
 }

@@ -91,6 +91,12 @@ internal static class MainTab
             "bug_report_window_title");
         OnlineUpdateWindow.CreateWindow(nameof(OnlineUpdateWindow),
             "online_update_window_title");
+        // InstitutionWindow 换成了 AbstractWideWindow(真宽窗口)，注册方式跟其它
+        // AutoLayoutWindow<T> 窗口不一样：CreateAndInit 只认 (窗口id, 尺寸)，标题固定用
+        // "<窗口id> Title"(带空格)这个约定 key，不能像 CreateWindow 那样自己传 titleKey。
+        InstitutionWindow.CreateAndInit(nameof(InstitutionWindow), new Vector2(480f, 380f));
+        // 族谱树是单独的宽窗口，标题固定用 "<窗口id> Title" 约定 key(见上面 InstitutionWindow)。
+        SpecificClanTreeWindow.CreateAndInit(nameof(SpecificClanTreeWindow), new Vector2(500f, 400f));
     }
     [Hotfixable]
     private static void _addButtons()
@@ -263,6 +269,12 @@ internal static class MainTab
         PowerButton simpleNameplateButton = PowerButtonCreator.CreateToggleButton("simple_nameplate",
             SpriteTextureLoader.getSprite("ui/icons/iconHideUI"));
         tab.AddPowerButton(EMPIRE_GROUP, simpleNameplateButton);
+
+        // 帝国视图下是否叠加显示同盟
+        SwitchEmpireAllianceButton.init();
+        PowerButton empireAllianceButton = PowerButtonCreator.CreateToggleButton("empire_show_alliance",
+            SpriteTextureLoader.getSprite("plots/icons/plot_alliance_create"));
+        tab.AddPowerButton(EMPIRE_GROUP, empireAllianceButton);
     }
 
     private static Sprite GetOriginalBugIcon()

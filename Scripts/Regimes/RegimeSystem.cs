@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
@@ -47,6 +48,11 @@ public enum KingdomType
     ZhouFeudalism_hou,
     ZhouFeudalism_zi,
     default_country_post,
+    ClassicalRepublic_centre,
+    ClassicalRepublic_city_state,
+    ZhouFeudalism_jun, // 郡国并行下分封制的郡(官员选拔的行政区)；追加在末尾以保持旧存档枚举值稳定
+    Feudalism_intendancy, // 中央集权君主制下西方封建制的辖区(官员选拔的行政区)
+    Feudalism_diocese, // 神权国家下西方封建制的教区(官员选拔的行政区)
 }
 
 public enum ArmyOfficialType
@@ -68,6 +74,7 @@ public enum CityType
     Origin_city,
     YouMu_city,
     ZhouFeudalism_city,
+    ClassicalRepublic_city,
 }
 public enum TaxLevel
 {
@@ -97,7 +104,8 @@ public enum RegimeType
     Arabic,        //阿拉伯政体 - 阿拉伯世界
     YouMu,         //游牧政体   - 蒙古汗国
     Republic,
-    Origin
+    Origin,
+    ClassicalRepublic //古典城邦共和；追加在末尾以保持旧存档枚举值稳定
 }
 
 public enum ReligionLevel
@@ -139,6 +147,8 @@ public class Regime
     public Dictionary<string, int[]> options;
     public BureauConfig bureau_config;
     public List<LawType> laws;
+    // 制度科技树曾经挂在这里，现在已经搬到 InstitutionTrees/<线 id>.json：制度归属文化
+    // （进而归属科技线），跟政体不是一回事。政体配置只管"国家形态"，不再管制度。
     public double FactionChangeBlockUntil = -1f;
 
     public void BlockFactionChange(int years)
@@ -240,6 +250,9 @@ public class Regime
     }
     public void SetTaxLevel(TaxLevel level)
     {
+        Kingdom kingdom = World.world?.kingdoms?.get(control_kingdom_id);
+        if (kingdom != null && level != GetTaxLevel() &&
+            !ConstitutionalEconomySystem.CanChangeTax(kingdom.GetEmpire())) return;
         options["option_tax_level"][0] = (int) level;
     }
 
@@ -261,6 +274,19 @@ public class Regime
     public void SetLeaderSelectMethod(LeaderSelectMethod value)
     {
         options["option_leader_select_method"][0] = (int)value;
+    }
+
+    // 继承法的持久状态存在 KingdomExtraData.SuccessionLaw 上(regime 对象本身每次读档都会重新 Clone),
+    // 这里的 option 只是给 RegimeWindow 通用渲染用的镜像,读写都要和 KingdomExtraData 同步。
+    public SuccessionLawType GetSuccessionLaw()
+    {
+        return (SuccessionLawType)options["option_succession_law"][0];
+    }
+
+    public void SetSuccessionLaw(SuccessionLawType value)
+    {
+        options["option_succession_law"][0] = (int)value;
+        World.world.kingdoms.get(control_kingdom_id)?.SetSuccessionLaw(value);
     }
 
     public bool IsAllowDiplomacy()
@@ -336,6 +362,10 @@ public static class RegimeManager
         {
             LogService.LogInfo($"未发现政体目录: {_folderPath}");
         }
+
+        // 制度科技线是独立的一套配置（InstitutionTrees/），跟政体目录互不依赖：
+        // 政体目录缺失也照样把制度线读进来，反之亦然。
+        InstitutionDefinitionRegistry.Load();
     }
     private static void NormalizeRegime(Regime regime)
     {
@@ -390,6 +420,10 @@ public static class RegimeManager
         }
         regime.bureau_config = bc;
         regime.options ??= new Dictionary<string, int[]>();
+        if (!regime.options.ContainsKey("option_succession_law"))
+        {
+            regime.options["option_succession_law"] = new[] { 0, Enum.GetValues(typeof(SuccessionLawType)).Length };
+        }
         regime.laws ??= new List<LawType>();
     }
 }

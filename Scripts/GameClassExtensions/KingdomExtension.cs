@@ -277,6 +277,34 @@ public static class KingdomExtension
         public double last_exam_timestamp = -1L;
         public bool isFactionRebelling = false;
         public bool isLocalRebelling = false;
+        // 最近一次在「不奉诏」战争中抗诏得胜的时间，此后三十年封国自主更高。
+        public double investiture_defiance_victory_timestamp = -1d;
+        // 称帝筹备：所走的正统路线、开始时间、开始时同文化比自己强的国家数(用于判定"被超过")。
+        public EmpireFormationRoute empire_formation_route = EmpireFormationRoute.None;
+        public double empire_formation_started_timestamp = -1d;
+        public int empire_formation_stronger_rivals = 0;
+        // 最近一次称帝失败的时间(十年冷却)与最近一次战败的时间(筹备期间战败即失败)。
+        public double empire_formation_failed_timestamp = -1d;
+        public double empire_formation_lost_war_timestamp = -1d;
+        // 对某个新帝国称帝不服而记仇：好感下降量随时间在二十年内线性恢复。
+        public long proclamation_grudge_empire_id = -1L;
+        public double proclamation_grudge_timestamp = -1d;
+        public int proclamation_grudge_strength = 0;
+        // 封国国王去世时记下其个人身份(原版会先清空国王)，推恩令据此找到他的儿子们。
+        public long last_king_identity_id = -1L;
+        // 本国士兵数的历史峰值：只有"曾经有过军队、后来打光"的国家才会兵力崩溃、望风归降。
+        public int peak_warriors = 0;
+        // 共主联盟：城邦共主去世后，入盟城邦跟随盟主城邦(这个 id)的新君主；
+        // 封建共主去世后，按长幼分给这个王国的继承人(分割继承)。
+        public long union_leader_kingdom_id = -1L;
+        public long union_partition_heir_id = -1L;
+        // 土地制度属于政权本身，不依赖其是否加入或建立帝国。
+        public bool private_land_market_open = false;
+        public bool fugitive_household_law_enacted = false;
+        public bool is_peasant_revolutionary_government = false;
+        public bool is_peasant_land_rebellion = false;
+        public long peasant_land_rebellion_war_id = -1L;
+        public long peasant_land_rebellion_origin_kingdom_id = -1L;
         // Persist every empire this polity has rebelled against; ending a war must not permit re-entry.
         public List<long> rebellion_origin_empire_ids = new List<long>();
         // 地方叛乱自动吸纳政权时可再接收的城市数。
@@ -290,6 +318,8 @@ public static class KingdomExtension
         public double corruption_timestamp = -1L;
         public EmpireHeirLawType HeirLaw = EmpireHeirLawType.eldest_child;
         public EmpireHeirLawType DefaultHeirLaw = EmpireHeirLawType.eldest_child;
+        //玩家/派系可见的继承法,决定 HeirLaw 级联的起点与特殊继承行为
+        public SuccessionLawType SuccessionLaw = SuccessionLawType.嫡长子继承法;
         public string faction_rebel_original_name = "";
         public LawType main_crime = default;
         public TemporaryPushProgress PushProgress = new TemporaryPushProgress()
@@ -385,13 +415,14 @@ public static class KingdomExtension
     }
 
     public const float FactionLeaderInfluenceForMaximumGrowth = 1000f;
-    public const int MaximumAnnualFactionRatioGrowth = 2;
+    public const int MaximumAnnualFactionRatioGrowth = 3;
 
-    public static float CalculateAnnualFactionRatioGrowth(int leaderInfluence)
+    public static float CalculateAnnualFactionRatioGrowth(int leaderInfluence, float classPower = 0f)
     {
         float normalizedInfluence = Mathf.Clamp01(Mathf.Max(0, leaderInfluence) /
                                                    FactionLeaderInfluenceForMaximumGrowth);
-        return 1f + normalizedInfluence;
+        // 人物领袖和抽象社会基础都能让派系增长；没有官员领袖时，阶层本体仍可形成政治力量。
+        return 0.25f + normalizedInfluence + Mathf.Clamp01(classPower / 50f) * 1.5f;
     }
 
     /// <summary>
@@ -413,11 +444,11 @@ public static class KingdomExtension
         List<FixedFaction> configuredFactions = factions
             .Where(faction => faction != null)
             .ToList();
+        FactionClassSystem.UpdateEmpire(kingdom.GetEmpire(), configuredFactions);
         List<(FixedFaction faction, Actor leader, int influence)> activeFactions = configuredFactions
             .Where(faction => !faction.Ban)
-            .Select(faction => (faction, leader: faction.GetLeader()))
-            .Where(entry => entry.leader != null)
-            .Select(entry => (entry.faction, entry.leader, influence: Mathf.Max(0, entry.leader.data.renown)))
+            .Select(faction => (faction, leader: faction.GetLeader(),
+                influence: Mathf.Max(0, faction.GetLeader()?.data?.renown ?? 0)))
             .OrderBy(entry => entry.influence)
             .ThenBy(entry => entry.faction.GetID())
             .ToList();
@@ -437,7 +468,8 @@ public static class KingdomExtension
         {
             string factionId = entry.faction.GetID();
             data.faction_ratio_growth_progress.TryGetValue(factionId, out float carriedGrowth);
-            float accumulatedGrowth = carriedGrowth + CalculateAnnualFactionRatioGrowth(entry.influence);
+            float accumulatedGrowth = carriedGrowth +
+                                      CalculateAnnualFactionRatioGrowth(entry.influence, entry.faction.ClassPower);
             int increase = Mathf.Min(MaximumAnnualFactionRatioGrowth, Mathf.FloorToInt(accumulatedGrowth));
             data.faction_ratio_growth_progress[factionId] = accumulatedGrowth - increase;
             if (increase > 0 && kingdom.TryIncreaseFactionRatio(entry.faction, increase)) changed = true;
@@ -963,6 +995,37 @@ public static class KingdomExtension
         return k.GetOrCreate().DefaultHeirLaw;
     }
 
+    //继承法(玩家可见)决定 HeirLaw 级联的起点,强者继承法不走级联,由 CheckHeir 单独处理
+    public static EmpireHeirLawType ResolveHeirLawStart(SuccessionLawType law)
+    {
+        switch (law)
+        {
+            case SuccessionLawType.幼子继承法:
+                return EmpireHeirLawType.smallest_child;
+            case SuccessionLawType.兄终弟及:
+                return EmpireHeirLawType.siblings;
+            case SuccessionLawType.嫡长子继承法:
+            case SuccessionLawType.分割继承法:
+            case SuccessionLawType.强者继承法:
+            default:
+                return EmpireHeirLawType.eldest_child;
+        }
+    }
+
+    public static SuccessionLawType GetSuccessionLaw(this Kingdom k)
+    {
+        return k.GetOrCreate().SuccessionLaw;
+    }
+
+    public static void SetSuccessionLaw(this Kingdom k, SuccessionLawType law)
+    {
+        KingdomExtraData data = k.GetOrCreate();
+        data.SuccessionLaw = law;
+        EmpireHeirLawType heirLawStart = ResolveHeirLawStart(law);
+        data.DefaultHeirLaw = heirLawStart;
+        data.HeirLaw = heirLawStart;
+    }
+
     public static void GoToNextHeirLaw(this Kingdom k)
     {
         switch (k.GetOrCreate().HeirLaw)
@@ -1013,6 +1076,17 @@ public static class KingdomExtension
                 k.GetOrCreate().leave_taken_alliance_preference += 0.05f;
             }
         }
+
+        // 朝贡国坐大：国力过宗主一半后退出倾向每年 +10%；国力压过宗主则立即脱离(不引来讨伐)
+        double tributaryPower = k.GetNationalPower();
+        double overlordPower = empire.GetNationalPower();
+        if (overlordPower > 0d && tributaryPower > overlordPower)
+        {
+            k.RemoveTakenAlliance();
+            return;
+        }
+        if (overlordPower > 0d && tributaryPower > overlordPower * 0.5d)
+            k.GetOrCreate().leave_taken_alliance_preference += 0.1f;
 
         if (!(k.GetOrCreate().leave_taken_alliance_preference >= 1.0)) return;
         k.RemoveTakenAlliance();
@@ -1186,6 +1260,8 @@ public static class KingdomExtension
         // Force may bypass diplomatic/de-jure eligibility after a tribute war, but a rebel
         // polity can never return to its original empire even as a tributary.
         if (k.HasRebelledAgainst(empire)) return;
+        // 没施行朝贡体系类制度的帝国一律不收朝贡国(强制也不行)
+        if (!FeudalConquestService.HasTributeInstitution(empire)) return;
         if (!pForce && (!empire.CanAcceptVoluntarySubmission() ||
             !k.CanVoluntarilyBecomeTributaryOf(empire) ||
             !empire.MeetsTributaryPowerThreshold(k))) return;
@@ -1758,6 +1834,12 @@ public static class KingdomExtension
             }
         }
         Regime regime = baseRegime?.Clone(k);
+        // regime 每次读档都会从模板重新 Clone,option_succession_law 的当前选择要从持久化的
+        // KingdomExtraData.SuccessionLaw 同步回来,否则玩家选的继承法会在读档后被模板默认值覆盖。
+        if (regime?.options != null && regime.options.TryGetValue("option_succession_law", out int[] successionLawOption) && successionLawOption.Length > 0)
+        {
+            successionLawOption[0] = (int)ed.SuccessionLaw;
+        }
         k.SetRegime(regime);
         if (k.IsEmpire())
         {
@@ -1792,9 +1874,13 @@ public static class KingdomExtension
     {
         if (k?.data == null || k.isRekt()) return;
         var culture = CultureService.GetRealmCulture(k);
-        RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
-            ? setting.regime
-            : RegimeType.Feudalism;
+        // 初始政体由该文化所属科技线的**一级制度**决定（华夏开局是周制，律令要等郡县官僚
+        // 研究出来），线里没声明才退回 CultureRulesConfig.json 里的 setting.regime。
+        RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)
+            ? resolvedRegime
+            : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
+                ? setting.regime
+                : RegimeType.Feudalism;
         k.SetRegimeType(regimeType);
         k.LoadRegime();
         var regime = k.GetRegime();
@@ -2068,6 +2154,8 @@ public static class KingdomExtension
     public static void SetMainTitle(this Kingdom k, KingdomTitle title)
     {
         if (k == null || title == null || title.isRekt()) return;
+        // 城邦不能建立法理
+        if (CityStateService.IsCityState(k)) return;
         if (title.title_capital == null || title.title_capital.isRekt()) return;
         var extraData = k.GetOrCreate();
         var current = ModClass.KINGDOM_TITLE_MANAGER.get(extraData.MainTitle);
@@ -2133,9 +2221,14 @@ public static class KingdomExtension
         var extraData = kingdom.GetOrCreate();
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(extraData.AdministrativeTitle);
         KingdomType kingdomType = kingdom.GetKingdomType();
-        bool isAdministrative = kingdom.GetRegime()?.type == RegimeType.LvLing &&
-            (kingdomType == KingdomType.LvLing_province || kingdomType == KingdomType.LvLing_jiedushi ||
-             kingdomType == KingdomType.LvLing_duhufu) &&
+        // 律令制的道/节度使/都护府，以及郡国并行下分封制的郡，都是受托管理法理的行政区
+        bool isAdministrative = ((kingdom.GetRegime()?.type == RegimeType.LvLing &&
+                                  (kingdomType == KingdomType.LvLing_province ||
+                                   kingdomType == KingdomType.LvLing_jiedushi ||
+                                   kingdomType == KingdomType.LvLing_duhufu)) ||
+                                 kingdomType == KingdomType.ZhouFeudalism_jun ||
+                                 kingdomType == KingdomType.Feudalism_intendancy ||
+                                 kingdomType == KingdomType.Feudalism_diocese) &&
             kingdom.GetMainTitle() == null;
         if (!isAdministrative)
         {
@@ -2260,11 +2353,18 @@ public static class KingdomExtension
         if (kingdom == null || kingdom.isRekt()) return true;
         Empire empire = titleEmpire ?? kingdom.GetEmpire();
         if (empire == null || kingdom.GetEmpire() != empire) return false;
-        bool isLvLing = empire.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing;
         KingdomType kingdomType = kingdom.GetKingdomType();
+        // 郡与律令制的道同样按行政区对待
+        bool isLvLing = empire.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing ||
+                        kingdomType == KingdomType.ZhouFeudalism_jun ||
+                        kingdomType == KingdomType.Feudalism_intendancy ||
+                        kingdomType == KingdomType.Feudalism_diocese;
         bool isProvinceOrMilitary = kingdomType == KingdomType.LvLing_province ||
                                     kingdomType == KingdomType.LvLing_jiedushi ||
-                                    kingdomType == KingdomType.LvLing_duhufu;
+                                    kingdomType == KingdomType.LvLing_duhufu ||
+                                    kingdomType == KingdomType.ZhouFeudalism_jun ||
+                                    kingdomType == KingdomType.Feudalism_intendancy ||
+                                    kingdomType == KingdomType.Feudalism_diocese;
         return DeJureTitleBindingRules.IsAdministrativeAcquisitionBlocked(isLvLing,
             isProvinceOrMilitary, empire.Mandate);
     }
@@ -2550,7 +2650,6 @@ public static class KingdomExtension
         if (k.isRekt() || k.IsEmpire()) return false;
         string culture = CultureService.GetRealmCulture(k);
         if (!CultureService.IsValidCulture(culture) ||
-            CultureService.HasActiveEmpireForCulture(culture) ||
             !k.IsStrongestEmpireCandidateOfCulture()) return false;
         if (k.countUnits() < 200) return false;
 

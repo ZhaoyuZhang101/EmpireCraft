@@ -5,6 +5,7 @@
         "translate_cz": "华夏",
         "setting": {
             "regime": "LvLing",
+            "institution_line": "Huaxia",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -92,6 +93,7 @@
         "translate_cz": "现代中国",
         "setting": {
             "regime": "Modern",
+            "institution_line": "Huaxia",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -162,6 +164,7 @@
         "translate_cz": "山海经",
         "setting": {
             "regime": "ZhouFeudalism",
+            "institution_line": "Huaxia",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -228,7 +231,8 @@
         "color": "#4A6FA5",
         "translate_cz": "西方",
         "setting": {
-            "regime": "Feudalism",
+            "regime": "ClassicalRepublic",
+            "institution_line": "Roma",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -308,6 +312,7 @@
         "translate_cz": "精灵幻想",
         "setting": {
             "regime": "Feudalism",
+            "institution_line": "Roma",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -378,6 +383,7 @@
         "translate_cz": "游牧",
         "setting": {
             "regime": "YouMu",
+            "institution_line": "Youmu",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -452,6 +458,7 @@
         "translate_cz": "罗马",
         "setting": {
             "regime": "Feudalism",
+            "institution_line": "Roma",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -519,6 +526,7 @@
         "translate_cz": "法兰克",
         "setting": {
             "regime": "Feudalism",
+            "institution_line": "Roma",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -597,6 +605,7 @@
         "translate_cz": "日耳曼",
         "setting": {
             "regime": "Feudalism",
+            "institution_line": "Roma",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -673,6 +682,7 @@
         "translate_cz": "斯拉夫",
         "setting": {
             "regime": "Feudalism",
+            "institution_line": "Roma",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -739,6 +749,7 @@
         "translate_cz": "阿拉伯",
         "setting": {
             "regime": "Arabic",
+            "institution_line": "Arabic",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -809,6 +820,7 @@
         "translate_cz": "日本",
         "setting": {
             "regime": "ZhouFeudalism",
+            "institution_line": "Huaxia",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -885,6 +897,7 @@
         "translate_cz": "犹太",
         "setting": {
             "regime": "Feudalism",
+            "institution_line": "Roma",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -956,6 +969,7 @@
         "translate_cz": "维京",
         "setting": {
             "regime": "Feudalism",
+            "institution_line": "Roma",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -1033,6 +1047,7 @@
         "translate_cz": "埃及",
         "setting": {
             "regime": "Arabic",
+            "institution_line": "Arabic",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -1102,6 +1117,7 @@
         "translate_cz": "波斯",
         "setting": {
             "regime": "Arabic",
+            "institution_line": "Arabic",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -1169,6 +1185,7 @@
         "translate_cz": "阿兹特克",
         "setting": {
             "regime": "Origin",
+            "institution_line": "Youmu",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -1239,6 +1256,7 @@
         "translate_cz": "印度",
         "setting": {
             "regime": "Origin",
+            "institution_line": "Arabic",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -1306,6 +1324,7 @@
         "translate_cz": "奥吉布瓦",
         "setting": {
             "regime": "Origin",
+            "institution_line": "Youmu",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -1373,6 +1392,7 @@
         "translate_cz": "企业",
         "setting": {
             "regime": "Modern",
+            "institution_line": "Roma",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
@@ -1444,6 +1464,7 @@
         "translate_cz": "帝皇",
         "setting": {
             "regime": "Feudalism",
+            "institution_line": "Roma",
             "traits": ["patriarchy"],
             "City": {
                 "groups": {
