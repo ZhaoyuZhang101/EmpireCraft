@@ -264,6 +264,51 @@ public static class InstitutionSystem
         return InstitutionDefinitionRegistry.TryGetRootRegime(line, out regime);
     }
 
+    // 文化掌握封建化只代表具备改制条件；未主持改革的旧城邦按本国节奏过渡。
+    public static void TryAdvanceFeudalTransition(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || World.world == null ||
+            kingdom.GetRegime()?.type != RegimeType.ClassicalRepublic ||
+            RegimeManager.regimes == null ||
+            !RegimeManager.regimes.TryGetValue(RegimeType.Feudalism, out Regime feudalRegime) ||
+            feudalRegime == null) return;
+
+        Empire empire = kingdom.GetEmpire();
+        if (empire != null && (empire.IsArchived() || empire.isRekt() || empire.CoreKingdom != kingdom)) return;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (!CultureService.IsValidCulture(culture) ||
+            !TryResolveCultureRegime(culture, out RegimeType target) || target != RegimeType.Feudalism)
+            return;
+
+        const string nodeId = "western_feudalization";
+        CultureInstitutionState cultureState = GetOrCreateCultureState(culture);
+        if (cultureState == null || !cultureState.enacted_node_ids.Contains(nodeId)) return;
+        cultureState.enacted_timestamps ??= new Dictionary<string, double>();
+        if (!cultureState.enacted_timestamps.TryGetValue(nodeId, out double enactedAt) || enactedAt < 0d)
+        {
+            enactedAt = World.world.getCurWorldTime();
+            cultureState.enacted_timestamps[nodeId] = enactedAt;
+        }
+
+        // 属国已经改制时先让中央跟上；其他国家在文化完成研究后的第 2~5 年分批改制。
+        bool feudalSubjects = empire?.kingdoms_list?.Any(member => member != null && member != kingdom &&
+            !member.isRekt() && CultureService.GetRealmCulture(member) == culture &&
+            member.GetRegime()?.type == RegimeType.Feudalism) == true;
+        if (!feudalSubjects && Date.getYearsSince(enactedAt) < 2 + kingdom.id % 4) return;
+
+        if (empire != null)
+        {
+            EnsureEmpireState(empire);
+            ChangeRegime(empire, RegimeType.Feudalism);
+        }
+        else
+        {
+            kingdom.SetRegimeType(RegimeType.Feudalism);
+            kingdom.LoadRegime();
+            kingdom.SystemChange();
+        }
+    }
+
     public static string GetPrimaryCulture(Empire empire)
     {
         string culture = CompositeEmpireService.IsComposite(empire)
@@ -885,10 +930,15 @@ public static class InstitutionSystem
                                                               !kingdom.IsFactionRebelling() &&
                                                               !kingdom.IsLocalRebelling() &&
                                                               !kingdom.getWars().Any())
-            .OrderByDescending(kingdom => GetKingdomClassShare(kingdom, socialClass))
-            .ThenByDescending(kingdom => kingdom.countTotalWarriors()).FirstOrDefault();
+            .Select(kingdom => new { Kingdom = kingdom, Share = GetKingdomClassShare(kingdom, socialClass) })
+            .Where(candidate => candidate.Share > 0f)
+            .OrderByDescending(candidate => candidate.Share)
+            .ThenByDescending(candidate => candidate.Kingdom.countTotalWarriors())
+            .Select(candidate => candidate.Kingdom).FirstOrDefault();
         // 单一王国的大帝国也可能爆发社会革命：没有现成封国可起兵时，由受损阶层成员
         // 在非首都城市建立叛军政权，避免“只有分封帝国才会有农民起义”的反直觉结果。
+        City splitSeat = null;
+        Kingdom splitOrigin = null;
         if (rebel == null)
         {
             IEnumerable<Kingdom> sourceKingdoms = coreOnly
@@ -896,21 +946,29 @@ public static class InstitutionSystem
                 : (IEnumerable<Kingdom>)empire.kingdoms_hashset;
             Actor leader = EmpirePopulation.Enumerate(sourceKingdoms)
                 .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.hasCity() &&
-                                actor.city != empire.CoreKingdom.capital &&
+                                actor.city.kingdom != null && actor.city != actor.city.kingdom.capital &&
                                 actor.GetOrCreate().socialClass == socialClass)
                 .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
-            City seat = leader?.city;
-            if (seat != null) rebel = seat.makeOwnKingdom(leader, pRebellion: true);
+            splitSeat = leader?.city;
+            splitOrigin = splitSeat?.kingdom;
+            if (splitSeat != null) rebel = splitSeat.makeOwnKingdom(leader, pRebellion: true);
         }
         if (rebel == null) return false;
 
-        if (!rebel.StartLocalRebelling(EmpireWarType.地方叛乱)) return false;
+        string originalName = rebel.data?.name;
+        if (!rebel.StartLocalRebelling(EmpireWarType.地方叛乱))
+        {
+            if (splitSeat != null) RebellionStartupService.RollbackCitySplit(splitSeat, splitOrigin, rebel);
+            return false;
+        }
         string className = LM.Get($"class_{socialClass}");
         rebel.data.name = string.Format(LM.Get("institution_social_rebel_kingdom_name"), className);
         War war = World.world.diplomacy.startWar(rebel, empire.CoreKingdom, WarTypeLibrary.rebellion);
         if (war == null)
         {
             rebel.EndLocalRebelling();
+            if (splitSeat != null) RebellionStartupService.RollbackCitySplit(splitSeat, splitOrigin, rebel);
+            else rebel.data.name = originalName;
             return false;
         }
         war.SetEmpireWarType(EmpireWarType.地方叛乱);

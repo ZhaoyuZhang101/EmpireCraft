@@ -133,6 +133,17 @@ namespace EmpireCraft.Scripts.AI
                 var shouldContinue = plot.check_should_continue;
                 plot.check_should_continue = pActor =>
                     !IsVanillaAllianceBlocked() && (shouldContinue == null || shouldContinue(pActor));
+                var canBeForced = plot.check_can_be_forced;
+                if (canBeForced != null)
+                    plot.check_can_be_forced = pActor =>
+                        !IsVanillaAllianceBlocked() && canBeForced(pActor);
+                var tryToStart = plot.try_to_start_advanced;
+                if (tryToStart != null)
+                    plot.try_to_start_advanced = (pActor, pPlotAsset, pForced) =>
+                        !IsVanillaAllianceBlocked() && tryToStart(pActor, pPlotAsset, pForced);
+                var action = plot.action;
+                if (action != null)
+                    plot.action = pActor => !IsVanillaAllianceBlocked() && action(pActor);
             }
         }
 
@@ -337,6 +348,73 @@ namespace EmpireCraft.Scripts.AI
                 color = "#5EFFFF",
                 show_counter = true,
                 plot_retry_action = new PlotRetryAction(PlotCategoryLibrary.diplomacyRetryAction)
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "feudal_offer_vassalage",
+                path_icon = "ui/icons/iconWar",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                can_be_done_by_king = true,
+                progress_needed = 15f,
+                try_to_start_advanced = TryStartSimplePlot,
+                check_is_possible = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.FindPeacefulSubmissionTarget(actor.kingdom) != null,
+                check_should_continue = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.FindPeacefulSubmissionTarget(actor.kingdom) != null,
+                action = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.Bind(actor.kingdom,
+                        FeudalVassalService.FindPeacefulSubmissionTarget(actor.kingdom))
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "feudal_tighten_vassalage",
+                path_icon = "ui/icons/iconCrown",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                can_be_done_by_king = true,
+                progress_needed = 10f,
+                try_to_start_advanced = TryStartSimplePlot,
+                check_is_possible = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.FindControlTarget(actor.kingdom) != null,
+                check_should_continue = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.FindControlTarget(actor.kingdom) != null,
+                action = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.IncreaseControl(actor.kingdom,
+                        FeudalVassalService.FindControlTarget(actor.kingdom))
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "feudal_annex_vassal",
+                path_icon = "ui/icons/iconCrown",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                can_be_done_by_king = true,
+                progress_needed = 25f,
+                try_to_start_advanced = TryStartSimplePlot,
+                check_is_possible = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.FindAnnexTarget(actor.kingdom) != null,
+                check_should_continue = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.FindAnnexTarget(actor.kingdom) != null,
+                action = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.Annex(actor.kingdom,
+                        FeudalVassalService.FindAnnexTarget(actor.kingdom))
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "feudal_independence_war",
+                path_icon = "ui/icons/iconWar",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                can_be_done_by_king = true,
+                progress_needed = 20f,
+                try_to_start_advanced = TryStartSimplePlot,
+                check_is_possible = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.CanSeekIndependence(actor.kingdom),
+                check_should_continue = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.CanSeekIndependence(actor.kingdom),
+                action = actor => actor?.kingdom?.king == actor &&
+                    FeudalVassalService.StartIndependenceWar(actor.kingdom)
             });
             AssetManager.plots_library.add(new PlotAsset
             {
@@ -2106,12 +2184,11 @@ namespace EmpireCraft.Scripts.AI
                 {
                     Kingdom kingdom = pActor.kingdom;
                     Regime regime = kingdom.GetRegime();
-                    if (!regime.IsAllowDiplomacy()) return false;
-                    if (!DiplomacyHelpers.isWarNeeded(kingdom))
+                    if (regime == null || !regime.IsAllowDiplomacy()) return false;
+                    if (!IsWarNeededForPlot(kingdom) || GetWarTarget(kingdom) == null)
                     {
                         return false;
                     }
-                    if (kingdom.IsEmpire()) return false;
                     if (pActor.hasCulture() && pActor.culture.hasTrait("serenity_now"))
                     {
                         return false;
@@ -2153,15 +2230,6 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
-                    if (warTarget.IsInSameEmpire(pActor.kingdom))
-                    {
-                        Empire empire = warTarget.GetEmpire();
-                        if (!empire.IsAllowToMakeWar()&&warTarget==empire.CoreKingdom)
-                        {
-                            return false;
-                        }
-                    }
-
                     if (kingdom.IsInEmpire())
                     {
                         if (warTarget.GetGivenAllianceEmpire() == kingdom.GetEmpire())
@@ -2181,18 +2249,22 @@ namespace EmpireCraft.Scripts.AI
                             if (!kingdom.NeedToRemoveGivenAlliance()) return false;
                         }
                     }
-                    if (!kingdom.IsNeighbourWith(warTarget))
+                    if (!(kingdom.IsEmpire() && kingdom.GetEmpire()?.IsNeighbourWith(warTarget) == true) &&
+                        !kingdom.IsNeighbourWith(warTarget))
                     {
                         return false;
                     }
                     Plot plot = World.world.plots.newPlot(pActor, pPlotAsset, pForced);
+                    if (plot == null) return false;
                     plot.target_kingdom = warTarget;
-                    return plot.checkInitiatorAndTargets();
+                    if (plot.checkInitiatorAndTargets()) return true;
+                    plot.setAlive(false);
+                    return false;
                 },
                 check_should_continue = delegate (Actor pActor)
                 {
                     Plot plot = pActor.plot;
-                    if (!plot.target_kingdom.isAlive())
+                    if (plot?.target_kingdom == null || !plot.target_kingdom.isAlive())
                     {
                         return false;
                     }
@@ -2200,11 +2272,21 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
-                    return DiplomacyHelpers.isWarNeeded(pActor.kingdom);
+                    return IsWarNeededForPlot(pActor.kingdom) &&
+                           FeudalVassalService.CanDeclareExternalWar(pActor.kingdom, plot.target_kingdom) &&
+                           (!pActor.kingdom.IsEmpire() ||
+                            IsValidImperialWarTarget(pActor.kingdom, plot.target_kingdom));
                 },
                 action = delegate (Actor pActor)
                 {
-                    World.world.diplomacy.startWar(pActor.kingdom, pActor.plot.target_kingdom, WarTypeLibrary.normal);
+                    Kingdom kingdom = pActor.kingdom;
+                    Kingdom target = pActor.plot?.target_kingdom;
+                    if (target == null || !target.isAlive() ||
+                        !FeudalVassalService.CanDeclareExternalWar(kingdom, target) ||
+                        kingdom.IsEmpire() && (!IsWarNeededForPlot(kingdom) ||
+                                               !IsValidImperialWarTarget(kingdom, target))) return false;
+                    War war = World.world.diplomacy.startWar(kingdom, target, WarTypeLibrary.normal);
+                    if (war == null) return false;
                     pActor.kingdom.SubMoney(200);
                     return true;
                 }
@@ -2213,6 +2295,7 @@ namespace EmpireCraft.Scripts.AI
             PlotsLibrary.alliance_create.check_is_possible = delegate (Actor pActor)
             {
                 Kingdom kingdom = pActor.kingdom;
+                if (!FeudalVassalService.CanJoinAlliance(kingdom, null)) return false;
                 if (kingdom.hasAlliance())
                 {
                     return false;
@@ -2236,6 +2319,7 @@ namespace EmpireCraft.Scripts.AI
                 return !World.world.plots.isPlotTypeAlreadyRunning(pActor, PlotsLibrary.alliance_create);
             };
             AssetManager.plots_library.list.RemoveAll(a => a.id == "alliance_join");
+            AssetManager.plots_library.basic_plots.RemoveAll(a => a.id == "alliance_join");
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "alliance_join",
@@ -2251,7 +2335,9 @@ namespace EmpireCraft.Scripts.AI
                 requires_diplomacy = true,
                 check_is_possible = delegate (Actor pActor)
                 {
+                    if (IsVanillaAllianceBlocked()) return false;
                     Kingdom kingdom = pActor.kingdom;
+                    if (!FeudalVassalService.CanJoinAlliance(kingdom, null)) return false;
                     Regime regime = kingdom.GetRegime();
                     if (regime == null) return false;
                     if (!regime.IsAllowDiplomacy()) return false;
@@ -2279,6 +2365,9 @@ namespace EmpireCraft.Scripts.AI
                 },
                 try_to_start_advanced = delegate (Actor pActor, PlotAsset pPlotAsset, bool pForced)
                 {
+                    if (IsVanillaAllianceBlocked() || pActor?.plot?.isActive() == true || pActor?.kingdom == null ||
+                        pActor.kingdom.IsInEmpire() || pActor.kingdom.hasAlliance() ||
+                        !FeudalVassalService.CanJoinAlliance(pActor.kingdom, null)) return false;
                     Kingdom kingdom = pActor.kingdom;
                     _ = kingdom.power;
                     Alliance alliance = null;
@@ -2288,11 +2377,13 @@ namespace EmpireCraft.Scripts.AI
                         {
                             if (pForced)
                             {
+                                if (!FeudalVassalService.CanJoinAlliance(kingdom, item3)) continue;
                                 alliance = item3;
                                 break;
                             }
 
-                            if (!item3.canJoin(kingdom) || item3.hasSupremeKingdom()) continue;
+                            if (!FeudalVassalService.CanJoinAlliance(kingdom, item3) ||
+                                !item3.canJoin(kingdom) || item3.hasSupremeKingdom()) continue;
                             _ = item3.power;
                             var flag = kingdom.cities.Count <= 2 && !kingdom.hasNearbyKingdoms();
                             if (!flag && item3.hasSharedBordersWithKingdom(kingdom))
@@ -2310,21 +2401,26 @@ namespace EmpireCraft.Scripts.AI
                         return false;
                     }
                     Plot plot = World.world.plots.newPlot(pActor, pPlotAsset, pForced);
+                    if (plot == null) return false;
                     plot.target_alliance = alliance;
                     if (!plot.checkInitiatorAndTargets())
                     {
                         Debug.Log("tryPlotJoinAlliance is missing start requirements");
-                        return true;
+                        plot.setAlive(false);
+                        return false;
                     }
                     pActor.setPlot(plot);
                     return true;
                 },
                 check_other_plots = PlotsLibrary.alliance_create.check_other_plots,
-                check_can_be_forced = (Actor pActor) => !pActor.kingdom.hasAlliance(),
+                check_can_be_forced = (Actor pActor) =>
+                    !IsVanillaAllianceBlocked() && !pActor.kingdom.hasAlliance() && !pActor.kingdom.IsInEmpire() &&
+                    FeudalVassalService.CanJoinAlliance(pActor.kingdom, null),
                 check_should_continue = delegate(Actor pActor)
                 {
+                    if (IsVanillaAllianceBlocked()) return false;
                     Plot plot = pActor.plot;
-                    if (pActor.kingdom.hasAlliance())
+                    if (pActor.kingdom.hasAlliance() || pActor.kingdom.IsInEmpire())
                     {
                         return false;
                     }
@@ -2332,6 +2428,7 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
+                    if (!FeudalVassalService.CanJoinAlliance(pActor.kingdom, plot.target_alliance)) return false;
                     if (!plot.target_alliance.canJoin(pActor.kingdom))
                     {
                         return false;
@@ -2344,8 +2441,9 @@ namespace EmpireCraft.Scripts.AI
                 },
                 action = delegate(Actor pActor)
                 {
+                    if (IsVanillaAllianceBlocked()) return false;
                     Plot plot = pActor.plot;
-                    if (pActor.kingdom.hasAlliance())
+                    if (pActor.kingdom.hasAlliance() || pActor.kingdom.IsInEmpire())
                     {
                         return false;
                     }
@@ -2353,6 +2451,7 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
+                    if (!FeudalVassalService.CanJoinAlliance(pActor.kingdom, plot.target_alliance)) return false;
                     plot.target_alliance.join(pActor.kingdom);
                     if (pActor.kingdom.hasKing())
                     {
@@ -2392,6 +2491,10 @@ namespace EmpireCraft.Scripts.AI
             EmpireFormationRoute route = EmpireFormationService.GetBestRoute(kingdom);
             if (route == EmpireFormationRoute.None) route = kingdom.GetOrCreate().empire_formation_route;
             kingdom.GetOrCreate().empire_formation_route = route;
+            Alliance foundingAlliance = kingdom.hasAlliance() ? kingdom.getAlliance() : null;
+            List<Kingdom> allianceMembers = foundingAlliance?.kingdoms_hashset?.ToList() ?? new List<Kingdom>();
+            List<Kingdom> coRuledRealms = PersonalUnionService.GetRealms(pActor)
+                .Where(realm => realm != kingdom && !realm.IsEmpire() && !realm.IsInEmpire()).ToList();
             // 同文化可以有多个帝国并立；主法理在别国核心里的是僭越称帝，先用临时核心，正统之争胜出后再接管原核心
             Empire contested = EmpireFormationService.GetSeatCoreEmpire(kingdom);
             Empire empire = ModClass.EMPIRE_MANAGER?.NewEmpire(kingdom, allowCultureRival: true,
@@ -2402,7 +2505,8 @@ namespace EmpireCraft.Scripts.AI
                 return false;
             }
 
-            EmpireFormationService.CompleteFormation(empire, kingdom, route);
+            EmpireFormationService.CompleteFormation(empire, kingdom, route, foundingAlliance,
+                allianceMembers, coRuledRealms);
             if (contested != null) ImperialLegitimacyChallengeService.DeclareUsurpation(empire, contested);
             return true;
         }
@@ -2414,36 +2518,53 @@ namespace EmpireCraft.Scripts.AI
                 return null;
             }
 
-            Kingdom result = null;
+            if (pInitiatorKingdom.IsEmpire())
+                return World.world.kingdoms.Where(target => target != null && target.isAlive() &&
+                        target != pInitiatorKingdom)
+                    .OrderBy(target => World.world.diplomacy?.getOpinion(pInitiatorKingdom, target)?.total ?? 0)
+                    .ThenBy(target => target.id)
+                    .FirstOrDefault(target => IsValidImperialWarTarget(pInitiatorKingdom, target));
             Empire empire = pInitiatorKingdom.GetEmpire();
-            int initiatorWarriors = pInitiatorKingdom.countTotalWarriors();
-            foreach (Kingdom tKingdom in World.world.kingdoms)
-            {
-                if (tKingdom == null || tKingdom == pInitiatorKingdom || !tKingdom.isAlive())
-                {
-                    continue;
-                }
+            return World.world.kingdoms.Where(target => target != null && target.isAlive() &&
+                    !target.IsInSameEmpire(pInitiatorKingdom) &&
+                    (pInitiatorKingdom.IsInEmpire()
+                        ? empire?.IsNeighbourWith(target) == true
+                        : pInitiatorKingdom.IsNeighbourWith(target)) &&
+                    (World.world.diplomacy?.getOpinion(pInitiatorKingdom, target)?.total ?? 0) < 0)
+                .OrderBy(target => World.world.diplomacy?.getOpinion(pInitiatorKingdom, target)?.total ?? 0)
+                .ThenBy(target => target.id)
+                .FirstOrDefault(target => FeudalVassalService.CanDeclareExternalWar(pInitiatorKingdom, target));
+        }
 
-                int targetWarriors = tKingdom.countTotalWarriors();
-                bool isNeighbour = pInitiatorKingdom.IsInEmpire() ? empire != null && empire.IsNeighbourWith(tKingdom) : pInitiatorKingdom.IsNeighbourWith(tKingdom);
-                if (!tKingdom.IsInSameEmpire(pInitiatorKingdom) && !pInitiatorKingdom.isOpinionTowardsKingdomGood(tKingdom) && initiatorWarriors > targetWarriors && isNeighbour)
-                {
-                    result = tKingdom;
-                    break;
-                }
-            }
-            if (result == null)
-            {
-                Kingdom target = pInitiatorKingdom.FindClosestKingdom();
-                if (target != null && target.isAlive() && UnityEngine.Vector3.Distance(pInitiatorKingdom.location, target.location) < 300f)
-                {
-                    if (initiatorWarriors > target.countTotalWarriors())
-                    {
-                        result = target;
-                    }
-                }
-            }
-            return result;
+        private static bool IsValidImperialWarTarget(Kingdom initiator, Kingdom target)
+        {
+            if (initiator == null || target == null || initiator == target || !initiator.IsEmpire() ||
+                !target.isAlive() || target.IsInSameEmpire(initiator)) return false;
+            Empire empire = initiator.GetEmpire();
+            if (empire == null || empire.IsArchived() || empire.isRekt() ||
+                !empire.IsNeighbourWith(target)) return false;
+            if (target.GetGivenAllianceEmpire() == empire || target.GetTakenAllianceEmpire() == empire)
+                return false;
+            return FeudalVassalService.CanDeclareExternalWar(initiator, target);
+        }
+
+        private static bool IsWarNeededForPlot(Kingdom kingdom)
+        {
+            if (kingdom == null) return false;
+            if (!kingdom.IsEmpire())
+                return kingdom.hasCities() && kingdom.hasCapital() &&
+                       (kingdom.data.timestamp_last_war < 0 ||
+                        Date.getYearsSince(kingdom.data.timestamp_last_war) > SimGlobals.m.diplomacy_years_war_timeout) &&
+                       !kingdom.getWars().Any(war => war != null && !war.hasEnded());
+            Empire empire = kingdom.GetEmpire();
+            if (empire == null || empire.IsArchived() || empire.isRekt() ||
+                !kingdom.hasCities() || !kingdom.hasCapital()) return false;
+            if (kingdom.data.timestamp_last_war != -1d &&
+                Date.getYearsSince(kingdom.data.timestamp_last_war) <= SimGlobals.m.diplomacy_years_war_timeout)
+                return false;
+            if (empire.kingdoms_list.Any(member => member != null && !member.isRekt() &&
+                                                   World.world.wars.hasWars(member))) return false;
+            return true;
         }
 
     }

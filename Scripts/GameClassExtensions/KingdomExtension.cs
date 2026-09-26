@@ -298,6 +298,13 @@ public static class KingdomExtension
         // 封建共主去世后，按长幼分给这个王国的继承人(分割继承)。
         public long union_leader_kingdom_id = -1L;
         public long union_partition_heir_id = -1L;
+        public long union_city_state_heir_id = -1L;
+        public bool union_city_state_local_succession;
+        public long union_alliance_leader_kingdom_id = -1L;
+        public long feudal_overlord_kingdom_id = -1L;
+        public int feudal_vassal_level;
+        public int feudal_vassal_progress;
+        public double feudal_last_control_timestamp = -1d;
         // 土地制度属于政权本身，不依赖其是否加入或建立帝国。
         public bool private_land_market_open = false;
         public bool fugitive_household_law_enacted = false;
@@ -2513,8 +2520,8 @@ public static class KingdomExtension
             title.FindRealmTitleHolder() != holder) return false;
 
         (int controlled, int total) = claimant.CountOwnedDeJureTitleZones(title);
-        return DeJureTitleClaimRules.CanDeclare(controlled, total,
-            claimant.GetNationalPower(), holder.GetNationalPower());
+        return DeJureTitleClaimRules.ControlsRequiredShare(controlled, total) &&
+               FeudalVassalService.CanDeclareExternalWar(claimant, holder);
     }
 
     public static Kingdom FindRealmTitleHolder(this KingdomTitle title)
@@ -2692,8 +2699,9 @@ public static class KingdomExtension
         if (!IsEligibleEmpireCultureCandidate(k)) return false;
         string culture = CultureService.GetRealmCulture(k);
         if (!CultureService.IsValidCulture(culture)) return false;
+        HashSet<Kingdom> bloc = EmpireFormationService.GetBlocMembers(k).ToHashSet();
         return !World.world.kingdoms.Any(other =>
-            other != k &&
+            other != k && !bloc.Contains(other) &&
             IsEligibleEmpireCultureCandidate(other) &&
             string.Equals(CultureService.GetRealmCulture(other), culture, StringComparison.Ordinal) &&
             IsStrongerEmpireCandidate(other, k));
@@ -2701,27 +2709,24 @@ public static class KingdomExtension
 
     private static bool IsEligibleEmpireCultureCandidate(Kingdom kingdom)
     {
-        return kingdom != null && !kingdom.isRekt() && kingdom.hasKing() &&
-               kingdom.king != null && !kingdom.king.isRekt() &&
-               !kingdom.IsEmpire() && !kingdom.IsInEmpire() && kingdom.GetMoney() >= 0 &&
-               !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(kingdom) &&
-               (kingdom.HasMainTitle() || kingdom.GetControlledTitle().Any());
+        return kingdom != null && kingdom.king?.kingdom == kingdom &&
+               EmpireFormationService.MeetsBaseRequirements(kingdom);
     }
 
     private static bool IsStrongerEmpireCandidate(Kingdom candidate, Kingdom incumbent)
     {
-        double candidatePower = candidate.GetNationalPower();
-        double incumbentPower = incumbent.GetNationalPower();
+        double candidatePower = EmpireFormationService.GetBlocPower(candidate);
+        double incumbentPower = EmpireFormationService.GetBlocPower(incumbent);
         if (Math.Abs(candidatePower - incumbentPower) > 0.0001d)
             return candidatePower > incumbentPower;
 
-        int candidatePopulation = candidate.getPopulationPeople();
-        int incumbentPopulation = incumbent.getPopulationPeople();
+        int candidatePopulation = EmpireFormationService.GetBlocMembers(candidate).Sum(member => member.getPopulationPeople());
+        int incumbentPopulation = EmpireFormationService.GetBlocMembers(incumbent).Sum(member => member.getPopulationPeople());
         if (candidatePopulation != incumbentPopulation)
             return candidatePopulation > incumbentPopulation;
 
-        int candidateMilitary = candidate.countTotalWarriors();
-        int incumbentMilitary = incumbent.countTotalWarriors();
+        int candidateMilitary = EmpireFormationService.GetBlocMembers(candidate).Sum(member => member.countTotalWarriors());
+        int incumbentMilitary = EmpireFormationService.GetBlocMembers(incumbent).Sum(member => member.countTotalWarriors());
         if (candidateMilitary != incumbentMilitary)
             return candidateMilitary > incumbentMilitary;
 

@@ -13,7 +13,7 @@ public static class EmpireCoreManager
 {
     public static Dictionary<long, EmpireCore> EmpireCores = new Dictionary<long, EmpireCore>();
 
-    public static void SyncCitiesFromTitles(EmpireCore core)
+    public static void SyncCitiesFromTitles(EmpireCore core, bool preserveOccupiedCore = false)
     {
         if (core == null) return;
         HashSet<City> targetCities = GetCities(core).Where(c => c != null && !c.isRekt()).ToHashSet();
@@ -23,6 +23,12 @@ public static class EmpireCoreManager
             if (city == null || city.isRekt()) continue;
             if (targetCities.Contains(city))
             {
+                if (preserveOccupiedCore || core.false_core_against_empire_id > 0)
+                {
+                    EmpireCore current = city.GetEmpireCore();
+                    if (current != null && current != core &&
+                        GetEmpires(current).Any(empire => !empire.IsArchived())) continue;
+                }
                 city.SetEmpireCore(core);
             }
             else if (city.GetEmpireCoreID() == core.id)
@@ -49,7 +55,7 @@ public static class EmpireCoreManager
         EmpireCores[empireCore.id] = empireCore;
         empire.data.empire_core_id = empireCore.id;
         RegisterEmpireHistory(empireCore, empire.id);
-        SyncCitiesFromTitles(empireCore);
+        SyncCitiesFromTitles(empireCore, preserveOccupiedCore: true);
         return empireCore;
     }
 
@@ -187,6 +193,19 @@ public static class EmpireCoreManager
         }
 
         return LM.Get("EmpireText");
+    }
+
+    public static Empire GetLegitimateEmpire(EmpireCore core)
+    {
+        if (core == null || core.false_core_against_empire_id <= 0) return null;
+        Empire empire = ModClass.EMPIRE_MANAGER?.get(core.false_core_against_empire_id);
+        return empire != null && !empire.isRekt() && !empire.IsArchived() ? empire : null;
+    }
+
+    public static string GetStatusDisplayName(EmpireCore core)
+    {
+        string name = GetDisplayName(core);
+        return GetLegitimateEmpire(core) == null ? name : $"{name} ({LM.Get("empire_core_false")})";
     }
 
     public static string GetPlateName(EmpireCore core)

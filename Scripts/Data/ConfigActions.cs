@@ -20,6 +20,10 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.TITLE_MAX_CITIES = int.TryParse(count, out int value) ? Math.Max(0, value) : 0;
         }
+        public static void FeudalUnionRealmLimitCallBack(string count)
+        {
+            ModClass.FEUDAL_UNION_REALM_LIMIT = int.TryParse(count, out int value) ? Math.Max(1, value) : 3;
+        }
         public static void WarEndYearCallBack(string time)
         {
             ModClass.WAR_END_YEAR = int.Parse(time);

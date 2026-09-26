@@ -43,6 +43,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static int TITLE_BEEN_DESTROY_TIME = 50;
     // 法理扩张(未冻结法理)时单个法理最多容纳的城市数，0 表示不限
     public static int TITLE_MAX_CITIES = 5;
+    public static int FEUDAL_UNION_REALM_LIMIT = 3;
     public static bool PERFORMANCE_HIGH_POPULATION_MODE = true;
     public static bool PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE = true;
     public static bool PERFORMANCE_SKIP_HIDDEN_VISUALS = true;

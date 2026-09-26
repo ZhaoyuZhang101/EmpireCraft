@@ -87,6 +87,13 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         if (lastKingdom != null && !pKingdom.IsEmpire() && PersonalUnionService.IsUnionRegime(lastKingdom) &&
             PersonalUnionService.IsUnionRegime(pKingdom))
         {
+            if (pKingdom.GetRegime()?.type == RegimeType.Feudalism &&
+                PersonalUnionService.IsAtFeudalRealmLimit(heir))
+            {
+                if (!PersonalUnionService.CrownLocalVassal(pKingdom, lastKingdom))
+                    pKingdom.GetOrCreate().union_partition_heir_id = heir.id;
+                return;
+            }
             PersonalUnionService.CrownInUnion(pKingdom, heir);
             return;
         }

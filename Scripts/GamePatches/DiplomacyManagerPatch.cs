@@ -1,4 +1,5 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
 using NeoModLoader.api;
 using System;
@@ -29,6 +30,11 @@ public class DiplomacyManagerPatch : GamePatch
     public static bool get_alliance_target(Kingdom pKingdomStarter, ref Kingdom __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pKingdomStarter)) return true;
+        if (!FeudalVassalService.CanJoinAlliance(pKingdomStarter, null))
+        {
+            __result = null;
+            return false;
+        }
         if (pKingdomStarter.isSupreme())
         {
             __result = null;
@@ -42,6 +48,9 @@ public class DiplomacyManagerPatch : GamePatch
         }
         foreach (Kingdom item in listPool.LoopRandom())
         {
+            if (!FeudalVassalService.CanJoinAlliance(item, null) ||
+                FeudalVassalService.GetOverlord(item) == pKingdomStarter ||
+                FeudalVassalService.GetOverlord(pKingdomStarter) == item) continue;
             if (item.IsInEmpire()) continue;
             if (!item.IsNeighbourWith(pKingdomStarter)) continue;
             if (!item.hasKing() || item.isSupreme() || item.king.hasPlot() ||
@@ -66,53 +75,30 @@ public class DiplomacyManagerPatch : GamePatch
     static bool get_war_target(Kingdom pInitiatorKingdom, ref Kingdom __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pInitiatorKingdom)) return true;
-        Kingdom tBestTarget = null;
-        float tBestFastDist = float.MaxValue;
-        int tCurrentArmy = pInitiatorKingdom.countTotalWarriors();
-        if (pInitiatorKingdom.hasAlliance())
+        Kingdom best = null;
+        float bestDistance = float.MaxValue;
+        if (pInitiatorKingdom?.capital == null)
         {
-            tCurrentArmy = pInitiatorKingdom.getAlliance().countWarriors();
-        } else if (pInitiatorKingdom.IsEmpire())
-        {
-            tCurrentArmy = pInitiatorKingdom.GetEmpire().countWarriors();
+            __result = null;
+            return false;
         }
-        Kingdom result;
-        using (ListPool<Kingdom> tPossibleKingdomsList = DiplomacyHelpers.wars.getNeutralKingdoms(pInitiatorKingdom, false, false))
+        using (ListPool<Kingdom> neutral = DiplomacyHelpers.wars.getNeutralKingdoms(pInitiatorKingdom, false, false))
         {
-            foreach (Kingdom ptr in tPossibleKingdomsList)
+            foreach (Kingdom target in neutral)
             {
-                Kingdom tTargetKingdom = ptr;
-                if (tTargetKingdom.hasCities() && tTargetKingdom.hasCapital() && tTargetKingdom.getAge() >= SimGlobals.m.minimum_kingdom_age_for_attack)
-                {
-                    int tTargetArmy;
-                    if (tTargetKingdom.hasAlliance())
-                    {
-                        tTargetArmy = tTargetKingdom.getAlliance().countWarriors();
-                    } else if (tTargetKingdom.IsEmpire())
-                    {
-                        tTargetArmy = tTargetKingdom.GetEmpire().countWarriors();
-                    }
-                    else
-                    {
-                        tTargetArmy = tTargetKingdom.countTotalWarriors();
-                    }
-                    if (tCurrentArmy >= tTargetArmy && 
-                        pInitiatorKingdom.capital.reachableFrom(tTargetKingdom.capital) && 
-                        (float)Date.getYearsSince(DiplomacyHelpers.diplomacy.getRelation(pInitiatorKingdom, tTargetKingdom).data.timestamp_last_war_ended) >= (float)SimGlobals.m.minimum_years_between_wars && 
-                        !pInitiatorKingdom.isOpinionTowardsKingdomGood(tTargetKingdom))
-                    {
-                        float tFastDist = Kingdom.distanceBetweenKingdom(pInitiatorKingdom, tTargetKingdom);
-                        if (tFastDist < tBestFastDist)
-                        {
-                            tBestFastDist = tFastDist;
-                            tBestTarget = tTargetKingdom;
-                        }
-                    }
-                }
+                if (target == null || !target.hasCities() || !target.hasCapital() ||
+                    target.getAge() < SimGlobals.m.minimum_kingdom_age_for_attack ||
+                    !pInitiatorKingdom.capital.reachableFrom(target.capital) ||
+                    Date.getYearsSince(DiplomacyHelpers.diplomacy.getRelation(pInitiatorKingdom, target)
+                        .data.timestamp_last_war_ended) < SimGlobals.m.minimum_years_between_wars ||
+                    !FeudalVassalService.CanDeclareExternalWar(pInitiatorKingdom, target)) continue;
+                float distance = Kingdom.distanceBetweenKingdom(pInitiatorKingdom, target);
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                best = target;
             }
-            result = tBestTarget;
         }
-        __result = result;
+        __result = best;
         return false;
     }
 

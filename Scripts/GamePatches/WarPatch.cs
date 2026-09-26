@@ -26,6 +26,7 @@ public class WarPatch: GamePatch
 
     // 同一 Kingdom 在同一场 War 里只排队一次开战动员。
     private static readonly Dictionary<War, HashSet<long>> _warMobilizedKingdoms = new();
+    private static readonly HashSet<War> _expandingFeudalWars = new();
     public void Initialize()
     {
         new Harmony(nameof(end_war)).Patch(
@@ -126,6 +127,7 @@ public class WarPatch: GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
 
         _warMobilizedKingdoms.Remove(__instance);
+        _expandingFeudalWars.Remove(__instance);
         __instance.RemoveExtraData<War, WarExtraData>();
     }
 
@@ -155,6 +157,7 @@ public class WarPatch: GamePatch
             __instance.warStateChanged();
             pWar.endForSides(pWinner);
             pWar.data.died_time = World.world.getCurWorldTime();
+            FeudalVassalService.ResolveIndependenceWar(pWar, pWinner);
 
             // 不在 endWar 同一帧直接复员。
             // 延后由 ArmyManager.update 检查，避免战争关系尚未完全刷新。
@@ -307,6 +310,7 @@ public class WarPatch: GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
         if (__result == null) return;
 
+        ExpandFeudalWar(__result);
         RecordWarDeclared(__result);
         DetachHostileTributaries(__result);
 
@@ -336,10 +340,18 @@ public class WarPatch: GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
 
+        ExpandFeudalWar(__instance);
         CaptureWarRoyalHouses(__instance);
         DetachHostileTributaries(__instance);
 
         QueueKingdomMobilizationOnce(__instance, pKingdom);
+    }
+
+    private static void ExpandFeudalWar(War war)
+    {
+        if (war?.getAsset() != WarTypeLibrary.normal || !_expandingFeudalWars.Add(war)) return;
+        try { FeudalVassalService.ExpandWar(war); }
+        finally { _expandingFeudalWars.Remove(war); }
     }
 
     private static void QueueWarSideMobilization(

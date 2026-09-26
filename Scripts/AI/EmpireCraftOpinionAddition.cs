@@ -25,6 +25,19 @@ public static class EmpireCraftOpinionAddition
         });
         opl.add(new OpinionAsset
         {
+            id = "opinion_false_empire_core",
+            translation_key_negative = "opinion_false_empire_core",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                if (pMain == null || pTarget == null) return 0;
+                Empire claimant = pMain.GetEmpire();
+                Empire legitimate = EmpireCoreManager.GetLegitimateEmpire(EmpireCoreManager.Get(claimant));
+                return legitimate != null && legitimate != claimant && pTarget.GetEmpire() == legitimate
+                    ? -1200 : 0;
+            }
+        });
+        opl.add(new OpinionAsset
+        {
             id = "opinion_empire_loyalty",
             translation_key = "opinion_empire_loyalty",
             calc = delegate (Kingdom pMain, Kingdom pTarget)
