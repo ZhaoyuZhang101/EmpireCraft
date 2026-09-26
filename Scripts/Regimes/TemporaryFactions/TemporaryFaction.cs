@@ -543,9 +543,9 @@ public abstract class TemporaryFaction
             }
             if (!IsLocallyPushed && GeneralSystems.ParliamentSystem.HasParliament(GetEmpire()))
             {
-                // 责任政府：只有总理所属的执政派系能继续推动诉求
+                // 责任政府：只有执政一方(联合政府时为整个执政联盟)能继续推动诉求
                 if (GeneralSystems.ParliamentSystem.HasResponsibleGovernment(GetEmpire()) &&
-                    GeneralSystems.ParliamentSystem.GetGoverningFaction(GetEmpire())?.GetID() != factionID)
+                    !GeneralSystems.ParliamentSystem.IsGoverningFaction(GetEmpire(), factionID))
                 {
                     End();
                     return;

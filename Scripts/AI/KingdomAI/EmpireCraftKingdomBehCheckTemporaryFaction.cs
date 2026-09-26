@@ -86,9 +86,9 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         if (dominateFaction.GetLeader() == null && regime.type!= RegimeType.Feudalism) return;
         if (ParliamentSystem.HasParliament(pKingdom.GetEmpire()))
         {
-            // 责任政府下只有执政派系(总理所属派系)可以发起诉求
+            // 责任政府下只有执政一方(联合政府时为整个执政联盟)可以发起诉求
             if (ParliamentSystem.HasResponsibleGovernment(pKingdom.GetEmpire()) &&
-                ParliamentSystem.GetGoverningFaction(pKingdom.GetEmpire()) != dominateFaction) return;
+                !ParliamentSystem.IsGoverningFaction(pKingdom.GetEmpire(), dominateFaction.GetID())) return;
         }
         else if (regime.has_cabinet)
         {

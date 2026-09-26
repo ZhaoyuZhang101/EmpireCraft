@@ -97,7 +97,15 @@ public static class ParliamentSystem
         return IsValidMember(empire, actor) ? actor : null;
     }
 
-    // 执政派系：总理所属派系
+    // 是否属于执政一方：多数/少数派政府为总理所属派系；联合政府为整个宪政联盟
+    // （在议会中有议席、且支持宪制的全部派系）。责任政府下只有执政一方能推动派系诉求。
+    public static bool IsGoverningFaction(Empire empire, string factionId)
+    {
+        if (!HasParliament(empire) || string.IsNullOrWhiteSpace(factionId)) return false;
+        return GetGoverningFactionIds(empire, GetState(empire)).Contains(factionId);
+    }
+
+    // 总理所属派系
     public static FixedFaction GetGoverningFaction(Empire empire)
     {
         if (!HasParliament(empire)) return null;
