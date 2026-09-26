@@ -218,7 +218,8 @@
         }
       ],
       "features": {
-        "grace_edict": 1
+        "grace_edict": 1,
+        "constitution_basis_administration": 1
       }
     },
     {

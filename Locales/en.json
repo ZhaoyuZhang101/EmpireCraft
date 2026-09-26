@@ -1447,7 +1447,7 @@
   "investiture_defiance_empire_won_history": "The imperial army subdued {1}, deposed {0} and installed {2}.",
   "investiture_defiance_vassal_won_history": "{1} defied the edict and prevailed; the throne had to recognise {0}.",
   "institution_huaxia_grace_edict": "Edict of Grace",
-  "institution_huaxia_grace_edict_desc": "When a vassal king dies, the eldest son inherits the kingdom and its de jure title while every other son receives a single city, ruled under the city's own name. A vassal line that dies out is reclaimed by the throne as a commandery. Requires either Commanderies and Kingdoms or the commandery-county bureaucracy.",
+  "institution_huaxia_grace_edict_desc": "When a vassal king dies, the eldest son inherits the kingdom and its de jure title while every other son receives a single city, ruled under the city's own name. A vassal line that dies out is reclaimed by the throne as a commandery. Requires either Commanderies and Kingdoms or the commandery-county bureaucracy. Once enacted, it also serves as the administrative basis for a constitutional monarchy.",
   "grace_edict_partition_history": "{0} died. Under the Edict of Grace, the eldest son {1} inherited {2}, and the other sons each received a city: {3}.",
   "grace_edict_reclaim_history": "{0} died without an heir. Under the Edict of Grace, {1} was reclaimed by the throne as a commandery.",
   "institution_social_rebellion_defection_history": "{0} imperial soldiers of the {1} class defected to {2}.",

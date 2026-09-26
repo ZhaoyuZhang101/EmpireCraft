@@ -1447,7 +1447,7 @@
   "investiture_defiance_empire_won_history": "王師平定{1}，廢{0}，改立{2}為君。",
   "investiture_defiance_vassal_won_history": "{1}抗詔得勝，天子只得承認{0}為君。",
   "institution_huaxia_grace_edict": "推恩令",
-  "institution_huaxia_grace_edict_desc": "諸侯王死後，嫡長子承襲王國與原有法理，其餘諸子各分得一城、以城名立國；諸侯絕嗣則封地收歸朝廷，改設郡縣。須先施行郡國並行或郡縣官僚。",
+  "institution_huaxia_grace_edict_desc": "諸侯王死後，嫡長子承襲王國與原有法理，其餘諸子各分得一城、以城名立國；諸侯絕嗣則封地收歸朝廷，改設郡縣。須先施行郡國並行或郡縣官僚。施行後亦可作為君主立憲的行政基礎。",
   "grace_edict_partition_history": "{0}薨，依推恩令，嫡長子{1}承襲{2}，諸子各分一城：{3}。",
   "grace_edict_reclaim_history": "{0}薨而無嗣，依推恩令，{1}收歸朝廷，改設郡縣。",
   "institution_social_rebellion_defection_history": "{0}名{1}出身的禁軍將士倒戈，投奔{2}。",
