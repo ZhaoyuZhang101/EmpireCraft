@@ -1185,7 +1185,9 @@ public class Empire : MetaObject<EmpireData>
         {
             foreach (Kingdom kingdom in kingdoms_list)
             {
-                if (kingdom == null || kingdom.isRekt() || kingdom == mainKingdom || kingdom.king == null) continue;
+                // 接续的皇族王国必须还有城市（有都城），否则新帝国一建立就没有领土
+                if (kingdom == null || kingdom.isRekt() || kingdom == mainKingdom || kingdom.king == null ||
+                    !kingdom.hasCapital() || kingdom.cities.Count <= 0) continue;
                 if (kingdom.king.HasSpecificClan())
                     if (kingdom.king.GetSpecificClan() == EmpireSpecificClan)
                     {
@@ -1233,6 +1235,8 @@ public class Empire : MetaObject<EmpireData>
     // 返回是否成功由 newKingdom 接续为新帝国（成功时本帝国会被解散）
     public bool ReplaceEmpire(Kingdom newKingdom)
     {
+        if (newKingdom == null || newKingdom.isRekt() || newKingdom.king == null || !newKingdom.hasCapital())
+            return false;
         Empire newEmpire = ModClass.EMPIRE_MANAGER.NewEmpire(newKingdom, replacingEmpire: this);
         if (newEmpire == null)
         {
@@ -1883,7 +1887,10 @@ public class Empire : MetaObject<EmpireData>
             LogService.LogInfo($"帝国 {id} 已重置并修复: {reason}");
         }
 
-        return kingdoms_hashset.Count > 0;
+        // 成员国全部失去城市（只剩流散的人口/军队）时帝国已经没有领土，不算修复成功：
+        // 否则 checkActive 失败后的兜底修复永远返回 true，帝国会以无领土的"幽灵"状态一直存在，
+        // 铭牌上没有国名、人口和兵力停留在旧值。
+        return kingdoms_hashset.Any(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.cities?.Count > 0);
     }
 
     public bool checkActive()

@@ -155,7 +155,7 @@ public static class EmpireCraftNamePlateLibrary
                     for (int i = 0; i < _cached_empires.Count; i++)
                     {
                         var empire = _cached_empires[i];
-                        if (empire == null || empire.IsArchived() || empire.CoreKingdom == null || AncientWarfareCompatibility.OwnsObject(empire)) continue;
+                        if (!ShouldShowEmpirePlate(empire)) continue;
                         Vector3 empirePos = GetEmpireDisplayPosition(empire);
                         if (!isWithinCamera(empirePos)) continue;
                         var npt = prepareNext(pManager, pAsset, empire, 37, 12, 39, 11);
@@ -169,14 +169,14 @@ public static class EmpireCraftNamePlateLibrary
                     _cached_empires.Clear();
                     foreach (var empire in ModClass.EMPIRE_MANAGER)
                     {
-                        if (empire == null || empire.IsArchived() || empire.CoreKingdom == null || AncientWarfareCompatibility.OwnsObject(empire)) continue;
+                        if (!ShouldShowEmpirePlate(empire)) continue;
                         _cached_empires.Add(empire);
                     }
                     _cached_empires.Sort((a, b) => (a?.countWarriors() ?? 0).CompareTo(b?.countWarriors() ?? 0));
                     for (int i = 0; i < _cached_empires.Count; i++)
                     {
                         var empire = _cached_empires[i];
-                        if (empire == null || empire.IsArchived() || empire.CoreKingdom == null || AncientWarfareCompatibility.OwnsObject(empire)) continue;
+                        if (!ShouldShowEmpirePlate(empire)) continue;
                         var npt = prepareNext(pManager, pAsset, empire, 37, 12, 39, 11);
                         npt._showing = true;
                         npt.setPriority(9999999 + empire.CountPopulation());
@@ -1008,12 +1008,18 @@ public static class EmpireCraftNamePlateLibrary
         }
     }
 
+    // 帝国铭牌：没有领土的帝国、以及核心王国已经登记在别的帝国名下（数据错乱）的帝国都不显示，
+    // 否则会出现没有国名、人口兵力为旧值或 0 的"幽灵"铭牌
+    private static bool ShouldShowEmpirePlate(Empire empire) =>
+        empire != null && !AncientWarfareCompatibility.OwnsObject(empire) && IsRenderableEmpire(empire) &&
+        empire.CoreKingdom.GetEmpire() == empire;
+
     private static bool IsRenderableEmpire(Empire empire)
     {
+        // 只认成员国实际持有的城市；cities_list 是缓存，可能残留已经易主的城市
         bool hasTerritory = empire?.CoreKingdom?.cities?.Count > 0 ||
                             empire?.kingdoms_list?.Any(kingdom => kingdom != null &&
-                                !kingdom.isRekt() && kingdom.cities?.Count > 0) == true ||
-                            empire?.cities_list?.Count > 0;
+                                !kingdom.isRekt() && kingdom.cities?.Count > 0) == true;
         return empire != null && empire.data != null && !empire.IsArchived() &&
                !AncientWarfareCompatibility.Owns(empire.CoreKingdom) &&
                empire.CoreKingdom != null && empire.CoreKingdom.data != null &&
