@@ -62,7 +62,7 @@ public static class CityStateService
             ? founder
             : FindLocalLeader(city, null);
         if (leader == null) return;
-        Kingdom colony = SpinOff(city, leader);
+        Kingdom colony = SpinOff(city, leader, mother);
         if (colony == null) return;
         bool inEmpire = Attach(mother, colony);
         Record(mother, inEmpire ? "city_state_colony_empire_history" : "city_state_colony_history",
@@ -90,7 +90,7 @@ public static class CityStateService
         Actor leader = FindLocalLeader(city, defender.king);
         if (leader == null) return true;
         if (defender.king?.city == city) defender.kingFledCity();
-        Kingdom newState = SpinOff(city, leader);
+        Kingdom newState = SpinOff(city, leader, captor);
         if (newState == null) return true;
         bool spunIntoEmpire = Attach(captor, newState);
         Record(captor, spunIntoEmpire ? "city_state_capture_spin_empire_history" : "city_state_capture_spin_history",
@@ -98,12 +98,19 @@ public static class CityStateService
         return true;
     }
 
-    private static Kingdom SpinOff(City city, Actor leader)
+    private static Kingdom SpinOff(City city, Actor leader, Kingdom parent)
     {
         Kingdom state = city.makeOwnKingdom(leader);
         if (state == null) return null;
-        // 政体不再写死为古典共和：新国家和其他新建国家一样，由建国者文化已施行的最高政体制度决定
-        // (建国补丁 KingdomPatch.NewCivKingdom 已处理)；该文化已走出城邦阶段时，分出来的就是该阶段的默认独立国
+        // 同文化的殖民城邦先继承母邦现行制度，之后再由各国逐步完成封建化。
+        if (parent != null && IsCityState(parent) &&
+            CultureService.GetRealmCulture(state) == CultureService.GetRealmCulture(parent) &&
+            state.GetRegime()?.type != RegimeType.ClassicalRepublic)
+        {
+            state.SetRegimeType(RegimeType.ClassicalRepublic);
+            state.LoadRegime();
+            state.SystemChange();
+        }
         if (state.HasMainTitle()) state.RemoveMainTitle();
         ApplyCityName(state);
         return state;
@@ -119,6 +126,19 @@ public static class CityStateService
         return locals.Where(actor => actor.GetOrCreate().socialClass == SocialClass.Noble)
                    .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault()
                ?? locals.OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+    }
+
+    public static bool TryCrownLocalRuler(Kingdom realm)
+    {
+        City city = realm?.capital;
+        if (city == null || city.isRekt()) return false;
+        Actor leader = city.leader;
+        if (leader == null || leader.isRekt() || !leader.isAlive() || !leader.isAdult() ||
+            leader.isKing())
+            leader = FindLocalLeader(city, realm.king);
+        if (leader == null) return false;
+        GraceEdictService.Crown(realm, leader);
+        return realm.king == leader;
     }
 
     private static void EndWarsBetween(Kingdom victor, Kingdom loser)

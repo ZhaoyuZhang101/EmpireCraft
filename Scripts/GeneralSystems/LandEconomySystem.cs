@@ -228,10 +228,29 @@ public static class LandEconomySystem
         warData.peasant_land_rebellion_origin_city_id = originCity?.id ?? rebel.capital?.id ?? -1L;
         warData.peasant_land_rebellion_cause = cause ?? "";
         warData.peasant_landless_ratio = Mathf.Clamp01(landlessRatio);
+        DetachPeasantRebelFromOriginEmpire(rebel, origin);
+        JoinPeasantRebellionOriginEmpireDefense(war, rebel, origin);
         KingdomExtension.KingdomExtraData rebelData = rebel.GetOrCreate();
         rebelData.is_peasant_land_rebellion = true;
         rebelData.peasant_land_rebellion_war_id = war.id;
         rebelData.peasant_land_rebellion_origin_kingdom_id = origin.id;
+    }
+
+    private static void DetachPeasantRebelFromOriginEmpire(Kingdom rebel, Kingdom origin)
+    {
+        Empire originEmpire = origin?.GetEmpire();
+        if (rebel == null || originEmpire == null || originEmpire.IsArchived() || originEmpire.isRekt()) return;
+        if (rebel.GetEmpire() == originEmpire)
+            originEmpire.leave(rebel, pRecalc: true, isLeave: true);
+    }
+
+    private static void JoinPeasantRebellionOriginEmpireDefense(War war, Kingdom rebel, Kingdom origin)
+    {
+        Empire originEmpire = origin?.GetEmpire();
+        Kingdom coreKingdom = originEmpire?.CoreKingdom;
+        if (war == null || rebel == null || origin == null || coreKingdom == null || coreKingdom.isRekt()) return;
+        if (coreKingdom == rebel || coreKingdom == origin || war.hasKingdom(coreKingdom)) return;
+        war.joinDefenders(coreKingdom);
     }
 
     public static void ResolvePeasantLandRebellion(War war, WarWinner winner)
@@ -457,12 +476,17 @@ public static class LandEconomySystem
         if (leader == null) return false;
         Kingdom origin = city.kingdom;
         Kingdom rebel = city.makeOwnKingdom(leader, pRebellion: true);
-        if (rebel == null || !rebel.StartLocalRebelling(EmpireWarType.地方叛乱)) return false;
+        if (rebel == null) return false;
+        if (!rebel.StartLocalRebelling(EmpireWarType.地方叛乱))
+        {
+            RebellionStartupService.RollbackCitySplit(city, origin, rebel);
+            return false;
+        }
         rebel.data.name = string.Format(LM.Get("land_rebel_kingdom_name"), city.GetCityName());
         War war = World.world.diplomacy.startWar(rebel, origin, WarTypeLibrary.rebellion);
         if (war == null)
         {
-            rebel.EndLocalRebelling();
+            RebellionStartupService.RollbackCitySplit(city, origin, rebel);
             return false;
         }
         war.SetEmpireWarType(EmpireWarType.地方叛乱);

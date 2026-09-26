@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
@@ -12,7 +13,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 共主联盟(西方古典共和城邦 + 西方封建制)：一个人可以同时是好几个王国的君主。
 //   · 同一君主名下、都不在帝国里的王国自动结成原版联盟，以盟主国的名字命名(帝国和联盟不兼容，
 //     帝国里的王国只共用君主、不结盟)；
-//   · 城邦：共主去世后，其余入盟城邦跟随盟主城邦选出的新君主；
+//   · 城邦：分割继承法解锁前，只有影响力达到500的子嗣能续任共主，否则各城邦另立本地君主；
+//     解锁后，其余入盟城邦跟随盟主城邦选出的新君主；
 //   · 封建：共主去世后按长幼每人一国(不分男女)，长子女得最主要的王国，王国比子女多时多出的归长子女；
 //   · 封建王国的继承人本就是别国君主时，不再把两国合并，而是由他兼领(共主)；
 //   · 这两种政体下都不能用"统合治下王国"决议把几个王国并成一个。
@@ -32,6 +34,22 @@ public static class PersonalUnionService
             : World.world.kingdoms.Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.king == ruler)
                 .ToList();
 
+    public static bool IsAtFeudalRealmLimit(Actor ruler) => ruler != null &&
+        IsFeudal(ruler.kingdom) &&
+        InstitutionSystem.IsEnacted(CultureService.GetRealmCulture(ruler.kingdom), "western_feudalization") &&
+        GetRealms(ruler).Count(IsFeudal) >= ModClass.FEUDAL_UNION_REALM_LIMIT;
+
+    public static bool CrownLocalVassal(Kingdom realm, Kingdom overlord)
+    {
+        Actor local = (realm?.units ?? new List<Actor>()).ToList()
+            .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
+                            !actor.isKing() && actor.isUnitFitToRule())
+            .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+        if (local == null || !FeudalVassalService.CanBind(overlord, realm)) return false;
+        GraceEdictService.Crown(realm, local);
+        return realm.king == local && FeudalVassalService.Bind(overlord, realm);
+    }
+
     // 共主兼领：直接 setKing，不走官职任命(任命会把他迁到对方都城，离开自己的国家)
     public static void CrownInUnion(Kingdom kingdom, Actor ruler)
     {
@@ -45,6 +63,31 @@ public static class PersonalUnionService
     public static void OnKingCrowned(Kingdom kingdom, Actor king)
     {
         if (!IsUnionRegime(kingdom) || king == null || king.isRekt()) return;
+        if (kingdom.hasAlliance())
+        {
+            Alliance existing = kingdom.getAlliance();
+            if (kingdom.GetOrCreate().union_alliance_leader_kingdom_id < 0)
+            {
+                foreach (Kingdom member in existing.kingdoms_hashset.ToList())
+                {
+                    if (member == null || member == kingdom ||
+                        member.GetOrCreate().union_alliance_leader_kingdom_id != kingdom.id || member.king == king ||
+                        member.GetOrCreate().union_leader_kingdom_id == kingdom.id)
+                        continue;
+                    member.GetOrCreate().union_alliance_leader_kingdom_id = -1L;
+                    existing.leave(member);
+                }
+            }
+            else
+            {
+                Kingdom leader = World.world.kingdoms.get(kingdom.GetOrCreate().union_alliance_leader_kingdom_id);
+                if (leader?.king != king)
+                {
+                    kingdom.GetOrCreate().union_alliance_leader_kingdom_id = -1L;
+                    existing.leave(kingdom);
+                }
+            }
+        }
         List<Kingdom> realms = GetRealms(king)
             .Where(realm => IsUnionRegime(realm) && !realm.IsEmpire() && !realm.IsInEmpire()).ToList();
         if (realms.Count < 2) return;
@@ -60,11 +103,31 @@ public static class PersonalUnionService
         if (realms.Count < 2) return;
         Kingdom home = realms.Contains(ruler.kingdom) ? ruler.kingdom : null;
 
-        // 城邦：其余城邦记下盟主城邦，等它选出新君主后跟随
-        if (home != null && CityStateService.IsCityState(home))
+        List<Kingdom> cityRealms = realms.Where(CityStateService.IsCityState).ToList();
+        Kingdom cityHome = CityStateService.IsCityState(home) ? home : cityRealms.OrderBy(realm => realm.id).FirstOrDefault();
+        if (cityHome != null && cityRealms.Count >= 2)
         {
-            foreach (Kingdom realm in realms.Where(realm => realm != home && CityStateService.IsCityState(realm)))
-                realm.GetOrCreate().union_leader_kingdom_id = home.id;
+            bool partitionUnlocked = SuccessionLawSystem.IsSuccessionLawUnlocked(cityHome,
+                SuccessionLawType.分割继承法);
+            Actor qualifiedChild = null;
+            if (!partitionUnlocked && ruler.GetPersonalIdentity() is PersonalClanIdentity cityIdentity)
+                qualifiedChild = SpecificClanManager.getChildren(cityIdentity)
+                    .Select(item => item.Item2)
+                    .Where(person => person != null && person.is_alive)
+                    .OrderBy(person => person.rank)
+                    .Select(person => person._actor)
+                    .FirstOrDefault(child => child != null && !child.isRekt() && child.isAlive() &&
+                                             child.isUnitFitToRule() && (child.data?.renown ?? 0) >= 500);
+
+            if (!partitionUnlocked && qualifiedChild == null)
+                DissolveCityStateUnion(cityRealms);
+            else
+            {
+                if (qualifiedChild != null)
+                    cityHome.GetOrCreate().union_city_state_heir_id = qualifiedChild.id;
+                foreach (Kingdom realm in cityRealms.Where(realm => realm != cityHome))
+                    realm.GetOrCreate().union_leader_kingdom_id = cityHome.id;
+            }
         }
 
         // 封建：按长幼每人一国，不分男女；主要王国(本国，其次城多的)排在前面
@@ -95,12 +158,42 @@ public static class PersonalUnionService
         if (kingdom.hasKing() && kingdom.king != null && !kingdom.king.isRekt() && kingdom.king.isAlive()) return false;
         KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
 
+        if (data.union_city_state_local_succession)
+        {
+            if (CityStateService.TryCrownLocalRuler(kingdom))
+                data.union_city_state_local_succession = false;
+            return true;
+        }
+
+        if (data.union_city_state_heir_id >= 0)
+        {
+            Actor heir = World.world.units.get(data.union_city_state_heir_id);
+            data.union_city_state_heir_id = -1L;
+            if (heir != null && !heir.isRekt() && heir.isAlive() && heir.isUnitFitToRule())
+            {
+                if (heir.isKing()) CrownInUnion(kingdom, heir);
+                else GraceEdictService.Crown(kingdom, heir);
+                if (kingdom.king == heir) return true;
+            }
+            DissolveCityStateUnion(World.world.kingdoms.Where(realm => realm == kingdom ||
+                realm != null && !realm.isRekt() && realm.GetOrCreate().union_leader_kingdom_id == kingdom.id));
+            if (CityStateService.TryCrownLocalRuler(kingdom))
+                data.union_city_state_local_succession = false;
+            return true;
+        }
+
         if (data.union_partition_heir_id >= 0)
         {
             Actor heir = World.world.units.get(data.union_partition_heir_id);
             data.union_partition_heir_id = -1L;
             if (heir != null && !heir.isRekt() && heir.isAlive())
             {
+                if (IsFeudal(kingdom) && heir.isKing() && IsAtFeudalRealmLimit(heir))
+                {
+                    if (CrownLocalVassal(kingdom, heir.kingdom)) return true;
+                    data.union_partition_heir_id = heir.id;
+                    return true;
+                }
                 if (heir.isKing()) CrownInUnion(kingdom, heir);
                 else GraceEdictService.Crown(kingdom, heir);
                 return kingdom.king == heir;
@@ -124,6 +217,24 @@ public static class PersonalUnionService
             return true;
         }
         return false;
+    }
+
+    private static void DissolveCityStateUnion(IEnumerable<Kingdom> realms)
+    {
+        List<Kingdom> members = realms.Where(CityStateService.IsCityState).Distinct().ToList();
+        foreach (Kingdom realm in members)
+        {
+            KingdomExtension.KingdomExtraData data = realm.GetOrCreate();
+            data.union_leader_kingdom_id = -1L;
+            data.union_city_state_heir_id = -1L;
+            data.union_city_state_local_succession = true;
+            data.union_alliance_leader_kingdom_id = -1L;
+        }
+        foreach (Kingdom realm in members)
+        {
+            if (realm.hasAlliance()) realm.getAlliance().leave(realm);
+            realm.generateColor();
+        }
     }
 
     // 西方封建制"一法理一国"：索取到的法理不并进获胜国，而是在法理首府另立一国(该法理原属战败国的城市
@@ -172,6 +283,12 @@ public static class PersonalUnionService
             realm.SetRegimeType(RegimeType.Feudalism);
             realm.LoadRegime();
             realm.InheritRealmTitles(holder, new[] { titleId });
+            if (IsAtFeudalRealmLimit(ruler))
+            {
+                FeudalVassalService.Bind(successor, realm);
+                inherited.Add(title);
+                continue;
+            }
             CrownInUnion(realm, ruler);
             inherited.Add(title);
         }
@@ -180,16 +297,26 @@ public static class PersonalUnionService
 
     public static void JoinAlliance(Kingdom leader, Kingdom member)
     {
-        if (leader == null || member == null || leader == member) return;
+        if (leader == null || member == null || leader == member ||
+            leader.IsInEmpire() || member.IsInEmpire() ||
+            FeudalVassalService.GetOverlord(member) == leader ||
+            !FeudalVassalService.CanJoinAlliance(member, leader.hasAlliance() ? leader.getAlliance() : null)) return;
         Alliance leaderAlliance = leader.hasAlliance() ? leader.getAlliance() : null;
         if (member.hasAlliance())
         {
-            if (member.getAlliance() == leaderAlliance) return;
+            if (member.getAlliance() == leaderAlliance)
+            {
+                if (leader.king != null && leader.king == member.king)
+                    member.GetOrCreate().union_alliance_leader_kingdom_id = leader.id;
+                return;
+            }
             member.getAlliance().leave(member);
         }
         if (leaderAlliance != null) leaderAlliance.join(member, true, true);
         else leaderAlliance = World.world.alliances.newAlliance(leader, member);
         ModAllianceService.Mark(leaderAlliance);
+        if (leader.king != null && leader.king == member.king)
+            member.GetOrCreate().union_alliance_leader_kingdom_id = leader.id;
     }
 
     // 同盟直接以盟主国的名字命名(城邦即主城名)，不带"城邦"等后缀

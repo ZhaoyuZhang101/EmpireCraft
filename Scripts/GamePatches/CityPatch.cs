@@ -479,14 +479,18 @@ public class CityPatch : GamePatch
                     return false;
                 }
             }
+            // 正统之争以实际占领计算胜负，不能让城邦并国或封建归附拦截占城。
+            bool legitimacyWar = pWars.Any(w => IsWarRelevantToCapture(w, pNewKingdom, joinAfterCapture, oldKingdom) &&
+                                                 w.GetEmpireWarType() == EmpireWarType.去帝号);
             // 城邦一城一国：攻下的城由本地贵族立为新城邦入盟，对方只剩一城则整国入盟
-            if (CityStateService.TryResolveCapture(__instance, joinAfterCapture, oldKingdom))
+            if (!legitimacyWar && CityStateService.TryResolveCapture(__instance, joinAfterCapture, oldKingdom))
             {
                 ClearResolvedCaptureProgress(__instance);
                 return false;
             }
             // 分封制帝国攻下别国都城：对方称臣归附，已占的该国法理之地全部归还，城市不易主
-            if (FeudalConquestService.TryResolveCapitalConquest(__instance, joinAfterCapture, oldKingdom))
+            if (!legitimacyWar &&
+                FeudalConquestService.TryResolveCapitalConquest(__instance, joinAfterCapture, oldKingdom))
             {
                 ClearResolvedCaptureProgress(__instance);
                 return false;
@@ -1074,13 +1078,16 @@ public class CityPatch : GamePatch
 
         Kingdom defenderKingdom = city.kingdom;
 
-        // 这里检查的是“整个国家”的存活 Warrior 总数，
-        // 不是这座城市自己的 countWarriors()。
-        int kingdomWarriors = GetKingdomLivingWarriorCount(defenderKingdom);
+        // 独立国按全国兵力；帝国成员按全帝国兵力，避免弱小诸侯在两支帝国军之间反复归附。
+        Empire defendingEmpire = defenderKingdom.GetEmpire();
+        int kingdomWarriors = defendingEmpire != null && !defendingEmpire.IsArchived() && !defendingEmpire.isRekt()
+            ? defendingEmpire.kingdoms_list.Where(member => member != null && !member.isRekt())
+                .Sum(GetKingdomLivingWarriorCount)
+            : GetKingdomLivingWarriorCount(defenderKingdom);
         KingdomExtension.KingdomExtraData defenderData = defenderKingdom.GetOrCreate();
         if (kingdomWarriors > defenderData.peak_warriors) defenderData.peak_warriors = kingdomWarriors;
 
-        // 整个国家只剩 0 / 1 / 2 / 3 个 Warrior 时，
+        // 守方整体只剩 0 / 1 / 2 / 3 个 Warrior 时，
         // 才允许帝国军入城触发该城立即归降。
         if (kingdomWarriors > ImperialArrivalSurrenderWarriorThreshold)
             return;

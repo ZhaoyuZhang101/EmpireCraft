@@ -83,7 +83,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             _topPart = this.BeginVertGroup(pSpacing: 5, pAlignment: TextAnchor.UpperCenter);
 
             var summary = _topPart.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.MiddleCenter);
-            summary.AddTextIntoVertLayout(EmpireCoreManager.GetDisplayName(_core).ColorString(pColor: new Color(1f, 0.78f, 0.28f)),
+            summary.AddTextIntoVertLayout(EmpireCoreManager.GetStatusDisplayName(_core).ColorString(pColor: new Color(1f, 0.78f, 0.28f)),
                 true, TextAnchor.MiddleCenter, new Vector2(150, 16));
             summary.AddTextIntoVertLayout($"{LM.Get("empire_core_plate_name")}: {EmpireCoreManager.GetPlateName(_core)}",
                 true, TextAnchor.MiddleCenter, new Vector2(150, 10));
@@ -93,7 +93,11 @@ namespace EmpireCraft.Scripts.UI.Windows
                 true, TextAnchor.MiddleCenter, new Vector2(150, 10));
             summary.AddTextIntoVertLayout($"{LM.Get("empire_core_created_time")}: {Date.getDate(_core.create_timestamp)}",
                 true, TextAnchor.MiddleCenter, new Vector2(150, 10));
-            summary.transform.AddStretchBackground("clanFrame", new Vector2(205, 56));
+            Empire legitimate = EmpireCoreManager.GetLegitimateEmpire(_core);
+            if (legitimate != null)
+                summary.AddTextIntoVertLayout($"{LM.Get("empire_core_legitimate_empire")}: {legitimate.GetEmpireFullName()}",
+                    true, TextAnchor.MiddleCenter, new Vector2(150, 10));
+            summary.transform.AddStretchBackground("clanFrame", new Vector2(205, legitimate == null ? 56 : 68));
 
             var empires = EmpireCoreManager.GetEmpires(_core);
             var metrics = _topPart.BeginHoriGroup(pSpacing: 3, pAlignment: TextAnchor.MiddleCenter);

@@ -224,7 +224,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         }
     }
 
-    // 称帝资格：基础条件 + 不在失败冷却期 + 至少满足一条正统路线(见 EmpireFormationService)
+    // 称帝资格：基础条件 + 不在失败冷却期 + 至少满足一条称帝路线(见 EmpireFormationService)
     public static bool CanStartEmpireFormation(Kingdom pKingdom, bool repairMainTitle = false)
     {
         if (pKingdom == null || pKingdom.isRekt()) return false;

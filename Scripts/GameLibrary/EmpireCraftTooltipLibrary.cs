@@ -155,6 +155,14 @@ public static class EmpireCraftTooltipLibrary
 			pValue = kingdom.king.getName();
 		}
 		pTooltip.addLineText("village_statistics_king", pValue, color_text);
+		Kingdom feudalLord = FeudalVassalService.GetOverlord(kingdom);
+		if (feudalLord != null)
+		{
+			var fealty = kingdom.GetOrCreate();
+			pTooltip.addLineText("feudal_vassal_status",
+				$"{feudalLord.GetKingdomName()} ({fealty.feudal_vassal_level}, {fealty.feudal_vassal_progress}/{FeudalVassalService.ProgressPerLevel})",
+				"#FF5555");
+		}
 		if (kingdom.hasKing())
 		{
 			pTooltip.addLineIntText("ruler_money", kingdom.king.money);
@@ -289,7 +297,9 @@ public static class EmpireCraftTooltipLibrary
 
         pTooltip.addLineBreak();
         EmpireCore core = EmpireCoreManager.Get(pEmpire);
-        AddTooltipLine(pTooltip, "empire_tooltip_core", EmpireCoreManager.GetDisplayName(core), "#74D7FF", true);
+        AddTooltipLine(pTooltip, "empire_tooltip_core", EmpireCoreManager.GetStatusDisplayName(core), "#74D7FF", true);
+        AddTooltipLine(pTooltip, "empire_core_legitimate_empire",
+            EmpireCoreManager.GetLegitimateEmpire(core)?.GetEmpireFullName(), "#FF6666");
         AddTooltipLine(pTooltip, "empire_tooltip_ascension_title",
             GetAscensionTitleName(pEmpire, core), "#FFD34E", true);
         AddTooltipLine(pTooltip, "label_treasury", pEmpire.CurrentMoney.ToString(),
@@ -464,7 +474,7 @@ public static class EmpireCraftTooltipLibrary
         Kingdom repKingdom = repCity?.kingdom;
         string colorText = repKingdom?.getColor().color_text ?? "#FFFFFF";
         pTooltip.setDescription(LM.Get("empire_core_description"), null);
-        pTooltip.setTitle(EmpireCoreManager.GetDisplayName(core), "EmpireCoreWindowTitle", colorText);
+        pTooltip.setTitle(EmpireCoreManager.GetStatusDisplayName(core), "EmpireCoreWindowTitle", colorText);
         AssetManager.tooltips.setIconValue(pTooltip, "i_age", Date.getYearsSince(core.create_timestamp));
         AssetManager.tooltips.setIconValue(pTooltip, "i_population", EmpireCoreManager.GetCities(core).Sum(c => c?.CountLivingPopulation() ?? 0));
         AssetManager.tooltips.setIconValue(pTooltip, "i_army", EmpireCoreManager.GetCities(core).Sum(c => c?.CountLivingWarriors() ?? 0));
@@ -478,6 +488,9 @@ public static class EmpireCraftTooltipLibrary
         }
         pTooltip.addLineText("empire_core_titles_count", EmpireCoreManager.GetTitles(core).Count.ToString(), colorText, false, true, 21);
         pTooltip.addLineText("empire_core_cities_count", EmpireCoreManager.GetCities(core).Count.ToString(), colorText, false, true, 21);
+        Empire legitimate = EmpireCoreManager.GetLegitimateEmpire(core);
+        if (legitimate != null)
+            pTooltip.addLineText("empire_core_legitimate_empire", legitimate.GetEmpireFullName(), "#FF6666", false, true, 21);
 
         List<string> empires = EmpireCoreManager.GetCurrentEmpireNames(core);
         if (empires.Count > 0)

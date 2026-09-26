@@ -164,7 +164,7 @@ public static class TerritoryLabelRenderer
             {
                 if (core == null || core.id <= 0) continue;
                 bool expanded = hoveredEmpireId == core.id;
-                SubmitEmpireCore($"law-empire:{core.id}", EmpireCoreManager.GetDisplayName(core), core,
+                SubmitEmpireCore($"law-empire:{core.id}", EmpireCoreManager.GetStatusDisplayName(core), core,
                     expanded ? FadedEmpireStyle : EmpireStyle);
             }
         }

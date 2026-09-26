@@ -86,6 +86,8 @@ public class KingdomPatch : GamePatch
             return;
         }
         KingdomExtraData extraData = __instance.GetOrCreate();
+        foreach (Kingdom child in FeudalVassalService.GetDirectVassals(__instance).ToList())
+            FeudalVassalService.Break(child);
         KingdomTitle mainTitle = ModClass.KINGDOM_TITLE_MANAGER.get(extraData.MainTitle);
         if (mainTitle != null)
         {

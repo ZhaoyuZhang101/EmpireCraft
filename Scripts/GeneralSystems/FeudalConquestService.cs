@@ -17,8 +17,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 归附的国家基本自由：保留外交权和军队，不交税、不向中央输兵，原王室照旧世袭；
 //   · 本文化已施行分封类制度(开启"分封"诉求的制度)后，可以直接把该国君位封给皇子，
 //     原国君迁往王畿安置。
-//   · 西方封建制同样只能占一个法理：任何封建王国攻下别国都城，占城归还；攻城方在帝国里就并入帝国，
-//     否则对方加入攻城方的联盟，原王室保留；
+//   · 西方封建制攻下别国都城后，归还对方法理城市并建立直属附庸关系，原王室保留；
 //   · 叛乱者也一样：分封制下攻下叛军都城，叛乱即告平定、对方重新归附("叛过就永不得回归"
 //     是律令制的规矩，不适用于分封制)，但原叛君被废，由帝国强制扶立一位本地贵族为君；
 //     分封之后优先改封皇子，没有合适的皇子才立本地贵族。
@@ -61,6 +60,7 @@ public static class FeudalConquestService
         if (!zhou && !western) return false;
         if (conquered.IsEmpire() || (empire != null && conquered.GetEmpire() == empire) || conquered.capital != city)
             return false;
+        if (western && (!conquered.hasKing() || !FeudalVassalService.CanBind(captor, conquered))) return false;
         bool rebel = empire != null &&
                      (conquered.HasRebelledAgainst(empire) ||
                       conquered.getWars().Any(war => war != null && !war.hasEnded() && IsRebellionWar(war) &&
@@ -88,12 +88,10 @@ public static class FeudalConquestService
             if (opposing && war.isAlive() && !war.hasEnded()) war.lostWar(conquered);
         }
 
-        // 攻城方不在帝国里(西方封建王国)：对方加入攻城方的联盟，原王室保留(帝国和联盟不兼容，先退出原帝国)
-        if (empire == null)
+        // 西方封建征服先建立直属臣属，不把保留原王室的国家当作共主同盟。
+        if (western)
         {
-            Empire formerEmpire = conquered.GetEmpire();
-            if (formerEmpire != null && !formerEmpire.isRekt()) formerEmpire.leave(conquered);
-            PersonalUnionService.JoinAlliance(captor, conquered);
+            if (!FeudalVassalService.Bind(captor, conquered)) return true;
             Record(null, conquered, "feudal_conquest_alliance_history", captor.GetKingdomName(),
                 conquered.GetKingdomName());
             return true;

@@ -229,6 +229,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 return BehResult.Continue;
             }
         }
+        FeudalVassalService.Sync(pKingdom);
+        InstitutionSystem.TryAdvanceFeudalTransition(pKingdom);
         SyncKingdomStatus(pKingdom);
         SyncOffice(pKingdom);
         if (ked != null) ked.last_kingdom_status_ts = World.world.getCurWorldTime();

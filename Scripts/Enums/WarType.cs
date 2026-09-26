@@ -28,6 +28,7 @@ namespace EmpireCraft.Scripts.Enums
         清君侧,
         索取法理,
         None,
-        不奉诏 // 追加在 None 之后，保持旧存档里的枚举值不变
+        不奉诏, // 追加在 None 之后，保持旧存档里的枚举值不变
+        附庸独立
     }
 }

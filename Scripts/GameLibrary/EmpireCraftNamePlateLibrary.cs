@@ -1114,6 +1114,15 @@ public static class EmpireCraftNamePlateLibrary
         }
     }
 
+    private static string AppendFeudalLordLabel(NameplateText plate, Kingdom subject, string text)
+    {
+        Kingdom lord = FeudalVassalService.GetOverlord(subject);
+        if (lord == null) return text;
+        int fontSize = Mathf.Max(1, Mathf.RoundToInt(plate._text_name.fontSize * 0.55f));
+        string label = string.Format(LM.Get("label_feudal_vassal_of"), GetSafeKingdomName(lord));
+        return $"{text}\n<size={fontSize}><color=#FF5555>{label}</color></size>";
+    }
+
     public static void showTextKingdom(NameplateText npt, Kingdom pMetaObject)
     {
         if (pMetaObject?.data == null) return;
@@ -1152,6 +1161,8 @@ public static class EmpireCraftNamePlateLibrary
             string str2 = num.ToString();
             pNewText = $"{str1} | w{str2}";
         }
+        pNewText = AppendFeudalLordLabel(npt, pMetaObject, pNewText);
+        npt._text_name.supportRichText = true;
         setTextIfChanged(npt, pNewText, (Vector3)pMetaObject.capital.city_center);
         // 给文字加蓝色边框（描边）
         var outline = npt._text_name.GetComponent<Outline>();
@@ -1161,7 +1172,6 @@ public static class EmpireCraftNamePlateLibrary
         }
         npt.priority_population = pMetaObject.units.Count;
         npt.showSpecies(pMetaObject.getSpriteIcon());
-        npt._text_name.supportRichText = true;
         bool bannerLoaded = TryLoadKingdomBanner(npt, pMetaObject);
         npt._show_banner_kingdom = bannerLoaded;
         npt._banner_kingdoms.enabled = bannerLoaded;
@@ -1217,6 +1227,7 @@ public static class EmpireCraftNamePlateLibrary
         npt.setupMeta(pMetaObject.data, displayColor);
         string displayName = GetSafeKingdomName(pMetaObject);
         string pNewText = $"{displayName} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
+        pNewText = AppendFeudalLordLabel(npt, pMetaObject, pNewText);
         if (pMetaObject.HasTakenAlliance() && displayedEmpire != null)
         {
             pNewText += $"\n{LM.Get("label_tributary_target")}: {GetSafeEmpireName(displayedEmpire)}";
@@ -1268,6 +1279,7 @@ public static class EmpireCraftNamePlateLibrary
             case 2:
                 break;
         }
+        npt._text_name.supportRichText = true;
         setTextIfChanged(npt, pNewText, pMetaObject.capital.city_center);
         npt._background_image.enabled = false;
         npt.priority_population = pMetaObject.units.Count;
@@ -1276,7 +1288,6 @@ public static class EmpireCraftNamePlateLibrary
         npt._banner_kingdoms.enabled = false;
         npt._show_banner_clan = false;
         npt._banner_clan.enabled = false;
-        npt._text_name.supportRichText = true;
         if (pMetaObject.IsInEmpire() || pMetaObject.HasTakenAlliance())
         {
             npt._text_name.color = Color.white;

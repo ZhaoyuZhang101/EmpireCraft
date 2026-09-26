@@ -77,10 +77,16 @@ public static class ImperialLegitimacyChallengeService
         if (kingdom == null || kingdom.king != actor || !TryFindTarget(kingdom, out Empire incumbent))
             return false;
 
+        bool contestsIncumbentCore = EmpireFormationService.GetSeatCoreEmpire(kingdom) == incumbent;
         Empire challenger = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom, allowCultureRival: true,
             forceNewCore: true);
         if (challenger == null) return false;
         MarkRivalry(challenger, incumbent, challengerIsClaimant: true);
+        if (contestsIncumbentCore)
+        {
+            EmpireCore falseCore = EmpireCoreManager.Get(challenger);
+            if (falseCore != null) falseCore.false_core_against_empire_id = incumbent.id;
+        }
 
         War war = DiplomacyHelpers.wars.newWar(challenger.CoreKingdom, incumbent.CoreKingdom,
             WarTypeLibrary.normal);
@@ -108,6 +114,8 @@ public static class ImperialLegitimacyChallengeService
     {
         if (!IsActiveEmpire(usurper) || !IsActiveEmpire(incumbent) || usurper == incumbent) return;
         MarkRivalry(usurper, incumbent, challengerIsClaimant: true);
+        EmpireCore falseCore = EmpireCoreManager.Get(usurper);
+        if (falseCore != null) falseCore.false_core_against_empire_id = incumbent.id;
         usurper.data.Mandate = EmpireFormationService.UsurpationMandate;
         string content = string.Format(LM.Get("history_usurpation_declared"),
             usurper.Emperor?.getName() ?? usurper.GetEmpireFullName(), usurper.GetEmpireFullName(),
@@ -157,6 +165,8 @@ public static class ImperialLegitimacyChallengeService
     public static void ClearRivalry(Empire empire)
     {
         if (empire?.data == null) return;
+        EmpireCore core = EmpireCoreManager.Get(empire);
+        if (core != null) core.false_core_against_empire_id = -1L;
         empire.data.legitimacy_rival_empire_id = -1L;
         empire.data.legitimacy_rivalry_recognized = false;
         empire.data.legitimacy_challenger = false;

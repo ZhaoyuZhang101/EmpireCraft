@@ -118,7 +118,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         _empiresToProcess.Clear();
     }
 
-    // 同文化可以有多个帝国并存(不再自动解散较弱的同文化帝国)；这里只清理对手已不存在的正统之争记录
+    // 清理失效的正统对手，并为旧存档中的既有僭越者补齐伪法理标记。
     private void ClearStaleLegitimacyRivalries()
     {
         foreach (Empire empire in _empiresToProcess)
@@ -127,7 +127,18 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                 !empire.data.legitimacy_rivalry_recognized) continue;
             Empire rival = ModClass.EMPIRE_MANAGER.get(empire.data.legitimacy_rival_empire_id);
             if (rival == null || rival.IsArchived() || rival.isRekt())
+            {
                 ImperialLegitimacyChallengeService.ClearRivalry(empire);
+                continue;
+            }
+            if (!empire.data.legitimacy_challenger) continue;
+            EmpireCore core = EmpireCoreManager.Get(empire);
+            EmpireCore legitimateCore = EmpireCoreManager.Get(rival);
+            KingdomTitle mainTitle = empire.CoreKingdom?.GetMainTitle();
+            if (core == null || core.false_core_against_empire_id == rival.id ||
+                !EmpireCoreManager.ContainsTitle(legitimateCore, mainTitle)) continue;
+            core.false_core_against_empire_id = rival.id;
+            EmpireCoreManager.SyncCitiesFromTitles(legitimateCore);
         }
     }
 
