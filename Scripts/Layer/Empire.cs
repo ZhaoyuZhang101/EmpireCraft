@@ -1204,7 +1204,13 @@ public class Empire : MetaObject<EmpireData>
             return;
         }
         LogService.LogInfo("核心王国灭亡，由皇族王国" + heirEmpire.GetKingdomName() + "延续帝国");
-        ReplaceEmpire(heirEmpire);
+        if (!ReplaceEmpire(heirEmpire))
+        {
+            // 接续失败时不能让帝国停留在"核心已移出成员列表"的状态：否则状态修复会重新选出核心、
+            // 随后又被判定核心缺失，陷入每帧 接续→修复 的死循环。
+            LogService.LogWarning($"皇族王国 {heirEmpire.GetKingdomName()} 无法接续帝国，解散帝国");
+            ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
+        }
     }
 
     public Kingdom GetMostPowerfulKingdom()
@@ -1224,12 +1230,13 @@ public class Empire : MetaObject<EmpireData>
         return kingdom;
     }
 
-    public void ReplaceEmpire(Kingdom newKingdom)
+    // 返回是否成功由 newKingdom 接续为新帝国（成功时本帝国会被解散）
+    public bool ReplaceEmpire(Kingdom newKingdom)
     {
-        Empire newEmpire = ModClass.EMPIRE_MANAGER.NewEmpire(newKingdom);
+        Empire newEmpire = ModClass.EMPIRE_MANAGER.NewEmpire(newKingdom, replacingEmpire: this);
         if (newEmpire == null)
         {
-            return;
+            return false;
         }
         newEmpire.data.history.InsertRange(0, data.history);
         // 同一帝国的延续：王号序数的即位记录一并接过去
@@ -1302,6 +1309,7 @@ public class Empire : MetaObject<EmpireData>
         
         newKingdom.SetKingdomCoreName(newEmpire.GetEmpireName(), newEmpire.data.name);
         ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
+        return true;
     }
     public sealed override void setDefaultValues()
     {

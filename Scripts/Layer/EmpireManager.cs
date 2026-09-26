@@ -203,8 +203,10 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public Sprite[] _cached_banner_icons;
 
 
+    // replacingEmpire：由该帝国延续而来（核心王国灭亡后由皇族王国接续等）。它此刻仍然存在，
+    // 不能把它当成"同文化已有帝国"而拒绝建立继承者。
     public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false,
-        bool allowCultureRival = false, bool forceNewCore = false)
+        bool allowCultureRival = false, bool forceNewCore = false, Empire replacingEmpire = null)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom)) return null;
         if (pKingdom == null || !pKingdom.isAlive())
@@ -213,7 +215,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         string culture = CultureService.GetRealmCulture(pKingdom);
         if (!CultureService.IsValidCulture(culture) ||
-            (!allowCultureRival && CultureService.HasActiveEmpireForCulture(culture)))
+            (!allowCultureRival && CultureService.HasActiveEmpireForCulture(culture, replacingEmpire)))
         {
             return null;
         }
