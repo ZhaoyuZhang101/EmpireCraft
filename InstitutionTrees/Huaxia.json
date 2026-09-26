@@ -176,10 +176,9 @@
       "name_key": "institution_huaxia_grace_edict",
       "description_key": "institution_huaxia_grace_edict_desc",
       "branch": "administration",
-      "advancement": 6,
-      "requires_any": [
-        "huaxia_commandery_kingdom",
-        "huaxia_prefecture_county_bureaucracy"
+      "advancement": 4,
+      "requires": [
+        "huaxia_commandery_kingdom"
       ],
       "replaces": [
         "zhou_vassal_self_succession"
@@ -218,8 +217,7 @@
         }
       ],
       "features": {
-        "grace_edict": 1,
-        "constitution_basis_administration": 1
+        "grace_edict": 1
       }
     },
     {
@@ -432,7 +430,7 @@
       },
       "resistance": {
         "base_radicalism": 12.0,
-        "vested_interest_radicalism": 18.0,
+        "vested_interest_radicalism": 32.0,
         "rebellion_threshold": 70.0,
         "opposition_faction_growth": 2
       },
@@ -567,8 +565,9 @@
       "description_key": "institution_huaxia_prefecture_county_bureaucracy_desc",
       "branch": "administration",
       "advancement": 5,
-      "requires": [
-        "zhou_reduce_vassals"
+      "requires_any": [
+        "zhou_reduce_vassals",
+        "huaxia_grace_edict"
       ],
       "replaces": [
         "zhou_enfeoffment"
@@ -621,9 +620,9 @@
       "name_key": "institution_huaxia_examination_officialdom",
       "description_key": "institution_huaxia_examination_officialdom_desc",
       "branch": "society",
-      "advancement": 5,
+      "advancement": 6,
       "requires": [
-        "zhou_reduce_vassals"
+        "huaxia_prefecture_county_bureaucracy"
       ],
       "research": {
         "mandate_required": 70
@@ -904,7 +903,6 @@
       "branch": "finance",
       "advancement": 6,
       "requires": [
-        "huaxia_prefecture_county_bureaucracy",
         "huaxia_two_tax_law"
       ]
     }
