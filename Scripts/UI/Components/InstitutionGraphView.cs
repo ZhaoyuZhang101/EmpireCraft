@@ -35,7 +35,8 @@ public class InstitutionGraphView
     private static readonly Vector2 NodeHalfSize = new(NodeWidth / 2f, NodeHeight / 2f);
 
     // 分支车道的固定顺序。配置里出现的其他分支会按名字排在后面，不会丢。
-    private static readonly string[] BranchOrder = { "administration", "finance", "military", "society" };
+    // 分支顺序来自配置（InstitutionDefinitionRegistry 汇总全部节点的分支），新分支不需要改代码
+    private static string[] BranchOrder => InstitutionDefinitionRegistry.Branches.ToArray();
 
     private GraphView _engine;
     private Text _fixedHeaderText;
@@ -393,14 +394,9 @@ public class InstitutionGraphView
 
     private static string GetBranchShortName(string branch)
     {
-        return branch switch
-        {
-            "administration" => LM.Get("institution_branch_short_administration"),
-            "finance" => LM.Get("institution_branch_short_finance"),
-            "military" => LM.Get("institution_branch_short_military"),
-            "society" => LM.Get("institution_branch_short_society"),
-            _ => branch
-        };
+        string key = $"institution_branch_short_{branch}";
+        string value = LM.Get(key);
+        return string.IsNullOrWhiteSpace(value) || value == key ? branch : value;
     }
 
     public void ResetView() => _engine.ResetView();

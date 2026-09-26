@@ -107,7 +107,10 @@
           "type": "add_mandate",
           "int_value": 5
         }
-      ]
+      ],
+      "features": {
+        "senate_election": 1
+      }
     },
     {
       "id": "western_roman_law",
@@ -522,7 +525,11 @@
           "type": "add_mandate",
           "int_value": -8
         }
-      ]
+      ],
+      "features": {
+        "vassal_authority": 100,
+        "direct_administration": 1
+      }
     },
     {
       "id": "western_theocratic_state",
@@ -594,7 +601,11 @@
           "type": "add_mandate",
           "int_value": -6
         }
-      ]
+      ],
+      "features": {
+        "direct_administration": 1,
+        "theocratic_state": 1
+      }
     },
     {
       "id": "western_great_charter",
@@ -651,7 +662,10 @@
           "int_value": 5,
           "faction": "自治"
         }
-      ]
+      ],
+      "features": {
+        "constitution_basis_law": 1
+      }
     },
     {
       "id": "western_parliamentary_taxation",
@@ -709,7 +723,10 @@
           "int_value": 5,
           "faction": "共和"
         }
-      ]
+      ],
+      "features": {
+        "constitution_basis_fiscal": 1
+      }
     },
     {
       "id": "western_reformation",
@@ -773,5 +790,11 @@
         }
       ]
     }
-  ]
+  ],
+  "constitution": {
+    "required_features": [
+      "constitution_basis_law",
+      "constitution_basis_fiscal"
+    ]
+  }
 }

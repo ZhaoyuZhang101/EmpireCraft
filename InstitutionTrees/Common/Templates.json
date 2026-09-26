@@ -1,0 +1,86 @@
+{
+  "templates": [
+    {
+      "id": "tactical_drilling",
+      "name_key": "institution_huaxia_tactical_drilling",
+      "description_key": "institution_huaxia_tactical_drilling_desc",
+      "research": {
+        "mandate_required": 55
+      },
+      "reform": {
+        "base_progress_per_year": 6.5,
+        "minimum_years": 9,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 12.0,
+        "vested_interest_radicalism": 16.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 1
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 1.4
+        },
+        "oppose_classes": {
+          "Merchant": 0.3
+        },
+        "support_factions": {
+          "攘夷": 1.0
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "grant_trait",
+          "value": "tacticalDrilling"
+        }
+      ]
+    },
+    {
+      "id": "land_sale_decree",
+      "name_key": "institution_huaxia_land_sale_decree",
+      "description_key": "institution_huaxia_land_sale_decree_desc",
+      "research": {
+        "mandate_required": 65
+      },
+      "reform": {
+        "base_progress_per_year": 2.0,
+        "minimum_years": 50,
+        "force_radicalism": 42.0
+      },
+      "resistance": {
+        "base_radicalism": 25.0,
+        "vested_interest_radicalism": 36.0,
+        "rebellion_threshold": 62.0,
+        "opposition_faction_growth": 4
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 1.5,
+          "Peasant": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 1.6,
+          "Officer": 0.3
+        },
+        "support_factions": {
+          "共和": 1.2,
+          "自治": 0.8
+        },
+        "oppose_factions": {
+          "诸侯": 1.5,
+          "尊王": 0.4
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "open_private_land_market"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": -8
+        }
+      ]
+    }
+  ]
+}

@@ -77,8 +77,8 @@ public static class LandEconomySystem
     {
         if (kingdom == null || kingdom.isRekt()) return false;
         if (kingdom.GetOrCreate().is_peasant_revolutionary_government) return true;
-        RegimeType type = kingdom.GetRegime()?.type ?? RegimeType.Feudalism;
-        return type != RegimeType.Feudalism && type != RegimeType.ZhouFeudalism;
+        Regime regime = kingdom.GetRegime();
+        return regime != null && RegimeManager.AllowsLandlordClass(regime.type);
     }
 
     public static void OpenPrivateLandMarket(Kingdom kingdom, bool redistribute, bool revolutionary)

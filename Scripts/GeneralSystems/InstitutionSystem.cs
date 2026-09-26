@@ -156,17 +156,72 @@ public static class InstitutionSystem
 
     public static bool IsEnacted(Empire empire, string nodeId) => IsEnacted(GetPrimaryCulture(empire), nodeId);
 
+    #region 制度特性
+
+    // 特性值：文化已掌握的节点里声明该特性的最大值；没有任何节点声明时返回 0。
+    // 系统代码应当查询特性而不是具体节点 id，这样任何线（自研、吸收、公共模板实例）都能提供同一效果。
+    public static float GetFeature(string culture, string feature)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        if (state == null || string.IsNullOrWhiteSpace(feature)) return 0f;
+        float result = 0f;
+        foreach (string nodeId in state.enacted_node_ids)
+        {
+            InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
+            if (node != null && node.features.TryGetValue(feature, out float value) && value > result)
+                result = value;
+        }
+        return result;
+    }
+
+    public static float GetFeature(Empire empire, string feature) => GetFeature(GetPrimaryCulture(empire), feature);
+
+    public static bool HasFeature(string culture, string feature) => GetFeature(culture, feature) > 0f;
+
+    public static bool HasFeature(Empire empire, string feature) => GetFeature(empire, feature) > 0f;
+
+    // 本线里声明了某特性的节点（按等级排序）。派系诉求这类"推动某项改革"的逻辑用它找目标，
+    // 而不是写死节点 id。
+    public static IEnumerable<InstitutionNodeConfig> GetLineNodesWithFeature(Empire empire, string feature) =>
+        InstitutionDefinitionRegistry.GetForLine(GetCultureLine(GetPrimaryCulture(empire)))
+            .Where(node => !string.IsNullOrWhiteSpace(feature) && node.features.ContainsKey(feature));
+
+    // 派系诉求要推动的改革目标：本线声明了 claim_reform:<诉求名> 特性、且本文化尚未掌握的节点。
+    // 诉求代码只认诉求名，具体推动哪项制度由各线配置决定。
+    public static InstitutionNodeConfig FindClaimReformTarget(Empire empire, string claim)
+    {
+        if (empire == null || string.IsNullOrWhiteSpace(claim)) return null;
+        string culture = GetPrimaryCulture(empire);
+        if (!CultureService.IsValidCulture(culture)) return null;
+        return GetLineNodesWithFeature(empire, InstitutionFeatures.ClaimReformPrefix + claim)
+            .FirstOrDefault(node => !IsEnacted(culture, node.id));
+    }
+
+    // 已掌握同源制度（同一个公共模板在任意线上的实例都算）
+    public static bool HasEquivalentEnacted(CultureInstitutionState state, InstitutionNodeConfig node) =>
+        state != null && node != null && state.enacted_node_ids.Any(id =>
+            string.Equals(InstitutionDefinitionRegistry.Get(id)?.equivalence_key, node.equivalence_key,
+                StringComparison.Ordinal));
+
+    // 外来节点能否进入本文化的吸收流程：别的线的、允许吸收、本文化还没有同源制度、
+    // 而且本线自己的树上也没有同源实例（本线有的就该按本线前置自己研究）。
+    private static bool IsForeignCandidate(InstitutionNodeConfig node, string targetLine,
+        CultureInstitutionState target)
+    {
+        if (node == null || IsSameLine(node.line, targetLine) || node.absorb?.enabled != true) return false;
+        if (HasEquivalentEnacted(target, node)) return false;
+        return !InstitutionDefinitionRegistry.GetForLine(targetLine).Any(own =>
+            string.Equals(own.equivalence_key, node.equivalence_key, StringComparison.Ordinal));
+    }
+
+    #endregion
+
 
     public static Dictionary<string, int> GetCultureBranchAdvancements(string culture)
     {
         CultureInstitutionState state = GetOrCreateCultureState(culture);
-        var result = new Dictionary<string, int>(StringComparer.Ordinal)
-        {
-            ["administration"] = 0,
-            ["finance"] = 0,
-            ["military"] = 0,
-            ["society"] = 0
-        };
+        var result = InstitutionDefinitionRegistry.Branches.ToDictionary(branch => branch, _ => 0,
+            StringComparer.Ordinal);
         foreach (InstitutionNodeConfig node in state?.enacted_node_ids.Select(InstitutionDefinitionRegistry.Get)
                      .Where(node => node != null) ?? Enumerable.Empty<InstitutionNodeConfig>())
         {
@@ -1118,7 +1173,11 @@ public static class InstitutionSystem
             else if (node.politics.oppose_factions.ContainsKey(FactionType.诸侯) ||
                      node.politics.oppose_factions.ContainsKey(FactionType.自治))
                 key = "institution_resistance_reason_local_privilege";
-            else if (node.line == "Youmu") key = "institution_resistance_reason_tribal_privilege";
+            else
+            {
+                string lineKey = InstitutionDefinitionRegistry.GetTree(node.line)?.default_resistance_reason_key;
+                if (!string.IsNullOrWhiteSpace(lineKey)) key = lineKey;
+            }
         }
         return key;
     }
@@ -1275,8 +1334,7 @@ public static class InstitutionSystem
                 foreach (string nodeId in source.enacted_node_ids)
                 {
                     InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
-                    if (node == null || IsSameLine(node.line, targetLine) || node.absorb?.enabled != true) continue;
-                    if (target.enacted_node_ids.Contains(nodeId)) continue;
+                    if (!IsForeignCandidate(node, targetLine, target)) continue;
                     // 等级不够就完全不积累接触度，这样几张接触表只会装"真的有机会吸收"的节点
                     if (!InstitutionRules.IsTierAbsorbable(node.advancement, targetLevel, rule.max_tier_gap))
                         continue;
@@ -1403,7 +1461,7 @@ public static class InstitutionSystem
         foreach (string nodeId in state.exposure.Keys.ToList())
         {
             InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
-            if (node == null || IsSameLine(node.line, line) || state.enacted_node_ids.Contains(nodeId))
+            if (!IsForeignCandidate(node, line, state))
             {
                 state.exposure.Remove(nodeId);
                 state.contact_years.Remove(nodeId);

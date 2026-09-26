@@ -54,5 +54,50 @@
     "empire_bonus_cap": 1.05,
     "advanced_border_bonus": 1.0,
     "maximum_speed_multiplier": 3.0
+  },
+  "constitution": {
+    "enabled": true,
+    "required_features": [
+      "constitution_basis_administration",
+      "constitution_basis_fiscal"
+    ],
+    "requires_composite_empire": false,
+    "stable_culture_years": 50,
+    "trade_window_years": 10,
+    "max_gold_per_voyage": 5,
+    "budding_years": 5,
+    "budding_decline_years": 3,
+    "minimum_merchant_households": 2,
+    "minimum_merchant_ratio": 0.05,
+    "no_trade_merchant_households": 4,
+    "no_trade_merchant_cities": 2,
+    "support_threshold": 50.0,
+    "ai_start_support": 55.0,
+    "ai_attempt_interval_years": 3,
+    "deadlock_notice_years": 5,
+    "start_mandate_cost": 5,
+    "noble_grievance_on_start": 8.0,
+    "assembly_tax_power_stage": 2,
+    "responsible_cabinet_stage": 3,
+    "minimum_cabinet_size": 3,
+    "default_cabinet_size": 5,
+    "faction_stances": {
+      "自治": 20.0,
+      "绥靖": 20.0,
+      "共和": 20.0,
+      "民主": 20.0,
+      "融入": 20.0,
+      "诸侯": 20.0,
+      "僭主": -10.0,
+      "中央": -20.0,
+      "神权": -20.0,
+      "攘夷": -20.0,
+      "尊王": -20.0,
+      "血脉": -20.0,
+      "同化": -20.0
+    },
+    "budding_merchant_bonus": 12.0,
+    "merchant_affinity_weight": 0.15,
+    "support_baseline": 50.0
   }
 }

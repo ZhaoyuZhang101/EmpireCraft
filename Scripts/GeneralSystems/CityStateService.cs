@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
@@ -18,12 +19,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 称帝后是古典共和帝国：成员完全自治；首领在施行「元老院」之前由最强者担任，之后由元老院推举。
 public static class CityStateService
 {
-    public const string SenateNodeId = "western_senate";
-
     public static bool IsCityState(Kingdom kingdom) =>
         kingdom != null && !kingdom.isRekt() && kingdom.GetRegime()?.type == RegimeType.ClassicalRepublic;
 
-    public static bool HasSenate(Empire empire) => empire != null && InstitutionSystem.IsEnacted(empire, SenateNodeId);
+    // 元老院推举由制度特性 senate_election 提供
+    public static bool HasSenate(Empire empire) =>
+        empire != null && InstitutionSystem.HasFeature(empire, InstitutionFeatures.SenateElection);
 
     public static void ApplyCityName(Kingdom kingdom)
     {

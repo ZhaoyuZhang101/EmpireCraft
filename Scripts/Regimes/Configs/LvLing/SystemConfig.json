@@ -5,6 +5,8 @@
     "icon_url": "",
     "era_name": true,
     "has_cabinet": true,
+    "is_monarchy": true,
+    "allows_landlord_class": true,
     "cabinet_number": 5,
     "leader_select_method": "Succession",
     "default_kingdom": "LvLing_kingdom",

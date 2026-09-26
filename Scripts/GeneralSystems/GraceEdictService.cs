@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
@@ -16,13 +17,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 法理的归属逻辑没有变：原法理头衔仍在嫡长子一支手里，分出去的只是城市。
 public static class GraceEdictService
 {
-    public const string NodeId = "huaxia_grace_edict";
-    // 郡国并行：封国绝嗣则除国为郡(分封制下也能设郡)
-    public const string CommanderyKingdomNodeId = "huaxia_commandery_kingdom";
+    // 推恩令 / 郡国并行(封国绝嗣则除国为郡，分封制下也能设郡) 分别由制度特性
+    // grace_edict / commandery_kingdom 提供，任何线的节点都可以声明。
 
     public static bool IsCommanderyKingdomActive(Empire empire) =>
         empire != null && !empire.isRekt() && !empire.IsArchived() &&
-        InstitutionSystem.IsEnacted(empire, CommanderyKingdomNodeId);
+        InstitutionSystem.HasFeature(empire, InstitutionFeatures.CommanderyKingdom);
 
     // 由 EmpireCraftKingdomBehCheckKing 在封国没有国王时调用；返回 true 表示已按推恩令处理完毕。
     public static bool TryHandleVacancy(Kingdom fief)
@@ -36,7 +36,7 @@ public static class GraceEdictService
         Empire empire = fief.GetEmpire();
         if (fief.IsEmpire() || empire == null || empire.isRekt() || empire.IsArchived() ||
             empire.CoreKingdom == null || empire.CoreKingdom == fief) return false;
-        bool graceEdict = InstitutionSystem.IsEnacted(empire, NodeId);
+        bool graceEdict = InstitutionSystem.HasFeature(empire, InstitutionFeatures.GraceEdict);
         bool commanderyKingdom = IsCommanderyKingdomActive(empire);
         if (!graceEdict && !commanderyKingdom) return false;
         Regime regime = fief.GetRegime();
@@ -131,7 +131,7 @@ public static class GraceEdictService
     }
 
     public static bool IsActive(Empire empire) =>
-        empire != null && !empire.isRekt() && !empire.IsArchived() && InstitutionSystem.IsEnacted(empire, NodeId);
+        empire != null && !empire.isRekt() && !empire.IsArchived() && InstitutionSystem.HasFeature(empire, InstitutionFeatures.GraceEdict);
 
     // 推恩令下一人不得兼领两国：某人刚成为 kingdom 的国王时，如果他还是同一帝国里别的封国的国王，
     // 那个封国从他的宗室里另立一君(子女→兄弟姐妹→同宗族其他成年人)；宗室无人可立则收归郡县。

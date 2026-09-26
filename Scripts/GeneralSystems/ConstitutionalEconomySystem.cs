@@ -40,11 +40,15 @@ public sealed class ConstitutionalEconomyView
     public string missing_institutions = "";
 }
 
+// 资本主义萌芽与君主立宪。
+//
+// 本系统不认识任何具体的文明、科技线、节点或政体：
+//   · 立宪需要的制度基础 = constitution.required_features（可按线覆盖），由节点 features 提供；
+//   · 是否君主制 = 政体 SystemConfig.json 的 is_monarchy；
+//   · 派系对立宪的态度、各项门槛 = Settings.json 的 constitution。
 public static class ConstitutionalEconomySystem
 {
-    private const int TradeWindowYears = 10;
-    private const int BuddingYears = 5;
-    private const int StableCultureYears = 50;
+    private static ConstitutionConfig Config => InstitutionDefinitionRegistry.Global.constitution;
 
     private static ConstitutionalEconomyState Ensure(Empire empire)
     {
@@ -55,6 +59,20 @@ public static class ConstitutionalEconomySystem
         state.stable_culture ??= "";
         return state;
     }
+
+    private static string GetLine(Empire empire) =>
+        InstitutionSystem.GetCultureLine(InstitutionSystem.GetPrimaryCulture(empire));
+
+    private static bool IsMonarchy(Empire empire) =>
+        RegimeManager.IsMonarchy(empire?.CoreKingdom?.GetRegime()?.type);
+
+    private static void Record(Empire empire, string key)
+    {
+        empire.RecordHistory(directContent: LM.Get(key),
+            actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom.id);
+    }
+
+    #region 海贸记录
 
     public static void RecordArrival(Actor boat)
     {
@@ -97,7 +115,8 @@ public static class ConstitutionalEconomySystem
             data.pending_trade_timestamp != delivery.trade_timestamp) return;
         ClearPendingTrade(data);
         if (boat.kingdom != delivery.city.kingdom) return;
-        int gold = Math.Min(5, Math.Max(0, delivery.city.getResourcesAmount("gold") - delivery.gold_before));
+        int gold = Math.Min(Config.max_gold_per_voyage,
+            Math.Max(0, delivery.city.getResourcesAmount("gold") - delivery.gold_before));
         if (gold <= 0) return;
         Empire empire = delivery.city.kingdom?.GetEmpire();
         ConstitutionalEconomyState state = Ensure(empire);
@@ -121,11 +140,17 @@ public static class ConstitutionalEconomySystem
         data.pending_trade_foreign_kingdom = false;
     }
 
+    private static bool IsRecent(CompletedTradeVoyage voyage) =>
+        voyage != null && voyage.timestamp >= 0 && Date.getYearsSince(voyage.timestamp) < Config.trade_window_years;
+
     private static void PruneTrade(ConstitutionalEconomyState state)
     {
-        state.recent_trade.RemoveAll(voyage => voyage == null || voyage.timestamp < 0 ||
-            Date.getYearsSince(voyage.timestamp) >= TradeWindowYears);
+        state.recent_trade.RemoveAll(voyage => !IsRecent(voyage));
     }
+
+    #endregion
+
+    #region 年度更新（唯一会改动状态的入口）
 
     public static void Update(Empire empire)
     {
@@ -134,25 +159,53 @@ public static class ConstitutionalEconomySystem
         ConstitutionalEconomyState state = Ensure(empire);
         SyncCulture(empire, state);
         SyncRegime(empire, state);
+        // 读档后 regime 是从模板重新克隆的，内阁配置要立即补回来，不必等到下一个年度结算
         if (HasResponsibleCabinet(empire) &&
             (empire.CoreKingdom.GetRegime()?.has_cabinet != true || empire.GetCabinetLeader() == null))
             EnsureCabinet(empire);
         if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;
         state.last_economy_update = World.world.getCurWorldTime();
         PruneTrade(state);
+        UpdateBudding(empire, state);
+
+        if (state.constitutional_reform_active) AdvanceReform(empire, state);
+        if (state.constitutional_monarchy && GetParliamentarySupport(empire) < Config.support_threshold &&
+            (state.last_deadlock_notice < 0 ||
+             Date.getYearsSince(state.last_deadlock_notice) >= Config.deadlock_notice_years))
+        {
+            state.last_deadlock_notice = World.world.getCurWorldTime();
+            Record(empire, "constitution_deadlock_history");
+        }
+        if (!state.constitutional_reform_active && !state.constitutional_monarchy &&
+            InstitutionDefinitionRegistry.Global.ai_enabled &&
+            (state.last_ai_constitution_attempt < 0 ||
+             Date.getYearsSince(state.last_ai_constitution_attempt) >= Config.ai_attempt_interval_years))
+        {
+            state.last_ai_constitution_attempt = World.world.getCurWorldTime();
+            if (GetParliamentarySupport(empire) >= Config.ai_start_support) StartReform(empire);
+        }
+    }
+
+    private static void UpdateBudding(Empire empire, ConstitutionalEconomyState state)
+    {
+        ConstitutionConfig config = Config;
         CountHouseholds(empire, out int households, out int merchants, out int merchantCities);
-        bool viable = merchants >= 2 && households > 0 && merchants * 20 >= households &&
-                      (state.recent_trade.Count > 0 || merchants >= 4 && merchantCities >= 2);
+        bool viable = merchants >= config.minimum_merchant_households && households > 0 &&
+                      // 留一点余量，避免 0.05f 这类比例的浮点误差把恰好达标的情况判成不达标
+                      merchants + 0.001f >= households * config.minimum_merchant_ratio &&
+                      (state.recent_trade.Count > 0 ||
+                       merchants >= config.no_trade_merchant_households &&
+                       merchantCities >= config.no_trade_merchant_cities);
         if (viable)
         {
             state.capitalist_decline_since = -1d;
             if (state.capitalist_candidate_since < 0)
                 state.capitalist_candidate_since = World.world.getCurWorldTime();
-            if (!state.capitalist_budding && Date.getYearsSince(state.capitalist_candidate_since) >= BuddingYears)
+            if (!state.capitalist_budding &&
+                Date.getYearsSince(state.capitalist_candidate_since) >= config.budding_years)
             {
                 state.capitalist_budding = true;
-                empire.RecordHistory(directContent: LM.Get("constitution_budding_history"),
-                    actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom.id);
+                Record(empire, "constitution_budding_history");
             }
         }
         else
@@ -160,35 +213,18 @@ public static class ConstitutionalEconomySystem
             state.capitalist_candidate_since = -1d;
             if (state.capitalist_decline_since < 0)
                 state.capitalist_decline_since = World.world.getCurWorldTime();
-            if (Date.getYearsSince(state.capitalist_decline_since) >= 3)
+            if (Date.getYearsSince(state.capitalist_decline_since) >= config.budding_decline_years)
                 state.capitalist_budding = false;
-        }
-
-        if (state.constitutional_reform_active) AdvanceReform(empire, state);
-        if (HasResponsibleCabinet(empire)) EnsureCabinet(empire);
-        if (state.constitutional_monarchy && GetParliamentarySupport(empire) < 50f &&
-            (state.last_deadlock_notice < 0 || Date.getYearsSince(state.last_deadlock_notice) >= 5))
-        {
-            state.last_deadlock_notice = World.world.getCurWorldTime();
-            empire.RecordHistory(directContent: LM.Get("constitution_deadlock_history"),
-                actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom.id);
-        }
-        if (!state.constitutional_reform_active && !state.constitutional_monarchy &&
-            InstitutionDefinitionRegistry.Global.ai_enabled &&
-            (state.last_ai_constitution_attempt < 0 ||
-             Date.getYearsSince(state.last_ai_constitution_attempt) >= 3))
-        {
-            state.last_ai_constitution_attempt = World.world.getCurWorldTime();
-            if (GetParliamentarySupport(empire) >= 55f) StartReform(empire);
         }
     }
 
+    // 主体文化变更（同化、归化、换朝）时由 CultureService 调用。走与年度同步相同的逻辑，
+    // 所以进行中的立宪改革会被正确中止——而不是只把稳定计时器清零、让改革在新文化下继续。
     public static void ResetCultureStability(Empire empire)
     {
         ConstitutionalEconomyState state = Ensure(empire);
-        if (state == null || World.world == null) return;
-        state.stable_culture = CultureService.GetRealmCulture(empire.CoreKingdom);
-        state.stable_culture_since = World.world.getCurWorldTime();
+        if (state == null || World.world == null || empire.CoreKingdom == null) return;
+        SyncCulture(empire, state);
     }
 
     private static void SyncCulture(Empire empire, ConstitutionalEconomyState state)
@@ -197,28 +233,23 @@ public static class ConstitutionalEconomySystem
         if (!CultureService.IsValidCulture(culture)) return;
         if (string.Equals(state.stable_culture, culture, StringComparison.Ordinal) &&
             state.stable_culture_since >= 0) return;
-        state.stable_culture = culture ?? "";
+        // 第一次记录（新帝国/旧存档）不算"文化变更"
+        bool changed = state.stable_culture_since >= 0;
+        state.stable_culture = culture;
         state.stable_culture_since = World.world.getCurWorldTime();
-        if (state.constitutional_reform_active)
-        {
-            state.constitutional_reform_active = false;
-            state.constitutional_reform_progress = 0f;
-            state.constitutional_reform_stage = 0;
-            RestoreCabinetConfiguration(empire);
-            empire.RecordHistory(directContent: LM.Get("constitution_culture_changed_history"),
-                actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom.id);
-        }
+        if (!changed || !state.constitutional_reform_active) return;
+        bool hadResponsibleCabinet = state.constitutional_reform_stage >= Config.responsible_cabinet_stage;
+        CancelReform(state);
+        if (hadResponsibleCabinet) RestoreCabinetConfiguration(empire);
+        Record(empire, "constitution_culture_changed_history");
     }
 
     private static void SyncRegime(Empire empire, ConstitutionalEconomyState state)
     {
-        Regime regime = empire.CoreKingdom.GetRegime();
-        if (regime == null || IsMonarchy(regime.type)) return;
+        if (empire.CoreKingdom.GetRegime() == null || IsMonarchy(empire)) return;
         bool hadResponsibleCabinet = state.constitutional_reform_active &&
-                                     state.constitutional_reform_stage >= 3;
-        state.constitutional_reform_active = false;
-        state.constitutional_reform_progress = 0f;
-        state.constitutional_reform_stage = 0;
+                                     state.constitutional_reform_stage >= Config.responsible_cabinet_stage;
+        CancelReform(state);
         if (!state.constitutional_monarchy)
         {
             if (hadResponsibleCabinet) RestoreCabinetConfiguration(empire);
@@ -226,9 +257,17 @@ public static class ConstitutionalEconomySystem
         }
         state.constitutional_monarchy = false;
         RestoreCabinetConfiguration(empire);
-        empire.RecordHistory(directContent: LM.Get("constitution_ended_history"),
-            actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom.id);
+        Record(empire, "constitution_ended_history");
     }
+
+    private static void CancelReform(ConstitutionalEconomyState state)
+    {
+        state.constitutional_reform_active = false;
+        state.constitutional_reform_progress = 0f;
+        state.constitutional_reform_stage = 0;
+    }
+
+    #endregion
 
     private static void CountHouseholds(Empire empire, out int households, out int merchants,
         out int merchantCities)
@@ -257,41 +296,70 @@ public static class ConstitutionalEconomySystem
         merchants = merchantKeys.Count;
     }
 
+    #region 查询（只读，UI 可以随便调用）
+
+    // 当前主体文化已经稳定了多少年。文化刚变、年度同步还没跑到时按 0 计。
+    private static int GetStableCultureYears(Empire empire, ConstitutionalEconomyState state)
+    {
+        if (state == null || state.stable_culture_since < 0) return 0;
+        string culture = CultureService.GetRealmCulture(empire.CoreKingdom);
+        if (CultureService.IsValidCulture(culture) &&
+            !string.Equals(state.stable_culture, culture, StringComparison.Ordinal)) return 0;
+        return Math.Max(0, Date.getYearsSince(state.stable_culture_since));
+    }
+
+    // 立宪所需、而本文化尚未具备的制度特性
+    public static List<string> GetMissingFeatures(Empire empire)
+    {
+        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        return InstitutionDefinitionRegistry.GetConstitutionRequiredFeatures(GetLine(empire))
+            .Where(feature => !InstitutionSystem.HasFeature(culture, feature)).ToList();
+    }
+
+    // 缺失特性的显示文本：列出本线能提供该特性的节点名；本线没有的话显示特性本身的名称
+    private static string DescribeMissingFeatures(Empire empire, List<string> missing)
+    {
+        string line = GetLine(empire);
+        return string.Join(", ", missing.Select(feature =>
+        {
+            List<string> names = InstitutionDefinitionRegistry.GetForLine(line)
+                .Where(node => node.features.ContainsKey(feature))
+                .Select(InstitutionSystem.GetNodeName).ToList();
+            if (names.Count > 0) return string.Join("/", names);
+            string key = $"institution_feature_{feature}";
+            string text = LM.Get(key);
+            return string.IsNullOrWhiteSpace(text) || text == key ? feature : text;
+        }));
+    }
+
     public static ConstitutionalEconomyView GetView(Empire empire)
     {
         var view = new ConstitutionalEconomyView();
         ConstitutionalEconomyState state = Ensure(empire);
-        if (state == null || World.world == null) return view;
-        SyncCulture(empire, state);
-        SyncRegime(empire, state);
+        if (state == null || World.world == null || empire.CoreKingdom == null) return view;
         CountHouseholds(empire, out view.total_households, out view.merchant_households,
             out view.merchant_cities);
-        foreach (CompletedTradeVoyage voyage in state.recent_trade.Where(voyage => voyage != null &&
-                     Date.getYearsSince(voyage.timestamp) < TradeWindowYears))
+        foreach (CompletedTradeVoyage voyage in state.recent_trade.Where(IsRecent))
         {
             view.voyages++;
             if (voyage.foreign_kingdom) view.foreign_voyages++;
             view.delivered_gold += voyage.delivered_gold;
         }
-        view.culture_years = state.stable_culture_since < 0 ? 0 :
-            Math.Max(0, Date.getYearsSince(state.stable_culture_since));
+        bool monarchy = IsMonarchy(empire);
+        view.culture_years = GetStableCultureYears(empire, state);
         view.budding_years = state.capitalist_candidate_since < 0 ? 0 :
             Math.Max(0, Date.getYearsSince(state.capitalist_candidate_since));
         view.budding = state.capitalist_budding;
-        view.constitutional = state.constitutional_monarchy;
-        view.reforming = state.constitutional_reform_active;
-        view.reform_progress = state.constitutional_reform_progress;
-        view.reform_stage = state.constitutional_reform_stage;
+        view.constitutional = state.constitutional_monarchy && monarchy;
+        view.reforming = state.constitutional_reform_active && monarchy;
+        view.reform_progress = view.reforming ? state.constitutional_reform_progress : 0f;
+        view.reform_stage = view.reforming ? state.constitutional_reform_stage : 0;
         view.parliamentary_support = GetParliamentarySupport(empire);
-        view.reform_stalled = view.reforming && (!view.budding || view.parliamentary_support < 50f);
+        view.reform_stalled = view.reforming &&
+                              (!view.budding || view.parliamentary_support < Config.support_threshold);
         CanStartReform(empire, out view.blocker);
         if (view.blocker == "constitution_requires_institutions")
-        {
-            string line = InstitutionSystem.GetCultureLine(InstitutionSystem.GetPrimaryCulture(empire));
-            view.missing_institutions = string.Join(", ", RequiredNodes(line)
-                .Where(node => !InstitutionSystem.IsEnacted(empire, node))
-                .Select(node => InstitutionSystem.GetNodeName(InstitutionDefinitionRegistry.Get(node))));
-        }
+            view.missing_institutions = DescribeMissingFeatures(empire, GetMissingFeatures(empire));
         return view;
     }
 
@@ -300,45 +368,28 @@ public static class ConstitutionalEconomySystem
         reason = "constitution_unavailable";
         ConstitutionalEconomyState state = Ensure(empire);
         if (state == null || empire.CoreKingdom == null || World.world == null) return false;
-        SyncCulture(empire, state);
+        string line = GetLine(empire);
+        if (!InstitutionDefinitionRegistry.IsConstitutionEnabled(line)) return false;
         if (state.constitutional_monarchy) { reason = "constitution_already_enacted"; return false; }
         if (state.constitutional_reform_active) { reason = "constitution_reforming"; return false; }
-        if (!IsMonarchy(empire.CoreKingdom.GetRegime()?.type))
-        { reason = "constitution_requires_monarchy"; return false; }
+        if (!IsMonarchy(empire)) { reason = "constitution_requires_monarchy"; return false; }
         if (empire.data.institution_state?.active_reform != null)
         { reason = "constitution_other_reform"; return false; }
-        if (!state.capitalist_budding)
-        { reason = "constitution_requires_budding"; return false; }
-        if (state.stable_culture_since < 0 ||
-            Date.getYearsSince(state.stable_culture_since) < StableCultureYears)
+        if (!state.capitalist_budding) { reason = "constitution_requires_budding"; return false; }
+        if (GetStableCultureYears(empire, state) < Config.stable_culture_years ||
+            state.stable_culture_since < 0)
         { reason = "constitution_requires_stability"; return false; }
-        string line = InstitutionSystem.GetCultureLine(InstitutionSystem.GetPrimaryCulture(empire));
-        foreach (string node in RequiredNodes(line))
-        {
-            if (InstitutionSystem.IsEnacted(empire, node)) continue;
-            reason = "constitution_requires_institutions";
-            return false;
-        }
-        if (line == "YouMu" &&
+        if (GetMissingFeatures(empire).Count > 0) { reason = "constitution_requires_institutions"; return false; }
+        if (InstitutionDefinitionRegistry.IsConstitutionRequiringCompositeEmpire(line) &&
             empire.data.composite_integration_stage < CompositeEmpireIntegrationStage.CompositeEmpire)
         { reason = "constitution_requires_composite"; return false; }
-        if (GetParliamentarySupport(empire) < 50f)
+        if (GetParliamentarySupport(empire) < Config.support_threshold)
         { reason = "constitution_requires_support"; return false; }
         reason = "";
         return true;
     }
 
-    private static bool IsMonarchy(RegimeType? regime) => regime is RegimeType.LvLing or
-        RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.Arabic or RegimeType.YouMu;
-
-    private static IEnumerable<string> RequiredNodes(string line) => line switch
-    {
-        "Roma" => new[] { "western_great_charter", "western_parliamentary_taxation" },
-        "Huaxia" => new[] { "huaxia_prefecture_county_bureaucracy", "huaxia_single_whip_reform" },
-        "Arabic" => new[] { "arabic_caravan_trade", "arabic_sultanate_bureaucracy", "arabic_bayt_al_mal" },
-        "YouMu" => new[] { "youmu_dual_administration", "youmu_steppe_law" },
-        _ => new[] { "__unavailable__" }
-    };
+    #endregion
 
     public static bool StartReform(Empire empire)
     {
@@ -348,19 +399,19 @@ public static class ConstitutionalEconomySystem
         state.constitutional_reform_started = World.world.getCurWorldTime();
         state.constitutional_reform_progress = 0f;
         state.constitutional_reform_stage = 0;
-        empire.RecordHistory(directContent: LM.Get("constitution_started_history"),
-            actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom.id);
+        Record(empire, "constitution_started_history");
         return true;
     }
 
     private static void AdvanceReform(Empire empire, ConstitutionalEconomyState state)
     {
-        if (!IsMonarchy(empire.CoreKingdom.GetRegime()?.type))
+        ConstitutionConfig config = Config;
+        if (!IsMonarchy(empire))
         {
-            state.constitutional_reform_active = false;
+            CancelReform(state);
             return;
         }
-        if (!state.capitalist_budding || GetParliamentarySupport(empire) < 50f) return;
+        if (!state.capitalist_budding || GetParliamentarySupport(empire) < config.support_threshold) return;
         int minimumYears = InstitutionSystem.GetReformEnvironment(empire).EffectiveMinimumYears;
         state.constitutional_reform_progress = Math.Min(100f,
             state.constitutional_reform_progress + 100f / Math.Max(1, minimumYears));
@@ -369,13 +420,13 @@ public static class ConstitutionalEconomySystem
         {
             if (state.constitutional_reform_stage < 1 && stage >= 1)
             {
-                empire.AddMandate(-5);
+                empire.AddMandate(-config.start_mandate_cost);
                 InstitutionEmpireState institution = empire.data.institution_state;
                 if (institution != null)
                 {
                     InstitutionStateNormalizer.Normalize(institution);
                     institution.class_grievances[SocialClass.Noble] = Math.Min(100f,
-                        institution.class_grievances[SocialClass.Noble] + 8f);
+                        institution.class_grievances[SocialClass.Noble] + config.noble_grievance_on_start);
                     institution.class_grievance_causes[SocialClass.Noble] = "constitution";
                 }
             }
@@ -383,14 +434,14 @@ public static class ConstitutionalEconomySystem
             empire.RecordHistory(directContent: string.Format(LM.Get("constitution_stage_history"),
                     LM.Get($"constitution_stage_{stage}")),
                 actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom.id);
+            if (stage >= config.responsible_cabinet_stage) EnsureCabinet(empire);
         }
         if (state.constitutional_reform_progress < 100f ||
             Date.getYearsSince(state.constitutional_reform_started) < minimumYears) return;
         state.constitutional_reform_active = false;
         state.constitutional_monarchy = true;
         EnsureCabinet(empire);
-        empire.RecordHistory(directContent: LM.Get("constitution_enacted_history"),
-            actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom.id);
+        Record(empire, "constitution_enacted_history");
     }
 
     public static float GetParliamentarySupport(Empire empire)
@@ -411,69 +462,72 @@ public static class ConstitutionalEconomySystem
     }
 
     public static bool CanChangeTax(Empire empire) =>
-        !HasAssemblyTaxPower(empire) || GetParliamentarySupport(empire) >= 50f;
+        !HasAssemblyTaxPower(empire) || GetParliamentarySupport(empire) >= Config.support_threshold;
 
     public static bool HasConstitution(Empire empire) =>
-        Ensure(empire)?.constitutional_monarchy == true && IsMonarchy(empire?.CoreKingdom?.GetRegime()?.type);
+        Ensure(empire)?.constitutional_monarchy == true && IsMonarchy(empire);
 
-    public static bool HasAssemblyTaxPower(Empire empire)
+    private static bool HasReachedStage(Empire empire, int stage)
     {
         ConstitutionalEconomyState state = Ensure(empire);
-        return IsMonarchy(empire?.CoreKingdom?.GetRegime()?.type) &&
+        return IsMonarchy(empire) &&
                (state?.constitutional_monarchy == true ||
-                state?.constitutional_reform_active == true && state.constitutional_reform_stage >= 2);
+                state?.constitutional_reform_active == true && state.constitutional_reform_stage >= stage);
     }
 
-    public static bool HasResponsibleCabinet(Empire empire)
-    {
-        ConstitutionalEconomyState state = Ensure(empire);
-        return IsMonarchy(empire?.CoreKingdom?.GetRegime()?.type) &&
-               (state?.constitutional_monarchy == true ||
-                state?.constitutional_reform_active == true && state.constitutional_reform_stage >= 3);
-    }
+    public static bool HasAssemblyTaxPower(Empire empire) => HasReachedStage(empire, Config.assembly_tax_power_stage);
 
+    public static bool HasResponsibleCabinet(Empire empire) => HasReachedStage(empire, Config.responsible_cabinet_stage);
+
+    // 责任内阁：由支持立宪的议会联盟组阁。规模固定为 cabinet_number，
+    // 已在任的联盟成员优先留任，避免每年按政绩重排导致内阁成员反复进出。
     public static void EnsureCabinet(Empire empire)
     {
         if (!HasResponsibleCabinet(empire)) return;
         Regime regime = empire.CoreKingdom?.GetRegime();
         if (regime == null) return;
+        ConstitutionConfig config = Config;
         regime.has_cabinet = true;
-        if (regime.cabinet_number < 3) regime.cabinet_number = 5;
-        if (GetParliamentarySupport(empire) < 50f) return;
+        if (regime.cabinet_number < config.minimum_cabinet_size) regime.cabinet_number = config.default_cabinet_size;
+        if (GetParliamentarySupport(empire) < config.support_threshold) return;
         bool budding = Ensure(empire)?.capitalist_budding == true;
         List<FixedFaction> coalition = regime.GetPlayerFactions()
-            ?.Where(faction => faction != null && !faction.Ban && faction.CentralRatio > 0)
-            .OrderByDescending(faction => faction.CentralRatio)
-            .Where(faction => SupportsConstitution(faction, budding)).ToList();
+            ?.Where(faction => faction != null && !faction.Ban && faction.CentralRatio > 0 &&
+                               SupportsConstitution(faction, budding))
+            .ToList();
         if (coalition == null || coalition.Count == 0) return;
-        var coalitionIds = new HashSet<string>(coalition.Select(faction => faction.GetID()));
-        foreach (long memberId in empire.data.CabinetMembers.ToList())
-        {
-            Actor member = World.world.units.get(memberId);
-            if (member == null || member.isRekt())
-            {
-                empire.data.CabinetMembers.Remove(memberId);
-                continue;
-            }
-            if (!coalitionIds.Contains(member.GetFaction()?.GetID()))
-                empire.RemoveCabinetMember(member);
-        }
         List<Actor> candidates = coalition.SelectMany(faction => faction.AllMembers)
             .Where(actor => actor != null && !actor.isRekt() && actor.HasOfficeIdentity())
             .Distinct()
             .OrderByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? double.MinValue)
             .ToList();
         if (candidates.Count == 0) return;
-        empire.SetCabinetLeader(candidates[0]);
-        foreach (Actor actor in candidates.Skip(1).Take(Math.Max(0, regime.cabinet_number - 1)))
-            empire.AddCabinetMember(actor);
+
+        int size = Math.Max(1, regime.cabinet_number);
+        Actor leader = candidates[0];
+        var incumbents = new HashSet<long>(empire.data.CabinetMembers);
+        List<Actor> desired = new List<Actor> { leader };
+        desired.AddRange(candidates.Skip(1).Where(actor => incumbents.Contains(actor.id)).Take(size - 1).ToList());
+        List<Actor> newcomers = candidates.Skip(1).Where(actor => !desired.Contains(actor))
+            .Take(Math.Max(0, size - desired.Count)).ToList();
+        desired.AddRange(newcomers);
+        var desiredIds = new HashSet<long>(desired.Select(actor => actor.id));
+
+        foreach (long memberId in empire.data.CabinetMembers.ToList())
+        {
+            Actor member = World.world.units.get(memberId);
+            if (member == null || member.isRekt()) empire.data.CabinetMembers.Remove(memberId);
+            else if (!desiredIds.Contains(memberId)) empire.RemoveCabinetMember(member);
+        }
+        empire.SetCabinetLeader(leader);
+        foreach (Actor actor in desired.Skip(1)) empire.AddCabinetMember(actor);
     }
 
     private static void RestoreCabinetConfiguration(Empire empire)
     {
         Regime regime = empire.CoreKingdom?.GetRegime();
-        if (regime == null || RegimeManager.regimes == null ||
-            !RegimeManager.regimes.TryGetValue(regime.type, out Regime template)) return;
+        Regime template = RegimeManager.GetTemplate(regime?.type);
+        if (regime == null || template == null) return;
         regime.has_cabinet = template.has_cabinet;
         regime.cabinet_number = template.cabinet_number;
         if (regime.has_cabinet) return;
@@ -487,18 +541,12 @@ public static class ConstitutionalEconomySystem
 
     private static bool SupportsConstitution(FixedFaction faction, bool budding)
     {
+        ConstitutionConfig config = Config;
         FactionClassSystem.EnsureProfile(faction);
-        float ideology = faction.Type switch
-        {
-            FactionType.自治 or FactionType.绥靖 or FactionType.共和 or FactionType.民主 or
-                FactionType.融入 or FactionType.诸侯 => 20f,
-            FactionType.僭主 => -10f,
-            FactionType.中央 or FactionType.神权 or FactionType.攘夷 or FactionType.尊王 or
-                FactionType.血脉 or FactionType.同化 => -20f,
-            _ => 0f
-        };
-        float marketPressure = budding && faction.ClassAffinities[SocialClass.Merchant] >= 0f ? 12f : 0f;
-        return ideology + marketPressure + faction.ClassAffinities[SocialClass.Merchant] * 0.15f +
-               faction.ClassFavor[SocialClass.Merchant] - 50f > 0f;
+        float ideology = config.faction_stances.TryGetValue(faction.Type, out float stance) ? stance : 0f;
+        float merchantAffinity = faction.ClassAffinities[SocialClass.Merchant];
+        float marketPressure = budding && merchantAffinity >= 0f ? config.budding_merchant_bonus : 0f;
+        return ideology + marketPressure + merchantAffinity * config.merchant_affinity_weight +
+               faction.ClassFavor[SocialClass.Merchant] - config.support_baseline > 0f;
     }
 }

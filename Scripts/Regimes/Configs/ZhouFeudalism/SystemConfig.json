@@ -5,6 +5,8 @@
     "icon_url": "",
     "era_name": true,
     "has_cabinet": false,
+    "is_monarchy": true,
+    "allows_landlord_class": false,
     "cabinet_number": 0,
     "leader_select_method": "Succession",
     "default_kingdom": "ZhouFeudalism_zi",

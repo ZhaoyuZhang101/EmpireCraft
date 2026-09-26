@@ -69,7 +69,10 @@
           "type": "unlock_succession_law",
           "value": "分割继承法"
         }
-      ]
+      ],
+      "features": {
+        "sibling_enfeoffment": 1
+      }
     },
     {
       "id": "huaxia_well_field",
@@ -163,7 +166,10 @@
           "type": "add_mandate",
           "int_value": -5
         }
-      ]
+      ],
+      "features": {
+        "vassal_self_succession": 1
+      }
     },
     {
       "id": "huaxia_grace_edict",
@@ -210,7 +216,10 @@
           "type": "add_mandate",
           "int_value": 5
         }
-      ]
+      ],
+      "features": {
+        "grace_edict": 1
+      }
     },
     {
       "id": "huaxia_commandery_kingdom",
@@ -250,7 +259,10 @@
           "type": "add_mandate",
           "int_value": 3
         }
-      ]
+      ],
+      "features": {
+        "commandery_kingdom": 1
+      }
     },
     {
       "id": "zhou_forbid_private_wars",
@@ -299,7 +311,10 @@
           "option": "toggle_support_army_to_center",
           "int_value": 1
         }
-      ]
+      ],
+      "features": {
+        "vassal_authority": 50
+      }
     },
     {
       "id": "huaxia_tributary_system",
@@ -444,7 +459,11 @@
           "type": "modify_faction_power",
           "int_value": 5
         }
-      ]
+      ],
+      "features": {
+        "vassal_authority": 100,
+        "sibling_enfeoffment_abolished": 1
+      }
     },
     {
       "id": "huaxia_salt_iron_monopoly",
@@ -589,7 +608,12 @@
           "int_value": -10
         }
       ],
-      "regime": "LvLing"
+      "regime": "LvLing",
+      "features": {
+        "constitution_basis_administration": 1,
+        "vassal_authority": 100,
+        "claim_reform:转天朝制度": 1
+      }
     },
     {
       "id": "huaxia_examination_officialdom",
@@ -639,7 +663,10 @@
           "type": "enable_claim",
           "value": "开科取士"
         }
-      ]
+      ],
+      "features": {
+        "claim_reform:开科取士": 1
+      }
     },
     {
       "id": "huaxia_warlord_succession",
@@ -687,44 +714,12 @@
       ]
     },
     {
+      "template": "tactical_drilling",
       "id": "huaxia_tactical_drilling",
-      "name_key": "institution_huaxia_tactical_drilling",
-      "description_key": "institution_huaxia_tactical_drilling_desc",
       "branch": "military",
       "advancement": 5,
       "requires": [
         "huaxia_military_garrison"
-      ],
-      "research": {
-        "mandate_required": 55
-      },
-      "reform": {
-        "base_progress_per_year": 6.5,
-        "minimum_years": 9,
-        "force_radicalism": 24.0
-      },
-      "resistance": {
-        "base_radicalism": 12.0,
-        "vested_interest_radicalism": 16.0,
-        "rebellion_threshold": 72.0,
-        "opposition_faction_growth": 1
-      },
-      "politics": {
-        "support_classes": {
-          "Army": 1.4
-        },
-        "oppose_classes": {
-          "Merchant": 0.3
-        },
-        "support_factions": {
-          "攘夷": 1.0
-        }
-      },
-      "effects_on_complete": [
-        {
-          "type": "grant_trait",
-          "value": "tacticalDrilling"
-        }
       ]
     },
     {
@@ -835,7 +830,10 @@
           "int_value": 4,
           "faction": "尊王"
         }
-      ]
+      ],
+      "features": {
+        "constitution_basis_fiscal": 1
+      }
     },
     {
       "id": "huaxia_recruited_army",
@@ -900,56 +898,20 @@
       ]
     },
     {
+      "template": "land_sale_decree",
       "id": "huaxia_land_sale_decree",
-      "name_key": "institution_huaxia_land_sale_decree",
-      "description_key": "institution_huaxia_land_sale_decree_desc",
       "branch": "finance",
       "advancement": 6,
       "requires": [
         "huaxia_prefecture_county_bureaucracy",
         "huaxia_two_tax_law"
-      ],
-      "research": {
-        "mandate_required": 65
-      },
-      "reform": {
-        "base_progress_per_year": 2.0,
-        "minimum_years": 50,
-        "force_radicalism": 42.0
-      },
-      "resistance": {
-        "base_radicalism": 25.0,
-        "vested_interest_radicalism": 36.0,
-        "rebellion_threshold": 62.0,
-        "opposition_faction_growth": 4
-      },
-      "politics": {
-        "support_classes": {
-          "Merchant": 1.5,
-          "Peasant": 0.4
-        },
-        "oppose_classes": {
-          "Noble": 1.6,
-          "Officer": 0.3
-        },
-        "support_factions": {
-          "共和": 1.2,
-          "自治": 0.8
-        },
-        "oppose_factions": {
-          "诸侯": 1.5,
-          "尊王": 0.4
-        }
-      },
-      "effects_on_complete": [
-        {
-          "type": "open_private_land_market"
-        },
-        {
-          "type": "add_mandate",
-          "int_value": -8
-        }
       ]
     }
-  ]
+  ],
+  "constitution": {
+    "required_features": [
+      "constitution_basis_administration",
+      "constitution_basis_fiscal"
+    ]
+  }
 }

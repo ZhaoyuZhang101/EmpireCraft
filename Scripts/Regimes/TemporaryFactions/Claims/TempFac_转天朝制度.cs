@@ -24,7 +24,7 @@ public class TempFac_转天朝制度 : TemporaryFaction
     {
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
-        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get("huaxia_prefecture_county_bureaucracy");
+        InstitutionNodeConfig node = InstitutionSystem.FindClaimReformTarget(empire, "转天朝制度");
         if (empire != null && node != null)
         {
             bool force = !InstitutionSystem.CanStartReform(empire, node, out _, false) &&
@@ -37,7 +37,7 @@ public class TempFac_转天朝制度 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get("huaxia_prefecture_county_bureaucracy");
+        InstitutionNodeConfig node = InstitutionSystem.FindClaimReformTarget(empire, "转天朝制度");
         if (empire == null || node == null) return false;
         if (empire.Mandate<70) return false;
         if (empire.CoreKingdom.GetSystemChangeYear() < 50)

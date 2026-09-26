@@ -4021,14 +4021,10 @@ public class Empire : MetaObject<EmpireData>
         return CreateTerritorialPartition(region, title, regime, createAdministration: true);
     }
 
-    // 西方封建制施行中央集权君主制后设辖区(Feudalism_intendancy)，施行神权国家后设教区(Feudalism_diocese)
-    public const string WesternCentralizedNodeId = "western_centralized_monarchy";
-    public const string WesternTheocraticNodeId = "western_theocratic_state";
-
+    // 西方封建制具备制度特性 direct_administration(中央集权君主制、神权国家等)后设辖区/教区
     public bool IsWesternCentralized() =>
         CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism &&
-        (InstitutionSystem.IsEnacted(this, WesternCentralizedNodeId) ||
-         InstitutionSystem.IsEnacted(this, WesternTheocraticNodeId));
+        InstitutionSystem.HasFeature(this, InstitutionFeatures.DirectAdministration);
 
     private static bool RegimeSupportsProvince(Regime regime)
     {

@@ -701,14 +701,10 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
     private static string GetBranchName(string branch)
     {
-        return branch switch
-        {
-            "administration" => LM.Get("institution_branch_administration"),
-            "finance" => LM.Get("institution_branch_finance"),
-            "military" => LM.Get("institution_branch_military"),
-            "society" => LM.Get("institution_branch_society"),
-            _ => branch
-        };
+        // 新分支只需要在语言文件里补 institution_branch_<分支>，不需要改代码
+        string key = $"institution_branch_{branch}";
+        string value = LM.Get(key);
+        return string.IsNullOrWhiteSpace(value) || value == key ? branch : value;
     }
 
     private static string GetStatusName(InstitutionNodeStatus status)

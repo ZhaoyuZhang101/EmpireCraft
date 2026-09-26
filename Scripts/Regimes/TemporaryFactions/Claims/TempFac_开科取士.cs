@@ -23,7 +23,7 @@ public class TempFac_开科取士 : TemporaryFaction
     {
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
-        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get("huaxia_examination_officialdom");
+        InstitutionNodeConfig node = InstitutionSystem.FindClaimReformTarget(empire, "开科取士");
         if (empire != null && node != null)
         {
             bool force = !InstitutionSystem.CanStartReform(empire, node, out _, false) &&
@@ -36,7 +36,7 @@ public class TempFac_开科取士 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get("huaxia_examination_officialdom");
+        InstitutionNodeConfig node = InstitutionSystem.FindClaimReformTarget(empire, "开科取士");
         if (empire == null || node == null) return false;
         return InstitutionSystem.CanStartReform(empire, node, out _, false) ||
                InstitutionSystem.CanStartReform(empire, node, out _, true);

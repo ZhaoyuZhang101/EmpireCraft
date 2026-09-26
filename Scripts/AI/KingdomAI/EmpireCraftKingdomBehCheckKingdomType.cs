@@ -30,6 +30,7 @@ public enum ConditionType
     is_border,
     culture_mismatch,
     empire_institution,
+    empire_feature,
     None
 }
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
@@ -190,6 +191,23 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                     // 所属帝国已施行某个制度节点，例："empire_institution:western_theocratic_state"
                     if (string.IsNullOrEmpty(val) || empire == null) return false;
                     if (!InstitutionSystem.IsEnacted(empire, val)) return false;
+                    break;
+                }
+                case ConditionType.empire_feature:
+                {
+                    // 所属帝国具备某个制度特性，可选最低值，例："empire_feature:theocratic_state"、
+                    // "empire_feature:vassal_authority|50"。比 empire_institution 更通用：不绑定具体节点，
+                    // 任何线里声明了该特性的制度都能满足。
+                    if (string.IsNullOrEmpty(val) || empire == null) return false;
+                    // 特性名里可能带冒号(如 claim_reform:xxx)，所以取第一个冒号之后的全部内容
+                    string featureSpec = cond.Substring(cond.IndexOf(':') + 1);
+                    string[] featureParts = featureSpec.Split('|');
+                    float minimum = featureParts.Length > 1 &&
+                                    float.TryParse(featureParts[1], global::System.Globalization.NumberStyles.Float,
+                                        global::System.Globalization.CultureInfo.InvariantCulture, out float parsed)
+                        ? parsed
+                        : float.Epsilon;
+                    if (InstitutionSystem.GetFeature(empire, featureParts[0]) < minimum) return false;
                     break;
                 }
                 default:
