@@ -219,6 +219,19 @@ namespace EmpireCraft.Scripts.HelperFunc
                 asset.text_replacer(pMessage, ref text);
             return text.ColorString(pColor:asset.color);
         }
+        // 系统事件：发一条世界消息（不再弹屏幕中央提示）。记入史书由调用方负责——大部分调用点
+        // 在此之前已经 RecordHistory 过了，这里不重复记录。
+        public static void LogEventMessage(string content, Kingdom kingdom = null)
+        {
+            if (string.IsNullOrWhiteSpace(content)) return;
+            new WorldLogMessage(EmpireCraftWorldLogLibrary.empirecraft_event_log, content)
+            {
+                color_special1 = kingdom != null && !kingdom.isRekt()
+                    ? kingdom.getColor()._color_text
+                    : Toolbox.color_log_good
+            }.add();
+        }
+
         public static void RecordIntoEmpire(this WorldLogMessage worldLog, Empire pEmpire = null)
         {
             worldLog.add();
@@ -1301,7 +1314,6 @@ namespace EmpireCraft.Scripts.HelperFunc
                 message.RecordNationalHistoryIntoEmpire(empire, title.owner, title.main_kingdom);
             else
                 message.add();
-            WorldTip.showNow("de_jure_culture_changed_tip", true, "top", 3f, "#F3961F");
         }
 
         public static void LogCityCultureShift(City city, string oldCulture, string newCulture)
@@ -1315,8 +1327,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = city.getColor()._color_text,
                 color_special2 = city.getColor()._color_text,
                 color_special3 = city.getColor()._color_text
-            }.add();
-            WorldTip.showNow("city_culture_shift_tip", true, "top", 3f, "#57C2FF");
+            }.RecordNationalHistoryIntoEmpire(city.kingdom?.GetEmpire(), kingdom: city.kingdom);
         }
 
         public static void LogForeignCultureOccupation(City city, string oldCulture, string newCulture)
@@ -1330,8 +1341,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = city.getColor()._color_text,
                 color_special2 = city.getColor()._color_text,
                 color_special3 = city.getColor()._color_text
-            }.add();
-            WorldTip.showNow("foreign_culture_occupation_tip", true, "top", 3f, "#F3961F");
+            }.RecordNationalHistoryIntoEmpire(city.kingdom?.GetEmpire(), kingdom: city.kingdom);
         }
 
         public static void LogCultureRestorationAvailable(City city, string culture)
@@ -1343,8 +1353,7 @@ namespace EmpireCraft.Scripts.HelperFunc
             {
                 color_special1 = city.getColor()._color_text,
                 color_special2 = city.getColor()._color_text
-            }.add();
-            WorldTip.showNow("culture_restoration_available_tip", true, "top", 3f, "#65E572");
+            }.RecordNationalHistoryIntoEmpire(city.kingdom?.GetEmpire(), kingdom: city.kingdom);
         }
 
         public static void LogCityCultureRestored(City city, string oldCulture, string newCulture)
@@ -1358,8 +1367,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = city.getColor()._color_text,
                 color_special2 = city.getColor()._color_text,
                 color_special3 = city.getColor()._color_text
-            }.add();
-            WorldTip.showNow("city_culture_restored_tip", true, "top", 3f, "#65E572");
+            }.RecordNationalHistoryIntoEmpire(city.kingdom?.GetEmpire(), kingdom: city.kingdom);
         }
 
         /// <summary>
@@ -1375,8 +1383,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = city.getColor()._color_text,
                 color_special2 = city.getColor()._color_text,
                 color_special3 = city.getColor()._color_text
-            }.add();
-            WorldTip.showNow("cultural_name_changed_tip", true, "top", 3f, "#57C2FF");
+            }.RecordNationalHistoryIntoEmpire(city.kingdom?.GetEmpire(), kingdom: city.kingdom);
         }
 
         /// <summary>
@@ -1392,8 +1399,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = city.getColor()._color_text,
                 color_special2 = city.getColor()._color_text,
                 color_special3 = city.getColor()._color_text
-            }.add();
-            WorldTip.showNow("cultural_name_restored_tip", true, "top", 3f, "#F3961F");
+            }.RecordNationalHistoryIntoEmpire(city.kingdom?.GetEmpire(), kingdom: city.kingdom);
         }
 
         /// <summary>
@@ -1410,10 +1416,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = title.getColor()._color_text,
                 color_special2 = title.getColor()._color_text,
                 color_special3 = title.getColor()._color_text
-            }.add();
-            WorldTip.showNow(
-                isProvince ? "cultural_name_changed_province_tip" : "cultural_name_changed_title_tip",
-                true, "top", 3f, "#57C2FF");
+            }.RecordNationalHistoryIntoEmpire(title.main_kingdom?.GetEmpire(), title.owner, title.main_kingdom);
         }
 
         /// <summary>
@@ -1430,10 +1433,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special1 = title.getColor()._color_text,
                 color_special2 = title.getColor()._color_text,
                 color_special3 = title.getColor()._color_text
-            }.add();
-            WorldTip.showNow(
-                isProvince ? "cultural_name_restored_province_tip" : "cultural_name_restored_title_tip",
-                true, "top", 3f, "#F3961F");
+            }.RecordNationalHistoryIntoEmpire(title.main_kingdom?.GetEmpire(), title.owner, title.main_kingdom);
         }
 
         public static void LogCulturalAssimilationDuty(City city, string targetCulture, int influenceCost)
@@ -1531,7 +1531,6 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.getColor()._color_text,
                 color_special3 = empire.getColor()._color_text
             }.RecordNationalHistoryIntoEmpire(empire, empire.Emperor, empire.CoreKingdom);
-            WorldTip.showNow("composite_empire_adoption_started_tip", true, "top", 4f, "#F3C34A");
         }
 
         public static void LogCompositeEmpireAdopted(Empire empire, string rulingCulture,
@@ -1551,7 +1550,6 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.getColor()._color_text,
                 color_special3 = empire.getColor()._color_text
             }.RecordNationalHistoryIntoEmpire(empire, empire.Emperor, empire.CoreKingdom);
-            WorldTip.showNow("composite_empire_adopted_tip", true, "top", 4f, "#F3C34A");
         }
 
         public static void LogCompositeEmpireStageChanged(Empire empire,
@@ -1567,7 +1565,6 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.getColor()._color_text,
                 color_special3 = empire.getColor()._color_text
             }.RecordNationalHistoryIntoEmpire(empire, empire.Emperor, empire.CoreKingdom);
-            WorldTip.showNow("composite_empire_stage_changed_tip", true, "top", 4f, "#65D6C4");
         }
 
         public static void LogCompositeEmpireCulturalNameAdopted(Empire empire, string newName, string culture)
@@ -1583,7 +1580,6 @@ namespace EmpireCraft.Scripts.HelperFunc
                 color_special2 = empire.getColor()._color_text,
                 color_special3 = empire.getColor()._color_text
             }.RecordNationalHistoryIntoEmpire(empire, empire.Emperor, empire.CoreKingdom);
-            WorldTip.showNow("composite_empire_cultural_name_adopted_tip", true, "top", 4f, "#F3C34A");
         }
 
         private static string GetRegimeDisplayName(RegimeType? regimeType)

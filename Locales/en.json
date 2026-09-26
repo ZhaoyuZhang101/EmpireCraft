@@ -1134,6 +1134,8 @@
   "确认诸侯特权": "Confirm Princely Privileges",
   "争夺主教叙任权": "Contest Episcopal Investiture",
   "temporary_faction_success_outcome_log": "$empire$ completed $claim$: $outcome$",
+  "empirecraft_event_log": "$text$",
+  "revolution_victory_history": "{0} captured the capital — the revolution has won! {1} now leads the state.",
   "holy_roman_outcome_golden_bull": "Imperial succession is now elective; the electors will choose the next emperor from eligible candidates.",
   "holy_roman_outcome_hereditary": "Imperial succession has returned to hereditary rule.",
   "holy_roman_outcome_imperial_peace": "Every prince loses independent diplomacy and war rights and must supply troops to the imperial center.",

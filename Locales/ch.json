@@ -1134,6 +1134,8 @@
   "确认诸侯特权": "確認諸侯特權",
   "争夺主教叙任权": "爭奪主教敘任權",
   "temporary_faction_success_outcome_log": "$empire$完成了$claim$：$outcome$",
+  "empirecraft_event_log": "$text$",
+  "revolution_victory_history": "{0}攻佔首都，革命勝利！確立{1}領導地位！",
   "holy_roman_outcome_golden_bull": "帝位繼承改為選帝制，選帝侯將從候選人中選出新皇帝。",
   "holy_roman_outcome_hereditary": "帝位繼承恢復為世襲制。",
   "holy_roman_outcome_imperial_peace": "所有諸侯失去獨立外交與開戰權，並必須向帝國中央供給軍隊。",

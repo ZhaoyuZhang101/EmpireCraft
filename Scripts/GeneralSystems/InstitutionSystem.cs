@@ -501,7 +501,7 @@ public static class InstitutionSystem
             GetNodeName(node));
         empire.RecordHistory(directContent: content, actorId: empire.Emperor?.id ?? -1L,
             kingdomId: empire.CoreKingdom?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
         return true;
     }
 
@@ -651,7 +651,7 @@ public static class InstitutionSystem
             GetNodeName(node), culture.GetCultureTranslate());
         empire.RecordHistory(directContent: content, actorId: empire.Emperor?.id ?? -1L,
             kingdomId: empire.CoreKingdom?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
     }
 
     // 反方向的补丁：有些派系诉求(比如"转天朝制度"/"转周制")会直接把政体设成某个值，完全
@@ -819,7 +819,7 @@ public static class InstitutionSystem
                 empire.GetEmpireName(), previousLevel, currentLevel);
             empire.RecordHistory(directContent: history, actorId: empire.Emperor?.id ?? -1L,
                 kingdomId: empire.CoreKingdom?.id ?? -1L);
-            ActionLibrary.showWhisperTip(history);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, empire.CoreKingdom);
         }
     }
 
@@ -990,7 +990,7 @@ public static class InstitutionSystem
         string history = string.Format(LM.Get("institution_social_rebellion_history"), className,
             rebel.GetKingdomName(), cause, grievance);
         empire.RecordHistory(directContent: history, actorId: rebel.king?.id ?? -1L, kingdomId: rebel.id);
-        ActionLibrary.showWhisperTip(history);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, empire.CoreKingdom);
 
         int defected = DefectCoreSoldiers(empire, rebel, socialClass, grievance);
         if (defected > 0)
@@ -998,7 +998,7 @@ public static class InstitutionSystem
             string defection = string.Format(LM.Get("institution_social_rebellion_defection_history"), defected,
                 className, rebel.GetKingdomName());
             empire.RecordHistory(directContent: defection, kingdomId: rebel.id);
-            ActionLibrary.showWhisperTip(defection);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(defection, empire.CoreKingdom);
         }
         return true;
     }
@@ -1077,7 +1077,7 @@ public static class InstitutionSystem
                 : warData.institution_social_rebellion_cause);
         empire.RecordHistory(directContent: history, actorId: war.getMainAttacker()?.king?.id ?? -1L,
             kingdomId: war.getMainAttacker()?.id ?? -1L);
-        ActionLibrary.showWhisperTip(history);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, empire.CoreKingdom);
     }
 
     public static InstitutionPoliticalBalance CalculatePoliticalBalance(Empire empire,
@@ -1246,7 +1246,7 @@ public static class InstitutionSystem
             warData.institution_reform_opposition, warData.institution_reform_radicalism, forceMode);
         empire.RecordHistory(directContent: content, actorId: opposition.GetLeader()?.id ?? -1L,
             kingdomId: rebel.id);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
         return true;
     }
 
@@ -1303,7 +1303,7 @@ public static class InstitutionSystem
         empire.RecordHistory(directContent: content,
             actorId: opposition?.GetLeader()?.id ?? -1L,
             kingdomId: war.getMainAttacker()?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
     }
 
     #endregion
@@ -1485,9 +1485,19 @@ public static class InstitutionSystem
             state.exposure.Remove(nodeId);
             state.contact_years.Remove(nodeId);
             state.last_exposure_timestamp.Remove(nodeId);
-            ActionLibrary.showWhisperTip(string.Format(LM.Get("institution_absorbed_tip"),
+            string absorbed = string.Format(LM.Get("institution_absorbed_tip"),
                 culture.GetCultureTranslate(), GetNodeName(node),
-                LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(node.line))));
+                LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(node.line)));
+            // 吸收是文化层面的事件：发一条世界消息，并记入该文化所有帝国的史书
+            Kingdom messageKingdom = null;
+            foreach (Empire cultureEmpire in (ModClass.EMPIRE_MANAGER ?? Enumerable.Empty<Empire>()).ToList())
+            {
+                if (cultureEmpire?.data == null || cultureEmpire.IsArchived() || cultureEmpire.isRekt() ||
+                    !string.Equals(GetPrimaryCulture(cultureEmpire), culture, StringComparison.Ordinal)) continue;
+                cultureEmpire.RecordHistory(directContent: absorbed, kingdomId: cultureEmpire.CoreKingdom?.id ?? -1L);
+                messageKingdom ??= cultureEmpire.CoreKingdom;
+            }
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(absorbed, messageKingdom);
             // 吸收会抬高文明等级，同一年内不再连续吸收下一个，留到明年重算
             break;
         }

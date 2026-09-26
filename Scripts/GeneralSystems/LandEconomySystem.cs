@@ -251,7 +251,7 @@ public static class LandEconomySystem
             if (originEmpire != null && originEmpire != rebel.GetEmpire())
                 originEmpire.RecordHistory(directContent: victory, actorId: rebel.king?.id ?? -1L,
                     kingdomId: rebel.id);
-            ActionLibrary.showWhisperTip(victory);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(victory, rebel);
         }
         if (rebel != null)
         {
@@ -473,7 +473,7 @@ public static class LandEconomySystem
         string history = string.Format(LM.Get("land_rebellion_started_history"), city.GetCityName(),
             ratio * 100f, cause);
         RecordRebellionHistory(origin, history, leader);
-        ActionLibrary.showWhisperTip(history);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, origin);
         return true;
     }
 
@@ -491,7 +491,7 @@ public static class LandEconomySystem
             string history = string.Format(LM.Get("land_rebellion_city_joined_history"), city.GetCityName(),
                 ratio * 100f, rebel.GetKingdomName());
             RecordRebellionHistory(rebel, history);
-            ActionLibrary.showWhisperTip(history);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, rebel);
             return true;
         }
         return false;

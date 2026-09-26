@@ -83,6 +83,8 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset temporary_faction_revoke_military_region_log;
     public static WorldLogAsset temporary_faction_raise_tax_log;
     public static WorldLogAsset occupation_capture_event_log;
+    // 通用事件消息：直接显示一段已经格式化好的文字（制度改革、社会叛乱、推恩令等系统事件）
+    public static WorldLogAsset empirecraft_event_log;
     public static WorldLogAsset empire_pressure_surrender_log;
     public static WorldLogAsset empire_pressure_surrender_city_log;
     public static WorldLogAsset empire_core_absorb_title_log;
@@ -718,6 +720,17 @@ public static class EmpireCraftWorldLogLibrary
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
                 wl.updateText(ref pText, pMessage, "$empire$", 1);
+            }
+        });
+        empirecraft_event_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(empirecraft_event_log),
+            group = "emperors",
+            path_icon = "ChineseCrown.png",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$text$", 1);
             }
         });
         occupation_capture_event_log = wl.add(new WorldLogAsset

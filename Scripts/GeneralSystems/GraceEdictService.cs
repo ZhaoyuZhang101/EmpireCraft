@@ -82,7 +82,7 @@ public static class GraceEdictService
         string content = string.Format(LM.Get("grace_edict_partition_history"), lastKing.name, eldest.getName(),
             fief.GetKingdomName(), string.Join("、", granted));
         empire.RecordHistory(directContent: content, actorId: eldest.id, kingdomId: fief.id);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, fief);
         return true;
     }
 
@@ -187,7 +187,7 @@ public static class GraceEdictService
     {
         string content = string.Format(LM.Get(key), args);
         empire.RecordHistory(directContent: content, kingdomId: kingdom?.id ?? empire.CoreKingdom?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, kingdom ?? empire.CoreKingdom);
     }
 
     // 绝嗣：城市收归核心王国，再一并设为行政区；有法理的由行政区接管原法理
@@ -203,6 +203,6 @@ public static class GraceEdictService
 
         string content = string.Format(LM.Get("grace_edict_reclaim_history"), lastKingName, fiefName);
         empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
     }
 }

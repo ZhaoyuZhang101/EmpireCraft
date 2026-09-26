@@ -235,7 +235,7 @@ public static class EmpireFormationService
         string content = string.Format(LM.Get("empire_formation_failed_history"), king.getName(),
             kingdom.GetKingdomName(), LM.Get(reasonKey));
         king.RecordPersonalHistory(content);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, kingdom);
         LogService.LogInfo(content);
     }
 
@@ -302,7 +302,7 @@ public static class EmpireFormationService
         string content = string.Format(LM.Get("empire_formation_route_history"), founder.king?.getName() ?? "",
             GetRouteName(route), empire.GetEmpireName());
         empire.RecordHistory(directContent: content, actorId: founder.king?.id ?? -1L, kingdomId: founder.id);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, founder);
 
         var dissenters = new List<Kingdom>();
         ResolveAllianceMembers(empire, founder, dissenters);

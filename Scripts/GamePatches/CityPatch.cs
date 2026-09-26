@@ -578,8 +578,11 @@ public class CityPatch : GamePatch
             }
         }
 
-        ActionLibrary.showWhisperTip(
-            $"{capturingKingdom.GetKingdomName()} 攻占首都，革命胜利！确立{dominate.Name}领导地位！");
+        string revolution = string.Format(LM.Get("revolution_victory_history"), capturingKingdom.GetKingdomName(),
+            dominate.Name);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(revolution, capturingKingdom);
+        capturingKingdom.GetEmpire()?.RecordHistory(directContent: revolution,
+            actorId: capturingKingdom.king?.id ?? -1L, kingdomId: capturingKingdom.id);
         capturingKingdom.LoadRegime();
     }
 

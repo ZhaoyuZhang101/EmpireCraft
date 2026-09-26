@@ -378,7 +378,8 @@ public static class VassalInvestitureService
         string content = string.Format(LM.Get(key), args);
         empire.RecordHistory(directContent: content, actorId: actor?.id ?? -1L,
             kingdomId: vassal?.id ?? empire.CoreKingdom?.id ?? -1L);
-        // 正常册封是例行公事，只记入史书，不弹屏幕提示
-        if (!key.StartsWith("investiture_granted_history")) ActionLibrary.showWhisperTip(content);
+        // 正常册封是例行公事，只记入史书，不发世界消息
+        if (!key.StartsWith("investiture_granted_history"))
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, vassal ?? empire.CoreKingdom);
     }
 }

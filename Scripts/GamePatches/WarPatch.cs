@@ -273,7 +273,9 @@ public class WarPatch: GamePatch
                             {
                                 string notice = string.Format(LM.Get("title_all_inherited_notice"),
                                     kingdom.GetKingdomName(), pWar.GetOrCreate().defender_kingdom_name);
-                                ActionLibrary.showWhisperTip(notice);
+                                EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(notice, kingdom);
+                                kingdom.GetEmpire()?.RecordHistory(directContent: notice,
+                                    actorId: kingdom.king?.id ?? -1L, kingdomId: kingdom.id);
                                 kingdom.king?.RecordPersonalHistory(notice);
                             }
                         }
