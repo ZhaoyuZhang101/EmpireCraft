@@ -1425,7 +1425,12 @@ public class Empire : MetaObject<EmpireData>
         InstitutionSystem.Update(this);
         if (regime?.type == RegimeType.LvLing)
         {
-            UpdatePowerfulMinister(regime);
+            // 议会存续期间由议会选出的总理大臣执政，不再产生权臣
+            if (ParliamentSystem.HasParliament(this))
+            {
+                if (data.powerful_minister_id > 0) ClearPowerfulMinister();
+            }
+            else UpdatePowerfulMinister(regime);
             ProcessTerritorialAcquisitionEnfeoff();
         }
         else

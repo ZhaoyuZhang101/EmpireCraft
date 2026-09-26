@@ -141,6 +141,9 @@ public class Regime
     //   allows_landlord_class  允许出现地主阶层（封建/分封制土地归领主，没有自由的地主）
     public bool is_monarchy;
     public bool allows_landlord_class = true;
+    // 该政体的"内阁"实际上是选举君主的选帝侯团（如西方封建）。议会成立后这类内阁照常保留，
+    // 普通内阁则被议会与总理取代。
+    public bool cabinet_is_electoral_college;
     public List<PeeragesLevel> virtual_peerages;
     public List<string> virtual_peerage_names;
     public List<string> virtual_honorary_peerages;
@@ -201,6 +204,7 @@ public class Regime
             enable_auto_honorary_peerages = this.enable_auto_honorary_peerages,
             is_monarchy = this.is_monarchy,
             allows_landlord_class = this.allows_landlord_class,
+            cabinet_is_electoral_college = this.cabinet_is_electoral_college,
             virtual_peerages = this.virtual_peerages?.ToList() ?? new List<PeeragesLevel>(),
             virtual_peerage_names = this.virtual_peerage_names?.ToList() ?? new List<string>(),
             virtual_honorary_peerages = this.virtual_honorary_peerages?.ToList() ?? new List<string>(),
@@ -339,6 +343,9 @@ public static class RegimeManager
     public static bool IsMonarchy(RegimeType? type) => GetTemplate(type)?.is_monarchy == true;
 
     public static bool AllowsLandlordClass(RegimeType? type) => GetTemplate(type)?.allows_landlord_class ?? true;
+
+    public static bool IsCabinetElectoralCollege(RegimeType? type) =>
+        GetTemplate(type)?.cabinet_is_electoral_college == true;
     private static string _folderPath = Path.Combine(ModClass._declare.FolderPath, "Scripts", "Regimes", "Configs");
 
     public static void init()

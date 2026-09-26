@@ -1007,6 +1007,25 @@ public static class UIHelper
         tip.enabled = true;
     }
 
+    // 给任意界面元素挂一个悬浮说明。title/body 是已经本地化好的文字，key 用来在当前语言里注册，
+    // 同一个 key 重复调用会覆盖旧内容（与派系卡片 tooltip 相同的 LM.AddToCurrentLocale 手法）。
+    public static void AttachTextTooltip(GameObject target, string key, string title, string body)
+    {
+        if (target == null || string.IsNullOrWhiteSpace(key)) return;
+        string safeKey = key.Replace("-", "_");
+        string titleKey = $"empirecraft_tip_title_{safeKey}";
+        string bodyKey = $"empirecraft_tip_body_{safeKey}";
+        LM.AddToCurrentLocale(titleKey, title ?? "");
+        LM.AddToCurrentLocale(bodyKey, body ?? "");
+        TipButton tip = target.GetComponent<TipButton>() ?? target.AddComponent<TipButton>();
+        tip.type = "normal";
+        tip.textOnClick = titleKey;
+        tip.textOnClickDescription = bodyKey;
+        tip.text_description_2 = "";
+        tip.hoverAction = tip.showTooltipDefault;
+        tip.enabled = true;
+    }
+
     private static string FormatClassContributions(Dictionary<SocialClass, float> classes, Empire empire,
         Dictionary<SocialClass, float> classShares)
     {

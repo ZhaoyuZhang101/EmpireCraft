@@ -218,6 +218,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     private void AddConstitutionPanel()
     {
         ConstitutionalEconomyView view = ConstitutionalEconomySystem.GetView(_empire);
+        ConstitutionConfig config = InstitutionDefinitionRegistry.Global.constitution;
         var section = _root.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
         _content.Add(section.gameObject);
         string status = view.constitutional ? LM.Get("constitution_status_enacted") :
@@ -228,15 +229,27 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         section.AddTextIntoVertLayout(string.Format(LM.Get("constitution_economy_line"),
                 view.merchant_households, view.total_households,
                 view.budding ? LM.Get("constitution_budding_yes") :
-                    $"{view.budding_years}/5"), true, TextAnchor.MiddleCenter,
+                    $"{view.budding_years}/{config.budding_years}"), true, TextAnchor.MiddleCenter,
             new Vector2(PanelWidth, 12));
         section.AddTextIntoVertLayout(string.Format(LM.Get("constitution_trade_line"),
                 view.voyages, view.foreign_voyages, view.delivered_gold), true,
             TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
         section.AddTextIntoVertLayout(string.Format(LM.Get("constitution_politics_line"),
-                view.culture_years, view.parliamentary_support), true,
+                view.culture_years, view.parliamentary_support, config.stable_culture_years), true,
             TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
-        if (view.constitutional && view.parliamentary_support < 50f)
+        ParliamentView parliament = ParliamentSystem.GetView(_empire);
+        if (parliament.Exists)
+        {
+            string government = parliament.PrimeMinister == null
+                ? LM.Get("prime_minister_vacant")
+                : string.Format(LM.Get("parliament_summary_line"), parliament.PrimeMinister.getName(),
+                    parliament.PrimeMinisterFaction?.Name ?? LM.Get("label_none"),
+                    LM.Get($"parliament_government_{parliament.GovernmentType}"),
+                    parliament.GovernmentSeats, parliament.TotalSeats);
+            section.AddTextIntoVertLayout(government.ColorString("#65D6C4"), true,
+                TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
+        }
+        if (parliament.Exists && view.parliamentary_support < config.support_threshold)
             section.AddTextIntoVertLayout(LM.Get("constitution_deadlock").ColorString("#D98C8C"), true,
                 TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
         if (view.reforming)

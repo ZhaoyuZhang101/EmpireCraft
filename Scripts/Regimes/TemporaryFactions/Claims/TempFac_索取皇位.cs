@@ -154,7 +154,7 @@ public class TempFac_索取皇位 : TemporaryFaction
             {
                 if (!empire.HasEmperor()&&!empire.CoreKingdom.HasHeir())
                 {
-                    var target = empire.CoreKingdom?.GetRegime()?.type== RegimeType.Feudalism?empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.GetLeader():empire.GetCabinetLeader();
+                    var target = empire.CoreKingdom?.GetRegime()?.type== RegimeType.Feudalism?empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.GetLeader():GeneralSystems.ParliamentSystem.GetHeadOfGovernment(empire);
                     if (target == null) return false;
                     if (target.GetFaction() == empire.CoreKingdom?.GetRegime()?.GetDominateFaction())
                     {

@@ -59,11 +59,16 @@ public sealed class ConstitutionConfig
     public int deadlock_notice_years = 5;
     public int start_mandate_cost = 5;
     public float noble_grievance_on_start = 8f;
-    // 达到这个改革阶段(1~4)后议会取得征税同意权 / 内阁向议会负责
-    public int assembly_tax_power_stage = 2;
-    public int responsible_cabinet_stage = 3;
-    public int minimum_cabinet_size = 3;
-    public int default_cabinet_size = 5;
+    // 达到这个改革阶段(1~4)后召开议会：议会取得征税同意权、选举总理大臣，原有内阁撤销
+    public int parliament_stage = 2;
+    // 达到这个阶段后实行责任政府：只有总理所属派系能推动派系诉求
+    public int responsible_government_stage = 3;
+    // 议席总数（界面按这个数显示议员头像，建议取奇数避免平票）
+    public int parliament_seats = 9;
+    // 议会每隔多少年全面改选一次；期间出缺的议席由原派系补选
+    public int parliament_term_years = 5;
+    // 执政一方议席过半时派系诉求获得的推进加速（与原内阁控制朝政时相同）
+    public float government_majority_acceleration = 30f;
 
     // —— 派系对立宪的态度 ——
     // 派系意识形态的基础倾向；没列出的派系为 0。
@@ -370,10 +375,12 @@ public static class InstitutionConfigNormalizer
             global::System.Math.Min(100f, config.ai_start_support));
         config.ai_attempt_interval_years = global::System.Math.Max(1, config.ai_attempt_interval_years);
         config.deadlock_notice_years = global::System.Math.Max(1, config.deadlock_notice_years);
-        config.assembly_tax_power_stage = global::System.Math.Max(1, global::System.Math.Min(4, config.assembly_tax_power_stage));
-        config.responsible_cabinet_stage = global::System.Math.Max(1, global::System.Math.Min(4, config.responsible_cabinet_stage));
-        config.minimum_cabinet_size = global::System.Math.Max(1, config.minimum_cabinet_size);
-        config.default_cabinet_size = global::System.Math.Max(config.minimum_cabinet_size, config.default_cabinet_size);
+        config.parliament_stage = global::System.Math.Max(1, global::System.Math.Min(4, config.parliament_stage));
+        config.responsible_government_stage = global::System.Math.Max(config.parliament_stage,
+            global::System.Math.Min(4, config.responsible_government_stage));
+        config.parliament_seats = global::System.Math.Max(1, global::System.Math.Min(15, config.parliament_seats));
+        config.parliament_term_years = global::System.Math.Max(1, config.parliament_term_years);
+        config.government_majority_acceleration = global::System.Math.Max(0f, config.government_majority_acceleration);
     }
 
     public static List<InstitutionCultureLevelConfig> DefaultCultureLevels()

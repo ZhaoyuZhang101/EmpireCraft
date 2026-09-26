@@ -159,10 +159,8 @@ public static class ConstitutionalEconomySystem
         ConstitutionalEconomyState state = Ensure(empire);
         SyncCulture(empire, state);
         SyncRegime(empire, state);
-        // 读档后 regime 是从模板重新克隆的，内阁配置要立即补回来，不必等到下一个年度结算
-        if (HasResponsibleCabinet(empire) &&
-            (empire.CoreKingdom.GetRegime()?.has_cabinet != true || empire.GetCabinetLeader() == null))
-            EnsureCabinet(empire);
+        // 议会召开/改选/补选/解散。每次更新都检查，议会阶段一到立即召开，不必等年度结算
+        ParliamentSystem.Update(empire);
         if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;
         state.last_economy_update = World.world.getCurWorldTime();
         PruneTrade(state);
@@ -238,25 +236,18 @@ public static class ConstitutionalEconomySystem
         state.stable_culture = culture;
         state.stable_culture_since = World.world.getCurWorldTime();
         if (!changed || !state.constitutional_reform_active) return;
-        bool hadResponsibleCabinet = state.constitutional_reform_stage >= Config.responsible_cabinet_stage;
         CancelReform(state);
-        if (hadResponsibleCabinet) RestoreCabinetConfiguration(empire);
+        // 议会随制宪一起中止；原内阁由内阁 AI 按原政体重新组建
+        ParliamentSystem.Update(empire);
         Record(empire, "constitution_culture_changed_history");
     }
 
     private static void SyncRegime(Empire empire, ConstitutionalEconomyState state)
     {
         if (empire.CoreKingdom.GetRegime() == null || IsMonarchy(empire)) return;
-        bool hadResponsibleCabinet = state.constitutional_reform_active &&
-                                     state.constitutional_reform_stage >= Config.responsible_cabinet_stage;
         CancelReform(state);
-        if (!state.constitutional_monarchy)
-        {
-            if (hadResponsibleCabinet) RestoreCabinetConfiguration(empire);
-            return;
-        }
+        if (!state.constitutional_monarchy) return;
         state.constitutional_monarchy = false;
-        RestoreCabinetConfiguration(empire);
         Record(empire, "constitution_ended_history");
     }
 
@@ -434,13 +425,13 @@ public static class ConstitutionalEconomySystem
             empire.RecordHistory(directContent: string.Format(LM.Get("constitution_stage_history"),
                     LM.Get($"constitution_stage_{stage}")),
                 actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom.id);
-            if (stage >= config.responsible_cabinet_stage) EnsureCabinet(empire);
+            ParliamentSystem.Update(empire);
         }
         if (state.constitutional_reform_progress < 100f ||
             Date.getYearsSince(state.constitutional_reform_started) < minimumYears) return;
         state.constitutional_reform_active = false;
         state.constitutional_monarchy = true;
-        EnsureCabinet(empire);
+        ParliamentSystem.Update(empire);
         Record(empire, "constitution_enacted_history");
     }
 
@@ -450,13 +441,17 @@ public static class ConstitutionalEconomySystem
             ?.Where(faction => faction != null && !faction.Ban).ToList();
         if (factions == null || factions.Count == 0) return 0f;
         bool budding = Ensure(empire)?.capitalist_budding == true;
+        // 议会召开后按实际议席计票；议会召开前按各派系的中央占比估算
+        ParliamentView parliament = ParliamentSystem.GetView(empire);
+        if (parliament.Exists && parliament.TotalSeats > 0)
+            return parliament.Seats.Count(seat => seat.Constitutionalist) * 100f / parliament.TotalSeats;
         float total = 0f;
         float support = 0f;
         foreach (FixedFaction faction in factions)
         {
             float seats = Math.Max(0f, faction.CentralRatio);
             total += seats;
-            if (SupportsConstitution(faction, budding)) support += seats;
+            if (IsConstitutionalist(faction, budding)) support += seats;
         }
         return total <= 0f ? 0f : support / total * 100f;
     }
@@ -467,79 +462,11 @@ public static class ConstitutionalEconomySystem
     public static bool HasConstitution(Empire empire) =>
         Ensure(empire)?.constitutional_monarchy == true && IsMonarchy(empire);
 
-    private static bool HasReachedStage(Empire empire, int stage)
-    {
-        ConstitutionalEconomyState state = Ensure(empire);
-        return IsMonarchy(empire) &&
-               (state?.constitutional_monarchy == true ||
-                state?.constitutional_reform_active == true && state.constitutional_reform_stage >= stage);
-    }
+    // 议会取得征税同意权
+    public static bool HasAssemblyTaxPower(Empire empire) => ParliamentSystem.HasParliament(empire);
 
-    public static bool HasAssemblyTaxPower(Empire empire) => HasReachedStage(empire, Config.assembly_tax_power_stage);
-
-    public static bool HasResponsibleCabinet(Empire empire) => HasReachedStage(empire, Config.responsible_cabinet_stage);
-
-    // 责任内阁：由支持立宪的议会联盟组阁。规模固定为 cabinet_number，
-    // 已在任的联盟成员优先留任，避免每年按政绩重排导致内阁成员反复进出。
-    public static void EnsureCabinet(Empire empire)
-    {
-        if (!HasResponsibleCabinet(empire)) return;
-        Regime regime = empire.CoreKingdom?.GetRegime();
-        if (regime == null) return;
-        ConstitutionConfig config = Config;
-        regime.has_cabinet = true;
-        if (regime.cabinet_number < config.minimum_cabinet_size) regime.cabinet_number = config.default_cabinet_size;
-        if (GetParliamentarySupport(empire) < config.support_threshold) return;
-        bool budding = Ensure(empire)?.capitalist_budding == true;
-        List<FixedFaction> coalition = regime.GetPlayerFactions()
-            ?.Where(faction => faction != null && !faction.Ban && faction.CentralRatio > 0 &&
-                               SupportsConstitution(faction, budding))
-            .ToList();
-        if (coalition == null || coalition.Count == 0) return;
-        List<Actor> candidates = coalition.SelectMany(faction => faction.AllMembers)
-            .Where(actor => actor != null && !actor.isRekt() && actor.HasOfficeIdentity())
-            .Distinct()
-            .OrderByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? double.MinValue)
-            .ToList();
-        if (candidates.Count == 0) return;
-
-        int size = Math.Max(1, regime.cabinet_number);
-        Actor leader = candidates[0];
-        var incumbents = new HashSet<long>(empire.data.CabinetMembers);
-        List<Actor> desired = new List<Actor> { leader };
-        desired.AddRange(candidates.Skip(1).Where(actor => incumbents.Contains(actor.id)).Take(size - 1).ToList());
-        List<Actor> newcomers = candidates.Skip(1).Where(actor => !desired.Contains(actor))
-            .Take(Math.Max(0, size - desired.Count)).ToList();
-        desired.AddRange(newcomers);
-        var desiredIds = new HashSet<long>(desired.Select(actor => actor.id));
-
-        foreach (long memberId in empire.data.CabinetMembers.ToList())
-        {
-            Actor member = World.world.units.get(memberId);
-            if (member == null || member.isRekt()) empire.data.CabinetMembers.Remove(memberId);
-            else if (!desiredIds.Contains(memberId)) empire.RemoveCabinetMember(member);
-        }
-        empire.SetCabinetLeader(leader);
-        foreach (Actor actor in desired.Skip(1)) empire.AddCabinetMember(actor);
-    }
-
-    private static void RestoreCabinetConfiguration(Empire empire)
-    {
-        Regime regime = empire.CoreKingdom?.GetRegime();
-        Regime template = RegimeManager.GetTemplate(regime?.type);
-        if (regime == null || template == null) return;
-        regime.has_cabinet = template.has_cabinet;
-        regime.cabinet_number = template.cabinet_number;
-        if (regime.has_cabinet) return;
-        foreach (long memberId in empire.data.CabinetMembers.ToList())
-        {
-            Actor member = World.world.units.get(memberId);
-            if (member != null && !member.isRekt()) empire.RemoveCabinetMember(member);
-            else empire.data.CabinetMembers.Remove(memberId);
-        }
-    }
-
-    private static bool SupportsConstitution(FixedFaction faction, bool budding)
+    // 派系是否站在宪制一边：决定议会支持率，也决定议会选举中宪政联盟的组成
+    public static bool IsConstitutionalist(FixedFaction faction, bool budding)
     {
         ConstitutionConfig config = Config;
         FactionClassSystem.EnsureProfile(faction);

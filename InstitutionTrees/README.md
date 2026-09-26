@@ -59,3 +59,14 @@
 ```
 
 - 是否君主制由政体 `SystemConfig.json` 的 `is_monarchy` 决定；是否允许地主阶层由 `allows_landlord_class` 决定。
+
+## 议会与总理大臣
+
+制宪改革进入 `constitution.parliament_stage`（默认第 2 阶段）后召开议会，一直存续到君主立宪结束：
+
+- **原内阁撤销**。只有政体 `SystemConfig.json` 中 `cabinet_is_electoral_college: true` 的内阁（如西方封建的选帝侯团）保留，继续负责选举皇帝。
+- **议席**：共 `parliament_seats` 席，按各派系的中央占比用最大余额法分配。
+- **议员**：各派系按"有官职者优先 → 政绩 → 声望"推举本派成年成员出任，皇帝本人不能当议员。每 `parliament_term_years` 年全面改选，期间出缺由原派系补选。
+- **总理大臣**：单一派系过半时由该派领袖出任（多数政府）；否则拥宪派系合计过半，由其中议席最多的派系领袖出任（联合政府）；再否则由第一大派组建少数派政府。总理显示在原"权臣"的位置，议会存续期间不再产生权臣。
+- **议会权力**：拥宪议席不过半时，税制不能变更。
+- **责任政府**：到达 `responsible_government_stage`（默认第 3 阶段）后，只有总理所属的派系能推动派系诉求。执政一方议席过半时，诉求推进加速 `government_majority_acceleration`。

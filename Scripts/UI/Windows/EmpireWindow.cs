@@ -145,17 +145,25 @@ namespace EmpireCraft.Scripts.UI.Windows
                 emperorTitle += "\n" + LM.Get("powerful_minister_status_puppet").ColorString(pColor:new Color(0.65f,0.75f,0.85f));
             }
             centerPart.AddActorViewIntoVertLayout(_empire.Emperor, description:emperorTitle);
-            Actor powerfulMinister = _empire.GetPowerfulMinister();
-            string powerfulMinisterDescription = LM.Get(_empire.data.powerful_minister_is_empress_dowager
-                    ? "empress_dowager_title" : "powerful_minister_title")
-                .ColorString(pColor:new Color(1f,0.55f,0.1f));
-            string powerfulMinisterStatus = _empire.GetPowerfulMinisterStatusText();
-            if (!string.IsNullOrWhiteSpace(powerfulMinisterStatus))
+            if (ParliamentSystem.HasParliament(_empire))
             {
-                powerfulMinisterDescription += "\n" +
-                    powerfulMinisterStatus.ColorString(pColor:new Color(0.1f,1f,0.8f));
+                // 议会存续期间，权臣的位置改由议会选出的总理大臣占据
+                AddPrimeMinisterView(centerPart);
             }
-            centerPart.AddActorViewIntoVertLayout(powerfulMinister, description:powerfulMinisterDescription);
+            else
+            {
+                Actor powerfulMinister = _empire.GetPowerfulMinister();
+                string powerfulMinisterDescription = LM.Get(_empire.data.powerful_minister_is_empress_dowager
+                        ? "empress_dowager_title" : "powerful_minister_title")
+                    .ColorString(pColor:new Color(1f,0.55f,0.1f));
+                string powerfulMinisterStatus = _empire.GetPowerfulMinisterStatusText();
+                if (!string.IsNullOrWhiteSpace(powerfulMinisterStatus))
+                {
+                    powerfulMinisterDescription += "\n" +
+                        powerfulMinisterStatus.ColorString(pColor:new Color(0.1f,1f,0.8f));
+                }
+                centerPart.AddActorViewIntoVertLayout(powerfulMinister, description:powerfulMinisterDescription);
+            }
             
             Actor lover = _empire.Emperor?.lover;
             avatarRow.AddActorViewIntoHoriLayout(lover,
@@ -184,6 +192,24 @@ namespace EmpireCraft.Scripts.UI.Windows
             AddIntoGroup("top_space", topSpace.gameObject);
         }
 
+
+        private void AddPrimeMinisterView(AutoVertLayoutGroup parent)
+        {
+            ParliamentView parliament = ParliamentSystem.GetView(_empire);
+            string description = LM.Get("prime_minister_title").ColorString(pColor:new Color(0.35f,0.85f,1f));
+            if (parliament.PrimeMinister != null && !string.IsNullOrWhiteSpace(parliament.GovernmentType))
+            {
+                description += "\n" + string.Format(LM.Get("prime_minister_status"),
+                        LM.Get($"parliament_government_{parliament.GovernmentType}"),
+                        parliament.GovernmentSeats, parliament.TotalSeats)
+                    .ColorString(pColor:new Color(0.1f,1f,0.8f));
+            }
+            else
+            {
+                description += "\n" + LM.Get("prime_minister_vacant").ColorString(pColor:Color.gray);
+            }
+            parent.AddActorViewIntoVertLayout(parliament.PrimeMinister, description:description);
+        }
 
         private void InitialTextInput()
         {

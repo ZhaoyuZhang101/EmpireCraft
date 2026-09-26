@@ -541,7 +541,17 @@ public abstract class TemporaryFaction
                 End();
                 return;
             }
-            if (!IsLocallyPushed && GetEmpire().CoreKingdom.GetRegime().has_cabinet)
+            if (!IsLocallyPushed && GeneralSystems.ParliamentSystem.HasParliament(GetEmpire()))
+            {
+                // 责任政府：只有总理所属的执政派系能继续推动诉求
+                if (GeneralSystems.ParliamentSystem.HasResponsibleGovernment(GetEmpire()) &&
+                    GeneralSystems.ParliamentSystem.GetGoverningFaction(GetEmpire())?.GetID() != factionID)
+                {
+                    End();
+                    return;
+                }
+            }
+            else if (!IsLocallyPushed && GetEmpire().CoreKingdom.GetRegime().has_cabinet)
             {
                 if (GetEmpire().CoreKingdom.GetRegime().type != RegimeType.Feudalism)
                 {
