@@ -607,6 +607,13 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
         if (view.Status is InstitutionNodeStatus.Enacted or InstitutionNodeStatus.Absorbed) return;
 
+        // 上帝模式：跳过改革直接点亮（连同前置），或点亮本文化整条线
+        var godRow = _detailPanel.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
+        godRow.AddButtonIntoHoriLayout("institution_force_enact", LM.Get("institution_force_enact"),
+            () => ForceEnact(view.Node.id, false), size: new Vector2(110, 12));
+        godRow.AddButtonIntoHoriLayout("institution_force_enact_all", LM.Get("institution_force_enact_all"),
+            () => ForceEnact(view.Node.id, true), size: new Vector2(110, 12));
+
         InstitutionReformEnvironment environment = InstitutionSystem.GetReformEnvironment(_empire, view.Node);
         string environmentColor = environment.AdvancedBorderEmpires > 0 ? "#65D6C4" :
             environment.SameCultureEmpires > 1 ? "#F3C34A" : "#B8C6CC";
@@ -655,6 +662,14 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                         TextAnchor.MiddleCenter, new Vector2(PanelWidth, 11));
                 break;
         }
+    }
+
+    private void ForceEnact(string nodeId, bool all)
+    {
+        if (all) InstitutionSystem.ForceEnactAll(_culture);
+        else InstitutionSystem.ForceEnactNode(_culture, nodeId);
+        _selectedId = nodeId;
+        Rebuild();
     }
 
     // 不能叫 Start：Unity 会把它当成生命周期方法调用并报错 "Start() can not take parameters"

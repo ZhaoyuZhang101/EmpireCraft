@@ -685,6 +685,85 @@ public static class InstitutionSystem
         state.enacted_node_ids.Add(node.id);
     }
 
+    #region 强制点亮（玩家/上帝模式）
+
+    // 不走改革流程、不检查正统与政治态势、不受互斥限制，直接把节点（连同缺失的前置链）记为本文化已施行。
+    // 取代关系照常生效（施行"两税法"会撤掉"均田租庸"），被已施行节点取代的前置不会被重新点亮。
+    // 持久效果立即同步到同文化的所有帝国；本文化由制度决定的政体变化也施加到这些帝国。
+    // 一次性效果（正统、派系力量等）不触发。返回新点亮的节点数。
+    public static int ForceEnactNode(string culture, string nodeId)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
+        if (state == null || node == null) return 0;
+        var added = new List<InstitutionNodeConfig>();
+        ForceEnactChain(state, node, added);
+        AfterForceEnact(culture, added);
+        return added.Count;
+    }
+
+    // 把本文化所在线的全部节点按等级依次强制点亮（互斥的分支也一并点亮）
+    public static int ForceEnactAll(string culture)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        if (state == null) return 0;
+        var added = new List<InstitutionNodeConfig>();
+        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)))
+            ForceEnactChain(state, node, added);
+        AfterForceEnact(culture, added);
+        return added.Count;
+    }
+
+    private static bool IsSuperseded(CultureInstitutionState state, string nodeId) =>
+        state.enacted_node_ids.Any(id => InstitutionDefinitionRegistry.Get(id)?.replaces.Contains(nodeId) == true);
+
+    private static void ForceEnactChain(CultureInstitutionState state, InstitutionNodeConfig node,
+        List<InstitutionNodeConfig> added)
+    {
+        if (node == null || state.enacted_node_ids.Contains(node.id) || IsSuperseded(state, node.id)) return;
+        foreach (string requiredId in node.requires)
+            ForceEnactChain(state, InstitutionDefinitionRegistry.Get(requiredId), added);
+        if (node.requires_any.Count > 0 &&
+            !node.requires_any.Any(id => state.enacted_node_ids.Contains(id) || IsSuperseded(state, id)))
+            ForceEnactChain(state, node.requires_any.Select(InstitutionDefinitionRegistry.Get)
+                .FirstOrDefault(candidate => candidate != null), added);
+        foreach (string replaced in node.replaces.Where(state.enacted_node_ids.Contains).ToList())
+        {
+            state.enacted_node_ids.Remove(replaced);
+            state.absorbed_node_ids.Remove(replaced);
+        }
+        state.enacted_node_ids.Add(node.id);
+        state.enacted_timestamps ??= new Dictionary<string, double>();
+        state.enacted_timestamps[node.id] = World.world?.getCurWorldTime() ?? 0d;
+        added.Add(node);
+    }
+
+    private static void AfterForceEnact(string culture, List<InstitutionNodeConfig> added)
+    {
+        if (added.Count == 0 || ModClass.EMPIRE_MANAGER == null) return;
+        string content = string.Format(LM.Get("institution_force_enacted_history"), culture.GetCultureTranslate(),
+            string.Join("、", added.Select(GetNodeName)));
+        Kingdom messageKingdom = null;
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
+        {
+            if (empire?.data == null || empire.IsArchived() || empire.isRekt() || empire.CoreKingdom == null ||
+                !string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal)) continue;
+            InstitutionEmpireState empireState = EnsureEmpireState(empire);
+            // 正在推进的改革对象已经被点亮了，就结束这次改革
+            if (empireState?.active_reform != null && IsEnacted(culture, empireState.active_reform.node_id))
+                empireState.active_reform = null;
+            if (TryResolveCultureRegime(culture, out RegimeType regime) &&
+                empire.CoreKingdom.GetRegime()?.type != regime)
+                ChangeRegime(empire, regime);
+            SyncSharedEffects(empire);
+            empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
+            messageKingdom ??= empire.CoreKingdom;
+        }
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, messageKingdom);
+    }
+
+    #endregion
+
     private static void TryStartAiReform(Empire empire)
     {
         if (!InstitutionDefinitionRegistry.Global.ai_enabled) return;

@@ -215,9 +215,23 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
             TextAnchor.MiddleCenter, new Vector2(PanelWidth, 11));
         _graph = InstitutionGraphView.Create(section.transform, new Vector2(PanelWidth, GraphHeight));
         RefreshGraph();
+        // 上帝模式：强制点亮选中节点（连同前置）/ 点亮整条线
+        var actions = section.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
+        actions.AddButtonIntoHoriLayout("institution_force_enact", LM.Get("institution_force_enact"),
+            () => ForceEnact(false), size: new Vector2(110, 12));
+        actions.AddButtonIntoHoriLayout("institution_force_enact_all", LM.Get("institution_force_enact_all"),
+            () => ForceEnact(true), size: new Vector2(110, 12));
         _detailText = section.AddTextIntoVertLayout("", true, TextAnchor.UpperCenter, new Vector2(PanelWidth, 40),
             mode: HorizontalWrapMode.Wrap);
         RefreshDetail();
+    }
+
+    private void ForceEnact(bool all)
+    {
+        if (!CultureService.IsValidCulture(_culture)) return;
+        if (all) InstitutionSystem.ForceEnactAll(_culture);
+        else if (!string.IsNullOrEmpty(_selectedId)) InstitutionSystem.ForceEnactNode(_culture, _selectedId);
+        Rebuild();
     }
 
     private void RefreshGraph() =>
