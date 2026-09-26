@@ -55,6 +55,10 @@ public class CityPatch : GamePatch
 
     // 防止 finishCapture -> 城市状态变化 -> update 重入导致重复归降。
     private static readonly HashSet<City> _imperialArrivalSurrenderGuard = new();
+    // 入城即降没能让城市易主时（接收国解析失败等），该城在冷却期内不再重试，
+    // 否则每帧都会重新触发一次投降结算并刷屏日志。键为城市，值为失败时的世界时间。
+    private static readonly Dictionary<City, double> _imperialArrivalSurrenderCooldown = new();
+    private const int ImperialArrivalSurrenderRetryMonths = 6;
 
     public void Initialize()
     {
@@ -334,6 +338,24 @@ public class CityPatch : GamePatch
                 LogService.LogWarning(
                     $"城市占领结算找不到有效接收国：城市={__instance.name}, 进攻方={pNewKingdom.name}");
                 return false;
+            }
+
+            // 原版的接收国解析在帝国战争里可能返回守城国自己（进攻方并非战争的直接参与者时），
+            // 这样"占领"不会让城市易主，只会每次重复结算。此时改由实际进攻方接收；
+            // 两者相同则放弃本次结算并清空占领进度。
+            if (joinAfterCapture == oldKingdom)
+            {
+                if (pNewKingdom != oldKingdom && !pNewKingdom.IsInSameEmpire(oldKingdom))
+                {
+                    joinAfterCapture = pNewKingdom;
+                }
+                else
+                {
+                    LogService.LogWarning(
+                        $"城市占领结算的接收国就是守城国自身，放弃本次结算：城市={__instance.name}, 进攻方={pNewKingdom.name}");
+                    ClearResolvedCaptureProgress(__instance);
+                    return false;
+                }
             }
 
             LogService.LogInfo($"{__instance.kingdom}的城市{__instance.name}即将被{joinAfterCapture.name}捕获");
@@ -1038,6 +1060,11 @@ public class CityPatch : GamePatch
         // 避免重入。
         if (_imperialArrivalSurrenderGuard.Contains(city))
             return;
+        if (_imperialArrivalSurrenderCooldown.TryGetValue(city, out double failedAt))
+        {
+            if (Date.getMonthsSince(failedAt) < ImperialArrivalSurrenderRetryMonths) return;
+            _imperialArrivalSurrenderCooldown.Remove(city);
+        }
 
         // 不再使用 city.kingdom.hasEnemies() 作为前置条件。
         // 帝国战争可能只登记在帝国核心国上，地方王国本身未必 hasEnemies()。
@@ -1080,9 +1107,16 @@ public class CityPatch : GamePatch
                 $"国家兵力崩溃，城市立即归降：{city.name}，{defenderKingdom.name}全国剩余士兵={kingdomWarriors}，归降于={attackerKingdom.name}");
 
             city.finishCapture(attackerKingdom);
+            if (!city.isRekt() && city.kingdom == defenderKingdom)
+            {
+                _imperialArrivalSurrenderCooldown[city] = World.world.getCurWorldTime();
+                LogService.LogWarning(
+                    $"入城即降未能让城市易主，{ImperialArrivalSurrenderRetryMonths}个月内不再重试：城市={city.name}, 攻方={attackerKingdom.name}");
+            }
         }
         catch (Exception e)
         {
+            _imperialArrivalSurrenderCooldown[city] = World.world.getCurWorldTime();
             LogService.LogWarning(
                 $"帝国军入城即降失败：城市={city?.name}, 攻方={attackerKingdom?.name}, {e.Message}");
         }
@@ -1573,5 +1607,6 @@ public class CityPatch : GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         __instance.RemoveExtraData<City, CityExtraData>();
+        _imperialArrivalSurrenderCooldown.Remove(__instance);
     }
 }
