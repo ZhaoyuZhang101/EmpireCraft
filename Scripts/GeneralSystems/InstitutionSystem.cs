@@ -1751,13 +1751,57 @@ public static class InstitutionSystem
     }
 
     // 外来的可吸收 / 正在接触的节点（挂在树的旁边显示）
-    public static IReadOnlyList<InstitutionNodeView> BuildForeignView(Empire empire)
+    public static IReadOnlyList<InstitutionNodeView> BuildForeignView(Empire empire) =>
+        empire?.data == null
+            ? new List<InstitutionNodeView>()
+            : BuildCultureForeignView(GetPrimaryCulture(empire));
+
+    // 文化本身（不针对某个帝国）的整条科技线：只看文化掌握了什么、前置是否满足、
+    // 有没有同文化帝国正在推进。没有帝国上下文，所以不计算支持/反对。
+    public static IReadOnlyList<InstitutionNodeView> BuildCultureLineView(string culture)
     {
         var result = new List<InstitutionNodeView>();
-        if (empire?.data == null) return result;
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        if (state == null) return result;
+        var reforming = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER ?? Enumerable.Empty<Empire>())
+        {
+            if (empire?.data == null || empire.IsArchived() || empire.isRekt()) continue;
+            string nodeId = empire.data.institution_state?.active_reform?.node_id;
+            if (!string.IsNullOrEmpty(nodeId) &&
+                string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal))
+                reforming.Add(nodeId);
+        }
+        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)))
+        {
+            var view = new InstitutionNodeView { Node = node };
+            if (state.enacted_node_ids.Contains(node.id))
+                view.Status = state.absorbed_node_ids.Contains(node.id)
+                    ? InstitutionNodeStatus.Absorbed
+                    : InstitutionNodeStatus.Enacted;
+            else if (reforming.Contains(node.id))
+                view.Status = InstitutionNodeStatus.Reforming;
+            else if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, state.enacted_node_ids.Contains))
+            {
+                view.Status = InstitutionNodeStatus.Locked;
+                view.Reason = "institution_reform_missing_requirement";
+            }
+            else if (node.exclusive_with.Any(state.enacted_node_ids.Contains))
+            {
+                view.Status = InstitutionNodeStatus.Locked;
+                view.Reason = "institution_reform_exclusive";
+            }
+            else view.Status = InstitutionNodeStatus.Available;
+            result.Add(view);
+        }
+        return result;
+    }
+
+    public static IReadOnlyList<InstitutionNodeView> BuildCultureForeignView(string culture)
+    {
+        var result = new List<InstitutionNodeView>();
         InstitutionAbsorptionRuleConfig rule = InstitutionDefinitionRegistry.Global.absorption;
         if (rule == null || !rule.enabled) return result;
-        string culture = GetPrimaryCulture(empire);
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         if (state == null) return result;
         string line = GetCultureLine(culture);

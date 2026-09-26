@@ -654,6 +654,19 @@ public static class EmpireCraftNamePlateLibrary
                 QuantumSpriteLibrary.colorZones(pQAsset, city.zones, color);
             }
         });
+
+        // 文化图层点击地块：直接打开模组文化窗口（该城市的主流模组文化）
+        cultureMapAsset.click_action_zone = new MetaZoneClickAction(OpenCultureWindowForZone);
+    }
+
+    private static bool OpenCultureWindowForZone(WorldTile pTile = null, string pPower = null)
+    {
+        City city = pTile?.zone?.city;
+        if (city == null || city.isRekt()) return false;
+        string culture = CultureService.GetMainCulture(city);
+        if (!CultureService.IsValidCulture(culture)) return false;
+        EmpireCraft.Scripts.UI.Windows.CultureInfoWindow.Open(culture);
+        return true;
     }
 
     // 跟 EmpireCraftMetaTypeLibrary.drawZoneKingdomTitleWithCityBorder 是同一个模式：
@@ -691,6 +704,10 @@ public static class EmpireCraftNamePlateLibrary
         }
 
         npt.setupMeta(city.data, colorAsset);
+        // 点击铭牌时原版按 nano_object 选中并打开文化窗口；指向该模组文化对应的原版文化对象，
+        // 打开窗口的请求会被 CultureWindowRedirectPatch 改道到模组文化窗口
+        Culture nativeCulture = CultureService.GetNativeCultureObject(cultureKey);
+        if (nativeCulture != null) npt.nano_object = nativeCulture;
         string cultureName = cultureKey.GetCultureTranslate();
         string text = npt.getStringForNameplate(cultureName, city.getPopulationPeople()) + additionNum;
         setTextIfChanged(npt, text, city.city_center);

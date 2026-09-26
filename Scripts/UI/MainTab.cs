@@ -97,6 +97,8 @@ internal static class MainTab
         InstitutionWindow.CreateAndInit(nameof(InstitutionWindow), new Vector2(480f, 380f));
         // 族谱树是单独的宽窗口，标题固定用 "<窗口id> Title" 约定 key(见上面 InstitutionWindow)。
         SpecificClanTreeWindow.CreateAndInit(nameof(SpecificClanTreeWindow), new Vector2(500f, 400f));
+        // 模组文化窗口（点击文化图层/原版文化链接时打开，见 CultureWindowRedirectPatch）
+        CultureInfoWindow.CreateAndInit(nameof(CultureInfoWindow), new Vector2(480f, 380f));
     }
     [Hotfixable]
     private static void _addButtons()
