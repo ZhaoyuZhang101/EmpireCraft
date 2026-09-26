@@ -124,7 +124,7 @@ public static class ImperialLegitimacyChallengeService
             kingdomId: usurper.CoreKingdom?.id ?? -1L);
         incumbent.RecordHistory(directContent: content, actorId: usurper.Emperor?.id ?? -1L,
             kingdomId: usurper.CoreKingdom?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, usurper.CoreKingdom);
     }
 
     // 互为正统对手的两个帝国：较强的一方(双方之间没有战争时)可以发起正统之争；每次检查有一定概率
@@ -297,7 +297,7 @@ public static class ImperialLegitimacyChallengeService
             formerEmperor.RecordPersonalHistory(enfeoffed, "deposed_emperor_enfeoffed_anle",
                 relatedActorId: challengerEmperor?.id ?? -1L);
         }
-        ActionLibrary.showWhisperTip(success);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(success, challenger.CoreKingdom);
     }
 
     private static void ForceGrantAnlePeerage(Actor actor, Empire empire)
@@ -325,7 +325,7 @@ public static class ImperialLegitimacyChallengeService
             relatedActorId: incumbentEmperor?.id ?? -1L);
         incumbentEmperor?.RecordPersonalHistory(content, "legitimacy_challenge_defended",
             relatedActorId: challengerEmperor?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, challenger.CoreKingdom);
     }
 
     private static void RecordFailure(War war, Empire challenger, Empire incumbent)
@@ -355,7 +355,7 @@ public static class ImperialLegitimacyChallengeService
             relatedActorId: incumbentEmperor?.id ?? -1L);
         incumbentEmperor?.RecordPersonalHistory(content, "legitimacy_challenge_survived",
             relatedActorId: challengerEmperor?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, challenger?.CoreKingdom);
     }
 
     private static void RecordArchivedEmpireHistory(long empireId, string content, long actorId, long kingdomId)

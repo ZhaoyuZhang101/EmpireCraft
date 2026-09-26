@@ -175,6 +175,6 @@ public static class FeudalConquestService
     {
         string content = string.Format(LM.Get(key), args);
         empire?.RecordHistory(directContent: content, kingdomId: kingdom?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, kingdom ?? empire?.CoreKingdom);
     }
 }

@@ -109,7 +109,10 @@
           "type": "change_tax_level",
           "value": "Low"
         }
-      ]
+      ],
+      "features": {
+        "constitution_basis_commerce": 1
+      }
     },
     {
       "id": "arabic_mamluk_corps",
@@ -375,7 +378,11 @@
           "type": "add_mandate",
           "int_value": -8
         }
-      ]
+      ],
+      "features": {
+        "constitution_basis_administration": 1,
+        "vassal_authority": 100
+      }
     },
     {
       "id": "arabic_caliphal_theocracy",
@@ -495,7 +502,10 @@
           "int_value": 3,
           "faction": "血脉"
         }
-      ]
+      ],
+      "features": {
+        "constitution_basis_fiscal": 1
+      }
     },
     {
       "id": "arabic_waqf_endowment",
@@ -610,5 +620,12 @@
         }
       ]
     }
-  ]
+  ],
+  "constitution": {
+    "required_features": [
+      "constitution_basis_administration",
+      "constitution_basis_fiscal",
+      "constitution_basis_commerce"
+    ]
+  }
 }

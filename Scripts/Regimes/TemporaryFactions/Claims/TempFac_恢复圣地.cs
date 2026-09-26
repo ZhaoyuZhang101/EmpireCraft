@@ -1,4 +1,5 @@
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
@@ -42,7 +43,7 @@ public class TempFac_恢复圣地 : TemporaryFaction
         if (empire == null) return false;
         // 西方封建：教宗国只有施行神权国家后才能建立；须先确立国教(下面的 empire.Religion)
         if (empire.CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism &&
-            !GeneralSystems.InstitutionSystem.IsEnacted(empire, Empire.WesternTheocraticNodeId))
+            !GeneralSystems.InstitutionSystem.HasFeature(empire, InstitutionFeatures.TheocraticState))
             return false;
         var religion = empire.Religion;
         if (!religion.isRekt())

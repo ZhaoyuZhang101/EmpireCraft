@@ -6,6 +6,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
+using EmpireCraft.Scripts.GeneralSystems;
 using NeoModLoader.General.Game.extensions;
 using NeoModLoader.services;
 
@@ -83,7 +84,13 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         if (empire.RunningTemporaryFaction?.IsStarted() == true) return;
         if (dominateFaction == null || dominateFaction.Ban || dominateFaction.TemporaryFactions == null) return;
         if (dominateFaction.GetLeader() == null && regime.type!= RegimeType.Feudalism) return;
-        if (regime.has_cabinet)
+        if (ParliamentSystem.HasParliament(pKingdom.GetEmpire()))
+        {
+            // 责任政府下只有执政一方(联合政府时为整个执政联盟)可以发起诉求
+            if (ParliamentSystem.HasResponsibleGovernment(pKingdom.GetEmpire()) &&
+                !ParliamentSystem.IsGoverningFaction(pKingdom.GetEmpire(), dominateFaction.GetID())) return;
+        }
+        else if (regime.has_cabinet)
         {
             if (regime.type != RegimeType.Feudalism)
             {

@@ -156,17 +156,72 @@ public static class InstitutionSystem
 
     public static bool IsEnacted(Empire empire, string nodeId) => IsEnacted(GetPrimaryCulture(empire), nodeId);
 
+    #region 制度特性
+
+    // 特性值：文化已掌握的节点里声明该特性的最大值；没有任何节点声明时返回 0。
+    // 系统代码应当查询特性而不是具体节点 id，这样任何线（自研、吸收、公共模板实例）都能提供同一效果。
+    public static float GetFeature(string culture, string feature)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        if (state == null || string.IsNullOrWhiteSpace(feature)) return 0f;
+        float result = 0f;
+        foreach (string nodeId in state.enacted_node_ids)
+        {
+            InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
+            if (node != null && node.features.TryGetValue(feature, out float value) && value > result)
+                result = value;
+        }
+        return result;
+    }
+
+    public static float GetFeature(Empire empire, string feature) => GetFeature(GetPrimaryCulture(empire), feature);
+
+    public static bool HasFeature(string culture, string feature) => GetFeature(culture, feature) > 0f;
+
+    public static bool HasFeature(Empire empire, string feature) => GetFeature(empire, feature) > 0f;
+
+    // 本线里声明了某特性的节点（按等级排序）。派系诉求这类"推动某项改革"的逻辑用它找目标，
+    // 而不是写死节点 id。
+    public static IEnumerable<InstitutionNodeConfig> GetLineNodesWithFeature(Empire empire, string feature) =>
+        InstitutionDefinitionRegistry.GetForLine(GetCultureLine(GetPrimaryCulture(empire)))
+            .Where(node => !string.IsNullOrWhiteSpace(feature) && node.features.ContainsKey(feature));
+
+    // 派系诉求要推动的改革目标：本线声明了 claim_reform:<诉求名> 特性、且本文化尚未掌握的节点。
+    // 诉求代码只认诉求名，具体推动哪项制度由各线配置决定。
+    public static InstitutionNodeConfig FindClaimReformTarget(Empire empire, string claim)
+    {
+        if (empire == null || string.IsNullOrWhiteSpace(claim)) return null;
+        string culture = GetPrimaryCulture(empire);
+        if (!CultureService.IsValidCulture(culture)) return null;
+        return GetLineNodesWithFeature(empire, InstitutionFeatures.ClaimReformPrefix + claim)
+            .FirstOrDefault(node => !IsEnacted(culture, node.id));
+    }
+
+    // 已掌握同源制度（同一个公共模板在任意线上的实例都算）
+    public static bool HasEquivalentEnacted(CultureInstitutionState state, InstitutionNodeConfig node) =>
+        state != null && node != null && state.enacted_node_ids.Any(id =>
+            string.Equals(InstitutionDefinitionRegistry.Get(id)?.equivalence_key, node.equivalence_key,
+                StringComparison.Ordinal));
+
+    // 外来节点能否进入本文化的吸收流程：别的线的、允许吸收、本文化还没有同源制度、
+    // 而且本线自己的树上也没有同源实例（本线有的就该按本线前置自己研究）。
+    private static bool IsForeignCandidate(InstitutionNodeConfig node, string targetLine,
+        CultureInstitutionState target)
+    {
+        if (node == null || IsSameLine(node.line, targetLine) || node.absorb?.enabled != true) return false;
+        if (HasEquivalentEnacted(target, node)) return false;
+        return !InstitutionDefinitionRegistry.GetForLine(targetLine).Any(own =>
+            string.Equals(own.equivalence_key, node.equivalence_key, StringComparison.Ordinal));
+    }
+
+    #endregion
+
 
     public static Dictionary<string, int> GetCultureBranchAdvancements(string culture)
     {
         CultureInstitutionState state = GetOrCreateCultureState(culture);
-        var result = new Dictionary<string, int>(StringComparer.Ordinal)
-        {
-            ["administration"] = 0,
-            ["finance"] = 0,
-            ["military"] = 0,
-            ["society"] = 0
-        };
+        var result = InstitutionDefinitionRegistry.Branches.ToDictionary(branch => branch, _ => 0,
+            StringComparer.Ordinal);
         foreach (InstitutionNodeConfig node in state?.enacted_node_ids.Select(InstitutionDefinitionRegistry.Get)
                      .Where(node => node != null) ?? Enumerable.Empty<InstitutionNodeConfig>())
         {
@@ -491,7 +546,7 @@ public static class InstitutionSystem
             GetNodeName(node));
         empire.RecordHistory(directContent: content, actorId: empire.Emperor?.id ?? -1L,
             kingdomId: empire.CoreKingdom?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
         return true;
     }
 
@@ -641,7 +696,7 @@ public static class InstitutionSystem
             GetNodeName(node), culture.GetCultureTranslate());
         empire.RecordHistory(directContent: content, actorId: empire.Emperor?.id ?? -1L,
             kingdomId: empire.CoreKingdom?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
     }
 
     // 反方向的补丁：有些派系诉求(比如"转天朝制度"/"转周制")会直接把政体设成某个值，完全
@@ -674,6 +729,85 @@ public static class InstitutionSystem
                 .FirstOrDefault(candidate => candidate != null));
         state.enacted_node_ids.Add(node.id);
     }
+
+    #region 强制点亮（玩家/上帝模式）
+
+    // 不走改革流程、不检查正统与政治态势、不受互斥限制，直接把节点（连同缺失的前置链）记为本文化已施行。
+    // 取代关系照常生效（施行"两税法"会撤掉"均田租庸"），被已施行节点取代的前置不会被重新点亮。
+    // 持久效果立即同步到同文化的所有帝国；本文化由制度决定的政体变化也施加到这些帝国。
+    // 一次性效果（正统、派系力量等）不触发。返回新点亮的节点数。
+    public static int ForceEnactNode(string culture, string nodeId)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
+        if (state == null || node == null) return 0;
+        var added = new List<InstitutionNodeConfig>();
+        ForceEnactChain(state, node, added);
+        AfterForceEnact(culture, added);
+        return added.Count;
+    }
+
+    // 把本文化所在线的全部节点按等级依次强制点亮（互斥的分支也一并点亮）
+    public static int ForceEnactAll(string culture)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        if (state == null) return 0;
+        var added = new List<InstitutionNodeConfig>();
+        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)))
+            ForceEnactChain(state, node, added);
+        AfterForceEnact(culture, added);
+        return added.Count;
+    }
+
+    private static bool IsSuperseded(CultureInstitutionState state, string nodeId) =>
+        state.enacted_node_ids.Any(id => InstitutionDefinitionRegistry.Get(id)?.replaces.Contains(nodeId) == true);
+
+    private static void ForceEnactChain(CultureInstitutionState state, InstitutionNodeConfig node,
+        List<InstitutionNodeConfig> added)
+    {
+        if (node == null || state.enacted_node_ids.Contains(node.id) || IsSuperseded(state, node.id)) return;
+        foreach (string requiredId in node.requires)
+            ForceEnactChain(state, InstitutionDefinitionRegistry.Get(requiredId), added);
+        if (node.requires_any.Count > 0 &&
+            !node.requires_any.Any(id => state.enacted_node_ids.Contains(id) || IsSuperseded(state, id)))
+            ForceEnactChain(state, node.requires_any.Select(InstitutionDefinitionRegistry.Get)
+                .FirstOrDefault(candidate => candidate != null), added);
+        foreach (string replaced in node.replaces.Where(state.enacted_node_ids.Contains).ToList())
+        {
+            state.enacted_node_ids.Remove(replaced);
+            state.absorbed_node_ids.Remove(replaced);
+        }
+        state.enacted_node_ids.Add(node.id);
+        state.enacted_timestamps ??= new Dictionary<string, double>();
+        state.enacted_timestamps[node.id] = World.world?.getCurWorldTime() ?? 0d;
+        added.Add(node);
+    }
+
+    private static void AfterForceEnact(string culture, List<InstitutionNodeConfig> added)
+    {
+        if (added.Count == 0 || ModClass.EMPIRE_MANAGER == null) return;
+        string content = string.Format(LM.Get("institution_force_enacted_history"), culture.GetCultureTranslate(),
+            string.Join("、", added.Select(GetNodeName)));
+        Kingdom messageKingdom = null;
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
+        {
+            if (empire?.data == null || empire.IsArchived() || empire.isRekt() || empire.CoreKingdom == null ||
+                !string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal)) continue;
+            InstitutionEmpireState empireState = EnsureEmpireState(empire);
+            // 正在推进的改革对象已经被点亮了，就结束这次改革
+            if (empireState?.active_reform != null && IsEnacted(culture, empireState.active_reform.node_id))
+                empireState.active_reform = null;
+            if (TryResolveCultureRegime(culture, out RegimeType regime) &&
+                empire.CoreKingdom.GetRegime()?.type != regime)
+                ChangeRegime(empire, regime);
+            SyncSharedEffects(empire);
+            empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
+            messageKingdom ??= empire.CoreKingdom;
+        }
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, messageKingdom);
+    }
+
+    #endregion
 
     private static void TryStartAiReform(Empire empire)
     {
@@ -809,7 +943,7 @@ public static class InstitutionSystem
                 empire.GetEmpireName(), previousLevel, currentLevel);
             empire.RecordHistory(directContent: history, actorId: empire.Emperor?.id ?? -1L,
                 kingdomId: empire.CoreKingdom?.id ?? -1L);
-            ActionLibrary.showWhisperTip(history);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, empire.CoreKingdom);
         }
     }
 
@@ -993,7 +1127,7 @@ public static class InstitutionSystem
         string history = string.Format(LM.Get("institution_social_rebellion_history"), className,
             rebel.GetKingdomName(), cause, grievance);
         empire.RecordHistory(directContent: history, actorId: rebel.king?.id ?? -1L, kingdomId: rebel.id);
-        ActionLibrary.showWhisperTip(history);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, empire.CoreKingdom);
 
         int defected = DefectCoreSoldiers(empire, rebel, socialClass, grievance);
         if (defected > 0)
@@ -1001,7 +1135,7 @@ public static class InstitutionSystem
             string defection = string.Format(LM.Get("institution_social_rebellion_defection_history"), defected,
                 className, rebel.GetKingdomName());
             empire.RecordHistory(directContent: defection, kingdomId: rebel.id);
-            ActionLibrary.showWhisperTip(defection);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(defection, empire.CoreKingdom);
         }
         return true;
     }
@@ -1080,7 +1214,7 @@ public static class InstitutionSystem
                 : warData.institution_social_rebellion_cause);
         empire.RecordHistory(directContent: history, actorId: war.getMainAttacker()?.king?.id ?? -1L,
             kingdomId: war.getMainAttacker()?.id ?? -1L);
-        ActionLibrary.showWhisperTip(history);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, empire.CoreKingdom);
     }
 
     public static InstitutionPoliticalBalance CalculatePoliticalBalance(Empire empire,
@@ -1176,7 +1310,11 @@ public static class InstitutionSystem
             else if (node.politics.oppose_factions.ContainsKey(FactionType.诸侯) ||
                      node.politics.oppose_factions.ContainsKey(FactionType.自治))
                 key = "institution_resistance_reason_local_privilege";
-            else if (node.line == "Youmu") key = "institution_resistance_reason_tribal_privilege";
+            else
+            {
+                string lineKey = InstitutionDefinitionRegistry.GetTree(node.line)?.default_resistance_reason_key;
+                if (!string.IsNullOrWhiteSpace(lineKey)) key = lineKey;
+            }
         }
         return key;
     }
@@ -1245,7 +1383,7 @@ public static class InstitutionSystem
             warData.institution_reform_opposition, warData.institution_reform_radicalism, forceMode);
         empire.RecordHistory(directContent: content, actorId: opposition.GetLeader()?.id ?? -1L,
             kingdomId: rebel.id);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
         return true;
     }
 
@@ -1302,7 +1440,7 @@ public static class InstitutionSystem
         empire.RecordHistory(directContent: content,
             actorId: opposition?.GetLeader()?.id ?? -1L,
             kingdomId: war.getMainAttacker()?.id ?? -1L);
-        ActionLibrary.showWhisperTip(content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
     }
 
     #endregion
@@ -1333,8 +1471,7 @@ public static class InstitutionSystem
                 foreach (string nodeId in source.enacted_node_ids)
                 {
                     InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
-                    if (node == null || IsSameLine(node.line, targetLine) || node.absorb?.enabled != true) continue;
-                    if (target.enacted_node_ids.Contains(nodeId)) continue;
+                    if (!IsForeignCandidate(node, targetLine, target)) continue;
                     // 等级不够就完全不积累接触度，这样几张接触表只会装"真的有机会吸收"的节点
                     if (!InstitutionRules.IsTierAbsorbable(node.advancement, targetLevel, rule.max_tier_gap))
                         continue;
@@ -1461,7 +1598,7 @@ public static class InstitutionSystem
         foreach (string nodeId in state.exposure.Keys.ToList())
         {
             InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
-            if (node == null || IsSameLine(node.line, line) || state.enacted_node_ids.Contains(nodeId))
+            if (!IsForeignCandidate(node, line, state))
             {
                 state.exposure.Remove(nodeId);
                 state.contact_years.Remove(nodeId);
@@ -1485,9 +1622,19 @@ public static class InstitutionSystem
             state.exposure.Remove(nodeId);
             state.contact_years.Remove(nodeId);
             state.last_exposure_timestamp.Remove(nodeId);
-            ActionLibrary.showWhisperTip(string.Format(LM.Get("institution_absorbed_tip"),
+            string absorbed = string.Format(LM.Get("institution_absorbed_tip"),
                 culture.GetCultureTranslate(), GetNodeName(node),
-                LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(node.line))));
+                LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(node.line)));
+            // 吸收是文化层面的事件：发一条世界消息，并记入该文化所有帝国的史书
+            Kingdom messageKingdom = null;
+            foreach (Empire cultureEmpire in (ModClass.EMPIRE_MANAGER ?? Enumerable.Empty<Empire>()).ToList())
+            {
+                if (cultureEmpire?.data == null || cultureEmpire.IsArchived() || cultureEmpire.isRekt() ||
+                    !string.Equals(GetPrimaryCulture(cultureEmpire), culture, StringComparison.Ordinal)) continue;
+                cultureEmpire.RecordHistory(directContent: absorbed, kingdomId: cultureEmpire.CoreKingdom?.id ?? -1L);
+                messageKingdom ??= cultureEmpire.CoreKingdom;
+            }
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(absorbed, messageKingdom);
             // 吸收会抬高文明等级，同一年内不再连续吸收下一个，留到明年重算
             break;
         }
@@ -1751,13 +1898,57 @@ public static class InstitutionSystem
     }
 
     // 外来的可吸收 / 正在接触的节点（挂在树的旁边显示）
-    public static IReadOnlyList<InstitutionNodeView> BuildForeignView(Empire empire)
+    public static IReadOnlyList<InstitutionNodeView> BuildForeignView(Empire empire) =>
+        empire?.data == null
+            ? new List<InstitutionNodeView>()
+            : BuildCultureForeignView(GetPrimaryCulture(empire));
+
+    // 文化本身（不针对某个帝国）的整条科技线：只看文化掌握了什么、前置是否满足、
+    // 有没有同文化帝国正在推进。没有帝国上下文，所以不计算支持/反对。
+    public static IReadOnlyList<InstitutionNodeView> BuildCultureLineView(string culture)
     {
         var result = new List<InstitutionNodeView>();
-        if (empire?.data == null) return result;
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        if (state == null) return result;
+        var reforming = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER ?? Enumerable.Empty<Empire>())
+        {
+            if (empire?.data == null || empire.IsArchived() || empire.isRekt()) continue;
+            string nodeId = empire.data.institution_state?.active_reform?.node_id;
+            if (!string.IsNullOrEmpty(nodeId) &&
+                string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal))
+                reforming.Add(nodeId);
+        }
+        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)))
+        {
+            var view = new InstitutionNodeView { Node = node };
+            if (state.enacted_node_ids.Contains(node.id))
+                view.Status = state.absorbed_node_ids.Contains(node.id)
+                    ? InstitutionNodeStatus.Absorbed
+                    : InstitutionNodeStatus.Enacted;
+            else if (reforming.Contains(node.id))
+                view.Status = InstitutionNodeStatus.Reforming;
+            else if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, state.enacted_node_ids.Contains))
+            {
+                view.Status = InstitutionNodeStatus.Locked;
+                view.Reason = "institution_reform_missing_requirement";
+            }
+            else if (node.exclusive_with.Any(state.enacted_node_ids.Contains))
+            {
+                view.Status = InstitutionNodeStatus.Locked;
+                view.Reason = "institution_reform_exclusive";
+            }
+            else view.Status = InstitutionNodeStatus.Available;
+            result.Add(view);
+        }
+        return result;
+    }
+
+    public static IReadOnlyList<InstitutionNodeView> BuildCultureForeignView(string culture)
+    {
+        var result = new List<InstitutionNodeView>();
         InstitutionAbsorptionRuleConfig rule = InstitutionDefinitionRegistry.Global.absorption;
         if (rule == null || !rule.enabled) return result;
-        string culture = GetPrimaryCulture(empire);
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         if (state == null) return result;
         string line = GetCultureLine(culture);

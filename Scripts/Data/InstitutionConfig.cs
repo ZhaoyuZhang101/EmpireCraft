@@ -20,6 +20,80 @@ public sealed class InstitutionGlobalConfig
     public InstitutionAbsorptionRuleConfig absorption = new();
     public InstitutionSocialUnrestConfig social_unrest = new();
     public InstitutionReformCompetitionConfig reform_competition = new();
+    // 君主立宪 / 资本主义萌芽的全局规则。每条线可在自己的 json 里用 constitution 覆盖其中的线相关项。
+    public ConstitutionConfig constitution = new();
+}
+
+// 资本主义萌芽与君主立宪。
+//
+// 这里只写"规则"，不写"哪条线的哪个节点"：立宪需要的制度基础用 required_features 表达，
+// 任何节点只要在 features 里声明了对应的特性（本线自研的、从别的线吸收的、或者从公共模板
+// 实例化出来的都算）就满足条件。所以加一条新线、或者让别的文明也能立宪，只需要改配置。
+public sealed class ConstitutionConfig
+{
+    public bool enabled = true;
+    // 发起立宪改革所需的制度特性，全部具备才行。线的 json 可以整体覆盖这张表。
+    // Replace：JSON 里写了就整体替换默认值，而不是追加在默认值后面
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public List<string> required_features = new() { "constitution_basis_administration", "constitution_basis_fiscal" };
+    // 是否要求先完成多元帝国整合。线的 json 可以覆盖。
+    public bool requires_composite_empire = false;
+    public int stable_culture_years = 50;
+
+    // —— 资本主义萌芽 ——
+    public int trade_window_years = 10;
+    public int max_gold_per_voyage = 5;
+    public int budding_years = 5;
+    public int budding_decline_years = 3;
+    public int minimum_merchant_households = 2;
+    // 商人家户占全部家户的最低比例
+    public float minimum_merchant_ratio = 0.05f;
+    // 没有近期海贸时，需要更多商人家户、并且分布在多座城市
+    public int no_trade_merchant_households = 4;
+    public int no_trade_merchant_cities = 2;
+
+    // —— 议会与改革 ——
+    public float support_threshold = 50f;
+    public float ai_start_support = 55f;
+    public int ai_attempt_interval_years = 3;
+    public int deadlock_notice_years = 5;
+    public int start_mandate_cost = 5;
+    public float noble_grievance_on_start = 8f;
+    // 达到这个改革阶段(1~4)后召开议会：议会取得征税同意权、选举总理大臣，原有内阁撤销
+    public int parliament_stage = 2;
+    // 达到这个阶段后实行责任政府：只有总理所属派系能推动派系诉求
+    public int responsible_government_stage = 3;
+    // 议席总数（界面按这个数显示议员头像，建议取奇数避免平票）
+    public int parliament_seats = 9;
+    // 议会每隔多少年全面改选一次；期间出缺的议席由原派系补选
+    public int parliament_term_years = 5;
+    // 执政一方议席过半时派系诉求获得的推进加速（与原内阁控制朝政时相同）
+    public float government_majority_acceleration = 30f;
+
+    // —— 派系对立宪的态度 ——
+    // 派系意识形态的基础倾向；没列出的派系为 0。
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public Dictionary<FactionType, float> faction_stances = new()
+    {
+        [FactionType.自治] = 20f, [FactionType.绥靖] = 20f, [FactionType.共和] = 20f,
+        [FactionType.民主] = 20f, [FactionType.融入] = 20f, [FactionType.诸侯] = 20f,
+        [FactionType.僭主] = -10f,
+        [FactionType.中央] = -20f, [FactionType.神权] = -20f, [FactionType.攘夷] = -20f,
+        [FactionType.尊王] = -20f, [FactionType.血脉] = -20f, [FactionType.同化] = -20f
+    };
+    // 萌芽出现后，不敌视商人的派系额外获得的支持倾向
+    public float budding_merchant_bonus = 12f;
+    public float merchant_affinity_weight = 0.15f;
+    // 倾向 + 商人亲和 + 商人好感 超过这个值才算支持立宪
+    public float support_baseline = 50f;
+}
+
+// 线级别的立宪覆盖项。字段为 null 表示沿用 Settings.json 的全局值。
+public sealed class InstitutionLineConstitutionConfig
+{
+    public bool? enabled;
+    public List<string> required_features;
+    public bool? requires_composite_empire;
 }
 
 // 改革扩散速度：封闭的单一帝国最慢；同文明国家增多会带来模仿，多帝国并立会形成强烈
@@ -88,6 +162,22 @@ public sealed class InstitutionTreeConfig
     // 除根节点以外，开局一律是初始状态，任何制度都得自己研究或从别的线吸收。
     public List<string> root_nodes = new();
     public List<InstitutionNodeConfig> nodes = new();
+    // 本线节点没有逐项配置 resistance.reason_key、也匹配不到分支/派系兜底时使用的反对理由。
+    public string default_resistance_reason_key = "";
+    // 本线的立宪规则覆盖（可选）
+    public InstitutionLineConstitutionConfig constitution;
+}
+
+// 公共制度模板，来自 InstitutionTrees/Common/*.json。
+//
+// 模板本身不属于任何线、也不会单独出现在树上；线的 json 里写
+//     { "template": "模板 id", "id": "本线实例 id", "requires": [...], ... }
+// 就会以模板为底、用这里写出的字段覆盖（对象逐字段合并，数组整体替换），得到本线的一个节点。
+// 同一个模板可以被任意多条线实例化，各线可以有不同的前置、等级和分支；
+// 同源实例互相视为"同一项制度"：已掌握其中之一的文化不会再从别的线吸收另一个。
+public sealed class InstitutionTemplateFileConfig
+{
+    public List<Newtonsoft.Json.Linq.JObject> templates = new();
 }
 
 public sealed class InstitutionNodeConfig
@@ -119,9 +209,46 @@ public sealed class InstitutionNodeConfig
     public InstitutionAbsorbConfig absorb = new();
     public List<InstitutionEffectConfig> effects_on_start = new();
     public List<InstitutionEffectConfig> effects_on_complete = new();
+    // 制度特性：key -> 数值。系统代码只查询特性，不认具体节点 id，
+    // 因此一项效果可以由任意线、任意节点（包括公共模板）提供。
+    // 同一特性在已掌握的多个节点上取最大值。已知特性见 InstitutionFeatures。
+    public Dictionary<string, float> features = new();
+    // 引用的公共模板 id（见 InstitutionTemplateFileConfig）。留空表示普通节点。
+    public string template = "";
 
     // 由载入器按所在文件回填，不从 JSON 读
     [JsonIgnore] public string line = "";
+    // 等价分组：模板实例为模板 id，普通节点为自身 id
+    [JsonIgnore] public string equivalence_key = "";
+}
+
+// 代码里会查询的制度特性。新增一个系统级效果时在这里登记 key，并在节点 json 的 features 里声明。
+public static class InstitutionFeatures
+{
+    // 立宪所需的制度基础（具体需要哪几项由 constitution.required_features 决定）
+    public const string ConstitutionBasisAdministration = "constitution_basis_administration";
+    public const string ConstitutionBasisFiscal = "constitution_basis_fiscal";
+    public const string ConstitutionBasisLaw = "constitution_basis_law";
+    public const string ConstitutionBasisCommerce = "constitution_basis_commerce";
+    // 宗主对附庸的集权权威（0~100，取最高）
+    public const string VassalAuthority = "vassal_authority";
+    // 附庸自行继承（请封/自立）
+    public const string VassalSelfSuccession = "vassal_self_succession";
+    // 推恩令
+    public const string GraceEdict = "grace_edict";
+    // 郡国并行
+    public const string CommanderyKingdom = "commandery_kingdom";
+    // 新君即位时兄弟按法理裂土受封；被 SiblingEnfeoffmentAbolished 取消
+    public const string SiblingEnfeoffment = "sibling_enfeoffment";
+    public const string SiblingEnfeoffmentAbolished = "sibling_enfeoffment_abolished";
+    // 城邦共和的首领由元老院推举
+    public const string SenateElection = "senate_election";
+    // 封建制下设立辖区/教区等直辖行政区
+    public const string DirectAdministration = "direct_administration";
+    // 神权国家（教宗国等神权诉求的前提）
+    public const string TheocraticState = "theocratic_state";
+    // 派系诉求"开科取士""转天朝制度"要推动的改革目标
+    public const string ClaimReformPrefix = "claim_reform:";
 }
 
 public sealed class InstitutionResearchConfig
@@ -183,6 +310,8 @@ public static class InstitutionConfigNormalizer
         config.absorption ??= new InstitutionAbsorptionRuleConfig();
         config.social_unrest ??= new InstitutionSocialUnrestConfig();
         config.reform_competition ??= new InstitutionReformCompetitionConfig();
+        config.constitution ??= new ConstitutionConfig();
+        Normalize(config.constitution);
         config.absorption.max_tier_gap = global::System.Math.Max(0, config.absorption.max_tier_gap);
         config.absorption.exposure_per_year = global::System.Math.Max(0.1f, config.absorption.exposure_per_year);
         config.absorption.minimum_exposure = global::System.Math.Max(0f, config.absorption.minimum_exposure);
@@ -224,6 +353,34 @@ public static class InstitutionConfigNormalizer
             level.name_key ??= $"institution_culture_level_{level.level}";
         }
         if (config.culture_levels.Count == 0) config.culture_levels.AddRange(DefaultCultureLevels());
+    }
+
+    public static void Normalize(ConstitutionConfig config)
+    {
+        if (config == null) return;
+        config.required_features ??= new List<string>();
+        config.required_features.RemoveAll(string.IsNullOrWhiteSpace);
+        config.faction_stances ??= new Dictionary<FactionType, float>();
+        config.stable_culture_years = global::System.Math.Max(0, config.stable_culture_years);
+        config.trade_window_years = global::System.Math.Max(1, config.trade_window_years);
+        config.max_gold_per_voyage = global::System.Math.Max(1, config.max_gold_per_voyage);
+        config.budding_years = global::System.Math.Max(0, config.budding_years);
+        config.budding_decline_years = global::System.Math.Max(0, config.budding_decline_years);
+        config.minimum_merchant_households = global::System.Math.Max(1, config.minimum_merchant_households);
+        config.minimum_merchant_ratio = global::System.Math.Max(0f, global::System.Math.Min(1f, config.minimum_merchant_ratio));
+        config.no_trade_merchant_households = global::System.Math.Max(1, config.no_trade_merchant_households);
+        config.no_trade_merchant_cities = global::System.Math.Max(1, config.no_trade_merchant_cities);
+        config.support_threshold = global::System.Math.Max(0f, global::System.Math.Min(100f, config.support_threshold));
+        config.ai_start_support = global::System.Math.Max(config.support_threshold,
+            global::System.Math.Min(100f, config.ai_start_support));
+        config.ai_attempt_interval_years = global::System.Math.Max(1, config.ai_attempt_interval_years);
+        config.deadlock_notice_years = global::System.Math.Max(1, config.deadlock_notice_years);
+        config.parliament_stage = global::System.Math.Max(1, global::System.Math.Min(4, config.parliament_stage));
+        config.responsible_government_stage = global::System.Math.Max(config.parliament_stage,
+            global::System.Math.Min(4, config.responsible_government_stage));
+        config.parliament_seats = global::System.Math.Max(1, global::System.Math.Min(15, config.parliament_seats));
+        config.parliament_term_years = global::System.Math.Max(1, config.parliament_term_years);
+        config.government_majority_acceleration = global::System.Math.Max(0f, config.government_majority_acceleration);
     }
 
     public static List<InstitutionCultureLevelConfig> DefaultCultureLevels()
@@ -275,6 +432,10 @@ public static class InstitutionConfigNormalizer
             node.absorb ??= new InstitutionAbsorbConfig();
             node.effects_on_start ??= new List<InstitutionEffectConfig>();
             node.effects_on_complete ??= new List<InstitutionEffectConfig>();
+            node.features ??= new Dictionary<string, float>();
+            node.template = (node.template ?? "").Trim();
+            node.equivalence_key = string.IsNullOrWhiteSpace(node.template) ? node.id : node.template;
         }
+        tree.default_resistance_reason_key = (tree.default_resistance_reason_key ?? "").Trim();
     }
 }

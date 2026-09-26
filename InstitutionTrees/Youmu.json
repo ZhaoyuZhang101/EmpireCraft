@@ -255,7 +255,10 @@
           "int_value": 4,
           "faction": "同化"
         }
-      ]
+      ],
+      "features": {
+        "constitution_basis_law": 1
+      }
     },
     {
       "id": "youmu_horse_archer_doctrine",
@@ -354,7 +357,10 @@
           "int_value": 5,
           "faction": "融入"
         }
-      ]
+      ],
+      "features": {
+        "constitution_basis_administration": 1
+      }
     },
     {
       "id": "youmu_post_relay_network",
@@ -454,7 +460,10 @@
           "type": "add_mandate",
           "int_value": -5
         }
-      ]
+      ],
+      "features": {
+        "vassal_authority": 100
+      }
     },
     {
       "id": "youmu_ulus_appanage",
@@ -669,5 +678,13 @@
         }
       ]
     }
-  ]
+  ],
+  "default_resistance_reason_key": "institution_resistance_reason_tribal_privilege",
+  "constitution": {
+    "required_features": [
+      "constitution_basis_administration",
+      "constitution_basis_law"
+    ],
+    "requires_composite_empire": true
+  }
 }

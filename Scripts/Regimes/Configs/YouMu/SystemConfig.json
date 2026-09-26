@@ -5,6 +5,8 @@
     "icon_url": "",
     "era_name": false,
     "has_cabinet": false,
+    "is_monarchy": true,
+    "allows_landlord_class": true,
     "cabinet_number": 0,
     "centre_empire_separate": true,
     "leader_select_method": "Succession",

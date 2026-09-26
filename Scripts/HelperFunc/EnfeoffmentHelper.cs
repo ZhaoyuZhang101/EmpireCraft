@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
@@ -138,8 +139,9 @@ public static class EnfeoffmentHelper
         Kingdom coreKingdom = empire?.CoreKingdom;
         if (coreKingdom == null || coreKingdom.isRekt() || empire.Emperor == null) return;
         bool divisionLaw = coreKingdom.GetSuccessionLaw() == SuccessionLawType.分割继承法;
-        bool enfeoffmentEnacted = InstitutionSystem.IsEnacted(empire, "zhou_enfeoffment") &&
-                                  !InstitutionSystem.IsEnacted(empire, "zhou_reduce_vassals");
+        bool enfeoffmentEnacted =
+            InstitutionSystem.HasFeature(empire, InstitutionFeatures.SiblingEnfeoffment) &&
+            !InstitutionSystem.HasFeature(empire, InstitutionFeatures.SiblingEnfeoffmentAbolished);
         if (!divisionLaw && !enfeoffmentEnacted) return;
 
         int enfeoffed = EnfeoffAllEligibleSiblings(empire);

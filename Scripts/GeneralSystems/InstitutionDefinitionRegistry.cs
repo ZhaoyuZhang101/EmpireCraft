@@ -6,12 +6,14 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.services;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 制度定义表。载入器直接扫 InstitutionTrees/ 目录：
 //   InstitutionTrees/Settings.json   全局设置（文明等级门槛 + 吸收规则）
 //   InstitutionTrees/<线 id>.json    一条科技线，文件名即线 id
+//   InstitutionTrees/Common/*.json   公共制度模板，可被任意线用 {"template": "..."} 实例化
 //
 // 目录里每多一个 json 就多一条线，不需要改任何代码；文化通过 CultureRulesConfig.json 里
 // setting.institution_line 认领自己属于哪条线。
@@ -23,10 +25,16 @@ public static class InstitutionDefinitionRegistry
 {
     public const string SettingsFileName = "Settings.json";
     public const string FolderName = "InstitutionTrees";
+    public const string CommonFolderName = "Common";
+
+    // 树状图/文明等级里分支的默认顺序；配置里出现的其它分支排在后面
+    private static readonly string[] PreferredBranchOrder = { "administration", "finance", "military", "society" };
 
     private static readonly Dictionary<string, InstitutionNodeConfig> Definitions = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, InstitutionTreeConfig> Trees = new(StringComparer.Ordinal);
     private static readonly HashSet<string> InvalidNodes = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, JObject> Templates = new(StringComparer.Ordinal);
+    private static List<string> _branches = new();
 
     private static readonly HashSet<string> SupportedEffects = new(StringComparer.Ordinal)
     {
@@ -54,6 +62,11 @@ public static class InstitutionDefinitionRegistry
 
     public static IReadOnlyList<string> Lines => Trees.Keys.OrderBy(line => line, StringComparer.Ordinal).ToList();
 
+    // 所有有效节点用到的分支，按默认顺序排列
+    public static IReadOnlyList<string> Branches => _branches;
+
+    public static IReadOnlyCollection<string> TemplateIds => Templates.Keys;
+
     public static bool IsSharedEffect(string type) =>
         !string.IsNullOrWhiteSpace(type) && SharedEffects.Contains(type);
 
@@ -73,6 +86,8 @@ public static class InstitutionDefinitionRegistry
         Definitions.Clear();
         Trees.Clear();
         InvalidNodes.Clear();
+        Templates.Clear();
+        _branches = new List<string>();
         Global = new InstitutionGlobalConfig();
         InstitutionConfigNormalizer.Normalize(Global);
 
@@ -106,6 +121,8 @@ public static class InstitutionDefinitionRegistry
             LogService.LogWarning($"未发现 {settingsPath}，制度全局设置改用内置默认值。");
         }
 
+        LoadTemplates(Path.Combine(folder, CommonFolderName));
+
         foreach (string path in Directory.GetFiles(folder, "*.json").OrderBy(path => path, StringComparer.Ordinal))
         {
             string fileName = Path.GetFileName(path);
@@ -114,8 +131,8 @@ public static class InstitutionDefinitionRegistry
             if (string.IsNullOrWhiteSpace(lineId)) continue;
             try
             {
-                InstitutionTreeConfig tree =
-                    JsonConvert.DeserializeObject<InstitutionTreeConfig>(File.ReadAllText(path));
+                InstitutionTreeConfig tree = ExpandTemplates(lineId, JObject.Parse(File.ReadAllText(path)))
+                    .ToObject<InstitutionTreeConfig>();
                 if (tree == null) continue;
                 // 文件名就是线 id，配置里写的 line 字段一律忽略，免得两处对不上
                 tree.line = lineId;
@@ -144,7 +161,93 @@ public static class InstitutionDefinitionRegistry
         }
 
         Validate();
+        _branches = Definitions.Values.Where(IsValid).Select(node => node.branch).Distinct()
+            .OrderBy(branch => Array.IndexOf(PreferredBranchOrder, branch) is var index && index >= 0
+                ? index
+                : int.MaxValue)
+            .ThenBy(branch => branch, StringComparer.Ordinal)
+            .ToList();
     }
+
+    private static void LoadTemplates(string commonFolder)
+    {
+        if (!Directory.Exists(commonFolder)) return;
+        foreach (string path in Directory.GetFiles(commonFolder, "*.json").OrderBy(path => path, StringComparer.Ordinal))
+        {
+            try
+            {
+                InstitutionTemplateFileConfig file =
+                    JsonConvert.DeserializeObject<InstitutionTemplateFileConfig>(File.ReadAllText(path));
+                foreach (JObject template in file?.templates ?? new List<JObject>())
+                {
+                    string id = template?.Value<string>("id")?.Trim();
+                    if (string.IsNullOrWhiteSpace(id))
+                    {
+                        LogService.LogWarning($"{Path.GetFileName(path)} 中存在无 id 的制度模板，已跳过。");
+                        continue;
+                    }
+                    if (Templates.ContainsKey(id))
+                    {
+                        LogService.LogWarning($"制度模板 id 重复: {id}，已保留首个定义。");
+                        continue;
+                    }
+                    // 模板不支持再引用模板，免得合并顺序和循环引用变得难以理解
+                    template.Remove("template");
+                    Templates[id] = template;
+                }
+            }
+            catch (Exception exception)
+            {
+                LogService.LogError($"制度模板文件 {path} 读取失败: {exception}");
+            }
+        }
+        if (Templates.Count > 0) LogService.LogInfo($"加载公共制度模板 {Templates.Count} 个。");
+    }
+
+    // 把线文件里 {"template": "x", ...} 形式的节点展开成完整节点：以模板为底，线里写出的字段覆盖
+    // （对象逐字段合并，数组整体替换）。没写 id 时实例 id 为 "模板id@线id"。
+    private static JObject ExpandTemplates(string lineId, JObject tree)
+    {
+        if (tree?["nodes"] is not JArray nodes) return tree ?? new JObject();
+        for (int i = nodes.Count - 1; i >= 0; i--)
+        {
+            if (nodes[i] is not JObject entry) continue;
+            string templateId = entry.Value<string>("template")?.Trim();
+            if (string.IsNullOrWhiteSpace(templateId)) continue;
+            if (!Templates.TryGetValue(templateId, out JObject template))
+            {
+                LogService.LogWarning($"{lineId} 线的节点引用了不存在的制度模板 {templateId}，已跳过该节点。");
+                nodes.RemoveAt(i);
+                continue;
+            }
+            var merged = (JObject)template.DeepClone();
+            merged.Merge(entry, new JsonMergeSettings
+            {
+                MergeArrayHandling = MergeArrayHandling.Replace,
+                MergeNullValueHandling = MergeNullValueHandling.Merge
+            });
+            if (string.IsNullOrWhiteSpace(entry.Value<string>("id"))) merged["id"] = $"{templateId}@{lineId}";
+            merged["template"] = templateId;
+            nodes[i] = merged;
+        }
+        return tree;
+    }
+
+    // 声明了某个特性的全部有效节点（跨线）
+    public static IEnumerable<InstitutionNodeConfig> GetNodesWithFeature(string feature) =>
+        string.IsNullOrWhiteSpace(feature)
+            ? Enumerable.Empty<InstitutionNodeConfig>()
+            : All.Where(node => node.features.ContainsKey(feature));
+
+    // 线的立宪规则：线 json 的 constitution 覆盖 Settings.json 的全局值
+    public static IReadOnlyList<string> GetConstitutionRequiredFeatures(string line) =>
+        GetTree(line)?.constitution?.required_features ?? Global.constitution.required_features;
+
+    public static bool IsConstitutionRequiringCompositeEmpire(string line) =>
+        GetTree(line)?.constitution?.requires_composite_empire ?? Global.constitution.requires_composite_empire;
+
+    public static bool IsConstitutionEnabled(string line) =>
+        Global.constitution.enabled && (GetTree(line)?.constitution?.enabled ?? true);
 
     private static void Validate()
     {
@@ -244,6 +347,13 @@ public static class InstitutionDefinitionRegistry
             else if (!TryGetRootRegime(pair.Key, out _))
                 LogService.LogWarning($"{pair.Key} 线的根节点没有声明 regime，该线文化的初始政体只能退回" +
                                       "CultureRulesConfig.json 里的 setting.regime。");
+        }
+
+        foreach (string line in Trees.Keys)
+        {
+            foreach (string feature in GetConstitutionRequiredFeatures(line)
+                         .Where(feature => !GetNodesWithFeature(feature).Any()))
+                LogService.LogWarning($"{line} 线立宪需要制度特性 {feature}，但没有任何节点提供它，该线将无法立宪。");
         }
 
         if (Trees.Count == 0) LogService.LogWarning("一条制度线都没加载到，制度窗口会是空的。");

@@ -354,10 +354,90 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         AddChild(provincesSpace.gameObject);
     }
 
+    // 议会召开后，不论原政体有没有内阁，这里一律显示议会：总理大臣、议员与议席分布
+    private static readonly Color GoverningColor = new Color(0.0f, 1f, 0.5f);
+    private static readonly Color ConstitutionalistColor = new Color(0.35f, 0.85f, 1f);
+    private static readonly Color OppositionColor = new Color(1f, 0.55f, 0.4f);
+
+    private static Color GetSeatColor(bool governing, bool constitutionalist) =>
+        governing ? GoverningColor : constitutionalist ? ConstitutionalistColor : OppositionColor;
+
+    [Hotfixable]
+    private void InitialTopPartInfoParliament()
+    {
+        if (_empire?.CoreKingdom?.data == null) return;
+        GeneralSystems.ParliamentView view = GeneralSystems.ParliamentSystem.GetView(_empire);
+        topSpace = this.BeginHoriGroup();
+        topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
+
+        var centerPart = topSpace.BeginVertGroup(pSpacing: -3);
+        // 总理大臣：议会选举产生
+        string government = string.IsNullOrWhiteSpace(view.GovernmentType)
+            ? LM.Get("prime_minister_vacant")
+            : string.Format(LM.Get("prime_minister_status"), LM.Get($"parliament_government_{view.GovernmentType}"),
+                view.GovernmentSeats, view.TotalSeats);
+        centerPart.AddTextIntoVertLayout($"{LM.Get("prime_minister_title")} · {government}", true,
+            TextAnchor.MiddleCenter, new Vector2(110, 10));
+        centerPart.AddActorViewIntoVertLayout(view.PrimeMinister,
+            description: view.PrimeMinisterFaction == null
+                ? LM.Get("label_none")
+                : view.PrimeMinisterFaction.Name.ColorString(pColor: GoverningColor));
+
+        // 议员：按议席顺序排列，每行最多 5 人
+        centerPart.AddTextIntoVertLayout(string.Format(LM.Get("parliament_members_title"), view.Term,
+            view.YearsUntilElection), true, TextAnchor.MiddleCenter, new Vector2(110, 10));
+        const int perRow = 5;
+        for (int start = 0; start < view.Seats.Count; start += perRow)
+        {
+            var row = centerPart.BeginHoriGroup(pSpacing: -5);
+            foreach (GeneralSystems.ParliamentSeatView seat in view.Seats.Skip(start).Take(perRow))
+            {
+                string label = seat.Faction?.Name ?? LM.Get("label_none");
+                if (seat.Representative == null) label += $"({LM.Get("parliament_seat_vacant")})";
+                row.AddActorViewIntoHoriLayout(seat.Representative,
+                    description: label.ColorString(pColor: GetSeatColor(seat.Governing, seat.Constitutionalist)));
+            }
+        }
+
+        // 说明：悬停查看议员与总理如何产生
+        SimpleText hint = centerPart.AddTextIntoVertLayout(LM.Get("parliament_how_hint").ColorString("#8FA0A8"),
+            false, TextAnchor.MiddleCenter, new Vector2(110, 10));
+        ConstitutionConfig config = GeneralSystems.InstitutionDefinitionRegistry.Global.constitution;
+        UIHelper.AttachTextTooltip(hint.gameObject, $"parliament_how_{_empire.id}", LM.Get("parliament_title"),
+            string.Format(LM.Get("parliament_how_body"), config.parliament_seats, config.parliament_term_years) +
+            (view.ResponsibleGovernment ? "\n" + LM.Get("parliament_responsible_government_body") : ""));
+
+        // 右侧：议席分布与图例
+        var seatPart = topSpace.BeginVertGroup(new Vector2(60, 90), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
+        seatPart.AddTextIntoVertLayout(LM.Get("parliament_seat_distribution"), true, TextAnchor.MiddleCenter,
+            new Vector2(60, 10));
+        foreach (GeneralSystems.ParliamentFactionView faction in view.Factions)
+        {
+            string stance = LM.Get(faction.Constitutionalist ? "parliament_stance_pro" : "parliament_stance_anti");
+            seatPart.AddTextIntoVertLayout(
+                string.Format(LM.Get("parliament_faction_line"), faction.Faction.Name, faction.Seats,
+                    faction.CentralRatio, stance).ColorString(pColor: GetSeatColor(faction.Governing, faction.Constitutionalist)),
+                true, TextAnchor.MiddleCenter, new Vector2(60, 10));
+        }
+        seatPart.AddTextIntoVertLayout(LM.Get("parliament_legend"), true, TextAnchor.MiddleCenter, new Vector2(60, 20));
+        if (GeneralSystems.ParliamentSystem.KeepsCabinet(_empire))
+        {
+            int electors = _empire.GetCabinetMembers().Count(actor => actor != null && !actor.isRekt());
+            seatPart.AddTextIntoVertLayout(string.Format(LM.Get("parliament_electoral_college_note"), electors), true,
+                TextAnchor.MiddleCenter, new Vector2(60, 10));
+        }
+
+        topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset: new Vector2(0, 0));
+    }
+
     private void BuildBureauPage()
     {
         Regime regime = _empire.CoreKingdom.GetRegime();
-        switch (regime.type)
+        if (GeneralSystems.ParliamentSystem.HasParliament(_empire))
+        {
+            InitialTopPartInfoParliament();
+        }
+        else switch (regime.type)
         {
             case RegimeType.Feudalism:
                 InitialTopPartInfoFeudalism();

@@ -31,9 +31,11 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
             ff.Update();
         }
         pKingdom.ApplyAnnualFactionLeaderGrowth(factions);
-        if (ConstitutionalEconomySystem.HasResponsibleCabinet(empire))
+        bool parliament = ParliamentSystem.HasParliament(empire);
+        // 议会召开后普通内阁撤销，由议会与总理大臣取代；选帝侯团性质的内阁(如西方封建)照常维护
+        if (parliament && !ParliamentSystem.KeepsCabinet(empire))
         {
-            ConstitutionalEconomySystem.EnsureCabinet(empire);
+            ParliamentSystem.RetireCabinet(empire);
         }
         else switch (regime.type)
         {
@@ -58,7 +60,13 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
                 throw new ArgumentOutOfRangeException();
         }
 
-        if (regime.has_cabinet)
+        if (parliament)
+        {
+            empire.Additions.cabinet_acc = ParliamentSystem.HasWorkingMajority(empire)
+                ? InstitutionDefinitionRegistry.Global.constitution.government_majority_acceleration
+                : 0;
+        }
+        else if (regime.has_cabinet)
         {
             empire.Additions.cabinet_acc = IsCabinetControlEmpire(pKingdom) ? 30 : 0;
         }
@@ -71,8 +79,7 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         Regime regime = pKingdom?.GetRegime();
         Empire empire = pKingdom?.GetEmpire();
         if (regime == null || empire == null) return false;
-        if (ConstitutionalEconomySystem.HasResponsibleCabinet(empire))
-            return ConstitutionalEconomySystem.GetParliamentarySupport(empire) >= 50f;
+        if (ParliamentSystem.HasParliament(empire)) return ParliamentSystem.HasWorkingMajority(empire);
         var dominate = regime.GetDominateFaction();
         List<Actor> members = empire.GetCabinetMembers();
         return members != null && members.All(m=>m?.GetFaction()?.GetID()==dominate?.GetID());

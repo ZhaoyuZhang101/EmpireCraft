@@ -218,6 +218,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     private void AddConstitutionPanel()
     {
         ConstitutionalEconomyView view = ConstitutionalEconomySystem.GetView(_empire);
+        ConstitutionConfig config = InstitutionDefinitionRegistry.Global.constitution;
         var section = _root.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
         _content.Add(section.gameObject);
         string status = view.constitutional ? LM.Get("constitution_status_enacted") :
@@ -228,15 +229,27 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         section.AddTextIntoVertLayout(string.Format(LM.Get("constitution_economy_line"),
                 view.merchant_households, view.total_households,
                 view.budding ? LM.Get("constitution_budding_yes") :
-                    $"{view.budding_years}/5"), true, TextAnchor.MiddleCenter,
+                    $"{view.budding_years}/{config.budding_years}"), true, TextAnchor.MiddleCenter,
             new Vector2(PanelWidth, 12));
         section.AddTextIntoVertLayout(string.Format(LM.Get("constitution_trade_line"),
                 view.voyages, view.foreign_voyages, view.delivered_gold), true,
             TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
         section.AddTextIntoVertLayout(string.Format(LM.Get("constitution_politics_line"),
-                view.culture_years, view.parliamentary_support), true,
+                view.culture_years, view.parliamentary_support, config.stable_culture_years), true,
             TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
-        if (view.constitutional && view.parliamentary_support < 50f)
+        ParliamentView parliament = ParliamentSystem.GetView(_empire);
+        if (parliament.Exists)
+        {
+            string government = parliament.PrimeMinister == null
+                ? LM.Get("prime_minister_vacant")
+                : string.Format(LM.Get("parliament_summary_line"), parliament.PrimeMinister.getName(),
+                    parliament.PrimeMinisterFaction?.Name ?? LM.Get("label_none"),
+                    LM.Get($"parliament_government_{parliament.GovernmentType}"),
+                    parliament.GovernmentSeats, parliament.TotalSeats);
+            section.AddTextIntoVertLayout(government.ColorString("#65D6C4"), true,
+                TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
+        }
+        if (parliament.Exists && view.parliamentary_support < config.support_threshold)
             section.AddTextIntoVertLayout(LM.Get("constitution_deadlock").ColorString("#D98C8C"), true,
                 TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
         if (view.reforming)
@@ -594,6 +607,13 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
         if (view.Status is InstitutionNodeStatus.Enacted or InstitutionNodeStatus.Absorbed) return;
 
+        // 上帝模式：跳过改革直接点亮（连同前置），或点亮本文化整条线
+        var godRow = _detailPanel.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
+        godRow.AddButtonIntoHoriLayout("institution_force_enact", LM.Get("institution_force_enact"),
+            () => ForceEnact(view.Node.id, false), size: new Vector2(110, 12));
+        godRow.AddButtonIntoHoriLayout("institution_force_enact_all", LM.Get("institution_force_enact_all"),
+            () => ForceEnact(view.Node.id, true), size: new Vector2(110, 12));
+
         InstitutionReformEnvironment environment = InstitutionSystem.GetReformEnvironment(_empire, view.Node);
         string environmentColor = environment.AdvancedBorderEmpires > 0 ? "#65D6C4" :
             environment.SameCultureEmpires > 1 ? "#F3C34A" : "#B8C6CC";
@@ -642,6 +662,14 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                         TextAnchor.MiddleCenter, new Vector2(PanelWidth, 11));
                 break;
         }
+    }
+
+    private void ForceEnact(string nodeId, bool all)
+    {
+        if (all) InstitutionSystem.ForceEnactAll(_culture);
+        else InstitutionSystem.ForceEnactNode(_culture, nodeId);
+        _selectedId = nodeId;
+        Rebuild();
     }
 
     // 不能叫 Start：Unity 会把它当成生命周期方法调用并报错 "Start() can not take parameters"
@@ -701,14 +729,10 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
     private static string GetBranchName(string branch)
     {
-        return branch switch
-        {
-            "administration" => LM.Get("institution_branch_administration"),
-            "finance" => LM.Get("institution_branch_finance"),
-            "military" => LM.Get("institution_branch_military"),
-            "society" => LM.Get("institution_branch_society"),
-            _ => branch
-        };
+        // 新分支只需要在语言文件里补 institution_branch_<分支>，不需要改代码
+        string key = $"institution_branch_{branch}";
+        string value = LM.Get(key);
+        return string.IsNullOrWhiteSpace(value) || value == key ? branch : value;
     }
 
     private static string GetStatusName(InstitutionNodeStatus status)

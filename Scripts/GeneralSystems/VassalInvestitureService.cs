@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
@@ -31,25 +32,14 @@ public enum InvestitureMode
 //   · 律令制的虚封王爵 —— 由 Empire.ProcessLegalPeerageSuccession 在支系承袭时调用，没有军队，不会打仗。
 public static class VassalInvestitureService
 {
-    public const string SelfSuccessionNodeId = "zhou_vassal_self_succession";
     private const float EscalationGap = 20f;
     private const int DefianceWarYears = 5;
     private const int DefianceVictoryYears = 30;
     private const float DefianceVictoryAutonomyBonus = 15f;
 
-    // 已施行的集权制度给宗主权威的加成(取最高一项，0~100)
-    private static readonly Dictionary<string, float> CentralizingNodes = new(StringComparer.Ordinal)
-    {
-        ["zhou_forbid_private_wars"] = 50f,
-        ["zhou_reduce_vassals"] = 100f,
-        ["huaxia_prefecture_county_bureaucracy"] = 100f,
-        ["western_centralized_monarchy"] = 100f,
-        ["youmu_provincial_system"] = 100f,
-        ["arabic_sultanate_bureaucracy"] = 100f
-    };
-
+    // 附庸自行继承由制度特性 vassal_self_succession 提供，任何线的节点都可以声明
     public static bool IsSelfSuccessionEnacted(Empire empire) =>
-        empire != null && InstitutionSystem.IsEnacted(empire, SelfSuccessionNodeId);
+        empire != null && InstitutionSystem.HasFeature(empire, InstitutionFeatures.VassalSelfSuccession);
 
     public static InvestitureMode Evaluate(float authority, float autonomy, bool selfSuccession)
     {
@@ -63,9 +53,9 @@ public static class VassalInvestitureService
 
     private static float GetSuzerainAuthority(Empire empire, float coreStrengthShare)
     {
-        float centralization = CentralizingNodes
-            .Where(pair => InstitutionSystem.IsEnacted(empire, pair.Key))
-            .Select(pair => pair.Value).DefaultIfEmpty(0f).Max();
+        // 已施行的集权制度给宗主权威的加成：制度特性 vassal_authority 的最高值(0~100)
+        float centralization = Mathf.Clamp(InstitutionSystem.GetFeature(empire, InstitutionFeatures.VassalAuthority),
+            0f, 100f);
         float score = Mathf.Clamp(empire.Mandate, 0, 100) * 0.35f +
                       GetFactionShare(empire, FactionType.尊王, FactionType.中央) * 0.25f +
                       Mathf.Clamp(coreStrengthShare, 0f, 100f) * 0.25f +
@@ -388,7 +378,8 @@ public static class VassalInvestitureService
         string content = string.Format(LM.Get(key), args);
         empire.RecordHistory(directContent: content, actorId: actor?.id ?? -1L,
             kingdomId: vassal?.id ?? empire.CoreKingdom?.id ?? -1L);
-        // 正常册封是例行公事，只记入史书，不弹屏幕提示
-        if (!key.StartsWith("investiture_granted_history")) ActionLibrary.showWhisperTip(content);
+        // 正常册封是例行公事，只记入史书，不发世界消息
+        if (!key.StartsWith("investiture_granted_history"))
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, vassal ?? empire.CoreKingdom);
     }
 }

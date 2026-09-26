@@ -4,6 +4,8 @@
     "icon_url": "",
     "era_name": false,
     "has_cabinet": false,
+    "is_monarchy": false,
+    "allows_landlord_class": true,
     "cabinet_number": 0,
     "leader_select_method": "Succession",
     "default_kingdom": "Origin_kingdom",

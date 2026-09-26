@@ -50,7 +50,43 @@ public class Empire : MetaObject<EmpireData>
     public List<Kingdom> taken_Kingdoms = new List<Kingdom>();
     
     public Religion Religion = null;
-    public TemporaryFaction RunningTemporaryFaction = null;
+    private TemporaryFaction _runningTemporaryFaction;
+
+    // 当前正在推进的派系诉求。
+    //
+    // 派系的诉求列表会被整体重建：制度解锁诉求(EnableClaim)、派系编辑界面、以及政体重载(LoadRegime 会
+    // 从模板重新克隆派系)都会生成新的诉求对象。旧对象不再被调度器更新，却仍然是"已开始"状态——
+    // 如果这里还指着它，诉求进度会永远冻结在当时的数值，而且因为它看起来一直在推进，别的诉求也
+    // 都无法发起。所以每次读取都校验一次：引用已经不在任何派系的诉求列表里时，换成列表中同派系、
+    // 同类型、仍在推进的新对象；找不到就换成列表里任意一个正在推进的诉求，都没有则清空。
+    public TemporaryFaction RunningTemporaryFaction
+    {
+        get => _runningTemporaryFaction = ResolveRunningTemporaryFaction(_runningTemporaryFaction);
+        set => _runningTemporaryFaction = value;
+    }
+
+    private TemporaryFaction ResolveRunningTemporaryFaction(TemporaryFaction current)
+    {
+        if (current == null) return null;
+        List<FixedFaction> factions = CoreKingdom?.GetRegime()?.PlayerFactions;
+        if (factions == null) return current;
+        TemporaryFaction replacement = null;
+        TemporaryFaction anyStarted = null;
+        foreach (FixedFaction faction in factions)
+        {
+            if (faction?.TemporaryFactions == null) continue;
+            foreach (TemporaryFaction claim in faction.TemporaryFactions)
+            {
+                if (claim == null) continue;
+                if (ReferenceEquals(claim, current)) return current;
+                if (!claim.IsStarted()) continue;
+                anyStarted ??= claim;
+                if (replacement == null && claim.type == current.type && claim.factionID == current.factionID)
+                    replacement = claim;
+            }
+        }
+        return replacement ?? anyStarted;
+    }
 
     public Kingdom CoreKingdom;
     public Actor Emperor => CoreKingdom?.king;
@@ -437,6 +473,21 @@ public class Empire : MetaObject<EmpireData>
     }
     
     //新皇登基
+    private long _unregisteredEmperorRepairAttempt = -1L;
+
+    // 自愈：皇帝在位，但当前这一朝的历史记录属于别人（空位期留下的记录，或即位登记中途失败），
+    // 说明这位皇帝从未完成即位登记——皇室、年号、在位历史都还停在上一任，年号会从上一任起一直累加。
+    // 这里补做一次完整的即位处理。每位皇帝只尝试一次，避免即位处理本身出错时每帧重试。
+    private void RepairUnregisteredEmperor()
+    {
+        Actor emperor = Emperor;
+        if (emperor?.data == null || emperor.isRekt() || data.currentHistory == null) return;
+        if (data.currentHistory.id == emperor.data.id || _unregisteredEmperorRepairAttempt == emperor.data.id) return;
+        _unregisteredEmperorRepairAttempt = emperor.data.id;
+        LogService.LogWarning($"帝国 {GetEmpireName()} 的皇帝 {emperor.getName()} 未完成即位登记，补做即位处理。");
+        NewEmperor(emperor);
+    }
+
     public void NewEmperor(Actor actor, bool isNew = false)
     {
         if (actor == null) return;
@@ -463,72 +514,84 @@ public class Empire : MetaObject<EmpireData>
             LogService.LogError($"新皇 {actor.getName()} 无法建立宗族身份，取消帝国继承处理");
             return;
         }
-        if (currentSpecificClan != previousRoyalClan && data.empire_specific_clan != -1L)
+        // 篡位的连带后果（分裂、内战、改国号、清空帝系）牵涉大量外部状态，任何一步抛异常都不能
+        // 打断下面的即位登记——否则皇室、年号、历史都停留在上一任，年号会一直累加下去。
+        bool usurpation = currentSpecificClan != previousRoyalClan && data.empire_specific_clan != -1L;
+        try
         {
-            LogService.LogInfo("篡位逻辑");
-            LogService.LogInfo($"上一任皇室: {EmpireSpecificClan?.name??"None"}");
-            LogService.LogInfo($"皇室活人: {EmpireSpecificClan?.Count??0}");
-            LogService.LogInfo($"合法继承人: {EmpireSpecificClan?.all_valid_members.Count??0}");
-            if (!_completingMinisterUsurpation && Mandate >= 70)
+            if (currentSpecificClan != previousRoyalClan && data.empire_specific_clan != -1L)
             {
-                if (EmpireSpecificClan?.all_valid_members.Any()??false)
+                LogService.LogInfo("篡位逻辑");
+                LogService.LogInfo($"上一任皇室: {EmpireSpecificClan?.name??"None"}");
+                LogService.LogInfo($"皇室活人: {EmpireSpecificClan?.Count??0}");
+                LogService.LogInfo($"合法继承人: {EmpireSpecificClan?.all_valid_members.Count??0}");
+                if (!_completingMinisterUsurpation && Mandate >= 70)
                 {
-                    LogService.LogInfo("存在合法继承人");
-                    var validEmperor = EmpireSpecificClan.all_valid_members?.First()._actor;
-                    var newEmpire = StartSplit(validEmperor);
-                    LogService.LogInfo($"开始分裂{actor.id}{actor.name}");
-                    if (newEmpire != null)
+                    if (EmpireSpecificClan?.all_valid_members.Any()??false)
                     {
-                        War war = World.world.diplomacy.startWar(newEmpire.CoreKingdom,this.CoreKingdom, WarTypeLibrary.normal);
-                        war.SetEmpireWarType(EmpireWarType.帝国正统, pre: CoreKingdom.GetEmpireCraftCulture(true));
+                        LogService.LogInfo("存在合法继承人");
+                        var validEmperor = EmpireSpecificClan.all_valid_members?.First()._actor;
+                        var newEmpire = StartSplit(validEmperor);
+                        LogService.LogInfo($"开始分裂{actor.id}{actor.name}");
+                        if (newEmpire != null)
+                        {
+                            War war = World.world.diplomacy.startWar(newEmpire.CoreKingdom,this.CoreKingdom, WarTypeLibrary.normal);
+                            war.SetEmpireWarType(EmpireWarType.帝国正统, pre: CoreKingdom.GetEmpireCraftCulture(true));
+                        }
                     }
                 }
-            }
-            AddMandate(-30);
-            foreach (var k in kingdoms_list.ToList())
-            {
-                if (_completingMinisterUsurpation) break;
-                if (k.IsEmpire()) continue;
-                if (!k.hasKing()) continue;
-                var clan = k.king.GetSpecificClan();
-                if (clan.id == data.empire_specific_clan)
+                AddMandate(-30);
+                foreach (var k in kingdoms_list.ToList())
                 {
-                    leave(k);
-                    DiplomacyHelpers.wars.newWar(k, CoreKingdom, WarTypeLibrary.normal);
+                    if (_completingMinisterUsurpation) break;
+                    if (k.IsEmpire()) continue;
+                    if (!k.hasKing()) continue;
+                    var clan = k.king.GetSpecificClan();
+                    if (clan.id == data.empire_specific_clan)
+                    {
+                        leave(k);
+                        DiplomacyHelpers.wars.newWar(k, CoreKingdom, WarTypeLibrary.normal);
+                    }
                 }
-            }
-            if (currentSpecificClan.HasHistoryEmpire())
-            {
-                var historyRecord = currentSpecificClan.GetHistoryEmpire();
-                data.directPre = GetDir(historyRecord.pos);
-                SetEmpireName(historyRecord.name);
-            }
-            if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
-            {
-                data.directPre = "";
-                nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
-                SetEmpireName(nameEmpire);
-                currentSpecificClan.RecordHistoryEmpire(this, CoreKingdom.capital);
-            }
-            isNew = true;
-            data.history_emperrors.Clear();
-            CoreKingdom.updateColor(getColorLibrary().getNextColor(actor.getActorAsset()));
-            updateColor(CoreKingdom.getColor());
-            foreach (var tk in taken_Kingdoms.ToList())
-            {
-                if (AncientWarfareCompatibility.Owns(tk)) continue;
-                tk.RemoveTakenAlliance();
-            }
+                if (currentSpecificClan.HasHistoryEmpire())
+                {
+                    var historyRecord = currentSpecificClan.GetHistoryEmpire();
+                    data.directPre = GetDir(historyRecord.pos);
+                    SetEmpireName(historyRecord.name);
+                }
+                if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
+                {
+                    data.directPre = "";
+                    nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
+                    SetEmpireName(nameEmpire);
+                    currentSpecificClan.RecordHistoryEmpire(this, CoreKingdom.capital);
+                }
+                isNew = true;
+                data.history_emperrors.Clear();
+                CoreKingdom.updateColor(getColorLibrary().getNextColor(actor.getActorAsset()));
+                updateColor(CoreKingdom.getColor());
+                foreach (var tk in taken_Kingdoms.ToList())
+                {
+                    if (AncientWarfareCompatibility.Owns(tk)) continue;
+                    tk.RemoveTakenAlliance();
+                }
 
-            foreach (var k in kingdoms_list.ToList())
-            {
-                if (_completingMinisterUsurpation) break;
-                if (!k.isOpinionTowardsKingdomGood(CoreKingdom)&&Mandate<20)
+                foreach (var k in kingdoms_list.ToList())
                 {
-                    this.leave(k);
+                    if (_completingMinisterUsurpation) break;
+                    if (!k.isOpinionTowardsKingdomGood(CoreKingdom)&&Mandate<20)
+                    {
+                        this.leave(k);
+                    }
                 }
-            }
-        } 
+            } 
+        
+        }
+        catch (Exception exception)
+        {
+            LogService.LogError($"新皇 {actor.getName()} 即位时处理篡位后果失败，继续完成即位登记: {exception}");
+            if (usurpation) isNew = true;
+        }
         
         data.empire_specific_clan = currentSpecificClan.id;
         if (isNew)
@@ -1122,7 +1185,9 @@ public class Empire : MetaObject<EmpireData>
         {
             foreach (Kingdom kingdom in kingdoms_list)
             {
-                if (kingdom == null || kingdom.isRekt() || kingdom == mainKingdom || kingdom.king == null) continue;
+                // 接续的皇族王国必须还有城市（有都城），否则新帝国一建立就没有领土
+                if (kingdom == null || kingdom.isRekt() || kingdom == mainKingdom || kingdom.king == null ||
+                    !kingdom.hasCapital() || kingdom.cities.Count <= 0) continue;
                 if (kingdom.king.HasSpecificClan())
                     if (kingdom.king.GetSpecificClan() == EmpireSpecificClan)
                     {
@@ -1141,7 +1206,13 @@ public class Empire : MetaObject<EmpireData>
             return;
         }
         LogService.LogInfo("核心王国灭亡，由皇族王国" + heirEmpire.GetKingdomName() + "延续帝国");
-        ReplaceEmpire(heirEmpire);
+        if (!ReplaceEmpire(heirEmpire))
+        {
+            // 接续失败时不能让帝国停留在"核心已移出成员列表"的状态：否则状态修复会重新选出核心、
+            // 随后又被判定核心缺失，陷入每帧 接续→修复 的死循环。
+            LogService.LogWarning($"皇族王国 {heirEmpire.GetKingdomName()} 无法接续帝国，解散帝国");
+            ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
+        }
     }
 
     public Kingdom GetMostPowerfulKingdom()
@@ -1161,12 +1232,15 @@ public class Empire : MetaObject<EmpireData>
         return kingdom;
     }
 
-    public void ReplaceEmpire(Kingdom newKingdom)
+    // 返回是否成功由 newKingdom 接续为新帝国（成功时本帝国会被解散）
+    public bool ReplaceEmpire(Kingdom newKingdom)
     {
-        Empire newEmpire = ModClass.EMPIRE_MANAGER.NewEmpire(newKingdom);
+        if (newKingdom == null || newKingdom.isRekt() || newKingdom.king == null || !newKingdom.hasCapital())
+            return false;
+        Empire newEmpire = ModClass.EMPIRE_MANAGER.NewEmpire(newKingdom, replacingEmpire: this);
         if (newEmpire == null)
         {
-            return;
+            return false;
         }
         newEmpire.data.history.InsertRange(0, data.history);
         // 同一帝国的延续：王号序数的即位记录一并接过去
@@ -1239,6 +1313,7 @@ public class Empire : MetaObject<EmpireData>
         
         newKingdom.SetKingdomCoreName(newEmpire.GetEmpireName(), newEmpire.data.name);
         ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
+        return true;
     }
     public sealed override void setDefaultValues()
     {
@@ -1419,13 +1494,19 @@ public class Empire : MetaObject<EmpireData>
         if (data == null || World.world == null || _updatingHonoraryPeerages) return;
         Kingdom coreKingdom = CoreKingdom;
         if (coreKingdom == null || coreKingdom.isRekt()) return;
+        RepairUnregisteredEmperor();
         Regime regime = coreKingdom.GetRegime();
         CompositeEmpireService.Update(this);
         ConstitutionalEconomySystem.Update(this);
         InstitutionSystem.Update(this);
         if (regime?.type == RegimeType.LvLing)
         {
-            UpdatePowerfulMinister(regime);
+            // 议会存续期间由议会选出的总理大臣执政，不再产生权臣
+            if (ParliamentSystem.HasParliament(this))
+            {
+                if (data.powerful_minister_id > 0) ClearPowerfulMinister();
+            }
+            else UpdatePowerfulMinister(regime);
             ProcessTerritorialAcquisitionEnfeoff();
         }
         else
@@ -1806,7 +1887,10 @@ public class Empire : MetaObject<EmpireData>
             LogService.LogInfo($"帝国 {id} 已重置并修复: {reason}");
         }
 
-        return kingdoms_hashset.Count > 0;
+        // 成员国全部失去城市（只剩流散的人口/军队）时帝国已经没有领土，不算修复成功：
+        // 否则 checkActive 失败后的兜底修复永远返回 true，帝国会以无领土的"幽灵"状态一直存在，
+        // 铭牌上没有国名、人口和兵力停留在旧值。
+        return kingdoms_hashset.Any(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.cities?.Count > 0);
     }
 
     public bool checkActive()
@@ -4021,14 +4105,10 @@ public class Empire : MetaObject<EmpireData>
         return CreateTerritorialPartition(region, title, regime, createAdministration: true);
     }
 
-    // 西方封建制施行中央集权君主制后设辖区(Feudalism_intendancy)，施行神权国家后设教区(Feudalism_diocese)
-    public const string WesternCentralizedNodeId = "western_centralized_monarchy";
-    public const string WesternTheocraticNodeId = "western_theocratic_state";
-
+    // 西方封建制具备制度特性 direct_administration(中央集权君主制、神权国家等)后设辖区/教区
     public bool IsWesternCentralized() =>
         CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism &&
-        (InstitutionSystem.IsEnacted(this, WesternCentralizedNodeId) ||
-         InstitutionSystem.IsEnacted(this, WesternTheocraticNodeId));
+        InstitutionSystem.HasFeature(this, InstitutionFeatures.DirectAdministration);
 
     private static bool RegimeSupportsProvince(Regime regime)
     {

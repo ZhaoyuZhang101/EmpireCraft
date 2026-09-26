@@ -77,8 +77,8 @@ public static class LandEconomySystem
     {
         if (kingdom == null || kingdom.isRekt()) return false;
         if (kingdom.GetOrCreate().is_peasant_revolutionary_government) return true;
-        RegimeType type = kingdom.GetRegime()?.type ?? RegimeType.Feudalism;
-        return type != RegimeType.Feudalism && type != RegimeType.ZhouFeudalism;
+        Regime regime = kingdom.GetRegime();
+        return regime != null && RegimeManager.AllowsLandlordClass(regime.type);
     }
 
     public static void OpenPrivateLandMarket(Kingdom kingdom, bool redistribute, bool revolutionary)
@@ -270,7 +270,7 @@ public static class LandEconomySystem
             if (originEmpire != null && originEmpire != rebel.GetEmpire())
                 originEmpire.RecordHistory(directContent: victory, actorId: rebel.king?.id ?? -1L,
                     kingdomId: rebel.id);
-            ActionLibrary.showWhisperTip(victory);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(victory, rebel);
         }
         if (rebel != null)
         {
@@ -497,7 +497,7 @@ public static class LandEconomySystem
         string history = string.Format(LM.Get("land_rebellion_started_history"), city.GetCityName(),
             ratio * 100f, cause);
         RecordRebellionHistory(origin, history, leader);
-        ActionLibrary.showWhisperTip(history);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, origin);
         return true;
     }
 
@@ -515,7 +515,7 @@ public static class LandEconomySystem
             string history = string.Format(LM.Get("land_rebellion_city_joined_history"), city.GetCityName(),
                 ratio * 100f, rebel.GetKingdomName());
             RecordRebellionHistory(rebel, history);
-            ActionLibrary.showWhisperTip(history);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, rebel);
             return true;
         }
         return false;

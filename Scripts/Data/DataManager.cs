@@ -275,6 +275,15 @@ public static class DataManager
                 LogService.LogError($"帝国文化与制度存档迁移失败，保留原制度: {exception}");
             }
         }
+        // 只读的一致性检查：把帝国/王国/诉求/议会的状态错乱统一以 [存档检查] 写进日志
+        try
+        {
+            EmpireCraft.Scripts.Diagnostics.SaveIntegrityChecker.Run("读档");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"存档一致性检查失败: {exception}");
+        }
     }
 
     private static void NormalizeLoadedNameSeparators()
