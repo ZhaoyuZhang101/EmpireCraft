@@ -28,6 +28,54 @@
       "regime": "ZhouFeudalism"
     },
     {
+      "id": "huaxia_recommendation",
+      "name_key": "institution_huaxia_recommendation",
+      "description_key": "institution_huaxia_recommendation_desc",
+      "branch": "society",
+      "advancement": 4,
+      "requires_any": [
+        "huaxia_commandery_kingdom",
+        "zhou_forbid_private_wars"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 8.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 7.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 78.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.8,
+          "Noble": 0.4
+        },
+        "oppose_classes": {
+          "Peasant": 0.2
+        },
+        "support_factions": {
+          "绥靖": 0.8,
+          "尊王": 0.5
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 3
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 2,
+          "faction": "绥靖"
+        }
+      ]
+    },
+    {
       "id": "zhou_enfeoffment",
       "name_key": "institution_zhou_enfeoffment",
       "description_key": "institution_zhou_enfeoffment_desc",
@@ -316,6 +364,61 @@
       }
     },
     {
+      "id": "huaxia_merit_ranks",
+      "name_key": "institution_huaxia_merit_ranks",
+      "description_key": "institution_huaxia_merit_ranks_desc",
+      "branch": "military",
+      "advancement": 4,
+      "requires": [
+        "zhou_forbid_private_wars"
+      ],
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 8.0,
+        "minimum_years": 8,
+        "force_radicalism": 22.0
+      },
+      "resistance": {
+        "base_radicalism": 9.0,
+        "vested_interest_radicalism": 14.0,
+        "rebellion_threshold": 74.0,
+        "opposition_faction_growth": 1,
+        "reason_key": "institution_resistance_reason_local_privilege"
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 1.2,
+          "Peasant": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 0.9
+        },
+        "support_factions": {
+          "攘夷": 1.0,
+          "尊王": 0.5
+        },
+        "oppose_factions": {
+          "诸侯": 0.8
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "int_value": 3,
+          "faction": "攘夷"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": 2
+        }
+      ],
+      "features": {
+        "vassal_authority": 30
+      }
+    },
+    {
       "id": "huaxia_tributary_system",
       "name_key": "institution_huaxia_tributary_system",
       "description_key": "institution_huaxia_tributary_system_desc",
@@ -363,9 +466,9 @@
       "name_key": "institution_huaxia_land_equalization",
       "description_key": "institution_huaxia_land_equalization_desc",
       "branch": "finance",
-      "advancement": 3,
+      "advancement": 4,
       "requires": [
-        "huaxia_well_field"
+        "huaxia_land_sale_decree"
       ],
       "research": {
         "mandate_required": 42
@@ -471,7 +574,7 @@
       "branch": "finance",
       "advancement": 4,
       "requires": [
-        "huaxia_land_equalization"
+        "huaxia_land_sale_decree"
       ],
       "research": {
         "mandate_required": 55
@@ -515,9 +618,9 @@
       "name_key": "institution_huaxia_military_garrison",
       "description_key": "institution_huaxia_military_garrison_desc",
       "branch": "military",
-      "advancement": 4,
+      "advancement": 5,
       "requires": [
-        "zhou_forbid_private_wars"
+        "huaxia_merit_ranks"
       ],
       "research": {
         "mandate_required": 50
@@ -610,7 +713,6 @@
       ],
       "regime": "LvLing",
       "features": {
-        "constitution_basis_administration": 1,
         "vassal_authority": 100,
         "claim_reform:转天朝制度": 1
       }
@@ -622,7 +724,8 @@
       "branch": "society",
       "advancement": 6,
       "requires": [
-        "huaxia_prefecture_county_bureaucracy"
+        "huaxia_prefecture_county_bureaucracy",
+        "huaxia_recommendation"
       ],
       "research": {
         "mandate_required": 70
@@ -666,14 +769,17 @@
       ],
       "features": {
         "claim_reform:开科取士": 1
-      }
+      },
+      "replaces": [
+        "huaxia_recommendation"
+      ]
     },
     {
       "id": "huaxia_warlord_succession",
       "name_key": "institution_huaxia_warlord_succession",
       "description_key": "institution_huaxia_warlord_succession_desc",
       "branch": "military",
-      "advancement": 5,
+      "advancement": 6,
       "requires": [
         "huaxia_military_garrison"
       ],
@@ -717,7 +823,7 @@
       "template": "tactical_drilling",
       "id": "huaxia_tactical_drilling",
       "branch": "military",
-      "advancement": 5,
+      "advancement": 6,
       "requires": [
         "huaxia_military_garrison"
       ]
@@ -727,7 +833,7 @@
       "name_key": "institution_huaxia_two_tax_law",
       "description_key": "institution_huaxia_two_tax_law_desc",
       "branch": "finance",
-      "advancement": 4,
+      "advancement": 5,
       "requires": [
         "huaxia_land_equalization"
       ],
@@ -773,6 +879,9 @@
           "int_value": 3,
           "faction": "尊王"
         }
+      ],
+      "replaces": [
+        "huaxia_land_equalization"
       ]
     },
     {
@@ -780,7 +889,7 @@
       "name_key": "institution_huaxia_single_whip_reform",
       "description_key": "institution_huaxia_single_whip_reform_desc",
       "branch": "finance",
-      "advancement": 5,
+      "advancement": 6,
       "requires": [
         "huaxia_two_tax_law"
       ],
@@ -836,11 +945,63 @@
       }
     },
     {
+      "id": "huaxia_constitutional_preparation",
+      "name_key": "institution_huaxia_constitutional_preparation",
+      "description_key": "institution_huaxia_constitutional_preparation_desc",
+      "branch": "administration",
+      "advancement": 7,
+      "requires": [
+        "huaxia_prefecture_county_bureaucracy",
+        "huaxia_single_whip_reform"
+      ],
+      "research": {
+        "mandate_required": 70
+      },
+      "reform": {
+        "base_progress_per_year": 6.0,
+        "minimum_years": 12,
+        "force_radicalism": 30.0
+      },
+      "resistance": {
+        "base_radicalism": 12.0,
+        "vested_interest_radicalism": 18.0,
+        "rebellion_threshold": 68.0,
+        "opposition_faction_growth": 2,
+        "reason_key": "institution_resistance_reason_constitutional_preparation"
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 1.4,
+          "Officer": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 0.3
+        },
+        "support_factions": {
+          "共和": 1.0,
+          "绥靖": 0.8,
+          "诸侯": 0.6
+        },
+        "oppose_factions": {
+          "尊王": 1.2
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": -3
+        }
+      ],
+      "features": {
+        "constitution_basis_administration": 1
+      }
+    },
+    {
       "id": "huaxia_recruited_army",
       "name_key": "institution_huaxia_recruited_army",
       "description_key": "institution_huaxia_recruited_army_desc",
       "branch": "military",
-      "advancement": 5,
+      "advancement": 6,
       "requires": [
         "huaxia_military_garrison"
       ],
@@ -898,12 +1059,57 @@
       ]
     },
     {
-      "template": "land_sale_decree",
       "id": "huaxia_land_sale_decree",
+      "name_key": "institution_huaxia_abolish_well_field",
+      "description_key": "institution_huaxia_abolish_well_field_desc",
       "branch": "finance",
-      "advancement": 6,
+      "advancement": 3,
       "requires": [
-        "huaxia_two_tax_law"
+        "huaxia_well_field"
+      ],
+      "replaces": [
+        "huaxia_well_field"
+      ],
+      "research": {
+        "mandate_required": 35
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 10.0,
+        "vested_interest_radicalism": 16.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 2,
+        "reason_key": "institution_resistance_reason_local_privilege"
+      },
+      "politics": {
+        "support_classes": {
+          "Peasant": 0.8,
+          "Officer": 0.6,
+          "Merchant": 0.6
+        },
+        "oppose_classes": {
+          "Noble": 1.2
+        },
+        "support_factions": {
+          "尊王": 0.8,
+          "攘夷": 0.6
+        },
+        "oppose_factions": {
+          "诸侯": 1.0
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "open_private_land_market"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": 2
+        }
       ]
     }
   ],
