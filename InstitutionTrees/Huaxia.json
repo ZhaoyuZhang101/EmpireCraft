@@ -610,6 +610,7 @@
       ],
       "regime": "LvLing",
       "features": {
+        "constitution_basis_administration": 1,
         "vassal_authority": 100,
         "claim_reform:转天朝制度": 1
       }
@@ -832,61 +833,6 @@
       ],
       "features": {
         "constitution_basis_fiscal": 1
-      }
-    },
-    {
-      "id": "huaxia_provincial_assembly",
-      "name_key": "institution_huaxia_provincial_assembly",
-      "description_key": "institution_huaxia_provincial_assembly_desc",
-      "branch": "administration",
-      "advancement": 6,
-      "requires": [
-        "huaxia_single_whip_reform"
-      ],
-      "requires_any": [
-        "huaxia_prefecture_county_bureaucracy",
-        "huaxia_commandery_kingdom"
-      ],
-      "research": {
-        "mandate_required": 70
-      },
-      "reform": {
-        "base_progress_per_year": 6.0,
-        "minimum_years": 12,
-        "force_radicalism": 30.0
-      },
-      "resistance": {
-        "base_radicalism": 12.0,
-        "vested_interest_radicalism": 18.0,
-        "rebellion_threshold": 68.0,
-        "opposition_faction_growth": 2,
-        "reason_key": "institution_resistance_reason_provincial_assembly"
-      },
-      "politics": {
-        "support_classes": {
-          "Merchant": 1.4,
-          "Officer": 0.4
-        },
-        "oppose_classes": {
-          "Noble": 0.3
-        },
-        "support_factions": {
-          "共和": 1.0,
-          "绥靖": 0.8,
-          "诸侯": 0.6
-        },
-        "oppose_factions": {
-          "尊王": 1.2
-        }
-      },
-      "effects_on_complete": [
-        {
-          "type": "add_mandate",
-          "int_value": -3
-        }
-      ],
-      "features": {
-        "constitution_basis_administration": 1
       }
     },
     {
