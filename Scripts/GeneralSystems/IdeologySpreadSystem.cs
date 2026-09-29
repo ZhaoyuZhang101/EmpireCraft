@@ -50,6 +50,7 @@ public static class IdeologySpreadSystem
     public static void TryYearlyScan()
     {
         if (World.world == null || ModClass.IS_CLEAR || ModClass.EMPIRE_MANAGER == null) return;
+        if (TechnologySystem.PremodernLocked) return; // 禁止近代化：理念不再传播
         double now = World.world.getCurWorldTime();
         if (_lastScan < 0d || now < _lastScan)
         {

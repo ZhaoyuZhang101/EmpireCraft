@@ -3,6 +3,9 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const syncFs = require("node:fs");
+const {
+  culturesRoot, inModRoot, listCultures, setRegimeInRuleText, createCulture, readLocales, writeLocales
+} = require("./editor-core");
 
 function stripJsonComments(text) {
   return text
@@ -175,17 +178,49 @@ app.whenReady().then(() => {
     return chooseModRoot();
   });
 
+  // 文化规则现在是每个文化一个文件：Locales/Cultures/Culture_<文化>/CultureRule.json
   ipcMain.handle("load-culture-rules", async () => {
     const modRoot = resolveModRoot();
-    const culturePath = path.join(modRoot, "CultureRulesConfig.json");
-    const text = await fs.readFile(culturePath, "utf8");
-    const data = JSON.parse(stripJsonComments(text));
+    const cultures = await listCultures(modRoot);
     return {
-      path: culturePath,
-      text,
-      data
+      path: culturesRoot(modRoot),
+      data: cultures.filter(c => c.data).map(c => ({ ...c.data, __file: c.file }))
     };
   });
+
+  ipcMain.handle("list-cultures", async () => listCultures(resolveModRoot()));
+
+  ipcMain.handle("create-culture", async (_event, payload) => createCulture(resolveModRoot(), payload || {}));
+
+  ipcMain.handle("read-text", async (_event, relPath) => {
+    const file = inModRoot(resolveModRoot(), relPath);
+    if (!syncFs.existsSync(file)) return { path: file, exists: false, text: "" };
+    return { path: file, exists: true, text: (await fs.readFile(file, "utf8")).replace(/^﻿/, "") };
+  });
+
+  ipcMain.handle("write-text", async (_event, relPath, text) => {
+    const file = inModRoot(resolveModRoot(), relPath);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, String(text ?? ""), "utf8");
+    return { path: file };
+  });
+
+  ipcMain.handle("list-dir", async (_event, relPath) => {
+    const dir = inModRoot(resolveModRoot(), relPath);
+    if (!syncFs.existsSync(dir)) return [];
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    return entries.map(e => ({ name: e.name, dir: e.isDirectory() }));
+  });
+
+  ipcMain.handle("open-path", async (_event, relPath) => {
+    const target = inModRoot(resolveModRoot(), relPath || ".");
+    const error = await shell.openPath(target);
+    if (error) throw new Error(error);
+    return { path: target };
+  });
+
+  ipcMain.handle("read-locales", async (_event, keys) => readLocales(resolveModRoot(), keys || []));
+  ipcMain.handle("write-locales", async (_event, entries) => writeLocales(resolveModRoot(), entries || {}));
 
   ipcMain.handle("open-configs-dir", async () => {
     const modRoot = resolveModRoot();
@@ -202,7 +237,6 @@ app.whenReady().then(() => {
     const folderName = sanitizeFolderName(payload?.folderName);
     const outputDir = path.join(configsDir, folderName);
     const outputs = payload?.outputs || {};
-    const culturePath = path.join(modRoot, "CultureRulesConfig.json");
 
     await fs.mkdir(outputDir, { recursive: true });
     const writeTargets = {
@@ -214,14 +248,23 @@ app.whenReady().then(() => {
     for (const [fileName, content] of Object.entries(writeTargets)) {
       await fs.writeFile(path.join(outputDir, fileName), String(content), "utf8");
     }
-    if (typeof outputs.cultureText === "string" && outputs.cultureText.trim()) {
-      await fs.writeFile(culturePath, outputs.cultureText, "utf8");
+    // 文化绑定：只改各文化 CultureRule.json 里的 setting.regime，原文(含注释)其余部分不动
+    const changed = [];
+    for (const binding of outputs.cultureRegimes || []) {
+      if (!binding?.file) continue;
+      const file = inModRoot(modRoot, path.relative(modRoot, binding.file));
+      const text = await fs.readFile(file, "utf8");
+      const next = setRegimeInRuleText(text, String(binding.regime || ""));
+      if (next !== text) {
+        await fs.writeFile(file, next, "utf8");
+        changed.push(file);
+      }
     }
 
     return {
       directory: outputDir,
       files: Object.keys(writeTargets),
-      culturePath
+      culturePath: changed.length ? `${changed.length} 个文化` : "无改动"
     };
   });
 

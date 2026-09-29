@@ -1,0 +1,26 @@
+key,cz,en,ch
+book_template_huaxia_friendship_story_1,$word$,$word$,$word$
+book_template_huaxia_friendship_story_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_huaxia_friendship_story_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_huaxia_friendship_story_4,$author$$word$,$author$'s $word$,$author$$word$
+book_template_huaxia_friendship_story_5,新$word$,New $word$,新$word$
+book_template_huaxia_friendship_story_6,续$word$,"$word$, Continued",續$word$
+book_template_huaxia_friendship_story_7,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_huaxia_friendship_story_8,$dynasty$$word$,$word$ of $dynasty$,$dynasty$$word$
+book_template_huaxia_friendship_story_9,$city$游侠列传,Wandering Knights of $city$,$city$遊俠列傳
+book_template_huaxia_friendship_story_10,$author$交游录,Companions of $author$,$author$交遊錄
+book_template_huaxia_friendship_story_11,$city$结义记,Sworn Brothers of $city$,$city$結義記
+book_template_huaxia_friendship_story_12,$kingdom$侠客列传,Knights-Errant of $kingdom$,$kingdom$俠客列傳
+book_template_huaxia_friendship_story_13,$clan$义士传,Righteous Men of the $clan$,$clan$義士傳
+book_template_huaxia_friendship_story_14,$author$酬唱集,Exchanged Verses of $author$,$author$酬唱集
+book_template_huaxia_friendship_story_15,$city$雅集记,Gathering of Scholars at $city$,$city$雅集記
+book_template_huaxia_friendship_story_16,$author$尺牍,Letters of $author$,$author$尺牘
+book_template_huaxia_friendship_story_17,$city$送别诗,Farewell Poems of $city$,$city$送別詩
+book_template_huaxia_friendship_story_18,$year_name$同年录,Classmates of the $year_name$ Exam,$year_name$同年錄
+book_template_huaxia_friendship_story_19,$city$诗社记,The Poetry Society of $city$,$city$詩社記
+book_template_huaxia_friendship_story_20,$author$与友人书,Letters to Friends by $author$,$author$與友人書
+book_template_huaxia_friendship_story_21,$city$豪侠逸闻,Anecdotes of the Heroes of $city$,$city$豪俠逸聞
+book_template_huaxia_friendship_story_22,$city$$topic$传,Tales of the $topic$ of $city$,$city$$topic$傳
+book_template_huaxia_friendship_story_23,$kingdom$$topic$列传,Biographies of the $topic$ of $kingdom$,$kingdom$$topic$列傳
+book_template_huaxia_friendship_story_24,$topic$记,Record of the $topic$,$topic$記
+book_template_huaxia_friendship_story_25,$era$江湖志,Rivers and Lakes of the $era$,$era$江湖志

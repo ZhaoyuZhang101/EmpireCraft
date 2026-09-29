@@ -1,0 +1,7 @@
+key,cz,en,ch
+book_template_india_history_book_1,$kingdom$$word$,$word$ of $kingdom$,$kingdom$$word$
+book_template_india_history_book_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_india_history_book_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_india_history_book_4,$past_emperor$行传,Deeds of $past_emperor$,$past_emperor$行傳
+book_template_india_history_book_5,$dynasty$王统,Kings of $dynasty$,$dynasty$王統
+book_template_india_history_book_6,$era$纪事,Chronicle of the $era$,$era$紀事

@@ -148,6 +148,15 @@ public static class DataManager
                 clan.SyncData(entry);
         }
         LogService.LogInfo("Sync Clan Data");
+        if (saveData.bookExtraData != null && saveData.bookExtraData.Count > 0)
+        {
+            var bookById = World.world.books.ToDictionary(b => b.getID());
+            foreach (var entry in saveData.bookExtraData)
+            {
+                if (entry != null && bookById.TryGetValue(entry.id, out var book))
+                    book.SyncData(entry);
+            }
+        }
         foreach (var entry in saveData.warExtraData)
         {
             if (entry == null) continue;
@@ -331,6 +340,8 @@ public static class DataManager
         saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.GetExtraData<Kingdom, KingdomExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.warExtraData = World.world.wars.Select(a => a.GetExtraData<War, WarExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.clanExtraData = World.world.clans.Select(a => a.GetExtraData<Clan, ClanExtraData>(true)).Where(ed => ed != null).ToList(); ;
+        saveData.bookExtraData = World.world.books.Select(b => b.GetExtraData<Book, BookExtension.BookExtraData>(true))
+            .Where(ed => ed != null && (!string.IsNullOrEmpty(ed.landmark_id) || !string.IsNullOrEmpty(ed.culture))).ToList();
         saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
         saveData.empireCoreDatas = EmpireCoreManager.EmpireCores.Values.Where(c => c != null).ToList();
         saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);

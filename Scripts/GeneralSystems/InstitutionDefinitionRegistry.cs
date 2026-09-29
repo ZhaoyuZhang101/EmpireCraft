@@ -15,7 +15,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   InstitutionTrees/<线 id>.json    一条科技线，文件名即线 id
 //   InstitutionTrees/Common/*.json   公共制度模板，可被任意线用 {"template": "..."} 实例化
 //
-// 目录里每多一个 json 就多一条线，不需要改任何代码；文化通过 CultureRulesConfig.json 里
+// 目录里每多一个 json 就多一条线，不需要改任何代码；文化通过 CultureRule.json 里
 // setting.institution_line 认领自己属于哪条线。
 //
 // 这里刻意不再从 Regimes/Configs/*/SystemConfig.json 里读树：制度归属文化（进而归属线），
@@ -349,7 +349,7 @@ public static class InstitutionDefinitionRegistry
                 LogService.LogWarning($"{pair.Key} 线没有配置 root_nodes，该线文化开局会是完全空白的树。");
             else if (!TryGetRootRegime(pair.Key, out _))
                 LogService.LogWarning($"{pair.Key} 线的根节点没有声明 regime，该线文化的初始政体只能退回" +
-                                      "CultureRulesConfig.json 里的 setting.regime。");
+                                      "CultureRule.json 里的 setting.regime。");
         }
 
         foreach (string line in Trees.Keys)

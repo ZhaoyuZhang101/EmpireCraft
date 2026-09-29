@@ -1,0 +1,6 @@
+key,cz,en,ch
+book_template_japan_family_story_1,$word$,$word$,$word$
+book_template_japan_family_story_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_japan_family_story_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_japan_family_story_4,续$word$,"$word$, Continued",續$word$
+book_template_japan_family_story_5,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$

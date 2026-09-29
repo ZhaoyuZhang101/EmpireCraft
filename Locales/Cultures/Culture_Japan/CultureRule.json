@@ -1,0 +1,77 @@
+{
+    "name": "Japan",
+    "color": "#BC002D",
+    "translate_cz": "日本",
+    "setting": {
+        "regime": "ZhouFeudalism",
+        "institution_line": "Huaxia",
+        "traits": ["patriarchy"],
+        "City": {
+            "groups": {
+                "group_1": "CityNames1",
+                "group_2": "CityNames2",
+                "group_3": "CityNames3"
+            },
+            "rule": [ "group_1", "group_2" ],
+            "name_pos": 0
+        },
+        "Clan": {
+            "groups": {
+                "group_1": "ClanNames",
+                "group_2": "Clan",
+                "group_3": "\u200A"
+            },
+            "rule": [ "group_1", "group_3", "group_2" ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false,
+            "sex_post_Male": ["", "", ""],
+            "sex_post_Female": ["", "", ""]
+        },
+        "Family": {
+            "groups": {
+                "group_1": "FamilyNames",
+                "group_2": "Family",
+                "group_3": "\u200A"
+            },
+            "rule": [ "group_1", "group_3", "group_2" ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false
+        },
+        "Unit": {
+            "groups": {
+                "group_1": "UnitNamesMale1",
+                "group_2": "UnitNamesMale2",
+                "group_3": "UnitNamesFemale1",
+                "group_4": "UnitNamesFemale2"
+            },
+            "rule": [
+                "group_1",
+                "sex_male",
+                "group_2",
+                "sex_male",
+                "coin_flip",
+                "group_3",
+                "sex_female",
+                "group_4",
+                "sex_female",
+                "coin_flip"
+            ],
+            "name_pos": 1,
+            "is_invert": false
+        },
+        "Kingdom": {
+            "groups": {
+                "group_1": "CountryNames"
+            },
+            "rule": [ "group_1" ],
+            "name_pos": 0,
+            "english_type_prefix": false
+        }
+    },
+    "beaurau_config": {
+        "CoreOffice": [],
+        "Divisions": []
+    }
+}

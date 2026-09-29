@@ -22,6 +22,9 @@ public class CultureRule
     // 不配置时 GetCultureColor 会退化成按文化名哈希取一个固定但随意的颜色，
     // 不会报错，但同名文化每次读表颜色都一样（哈希是确定性的）。
     public string color;
+    // 哪些物种默认属于这个文化(物种 id，比如 "human"、"civ_fox")。可选；
+    // 会覆盖代码里 ConfigData.speciesCulturePair 的默认映射，玩家的 CultureSpeciesPairPlayerConfig.json 仍然优先。
+    public List<string> species;
     public Setting setting;
 }
 
@@ -101,25 +104,71 @@ public static class OnomasticsRule
 {
     public static Dictionary<string, Setting> ALL_CULTURE_RULE = new Dictionary<string, Setting>();
     public static Dictionary<string, (string ch, string cz, string en)> ALL_CULTURE_TRANSLATE = new Dictionary<string, (string ch, string cz, string en)>();
-    // 每种文化的预制染色（来自 CultureRulesConfig.json 的 color 字段），供地图上
+    // 每种文化的预制染色（来自 CultureRule.json 的 color 字段），供地图上
     // 文化图层的地块底色/悬停高亮使用，避免继续用原版自带的、跟模组文化实体对不上
     // 的颜色，也避免像铭牌图标那样只是"看着还行"的哈希取色（那个是给旗帜图标用的，
     // 玩家不会拿它跟别的文化的颜色反复比较；地图底色不一样，需要真正稳定可配置）。
     public static Dictionary<string, Color> ALL_CULTURE_COLOR = new Dictionary<string, Color>();
+    // 每个文化一个文件夹：Locales/Cultures/Culture_<文化>/CultureRule.json 放规则，同文件夹放各种词库 CSV。
+    // 加一个文化只要新建这个文件夹，不用改代码也不用动别的文件。
+    // 旧版的根目录 CultureRulesConfig.json(一个数组)如果还在也照读，文件夹里的同名文化覆盖它。
+    public const string RuleFileName = "CultureRule.json";
+
     public static void ReadSetting()
     {
-        string settingPath = Path.Combine(ModClass._declare.FolderPath, "CultureRulesConfig.json");
-        string text = File.ReadAllText(settingPath);
-        List<CultureRule>  cultureRules = JsonConvert.DeserializeObject<List<CultureRule>>(text);
-        foreach (CultureRule cultureRule in cultureRules)
+        var rules = new List<CultureRule>();
+        string legacyPath = Path.Combine(ModClass._declare.FolderPath, "CultureRulesConfig.json");
+        if (File.Exists(legacyPath))
         {
-            ALL_CULTURE_TRANSLATE.Add(cultureRule.name, (cultureRule.translate_ch, cultureRule.translate_cz, string.IsNullOrEmpty(cultureRule.translate_en)?cultureRule.name:cultureRule.translate_en));
-            ALL_CULTURE_RULE.Add(cultureRule.name, cultureRule.setting);
+            try
+            {
+                rules.AddRange(JsonConvert.DeserializeObject<List<CultureRule>>(File.ReadAllText(legacyPath)) ?? new List<CultureRule>());
+            }
+            catch (Exception e)
+            {
+                LogService.LogWarning($"[EmpireCraft] 读取 {legacyPath} 失败: {e.Message}");
+            }
+        }
+        foreach (string file in CultureRuleFiles())
+        {
+            try
+            {
+                CultureRule rule = JsonConvert.DeserializeObject<CultureRule>(File.ReadAllText(file));
+                if (rule == null) continue;
+                // 没写 name 就用文件夹名(Culture_Xxx → Xxx)
+                if (string.IsNullOrWhiteSpace(rule.name))
+                    rule.name = Path.GetFileName(Path.GetDirectoryName(file))!.Substring("Culture_".Length);
+                rules.Add(rule);
+            }
+            catch (Exception e)
+            {
+                LogService.LogWarning($"[EmpireCraft] 文化配置 {file} 格式有误，已跳过: {e.Message}");
+            }
+        }
+        foreach (CultureRule cultureRule in rules)
+        {
+            if (string.IsNullOrWhiteSpace(cultureRule?.name) || cultureRule.setting == null) continue;
+            ALL_CULTURE_TRANSLATE[cultureRule.name] = (cultureRule.translate_ch, cultureRule.translate_cz, string.IsNullOrEmpty(cultureRule.translate_en)?cultureRule.name:cultureRule.translate_en);
+            ALL_CULTURE_RULE[cultureRule.name] = cultureRule.setting;
             if (!string.IsNullOrEmpty(cultureRule.color) && ColorUtility.TryParseHtmlString(cultureRule.color, out Color parsedColor))
             {
                 ALL_CULTURE_COLOR[cultureRule.name] = parsedColor;
             }
+            if (cultureRule.species != null)
+                foreach (string species in cultureRule.species.Where(id => !string.IsNullOrWhiteSpace(id)))
+                    ConfigData.speciesCulturePair[species.Trim()] = cultureRule.name;
             LogService.LogInfo("载入文化配置"+cultureRule.name);
+        }
+    }
+
+    public static IEnumerable<string> CultureRuleFiles()
+    {
+        string root = Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures");
+        if (!Directory.Exists(root)) yield break;
+        foreach (string dir in Directory.EnumerateDirectories(root, "Culture_*").OrderBy(d => d, StringComparer.Ordinal))
+        {
+            string file = Path.Combine(dir, RuleFileName);
+            if (File.Exists(file)) yield return file;
         }
     }
 

@@ -39,6 +39,7 @@ public class WarPatch: GamePatch
         );
         new Harmony(nameof(update)).Patch(
             AccessTools.Method(typeof(War), nameof(War.update)),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(DropBrokenWar)) { priority = Priority.First },
             postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(update))
         );
 
@@ -63,9 +64,35 @@ public class WarPatch: GamePatch
         LogService.LogInfo("战争补丁加载成功");
     }
     
+    private static readonly HashSet<long> _brokenWarsLogged = new();
+
+    // 原版 War.update 默认主攻方、主守方都在：任何一方的王国查不到(比如开战时守方传了 null，
+    // 或者王国在同一帧被革命/叛乱抹掉)就会在 main_defender.isAlive() 上崩，而且战争永远结束不了，每帧报一次。
+    // 这种战争直接判和结束。
+    public static bool DropBrokenWar(War __instance)
+    {
+        if (__instance?.data == null || __instance.hasEnded()) return true;
+        if (__instance.getMainAttacker() != null &&
+            (__instance.isTotalWar() || __instance.getMainDefender() != null)) return true;
+        try
+        {
+            World.world.wars.endWar(__instance, WarWinner.Nobody);
+        }
+        catch (Exception exception)
+        {
+            if (_brokenWarsLogged.Add(__instance.data.id))
+                LogService.LogWarning($"[EmpireCraft] 结束缺少主攻/主守方的战争 {__instance.data.name} 失败: {exception.Message}");
+            return false;
+        }
+        if (_brokenWarsLogged.Add(__instance.data.id))
+            LogService.LogInfo($"[EmpireCraft] 战争 {__instance.data.name} 缺少主攻方或主守方，已自动结束");
+        return false;
+    }
+
     public static void update(War __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        if (__instance.getMainAttacker() == null) return; // 坏战争，前置已经处理
 
         RecordWarDeclared(__instance);
         if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.索取法理)

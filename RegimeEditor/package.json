@@ -1,7 +1,7 @@
 {
   "name": "empirecraft-regime-editor",
   "version": "0.1.0",
-  "description": "Electron desktop wrapper for the EmpireCraft regime editor.",
+  "description": "EmpireCraft editors: regimes, cultures, tech and institution nodes.",
   "main": "main.js",
   "author": "Codex",
   "license": "MIT",
@@ -15,17 +15,23 @@
   },
   "build": {
     "appId": "com.empirecraft.regimeeditor",
-    "productName": "EmpireCraft Regime Editor",
+    "productName": "EmpireCraft Editor",
     "directories": {
       "output": "dist"
     },
     "files": [
+      "CustomRegimeTemplate/**/*",
+      "assets/**/*",
+      "common.css",
+      "common.js",
+      "culture.html",
+      "editor-core.js",
       "index.html",
       "main.js",
+      "nodes.html",
+      "package.json",
       "preload.js",
-      "regime_enum_sync.py",
-      "CustomRegimeTemplate/**/*",
-      "package.json"
+      "regime_enum_sync.py"
     ],
     "win": {
       "target": [

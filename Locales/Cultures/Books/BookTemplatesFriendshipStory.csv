@@ -1,0 +1,7 @@
+key,cz,en,ch
+book_template_default_friendship_story_1,$word$,$word$,$word$
+book_template_default_friendship_story_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_default_friendship_story_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_default_friendship_story_4,$author$的$word$,$author$'s $word$,$author$的$word$
+book_template_default_friendship_story_5,新$word$,New $word$,新$word$
+book_template_default_friendship_story_6,$era$$word$,$word$ of the $era$,$era$$word$

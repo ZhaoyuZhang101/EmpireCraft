@@ -1888,7 +1888,7 @@ public static class KingdomExtension
         if (k?.data == null || k.isRekt()) return;
         var culture = CultureService.GetRealmCulture(k);
         // 初始政体由该文化所属科技线的**一级制度**决定（华夏开局是周制，律令要等郡县官僚
-        // 研究出来），线里没声明才退回 CultureRulesConfig.json 里的 setting.regime。
+        // 研究出来），线里没声明才退回 CultureRule.json 里的 setting.regime。
         RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)
             ? resolvedRegime
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)

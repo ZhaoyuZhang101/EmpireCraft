@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmpireCraft 科技 / 制度节点编辑器</title>
+  <link rel="stylesheet" href="common.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="side">
+      <label class="field">数据源<select id="sourceSel"></select></label>
+      <div class="toolbar">
+        <button class="primary small" id="addBtn"><img class="ico sm" src="assets/icons/iconShovelPlus.png">新节点</button>
+        <button class="small" id="cloneBtn">复制</button>
+        <button class="small danger" id="delBtn">删除</button>
+      </div>
+      <input id="nodeFilter" placeholder="搜索 id / 名称…" />
+      <select id="groupFilter"></select>
+      <div class="list" id="nodeList"></div>
+      <div class="toolbar">
+        <button class="primary" id="saveBtn"><img class="ico sm" src="assets/icons/iconSaveLocal.png">保存文件</button>
+        <button id="reloadBtn">重新读取</button>
+      </div>
+    </aside>
+    <main class="panel">
+      <div class="graph" id="graph"></div>
+      <div id="editor" style="margin-top:14px"><p class="muted">从左侧或上面的图里选一个节点。</p></div>
+    </main>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    // ---------- 数据源定义 ----------
+    // 每个数据源 = 一个 json 文件里的一个节点数组；字段按类型给出编辑控件，没列出的字段放进“其它字段(JSON)”
+    const SOURCES = [];
+    const S = { docs: {}, source: null, selected: null, dirty: new Set(), locales: {}, localeEdits: {}, landmarkCsv: null, lookups: {} };
+
+    function techSource() {
+      return {
+        id: "tech", label: "科技树 · 技术", icon: "iconKnowledge", file: "Technology/TechTree.json", path: "techs",
+        level: "tier", group: "branch", idPrefix: "",
+        nameKey: n => `tech_${n.id}`, descKey: n => `tech_${n.id}_desc`,
+        fields: [
+          ["branch", "分支", "select", () => (doc("Technology/TechTree.json").branches || []).filter(b => b !== "material")],
+          ["tier", "层级(时代)", "number"], ["cost", "基础花费", "number"], ["research_bonus", "研究加成(小数)", "number"],
+          ["requires_techs", "前置技术", "refs", "tech"], ["requires_materials", "需要材料", "refs", "material"],
+          ["requires_institutions", "需要制度特性", "instreq"],
+          ["unlock_materials", "解锁打造材料(原版装备材料，如 bronze、steel)", "chips", () => uniq(["wood", "stone", "leather", "copper", "bronze", "silver", "iron", "steel", "mythril", "adamantine", ...collect("techs", "unlock_materials")])],
+          ["unlock_items", "解锁装备", "chips", () => collect("techs", "unlock_items")],
+          ["unlock_buildings", "解锁建筑", "chips", () => collect("techs", "unlock_buildings")],
+          ["unlock_units", "解锁单位", "chips", () => collect("techs", "unlock_units")],
+          ["boosts", "灵感(提前达成条件打折)", "boosts"]
+        ],
+        refFields: ["requires_techs"], refOthers: { material: ["requires_materials"] },
+        template: () => ({ id: "new_tech", branch: "science", tier: 1, cost: 10, requires_techs: [], requires_materials: [] })
+      };
+    }
+    function materialSource() {
+      return {
+        id: "material", label: "科技树 · 材料", icon: "iconCraftIron", file: "Technology/TechTree.json", path: "materials",
+        level: "tier", group: null,
+        nameKey: n => `tech_mat_${n.id}`, descKey: n => `tech_mat_${n.id}_desc`,
+        fields: [["tier", "层级", "number"], ["requires_techs", "需要技术", "refs", "tech"], ["resources", "发现条件：城市资源", "resources"]],
+        refFields: [], refOthers: {},
+        template: () => ({ id: "new_material", tier: 1, resources: [] })
+      };
+    }
+    function institutionSource(line) {
+      return {
+        id: "inst:" + line, label: `制度线 · ${line}`, icon: "iconWorldLaws", file: `InstitutionTrees/${line}.json`, path: "nodes",
+        level: "advancement", group: "branch",
+        nameKey: n => n.name_key || (n.template ? templateOf(n.template)?.name_key : null) || `institution_${n.id}`,
+        descKey: n => n.description_key || (n.template ? templateOf(n.template)?.description_key : null) || `institution_${n.id}_desc`,
+        fields: [
+          ["template", "继承公共模板", "select", () => ["", ...templates().map(t => t.id)]],
+          ["name_key", "名称 key", "text"], ["description_key", "描述 key", "text"],
+          ["branch", "分支", "select", () => ["administration", "finance", "military", "society"]],
+          ["advancement", "进阶度(文明等级)", "number"],
+          ["regime", "完成后切换政体", "select", () => ["", ...(S.lookups.regimes || [])]],
+          ["requires", "前置(全部)", "refs", "self"], ["requires_any", "前置(任一)", "refs", "self"],
+          ["exclusive_with", "互斥", "refs", "self"], ["replaces", "取代", "refs", "self"],
+          ["features", "制度特性", "kv", () => S.lookups.features || []]
+        ],
+        refFields: ["requires", "requires_any", "exclusive_with", "replaces"], refOthers: {},
+        template: () => ({ id: `${line.toLowerCase()}_new_policy`, name_key: `institution_${line.toLowerCase()}_new_policy`, description_key: `institution_${line.toLowerCase()}_new_policy_desc`, branch: "administration", advancement: 1, requires: [] })
+      };
+    }
+    function templateSource() {
+      return {
+        id: "templates", label: "制度 · 公共模板", icon: "iconCultureList", file: "InstitutionTrees/Common/Templates.json", path: "templates",
+        level: null, group: "branch",
+        nameKey: n => n.name_key || `institution_${n.id}`, descKey: n => n.description_key || `institution_${n.id}_desc`,
+        fields: [["name_key", "名称 key", "text"], ["description_key", "描述 key", "text"],
+          ["branch", "分支", "select", () => ["", "administration", "finance", "military", "society"]],
+          ["features", "制度特性", "kv", () => S.lookups.features || []]],
+        refFields: [], refOthers: {},
+        template: () => ({ id: "new_template", name_key: "institution_new_template", description_key: "institution_new_template_desc" })
+      };
+    }
+    function landmarkSource() {
+      return {
+        id: "landmark", label: "传世名著", icon: "iconBooksWritten", file: "Technology/LandmarkBooks.json", path: "books",
+        level: null, group: "category", landmark: true,
+        fields: [
+          ["category", "类别", "select", () => ["politics", "economy", "military", "science", "history", "literature"]],
+          ["tech", "触发：研究出技术", "select", () => ["", ...ids("tech")]],
+          ["feature", "触发：制度特性", "select", () => ["", ...(S.lookups.features || [])]],
+          ["techs", "推动技术(进度比例)", "kv", () => ids("tech")],
+          ["institutions", "推动制度(特性 → 进度，* 结尾为前缀匹配)", "kv", () => S.lookups.features || []],
+          ["institution_progress", "推动当前改革进度", "number"]
+        ],
+        refFields: [], refOthers: {},
+        template: () => ({ id: "new_book", category: "literature", techs: {} })
+      };
+    }
+
+    // ---------- 读写 ----------
+    function doc(file) { return S.docs[file]?.data; }
+    function nodes(src = S.source) { const d = doc(src.file); return d ? (d[src.path] = d[src.path] || []) : []; }
+    function ids(sourceId) { const src = SOURCES.find(s => s.id === sourceId); return src ? nodes(src).map(n => n.id) : []; }
+    function templates() { return doc("InstitutionTrees/Common/Templates.json")?.templates || []; }
+    function templateOf(id) { return templates().find(t => t.id === id); }
+    function collect(path, field) { return uniq(nodes(SOURCES.find(s => s.path === path)).flatMap(n => n[field] || [])).sort(); }
+
+    async function loadDoc(file) {
+      const r = await api.readText(file);
+      if (!r.exists) return;
+      const indent = (r.text.match(/\n([ \t]+)"/) || [, "  "])[1];
+      S.docs[file] = { data: parseJsonLoose(r.text), indent, crlf: r.text.includes("\r\n") };
+    }
+
+    async function loadAll() {
+      SOURCES.length = 0;
+      S.docs = {}; S.dirty.clear(); S.localeEdits = {};
+      S.lookups.regimes = (await api.listDir("Scripts/Regimes/Configs")).filter(e => e.dir).map(e => e.name).sort();
+      await loadDoc("Technology/TechTree.json");
+      await loadDoc("Technology/LandmarkBooks.json");
+      await loadDoc("InstitutionTrees/Common/Templates.json");
+      SOURCES.push(techSource(), materialSource());
+      const lines = (await api.listDir("InstitutionTrees")).filter(e => !e.dir && e.name.endsWith(".json") && e.name !== "Settings.json").map(e => e.name.slice(0, -5)).sort();
+      for (const line of lines) { await loadDoc(`InstitutionTrees/${line}.json`); SOURCES.push(institutionSource(line)); }
+      SOURCES.push(templateSource(), landmarkSource());
+      // 所有制度线里出现过的特性，供下拉提示
+      const feats = new Set();
+      for (const s of SOURCES.filter(s => s.id.startsWith("inst:") || s.id === "templates"))
+        for (const n of nodes(s)) Object.keys(n.features || {}).forEach(f => feats.add(f));
+      for (const l of doc("Technology/TechTree.json")?.institution_links || []) feats.add(l.feature);
+      S.lookups.features = [...feats].sort();
+      const r = await api.readText("Locales/Cultures/Books/LandmarkBooks.csv");
+      S.landmarkCsv = r.exists ? parseCsv(r.text) : { header: ["key", "cz", "en", "ch"], rows: [] };
+      // 读所有节点名称的本地化
+      const keys = [];
+      for (const s of SOURCES) if (s.nameKey) for (const n of nodes(s)) keys.push(s.nameKey(n), s.descKey(n));
+      S.locales = await api.readLocales(uniq(keys));
+      const sel = document.getElementById("sourceSel");
+      sel.innerHTML = SOURCES.map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join("");
+      const keep = S.source?.id;
+      selectSource(SOURCES.find(s => s.id === keep) ? keep : SOURCES[0].id);
+    }
+
+    function selectSource(id) {
+      S.source = SOURCES.find(s => s.id === id);
+      S.selected = null;
+      document.getElementById("sourceSel").value = id;
+      const groups = S.source.group ? uniq(nodes().map(n => n[S.source.group] || "")).sort() : [];
+      document.getElementById("groupFilter").innerHTML = `<option value="">全部分组</option>` + groups.map(g => `<option>${esc(g)}</option>`).join("");
+      document.getElementById("groupFilter").style.display = groups.length ? "" : "none";
+      renderList(); renderGraph(); renderEditor();
+    }
+
+    function nodeName(n, src = S.source) {
+      if (src.landmark) {
+        const row = S.landmarkCsv.rows.find(r => r[0] === `landmark_book_${n.id}`);
+        return row ? (row[1] || row[2]) : n.id;
+      }
+      const key = src.nameKey?.(n);
+      const edit = S.localeEdits[key];
+      return edit?.cz || S.locales[key]?.cz || S.locales[key]?.en || n.id;
+    }
+
+    function filteredNodes() {
+      const q = document.getElementById("nodeFilter").value.trim().toLowerCase();
+      const g = document.getElementById("groupFilter").value;
+      return nodes().filter(n => (!g || (n[S.source.group] || "") === g) &&
+        (!q || String(n.id).toLowerCase().includes(q) || nodeName(n).toLowerCase().includes(q)));
+    }
+
+    function renderList() {
+      const src = S.source;
+      const list = document.getElementById("nodeList");
+      const sorted = [...filteredNodes()].sort((a, b) => (src.level ? (a[src.level] || 0) - (b[src.level] || 0) : 0) || String(a.id).localeCompare(String(b.id)));
+      list.innerHTML = sorted.map(n => `<div class="item ${n === S.selected ? "active" : ""}" data-id="${esc(n.id)}">${ico(src.icon, "sm")}${esc(nodeName(n))}
+        <span class="sub">${src.level ? "L" + (n[src.level] ?? "?") + " · " : ""}${esc(n.id)}</span></div>`).join("");
+      list.querySelectorAll(".item").forEach(el => el.onclick = () => selectNode(el.dataset.id));
+      document.getElementById("saveBtn").classList.toggle("dirty", S.dirty.size > 0 || Object.keys(S.localeEdits).length > 0);
+    }
+
+    function selectNode(id) {
+      S.selected = nodes().find(n => n.id === id) || null;
+      renderList(); renderGraph(); renderEditor();
+    }
+
+    // ---------- 关系图 ----------
+    function renderGraph() {
+      const src = S.source, box = document.getElementById("graph");
+      const list = filteredNodes();
+      const levelOf = n => src.level ? Number(n[src.level] || 0) : 0;
+      const levels = uniq(list.map(levelOf)).sort((a, b) => a - b);
+      const cols = {};
+      const pos = new Map();
+      for (const n of [...list].sort((a, b) => String(a[src.group] || "").localeCompare(String(b[src.group] || "")) || String(a.id).localeCompare(String(b.id)))) {
+        const c = levels.indexOf(levelOf(n));
+        cols[c] = (cols[c] || 0) + 1;
+        pos.set(n.id, { x: 12 + c * 190, y: 12 + (cols[c] - 1) * 34, n });
+      }
+      const w = 12 + levels.length * 190, h = 20 + Math.max(1, ...Object.values(cols)) * 34;
+      const refs = src.refFields.length ? src.refFields : [];
+      const sel = S.selected;
+      const related = new Set();
+      if (sel) {
+        refs.forEach(f => (sel[f] || []).forEach(id => related.add(id)));
+        list.forEach(n => refs.some(f => (n[f] || []).includes(sel.id)) && related.add(n.id));
+      }
+      let lines = "";
+      for (const { x, y, n } of pos.values())
+        for (const f of refs) for (const id of n[f] || []) {
+          const p = pos.get(id); if (!p) continue;
+          const hot = sel && (n === sel || id === sel.id);
+          const dash = f === "requires" || f === "requires_techs" ? "" : ' stroke-dasharray="4 3"';
+          lines += `<path d="M${p.x + 150} ${p.y + 13} C${p.x + 170} ${p.y + 13},${x - 20} ${y + 13},${x} ${y + 13}" fill="none" stroke="${hot ? "#8d3a1f" : "#b8995f"}" stroke-width="${hot ? 2 : 1}"${dash}/>`;
+        }
+      box.innerHTML = `<svg width="${w}" height="${h}">${lines}</svg>` +
+        levels.map((lv, i) => src.level ? `<div style="position:absolute;left:${12 + i * 190}px;top:0;font-size:11px;color:var(--muted)">L${lv}</div>` : "").join("") +
+        [...pos.values()].map(({ x, y, n }) => `<div class="gnode ${n === sel ? "active" : related.has(n.id) ? "rel" : ""}" style="left:${x}px;top:${y + 4}px" data-id="${esc(n.id)}" title="${esc(n.id)}">${esc(nodeName(n))}</div>`).join("");
+      box.querySelectorAll(".gnode").forEach(el => el.onclick = () => selectNode(el.dataset.id));
+      const act = box.querySelector(".gnode.active");
+      if (act) act.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+
+    // ---------- 节点表单 ----------
+    function markDirty() { S.dirty.add(S.source.file); document.getElementById("saveBtn").classList.add("dirty"); }
+
+    function renderEditor() {
+      const box = document.getElementById("editor"), src = S.source, n = S.selected;
+      if (!n) { box.innerHTML = `<p class="muted">从左侧或上面的图里选一个节点。共 ${nodes().length} 个节点。</p>`; return; }
+      const known = new Set(src.fields.map(f => f[0]).concat(["id"]));
+      const rest = Object.fromEntries(Object.entries(n).filter(([k]) => !known.has(k)));
+      const nameKey = src.nameKey?.(n), descKey = src.descKey?.(n);
+      const loc = k => ({ ...(S.locales[k] || {}), ...(S.localeEdits[k] || {}) });
+      const lmRow = src.landmark ? (S.landmarkCsv.rows.find(r => r[0] === `landmark_book_${n.id}`) || null) : null;
+      const inherited = n.template ? templateOf(n.template) : null;
+      box.innerHTML = `<div class="card">
+        <h2>${ico(src.icon, "lg")}${esc(nodeName(n))} <span class="badge">${esc(n.id)}</span></h2>
+        <div class="grid four">
+          <label class="field">id<input id="fId" value="${esc(n.id)}"></label>
+          ${src.landmark ? ["cz", "en", "ch"].map((l, i) => `<label class="field">书名 ${l}<input data-lm="${i + 1}" value="${esc(lmRow?.[i + 1] || "")}"></label>`).join("")
+          : ["cz", "en", "ch"].map(l => `<label class="field">名称 ${l}<input data-loc="${esc(nameKey)}" data-lang="${l}" value="${esc(loc(nameKey)[l] || "")}"></label>`).join("")}
+        </div>
+        ${src.landmark ? `<p class="muted">通用书名写在 Locales/Cultures/Books/LandmarkBooks.csv；各文化自己的书名在文化编辑器 → 书籍词库 → 传世名著。</p>` :
+          `<div class="grid three" style="margin-top:8px">${["cz", "en", "ch"].map(l => `<label class="field">描述 ${l}<textarea data-loc="${esc(descKey)}" data-lang="${l}" style="min-height:60px">${esc(loc(descKey)[l] || "")}</textarea></label>`).join("")}</div>
+          <p class="muted" style="margin:4px 0 0">本地化 key：${esc(nameKey)} / ${esc(descKey)}(保存时写入 Locales/cz.json、en.json、ch.json)</p>`}
+        ${inherited ? `<div class="note" style="margin-top:8px">继承公共模板 <b>${esc(inherited.id)}</b>：这里没写的字段沿用模板(对象逐字段合并、数组整体替换)。</div>` : ""}
+        <div class="grid two" id="fFields" style="margin-top:10px"></div>
+        <h3>其它字段(JSON)</h3>
+        <textarea class="code" id="fRest" style="min-height:160px">${esc(Object.keys(rest).length ? JSON.stringify(rest, null, 2) : "")}</textarea>
+        <p class="muted">改完点别处生效。制度节点的 reform / politics / research / resistance / effects_on_complete 等写在这里。</p>
+        ${src.refFields.length ? `<h3>被谁依赖</h3><div class="chips">${nodes().filter(o => src.refFields.some(f => (o[f] || []).includes(n.id))).map(o => `<span class="chip" style="cursor:pointer" data-go="${esc(o.id)}">${esc(nodeName(o))}</span>`).join("") || `<span class="muted">没有</span>`}</div>` : ""}
+      </div>`;
+      const fields = box.querySelector("#fFields");
+      for (const [key, label, type, opt] of src.fields) fields.appendChild(fieldWidget(n, key, label, type, opt));
+      box.querySelector("#fId").onchange = e => renameNode(n, e.target.value.trim());
+      box.querySelectorAll("[data-loc]").forEach(inp => inp.oninput = () => {
+        const k = inp.dataset.loc; S.localeEdits[k] = { ...(S.localeEdits[k] || {}), [inp.dataset.lang]: inp.value };
+        document.getElementById("saveBtn").classList.add("dirty");
+      });
+      box.querySelectorAll("[data-lm]").forEach(inp => inp.oninput = () => {
+        let row = S.landmarkCsv.rows.find(r => r[0] === `landmark_book_${n.id}`);
+        if (!row) { row = [`landmark_book_${n.id}`, "", "", ""]; S.landmarkCsv.rows.push(row); }
+        row[Number(inp.dataset.lm)] = inp.value; S.landmarkCsv.dirty = true;
+        document.getElementById("saveBtn").classList.add("dirty");
+      });
+      box.querySelector("#fRest").onchange = e => {
+        let obj = {};
+        try { obj = e.target.value.trim() ? parseJsonLoose(e.target.value) : {}; } catch (err) { return toast("其它字段 JSON 格式错误：" + err.message, true); }
+        for (const k of Object.keys(n)) if (!known.has(k)) delete n[k];
+        Object.assign(n, obj); markDirty(); toast("已更新其它字段");
+      };
+      box.querySelectorAll("[data-go]").forEach(el => el.onclick = () => selectNode(el.dataset.go));
+    }
+
+    function setField(n, key, value) {
+      const empty = value === "" || value === null || value === undefined || (Array.isArray(value) && !value.length) ||
+        (typeof value === "object" && !Array.isArray(value) && !Object.keys(value).length);
+      if (empty) delete n[key]; else n[key] = value;
+      markDirty();
+    }
+
+    function fieldWidget(n, key, label, type, opt) {
+      const wrap = document.createElement("div");
+      const full = ["refs", "chips", "boosts", "instreq", "resources", "kv"].includes(type);
+      if (full) wrap.style.gridColumn = "1 / -1";
+      if (type === "text" || type === "number") {
+        wrap.innerHTML = `<label class="field">${label}<input type="${type}" step="any" value="${esc(n[key] ?? "")}"></label>`;
+        wrap.querySelector("input").onchange = e => { setField(n, key, type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value.trim()); if (key === S.source.level || key === S.source.group) { renderList(); renderGraph(); } };
+      } else if (type === "select") {
+        const options = uniq(["", ...opt(), n[key] || ""]);
+        wrap.innerHTML = `<label class="field">${label}<select>${options.map(o => `<option value="${esc(o)}" ${o === (n[key] || "") ? "selected" : ""}>${esc(o || "(无)")}</option>`).join("")}</select></label>`;
+        wrap.querySelector("select").onchange = e => { setField(n, key, e.target.value); if (key === "template") renderEditor(); if (key === S.source.group) { renderList(); renderGraph(); } };
+      } else if (type === "refs" || type === "chips") {
+        const target = type === "refs" ? (opt === "self" ? S.source.id : opt) : null;
+        const values = [...(n[key] || [])];
+        const suggestions = type === "refs" ? ids(target) : opt();
+        wrap.innerHTML = `<label class="field">${label}</label>`;
+        wrap.appendChild(chipEditor(values, {
+          suggestions, known: type === "refs" ? new Set(ids(target)) : null, placeholder: "回车添加",
+          onChange: v => { setField(n, key, [...v]); renderGraph(); }
+        }));
+      } else if (type === "kv") {
+        const map = { ...(n[key] || {}) };
+        const listId = "kv" + Math.random().toString(36).slice(2);
+        const draw = () => {
+          wrap.innerHTML = `<label class="field">${label}</label><datalist id="${listId}">${opt().map(s => `<option value="${esc(s)}">`).join("")}</datalist>
+            <table class="sheet"><tr><th>键</th><th style="width:140px">值</th><th class="act"></th></tr>
+            ${Object.entries(map).map(([k, v], i) => `<tr><td><input list="${listId}" data-k="${i}" value="${esc(k)}"></td><td><input type="number" step="any" data-v="${i}" value="${esc(v)}"></td><td class="act"><button class="small" data-d="${i}">×</button></td></tr>`).join("")}
+            </table><button class="small" data-add style="margin-top:4px">＋ 一项</button>`;
+          const commit = () => { setField(n, key, { ...map }); };
+          wrap.querySelectorAll("[data-k]").forEach(inp => inp.onchange = () => {
+            const e = Object.entries(map); const i = Number(inp.dataset.k); e[i][0] = inp.value.trim();
+            Object.keys(map).forEach(k => delete map[k]); e.forEach(([k, v]) => k && (map[k] = v)); commit(); draw();
+          });
+          wrap.querySelectorAll("[data-v]").forEach(inp => inp.onchange = () => { const k = Object.keys(map)[Number(inp.dataset.v)]; map[k] = Number(inp.value); commit(); });
+          wrap.querySelectorAll("[data-d]").forEach(b => b.onclick = () => { delete map[Object.keys(map)[Number(b.dataset.d)]]; commit(); draw(); });
+          wrap.querySelector("[data-add]").onclick = () => { let k = "new_key", i = 1; while (map[k] !== undefined) k = `new_key_${i++}`; map[k] = 1; commit(); draw(); };
+        };
+        draw();
+      } else {
+        // 对象数组：boosts / requires_institutions / resources
+        const cols = {
+          boosts: [["type", "类型", ["resource", "building_type", "population", "cities", "war_knows", "contact_knows", "institution_feature"]], ["value", "值"], ["amount", "数量", "number"]],
+          instreq: [["feature", "制度特性", S.lookups.features], ["min_value", "最低值", "number"]],
+          resources: [["id", "资源 id"], ["amount", "数量", "number"]]
+        }[type];
+        const rows = (n[key] || []).map(r => ({ ...r }));
+        const draw = () => {
+          wrap.innerHTML = `<label class="field">${label}</label>
+            <table class="sheet"><tr>${cols.map(c => `<th>${c[1]}</th>`).join("")}<th class="act"></th></tr>
+            ${rows.map((r, i) => `<tr>${cols.map(([f, , kind]) => Array.isArray(kind)
+              ? `<td><select data-r="${i}" data-f="${f}" style="border:none">${uniq([...kind, r[f] || ""]).map(o => `<option ${o === r[f] ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></td>`
+              : `<td><input data-r="${i}" data-f="${f}" ${kind === "number" ? 'type="number" step="any"' : ""} value="${esc(r[f] ?? "")}"></td>`).join("")}
+              <td class="act"><button class="small" data-d="${i}">×</button></td></tr>`).join("")}
+            </table><button class="small" data-add style="margin-top:4px">＋ 一行</button>`;
+          const commit = () => setField(n, key, rows.map(r => ({ ...r })));
+          wrap.querySelectorAll("[data-r]").forEach(inp => inp.onchange = () => {
+            const kind = cols.find(c => c[0] === inp.dataset.f)[2];
+            rows[inp.dataset.r][inp.dataset.f] = kind === "number" ? Number(inp.value) : inp.value; commit();
+          });
+          wrap.querySelectorAll("[data-d]").forEach(b => b.onclick = () => { rows.splice(Number(b.dataset.d), 1); commit(); draw(); });
+          wrap.querySelector("[data-add]").onclick = () => {
+            const r = {}; cols.forEach(([f, , kind]) => r[f] = kind === "number" ? 1 : Array.isArray(kind) ? (kind[0] || "") : ""); rows.push(r); commit(); draw();
+          };
+        };
+        draw();
+      }
+      return wrap;
+    }
+
+    // 改 id：同一文件里所有引用一起改，本地化 key(按 id 生成的那种)也跟着搬
+    function renameNode(n, newId) {
+      const src = S.source, oldId = n.id;
+      if (!newId || newId === oldId) return;
+      if (nodes().some(o => o.id === newId)) { toast(`id ${newId} 已存在`, true); renderEditor(); return; }
+      const oldName = src.nameKey?.(n), oldDesc = src.descKey?.(n);
+      n.id = newId;
+      for (const o of nodes()) for (const f of src.refFields) if (Array.isArray(o[f])) o[f] = o[f].map(x => x === oldId ? newId : x);
+      if (src.id === "material") for (const t of nodes(SOURCES.find(s => s.id === "tech")))
+        if (Array.isArray(t.requires_materials)) t.requires_materials = t.requires_materials.map(x => x === oldId ? newId : x);
+      if (src.id === "tech") {
+        const swap = arr => Array.isArray(arr) ? arr.map(x => x === oldId ? newId : x) : arr;
+        const swapKeys = obj => obj && typeof obj === "object" ? Object.fromEntries(Object.entries(obj).map(([k, v]) => [k === oldId ? newId : k, v])) : obj;
+        for (const m of nodes(SOURCES.find(s => s.id === "material"))) m.requires_techs = swap(m.requires_techs);
+        // 科技树里的其它引用：制度联动、工业、模组卡口
+        const tree = doc("Technology/TechTree.json");
+        for (const l of tree.institution_links || []) { l.requires_techs = swap(l.requires_techs); l.drivers = swapKeys(l.drivers); }
+        if (tree.industry) tree.industry.capitalist_budding_techs = swap(tree.industry.capitalist_budding_techs);
+        for (const g of tree.mod_gates || []) if (g.tech === oldId) g.tech = newId;
+        // 传世名著的触发技术和推动技术
+        const books = doc("Technology/LandmarkBooks.json");
+        if (books?.books) {
+          for (const b of books.books) { if (b.tech === oldId) b.tech = newId; b.techs = swapKeys(b.techs); }
+          S.dirty.add("Technology/LandmarkBooks.json");
+        }
+      }
+      if (src.nameKey && !n.name_key) {
+        const newName = src.nameKey(n), newDesc = src.descKey(n);
+        if (newName !== oldName) S.localeEdits[newName] = { ...(S.locales[oldName] || {}), ...(S.localeEdits[oldName] || {}) };
+        if (newDesc !== oldDesc) S.localeEdits[newDesc] = { ...(S.locales[oldDesc] || {}), ...(S.localeEdits[oldDesc] || {}) };
+      }
+      if (src.landmark) { const row = S.landmarkCsv.rows.find(r => r[0] === `landmark_book_${oldId}`); if (row) { row[0] = `landmark_book_${newId}`; S.landmarkCsv.dirty = true; } }
+      markDirty(); renderList(); renderGraph(); renderEditor();
+      toast(`已改名 ${oldId} → ${newId}，引用已同步`);
+    }
+
+    function addNode(clone) {
+      const src = S.source;
+      const base = clone && S.selected ? JSON.parse(JSON.stringify(S.selected)) : src.template();
+      let id = clone && S.selected ? `${S.selected.id}_copy` : base.id, i = 2;
+      while (nodes().some(o => o.id === id)) id = `${base.id}_${i++}`;
+      base.id = id;
+      if (base.name_key && clone) base.name_key = `institution_${id}`;
+      if (base.description_key && clone) base.description_key = `institution_${id}_desc`;
+      nodes().push(base);
+      markDirty(); selectNode(id);
+    }
+
+    function deleteNode() {
+      const src = S.source, n = S.selected;
+      if (!n) return;
+      const users = nodes().filter(o => src.refFields.some(f => (o[f] || []).includes(n.id)));
+      if (!confirm(`删除节点 ${n.id}？${users.length ? `\n有 ${users.length} 个节点引用它，引用也会一起去掉。` : ""}`)) return;
+      const list = nodes(); list.splice(list.indexOf(n), 1);
+      for (const o of list) for (const f of src.refFields) if (Array.isArray(o[f])) o[f] = o[f].filter(x => x !== n.id);
+      S.selected = null; markDirty(); renderList(); renderGraph(); renderEditor();
+    }
+
+    // 保存前检查：引用了不存在的节点、id 重复
+    function validate(src) {
+      const problems = [];
+      const all = new Set(nodes(src).map(n => n.id));
+      if (all.size !== nodes(src).length) problems.push(`${src.label} 有重复 id`);
+      for (const n of nodes(src)) for (const f of src.refFields) for (const r of n[f] || []) if (!all.has(r)) problems.push(`${n.id}.${f} → ${r} 不存在`);
+      if (src.id === "tech") { const mats = new Set(ids("material")); for (const n of nodes(src)) for (const r of n.requires_materials || []) if (!mats.has(r)) problems.push(`${n.id}.requires_materials → ${r} 不是材料`); }
+      return problems;
+    }
+
+    async function saveAll() {
+      const problems = SOURCES.filter(s => S.dirty.has(s.file)).flatMap(validate);
+      if (problems.length && !confirm("发现问题：\n" + problems.slice(0, 15).join("\n") + (problems.length > 15 ? "\n…" : "") + "\n\n仍然保存？")) return;
+      try {
+        for (const file of S.dirty) {
+          const d = S.docs[file];
+          let text = JSON.stringify(d.data, null, d.indent) + "\n";
+          if (d.crlf) text = text.replace(/\n/g, "\r\n");
+          await api.writeText(file, text);
+        }
+        const edits = Object.fromEntries(Object.entries(S.localeEdits).filter(([k]) => k));
+        if (Object.keys(edits).length) await api.writeLocales(edits);
+        if (S.landmarkCsv?.dirty) { await api.writeText("Locales/Cultures/Books/LandmarkBooks.csv", serializeCsv(S.landmarkCsv)); S.landmarkCsv.dirty = false; }
+        for (const [k, v] of Object.entries(edits)) S.locales[k] = { ...(S.locales[k] || {}), ...v };
+        const count = S.dirty.size;
+        S.dirty.clear(); S.localeEdits = {};
+        renderList();
+        toast(`已保存 ${count} 个文件${Object.keys(edits).length ? `，${Object.keys(edits).length} 条本地化` : ""}。游戏里重新加载世界后生效。`);
+      } catch (e) { toast("保存失败：" + e.message, true); }
+    }
+
+    async function init() {
+      mountAppBar("nodes.html");
+      if (!api) { document.getElementById("editor").innerHTML = `<p class="muted">请用 启动桌面版.bat 打开，浏览器里无法读写模组文件。</p>`; return; }
+      document.getElementById("sourceSel").onchange = e => selectSource(e.target.value);
+      document.getElementById("nodeFilter").oninput = () => { renderList(); renderGraph(); };
+      document.getElementById("groupFilter").onchange = () => { renderList(); renderGraph(); };
+      document.getElementById("addBtn").onclick = () => addNode(false);
+      document.getElementById("cloneBtn").onclick = () => addNode(true);
+      document.getElementById("delBtn").onclick = deleteNode;
+      document.getElementById("saveBtn").onclick = saveAll;
+      document.getElementById("reloadBtn").onclick = () => { if (!S.dirty.size || confirm("放弃未保存的修改并重新读取？")) loadAll(); };
+      window.addEventListener("beforeunload", e => { if (S.dirty.size || Object.keys(S.localeEdits).length) { e.preventDefault(); e.returnValue = ""; } });
+      try { await loadAll(); } catch (e) { toast("读取失败：" + e.message, true); }
+    }
+    init();
+  </script>
+</body>
+</html>

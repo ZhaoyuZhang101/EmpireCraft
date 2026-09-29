@@ -1,0 +1,49 @@
+key,cz,en,ch
+book_template_huaxia_history_book_1,$kingdom$$word$,$word$ of $kingdom$,$kingdom$$word$
+book_template_huaxia_history_book_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_huaxia_history_book_3,续$kingdom$$word$,Continued $word$ of $kingdom$,續$kingdom$$word$
+book_template_huaxia_history_book_4,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_huaxia_history_book_5,$kingdom$$word$·$city$篇,$word$ of $kingdom$: $city$,$kingdom$$word$·$city$篇
+book_template_huaxia_history_book_6,$dynasty$书,Book of $dynasty$,$dynasty$書
+book_template_huaxia_history_book_7,$past_emperor$本纪,Basic Annals of $past_emperor$,$past_emperor$本紀
+book_template_huaxia_history_book_8,$past_year_name$实录,Veritable Records of the $past_year_name$ Era,$past_year_name$實錄
+book_template_huaxia_history_book_9,$year_name$起居注,Diary of Activity and Repose of $year_name$,$year_name$起居注
+book_template_huaxia_history_book_10,$dynasty$会要,Institutions of $dynasty$,$dynasty$會要
+book_template_huaxia_history_book_11,$era$风物志,Customs of the $era$,$era$風物誌
+book_template_huaxia_history_book_12,$past_year_name$遗事,Anecdotes of the $past_year_name$ Era,$past_year_name$遺事
+book_template_huaxia_history_book_13,$kingdom$逸闻,Anecdotes of $kingdom$,$kingdom$逸聞
+book_template_huaxia_history_book_14,$city$逸闻,Anecdotes of $city$,$city$逸聞
+book_template_huaxia_history_book_15,$dynasty_short$书,Book of $dynasty_short$,$dynasty_short$書
+book_template_huaxia_history_book_16,$kingdom$书,Book of $kingdom$,$kingdom$書
+book_template_huaxia_history_book_17,$dynasty$实录,Veritable Records of $dynasty$,$dynasty$實錄
+book_template_huaxia_history_book_18,$past_emperor$实录,Veritable Records of $past_emperor$,$past_emperor$實錄
+book_template_huaxia_history_book_19,$clan$列传,Biographies of the $clan$,$clan$列傳
+book_template_huaxia_history_book_20,$kingdom$列传,Biographies of $kingdom$,$kingdom$列傳
+book_template_huaxia_history_book_21,$dynasty_short$史列传,Biographies in the History of $dynasty_short$,$dynasty_short$史列傳
+book_template_huaxia_history_book_22,$city$志,Gazetteer of $city$,$city$志
+book_template_huaxia_history_book_23,$kingdom$通志,Comprehensive Gazetteer of $kingdom$,$kingdom$通志
+book_template_huaxia_history_book_24,$dynasty$纪事本末,Narratives of $dynasty$ from Beginning to End,$dynasty$紀事本末
+book_template_huaxia_history_book_25,$past_year_name$纪事,Chronicle of the $past_year_name$ Era,$past_year_name$紀事
+book_template_huaxia_history_book_26,$city$旧闻,Old Tales of $city$,$city$舊聞
+book_template_huaxia_history_book_27,$kingdom$野史,Unofficial History of $kingdom$,$kingdom$野史
+book_template_huaxia_history_book_28,$dynasty_short$遗民录,Records of the $dynasty_short$ Loyalists,$dynasty_short$遺民錄
+book_template_huaxia_history_book_29,$past_emperor$外传,Unofficial Biography of $past_emperor$,$past_emperor$外傳
+book_template_huaxia_history_book_30,$clan$世家,Hereditary House of the $clan$,$clan$世家
+book_template_huaxia_history_book_31,$city$耆旧传,Worthies of Old $city$,$city$耆舊傳
+book_template_huaxia_history_book_32,$dynasty_short$史稿,Draft History of $dynasty_short$,$dynasty_short$史稿
+book_template_huaxia_history_book_33,$year_name$政要,Essentials of Government in the $year_name$ Era,$year_name$政要
+book_template_huaxia_history_book_34,$past_emperor$言行录,Words and Deeds of $past_emperor$,$past_emperor$言行錄
+book_template_huaxia_history_book_35,$dynasty_short$名臣传,Eminent Ministers of $dynasty_short$,$dynasty_short$名臣傳
+book_template_huaxia_history_book_36,$city$风俗记,Customs of $city$,$city$風俗記
+book_template_huaxia_history_book_37,$dynasty_short$$topic$志,Treatise on $topic$ of $dynasty_short$,$dynasty_short$$topic$志
+book_template_huaxia_history_book_38,$kingdom$$topic$考,Study of $topic$ in $kingdom$,$kingdom$$topic$考
+book_template_huaxia_history_book_39,$topic$通考,Comprehensive Study of $topic$,$topic$通考
+book_template_huaxia_history_book_40,$era$$topic$纪略,Brief Record of $topic$ in the $era$,$era$$topic$紀略
+book_template_huaxia_history_book_41,$author$读史札记,Notes on Reading History by $author$,$author$讀史札記
+book_template_huaxia_history_book_42,$city$金石录,Bronze and Stone Inscriptions of $city$,$city$金石錄
+book_template_huaxia_history_book_43,$kingdom$编年,Annals of $kingdom$,$kingdom$編年
+book_template_huaxia_history_book_44,续$dynasty_short$书,Continued Book of $dynasty_short$,續$dynasty_short$書
+book_template_huaxia_history_book_45,$past_year_name$朝野佥载,Court and Country in the $past_year_name$ Era,$past_year_name$朝野僉載
+book_template_huaxia_history_book_46,$dynasty$起居注,Diary of Activity and Repose of $dynasty$,$dynasty$起居注
+book_template_huaxia_history_book_47,$city$图经,Illustrated Gazetteer of $city$,$city$圖經
+book_template_huaxia_history_book_48,$clan$家乘,Family Annals of the $clan$,$clan$家乘

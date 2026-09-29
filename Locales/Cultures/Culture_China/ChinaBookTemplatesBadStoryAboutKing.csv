@@ -1,0 +1,33 @@
+key,cz,en,ch
+book_template_china_bad_story_about_king_1,$word$,$word$,$word$
+book_template_china_bad_story_about_king_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_china_bad_story_about_king_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_china_bad_story_about_king_4,$author$$word$,$author$'s $word$,$author$$word$
+book_template_china_bad_story_about_king_5,新$word$,New $word$,新$word$
+book_template_china_bad_story_about_king_6,续$word$,"$word$, Continued",續$word$
+book_template_china_bad_story_about_king_7,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_china_bad_story_about_king_8,$dynasty$$word$,$word$ of $dynasty$,$dynasty$$word$
+book_template_china_bad_story_about_king_9,$past_emperor$逸闻,Anecdotes of $past_emperor$,$past_emperor$逸聞
+book_template_china_bad_story_about_king_10,$past_emperor$秘史,Secret History of $past_emperor$,$past_emperor$秘史
+book_template_china_bad_story_about_king_11,$past_emperor$外传,Unofficial Biography of $past_emperor$,$past_emperor$外傳
+book_template_china_bad_story_about_king_12,$dynasty_short$宫闱录,Palace Secrets of $dynasty_short$,$dynasty_short$宮闈錄
+book_template_china_bad_story_about_king_13,$past_year_name$遗恨录,Regrets of the $past_year_name$ Era,$past_year_name$遺恨錄
+book_template_china_bad_story_about_king_14,$kingdom$野史,Unofficial History of $kingdom$,$kingdom$野史
+book_template_china_bad_story_about_king_15,$city$丑闻录,Scandals of $city$,$city$醜聞錄
+book_template_china_bad_story_about_king_16,$dynasty_short$佞臣列传,Biographies of the Sycophants of $dynasty_short$,$dynasty_short$佞臣列傳
+book_template_china_bad_story_about_king_17,$emperor$失德记,The Misdeeds of $emperor$,$emperor$失德記
+book_template_china_bad_story_about_king_18,$past_year_name$宫词,Palace Verses of the $past_year_name$ Era,$past_year_name$宮詞
+book_template_china_bad_story_about_king_19,$dynasty_short$亡国记,Fall of $dynasty_short$,$dynasty_short$亡國記
+book_template_china_bad_story_about_king_20,$city$怨谣,Laments of $city$,$city$怨謠
+book_template_china_bad_story_about_king_21,$clan$秘闻,Secrets of the $clan$,$clan$秘聞
+book_template_china_bad_story_about_king_22,$dynasty_short$$topic$录,Records of $topic$ under $dynasty_short$,$dynasty_short$$topic$錄
+book_template_china_bad_story_about_king_23,$past_emperor$$topic$记,$past_emperor$ and the $topic$,$past_emperor$$topic$記
+book_template_china_bad_story_about_king_24,$kingdom$$topic$秘闻,Secret Tales of $topic$ in $kingdom$,$kingdom$$topic$秘聞
+book_template_china_bad_story_about_king_25,$topic$野史,Unofficial History of $topic$,$topic$野史
+book_template_china_bad_story_about_king_26,$author$讽谏集,Remonstrances by $author$,$author$諷諫集
+book_template_china_bad_story_about_king_27,$city$童谣,Children's Rhymes of $city$,$city$童謠
+book_template_china_bad_story_about_king_28,$year_name$时弊论,On the Ills of the $year_name$ Era,$year_name$時弊論
+book_template_china_bad_story_about_king_29,$past_emperor$本末,The Whole Story of $past_emperor$,$past_emperor$本末
+book_template_china_bad_story_about_king_30,$dynasty$宫闱秘史,Secret Palace History of $dynasty$,$dynasty$宮闈秘史
+book_template_china_bad_story_about_king_31,$kingdom$黍离篇,Millet Lament of $kingdom$,$kingdom$黍離篇
+book_template_china_bad_story_about_king_32,$past_year_name$之乱,Turmoil of the $past_year_name$ Era,$past_year_name$之亂

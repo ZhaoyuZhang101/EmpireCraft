@@ -225,10 +225,14 @@ public static class EmpireCraftMetaTypeLibrary
         double _last_dynamic_zones_ts = -1L;
         pAsset13.dynamic_zones = (MetaZoneDynamicAction) (() =>
         {
+          // 原版的流动区块数据约 5 个世界时间单位就过期(ZoneMetaDataVisualizer.clearOldAndDeadZones)，
+          // 之前按"每个游戏月"才统计一次，刚写进去就过期，颜色时有时无、跟不上人口移动。
+          // 改成每 1 个时间单位统计一次(原版宗教/文化是每次都统计)。
           if (_last_dynamic_zones_ts > 0 && World.world.getCurWorldTime() >= _last_dynamic_zones_ts &&
-              Date.getMonthsSince(_last_dynamic_zones_ts) < 1) return;
+              World.world.getCurWorldTime() - _last_dynamic_zones_ts < 1d) return;
           List<Actor> simpleList = World.world.units.getSimpleList();
           double curWorldTime = World.world.getCurWorldTime();
+          var empireByCity = new Dictionary<City, Empire>();
           int index = 0;
           for (int count = simpleList.Count; index < count; ++index)
           {
@@ -236,9 +240,12 @@ public static class EmpireCraftMetaTypeLibrary
             if (actor.asset.show_on_meta_layer)
             {
               TileZone zone = actor.current_tile.zone;
-              if (actor.hasCity())
-                if (actor.city?.kingdom?.GetEmpire()!=null)
-                  ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) actor.city.kingdom.GetEmpire(), curWorldTime);
+              if (!actor.hasCity()) continue;
+              // 同一座城的人都查同一个帝国，按城市缓存，别每个人都查一遍扩展数据
+              if (!empireByCity.TryGetValue(actor.city, out Empire cityEmpire))
+                empireByCity[actor.city] = cityEmpire = actor.city.kingdom?.GetEmpire();
+              if (cityEmpire != null)
+                ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) cityEmpire, curWorldTime);
             }
           }
           _last_dynamic_zones_ts = World.world.getCurWorldTime();
@@ -399,10 +406,14 @@ public static class EmpireCraftMetaTypeLibrary
         double _last_dynamic_zones_ts = -1L;
         pAsset13.dynamic_zones = (MetaZoneDynamicAction) (() =>
         {
+          // 原版的流动区块数据约 5 个世界时间单位就过期(ZoneMetaDataVisualizer.clearOldAndDeadZones)，
+          // 之前按"每个游戏月"才统计一次，刚写进去就过期，颜色时有时无、跟不上人口移动。
+          // 改成每 1 个时间单位统计一次(原版宗教/文化是每次都统计)。
           if (_last_dynamic_zones_ts > 0 && World.world.getCurWorldTime() >= _last_dynamic_zones_ts &&
-              Date.getMonthsSince(_last_dynamic_zones_ts) < 1) return;
+              World.world.getCurWorldTime() - _last_dynamic_zones_ts < 1d) return;
           List<Actor> simpleList = World.world.units.getSimpleList();
           double curWorldTime = World.world.getCurWorldTime();
+          var titleByCity = new Dictionary<City, KingdomTitle>();
           int index = 0;
           for (int count = simpleList.Count; index < count; ++index)
           {
@@ -410,9 +421,11 @@ public static class EmpireCraftMetaTypeLibrary
             if (actor.asset.show_on_meta_layer)
             {
               TileZone zone = actor.current_tile.zone;
-              if (actor.hasCity())
-                if (actor.city.hasTitle())
-                  ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) actor.city.GetTitle(), curWorldTime);
+              if (!actor.hasCity()) continue;
+              if (!titleByCity.TryGetValue(actor.city, out KingdomTitle cityTitle))
+                titleByCity[actor.city] = cityTitle = actor.city.hasTitle() ? actor.city.GetTitle() : null;
+              if (cityTitle != null)
+                ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) cityTitle, curWorldTime);
             }
           }
           _last_dynamic_zones_ts = curWorldTime;

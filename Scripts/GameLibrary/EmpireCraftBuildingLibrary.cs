@@ -31,6 +31,9 @@ public static class EmpireCraftBuildingLibrary
             lib.t.has_kingdom_color = true;
             lib.t.upgrade_level = 1;
             lib.t.loot_generation = 1;
+            // 文化城池拆掉了民居、城里建筑数骤降，原版图书馆(要 15 座建筑)再也建不起来——城池自带藏书阁，
+            // 否则整个文化写不了书、读不了书，科技点里的著书/读书、时代名著全都没有
+            lib.t.book_slots = 5;
             lib.t.housing_happiness = 300;
             lib.t.burnable = false;
             lib.t.upgrade_to = CultureBuildingName(1);
@@ -51,6 +54,7 @@ public static class EmpireCraftBuildingLibrary
             lib.t.fundament = new BuildingFundament(4, 4, 2, 0);
             lib.t.upgrade_level = 2;
             lib.t.max_houses = 0;
+            lib.t.book_slots = 10;
             lib.t.loot_generation = 2;
             lib.t.housing_happiness = 500;
             lib.t.upgrade_to = CultureBuildingName(2);
@@ -68,6 +72,7 @@ public static class EmpireCraftBuildingLibrary
             lib.t.fundament = new BuildingFundament(7, 7, 3, 0);
             lib.t.upgrade_level = 3;
             lib.t.max_houses = 0;
+            lib.t.book_slots = 20;
             lib.t.loot_generation = 3;
             lib.t.housing_happiness = 800;
             lib.t.can_be_upgraded = false;

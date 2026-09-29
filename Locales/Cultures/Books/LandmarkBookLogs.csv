@@ -1,0 +1,9 @@
+key,cz,en,ch
+landmark_log_default_1,{0}学者{1}写成《{2}》,{1} of the {0} culture completes {2},{0}學者{1}寫成《{2}》
+landmark_log_default_2,{0}学者{1}写成《{2}》，一时{3}纸贵,{1} of the {0} culture completes {2} and copies sell out across {3},{0}學者{1}寫成《{2}》，一時{3}紙貴
+landmark_log_default_3,《{2}》问世，{0}学者{1}的名字传遍{3},{2} appears and the name of {1} spreads through {3},《{2}》問世，{0}學者{1}的名字傳遍{3}
+landmark_log_default_4,{1}积多年之功著成《{2}》，{0}文化为之一振,After years of labour {1} finishes {2} and the {0} culture is invigorated,{1}積多年之功著成《{2}》，{0}文化為之一振
+landmark_log_default_5,{3}城中争相传抄{1}的新作《{2}》,The people of {3} race to copy {1}'s new work {2},{3}城中爭相傳抄{1}的新作《{2}》
+landmark_log_default_6,{0}的学者们围读《{2}》，称{1}开一代新风,Scholars of the {0} culture gather to read {2} and hail {1} as a pioneer,{0}的學者們圍讀《{2}》，稱{1}開一代新風
+landmark_log_default_7,{1}于{3}完成《{2}》，自此{0}学风大变,In {3} {1} completes {2} and {0} learning is never the same,{1}於{3}完成《{2}》，自此{0}學風大變
+landmark_log_default_8,一部《{2}》横空出世，作者{1}一夜成名,{2} bursts onto the scene and its author {1} becomes famous overnight,一部《{2}》橫空出世，作者{1}一夜成名

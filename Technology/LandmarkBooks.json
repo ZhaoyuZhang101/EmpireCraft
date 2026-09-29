@@ -1,0 +1,25 @@
+{
+  "_comment": "时代名著：文化第一次满足条件时，本文化最有学识的人写成这本书(一本真正的原版书，放进图书馆，挂着扩展记得自己是哪部名著)。条件二选一：tech = 研究出某项技术；feature = 推行了带该特性的制度(特性值 ≥ min_value)。书绑定节点：techs = 技术 id → 书出现时该技术立刻增加的进度(占费用比例)；institutions = 制度特性 → 改革永久加速(0.3 = +30%，* 结尾为前缀匹配)，并让正在推行的相关改革立刻 +institution_progress(默认 10)。写成的文化全额生效；书被别的文化读到时那个文化也受启发(技术进度减半)，每个文化每本书一次。书名走本地化：landmark_book_<id>_<文化> 优先，没有就用 landmark_book_<id>。 category：文化藏书窗口里的分类(politics 政治 / economy 经济 / military 军事 / science 学术 / history 史学 / literature 文学)。",
+  "books": [
+    {"id": "poetry", "tech": "writing", "techs": {"mathematics": 0.2}, "category": "literature"},
+    {"id": "mathematics", "tech": "mathematics", "institutions": {"constitution_basis_fiscal": 0.2}, "techs": {"architecture": 0.25}, "category": "science"},
+    {"id": "strategy", "tech": "crossbow", "techs": {"matchlock": 0.2}, "category": "military"},
+    {"id": "law", "feature": "constitution_basis_law", "institutions": {"constitution_basis_law": 0.3}, "category": "politics"},
+    {"id": "alchemy", "tech": "alchemy", "techs": {"gunpowder": 0.3}, "category": "science"},
+    {"id": "encyclopedia", "tech": "printing", "institutions": {"constitution_basis_administration": 0.2, "party_politics": 0.3}, "techs": {"scientific_method": 0.3}, "category": "science"},
+    {"id": "crafts", "tech": "steelmaking", "techs": {"urban_housing": 0.2, "industrialization": 0.2}, "category": "science"},
+    {"id": "method", "tech": "scientific_method", "techs": {"industrialization": 0.2, "electricity": 0.3}, "category": "science"},
+    {"id": "wealth", "tech": "banking", "institutions": {"constitution_basis_commerce": 0.3, "urban_production_stage": 0.2, "ideology_stage:Capitalism:*": 0.3}, "techs": {"industrialization": 0.2}, "category": "economy"},
+    {"id": "contract", "feature": "party_politics", "institutions": {"universal_suffrage": 0.3, "abolish_monarchy": 0.3}, "category": "politics"},
+    {"id": "republic", "feature": "abolish_monarchy", "institutions": {"universal_suffrage": 0.2}, "category": "politics"},
+    {"id": "machines", "tech": "industrialization", "institutions": {"urban_production_stage": 0.3}, "techs": {"electricity": 0.2, "motorization": 0.2}, "category": "economy"},
+    {"id": "liberty", "feature": "ideology:SocialLiberalism", "institutions": {"ideology_stage:SocialLiberalism:*": 0.3, "ideology_stage:ConservativeLiberalism:*": 0.3, "ideology_stage:Libertarianism:*": 0.2}, "category": "politics"},
+    {"id": "capital", "feature": "ideology:Communism", "institutions": {"ideology_stage:Communism:*": 0.4, "ideology_stage:Socialism:*": 0.2}, "category": "economy"},
+    {"id": "socialism", "feature": "ideology:Socialism", "institutions": {"ideology_stage:Socialism:*": 0.3, "ideology_stage:SocialDemocracy:*": 0.2}, "category": "politics"},
+    {"id": "nation", "feature": "ideology:Fascism", "institutions": {"ideology_stage:Fascism:*": 0.3, "ideology_stage:Authoritarianism:*": 0.2}, "category": "politics"},
+    {"id": "war", "tech": "automatic_weapons", "techs": {"armored_warfare": 0.2}, "category": "military"},
+    {"id": "electricity", "tech": "electricity", "techs": {"computing": 0.3}, "category": "science"},
+    {"id": "cybernetics", "tech": "computing", "techs": {"nuclear_fission": 0.2, "energy_weapons": 0.2}, "category": "science"},
+    {"id": "atom", "tech": "nuclear_fission", "techs": {"icbm": 0.3}, "category": "science"}
+  ]
+}

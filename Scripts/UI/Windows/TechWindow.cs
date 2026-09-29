@@ -131,7 +131,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         string colorHex = "#" + ColorUtility.ToHtmlStringRGB(_culture.GetCultureColor());
         float bonus = TechnologySystem.GetResearchBonus(_culture);
 
-        var panel = BeginSection(64f, "FactionFrame_dominate");
+        var panel = BeginSection(76f, "FactionFrame_dominate");
         var tags = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 13), TextAnchor.MiddleCenter, 6);
         AddTag(tags, TechGraphView.Icon("ui/icons/iconCulture"), _culture.GetCultureTranslate(), colorHex);
         AddTag(tags, TechGraphView.Icon("ui/icons/iconKnowledge"), TechnologySystem.GetEraName(_culture), "#F3C34A");
@@ -141,6 +141,19 @@ public class TechWindow : AbstractWideWindow<TechWindow>
 
         AddLine(panel, string.Format(LM.Get("tech_overview_counts"),
             state.researched_techs.Count, techCount, state.discovered_materials.Count, materialCount));
+
+        // 科技点储备与来源明细；年产太低就是停滞
+        string Income(string key) => (state.last_income != null && state.last_income.TryGetValue(key, out float v)
+            ? v : 0f).ToString("0.#");
+        string bankLine = string.Format(LM.Get("tech_bank_line"), state.research_bank.ToString("0"),
+            Income("books_written"), Income("books_read"), Income("war"), Income("schools"), Income("basis"));
+        if (TechnologySystem.IsStagnant(_culture))
+            bankLine += "  " + LM.Get("tech_stagnant").ColorString("#E05A4F");
+        bankLine += "  " + string.Format(LM.Get("tech_funding_line"),
+            TechnologySystem.Config.research.gold_per_point.ToString("0.#"), TechnologySystem.GetCultureTreasury(_culture));
+        if (state.last_unfunded > 0.5f)
+            bankLine += "  " + LM.Get("tech_unfunded").ColorString("#E9A85B");
+        AddLine(panel, bankLine.ColorString("#B8C6CC"), 11f, 6);
 
         var researchRow = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 11), TextAnchor.MiddleCenter, 4);
         if (TechnologySystem.TryGetTech(state.current_tech, out TechNodeConfig current))
@@ -169,6 +182,13 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 13), TextAnchor.MiddleCenter, 4);
         buttons.AddButtonIntoHoriLayout("institution_graph_reset", LM.Get("institution_graph_reset"),
             () => _graph?.ResetView(), size: new Vector2(50, 11));
+        buttons.AddButtonIntoHoriLayout("tech_auto_research",
+            LM.Get(state.auto_research ? "tech_auto_research_on" : "tech_auto_research_off"),
+            () =>
+            {
+                TechnologySystem.SetAutoResearch(_culture, !state.auto_research);
+                Rebuild();
+            }, size: new Vector2(64, 11));
         buttons.AddButtonIntoHoriLayout("tech_clear_target", LM.Get("tech_clear_target"),
             () =>
             {
@@ -331,6 +351,12 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             mode: HorizontalWrapMode.Wrap);
         _detailText.UseFixedFontSize(7, HorizontalWrapMode.Wrap);
         var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 13), TextAnchor.MiddleCenter, 4);
+        buttons.AddButtonIntoHoriLayout("tech_invest", LM.Get("tech_invest"), () =>
+        {
+            if (!TechnologySystem.Invest(_culture, _selectedId))
+                WorldTip.showNow(LM.Get("tech_invest_failed"), false, "top", 3f);
+            Rebuild();
+        }, size: new Vector2(90, 11));
         buttons.AddButtonIntoHoriLayout("tech_set_target", LM.Get("tech_set_target"), () =>
         {
             if (TechnologySystem.TryGetTech(_selectedId, out _)) TechnologySystem.SetPlayerTarget(_culture, _selectedId);
@@ -394,6 +420,14 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             costLine += "  " + string.Format(LM.Get("tech_cost_diffusion"), knowing,
                 (TechnologySystem.GetDiffusionDiscount(_culture, tech.id) * 100f).ToString("0")).ColorString("#9EF2FF");
         lines.Add(costLine);
+        List<(LandmarkBookConfig book, float fraction)> bookBoosts = LandmarkBookSystem.BooksForTech(tech.id).ToList();
+        if (bookBoosts.Count > 0 && status != TechNodeStatus.Researched)
+        {
+            List<string> known = TechnologySystem.GetState(_culture).known_books ?? new List<string>();
+            lines.Add(LM.Get("tech_book_boosts") + string.Join("  ", bookBoosts.Select(pair =>
+                Mark(known.Contains(pair.book.id)) + "《" + LandmarkBookSystem.GetTitle(pair.book.id, _culture) + "》+" +
+                (pair.fraction * 100f).ToString("0") + "%")));
+        }
         if (tech.boosts.Count > 0 && status != TechNodeStatus.Researched)
         {
             bool fired = TechnologySystem.GetState(_culture).boosted.Contains(tech.id);
@@ -405,6 +439,15 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             .Concat(tech.requires_materials.Select(id =>
                 Mark(TechnologySystem.HasMaterial(_culture, id)) + TechnologySystem.GetMaterialName(id)))
             .ToList();
+        // 文化制度的约束：文明等级、需要推行的制度
+        int needLevel = TechnologySystem.GetRequiredCultureLevel(tech.tier);
+        if (TechnologySystem.Config.culture_level_max_tier.Count > 0)
+            requires.Add(Mark(tech.tier <= TechnologySystem.GetMaxTierForCulture(_culture)) +
+                         string.Format(LM.Get("tech_requires_culture_level"), needLevel));
+        requires.AddRange(tech.requires_institutions.Select(requirement =>
+            Mark(TechnologySystem.IsInstitutionRequirementMet(_culture, requirement)) +
+            TechnologySystem.DescribeFeature(new TechInstitutionLink
+                { feature = requirement.feature, min_value = requirement.min_value })));
         if (requires.Count > 0) lines.Add(LM.Get("tech_requires") + string.Join("  ", requires));
         var unlocks = TechnologySystem.DescribeUnlocks(tech)
             .Select(unlock => unlock.present ? unlock.label : (unlock.label + LM.Get("tech_not_installed")).ColorString("#8A8F99"))

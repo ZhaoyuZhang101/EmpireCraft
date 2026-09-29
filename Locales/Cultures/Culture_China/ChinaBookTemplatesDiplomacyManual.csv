@@ -1,0 +1,25 @@
+key,cz,en,ch
+book_template_china_diplomacy_manual_1,$word$,$word$,$word$
+book_template_china_diplomacy_manual_2,$word$要略,Essentials of $word$,$word$要略
+book_template_china_diplomacy_manual_3,$city$$word$,$word$ of $city$,$city$$word$
+book_template_china_diplomacy_manual_4,$author$$word$,$author$'s $word$,$author$$word$
+book_template_china_diplomacy_manual_5,增订$word$,Expanded $word$,增訂$word$
+book_template_china_diplomacy_manual_6,$word$辑要,Digest of $word$,$word$輯要
+book_template_china_diplomacy_manual_7,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_china_diplomacy_manual_8,$emperor$圣训,Sacred Instructions of $emperor$,$emperor$聖訓
+book_template_china_diplomacy_manual_9,$dynasty$$word$,$word$ of $dynasty$,$dynasty$$word$
+book_template_china_diplomacy_manual_10,$kingdom$使节录,Envoys of $kingdom$,$kingdom$使節錄
+book_template_china_diplomacy_manual_11,$author$出使记,Mission Abroad of $author$,$author$出使記
+book_template_china_diplomacy_manual_12,$city$译馆录,Records of the Translators' Office at $city$,$city$譯館錄
+book_template_china_diplomacy_manual_13,$kingdom$职贡图,Tribute Bearers of $kingdom$,$kingdom$職貢圖
+book_template_china_diplomacy_manual_14,$dynasty_short$四夷列传,Foreign Peoples in the History of $dynasty_short$,$dynasty_short$四夷列傳
+book_template_china_diplomacy_manual_15,$year_name$会盟录,Covenants of the $year_name$ Era,$year_name$會盟錄
+book_template_china_diplomacy_manual_16,$kingdom$朝贡录,Tribute Records of $kingdom$,$kingdom$朝貢錄
+book_template_china_diplomacy_manual_17,$author$使程日记,Embassy Diary of $author$,$author$使程日記
+book_template_china_diplomacy_manual_18,$author$奉使录,Record of Service as Envoy by $author$,$author$奉使錄
+book_template_china_diplomacy_manual_19,$dynasty_short$外国传,Foreign Lands in the History of $dynasty_short$,$dynasty_short$外國傳
+book_template_china_diplomacy_manual_20,$topic$考,Study of $topic$,$topic$考
+book_template_china_diplomacy_manual_21,$topic$记,Record of $topic$,$topic$記
+book_template_china_diplomacy_manual_22,$dynasty_short$$topic$志,Treatise on $topic$ of $dynasty_short$,$dynasty_short$$topic$志
+book_template_china_diplomacy_manual_23,$author$$topic$见闻录,Observations on $topic$ by $author$,$author$$topic$見聞錄
+book_template_china_diplomacy_manual_24,$topic$图志,Illustrated Gazetteer of $topic$,$topic$圖志

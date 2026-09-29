@@ -2,13 +2,20 @@
   "schema_version": 1,
   "_comment": "文明科技树。材料(materials)在本文化城市的仓库里出现对应资源时自动发现；技术(techs)花研究点研究，需要前置技术和材料；研究完成后解锁对应材质的装备、指定的武器和建筑。解锁表里引用的物品/建筑不存在(没装对应模组)时自动跳过。没被任何技术登记的物品和建筑不受限制。名称走本地化 key：tech_<id> / tech_<id>_desc / tech_mat_<id> / tech_mat_<id>_desc。",
   "research": {
-    "base_per_city": 2.0,
-    "per_population": 0.04,
-    "per_library": 2.0,
-    "per_temple": 0.5,
-    "per_university": 3.0,
-    "per_factory": 1.0,
+    "base_per_city": 0.2,
+    "per_population": 0.005,
+    "per_library": 1.0,
+    "per_temple": 0.3,
+    "per_university": 2.0,
+    "per_factory": 0.5,
+    "per_book_written": 3.0,
+    "per_book_read": 0.2,
+    "per_warrior_at_war": 0.02,
     "war_penalty": 0.25,
+    "cost_multiplier": 6.0,
+    "stagnation_threshold": 1.0,
+    "gold_per_point": 3.0,
+    "landmark_book_multiplier": 2.0,
     "cost_per_extra_city": 0.02,
     "cost_city_scaling_max": 1.0,
     "diffusion_per_contact": 0.2,
@@ -20,6 +27,9 @@
     "world_first_min_tier": 3
   },
 
+
+  "premodern_max_tier": 5,
+  "culture_level_max_tier": { "1": 3, "2": 5, "3": 7, "4": 11 },
   "mod_gates": [
     { "type": "WarMobilization.NuclearStrikeSystem", "method": "CanStart", "tech": "nuclear_fission" },
     { "type": "WarMobilization.NuclearStrikeSystem", "method": "CanBeForced", "tech": "nuclear_fission" },
@@ -117,11 +127,11 @@
     { "id": "mythril_forging", "branch": "metallurgy", "tier": 6, "cost": 420, "requires_techs": ["steelmaking"], "requires_materials": ["mythril"], "unlock_materials": ["mythril"], "boosts": [{"type": "resource", "value": "mythril", "amount": 5}] },
 
     { "id": "scientific_method", "branch": "science", "tier": 7, "cost": 650, "requires_techs": ["printing"], "research_bonus": 0.3, "boosts": [{"type": "building_type", "value": "type_university", "amount": 1}, {"type": "building_type", "value": "type_library", "amount": 5}] },
-    { "id": "industrialization", "branch": "construction", "tier": 7, "cost": 650, "requires_techs": ["steelmaking", "scientific_method"], "requires_materials": ["coal"], "unlock_buildings": ["8house_*_modernmod", "3docks_*_modernmod", "3barracks_*_modernmod", "3temple_*_modernmod", "house_human_8", "steel_mill"], "boosts": [{"type": "building_type", "value": "type_steel_mill", "amount": 1}, {"type": "institution_feature", "value": "urban_production_stage", "amount": 2}] },
+    { "id": "industrialization", "branch": "construction", "tier": 7, "cost": 650, "requires_techs": ["steelmaking", "scientific_method"], "requires_materials": ["coal"], "unlock_buildings": ["8house_*_modernmod", "3docks_*_modernmod", "3barracks_*_modernmod", "3temple_*_modernmod", "house_human_8", "steel_mill"], "requires_institutions": [{ "feature": "urban_production_stage", "min_value": 2 }], "boosts": [{"type": "building_type", "value": "type_steel_mill", "amount": 1}, {"type": "institution_feature", "value": "urban_production_stage", "amount": 2}] },
     { "id": "banking", "branch": "science", "tier": 7, "cost": 650, "requires_techs": ["printing"], "requires_materials": ["gold"], "research_bonus": 0.1, "unlock_buildings": ["stock_exchange"], "boosts": [{"type": "building_type", "value": "type_market", "amount": 2}] },
     { "id": "rifling", "branch": "military", "tier": 7, "cost": 650, "requires_techs": ["matchlock", "industrialization"], "unlock_items": ["Sniper", "Americanshotgun", "Sluggershotgun", "DesertEagle", "Glock17", "pistol", "rifle", "sniperrifle", "shotgunreplace"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
 
-    { "id": "electricity", "branch": "science", "tier": 8, "cost": 950, "requires_techs": ["industrialization"], "research_bonus": 0.2, "boosts": [{"type": "cities", "value": "", "amount": 15}] },
+    { "id": "electricity", "branch": "science", "tier": 8, "cost": 950, "requires_techs": ["industrialization"], "research_bonus": 0.2, "requires_institutions": [{ "feature": "urban_production_stage", "min_value": 3 }], "boosts": [{"type": "cities", "value": "", "amount": 15}] },
     { "id": "automatic_weapons", "branch": "military", "tier": 8, "cost": 950, "requires_techs": ["rifling"], "unlock_items": ["ThompsonM1A1", "SGT44", "Uzi", "MP7", "Minigun", "smg", "autorifle"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
     { "id": "explosives", "branch": "military", "tier": 8, "cost": 950, "requires_techs": ["gunpowder", "industrialization"], "unlock_items": ["RPG", "M32", "MGL", "grenadebelt", "rpg"], "unlock_buildings": ["bunker", "artillery_bunker"], "boosts": [{"type": "building_type", "value": "type_gunpowder_mill", "amount": 1}, {"type": "war_knows", "value": "", "amount": 1}] },
     { "id": "motorization", "branch": "military", "tier": 8, "cost": 950, "requires_techs": ["industrialization"], "requires_materials": ["oil"], "unlock_buildings": ["light_factory", "light_shipyard"], "unlock_units": ["warbox_apc", "warbox_zsu", "warbox_spg", "warbox_heavy_artillery", "warbox_gunboat"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}] },

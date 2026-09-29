@@ -8,6 +8,7 @@ using EmpireCraft.Scripts.GameLibrary;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using Newtonsoft.Json;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -23,6 +24,19 @@ public sealed class TechResearchConfig
     public float known_elsewhere_cost_multiplier = 0.6f;
     public float per_university = 3f;
     public float per_factory = 1f;
+    // 著书立说：本文化的人每写一本书、每有一次读书
+    public float per_book_written = 3f;
+    public float per_book_read = 0.2f;
+    // 战争实践：交战中的城市每名士兵每年
+    public float per_warrior_at_war = 0.02f;
+    // 全局科技费用倍率(调节整体节奏：数值越大，走到工业时代越久)
+    public float cost_multiplier = 1f;
+    // 年产科技点低于这个数就算停滞
+    public float stagnation_threshold = 1f;
+    // 时代名著算几本书的著书科技点
+    public float landmark_book_multiplier = 2f;
+    // 研究经费：每投入 1 点科技点，要从本文化各国国库里花多少钱(0 = 不花钱)
+    public float gold_per_point = 3f;
     // 处于战争中的城市研究产出打折
     public float war_penalty = 0.25f;
     // 文化规模：每多一座城科技费用增加多少，封顶多少
@@ -76,8 +90,16 @@ public sealed class TechMaterialConfig
     public List<string> requires_techs = new();
 }
 
+// 技术需要的文化制度：本文化推行了带该特性的制度(特性值 ≥ min_value)才能研究
+public sealed class TechInstitutionRequirement
+{
+    public string feature = "";
+    public float min_value = 1f;
+}
+
 public sealed class TechNodeConfig
 {
+    public List<TechInstitutionRequirement> requires_institutions = new();
     public string id = "";
     public string branch = "science";
     public int tier = 1;
@@ -139,6 +161,10 @@ public sealed class TechIndustryConfig
 
 public sealed class TechTreeConfig
 {
+    // "禁止近代化"世界规则打开时，技术最多到哪个时代(tier)；更高时代解锁的武器/载具/建筑一律锁死
+    public int premodern_max_tier = 5;
+    // 文明等级(制度树的 1~4 级) → 能研究到的最高技术时代(tier)。制度落后，技术也上不去
+    public Dictionary<string, int> culture_level_max_tier = new();
     public List<TechInstitutionLink> institution_links = new();
     public TechIndustryConfig industry = new();
     public List<TechModGateConfig> mod_gates = new();
@@ -208,6 +234,25 @@ public static class TechnologySystem
     public static IEnumerable<TechNodeConfig> Techs => Config.techs;
     public static IEnumerable<TechMaterialConfig> Materials => Config.materials;
 
+    // "禁止近代化"：不管科技树开没开，都锁死近代以后的技术、制度和兼容模组的现代内容
+    public static bool PremodernLocked =>
+        EmpireCraftWorldLawLibrary.empirecraft_law_premodern?.isEnabled() == true;
+
+    public static int PremodernMaxTier => Config.premodern_max_tier;
+
+    // 卡口是否需要工作：科技树开着，或者禁止近代化开着
+    public static bool GatesActive => IsEnabled || PremodernLocked;
+
+    public static bool IsBeyondPremodern(string techId) =>
+        PremodernLocked && TryGetTech(techId, out TechNodeConfig tech) && tech.tier > PremodernMaxTier;
+
+    // 近代制度：政党政治、普选、废除君主制、各理念、机械化生产
+    public static bool IsModernInstitution(InstitutionNodeConfig node) =>
+        node?.features != null && node.features.Any(pair => pair.Value > 0f &&
+            (pair.Key == PartySystem.FeaturePartyPolitics || pair.Key == PartySystem.FeatureUniversalSuffrage ||
+             pair.Key == "abolish_monarchy" || pair.Key.StartsWith("ideology:", StringComparison.Ordinal) ||
+             pair.Key == InstitutionFeatures.UrbanProductionStage && pair.Value >= 3f));
+
     public static bool IsEnabled =>
         EmpireCraftWorldLawLibrary.empirecraft_law_tech_tree == null ||
         EmpireCraftWorldLawLibrary.empirecraft_law_tech_tree.isEnabled();
@@ -239,6 +284,7 @@ public static class TechnologySystem
         _config.research ??= new TechResearchConfig();
         _config.mod_gates ??= new List<TechModGateConfig>();
         _config.institution_links ??= new List<TechInstitutionLink>();
+        _config.culture_level_max_tier ??= new Dictionary<string, int>();
         foreach (TechInstitutionLink link in _config.institution_links)
         {
             link.requires_techs ??= new List<string>();
@@ -259,6 +305,7 @@ public static class TechnologySystem
             tech.unlock_buildings ??= new List<string>();
             tech.unlock_units ??= new List<string>();
             tech.boosts ??= new List<TechBoostConfig>();
+            tech.requires_institutions ??= new List<TechInstitutionRequirement>();
             _techs[tech.id] = tech;
         }
         _materials = new Dictionary<string, TechMaterialConfig>(StringComparer.Ordinal);
@@ -333,6 +380,9 @@ public static class TechnologySystem
             pair.Value.player_target ??= "";
             pair.Value.tech_progress ??= new Dictionary<string, float>();
             pair.Value.boosted ??= new List<string>();
+            pair.Value.last_income ??= new Dictionary<string, float>();
+            pair.Value.landmark_books ??= new List<string>();
+            pair.Value.known_books ??= new List<string>();
             if (pair.Value.progress > 0f && !string.IsNullOrEmpty(pair.Value.current_tech))
             {
                 pair.Value.tech_progress[pair.Value.current_tech] = pair.Value.progress;
@@ -408,7 +458,7 @@ public static class TechnologySystem
         _states.TryGetValue(culture, out CultureTechState state) && state.bootstrapped;
 
     public static bool CanUse(string culture, string techId) =>
-        techId == null || !IsActiveFor(culture) || HasTech(culture, techId);
+        techId == null || !IsBeyondPremodern(techId) && (!IsActiveFor(culture) || HasTech(culture, techId));
 
     public static string GetCultureOf(Kingdom kingdom) =>
         kingdom == null || kingdom.isRekt() || !kingdom.isCiv() ? "" : CultureService.GetRealmCulture(kingdom);
@@ -452,7 +502,46 @@ public static class TechnologySystem
 
     public static bool ArePrerequisitesMet(string culture, TechNodeConfig tech) =>
         tech.requires_techs.All(id => HasTech(culture, id)) &&
-        tech.requires_materials.All(id => HasMaterial(culture, id));
+        tech.requires_materials.All(id => HasMaterial(culture, id)) &&
+        AreCultureRequirementsMet(culture, tech);
+
+    // 文化制度对技术的约束(科技树关闭时不限制)
+    public static bool AreCultureRequirementsMet(string culture, TechNodeConfig tech) =>
+        !(PremodernLocked && tech.tier > PremodernMaxTier) &&
+        (!IsEnabled || tech.tier <= GetMaxTierForCulture(culture)) &&
+        (!IsEnabled || tech.requires_institutions.All(requirement => IsInstitutionRequirementMet(culture, requirement)));
+
+    public static bool IsInstitutionRequirementMet(string culture, TechInstitutionRequirement requirement) =>
+        InstitutionSystem.GetFeature(culture, requirement.feature) >= requirement.min_value;
+
+    public static int GetCultureLevel(string culture)
+    {
+        // 排行里的文明等级要把各分支发展度加一遍，AI 挑研究目标时会连续问很多次，按帧缓存
+        int frame = Time.frameCount;
+        if (CultureLevelCache.TryGetValue(culture ?? "", out (int frame, int level) cached) && cached.frame == frame)
+            return cached.level;
+        int level = CultureService.IsValidCulture(culture) ? InstitutionSystem.GetCultureRanking(culture).Level : 1;
+        CultureLevelCache[culture ?? ""] = (frame, level);
+        return level;
+    }
+
+    private static readonly Dictionary<string, (int frame, int level)> CultureLevelCache = new(StringComparer.Ordinal);
+
+    public static int GetMaxTierForCulture(string culture)
+    {
+        Dictionary<string, int> caps = Config.culture_level_max_tier;
+        if (caps.Count == 0) return int.MaxValue;
+        int level = GetCultureLevel(culture);
+        return caps.TryGetValue(level.ToString(), out int tier)
+            ? tier
+            : caps.Where(pair => int.TryParse(pair.Key, out int key) && key <= level)
+                .Select(pair => pair.Value).DefaultIfEmpty(int.MaxValue).Max();
+    }
+
+    // 最低需要几级文明才能研究这个时代的技术(窗口提示用)
+    public static int GetRequiredCultureLevel(int tier) =>
+        Config.culture_level_max_tier.Where(pair => pair.Value >= tier && int.TryParse(pair.Key, out _))
+            .Select(pair => int.Parse(pair.Key)).DefaultIfEmpty(1).Min();
 
     public static TechNodeStatus GetTechStatus(string culture, TechNodeConfig tech)
     {
@@ -493,7 +582,8 @@ public static class TechnologySystem
 
     public static float GetCost(string culture, TechNodeConfig tech)
     {
-        float cost = Math.Max(1f, tech.cost) * GetSizeCostFactor(culture);
+        float cost = Math.Max(1f, tech.cost) * Math.Max(0.01f, Config.research.cost_multiplier) *
+                     GetSizeCostFactor(culture);
         return cost * (1f - GetDiffusionDiscount(culture, tech.id));
     }
 
@@ -618,7 +708,7 @@ public static class TechnologySystem
         foreach (TechInstitutionLink link in LinksFor(node))
         foreach (KeyValuePair<string, float> driver in link.drivers)
             if (HasTech(culture, driver.Key)) push += driver.Value;
-        return push;
+        return push + LandmarkBookSystem.GetInstitutionPush(node, GetState(culture));
     }
 
     // 某项技术会推动/解锁哪些制度特性(科技窗口里显示)
@@ -728,28 +818,22 @@ public static class TechnologySystem
             {
                 state.bootstrapped = true;
                 Bootstrap(culture, pair.Value);
+                LandmarkBookSystem.MarkExisting(culture, state);
             }
             DiscoverMaterials(culture, pair.Value);
             if (state.last_era_tier < 0) state.last_era_tier = GetEraTier(culture);
             if (!addResearch) continue;
 
-            float points = 0f;
-            foreach (City city in pair.Value)
-            {
-                float cityPoints = research.base_per_city + city.getPopulationPeople() * research.per_population +
-                                   city.countBuildingsType("type_library") * research.per_library +
-                                   city.countBuildingsType("type_temple") * research.per_temple +
-                                   city.countBuildingsType("type_university") * research.per_university +
-                                   city.buildings.Count(b => b != null && IsFactory(b.asset)) * research.per_factory;
-                // 兵荒马乱的城市读不了书
-                if (city.kingdom != null && city.kingdom.hasEnemies()) cityPoints *= 1f - research.war_penalty;
-                points += cityPoints;
-            }
-            points *= 1f + GetResearchBonus(culture);
+            Dictionary<string, float> income = CollectIncome(culture, pair.Value);
+            float points = income.Values.Sum() * (1f + GetResearchBonus(culture));
+            state.last_income = income;
             state.last_yearly_points = points;
+            state.research_bank += points;
             CheckBoosts(culture, pair.Value);
-            AddResearch(culture, points, pair.Value);
+            state.last_unfunded = 0f;
+            if (state.auto_research) SpendBank(culture, pair.Value, null);
             CheckEra(culture, pair.Value);
+            LandmarkBookSystem.YearlyCheck(culture, pair.Value, state);
             if (state.modernize_years > 0)
             {
                 state.modernize_years--;
@@ -920,17 +1004,18 @@ public static class TechnologySystem
         }
     }
 
-    private static void AddResearch(string culture, float points, List<City> cities)
+    // 把 points 投进研究，返回没花掉的(没有可研究的技术时留在储备里)
+    private static float AddResearch(string culture, float points, List<City> cities)
     {
         CultureTechState state = GetState(culture);
-        // 一年的点数可能够研究好几项低级技术，溢出的点数顺延给下一项
+        // 储备可能够研究好几项低级技术，溢出的点数顺延给下一项
         for (int guard = 0; guard < 8 && points > 0f; guard++)
         {
             TechNodeConfig target = PickTarget(culture);
             if (target == null)
             {
                 state.current_tech = "";
-                return;
+                return points;
             }
             state.current_tech = target.id;
             float cost = GetCost(culture, target);
@@ -939,13 +1024,175 @@ public static class TechnologySystem
             if (points < needed)
             {
                 state.tech_progress[target.id] = progress + points;
-                return;
+                return 0f;
             }
             points -= Math.Max(0f, needed);
             bool worldFirst = !_states.Any(pair => pair.Key != culture && pair.Value.researched_techs.Contains(target.id));
             CompleteTech(culture, target.id);
             OnResearched(culture, target, worldFirst, cities);
         }
+        return points;
+    }
+
+    // 各来源的科技点(未乘学术加成)。人口和城市只给很少的底数，主要靠著书、读书、战争实践和学府
+    private static Dictionary<string, float> CollectIncome(string culture, List<City> cities)
+    {
+        TechResearchConfig research = Config.research;
+        float basis = 0f, schools = 0f, war = 0f;
+        foreach (City city in cities)
+        {
+            float cityBasis = research.base_per_city + city.getPopulationPeople() * research.per_population;
+            // 文化城池自带藏书阁和庙宇(合并民居后原版的图书馆、神庙都建不起来了)，每级按一座图书馆加一座神庙算
+            int cityLevels = city.buildings.Where(b => b?.asset != null && b.asset.id.StartsWith("city_", StringComparison.Ordinal))
+                .Sum(b => b.asset.upgrade_level);
+            float citySchools = city.countBuildingsType("type_library") * research.per_library +
+                                cityLevels * (research.per_library + research.per_temple) +
+                                city.countBuildingsType("type_temple") * research.per_temple +
+                                city.countBuildingsType("type_university") * research.per_university +
+                                city.buildings.Count(b => b != null && IsFactory(b.asset)) * research.per_factory;
+            if (city.kingdom != null && city.kingdom.hasEnemies())
+            {
+                // 兵荒马乱读书少，但打仗本身逼出新技术
+                cityBasis *= 1f - research.war_penalty;
+                citySchools *= 1f - research.war_penalty;
+                war += city.units.Count(actor => actor != null && actor.isAlive() && actor.isWarrior()) *
+                       research.per_warrior_at_war;
+            }
+            basis += cityBasis;
+            schools += citySchools;
+        }
+        BooksWritten.TryGetValue(culture, out float written);
+        BooksRead.TryGetValue(culture, out float read);
+        BooksWritten.Remove(culture);
+        BooksRead.Remove(culture);
+        return new Dictionary<string, float>
+        {
+            ["basis"] = basis,
+            ["schools"] = schools,
+            ["books_written"] = written * research.per_book_written,
+            ["books_read"] = read * research.per_book_read,
+            ["war"] = war
+        };
+    }
+
+    // 书籍补丁调用(见 TechnologyPatch)：当年累计，年度结算时折成科技点
+    private static readonly Dictionary<string, float> BooksWritten = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, float> BooksRead = new(StringComparer.Ordinal);
+
+    public static void OnBookWritten(string culture)
+    {
+        if (!CultureService.IsValidCulture(culture)) return;
+        BooksWritten.TryGetValue(culture, out float value);
+        BooksWritten[culture] = value + 1f;
+    }
+
+    public static void OnBookRead(string culture)
+    {
+        if (!CultureService.IsValidCulture(culture)) return;
+        BooksRead.TryGetValue(culture, out float value);
+        BooksRead[culture] = value + 1f;
+    }
+
+    // 名著写成：按 landmark_book_multiplier 算几本书的著书科技点(普通写书补丁已经算了 1 本，这里补差额)
+    public static void AddLandmarkBookPoints(string culture)
+    {
+        if (!CultureService.IsValidCulture(culture)) return;
+        BooksWritten.TryGetValue(culture, out float written);
+        BooksWritten[culture] = written + Math.Max(0f, Config.research.landmark_book_multiplier - 1f);
+    }
+
+    // 名著推动技术：进度立刻增加 fraction × 费用(已掌握的不管)
+    public static void AddTechProgressFraction(string culture, string techId, float fraction)
+    {
+        if (!CultureService.IsValidCulture(culture) || fraction <= 0f ||
+            !_techs.TryGetValue(techId ?? "", out TechNodeConfig tech) || HasTech(culture, techId)) return;
+        float cost = GetCost(culture, tech);
+        GetState(culture).tech_progress[techId] = Math.Min(cost, GetProgress(culture, techId) + cost * fraction);
+    }
+
+    public static bool IsStagnant(string culture) =>
+        GetState(culture).last_yearly_points < Config.research.stagnation_threshold;
+
+    #region 研究经费
+
+    private static List<Kingdom> KingdomsOf(List<City> cities) =>
+        cities.Select(city => city.kingdom).Where(kingdom => kingdom != null && !kingdom.isRekt()).Distinct().ToList();
+
+    public static int GetCultureTreasury(string culture) =>
+        KingdomsOf(CitiesOf(culture)).Sum(kingdom => Math.Max(0, kingdom.GetMoney()));
+
+    // 国库买得起多少科技点
+    private static float Affordable(List<City> cities)
+    {
+        float price = Config.research.gold_per_point;
+        if (price <= 0f) return float.MaxValue;
+        return KingdomsOf(cities).Sum(kingdom => Math.Max(0, kingdom.GetMoney())) / price;
+    }
+
+    // 按实际投入的科技点扣钱，各国按国库多少分摊
+    private static void PayFor(List<City> cities, float points)
+    {
+        float price = Config.research.gold_per_point;
+        if (price <= 0f || points <= 0f) return;
+        List<Kingdom> kingdoms = KingdomsOf(cities);
+        float total = kingdoms.Sum(kingdom => Math.Max(0, kingdom.GetMoney()));
+        if (total <= 0f) return;
+        int bill = Mathf.CeilToInt(points * price);
+        foreach (Kingdom kingdom in kingdoms)
+        {
+            int money = Math.Max(0, kingdom.GetMoney());
+            int share = Math.Min(money, Mathf.CeilToInt(bill * money / total));
+            if (share > 0) kingdom.SubMoney(share);
+        }
+    }
+
+    // 把储备投进研究：只投国库买得起的部分；techId 为空时按 AI/玩家目标自动挑
+    private static float SpendBank(string culture, List<City> cities, string techId)
+    {
+        CultureTechState state = GetState(culture);
+        float affordable = Affordable(cities);
+        float budget = Math.Min(state.research_bank, affordable);
+        state.last_unfunded = Math.Max(0f, state.research_bank - affordable);
+        if (budget <= 0f) return 0f;
+        float used;
+        if (string.IsNullOrEmpty(techId))
+        {
+            used = budget - AddResearch(culture, budget, cities);
+        }
+        else
+        {
+            TechNodeConfig tech = _techs[techId];
+            float cost = GetCost(culture, tech);
+            float progress = GetProgress(culture, techId);
+            used = Math.Min(budget, Math.Max(0f, cost - progress));
+            if (progress + used >= cost)
+            {
+                bool worldFirst = !_states.Any(pair => pair.Key != culture && pair.Value.researched_techs.Contains(techId));
+                CompleteTech(culture, techId);
+                OnResearched(culture, tech, worldFirst, cities);
+            }
+            else state.tech_progress[techId] = progress + used;
+        }
+        state.research_bank -= used;
+        PayFor(cities, used);
+        return used;
+    }
+
+    #endregion
+
+    // 玩家手动把储备投进某项技术(前置要满足，国库要付得起)
+    public static bool Invest(string culture, string techId)
+    {
+        if (!CultureService.IsValidCulture(culture) || !_techs.TryGetValue(techId ?? "", out TechNodeConfig tech) ||
+            HasTech(culture, techId) || !ArePrerequisitesMet(culture, tech)) return false;
+        CultureTechState state = GetState(culture);
+        if (state.research_bank <= 0f) return false;
+        return SpendBank(culture, CitiesOf(culture), techId) > 0f;
+    }
+
+    public static void SetAutoResearch(string culture, bool value)
+    {
+        if (CultureService.IsValidCulture(culture)) GetState(culture).auto_research = value;
     }
 
     // 研究出来之后：世界首创写日志；新武器 → 军队接下来几年陆续换装

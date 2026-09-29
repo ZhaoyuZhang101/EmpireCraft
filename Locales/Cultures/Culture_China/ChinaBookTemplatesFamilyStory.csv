@@ -1,0 +1,28 @@
+key,cz,en,ch
+book_template_china_family_story_1,$word$,$word$,$word$
+book_template_china_family_story_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_china_family_story_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_china_family_story_4,$author$$word$,$author$'s $word$,$author$$word$
+book_template_china_family_story_5,新$word$,New $word$,新$word$
+book_template_china_family_story_6,续$word$,"$word$, Continued",續$word$
+book_template_china_family_story_7,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_china_family_story_8,$dynasty$$word$,$word$ of $dynasty$,$dynasty$$word$
+book_template_china_family_story_9,$clan$家训,Family Instructions of the $clan$,$clan$家訓
+book_template_china_family_story_10,$clan$家谱,Genealogy of the $clan$,$clan$家譜
+book_template_china_family_story_11,$clan$世家,Hereditary House of the $clan$,$clan$世家
+book_template_china_family_story_12,$clan$家传,Family Biography of the $clan$,$clan$家傳
+book_template_china_family_story_13,$author$家书,Letters Home by $author$,$author$家書
+book_template_china_family_story_14,$clan$族谱,Clan Register of the $clan$,$clan$族譜
+book_template_china_family_story_15,$city$$clan$宗谱,Lineage of the $clan$ of $city$,$city$$clan$宗譜
+book_template_china_family_story_16,$clan$世德录,Inherited Virtue of the $clan$,$clan$世德錄
+book_template_china_family_story_17,$author$庭训,Courtyard Teachings of $author$,$author$庭訓
+book_template_china_family_story_18,$clan$先贤传,Worthy Ancestors of the $clan$,$clan$先賢傳
+book_template_china_family_story_19,$clan$列传,Biographies of the $clan$,$clan$列傳
+book_template_china_family_story_20,$clan$遗事,Remembered Deeds of the $clan$,$clan$遺事
+book_template_china_family_story_21,$clan$义庄记,The Charitable Estate of the $clan$,$clan$義莊記
+book_template_china_family_story_22,$author$示儿书,Letter to the Children by $author$,$author$示兒書
+book_template_china_family_story_23,$clan$$topic$记,The $topic$ of the $clan$,$clan$$topic$記
+book_template_china_family_story_24,$author$论$topic$,$author$ on $topic$,$author$論$topic$
+book_template_china_family_story_25,$clan$$topic$传,Tales of $topic$ in the $clan$,$clan$$topic$傳
+book_template_china_family_story_26,$city$$topic$录,Records of $topic$ in $city$,$city$$topic$錄
+book_template_china_family_story_27,$clan$祠堂记,Ancestral Hall of the $clan$,$clan$祠堂記

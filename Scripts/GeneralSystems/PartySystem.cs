@@ -147,6 +147,7 @@ public static class PartySystem
     // 开放党禁 + 本文化至少解锁了一种理念(理念由制度树"意识形态"车道的节点解锁)。
     // 不必等议会：没有议会时政党像派系一样按中央占比在朝中博弈，开了议会(立宪/共和)才按选举分议席。
     public static bool IsActive(Empire empire) =>
+        !TechnologySystem.PremodernLocked &&
         empire?.CoreKingdom != null && InstitutionSystem.GetFeature(empire, FeaturePartyPolitics) > 0f &&
         UnlockedIdeologies(empire).Count > 0;
 

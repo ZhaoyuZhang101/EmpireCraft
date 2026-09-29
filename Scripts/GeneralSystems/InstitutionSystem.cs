@@ -218,6 +218,7 @@ public static class InstitutionSystem
     {
         if (node == null || IsSameLine(node.line, targetLine) || node.absorb?.enabled != true ||
             IdeologyInstitutionPaths.TryGetIdeology(node.branch, out _)) return false;
+        if (TechnologySystem.PremodernLocked && TechnologySystem.IsModernInstitution(node)) return false;
         if (HasEquivalentEnacted(target, node)) return false;
         return !InstitutionDefinitionRegistry.GetForLine(targetLine).Any(own =>
             string.Equals(own.equivalence_key, node.equivalence_key, StringComparison.Ordinal));
@@ -503,6 +504,12 @@ public static class InstitutionSystem
         if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, cultureState.enacted_node_ids.Contains))
         {
             reason = "institution_reform_missing_requirement";
+            return false;
+        }
+        // 禁止近代化：只能走到君主立宪
+        if (TechnologySystem.PremodernLocked && TechnologySystem.IsModernInstitution(node))
+        {
+            reason = "institution_reform_premodern";
             return false;
         }
         // 技术是制度的物质基础：没有对应技术，这项制度推不动(强制也不行，只有上帝模式直接点亮)
@@ -2051,6 +2058,11 @@ public static class InstitutionSystem
             {
                 view.Status = InstitutionNodeStatus.Locked;
                 view.Reason = "institution_reform_missing_requirement";
+            }
+            else if (TechnologySystem.PremodernLocked && TechnologySystem.IsModernInstitution(node))
+            {
+                view.Status = InstitutionNodeStatus.Locked;
+                view.Reason = "institution_reform_premodern";
             }
             else if (!TechnologySystem.AreInstitutionTechsMet(culture, node, out _))
             {

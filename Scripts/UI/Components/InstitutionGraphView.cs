@@ -177,9 +177,12 @@ public class InstitutionGraphView
         // 缩放不低于 MinFitScale——卡片上的小字再缩就看不清了，装不下的部分靠拖拽平移。
         Rect viewportRect = _engine.ViewportTransform.rect;
         float fitScale = Mathf.Clamp(viewportRect.width / Math.Max(1f, contentSize.x) * 0.98f, MinFitScale, 1f);
+        // 对准实际存在节点的最上面一行。之前固定对准第 1 级：理念路线这类只有高等级节点的子树
+        // (节点从"开放党禁"之后才开始)打开时全在视口下方，看上去是一块空画布
+        float topY = positions.Count > 0 ? positions.Values.Max(position => position.y) : RowY(1);
+        if (foreignNodes.Count > 0) topY = Math.Max(topY, RowY(1));
         Vector2 fitPosition = new Vector2(0f,
-            viewportRect.height / 2f - FixedHeaderHeight -
-            (RowY(1) + NodeHeight / 2f) * fitScale);
+            viewportRect.height / 2f - FixedHeaderHeight - (topY + NodeHeight / 2f + 4f) * fitScale);
         _engine.SetContent(contentSize, fitScale, fitPosition);
     }
 

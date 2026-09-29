@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmpireCraft 文化编辑器</title>
+  <link rel="stylesheet" href="common.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="side">
+      <div class="toolbar">
+        <button class="primary" id="newCultureBtn"><img class="ico sm" src="assets/icons/iconShovelPlus.png">新建文化</button>
+        <button id="reloadBtn"><img class="ico sm" src="assets/icons/iconArrowBack.png">刷新</button>
+      </div>
+      <input id="cultureFilter" placeholder="搜索文化…" />
+      <div class="list" id="cultureList"></div>
+      <div class="note">
+        每个文化就是 <code>Locales/Cultures/Culture_&lt;名字&gt;/</code> 一个文件夹：
+        <code>CultureRule.json</code> 是规则，其余 CSV 是各种词库。加文化、改词库都不用碰代码。
+      </div>
+    </aside>
+    <main class="panel" id="main">
+      <p class="muted">从左侧选择一个文化，或新建一个。</p>
+    </main>
+  </div>
+
+  <dialog id="newDialog">
+    <h2><img class="ico" src="assets/icons/iconCulture.png">新建文化</h2>
+    <div class="grid">
+      <label class="field">文化 id(英文，文件夹名 Culture_&lt;id&gt;)<input id="ndName" placeholder="Korea" /></label>
+      <div class="grid three">
+        <label class="field">简体中文名<input id="ndCz" placeholder="朝鲜" /></label>
+        <label class="field">English<input id="ndEn" placeholder="Korean" /></label>
+        <label class="field">繁體中文名<input id="ndCh" placeholder="朝鮮" /></label>
+      </div>
+      <label class="field">以哪个文化为模板复制<select id="ndFrom"></select></label>
+      <label><input type="checkbox" id="ndCsv" checked /> 连同全部词库 CSV 一起复制(文件名、key 里的文化名自动替换)</label>
+      <div class="toolbar"><button class="primary" id="ndOk">创建</button><button id="ndCancel">取消</button></div>
+    </div>
+  </dialog>
+
+  <script src="common.js"></script>
+  <script>
+    const BOOK_TYPES = [
+      ["HistoryBook", "史书"], ["BadStoryAboutKing", "讽刺君王"], ["Fable", "志怪寓言"], ["FamilyStory", "家族"],
+      ["FriendshipStory", "友情"], ["LoveStory", "爱情"], ["BiologyBook", "博物"], ["Mathbook", "算学"],
+      ["DiplomacyManual", "外交"], ["EconomyManual", "经济"], ["StewardshipManual", "治理"], ["WarfareManual", "兵书"]
+    ];
+    const BOOK_KINDS = [
+      ["Books", "固定书名", "每个全世界只用一次；也可以写带 $占位符$ 的书名"],
+      ["BookTemplates", "书名模板", "用占位符组合，用不完"],
+      ["BookWords", "$word$ 词", "模板里 $word$ 随机取一个"],
+      ["BookTopics", "$topic$ 主题", "模板里 $topic$ 随机取一个"]
+    ];
+    const PLACEHOLDERS = "$word$ 词库  $topic$ 主题词  $author$ 作者  $city$ 城市  $kingdom$ 国家  $clan$ 氏族  $era$ 科技时代  " +
+      "$dynasty$ 朝代(帝国名)  $dynasty_short$ 去掉“朝/国”的朝代名  $year_name$ 当朝年号  $emperor$ 当朝皇帝  " +
+      "$past_emperor$ 某位先帝(有庙号用庙号)  $past_year_name$ 那位先帝的年号。取不到值(比如没有帝国)的模板会自动跳过。";
+    const IDEOLOGIES = ["Anarchism", "SocialDemocracy", "Libertarianism", "SocialLiberalism", "Capitalism", "ConservativeLiberalism",
+      "Centrism", "Socialism", "Communism", "ReligiousDemocracy", "Authoritarianism", "Conservatism", "Fascism"];
+    const NAMING = {
+      City: { label: "城市", icon: "iconCity", flags: [] },
+      Kingdom: { label: "国家", icon: "iconKingdom", flags: [["english_type_prefix", "英文用 The {类别} of {国名}"]] },
+      Clan: { label: "氏族", icon: "iconClan", flags: [["has_sex_post", "姓氏有阴阳词性"], ["use_local_as_lastname", "名在前、姓在后"]], sexPost: true },
+      Family: { label: "家族", icon: "iconFamily", flags: [["has_sex_post", "姓氏有阴阳词性"], ["use_local_as_lastname", "名在前、姓在后"]] },
+      Unit: { label: "人名", icon: "iconSpecies", flags: [["is_invert", "名在前(西式)"]] }
+    };
+    const SPACE = " ";
+
+    const S = { cultures: [], current: null, data: null, rawText: "", dirty: false, tab: "basic",
+      regimes: [], lines: [], species: [], onomastics: [], csv: null };
+
+    async function init() {
+      mountAppBar("culture.html");
+      if (!api) { document.getElementById("main").innerHTML = `<p class="muted">请用 启动桌面版.bat 打开，浏览器里无法读写模组文件。</p>`; return; }
+      await loadLookups();
+      await reloadCultures();
+      document.getElementById("reloadBtn").onclick = () => reloadCultures();
+      document.getElementById("cultureFilter").oninput = renderList;
+      document.getElementById("newCultureBtn").onclick = openNewDialog;
+      document.getElementById("ndCancel").onclick = () => document.getElementById("newDialog").close();
+      document.getElementById("ndOk").onclick = createCulture;
+      window.addEventListener("beforeunload", e => { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
+    }
+
+    async function loadLookups() {
+      try { S.regimes = (await api.listDir("Scripts/Regimes/Configs")).filter(e => e.dir).map(e => e.name).sort(); } catch { }
+      try {
+        S.lines = (await api.listDir("InstitutionTrees")).filter(e => !e.dir && e.name.endsWith(".json") && e.name !== "Settings.json")
+          .map(e => e.name.replace(/\.json$/, "")).sort();
+      } catch { }
+      try {
+        const cfg = await api.readText("Scripts/Data/ConfigData.cs");
+        const block = cfg.text.split("speciesCulturePair")[1] || "";
+        S.species = uniq([...block.matchAll(/\{\s*"([^"]+)"\s*,\s*"[^"]+"\s*\}/g)].map(m => m[1])).sort();
+      } catch { }
+      try {
+        const en = await api.readText("Scripts/Enums/OnomasticsType.cs");
+        S.onomastics = uniq([...en.text.matchAll(/^\s*([a-z_][a-z0-9_]*)\s*[,=\r\n]/gim)].map(m => m[1]))
+          .filter(v => !["public", "namespace", "enum", "using"].includes(v));
+      } catch { }
+    }
+
+    async function reloadCultures(keep) {
+      S.cultures = await api.listCultures();
+      renderList();
+      const name = keep || S.current?.name;
+      if (name && S.cultures.find(c => c.name === name)) selectCulture(name, true);
+    }
+
+    function displayName(c) {
+      const d = c.data || {};
+      return d.translate_cz || d.translate_ch || d.translate_en || c.name;
+    }
+
+    function renderList() {
+      const q = document.getElementById("cultureFilter").value.trim().toLowerCase();
+      const list = document.getElementById("cultureList");
+      list.innerHTML = S.cultures.filter(c => !q || c.name.toLowerCase().includes(q) || displayName(c).toLowerCase().includes(q))
+        .map(c => `<div class="item ${c.name === S.current?.name ? "active" : ""} ${c.error || !c.data ? "bad" : ""}" data-name="${esc(c.name)}">
+            <span class="dot" style="background:${esc(c.data?.color || "#ccc")}"></span>${esc(displayName(c))}
+            <span class="sub">${esc(c.name)}</span></div>`).join("");
+      list.querySelectorAll(".item").forEach(el => el.onclick = () => selectCulture(el.dataset.name));
+    }
+
+    function selectCulture(name, force) {
+      if (!force && S.dirty && S.current?.name !== name && !confirm("当前文化有未保存的修改，确定切换？")) return;
+      const c = S.cultures.find(x => x.name === name);
+      S.current = c;
+      S.rawText = c.text || "";
+      S.data = c.data ? JSON.parse(JSON.stringify(c.data)) : null;
+      if (S.data) normalize(S.data);
+      S.dirty = false;
+      S.csv = null;
+      renderList();
+      renderMain();
+    }
+
+    function normalize(d) {
+      d.setting = d.setting || {};
+      d.species = d.species || [];
+      d.setting.traits = d.setting.traits || [];
+      for (const key of Object.keys(NAMING)) {
+        d.setting[key] = d.setting[key] || { groups: {}, rule: [], name_pos: 0 };
+        d.setting[key].groups = d.setting[key].groups || {};
+        d.setting[key].rule = d.setting[key].rule || [];
+      }
+      d.setting.Party = d.setting.Party || { groups: {}, suffix_groups: {} };
+      d.setting.Party.groups = d.setting.Party.groups || {};
+      d.setting.Party.suffix_groups = d.setting.Party.suffix_groups || {};
+    }
+
+    function markDirty() {
+      S.dirty = true;
+      document.getElementById("saveBtn")?.classList.add("dirty");
+    }
+
+    function csvPath(lib) { return `${S.current.rel}/${S.current.name}${lib}.csv`; }
+    function hasCsv(lib) { return S.current.csvs.includes(`${S.current.name}${lib}.csv`); }
+
+    function renderMain() {
+      const main = document.getElementById("main");
+      const c = S.current;
+      if (!c) return;
+      const tabs = [["basic", "基本信息", "iconMainInfo"], ["naming", "命名规则", "iconCityName"], ["party", "政党", "iconPlot"],
+        ["books", "书籍词库", "iconBooks"], ["files", "全部词库", "iconCultureList"], ["raw", "JSON 原文", "iconEdit"]];
+      main.innerHTML = `
+        <h2><span class="dot" style="display:inline-block;width:18px;height:18px;border-radius:4px;background:${esc(S.data?.color || "#ccc")}"></span>
+          ${esc(displayName(c))} <span class="badge">${esc(c.folder)}</span>
+          <span style="flex:1"></span>
+          <button id="openDirBtn" class="small">${ico("iconCultureList", "sm")}打开文件夹</button>
+          <button id="saveBtn" class="primary">${ico("iconSaveLocal", "sm")}保存规则</button></h2>
+        ${c.error ? `<div class="note" style="color:var(--danger)">CultureRule.json 解析失败：${esc(c.error)}。请在“JSON 原文”里修正。</div>` : ""}
+        ${!c.data && !c.error ? `<div class="note">这个文件夹还没有 CultureRule.json，保存后会创建。</div>` : ""}
+        <div class="tabs">${tabs.map(([id, label, icon]) => `<button data-tab="${id}" class="${S.tab === id ? "active" : ""}">${ico(icon, "sm")}${label}</button>`).join("")}</div>
+        <div id="tabBody"></div>`;
+      if (!S.data && !c.error) { S.data = { name: c.name, color: "#888888", translate_cz: "", translate_en: "", translate_ch: "", species: [], setting: {} }; normalize(S.data); }
+      main.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { S.tab = b.dataset.tab; renderMain(); });
+      document.getElementById("openDirBtn").onclick = () => api.openPath(c.rel);
+      document.getElementById("saveBtn").onclick = saveRule;
+      if (S.dirty) document.getElementById("saveBtn").classList.add("dirty");
+      const body = document.getElementById("tabBody");
+      if (!S.data && S.tab !== "raw" && S.tab !== "files" && S.tab !== "books") { S.tab = "raw"; return renderMain(); }
+      ({ basic: renderBasic, naming: renderNaming, party: renderParty, books: renderBooks, files: renderFiles, raw: renderRaw })[S.tab](body);
+    }
+
+    function bindInput(el, getter, setter) {
+      el.value = getter() ?? "";
+      el.addEventListener("input", () => { setter(el.value); markDirty(); });
+    }
+
+    function renderBasic(body) {
+      const d = S.data, st = d.setting;
+      body.innerHTML = `
+        <div class="grid four">
+          <label class="field">文化 id<input value="${esc(d.name)}" disabled></label>
+          <label class="field">简体中文<input id="bCz"></label>
+          <label class="field">English<input id="bEn"></label>
+          <label class="field">繁體中文<input id="bCh"></label>
+        </div>
+        <div class="grid four" style="margin-top:10px">
+          <label class="field">${ico("iconColorCustomization", "sm")} 地图颜色<input type="color" id="bColor"></label>
+          <label class="field">${ico("iconKings", "sm")} 默认政体<select id="bRegime"><option value="">(不指定)</option>${S.regimes.map(r => `<option>${esc(r)}</option>`).join("")}</select></label>
+          <label class="field">${ico("iconKnowledge", "sm")} 制度科技线<select id="bLine"><option value="">(用默认线)</option>${S.lines.map(r => `<option>${esc(r)}</option>`).join("")}</select></label>
+          <label class="field">${ico("iconReligion", "sm")} 宗教名词库<input id="bReligion" placeholder="ReligionNames"></label>
+        </div>
+        <h3>${ico("iconSpecies")}物种</h3>
+        <p class="muted">这些物种默认属于本文化(覆盖代码里的默认映射；玩家自己的 CultureSpeciesPairPlayerConfig.json 仍然优先)。</p>
+        <div id="bSpecies"></div>
+        <h3>${ico("iconEditTrait")}文化特质</h3>
+        <p class="muted">游戏里文化特质的 id，比如 patriarchy。</p>
+        <div id="bTraits"></div>`;
+      bindInput(body.querySelector("#bCz"), () => d.translate_cz, v => d.translate_cz = v);
+      bindInput(body.querySelector("#bEn"), () => d.translate_en, v => d.translate_en = v);
+      bindInput(body.querySelector("#bCh"), () => d.translate_ch, v => d.translate_ch = v);
+      bindInput(body.querySelector("#bColor"), () => d.color || "#888888", v => d.color = v.toUpperCase());
+      bindInput(body.querySelector("#bRegime"), () => st.regime, v => st.regime = v);
+      bindInput(body.querySelector("#bLine"), () => st.institution_line, v => st.institution_line = v);
+      bindInput(body.querySelector("#bReligion"), () => st.Religion, v => st.Religion = v);
+      body.querySelector("#bSpecies").appendChild(chipEditor(d.species, { suggestions: S.species, placeholder: "物种 id，回车添加", onChange: markDirty }));
+      body.querySelector("#bTraits").appendChild(chipEditor(st.traits, { suggestions: ["patriarchy", "matriarchy"], placeholder: "特质 id，回车添加", onChange: markDirty }));
+    }
+
+    function groupLabel(v) { return v === SPACE ? "(细空格)" : v; }
+
+    function renderNaming(body) {
+      body.innerHTML = `<div class="note">
+        <b>groups</b>：组名 → 词库名，词库文件是本文件夹里的 <code>${esc(S.current.name)}&lt;词库名&gt;.csv</code>；值写成细空格(按钮“空格”)表示一个分隔符。
+        <b>rule</b>：按顺序拼接的规则，可以用组名，也可以用 sex_male / sex_female(性别过滤)、coin_flip(随机二选一)、space 等。
+        <b>name_pos</b>：按空格拆开后，第几段是“有效名字”(从 0 数)。</div>
+        <div id="namingCards" class="grid" style="margin-top:10px"></div>`;
+      const box = body.querySelector("#namingCards");
+      for (const [key, meta] of Object.entries(NAMING)) {
+        const cfg = S.data.setting[key];
+        const card = document.createElement("div");
+        card.className = "card";
+        const rows = Object.entries(cfg.groups);
+        card.innerHTML = `<h3 style="margin-top:0">${ico(meta.icon)}${meta.label} <span class="badge">${key}</span></h3>
+          <table class="sheet"><tr><th style="width:140px">组名</th><th>词库</th><th style="width:120px">状态</th><th class="act"></th></tr>
+          ${rows.map(([g, lib], i) => `<tr><td><input data-g="${i}" value="${esc(g)}"></td><td><input data-l="${i}" value="${esc(groupLabel(lib))}" ${lib === SPACE ? "disabled" : ""}></td>
+            <td style="padding:2px 6px">${lib === SPACE ? `<span class="muted">分隔符</span>` : hasCsv(lib) ? `<a href="#" data-open="${esc(lib)}">打开词库</a>` : `<span class="muted" title="游戏里这一组会是空的">无文件(此组为空)</span> <a href="#" data-open="${esc(lib)}">创建</a>`}</td>
+            <td class="act"><button class="small" data-del="${i}">×</button></td></tr>`).join("")}
+          </table>
+          <div class="toolbar" style="margin:6px 0"><button class="small" data-add="lib">＋ 词库组</button><button class="small" data-add="space">＋ 空格组</button></div>
+          <label class="field">rule 拼接顺序</label><div class="rule"></div>
+          <div class="grid three" style="margin-top:8px">
+            <label class="field">name_pos<input type="number" min="0" data-pos value="${Number(cfg.name_pos || 0)}"></label>
+            ${meta.flags.map(([f, label]) => `<label class="check" style="align-self:end"><input type="checkbox" data-flag="${f}" ${cfg[f] ? "checked" : ""}> ${label}</label>`).join("")}
+          </div>
+          ${meta.sexPost ? `<div class="grid two" style="margin-top:8px">
+            <label class="field">男性后缀(简,英,繁 用逗号隔开)<input data-sex="sex_post_Male" value="${esc((cfg.sex_post_Male || ["", "", ""]).join(","))}"></label>
+            <label class="field">女性后缀(简,英,繁)<input data-sex="sex_post_Female" value="${esc((cfg.sex_post_Female || ["", "", ""]).join(","))}"></label></div>` : ""}`;
+        const rebuild = () => { renderNaming(body); markDirty(); };
+        card.querySelectorAll("input[data-g]").forEach(inp => inp.onchange = () => {
+          const entries = Object.entries(cfg.groups); const i = Number(inp.dataset.g);
+          const old = entries[i][0]; entries[i][0] = inp.value.trim() || old; cfg.groups = Object.fromEntries(entries);
+          cfg.rule = cfg.rule.map(r => r === old ? entries[i][0] : r); rebuild();
+        });
+        card.querySelectorAll("input[data-l]").forEach(inp => inp.onchange = () => {
+          const entries = Object.entries(cfg.groups); entries[Number(inp.dataset.l)][1] = inp.value.trim(); cfg.groups = Object.fromEntries(entries); rebuild();
+        });
+        card.querySelectorAll("button[data-del]").forEach(b => b.onclick = () => {
+          const entries = Object.entries(cfg.groups); const [g] = entries.splice(Number(b.dataset.del), 1)[0];
+          cfg.groups = Object.fromEntries(entries); cfg.rule = cfg.rule.filter(r => r !== g); rebuild();
+        });
+        card.querySelectorAll("button[data-add]").forEach(b => b.onclick = () => {
+          let n = Object.keys(cfg.groups).length + 1; while (cfg.groups[`group_${n}`] !== undefined) n++;
+          cfg.groups[`group_${n}`] = b.dataset.add === "space" ? SPACE : `${key}Names${n}`; rebuild();
+        });
+        card.querySelectorAll("a[data-open]").forEach(a => a.onclick = e => { e.preventDefault(); openCsv(a.dataset.open); });
+        card.querySelector("[data-pos]").oninput = e => { cfg.name_pos = Number(e.target.value) || 0; markDirty(); };
+        card.querySelectorAll("[data-flag]").forEach(cb => cb.onchange = () => { cfg[cb.dataset.flag] = cb.checked; markDirty(); });
+        card.querySelectorAll("[data-sex]").forEach(inp => inp.oninput = () => {
+          const parts = inp.value.split(","); cfg[inp.dataset.sex] = [parts[0] || "", parts[1] || "", parts[2] || ""]; markDirty();
+        });
+        const known = new Set([...Object.keys(cfg.groups), ...S.onomastics]);
+        card.querySelector(".rule").appendChild(chipEditor(cfg.rule, {
+          suggestions: [...Object.keys(cfg.groups), ...S.onomastics], known, placeholder: "组名或规则词，回车添加", onChange: markDirty
+        }));
+        box.appendChild(card);
+      }
+    }
+
+    function renderParty(body) {
+      const p = S.data.setting.Party;
+      body.innerHTML = `<div class="note">理念 → 词库名(本文件夹 <code>${esc(S.current.name)}&lt;词库名&gt;.csv</code>)。留空的理念用
+        <code>Locales/Cultures/PartyNames/</code> 下的通用党名 / 国号后缀。</div>
+        <table class="sheet" style="margin-top:10px"><tr><th>理念</th><th>党名词库</th><th></th><th>共和国号后缀词库</th><th></th></tr>
+        ${IDEOLOGIES.map(id => `<tr><td style="padding:2px 6px">${id}</td>
+          <td><input data-p="groups" data-id="${id}" value="${esc(p.groups[id] || "")}" placeholder="(通用)"></td>
+          <td style="padding:2px 6px;width:70px">${p.groups[id] ? `<a href="#" data-open="${esc(p.groups[id])}">${hasCsv(p.groups[id]) ? "打开" : "创建"}</a>` : ""}</td>
+          <td><input data-p="suffix_groups" data-id="${id}" value="${esc(p.suffix_groups[id] || "")}" placeholder="(通用)"></td>
+          <td style="padding:2px 6px;width:70px">${p.suffix_groups[id] ? `<a href="#" data-open="${esc(p.suffix_groups[id])}">${hasCsv(p.suffix_groups[id]) ? "打开" : "创建"}</a>` : ""}</td></tr>`).join("")}
+        </table>
+        <div class="toolbar" style="margin-top:8px"><button id="partyFill">全部按 Party&lt;理念&gt; 填上</button></div>`;
+      body.querySelectorAll("input[data-p]").forEach(inp => inp.onchange = () => {
+        const map = p[inp.dataset.p]; const v = inp.value.trim();
+        if (v) map[inp.dataset.id] = v; else delete map[inp.dataset.id];
+        markDirty(); renderParty(body);
+      });
+      body.querySelectorAll("a[data-open]").forEach(a => a.onclick = e => { e.preventDefault(); openCsv(a.dataset.open); });
+      body.querySelector("#partyFill").onclick = () => { IDEOLOGIES.forEach(id => p.groups[id] = p.groups[id] || `Party${id}`); markDirty(); renderParty(body); };
+    }
+
+    function renderBooks(body) {
+      const cell = (lib) => {
+        const own = hasCsv(lib);
+        return `<td style="padding:4px 6px">${own ? `<a href="#" data-open="${esc(lib)}">编辑</a>` : `<a href="#" data-open="${esc(lib)}" class="muted">＋ 创建</a>`}</td>`;
+      };
+      body.innerHTML = `<div class="note">书写出来时按类型从这里取名。本文化没有的文件会用 <code>Locales/Cultures/Books/</code> 下的通用词库。<br>占位符：${esc(PLACEHOLDERS)}</div>
+        <table class="sheet" style="margin-top:10px"><tr><th>类型</th>${BOOK_KINDS.map(([k, label, tip]) => `<th title="${esc(tip)}">${label}</th>`).join("")}</tr>
+        ${BOOK_TYPES.map(([tag, label]) => `<tr><td style="padding:4px 6px">${ico("iconBooks", "sm")} ${label} <span class="muted">${tag}</span></td>${BOOK_KINDS.map(([k]) => cell(k + tag)).join("")}</tr>`).join("")}
+        <tr><td style="padding:4px 6px">${ico("iconBooksWritten", "sm")} 传世名著</td>${cell("LandmarkBooks")}<td colspan="3" style="padding:4px 6px" class="muted">key 为书的 id(见 Technology/LandmarkBooks.json)，值为本文化的书名</td></tr>
+        <tr><td style="padding:4px 6px">${ico("iconWorldInfo", "sm")} 名著问世播报</td>${cell("LandmarkBookLogs")}<td colspan="3" style="padding:4px 6px" class="muted">{0} 文化 {1} 作者 {2} 书名 {3} 城市，随机取一句</td></tr>
+        </table>
+        <div id="csvEditor" style="margin-top:12px"></div>`;
+      body.querySelectorAll("a[data-open]").forEach(a => a.onclick = e => { e.preventDefault(); openCsv(a.dataset.open, body.querySelector("#csvEditor")); });
+      if (S.csv) renderCsvEditor(body.querySelector("#csvEditor"));
+    }
+
+    function renderFiles(body) {
+      const groups = { "命名": [], "政党": [], "书籍": [], "其他": [] };
+      for (const f of S.current.csvs) {
+        const lib = f.startsWith(S.current.name) ? f.slice(S.current.name.length, -4) : f.slice(0, -4);
+        const g = /^Book|^Books|^Landmark/.test(lib) ? "书籍" : /^Party|^Suffix/.test(lib) ? "政党" : /Names/.test(lib) ? "命名" : "其他";
+        groups[g].push(lib);
+      }
+      body.innerHTML = `<div class="toolbar"><input id="newLib" placeholder="新词库名，比如 CityNames4" style="width:260px"><button id="newLibBtn">＋ 新建词库</button></div>
+        ${Object.entries(groups).map(([g, libs]) => libs.length ? `<h3>${g} <span class="badge">${libs.length}</span></h3><div class="chips">${libs.map(l =>
+          `<span class="chip" style="cursor:pointer" data-open="${esc(l)}">${esc(l)}</span>`).join("")}</div>` : "").join("")}
+        <div id="csvEditor" style="margin-top:12px"></div>`;
+      body.querySelectorAll("[data-open]").forEach(a => a.onclick = () => openCsv(a.dataset.open, body.querySelector("#csvEditor")));
+      body.querySelector("#newLibBtn").onclick = () => {
+        const v = body.querySelector("#newLib").value.trim();
+        if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(v)) return toast("词库名只能用英文字母、数字和下划线", true);
+        openCsv(v, body.querySelector("#csvEditor"));
+      };
+      if (S.csv) renderCsvEditor(body.querySelector("#csvEditor"));
+    }
+
+    function renderRaw(body) {
+      body.innerHTML = `<div class="note">直接编辑 CultureRule.json(允许 // 注释)。这里保存会原样写入并保留注释；在其它页签保存则会按表单重新生成(注释会丢失)。</div>
+        <textarea class="code" id="rawText" style="margin-top:8px"></textarea>
+        <div class="toolbar" style="margin-top:8px"><button class="primary" id="rawSave">${ico("iconSaveLocal", "sm")}按原文保存</button><button id="rawFromForm">用表单内容覆盖原文</button></div>`;
+      const ta = body.querySelector("#rawText");
+      ta.value = S.rawText || JSON.stringify(S.data, null, 4);
+      body.querySelector("#rawSave").onclick = async () => {
+        try { parseJsonLoose(ta.value); } catch (e) { return toast("JSON 格式错误：" + e.message, true); }
+        await api.writeText(`${S.current.rel}/CultureRule.json`, ta.value);
+        S.dirty = false; toast("已保存 CultureRule.json(保留原文)"); await reloadCultures(S.current.name);
+      };
+      body.querySelector("#rawFromForm").onclick = () => { ta.value = JSON.stringify(S.data, null, 4); };
+    }
+
+    function cleanForSave(d) {
+      const out = JSON.parse(JSON.stringify(d));
+      if (!out.species?.length) delete out.species;
+      if (!out.translate_ch) delete out.translate_ch;
+      if (!out.translate_en) delete out.translate_en;
+      const p = out.setting.Party;
+      if (p && !Object.keys(p.groups).length && !Object.keys(p.suffix_groups).length) delete out.setting.Party;
+      for (const key of Object.keys(NAMING)) {
+        const cfg = out.setting[key];
+        if (cfg && !Object.keys(cfg.groups).length && !cfg.rule.length) delete out.setting[key];
+      }
+      return out;
+    }
+
+    async function saveRule() {
+      if (!S.current) return;
+      if (S.tab === "raw") return document.getElementById("rawSave").click();
+      if (!S.data) return toast("规则解析失败，请在 JSON 原文里修正", true);
+      const text = JSON.stringify(cleanForSave(S.data), null, 4) + "\n";
+      await api.writeText(`${S.current.rel}/CultureRule.json`, text);
+      S.dirty = false;
+      toast(`已保存 ${S.current.folder}/CultureRule.json`);
+      await reloadCultures(S.current.name);
+    }
+
+    // ---------- CSV ----------
+    async function openCsv(lib, container) {
+      const rel = csvPath(lib);
+      const r = await api.readText(rel);
+      const parsed = r.exists ? parseCsv(r.text) : { header: ["key", "cz", "en", "ch"], rows: [] };
+      S.csv = { lib, rel, exists: r.exists, ...parsed, dirty: false };
+      if (!container) { S.tab = S.tab === "files" ? "files" : "books"; if (!["books", "files"].includes(S.tab)) S.tab = "files"; renderMain(); return; }
+      renderCsvEditor(container);
+      container.scrollIntoView({ behavior: "smooth" });
+    }
+
+    function keyPrefix(lib) {
+      return `${S.current.name}_${lib}`.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+    }
+
+    function nextKey(lib) {
+      const prefix = keyPrefix(lib);
+      const used = new Set(S.csv.rows.map(r => r[0]));
+      let n = S.csv.rows.length + 1;
+      while (used.has(`${prefix}_${n}`)) n++;
+      return `${prefix}_${n}`;
+    }
+
+    function renderCsvEditor(box) {
+      const c = S.csv;
+      const cols = c.header.length;
+      const isBook = /^Book|^Books/.test(c.lib);
+      box.innerHTML = `<div class="card">
+        <h3 style="margin-top:0">${ico("iconEdit")}${esc(c.lib)} <span class="badge">${c.rows.length} 行</span> ${c.exists ? "" : `<span class="badge">新文件</span>`}
+          <span style="flex:1"></span>
+          <button class="small" id="csvAdd">＋ 行</button>
+          <button class="small" id="csvPaste" title="每行一个，写中文即可，会自动生成 key">＋ 批量添加</button>
+          <button class="small primary" id="csvSave">${ico("iconSaveLocal", "sm")}保存 csv</button></h3>
+        <p class="muted" style="margin:0 0 6px">${esc(c.rel)}　key 在本文件里必须唯一。${isBook ? "书名词库里空着的语言会退回 English / 简体。" : "命名词库请把 cz / en / ch 都填上。"}${isBook ? "<br>" + esc(PLACEHOLDERS) : ""}</p>
+        <div style="max-height:52vh;overflow:auto"><table class="sheet"><tr>${c.header.map(h => `<th>${esc(h)}</th>`).join("")}<th class="act"></th></tr>
+        ${c.rows.map((row, i) => `<tr>${Array.from({ length: cols }, (_, j) => `<td><input data-r="${i}" data-c="${j}" value="${esc(row[j] ?? "")}"></td>`).join("")}
+          <td class="act"><button class="small" data-del="${i}">×</button></td></tr>`).join("")}
+        </table></div></div>`;
+      box.querySelectorAll("input[data-r]").forEach(inp => inp.oninput = () => { c.rows[inp.dataset.r][inp.dataset.c] = inp.value; c.dirty = true; });
+      box.querySelectorAll("button[data-del]").forEach(b => b.onclick = () => { c.rows.splice(Number(b.dataset.del), 1); c.dirty = true; renderCsvEditor(box); });
+      box.querySelector("#csvAdd").onclick = () => { const r = new Array(cols).fill(""); r[0] = nextKey(c.lib); c.rows.push(r); c.dirty = true; renderCsvEditor(box); };
+      box.querySelector("#csvPaste").onclick = () => {
+        const text = prompt("每行一个(写简体中文；也可以 简体|English|繁體 用竖线隔开)：");
+        if (!text) return;
+        for (const line of text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)) {
+          const parts = line.split("|");
+          const r = new Array(cols).fill("");
+          r[0] = nextKey(c.lib);
+          const iCz = c.header.indexOf("cz"), iEn = c.header.indexOf("en"), iCh = c.header.indexOf("ch");
+          if (iCz > 0) r[iCz] = parts[0] || "";
+          if (iEn > 0) r[iEn] = parts[1] || "";
+          if (iCh > 0) r[iCh] = parts[2] || "";
+          c.rows.push(r);
+        }
+        c.dirty = true; renderCsvEditor(box);
+      };
+      box.querySelector("#csvSave").onclick = async () => {
+        const keys = c.rows.map(r => r[0]);
+        const dup = keys.find((k, i) => !k || keys.indexOf(k) !== i);
+        if (dup !== undefined) return toast(dup ? `key 重复：${dup}` : "有空的 key", true);
+        await api.writeText(c.rel, serializeCsv(c));
+        c.exists = true; c.dirty = false;
+        toast(`已保存 ${c.rel}`);
+        const fresh = await api.listCultures();
+        const now = fresh.find(x => x.name === S.current.name);
+        if (now) S.current.csvs = now.csvs;
+        renderCsvEditor(box);
+      };
+    }
+
+    // ---------- 新建 ----------
+    function openNewDialog() {
+      const sel = document.getElementById("ndFrom");
+      sel.innerHTML = `<option value="">(空白)</option>` + S.cultures.map(c => `<option value="${esc(c.name)}" ${c.name === S.current?.name ? "selected" : ""}>${esc(displayName(c))} (${esc(c.name)})</option>`).join("");
+      document.getElementById("newDialog").showModal();
+    }
+
+    async function createCulture() {
+      try {
+        const r = await api.createCulture({
+          name: document.getElementById("ndName").value.trim(),
+          copyFrom: document.getElementById("ndFrom").value,
+          copyCsv: document.getElementById("ndCsv").checked,
+          translate_cz: document.getElementById("ndCz").value.trim(),
+          translate_en: document.getElementById("ndEn").value.trim(),
+          translate_ch: document.getElementById("ndCh").value.trim()
+        });
+        document.getElementById("newDialog").close();
+        toast(`已创建文化 ${r.name}，记得在“基本信息”里绑定物种`);
+        S.dirty = false;
+        await reloadCultures(r.name);
+        selectCulture(r.name, true);
+      } catch (e) { toast(e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ""), true); }
+    }
+
+    init();
+  </script>
+</body>
+</html>

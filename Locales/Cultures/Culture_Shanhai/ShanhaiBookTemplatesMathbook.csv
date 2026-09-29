@@ -1,0 +1,22 @@
+key,cz,en,ch
+book_template_shanhai_mathbook_1,$word$,$word$,$word$
+book_template_shanhai_mathbook_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_shanhai_mathbook_3,$author$$word$,$author$'s $word$,$author$$word$
+book_template_shanhai_mathbook_4,$word$图说,Illustrated $word$,$word$圖說
+book_template_shanhai_mathbook_5,新订$word$,Revised $word$,新訂$word$
+book_template_shanhai_mathbook_6,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_shanhai_mathbook_7,$era$$word$,$word$ of the $era$,$era$$word$
+book_template_shanhai_mathbook_8,$author$算经,Mathematical Classic of $author$,$author$算經
+book_template_shanhai_mathbook_9,$city$算经,Mathematical Classic of $city$,$city$算經
+book_template_shanhai_mathbook_10,$kingdom$历法,Calendar of $kingdom$,$kingdom$曆法
+book_template_shanhai_mathbook_11,$year_name$历,The $year_name$ Calendar,$year_name$歷
+book_template_shanhai_mathbook_12,$author$算草,Worked Problems of $author$,$author$算草
+book_template_shanhai_mathbook_13,$era$算书,Arithmetic of the $era$,$era$算書
+book_template_shanhai_mathbook_14,$kingdom$畴人传,Biographies of the Astronomers of $kingdom$,$kingdom$疇人傳
+book_template_shanhai_mathbook_15,$topic$术,The Art of $topic$,$topic$術
+book_template_shanhai_mathbook_16,$topic$细草,Detailed Solutions of $topic$,$topic$細草
+book_template_shanhai_mathbook_17,$author$$topic$说,$author$ on $topic$,$author$$topic$說
+book_template_shanhai_mathbook_18,$topic$新义,New Meaning of $topic$,$topic$新義
+book_template_shanhai_mathbook_19,$kingdom$$topic$通考,Comprehensive Study of $topic$ in $kingdom$,$kingdom$$topic$通考
+book_template_shanhai_mathbook_20,$author$数书,Book of Numbers by $author$,$author$數書
+book_template_shanhai_mathbook_21,$city$测量法义,Principles of Surveying at $city$,$city$測量法義

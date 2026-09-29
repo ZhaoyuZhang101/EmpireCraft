@@ -151,7 +151,7 @@ public sealed class InstitutionCultureLevelConfig
 // 一条科技线，来自 InstitutionTrees/<线 id>.json。
 //
 // 线 id 就是文件名（不含扩展名），是个纯字符串而不是 C# 枚举——目的是让加一条新线
-// 完全不用改代码：往 InstitutionTrees/ 里丢一个新的 json，再在 CultureRulesConfig.json
+// 完全不用改代码：往 InstitutionTrees/ 里丢一个新的 json，再在 CultureRule.json
 // 里把某些文化的 setting.institution_line 指到这个 id 上，就多出一条可玩的线。
 public sealed class InstitutionTreeConfig
 {

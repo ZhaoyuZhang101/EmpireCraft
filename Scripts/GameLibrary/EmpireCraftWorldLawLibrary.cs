@@ -24,6 +24,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_ban_vanilla_alliance;
     public static WorldLawAsset empirecraft_law_tech_tree;
     public static WorldLawAsset empirecraft_law_combine_houses;
+    public static WorldLawAsset empirecraft_law_premodern;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -155,6 +156,14 @@ public static class EmpireCraftWorldLawLibrary
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconKnowledge",
             default_state = true
+        });
+        // 禁止近代化(默认关闭)：打开后世界停在君主立宪与中古技术，不出现政党政治、共和、工业与各模组的现代内容
+        AssetManager.world_laws_library.add(empirecraft_law_premodern = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_premodern),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconBooks",
+            default_state = false
         });
         // 民居合并为文化城池(默认开启)：城市人口过 80 后拆掉民居、建一座文化大城。
         // 装了 modernmod 想看 6~11 级民居的话关掉它。

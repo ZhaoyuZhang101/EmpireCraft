@@ -24,6 +24,8 @@ public class SaveData
     public List<KingdomExtraData> kingdomExtraData = new List<KingdomExtraData>();
     public List<CityExtraData> cityExtraData = new List<CityExtraData>();
     public List<ClanExtraData> clanExtraData = new List<ClanExtraData>();
+    // 时代名著挂在原版书上的扩展(见 BookExtension)
+    public List<BookExtension.BookExtraData> bookExtraData = new List<BookExtension.BookExtraData>();
     public List<WarExtraData> warExtraData = new List<WarExtraData>();
     public List<ReligionExtraData> religionExtraData = new List<ReligionExtraData>();
     public List<EmpireData> empireDatas = new List<EmpireData>();

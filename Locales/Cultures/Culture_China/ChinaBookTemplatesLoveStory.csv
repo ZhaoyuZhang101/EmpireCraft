@@ -1,0 +1,26 @@
+key,cz,en,ch
+book_template_china_love_story_1,$word$,$word$,$word$
+book_template_china_love_story_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_china_love_story_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_china_love_story_4,$author$$word$,$author$'s $word$,$author$$word$
+book_template_china_love_story_5,新$word$,New $word$,新$word$
+book_template_china_love_story_6,续$word$,"$word$, Continued",續$word$
+book_template_china_love_story_7,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_china_love_story_8,$dynasty$$word$,$word$ of $dynasty$,$dynasty$$word$
+book_template_china_love_story_9,$city$奇缘,A Strange Romance in $city$,$city$奇緣
+book_template_china_love_story_10,$city$情史,Love Stories of $city$,$city$情史
+book_template_china_love_story_11,$author$情书,Love Letters of $author$,$author$情書
+book_template_china_love_story_12,$clan$佳人传,The Beauty of the $clan$,$clan$佳人傳
+book_template_china_love_story_13,$city$才子佳人传,Scholars and Beauties of $city$,$city$才子佳人傳
+book_template_china_love_story_14,$year_name$艳史,Romances of the $year_name$ Era,$year_name$豔史
+book_template_china_love_story_15,$city$花月记,Flowers and Moon of $city$,$city$花月記
+book_template_china_love_story_16,$city$梦忆,Dream Memories of $city$,$city$夢憶
+book_template_china_love_story_17,$kingdom$宫词,Palace Verses of $kingdom$,$kingdom$宮詞
+book_template_china_love_story_18,$city$$topic$记,The $topic$ of $city$,$city$$topic$記
+book_template_china_love_story_19,$topic$缘,The $topic$ Romance,$topic$緣
+book_template_china_love_story_20,$topic$梦,Dream of the $topic$,$topic$夢
+book_template_china_love_story_21,$clan$家$topic$记,The $topic$ of the $clan$ House,$clan$家$topic$記
+book_template_china_love_story_22,$city$$topic$亭,The $topic$ Pavilion of $city$,$city$$topic$亭
+book_template_china_love_story_23,$past_emperor$长恨歌,Song of Everlasting Sorrow for $past_emperor$,$past_emperor$長恨歌
+book_template_china_love_story_24,$author$悼亡诗,Elegies of $author$,$author$悼亡詩
+book_template_china_love_story_25,$city$西厢记,The West Chamber of $city$,$city$西廂記

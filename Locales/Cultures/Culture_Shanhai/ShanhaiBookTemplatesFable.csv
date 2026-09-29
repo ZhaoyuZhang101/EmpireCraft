@@ -1,0 +1,29 @@
+key,cz,en,ch
+book_template_shanhai_fable_1,$word$,$word$,$word$
+book_template_shanhai_fable_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_shanhai_fable_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_shanhai_fable_4,$author$$word$,$author$'s $word$,$author$$word$
+book_template_shanhai_fable_5,新$word$,New $word$,新$word$
+book_template_shanhai_fable_6,续$word$,"$word$, Continued",續$word$
+book_template_shanhai_fable_7,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_shanhai_fable_8,$dynasty$$word$,$word$ of $dynasty$,$dynasty$$word$
+book_template_shanhai_fable_9,$city$逸闻,Anecdotes of $city$,$city$逸聞
+book_template_shanhai_fable_10,$city$志怪,Strange Tales of $city$,$city$志怪
+book_template_shanhai_fable_11,$kingdom$异闻录,Strange Things of $kingdom$,$kingdom$異聞錄
+book_template_shanhai_fable_12,$author$笔记,Notes of $author$,$author$筆記
+book_template_shanhai_fable_13,$author$杂俎,Miscellany of $author$,$author$雜俎
+book_template_shanhai_fable_14,$clan$异闻,Strange Tales of the $clan$,$clan$異聞
+book_template_shanhai_fable_15,$year_name$搜奇录,Wonders Gathered in the $year_name$ Era,$year_name$搜奇錄
+book_template_shanhai_fable_16,$era$拾遗记,Gleanings of the $era$,$era$拾遺記
+book_template_shanhai_fable_17,$city$$topic$记,The $topic$ of $city$,$city$$topic$記
+book_template_shanhai_fable_18,$kingdom$$topic$录,Records of the $topic$ of $kingdom$,$kingdom$$topic$錄
+book_template_shanhai_fable_19,$topic$异闻,Strange Tales of the $topic$,$topic$異聞
+book_template_shanhai_fable_20,$author$说$topic$,$author$ on the $topic$,$author$說$topic$
+book_template_shanhai_fable_21,$city$$topic$传,Legend of the $topic$ of $city$,$city$$topic$傳
+book_template_shanhai_fable_22,续$author$笔记,More Notes of $author$,續$author$筆記
+book_template_shanhai_fable_23,$city$夜谈,Night Talks in $city$,$city$夜談
+book_template_shanhai_fable_24,$kingdom$神异经,Classic of Marvels of $kingdom$,$kingdom$神異經
+book_template_shanhai_fable_25,$author$志异,Records of the Strange by $author$,$author$誌異
+book_template_shanhai_fable_26,$city$鬼话,Ghost Talk of $city$,$city$鬼話
+book_template_shanhai_fable_27,$past_year_name$幽明录,Of Light and Shade in the $past_year_name$ Era,$past_year_name$幽明錄
+book_template_shanhai_fable_28,$era$山海异闻,Marvels of Mountain and Sea in the $era$,$era$山海異聞

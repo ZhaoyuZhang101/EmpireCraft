@@ -1,0 +1,7 @@
+key,cz,en,ch
+book_template_default_economy_manual_1,$word$,$word$,$word$
+book_template_default_economy_manual_2,$word$要略,Essentials of $word$,$word$要略
+book_template_default_economy_manual_3,$city$$word$,$word$ of $city$,$city$$word$
+book_template_default_economy_manual_4,$author$的$word$,$author$'s $word$,$author$的$word$
+book_template_default_economy_manual_5,$word$新编,"$word$, New Edition",$word$新編
+book_template_default_economy_manual_6,$era$$word$,$word$ of the $era$,$era$$word$

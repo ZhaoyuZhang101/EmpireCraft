@@ -16,7 +16,9 @@ namespace EmpireCraft.Scripts.Layer;
 // 不会有某一帧集中重算的尖峰，变化也能在一秒左右反映到地图上。只影响图层显示，不影响玩法逻辑。
 public static class LayerCityCache
 {
-    private const int RefreshPerFrame = 25;
+    // 每帧至少刷新这么多座城；城多时按"约 30 帧刷完全图"加量(60 帧/秒下约半秒一轮)
+    private const int MinRefreshPerFrame = 25;
+    private const int FramesPerFullRefresh = 30;
 
     private sealed class Cache<T>
     {
@@ -56,7 +58,8 @@ public static class LayerCityCache
             _lastFrame = frame;
             List<City> cities = World.world?.cities?.list;
             if (cities == null || cities.Count == 0) return;
-            for (int i = 0; i < RefreshPerFrame && i < cities.Count; i++)
+            int budget = Math.Max(MinRefreshPerFrame, (cities.Count + FramesPerFullRefresh - 1) / FramesPerFullRefresh);
+            for (int i = 0; i < budget && i < cities.Count; i++)
             {
                 if (_cursor >= cities.Count)
                 {

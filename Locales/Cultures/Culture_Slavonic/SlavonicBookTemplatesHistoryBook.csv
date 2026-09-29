@@ -1,0 +1,8 @@
+key,cz,en,ch
+book_template_slavonic_history_book_1,$kingdom$$word$,$word$ of $kingdom$,$kingdom$$word$
+book_template_slavonic_history_book_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_slavonic_history_book_3,$clan$家族$word$,$word$ of House $clan$,$clan$家族$word$
+book_template_slavonic_history_book_4,新$kingdom$$word$,New $word$ of $kingdom$,新$kingdom$$word$
+book_template_slavonic_history_book_5,$dynasty$王朝史,History of the $dynasty$ Dynasty,$dynasty$王朝史
+book_template_slavonic_history_book_6,$past_emperor$传,Life of $past_emperor$,$past_emperor$傳
+book_template_slavonic_history_book_7,$era$编年,Chronicle of the $era$,$era$編年

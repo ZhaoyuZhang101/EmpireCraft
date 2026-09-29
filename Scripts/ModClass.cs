@@ -65,7 +65,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     void Start ()
     {
         IS_CLEAR = false;
-        
+        // 所有模组都加载完了，补上兼容模组的译文(盖掉它们初始化时写的英文)
+        Compatibility.CompatLocalization.Apply();
     }
 
     private void Update()
@@ -84,12 +85,17 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
 
     public void LoadCultureNameTemplate()
     {
-        foreach (string cultureName in ConfigData.speciesCulturePair.Values)
+        // 所有 Culture_* 文件夹都加载(不只是物种映射里用到的)，新加的文化文件夹放进来就生效
+        string culturesRoot = Path.Combine(_declare.FolderPath, "Locales", "Cultures");
+        IEnumerable<string> cultureNames = Directory.Exists(culturesRoot)
+            ? Directory.EnumerateDirectories(culturesRoot, "Culture_*").Select(dir => Path.GetFileName(dir).Substring("Culture_".Length))
+            : ConfigData.speciesCulturePair.Values.Distinct();
+        foreach (string cultureName in cultureNames)
         {
             string culturesPath = Path.Combine(_declare.FolderPath, "Locales", "Cultures", $"Culture_{cultureName}");
             if (!Directory.Exists(culturesPath))
             {
-                return;
+                continue; // 这个文化没有文件夹，别影响后面的文化
             }
             var dirs = Directory.EnumerateFiles(culturesPath, "*.csv", SearchOption.AllDirectories)
             .ToList();
@@ -111,6 +117,10 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         string partyNamesPath = Path.Combine(_declare.FolderPath, "Locales", "Cultures", "PartyNames");
         if (Directory.Exists(partyNamesPath))
             foreach (string partyNames in Directory.EnumerateFiles(partyNamesPath, "*.csv")) LM.LoadLocales(partyNames);
+        // 通用书名词库(时代名著、普通书的固定书名/模板/词语；文化没单独配置时使用)
+        string bookNamesPath = Path.Combine(_declare.FolderPath, "Locales", "Cultures", "Books");
+        if (Directory.Exists(bookNamesPath))
+            foreach (string bookNames in Directory.EnumerateFiles(bookNamesPath, "*.csv")) LM.LoadLocales(bookNames);
         LogService.LogInfo("add year name template");
         LogService.LogInfo("加载谥号模板");
         LogService.LogInfo("加载庙号模板");

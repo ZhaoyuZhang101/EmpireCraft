@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using ai.behaviours;
 using EmpireCraft.Scripts.Compatibility;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
 using NeoModLoader.api;
@@ -54,6 +55,53 @@ public class TechnologyPatch : GamePatch
             prefix: new HarmonyMethod(typeof(TechnologyPatch), nameof(BeforeCreateUnit)) { priority = Priority.First });
         _harmony.Patch(AccessTools.Method(typeof(Building), "setBuilding"),
             prefix: new HarmonyMethod(typeof(TechnologyPatch), nameof(BeforeSetBuilding)));
+        // 著书立说：写书、读书都给本文化攒科技点
+        _harmony.Patch(AccessTools.Method(typeof(BookManager), nameof(BookManager.generateNewBook)),
+            postfix: new HarmonyMethod(typeof(TechnologyPatch), nameof(AfterBookWritten)));
+        _harmony.Patch(AccessTools.Method(typeof(Book), nameof(Book.increaseReadTimes)),
+            postfix: new HarmonyMethod(typeof(TechnologyPatch), nameof(AfterBookRead)));
+    }
+
+    public static void AfterBookWritten(Actor pActor, Book __result)
+    {
+        if (__result == null || pActor == null) return;
+        try
+        {
+            // 记下这本书出自哪个文化(文化藏书窗口按这个归类)
+            string authorCulture = CultureService.GetActorCulture(pActor);
+            if (CultureService.IsValidCulture(authorCulture))
+            {
+                var bookData = __result.GetOrCreate();
+                bookData.id = __result.getID();
+                bookData.culture = authorCulture;
+            }
+            // 普通书换成本文化风格的书名(时代名著随后由 LandmarkBookSystem 再改成名著书名)
+            BookNamingSystem.Rename(__result, pActor);
+            TechnologySystem.OnBookWritten(TechnologySystem.GetCultureOf(pActor));
+        }
+        catch
+        {
+            // 统计失败不影响写书本身
+        }
+    }
+
+    // 读书算在书所在的城市(图书馆)；找不到就算作者所在的城市
+    public static void AfterBookRead(Book __instance)
+    {
+        if (__instance?.data == null || World.world == null) return;
+        try
+        {
+            City city = World.world.buildings.get(__instance.data.building_id)?.city ??
+                        World.world.cities.get(__instance.data.author_city_id);
+            string culture = TechnologySystem.GetCultureOf(city);
+            TechnologySystem.OnBookRead(culture);
+            // 名著被别的文化读到，那个文化也受启发
+            LandmarkBookSystem.OnRead(__instance, culture);
+        }
+        catch
+        {
+            // 统计失败不影响读书本身
+        }
     }
 
     // 别的模组的程序集可能比本模组晚加载，所以等进了世界、第一次结算时再打这些补丁
@@ -62,6 +110,7 @@ public class TechnologyPatch : GamePatch
         if (_modPatchesApplied || _harmony == null) return;
         _modPatchesApplied = true;
         WarBoxCompatibility.EnsureApplied(_harmony);
+        CompatLocalization.Apply();
         // modernmod 本想每 0.5 秒重设一次原版建筑到它高级建筑的升级链，但它启动协程时自身物体还没激活，
         // 日志里报"Coroutine couldn't be started"，这个保险就没了。进世界时替它补做一次。
         try
@@ -127,13 +176,14 @@ public class TechnologyPatch : GamePatch
 
     public static void FilterCraftList(Actor pActor, ref List<EquipmentAsset> pItemList, City pCity)
     {
-        if (pItemList == null || pItemList.Count == 0 || !TechnologySystem.IsEnabled) return;
+        if (pItemList == null || pItemList.Count == 0 || !TechnologySystem.GatesActive) return;
         try
         {
             if (AncientWarfareCompatibility.OwnsObject(pCity)) return;
             string culture = TechnologySystem.GetCultureOf(pActor);
             if (!CultureService.IsValidCulture(culture)) culture = TechnologySystem.GetCultureOf(pCity);
-            if (!CultureService.IsValidCulture(culture)) return;
+            // 没有模组文化的(野外、原版文化)只受"禁止近代化"约束
+            if (!CultureService.IsValidCulture(culture) && !TechnologySystem.PremodernLocked) return;
             var filtered = new List<EquipmentAsset>(pItemList.Count);
             foreach (EquipmentAsset asset in pItemList)
                 if (asset != null && TechnologySystem.CanCraft(culture, asset)) filtered.Add(asset);
@@ -149,7 +199,7 @@ public class TechnologyPatch : GamePatch
     // 没穿上的新物品没有主人，原版的物品清理会把它回收。
     public static bool BeforeSetItem(Item pItem, Actor pActor)
     {
-        if (pItem == null || pActor == null || !TechnologySystem.IsEnabled || IsLoading()) return true;
+        if (pItem == null || pActor == null || !TechnologySystem.GatesActive || IsLoading()) return true;
         try
         {
             if (AncientWarfareCompatibility.OwnsObject(pActor)) return true;
@@ -167,7 +217,7 @@ public class TechnologyPatch : GamePatch
 
     public static void CanBeUpgraded(Building __instance, ref bool __result)
     {
-        if (!__result || __instance?.asset == null || !TechnologySystem.IsEnabled) return;
+        if (!__result || __instance?.asset == null || !TechnologySystem.GatesActive) return;
         City city = __instance.current_tile?.zone?.city;
         if (city == null || AncientWarfareCompatibility.OwnsObject(city)) return;
         if (!TechnologySystem.CanBuild(city, __instance.asset.upgrade_to)) __result = false;
@@ -176,7 +226,7 @@ public class TechnologyPatch : GamePatch
     // 建造订单：升级订单看升级后的建筑，新建订单看建筑本身
     public static bool CanUseBuildOrder(BuildOrder order, City city)
     {
-        if (order == null || city == null || !TechnologySystem.IsEnabled) return true;
+        if (order == null || city == null || !TechnologySystem.GatesActive) return true;
         BuildingAsset asset = order.getBuildingAsset(city);
         if (asset == null) return true;
         return TechnologySystem.CanBuild(city, order.upgrade ? asset.upgrade_to : asset.id);
@@ -184,7 +234,7 @@ public class TechnologyPatch : GamePatch
 
     public static bool BeforeTryToBuild(City pCity, BuildingAsset pBuildingAsset, ref Building __result)
     {
-        if (pCity == null || pBuildingAsset == null || !TechnologySystem.IsEnabled) return true;
+        if (pCity == null || pBuildingAsset == null || !TechnologySystem.GatesActive) return true;
         if (AncientWarfareCompatibility.OwnsObject(pCity)) return true;
         if (TechnologySystem.CanBuild(pCity, pBuildingAsset.id)) return true;
         __result = null;
@@ -207,7 +257,7 @@ public class TechnologyPatch : GamePatch
     // 只在守卫方法执行期间生效(新建建筑也走 setBuilding，平时绝不能拦)
     public static bool BeforeSetBuilding(Building __instance, BuildingAsset pAsset)
     {
-        if (_swapDepth <= 0 || pAsset == null || !TechnologySystem.IsEnabled) return true;
+        if (_swapDepth <= 0 || pAsset == null || !TechnologySystem.GatesActive) return true;
         if (!string.IsNullOrEmpty(_swapDeferBuilding) && AssetManager.buildings.get(_swapDeferBuilding) != null)
             return false;
         City city = __instance?.current_tile?.zone?.city;
@@ -220,7 +270,7 @@ public class TechnologyPatch : GamePatch
 
     public static bool BeforeCreateUnit(string pStatsID, WorldTile pTile, ref Actor __result)
     {
-        if (!TechnologySystem.IsEnabled || IsLoading() || IsPlayerVehicleSpawn()) return true;
+        if (!TechnologySystem.GatesActive || IsLoading() || IsPlayerVehicleSpawn()) return true;
         City city = pTile?.zone?.city;
         if (city == null || AncientWarfareCompatibility.OwnsObject(city)) return true;
         if (TechnologySystem.CanSpawnUnit(pStatsID, city)) return true;
@@ -249,7 +299,7 @@ public class TechnologyPatch : GamePatch
 
     public static bool ModGate(MethodBase __originalMethod, object[] __args, ref bool __result)
     {
-        if (!TechnologySystem.IsEnabled || !GateTechs.TryGetValue(__originalMethod, out string tech)) return true;
+        if (!TechnologySystem.GatesActive || !GateTechs.TryGetValue(__originalMethod, out string tech)) return true;
         string culture = "";
         foreach (object arg in __args ?? Array.Empty<object>())
         {

@@ -101,6 +101,7 @@ internal static class MainTab
         CultureInfoWindow.CreateAndInit(nameof(CultureInfoWindow), new Vector2(480f, 380f));
         IdeologyInfoWindow.CreateAndInit(nameof(IdeologyInfoWindow), new Vector2(480f, 380f));
         TechWindow.CreateAndInit(nameof(TechWindow), new Vector2(480f, 380f));
+        CultureBooksWindow.CreateAndInit(nameof(CultureBooksWindow), new Vector2(480f, 380f));
     }
     [Hotfixable]
     private static void _addButtons()

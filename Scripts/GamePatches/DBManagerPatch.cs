@@ -59,6 +59,7 @@ public class DBManagerPatch:GamePatch
         ExtensionBase.Clear<War, WarExtraData>();
         ExtensionBase.Clear<Kingdom, KingdomExtraData>();
         ExtensionBase.Clear<City, CityExtraData>();
+        ExtensionBase.Clear<Book, EmpireCraft.Scripts.GameClassExtensions.BookExtension.BookExtraData>();
         ExtensionBase.Clear<Religion, ReligionExtraData>();
     }
 }

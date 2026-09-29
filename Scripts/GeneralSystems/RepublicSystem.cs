@@ -51,6 +51,7 @@ public static class RepublicSystem
         State(empire)?.republic_transition_stage > 0;
 
     public static bool CanAbolish(Empire empire) =>
+        !TechnologySystem.PremodernLocked &&
         empire?.CoreKingdom != null && !IsRepublic(empire) &&
         RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) &&
         InstitutionSystem.GetFeature(empire, FeatureAbolishMonarchy) > 0f;

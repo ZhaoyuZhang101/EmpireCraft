@@ -36,6 +36,12 @@ public class TempFac_索取皇位 : TemporaryFaction
         if (target != null)
         {
             var empire = GetEmpire();
+            // 帝国或核心王国可能刚被革命、叛乱抹掉
+            if (empire?.CoreKingdom == null || !empire.CoreKingdom.isAlive())
+            {
+                End();
+                return;
+            }
             if (empire.Mandate >= 70)
             {
                 if (empire.EmpireSpecificClan != null)
@@ -52,7 +58,7 @@ public class TempFac_索取皇位 : TemporaryFaction
                     {
                         if (normalCandidate.Count > 0)
                         {
-                            newEmperor = kingCandidate.OrderBy(k => k._actor.GetIdentity()?.honoraryOfficial??999)
+                            newEmperor = normalCandidate.OrderBy(k => k._actor.GetIdentity()?.honoraryOfficial??999)
                                 .FirstOrDefault()
                                 ?._actor;
                             if (newEmperor != null) TranslateHelper.LogMinisterSelectEmpire(empire, newEmperor.GetOffice(), null, newEmperor);
@@ -67,16 +73,18 @@ public class TempFac_索取皇位 : TemporaryFaction
                         return;
                     }
                 }
-            } else if (empire.Mandate >= 30 && (empire.CoreKingdom.GetRegime().type == RegimeType.LvLing || empire.CoreKingdom.GetRegime().type == RegimeType.ZhouFeudalism))
+            } else if (empire.Mandate >= 30 && (empire.CoreKingdom.GetRegime()?.type == RegimeType.LvLing || empire.CoreKingdom.GetRegime()?.type == RegimeType.ZhouFeudalism))
             {
                 War war = null;
-                foreach (var kingdom in empire.kingdoms_list)
+                // StartLocalRebelling 会改动帝国成员，先拷一份
+                foreach (var kingdom in empire.kingdoms_list.ToList())
                 {
+                    if (kingdom == null || !kingdom.isAlive() || kingdom == empire.CoreKingdom) continue;
                     if (!kingdom.StartLocalRebelling(EmpireWarType.藩王索取皇位)) continue;
                     if (war == null)
                     {
                         war = DiplomacyHelpers.diplomacy.startWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
-                        war.SetEmpireWarType(EmpireWarType.藩王索取皇位);
+                        war?.SetEmpireWarType(EmpireWarType.藩王索取皇位);
                     }
                     else
                     {
@@ -95,14 +103,14 @@ public class TempFac_索取皇位 : TemporaryFaction
             if (empire.Mandate<30)
             {
                 War war = null;
-                foreach (var kingdom in empire.kingdoms_hashset)
+                foreach (var kingdom in empire.kingdoms_hashset.ToList())
                 {
-                    if (kingdom.IsEmpire()) continue;
+                    if (kingdom == null || !kingdom.isAlive() || kingdom.IsEmpire()) continue;
                     if (kingdom?.king?.GetFaction()==target.GetFaction() && war == null) continue;
                     if (war == null)
                     {
                         war = DiplomacyHelpers.wars.newWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
-                        war.SetEmpireWarType(EmpireWarType.清君侧);
+                        war?.SetEmpireWarType(EmpireWarType.清君侧);
                     }
                     else
                     {

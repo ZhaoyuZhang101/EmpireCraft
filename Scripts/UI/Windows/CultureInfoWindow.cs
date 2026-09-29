@@ -139,6 +139,8 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
             () => _graph?.ResetView(), size: new Vector2(40, 11));
         buttons.AddButtonIntoHoriLayout("culture_window_open_tech", LM.Get("culture_window_open_tech"),
             () => TechWindow.Open(_culture), size: new Vector2(60, 11));
+        buttons.AddButtonIntoHoriLayout("culture_window_open_books", LM.Get("culture_window_open_books"),
+            () => CultureBooksWindow.Open(_culture), size: new Vector2(50, 11));
         panel.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(PanelWidth, 48f));
     }
 

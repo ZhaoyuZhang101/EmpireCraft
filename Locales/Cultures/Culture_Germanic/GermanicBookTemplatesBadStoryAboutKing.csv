@@ -1,0 +1,6 @@
+key,cz,en,ch
+book_template_germanic_bad_story_about_king_1,$word$,$word$,$word$
+book_template_germanic_bad_story_about_king_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_germanic_bad_story_about_king_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_germanic_bad_story_about_king_4,$author$的$word$,$author$'s $word$,$author$的$word$
+book_template_germanic_bad_story_about_king_5,$era$$word$,$word$ of the $era$,$era$$word$

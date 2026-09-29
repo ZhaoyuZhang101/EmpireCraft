@@ -1,0 +1,15 @@
+{
+ "modernmod_tab_name": "現代模組",
+ "modernmod_tab_description": "現代建築工具。",
+ "modernmod_discord": "加入 Discord 伺服器",
+ "modernmod_discord_description": "加入伺服器提出建議或為新功能投票",
+ "modernmod_discord_info": "加入伺服器提出建議或為新功能投票",
+ "upgradeBuilding": "升級建築",
+ "upgradeBuilding_info": "把建築升到下一級。",
+ "upgrade_building": "升級建築",
+ "upgrade_building_description": "把建築升到下一級。",
+ "downgradeBuilding": "降級建築",
+ "downgradeBuilding_info": "把建築降回上一級。",
+ "downgrade_building": "降級建築",
+ "downgrade_building_description": "把建築降回上一級。"
+}

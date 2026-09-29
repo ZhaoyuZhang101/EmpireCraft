@@ -858,6 +858,12 @@ public static class EmpireCraftNamePlateLibrary
 
         cultureMapAsset.draw_zones = (MetaZoneDrawAction)(pMetaTypeAsset =>
         {
+            // 流动区块模式(按人口分布着色)照原版画，之前这里不管选哪种模式都按城市着色，跟原版对不上
+            if (pMetaTypeAsset.isMetaZoneOptionSelectedFluid())
+            {
+                EmpireCraftMetaTypeLibrary.drawDefaultFluid(pMetaTypeAsset);
+                return;
+            }
             foreach (City city in World.world.cities)
             {
                 if (city == null || city.isRekt()) continue;

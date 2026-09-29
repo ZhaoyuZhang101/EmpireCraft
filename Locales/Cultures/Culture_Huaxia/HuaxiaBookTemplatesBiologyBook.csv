@@ -1,0 +1,23 @@
+key,cz,en,ch
+book_template_huaxia_biology_book_1,$word$,$word$,$word$
+book_template_huaxia_biology_book_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_huaxia_biology_book_3,$author$$word$,$author$'s $word$,$author$$word$
+book_template_huaxia_biology_book_4,$word$图说,Illustrated $word$,$word$圖說
+book_template_huaxia_biology_book_5,新订$word$,Revised $word$,新訂$word$
+book_template_huaxia_biology_book_6,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_huaxia_biology_book_7,$era$$word$,$word$ of the $era$,$era$$word$
+book_template_huaxia_biology_book_8,$city$物产志,Products of $city$,$city$物產志
+book_template_huaxia_biology_book_9,$kingdom$本草,Materia Medica of $kingdom$,$kingdom$本草
+book_template_huaxia_biology_book_10,$city$草木志,Plants of $city$,$city$草木志
+book_template_huaxia_biology_book_11,$author$本草注,Notes on Materia Medica by $author$,$author$本草注
+book_template_huaxia_biology_book_12,$kingdom$方物志,Local Goods of $kingdom$,$kingdom$方物志
+book_template_huaxia_biology_book_13,$city$花谱,Flower Register of $city$,$city$花譜
+book_template_huaxia_biology_book_14,$author$医案,Case Records of $author$,$author$醫案
+book_template_huaxia_biology_book_15,$city$异物志,Exotic Things of $city$,$city$異物志
+book_template_huaxia_biology_book_16,$kingdom$博物志,Natural History of $kingdom$,$kingdom$博物志
+book_template_huaxia_biology_book_17,$year_name$新修本草,Newly Revised Materia Medica of the $year_name$ Era,$year_name$新修本草
+book_template_huaxia_biology_book_18,$city$$topic$谱,Register of $topic$ of $city$,$city$$topic$譜
+book_template_huaxia_biology_book_19,$kingdom$$topic$志,Treatise on $topic$ of $kingdom$,$kingdom$$topic$志
+book_template_huaxia_biology_book_20,$topic$图考,Illustrated Study of $topic$,$topic$圖考
+book_template_huaxia_biology_book_21,$author$$topic$疏,Commentary on $topic$ by $author$,$author$$topic$疏
+book_template_huaxia_biology_book_22,$era$$topic$录,Records of $topic$ in the $era$,$era$$topic$錄

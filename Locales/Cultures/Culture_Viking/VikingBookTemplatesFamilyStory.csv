@@ -1,0 +1,6 @@
+key,cz,en,ch
+book_template_viking_family_story_1,$word$,$word$,$word$
+book_template_viking_family_story_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_viking_family_story_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
+book_template_viking_family_story_4,$author$的$word$,$author$'s $word$,$author$的$word$
+book_template_viking_family_story_5,$era$$word$,$word$ of the $era$,$era$$word$
