@@ -53,6 +53,7 @@ public class DBManagerPatch:GamePatch
         // 新建地图走的是 MapBox.clear_data → 这里，不清的话上一局的"已掌握制度/接触度/
         // 手动文明等级"会整份带进新世界。
         InstitutionSystem.ResetWorldState();
+        TechnologySystem.ResetWorldState();
         ExtensionBase.Clear<Actor, ActorExtraData>();
         ExtensionBase.Clear<Family, FamilyExtraData>();
         ExtensionBase.Clear<War, WarExtraData>();

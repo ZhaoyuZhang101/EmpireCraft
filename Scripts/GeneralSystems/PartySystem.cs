@@ -261,6 +261,8 @@ public static class PartySystem
         Mathf.Clamp(100f - Vector2.Distance(IdeologyPositions[ideology], ClassPositions[socialClass]) * 0.9f,
             -100f, 100f);
 
+    public static float IdeologyDistance(PartyIdeology a, PartyIdeology b) => Distance(a, b);
+
     private static float Distance(PartyIdeology a, PartyIdeology b) =>
         Vector2.Distance(IdeologyPositions[a], IdeologyPositions[b]);
 
@@ -651,8 +653,26 @@ public static class PartySystem
 
     // 各党得票：有选举权的各阶层人口按理念接近程度分票，再加一点党组织本身的动员力
     public static Dictionary<FixedFaction, float> CountVotes(Empire empire, List<FixedFaction> parties) =>
-        CountVotes(parties, GetCitizens(empire), HasUniversalSuffrage(empire),
-            InstitutionSystem.GetPrimaryCulture(empire));
+        ApplyOpinionSwing(empire, CountVotes(parties, GetCitizens(empire), HasUniversalSuffrage(empire),
+            InstitutionSystem.GetPrimaryCulture(empire)));
+
+    // 民意影响选票(见 PublicOpinionSystem)：民意越差执政党越丢票、百姓想要的理念越得票；外国压力撑腰的理念也多拿票
+    private static Dictionary<FixedFaction, float> ApplyOpinionSwing(Empire empire,
+        Dictionary<FixedFaction, float> votes)
+    {
+        int level = PublicOpinionSystem.GetLevel(empire);
+        FixedFaction governing = GetGovernmentParty(empire);
+        bool hasPreferred = PublicOpinionSystem.TryGetPreferred(empire, out PartyIdeology preferred);
+        foreach (FixedFaction party in votes.Keys.ToList())
+        {
+            float factor = 1f;
+            if (party == governing) factor *= 1f - 0.1f * level;
+            if (hasPreferred && party.Ideology == preferred) factor *= 1f + 0.1f * level;
+            factor *= 1f + Mathf.Min(0.2f, PublicOpinionSystem.GetPressure(empire, party.Ideology) / 100f);
+            votes[party] *= factor;
+        }
+        return votes;
+    }
 
     private static Dictionary<FixedFaction, float> CountVotes(List<FixedFaction> parties, List<Actor> citizens,
         bool universal, string culture)
@@ -720,8 +740,8 @@ public static class PartySystem
         {
             int count = districtSeats[district.kingdom];
             if (count <= 0) continue;
-            Dictionary<FixedFaction, float> votes = CountVotes(parties, district.voters, true,
-                InstitutionSystem.GetPrimaryCulture(empire));
+            Dictionary<FixedFaction, float> votes = ApplyOpinionSwing(empire, CountVotes(parties, district.voters,
+                true, InstitutionSystem.GetPrimaryCulture(empire)));
             // 顿特法：每次把一席给"得票 / (已得席位 + 1)"最大的党
             var won = parties.ToDictionary(party => party, _ => 0);
             for (int i = 0; i < count; i++)

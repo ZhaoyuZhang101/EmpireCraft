@@ -22,10 +22,13 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_allow_social;
     public static WorldLawAsset empirecraft_law_fixed_de_jure_culture;
     public static WorldLawAsset empirecraft_law_ban_vanilla_alliance;
+    public static WorldLawAsset empirecraft_law_tech_tree;
+    public static WorldLawAsset empirecraft_law_combine_houses;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
         AssetManager.world_laws_library.list.RemoveAll(w => w.id == "world_law_civ_limit_population_100");
+        AssetManager.world_laws_library.dict.Remove("world_law_civ_limit_population_100");
         //限制人口100
         AssetManager.world_laws_library.add(WorldLawLibrary.world_law_civ_limit_population_100  = new WorldLawAsset()
         {
@@ -143,6 +146,23 @@ public static class EmpireCraftWorldLawLibrary
             group_id = "EmpireCraftCommonSetting",
             icon_path = "plots/icons/plot_alliance_create",
             on_state_change = BanVanillaAllianceChange,
+            default_state = true
+        });
+        // 文明科技树(默认开启)：装备材质、枪械和高级建筑需要本文化研究对应技术；关闭则全部放开
+        AssetManager.world_laws_library.add(empirecraft_law_tech_tree = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_tech_tree),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconKnowledge",
+            default_state = true
+        });
+        // 民居合并为文化城池(默认开启)：城市人口过 80 后拆掉民居、建一座文化大城。
+        // 装了 modernmod 想看 6~11 级民居的话关掉它。
+        AssetManager.world_laws_library.add(empirecraft_law_combine_houses = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_combine_houses),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconHoused",
             default_state = true
         });
         

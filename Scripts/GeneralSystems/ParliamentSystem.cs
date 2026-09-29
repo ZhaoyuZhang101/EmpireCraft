@@ -471,7 +471,7 @@ public static class ParliamentSystem
 
     // 议员与总理的资格：在世、成年、身在本帝国，且不是皇帝本人
     private static bool IsValidMember(Empire empire, Actor actor) =>
-        actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
+        actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && !actor.IsWarMachine() &&
         actor.kingdom?.GetEmpire() == empire && actor.id != empire.Emperor?.id;
 
     private static FixedFaction FindFaction(Empire empire, string factionId) =>

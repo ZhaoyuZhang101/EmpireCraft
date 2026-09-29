@@ -100,6 +100,7 @@ internal static class MainTab
         // 模组文化窗口（点击文化图层/原版文化链接时打开，见 CultureWindowRedirectPatch）
         CultureInfoWindow.CreateAndInit(nameof(CultureInfoWindow), new Vector2(480f, 380f));
         IdeologyInfoWindow.CreateAndInit(nameof(IdeologyInfoWindow), new Vector2(480f, 380f));
+        TechWindow.CreateAndInit(nameof(TechWindow), new Vector2(480f, 380f));
     }
     [Hotfixable]
     private static void _addButtons()
@@ -149,7 +150,7 @@ internal static class MainTab
 
         // 理念图层(独立于原版宗教图层)
         PowerButton ideologyLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Ideology,
-                 SpriteTextureLoader.getSprite("ui/icons/iconBooks"), maxOption: 1);
+                 SpriteTextureLoader.getSprite("ui/icons/iconBooks"));
         tab.AddPowerButton(EMPIRE_GROUP, ideologyLayer);
 
         CreateEmpireButton.init();

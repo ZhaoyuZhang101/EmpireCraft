@@ -28,5 +28,17 @@ public static class EmpireCraftLoyaltyLibrary
                 return result;
             }
         });
+        // 民意：抵制 -15，革命浪潮 -30(异见和满意不影响)
+        lib.add(new LoyaltyAsset()
+        {
+            id = "public_opinion",
+            translation_key = "public_opinion_loyalty",
+            calc = delegate(City pCity)
+            {
+                if (pCity?.kingdom == null || !pCity.kingdom.IsInEmpire()) return 0;
+                int level = EmpireCraft.Scripts.GeneralSystems.PublicOpinionSystem.GetLevel(pCity.kingdom.GetEmpire());
+                return level switch { 2 => -15, 3 => -30, _ => 0 };
+            }
+        });
     }
 }

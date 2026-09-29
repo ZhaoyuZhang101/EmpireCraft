@@ -108,6 +108,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         AddStatusPanel();
         AddOverviewCards();
         AddSocialUnrest();
+        AddPublicOpinion();
         AddLegend();
         AddGraph();
         AddDetail();
@@ -372,6 +373,68 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     }
 
     // 阶层怨气：只在真有怨气时出现，做成一条带警告图标的红框横条，比夹在中间的两行红字醒目。
+    // ── 民意与选举 ──
+    // 只在开放党禁后显示：民意等级、支持/异见、百姓想要的理念、外国理念压力、下次大选，以及两个应对按钮
+    private void AddPublicOpinion()
+    {
+        ConstitutionalEconomyState state = _empire.data.constitutional_economy;
+        if (state == null || !PartySystem.IsActive(_empire)) return;
+        int level = PublicOpinionSystem.GetLevel(_empire);
+        string levelColor = level switch { 0 => "#9EF29E", 1 => "#E9D35B", 2 => "#E9A85B", _ => "#E05A4F" };
+        bool hasPreferred = PublicOpinionSystem.TryGetPreferred(_empire, out PartyIdeology preferred);
+        ParliamentView parliament = ParliamentSystem.GetView(_empire);
+        List<IdeologyPressureSource> pressure = state.ideology_pressure ?? new List<IdeologyPressureSource>();
+
+        const float height = 58f;
+        var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 1,
+            pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(6, 6, 4, 4));
+        _content.Add(panel.gameObject);
+
+        var head = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 12), TextAnchor.MiddleCenter, 3);
+        AddIcon(head.transform, Icon("ui/icons/iconReligion", "ui/icons/iconPopulation"), 10f);
+        string headText = $"{LM.Get("public_opinion_title")}: " +
+                          PublicOpinionSystem.GetLevelName(level).ColorString(levelColor) + "   " +
+                          string.Format(LM.Get("public_opinion_support_dissent"),
+                              (state.opinion_support * 100f).ToString("0"), (state.opinion_dissent * 100f).ToString("0"));
+        if (hasPreferred)
+            headText += "   " + string.Format(LM.Get("public_opinion_preferred"),
+                PartySystem.GetIdeologyName(preferred)).ColorString("#C9A7E8");
+        AddLabel(head, headText, PanelWidth - 30f, 7, TextAnchor.MiddleLeft, 12f);
+
+        string pressureText = pressure.Count == 0
+            ? LM.Get("public_opinion_no_pressure")
+            : LM.Get("public_opinion_pressure") + string.Join("  ·  ", pressure.Take(3).Select(source =>
+                $"{source.empire_name}({PartySystem.GetIdeologyName(source.ideology)}) {source.amount:0}"));
+        panel.AddTextIntoVertLayout(pressureText.ColorString("#B8C6CC"), true, TextAnchor.MiddleCenter,
+            new Vector2(PanelWidth - 12f, 10)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+
+        string electionText = parliament.Exists
+            ? RepublicSystem.IsOneParty(_empire)
+                ? LM.Get("public_opinion_one_party")
+                : string.Format(LM.Get("public_opinion_next_election"), parliament.YearsUntilElection)
+            : LM.Get("public_opinion_no_parliament");
+        if (level >= PublicOpinionSystem.RevolutionaryWave)
+            electionText += "  " + string.Format(LM.Get("public_opinion_wave_years"),
+                state.opinion_wave_years, 2).ColorString("#E05A4F");
+        panel.AddTextIntoVertLayout(electionText, true, TextAnchor.MiddleCenter,
+            new Vector2(PanelWidth - 12f, 10)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+
+        var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
+        if (hasPreferred)
+            buttons.AddButtonIntoHoriLayout("public_opinion_accept", LM.Get("public_opinion_accept"), () =>
+            {
+                PublicOpinionSystem.AcceptPreferred(_empire);
+                Rebuild();
+            }, size: new Vector2(90, 11));
+        if (parliament.Exists && !RepublicSystem.IsOneParty(_empire))
+            buttons.AddButtonIntoHoriLayout("public_opinion_snap_election", LM.Get("public_opinion_snap_election"), () =>
+            {
+                PublicOpinionSystem.CallSnapElection(_empire);
+                Rebuild();
+            }, size: new Vector2(90, 11));
+        panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+    }
+
     private void AddSocialUnrest()
     {
         Dictionary<SocialClass, float> shares = InstitutionSystem.BuildClassShares(_empire);
@@ -651,6 +714,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                         $"{GetStatusName(view.Status).ColorString(GetStatusHex(view.Status))}";
 
         var lines = new List<string> { LM.Get(view.Node.description_key) };
+        string techLine = TechnologySystem.DescribeInstitutionTechLine(_culture, view.Node);
+        if (techLine != null) lines.Add(techLine.ColorString("#9EF2FF"));
 
         if (InstitutionDefinitionRegistry.TryGetNodeRegime(view.Node, out RegimeType nodeRegime))
         {

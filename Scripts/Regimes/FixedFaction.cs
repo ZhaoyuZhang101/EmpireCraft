@@ -531,7 +531,7 @@ public class FixedFaction
     }
     public void AddMember(Actor pActor)
     {
-        if (pActor == null || pActor.isRekt()) return;
+        if (pActor == null || pActor.isRekt() || pActor.IsWarMachine()) return;
         pActor.GetOrCreate().factionID = GetID();
         if (!Members.Contains(pActor.id)) Members.Add(pActor.id);
         if (GetLeader() == null)

@@ -505,6 +505,12 @@ public static class InstitutionSystem
             reason = "institution_reform_missing_requirement";
             return false;
         }
+        // 技术是制度的物质基础：没有对应技术，这项制度推不动(强制也不行，只有上帝模式直接点亮)
+        if (!TechnologySystem.AreInstitutionTechsMet(culture, node, out _))
+        {
+            reason = "institution_reform_missing_tech";
+            return false;
+        }
         if (node.requires_composite_empire &&
             empire.data.composite_integration_stage < CompositeEmpireIntegrationStage.CompositeEmpire)
         {
@@ -614,9 +620,11 @@ public static class InstitutionSystem
         reform.opposition = balance.Opposition;
         bool replacesVestedInterest = node.replaces.Any(id => IsEnacted(culture, id));
         InstitutionReformEnvironment environment = GetReformEnvironment(empire, node);
+        // 技术爆炸推动相应的制度变革：掌握的相关技术越多，改革推进越快
+        float techPush = TechnologySystem.GetInstitutionPush(culture, node);
         reform.progress = Math.Min(100f, reform.progress + InstitutionRules.CalculateDurationScaledAnnualProgress(
             node.reform.base_progress_per_year, balance.Support, balance.Opposition,
-            environment.EffectiveMinimumYears));
+            environment.EffectiveMinimumYears) * (1f + techPush));
         reform.radicalism = InstitutionRules.Clamp100(reform.radicalism +
             InstitutionRules.CalculateAnnualRadicalism(balance.Support, balance.Opposition,
                 replacesVestedInterest, reform.forced));
@@ -867,7 +875,8 @@ public static class InstitutionSystem
             InstitutionPoliticalBalance balance = CalculatePoliticalBalance(empire, node, shares);
             if (!CanStartReform(empire, node, out _, false, balance)) continue;
             if (balance.Support < balance.Opposition + 5f) continue;
-            float score = balance.Support - balance.Opposition + node.advancement * 2f;
+            float score = balance.Support - balance.Opposition + node.advancement * 2f +
+                          TechnologySystem.GetInstitutionPush(GetPrimaryCulture(empire), node) * 40f;
             if (score <= bestScore) continue;
             bestScore = score;
             selected = node;
@@ -2042,6 +2051,11 @@ public static class InstitutionSystem
             {
                 view.Status = InstitutionNodeStatus.Locked;
                 view.Reason = "institution_reform_missing_requirement";
+            }
+            else if (!TechnologySystem.AreInstitutionTechsMet(culture, node, out _))
+            {
+                view.Status = InstitutionNodeStatus.Locked;
+                view.Reason = "institution_reform_missing_tech";
             }
             else if (node.exclusive_with.Any(state.enacted_node_ids.Contains))
             {

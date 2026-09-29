@@ -137,6 +137,8 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
             () => CultureWindowRedirectPatch.OpenVanilla(_culture), size: new Vector2(70, 11));
         buttons.AddButtonIntoHoriLayout("institution_graph_reset", LM.Get("institution_graph_reset"),
             () => _graph?.ResetView(), size: new Vector2(40, 11));
+        buttons.AddButtonIntoHoriLayout("culture_window_open_tech", LM.Get("culture_window_open_tech"),
+            () => TechWindow.Open(_culture), size: new Vector2(60, 11));
         panel.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(PanelWidth, 48f));
     }
 
@@ -299,6 +301,8 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
                        $"{GetBranchName(view.Node.branch)}  ·  " +
                        $"{GetStatusName(view.Status).ColorString(GetStatusHex(view.Status))}";
         var lines = new List<string> { LM.Get(view.Node.description_key) };
+        string techLine = TechnologySystem.DescribeInstitutionTechLine(_pendingCulture, view.Node);
+        if (techLine != null) lines.Add(techLine.ColorString("#9EF2FF"));
         if (!string.IsNullOrEmpty(view.Reason)) lines.Add(LM.Get(view.Reason).ColorString("#D98C8C"));
         if (view.Status is InstitutionNodeStatus.ForeignLocked or InstitutionNodeStatus.ForeignContacting
             or InstitutionNodeStatus.ForeignReady)

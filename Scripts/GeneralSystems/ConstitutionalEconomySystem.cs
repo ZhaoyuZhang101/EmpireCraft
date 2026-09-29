@@ -172,6 +172,7 @@ public static class ConstitutionalEconomySystem
         if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;
         state.last_economy_update = World.world.getCurWorldTime();
         PruneTrade(state);
+        PublicOpinionSystem.Update(empire, state);
         UpdateBudding(empire, state);
         UpdateWelfare(empire, state);
 
@@ -213,7 +214,9 @@ public static class ConstitutionalEconomySystem
                       merchants + 0.001f >= households * config.minimum_merchant_ratio &&
                       (state.recent_trade.Count > 0 ||
                        merchants >= config.no_trade_merchant_households &&
-                       merchantCities >= config.no_trade_merchant_cities);
+                       merchantCities >= config.no_trade_merchant_cities) &&
+                     // 资本主义萌芽也要有技术基础(科技树里配置，默认是印刷术)
+                     TechnologySystem.CanCapitalistBud(InstitutionSystem.GetPrimaryCulture(empire));
         if (viable)
         {
             state.capitalist_decline_since = -1d;

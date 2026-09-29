@@ -659,21 +659,33 @@ public static class EmpireCraftNamePlateLibrary
     public static void ConfigureIdeologyMapAsset(MetaTypeAsset mapAsset)
     {
         if (mapAsset == null) return;
+        // 三种显示模式(跟法理、帝国图层一样用图层按钮切换)：
+        //   0 理念区块：同理念的城市连成一片，只描理念交界；
+        //   1 城市边界：每座城单独描边，看得出同一片理念区内部哪些城在分化；
+        //   2 执政理念：按国家执政党的理念着色、描国界，没有政党政治的国家不上色。
         mapAsset.draw_zones = (MetaZoneDrawAction)(asset =>
         {
+            int mode = asset.getZoneOptionState();
             foreach (City city in World.world.cities)
             {
                 if (city == null || city.isRekt() || AncientWarfareCompatibility.OwnsObject(city) ||
                     city.units == null || city.units.Count == 0) continue;
-                PartyIdeology ideology = LayerCityCache.Ideology(city);
+                PartyIdeology ideology;
+                if (mode == 2)
+                {
+                    if (!TryGetRulingIdeology(city.kingdom, out ideology)) continue;
+                }
+                else ideology = LayerCityCache.Ideology(city);
                 IdeologyMapColor color = GetIdeologyColor(ideology);
                 if (color == null) continue;
                 foreach (TileZone zone in city.zones)
                 {
                     EmpireCraftMetaTypeLibrary.zone_manager.drawBegin();
                     EmpireCraftMetaTypeLibrary.zone_manager.drawZoneMeta(color, zone,
-                        IsIdeologyBorder(zone.zone_up, ideology), IsIdeologyBorder(zone.zone_down, ideology),
-                        IsIdeologyBorder(zone.zone_left, ideology), IsIdeologyBorder(zone.zone_right, ideology),
+                        IsLayerBorder(mode, zone.zone_up, city, ideology),
+                        IsLayerBorder(mode, zone.zone_down, city, ideology),
+                        IsLayerBorder(mode, zone.zone_left, city, ideology),
+                        IsLayerBorder(mode, zone.zone_right, city, ideology),
                         color.data, asset);
                     EmpireCraftMetaTypeLibrary.zone_manager.drawEnd(zone);
                 }
@@ -696,6 +708,24 @@ public static class EmpireCraftNamePlateLibrary
             EmpireCraft.Scripts.UI.Windows.IdeologyInfoWindow.Open(city);
             return true;
         });
+    }
+
+    private static bool IsLayerBorder(int mode, TileZone neighbour, City city, PartyIdeology ideology) => mode switch
+    {
+        1 => neighbour?.city != city,
+        2 => neighbour?.city?.kingdom != city.kingdom,
+        _ => IsIdeologyBorder(neighbour, ideology)
+    };
+
+    // 国家执政党的理念(共和国/开放党禁后的执政党)；没有政党政治返回 false
+    private static bool TryGetRulingIdeology(Kingdom kingdom, out PartyIdeology ideology)
+    {
+        ideology = default;
+        Empire empire = kingdom?.GetEmpire();
+        FixedFaction party = empire == null ? null : PartySystem.GetGovernmentParty(empire);
+        if (party?.IsParty != true || party.Ban) return false;
+        ideology = party.Ideology;
+        return true;
     }
 
     private static bool IsIdeologyBorder(TileZone neighbour, PartyIdeology ideology) =>

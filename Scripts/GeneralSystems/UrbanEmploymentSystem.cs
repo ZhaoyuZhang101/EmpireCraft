@@ -17,6 +17,7 @@ public sealed class UrbanEmploymentReport
     public int Buildings;
     public int Merchants;
     public int RecentVoyages;
+    public int Factories;
 }
 
 public static class UrbanEmploymentSystem
@@ -34,6 +35,7 @@ public static class UrbanEmploymentSystem
         report.Buildings = city.buildings?.Count ?? 0;
         report.Merchants = residents.Count(actor => actor.GetOrCreate().is_economic_merchant);
         report.RecentVoyages = GetRecentVoyages(city);
+        report.Factories = CountFactories(city);
         report.Capacity = GetCapacity(city, residents, report.Stage);
         report.Employed = residents.Count(IsEmployed);
         report.Workers = residents.Count(actor => EmpireCaftActorJudgeClass.JudgeClass(actor) == SocialClass.Labour);
@@ -88,11 +90,20 @@ public static class UrbanEmploymentSystem
         int merchants = residents.Count(actor => actor.GetOrCreate().is_economic_merchant);
         int buildings = city.buildings?.Count ?? 0;
         int voyages = GetRecentVoyages(city);
+        // 工厂(WarBox 的工厂/钢铁厂/火药厂等，类型在科技树 industry.factory_types 里配置)是最大的雇主
+        int factoryJobs = CountFactories(city) * TechnologySystem.Config.industry.jobs_per_factory * stage;
         int demand = stage * 2 + buildings / (stage == 1 ? 8 : 5) + merchants * stage +
-                     Math.Min(4, voyages) * stage;
+                     Math.Min(4, voyages) * stage + factoryJobs;
         float populationCap = stage switch { 1 => 0.08f, 2 => 0.18f, _ => 0.30f };
+        // 工业技术让更多人口能进厂
+        populationCap = Math.Min(0.6f, populationCap + TechnologySystem.GetEmploymentCapBonus(
+            TechnologySystem.GetCultureOf(city)));
         return Math.Min(demand, Math.Max(1, (int)Math.Ceiling(residents.Count * populationCap)));
     }
+
+    private static int CountFactories(City city) =>
+        city.buildings?.Count(building => building != null && !building.isUnderConstruction() &&
+                                          TechnologySystem.IsFactory(building.asset)) ?? 0;
 
     private static int GetRecentVoyages(City city)
     {

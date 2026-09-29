@@ -198,6 +198,12 @@ public class CityPatch : GamePatch
     public static bool CanUseBuildAsset(CityBehBuild __instance, BuildOrder pBuildAsset, City pCity, ref bool __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
+        // 科技树：本文化还没研究出来的建筑等级不能建/升
+        if (!TechnologyPatch.CanUseBuildOrder(pBuildAsset, pCity))
+        {
+            __result = false;
+            return false;
+        }
         BuildingAsset buildingAsset = pBuildAsset.getBuildingAsset(pCity);
         if (pBuildAsset.min_zones != 0 && pCity.zones.Count < pBuildAsset.min_zones)
         {
@@ -1039,6 +1045,7 @@ public class CityPatch : GamePatch
         UrbanEmploymentSystem.UpdateCity(__instance);
         ClanBranchSystem.TryYearlyScan();
         IdeologySpreadSystem.TryYearlyScan();
+        TechnologySystem.TryYearlyScan();
 
         /*
         if (__instance.hasTitle())

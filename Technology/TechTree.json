@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "_comment": "文明科技树。材料(materials)在本文化城市的仓库里出现对应资源时自动发现；技术(techs)花研究点研究，需要前置技术和材料；研究完成后解锁对应材质的装备、指定的武器和建筑。解锁表里引用的物品/建筑不存在(没装对应模组)时自动跳过。没被任何技术登记的物品和建筑不受限制。名称走本地化 key：tech_<id> / tech_<id>_desc / tech_mat_<id> / tech_mat_<id>_desc。",
+  "research": {
+    "base_per_city": 2.0,
+    "per_population": 0.04,
+    "per_library": 2.0,
+    "per_temple": 0.5,
+    "per_university": 3.0,
+    "per_factory": 1.0,
+    "war_penalty": 0.25,
+    "cost_per_extra_city": 0.02,
+    "cost_city_scaling_max": 1.0,
+    "diffusion_per_contact": 0.2,
+    "diffusion_max": 0.5,
+    "boost_fraction": 0.4,
+    "modernize_per_city": 8,
+    "modernize_years": 3,
+    "modernize_subsidy": 60,
+    "world_first_min_tier": 3
+  },
+
+  "mod_gates": [
+    { "type": "WarMobilization.NuclearStrikeSystem", "method": "CanStart", "tech": "nuclear_fission" },
+    { "type": "WarMobilization.NuclearStrikeSystem", "method": "CanBeForced", "tech": "nuclear_fission" },
+    { "type": "WarMobilization.NuclearStrikeSystem", "method": "TryPlayerNuclearStrike", "tech": "nuclear_fission" }
+  ],
+  "building_swap_guards": [
+    { "type": "WarBox.Content.Patch_WarBoxHouseUpgrader", "method": "Prefix", "defer_to_mod_building": "6house_human_modernmod" },
+    { "type": "WarBox.Content.CityLeaderEvents", "method": "UpgradeRandomHomes", "defer_to_mod_building": "6house_human_modernmod" }
+  ],
+  "institution_links": [
+    { "feature": "urban_production_stage", "min_value": 1, "requires_techs": ["architecture"], "drivers": { "masonry": 0.1, "mathematics": 0.1 } },
+    { "feature": "urban_production_stage", "min_value": 2, "requires_techs": ["printing", "steelmaking"], "drivers": { "banking": 0.3, "alchemy": 0.1 } },
+    { "feature": "urban_production_stage", "min_value": 3, "requires_techs": ["industrialization"], "drivers": { "electricity": 0.3, "motorization": 0.2 } },
+    { "feature": "constitution_basis_administration", "requires_techs": ["writing"], "drivers": { "mathematics": 0.1, "printing": 0.1 } },
+    { "feature": "constitution_basis_law", "requires_techs": ["writing"], "drivers": { "printing": 0.2 } },
+    { "feature": "constitution_basis_fiscal", "requires_techs": ["mathematics"], "drivers": { "banking": 0.2 } },
+    { "feature": "constitution_basis_commerce", "requires_techs": ["printing"], "drivers": { "banking": 0.3 } },
+    { "feature": "party_politics", "requires_techs": ["printing"], "drivers": { "scientific_method": 0.3, "electricity": 0.2 } },
+    { "feature": "universal_suffrage", "requires_techs": ["industrialization"], "drivers": { "electricity": 0.3, "computing": 0.2 } },
+    { "feature": "abolish_monarchy", "requires_techs": ["scientific_method"], "drivers": { "printing": 0.2, "electricity": 0.2 } },
+    { "feature": "ideology:Conservatism", "requires_techs": ["printing"], "drivers": {} },
+    { "feature": "ideology:Centrism", "requires_techs": ["printing"], "drivers": {} },
+    { "feature": "ideology:SocialLiberalism", "requires_techs": ["printing"], "drivers": { "scientific_method": 0.2 } },
+    { "feature": "ideology:ConservativeLiberalism", "requires_techs": ["printing"], "drivers": { "scientific_method": 0.2 } },
+    { "feature": "ideology:ReligiousDemocracy", "requires_techs": ["printing"], "drivers": {} },
+    { "feature": "ideology:Capitalism", "requires_techs": ["banking"], "drivers": { "industrialization": 0.3, "computing": 0.2 } },
+    { "feature": "ideology:Libertarianism", "requires_techs": ["banking"], "drivers": { "computing": 0.3 } },
+    { "feature": "ideology:SocialDemocracy", "requires_techs": ["industrialization"], "drivers": { "electricity": 0.2 } },
+    { "feature": "ideology:Socialism", "requires_techs": ["industrialization"], "drivers": { "electricity": 0.2, "motorization": 0.1 } },
+    { "feature": "ideology:Communism", "requires_techs": ["industrialization"], "drivers": { "electricity": 0.2, "steelmaking": 0.1 } },
+    { "feature": "ideology:Anarchism", "requires_techs": ["industrialization"], "drivers": { "printing": 0.1 } },
+    { "feature": "ideology:Authoritarianism", "requires_techs": ["industrialization"], "drivers": { "electricity": 0.2 } },
+    { "feature": "ideology:Fascism", "requires_techs": ["industrialization", "electricity"], "drivers": { "motorization": 0.2 } }
+  ],
+  "industry": {
+    "factory_types": ["type_lightfactory", "type_heavyfactory", "type_lightaircraftfactory", "type_heavyaircraftfactory", "type_lightshipyard", "type_heavyshipyard", "type_steel_mill", "type_gunpowder_mill"],
+    "jobs_per_factory": 3,
+    "employment_cap_bonus": { "industrialization": 0.1, "electricity": 0.05, "computing": 0.05 },
+    "capitalist_budding_techs": ["printing"]
+  },
+  "branches": ["material", "metallurgy", "military", "construction", "science"],
+  "eras": [
+    { "tier": 1, "key": "tech_era_stone" },
+    { "tier": 2, "key": "tech_era_copper" },
+    { "tier": 3, "key": "tech_era_bronze" },
+    { "tier": 4, "key": "tech_era_iron" },
+    { "tier": 5, "key": "tech_era_medieval" },
+    { "tier": 6, "key": "tech_era_gunpowder" },
+    { "tier": 7, "key": "tech_era_industrial" },
+    { "tier": 8, "key": "tech_era_electric" },
+    { "tier": 9, "key": "tech_era_modern" },
+    { "tier": 10, "key": "tech_era_atomic" },
+    { "tier": 11, "key": "tech_era_future" }
+  ],
+  "materials": [
+    { "id": "wood", "tier": 1, "resources": [{ "id": "wood", "amount": 1 }] },
+    { "id": "stone", "tier": 1, "resources": [{ "id": "stone", "amount": 1 }] },
+    { "id": "hide", "tier": 1, "resources": [{ "id": "leather", "amount": 1 }, { "id": "bones", "amount": 3 }] },
+    { "id": "copper", "tier": 2, "resources": [{ "id": "common_metals", "amount": 3 }] },
+    { "id": "silver", "tier": 3, "resources": [{ "id": "silver", "amount": 1 }] },
+    { "id": "gold", "tier": 3, "resources": [{ "id": "gold", "amount": 5 }] },
+    { "id": "iron", "tier": 4, "resources": [{ "id": "common_metals", "amount": 15 }], "requires_techs": ["deep_mining"] },
+    { "id": "coal", "tier": 5, "resources": [{ "id": "stone", "amount": 30 }], "requires_techs": ["deep_mining"] },
+    { "id": "saltpeter", "tier": 6, "resources": [{ "id": "gunpowder", "amount": 1 }, { "id": "crystal_salt", "amount": 3 }, { "id": "fertilizer", "amount": 3 }, { "id": "bones", "amount": 20 }], "requires_techs": ["alchemy"] },
+    { "id": "mythril", "tier": 6, "resources": [{ "id": "mythril", "amount": 1 }] },
+    { "id": "oil", "tier": 8, "resources": [{ "id": "common_metals", "amount": 40 }, { "id": "gems", "amount": 5 }], "requires_techs": ["industrialization"] },
+    { "id": "uranium", "tier": 10, "resources": [{ "id": "gems", "amount": 5 }, { "id": "adamantine", "amount": 1 }], "requires_techs": ["electricity"] },
+    { "id": "adamantine", "tier": 10, "resources": [{ "id": "adamantine", "amount": 1 }] }
+  ],
+  "techs": [
+    { "id": "stoneworking", "branch": "metallurgy", "tier": 1, "cost": 6, "requires_materials": ["stone"], "unlock_materials": ["stone"], "boosts": [{"type": "resource", "value": "stone", "amount": 5}] },
+    { "id": "carpentry", "branch": "construction", "tier": 1, "cost": 6, "requires_materials": ["wood"], "unlock_materials": ["wood"], "boosts": [{"type": "resource", "value": "wood", "amount": 10}] },
+    { "id": "tanning", "branch": "military", "tier": 1, "cost": 6, "requires_materials": ["hide"], "unlock_materials": ["leather"], "boosts": [{"type": "resource", "value": "leather", "amount": 3}] },
+    { "id": "writing", "branch": "science", "tier": 1, "cost": 15, "research_bonus": 0.1, "boosts": [{"type": "building_type", "value": "type_temple", "amount": 1}] },
+
+    { "id": "copper_smelting", "branch": "metallurgy", "tier": 2, "cost": 40, "requires_techs": ["stoneworking"], "requires_materials": ["copper"], "unlock_materials": ["copper"], "boosts": [{"type": "building_type", "value": "type_mine", "amount": 1}] },
+    { "id": "masonry", "branch": "construction", "tier": 2, "cost": 40, "requires_techs": ["carpentry"], "requires_materials": ["stone"], "unlock_buildings": ["2well_modernmod", "2bonfire_modernmod"], "boosts": [{"type": "resource", "value": "stone", "amount": 30}] },
+
+    { "id": "bronze_casting", "branch": "metallurgy", "tier": 3, "cost": 80, "requires_techs": ["copper_smelting"], "unlock_materials": ["bronze"], "boosts": [{"type": "resource", "value": "common_metals", "amount": 10}] },
+    { "id": "deep_mining", "branch": "construction", "tier": 3, "cost": 80, "requires_techs": ["copper_smelting", "masonry"], "unlock_buildings": ["2mine_modernmod"], "boosts": [{"type": "building_type", "value": "type_mine", "amount": 3}] },
+    { "id": "silversmithing", "branch": "metallurgy", "tier": 3, "cost": 80, "requires_techs": ["copper_smelting"], "requires_materials": ["silver"], "unlock_materials": ["silver"], "boosts": [{"type": "resource", "value": "silver", "amount": 3}] },
+    { "id": "mathematics", "branch": "science", "tier": 3, "cost": 80, "requires_techs": ["writing"], "research_bonus": 0.1, "boosts": [{"type": "cities", "value": "", "amount": 3}] },
+
+    { "id": "ironworking", "branch": "metallurgy", "tier": 4, "cost": 150, "requires_techs": ["bronze_casting"], "requires_materials": ["iron"], "unlock_materials": ["iron"], "boosts": [{"type": "resource", "value": "common_metals", "amount": 30}, {"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "crossbow", "branch": "military", "tier": 4, "cost": 150, "requires_techs": ["bronze_casting", "tanning"], "requires_materials": ["wood"], "unlock_items": ["Crossbow"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "architecture", "branch": "construction", "tier": 4, "cost": 150, "requires_techs": ["masonry", "mathematics"], "unlock_buildings": ["3hall_*_modernmod", "2docks_*_modernmod", "2barracks_*_modernmod", "2temple_*_modernmod", "garden", "fountain"], "boosts": [{"type": "population", "value": "", "amount": 300}] },
+
+    { "id": "steelmaking", "branch": "metallurgy", "tier": 5, "cost": 260, "requires_techs": ["ironworking"], "requires_materials": ["coal"], "unlock_materials": ["steel"], "boosts": [{"type": "building_type", "value": "type_mine", "amount": 5}] },
+    { "id": "alchemy", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics"], "requires_materials": ["gold"], "research_bonus": 0.1, "boosts": [{"type": "resource", "value": "gold", "amount": 20}] },
+    { "id": "printing", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics"], "research_bonus": 0.2, "unlock_buildings": ["university"], "boosts": [{"type": "building_type", "value": "type_library", "amount": 2}] },
+
+    { "id": "gunpowder", "branch": "military", "tier": 6, "cost": 420, "requires_techs": ["alchemy"], "requires_materials": ["saltpeter", "coal"], "unlock_buildings": ["gunpowder_mill"], "boosts": [{"type": "resource", "value": "gunpowder", "amount": 1}, {"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "matchlock", "branch": "military", "tier": 6, "cost": 420, "requires_techs": ["gunpowder", "steelmaking"], "unlock_items": ["Musket", "Flintlock", "musket"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "urban_housing", "branch": "construction", "tier": 6, "cost": 420, "requires_techs": ["architecture", "steelmaking"], "unlock_buildings": ["6house_*_modernmod", "7house_*_modernmod", "4hall_*_modernmod", "house_human_7"], "boosts": [{"type": "population", "value": "", "amount": 1000}] },
+    { "id": "mythril_forging", "branch": "metallurgy", "tier": 6, "cost": 420, "requires_techs": ["steelmaking"], "requires_materials": ["mythril"], "unlock_materials": ["mythril"], "boosts": [{"type": "resource", "value": "mythril", "amount": 5}] },
+
+    { "id": "scientific_method", "branch": "science", "tier": 7, "cost": 650, "requires_techs": ["printing"], "research_bonus": 0.3, "boosts": [{"type": "building_type", "value": "type_university", "amount": 1}, {"type": "building_type", "value": "type_library", "amount": 5}] },
+    { "id": "industrialization", "branch": "construction", "tier": 7, "cost": 650, "requires_techs": ["steelmaking", "scientific_method"], "requires_materials": ["coal"], "unlock_buildings": ["8house_*_modernmod", "3docks_*_modernmod", "3barracks_*_modernmod", "3temple_*_modernmod", "house_human_8", "steel_mill"], "boosts": [{"type": "building_type", "value": "type_steel_mill", "amount": 1}, {"type": "institution_feature", "value": "urban_production_stage", "amount": 2}] },
+    { "id": "banking", "branch": "science", "tier": 7, "cost": 650, "requires_techs": ["printing"], "requires_materials": ["gold"], "research_bonus": 0.1, "unlock_buildings": ["stock_exchange"], "boosts": [{"type": "building_type", "value": "type_market", "amount": 2}] },
+    { "id": "rifling", "branch": "military", "tier": 7, "cost": 650, "requires_techs": ["matchlock", "industrialization"], "unlock_items": ["Sniper", "Americanshotgun", "Sluggershotgun", "DesertEagle", "Glock17", "pistol", "rifle", "sniperrifle", "shotgunreplace"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
+
+    { "id": "electricity", "branch": "science", "tier": 8, "cost": 950, "requires_techs": ["industrialization"], "research_bonus": 0.2, "boosts": [{"type": "cities", "value": "", "amount": 15}] },
+    { "id": "automatic_weapons", "branch": "military", "tier": 8, "cost": 950, "requires_techs": ["rifling"], "unlock_items": ["ThompsonM1A1", "SGT44", "Uzi", "MP7", "Minigun", "smg", "autorifle"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "explosives", "branch": "military", "tier": 8, "cost": 950, "requires_techs": ["gunpowder", "industrialization"], "unlock_items": ["RPG", "M32", "MGL", "grenadebelt", "rpg"], "unlock_buildings": ["bunker", "artillery_bunker"], "boosts": [{"type": "building_type", "value": "type_gunpowder_mill", "amount": 1}, {"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "motorization", "branch": "military", "tier": 8, "cost": 950, "requires_techs": ["industrialization"], "requires_materials": ["oil"], "unlock_buildings": ["light_factory", "light_shipyard"], "unlock_units": ["warbox_apc", "warbox_zsu", "warbox_spg", "warbox_heavy_artillery", "warbox_gunboat"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}] },
+    { "id": "petrochemistry", "branch": "metallurgy", "tier": 8, "cost": 950, "requires_techs": ["industrialization"], "requires_materials": ["oil"], "unlock_items": ["Flamethrower"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}] },
+
+    { "id": "assault_rifles", "branch": "military", "tier": 9, "cost": 1400, "requires_techs": ["automatic_weapons", "petrochemistry"], "unlock_items": ["AK", "AK103", "M16", "FAMAS", "M4A1", "XM8", "HK416", "Malorian"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "armored_warfare", "branch": "military", "tier": 9, "cost": 1400, "requires_techs": ["motorization", "steelmaking"], "unlock_buildings": ["heavy_factory", "heavy_shipyard"], "unlock_units": ["warbox_tank", "warbox_ifv"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "aviation", "branch": "military", "tier": 9, "cost": 1400, "requires_techs": ["motorization", "electricity"], "unlock_buildings": ["light_aircraft_factory"], "unlock_units": ["warbox_helicopter"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}] },
+    { "id": "modern_armor", "branch": "metallurgy", "tier": 9, "cost": 1400, "requires_techs": ["petrochemistry"], "unlock_items": ["modernarmor", "modernhelmet", "modernboots", "medicpack"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "skyscrapers", "branch": "construction", "tier": 9, "cost": 1400, "requires_techs": ["urban_housing", "electricity"], "unlock_buildings": ["9house_*_modernmod", "10house_*_modernmod", "5hall_*_modernmod"], "boosts": [{"type": "population", "value": "", "amount": 3000}] },
+    { "id": "computing", "branch": "science", "tier": 9, "cost": 1400, "requires_techs": ["electricity"], "research_bonus": 0.5, "boosts": [{"type": "building_type", "value": "type_university", "amount": 3}] },
+
+    { "id": "nuclear_fission", "branch": "military", "tier": 10, "cost": 2000, "requires_techs": ["computing", "explosives"], "requires_materials": ["uranium"], "unlock_items": ["mininuke", "bigboy"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}] },
+    { "id": "strategic_aviation", "branch": "military", "tier": 10, "cost": 2000, "requires_techs": ["aviation", "explosives"], "unlock_buildings": ["heavy_aircraft_factory"], "unlock_units": ["warbox_bomber", "warbox_fighter"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "adamantine_forging", "branch": "metallurgy", "tier": 10, "cost": 2000, "requires_techs": ["computing", "mythril_forging"], "requires_materials": ["adamantine"], "unlock_materials": ["adamantine"], "boosts": [{"type": "resource", "value": "adamantine", "amount": 5}] },
+    { "id": "arcology", "branch": "construction", "tier": 10, "cost": 2000, "requires_techs": ["skyscrapers", "computing"], "unlock_buildings": ["11house_*_modernmod", "6hall_*_modernmod"], "boosts": [{"type": "population", "value": "", "amount": 6000}] },
+
+    { "id": "icbm", "branch": "military", "tier": 11, "cost": 3000, "requires_techs": ["nuclear_fission"], "unlock_items": ["BudgetMIRV", "DecentMIRV", "MIRV", "MIRVBomb", "STRONGMIRV"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "energy_weapons", "branch": "military", "tier": 11, "cost": 3000, "requires_techs": ["computing", "assault_rifles"], "requires_materials": ["adamantine"], "unlock_items": ["greenblaster", "greenheavyblaster", "vrifle", "grifle", "gauss"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}] }
+  ]
+}

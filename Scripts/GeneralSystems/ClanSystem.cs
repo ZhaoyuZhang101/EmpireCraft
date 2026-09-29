@@ -241,6 +241,7 @@ public class SpecificClan
     }
     public void addActor(Actor actor, bool is_concubines= false)
     {
+        if (actor == null || actor.IsWarMachine()) return;
         if (!actor.HasSpecificClan())
         {
             PersonalClanIdentity pci = actor.InitialPersonalIdentity(this);

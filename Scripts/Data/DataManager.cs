@@ -37,6 +37,7 @@ public static class DataManager
     public static void LoadAll(string loadRootPath)
     {
         InstitutionSystem.ResetWorldState();
+        TechnologySystem.ResetWorldState();
         string loadPath = Path.Combine(loadRootPath, EmpireCraftSaveFileName);
         CurrentSaveDataPath = loadPath;
         NormalizeLoadedNameSeparators();
@@ -54,6 +55,7 @@ public static class DataManager
         var saveData = JsonConvert.DeserializeObject<SaveData>(json);
         NormalizeSaveData(saveData);
         InstitutionSystem.ImportCultureStates(saveData?.cultureInstitutionStates);
+        TechnologySystem.ImportStates(saveData?.cultureTechStates);
         if (FactionRatioConverter.DiscardedLegacyEntryCount > 0)
         {
             LogService.LogWarning($"已迁移旧存档中 {FactionRatioConverter.DiscardedLegacyEntryCount} 条无法识别的派系占比；将在加载后按当前派系配置重建。");
@@ -334,6 +336,7 @@ public static class DataManager
         saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);
         saveData.cultureBindings = CulturePatch.ExportCultureBindings();
         saveData.cultureInstitutionStates = InstitutionSystem.ExportCultureStates();
+        saveData.cultureTechStates = TechnologySystem.ExportStates();
         ModClass.EMPIRE_MANAGER.update(-1L);
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
         saveData.officeObjects = OfficeManager.Offices;

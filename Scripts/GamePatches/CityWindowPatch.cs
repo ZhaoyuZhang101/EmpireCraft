@@ -83,7 +83,7 @@ public class CityWindowPatch : GamePatch
             $"{employment.Employed}/{employment.Capacity}", "#7FD8EA", pIconPath: "iconMoney");
         __instance.showStatRow("city_job_sources",
             string.Format(LM.Get("city_job_sources_format"), employment.Buildings, employment.Merchants,
-                employment.RecentVoyages), "#B8C6CC", pIconPath: "iconMoney");
+                employment.RecentVoyages, employment.Factories), "#B8C6CC", pIconPath: "iconMoney");
         __instance.showStatRow("city_worker_population", employment.Workers.ToString(), "#7FD8EA",
             pIconPath: "iconChildren");
         __instance.showStatRow("city_job_seekers", employment.AvailableResidents.ToString(), "#B8C6CC",

@@ -21,6 +21,13 @@ public static class IdeologySpreadSystem
 
     public static string FeatureKey(PartyIdeology ideology) => $"ideology:{ideology}";
 
+    public static bool TryParseFeature(string feature, out PartyIdeology ideology)
+    {
+        ideology = default;
+        return feature != null && feature.StartsWith("ideology:", StringComparison.Ordinal) &&
+               Enum.TryParse(feature.Substring("ideology:".Length), out ideology);
+    }
+
     public static void SetStateIdeology(string culture, PartyIdeology ideology, Empire pioneer)
     {
         CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture);
@@ -102,6 +109,10 @@ public static class IdeologySpreadSystem
                 float current = state.ideology_exposure.TryGetValue(key, out float previous) ? previous : 0f;
                 if (current < 0f) continue;
                 float exposure = current + gain.Value;
+                // 思想可以传进来，但没有相应的技术基础(比如没工业化就没有工人阶级)就扎不下根：接触度停在门槛前
+                if (exposure >= UnlockExposure &&
+                    !TechnologySystem.AreFeatureTechsMet(culture.Key, FeatureKey(gain.Key)))
+                    exposure = UnlockExposure - 0.01f;
                 state.ideology_exposure[key] = exposure;
                 if (exposure < UnlockExposure) continue;
                 IdeologyPopulationSystem.IntroduceToCulture(culture.Key, gain.Key);

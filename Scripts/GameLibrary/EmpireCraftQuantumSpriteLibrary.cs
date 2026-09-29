@@ -82,6 +82,12 @@ public static class EmpireCraftQuantumSpriteLibrary
     public static Sprite _Republic_officer_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_king_sad");
     public static void init()
     {
+        // 覆盖原版的同名资产：先从库里移除，免得 add 在日志里报"duplicate asset"错误
+        foreach (string id in new[] { "kings", "capturing_zones" })
+        {
+            AssetManager.quantum_sprites.dict.Remove(id);
+            AssetManager.quantum_sprites.list.RemoveAll(asset => asset.id == id);
+        }
         AssetManager.quantum_sprites.add(new QuantumSpriteAsset
         {
             id = "kings",

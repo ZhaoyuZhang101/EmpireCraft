@@ -31,6 +31,7 @@ public class SaveData
     public List<KingdomTitleData> kingdomTitleDatas = new List<KingdomTitleData>();
     public Dictionary<long, string> cultureBindings = new Dictionary<long, string>();
     public Dictionary<string, CultureInstitutionState> cultureInstitutionStates = new Dictionary<string, CultureInstitutionState>();
+    public Dictionary<string, CultureTechState> cultureTechStates = new Dictionary<string, CultureTechState>();
     public List<string> yearNameSubspecies = new List<string>();
     public Dictionary<long, List<EmpireCraftHistory>> all_history;
     public Dictionary<string, double> culture_no_empire_since = new Dictionary<string, double>();

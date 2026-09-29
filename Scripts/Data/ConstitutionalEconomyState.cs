@@ -20,8 +20,25 @@ public sealed class ParliamentSeat
     public long district_kingdom_id = -1L;
 }
 
+// 一个外国对本国施加的理念压力(民意系统每年重算，只用于显示和转化)
+public sealed class IdeologyPressureSource
+{
+    public long empire_id = -1L;
+    public string empire_name = "";
+    public EmpireCraft.Scripts.GeneralSystems.PartyIdeology ideology;
+    public float amount;
+}
+
 public sealed class ConstitutionalEconomyState
 {
+    // —— 民意与理念压力(见 PublicOpinionSystem) ——
+    // 0 满意 / 1 异见 / 2 抵制 / 3 革命浪潮
+    public int opinion_level;
+    public int opinion_wave_years;
+    public float opinion_support;
+    public float opinion_dissent;
+    public string opinion_preferred = "";
+    public List<IdeologyPressureSource> ideology_pressure = new();
     public string stable_culture = "";
     public double stable_culture_since = -1d;
     public double last_economy_update = -1d;

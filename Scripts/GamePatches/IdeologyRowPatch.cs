@@ -131,13 +131,23 @@ public class IdeologyRowPatch : GamePatch
 
     #region 窗口里宗教一行之后的"理念"一行
 
+    // 原版行的图标只认 ui/Icons 下的图标名；理念没有自己的图标，跟宗教行用同一个
+    private const string RowIcon = "iconReligion";
+
+    // 理念不是原版的 MetaType，行本身不会跳转；on_click_value 在行被复用时由原版清空，直接赋值不会串到别的行
+    private static void MakeClickable(KeyValueField field, PartyIdeology ideology)
+    {
+        if (field == null) return;
+        field.on_click_value = () => EmpireCraft.Scripts.UI.Windows.IdeologyInfoWindow.Open(ideology);
+    }
+
     public static void WindowRowPostfix(StatsWindow __instance, Religion pObject)
     {
         try
         {
             (PartyIdeology ideology, TooltipDataGetter getter) = ResolveRow(__instance, pObject);
-            __instance.showStatRow(RowTitle, PartySystem.GetIdeologyName(ideology), Hex(ideology),
-                MetaType.None, -1L, true, IdeologyTraitIcons.Path(ideology), TooltipId, getter, true);
+            MakeClickable(__instance.showStatRow(RowTitle, PartySystem.GetIdeologyName(ideology), Hex(ideology),
+                MetaType.None, -1L, true, RowIcon, TooltipId, getter, true), ideology);
         }
         catch (Exception exception)
         {
@@ -150,8 +160,9 @@ public class IdeologyRowPatch : GamePatch
         try
         {
             (PartyIdeology ideology, TooltipDataGetter getter) = ResolveRow(__instance, pObject);
-            __instance.showStatRowMeta(RowTitle, PartySystem.GetIdeologyName(ideology), Hex(ideology),
-                MetaType.None, -1L, true, IdeologyTraitIcons.Path(ideology), TooltipId, getter, true);
+            // showStatRowMeta 就是 showStatRow(pColorText: true) 的包装，只是不返回这一行；直接调用好拿到行
+            MakeClickable(__instance.showStatRow(RowTitle, PartySystem.GetIdeologyName(ideology), Hex(ideology),
+                MetaType.None, -1L, true, RowIcon, TooltipId, getter, true), ideology);
         }
         catch (Exception exception)
         {

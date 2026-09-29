@@ -749,9 +749,18 @@ public static class ActorExtension
         return false;
     }
 
-    public static bool CanServeOffice(this Actor a, Kingdom kingdom)
+    // WarBox 等模组的载具(坦克、飞机、炮艇)也是 Actor，不能当官、入党、进宗族、当议员
+    public static bool IsWarMachine(this Actor a)
     {
         if (a == null) return false;
+        if (a.hasTrait("warbox_unit")) return true;
+        string id = a.asset?.id;
+        return id != null && id.StartsWith("warbox_", StringComparison.Ordinal);
+    }
+
+    public static bool CanServeOffice(this Actor a, Kingdom kingdom)
+    {
+        if (a == null || a.IsWarMachine()) return false;
         if (kingdom == null || !kingdom.IsInEmpire())
         {
             return true;

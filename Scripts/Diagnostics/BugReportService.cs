@@ -1022,20 +1022,29 @@ public static class BugReportService
             PlatformID.Win32NT
         )
         {
-            Process.Start(
-                new ProcessStartInfo(
-                    "explorer.exe",
-                    $"/select,\"{path}\""
-                )
-                {
-                    UseShellExecute = true
-                }
-            );
-
-            return;
+            // Unity 的 consoleLogPath 给的是正斜杠路径(C:/Users/.../Player.log)，explorer 的 /select 不认，
+            // 会退回去打开"文档"之类的默认位置。先规范成反斜杠的绝对路径。
+            string windowsPath = Path.GetFullPath(path).Replace('/', '\\');
+            try
+            {
+                Process.Start(
+                    new ProcessStartInfo(
+                        "explorer.exe",
+                        $"/select,\"{windowsPath}\""
+                    )
+                    {
+                        UseShellExecute = true
+                    }
+                );
+                return;
+            }
+            catch
+            {
+                // explorer 起不来就退回直接打开所在文件夹
+            }
         }
 
-        OpenDirectory(Path.GetDirectoryName(path));
+        OpenDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
     }
 
     private static void OpenDirectory(string directory)

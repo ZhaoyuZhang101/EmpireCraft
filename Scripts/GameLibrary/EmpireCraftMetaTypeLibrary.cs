@@ -40,8 +40,10 @@ public static class EmpireCraftMetaTypeLibrary
             set_icon_for_cancel_button = true,
             icon_list = "iconReligionList",
             icon_single_path = "ui/icons/iconBooks",
-            has_dynamic_zones = true,
-            dynamic_zone_option = 0,
+            // 不能开 has_dynamic_zones：那是原版宗教/文化"流动区块"用的，要配 dynamic_zones 委托。
+            // 理念图层自己在 draw_zones 里画，没有这个委托；开着它原版每帧都会调一个空委托，
+            // 抛空引用把日志刷爆、游戏卡死(帝国/法理图层也都没开)
+            has_dynamic_zones = false,
             reports = new string[0],
             map_mode = MetaTypeExtension.Ideology,
             option_id = "map_Ideology_layer",

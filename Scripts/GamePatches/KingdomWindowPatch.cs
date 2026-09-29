@@ -42,6 +42,12 @@ public class KingdomWindowPatch: GamePatch
             SimpleWindowTab simpleWindowTab = Object.Instantiate(SimpleWindowTab.Prefab);
             simpleWindowTab.Setup("regime", __instance.scroll_window, action:(_) => ShowRegime(), sprite:SpriteTextureLoader.getSprite("ui/regime"));
         }
+        if (__instance.tabs._tabs.All(p => p.name != "technology"))
+        {
+            SimpleWindowTab techTab = Object.Instantiate(SimpleWindowTab.Prefab);
+            techTab.Setup("technology", __instance.scroll_window, action:(_) => TechWindow.Open(_kingdom),
+                sprite:SpriteTextureLoader.getSprite("ui/icons/iconKnowledge"));
+        }
     }
     public static bool showStatsRows(KingdomWindow __instance)
     {

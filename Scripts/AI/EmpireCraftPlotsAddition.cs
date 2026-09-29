@@ -1987,6 +1987,8 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.list.RemoveAll(a => a.id == "rebellion");
             AssetManager.plots_library.basic_plots.RemoveAll(a=>a.id=="rebellion");
+            // 字典里的旧条目也要拿掉，否则 add 会在日志里报一条"duplicate asset"错误
+            AssetManager.plots_library.dict.Remove("rebellion");
             Rebellion = AssetManager.plots_library.add(new PlotAsset
 		    {
 			    id = "rebellion",
@@ -2246,6 +2248,7 @@ namespace EmpireCraft.Scripts.AI
             };
             AssetManager.plots_library.list.RemoveAll(a => a.id == "alliance_join");
             AssetManager.plots_library.basic_plots.RemoveAll(a => a.id == "alliance_join");
+            AssetManager.plots_library.dict.Remove("alliance_join");
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "alliance_join",

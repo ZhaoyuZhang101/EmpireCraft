@@ -255,12 +255,15 @@ public static class IdeologyPopulationSystem
             var grievances = empire == null ? null : InstitutionSystem.GetClassGrievances(empire);
             PartyIdeology? governing = PartySystem.GetGovernmentParty(empire)?.Ideology;
             string culture = empire == null ? "" : InstitutionSystem.GetPrimaryCulture(empire);
+            // 外国理念压力(见 PublicOpinionSystem)：一部分"外来接触"换成压力最大的外国理念
+            PartyIdeology? pressured = empire == null ? null : PublicOpinionSystem.PickPressured(empire);
             foreach (Actor actor in city.units)
             {
                 if (actor == null || actor.isRekt() || !actor.isAlive() || !actor.isAdult()) continue;
                 float contact = UnityEngine.Random.value;
                 PartyIdeology target = contact < 0.15f ? PickInitial(actor) :
-                    contact < 0.3f ? foreign : SampleLocal(localCounts, organizers, actor);
+                    contact < 0.3f ? (pressured.HasValue && contact < 0.24f ? pressured.Value : foreign)
+                    : SampleLocal(localCounts, organizers, actor);
                 PartyIdeology current = Get(actor);
                 if (current == target) continue;
                 float classAffinity = PartySystem.GetAffinity(target, actor.GetOrCreate().socialClass);
@@ -274,6 +277,9 @@ public static class IdeologyPopulationSystem
                 if (!string.IsNullOrEmpty(culture) && InstitutionSystem.GetFeature(culture,
                         IdeologyInstitutionPaths.StageFeature(target, 1)) > 0f)
                     chance *= IdeologyInstitutionPaths.GetProfile(target).MovementMultiplier;
+                // 压力越大越容易被说服(最多翻倍)
+                if (pressured.HasValue && target == pressured.Value)
+                    chance *= 1f + Mathf.Min(1f, PublicOpinionSystem.GetPressure(empire, target) / 50f);
                 if (UnityEngine.Random.value < chance) Set(actor, target);
             }
         }
