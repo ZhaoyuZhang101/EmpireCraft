@@ -29,6 +29,15 @@ public sealed class CityLandReport
     public List<CityLandHolderView> Holders = new List<CityLandHolderView>();
 }
 
+public sealed class ClanLandHoldingView
+{
+    public City City;
+    public string CityName;
+    public string KingdomName;
+    public float Share;
+    public int Rank;
+}
+
 public sealed class FamilyLandHoldingView
 {
     public string CityName;
@@ -39,6 +48,8 @@ public sealed class FamilyLandHoldingView
 
 /// <summary>
 /// 城市土地与家庭经济身份。土地数据归城市所有，因此没有建立帝国的王国也能运行。
+/// 私有土地按宗族(SpecificClan)持有：原版家庭很不固定，往往传不了一代就散，份额跟着家庭走会不停地
+/// 丢失、重分。没有宗族的人退回原版氏族，再没有才按个人持有。
 /// </summary>
 public static class LandEconomySystem
 {
@@ -65,6 +76,10 @@ public static class LandEconomySystem
         if (!IsLandlordClassEnabled(actor.city.kingdom)) return false;
         return GetHouseholdShare(actor.city, GetHouseholdKey(actor)) > LandlordThreshold;
     }
+
+    public static bool IsLandlessResident(Actor actor) => actor?.city != null &&
+        IsLandMarketOpen(actor.city.kingdom) && IsAgrarianCommoner(actor) &&
+        GetHouseholdShare(actor.city, GetHouseholdKey(actor)) <= 0f;
 
     public static bool IsLandMarketOpen(Kingdom kingdom)
     {
@@ -105,7 +120,7 @@ public static class LandEconomySystem
         {
             Actor representative = SelectRepresentative(household.Value);
             if (representative == null || IsPrivilegedHousehold(household.Value)) continue;
-            data.household_land_shares[household.Key] = HouseholdBaseShare;
+            data.household_land_shares[household.Key] = GetInitialGrant(household.Value);
             data.household_land_representatives[household.Key] = representative.id;
         }
         TrimPrivateSharesToCapacity(city, data);
@@ -181,16 +196,16 @@ public static class LandEconomySystem
     {
         var result = new List<FamilyLandHoldingView>();
         if (family == null || World.world?.cities?.list == null) return result;
-        string householdKey = $"f:{family.id}";
-        var residenceCityIds = new HashSet<long>((family.units ?? new List<Actor>())
-            .Where(IsLivingResident).Select(actor => actor.city?.id ?? -1L).Where(id => id > 0));
+        // 土地记在宗族名下：家庭窗口显示的是这个家庭所属宗族(没有宗族则氏族/个人)的持有
+        List<Actor> members = (family.units ?? new List<Actor>()).Where(IsLivingResident).ToList();
+        var householdKeys = new HashSet<string>(members.Select(GetHouseholdKey));
+        var residenceCityIds = new HashSet<long>(members.Select(actor => actor.city?.id ?? -1L).Where(id => id > 0));
         foreach (City city in World.world.cities.list.Where(city => city != null && !city.isRekt()))
         {
             CityExtension.CityExtraData data = EnsureData(city);
             bool resides = residenceCityIds.Contains(city.id);
-            float ownership = data.household_land_shares.TryGetValue(householdKey, out float share)
-                ? Mathf.Max(0f, share)
-                : 0f;
+            float ownership = householdKeys.Sum(key =>
+                data.household_land_shares.TryGetValue(key, out float share) ? Mathf.Max(0f, share) : 0f);
             bool marketOpen = IsLandMarketOpen(city.kingdom);
             if (!resides && ownership <= 0f) continue;
             result.Add(new FamilyLandHoldingView
@@ -203,6 +218,46 @@ public static class LandEconomySystem
         }
         return result.OrderByDescending(view => view.OwnershipShare)
             .ThenByDescending(view => view.TenureShare).ThenBy(view => view.CityName).ToList();
+    }
+
+    // 宗族在各城的土地占有(只列有地的城市)，Rank 是在该城私人持地者里的名次
+    public static List<ClanLandHoldingView> GetSpecificClanHoldings(SpecificClan clan)
+    {
+        var result = new List<ClanLandHoldingView>();
+        if (clan == null || World.world?.cities?.list == null) return result;
+        string key = $"s:{clan.id}";
+        foreach (City city in World.world.cities.list.Where(city => city != null && !city.isRekt()))
+        {
+            if (!IsLandMarketOpen(city.kingdom)) continue;
+            CityExtension.CityExtraData data = EnsureData(city);
+            if (!data.household_land_shares.TryGetValue(key, out float share) || share <= 0f) continue;
+            result.Add(new ClanLandHoldingView
+            {
+                City = city,
+                CityName = city.GetCityName(),
+                KingdomName = city.kingdom?.GetKingdomName() ?? "",
+                Share = share,
+                Rank = 1 + data.household_land_shares.Count(pair => pair.Value > share)
+            });
+        }
+        return result.OrderByDescending(view => view.Share).ThenBy(view => view.CityName).ToList();
+    }
+
+    // 分家时按迁出人数的比例把原宗族在该城的土地分给分支
+    public static void TransferClanLand(City city, SpecificClan from, SpecificClan to, float ratio)
+    {
+        if (city == null || city.isRekt() || from == null || to == null || ratio <= 0f) return;
+        CityExtension.CityExtraData data = EnsureData(city);
+        string fromKey = $"s:{from.id}";
+        string toKey = $"s:{to.id}";
+        if (!data.household_land_shares.TryGetValue(fromKey, out float share) || share <= 0f) return;
+        float moved = share * Mathf.Clamp01(ratio);
+        data.household_land_shares[fromKey] = Mathf.Max(0f, share - moved);
+        data.household_land_shares[toKey] = GetHouseholdShare(city, toKey) + moved;
+        Actor representative = city.units?.Where(IsLivingResident)
+            .Where(actor => actor.GetSpecificClan() == to)
+            .OrderByDescending(actor => actor.money).FirstOrDefault();
+        if (representative != null) data.household_land_representatives[toKey] = representative.id;
     }
 
     public static SocialClass GetFamilyEconomicClass(Family family)
@@ -286,7 +341,31 @@ public static class LandEconomySystem
         CityExtension.CityExtraData data = city.GetOrCreate();
         data.household_land_shares ??= new Dictionary<string, float>();
         data.household_land_representatives ??= new Dictionary<string, long>();
+        if (data.household_land_shares.Keys.Any(key => key.StartsWith(LegacyFamilyKeyPrefix, StringComparison.Ordinal)))
+            MigrateLegacyFamilyKeys(data);
         return data;
+    }
+
+    // 旧存档按家庭(f:)记的份额：按当年记下的代表人并入他现在所属的宗族；代表人已不在的份额作废，
+    // 由下一次年度结算按宗族重新分配。
+    private const string LegacyFamilyKeyPrefix = "f:";
+
+    private static void MigrateLegacyFamilyKeys(CityExtension.CityExtraData data)
+    {
+        foreach (string key in data.household_land_shares.Keys
+                     .Where(key => key.StartsWith(LegacyFamilyKeyPrefix, StringComparison.Ordinal)).ToList())
+        {
+            float share = data.household_land_shares[key];
+            Actor representative = ResolveRepresentative(data, key);
+            data.household_land_shares.Remove(key);
+            data.household_land_representatives.Remove(key);
+            if (!IsLivingResident(representative)) continue;
+            string newKey = GetHouseholdKey(representative);
+            data.household_land_shares[newKey] =
+                (data.household_land_shares.TryGetValue(newKey, out float existing) ? existing : 0f) + share;
+            if (!data.household_land_representatives.ContainsKey(newKey))
+                data.household_land_representatives[newKey] = representative.id;
+        }
     }
 
     private static Dictionary<string, List<Actor>> BuildHouseholds(City city)
@@ -310,9 +389,23 @@ public static class LandEconomySystem
         return actor != null && !actor.isRekt() && actor.isAlive();
     }
 
+    // 持地单位：宗族 → 原版氏族 → 个人
     private static string GetHouseholdKey(Actor actor)
     {
-        return actor?.hasFamily() == true ? $"f:{actor.family.id}" : $"a:{actor?.id ?? -1L}";
+        SpecificClan specificClan = actor?.GetSpecificClan();
+        if (specificClan != null) return $"s:{specificClan.id}";
+        if (actor?.hasClan() == true) return $"c:{actor.clan.id}";
+        return $"a:{actor?.id ?? -1L}";
+    }
+
+    // 初始授田按宗族在本城的"户数"(家庭数 + 不在家庭里的个人)算，每户一份——
+    // 换成按宗族持有之后全城授出去的土地总量跟原来按家庭授田时一样，只是归到了宗族名下。
+    private static float GetInitialGrant(IEnumerable<Actor> members)
+    {
+        int households = members.Where(IsLivingResident)
+            .Select(actor => actor.hasFamily() ? $"f:{actor.family.id}" : $"a:{actor.id}")
+            .Distinct().Count();
+        return HouseholdBaseShare * Math.Max(1, households);
     }
 
     private static Actor SelectRepresentative(IEnumerable<Actor> members)
@@ -321,10 +414,15 @@ public static class LandEconomySystem
             .ThenByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
     }
 
+    // 宗族人多，原来"有一个人是官员/贵族就整户不授田"会让一个大宗族因为出了一个官就全族无地，
+    // 改成过半成员是特权阶层才整族不授田(这部分由贵族份额覆盖)。
     private static bool IsPrivilegedHousehold(IEnumerable<Actor> members)
     {
-        return members.Any(actor => actor.IsOnOffice() || actor == actor.kingdom?.king ||
-                                    actor.GetOrCreate().socialClass == SocialClass.Noble);
+        List<Actor> list = members.ToList();
+        if (list.Count == 0) return false;
+        int privileged = list.Count(actor => actor.IsOnOffice() || actor == actor.kingdom?.king ||
+                                             actor.GetOrCreate().socialClass == SocialClass.Noble);
+        return privileged * 2 > list.Count;
     }
 
     private static void UpdateMerchantHouseholds(Dictionary<string, List<Actor>> households)
@@ -379,13 +477,15 @@ public static class LandEconomySystem
             if (representative == null || IsPrivilegedHousehold(household.Value)) continue;
             data.household_land_representatives[household.Key] = representative.id;
             if (data.household_land_shares.ContainsKey(household.Key)) continue;
-            if (used + HouseholdBaseShare > capacity + 0.001f)
+            // 余量不够整份时给剩下的零头，不够一点点就记 0(无地)
+            float grant = Mathf.Min(GetInitialGrant(household.Value), capacity - used);
+            if (grant <= 0.001f)
             {
                 data.household_land_shares[household.Key] = 0f;
                 continue;
             }
-            data.household_land_shares[household.Key] = HouseholdBaseShare;
-            used += HouseholdBaseShare;
+            data.household_land_shares[household.Key] = grant;
+            used += grant;
         }
         TrimPrivateSharesToCapacity(city, data);
     }
@@ -457,7 +557,8 @@ public static class LandEconomySystem
     private static bool IsAgrarianCommoner(Actor actor)
     {
         if (actor == null || actor.IsOnOffice() || actor.isWarrior() ||
-            actor.GetOrCreate().is_economic_merchant || IsLandlord(actor)) return false;
+            actor.GetOrCreate().is_economic_merchant || IsLandlord(actor) ||
+            UrbanEmploymentSystem.IsEmployed(actor)) return false;
         if (actor.GetOrCreate().socialClass == SocialClass.Noble) return false;
         string job = actor.citizen_job?.id ?? "";
         return job != "woodcutter" && job != "miner" && job != "miner_deposit" &&
@@ -547,12 +648,16 @@ public static class LandEconomySystem
     {
         CityExtension.CityExtraData data = EnsureData(city);
         Actor representative = ResolveRepresentative(data, key);
-        if (representative == null) return LM.Get("city_land_unknown_household");
-        string actorName = representative.getName();
-        if (representative.hasFamily() && !string.IsNullOrWhiteSpace(representative.family.data?.name) &&
-            !string.Equals(actorName, representative.family.data.name, StringComparison.Ordinal))
-            return $"{actorName} ({representative.family.data.name})";
-        return actorName;
+        // 城市界面的排名按宗族排：只写"X宗族"，不再带代表人；没有宗族的退回氏族名/个人名
+        if (key.StartsWith("s:", StringComparison.Ordinal) && long.TryParse(key.Substring(2), out long clanId))
+        {
+            SpecificClan clan = SpecificClanManager.Get(clanId);
+            if (!string.IsNullOrWhiteSpace(clan?.name)) return clan.GetDisplayName();
+        }
+        if (key.StartsWith("c:", StringComparison.Ordinal) &&
+            !string.IsNullOrWhiteSpace(representative?.clan?.data?.name))
+            return representative.clan.data.name;
+        return representative?.getName() ?? LM.Get("city_land_unknown_household");
     }
 
     private static string GetCrownName(City city)

@@ -99,6 +99,7 @@ internal static class MainTab
         SpecificClanTreeWindow.CreateAndInit(nameof(SpecificClanTreeWindow), new Vector2(500f, 400f));
         // 模组文化窗口（点击文化图层/原版文化链接时打开，见 CultureWindowRedirectPatch）
         CultureInfoWindow.CreateAndInit(nameof(CultureInfoWindow), new Vector2(480f, 380f));
+        IdeologyInfoWindow.CreateAndInit(nameof(IdeologyInfoWindow), new Vector2(480f, 380f));
     }
     [Hotfixable]
     private static void _addButtons()
@@ -145,6 +146,11 @@ internal static class MainTab
         PowerButton pb = FixFunctions.CreateLayerButton(MetaTypeExtension.Empire,
                  SpriteTextureLoader.getSprite("ui/icons/iconKingdom"));
         tab.AddPowerButton(EMPIRE_GROUP, pb);
+
+        // 理念图层(独立于原版宗教图层)
+        PowerButton ideologyLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Ideology,
+                 SpriteTextureLoader.getSprite("ui/icons/iconBooks"), maxOption: 1);
+        tab.AddPowerButton(EMPIRE_GROUP, ideologyLayer);
 
         CreateEmpireButton.init();
         tab.AddPowerButton(EMPIRE_GROUP,

@@ -619,6 +619,114 @@
           "faction": "神权"
         }
       ]
+    },
+    {
+      "template": "lift_party_ban",
+      "id": "arabic_lift_party_ban",
+      "branch": "administration",
+      "advancement": 5,
+      "requires": [
+        "arabic_bayt_al_mal"
+      ]
+    },
+    {
+      "template": "universal_suffrage",
+      "id": "arabic_universal_suffrage",
+      "branch": "society",
+      "advancement": 6,
+      "requires": [
+        "arabic_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_capitalism",
+      "id": "arabic_ideology_capitalism",
+      "branch": "ideology",
+      "advancement": 7,
+      "requires": [
+        "arabic_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_libertarianism",
+      "id": "arabic_ideology_libertarianism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "arabic_ideology_capitalism"
+      ]
+    },
+    {
+      "template": "ideology_religious_democracy",
+      "id": "arabic_ideology_religious_democracy",
+      "branch": "ideology",
+      "advancement": 7,
+      "requires": [
+        "arabic_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_authoritarianism",
+      "id": "arabic_ideology_authoritarianism",
+      "branch": "ideology",
+      "advancement": 7,
+      "requires": [
+        "arabic_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_social_democracy",
+      "id": "arabic_ideology_social_democracy",
+      "branch": "ideology",
+      "advancement": 7,
+      "requires": [
+        "arabic_universal_suffrage"
+      ]
+    },
+    {
+      "template": "ideology_socialism",
+      "id": "arabic_ideology_socialism",
+      "branch": "ideology",
+      "advancement": 7,
+      "requires": [
+        "arabic_universal_suffrage"
+      ]
+    },
+    {
+      "template": "ideology_communism",
+      "id": "arabic_ideology_communism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "arabic_ideology_socialism"
+      ]
+    },
+    {
+      "template": "ideology_anarchism",
+      "id": "arabic_ideology_anarchism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "arabic_ideology_socialism"
+      ]
+    },
+    {
+      "template": "ideology_fascism",
+      "id": "arabic_ideology_fascism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "arabic_ideology_authoritarianism"
+      ]
+    },
+    {
+      "template": "abolish_monarchy",
+      "id": "arabic_abolish_monarchy",
+      "branch": "administration",
+      "advancement": 6,
+      "requires": [
+        "arabic_lift_party_ban"
+      ]
     }
   ],
   "constitution": {

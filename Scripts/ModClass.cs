@@ -107,6 +107,10 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "MiaoHaoPrefixes.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "MiaoHaoSuffixes.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "Cultures", "ShiHao.csv"));
+        // 通用政党命名词库(文化没有单独配置某个理念的党名时使用)
+        string partyNamesPath = Path.Combine(_declare.FolderPath, "Locales", "Cultures", "PartyNames");
+        if (Directory.Exists(partyNamesPath))
+            foreach (string partyNames in Directory.EnumerateFiles(partyNamesPath, "*.csv")) LM.LoadLocales(partyNames);
         LogService.LogInfo("add year name template");
         LogService.LogInfo("加载谥号模板");
         LogService.LogInfo("加载庙号模板");
@@ -153,6 +157,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         modConfig = new ModConfig(_declare.FolderPath + "/default_config.json", true);
         LogService.LogInfo("加载帝国模组更多世界提示");
         EmpireCraftWorldLogLibrary.init();
+        EmpireCraftWorldLawGroupLibrary.init();
+        EmpireCraftWorldLawLibrary.init();
         EmpireCraftNamePlateLibrary.init();
         EmpireCraftActorTraitLibrary.init();
         EmpireCraftMetaTypeLibrary.init();
@@ -163,8 +169,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftPlotsAddition.init();
         EmpireCraftQuantumSpriteLibrary.init();
         EmpireCraftBehaviourTaskLibrary.init();
-        EmpireCraftWorldLawGroupLibrary.init();
-        EmpireCraftWorldLawLibrary.init();
         EmpireCraftHotKeyLibrary.init();
         EmpireCraftLoyaltyLibrary.init();
         EmpireCraftBuildingLibrary.init();

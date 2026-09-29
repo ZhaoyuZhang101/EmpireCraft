@@ -28,7 +28,7 @@ public static class InstitutionDefinitionRegistry
     public const string CommonFolderName = "Common";
 
     // 树状图/文明等级里分支的默认顺序；配置里出现的其它分支排在后面
-    private static readonly string[] PreferredBranchOrder = { "administration", "finance", "military", "society" };
+    private static readonly string[] PreferredBranchOrder = { "administration", "finance", "military", "society", "production" };
 
     private static readonly Dictionary<string, InstitutionNodeConfig> Definitions = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, InstitutionTreeConfig> Trees = new(StringComparer.Ordinal);
@@ -39,7 +39,7 @@ public static class InstitutionDefinitionRegistry
     private static readonly HashSet<string> SupportedEffects = new(StringComparer.Ordinal)
     {
         "add_mandate", "change_tax_level", "set_regime_option", "modify_faction_power", "enable_claim",
-        "change_regime", "unlock_succession_law", "grant_trait",
+        "change_regime", "unlock_succession_law", "grant_trait", "abolish_monarchy",
         "open_private_land_market", "enact_law"
     };
 
@@ -136,6 +136,9 @@ public static class InstitutionDefinitionRegistry
                 if (tree == null) continue;
                 // 文件名就是线 id，配置里写的 line 字段一律忽略，免得两处对不上
                 tree.line = lineId;
+                InstitutionConfigNormalizer.Normalize(tree);
+                IdeologyInstitutionPaths.AddTo(tree);
+                ProductionInstitutionPaths.AddTo(tree);
                 InstitutionConfigNormalizer.Normalize(tree);
                 Trees[lineId] = tree;
                 foreach (InstitutionNodeConfig node in tree.nodes)

@@ -40,6 +40,18 @@ public class Setting
     public FamilySetting Family;
     public UnitSetting Unit;
     public string Religion = "";
+    // 政党命名：理念 → 词库(见 PartySystem)
+    public PartySetting Party;
+}
+
+public class PartySetting
+{
+    // key 为理念(PartyIdeology 的名字，如 "Socialism")，value 为词库名；
+    // 词库文件放在 Locales/Cultures/Culture_<文化>/<文化><词库名>.csv，格式与其他命名词库相同(key,cz,en,ch)。
+    // 没配的理念用 Locales/Cultures/PartyNames/Party<理念>.csv 里的通用党名。
+    public Dictionary<string, string> groups;
+    // 改制共和后的国号后缀词库：理念 → 词库名(同上的放置规则)；没配用 PartyNames/Suffix<理念>.csv
+    public Dictionary<string, string> suffix_groups;
 }
 
 public class UnitSetting

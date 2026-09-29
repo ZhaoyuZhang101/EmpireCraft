@@ -159,12 +159,21 @@ public static class ConstitutionalEconomySystem
         ConstitutionalEconomyState state = Ensure(empire);
         SyncCulture(empire, state);
         SyncRegime(empire, state);
+        // 玩家随时可能在政体窗口切换国家制度：共和标记跟着实际政体走
+        RepublicSystem.SyncWithRegime(empire);
+        RepublicSystem.UpdateTransition(empire);
+        RepublicSystem.EnsureIdeologyBureau(empire);
+        RepublicSystem.EnsureHeadOfState(empire);
+        AdoptCultureConstitution(empire, state);
+        // 开放党禁后：派系改组为政党、政党的年度分合(见 PartySystem)。不依赖议会，先于议会更新
+        PartySystem.Update(empire, state);
         // 议会召开/改选/补选/解散。每次更新都检查，议会阶段一到立即召开，不必等年度结算
         ParliamentSystem.Update(empire);
         if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;
         state.last_economy_update = World.world.getCurWorldTime();
         PruneTrade(state);
         UpdateBudding(empire, state);
+        UpdateWelfare(empire, state);
 
         if (state.constitutional_reform_active) AdvanceReform(empire, state);
         if (state.constitutional_monarchy && GetParliamentarySupport(empire) < Config.support_threshold &&
@@ -182,6 +191,17 @@ public static class ConstitutionalEconomySystem
             state.last_ai_constitution_attempt = World.world.getCurWorldTime();
             if (GetParliamentarySupport(empire) >= Config.ai_start_support) StartReform(empire);
         }
+    }
+
+    public static int GetWelfareAnnualCost(Empire empire, int level) =>
+        empire?.CoreKingdom == null || level <= 0 ? 0 :
+        Math.Max(5, empire.CountPopulation() / 100) * level;
+
+    private static void UpdateWelfare(Empire empire, ConstitutionalEconomyState state)
+    {
+        int cost = GetWelfareAnnualCost(empire, state.welfare_level);
+        state.welfare_funded = cost > 0 && empire.CoreKingdom.GetMoney() >= cost;
+        if (state.welfare_funded) empire.CoreKingdom.SubMoney(cost);
     }
 
     private static void UpdateBudding(Empire empire, ConstitutionalEconomyState state)
@@ -209,6 +229,11 @@ public static class ConstitutionalEconomySystem
         else
         {
             state.capitalist_candidate_since = -1d;
+            if (state.capitalist_budding_forced)
+            {
+                state.capitalist_decline_since = -1d;
+                return;
+            }
             if (state.capitalist_decline_since < 0)
                 state.capitalist_decline_since = World.world.getCurWorldTime();
             if (Date.getYearsSince(state.capitalist_decline_since) >= config.budding_decline_years)
@@ -249,6 +274,45 @@ public static class ConstitutionalEconomySystem
         if (!state.constitutional_monarchy) return;
         state.constitutional_monarchy = false;
         Record(empire, "constitution_ended_history");
+    }
+
+    // 君主立宪是文化层面的制度：本文化已经确立的话，同文化的君主制帝国直接随之确立(进行中的制宪就此结束)
+    public static bool IsCultureConstitutional(Empire empire) =>
+        empire != null && InstitutionSystem.GetOrCreateCultureState(InstitutionSystem.GetPrimaryCulture(empire))
+            ?.constitutional_monarchy == true;
+
+    public static CultureInstitutionState GetCultureConstitution(Empire empire) =>
+        empire == null ? null : InstitutionSystem.GetOrCreateCultureState(InstitutionSystem.GetPrimaryCulture(empire));
+
+    private static void AdoptCultureConstitution(Empire empire, ConstitutionalEconomyState state)
+    {
+        // 旧存档：本帝国早已立宪但文化还没记上 → 补记为本文化首开
+        if (state.constitutional_monarchy && IsMonarchy(empire) && !IsCultureConstitutional(empire))
+            MarkCultureConstitutional(empire);
+        if (state.constitutional_monarchy || !IsMonarchy(empire) || !IsCultureConstitutional(empire)) return;
+        if (!InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(empire))) return;
+        CancelReform(state);
+        state.constitutional_monarchy = true;
+        CultureInstitutionState culture = GetCultureConstitution(empire);
+        string content = string.Format(LM.Get("constitution_culture_adopted_history"),
+            InstitutionSystem.GetPrimaryCulture(empire).GetCultureTranslate(),
+            string.IsNullOrWhiteSpace(culture?.constitutional_monarchy_pioneer_name)
+                ? LM.Get("label_none") : culture.constitutional_monarchy_pioneer_name);
+        empire.RecordHistory(directContent: content, actorId: empire.Emperor?.id ?? -1L,
+            kingdomId: empire.CoreKingdom.id);
+    }
+
+    private static void MarkCultureConstitutional(Empire empire)
+    {
+        CultureInstitutionState culture = GetCultureConstitution(empire);
+        if (culture == null || culture.constitutional_monarchy) return;
+        culture.constitutional_monarchy = true;
+        culture.constitutional_monarchy_timestamp = World.world.getCurWorldTime();
+        culture.constitutional_monarchy_pioneer_empire_id = empire.getID();
+        culture.constitutional_monarchy_pioneer_name = empire.GetEmpireName();
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(
+            string.Format(LM.Get("constitution_culture_established_log"), empire.GetEmpireName(),
+                InstitutionSystem.GetPrimaryCulture(empire).GetCultureTranslate()), empire.CoreKingdom);
     }
 
     private static void CancelReform(ConstitutionalEconomyState state)
@@ -362,6 +426,8 @@ public static class ConstitutionalEconomySystem
         string line = GetLine(empire);
         if (!InstitutionDefinitionRegistry.IsConstitutionEnabled(line)) return false;
         if (state.constitutional_monarchy) { reason = "constitution_already_enacted"; return false; }
+        // 本文化已确立君主立宪：下一次更新自动随之确立，不必再走一遍制宪
+        if (IsCultureConstitutional(empire)) { reason = "constitution_culture_enacted"; return false; }
         if (state.constitutional_reform_active) { reason = "constitution_reforming"; return false; }
         if (!IsMonarchy(empire)) { reason = "constitution_requires_monarchy"; return false; }
         if (empire.data.institution_state?.active_reform != null)
@@ -381,6 +447,39 @@ public static class ConstitutionalEconomySystem
     }
 
     #endregion
+
+    // 上帝模式：跳过商人家庭/海贸/年限条件，直接出现资本主义萌芽。强制出现的萌芽带标记，
+    // 之后即使商业条件不达标也不会消退(否则几年后又自己退回去，按钮等于白点)。
+    public static bool ForceBudding(Empire empire)
+    {
+        ConstitutionalEconomyState state = Ensure(empire);
+        if (state == null || World.world == null || state.capitalist_budding) return false;
+        state.capitalist_budding = true;
+        state.capitalist_budding_forced = true;
+        state.capitalist_decline_since = -1d;
+        Record(empire, "constitution_budding_history");
+        return true;
+    }
+
+    // 上帝模式：跳过全部条件和制宪过程，直接确立君主立宪(同样记为本文化首开，同文化君主国随之立宪)
+    public static bool CanForceConstitution(Empire empire)
+    {
+        ConstitutionalEconomyState state = Ensure(empire);
+        return state != null && World.world != null && !state.constitutional_monarchy && IsMonarchy(empire) &&
+               InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(empire));
+    }
+
+    public static bool ForceConstitution(Empire empire)
+    {
+        if (!CanForceConstitution(empire)) return false;
+        ConstitutionalEconomyState state = Ensure(empire);
+        CancelReform(state);
+        state.constitutional_monarchy = true;
+        MarkCultureConstitutional(empire);
+        ParliamentSystem.Update(empire);
+        Record(empire, "constitution_forced_history");
+        return true;
+    }
 
     public static bool StartReform(Empire empire)
     {
@@ -431,6 +530,7 @@ public static class ConstitutionalEconomySystem
             Date.getYearsSince(state.constitutional_reform_started) < minimumYears) return;
         state.constitutional_reform_active = false;
         state.constitutional_monarchy = true;
+        MarkCultureConstitutional(empire);
         ParliamentSystem.Update(empire);
         Record(empire, "constitution_enacted_history");
     }

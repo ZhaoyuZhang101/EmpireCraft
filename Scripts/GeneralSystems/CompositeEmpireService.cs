@@ -331,6 +331,7 @@ public static class CompositeEmpireService
     {
         if (!IsComposite(empire) || member?.data == null || member.isRekt() || member.GetEmpire() != empire)
             return false;
+        if (RepublicSystem.IsRegimeLocked(member)) return false;
 
         string culture = member == empire.CoreKingdom
             ? GetInstitutionalCulture(empire)

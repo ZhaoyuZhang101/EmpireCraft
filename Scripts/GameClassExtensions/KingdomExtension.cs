@@ -245,6 +245,8 @@ public static class KingdomExtension
         // Player-facing overrides are kept separate so clearing them restores automatic naming.
         public string custom_country_name = "";
         public string custom_country_suffix = "";
+        // 改制共和后按执政理念取的国号后缀(玩家自定义命名优先)
+        public string ideology_country_suffix = "";
         // Stable EmpireCraft culture key selected from the founder/ruler's current Culture.
         public string realm_culture = "";
         public SpecificClan kingdomSpecificClan;
@@ -1273,6 +1275,9 @@ public static class KingdomExtension
             !k.CanVoluntarilyBecomeTributaryOf(empire) ||
             !empire.MeetsTributaryPowerThreshold(k))) return;
 
+        if (k.GetOrCreate().feudal_overlord_kingdom_id >= 0)
+            FeudalVassalService.Break(k, restoreOriginalColor: true);
+
         Empire previousEmpire = k.GetTakenAllianceEmpire();
         bool alreadyJoined = previousEmpire == empire && (empire.taken_Kingdoms?.Contains(k) ?? false);
         if (alreadyJoined) return;
@@ -1332,6 +1337,7 @@ public static class KingdomExtension
     }
     public static bool NeedToRemoveTakenAlliance(this Kingdom k)
     {
+        if (!k.HasTakenAlliance()) return false;
         Empire empire = k.GetTakenAllianceEmpire();
         return empire == null||k.IsInEmpire();
     }
@@ -1424,9 +1430,9 @@ public static class KingdomExtension
                 if (empire == null) return false;
                 if (kingdom.IsEmpire()) return false;
                 if (!kingdom.hasKing()) return false;
-                if (kingdom.king.GetSpecificClan() != empire.EmpireSpecificClan)
+                if (!SpecificClanManager.SameLineage(kingdom.king.GetSpecificClan(), empire.EmpireSpecificClan))
                 {
-                    var preKing = kingdom.units.Find(a=>a.GetSpecificClan()==empire.EmpireSpecificClan);
+                    var preKing = kingdom.units.Find(a=>SpecificClanManager.SameLineage(a.GetSpecificClan(), empire.EmpireSpecificClan));
                     if (preKing==null) return false;
                     kingdom.setKing(preKing);
                 }
@@ -1888,6 +1894,8 @@ public static class KingdomExtension
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
                 ? setting.regime
                 : RegimeType.Feudalism;
+        // 改制共和的帝国：保留现在的政体，只重建官职——否则一丢官职就被按文化重置回君主制
+        if (RepublicSystem.IsRegimeLocked(k)) regimeType = k.GetOrCreate().regimeType;
         k.SetRegimeType(regimeType);
         k.LoadRegime();
         var regime = k.GetRegime();
@@ -1978,9 +1986,14 @@ public static class KingdomExtension
         }
     }
 
+    // 共和国的核心国没有储君：元首由选举产生
+    private static bool IsRepublicCore(Kingdom k) =>
+        k != null && k.IsEmpire() && RepublicSystem.IsRepublic(k.GetEmpire());
+
     public static Actor GetHeir(this Kingdom k)
     {
         var ed = k.GetOrCreate();
+        if (IsRepublicCore(k)) return null;
         return World.world.units.get(ed.HeirID);
     }
     public static void RemoveHeir(this Kingdom k)
@@ -2013,6 +2026,11 @@ public static class KingdomExtension
     public static void SetHeir(this Kingdom k, Actor pActor)
     {
         var ed = k.GetOrCreate();
+        if (IsRepublicCore(k))
+        {
+            ed.HeirID = -1L;
+            return;
+        }
         ed.HeirID = pActor.getID();
     }    
 
@@ -2025,7 +2043,7 @@ public static class KingdomExtension
     public static void StartToChooseHeir(this Kingdom k)
     {
         var ed = k.GetOrCreate();
-        ed.is_need_to_choose_heir = true;
+        ed.is_need_to_choose_heir = !IsRepublicCore(k);
     }
 
     public static bool IsNeedToChooseHeir(this Kingdom k)
@@ -2227,16 +2245,7 @@ public static class KingdomExtension
         if (kingdom == null || kingdom.isRekt()) return null;
         var extraData = kingdom.GetOrCreate();
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(extraData.AdministrativeTitle);
-        KingdomType kingdomType = kingdom.GetKingdomType();
-        // 律令制的道/节度使/都护府，以及郡国并行下分封制的郡，都是受托管理法理的行政区
-        bool isAdministrative = ((kingdom.GetRegime()?.type == RegimeType.LvLing &&
-                                  (kingdomType == KingdomType.LvLing_province ||
-                                   kingdomType == KingdomType.LvLing_jiedushi ||
-                                   kingdomType == KingdomType.LvLing_duhufu)) ||
-                                 kingdomType == KingdomType.ZhouFeudalism_jun ||
-                                 kingdomType == KingdomType.Feudalism_intendancy ||
-                                 kingdomType == KingdomType.Feudalism_diocese) &&
-            kingdom.GetMainTitle() == null;
+        bool isAdministrative = kingdom.IsAdministrativeKingdomType() && kingdom.GetMainTitle() == null;
         if (!isAdministrative)
         {
             title?.EndJurisdiction(kingdom, KingdomTitle.JurisdictionAdministration);
@@ -2264,10 +2273,36 @@ public static class KingdomExtension
         return title;
     }
 
+    // 律令制的道/节度使(军)/都护府，以及郡国并行下分封制的郡、西式的总督区/教区，都是受托管理法理的行政区
+    public static bool IsAdministrativeKingdomType(this Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.isRekt()) return false;
+        KingdomType kingdomType = kingdom.GetKingdomType();
+        return (kingdom.GetRegime()?.type == RegimeType.LvLing &&
+                (kingdomType == KingdomType.LvLing_province ||
+                 kingdomType == KingdomType.LvLing_jiedushi ||
+                 kingdomType == KingdomType.LvLing_duhufu)) ||
+               kingdomType == KingdomType.ZhouFeudalism_jun ||
+               kingdomType == KingdomType.Feudalism_intendancy ||
+               kingdomType == KingdomType.Feudalism_diocese;
+    }
+
     public static string GetAdministrativeProvinceName(this Kingdom kingdom)
     {
         KingdomTitle title = kingdom.GetAdministrativeTitle();
+        if (title == null)
+        {
+            // 行政区自己握有一块法理(例如由王国转成的军府)时不算"受托管理"，拿不到托管法理——
+            // 但它仍然是行政区，名字要用这块法理的省份名，而不是法理名本身(否则"江"法理的军府就叫"江军")。
+            KingdomTitle ownTitle = kingdom.IsAdministrativeKingdomType() ? kingdom.GetMainTitle() : null;
+            return ownTitle == null || ownTitle.isRekt() ? null : GetProvinceName(ownTitle);
+        }
         if (!kingdom.CanUseAdministrativeProvinceName(title)) return null;
+        return GetProvinceName(title);
+    }
+
+    private static string GetProvinceName(KingdomTitle title)
+    {
         if (!string.IsNullOrWhiteSpace(title?.data?.province_name)) return title.data.province_name;
         return title?.title_capital != null && !title.title_capital.isRekt()
             ? title.title_capital.GetCityName()
@@ -2710,10 +2745,11 @@ public static class KingdomExtension
     private static bool IsEligibleEmpireCultureCandidate(Kingdom kingdom)
     {
         return kingdom != null && kingdom.king?.kingdom == kingdom &&
-               EmpireFormationService.MeetsBaseRequirements(kingdom);
+               EmpireFormationService.MeetsBaseRequirements(kingdom) &&
+               !EmpireFormationService.IsInFailureCooldown(kingdom);
     }
 
-    private static bool IsStrongerEmpireCandidate(Kingdom candidate, Kingdom incumbent)
+    internal static bool IsStrongerEmpireCandidate(Kingdom candidate, Kingdom incumbent)
     {
         double candidatePower = EmpireFormationService.GetBlocPower(candidate);
         double incumbentPower = EmpireFormationService.GetBlocPower(incumbent);
@@ -2865,6 +2901,9 @@ public static class KingdomExtension
             }
             if (!kingdom.isRekt() && (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling()))
                 return kingdom.data.name?.UseLocalizedNameSeparator() ?? "";
+            string ideologySuffix = kingdom.GetOrCreate().ideology_country_suffix;
+            if (!string.IsNullOrWhiteSpace(ideologySuffix))
+                return OverallHelperFunc.JoinNameParts(kingdom.GetKingdomName(), ideologySuffix);
             string coreName = kingdom.EnsureKingdomCoreName();
             if (string.IsNullOrWhiteSpace(coreName)) return kingdom.data.name ?? "";
             if (kingdom.isRekt()) return coreName;

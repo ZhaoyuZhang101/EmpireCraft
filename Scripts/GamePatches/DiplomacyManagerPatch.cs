@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.AI;
 using HarmonyLib;
 using NeoModLoader.api;
 using System;
@@ -75,30 +76,10 @@ public class DiplomacyManagerPatch : GamePatch
     static bool get_war_target(Kingdom pInitiatorKingdom, ref Kingdom __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pInitiatorKingdom)) return true;
-        Kingdom best = null;
-        float bestDistance = float.MaxValue;
-        if (pInitiatorKingdom?.capital == null)
-        {
-            __result = null;
-            return false;
-        }
-        using (ListPool<Kingdom> neutral = DiplomacyHelpers.wars.getNeutralKingdoms(pInitiatorKingdom, false, false))
-        {
-            foreach (Kingdom target in neutral)
-            {
-                if (target == null || !target.hasCities() || !target.hasCapital() ||
-                    target.getAge() < SimGlobals.m.minimum_kingdom_age_for_attack ||
-                    !pInitiatorKingdom.capital.reachableFrom(target.capital) ||
-                    Date.getYearsSince(DiplomacyHelpers.diplomacy.getRelation(pInitiatorKingdom, target)
-                        .data.timestamp_last_war_ended) < SimGlobals.m.minimum_years_between_wars ||
-                    !FeudalVassalService.CanDeclareExternalWar(pInitiatorKingdom, target)) continue;
-                float distance = Kingdom.distanceBetweenKingdom(pInitiatorKingdom, target);
-                if (distance >= bestDistance) continue;
-                bestDistance = distance;
-                best = target;
-            }
-        }
-        __result = best;
+        if (pInitiatorKingdom != null && EmpireCraftPlotsAddition.UsesVanillaWarPlot(
+                pInitiatorKingdom.IsEmpire(), pInitiatorKingdom.IsInEmpire(),
+                FeudalVassalService.GetOverlord(pInitiatorKingdom) != null)) return true;
+        __result = EmpireCraftPlotsAddition.GetWarTarget(pInitiatorKingdom);
         return false;
     }
 

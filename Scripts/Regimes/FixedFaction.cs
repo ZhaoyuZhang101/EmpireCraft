@@ -87,7 +87,7 @@ public static class FactionManager
                 {
                     TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池,
                     TemporaryFactionType.削藩, TemporaryFactionType.设置行政区, TemporaryFactionType.开科取士,
-                    TemporaryFactionType.索取皇位
+                    TemporaryFactionType.索取皇位, TemporaryFactionType.开放党禁
                 }
             },
             {
@@ -102,7 +102,7 @@ public static class FactionManager
                 new List<TemporaryFactionType>
                 {
                     TemporaryFactionType.提高赋税, TemporaryFactionType.提高福利, TemporaryFactionType.清除移民,
-                    TemporaryFactionType.缩减金融霸权
+                    TemporaryFactionType.缩减金融霸权, TemporaryFactionType.开放党禁
                 }
             },
             {
@@ -110,12 +110,20 @@ public static class FactionManager
                 new List<TemporaryFactionType>
                 {
                     TemporaryFactionType.开放移民, TemporaryFactionType.降低赋税, TemporaryFactionType.提高福利,
-                    TemporaryFactionType.拓展金融霸权
+                    TemporaryFactionType.拓展金融霸权, TemporaryFactionType.开放党禁
                 }
             },
             {
                 FactionType.革命,
                 new List<TemporaryFactionType> { TemporaryFactionType.输出革命, TemporaryFactionType.扶持革命党, TemporaryFactionType.禁党 }
+            },
+            {
+                FactionType.共产,
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.输出革命, TemporaryFactionType.扶持革命党, TemporaryFactionType.禁党,
+                    TemporaryFactionType.土地改革, TemporaryFactionType.提高福利
+                }
             },
             {
                 FactionType.神权,
@@ -285,6 +293,13 @@ public class FixedFaction
     public List<string> RequiredTraits = new();
     public FactionType Type { get; set; }
     public bool Ban { get; set; } = false;
+    // —— 政党(开放党禁后派系改组为政党，见 PartySystem) ——
+    public bool IsParty { get; set; }
+    public PartyIdeology Ideology { get; set; } = PartyIdeology.Centrism;
+    public string OriginFactionName { get; set; } = "";
+    public long PartyFounderId { get; set; } = -1L;
+    public double PartyFoundedAt { get; set; } = -1d;
+    public int ZeroSeatElections { get; set; }
     public string Name { set; get; }
     public long EmpireId { get; set; } = -1L;
     public bool Hide { get; set; } = false;
@@ -334,6 +349,12 @@ public class FixedFaction
     {
         return TemporaryFactions.Find(tf => tf?.IsStarted() ?? false);
     }
+    // 诉求清单：政党用本理念的诉求(已存在 Record 里)；派系按类型取配置，类型没配诉求(如共产)时给空表而不是 null
+    private List<TemporaryFactionType> GetClaimCatalog() =>
+        IsParty && TemporaryFactionTypesRecord != null
+            ? TemporaryFactionTypesRecord
+            : TemporaryFactionTypes ?? TemporaryFactionTypesRecord ?? new List<TemporaryFactionType>();
+
     public FixedFaction Clone()
     {
         FixedFaction newFaction = new FixedFaction()
@@ -352,10 +373,15 @@ public class FixedFaction
             ClassSupport = new Dictionary<SocialClass, float>(ClassSupport ?? new()),
             ClassFavorSources = new Dictionary<SocialClass, string>(ClassFavorSources ?? new()),
             Leader = -1L,
-            TemporaryFactionTypesRecord = new List<TemporaryFactionType>(TemporaryFactionTypes),
-            ClaimCatalogVersion = CurrentClaimCatalogVersion
+            TemporaryFactionTypesRecord = new List<TemporaryFactionType>(GetClaimCatalog()),
+            ClaimCatalogVersion = CurrentClaimCatalogVersion,
+            IsParty = IsParty,
+            Ideology = Ideology,
+            OriginFactionName = OriginFactionName,
+            PartyFounderId = PartyFounderId,
+            PartyFoundedAt = PartyFoundedAt
         };
-        TemporaryFactionTypesRecord = new List<TemporaryFactionType>(TemporaryFactionTypes);
+        TemporaryFactionTypesRecord = new List<TemporaryFactionType>(GetClaimCatalog());
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
         newFaction.TemporaryFactions.ForEach(tf=>tf.Init(newFaction));
         return newFaction;
@@ -380,7 +406,12 @@ public class FixedFaction
             Leader = -1L,
             TemporaryFactions = TemporaryFactions,
             TemporaryFactionTypesRecord = TemporaryFactionTypesRecord,
-            ClaimCatalogVersion = ClaimCatalogVersion
+            ClaimCatalogVersion = ClaimCatalogVersion,
+            IsParty = IsParty,
+            Ideology = Ideology,
+            OriginFactionName = OriginFactionName,
+            PartyFounderId = PartyFounderId,
+            PartyFoundedAt = PartyFoundedAt
         };
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
         newFaction.TemporaryFactions.ForEach(tf=>tf.Init(newFaction));
@@ -405,6 +436,7 @@ public class FixedFaction
         }
         foreach (var tf in TemporaryFactions)
         {
+            if (IsParty && tf != null) tf.ShowAsPlot = false;
             if (Empire != null)
             {
                 tf.SetEmpire(Empire); // ← 始终把 EmpireId 等运行时信息灌进去

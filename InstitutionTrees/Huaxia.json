@@ -1111,6 +1111,114 @@
           "int_value": 2
         }
       ]
+    },
+    {
+      "template": "lift_party_ban",
+      "id": "huaxia_lift_party_ban",
+      "branch": "administration",
+      "advancement": 8,
+      "requires": [
+        "huaxia_constitutional_preparation"
+      ]
+    },
+    {
+      "template": "universal_suffrage",
+      "id": "huaxia_universal_suffrage",
+      "branch": "society",
+      "advancement": 9,
+      "requires": [
+        "huaxia_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_capitalism",
+      "id": "huaxia_ideology_capitalism",
+      "branch": "ideology",
+      "advancement": 10,
+      "requires": [
+        "huaxia_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_libertarianism",
+      "id": "huaxia_ideology_libertarianism",
+      "branch": "ideology",
+      "advancement": 11,
+      "requires": [
+        "huaxia_ideology_capitalism"
+      ]
+    },
+    {
+      "template": "ideology_religious_democracy",
+      "id": "huaxia_ideology_religious_democracy",
+      "branch": "ideology",
+      "advancement": 10,
+      "requires": [
+        "huaxia_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_authoritarianism",
+      "id": "huaxia_ideology_authoritarianism",
+      "branch": "ideology",
+      "advancement": 10,
+      "requires": [
+        "huaxia_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_social_democracy",
+      "id": "huaxia_ideology_social_democracy",
+      "branch": "ideology",
+      "advancement": 10,
+      "requires": [
+        "huaxia_universal_suffrage"
+      ]
+    },
+    {
+      "template": "ideology_socialism",
+      "id": "huaxia_ideology_socialism",
+      "branch": "ideology",
+      "advancement": 10,
+      "requires": [
+        "huaxia_universal_suffrage"
+      ]
+    },
+    {
+      "template": "ideology_communism",
+      "id": "huaxia_ideology_communism",
+      "branch": "ideology",
+      "advancement": 11,
+      "requires": [
+        "huaxia_ideology_socialism"
+      ]
+    },
+    {
+      "template": "ideology_anarchism",
+      "id": "huaxia_ideology_anarchism",
+      "branch": "ideology",
+      "advancement": 11,
+      "requires": [
+        "huaxia_ideology_socialism"
+      ]
+    },
+    {
+      "template": "ideology_fascism",
+      "id": "huaxia_ideology_fascism",
+      "branch": "ideology",
+      "advancement": 11,
+      "requires": [
+        "huaxia_ideology_authoritarianism"
+      ]
+    },
+    {
+      "template": "abolish_monarchy",
+      "id": "huaxia_abolish_monarchy",
+      "branch": "administration",
+      "advancement": 9,
+      "requires": [
+        "huaxia_lift_party_ban"
+      ]
     }
   ],
   "constitution": {

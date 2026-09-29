@@ -88,6 +88,7 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
                                                                      +a.asset.getLocalizedName()
                                                                      +a.asset.getLocalizedDescription()
                                                                      +a.name
+                                                                     +a.branch_label
                                                                      +a.empire_name
                                                                      +a.id
                                                                      +a.founder
@@ -149,7 +150,7 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
         string empireLabel = hasActiveEmpire
             ? ("(" + empire.GetEmpireName() + "皇室)").ColorString(pColor: empire.CoreKingdom.getColor()._color_main)
             : "";
-        vertCard.AddTextIntoVertLayout((specificClan?.name ?? "") + LM.Get("specific_clan") + empireLabel,
+        vertCard.AddTextIntoVertLayout((specificClan?.GetDisplayName() ?? "") + empireLabel,
             hideBackground:true, TextAnchor.MiddleCenter, size:new Vector2(49, 10));
         var actor = specificClan.AllAliveMembers.ToList()?.OrderByDescending(a => a?.age??0)?
             .FirstOrDefault();

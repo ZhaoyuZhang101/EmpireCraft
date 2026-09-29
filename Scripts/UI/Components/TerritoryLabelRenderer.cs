@@ -27,6 +27,7 @@ public sealed class TerritoryLabelStyle
     public int min_font_size = 3;
     public int max_font_size = 512;
     public FontStyle font_style = FontStyle.Normal;
+    public bool rich_text;
     public bool use_gold_gradient;
     // Only the Empire label may wrap long Latin names; ordinary nameplates stay single-line.
     public bool wrap_english_name;
@@ -148,6 +149,25 @@ public static class TerritoryLabelRenderer
         arc_curvature = 0.08f
     };
 
+    public static readonly TerritoryLabelStyle FeudalVassalStyle = new TerritoryLabelStyle
+    {
+        text_color = KingdomStyle.text_color,
+        size_multiplier = KingdomStyle.size_multiplier,
+        min_font_size = KingdomStyle.min_font_size,
+        arc_curvature = KingdomStyle.arc_curvature,
+        rich_text = true
+    };
+
+    public static readonly TerritoryLabelStyle FeudalVassalRebellionStyle = new TerritoryLabelStyle
+    {
+        text_color = RebellionKingdomStyle.text_color,
+        outline_color = RebellionKingdomStyle.outline_color,
+        size_multiplier = RebellionKingdomStyle.size_multiplier,
+        min_font_size = RebellionKingdomStyle.min_font_size,
+        arc_curvature = RebellionKingdomStyle.arc_curvature,
+        rich_text = true
+    };
+
     public static void RenderLawLayer(int zoneOptionState)
     {
         BeginFrame(MetaTypeExtension.KingdomTitle);
@@ -242,12 +262,17 @@ public static class TerritoryLabelRenderer
             if (label.last_seen_frame != _submission_frame) label.Hide();
     }
 
-    private static bool ContainsLatin(string text)
+    private static bool ContainsLatin(string text, bool richText = false)
     {
         if (string.IsNullOrEmpty(text)) return false;
         for (int i = 0; i < text.Length; i++)
         {
             char c = text[i];
+            if (richText && c == '<')
+            {
+                int tagEnd = text.IndexOf('>', i + 1);
+                if (tagEnd >= 0) { i = tagEnd; continue; }
+            }
             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) return true;
         }
         return false;
@@ -280,9 +305,9 @@ public static class TerritoryLabelRenderer
         return fallback;
     }
 
-    private static Font ResolveTerritoryFont(Font fallback, string text)
+    private static Font ResolveTerritoryFont(Font fallback, string text, bool richText = false)
     {
-        return ContainsLatin(text)
+        return ContainsLatin(text, richText)
             ? ResolveInstalledFont(LatinFontNames, fallback, ref _latin_font, ref _latin_font_resolved)
             : ResolveInstalledFont(ClericalFontNames, fallback, ref _clerical_font, ref _clerical_font_resolved);
     }
@@ -698,7 +723,7 @@ public static class TerritoryLabelRenderer
             if (_text == null) return;
 
             string trimmedValue = value.Trim();
-            Font desiredFont = ResolveTerritoryFont(_fallback_font ?? _text.font, trimmedValue);
+            Font desiredFont = ResolveTerritoryFont(_fallback_font ?? _text.font, trimmedValue, style.rich_text);
             if (_text.font != desiredFont)
             {
                 _text.font = desiredFont;
@@ -716,7 +741,12 @@ public static class TerritoryLabelRenderer
                 _gold_gradient = _text.GetComponent<TerritoryLabelGoldGradient>() ??
                                  _text.gameObject.AddComponent<TerritoryLabelGoldGradient>();
             RectTransform rect = _text.rectTransform;
-            bool containsLatin = ContainsLatin(trimmedValue);
+            if (_text.supportRichText != style.rich_text)
+            {
+                _text.supportRichText = style.rich_text;
+                _metrics_text = null;
+            }
+            bool containsLatin = ContainsLatin(trimmedValue, style.rich_text);
             FontStyle effectiveFontStyle = containsLatin ? FontStyle.Bold : style.font_style;
             if (_metrics_text != trimmedValue || _metrics_style != effectiveFontStyle || _metrics_font != _text.font)
             {
@@ -897,7 +927,7 @@ public static class TerritoryLabelRenderer
             string text, TerritoryLabelStyle style, bool allowSmallEmptyGaps)
         {
             if (component == null || component.Count == 0) return default;
-            float textAspect = EstimateTextAspect(text);
+            float textAspect = EstimateTextAspect(text, style.rich_text);
             Vector3 centroid = CalculateZoneCentroid(component);
             float principalAngle = CalculatePrincipalAngle(component, centroid);
             List<float> angles = BuildCandidateAngles(principalAngle, style.orientation);
@@ -968,7 +998,7 @@ public static class TerritoryLabelRenderer
             Vector3 normal = new Vector3(-axis.y, axis.x);
             GetProjectedBounds(points, axis, normal, out float minAlong, out float maxAlong,
                 out float minAcross, out float maxAcross);
-            float aspect = EstimateTextAspect(text);
+            float aspect = EstimateTextAspect(text, style.rich_text);
             float halfHeight = Mathf.Min((maxAlong - minAlong) / (2f * aspect),
                 (maxAcross - minAcross) * 0.5f) * Mathf.Clamp(style.territory_padding, 0.5f, 0.94f);
             if (halfHeight <= 0.2f) return default;
@@ -1287,7 +1317,7 @@ public static class TerritoryLabelRenderer
             return new Vector3(zone.x * ZoneSize + ZoneSize * 0.5f, zone.y * ZoneSize + ZoneSize * 0.5f);
         }
 
-        private static float EstimateTextAspect(string value)
+        private static float EstimateTextAspect(string value, bool richText)
         {
             if (string.IsNullOrWhiteSpace(value)) return 1.5f;
             float width = 0f;
@@ -1296,6 +1326,11 @@ public static class TerritoryLabelRenderer
             for (int i = 0; i < value.Length; i++)
             {
                 char character = value[i];
+                if (richText && character == '<')
+                {
+                    int tagEnd = value.IndexOf('>', i + 1);
+                    if (tagEnd >= 0) { i = tagEnd; continue; }
+                }
                 if (character == '\n')
                 {
                     maxWidth = Mathf.Max(maxWidth, width);
@@ -1303,10 +1338,11 @@ public static class TerritoryLabelRenderer
                     lineCount++;
                     continue;
                 }
-                if (char.IsWhiteSpace(character)) width += 0.35f;
-                else if (character >= '\u3400' && character <= '\u9fff') width += 1f;
-                else if (char.IsUpper(character)) width += 0.72f;
-                else width += 0.58f;
+                float glyphScale = richText && lineCount > 1 ? 0.55f : 1f;
+                if (char.IsWhiteSpace(character)) width += 0.35f * glyphScale;
+                else if (character >= '\u3400' && character <= '\u9fff') width += glyphScale;
+                else if (char.IsUpper(character)) width += 0.72f * glyphScale;
+                else width += 0.58f * glyphScale;
             }
             maxWidth = Mathf.Max(maxWidth, width);
             return Mathf.Clamp(maxWidth * 1.08f / Mathf.Max(1f, lineCount * 0.92f), 1.4f, 24f);

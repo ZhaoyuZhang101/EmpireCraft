@@ -148,6 +148,7 @@ public static class CultureService
     public static bool ApplyCulturePoliticalSystem(Kingdom kingdom, string culture)
     {
         if (kingdom?.data == null || kingdom.isRekt() || !IsValidCulture(culture)) return false;
+        if (RepublicSystem.IsRegimeLocked(kingdom)) return false;
         // 政体形态由该文化已掌握的制度反推（一级制度 = 初始政体），配置里的 setting.regime
         // 退居兜底，语义也随之变成"这个文化的政体归宿"而不是"它现在是什么政体"。
         RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)

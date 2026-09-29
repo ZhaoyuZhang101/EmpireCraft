@@ -789,6 +789,114 @@
           "faction": "共和"
         }
       ]
+    },
+    {
+      "template": "lift_party_ban",
+      "id": "roma_lift_party_ban",
+      "branch": "administration",
+      "advancement": 6,
+      "requires": [
+        "western_parliamentary_taxation"
+      ]
+    },
+    {
+      "template": "universal_suffrage",
+      "id": "roma_universal_suffrage",
+      "branch": "society",
+      "advancement": 7,
+      "requires": [
+        "roma_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_capitalism",
+      "id": "roma_ideology_capitalism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "roma_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_libertarianism",
+      "id": "roma_ideology_libertarianism",
+      "branch": "ideology",
+      "advancement": 9,
+      "requires": [
+        "roma_ideology_capitalism"
+      ]
+    },
+    {
+      "template": "ideology_religious_democracy",
+      "id": "roma_ideology_religious_democracy",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "roma_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_authoritarianism",
+      "id": "roma_ideology_authoritarianism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "roma_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_social_democracy",
+      "id": "roma_ideology_social_democracy",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "roma_universal_suffrage"
+      ]
+    },
+    {
+      "template": "ideology_socialism",
+      "id": "roma_ideology_socialism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "roma_universal_suffrage"
+      ]
+    },
+    {
+      "template": "ideology_communism",
+      "id": "roma_ideology_communism",
+      "branch": "ideology",
+      "advancement": 9,
+      "requires": [
+        "roma_ideology_socialism"
+      ]
+    },
+    {
+      "template": "ideology_anarchism",
+      "id": "roma_ideology_anarchism",
+      "branch": "ideology",
+      "advancement": 9,
+      "requires": [
+        "roma_ideology_socialism"
+      ]
+    },
+    {
+      "template": "ideology_fascism",
+      "id": "roma_ideology_fascism",
+      "branch": "ideology",
+      "advancement": 9,
+      "requires": [
+        "roma_ideology_authoritarianism"
+      ]
+    },
+    {
+      "template": "abolish_monarchy",
+      "id": "roma_abolish_monarchy",
+      "branch": "administration",
+      "advancement": 7,
+      "requires": [
+        "roma_lift_party_ban"
+      ]
     }
   ],
   "constitution": {

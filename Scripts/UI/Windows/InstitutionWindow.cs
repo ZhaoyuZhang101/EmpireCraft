@@ -44,6 +44,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     private IReadOnlyList<InstitutionNodeView> _foreignViews = Array.Empty<InstitutionNodeView>();
     private string _culture = "";
     private string _selectedId = "";
+    private PartyIdeology _selectedIdeology = PartyIdeology.Conservatism;
 
     protected override void Init()
     {
@@ -57,6 +58,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
         _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         _selectedId = "";
+        _selectedIdeology = PartySystem.GetGovernmentParty(_empire)?.Ideology ?? PartyIdeology.Conservatism;
         Rebuild();
         StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
     }
@@ -104,9 +106,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                               view.Status == InstitutionNodeStatus.Available)?.Node.id
                           ?? _lineViews.FirstOrDefault()?.Node.id ?? "";
         AddStatusPanel();
-        AddActionHint();
+        AddOverviewCards();
         AddSocialUnrest();
-        AddConstitutionPanel();
         AddLegend();
         AddGraph();
         AddDetail();
@@ -114,28 +115,38 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     }
 
     // ── 我现在什么水平 ──
+    // 顶部总览卡：第一行三枚带图标的"标签"(文化 / 科技线 / 政体)，第二行文明等级 + 一根到下一级的进度条，
+    // 最后一行小字点出"制度属于文化"。原来三行都是自动放大的大字，头重脚轻，把下面的内容挤到很后面。
     private void AddStatusPanel()
     {
         InstitutionCultureRanking ranking = InstitutionSystem.GetCultureRanking(_culture);
-        const float height = 46f;
-        var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 1,
-            pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(3, 3, 2, 2));
+        const float height = 50f;
+        var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 2,
+            pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(6, 6, 4, 4));
         _content.Add(panel.gameObject);
-        panel.AddTextIntoVertLayout(
-            $"{_culture.GetCultureTranslate().ColorString("#F3C34A")}  ·  " +
-            $"{LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(ranking.Line)).ColorString("#7FD8EA")}" +
-            $"{LM.Get("institution_line_label")}  ·  " +
-            $"{CompositeEmpireService.GetRegimeName(_empire.CoreKingdom.GetRegime().type)}",
-            true, TextAnchor.MiddleCenter, new Vector2(PanelWidth - 8f, 11));
-        panel.AddTextIntoVertLayout(BuildLevelLine(ranking), true, TextAnchor.MiddleCenter,
-            new Vector2(PanelWidth - 8f, 11));
-        panel.AddTextIntoVertLayout(LM.Get("institution_tagline").ColorString("#B8C6CC"), true,
-            TextAnchor.MiddleCenter, new Vector2(PanelWidth - 8f, 18));
+
+        var tags = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 12), TextAnchor.MiddleCenter, 6);
+        AddTag(tags, Icon("ui/icons/iconCulture"), _culture.GetCultureTranslate(), "#F3C34A");
+        AddTag(tags, Icon("ui/icons/iconTech", "ui/icons/iconKnowledge"),
+            LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(ranking.Line)) + LM.Get("institution_line_label"),
+            "#7FD8EA");
+        AddTag(tags, Icon("ui/icons/iconCrown", "ui/icons/iconKingdom"),
+            CompositeEmpireService.GetRegimeName(_empire.CoreKingdom.GetRegime().type), "#E6E0CF");
+
+        var levelRow = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 11), TextAnchor.MiddleCenter, 4);
+        (string levelText, float levelProgress) = BuildLevelLine(ranking);
+        AddLabel(levelRow, levelText, 190f, 7, TextAnchor.MiddleRight);
+        AddProgressBar(levelRow.transform, new Vector2(120f, 5f), levelProgress, new Color(0.95f, 0.76f, 0.29f));
+
+        var tagline = panel.AddTextIntoVertLayout(LM.Get("institution_tagline").ColorString("#9FB0B6"), true,
+            TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 9));
+        tagline.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
         panel.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(PanelWidth, height));
     }
 
-    // 文明等级这一行的关键是把"综合先进度"这个数字变得有意义：标出离下一级还差多少。
-    private string BuildLevelLine(InstitutionCultureRanking ranking)
+    // 文明等级这一行的关键是把"综合先进度"这个数字变得有意义：标出离下一级还差多少，
+    // 顺带返回一个 0~1 的进度给旁边的进度条用(已满级返回 1)。
+    private (string text, float progress) BuildLevelLine(InstitutionCultureRanking ranking)
     {
         string level = $"{LM.Get("institution_civilization_level")} {ranking.LevelName.ColorString("#F3C34A")}";
         List<InstitutionCultureLevelConfig> levels = InstitutionDefinitionRegistry.Global.culture_levels
@@ -143,101 +154,190 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         InstitutionCultureLevelConfig next = levels
             .FirstOrDefault(item => item.minimum_advancement > ranking.Advancement);
         if (next == null)
-            return $"{level}  ·  " +
-                   string.Format(LM.Get("institution_level_max"), ranking.Advancement);
+            return ($"{level}  ·  " + string.Format(LM.Get("institution_level_max"), ranking.Advancement), 1f);
         string nextName = LM.Get(next.name_key);
         if (string.IsNullOrWhiteSpace(nextName) || nextName == next.name_key)
             nextName = string.Format(LM.Get("institution_culture_level_format"), next.level);
-        return $"{level}  ·  " + string.Format(LM.Get("institution_level_progress"),
-            ranking.Advancement, next.minimum_advancement, nextName);
+        float progress = next.minimum_advancement > 0
+            ? Mathf.Clamp01((float)ranking.Advancement / next.minimum_advancement)
+            : 0f;
+        return ($"{level}  ·  " + string.Format(LM.Get("institution_level_progress"),
+            ranking.Advancement, next.minimum_advancement, nextName), progress);
     }
 
     // ── 我现在该干什么 ──
-    private void AddActionHint()
+    // 制度改革和君主立宪并排两张卡片，每张卡片：图标标题 + 状态 → 主进度 → 一格一格的数据小块。
+    // 两张卡片等高，高度取两边内容里更高的那个。
+    private const float CardGap = 4f;
+    private static float CardWidth => (PanelWidth - CardGap) / 2f;
+    private const float CardHeaderHeight = 12f;
+    private const float CardLineHeight = 11f;
+    private const float ChipHeight = 12f;
+    private const float CardSpacing = 2f;
+
+    private void AddOverviewCards()
     {
         InstitutionReformState reform = _empire.data.institution_state?.active_reform;
-        string text;
+        InstitutionNodeConfig reformNode = reform != null ? InstitutionDefinitionRegistry.Get(reform.node_id) : null;
+        InstitutionReformEnvironment environment = InstitutionSystem.GetReformEnvironment(_empire, reformNode);
+        ConstitutionalEconomyView constitution = ConstitutionalEconomySystem.GetView(_empire);
+        ConstitutionConfig constitutionConfig = InstitutionDefinitionRegistry.Global.constitution;
+        ParliamentView parliament = ParliamentSystem.GetView(_empire);
+
+        List<string> constitutionNotes = BuildConstitutionNotes(constitution, constitutionConfig, parliament,
+            out bool showStartButton);
+        bool isRepublic = RepublicSystem.IsRepublic(_empire);
+        if (isRepublic) showStartButton = false;
+        if (RepublicSystem.IsTransitioning(_empire))
+        {
+            showStartButton = false;
+            ConstitutionalEconomyState transition = _empire.data.constitutional_economy;
+            int yearsRemaining = Math.Max(0, 3 - Date.getYearsSince(transition.republic_transition_started));
+            constitutionNotes.Add(string.Format(LM.Get("republic_transition_progress"),
+                LM.Get(transition.republic_transition_stage == 1
+                    ? "republic_provisional_stage" : "republic_drafting_stage"), yearsRemaining)
+                .ColorString("#65D6C4"));
+        }
+        else if (RepublicSystem.CanAbolish(_empire))
+            constitutionNotes.Add(LM.Get("republic_abolition_available").ColorString("#65D6C4"));
+        // 强制萌芽只在还没萌芽时出现；已萌芽才可能出现"发起制宪"按钮，两者不会同时显示
+        bool showForceBudding = !isRepublic && !constitution.budding && !constitution.constitutional;
+        bool showForceConstitution = !isRepublic && ConstitutionalEconomySystem.CanForceConstitution(_empire);
+        int reformLines = reform != null ? 2 : 1; // 改革中：名称行 + 进度条行
+        float reformHeight = CardHeaderHeight + reformLines * CardLineHeight + 3 * ChipHeight;
+        float constitutionHeight = CardHeaderHeight + 4 * ChipHeight + constitutionNotes.Count * CardLineHeight +
+                                   (showStartButton ? 14f : 0f) + (showForceBudding ? 14f : 0f) +
+                                   (showForceConstitution ? 14f : 0f);
+        int reformItems = 1 + reformLines + 3;
+        int constitutionItems = 1 + 4 + constitutionNotes.Count + (showStartButton ? 1 : 0) +
+                                (showForceBudding ? 1 : 0) + (showForceConstitution ? 1 : 0);
+        float height = Mathf.Max(reformHeight + reformItems * CardSpacing,
+            constitutionHeight + constitutionItems * CardSpacing) + 10f;
+
+        var row = _root.BeginHoriGroup(new Vector2(PanelWidth, height), TextAnchor.UpperCenter, CardGap);
+        _content.Add(row.gameObject);
+
+        // 左：制度改革
+        var reformCard = BeginCard(row, height);
+        string reformStatus = reform != null
+            ? LM.Get("institution_status_reforming").ColorString("#65D6C4")
+            : LM.Get("label_none").ColorString("#8FA0A8");
+        AddCardHeader(reformCard, Icon("ui/icons/iconKnowledge", "ui/icons/iconTech"),
+            LM.Get("institution_card_reform"), reformStatus);
         if (reform != null)
         {
-            InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(reform.node_id);
-            text = string.Format(LM.Get("institution_hint_reforming"),
-                    InstitutionSystem.GetNodeName(node), GetStageName(reform.stage),
-                    reform.progress.ToString("0"))
-                .ColorString("#65D6C4");
+            AddCardLine(reformCard, $"{InstitutionSystem.GetNodeName(reformNode).ColorString("#F3C34A")}  ·  " +
+                                    $"{GetStageName(reform.stage)} {reform.progress:0}%".ColorString("#65D6C4"));
+            var barRow = reformCard.BeginHoriGroup(new Vector2(CardWidth - 12f, CardLineHeight),
+                TextAnchor.MiddleCenter, 0);
+            AddProgressBar(barRow.transform, new Vector2(CardWidth - 24f, 5f), reform.progress / 100f,
+                new Color(0.40f, 0.84f, 0.77f));
         }
         else
         {
             int available = _lineViews.Count(view => view.Status == InstitutionNodeStatus.Available);
-            text = available > 0
+            AddCardLine(reformCard, available > 0
                 ? string.Format(LM.Get("institution_hint_available"), available).ColorString("#F3C34A")
-                : LM.Get("institution_hint_none").ColorString("#B8B8B8");
+                : LM.Get("institution_hint_none").ColorString("#B8B8B8"));
         }
-        var row = _root.BeginVertGroup(pSpacing: 0, pAlignment: TextAnchor.UpperCenter);
-        _content.Add(row.gameObject);
-        row.AddTextIntoVertLayout(text, true, TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
-        if (reform != null)
-        {
-            InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(reform.node_id);
-            InstitutionReformEnvironment environment = InstitutionSystem.GetReformEnvironment(_empire, node);
-            string environmentText = string.Format(LM.Get("institution_reform_environment"),
-                environment.SameCultureCountries, environment.SameCultureEmpires,
-                environment.AdvancedBorderEmpires, environment.SpeedMultiplier,
-                environment.EffectiveMinimumYears);
-            string color = environment.AdvancedBorderEmpires > 0 ? "#65D6C4" :
-                environment.SameCultureEmpires > 1 ? "#F3C34A" : "#B8C6CC";
-            row.AddTextIntoVertLayout(environmentText.ColorString(color), true, TextAnchor.MiddleCenter,
-                new Vector2(PanelWidth, 12));
-        }
+        string speedColor = environment.AdvancedBorderEmpires > 0 ? "#65D6C4" :
+            environment.SameCultureEmpires > 1 ? "#F3C34A" : "#E6E0CF";
+        AddChipRow(reformCard,
+            (Icon("ui/icons/iconCulture"), LM.Get("institution_env_same_culture"),
+                environment.SameCultureCountries.ToString()),
+            (Icon("ui/icons/iconKingdom"), LM.Get("institution_env_empires"),
+                environment.SameCultureEmpires.ToString()));
+        AddChipRow(reformCard,
+            (Icon("ui/icons/iconDiplomacy", "ui/icons/iconAlliance"), LM.Get("institution_env_advanced"),
+                environment.AdvancedBorderEmpires.ToString()),
+            (Icon("ui/icons/iconClockX2", "ui/icons/iconClock"), LM.Get("institution_env_speed"),
+                $"×{environment.SpeedMultiplier:0.00}".ColorString(speedColor)));
+        AddChipRow(reformCard,
+            (Icon("ui/icons/iconClock"), LM.Get("institution_env_years"),
+                environment.EffectiveMinimumYears.ToString()),
+            (null, null, null));
+
+        // 右：君主立宪
+        var constitutionCard = BeginCard(row, height);
+        ConstitutionalEconomyState economyState = _empire.data.constitutional_economy;
+        string constitutionStatus = economyState?.is_republic == true
+            ? RepublicSystem.IsTransitioning(_empire)
+                ? LM.Get(economyState.republic_transition_stage == 1
+                    ? "republic_provisional_stage" : "republic_drafting_stage").ColorString("#65D6C4")
+                : string.Format(LM.Get("republic_status"), PartySystem.GetIdeologyName(economyState.republic_ideology))
+                .ColorString("#C9A7E8")
+            : constitution.constitutional
+            ? LM.Get("constitution_status_enacted").ColorString("#65D66E")
+            : constitution.reforming
+                ? LM.Get("constitution_status_reforming").ColorString("#65D6C4")
+                : LM.Get("constitution_status_pending").ColorString("#8FA0A8");
+        AddCardHeader(constitutionCard, Icon("ui/icons/iconCrown", "ui/icons/iconKings"),
+            LM.Get("constitution_title"), constitutionStatus);
+        string budding = constitution.budding
+            ? LM.Get("constitution_budding_yes").ColorString("#65D66E")
+            : $"{constitution.budding_years}/{constitutionConfig.budding_years}";
+        string supportColor = constitution.parliamentary_support >= constitutionConfig.support_threshold
+            ? "#65D66E" : "#D98C8C";
+        AddChipRow(constitutionCard,
+            (Icon("ui/icons/iconPopulation", "ui/icons/iconCitizen"), LM.Get("constitution_stat_merchants"),
+                $"{constitution.merchant_households}/{constitution.total_households}"),
+            (Icon("ui/icons/iconGold", "ui/icons/iconMoney"), LM.Get("constitution_stat_budding"), budding));
+        AddChipRow(constitutionCard,
+            (Icon("ui/icons/iconBoat"), LM.Get("constitution_stat_voyages"), constitution.voyages.ToString()),
+            (Icon("ui/icons/iconDiplomacy", "ui/icons/iconAlliance"), LM.Get("constitution_stat_foreign"),
+                constitution.foreign_voyages.ToString()));
+        AddChipRow(constitutionCard,
+            (Icon("ui/icons/iconMoney", "ui/icons/iconGold"), LM.Get("constitution_stat_gold"),
+                constitution.delivered_gold.ToString()),
+            (Icon("ui/icons/iconClock"), LM.Get("constitution_stat_stability"),
+                $"{constitution.culture_years}/{constitutionConfig.stable_culture_years}"));
+        AddChipRow(constitutionCard,
+            // 议会召开前还没有议会：这个数是"支持制宪的派系占中央份额的比例"，不能叫议会支持
+            (Icon("ui/icons/iconLoyalty", "ui/icons/iconKingdom"),
+                LM.Get(parliament.Exists ? "constitution_stat_support" : "constitution_stat_faction_support"),
+                $"{constitution.parliamentary_support:0}%".ColorString(supportColor)),
+            (null, null, null));
+        foreach (string note in constitutionNotes) AddCardLine(constitutionCard, note);
+        if (showStartButton)
+            constitutionCard.AddButtonIntoVertLayout("constitution_start", LM.Get("constitution_start"),
+                () => { if (ConstitutionalEconomySystem.StartReform(_empire)) Rebuild(); },
+                SpriteTextureLoader.getSprite("ChineseCrown"), size: new Vector2(CardWidth - 16f, 12));
+        if (showForceBudding)
+            constitutionCard.AddButtonIntoVertLayout("constitution_force_budding",
+                LM.Get("constitution_force_budding"),
+                () => { if (ConstitutionalEconomySystem.ForceBudding(_empire)) Rebuild(); },
+                Icon("ui/icons/iconGold", "ui/icons/iconMoney"), size: new Vector2(CardWidth - 16f, 12));
+        if (showForceConstitution)
+            constitutionCard.AddButtonIntoVertLayout("constitution_force_enact",
+                LM.Get("constitution_force_enact"),
+                () => { if (ConstitutionalEconomySystem.ForceConstitution(_empire)) Rebuild(); },
+                Icon("ui/icons/iconCrown", "ui/icons/iconKings"), size: new Vector2(CardWidth - 16f, 12));
     }
 
-    private void AddSocialUnrest()
+    // 立宪卡片数据块下面的几行说明(内阁、僵局、制宪进度、卡在哪一步)，先算出来好定卡片高度。
+    private List<string> BuildConstitutionNotes(ConstitutionalEconomyView view, ConstitutionConfig config,
+        ParliamentView parliament, out bool showStartButton)
     {
-        Dictionary<SocialClass, float> shares = InstitutionSystem.BuildClassShares(_empire);
-        List<KeyValuePair<SocialClass, float>> tensions = InstitutionSystem.GetClassGrievances(_empire)
-            .Where(pair => pair.Value >= 0.5f && shares.TryGetValue(pair.Key, out float share) && share > 0f)
-            .OrderByDescending(pair => pair.Value).ToList();
-        if (tensions.Count == 0) return;
-        InstitutionSocialUnrestConfig config = InstitutionDefinitionRegistry.Global.social_unrest;
-        var panel = _root.BeginVertGroup(pSpacing: 0, pAlignment: TextAnchor.UpperCenter);
-        _content.Add(panel.gameObject);
-        string entries = string.Join("  ·  ", tensions.Take(4).Select(pair =>
+        var notes = new List<string>();
+        showStartButton = false;
+        CultureInstitutionState cultureConstitution = ConstitutionalEconomySystem.GetCultureConstitution(_empire);
+        if (cultureConstitution?.constitutional_monarchy == true)
+            notes.Add(string.Format(LM.Get("constitution_culture_pioneer_line"),
+                cultureConstitution.constitutional_monarchy_pioneer_name).ColorString("#65D66E"));
+        if (!parliament.Exists && !view.constitutional)
         {
-            string color = pair.Value >= config.rebellion_threshold ? "#E05A4F" :
-                pair.Value >= 50f ? "#E9A85B" : "#B8C6CC";
-            return $"{LM.Get($"class_{pair.Key}")} {pair.Value:0}%".ColorString(color);
-        }));
-        panel.AddTextIntoVertLayout($"{LM.Get("institution_social_tension")}: {entries}", true,
-            TextAnchor.MiddleCenter, new Vector2(PanelWidth, 11));
-        KeyValuePair<SocialClass, float> highest = tensions[0];
-        panel.AddTextIntoVertLayout(
-            string.Format(LM.Get("institution_social_tension_cause"), LM.Get($"class_{highest.Key}"),
-                InstitutionSystem.GetSocialGrievanceCause(_empire, highest.Key)).ColorString("#D98C8C"),
-            true, TextAnchor.MiddleCenter, new Vector2(PanelWidth, 11));
-    }
-
-    private void AddConstitutionPanel()
-    {
-        ConstitutionalEconomyView view = ConstitutionalEconomySystem.GetView(_empire);
-        ConstitutionConfig config = InstitutionDefinitionRegistry.Global.constitution;
-        var section = _root.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
-        _content.Add(section.gameObject);
-        string status = view.constitutional ? LM.Get("constitution_status_enacted") :
-            view.reforming ? LM.Get("constitution_status_reforming") :
-            LM.Get("constitution_status_pending");
-        section.AddTextIntoVertLayout($"{LM.Get("constitution_title")}  ·  {status}".ColorString("#7FD8EA"),
-            true, TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
-        section.AddTextIntoVertLayout(string.Format(LM.Get("constitution_economy_line"),
-                view.merchant_households, view.total_households,
-                view.budding ? LM.Get("constitution_budding_yes") :
-                    $"{view.budding_years}/{config.budding_years}"), true, TextAnchor.MiddleCenter,
-            new Vector2(PanelWidth, 12));
-        section.AddTextIntoVertLayout(string.Format(LM.Get("constitution_trade_line"),
-                view.voyages, view.foreign_voyages, view.delivered_gold), true,
-            TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
-        section.AddTextIntoVertLayout(string.Format(LM.Get("constitution_politics_line"),
-                view.culture_years, view.parliamentary_support, config.stable_culture_years), true,
-            TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
-        ParliamentView parliament = ParliamentSystem.GetView(_empire);
+            // 还没有议会时，把"哪些派系算支持制宪"摊开：数字是按这些派系的中央占比加出来的
+            List<FixedFaction> factions = _empire.CoreKingdom?.GetRegime()?.GetPlayerFactions()
+                ?.Where(faction => faction != null && !faction.Ban).ToList() ?? new List<FixedFaction>();
+            string Names(bool pro) => string.Join("、", factions
+                .Where(faction => ConstitutionalEconomySystem.IsConstitutionalist(faction, view.budding) == pro)
+                .Select(faction => $"{faction.Name}{faction.CentralRatio:0}%"));
+            string pro = Names(true), anti = Names(false);
+            if (factions.Count > 0)
+                notes.Add(string.Format(LM.Get("constitution_faction_stance_line"),
+                    string.IsNullOrEmpty(pro) ? LM.Get("label_none") : pro,
+                    string.IsNullOrEmpty(anti) ? LM.Get("label_none") : anti).ColorString("#B8C6CC"));
+        }
         if (parliament.Exists)
         {
             string government = parliament.PrimeMinister == null
@@ -246,39 +346,187 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                     parliament.PrimeMinisterFaction?.Name ?? LM.Get("label_none"),
                     LM.Get($"parliament_government_{parliament.GovernmentType}"),
                     parliament.GovernmentSeats, parliament.TotalSeats);
-            section.AddTextIntoVertLayout(government.ColorString("#65D6C4"), true,
-                TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
+            notes.Add(government.ColorString("#65D6C4"));
+            if (view.parliamentary_support < config.support_threshold)
+                notes.Add(LM.Get("constitution_deadlock").ColorString("#D98C8C"));
         }
-        if (parliament.Exists && view.parliamentary_support < config.support_threshold)
-            section.AddTextIntoVertLayout(LM.Get("constitution_deadlock").ColorString("#D98C8C"), true,
-                TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
         if (view.reforming)
         {
             int years = InstitutionSystem.GetReformEnvironment(_empire).EffectiveMinimumYears;
-            section.AddTextIntoVertLayout(string.Format(LM.Get("constitution_progress_line"),
-                    LM.Get($"constitution_stage_{view.reform_stage}"), view.reform_progress, years), true,
-                TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
-            if (view.reform_stalled)
-                section.AddTextIntoVertLayout(LM.Get("constitution_stalled").ColorString("#D98C8C"), true,
-                    TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
+            notes.Add(string.Format(LM.Get("constitution_progress_line"),
+                LM.Get($"constitution_stage_{view.reform_stage}"), view.reform_progress, years).ColorString("#65D6C4"));
+            if (view.reform_stalled) notes.Add(LM.Get("constitution_stalled").ColorString("#D98C8C"));
         }
         else if (!view.constitutional && string.IsNullOrEmpty(view.blocker))
         {
-            section.AddButtonIntoVertLayout("constitution_start", LM.Get("constitution_start"),
-                () => { if (ConstitutionalEconomySystem.StartReform(_empire)) Rebuild(); },
-                SpriteTextureLoader.getSprite("ChineseCrown"), size: new Vector2(PanelWidth - 6f, 14));
+            showStartButton = true;
         }
         else if (!view.constitutional)
         {
             string blocker = LM.Get(view.blocker);
             if (!string.IsNullOrEmpty(view.missing_institutions))
                 blocker = string.Format(LM.Get("constitution_missing_nodes"), view.missing_institutions);
-            section.AddTextIntoVertLayout(blocker.ColorString("#D98C8C"), true,
-                TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
+            notes.Add(blocker.ColorString("#D98C8C"));
         }
+        return notes;
+    }
+
+    // 阶层怨气：只在真有怨气时出现，做成一条带警告图标的红框横条，比夹在中间的两行红字醒目。
+    private void AddSocialUnrest()
+    {
+        Dictionary<SocialClass, float> shares = InstitutionSystem.BuildClassShares(_empire);
+        List<KeyValuePair<SocialClass, float>> tensions = InstitutionSystem.GetClassGrievances(_empire)
+            .Where(pair => pair.Value >= 0.5f && shares.TryGetValue(pair.Key, out float share) && share > 0f)
+            .OrderByDescending(pair => pair.Value).ToList();
+        if (tensions.Count == 0) return;
+        InstitutionSocialUnrestConfig config = InstitutionDefinitionRegistry.Global.social_unrest;
+        const float height = 30f;
+        var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 1,
+            pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(6, 6, 4, 4));
+        _content.Add(panel.gameObject);
+        string entries = string.Join("  ·  ", tensions.Take(4).Select(pair =>
+        {
+            string color = pair.Value >= config.rebellion_threshold ? "#E05A4F" :
+                pair.Value >= 50f ? "#E9A85B" : "#B8C6CC";
+            return $"{LM.Get($"class_{pair.Key}")} {pair.Value:0}%".ColorString(color);
+        }));
+        var head = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 11), TextAnchor.MiddleCenter, 3);
+        AddIcon(head.transform, Icon("ui/icons/iconWarning", "ui/icons/iconWar"), 9f);
+        AddLabel(head, $"{LM.Get("institution_social_tension").ColorString("#E9A85B")}:  {entries}",
+            PanelWidth - 30f, 7, TextAnchor.MiddleLeft);
+        KeyValuePair<SocialClass, float> highest = tensions[0];
+        var cause = panel.AddTextIntoVertLayout(
+            string.Format(LM.Get("institution_social_tension_cause"), LM.Get($"class_{highest.Key}"),
+                InstitutionSystem.GetSocialGrievanceCause(_empire, highest.Key)).ColorString("#D98C8C"),
+            true, TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 10));
+        cause.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+    }
+
+    // ── 卡片小部件 ──
+
+    private static Sprite Icon(params string[] paths) => UIHelper.FirstSprite(paths);
+
+    private static void AddIcon(Transform parent, Sprite sprite, float size) =>
+        UIHelper.AddLayoutIcon(parent, sprite, size);
+
+    private static SimpleText AddLabel(AutoHoriLayoutGroup row, string text, float width, int fontSize,
+        TextAnchor anchor, float height = 10f)
+    {
+        SimpleText label = row.AddTextIntoHoriLayout(text, true, anchor, new Vector2(width, height));
+        label.UseFixedFontSize(fontSize, HorizontalWrapMode.Overflow);
+        return label;
+    }
+
+    // 顶部总览里的"图标 + 文字"标签
+    private static void AddTag(AutoHoriLayoutGroup row, Sprite icon, string text, string hex)
+    {
+        var tag = row.BeginHoriGroup(new Vector2(120f, 12f), TextAnchor.MiddleCenter, 2);
+        AddIcon(tag.transform, icon, 10f);
+        AddLabel(tag, text.ColorString(hex), 104f, 8, TextAnchor.MiddleLeft, 12f);
+    }
+
+    private static void AddProgressBar(Transform parent, Vector2 size, float progress, Color fillColor)
+    {
+        var trackObject = new GameObject("ProgressBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+            typeof(LayoutElement));
+        var trackRect = trackObject.GetComponent<RectTransform>();
+        trackRect.SetParent(parent, false);
+        trackRect.sizeDelta = size;
+        Image track = trackObject.GetComponent<Image>();
+        track.color = new Color(0f, 0f, 0f, 0.5f);
+        track.raycastTarget = false;
+        LayoutElement element = trackObject.GetComponent<LayoutElement>();
+        element.preferredWidth = element.minWidth = size.x;
+        element.preferredHeight = element.minHeight = size.y;
+
+        var fillObject = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        var fillRect = fillObject.GetComponent<RectTransform>();
+        fillRect.SetParent(trackRect, false);
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = new Vector2(Mathf.Clamp01(progress), 1f);
+        fillRect.offsetMin = Vector2.zero;
+        fillRect.offsetMax = Vector2.zero;
+        Image fill = fillObject.GetComponent<Image>();
+        fill.color = fillColor;
+        fill.raycastTarget = false;
+    }
+
+    private static AutoVertLayoutGroup BeginCard(AutoHoriLayoutGroup row, float height)
+    {
+        var card = row.BeginVertGroup(new Vector2(CardWidth, height), pSpacing: CardSpacing,
+            pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(6, 6, 5, 5));
+        card.transform.AddStretchBackground("FactionFrame", new Vector2(CardWidth, height));
+        return card;
+    }
+
+    // 卡片标题行：左边图标 + 标题，右边状态
+    private static void AddCardHeader(AutoVertLayoutGroup card, Sprite icon, string title, string status)
+    {
+        var header = card.BeginHoriGroup(new Vector2(CardWidth - 12f, CardHeaderHeight), TextAnchor.MiddleLeft, 3);
+        AddIcon(header.transform, icon, 10f);
+        float statusWidth = 60f;
+        AddLabel(header, title.ColorString("#7FD8EA"), CardWidth - 12f - 13f - statusWidth - 6f, 8,
+            TextAnchor.MiddleLeft, CardHeaderHeight);
+        AddLabel(header, status, statusWidth, 7, TextAnchor.MiddleRight, CardHeaderHeight);
+    }
+
+    private static void AddCardLine(AutoVertLayoutGroup card, string text)
+    {
+        SimpleText line = card.AddTextIntoVertLayout(text, true, TextAnchor.MiddleCenter,
+            new Vector2(CardWidth - 12f, CardLineHeight));
+        line.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+    }
+
+    // 一行两个数据小块；小块用 SimpleText 自带的深色内嵌底(windowInnerSliced)，跟族谱信息栏同一套样式。
+    // 第二个传 (null, null, null) 表示这一行只有一个。
+    private static void AddChipRow(AutoVertLayoutGroup card, (Sprite icon, string label, string value) left,
+        (Sprite icon, string label, string value) right)
+    {
+        // 两边各留几像素，别让右侧那块的数字压到卡片边框上
+        float chipWidth = (CardWidth - 12f - 3f) / 2f - 4f;
+        var row = card.BeginHoriGroup(new Vector2(CardWidth - 12f, ChipHeight), TextAnchor.MiddleLeft, 3);
+        AddChip(row, left, chipWidth);
+        if (right.label != null) AddChip(row, right, chipWidth);
+    }
+
+    private static void AddChip(AutoHoriLayoutGroup row, (Sprite icon, string label, string value) chip, float width)
+    {
+        var box = row.BeginHoriGroup(new Vector2(width, ChipHeight), TextAnchor.MiddleLeft, 2);
+        UIHelper.AddInsetBackground(box, new Vector2(width, ChipHeight));
+        AddIcon(box.transform, chip.icon, 8f);
+        AddLabel(box, chip.label.ColorString("#A8B8BE"), width - 44f, 6, TextAnchor.MiddleLeft, ChipHeight);
+        AddLabel(box, chip.value ?? "", 30f, 7, TextAnchor.MiddleRight, ChipHeight);
     }
 
     // ── 这些颜色什么意思 ──
+    // 理念路线：四条路线的按钮，当前生效的高亮；没有已研究理念的路线点不动
+    private void AddIdeologyRouteRow()
+    {
+        IdeologyRoute[] routes = Enum.GetValues(typeof(IdeologyRoute)).Cast<IdeologyRoute>().ToArray();
+        if (!routes.Any(route => PartySystem.HasResearchedRoute(_culture, route))) return;
+        IdeologyRoute? active = PartySystem.GetActiveRoute(_culture);
+        var row = _root.BeginHoriGroup(pSpacing: 3, pAlignment: TextAnchor.MiddleCenter,
+            pSize: new Vector2(PanelWidth, 13));
+        _content.Add(row.gameObject);
+        var label = row.AddTextIntoHoriLayout(LM.Get("ideology_route_label").ColorString("#7FD8EA"), true,
+            TextAnchor.MiddleRight, new Vector2(60, 12));
+        label.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        foreach (IdeologyRoute route in routes)
+        {
+            bool researched = PartySystem.HasResearchedRoute(_culture, route);
+            bool selected = active == route;
+            string hex = selected ? "#F3C34A" : researched ? "#E6E0CF" : "#6F7B80";
+            IdeologyRoute target = route;
+            var button = row.AddButtonIntoHoriLayout($"ideology_route_{route}",
+                PartySystem.GetRouteName(route).ColorString(hex), () =>
+                {
+                    if (PartySystem.SwitchRoute(_culture, target)) Rebuild();
+                }, size: new Vector2(46, 11), showTip: true);
+            button.Background.enabled = selected;
+        }
+    }
+
     private void AddLegend()
     {
         var row = _root.BeginHoriGroup(pSpacing: 1, pAlignment: TextAnchor.MiddleCenter,
@@ -288,6 +536,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         AddLegendItem(row, InstitutionNodeStatus.Available, "institution_legend_available");
         AddLegendItem(row, InstitutionNodeStatus.Forceable, "institution_legend_forceable");
         AddLegendItem(row, InstitutionNodeStatus.Locked, "institution_legend_locked");
+        AddLegendItem(row, InstitutionNodeStatus.Superseded, "institution_legend_superseded");
         AddLegendItem(row, InstitutionNodeStatus.ForeignReady, "institution_legend_foreign");
     }
 
@@ -316,6 +565,18 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     {
         var section = _root.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
         _content.Add(section.gameObject);
+        var ideologyRow = section.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
+        ideologyRow.AddButtonIntoHoriLayout("ideology_previous", "◀", () => CycleIdeology(-1),
+            size: new Vector2(18, 12));
+        ideologyRow.AddTextIntoHoriLayout(PartySystem.GetIdeologyName(_selectedIdeology), true,
+            TextAnchor.MiddleCenter, new Vector2(150, 12));
+        ideologyRow.AddButtonIntoHoriLayout("ideology_next", "▶", () => CycleIdeology(1),
+            size: new Vector2(18, 12));
+        PartyIdeology? governingIdeology = PartySystem.GetGovernmentParty(_empire)?.Ideology;
+        section.AddTextIntoVertLayout(string.Format(LM.Get("ideology_route_view_status"),
+                PartySystem.GetIdeologyName(_selectedIdeology),
+                governingIdeology.HasValue ? PartySystem.GetIdeologyName(governingIdeology.Value) : LM.Get("label_none")),
+            true, TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
         var header = section.BeginHoriGroup(new Vector2(PanelWidth, 13), TextAnchor.MiddleCenter, 2);
         header.AddButtonIntoHoriLayout("window_back", LM.Get("window_back"),
             () => ScrollWindow.showWindow(nameof(EmpireWindow)), size: new Vector2(34, 11));
@@ -324,7 +585,18 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         header.AddButtonIntoHoriLayout("institution_graph_reset", LM.Get("institution_graph_reset"),
             () => _graph?.ResetView(), size: new Vector2(34, 11));
         _graph = InstitutionGraphView.Create(section.transform, new Vector2(PanelWidth, GraphHeight));
-        _graph.Rebuild(_lineViews, _foreignViews, _selectedId, OnNodeSelected, BuildNodeTooltip, BuildNodeCard);
+        _graph.Rebuild(IdeologyInstitutionPaths.Visible(_lineViews, _selectedIdeology),
+            IdeologyInstitutionPaths.Visible(_foreignViews, _selectedIdeology), _selectedId,
+            OnNodeSelected, BuildNodeTooltip, BuildNodeCard);
+    }
+
+    private void CycleIdeology(int direction)
+    {
+        PartyIdeology[] values = Enum.GetValues(typeof(PartyIdeology)).Cast<PartyIdeology>().ToArray();
+        _selectedIdeology = values[(Array.IndexOf(values, _selectedIdeology) + direction + values.Length) % values.Length];
+        _selectedId = _lineViews.FirstOrDefault(view => view.Node.branch ==
+            IdeologyInstitutionPaths.Branch(_selectedIdeology))?.Node.id ?? "";
+        Rebuild();
     }
 
     // 卡片上只放一眼就要知道的：状态(改革中带阶段和进度)，再加一行最关键的数字——
@@ -605,7 +877,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             return;
         }
 
-        if (view.Status is InstitutionNodeStatus.Enacted or InstitutionNodeStatus.Absorbed) return;
+        if (view.Status is InstitutionNodeStatus.Enacted or InstitutionNodeStatus.Absorbed
+            or InstitutionNodeStatus.Superseded) return;
 
         // 上帝模式：跳过改革直接点亮（连同前置），或点亮本文化整条线
         var godRow = _detailPanel.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
@@ -729,6 +1002,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
     private static string GetBranchName(string branch)
     {
+        if (IdeologyInstitutionPaths.TryGetIdeology(branch, out PartyIdeology ideology))
+            return PartySystem.GetIdeologyName(ideology);
         // 新分支只需要在语言文件里补 institution_branch_<分支>，不需要改代码
         string key = $"institution_branch_{branch}";
         string value = LM.Get(key);
@@ -747,6 +1022,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             InstitutionNodeStatus.ForeignLocked => LM.Get("institution_status_foreign_locked"),
             InstitutionNodeStatus.ForeignContacting => LM.Get("institution_status_foreign_contacting"),
             InstitutionNodeStatus.ForeignReady => LM.Get("institution_status_foreign_ready"),
+            InstitutionNodeStatus.Superseded => LM.Get("institution_status_superseded"),
             _ => LM.Get("institution_status_locked")
         };
     }
@@ -762,6 +1038,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             InstitutionNodeStatus.Forceable => "#D98C8C",
             InstitutionNodeStatus.ForeignReady => "#C9A7E8",
             InstitutionNodeStatus.ForeignContacting => "#A79BC4",
+            InstitutionNodeStatus.Superseded => "#8CA8C8",
             _ => "#B8B8B8"
         };
     }

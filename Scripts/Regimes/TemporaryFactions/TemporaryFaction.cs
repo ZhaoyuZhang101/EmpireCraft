@@ -1,3 +1,4 @@
+using EmpireCraft.Scripts.System;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -6,6 +7,7 @@ using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
@@ -398,7 +400,7 @@ public abstract class TemporaryFaction
             var leader = targetFaction?.GetLeader()??kingdom?.king;
             var royalMembers = targetFaction?.Members?
                 .Select(id => World.world.units.get(id))
-                .Where(actor => actor != null && !actor.isRekt() && actor.GetSpecificClan() == empire.EmpireSpecificClan)
+                .Where(actor => actor != null && !actor.isRekt() && SpecificClanManager.SameLineage(actor.GetSpecificClan(), empire.EmpireSpecificClan))
                 .ToList();
             if (royalMembers?.Any()??false)
             {
@@ -564,7 +566,20 @@ public abstract class TemporaryFaction
             }
             if (!ShowAsPlot)
             {
-                progress += (1+((acceleration<0?0:acceleration)/5));
+                float progressRate = 1 + ((acceleration < 0 ? 0 : acceleration) / 5);
+                FixedFaction faction = GetFaction();
+                if (faction?.IsParty == true)
+                {
+                    ClaimAgendaView agenda = ClaimAgendaSystem.Evaluate(
+                        ClaimAgendaSystem.BuildContext(GetEmpire()), faction, this);
+                    if (!agenda.CanPropose)
+                    {
+                        End();
+                        return;
+                    }
+                    progressRate *= agenda.ProgressMultiplier;
+                }
+                progress += progressRate;
                 if (progress >= progressMax) Execute();
             }
         }

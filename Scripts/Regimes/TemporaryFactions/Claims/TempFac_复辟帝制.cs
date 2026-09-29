@@ -1,7 +1,10 @@
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
+// 复辟帝制(见 RepublicSystem)：改制共和之后，保守主义政党执政且过半时恢复君主政体。
 public class TempFac_复辟帝制 : TemporaryFaction
 {
     public override TemporaryFaction Clone(FixedFaction faction)
@@ -18,11 +21,16 @@ public class TempFac_复辟帝制 : TemporaryFaction
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
+        Empire empire = GetEmpire();
+        FixedFaction party = GetFaction();
+        if (empire != null && party != null) RepublicSystem.Restore(empire, party);
         End();
     }
 
     public override bool CheckCondition()
     {
-        return false;
+        Empire empire = GetEmpire();
+        FixedFaction party = GetFaction();
+        return empire != null && party != null && RepublicSystem.CanRestore(empire, party);
     }
 }

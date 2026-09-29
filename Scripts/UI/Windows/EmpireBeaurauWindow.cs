@@ -88,15 +88,11 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         if (_empire?.CoreKingdom?.GetRegime()?.enfeoff_virtual_only != true) return;
         Clear();
+        layout.padding = new RectOffset(3, 3, 95, 3);
         InitialTopPartInfoLvLing();
         virtualPeeragesSpace = this.BeginVertGroup();
-        var heading = Instantiate(SimpleText.Prefab);
-        heading.Setup(LM.Get("empire_virtual_peerages"), TextAnchor.MiddleCenter);
-        heading.UseFixedFontSize(13);
-        virtualPeeragesSpace.AddChild(heading.gameObject);
-        var legalHeading = Instantiate(SimpleText.Prefab);
-        legalHeading.Setup(LM.Get("empire_legal_virtual_peerages").ColorString(pColor: new Color(0.35f, 0.85f, 1f)), TextAnchor.MiddleCenter);
-        virtualPeeragesSpace.AddChild(legalHeading.gameObject);
+        AddSectionHeader(virtualPeeragesSpace, LM.Get("empire_virtual_peerages"), "ChineseCrown", "ui/icons/iconCrown");
+        AddSubHeader(virtualPeeragesSpace, LM.Get("empire_legal_virtual_peerages").ColorString("#5AD9FF"));
         virtualPeeragesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         Regime regime = _empire.CoreKingdom.GetRegime();
         EmpireCore core = EmpireCoreManager.Get(_empire);
@@ -115,7 +111,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
             Actor holder = _empire.GetLegalPeerageHolder(title);
             bool isLanded = landedKingdom != null;
             bool isImperialClan = holder?.GetSpecificClan() != null &&
-                                   holder.GetSpecificClan() == _empire.EmpireSpecificClan;
+                                   SpecificClanManager.SameLineage(holder.GetSpecificClan(), _empire.EmpireSpecificClan);
             bool isPetitionedTributaryTitle = landedKingdom?.GetTakenAllianceEmpire() == _empire;
             string peerageKey = _empire.data.legal_peerage_types?.TryGetValue(title.id, out string savedType) == true
                 ? savedType
@@ -127,9 +123,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         }
         virtualPeeragesSpace.AddChild(virtualPeeragesGroup.gameObject);
 
-        var honoraryHeading = Instantiate(SimpleText.Prefab);
-        honoraryHeading.Setup(LM.Get("empire_honorary_virtual_peerages").ColorString(pColor: new Color(1f, 0.75f, 0.2f)), TextAnchor.MiddleCenter);
-        virtualPeeragesSpace.AddChild(honoraryHeading.gameObject);
+        AddSubHeader(virtualPeeragesSpace, LM.Get("empire_honorary_virtual_peerages").ColorString("#FFBF33"));
         var honoraryGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         foreach (string peerage in regime.virtual_honorary_peerages ?? new List<string>())
         {
@@ -150,7 +144,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
             if (hasLandedFief)
             {
                 bool isImperialClan = actor.GetSpecificClan() != null &&
-                                       actor.GetSpecificClan() == _empire.EmpireSpecificClan;
+                                       SpecificClanManager.SameLineage(actor.GetSpecificClan(), _empire.EmpireSpecificClan);
                 peerageKey = DeJureTitleBindingRules.GetLandedPeerageKey(isImperialClan);
             }
             else
@@ -163,27 +157,19 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         string displayName = isVacant
             ? honorary ? $"{peerage} ({LM.Get("label_vacant")})" : $"{fief} ({LM.Get("label_peerage_pending")})"
             : honorary ? peerage : FormatVirtualPeerageName(fief, peerage);
-        var card = this.BeginHoriGroup(pSpacing: -10, pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(100, 70));
-        var avatar = this.BeginVertGroup(pSpacing: -3, pAlignment: TextAnchor.MiddleCenter);
-        Color titleColor = isVacant ? Color.gray : honorary ? new Color(1f, 0.75f, 0.2f) : new Color(0.35f, 0.85f, 1f);
-        avatar.AddTextIntoVertLayout(displayName.ColorString(pColor: titleColor), true, TextAnchor.MiddleCenter);
-        avatar.AddActorViewIntoVertLayout(actor);
-        card.AddChild(avatar.gameObject);
-
-        var details = this.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
         string holderName = actor?.getName() ?? LM.Get("label_vacant");
         string fiefText = honorary ? LM.Get("label_honorary") : fief;
-        string fiefStatus = hasLandedFief ? LM.Get("label_landed_fief") : LM.Get("label_unlanded_fief");
-        details.AddTextIntoVertLayout(
-            $"{LM.Get("i_name")}: {holderName.ColorString(pColor: isVacant ? Color.gray : new Color(0.25f, 0.9f, 0.55f))}\n" +
-            $"{LM.Get("OfficialLevel")}: {peerage.ColorString(pColor: titleColor)}\n" +
-            $"{LM.Get("label_fief")}: {fiefText.ColorString(pColor: honorary ? new Color(1f, 0.6f, 0.35f) : new Color(0.35f, 0.85f, 1f))}" +
-            (honorary ? "" : $"\n{LM.Get("label_fief_status")}: {fiefStatus.ColorString(pColor: hasLandedFief ? new Color(0.25f, 0.9f, 0.55f) : Color.gray)}"),
-            true, TextAnchor.MiddleCenter, new Vector2(40, 25));
-        card.AddChild(details.gameObject);
-        parent.AddChild(card.gameObject);
-        card.transform.AddStretchBackground("FactionFrame", size: new Vector2(100, 55));
-        pool.Add(card.gameObject);
+        string titleHex = isVacant ? "#8FA0A8" : honorary ? "#FFBF33" : "#5AD9FF";
+        var lines = new List<string>
+        {
+            holderName.ColorString(isVacant ? "#8FA0A8" : "#E6E0CF"),
+            $"{LM.Get("OfficialLevel")} {peerage}".ColorString(titleHex),
+            $"{LM.Get("label_fief")} {fiefText}".ColorString(honorary ? "#FF9A5A" : "#A8B8BE")
+        };
+        if (!honorary)
+            lines.Add((hasLandedFief ? LM.Get("label_landed_fief") : LM.Get("label_unlanded_fief"))
+                .ColorString(hasLandedFief ? "#65D66E" : "#8FA0A8"));
+        AddPersonCard(parent, displayName.ColorString(titleHex), "", actor, lines, null);
     }
 
     private static string FormatVirtualPeerageName(string fief, string peerage)
@@ -196,7 +182,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     {
         if (_empire?.CoreKingdom?.data == null) return;
         //总容器
-        topSpace = this.BeginHoriGroup();
+        topSpace = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
 
         var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
@@ -223,7 +209,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         FixedFaction dominateFaction = _empire.CoreKingdom.GetRegime()?.GetDominateFaction();
         if (dominateFaction != null)
         {
-            UIHelper.AddFactionCard(dominateFaction, _empire.CoreKingdom, parentH:topSpace);
+            AddDominantFactionRow(dominateFaction);
         }
         
         topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
@@ -232,7 +218,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     private void InitialTopPartInfoFeudalism()
     {
         //总容器
-        topSpace = this.BeginHoriGroup();
+        topSpace = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
 
         var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
@@ -258,7 +244,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         var dominate = _empire.CoreKingdom.GetRegime().GetDominateFaction();
         if (dominate != null)
         {
-            UIHelper.AddFactionCard(dominate, _empire.CoreKingdom, parentH:topSpace);
+            AddDominantFactionRow(dominate);
         }
         
         topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
@@ -266,28 +252,34 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     [Hotfixable]
     private void InitialTopPartInfoNormal()
     {
-        //总容器
-        topSpace = this.BeginHoriGroup();
-        topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
-
-        var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
-        centerPart.AddTextIntoVertLayout(
-            $"{LM.Get("empire_bureau_no_cabinet")}\n{LM.Get("empire_bureau_direct_rule")}",
-            true, TextAnchor.MiddleCenter, new Vector2(80, 40));
+        // 没有内阁时顶部那块 220x100 的框里只有两行字，空得难看；君主本人已经在下面金字塔的顶端了，
+        // 这里改成正文里一条细的信息条，把原来给顶部框让出的 95 像素也收回来。
+        topSpace = null;
+        layout.padding = new RectOffset(3, 3, 3, 3);
+        var info = this.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
+        pool.Add(info.gameObject);
+        AddSectionHeader(info, $"{LM.Get("empire_bureau_no_cabinet")} · {LM.Get("empire_bureau_direct_rule")}",
+            "ui/icons/iconCrown", "ui/icons/iconKingdom");
         var dominate = _empire.CoreKingdom.GetRegime().GetDominateFaction();
         if (dominate != null)
         {
-            UIHelper.AddFactionCard(dominate, _empire.CoreKingdom, parentH:topSpace);
+            AddDominantFactionRow(dominate);
         }
-        topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
     }
+    // 主导派系改成横式卡片后放不进顶部 220 宽的内阁框里了，挪到正文最上面单独一行
+    // (顶部框被 AdjustTopPart 移出了布局，所以这一行就是正文的第一项)。只展示，不改格局。
+    private void AddDominantFactionRow(FixedFaction faction)
+    {
+        var holder = this.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
+        pool.Add(holder.gameObject);
+        UIHelper.AddFactionCard(faction, _empire.CoreKingdom, parentV: holder);
+    }
+
     public void ShowCoreSpace()
     {
         coreOfficeSpace = this.BeginVertGroup();
         //中央核心部门
-        SimpleText coreOfficeTitle = Instantiate(SimpleText.Prefab);
-        coreOfficeTitle.Setup(LM.Get("CoreOffice"), TextAnchor.MiddleCenter);
-        coreOfficeSpace.AddChild(coreOfficeTitle.gameObject);
+        AddSectionHeader(coreOfficeSpace, LM.Get("CoreOffice"), "ui/icons/iconKingdom");
 
         coreOfficeGroup = this.BeginGridGroup(2, pCellSize: new Vector2(100, 55));
         foreach (var oid in _empire.data.centerOffice.CoreOffices)
@@ -303,9 +295,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     {
         divisionsSpace = this.BeginVertGroup();
         //中央二级部门
-        SimpleText divisionsTitle = Instantiate(SimpleText.Prefab);
-        divisionsTitle.Setup(LM.Get("Divisions"), TextAnchor.MiddleCenter);
-        divisionsSpace.AddChild(divisionsTitle.gameObject);
+        AddSectionHeader(divisionsSpace, LM.Get("Divisions"), "ui/icons/iconWorldLaws", "ui/icons/iconKnowledge");
 
         divisionsGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
         foreach (var o2 in _empire.data.centerOffice.Divisions)
@@ -321,9 +311,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     {
         haremsSpace = this.BeginVertGroup();
         //后宫
-        SimpleText haremsTitle = Instantiate(SimpleText.Prefab);
-        haremsTitle.Setup(LM.Get("Harems"), TextAnchor.MiddleCenter);
-        haremsSpace.AddChild(haremsTitle.gameObject);
+        AddSectionHeader(haremsSpace, LM.Get("Harems"), "ui/icons/iconFamily", "ui/icons/iconCrown");
 
         haremsGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
         foreach (var o2 in _empire.data.centerOffice.Harems)
@@ -339,9 +327,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     {
         provincesSpace = this.BeginVertGroup();
         //省级部门
-        SimpleText provinceTitle = Instantiate(SimpleText.Prefab);
-        provinceTitle.Setup(LM.Get("province"), TextAnchor.MiddleCenter);
-        provincesSpace.AddChild(provinceTitle.gameObject);
+        AddSectionHeader(provincesSpace, LM.Get("province"), "ui/icons/iconCity");
 
         provincesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         foreach (Kingdom kingdom in _empire.kingdoms_hashset)
@@ -367,7 +353,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     {
         if (_empire?.CoreKingdom?.data == null) return;
         GeneralSystems.ParliamentView view = GeneralSystems.ParliamentSystem.GetView(_empire);
-        topSpace = this.BeginHoriGroup();
+        topSpace = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
 
         var centerPart = topSpace.BeginVertGroup(pSpacing: -3);
@@ -432,6 +418,8 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
     private void BuildBureauPage()
     {
+        // 有内阁/议会的顶部框被 AdjustTopPart 钉在窗口上方，正文要让出 95；无内阁的会在自己的方法里收回
+        layout.padding = new RectOffset(3, 3, 95, 3);
         Regime regime = _empire.CoreKingdom.GetRegime();
         if (GeneralSystems.ParliamentSystem.HasParliament(_empire))
         {
@@ -449,10 +437,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
                 InitialTopPartInfoNormal();
                 break;
         }
-        if (_empire.data.centerOffice.Harems.Count > 0) ShowHaremSpace();
-        if (_empire.data.centerOffice.CoreOffices.Count > 0) ShowCoreSpace();
-        if (_empire.data.centerOffice.Divisions.Count > 0) ShowDivisionSpace();
-        ShowProvincesSpace();
+        ShowOfficePyramid();
     }
 
     public override void OnNormalEnable()
@@ -524,62 +509,361 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     [Hotfixable]
     public void SetOfficeView(long oid, ref AutoGridLayoutGroup parent, NanoObject o = null)
     {
+        GameObject card = BuildOfficeCard(oid, o);
+        if (card != null) parent.AddChild(card);
+    }
+
+    // 旧的网格卡片(SetOfficeView 仍在用)
+    private GameObject BuildOfficeCard(long oid, NanoObject o = null)
+    {
         //寻找存在的官制
-        if (!OfficeManager.Offices.TryGetValue(oid, out var officeObject))
+        if (!OfficeManager.Offices.TryGetValue(oid, out var officeObject)) return null;
+        Actor officer = officeObject.GetActor();
+        bool vacant = officer == null;
+        var lines = new List<string>
         {
-            return;
-        }
-        AutoHoriLayoutGroup officePositionGroup = this.BeginHoriGroup(pSpacing:-10, pAlignment: TextAnchor.MiddleCenter, pSize:new (100, 70));
+            vacant ? LM.Get("office_vacant").ColorString("#8FA0A8") : officer.data.name.ColorString("#E6E0CF"),
+            officeObject.GetName(o).ColorString("#65D6C4")
+        };
+        // 空缺时 GetOnTime() 是 -1，不显示这一行
+        if (!vacant) lines.Add($"{LM.Get("i_on_office_time")} {officeObject.GetOnTime()}".ColorString("#A8B8BE"));
+        lines.Add(BuildPowerLine(officeObject, officer));
+        string badge = string.Format(LM.Get("office_history_count"), officeObject.history_officers.Count);
+        return BuildPersonCard(officeObject.GetOfficeName(o).ColorString("#F3C34A"), badge, officer, lines,
+            () => ChangeOfficer(officeObject));
+    }
 
-        //右边头像
-        AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(pSpacing:-3, pAlignment: TextAnchor.MiddleCenter);
-        avatarLayoutGroup.AddTextIntoVertLayout(officeObject.GetOfficeName(o)+$"({officeObject.history_officers.Count})", true, TextAnchor.MiddleCenter);
-        avatarLayoutGroup.AddActorViewIntoVertLayout(officeObject.GetActor());
+    // 金字塔里的官职节点：卡面只放一眼要看的(官职名 / 头像 / 姓名 / 官阶 / 前两项权能)，
+    // 在任时长、历任人数、完整权能放进悬浮提示。
+    private GameObject BuildOfficeNode(long oid, string titleHex, NanoObject o = null)
+    {
+        if (!OfficeManager.Offices.TryGetValue(oid, out var officeObject)) return null;
+        Actor officer = officeObject.GetActor();
+        bool vacant = officer == null;
+        string officeName = officeObject.GetOfficeName(o);
+        string rank = officeObject.GetName(o);
+        List<string> powers = GetPowerEntries(officeObject, officer);
+        string footer = powers.Count == 0
+            ? LM.Get("label_none").ColorString("#8FA0A8")
+            : (string.Join(" ", powers.Take(2)) + (powers.Count > 2 ? " …" : "")).ColorString("#65D66E");
 
-        SimpleButton changeAvatar = Instantiate(SimpleButton.Prefab);
-        changeAvatar.Setup(() => ChangeOfficer(officeObject), SpriteTextureLoader.getSprite("ui/changeOfficer"), pSize: new Vector2(20, 10));
-        
-        avatarLayoutGroup.AddChild(changeAvatar.gameObject);
-        
-        officePositionGroup.AddChild(avatarLayoutGroup.gameObject);
-
-        //左边信息栏
-        AutoVertLayoutGroup leftVertGroup = this.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
-
-        var content =
-            $"{LM.Get("i_name")}: {(officeObject.GetActor() == null ? "-" : officeObject.GetActor().data.name)}\n" +
-            $"{LM.Get("OfficialLevel").ColorString(pColor: new Color(0.2f, 0.7f, 0.4f))}: {officeObject.GetName(o)}\n" +
-            $"{LM.Get("i_on_office_time")}: {officeObject.GetOnTime()}";
-        
-        leftVertGroup.AddTextIntoVertLayout(content, true, TextAnchor.MiddleCenter, new Vector2(40, 25));
-        var powerContent = "<权能>\n";
-        if (officeObject.powers.Count <= 0)
+        var tip = new List<string>
         {
-            powerContent += "无";
-        }
-        else
+            vacant ? LM.Get("office_vacant") : officer.data.name,
+            $"{LM.Get("OfficialLevel")}: {rank}"
+        };
+        if (!vacant) tip.Add($"{LM.Get("i_on_office_time")}: {officeObject.GetOnTime()}");
+        tip.Add(string.Format(LM.Get("office_history_count"), officeObject.history_officers.Count));
+        tip.Add($"{LM.Get("office_powers")}: " +
+                (powers.Count == 0 ? LM.Get("label_none") : string.Join(" · ", powers)).ColorString("#65D66E"));
+        // 行政区卡片点一下直接打开对应的国家界面
+        Kingdom province = o as Kingdom;
+        UnityAction openKingdom = null;
+        if (province != null && !province.isRekt())
         {
-            foreach (var power in officeObject.powers)
+            tip.Add(LM.Get("bureau_open_kingdom_hint").ColorString("#7FD8EA"));
+            openKingdom = () =>
             {
-                if (OfficeManager.AllPower.Contains(power))
-                {
-                    powerContent += $"{power}({officeObject.GetActor()?.CalcPower(power, _empire).addition[power]??0})".ColorString(pColor:new Color(0.0f, 1, 0.5f))+"\n";
-                }
-                else
-                {
-                    powerContent += power.ToString().ColorString(pColor:new Color(0.0f, 1, 0.5f))+"\n";
-                }
-            }
+                if (province.isRekt()) return;
+                SelectedMetas.selected_kingdom = province;
+                ScrollWindow.showWindow("kingdom");
+            };
         }
-        leftVertGroup.AddTextIntoVertLayout(powerContent, true, TextAnchor.MiddleCenter, new Vector2(40, 20));
-        
-        leftVertGroup.transform.localPosition = Vector3.zero;
-        officePositionGroup.AddChild(leftVertGroup.gameObject);
 
-        parent.AddChild(officePositionGroup.gameObject);
-        
-        officePositionGroup.transform.AddStretchBackground("FactionFrame", size:new Vector2(100, 55));
-        pool.Add(officePositionGroup.gameObject);
+        return BuildNode(officeName, titleHex, officer,
+            (vacant ? LM.Get("office_vacant") : officer.data.name).ColorString(vacant ? "#8FA0A8" : "#F2EEE2"),
+            rank.ColorString("#65D6C4"), footer, $"office_{oid}", string.Join("\n", tip),
+            () => ChangeOfficer(officeObject), highlight: false, onClick: openKingdom);
+    }
+
+    // 金字塔顶端的君主
+    private GameObject BuildSovereignNode()
+    {
+        Actor emperor = _empire.Emperor;
+        string name = emperor == null ? LM.Get("office_vacant") : emperor.getName();
+        return BuildNode(LM.Get(GeneralSystems.RepublicSystem.IsRepublic(_empire) ? "bureau_head_of_state" : "bureau_sovereign"), "#F3C34A", emperor,
+            name.ColorString(emperor == null ? "#8FA0A8" : "#F2EEE2"),
+            _empire.GetEmpireName().ColorString("#65D6C4"), "", $"sovereign_{_empire.id}",
+            $"{name}\n{_empire.GetEmpireName()}", null, highlight: true);
+    }
+
+    private List<string> GetPowerEntries(OfficeObject officeObject, Actor officer) =>
+        officeObject.powers.Select(power => OfficeManager.AllPower.Contains(power)
+            ? $"{power}{officer?.CalcPower(power, _empire).addition[power] ?? 0}"
+            : power.ToString()).ToList();
+
+    // "权能 人事5 · 军事10"：权能名 + 现任官员在这项上的加成；没有权能就写"无"。
+    private string BuildPowerLine(OfficeObject officeObject, Actor officer)
+    {
+        string label = LM.Get("office_powers").ColorString("#A8B8BE");
+        List<string> powers = GetPowerEntries(officeObject, officer);
+        if (powers.Count == 0) return $"{label} {LM.Get("label_none")}";
+        return $"{label} {string.Join(" · ", powers).ColorString("#65D66E")}";
+    }
+
+    // ── 卡片部件 ──
+    // 官职卡和爵位卡共用：标题行(名称 + 小字角标 + 可选的更换按钮)，下面左头像、右几行信息。
+    private const float CardWidth = 100f;
+    private const float CardHeight = 55f;
+
+    private void AddPersonCard(AutoGridLayoutGroup parent, string title, string badge, Actor actor,
+        List<string> lines, UnityAction onChange)
+    {
+        parent.AddChild(BuildPersonCard(title, badge, actor, lines, onChange));
+    }
+
+    private GameObject BuildPersonCard(string title, string badge, Actor actor, List<string> lines,
+        UnityAction onChange)
+    {
+        var card = this.BeginVertGroup(new Vector2(CardWidth, CardHeight), pSpacing: 1,
+            pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(5, 5, 4, 3));
+
+        var header = card.BeginHoriGroup(new Vector2(CardWidth - 10f, 10f), TextAnchor.MiddleLeft, 2);
+        string headerText = string.IsNullOrEmpty(badge) ? title : $"{title} {badge.ColorString("#8FA0A8")}";
+        var titleText = header.AddTextIntoHoriLayout(headerText, true, TextAnchor.MiddleLeft,
+            new Vector2(onChange == null ? CardWidth - 12f : CardWidth - 23f, 10f));
+        titleText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        if (onChange != null)
+            header.AddButtonIntoHoriLayout("change_officer", "", onChange,
+                SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(9, 9), showTip: true);
+
+        var body = card.BeginHoriGroup(new Vector2(CardWidth - 10f, CardHeight - 18f), TextAnchor.MiddleLeft, 2);
+        body.AddActorViewIntoHoriLayout(actor);
+        var info = body.BeginVertGroup(new Vector2(CardWidth - 44f, CardHeight - 18f), pSpacing: 0,
+            pAlignment: TextAnchor.MiddleLeft);
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var line = info.AddTextIntoVertLayout(lines[i], true, TextAnchor.MiddleLeft,
+                new Vector2(CardWidth - 44f, 8.5f));
+            line.UseFixedFontSize(i == 0 ? 6 : 5, HorizontalWrapMode.Overflow);
+        }
+
+        card.transform.AddStretchBackground("FactionFrame", size: new Vector2(CardWidth, CardHeight));
+        pool.Add(card.gameObject);
+        return card.gameObject;
+    }
+
+    // ── 官职金字塔 ──
+    // 跟制度科技树同一套 GraphView：可拖拽平移、滚轮缩放。自上而下按品级一层一层往下排——
+    // 君主 → 后宫 → 中央部门 → 下级部门 → 行政区，每一层居中，越往下人越多，整体呈金字塔。
+    // 一层超过 MaxCardsPerRow 张就折成几行，免得最底下的行政区一行拉得太长。
+    private const float GraphWidth = 204f;
+    private const float GraphHeight = 300f;
+    private const int MaxCardsPerRow = 6;
+    private const float NodeWidth = 72f;
+    private const float NodeHeight = 80f;
+    private const float CardGapX = 6f;
+    private const float RowGapY = 12f;
+    private const float TierLabelHeight = 14f;
+    private const float GraphPadding = 12f;
+    private const string HaremTitleHex = "#F29BC0";
+    private const string OfficeTitleHex = "#F3C34A";
+    private GraphView _officeGraph;
+
+    private void ShowOfficePyramid()
+    {
+        var space = this.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperCenter);
+        pool.Add(space.gameObject);
+        AddSectionHeader(space, LM.Get("bureau_office_pyramid"), "ui/icons/iconKingdom");
+        var header = space.BeginHoriGroup(new Vector2(GraphWidth, 12f), TextAnchor.MiddleCenter, 3);
+        var hint = header.AddTextIntoHoriLayout(LM.Get("bureau_graph_hint").ColorString("#8FA0A8"), true,
+            TextAnchor.MiddleLeft, new Vector2(GraphWidth - 40f, 11f));
+        hint.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        header.AddButtonIntoHoriLayout("institution_graph_reset", LM.Get("institution_graph_reset"),
+            () => _officeGraph?.ResetView(), size: new Vector2(32, 10));
+        _officeGraph = GraphView.Create(space.transform, new Vector2(GraphWidth, GraphHeight),
+            GraphOrientation.Vertical, objectName: "BureauOfficeGraph");
+        _officeGraph.SetClampMargin(new Vector2(NodeWidth / 2f, NodeHeight / 2f));
+
+        var tiers = new List<(string label, List<GameObject> cards)>
+        {
+            ("", new List<GameObject> { BuildSovereignNode() })
+        };
+        void AddTier(string labelKey, IEnumerable<GameObject> cards)
+        {
+            List<GameObject> built = cards.Where(card => card != null).ToList();
+            if (built.Count > 0) tiers.Add((LM.Get(labelKey), built));
+        }
+        CenterOffice office = _empire.data.centerOffice;
+        AddTier("Harems", office.Harems.Select(oid => BuildOfficeNode(oid, HaremTitleHex)));
+        AddTier("CoreOffice", office.CoreOffices.Select(oid => BuildOfficeNode(oid, OfficeTitleHex)));
+        AddTier("Divisions", office.Divisions.Select(oid => BuildOfficeNode(oid, OfficeTitleHex)));
+        AddTier("province", _empire.kingdoms_hashset.Select(kingdom =>
+            BuildOfficeNode(kingdom.GetOfficeID(), OfficeTitleHex, kingdom)));
+        LayoutPyramid(tiers);
+    }
+
+    private void LayoutPyramid(List<(string label, List<GameObject> cards)> tiers)
+    {
+        // 先把每层折成行，算出整张图的尺寸，再从上往下摆
+        var rows = new List<(string label, List<GameObject> cards)>();
+        foreach ((string label, List<GameObject> cards) in tiers)
+            for (int start = 0; start < cards.Count; start += MaxCardsPerRow)
+                rows.Add((start == 0 ? label : "", cards.Skip(start).Take(MaxCardsPerRow).ToList()));
+
+        float RowWidth(int count) => count * NodeWidth + (count - 1) * CardGapX;
+        float contentWidth = rows.Max(row => RowWidth(row.cards.Count)) + GraphPadding * 2f;
+        float contentHeight = GraphPadding * 2f + rows.Sum(row =>
+            NodeHeight + (string.IsNullOrEmpty(row.label) ? 0f : TierLabelHeight)) + (rows.Count - 1) * RowGapY;
+
+        Transform content = _officeGraph.ContentTransform;
+        Vector2 half = new Vector2(NodeWidth / 2f, NodeHeight / 2f);
+        var edgeColor = new Color(0.53f, 0.78f, 0.86f, 0.75f);
+        float top = contentHeight / 2f - GraphPadding;
+        float? previousRowY = null;
+        foreach ((string label, List<GameObject> cards) in rows)
+        {
+            if (!string.IsNullOrEmpty(label))
+            {
+                CreateTierLabel(content, label, new Vector2(0f, top - TierLabelHeight / 2f));
+                top -= TierLabelHeight;
+            }
+            float rowY = top - NodeHeight / 2f;
+            float startX = -RowWidth(cards.Count) / 2f + NodeWidth / 2f;
+            for (int i = 0; i < cards.Count; i++)
+            {
+                var position = new Vector2(startX + i * (NodeWidth + CardGapX), rowY);
+                // 连线从上一层的中轴垂下来再分到每张卡片，像一棵倒挂的树
+                if (previousRowY.HasValue)
+                    _officeGraph.CreateElbow(new Vector2(0f, previousRowY.Value), position, half, edgeColor);
+                PlaceInGraph(cards[i], content, position);
+            }
+            previousRowY = rowY;
+            top = rowY - NodeHeight / 2f - RowGapY;
+        }
+
+        var contentSize = new Vector2(contentWidth, contentHeight);
+        // 打开时按宽度缩到尽量装下(不低于 GraphView 的下限)，顶端贴住视口上沿，从君主开始往下看
+        float fitScale = Mathf.Clamp(GraphWidth / contentWidth, 0.45f, 1f);
+        var fitPosition = new Vector2(0f, GraphHeight / 2f - contentHeight * fitScale / 2f);
+        _officeGraph.SetContent(contentSize, fitScale, fitPosition);
+    }
+
+    private static void PlaceInGraph(GameObject card, Transform content, Vector2 position)
+    {
+        var rect = card.GetComponent<RectTransform>();
+        rect.SetParent(content, false);
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.localScale = Vector3.one;
+        rect.anchoredPosition = position;
+    }
+
+    // 层级标题做成一枚深色小胶囊，压在连线上，比裸字清楚
+    private static void CreateTierLabel(Transform content, string text, Vector2 position)
+    {
+        SimpleText pill = Instantiate(SimpleText.Prefab, content);
+        pill.Setup(text.ColorString("#F3C34A"), TextAnchor.MiddleCenter, new Vector2(64f, 11f));
+        pill.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        RectTransform rect = pill.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.localScale = Vector3.one;
+        rect.anchoredPosition = position;
+        foreach (Graphic graphic in pill.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
+    }
+
+    // 竖版节点卡：标题条 / 头像 / 姓名 / 官阶 / 权能，右上角一个小的更换按钮。
+    // 用绝对坐标摆放，不走布局组——布局组在这么小的卡片里总是把文字挤到一角。
+    private GameObject BuildNode(string title, string titleHex, Actor actor, string nameLine, string rankLine,
+        string footerLine, string tipKey, string tipBody, UnityAction onChange, bool highlight,
+        UnityAction onClick = null)
+    {
+        var root = new GameObject("OfficeNode", typeof(RectTransform), typeof(CanvasGroup));
+        var rect = root.GetComponent<RectTransform>();
+        rect.SetParent(_officeGraph.ContentTransform, false);
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(NodeWidth, NodeHeight);
+        root.transform.AddStretchBackground(highlight ? "FactionFrame_dominate" : "FactionFrame",
+            new Vector2(NodeWidth, NodeHeight));
+        // 空缺的官位整体压暗
+        root.GetComponent<CanvasGroup>().alpha = actor == null ? 0.7f : 1f;
+
+        SimpleText titleBar = Instantiate(SimpleText.Prefab, rect);
+        titleBar.Setup(title.ColorString(titleHex), TextAnchor.MiddleCenter, new Vector2(NodeWidth - 12f, 11f));
+        titleBar.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        titleBar.text.fontStyle = FontStyle.Bold;
+        PlaceChild(titleBar.GetComponent<RectTransform>(), new Vector2(0f, NodeHeight / 2f - 10f));
+        foreach (Graphic graphic in titleBar.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
+
+        var avatar = this.BeginHoriGroup(new Vector2(30f, 30f), TextAnchor.MiddleCenter, 0);
+        avatar.AddActorViewIntoHoriLayout(actor);
+        PlaceChild(avatar.GetComponent<RectTransform>(), new Vector2(0f, 9f), rect);
+
+        CreateNodeText(rect, nameLine, -13f, 6, FontStyle.Bold);
+        CreateNodeText(rect, rankLine, -21f, 5, FontStyle.Normal);
+        if (!string.IsNullOrEmpty(footerLine)) CreateNodeText(rect, footerLine, -29f, 5, FontStyle.Normal);
+
+        if (onChange != null)
+        {
+            var buttonHolder = this.BeginHoriGroup(new Vector2(9f, 9f), TextAnchor.MiddleCenter, 0);
+            buttonHolder.AddButtonIntoHoriLayout("change_officer", "", onChange,
+                SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(8f, 8f), showTip: true);
+            PlaceChild(buttonHolder.GetComponent<RectTransform>(),
+                new Vector2(NodeWidth / 2f - 8f, NodeHeight / 2f - 17f), rect);
+        }
+
+        if (onClick != null)
+        {
+            // 点击整张卡片；拖拽平移时 Unity 不会再派发点击，不会误触
+            Button button = root.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.onClick.AddListener(onClick);
+        }
+        UIHelper.AttachTextTooltip(root, $"bureau_{tipKey}", title, tipBody);
+        pool.Add(root);
+        return root;
+    }
+
+    private static void PlaceChild(RectTransform child, Vector2 position, RectTransform parent = null)
+    {
+        if (parent != null) child.SetParent(parent, false);
+        var element = child.GetComponent<LayoutElement>() ?? child.gameObject.AddComponent<LayoutElement>();
+        element.ignoreLayout = true;
+        child.anchorMin = child.anchorMax = new Vector2(0.5f, 0.5f);
+        child.pivot = new Vector2(0.5f, 0.5f);
+        child.localScale = Vector3.one;
+        child.anchoredPosition = position;
+    }
+
+    private static void CreateNodeText(RectTransform parent, string text, float y, int fontSize, FontStyle style)
+    {
+        var textObject = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+        var rect = textObject.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(NodeWidth - 8f, 9f);
+        rect.anchoredPosition = new Vector2(0f, y);
+        Text label = textObject.GetComponent<Text>();
+        label.font = LocalizedTextManager.current_font;
+        label.fontSize = fontSize;
+        label.fontStyle = style;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.horizontalOverflow = HorizontalWrapMode.Overflow;
+        label.verticalOverflow = VerticalWrapMode.Overflow;
+        label.supportRichText = true;
+        label.raycastTarget = false;
+        label.color = Color.white;
+        label.text = text;
+    }
+
+    // 分区标题：一条深色细条，左侧图标 + 金色标题(原来是一整块灰底大字)
+    private static void AddSectionHeader(AutoVertLayoutGroup space, string text, params string[] icons)
+    {
+        var bar = space.BeginHoriGroup(new Vector2(204f, 15f), TextAnchor.MiddleCenter, 3);
+        UIHelper.AddInsetBackground(bar, new Vector2(204f, 15f));
+        UIHelper.AddLayoutIcon(bar.transform, UIHelper.FirstSprite(icons), 11f);
+        var label = bar.AddTextIntoHoriLayout(text.ColorString("#F3C34A"), true, TextAnchor.MiddleLeft,
+            new Vector2(180f, 13f));
+        label.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+    }
+
+    private static void AddSubHeader(AutoVertLayoutGroup space, string text)
+    {
+        var label = space.AddTextIntoVertLayout(text, true, TextAnchor.MiddleCenter, new Vector2(204f, 11f));
+        label.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
     }
 
     private void ChangeOfficer(OfficeObject o=null, Kingdom province=null)

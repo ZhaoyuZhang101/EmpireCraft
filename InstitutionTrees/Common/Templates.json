@@ -81,6 +81,496 @@
           "int_value": -8
         }
       ]
+    },
+    {
+      "id": "lift_party_ban",
+      "name_key": "institution_lift_party_ban",
+      "description_key": "institution_lift_party_ban_desc",
+      "research": {
+        "mandate_required": 60
+      },
+      "reform": {
+        "base_progress_per_year": 5.0,
+        "minimum_years": 15,
+        "force_radicalism": 32.0
+      },
+      "resistance": {
+        "base_radicalism": 14.0,
+        "vested_interest_radicalism": 18.0,
+        "rebellion_threshold": 66.0,
+        "opposition_faction_growth": 2,
+        "reason_key": "institution_resistance_reason_party_ban"
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 1.3,
+          "Officer": 0.4,
+          "Labour": 0.3
+        },
+        "oppose_classes": {
+          "Noble": 1.0
+        },
+        "support_factions": {
+          "民主": 1.2,
+          "共和": 1.0,
+          "绥靖": 0.5
+        },
+        "oppose_factions": {
+          "血脉": 1.0,
+          "尊王": 0.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": -3
+        }
+      ],
+      "features": {
+        "party_politics": 1,
+        "claim_reform:开放党禁": 1,
+        "ideology:Conservatism": 1,
+        "ideology:ConservativeLiberalism": 1,
+        "ideology:SocialLiberalism": 1,
+        "ideology:Centrism": 1
+      }
+    },
+    {
+      "id": "universal_suffrage",
+      "name_key": "institution_universal_suffrage",
+      "description_key": "institution_universal_suffrage_desc",
+      "research": {
+        "mandate_required": 55
+      },
+      "reform": {
+        "base_progress_per_year": 4.0,
+        "minimum_years": 20,
+        "force_radicalism": 38.0
+      },
+      "resistance": {
+        "base_radicalism": 18.0,
+        "vested_interest_radicalism": 24.0,
+        "rebellion_threshold": 62.0,
+        "opposition_faction_growth": 3,
+        "reason_key": "institution_resistance_reason_universal_suffrage"
+      },
+      "politics": {
+        "support_classes": {
+          "Peasant": 1.2,
+          "Labour": 1.3,
+          "Merchant": 0.3
+        },
+        "oppose_classes": {
+          "Landlord": 1.2,
+          "Noble": 1.0
+        },
+        "support_factions": {
+          "民主": 1.2,
+          "革命": 1.0,
+          "共产": 1.0
+        },
+        "oppose_factions": {
+          "诸侯": 1.0,
+          "自治": 0.6,
+          "血脉": 0.8
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": -5
+        }
+      ],
+      "features": {
+        "universal_suffrage": 1,
+        "claim_reform:推行普选": 1
+      }
+    },
+    {
+      "id": "ideology_anarchism",
+      "name_key": "institution_ideology_anarchism",
+      "description_key": "institution_ideology_anarchism_desc",
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 1
+      },
+      "politics": {
+        "support_classes": {
+          "Labour": 0.51
+        },
+        "oppose_classes": {
+          "Merchant": 0.29,
+          "Landlord": 0.72,
+          "Noble": 0.9,
+          "Army": 0.78,
+          "Officer": 0.24
+        },
+        "support_factions": {
+          "革命": 1.0
+        },
+        "oppose_factions": {}
+      },
+      "effects_on_complete": [],
+      "features": {
+        "ideology:Anarchism": 1
+      }
+    },
+    {
+      "id": "ideology_social_democracy",
+      "name_key": "institution_ideology_social_democracy",
+      "description_key": "institution_ideology_social_democracy_desc",
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 1
+      },
+      "politics": {
+        "support_classes": {
+          "Labour": 0.93,
+          "Peasant": 0.68
+        },
+        "oppose_classes": {
+          "Landlord": 0.16,
+          "Noble": 0.3,
+          "Army": 0.17
+        },
+        "support_factions": {
+          "民主": 1.0
+        },
+        "oppose_factions": {}
+      },
+      "effects_on_complete": [],
+      "features": {
+        "ideology:SocialDemocracy": 1
+      }
+    },
+    {
+      "id": "ideology_libertarianism",
+      "name_key": "institution_ideology_libertarianism",
+      "description_key": "institution_ideology_libertarianism_desc",
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 1
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 0.59
+        },
+        "oppose_classes": {
+          "Noble": 0.37,
+          "Army": 0.4
+        },
+        "support_factions": {
+          "自治": 1.0
+        },
+        "oppose_factions": {}
+      },
+      "effects_on_complete": [],
+      "features": {
+        "ideology:Libertarianism": 1
+      }
+    },
+    {
+      "id": "ideology_capitalism",
+      "name_key": "institution_ideology_capitalism",
+      "description_key": "institution_ideology_capitalism_desc",
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 1
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 1.0
+        },
+        "oppose_classes": {
+          "Labour": 0.48,
+          "Peasant": 0.37,
+          "Noble": 0.18,
+          "Army": 0.39
+        },
+        "support_factions": {
+          "共和": 1.0
+        },
+        "oppose_factions": {}
+      },
+      "effects_on_complete": [],
+      "features": {
+        "ideology:Capitalism": 1
+      }
+    },
+    {
+      "id": "ideology_socialism",
+      "name_key": "institution_ideology_socialism",
+      "description_key": "institution_ideology_socialism_desc",
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 1
+      },
+      "politics": {
+        "support_classes": {
+          "Labour": 0.59,
+          "Peasant": 0.96,
+          "Officer": 0.66
+        },
+        "oppose_classes": {
+          "Merchant": 0.34
+        },
+        "support_factions": {
+          "革命": 1.0
+        },
+        "oppose_factions": {}
+      },
+      "effects_on_complete": [],
+      "features": {
+        "ideology:Socialism": 1
+      }
+    },
+    {
+      "id": "ideology_communism",
+      "name_key": "institution_ideology_communism",
+      "description_key": "institution_ideology_communism_desc",
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 1
+      },
+      "politics": {
+        "support_classes": {},
+        "oppose_classes": {
+          "Merchant": 0.94,
+          "Landlord": 0.49,
+          "Noble": 0.29
+        },
+        "support_factions": {
+          "共产": 1.0
+        },
+        "oppose_factions": {}
+      },
+      "effects_on_complete": [],
+      "features": {
+        "ideology:Communism": 1
+      }
+    },
+    {
+      "id": "ideology_religious_democracy",
+      "name_key": "institution_ideology_religious_democracy",
+      "description_key": "institution_ideology_religious_democracy_desc",
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 1
+      },
+      "politics": {
+        "support_classes": {
+          "Peasant": 0.7,
+          "Landlord": 0.57,
+          "Noble": 0.62,
+          "Army": 0.8,
+          "Officer": 1.14
+        },
+        "oppose_classes": {},
+        "support_factions": {
+          "神权": 1.0
+        },
+        "oppose_factions": {}
+      },
+      "effects_on_complete": [],
+      "features": {
+        "ideology:ReligiousDemocracy": 1
+      }
+    },
+    {
+      "id": "ideology_authoritarianism",
+      "name_key": "institution_ideology_authoritarianism",
+      "description_key": "institution_ideology_authoritarianism_desc",
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 1
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 0.66,
+          "Army": 1.02,
+          "Officer": 0.69
+        },
+        "oppose_classes": {
+          "Merchant": 0.34
+        },
+        "support_factions": {
+          "中央": 1.0
+        },
+        "oppose_factions": {}
+      },
+      "effects_on_complete": [],
+      "features": {
+        "ideology:Authoritarianism": 1
+      }
+    },
+    {
+      "id": "ideology_fascism",
+      "name_key": "institution_ideology_fascism",
+      "description_key": "institution_ideology_fascism_desc",
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 1
+      },
+      "politics": {
+        "support_classes": {
+          "Landlord": 0.52,
+          "Noble": 0.77
+        },
+        "oppose_classes": {
+          "Labour": 0.83,
+          "Peasant": 0.41,
+          "Merchant": 0.36
+        },
+        "support_factions": {
+          "攘夷": 1.0
+        },
+        "oppose_factions": {}
+      },
+      "effects_on_complete": [],
+      "features": {
+        "ideology:Fascism": 1
+      }
+    },
+    {
+      "id": "abolish_monarchy",
+      "name_key": "institution_abolish_monarchy",
+      "description_key": "institution_abolish_monarchy_desc",
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 4.0,
+        "minimum_years": 15,
+        "force_radicalism": 40.0
+      },
+      "resistance": {
+        "base_radicalism": 20.0,
+        "vested_interest_radicalism": 26.0,
+        "rebellion_threshold": 60.0,
+        "opposition_faction_growth": 3,
+        "reason_key": "institution_resistance_reason_abolish_monarchy"
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 0.8,
+          "Labour": 0.8,
+          "Peasant": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 1.5,
+          "Landlord": 0.6
+        },
+        "support_factions": {
+          "民主": 1.2,
+          "共和": 1.2,
+          "革命": 1.0,
+          "共产": 1.0
+        },
+        "oppose_factions": {
+          "血脉": 1.2,
+          "尊王": 1.0,
+          "诸侯": 0.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": -10
+        }
+      ],
+      "features": {
+        "abolish_monarchy": 1
+      }
     }
   ]
 }

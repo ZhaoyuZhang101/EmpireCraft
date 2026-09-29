@@ -73,7 +73,10 @@ public static class ParliamentSystem
     private static bool HasReachedStage(Empire empire, int stage)
     {
         ConstitutionalEconomyState state = GetState(empire);
-        if (state == null || !RegimeManager.IsMonarchy(empire.CoreKingdom?.GetRegime()?.type)) return false;
+        if (state == null) return false;
+        // 临时政府和制宪会议不是已选出的议会。
+        if (state.is_republic) return state.republic_transition_stage == 0;
+        if (!RegimeManager.IsMonarchy(empire.CoreKingdom?.GetRegime()?.type)) return false;
         return state.constitutional_monarchy ||
                state.constitutional_reform_active && state.constitutional_reform_stage >= stage;
     }
@@ -208,6 +211,11 @@ public static class ParliamentSystem
     {
         ConstitutionalEconomyState state = GetState(empire);
         if (state == null || World.world == null) return;
+        if (RepublicSystem.IsTransitioning(empire))
+        {
+            if (state.parliament_seats.Count > 0 || state.prime_minister_id > 0) Dissolve(state);
+            return;
+        }
         if (!HasParliament(empire))
         {
             if (state.parliament_seats.Count > 0 || state.prime_minister_id > 0) Dissolve(state);
@@ -263,21 +271,36 @@ public static class ParliamentSystem
         state.last_parliament_election = World.world.getCurWorldTime();
         state.last_parliament_by_election = World.world.getCurWorldTime();
         state.parliament_term++;
-        List<FixedFaction> factions = GetSeatedFactions(empire);
-        Dictionary<FixedFaction, int> allocation = AllocateSeats(factions, Config.parliament_seats);
-        var used = new HashSet<long>();
-        foreach (FixedFaction faction in factions)
+        // 开放党禁后议席按选票分给政党；此前按各派系中央占比分
+        bool partyPolitics = PartySystem.IsActive(empire);
+        List<FixedFaction> factions = partyPolitics ? PartySystem.GetParties(empire) : GetSeatedFactions(empire);
+        Dictionary<FixedFaction, float> votes = partyPolitics ? PartySystem.CountVotes(empire, factions) : null;
+        // 普选后按行政区选举(区内按比例)；此前全国统一按得票/中央占比分
+        List<(FixedFaction faction, long district)> slots;
+        if (partyPolitics && PartySystem.HasUniversalSuffrage(empire))
+            slots = PartySystem.AllocateDistrictSeats(empire, factions, Config.parliament_seats);
+        else
         {
-            if (!allocation.TryGetValue(faction, out int count) || count <= 0) continue;
-            List<Actor> members = RankCandidates(empire, faction, used).Take(count).ToList();
-            for (int i = 0; i < count; i++)
-            {
-                Actor actor = i < members.Count ? members[i] : null;
-                if (actor != null) used.Add(actor.id);
-                state.parliament_seats.Add(new ParliamentSeat { faction_id = faction.GetID(), actor_id = actor?.id ?? -1L });
-            }
+            Dictionary<FixedFaction, int> national = AllocateSeats(factions, Config.parliament_seats,
+                votes == null ? null : faction => votes.TryGetValue(faction, out float count) ? count : 0f);
+            slots = factions.SelectMany(faction => Enumerable.Repeat((faction, -1L),
+                national.TryGetValue(faction, out int count) ? count : 0)).ToList();
         }
+        Dictionary<FixedFaction, int> allocation = slots.GroupBy(slot => slot.faction)
+            .ToDictionary(group => group.Key, group => group.Count());
+        var used = new HashSet<long>();
+        foreach ((FixedFaction faction, long district) in slots)
+        {
+            Actor actor = PickCandidate(empire, faction, district, used);
+            if (actor != null) used.Add(actor.id);
+            state.parliament_seats.Add(new ParliamentSeat
+                { faction_id = faction.GetID(), actor_id = actor?.id ?? -1L, district_kingdom_id = district });
+        }
+        if (partyPolitics) PartySystem.AfterElection(empire, allocation, Config.parliament_seats);
         ElectPrimeMinister(empire, state);
+        RepublicSystem.OnFirstRepublicElection(empire);
+        // 共和国：大选后由执政党领袖出任元首
+        RepublicSystem.UpdateHeadOfState(empire);
     }
 
     // 补选：议员去世、离开帝国或改换派系后，由原派系另推一人；返回是否有议席变动
@@ -290,7 +313,7 @@ public static class ParliamentSystem
         {
             if (IsSeatHolderValid(empire, seat)) continue;
             FixedFaction faction = FindFaction(empire, seat.faction_id);
-            Actor replacement = faction == null ? null : RankCandidates(empire, faction, used).FirstOrDefault();
+            Actor replacement = faction == null ? null : PickCandidate(empire, faction, seat.district_kingdom_id, used);
             long newId = replacement?.id ?? -1L;
             if (newId == seat.actor_id) continue;
             seat.actor_id = newId;
@@ -305,6 +328,14 @@ public static class ParliamentSystem
         if (seat.actor_id <= 0) return false;
         Actor actor = World.world.units.get(seat.actor_id);
         return IsValidMember(empire, actor) && actor.GetFaction()?.GetID() == seat.faction_id;
+    }
+
+    // 执政党解散等情况下立即重新组阁
+    public static void ReelectGovernment(Empire empire)
+    {
+        if (!HasParliament(empire)) return;
+        ElectPrimeMinister(empire, GetState(empire));
+        RepublicSystem.UpdateHeadOfState(empire);
     }
 
     private static void ElectPrimeMinister(Empire empire, ConstitutionalEconomyState state)
@@ -398,16 +429,19 @@ public static class ParliamentSystem
             .ToList() ?? new List<FixedFaction>();
 
     // 最大余额法：先按份额取整，剩余议席给小数部分最大的派系
-    public static Dictionary<FixedFaction, int> AllocateSeats(List<FixedFaction> factions, int seats)
+    // weightOf 为空时按中央占比分(党禁时期的派系)；政党选举时传入得票
+    public static Dictionary<FixedFaction, int> AllocateSeats(List<FixedFaction> factions, int seats,
+        Func<FixedFaction, float> weightOf = null)
     {
+        weightOf ??= faction => Math.Max(0, faction.CentralRatio);
         var result = new Dictionary<FixedFaction, int>();
-        float total = factions.Sum(faction => (float)Math.Max(0, faction.CentralRatio));
+        float total = factions.Sum(faction => Math.Max(0f, weightOf(faction)));
         if (factions.Count == 0 || total <= 0f || seats <= 0) return result;
         var remainders = new List<(FixedFaction faction, float remainder)>();
         int assigned = 0;
         foreach (FixedFaction faction in factions)
         {
-            float quota = Math.Max(0, faction.CentralRatio) / total * seats;
+            float quota = Math.Max(0f, weightOf(faction)) / total * seats;
             int whole = (int)Math.Floor(quota);
             result[faction] = whole;
             assigned += whole;
@@ -426,6 +460,14 @@ public static class ParliamentSystem
             .OrderByDescending(actor => actor.HasOfficeIdentity())
             .ThenByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? 0d)
             .ThenByDescending(actor => actor.renown);
+
+    // 有选区时优先选本区住民，没有合适的再从全党挑
+    private static Actor PickCandidate(Empire empire, FixedFaction faction, long district, HashSet<long> exclude)
+    {
+        List<Actor> ranked = RankCandidates(empire, faction, exclude).ToList();
+        return (district > 0 ? ranked.FirstOrDefault(actor => actor.kingdom?.id == district) : null) ??
+               ranked.FirstOrDefault();
+    }
 
     // 议员与总理的资格：在世、成年、身在本帝国，且不是皇帝本人
     private static bool IsValidMember(Empire empire, Actor actor) =>

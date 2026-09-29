@@ -6,6 +6,28 @@
         "setting": {
             "regime": "LvLing",
             "institution_line": "Huaxia",
+            // 政党命名词库：理念 → 词库名，对应 Locales/Cultures/Culture_Huaxia/Huaxia<词库名>.csv
+            // 理念可选：Anarchism, SocialDemocracy, Libertarianism, SocialLiberalism, Capitalism, ConservativeLiberalism, Centrism, Socialism, Communism, ReligiousDemocracy, Authoritarianism, Conservatism, Fascism
+            // 没配的理念会用 Locales/Cultures/PartyNames/Party<理念>.csv 的通用党名
+            "Party": {
+                "groups": {
+                    "Anarchism": "PartyAnarchism",
+                    "SocialDemocracy": "PartySocialDemocracy",
+                    "Libertarianism": "PartyLibertarianism",
+                    "SocialLiberalism": "PartySocialLiberalism",
+                    "Capitalism": "PartyCapitalism",
+                    "ConservativeLiberalism": "PartyConservativeLiberalism",
+                    "Centrism": "PartyCentrism",
+                    "Socialism": "PartySocialism",
+                    "Communism": "PartyCommunism",
+                    "ReligiousDemocracy": "PartyReligiousDemocracy",
+                    "Authoritarianism": "PartyAuthoritarianism",
+                    "Conservatism": "PartyConservatism",
+                    "Fascism": "PartyFascism"
+                },
+                // 改制共和后的国号后缀词库：理念 → 词库名(规则同上)；没配的理念用 Locales/Cultures/PartyNames/Suffix<理念>.csv
+                "suffix_groups": {}
+            },
             "traits": ["patriarchy"],
             "City": {
                 "groups": {

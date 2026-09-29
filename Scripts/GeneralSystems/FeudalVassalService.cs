@@ -64,10 +64,20 @@ public static class FeudalVassalService
     public static bool Bind(Kingdom lord, Kingdom subject)
     {
         if (!CanBind(lord, subject) || !subject.hasKing()) return false;
-        if (GetOverlord(subject) == lord) return true;
+        if (GetOverlord(subject) == lord)
+        {
+            if (subject.HasTakenAlliance())
+            {
+                subject.RemoveTakenAlliance();
+                subject.updateColor(lord.getColor());
+                SyncColors(subject);
+            }
+            return true;
+        }
         if (GetOverlord(subject) != null) Break(subject);
         Empire formerEmpire = subject.GetEmpire();
         if (formerEmpire != null) formerEmpire.leave(subject);
+        if (subject.HasTakenAlliance()) subject.RemoveTakenAlliance();
         var data = subject.GetOrCreate();
         data.feudal_overlord_kingdom_id = lord.id;
         data.feudal_vassal_level = 1;
@@ -80,7 +90,7 @@ public static class FeudalVassalService
         return true;
     }
 
-    public static void Break(Kingdom subject)
+    public static void Break(Kingdom subject, bool restoreOriginalColor = false)
     {
         if (subject?.data == null || subject.isRekt()) return;
         var data = subject.GetOrCreate();
@@ -89,7 +99,8 @@ public static class FeudalVassalService
         data.feudal_vassal_level = 0;
         data.feudal_vassal_progress = 0;
         data.feudal_last_control_timestamp = -1d;
-        subject.generateColor();
+        if (restoreOriginalColor) subject.RestoreOriginalKingdomColor();
+        else subject.generateColor();
         SyncColors(subject);
     }
 
@@ -108,6 +119,7 @@ public static class FeudalVassalService
                 PersonalUnionService.OnKingCrowned(subject, subject.king);
             return;
         }
+        if (subject.HasTakenAlliance()) subject.RemoveTakenAlliance();
         if (subject.getColor() != lord.getColor()) subject.updateColor(lord.getColor());
         if (subject.GetOrCreate().feudal_vassal_level >= 3 && subject.hasAlliance())
             subject.getAlliance().leave(subject);
@@ -234,7 +246,8 @@ public static class FeudalVassalService
         return visited.Sum(id => World.world.kingdoms.get(id)?.GetNationalPower() ?? 0d);
     }
 
-    public static bool CanDeclareExternalWar(Kingdom attacker, Kingdom target)
+    public static bool CanDeclareExternalWar(Kingdom attacker, Kingdom target,
+        bool includeImperialMembers = false)
     {
         if (attacker == null || target == null || attacker == target || !target.isAlive() ||
             attacker.IsInSameEmpire(target) ||
@@ -252,8 +265,15 @@ public static class FeudalVassalService
             if (level == 2 && (World.world?.diplomacy?.getOpinion(lord, target)?.total ?? 0) >= 0)
                 return false;
         }
-        return (World.world?.diplomacy?.getOpinion(attacker, target)?.total ?? 0) < 0 &&
-               GetWarPower(attacker, false) > GetWarPower(target, true);
+        bool hostile = (World.world?.diplomacy?.getOpinion(attacker, target)?.total ?? 0) < 0;
+        if (!hostile && includeImperialMembers && attacker.IsEmpire())
+        {
+            Empire empire = attacker.GetEmpire();
+            hostile = empire?.kingdoms_list?.Any(member => member != null && !member.isRekt() &&
+                member != attacker && member.IsNeighbourWith(target) &&
+                (World.world?.diplomacy?.getOpinion(member, target)?.total ?? 0) < 0) == true;
+        }
+        return hostile && GetWarPower(attacker, false) > GetWarPower(target, true);
     }
 
     public static bool CanSeekIndependence(Kingdom subject)

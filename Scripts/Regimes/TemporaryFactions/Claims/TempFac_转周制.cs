@@ -1,3 +1,4 @@
+using EmpireCraft.Scripts.System;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
@@ -49,7 +50,7 @@ public class TempFac_转周制 : TemporaryFaction
                 {
                     if (!child.isKing())
                     {
-                        if (kingdom.king.GetSpecificClan() != empire.EmpireSpecificClan)
+                        if (!SpecificClanManager.SameLineage(kingdom.king.GetSpecificClan(), empire.EmpireSpecificClan))
                         {
                             kingdom.setKing(child);
                             child.setCity(kingdom.capital);

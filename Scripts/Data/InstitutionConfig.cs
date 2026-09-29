@@ -249,6 +249,7 @@ public static class InstitutionFeatures
     public const string TheocraticState = "theocratic_state";
     // 派系诉求"开科取士""转天朝制度"要推动的改革目标
     public const string ClaimReformPrefix = "claim_reform:";
+    public const string UrbanProductionStage = "urban_production_stage";
 }
 
 public sealed class InstitutionResearchConfig

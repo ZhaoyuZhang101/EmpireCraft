@@ -677,6 +677,114 @@
           "value": "逃人法"
         }
       ]
+    },
+    {
+      "template": "lift_party_ban",
+      "id": "youmu_lift_party_ban",
+      "branch": "administration",
+      "advancement": 5,
+      "requires": [
+        "youmu_dual_administration"
+      ]
+    },
+    {
+      "template": "universal_suffrage",
+      "id": "youmu_universal_suffrage",
+      "branch": "society",
+      "advancement": 6,
+      "requires": [
+        "youmu_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_capitalism",
+      "id": "youmu_ideology_capitalism",
+      "branch": "ideology",
+      "advancement": 7,
+      "requires": [
+        "youmu_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_libertarianism",
+      "id": "youmu_ideology_libertarianism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "youmu_ideology_capitalism"
+      ]
+    },
+    {
+      "template": "ideology_religious_democracy",
+      "id": "youmu_ideology_religious_democracy",
+      "branch": "ideology",
+      "advancement": 7,
+      "requires": [
+        "youmu_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_authoritarianism",
+      "id": "youmu_ideology_authoritarianism",
+      "branch": "ideology",
+      "advancement": 7,
+      "requires": [
+        "youmu_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_social_democracy",
+      "id": "youmu_ideology_social_democracy",
+      "branch": "ideology",
+      "advancement": 7,
+      "requires": [
+        "youmu_universal_suffrage"
+      ]
+    },
+    {
+      "template": "ideology_socialism",
+      "id": "youmu_ideology_socialism",
+      "branch": "ideology",
+      "advancement": 7,
+      "requires": [
+        "youmu_universal_suffrage"
+      ]
+    },
+    {
+      "template": "ideology_communism",
+      "id": "youmu_ideology_communism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "youmu_ideology_socialism"
+      ]
+    },
+    {
+      "template": "ideology_anarchism",
+      "id": "youmu_ideology_anarchism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "youmu_ideology_socialism"
+      ]
+    },
+    {
+      "template": "ideology_fascism",
+      "id": "youmu_ideology_fascism",
+      "branch": "ideology",
+      "advancement": 8,
+      "requires": [
+        "youmu_ideology_authoritarianism"
+      ]
+    },
+    {
+      "template": "abolish_monarchy",
+      "id": "youmu_abolish_monarchy",
+      "branch": "administration",
+      "advancement": 6,
+      "requires": [
+        "youmu_lift_party_ban"
+      ]
     }
   ],
   "default_resistance_reason_key": "institution_resistance_reason_tribal_privilege",

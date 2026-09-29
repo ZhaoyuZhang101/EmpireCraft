@@ -106,11 +106,25 @@ public static class EmpireCraftTooltipLibrary
             prefab_id = "tooltips/tooltip_normal",
             callback = showCultureShareTooltip
         });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = "empirecraft_ideology_share",
+            prefab_id = "tooltips/tooltip_normal",
+            callback = showIdeologyShareTooltip
+        });
+        // 窗口里"理念"一行的提示(见 IdeologyRowPatch)
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = GamePatches.IdeologyRowPatch.TooltipId,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = GamePatches.IdeologyRowPatch.ShowIdeologyTooltip
+        });
     }
 
     private static void showActorNormal(Tooltip pTooltip, string pType, TooltipData pData)
     {
 	    AssetManager.tooltips.showActor("", pTooltip, pData);
+        AddActorIdeology(pTooltip, pData?.actor);
     }
 
     private static void showLeader(Tooltip pTooltip, string pType, TooltipData pData)
@@ -123,6 +137,7 @@ public static class EmpireCraftTooltipLibrary
 		    subTitle = office.GetName(city);
 	    }
 	    AssetManager.tooltips.showActor(string.IsNullOrEmpty(subTitle)?"village_statistics_leader":subTitle, pTooltip, pData);
+        AddActorIdeology(pTooltip, pData?.actor);
     }
 
     private static void showKing(Tooltip pTooltip, string pType, TooltipData pData)
@@ -135,6 +150,7 @@ public static class EmpireCraftTooltipLibrary
 		    subTitle = office.GetName(kingdom);
 	    }
 	    AssetManager.tooltips.showActor(string.IsNullOrEmpty(subTitle)?"village_statistics_king":subTitle, pTooltip, pData);
+        AddActorIdeology(pTooltip, pData?.actor);
     }
 	public static void showKingdom(Tooltip pTooltip, string pType, TooltipData pData)
 	{
@@ -199,9 +215,10 @@ public static class EmpireCraftTooltipLibrary
 		{
 			pTooltip.addLineText("language", kingdom.language.data.name, kingdom.language.getColor().color_text);
 		}
-		if (kingdom.hasReligion())
+		if (kingdom.capital != null)
 		{
-			pTooltip.addLineText("religion", kingdom.religion.data.name, kingdom.religion.getColor().color_text);
+			PartyIdeology ideology = IdeologyPopulationSystem.GetDominant(kingdom.capital);
+			pTooltip.addLineText("ideology_population_title", PartySystem.GetIdeologyName(ideology), "#7FD8EA");
 		}
 		Alliance alliance = kingdom.getAlliance();
 		if (alliance != null)
@@ -280,8 +297,9 @@ public static class EmpireCraftTooltipLibrary
                 pValue = pEmpire.Emperor.getName();
             }
         }
-        pTooltip.addLineText("emperor", pValue, "#FE9900", false, true, 21);
-        if (pEmpire.EmpireClan != null)
+        bool republic = RepublicSystem.IsRepublic(pEmpire);
+        pTooltip.addLineText(republic ? "head_of_state" : "emperor", pValue, "#FE9900", false, true, 21);
+        if (!republic && pEmpire.EmpireClan != null)
         {
             if (pEmpire.EmpireClan.isAlive())
             {
@@ -290,7 +308,13 @@ public static class EmpireCraftTooltipLibrary
         }
         pTooltip.addLineText("empire_capital", pEmpire.CoreKingdom.GetKingdomFullName(), "#CC6CE7", false, true, 21);
         Regime regime = pEmpire.CoreKingdom.GetRegime();
-        if (regime?.HasEraName() == true && pEmpire.HasYearName())
+        if (republic)
+        {
+            pTooltip.addLineText(RepublicSystem.GetCalendarMode(pEmpire) == RepublicSystem.CommonEraCalendar
+                ? "republic_common_era_label" : "republic_era_label",
+                RepublicSystem.GetCalendarText(pEmpire), "#FE9900", false, true, 21);
+        }
+        else if (regime?.HasEraName() == true && pEmpire.HasYearName())
         {
             pTooltip.addLineText("year_name", pEmpire.GetYearNameWithTime(), "#FE9900", false, true, 21);
         }
@@ -501,11 +525,22 @@ public static class EmpireCraftTooltipLibrary
     private static void showOfficer(Tooltip pTooltip, string pType, TooltipData pData)
     {
         AssetManager.tooltips.showActor("actor_officer", pTooltip, pData);
+        AddActorIdeology(pTooltip, pData?.actor);
     }
 
     private static void showEmperor(Tooltip pTooltip, string pType, TooltipData pData)
     {
         AssetManager.tooltips.showActor("actor_emperor", pTooltip, pData);
+        AddActorIdeology(pTooltip, pData?.actor);
+    }
+
+    private static void AddActorIdeology(Tooltip tooltip, Actor actor)
+    {
+        if (tooltip == null || actor == null || actor.isRekt()) return;
+        tooltip.addLineText("ideology_population_title",
+            PartySystem.GetIdeologyName(IdeologyPopulationSystem.Get(actor)), "#7FD8EA");
+        tooltip.addLineText("ideology_social_class_title",
+            LM.Get($"class_{actor.GetOrCreate().socialClass}"), "#E0C783");
     }
 
     // 文化图层悬停某城市时显示：该城市自己的文化影响力前三（不要求它是所属文化的
@@ -530,6 +565,15 @@ public static class EmpireCraftTooltipLibrary
 
         if (CultureService.IsValidCulture(dominantCulture))
             pTooltip.addLineText("city_official_culture", dominantCulture.GetCultureTranslate(), "#FFD91A");
+
+        Dictionary<PartyIdeology, int> ideologies = IdeologyPopulationSystem.GetCityCounts(city);
+        if (ideologies.Count > 0)
+        {
+            KeyValuePair<PartyIdeology, int> dominant = ideologies.OrderByDescending(pair => pair.Value).First();
+            pTooltip.addLineText("ideology_population_title",
+                $"{PartySystem.GetIdeologyName(dominant.Key)} {100f * dominant.Value / ideologies.Values.Sum():0.#}%",
+                "#7FD8EA");
+        }
 
         foreach (KeyValuePair<string, float> pair in topShares)
         {
@@ -586,6 +630,25 @@ public static class EmpireCraftTooltipLibrary
         }
     }
 
+    private static void showIdeologyShareTooltip(Tooltip tooltip, string type, TooltipData data)
+    {
+        City city = data?.city;
+        if (city == null || city.isRekt()) return;
+        Dictionary<PartyIdeology, int> counts = IdeologyPopulationSystem.GetCityCounts(city);
+        int total = counts.Values.Sum();
+        tooltip.clear();
+        tooltip.setTitle(city.GetCityFullName(), "ideology_population_title", "#FFFFFF");
+        foreach (KeyValuePair<PartyIdeology, int> pair in counts.OrderByDescending(pair => pair.Value).Take(5))
+        {
+            ColorAsset color = EmpireCraftNamePlateLibrary.GetIdeologyColorAsset(pair.Key);
+            string hex = color == null ? "#7FD8EA" : "#" + ColorUtility.ToHtmlStringRGB(color.getColorBanner());
+            tooltip.addLineText(PartySystem.GetIdeologyName(pair.Key),
+                total == 0 ? "0%" : $"{100f * pair.Value / total:0.#}%",
+                hex,
+                pPercent: false, pLocalize: false);
+        }
+    }
+
     private static void showEmpireCraftActor(Tooltip pTooltip, string pType, TooltipData pData)
     {
         Actor actor = pData.actor;
@@ -612,6 +675,7 @@ public static class EmpireCraftTooltipLibrary
         AddTooltipLine(pTooltip, "empirecraft_actor_office", GetFullOfficeName(actor, identity), "#76E6C2");
         AddTooltipLine(pTooltip, "empirecraft_actor_peerage", GetPeerageName(actor, identity), "#FFB45C");
         AddTooltipLine(pTooltip, "empirecraft_actor_faction", actor?.GetFaction()?.Name ?? identity?.factionName, "#E78BFF");
+        if (actor != null) AddActorIdeology(pTooltip, actor);
 
         pTooltip.addLineBreak();
         AddTooltipLine(pTooltip, "empirecraft_actor_specific_clan",

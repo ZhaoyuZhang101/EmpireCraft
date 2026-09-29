@@ -76,6 +76,18 @@ public class CityWindowPatch : GamePatch
         __instance.showStatRow("city_landless_population", $"{land.LandlessPopulationRatio:P0}",
             land.LandlessPopulationRatio >= LandEconomySystem.RebellionLandlessThreshold ? "#E66B66" : "#B8C6CC",
             pIconPath: "iconChildren");
+        UrbanEmploymentReport employment = UrbanEmploymentSystem.GetReport(metaObject);
+        __instance.showStatRow("city_production_stage",
+            LM.Get($"urban_production_stage_{employment.Stage}"), "#F3C34A", pIconPath: "iconMoney");
+        __instance.showStatRow("city_workshop_employment",
+            $"{employment.Employed}/{employment.Capacity}", "#7FD8EA", pIconPath: "iconMoney");
+        __instance.showStatRow("city_job_sources",
+            string.Format(LM.Get("city_job_sources_format"), employment.Buildings, employment.Merchants,
+                employment.RecentVoyages), "#B8C6CC", pIconPath: "iconMoney");
+        __instance.showStatRow("city_worker_population", employment.Workers.ToString(), "#7FD8EA",
+            pIconPath: "iconChildren");
+        __instance.showStatRow("city_job_seekers", employment.AvailableResidents.ToString(), "#B8C6CC",
+            pIconPath: "iconChildren");
         for (int index = 0; index < land.Holders.Count; index++)
         {
             CityLandHolderView holder = land.Holders[index];

@@ -119,8 +119,20 @@ namespace EmpireCraft.Scripts.UI.Windows
             //左侧信息栏
             var leftPart = topSpace.BeginVertGroup(new Vector2(50, 56), pSpacing: 0,
                 pAlignment:TextAnchor.MiddleCenter);
-            leftPart.AddTextIntoVertLayout($"{LM.Get("empire_clan")}: {(_empire.EmpireSpecificClan?.name??""+ " " + LM.Get("Clan")).ColorString(_empire.EmpireSpecificClan?.color??"#FFFFFF")}", size:new Vector2(50, 10));
-            leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count??0)}", size:new Vector2(50, 10));
+            bool republic = RepublicSystem.IsRepublic(_empire);
+            if (republic)
+            {
+                // 共和国：没有皇室、没有历代皇帝，改为执政党与共和年数
+                FixedFaction governing = ParliamentSystem.GetGoverningFaction(_empire) ??
+                                         _empire.CoreKingdom.GetRegime()?.GetDominateFaction();
+                leftPart.AddTextIntoVertLayout($"{LM.Get("republic_ruling_party")}: {(governing?.Name ?? LM.Get("label_none")).ColorString("#C9A7E8")}", size:new Vector2(50, 10));
+                leftPart.AddTextIntoVertLayout(string.Format(LM.Get("republic_years_format"), RepublicSystem.GetRepublicYears(_empire)), size:new Vector2(50, 10));
+            }
+            else
+            {
+                leftPart.AddTextIntoVertLayout($"{LM.Get("empire_clan")}: {(_empire.EmpireSpecificClan?.name??""+ " " + LM.Get("Clan")).ColorString(_empire.EmpireSpecificClan?.color??"#FFFFFF")}", size:new Vector2(50, 10));
+                leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count??0)}", size:new Vector2(50, 10));
+            }
             leftPart.AddTextIntoVertLayout($"{LM.Get("i_population")}: {_empire.CountPopulation()}/{_empire.countMaxPopulation()}", size:new Vector2(50, 10));
             leftPart.AddTextIntoVertLayout($"{LM.Get("national_power")}: {_empire.GetNationalPower():0.##}", size:new Vector2(50, 10));
             // 原来放在下面"帝国文化特点"面板里的两条基础信息(当前制度/统治文化)，挪到这里跟
@@ -132,20 +144,30 @@ namespace EmpireCraft.Scripts.UI.Windows
             // 人物区固定为 hori(继任者, vert(皇帝, 权臣), 皇后)。
             var avatarRow = topSpace.BeginHoriGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleCenter,
                 pSize: new Vector2(92, 62));
-            avatarRow.AddActorViewIntoHoriLayout(_empire.CoreKingdom.GetHeir(),
-                description:LM.Get("empire_heir").ColorString(pColor:new Color(0.8f,0.0f,1f)));
+            // 共和国没有储君、皇后这些位置
+            if (!republic)
+                avatarRow.AddActorViewIntoHoriLayout(_empire.CoreKingdom.GetHeir(),
+                    description:LM.Get("empire_heir").ColorString(pColor:new Color(0.8f,0.0f,1f)));
             
             //中央信息栏
             var centerPart = avatarRow.BeginVertGroup(new Vector2(30, 60), pSpacing:0,
                 pAlignment:TextAnchor.MiddleCenter);
-            string emperorTitle = LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B")
+            string emperorTitle = (republic
+                    ? LM.Get("bureau_head_of_state")
+                    : LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B"))
                 .ColorString(pColor:new Color(1,0.8f,0));
             if (_empire.data.is_been_controlled)
             {
                 emperorTitle += "\n" + LM.Get("powerful_minister_status_puppet").ColorString(pColor:new Color(0.65f,0.75f,0.85f));
             }
             centerPart.AddActorViewIntoVertLayout(_empire.Emperor, description:emperorTitle);
-            if (ParliamentSystem.HasParliament(_empire))
+            if (republic)
+            {
+                // 共和国元首就是执政党领袖，下面改放反对党领袖
+                centerPart.AddActorViewIntoVertLayout(RepublicSystem.GetOppositionLeader(_empire),
+                    description:LM.Get("republic_opposition_leader").ColorString(pColor:new Color(0.35f,0.85f,1f)));
+            }
+            else if (ParliamentSystem.HasParliament(_empire))
             {
                 // 议会存续期间，权臣的位置改由议会选出的总理大臣占据
                 AddPrimeMinisterView(centerPart);
@@ -165,10 +187,13 @@ namespace EmpireCraft.Scripts.UI.Windows
                 centerPart.AddActorViewIntoVertLayout(powerfulMinister, description:powerfulMinisterDescription);
             }
             
-            Actor lover = _empire.Emperor?.lover;
-            avatarRow.AddActorViewIntoHoriLayout(lover,
-                description:LM.Get(lover?.isSexFemale() == false ? "empire_lover_B" : "empire_lover_G")
-                    .ColorString(pColor:new Color(1f,0.1f,0.5f)));
+            if (!republic)
+            {
+                Actor lover = _empire.Emperor?.lover;
+                avatarRow.AddActorViewIntoHoriLayout(lover,
+                    description:LM.Get(lover?.isSexFemale() == false ? "empire_lover_B" : "empire_lover_G")
+                        .ColorString(pColor:new Color(1f,0.1f,0.5f)));
+            }
             
             //右侧信息栏
             var rightPart = topSpace.BeginVertGroup(new Vector2(50, 46), pSpacing: 0,
@@ -177,7 +202,11 @@ namespace EmpireCraft.Scripts.UI.Windows
                                             $"{_empire.GetMembersWithTrait("jingshi").Count.ToString().ColorString("#E16A54")}/" +
                                             $"{_empire.GetMembersWithTrait("gongshi").Count.ToString().ColorString("#CB9DF0")}/" +
                                             $"{_empire.GetMembersWithTrait("juren").Count.ToString()}".ColorString("#A2D2DF"), size:new Vector2(50, 10));
-            rightPart.AddTextIntoVertLayout($"{_empire.GetYearNameWithTime().ColorString(pColor:_empire.getColor()._color_text)}", size:new Vector2(50, 10));
+            // 共和国显示其选定的纪年方式。
+            string yearText = republic
+                ? RepublicSystem.GetCalendarText(_empire)
+                : _empire.GetYearNameWithTime();
+            rightPart.AddTextIntoVertLayout($"{yearText.ColorString(pColor:_empire.getColor()._color_text)}", size:new Vector2(50, 10));
             rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.CoreKingdom.getAge()}", size:new Vector2(50, 10));
             rightPart.AddTextIntoVertLayout(
                 $"{LM.Get("composite_empire_ruling_culture")}: {GetCultureDisplayName(CultureService.GetRealmCulture(_empire.CoreKingdom))}",

@@ -253,7 +253,11 @@ public static class UIHelper
     // AbstractWideWindow.SetSize 只改 BackgroundTransform(和标题/关闭按钮)的尺寸，里面的
     // Scroll View、Viewport、Content 和滚动条仍保留窄窗口尺寸。宽窗口必须把这三层一起拉伸；
     // Content 上原版的窄背景也要关掉，否则会在宽图中间留下一个黑色小窗口。
-    public static void FixWideWindowScrollArea(Transform backgroundTransform, float topMargin = 40f,
+    // 宽窗口的标题栏压在窗口上沿、并不占用窗口内部空间，顶部只需让出边框的厚度；
+    // 之前给 40 是照搬窄窗口，结果滚动区可见范围从窗口中部才开始，上面空一大截。
+    public const float WideWindowTopMargin = 12f;
+
+    public static void FixWideWindowScrollArea(Transform backgroundTransform, float topMargin = WideWindowTopMargin,
         float bottomMargin = 6f, float sideMargin = 6f)
     {
         if (backgroundTransform == null) return;
@@ -263,7 +267,7 @@ public static class UIHelper
     }
 
     public static IEnumerator StabilizeWideWindowScrollArea(Transform backgroundTransform,
-        float topMargin = 40f, float bottomMargin = 6f, float sideMargin = 6f)
+        float topMargin = WideWindowTopMargin, float bottomMargin = 6f, float sideMargin = 6f)
     {
         // Re-apply after the empty-window opening animation and its first layout passes. Those
         // passes restore the prefab's original narrow scrollbar coordinates.
@@ -580,59 +584,10 @@ public static class UIHelper
     /// <param name="kingdom">派系所属国家</param>
     public static void InitialFactionSpace(AutoHoriLayoutGroup layout, Kingdom kingdom, List<GameObject> groups=null)
     {
-        if (layout == null || kingdom == null || kingdom.isRekt()) return;
-        var factionSpace = layout;
-        Regime regime = kingdom.GetRegime();
-        if (regime == null)
-        {
-            kingdom.LoadRegime();
-            regime = kingdom.GetRegime();
-        }
-        if (regime == null) return;
-
-        List<FixedFaction> factions = regime.GetPlayerFactions()?.Where(faction => faction != null).ToList()
-                                      ?? new List<FixedFaction>();
-        foreach (FixedFaction faction in factions)
-        {
-            try
-            {
-                faction.FixMissedTemporaryFactions();
-                AddFactionCard(faction, kingdom, factionSpace);
-            }
-            catch (Exception exception)
-            {
-                LogService.LogError($"派系卡片绘制失败 ({faction.Name ?? faction.Type.ToString()}): {exception}");
-            }
-        }
-        
-        if (factions.Count < 3)
-        {
-            for (int i = 0; i < 3-factions.Count; i++)
-            {
-                var addFaction = factionSpace.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(55, 90));
-                addFaction.AddButtonIntoVertLayout("add_faction", "", () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(15, 15));
-                addFaction?.transform.AddStretchBackground("FactionFrame", size: new Vector2(55, 90));
-            }
-        }
-        factionSpace.transform.AddStretchBackground("regimeFrame", size:new Vector2(180, 100));
-        regime.FactionSpace = factionSpace;
-        var bottom = factionSpace.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
-        bottom.AddButtonIntoHoriLayout("recover_faction", "", () =>
-        {
-            factionSpace.transform.ClearChildren();
-            kingdom.GetRegime().RecoverFactions();
-            InitialFactionSpace(factionSpace, kingdom, groups);
-            var res = FactionManager.Save();
-            ActionLibrary.showWhisperTip(res ? "save_success" : "save_failed");
-        }, SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(10, 10), showTip:true);
-        bottom.AddButtonIntoHoriLayout("save_faction", "", () =>
-        {
-            FactionManager.Config.PlayerRegimeFactions[kingdom.GetRegime().type] = kingdom.GetRegime().GetPlayerFactions().Select(f=>f.DeepClone()).ToList();
-            var res = FactionManager.Save();
-            ActionLibrary.showWhisperTip(res ? "save_success" : "save_failed");
-        }, SpriteTextureLoader.getSprite("ui/icons/iconSaveLocal"), size: new Vector2(10, 10), showTip:true);
-        bottom?.gameObject.AdjustTopPart(bottom.transform, Vector2.up*8);
-        groups?.Add(factionSpace.gameObject);
+        // 政体窗口和帝国界面统一用同一套横式派系面板，不再各画一套(原来这里是三张竖卡片)。
+        if (layout == null) return;
+        InitialEmpireFactionSpace(layout, kingdom);
+        groups?.Add(layout.gameObject);
     }
 
     /// <summary>
@@ -656,7 +611,20 @@ public static class UIHelper
         Empire empire = kingdom.GetEmpire();
         FactionClassSystem.EnsureEmpireProfiles(empire, factions);
 
-        float panelHeight = 19f + factions.Count * 34f + (factions.Count < 3 ? 20f : 0f);
+        // 开放党禁后：底部换成"组建X党"按钮(每个可用理念一个，两个一行)
+        bool partyMode = empire != null && PartySystem.IsActive(empire);
+        Dictionary<PartyIdeology, int> ideologyCounts = partyMode
+            ? IdeologyPopulationSystem.GetEmpireCounts(empire) : null;
+        int ideologyPopulation = ideologyCounts?.Values.Sum() ?? 0;
+        List<PartyIdeology> foundable = partyMode
+            ? Enum.GetValues(typeof(PartyIdeology)).Cast<PartyIdeology>()
+                .Where(ideology => ideologyPopulation > 0 &&
+                    ideologyCounts.TryGetValue(ideology, out int supporters) &&
+                    supporters >= ideologyPopulation * IdeologyPopulationSystem.PartyFoundingShare).ToList()
+            : new List<PartyIdeology>();
+        float bottomHeight = partyMode ? Mathf.CeilToInt(foundable.Count / 2f) * 15f + 4f
+            : factions.Count < 3 ? 20f : 0f;
+        float panelHeight = 19f + factions.Count * 34f + bottomHeight;
         RectTransform overviewRect = layout.GetComponent<RectTransform>();
         overviewRect.sizeDelta = new Vector2(196, panelHeight);
         LayoutElement overviewElement = layout.GetComponent<LayoutElement>() ?? layout.gameObject.AddComponent<LayoutElement>();
@@ -667,7 +635,9 @@ public static class UIHelper
         var panel = layout.BeginVertGroup(new Vector2(194, panelHeight), pSpacing: 2,
             pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(3, 3, 2, 2));
         var header = panel.BeginHoriGroup(new Vector2(188, 13), TextAnchor.MiddleCenter, 2);
-        var title = header.AddTextIntoHoriLayout(LM.Get("empire_faction_landscape").ColorString("#7FD8EA"),
+        // 开放党禁后派系已改组为政党
+        string landscapeKey = factions.Any(faction => faction.IsParty) ? "empire_party_landscape" : "empire_faction_landscape";
+        var title = header.AddTextIntoHoriLayout(LM.Get(landscapeKey).ColorString("#7FD8EA"),
             true, TextAnchor.MiddleLeft, new Vector2(158, 12));
         title.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
         header.AddButtonIntoHoriLayout("recover_faction", "", () =>
@@ -698,7 +668,31 @@ public static class UIHelper
             }
         }
 
-        if (factions.Count < 3)
+        if (partyMode)
+        {
+            for (int start = 0; start < foundable.Count; start += 2)
+            {
+                var foundRow = panel.BeginHoriGroup(new Vector2(188, 14), TextAnchor.MiddleCenter, 2);
+                foreach (PartyIdeology ideology in foundable.Skip(start).Take(2))
+                {
+                    PartyIdeology target = ideology;
+                    bool can = PartySystem.CanPlayerFound(empire, target, out string reason);
+                    var button = foundRow.AddButtonIntoHoriLayout($"party_found_{target}",
+                        string.Format(LM.Get("party_found_button"), PartySystem.GetIdeologyName(target))
+                            .ColorString(can ? "#FFFFFF" : "#8FA0A8"),
+                        () =>
+                        {
+                            if (PartySystem.PlayerFoundParty(empire, target) != null)
+                                RefreshEmpireFactionSpace(layout, kingdom);
+                            else ActionLibrary.showWhisperTip(reason);
+                        }, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(91, 13));
+                    AttachTextTooltip(button.gameObject, $"party_found_{target}",
+                        string.Format(LM.Get("party_found_button"), PartySystem.GetIdeologyName(target)),
+                        can ? LM.Get("party_found_tip") : LM.Get(reason));
+                }
+            }
+        }
+        else if (factions.Count < 3)
         {
             var addRow = panel.BeginHoriGroup(new Vector2(188, 18), TextAnchor.MiddleCenter, 2);
             addRow.AddButtonIntoHoriLayout("add_faction", LM.Get("empire_add_faction_slot"),
@@ -710,8 +704,12 @@ public static class UIHelper
         regime.FactionSpace = layout;
     }
 
+    // 三种用法共用这一张横式卡片：
+    //   普通(派系格局面板) —— 详情 + 锁定 / 提升占比 / 移除；
+    //   readOnly(官署窗口顶部只展示主导派系) —— 只留详情；
+    //   addMode(添加派系窗口里的派系库) —— 详情 + 加入本国 / 从派系库删除。
     private static void AddEmpireFactionRow(AutoVertLayoutGroup panel, FixedFaction faction, Kingdom kingdom,
-        AutoHoriLayoutGroup overview)
+        AutoHoriLayoutGroup overview, bool readOnly = false, bool addMode = false, UnityAction onLibraryChanged = null)
     {
         faction.Update();
         Regime regime = kingdom.GetRegime();
@@ -726,13 +724,19 @@ public static class UIHelper
             new RectOffset(2, 2, 1, 1));
         row.AddActorViewIntoHoriLayout(faction.GetLeader());
 
-        var details = row.BeginVertGroup(new Vector2(118, 28), pSpacing: 0,
+        // 政党行多一个"合并"按钮，按钮栏加宽一格、信息栏让出来
+        bool partyRow = faction.IsParty && !readOnly && !addMode;
+        var details = row.BeginVertGroup(new Vector2(partyRow ? 108 : 118, 28), pSpacing: 0,
             pAlignment: TextAnchor.MiddleLeft);
-        string state = kingdom.IsEmpire()
+        string state = addMode ? "" : kingdom.IsEmpire()
             ? isDominate ? LM.Get("empire_faction_dominant_short").ColorString("#65D66E") : ""
             : LM.Get("empire_faction_inactive_short").ColorString("#D98C8C");
+        // 政党名后面标出理念
+        string displayName = faction.IsParty
+            ? $"{faction.Name} {$"[{PartySystem.GetIdeologyName(faction.Ideology)}]".ColorString("#C9A7E8")}"
+            : faction.Name;
         var name = details.AddTextIntoVertLayout(
-            string.IsNullOrEmpty(state) ? faction.Name : $"{faction.Name} · {state}", true,
+            string.IsNullOrEmpty(state) ? displayName : $"{displayName} · {state}", true,
             TextAnchor.MiddleLeft, new Vector2(122, 10));
         name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         HoverMarqueeText.Attach(name);
@@ -747,7 +751,7 @@ public static class UIHelper
         AttachFactionTooltip(details.gameObject, faction, supports, opposes, empire, activeReform,
             includeBasicInfo: true);
 
-        var actions = row.BeginVertGroup(new Vector2(32, 28), pSpacing: 1,
+        var actions = row.BeginVertGroup(new Vector2(partyRow ? 42 : 32, 28), pSpacing: 1,
             pAlignment: TextAnchor.MiddleCenter);
         var detailButton = actions.AddButtonIntoVertLayout("EnterFactionCard", LM.Get("empire_faction_details_short"),
             () =>
@@ -758,31 +762,68 @@ public static class UIHelper
             }, size: new Vector2(25, 10));
         AttachFactionTooltip(detailButton.gameObject, faction, supports, opposes, empire, activeReform,
             includeBasicInfo: true);
-        var switches = actions.BeginHoriGroup(new Vector2(31, 10), TextAnchor.MiddleCenter, 1);
-        var lockButton = actions.transform.AddNormalOptionIntoHori(switches, "LockFaction", () =>
+        if (readOnly) { }
+        else if (addMode)
         {
-            faction.Force = !faction.Force;
-            if (faction.Force)
+            var libraryButtons = actions.BeginHoriGroup(new Vector2(31, 10), TextAnchor.MiddleCenter, 3);
+            libraryButtons.AddButtonIntoHoriLayout("add_faction", "", () =>
             {
-                foreach (FixedFaction other in regime.GetPlayerFactions().Where(other => other != faction))
-                {
-                    other.Force = false;
-                    other.LockButton?.SetStatus(false);
-                }
-            }
-            faction.LockButton?.SetStatus(faction.Force);
-        }, faction.Force, isOption: true, size: new Vector2(9, 9));
-        faction.LockButton = lockButton;
-        AddFactionRatioUpButton(switches, faction, kingdom, () => RefreshEmpireFactionSpace(overview, kingdom));
-        switches.AddButtonIntoHoriLayout("remove_faction", "", () =>
+                regime.GetPlayerFactions().Add(faction);
+                AutoHoriLayoutGroup space = regime.FactionSpace;
+                if (space != null) RefreshEmpireFactionSpace(space, kingdom);
+                ScrollWindow.getCurrentWindow().clickBack();
+            }, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(9, 9), showTip: true);
+            libraryButtons.AddButtonIntoHoriLayout("delete_faction_preset", "", () =>
+            {
+                FactionManager.Config.PlayerFactions.Remove(faction);
+                onLibraryChanged?.Invoke();
+            }, SpriteTextureLoader.getSprite("ui/iconDeleteFaction"), size: new Vector2(9, 9), showTip: true);
+        }
+        else
         {
-            regime.GetPlayerFactions().Remove(faction);
-            RefreshEmpireFactionSpace(overview, kingdom);
-        }, SpriteTextureLoader.getSprite("ui/iconRemove"), size: new Vector2(9, 9), showTip: true);
+            var switches = actions.BeginHoriGroup(new Vector2(partyRow ? 41 : 31, 10), TextAnchor.MiddleCenter, 1);
+            var lockButton = actions.transform.AddNormalOptionIntoHori(switches, "LockFaction", () =>
+            {
+                faction.Force = !faction.Force;
+                if (faction.Force)
+                {
+                    foreach (FixedFaction other in regime.GetPlayerFactions().Where(other => other != faction))
+                    {
+                        other.Force = false;
+                        other.LockButton?.SetStatus(false);
+                    }
+                }
+                faction.LockButton?.SetStatus(faction.Force);
+            }, faction.Force, isOption: true, size: new Vector2(9, 9));
+            faction.LockButton = lockButton;
+            AddFactionRatioUpButton(switches, faction, kingdom, () => RefreshEmpireFactionSpace(overview, kingdom));
+            // 政党：理念相近的小党可以合并(有可合并对象时才出现)
+            FixedFaction mergePartner = faction.IsParty ? PartySystem.FindMergePartner(empire, faction) : null;
+            if (mergePartner != null)
+            {
+                var mergeButton = switches.AddButtonIntoHoriLayout("merge_party", "", () =>
+                {
+                    if (PartySystem.MergeParties(empire, faction)) RefreshEmpireFactionSpace(overview, kingdom);
+                }, SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(9, 9));
+                AttachTextTooltip(mergeButton.gameObject, $"merge_party_{faction.GetID()}", LM.Get("merge_party"),
+                    string.Format(LM.Get("merge_party_tip"), faction.Name, mergePartner.Name));
+            }
+            // 政党：× 是"解散政党"(党员各投立场最近的党)；派系：× 是从格局里移除
+            switches.AddButtonIntoHoriLayout(faction.IsParty ? "dissolve_party" : "remove_faction", "", () =>
+            {
+                if (faction.IsParty)
+                {
+                    if (!PartySystem.DissolveParty(empire, faction))
+                        ActionLibrary.showWhisperTip("party_dissolve_last");
+                }
+                else regime.GetPlayerFactions().Remove(faction);
+                RefreshEmpireFactionSpace(overview, kingdom);
+            }, SpriteTextureLoader.getSprite("ui/iconDeleteFaction"), size: new Vector2(9, 9), showTip: true);
+        }
 
         row.transform.AddStretchBackground(isDominate ? "FactionFrame_dominate" : "FactionFrame",
             new Vector2(188, 32));
-        faction.CardUI = details;
+        if (!readOnly && !addMode) faction.CardUI = details;
     }
 
     // 提升该派系的中央占比：调用 TryIncreaseFactionRatio，总量已满时会按比例挤压其他派系
@@ -812,139 +853,15 @@ public static class UIHelper
     /// <param name="kingdom">派系所属国家</param>
     public static void AddFactionCard(FixedFaction faction, Kingdom kingdom, AutoHoriLayoutGroup parentH = null, AutoVertLayoutGroup parentV = null, bool addMode = false, UnityAction action=null)
     {
-        if (parentH == null&&parentV==null) return;
-        faction.Update();
-        var isDominate = kingdom.GetRegime().GetDominateFaction() == faction;
-        var factionPart = parentH?.BeginVertGroup(pSpacing:-3)??parentV?.BeginVertGroup(pSpacing:-3);
-        string cardState = kingdom.IsEmpire()
-            ? isDominate ? LM.Get("empire_faction_dominant_short").ColorString("#65D66E") : ""
-            : LM.Get("empire_faction_inactive_short").ColorString("#D98C8C");
-        var cardName = factionPart.AddTextIntoVertLayout(faction.Name, true, TextAnchor.MiddleCenter,
-            new Vector2(52, 10));
-        cardName.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
-        HoverMarqueeText.Attach(cardName);
-        var cardStateText = factionPart.AddTextIntoVertLayout(cardState, true, TextAnchor.MiddleCenter,
-            new Vector2(52, 8));
-        cardStateText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-        factionPart.AddActorViewIntoVertLayout(faction.GetLeader());
-        var cardMetrics = factionPart.AddTextIntoVertLayout(
-            string.Format(LM.Get("faction_card_metrics"), faction.Count, faction.CentralRatio), true,
-            TextAnchor.MiddleCenter, new Vector2(52, 9));
-        cardMetrics.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-
-        // 派系跟文化科技树的关系：卡片上只报"支持几项/反对几项"，不再把诉求列表、节点名字、
-        // 阶层占比这些细节铺在卡片里——那些改成悬浮提示，卡片本身只留一眼能看完的摘要。
-        string culture = CultureService.GetRealmCulture(kingdom);
-        (List<InstitutionNodeConfig> supports, List<InstitutionNodeConfig> opposes) =
-            InstitutionSystem.GetFactionInstitutionStance(culture, faction.Type);
-        string unit = LM.Get("institution_item_unit");
-        // 卡片上只放"支持几项/反对几项"这一行摘要，说明性质的标题文字("对文化科技树
-        // 改革的立场(悬浮看详情)")挪进悬浮提示里，不然一张小卡片塞两行文字太挤。
-        string stanceText = $"{LM.Get("institution_support")} {supports.Count}{unit}".ColorString("#65D66E") +
-                             "  ·  " +
-                             $"{LM.Get("institution_opposition")} {opposes.Count}{unit}".ColorString("#D98C8C");
-        var stanceLabel = factionPart.AddTextIntoVertLayout(stanceText, true, TextAnchor.MiddleCenter,
-            size: new Vector2(52, 9));
-        stanceLabel.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-        Empire empire = kingdom.GetEmpire();
-        InstitutionReformState activeReform = empire?.data.institution_state?.active_reform;
-        AttachFactionTooltip(stanceLabel.gameObject, faction, supports, opposes, empire, activeReform);
-
-        var bottom = factionPart.BeginHoriGroup();
-        if (!addMode)
-        {
-            var button = factionPart?.transform.AddNormalOptionIntoHori(bottom, "LockFaction", () =>
-            {
-                if (faction.Force)
-                {
-                    faction.Force = false;
-                }
-                else
-                {
-                    faction.Force = true;
-                    foreach (var f in kingdom.GetRegime().GetPlayerFactions())
-                    {
-                        if (f != faction)
-                        {
-                            f.LockButton?.SetStatus(false);
-                            f.Force = false;
-                        }
-                    }
-                }
-                faction.LockButton.SetStatus(faction.Force);
-            }, faction.Force, isOption:true, size: new Vector2(9, 9));
-            faction.LockButton = button;
-            AddFactionRatioUpButton(bottom, faction, kingdom, () =>
-            {
-                AutoHoriLayoutGroup space = kingdom.GetRegime()?.FactionSpace;
-                if (space == null) return;
-                space.transform.ClearChildren();
-                InitialFactionSpace(space, kingdom);
-            });
-        }
-        var detailButton = bottom.AddButtonIntoHoriLayout("EnterFactionCard", "详情", () =>
-        {
-            ConfigData.CURRENT_SELECTED_FACTION = faction;
-            SelectedMetas.selected_kingdom = kingdom;
-            ScrollWindow.showWindow(nameof(FactionDetailWindow));
-        }, size: new Vector2(18, 9));
-        // "详情"按钮悬浮出这张卡片的完整信息(人数/中央占比/制度倾向/诉求列表)，点开详情窗口
-        // 之前先能预览一遍，不用真点进去才知道里面有什么。
-        AttachFactionTooltip(detailButton.gameObject, faction, supports, opposes, empire, activeReform,
-            includeBasicInfo: true);
-        if (addMode)
-        {
-            bottom.AddButtonIntoHoriLayout("add_faction", action: () =>
-            {
-                kingdom.GetRegime().GetPlayerFactions().Add(faction);
-                kingdom.GetRegime().FactionSpace.transform.ClearChildren();
-                if (kingdom.GetRegime().FactionSpace.gameObject.name == "EmpireFactionOverview")
-                {
-                    InitialEmpireFactionSpace(kingdom.GetRegime().FactionSpace, kingdom);
-                    ScrollWindow.getCurrentWindow().clickBack();
-                    return;
-                }
-                foreach (var f in kingdom.GetRegime().GetPlayerFactions())
-                {
-                    AddFactionCard(f, kingdom, kingdom.GetRegime().FactionSpace);
-                }
-                if (kingdom.GetRegime().GetPlayerFactions().Count < 3)
-                {
-                    for (int i = 0; i < 3-kingdom.GetRegime().GetPlayerFactions().Count; i++)
-                    {
-                        var addFaction = kingdom.GetRegime().FactionSpace.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(55, 90));
-                        addFaction.AddButtonIntoVertLayout("add_faction", "", () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(15, 15));
-                        addFaction?.transform.AddStretchBackground("FactionFrame", size: new Vector2(55, 90));
-                    }
-                }
-                ScrollWindow.getCurrentWindow().clickBack();
-            }, size: new Vector2(9, 9), icon: SpriteTextureLoader.getSprite("ui/setOfficer"));
-            bottom.AddButtonIntoHoriLayout("remove_faction", action: () =>
-            {
-                FactionManager.Config.PlayerFactions.Remove(faction);
-                action?.Invoke();
-            }, size: new Vector2(9, 9), icon: SpriteTextureLoader.getSprite("ui/iconRemove"));
-        }
-        else
-        {
-            bottom.AddButtonIntoHoriLayout("remove_faction", action: () =>
-            {
-                kingdom.GetRegime().GetPlayerFactions().Remove(faction);
-                if (faction.CardUI)
-                {
-                    Object.Destroy(faction.CardUI.gameObject);
-                    var addFaction = kingdom.GetRegime().FactionSpace?.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(55, 90));
-                    addFaction?.AddButtonIntoVertLayout("add_faction", "", () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(15, 15));
-                    addFaction?.transform?.AddStretchBackground("FactionFrame", size: new Vector2(55, 90));
-                }
-            }, size: new Vector2(9, 9), icon: SpriteTextureLoader.getSprite("ui/iconRemove"));
-        }
-
-        // 卡片内容比原来多了一段"制度倾向"，按钮那一排原来是钉死在固定像素位置(down*82)，
-        // 内容一多就会被卡片下面的边框/下一个区块挡住——往上提一截，让它稳稳落在边框内。
-        bottom?.gameObject.AdjustTopPart(bottom.transform, Vector2.down*67);
-        factionPart?.transform.AddStretchBackground(isDominate?"FactionFrame_dominate":"FactionFrame", size: new Vector2(55, 90));
-        faction.CardUI = factionPart;
+        // 所有地方的派系卡片都统一成帝国界面那种横式卡片(头像 | 名称/占比/立场 | 按钮)。
+        // 不在派系格局面板里的(官署窗口顶部)只展示，不给锁定/占比/移除这些会改动格局的按钮。
+        if (faction == null || kingdom == null || (parentH == null && parentV == null)) return;
+        if (kingdom.GetRegime() == null) kingdom.LoadRegime();
+        if (kingdom.GetRegime() == null) return;
+        AutoVertLayoutGroup panel = parentV ?? parentH.BeginVertGroup(pSpacing: 0,
+            pAlignment: TextAnchor.MiddleCenter);
+        AddEmpireFactionRow(panel, faction, kingdom, kingdom.GetRegime().FactionSpace, readOnly: !addMode,
+            addMode: addMode, onLibraryChanged: action);
     }
 
     // 卡片上只放得下"支持几项/反对几项"的摘要，具体是哪些制度节点、节点背后是哪些阶层在
@@ -1039,12 +956,57 @@ public static class UIHelper
         tip.enabled = true;
     }
 
+    // 按顺序试几个图标名，取第一个存在的——游戏版本之间图标偶尔改名，找不到返回 null，调用方就不画图标。
+    public static Sprite FirstSprite(params string[] paths)
+    {
+        foreach (string path in paths)
+        {
+            Sprite sprite = SpriteTextureLoader.getSprite(path);
+            if (sprite != null) return sprite;
+        }
+        return null;
+    }
+
+    // 往布局组里塞一个固定大小的小图标(不接收点击)；sprite 为空时什么都不加，不会出白块。
+    public static void AddLayoutIcon(Transform parent, Sprite sprite, float size)
+    {
+        if (sprite == null) return;
+        var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+            typeof(LayoutElement));
+        var rect = iconObject.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.sizeDelta = new Vector2(size, size);
+        Image image = iconObject.GetComponent<Image>();
+        image.sprite = sprite;
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        LayoutElement element = iconObject.GetComponent<LayoutElement>();
+        element.preferredWidth = element.minWidth = size;
+        element.preferredHeight = element.minHeight = size;
+    }
+
+    // 给布局组垫一块铺满的深色内嵌底(SimpleText 自带的 windowInnerSliced)，不参与布局、不挡点击。
+    public static void AddInsetBackground(AutoHoriLayoutGroup group, Vector2 size)
+    {
+        SimpleText background = group.AddTextIntoHoriLayout("", false, TextAnchor.MiddleLeft, size,
+            ignorePosition: true);
+        RectTransform rect = background.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        background.transform.SetAsFirstSibling();
+    }
+
     // 给任意界面元素挂一个悬浮说明。title/body 是已经本地化好的文字，key 用来在当前语言里注册，
     // 同一个 key 重复调用会覆盖旧内容（与派系卡片 tooltip 相同的 LM.AddToCurrentLocale 手法）。
     public static void AttachTextTooltip(GameObject target, string key, string title, string body)
     {
         if (target == null || string.IsNullOrWhiteSpace(key)) return;
-        string safeKey = key.Replace("-", "_");
+        // 查找时 key 会被规范化(大写/连字符等会被改写，如 ZhouFeudalism → zhou_feudalism)，
+        // 注册前先统一成全小写 + 下划线，两头用同一个字符串，否则 tooltip 显示原始 key 名。
+        string safeKey = new string(key.ToLowerInvariant()
+            .Select(c => (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ? c : '_').ToArray());
         string titleKey = $"empirecraft_tip_title_{safeKey}";
         string bodyKey = $"empirecraft_tip_body_{safeKey}";
         LM.AddToCurrentLocale(titleKey, title ?? "");

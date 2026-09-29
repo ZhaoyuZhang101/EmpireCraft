@@ -39,6 +39,7 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
     private IReadOnlyList<InstitutionNodeView> _foreignViews = Array.Empty<InstitutionNodeView>();
     private string _culture = "";
     private string _selectedId = "";
+    private PartyIdeology _selectedIdeology = PartyIdeology.Conservatism;
 
     public static void Open(string culture)
     {
@@ -211,6 +212,13 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
     {
         var section = _root.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
         _content.Add(section.gameObject);
+        var ideologyRow = section.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
+        ideologyRow.AddButtonIntoHoriLayout("ideology_previous", "◀", () => CycleIdeology(-1),
+            size: new Vector2(18, 12));
+        ideologyRow.AddTextIntoHoriLayout(PartySystem.GetIdeologyName(_selectedIdeology), true,
+            TextAnchor.MiddleCenter, new Vector2(150, 12));
+        ideologyRow.AddButtonIntoHoriLayout("ideology_next", "▶", () => CycleIdeology(1),
+            size: new Vector2(18, 12));
         section.AddTextIntoVertLayout(LM.Get("culture_window_tree_hint").ColorString("#B8C6CC"), true,
             TextAnchor.MiddleCenter, new Vector2(PanelWidth, 11));
         _graph = InstitutionGraphView.Create(section.transform, new Vector2(PanelWidth, GraphHeight));
@@ -235,7 +243,18 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
     }
 
     private void RefreshGraph() =>
-        _graph?.Rebuild(_lineViews, _foreignViews, _selectedId, OnNodeSelected, BuildTooltip, BuildCard);
+        _graph?.Rebuild(IdeologyInstitutionPaths.Visible(_lineViews, _selectedIdeology),
+            IdeologyInstitutionPaths.Visible(_foreignViews, _selectedIdeology), _selectedId,
+            OnNodeSelected, BuildTooltip, BuildCard);
+
+    private void CycleIdeology(int direction)
+    {
+        PartyIdeology[] values = Enum.GetValues(typeof(PartyIdeology)).Cast<PartyIdeology>().ToArray();
+        _selectedIdeology = values[(Array.IndexOf(values, _selectedIdeology) + direction + values.Length) % values.Length];
+        _selectedId = _lineViews.FirstOrDefault(view => view.Node.branch ==
+            IdeologyInstitutionPaths.Branch(_selectedIdeology))?.Node.id ?? "";
+        Rebuild();
+    }
 
     private void OnNodeSelected(string nodeId)
     {
@@ -298,6 +317,8 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
 
     private static string GetBranchName(string branch)
     {
+        if (IdeologyInstitutionPaths.TryGetIdeology(branch, out PartyIdeology ideology))
+            return PartySystem.GetIdeologyName(ideology);
         string key = $"institution_branch_{branch}";
         string value = LM.Get(key);
         return string.IsNullOrWhiteSpace(value) || value == key ? branch : value;
@@ -314,6 +335,7 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
             InstitutionNodeStatus.ForeignLocked => LM.Get("institution_status_foreign_locked"),
             InstitutionNodeStatus.ForeignContacting => LM.Get("institution_status_foreign_contacting"),
             InstitutionNodeStatus.ForeignReady => LM.Get("institution_status_foreign_ready"),
+            InstitutionNodeStatus.Superseded => LM.Get("institution_status_superseded"),
             _ => LM.Get("institution_status_locked")
         };
     }
@@ -328,6 +350,7 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
             InstitutionNodeStatus.Available => "#F3C34A",
             InstitutionNodeStatus.ForeignReady => "#C9A7E8",
             InstitutionNodeStatus.ForeignContacting => "#A79BC4",
+            InstitutionNodeStatus.Superseded => "#8CA8C8",
             _ => "#B8B8B8"
         };
     }

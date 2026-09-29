@@ -346,6 +346,9 @@ public static class ActorExtension
         public Name name;
         public bool has_become_cleric = false;
         public SocialClass  socialClass = SocialClass.Peasant;
+        // Mod-managed workshop employment. Tied to a city so migration ends the job.
+        public long urban_employment_city_id = -1L;
+        public string personal_ideology = "";
         // 商人不是职业，而是家庭长期收入形成的经济身份。收入按城市年度结算滚动。
         public int economic_income_current_year = 0;
         public int economic_income_previous_year = 0;
@@ -1773,7 +1776,7 @@ public static class ActorExtension
         if (a.HasVirtualEnfeoff() && string.IsNullOrWhiteSpace(peerageKey))
         {
             Empire empire = ModClass.EMPIRE_MANAGER.get(data.virtual_enfeoff_empire_id);
-            peerageKey = a.GetSpecificClan() != null && a.GetSpecificClan() == empire?.EmpireSpecificClan
+            peerageKey = a.GetSpecificClan() != null && SpecificClanManager.SameLineage(a.GetSpecificClan(), empire?.EmpireSpecificClan)
                 ? "default_peerages_2"
                 : "tang_peerage_guogong";
             data.virtual_enfeoff_peerage_key = peerageKey;

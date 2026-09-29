@@ -418,6 +418,7 @@ public class ActorPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (pCity == null) return;
         CultureService.InitializeCityCulture(pCity);
+        IdeologyPopulationSystem.OnCityEntered(__instance, pCity);
         // Moving to another city does not erase an existing personal culture.
         if (!__instance.hasCulture())
             CultureService.SyncActorToCityMainCulture(__instance, pCity);
@@ -444,6 +445,7 @@ public class ActorPatch : GamePatch
     public static void setParent(Actor __instance,Actor pParentActor, bool pIncreaseChildren)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        IdeologyPopulationSystem.Inherit(__instance, pParentActor);
         if (pParentActor.HasSpecificClan())
         {
             PersonalClanIdentity parent_identity = pParentActor.GetPersonalIdentity();
@@ -465,6 +467,7 @@ public class ActorPatch : GamePatch
     public static void setParent2(Actor __instance, Actor pActor, bool pIncreaseChildren = true)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        IdeologyPopulationSystem.Inherit(__instance, pActor);
         if (pActor.HasSpecificClan())
         {
             PersonalClanIdentity parent_identity = pActor.GetPersonalIdentity();
@@ -507,6 +510,7 @@ public class ActorPatch : GamePatch
     public static bool showTooltip(Actor __instance, object pUiObject)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
+        IdeologyPopulationSystem.Get(__instance);
         string pType = (__instance.IsEmperor()?"actor_emperor":(__instance.isKing() ? "actor_king" : ((!__instance.isCityLeader()) ? "actor" : (__instance.isOfficer()? "actor_officer": "actor_leader"))));
         Tooltip.show(pUiObject, pType, new TooltipData
         {
@@ -595,16 +599,17 @@ public class ActorPatch : GamePatch
     public static void removeData(Actor __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        IdeologyPopulationSystem.Forget(__instance);
         if (__instance.HasSpecificClan())
         {
             PersonalClanIdentity pci = __instance.GetPersonalIdentity();
             if (pci != null)
             {
                 // Preserve the actor id for history/avatar lookups and snapshot live-only data before removal.
-                pci.recordAllInfo();
+                if (__instance.data != null) pci.recordAllInfo();
                 pci.is_alive = false;
                 pci.deathday = Date.getDate(World.world.getCurWorldTime());
-                pci._specificClan.checkDispose();
+                pci._specificClan?.checkDispose();
             }
         }
         __instance.RemoveExtraData<Actor, ActorExtraData>();

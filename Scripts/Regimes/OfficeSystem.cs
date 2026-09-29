@@ -359,7 +359,9 @@ public class CenterOffice
         CoreOffices.ForEach(id=>OfficeManager.Remove(id));
         CoreOffices.Clear();
         Regime pRegime = pKingdom.GetRegime();
-        foreach (var core in pRegime.bureau_config.cores)
+        // 共和国的核心国：中央机构按执政理念成套(见 RepublicSystem / IdeologyBureaus.json)
+        BureauConfig bureau = RepublicSystem.GetBureauOverride(pKingdom, pRegime.bureau_config) ?? pRegime.bureau_config;
+        foreach (var core in bureau.cores)
         {
 
             var o = new OfficeObject();
@@ -376,7 +378,7 @@ public class CenterOffice
         }
         Divisions.ForEach(id=>OfficeManager.Remove(id));
         Divisions.Clear();
-        foreach (var div in pRegime.bureau_config.division)
+        foreach (var div in bureau.division)
         {
 
             var o = new OfficeObject();
@@ -393,8 +395,8 @@ public class CenterOffice
         }
         Harems.ForEach(id=>OfficeManager.Remove(id));
         Harems.Clear();
-        if (pRegime.bureau_config.harems == null) return;
-        foreach (var div in pRegime.bureau_config.harems)
+        if (bureau.harems == null) return;
+        foreach (var div in bureau.harems)
         {
             var o = new OfficeObject();
             o.InitialOffice(div);

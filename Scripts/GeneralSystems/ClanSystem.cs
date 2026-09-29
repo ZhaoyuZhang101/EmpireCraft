@@ -78,6 +78,47 @@ public class SpecificClan
     public string empire_name { get; set; }
     public float capital_city_pos_x { get; set; }
     public float capital_city_pos_y { get; set; }
+    // —— 分家(见 ClanBranchSystem) ——
+    // 从哪个宗族分出来的(-1 表示本身就是始祖宗族)；分支与原宗族同属一个世系
+    public long parent_clan_id { get; set; } = -1L;
+    // 分支的称号，如"越国支"/"苏城支"/"谈华房"
+    public string branch_label { get; set; } = "";
+    public string branch_reason { get; set; } = "";
+    public double last_branch_timestamp { get; set; } = -1d;
+    // 族人在各城最早定居的时间，用来判定"迁徙开基"
+    public Dictionary<long, double> city_settle_since { get; set; } = new();
+
+    // 显示名：始祖宗族是"谈宗族"，分支是"谈宗族·越国支"
+    public string GetDisplayName()
+    {
+        string clanName = JoinNameParts(name, LM.Get("specific_clan"));
+        return parent_clan_id < 0 || string.IsNullOrWhiteSpace(branch_label)
+            ? clanName
+            : string.Format(LM.Get("clan_branch_display"), clanName, branch_label);
+    }
+
+    // 顺着 parent_clan_id 找到始祖宗族(分支链断了就停在能找到的最上面一支)
+    public SpecificClan GetRootClan()
+    {
+        SpecificClan current = this;
+        var visited = new HashSet<long>();
+        while (current.parent_clan_id >= 0 && visited.Add(current.id))
+        {
+            SpecificClan parent = SpecificClanManager.Get(current.parent_clan_id);
+            if (parent == null) break;
+            current = parent;
+        }
+        return current;
+    }
+
+    // 分家时把人从本宗族的名册里拿走(全局索引不动，身份只是换个宗族)
+    public bool TakePerson(long personId)
+    {
+        lock (_cacheLock)
+        {
+            return _cache.Remove(personId);
+        }
+    }
     [JsonIgnore]
     public List<PersonalClanIdentity> all_valid_members => SnapshotPeople().ToList().FindAll(i=>i.CanHeir());
     [JsonIgnore] 
@@ -842,6 +883,16 @@ public static class SpecificClanManager
         }
 
         newSpecificClan(actor, show_log);
+    }
+
+    // "是不是同一家"：同一个宗族，或者同出一个始祖宗族的分支(别子为祖的王子、迁居他乡的一支仍是宗室)。
+    // 两边都为空时跟原来的 == 一样算相同。
+    public static bool SameLineage(SpecificClan a, SpecificClan b)
+    {
+        if (a == b) return true;
+        if (a == null || b == null) return false;
+        if (a.parent_clan_id < 0 && b.parent_clan_id < 0) return false;
+        return a.GetRootClan() == b.GetRootClan();
     }
 
     public static SpecificClan Get(long id)

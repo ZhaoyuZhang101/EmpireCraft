@@ -21,7 +21,44 @@ public static class EmpireCraftMetaTypeLibrary
     {
       AddEmpireMeta();
       AddKingdomTitleMeta();
+      AddIdeologyMeta();
       AssetManager.meta_type_library.linkAssets();
+    }
+
+    // 理念图层：按各城市的主理念上色，独立于原版宗教；点城市打开理念窗口
+    public static MetaTypeAsset ideology;
+
+    public static void AddIdeologyMeta()
+    {
+        var asset = new MetaTypeAsset
+        {
+            id = "ideology",
+            ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5),
+            window_name = "IdeologyInfoWindow",
+            power_tab_id = "selected_empire",
+            force_zone_when_selected = false,
+            set_icon_for_cancel_button = true,
+            icon_list = "iconReligionList",
+            icon_single_path = "ui/icons/iconBooks",
+            has_dynamic_zones = true,
+            dynamic_zone_option = 0,
+            reports = new string[0],
+            map_mode = MetaTypeExtension.Ideology,
+            option_id = "map_Ideology_layer",
+            power_option_zone_id = "Ideology_layer"
+        };
+        asset.window_action_clear = (MetaTypeAction) (() => { });
+        asset.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.get_list = (MetaTypeListAction) (() => Enumerable.Empty<NanoObject>());
+        asset.has_any = (MetaTypeListHasAction) (() => false);
+        asset.get_selected = (MetaSelectedGetter) (() => null);
+        asset.set_selected = (MetaSelectedSetter) (_ => { });
+        asset.get = (MetaGetter) (_ => null);
+        asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
+        asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
+        EmpireCraftNamePlateLibrary.ConfigureIdeologyMapAsset(asset);
+        ideology = AssetManager.meta_type_library.add(asset);
     }
 
     public static void AddEmpireMeta()
@@ -50,11 +87,14 @@ public static class EmpireCraftMetaTypeLibrary
           "many_children",
           "many_homeless"
         };
-        pAsset13.get_list = (MetaTypeListAction) (() => (IEnumerable<NanoObject>) ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()));
-        pAsset13.has_any = (MetaTypeListHasAction) (() => ModClass.EMPIRE_MANAGER.ToList().Any(e => !e.IsArchived()));
+        pAsset13.get_list = (MetaTypeListAction) (() => ModClass.EMPIRE_MANAGER == null
+            ? Enumerable.Empty<NanoObject>()
+            : ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()).Cast<NanoObject>());
+        pAsset13.has_any = (MetaTypeListHasAction) (() =>
+            ModClass.EMPIRE_MANAGER?.ToList().Any(e => !e.IsArchived()) == true);
         pAsset13.get_selected = (MetaSelectedGetter) (() => (NanoObject) selected_empire);
         pAsset13.set_selected = (MetaSelectedSetter) (pElement => selected_empire = pElement as Empire);
-        pAsset13.get = (MetaGetter) (pId => (NanoObject) ModClass.EMPIRE_MANAGER.get(pId));
+        pAsset13.get = (MetaGetter) (pId => (NanoObject) ModClass.EMPIRE_MANAGER?.get(pId));
         pAsset13.map_mode = MetaTypeExtension.Empire;
         pAsset13.option_id = "map_Empire_layer";
       
@@ -65,6 +105,7 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (pActor => selected_empire = pActor.kingdom.GetEmpire());
         pAsset13.draw_zones = (MetaZoneDrawAction) (pMetaTypeAsset =>
         {
+	        if (World.world == null || ModClass.EMPIRE_MANAGER == null) return;
 	        switch (pMetaTypeAsset.getZoneOptionState())
 	        {
 		        case 0:

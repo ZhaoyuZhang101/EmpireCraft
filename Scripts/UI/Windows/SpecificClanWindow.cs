@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -45,6 +46,13 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     }
     private void InitialTabButtons()
     {
+        // 宗族总览：整个宗族的概况(不是当前这个人的)，放在页签第一个
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_overview"))
+        {
+            var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            tab.Setup("specific_clan_overview", ScrollWindowComponent, action: ShowClanOverview,
+                sprite: UIHelper.FirstSprite("ui/icons/iconClanList", "ui/icons/iconClan", "ui/specificClanIcon"));
+        }
         if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_relations"))
         {
             var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
@@ -122,6 +130,114 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         ShowSameGenerationSpace();
         ShowSiblingChildGenerationSpace();
     }
+    // ── 宗族总览 ──
+    // 概况 / 土地占有(只列有地的城市) / 族人分布 / 显赫族人
+    private void ShowClanOverview(WindowMetaTab _)
+    {
+        if (_sc == null) return;
+        Clear();
+        InitialTextInput();
+        InitialTop();
+        var space = this.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
+        List<PersonalClanIdentity> people = _sc.SnapshotPeople().Where(person => person != null).ToList();
+        List<PersonalClanIdentity> living = people
+            .Where(person => person.is_alive && person._actor != null && !person._actor.isRekt()).ToList();
+
+        AddOverviewHeading(space, _sc.GetDisplayName());
+        string founder = SpecificClanManager.getPerson(_sc.founder)?.name ?? LM.Get("label_none");
+        City ancestral = _sc.ancestral_city_id > 0 ? World.world.cities.get(_sc.ancestral_city_id) : null;
+        int generations = people.Count == 0 ? 0 : people.Max(person => person.generation);
+        AddOverviewRow(space, LM.Get("i_founder"), founder, "#F2EEE2");
+        AddOverviewRow(space, LM.Get("clan_overview_established"), Date.getDate(_sc.established_timestamp), "#A8B8BE");
+        AddOverviewRow(space, LM.Get("total_sc_count"), $"{living.Count}/{people.Count}", "#7FD8EA");
+        AddOverviewRow(space, LM.Get("clan_overview_generations"), generations.ToString(), "#7FD8EA");
+        AddOverviewRow(space, LM.Get("clan_overview_ancestral_city"),
+            ancestral == null || ancestral.isRekt() ? LM.Get("label_none") : ancestral.GetCityName(), "#F3C34A");
+        AddOverviewRow(space, LM.Get("clan_overview_officials"),
+            $"{living.Count(person => person._actor.IsOnOffice())}  ·  {LM.Get("clan_overview_rulers")} " +
+            $"{living.Count(person => person._actor.isKing())}", "#65D6C4");
+        AddOverviewRow(space, LM.Get("clan_overview_history_empire"),
+            _sc.HasHistoryEmpire() ? _sc.empire_name : LM.Get("label_none"), "#F3C34A");
+
+        // 世系：从哪一支分出来、又分出了哪些支
+        SpecificClan parentClan = _sc.parent_clan_id >= 0 ? SpecificClanManager.Get(_sc.parent_clan_id) : null;
+        List<SpecificClan> branches = SpecificClanManager._specificClans.ToList()
+            .Where(clan => clan != null && clan.parent_clan_id == _sc.id).ToList();
+        if (parentClan != null || branches.Count > 0)
+        {
+            AddOverviewHeading(space, LM.Get("clan_overview_lineage"));
+            if (parentClan != null)
+                AddOverviewRow(space, LM.Get("clan_overview_parent_clan"),
+                    $"{parentClan.GetDisplayName()} · {LM.Get($"clan_branch_reason_{_sc.branch_reason}")}", "#C9A7E8");
+            foreach (SpecificClan branch in branches.OrderBy(clan => clan.established_timestamp))
+                AddOverviewRow(space, branch.GetDisplayName(),
+                    $"{LM.Get($"clan_branch_reason_{branch.branch_reason}")} · " +
+                    string.Format(LM.Get("clan_overview_member_count"), branch.Count), "#C9A7E8");
+        }
+
+        // 土地：只列有地的城市
+        AddOverviewHeading(space, LM.Get("clan_overview_land"));
+        List<ClanLandHoldingView> holdings = LandEconomySystem.GetSpecificClanHoldings(_sc);
+        if (holdings.Count == 0)
+            AddOverviewNote(space, LM.Get("clan_overview_no_land"));
+        else
+        {
+            AddOverviewRow(space, LM.Get("clan_overview_land_total"),
+                $"{holdings.Count} · {holdings.Sum(holding => holding.Share):0.##}%", "#65D66E");
+            foreach (ClanLandHoldingView holding in holdings)
+                AddOverviewRow(space, $"{holding.CityName} · {holding.KingdomName}",
+                    $"{holding.Share:0.##}%  " + string.Format(LM.Get("clan_overview_city_rank"), holding.Rank),
+                    holding.Rank == 1 ? "#F3C34A" : "#65D66E");
+        }
+
+        // 族人分布
+        AddOverviewHeading(space, LM.Get("clan_overview_distribution"));
+        var byCity = living.Where(person => person._actor.city != null && !person._actor.city.isRekt())
+            .GroupBy(person => person._actor.city).OrderByDescending(group => group.Count()).Take(8).ToList();
+        if (byCity.Count == 0) AddOverviewNote(space, LM.Get("label_none"));
+        foreach (IGrouping<City, PersonalClanIdentity> group in byCity)
+            AddOverviewRow(space, $"{group.Key.GetCityName()} · {group.Key.kingdom?.GetKingdomName() ?? ""}",
+                string.Format(LM.Get("clan_overview_member_count"), group.Count()), "#7FD8EA");
+
+        // 显赫族人：按声望取前 8
+        AddOverviewHeading(space, LM.Get("clan_overview_notables"));
+        foreach (PersonalClanIdentity person in living.OrderByDescending(person => person._actor.renown).Take(8))
+        {
+            bool onOffice = person._actor.IsOnOffice() || person._actor.isKing();
+            AddOverviewRow(space, person.name, GetDisplayOfficeName(person), onOffice ? "#F3C34A" : "#8FA0A8");
+        }
+
+        AddChild(space.gameObject);
+        _groups["clan_overview"] = space;
+    }
+
+    private static void AddOverviewHeading(AutoVertLayoutGroup space, string text)
+    {
+        var heading = space.AddTextIntoVertLayout(text.ColorString("#F3C34A"), true, TextAnchor.MiddleCenter,
+            new Vector2(190, 16));
+        heading.UseFixedFontSize(10, HorizontalWrapMode.Overflow);
+    }
+
+    // 一行：深色内嵌底，左边灰色标签，右边彩色数值
+    private static void AddOverviewRow(AutoVertLayoutGroup space, string label, string value, string valueHex)
+    {
+        var row = space.BeginHoriGroup(new Vector2(190, 12), TextAnchor.MiddleCenter, 2);
+        UIHelper.AddInsetBackground(row, new Vector2(190, 12));
+        var labelText = row.AddTextIntoHoriLayout(label.ColorString("#A8B8BE"), true, TextAnchor.MiddleLeft,
+            new Vector2(100, 12));
+        labelText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        var valueText = row.AddTextIntoHoriLayout((value ?? "").ColorString(valueHex), true, TextAnchor.MiddleRight,
+            new Vector2(84, 12));
+        valueText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+    }
+
+    private static void AddOverviewNote(AutoVertLayoutGroup space, string text)
+    {
+        var note = space.AddTextIntoVertLayout(text.ColorString("#8FA0A8"), true, TextAnchor.MiddleCenter,
+            new Vector2(190, 12));
+        note.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+    }
+
     private void ShowPersonalHistory(WindowMetaTab _)
     {
         if (_identity == null) return;

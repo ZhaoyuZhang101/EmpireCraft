@@ -461,7 +461,7 @@ public class CityPatch : GamePatch
                 {
                     var empire = joinAfterCapture.GetEmpire();
                     var newEmperor = joinAfterCapture.king;
-                    if (newEmperor != null&&newEmperor.GetSpecificClan()==empire.EmpireSpecificClan)
+                    if (newEmperor != null&&SpecificClanManager.SameLineage(newEmperor.GetSpecificClan(), empire.EmpireSpecificClan))
                     {
                         TranslateHelper.LogRoyalKingBecomeEmperor(empire, joinAfterCapture.GetMainTitle()??joinAfterCapture.capital.GetTitle(), newEmperor);
                         empire.CoreKingdom.GetOffice().meta_object = empire.CoreKingdom;
@@ -1012,10 +1012,11 @@ public class CityPatch : GamePatch
         __instance.removeFromCurrentKingdom();
         __instance.removeLeader();
         Kingdom kingdom = World.world.kingdoms.makeNewCivKingdom(pActor);
+        kingdom.copyMetasFromOtherKingdom(pKingdom);
+        kingdom.generateColor();
         __instance.newForceKingdomEvent(__instance.units, __instance._boats, kingdom, pHappinessEvent);
         __instance.setKingdom(kingdom);
         __instance.switchedKingdom();
-        kingdom.copyMetasFromOtherKingdom(pKingdom);
         kingdom.setCityMetas(__instance);
         kingdom.RememberRebellionOrigin(rebellionOrigin);
         if (pRebellion) kingdom.SetRebellionOriginCityValue(rebellionOriginValue);
@@ -1035,6 +1036,9 @@ public class CityPatch : GamePatch
         // 该城立即归降。
         TryImmediateSurrenderOnImperialArmyArrival(__instance);
         LandEconomySystem.UpdateCity(__instance);
+        UrbanEmploymentSystem.UpdateCity(__instance);
+        ClanBranchSystem.TryYearlyScan();
+        IdeologySpreadSystem.TryYearlyScan();
 
         /*
         if (__instance.hasTitle())

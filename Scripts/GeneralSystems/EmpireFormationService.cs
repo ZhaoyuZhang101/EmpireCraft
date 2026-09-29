@@ -110,7 +110,7 @@ public static class EmpireFormationService
             return false;
         return ModClass.EMPIRE_MANAGER == null ||
                !ModClass.EMPIRE_MANAGER.Any(empire => empire != null && !empire.isRekt() &&
-                                                      empire.EmpireSpecificClan == clan);
+                                                      SpecificClanManager.SameLineage(empire.EmpireSpecificClan, clan));
     }
 
     // 每个法理只计一个独立国家；拥戴者至少四国，候选者须强于核心内所有其他独立国家。
@@ -163,16 +163,11 @@ public static class EmpireFormationService
     private static bool IsAllianceRepresentative(Kingdom kingdom, string culture)
     {
         if (kingdom?.hasAlliance() != true) return true;
-        Kingdom representative = kingdom.getAlliance().kingdoms_hashset
-            .Where(member => member != null && member.king?.kingdom == member &&
-                             string.Equals(CultureService.GetRealmCulture(member), culture, StringComparison.Ordinal) &&
-                             MeetsBaseRequirements(member))
-            .OrderByDescending(member => PersonalUnionService.GetRealms(member.king)
-                .Where(realm => !realm.IsEmpire() && !realm.IsInEmpire())
-                .Sum(realm => realm.GetNationalPower()))
-            .ThenBy(member => member.id)
-            .FirstOrDefault();
-        return representative == null || representative == kingdom;
+        return !kingdom.getAlliance().kingdoms_hashset.Any(member =>
+            member != null && member != kingdom && member.king?.kingdom == member &&
+            string.Equals(CultureService.GetRealmCulture(member), culture, StringComparison.Ordinal) &&
+            MeetsBaseRequirements(member) && !IsInFailureCooldown(member) &&
+            KingdomExtension.IsStrongerEmpireCandidate(member, kingdom));
     }
 
     private static List<Kingdom> GetSameCultureIndependents(Kingdom kingdom, string culture)
@@ -189,14 +184,22 @@ public static class EmpireFormationService
     private static int GetOpinion(Kingdom from, Kingdom to) =>
         World.world?.diplomacy?.getOpinion(from, to)?.total ?? 0;
 
-    // 本文化连续多少年没有帝国。第一次发现某文化无帝国时开始计时(旧存档从读档时开始计)。
+    // 本文化连续多少年没有帝国。旧档缺少计时记录时，从现存最早的同文化王国追溯。
     public static float GetYearsWithoutEmpire(string culture)
     {
-        if (!CultureService.IsValidCulture(culture)) return 0f;
+        if (!CultureService.IsValidCulture(culture) || World.world == null) return 0f;
+        if (CultureService.HasActiveEmpireForCulture(culture))
+        {
+            ModClass.CULTURE_NO_EMPIRE_SINCE.Remove(culture);
+            return 0f;
+        }
         if (!ModClass.CULTURE_NO_EMPIRE_SINCE.TryGetValue(culture, out double since))
         {
-            ModClass.CULTURE_NO_EMPIRE_SINCE[culture] = World.world.getCurWorldTime();
-            return 0f;
+            since = World.world.kingdoms.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
+                         string.Equals(CultureService.GetRealmCulture(kingdom), culture, StringComparison.Ordinal))
+                .Select(kingdom => kingdom.data.created_time)
+                .DefaultIfEmpty(World.world.getCurWorldTime()).Min();
+            ModClass.CULTURE_NO_EMPIRE_SINCE[culture] = since;
         }
         return Date.getYearsSince(since);
     }
@@ -328,19 +331,23 @@ public static class EmpireFormationService
         if (!kingdom.hasKing() || kingdom.king == null || kingdom.king.isRekt()) return false;
         if (kingdom.IsEmpire() || kingdom.IsInEmpire() || FeudalVassalService.GetOverlord(kingdom) != null)
             return false;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (!CultureService.IsValidCulture(culture)) return false;
+        float yearsWithoutEmpire = GetYearsWithoutEmpire(culture);
         // 城邦没有法理，不以主法理作为称帝门槛
         if (!kingdom.HasMainTitle() && !CityStateService.IsCityState(kingdom)) return false;
         List<Kingdom> bloc = GetBlocMembers(kingdom).ToList();
-        // 单独城邦不应因旧档保留多座城市而直接抢先称帝。
-        if (CityStateService.IsCityState(kingdom) && bloc.Count < 2) return false;
         int population = bloc.Sum(member => member.countUnits());
-        if (population < MinimumPopulation) return false;
         int cities = bloc.Sum(member => member.cities?.Count ?? 0);
-        if (cities < MinimumCities) return false;
-        string culture = CultureService.GetRealmCulture(kingdom);
+        bool established = population >= MinimumPopulation && cities >= MinimumCities;
+        bool longUnrepresented = yearsWithoutEmpire >= FallbackYears && population >= 160 && cities >= 2;
+        bool overdue = yearsWithoutEmpire >= FallbackYears * 2 && population >= 250 && cities >= 1;
+        // 孤立城邦通常先结盟；百年仍无同盟且实力足够时，允许自行开创帝国。
+        if (CityStateService.IsCityState(kingdom) && bloc.Count < 2 && !overdue) return false;
+        if (!established && !longUnrepresented && !overdue) return false;
         // 同文化已有帝国也可以称帝，能否称帝由正统路线决定。
         // 主法理(城邦为都城)已属于某个现存帝国的核心时，称帝即为"僭越"：与该帝国并立并互为正统对手
-        return CultureService.IsValidCulture(culture);
+        return true;
     }
 
     #endregion

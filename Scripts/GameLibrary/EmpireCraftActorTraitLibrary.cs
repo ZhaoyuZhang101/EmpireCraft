@@ -1,6 +1,7 @@
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,16 @@ public static class EmpireCraftActorTraitLibrary
     public static void init()
     {
         ActorTraitLibrary lib = AssetManager.traits;
+        IdeologyTraitIcons.Register();
+        foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)))
+            lib.add(new ActorTrait
+            {
+                id = IdeologyPopulationSystem.TraitId(ideology),
+                path_icon = IdeologyTraitIcons.Path(ideology),
+                group_id = "EmpireIdeology",
+                action_on_augmentation_add = IdeologyPopulationSystem.OnTraitAdded
+            });
+        IdeologyPopulationSystem.SetTraitsReady();
         lib.add(new ActorTrait
         {
             id = "jingshi",

@@ -89,6 +89,11 @@ public class ZonesPatch:GamePatch
             __result = MetaTypeExtension.KingdomTitle;
             return false;
         }
+        if (EmpireCraftMetaTypeLibrary.ideology?.isActive(pCheckOnlyOption) == true)
+        {
+            __result = MetaTypeExtension.Ideology;
+            return false;
+        }
         __result = MetaType.City;
         return false;
     }

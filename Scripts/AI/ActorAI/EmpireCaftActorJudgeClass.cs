@@ -33,24 +33,17 @@ public class EmpireCaftActorJudgeClass: GameAIActorBase
         {
             return SocialClass.Army;
         }
-        if (pActor.citizen_job != null)
-        {
-            switch (pActor.citizen_job.id)
-            {
-                case "woodcutter":
-                case "miner":
-                case "miner_deposit":
-                case "road_builder":
-                case "cleaner":
-                case "manure_cleaner":
-                case "gatherer_herbs":
-                case "gatherer_bushes":
-                case "gatherer_honey":
-                    return SocialClass.Labour;
-            }
-        }
+        if (IsManualWorkerJob(pActor)) return SocialClass.Labour;
         if (LandEconomySystem.IsLandlord(pActor)) return SocialClass.Landlord;
         if (pActor.GetOrCreate().is_economic_merchant) return SocialClass.Merchant;
+        if (UrbanEmploymentSystem.IsEmployed(pActor)) return SocialClass.Labour;
         return SocialClass.Peasant;
     }
+
+    public static bool IsManualWorkerJob(Actor actor) => actor?.citizen_job?.id switch
+    {
+        "woodcutter" or "miner" or "miner_deposit" or "road_builder" or "cleaner" or
+            "manure_cleaner" or "gatherer_herbs" or "gatherer_bushes" or "gatherer_honey" => true,
+        _ => false
+    };
 }

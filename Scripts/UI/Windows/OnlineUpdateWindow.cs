@@ -17,6 +17,7 @@ public class OnlineUpdateWindow : AutoLayoutWindow<OnlineUpdateWindow>
     private SimpleText _manualModeHelp;
     private SimpleText _notes;
     private AdvancedButton _manualModeToggle;
+    private AdvancedButton _archiveToggle;
     private AdvancedButton _downloadButton;
     private long _lastRevision = -1;
     private float _nextRefresh;
@@ -46,7 +47,7 @@ public class OnlineUpdateWindow : AutoLayoutWindow<OnlineUpdateWindow>
         if (_panel != null) Destroy(_panel.gameObject);
 
         _panel = this.BeginVertGroup(
-            new Vector2(202, 274),
+            new Vector2(202, 326),
             pSpacing: 4,
             pAlignment: TextAnchor.UpperCenter,
             pPadding: new RectOffset(4, 4, 4, 4));
@@ -78,6 +79,17 @@ public class OnlineUpdateWindow : AutoLayoutWindow<OnlineUpdateWindow>
         SetFixedHeight(_manualModeHelp.gameObject, 48);
         HoverVerticalScrollText.Attach(_manualModeHelp);
 
+        AutoHoriLayoutGroup archiveMode = _panel.BeginHoriGroup(
+            new Vector2(194, 20), TextAnchor.MiddleCenter, 2);
+        SetFixedHeight(archiveMode.gameObject, 20);
+        archiveMode.AddTextIntoHoriLayout(
+            LM.Get("online_update_archive_version"), true, TextAnchor.MiddleLeft, new Vector2(170, 18));
+        _archiveToggle = archiveMode.AddButtonIntoHoriLayout(
+            "online_update_archive_version", "", ToggleArchiveCurrentVersion,
+            size: new Vector2(18, 18), isToggle: true, showTip: true, iconType: 1,
+            hideBackground: true);
+        _archiveToggle.SetStatus(EmpireCraftUpdateService.ArchiveCurrentVersion);
+
         _notes = _panel.AddTextIntoVertLayout("", true, TextAnchor.UpperLeft, new Vector2(194, 52));
         _notes.UseFixedFontSize(7, HorizontalWrapMode.Wrap);
         SetFixedHeight(_notes.gameObject, 52);
@@ -108,7 +120,17 @@ public class OnlineUpdateWindow : AutoLayoutWindow<OnlineUpdateWindow>
             size: new Vector2(188, 20),
             showTip: true);
 
-        _panel.transform.AddStretchBackground("regimeFrame", new Vector2(202, 274));
+        AutoHoriLayoutGroup archiveFolderButton = _panel.BeginHoriGroup(
+            new Vector2(194, 24), TextAnchor.MiddleCenter, 4);
+        SetFixedHeight(archiveFolderButton.gameObject, 24);
+        archiveFolderButton.AddButtonIntoHoriLayout(
+            "online_update_open_archives",
+            LM.Get("online_update_open_archives"),
+            OpenArchivedVersionsFolder,
+            size: new Vector2(188, 20),
+            showTip: true);
+
+        _panel.transform.AddStretchBackground("regimeFrame", new Vector2(202, 326));
     }
 
     private void OpenModsFolder()
@@ -126,6 +148,22 @@ public class OnlineUpdateWindow : AutoLayoutWindow<OnlineUpdateWindow>
         _manualModeToggle?.SetStatus(enabled);
         RefreshDownloadButton();
         Refresh(true);
+    }
+
+    private void ToggleArchiveCurrentVersion()
+    {
+        bool enabled = !EmpireCraftUpdateService.ArchiveCurrentVersion;
+        EmpireCraftUpdateService.SetArchiveCurrentVersion(enabled);
+        _archiveToggle?.SetStatus(enabled);
+        Refresh(true);
+    }
+
+    private void OpenArchivedVersionsFolder()
+    {
+        if (_status == null) return;
+        _status.text.text = LM.Get(EmpireCraftUpdateService.OpenArchivedVersionsFolder()
+            ? "online_update_archives_opened"
+            : "online_update_archives_open_failed");
     }
 
     private static string GetDownloadButtonText()
@@ -161,6 +199,7 @@ public class OnlineUpdateWindow : AutoLayoutWindow<OnlineUpdateWindow>
             snapshot.AvailableVersion ?? LM.Get("label_none"));
         _status.text.text = BuildStatus(snapshot);
         _manualModeToggle?.SetStatus(EmpireCraftUpdateService.ManualPackageMode);
+        _archiveToggle?.SetStatus(EmpireCraftUpdateService.ArchiveCurrentVersion);
         RefreshDownloadButton();
 
         string notes = string.IsNullOrWhiteSpace(snapshot.ReleaseNotes)

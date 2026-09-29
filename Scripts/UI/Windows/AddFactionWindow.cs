@@ -4,6 +4,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.UI.Components;
+using NeoModLoader.General;
 using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
@@ -35,6 +36,7 @@ public class AddFactionWindow: AutoLayoutWindow<AddFactionWindow>
         {
             Destroy(group);
         }
+        _groups.Clear();
     }
 
     public override void OnNormalDisable()
@@ -43,14 +45,12 @@ public class AddFactionWindow: AutoLayoutWindow<AddFactionWindow>
         FactionManager.Save();
     }
 
+    // 派系库也用横式卡片，一行一个：最上面一条"新建空白派系"，下面依次是库里的派系。
     public void ShowFactions()
     {
-        var content = this.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
-        var count = 1;
-        AutoHoriLayoutGroup currentAutoHoriLayout = content.BeginHoriGroup();
-        var addCard = currentAutoHoriLayout.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(55, 90));
-        addCard?.transform.AddStretchBackground("FactionFrame", size: new Vector2(55, 90));
-        addCard.AddButtonIntoVertLayout("add_blank_faction", "", () =>
+        var content = this.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperCenter);
+        var addRow = content.BeginHoriGroup(new Vector2(188, 18), TextAnchor.MiddleCenter, 2);
+        addRow.AddButtonIntoHoriLayout("add_blank_faction", LM.Get("add_blank_faction"), () =>
         {
             FixedFaction blank = new FixedFaction
             {
@@ -60,22 +60,10 @@ public class AddFactionWindow: AutoLayoutWindow<AddFactionWindow>
                 Type = FactionType.无
             };
             FactionManager.Config.PlayerFactions.Insert(0, blank);
-            Clear();
-            ShowFactions();
-        }, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(20, 20));
+            RefreshWindow();
+        }, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(184, 15), showTip: true);
         foreach (var faction in FactionManager.Config.PlayerFactions)
-        {
-            count = (count + 1) % 3;
-            if (count == 1)
-            {
-                currentAutoHoriLayout = content.BeginHoriGroup();
-            }
-
-            if (currentAutoHoriLayout != null)
-            {
-                UIHelper.AddFactionCard(faction, _kingdom, currentAutoHoriLayout, addMode:true, action:RefreshWindow);
-            }
-        }
+            UIHelper.AddFactionCard(faction, _kingdom, parentV: content, addMode: true, action: RefreshWindow);
         _groups.Add(content.gameObject);
     }
 

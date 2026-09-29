@@ -72,7 +72,9 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         rightPart.AddButtonIntoHoriLayout("recover_tfaction", icon: SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(15, 15), showTip:true, action:
             () =>
             {
-                _faction.TemporaryFactionTypesRecord = new List<TemporaryFactionType>(_faction.TemporaryFactionTypes);
+                _faction.TemporaryFactionTypesRecord = _faction.IsParty && _faction.TemporaryFactionTypesRecord != null
+                    ? _faction.TemporaryFactionTypesRecord
+                    : new List<TemporaryFactionType>(_faction.TemporaryFactionTypes ?? new List<TemporaryFactionType>());
                 _faction.TemporaryFactions = _faction.ConvertToObjectFromFactionType();
                 ShowClaims();
             });
@@ -336,6 +338,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
                 InstitutionNodeStatus.Reforming => LM.Get("institution_status_reforming"),
                 InstitutionNodeStatus.Available => LM.Get("institution_status_available"),
                 InstitutionNodeStatus.Forceable => LM.Get("institution_status_force_available"),
+                InstitutionNodeStatus.Superseded => LM.Get("institution_status_superseded"),
                 _ => LM.Get("institution_status_locked")
             };
             parent.AddTextIntoVertLayout(
@@ -502,10 +505,17 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         Clear();
         InitialTopPart();
         var claimSpace = this.BeginVertGroup();
-        claimSpace.AddTextIntoVertLayout(LM.Get("label_all_claims"), size: new Vector2(35, 18), hideBackground:true, anchor: TextAnchor.MiddleCenter);
-        foreach (var tf in _faction.TemporaryFactions)
+        string agendaTitle = _faction.IsParty
+            ? string.Format(LM.Get("agenda_party_title"), PartySystem.GetIdeologyName(_faction.Ideology))
+            : LM.Get("label_all_claims");
+        claimSpace.AddTextIntoVertLayout(agendaTitle, size: new Vector2(200, 18), hideBackground:true,
+            anchor: TextAnchor.MiddleCenter);
+        ClaimAgendaContext context = ClaimAgendaSystem.BuildContext(_faction?.Empire ?? _kingdom?.GetEmpire());
+        foreach (var entry in _faction.TemporaryFactions.Where(tf => tf != null)
+                     .Select(tf => (claim: tf, view: ClaimAgendaSystem.Evaluate(context, _faction, tf)))
+                     .OrderByDescending(entry => entry.view.Score))
         {
-            ShowClaim(tf, claimSpace);
+            ShowClaim(entry.claim, entry.view, claimSpace, context);
         }
         var addSpace = claimSpace.BeginHoriGroup(new Vector2(200, 30), TextAnchor.MiddleCenter);
         addSpace.AddButtonIntoHoriLayout("add_tfaction", "", () =>
@@ -533,9 +543,11 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         _groups.Add(claimSpace.gameObject);
     }
     [Hotfixable]
-    public void ShowClaim(TemporaryFaction pFaction, AutoVertLayoutGroup parent)
+    public void ShowClaim(TemporaryFaction pFaction, ClaimAgendaView agenda, AutoVertLayoutGroup parent,
+        ClaimAgendaContext context)
     {
-        var tfSpace = parent.BeginHoriGroup(new Vector2(200, 40), pSpacing:20);
+        var card = parent.BeginVertGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
+        var tfSpace = card.BeginHoriGroup(new Vector2(200, 36), pSpacing:20);
         var firstPart = tfSpace.BeginVertGroup();
         firstPart.AddTextIntoVertLayout(TranslateHelper.GetTemporaryFactionClaimText(pFaction.type), hideBackground:true);
         firstPart.AddTextIntoVertLayout($"{LM.Get("label_budget")}: {pFaction.Budget}");
@@ -549,7 +561,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         {
             pFaction.canBePushByLocal = !pFaction.canBePushByLocal;
             pFaction.localPushButton?.SetStatus(pFaction.canBePushByLocal);
-        }, pFaction.Hide, size: new Vector2(12, 12), isOption:false, hasTitle:false);
+        }, pFaction.canBePushByLocal, size: new Vector2(12, 12), isOption:false, hasTitle:false);
         var activeButton = secondPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "active_tfaction", () =>
         {
             pFaction.Active = !pFaction.Active;
@@ -558,21 +570,19 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         pFaction.hideButton =  hideButton;
         pFaction.activeButton =  activeButton;
         pFaction.localPushButton = localPushButton;
-        var thirdPart = tfSpace.BeginVertGroup(new Vector2(30, 30));
-        var showButton = thirdPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "show_tfaction_as_plot", () =>
+        if (!_faction.IsParty)
         {
-            pFaction.ShowAsPlot = !pFaction.ShowAsPlot;
-            if ((_kingdom?.king?.plot?.name??"") == pFaction.type.ToString())
+            var thirdPart = tfSpace.BeginVertGroup(new Vector2(30, 30));
+            var showButton = thirdPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "show_tfaction_as_plot", () =>
             {
-                _kingdom?.king?.plot?.setAlive(false);
-            }
-            if (pFaction.IsStarted())
-            {
-                pFaction.End();
-            }
-            pFaction.showButton?.SetStatus(pFaction.ShowAsPlot);
-        }, pFaction.ShowAsPlot, size: new Vector2(12, 12), isOption:true);
-        pFaction.showButton =  showButton;
+                pFaction.ShowAsPlot = !pFaction.ShowAsPlot;
+                if ((_kingdom?.king?.plot?.name??"") == pFaction.type.ToString())
+                    _kingdom?.king?.plot?.setAlive(false);
+                if (pFaction.IsStarted()) pFaction.End();
+                pFaction.showButton?.SetStatus(pFaction.ShowAsPlot);
+            }, pFaction.ShowAsPlot, size: new Vector2(12, 12), isOption:true);
+            pFaction.showButton = showButton;
+        }
         
         var fourthPart = tfSpace.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
         fourthPart.AddButtonIntoVertLayout("remove_tfaction", "", () =>
@@ -581,7 +591,44 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
             _faction.TemporaryFactionTypesRecord.Remove(pFaction.type);
             ShowClaims();
         }, icon: SpriteTextureLoader.getSprite("ui/iconRemove"), size: new Vector2(13, 13));
-        tfSpace.transform.AddStretchBackground("FactionFrame", new Vector2(200, 42));
+        string statusKey = !pFaction.Active ? "agenda_status_inactive" :
+            pFaction.IsStarted() ? "agenda_status_running" :
+            pFaction.CountDown > 0 ? "agenda_status_cooldown" :
+            !agenda.CanPropose ? "agenda_status_blocked" : "agenda_status_eligible";
+        string status = LM.Get(statusKey);
+        if (!agenda.CanPropose) status += $": {LM.Get(agenda.Blocker)}";
+        card.AddTextIntoVertLayout(status.ColorString(agenda.CanPropose ? "#65D6C4" : "#D98C8C"), true,
+            TextAnchor.MiddleLeft, new Vector2(192, 14));
+        card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_support_line"), agenda.Support,
+                agenda.Opposition), true,
+            TextAnchor.MiddleLeft, new Vector2(192, 14));
+        string technology = string.IsNullOrEmpty(agenda.TechnologyName) ? LM.Get("agenda_no_technology") :
+            agenda.TechnologyName;
+        if (_faction.IsParty)
+        {
+            string seats = context?.ParliamentSeats > 0 ? $"{agenda.LegislativeShare:0}%" :
+                LM.Get("agenda_no_parliament");
+            card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_political_line"), agenda.PopulationShare,
+                    seats, agenda.Urgency), true, TextAnchor.MiddleLeft, new Vector2(192, 14));
+            card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_technology_line"), technology,
+                    agenda.IdeologyStage, pFaction.progress, pFaction.progressMax), true,
+                TextAnchor.MiddleLeft, new Vector2(192, 14));
+        }
+        else
+        {
+            card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_faction_progress_line"), technology,
+                    pFaction.progress, pFaction.progressMax), true, TextAnchor.MiddleLeft, new Vector2(192, 14));
+        }
+        if (pFaction.type == TemporaryFactionType.提高福利 && context?.Empire?.data?.constitutional_economy != null)
+        {
+            var state = context.Empire.data.constitutional_economy;
+            card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_welfare_line"), state.welfare_level,
+                    ConstitutionalEconomySystem.GetWelfareAnnualCost(context.Empire, state.welfare_level),
+                    LM.Get(state.welfare_funded ? "agenda_welfare_funded" : "agenda_welfare_unfunded")),
+                true, TextAnchor.MiddleLeft, new Vector2(192, 14));
+        }
+        card.transform.AddStretchBackground("FactionFrame", new Vector2(200,
+            (_faction.IsParty ? 94 : 80) + (pFaction.type == TemporaryFactionType.提高福利 ? 14 : 0)));
     }
     
     public void ChangeFactionName(string newName)

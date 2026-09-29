@@ -65,6 +65,14 @@ public static class WarExtension
         public SocialClass institution_social_rebellion_class = SocialClass.Peasant;
         public string institution_social_rebellion_cause = "";
         public float institution_social_rebellion_grievance;
+        public long republic_revolution_empire_id = -1L;
+        public string republic_revolution_party_id = "";
+        public string republic_revolution_party_name = "";
+        public PartyIdeology republic_revolution_ideology;
+        public long republic_revolution_leader_id = -1L;
+        public bool republic_revolution_split_realm;
+        public List<long> republic_revolution_allied_kingdom_ids = new List<long>();
+        public int republic_revolution_defected_soldiers;
         // 由土地兼并触发的农民起义独立于帝国制度，因此单一王国也能完整结算。
         public bool peasant_land_rebellion;
         public long peasant_land_rebellion_origin_kingdom_id = -1L;

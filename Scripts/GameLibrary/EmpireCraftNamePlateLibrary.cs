@@ -20,6 +20,7 @@ using NeoModLoader.api.attributes;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftNamePlateLibrary
@@ -43,6 +44,11 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly Dictionary<string, (Sprite icon, Sprite background)> _culture_banner_sprite_cache = new Dictionary<string, (Sprite icon, Sprite background)>();
     // “简化铭牌”文化图层用：按文化分组的城市列表缓存，避免每帧重新分配。
     private static readonly Dictionary<string, List<City>> _culture_territory_groups = new Dictionary<string, List<City>>();
+    private static readonly Dictionary<PartyIdeology, List<City>> _ideology_territory_groups = new();
+    private static readonly Dictionary<PartyIdeology, City> _ideology_representative_cities = new();
+    private static readonly Dictionary<PartyIdeology, IdeologyMapColor> _ideology_colors = new();
+    private const string IdeologyShareTooltipType = "empirecraft_ideology_share";
+    private static object _last_ideology_tooltip_owner;
     private static readonly List<Kingdom> _render_kingdoms_buffer = new List<Kingdom>();
     private static readonly List<Kingdom> _render_kingdoms_no_back_buffer = new List<Kingdom>();
     private static readonly HashSet<long> _empire_city_members = new HashSet<long>();
@@ -52,6 +58,11 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly Queue<City> _empire_city_queue = new Queue<City>();
     private static MetaType _last_nameplate_mode = MetaType.None;
     private static bool _is_camera_moving_this_frame;
+    private static bool SimplifiedNameplatesEnabled =>
+        EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates?.isEnabled() == true;
+    private static bool IsNameplateReady =>
+        World.world != null && ModClass.EMPIRE_MANAGER != null &&
+        EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates != null;
     public static void RequestRefresh()
     {
         _last_plate_update_ts = -1L;
@@ -72,6 +83,15 @@ public static class EmpireCraftNamePlateLibrary
         _cached_neutral_cities.Clear();
         _cached_culture_cities.Clear();
         _culture_territory_groups.Clear();
+        _ideology_territory_groups.Clear();
+        _ideology_representative_cities.Clear();
+        _ideology_colors.Clear();
+        if (_last_culture_tooltip_owner != null)
+            Tooltip.hideTooltip(_last_culture_tooltip_owner, true, CultureShareTooltipType);
+        _last_culture_tooltip_owner = null;
+        if (_last_ideology_tooltip_owner != null)
+            Tooltip.hideTooltip(_last_ideology_tooltip_owner, true, IdeologyShareTooltipType);
+        _last_ideology_tooltip_owner = null;
         _render_kingdoms_buffer.Clear();
         _render_kingdoms_no_back_buffer.Clear();
         _empire_city_members.Clear();
@@ -140,7 +160,8 @@ public static class EmpireCraftNamePlateLibrary
             padding_top = -2,
             action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
             {
-                if (EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled())
+                if (!IsNameplateReady) return;
+                if (SimplifiedNameplatesEnabled)
                 {
                     RenderSimplifiedEmpireLayer();
                     RenderAncientWarfareKingdoms(pManager);
@@ -430,7 +451,8 @@ public static class EmpireCraftNamePlateLibrary
             map_mode = MetaType.Kingdom,
             action_main = delegate(NameplateManager pManager, NameplateAsset pAsset)
             {
-                if (EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled())
+                if (!IsNameplateReady) return;
+                if (SimplifiedNameplatesEnabled)
                 {
                     RenderSimplifiedKingdomLayer();
                     RenderAncientWarfareKingdoms(pManager);
@@ -506,6 +528,7 @@ public static class EmpireCraftNamePlateLibrary
             padding_top = -2,
             action_main = delegate (NameplateManager pManager, NameplateAsset pAsset)
             {
+                if (!IsNameplateReady) return;
                 // “简化铭牌”世界法开启时，文化图层跟王国/帝国图层一样改用
                 // TerritoryLabelRenderer：不再按城市去重画方框旗帜铭牌，而是按每种
                 // 模组文化实际占据的城市（不分王国归属）算出一整块领土范围，
@@ -518,7 +541,7 @@ public static class EmpireCraftNamePlateLibrary
                 City hoveredCity = GetHoveredCultureCity();
                 UpdateCultureShareTooltip(hoveredCity);
 
-                if (EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled())
+                if (SimplifiedNameplatesEnabled)
                 {
                     RenderSimplifiedCultureLayer();
                     return;
@@ -534,7 +557,7 @@ public static class EmpireCraftNamePlateLibrary
                         City current = _cached_culture_cities[i];
                         if (current == null || current.isRekt()) continue;
                         if (!isWithinCamera(current.city_center)) continue;
-                        string cultureKey = CultureService.GetMainCulture(current);
+                        string cultureKey = LayerCityCache.Culture(current);
                         if (!CultureService.IsValidCulture(cultureKey)) continue;
                         // 悬停城市不再跳过常规铭牌——文化占比改用真正的 Tooltip 展示，
                         // 不需要再挪用这个槽位画透明详情铭牌。
@@ -555,7 +578,7 @@ public static class EmpireCraftNamePlateLibrary
                         if (city == null || city.isRekt()) continue;
                         if (AncientWarfareCompatibility.OwnsObject(city)) continue;
                         if (!isWithinCamera(city.city_center)) continue;
-                        string cultureKey = CultureService.GetMainCulture(city);
+                        string cultureKey = LayerCityCache.Culture(city);
                         if (!CultureService.IsValidCulture(cultureKey)) continue;
                         if (!shownCultures.Add(cultureKey)) continue;
                         _cached_culture_cities.Add(city);
@@ -577,6 +600,190 @@ public static class EmpireCraftNamePlateLibrary
         // 套东西——原版内建的 MetaType.Culture 对应的 MetaTypeAsset（draw_zones /
         // check_cursor_highlight 字段），下面单独接管它。
         HookVanillaCultureMapModeColoring();
+
+        NameplateAsset assetIdeology = new NameplateAsset
+        {
+            id = "plate_ideology",
+            path_sprite = "ui/nameplates/nameplate_kingdom",
+            map_mode = MetaTypeExtension.Ideology,
+            padding_left = 8,
+            padding_right = 8,
+            padding_top = -2,
+            action_main = (manager, asset) =>
+            {
+                if (!IsNameplateReady) return;
+                UpdateIdeologyShareTooltip(GetHoveredCultureCity());
+                if (SimplifiedNameplatesEnabled)
+                {
+                    RenderSimplifiedIdeologyLayer();
+                    return;
+                }
+                TerritoryLabelRenderer.HideAll();
+                _ideology_representative_cities.Clear();
+                foreach (City city in World.world.cities)
+                {
+                    if (city == null || city.isRekt() || AncientWarfareCompatibility.OwnsObject(city) ||
+                        !isWithinCamera(city.city_center) || city.units == null || city.units.Count == 0) continue;
+                    PartyIdeology ideology = LayerCityCache.Ideology(city);
+                    if (!_ideology_representative_cities.TryGetValue(ideology, out City representative) ||
+                        city.getPopulationPeople() > representative.getPopulationPeople())
+                        _ideology_representative_cities[ideology] = city;
+                }
+                foreach (KeyValuePair<PartyIdeology, City> entry in _ideology_representative_cities
+                             .OrderByDescending(pair => pair.Value.getPopulationPeople())
+                             .Take(asset.max_nameplate_count))
+                {
+                    City city = entry.Value;
+                    NameplateText plate = manager.prepareNext(asset, city);
+                    ShowTextIdeologyForCity(plate, city, entry.Key);
+                }
+            }
+        };
+        // 理念有自己的图层，原版宗教图层与铭牌保持原样
+        AssetManager.nameplates_library.map_modes_nameplates[assetIdeology.map_mode] = assetIdeology;
+        AssetManager.nameplates_library.dict["Ideology"] = assetIdeology;
+    }
+
+    private static IdeologyMapColor GetIdeologyColor(PartyIdeology ideology)
+    {
+        if (AssetManager.culture_colors_library?.list?.Count is not > 0) return null;
+        if (!_ideology_colors.TryGetValue(ideology, out IdeologyMapColor color))
+            _ideology_colors[ideology] = color = IdeologyMapColor.Create(ideology);
+        return color;
+    }
+
+    public static ColorAsset GetIdeologyColorAsset(PartyIdeology ideology) =>
+        GetIdeologyColor(ideology)?.getColor();
+
+    // 理念图层的地块着色、悬停高亮、点击(由 EmpireCraftMetaTypeLibrary.AddIdeologyMeta 注册图层时调用)
+    public static void ConfigureIdeologyMapAsset(MetaTypeAsset mapAsset)
+    {
+        if (mapAsset == null) return;
+        mapAsset.draw_zones = (MetaZoneDrawAction)(asset =>
+        {
+            foreach (City city in World.world.cities)
+            {
+                if (city == null || city.isRekt() || AncientWarfareCompatibility.OwnsObject(city) ||
+                    city.units == null || city.units.Count == 0) continue;
+                PartyIdeology ideology = LayerCityCache.Ideology(city);
+                IdeologyMapColor color = GetIdeologyColor(ideology);
+                if (color == null) continue;
+                foreach (TileZone zone in city.zones)
+                {
+                    EmpireCraftMetaTypeLibrary.zone_manager.drawBegin();
+                    EmpireCraftMetaTypeLibrary.zone_manager.drawZoneMeta(color, zone,
+                        IsIdeologyBorder(zone.zone_up, ideology), IsIdeologyBorder(zone.zone_down, ideology),
+                        IsIdeologyBorder(zone.zone_left, ideology), IsIdeologyBorder(zone.zone_right, ideology),
+                        color.data, asset);
+                    EmpireCraftMetaTypeLibrary.zone_manager.drawEnd(zone);
+                }
+            }
+        });
+        mapAsset.check_cursor_highlight = (MetaZoneHighlightAction)((asset, tile, highlight) =>
+        {
+            City hovered = tile?.zone?.city;
+            if (hovered == null || hovered.isRekt()) return;
+            PartyIdeology ideology = LayerCityCache.Ideology(hovered);
+            foreach (City city in World.world.cities)
+                if (city != null && !city.isRekt() && city.units?.Count > 0 &&
+                    LayerCityCache.Ideology(city) == ideology)
+                    QuantumSpriteLibrary.colorZones(highlight, city.zones, highlight.color);
+        });
+        mapAsset.click_action_zone = new MetaZoneClickAction((tile, power) =>
+        {
+            City city = tile?.zone?.city;
+            if (city == null || city.isRekt()) return false;
+            EmpireCraft.Scripts.UI.Windows.IdeologyInfoWindow.Open(city);
+            return true;
+        });
+    }
+
+    private static bool IsIdeologyBorder(TileZone neighbour, PartyIdeology ideology) =>
+        neighbour?.city == null || neighbour.city.isRekt() || neighbour.city.units?.Count == 0 ||
+        LayerCityCache.Ideology(neighbour.city) != ideology;
+
+    private static void ShowTextIdeologyForCity(NameplateText plate, City city, PartyIdeology ideology)
+    {
+        ColorAsset color = GetIdeologyColor(ideology)?.getColor();
+        if (plate == null || color == null) return;
+        HideIdeologyNameplateBanners(plate);
+        plate._background_image.enabled = true;
+        plate._text_name.fontStyle = FontStyle.Normal;
+        Outline outline = plate._text_name.GetComponent<Outline>();
+        if (outline != null) outline.enabled = false;
+        plate.setupMeta(city.data, color);
+        plate.nano_object = city;
+        // A plate follows the camera even when its text and world-space city position are unchanged.
+        plate.setText(PartySystem.GetIdeologyName(ideology), city.city_center);
+        plate.setPriority(city.getPopulationPeople());
+    }
+
+    private static void HideIdeologyNameplateBanners(NameplateText plate)
+    {
+        plate._show_banner_kingdom = false;
+        plate._show_banner_religion = false;
+        plate._show_banner_culture = false;
+        plate._show_banner_city = false;
+        plate._show_banner_clan = false;
+        plate._show_banner_alliance = false;
+        plate._show_banner_army = false;
+        plate._show_banner_family = false;
+        plate._show_banner_subspecies = false;
+        plate._show_banner_language = false;
+        plate._show_icon_species = false;
+        plate._show_icon_special = false;
+        plate._show_capture_counter = false;
+        if (plate._banner_kingdoms != null) plate._banner_kingdoms.gameObject.SetActive(false);
+        if (plate._banner_religion != null) plate._banner_religion.gameObject.SetActive(false);
+        if (plate._banner_culture != null) plate._banner_culture.gameObject.SetActive(false);
+        if (plate._banner_city != null) plate._banner_city.gameObject.SetActive(false);
+        if (plate._banner_clan != null) plate._banner_clan.gameObject.SetActive(false);
+        if (plate._banner_alliance != null) plate._banner_alliance.gameObject.SetActive(false);
+        if (plate._banner_army != null) plate._banner_army.gameObject.SetActive(false);
+        if (plate._banner_family != null) plate._banner_family.gameObject.SetActive(false);
+        if (plate._banner_subspecies != null) plate._banner_subspecies.gameObject.SetActive(false);
+        if (plate._banner_language != null) plate._banner_language.gameObject.SetActive(false);
+    }
+
+    private static void UpdateIdeologyShareTooltip(City city)
+    {
+        if (city != null && !city.isRekt() && city.units?.Count > 0 && isWithinCamera(city.city_center))
+        {
+            if (ReferenceEquals(_last_ideology_tooltip_owner, city)) return;
+            if (_last_ideology_tooltip_owner != null)
+                Tooltip.hideTooltip(_last_ideology_tooltip_owner, true, IdeologyShareTooltipType);
+            Tooltip.show(city, IdeologyShareTooltipType, new TooltipData
+            {
+                city = city, tooltip_scale = 0.7f, is_sim_tooltip = true
+            });
+            _last_ideology_tooltip_owner = city;
+            return;
+        }
+        if (_last_ideology_tooltip_owner == null) return;
+        Tooltip.hideTooltip(_last_ideology_tooltip_owner, true, IdeologyShareTooltipType);
+        _last_ideology_tooltip_owner = null;
+    }
+
+    private static void RenderSimplifiedIdeologyLayer()
+    {
+        City hovered = GetHoveredCultureCity();
+        PartyIdeology? hoveredIdeology = hovered == null || hovered.isRekt()
+            ? null : LayerCityCache.Ideology(hovered);
+        TerritoryLabelRenderer.BeginFrame(MetaTypeExtension.Ideology);
+        _ideology_territory_groups.Clear();
+        foreach (City city in World.world.cities)
+        {
+            if (city == null || city.isRekt() || AncientWarfareCompatibility.OwnsObject(city) ||
+                city.units == null || city.units.Count == 0) continue;
+            PartyIdeology ideology = LayerCityCache.Ideology(city);
+            if (!_ideology_territory_groups.TryGetValue(ideology, out List<City> cities))
+                _ideology_territory_groups[ideology] = cities = new List<City>();
+            cities.Add(city);
+        }
+        foreach (KeyValuePair<PartyIdeology, List<City>> group in _ideology_territory_groups)
+            TerritoryLabelRenderer.SubmitCities($"ideology:{group.Key}", PartySystem.GetIdeologyName(group.Key),
+                group.Value, TerritoryLabelRenderer.KingdomStyle, hoveredIdeology == group.Key);
+        TerritoryLabelRenderer.EndFrame();
     }
 
     // 接管原版“文化”地图图层的地块染色（常驻底色）与鼠标悬停高亮。
@@ -625,7 +832,7 @@ public static class EmpireCraftNamePlateLibrary
             {
                 if (city == null || city.isRekt()) continue;
                 if (AncientWarfareCompatibility.OwnsObject(city)) continue;
-                string cultureKey = CultureService.GetMainCulture(city);
+                string cultureKey = LayerCityCache.Culture(city);
                 if (!CultureService.IsValidCulture(cultureKey)) continue;
                 Culture nativeCulture = CultureService.GetNativeCultureObject(cultureKey);
                 if (nativeCulture == null) continue;
@@ -643,14 +850,14 @@ public static class EmpireCraftNamePlateLibrary
         {
             City hoveredCity = pTile?.zone?.city;
             if (hoveredCity == null || hoveredCity.isRekt()) return;
-            string hoveredCulture = CultureService.GetMainCulture(hoveredCity);
+            string hoveredCulture = LayerCityCache.Culture(hoveredCity);
             if (!CultureService.IsValidCulture(hoveredCulture)) return;
 
             Color color = pQAsset.color;
             foreach (City city in World.world.cities)
             {
                 if (city == null || city.isRekt()) continue;
-                if (!string.Equals(CultureService.GetMainCulture(city), hoveredCulture, StringComparison.Ordinal)) continue;
+                if (!string.Equals(LayerCityCache.Culture(city), hoveredCulture, StringComparison.Ordinal)) continue;
                 QuantumSpriteLibrary.colorZones(pQAsset, city.zones, color);
             }
         });
@@ -663,7 +870,7 @@ public static class EmpireCraftNamePlateLibrary
     {
         City city = pTile?.zone?.city;
         if (city == null || city.isRekt()) return false;
-        string culture = CultureService.GetMainCulture(city);
+        string culture = LayerCityCache.Culture(city);
         if (!CultureService.IsValidCulture(culture)) return false;
         EmpireCraft.Scripts.UI.Windows.CultureInfoWindow.Open(culture);
         return true;
@@ -684,7 +891,7 @@ public static class EmpireCraftNamePlateLibrary
     {
         if (pZone == null) return true;
         string cultureOnZone = pZone.city != null && !pZone.city.isRekt()
-            ? CultureService.GetMainCulture(pZone.city)
+            ? LayerCityCache.Culture(pZone.city)
             : null;
         return !string.Equals(cultureOnZone, pCulture, StringComparison.Ordinal);
     }
@@ -753,15 +960,27 @@ public static class EmpireCraftNamePlateLibrary
     private const string CultureShareTooltipType = "empirecraft_culture_share";
     private static object _last_culture_tooltip_owner;
 
+    private static bool IsHoveringNameplate()
+    {
+        EventSystem eventSystem = EventSystem.current;
+        if (eventSystem == null || !eventSystem.IsPointerOverGameObject()) return false;
+        var hits = new List<RaycastResult>();
+        eventSystem.RaycastAll(new PointerEventData(eventSystem) { position = Input.mousePosition }, hits);
+        return hits.Count > 0 && hits[0].gameObject?.GetComponentInParent<NameplateText>() != null;
+    }
+
     private static void UpdateCultureShareTooltip(City hoveredCity)
     {
+        if (IsHoveringNameplate()) hoveredCity = null;
         if (hoveredCity != null && !hoveredCity.isRekt() && isWithinCamera(hoveredCity.city_center))
         {
-            string hoveredCulture = CultureService.GetMainCulture(hoveredCity);
+            string hoveredCulture = LayerCityCache.Culture(hoveredCity);
             if (CultureService.IsValidCulture(hoveredCulture))
             {
                 object owner = hoveredCity;
-                Tooltip.hideTooltip(owner, true, CultureShareTooltipType);
+                if (ReferenceEquals(_last_culture_tooltip_owner, owner)) return;
+                if (_last_culture_tooltip_owner != null)
+                    Tooltip.hideTooltip(_last_culture_tooltip_owner, true, CultureShareTooltipType);
                 Tooltip.show(owner, CultureShareTooltipType, new TooltipData
                 {
                     city = hoveredCity,
@@ -909,7 +1128,7 @@ public static class EmpireCraftNamePlateLibrary
     {
         City hoveredCity = GetHoveredCultureCity();
         string hoveredCulture = hoveredCity != null && !hoveredCity.isRekt()
-            ? CultureService.GetMainCulture(hoveredCity)
+            ? LayerCityCache.Culture(hoveredCity)
             : null;
 
         TerritoryLabelRenderer.BeginFrame(MetaType.Culture);
@@ -919,7 +1138,7 @@ public static class EmpireCraftNamePlateLibrary
         {
             if (city == null || city.isRekt()) continue;
             if (AncientWarfareCompatibility.OwnsObject(city)) continue;
-            string cultureKey = CultureService.GetMainCulture(city);
+            string cultureKey = LayerCityCache.Culture(city);
             if (!CultureService.IsValidCulture(cultureKey)) continue;
             if (!_culture_territory_groups.TryGetValue(cultureKey, out List<City> cities))
             {
@@ -1057,6 +1276,8 @@ public static class EmpireCraftNamePlateLibrary
         if (string.IsNullOrWhiteSpace(empireName)) return GetSafeKingdomName(empire.CoreKingdom);
         if (!ModClass.SIMPLE_NAMEPLATE_SWITCH) return empireName;
         if (empire.CoreKingdom?.HasCustomCountryNaming() == true) return empire.GetEmpireName();
+        if (empire.data.western_ordinal >= 2 &&
+            empire.CoreKingdom.GetRegime()?.type == RegimeType.Feudalism) return empireName;
         return OverallHelperFunc.JoinNameParts(OverallHelperFunc.LocalizeDirectPrefix(empire.data),
             empire.GetEmpireName());
     }
@@ -1071,6 +1292,12 @@ public static class EmpireCraftNamePlateLibrary
     private static string GetTerritoryKingdomName(Kingdom kingdom)
     {
         string name = GetSafeKingdomName(kingdom);
+        Kingdom lord = FeudalVassalService.GetOverlord(kingdom);
+        if (lord != null)
+        {
+            string label = string.Format(LM.Get("label_feudal_vassal_of"), GetSafeKingdomName(lord));
+            return $"{name}\n<size=70><color=#FF5555>{label}</color></size>";
+        }
         if (!kingdom.HasTakenAlliance()) return name;
         Empire overlord = kingdom.GetTakenAllianceEmpire();
         if (!IsRenderableEmpire(overlord)) return name;
@@ -1080,9 +1307,11 @@ public static class EmpireCraftNamePlateLibrary
 
     private static TerritoryLabelStyle GetTerritoryKingdomStyle(Kingdom kingdom)
     {
-        return kingdom != null && (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling())
-            ? TerritoryLabelRenderer.RebellionKingdomStyle
-            : TerritoryLabelRenderer.KingdomStyle;
+        bool rebelling = kingdom != null && (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling());
+        if (FeudalVassalService.GetOverlord(kingdom) != null)
+            return rebelling ? TerritoryLabelRenderer.FeudalVassalRebellionStyle
+                : TerritoryLabelRenderer.FeudalVassalStyle;
+        return rebelling ? TerritoryLabelRenderer.RebellionKingdomStyle : TerritoryLabelRenderer.KingdomStyle;
     }
 
     private static void RenderLawLayerUntitledCities(NameplateManager manager)
@@ -1550,7 +1779,7 @@ public static class EmpireCraftNamePlateLibrary
                     nameplateText._banner_clan.gameObject.SetActive(false);
                     break;
                 case MetaTypeExtension.Empire:
-                    if (!EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled())
+                    if (!SimplifiedNameplatesEnabled)
                     {
                         nameplateText._show_banner_city = false;
                         nameplateText._show_banner_clan = false;
@@ -1724,7 +1953,12 @@ public static class EmpireCraftNamePlateLibrary
         switch (EmpireCraftMetaTypeLibrary.empire.getZoneOptionState())
         {
             case 0:
-                if (empire.IsAllowToMakeYearName())
+                if (RepublicSystem.IsRepublic(empire))
+                {
+                    text = OverallHelperFunc.JoinNameParts(displayName,
+                        RepublicSystem.GetCalendarText(empire), empire.CountPopulation().ToString());
+                }
+                else if (empire.IsAllowToMakeYearName())
                 {
                     if (empire.HasYearName())
                     {
@@ -1734,7 +1968,7 @@ public static class EmpireCraftNamePlateLibrary
                 }
 
                 text = text + " | " + empire.countWarriors() + $"{additionNum}/" + empire.countWarriorsMax() + additionNum;
-                if (!EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled())
+                if (!SimplifiedNameplatesEnabled)
                 {
                     FixedFaction faction = empire.CoreKingdom.GetRegime().GetDominateFaction();
                     if (faction != null)
@@ -1812,7 +2046,7 @@ public static class EmpireCraftNamePlateLibrary
         
         float scale = (MoveCamera.instance.orthographic_size_max-MoveCamera.instance.main_camera.orthographicSize+100)*0.001f*3;
         plateText.forceScale((scale > 0.4f ? 0.5f : scale * 1.25f) * Vector2.one);
-        plateText._background_image.enabled = EmpireCraftWorldLawLibrary.empirecraft_law_simplify_nameplates.isEnabled();
+        plateText._background_image.enabled = SimplifiedNameplatesEnabled;
         plateText._text_name.color = Color.white;
         
         plateText.priority_population = pMetaObject.units.Count;

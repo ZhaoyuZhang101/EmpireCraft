@@ -204,11 +204,13 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             var challengePlot = AssetManager.plots_library.basic_plots
                 .Find(p => p.id == "usurp_imperial_legitimacy");
             if (challengePlot?.try_to_start_advanced?.Invoke(pKingdom.king, challengePlot, true) == true)
+            {
                 pKingdom.GetRegime()?.SetAllowDiplomacy(true);
-            return;
+                return;
+            }
         }
         // 已经在筹备(或进行别的剧情)时不要重新开始，否则会反复覆盖筹备开始时的记录
-        if (!pKingdom.hasKing() || pKingdom.king.plot != null) return;
+        if (!pKingdom.hasKing() || pKingdom.king.plot?.isActive() == true) return;
         if (!CanStartEmpireFormation(pKingdom, true)) return;
 
         var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "become_empire");

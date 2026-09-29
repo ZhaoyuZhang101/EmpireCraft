@@ -121,6 +121,11 @@ public class InstitutionGraphView
         GraphLayout.Result layout = GraphLayout.TieredLanes(layoutNodes, BranchOrder, NodeWidth, NodeHeight,
             LaneGap, RowGap);
         Dictionary<string, Vector2> positions = layout.Positions;
+        int maxTier = lineNodes.Count > 0 ? lineNodes.Max(view => view.Node.advancement) : 1;
+        int rows = Math.Max(maxTier, foreignNodes.Count) + 1;
+        float verticalOffset = rows * (NodeHeight + RowGap) / 2f;
+        foreach (string id in positions.Keys.ToList())
+            positions[id] += new Vector2(0f, verticalOffset);
 
         // 每条分支已达的等级只在视口顶部固定的摘要栏里报一次数(拖拽/缩放都不会跟着挪走)，
         // 不再在车道上方重复画一份小字——之前两处都画，看着像同一个数字出现了两次。
@@ -158,14 +163,12 @@ public class InstitutionGraphView
 
         // 外来制度挂在树右侧单独一列，不与本线连线（吸收不看前置，连了反而误导）
         float foreignX = layout.TotalWidth / 2f + ForeignLaneGap + NodeWidth / 2f;
-        float RowY(int tier) => -tier * (NodeHeight + RowGap);
+        float RowY(int tier) => verticalOffset - tier * (NodeHeight + RowGap);
         if (foreignNodes.Count > 0)
             CreateLaneHeader(LM.Get("institution_foreign_title"), new Vector2(foreignX, RowY(1) + NodeHeight + RowGap));
         for (int i = 0; i < foreignNodes.Count; i++)
             CreateNode(foreignNodes[i], new Vector2(foreignX, RowY(1 + i)), true);
 
-        int maxTier = lineNodes.Count > 0 ? lineNodes.Max(view => view.Node.advancement) : 1;
-        int rows = Math.Max(maxTier, foreignNodes.Count) + 1;
         Vector2 contentSize = new Vector2(
             (foreignNodes.Count > 0 ? foreignX * 2f : layout.TotalWidth) + NodeWidth,
             rows * (NodeHeight + RowGap) + NodeHeight * 2f);
@@ -175,7 +178,8 @@ public class InstitutionGraphView
         Rect viewportRect = _engine.ViewportTransform.rect;
         float fitScale = Mathf.Clamp(viewportRect.width / Math.Max(1f, contentSize.x) * 0.98f, MinFitScale, 1f);
         Vector2 fitPosition = new Vector2(0f,
-            contentSize.y / 2f * fitScale - viewportRect.height / 2f + (NodeHeight / 2f) * fitScale - FixedHeaderHeight);
+            viewportRect.height / 2f - FixedHeaderHeight -
+            (RowY(1) + NodeHeight / 2f) * fitScale);
         _engine.SetContent(contentSize, fitScale, fitPosition);
     }
 
@@ -218,7 +222,8 @@ public class InstitutionGraphView
         nodeObject.GetComponent<Button>().onClick.AddListener(() => _onSelect?.Invoke(nodeId));
         // 还没解锁的节点整体淡一些，但文字仍然看得清(之前是深色字压在深色框上，基本看不见)。
         nodeObject.GetComponent<CanvasGroup>().alpha =
-            view.Status is InstitutionNodeStatus.Locked or InstitutionNodeStatus.ForeignLocked ? 0.6f : 1f;
+            view.Status is InstitutionNodeStatus.Locked or InstitutionNodeStatus.ForeignLocked
+                or InstitutionNodeStatus.Superseded ? 0.6f : 1f;
 
         // 悬浮就能看到详情，不用先点一下再往下翻——跟模组其它按钮用的是同一套 TipButton。
         if (_buildTooltip != null)
@@ -250,38 +255,43 @@ public class InstitutionGraphView
         stripe.raycastTarget = false;
 
         NodeCardInfo info = _buildCard?.Invoke(view) ?? new NodeCardInfo("", "");
-        // 名称用模组自己的 SimpleText(自带 windowInnerSliced 黑底)，跟族谱卡片信息栏同一套样式。
-        // 名称行占卡片上沿 3~13，左侧让出等级数字，右侧让出边框。
+        // 第一行：左边分支图标，中间名称，右边等级数字。
+        // 名称用模组自己的 SimpleText(自带 windowInnerSliced 黑底)，跟族谱卡片信息栏同一套样式，
+        // 两边各让出一个图标的宽度。
+        CreateCardIcon(rect, GetBranchIcon(view.Node.branch), new Vector2(8f, -3f), 8f);
         SimpleText name = UnityEngine.Object.Instantiate(SimpleText.Prefab, rect);
-        name.Setup(InstitutionSystem.GetNodeName(view.Node), TextAnchor.MiddleCenter, new Vector2(54f, 10f));
+        name.Setup(InstitutionSystem.GetNodeName(view.Node), TextAnchor.MiddleCenter, new Vector2(46f, 10f));
         RectTransform nameRect = name.GetComponent<RectTransform>();
         nameRect.anchorMin = nameRect.anchorMax = new Vector2(0.5f, 0.5f);
         nameRect.pivot = new Vector2(0.5f, 0.5f);
-        nameRect.anchoredPosition = new Vector2(5f, NodeHeight / 2f - 8f);
+        nameRect.anchoredPosition = new Vector2(1f, NodeHeight / 2f - 8f);
         nameRect.localScale = Vector3.one;
         name.text.fontStyle = FontStyle.Bold;
         name.text.color = new Color(0.97f, 0.94f, 0.84f);
         name.text.resizeTextMinSize = 4;
         name.text.resizeTextMaxSize = 7;
         foreach (Graphic graphic in name.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
-        CreateCardText(rect, "Status", 14f, 22f, 5, Color.white).text = info.StatusLine ?? "";
-        CreateCardText(rect, "Info", 22f, 30f, 5, new Color(0.72f, 0.78f, 0.80f)).text = info.InfoLine ?? "";
 
         var tierObject = new GameObject("Tier", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
         var tierRect = tierObject.GetComponent<RectTransform>();
         tierRect.SetParent(rect, false);
-        tierRect.anchorMin = new Vector2(0f, 1f);
-        tierRect.anchorMax = new Vector2(0f, 1f);
-        tierRect.pivot = new Vector2(0f, 1f);
+        tierRect.anchorMin = new Vector2(1f, 1f);
+        tierRect.anchorMax = new Vector2(1f, 1f);
+        tierRect.pivot = new Vector2(1f, 1f);
         tierRect.sizeDelta = new Vector2(10f, 8f);
-        tierRect.anchoredPosition = new Vector2(8f, -3f);
+        tierRect.anchoredPosition = new Vector2(-5f, -4f);
         Text tierText = tierObject.GetComponent<Text>();
         tierText.font = LocalizedTextManager.current_font;
         tierText.fontSize = 5;
-        tierText.alignment = TextAnchor.UpperLeft;
+        tierText.alignment = TextAnchor.UpperRight;
         tierText.raycastTarget = false;
         tierText.color = new Color(0.95f, 0.76f, 0.29f, 0.9f);
         tierText.text = view.Node.advancement.ToString();
+
+        // 第二行：状态图标 + 状态文字；第三行关键数字
+        CreateCardIcon(rect, GetStatusIcon(view.Status), new Vector2(10f, -14.5f), 7f);
+        CreateCardText(rect, "Status", 14f, 22f, 5, Color.white, 18f).text = info.StatusLine ?? "";
+        CreateCardText(rect, "Info", 22f, 30f, 5, new Color(0.72f, 0.78f, 0.80f)).text = info.InfoLine ?? "";
 
         if (info.Progress >= 0f) CreateProgressBar(rect, Mathf.Clamp01(info.Progress));
 
@@ -290,7 +300,7 @@ public class InstitutionGraphView
 
     // 卡片内一行文字：左右留出状态色条和边框的空位，top/bottom 是距卡片上沿的距离。
     private static Text CreateCardText(RectTransform parent, string objectName, float top, float bottom,
-        int fontSize, Color color)
+        int fontSize, Color color, float left = 9f)
     {
         var textObject = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
         var textRect = textObject.GetComponent<RectTransform>();
@@ -298,7 +308,7 @@ public class InstitutionGraphView
         textRect.anchorMin = new Vector2(0f, 1f);
         textRect.anchorMax = new Vector2(1f, 1f);
         textRect.pivot = new Vector2(0.5f, 1f);
-        textRect.offsetMin = new Vector2(9f, -bottom);
+        textRect.offsetMin = new Vector2(left, -bottom);
         textRect.offsetMax = new Vector2(-5f, -top);
         Text text = textObject.GetComponent<Text>();
         text.font = LocalizedTextManager.current_font;
@@ -337,6 +347,64 @@ public class InstitutionGraphView
         fill.color = new Color(0.40f, 0.84f, 0.77f);
         fill.raycastTarget = false;
     }
+
+    // 卡片上的小图标，锚在左上角；找不到素材就不画(不会出白块)。
+    private static void CreateCardIcon(RectTransform parent, Sprite sprite, Vector2 topLeft, float size)
+    {
+        if (sprite == null) return;
+        var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        var iconRect = iconObject.GetComponent<RectTransform>();
+        iconRect.SetParent(parent, false);
+        iconRect.anchorMin = iconRect.anchorMax = new Vector2(0f, 1f);
+        iconRect.pivot = new Vector2(0f, 1f);
+        iconRect.sizeDelta = new Vector2(size, size);
+        iconRect.anchoredPosition = topLeft;
+        Image image = iconObject.GetComponent<Image>();
+        image.sprite = sprite;
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+    }
+
+    private static readonly Dictionary<string, Sprite> IconCache = new(StringComparer.Ordinal);
+
+    // 按顺序试几个图标名，取第一个存在的；结果缓存，一棵树几十个节点不用反复查。
+    private static Sprite Icon(params string[] paths)
+    {
+        string cacheKey = string.Join("|", paths);
+        if (IconCache.TryGetValue(cacheKey, out Sprite cached)) return cached;
+        Sprite found = null;
+        foreach (string path in paths)
+        {
+            found = SpriteTextureLoader.getSprite(path);
+            if (found != null) break;
+        }
+        IconCache[cacheKey] = found;
+        return found;
+    }
+
+    // 新分支在这里没登记也没关系：退回通用的"知识"图标
+    private static Sprite GetBranchIcon(string branch) => branch switch
+    {
+        "administration" => Icon("ui/icons/iconWorldLaws", "ui/icons/iconKingdom"),
+        "finance" => Icon("ui/icons/iconTax", "ui/icons/iconMoney"),
+        "military" => Icon("ui/icons/iconArmy", "ui/icons/iconSoldier", "ui/icons/iconWar"),
+        "society" => Icon("ui/icons/iconPopulation", "ui/icons/iconCitizen"),
+        "ideology" => Icon("ui/icons/iconBooks", "ui/icons/iconKnowledge"),
+        _ => Icon("ui/icons/iconKnowledge", "ui/icons/iconTech")
+    };
+
+    private static Sprite GetStatusIcon(InstitutionNodeStatus status) => status switch
+    {
+        InstitutionNodeStatus.Enacted or InstitutionNodeStatus.Absorbed =>
+            Icon("ui/iconInstitutionEnacted"),
+        InstitutionNodeStatus.Reforming => Icon("ui/icons/iconClock"),
+        InstitutionNodeStatus.Available => Icon("ui/icons/iconArrowUP", "ui/icons/iconUnlock"),
+        InstitutionNodeStatus.Forceable => Icon("ui/icons/iconWar"),
+        InstitutionNodeStatus.ForeignReady or InstitutionNodeStatus.ForeignContacting =>
+            Icon("ui/icons/iconDiplomacy", "ui/icons/iconAlliance"),
+        InstitutionNodeStatus.Superseded => Icon("ui/icons/iconAgeUnknown", "ui/icons/iconBooks"),
+        _ => Icon("ui/icons/iconLock")
+    };
 
     public void SetSelected(string nodeId, IReadOnlyList<InstitutionNodeView> allViews)
     {
@@ -388,12 +456,15 @@ public class InstitutionGraphView
             InstitutionNodeStatus.ForeignReady => new Color(0.82f, 0.78f, 1f),
             InstitutionNodeStatus.ForeignContacting => new Color(0.74f, 0.72f, 0.88f),
             InstitutionNodeStatus.ForeignLocked => new Color(0.62f, 0.62f, 0.68f),
+            InstitutionNodeStatus.Superseded => new Color(0.55f, 0.66f, 0.78f),
             _ => new Color(0.68f, 0.68f, 0.72f)
         };
     }
 
     private static string GetBranchShortName(string branch)
     {
+        if (IdeologyInstitutionPaths.TryGetIdeology(branch, out PartyIdeology ideology))
+            return PartySystem.GetIdeologyName(ideology);
         string key = $"institution_branch_short_{branch}";
         string value = LM.Get(key);
         return string.IsNullOrWhiteSpace(value) || value == key ? branch : value;

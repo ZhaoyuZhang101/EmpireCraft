@@ -160,7 +160,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 case ConditionType.empire_royal:
                 {
                     var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
-                    var actual = empire != null && kingdom.GetSpecificClan() == empire.EmpireSpecificClan;
+                    var actual = empire != null && SpecificClanManager.SameLineage(kingdom.GetSpecificClan(), empire.EmpireSpecificClan);
                     if (actual != expect) return false;
                     break;
                 }

@@ -97,12 +97,18 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
                 if (pKingdom.GetEmpire().GetCabinetLeader()?.GetFaction() != dominateFaction) return;
             }
         }
-        var shuffledTf = dominateFaction.TemporaryFactions.ToList();
-        shuffledTf.Shuffle();
-        for (int i = 0; i < shuffledTf.Count; i++)
+        ClaimAgendaContext context = ClaimAgendaSystem.BuildContext(empire);
+        var agenda = dominateFaction.TemporaryFactions
+            .Where(tf => tf != null && tf.Active && tf.CountDown <= 0)
+            .Select(tf => (claim: tf, view: ClaimAgendaSystem.Evaluate(context, dominateFaction, tf)))
+            .Where(entry => entry.view.CanPropose)
+            .OrderByDescending(entry => entry.view.Score)
+            .ThenBy(entry => entry.claim.type)
+            .ToList();
+        for (int i = 0; i < agenda.Count; i++)
         {
-            var tf = shuffledTf[i];
-            if (tf != null && tf.Active && tf.CountDown <= 0 && tf.CheckCondition() && tf.CheckTarget())
+            var tf = agenda[i].claim;
+            if (tf.CheckCondition() && tf.CheckTarget())
             {
                 tf.pusherType = MetaType.None;
                 tf.Start();

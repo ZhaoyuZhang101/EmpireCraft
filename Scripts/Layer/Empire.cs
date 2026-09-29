@@ -313,6 +313,13 @@ public class Empire : MetaObject<EmpireData>
             ? OverallHelperFunc.ResolveEmpireTypeKey(CoreKingdom?.GetRegime(), CoreKingdom)
             : data.empire_type_key;
         string typeName = string.IsNullOrWhiteSpace(typeKey) ? "" : LM.Get(typeKey);
+        if (data.western_ordinal >= 2 && CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism)
+        {
+            string ordinalName = OverallHelperFunc.StripLocalizedTypeSuffix(data.name,
+                GetOrdinalText(data.western_ordinal) + typeName);
+            if (!string.Equals(ordinalName, data.name.Trim(), StringComparison.Ordinal))
+                return ordinalName.UseLocalizedNameSeparator();
+        }
         string strippedName = OverallHelperFunc.StripLocalizedTypeSuffix(data.name, typeName);
         if (!string.Equals(strippedName, data.name.Trim(), StringComparison.Ordinal))
         {
@@ -360,6 +367,9 @@ public class Empire : MetaObject<EmpireData>
             }
             string coreName = EnsureEmpireCoreName();
             if (string.IsNullOrWhiteSpace(coreName)) return data.name ?? "";
+            // 改制共和后国号后缀按执政理念取
+            string ideologySuffix = CoreKingdom?.GetOrCreate().ideology_country_suffix;
+            if (!string.IsNullOrWhiteSpace(ideologySuffix)) return OverallHelperFunc.JoinNameParts(coreName, ideologySuffix);
 
             if (string.IsNullOrWhiteSpace(data.empire_type_key))
                 data.empire_type_key = OverallHelperFunc.ResolveEmpireTypeKey(CoreKingdom?.GetRegime(), CoreKingdom);
@@ -370,6 +380,11 @@ public class Empire : MetaObject<EmpireData>
                 typeName = "";
 
             string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
+            if (data.western_ordinal >= 2 && CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism)
+            {
+                typeName = GetOrdinalText(data.western_ordinal) + typeName;
+                localizedPrefix = "";
+            }
             return OverallHelperFunc.FormatEmpireFullName(coreName, typeName, localizedPrefix, GetNamingCulture());
         }
         catch
@@ -488,11 +503,32 @@ public class Empire : MetaObject<EmpireData>
         NewEmperor(emperor);
     }
 
+    // 共和国元首更替、复辟迎回旧君：不是篡位，不触发分裂、内战、改国号那一套
+    public bool InstallHeadOfState(Actor actor)
+    {
+        Kingdom core = CoreKingdom;
+        City capital = core?.capital;
+        if (actor == null || actor.isRekt() || !actor.isAlive() || core == null || capital == null) return false;
+        if (Emperor?.id == actor.id) return true;
+        if (actor.isKing() && actor.kingdom != core) actor.kingdom.removeKing();
+        if (core.king != null) core.removeKing();
+        actor.joinCity(capital);
+        actor.setKingdom(core);
+        _completingMinisterUsurpation = true;
+        try { core.setKing(actor); }
+        finally { _completingMinisterUsurpation = false; }
+        return Emperor?.id == actor.id;
+    }
+
+    private bool IsRepublicState => data?.constitutional_economy?.is_republic == true;
+
     public void NewEmperor(Actor actor, bool isNew = false)
     {
         if (actor == null) return;
         actor.SetEmpire(this);
-        RegnalNameService.OnEmperorCrowned(this, actor);
+        if (!IsRepublicState) RegnalNameService.OnEmperorCrowned(this, actor);
+        // 共和国元首按选举更替，不扣正统
+        if (IsRepublicState) isNew = true;
         if (!isNew)
         {
             AddMandate(-20);
@@ -516,10 +552,11 @@ public class Empire : MetaObject<EmpireData>
         }
         // 篡位的连带后果（分裂、内战、改国号、清空帝系）牵涉大量外部状态，任何一步抛异常都不能
         // 打断下面的即位登记——否则皇室、年号、历史都停留在上一任，年号会一直累加下去。
-        bool usurpation = currentSpecificClan != previousRoyalClan && data.empire_specific_clan != -1L;
+        bool usurpation = currentSpecificClan != previousRoyalClan && data.empire_specific_clan != -1L &&
+                          !IsRepublicState;
         try
         {
-            if (currentSpecificClan != previousRoyalClan && data.empire_specific_clan != -1L)
+            if (usurpation)
             {
                 LogService.LogInfo("篡位逻辑");
                 LogService.LogInfo($"上一任皇室: {EmpireSpecificClan?.name??"None"}");
@@ -609,14 +646,20 @@ public class Empire : MetaObject<EmpireData>
         
         actor.data.renown += 20;
         MoveToEmpireCapital(actor);
-        create_year_name();
-        if (data.has_year_name)
+        if (IsRepublicState)
         {
+            data.year_name = "";
+            data.newEmperor_timestamp = World.world.getCurWorldTime();
+        }
+        else if (data.has_year_name)
+        {
+            create_year_name();
             //公屏提示
             TranslateHelper.LogNewEmperor(actor, CoreKingdom.capital, data.year_name, isNew);
         }
         else
         {
+            create_year_name();
             TranslateHelper.LogNewEmperorWest(actor, CoreKingdom.capital, isNew);
         }
         
@@ -783,35 +826,37 @@ public class Empire : MetaObject<EmpireData>
 
     public void EmperorLeft()
     {
-        if (this.Emperor == null) return;
-        if (this.Emperor.data == null) return;
+        Actor emperor = Emperor;
+        if (emperor?.data == null) return;
+        SpecificClan previousClan = emperor.GetSpecificClan();
         data.currentHistory ??= new EmpireCraftHistory
         {
-            id = this.Emperor.data.id,
+            id = emperor.data.id,
             year_name = data.year_name,
-            emperor = this.Emperor.data.name,
+            emperor = emperor.data.name,
             empire_name = this.GetEmpireName(),
             empire_full_name = this.GetEmpireFullName(),
             dynasty_name = this.GetEmpireName(),
-            royal_surname = this.Emperor.GetSpecificClan()?.name??"",
+            royal_surname = previousClan?.name ?? "",
             miaohao_name = "",
             shihao_name = "",
             descriptions = new List<HistoryDescription>()
         };
         RepairFoundingEmperorMarker();
-        this.RecordHistory(
-            Emperor.isAlive() ? EmpireHistoryType.emperor_left_history : EmpireHistoryType.emperor_die_history,
-            new Dictionary<string, string>()
-            {
-                ["year_name"] = data.year_name,
-                ["actor"] = this.Emperor.data.name
-            });
-        data.history_emperrors.Add(Emperor?.name);
+        if (!IsRepublicState)
+            this.RecordHistory(
+                emperor.isAlive() ? EmpireHistoryType.emperor_left_history : EmpireHistoryType.emperor_die_history,
+                new Dictionary<string, string>()
+                {
+                    ["year_name"] = data.year_name,
+                    ["actor"] = emperor.data.name
+                });
+        data.history_emperrors.Add(emperor.name);
         if (string.IsNullOrWhiteSpace(data.currentHistory.empire_full_name))
             data.currentHistory.empire_full_name = GetEmpireFullName();
-        this.Emperor.RemoveEmpire();
-        data.empire_specific_clan = Emperor?.GetSpecificClan()?.id??-1L;
-        LogService.LogInfo("上一任皇氏族记录:"+Emperor?.GetSpecificClan().name);
+        emperor.RemoveEmpire();
+        data.empire_specific_clan = previousClan?.id ?? -1L;
+        LogService.LogInfo("上一任皇氏族记录:" + (previousClan?.name ?? "无"));
         data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
         data.history.Add(data.currentHistory);
         data.currentHistory = null;
@@ -856,6 +901,7 @@ public class Empire : MetaObject<EmpireData>
 
     public string GetYearNameWithTime()
     {
+        if (IsRepublicState) return RepublicSystem.GetCalendarText(this);
         if (this.data.has_year_name)
         {
             if (this.Emperor!=null)
@@ -997,11 +1043,11 @@ public class Empire : MetaObject<EmpireData>
 
     public bool IsAllowToMakeYearName ()
     {
-        return this.data.has_year_name;
+        return !IsRepublicState && this.data.has_year_name;
     }
     public bool HasYearName()
     {
-        return !string.IsNullOrEmpty(this.data.year_name);
+        return !IsRepublicState && !string.IsNullOrEmpty(this.data.year_name);
     }
 
     public void create_year_name()
@@ -1189,7 +1235,7 @@ public class Empire : MetaObject<EmpireData>
                 if (kingdom == null || kingdom.isRekt() || kingdom == mainKingdom || kingdom.king == null ||
                     !kingdom.hasCapital() || kingdom.cities.Count <= 0) continue;
                 if (kingdom.king.HasSpecificClan())
-                    if (kingdom.king.GetSpecificClan() == EmpireSpecificClan)
+                    if (SpecificClanManager.SameLineage(kingdom.king.GetSpecificClan(), EmpireSpecificClan))
                     {
                         if (heirEmpire == null || heirEmpire.isRekt() ||
                             kingdom.countTotalWarriors() > heirEmpire.countTotalWarriors())
@@ -1273,7 +1319,7 @@ public class Empire : MetaObject<EmpireData>
 
         if (newKingdom.king.HasSpecificClan())
         {
-            if (newKingdom.king.GetSpecificClan() == EmpireSpecificClan)
+            if (SpecificClanManager.SameLineage(newKingdom.king.GetSpecificClan(), EmpireSpecificClan))
             {
                 newEmpire.data.directPre = newEmpire.GetDir(this._empireCenter);
                 newEmpire.SetEmpireName(GetEmpireName());
@@ -2849,7 +2895,7 @@ public class Empire : MetaObject<EmpireData>
             changed = true;
         }
 
-        bool isImperialClan = ruler.GetSpecificClan() != null && ruler.GetSpecificClan() == EmpireSpecificClan;
+        bool isImperialClan = ruler.GetSpecificClan() != null && SpecificClanManager.SameLineage(ruler.GetSpecificClan(), EmpireSpecificClan);
         bool isPetitionedTributaryTitle = kingdom.GetTakenAllianceEmpire() == this;
         bool receivesKingPeerage = isImperialClan || isPetitionedTributaryTitle;
         string peerageKey = DeJureTitleBindingRules.GetLandedPeerageKey(receivesKingPeerage);
@@ -2936,7 +2982,7 @@ public class Empire : MetaObject<EmpireData>
     private bool IsCentralMinister(Actor actor)
     {
         if (actor == null || actor.isRekt() || actor.isKing() || !actor.isAdult() ||
-            actor.kingdom != CoreKingdom || actor.GetSpecificClan() == EmpireSpecificClan) return false;
+            actor.kingdom != CoreKingdom || SpecificClanManager.SameLineage(actor.GetSpecificClan(), EmpireSpecificClan)) return false;
         OfficeObject office = actor.GetOffice();
         return office != null && !office.is_local && office.actor_id == actor.id && office.meta_object == CoreKingdom;
     }
@@ -3098,7 +3144,7 @@ public class Empire : MetaObject<EmpireData>
                 .FirstOrDefault();
             normalCandidate ??= getUnits().Where(actor => IsValidRegencyCandidate(actor) &&
                     actor.id != dowager?.id && actor.kingdom == CoreKingdom &&
-                    actor.GetSpecificClan() != EmpireSpecificClan)
+                    !SpecificClanManager.SameLineage(actor.GetSpecificClan(), EmpireSpecificClan))
                 .OrderByDescending(actor => actor.id == current?.id)
                 .ThenByDescending(actor => actor.renown).ThenBy(actor => actor.id).FirstOrDefault();
             normalCandidate ??= getUnits().Where(actor => IsValidRegencyCandidate(actor) &&
@@ -3220,7 +3266,8 @@ public class Empire : MetaObject<EmpireData>
         bool chiefAndLeader = GetCabinetLeader()?.id == candidate.id &&
             hasSupport && candidate.GetFaction()?.GetLeader()?.id == candidate.id;
         int monthlyChange = PowerfulMinisterRules.MonthlyChange(isRegent, chiefAndLeader, hasSupport,
-            HasStrongEmperor(), IsRegencyEnding(), HasVulnerableNewEmperor());
+            HasStrongEmperor(), IsRegencyEnding(), HasVulnerableNewEmperor(),
+            PowerfulMinisterRules.IsMandateCollapsed(Mandate));
         monthlyChange = PowerfulMinisterRules.ApplyMandate(monthlyChange, Mandate);
         monthlyChange = PowerfulMinisterRules.ApplyEmpressDowagerRate(monthlyChange, isEmpressDowager);
         int previousProgress = data.powerful_minister_progress;
@@ -3289,7 +3336,8 @@ public class Empire : MetaObject<EmpireData>
         return PowerfulMinisterRules.CanAdvance(data.is_been_controlled, data.powerful_minister_progress,
             HasPowerfulMinisterSupport(actor, currentRegime), HasStrongEmperor(), regencyEnding,
             HasUsurpingDisposition(actor), Date.getMonthsSince(data.powerful_minister_stage_timestamp),
-            data.powerful_minister_stage == PowerfulMinisterStageKing);
+            data.powerful_minister_stage == PowerfulMinisterStageKing,
+            PowerfulMinisterRules.IsMandateCollapsed(Mandate));
     }
 
     private Actor GetEmpressDowagerPreferredSon(Actor dowager)
@@ -3389,7 +3437,7 @@ public class Empire : MetaObject<EmpireData>
             Holder = FindHolder(title.id)
         }).ToList();
         return titles.Where(item => item.Holder != null && item.Holder != Emperor &&
-                EmpireSpecificClan != null && item.Holder.GetSpecificClan() == EmpireSpecificClan)
+                EmpireSpecificClan != null && SpecificClanManager.SameLineage(item.Holder.GetSpecificClan(), EmpireSpecificClan))
             .OrderBy(item => item.Holder.renown).ThenBy(item => item.Title.id)
             .Select(item => item.Title).FirstOrDefault() ??
             titles.Where(item => item.Holder == null).OrderBy(item => item.Title.id)
@@ -3612,7 +3660,7 @@ public class Empire : MetaObject<EmpireData>
             !actor.HasVirtualEnfeoff(this) && actor.kingdom?.GetEmpire() == this &&
             actor.id != (CoreKingdom?.GetHeir()?.id ?? -1L);
         bool IsDynasticHeir(PersonalClanIdentity identity, PersonalClanIdentity source) =>
-            identity?._specificClan != null && identity._specificClan == EmpireSpecificClan &&
+            identity?._specificClan != null && SpecificClanManager.SameLineage(identity._specificClan, EmpireSpecificClan) &&
             identity.CanHeir(source) && IsAvailable(identity._actor);
 
         data.legal_peerage_types ??= new Dictionary<long, string>();
@@ -3624,7 +3672,7 @@ public class Empire : MetaObject<EmpireData>
             data.legal_peerage_holders.TryGetValue(title.id, out long previousActorId);
             PersonalClanIdentity previousHolder = ResolvePeerageIdentity(previousActorId, previousIdentityId);
             Actor branchHeir = FindPeerageDescendant(previousHolder,
-                actor => IsAvailable(actor) && actor.GetSpecificClan() == EmpireSpecificClan);
+                actor => IsAvailable(actor) && SpecificClanManager.SameLineage(actor.GetSpecificClan(), EmpireSpecificClan));
             if (branchHeir != null)
             {
                 predecessor = previousHolder;
@@ -3643,7 +3691,7 @@ public class Empire : MetaObject<EmpireData>
             !actor.HasVirtualEnfeoff(this) && actor.kingdom?.GetEmpire() == this &&
             actor.id != (CoreKingdom?.GetHeir()?.id ?? -1L) && actor.id != excludeId;
         bool IsDynasticHeir(PersonalClanIdentity identity, PersonalClanIdentity source) =>
-            identity?._specificClan != null && identity._specificClan == EmpireSpecificClan &&
+            identity?._specificClan != null && SpecificClanManager.SameLineage(identity._specificClan, EmpireSpecificClan) &&
             identity.CanHeir(source) && IsAvailable(identity._actor);
 
         PersonalClanIdentity emperorIdentity = Emperor?.GetPersonalIdentity();
@@ -3669,7 +3717,7 @@ public class Empire : MetaObject<EmpireData>
     {
         if (actor == null || title == null || GetLandedLegalTitleKingdom(title) != null ||
             GetLivingLegalPeerageHolder(title.id) != null) return false;
-        bool isRoyal = actor.GetSpecificClan() != null && actor.GetSpecificClan() == EmpireSpecificClan;
+        bool isRoyal = actor.GetSpecificClan() != null && SpecificClanManager.SameLineage(actor.GetSpecificClan(), EmpireSpecificClan);
         if (!isRoyal) return false;
         if (!AssignLegalPeerage(actor, title, "default_peerages_2", PeeragesLevel.peerages_2,
                 predecessor == null ? 10 : 0)) return false;
@@ -4049,7 +4097,7 @@ public class Empire : MetaObject<EmpireData>
     private void RecordAutomaticPartition(Actor ruler, Kingdom kingdom, KingdomTitle title,
         bool administrative)
     {
-        if (!administrative && ruler?.GetSpecificClan() != null && ruler.GetSpecificClan() == EmpireSpecificClan)
+        if (!administrative && ruler?.GetSpecificClan() != null && SpecificClanManager.SameLineage(ruler.GetSpecificClan(), EmpireSpecificClan))
         {
             TranslateHelper.LogPeerageGranted(ruler, this,
                 (title?.data?.name ?? kingdom?.data?.name ?? "") + LM.Get("default_peerages_2"));
@@ -4124,10 +4172,11 @@ public class Empire : MetaObject<EmpireData>
         capital.removeFromCurrentKingdom();
         capital.removeLeader();
         Kingdom kingdom = World.world.kingdoms.makeNewCivKingdom(king, pLog:false);
+        kingdom.copyMetasFromOtherKingdom(pKingdom);
+        kingdom.updateColor(pKingdom.getColor());
         capital.newForceKingdomEvent(base.units, capital._boats, kingdom, null);
         capital.setKingdom(kingdom);
         capital.switchedKingdom();
-        kingdom.copyMetasFromOtherKingdom(pKingdom);
         kingdom.setCityMetas(capital);
         World.world.zone_calculator.dirtyAndClear();
         return kingdom;

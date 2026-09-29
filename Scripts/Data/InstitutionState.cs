@@ -33,6 +33,18 @@ public sealed class CultureInstitutionState
     // 各制度开始施行的时间：反对阶层会逐渐适应，怨气压力随施行年数衰减。
     // 旧存档没有记录的节点，在第一次结算阶层怨气时从当时开始计。
     public Dictionary<string, double> enacted_timestamps = new();
+    // 君主立宪跟其他制度一样归属文化：本文化任一帝国完成制宪，同文化的君主制帝国全部随之确立
+    public bool constitutional_monarchy;
+    public double constitutional_monarchy_timestamp = -1d;
+    public long constitutional_monarchy_pioneer_empire_id = -1L;
+    public string constitutional_monarchy_pioneer_name = "";
+    // 本文化的主导理念(第一次有帝国以某理念改制共和时确定)，会向接壤的异文化传播
+    public string state_ideology = "";
+    public double state_ideology_since = -1d;
+    // 外来理念的接触度，满 100 解锁对应理念节点
+    public Dictionary<string, float> ideology_exposure = new();
+    // 理念路线(保守/自由/中间/左翼，见 PartySystem.IdeologyRoute)：同一时间只有一条路线生效，玩家可在制度窗口手动切换
+    public string active_ideology_route = "";
 }
 
 // 帝国只持有"正在推进的这一次改革"和"本政权已经落地过哪些节点的持久效果"。

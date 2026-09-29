@@ -243,7 +243,9 @@ public class WarPatch: GamePatch
                     InstitutionSystem.ResolveReformRebellion(pWar, pWinner);
                     InstitutionSystem.ResolveSocialRebellion(pWar, pWinner);
                     LandEconomySystem.ResolvePeasantLandRebellion(pWar, pWinner);
-                    if (pWinner == WarWinner.Attackers)
+                    if (RepublicSystem.IsRevolutionWar(pWar))
+                        RepublicSystem.ResolveRevolutionWar(pWar, pWinner);
+                    else if (pWinner == WarWinner.Attackers)
                     {
                         attacker.GetEmpire().ReplaceEmpire(attacker);
                     }
@@ -254,6 +256,7 @@ public class WarPatch: GamePatch
                     Kingdom attacker1 = pWar.getMainAttacker();
                     InstitutionSystem.ResolveSocialRebellion(pWar, pWinner);
                     LandEconomySystem.ResolvePeasantLandRebellion(pWar, pWinner);
+                    RepublicSystem.ResolveRevolutionWar(pWar, pWinner);
                     attacker1.EndLocalRebelling();
                     break;
                 case EmpireWarType.索取法理:

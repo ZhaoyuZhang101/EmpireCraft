@@ -334,6 +334,8 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     private void InitialRegimeSelection()
     {
         RegimeType current = _kingdom.GetRegime().type;
+        Empire empire = _kingdom.GetEmpire();
+        bool partyPoliticsLocked = empire?.CoreKingdom == _kingdom && PartySystem.IsActive(empire);
         List<RegimeType> regimes = (RegimeManager.regimes?.Keys ?? Enumerable.Empty<RegimeType>())
             .OrderBy(type => (int)type).ToList();
         int rows = (regimes.Count + RegimesPerRow - 1) / RegimesPerRow;
@@ -355,8 +357,10 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
                 var button = cell.AddButtonIntoVertLayout(type.ToString(), "", () => ChangeRegime(target),
                     GetRegimeIcon(type, selected), size: new Vector2(22, 22));
                 button.Background.enabled = selected;
+                button.Button.interactable = !partyPoliticsLocked;
                 UIHelper.AttachTextTooltip(button.gameObject, $"regime_select_{type}",
-                    CompositeEmpireService.GetRegimeName(type), RegimeManager.GetTemplate(type)?.description ?? "");
+                    CompositeEmpireService.GetRegimeName(type), partyPoliticsLocked
+                        ? LM.Get("regime_party_transition_locked") : RegimeManager.GetTemplate(type)?.description ?? "");
                 _regimeButtons[type] = button;
                 var name = cell.AddTextIntoVertLayout(CompositeEmpireService.GetRegimeName(type)
                         .ColorString(pColor: selected ? ChoiceOnColor : ChoiceOffColor), true,
@@ -367,7 +371,6 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
 
         // 当前政体说明 + 君主立宪状态
         string status = LM.Get("constitution_status_pending");
-        Empire empire = _kingdom.GetEmpire();
         if (empire?.CoreKingdom == _kingdom)
         {
             ConstitutionalEconomyView economy = ConstitutionalEconomySystem.GetView(empire);
@@ -380,7 +383,8 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
                 LM.Get("constitution_title"), status), true, TextAnchor.MiddleCenter,
             new Vector2(SettingWidth - 6f, 11));
         summary.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
-        string description = RegimeManager.GetTemplate(current)?.description ?? "";
+        string description = partyPoliticsLocked ? LM.Get("regime_party_transition_locked") :
+            RegimeManager.GetTemplate(current)?.description ?? "";
         if (!string.IsNullOrWhiteSpace(description))
         {
             var desc = regimeSpace.AddTextIntoVertLayout(description.ColorString("#B8C6CC"), true,
@@ -395,8 +399,15 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     private void ChangeRegime(RegimeType pType)
     {
         if (_kingdom.GetRegime()?.type == pType) return;
-        _kingdom.SetRegimeType(pType);
-        _kingdom.LoadRegime();
+        Empire empire = _kingdom.GetEmpire();
+        if (empire?.CoreKingdom == _kingdom && PartySystem.IsActive(empire)) return;
+        // 有政党的话换政体时保留下来；帝国核心国换政体后立即同步共和/君主状态
+        GeneralSystems.RepublicSystem.CarryPartiesAcrossRegimeChange(_kingdom, () =>
+        {
+            _kingdom.SetRegimeType(pType);
+            _kingdom.LoadRegime();
+        });
+        if (empire != null && empire.CoreKingdom == _kingdom) GeneralSystems.RepublicSystem.SyncWithRegime(empire, manual: true);
         RefreshKingdomStatus();
         InitialContent();
     }

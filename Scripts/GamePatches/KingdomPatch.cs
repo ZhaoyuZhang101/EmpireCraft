@@ -142,7 +142,7 @@ public class KingdomPatch : GamePatch
                 {
                     Empire localEmpire = __instance.GetEmpire();
                     bool isImperialClan = pActor.GetSpecificClan() != null &&
-                                           pActor.GetSpecificClan() == localEmpire?.EmpireSpecificClan;
+                                           SpecificClanManager.SameLineage(pActor.GetSpecificClan(), localEmpire?.EmpireSpecificClan);
                     pActor.SetPeeragesLevel(isImperialClan
                         ? Enums.PeeragesLevel.peerages_2
                         : Enums.PeeragesLevel.peerages_3);
@@ -164,7 +164,7 @@ public class KingdomPatch : GamePatch
                 if (isActualSuccession)
                 {
                     empire?.NewEmperor(pActor);
-                    if (empire != null)
+                    if (empire != null && !RepublicSystem.IsRepublic(empire))
                     {
                         pActor.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_emperor"), empire.GetEmpireName()));
                     }

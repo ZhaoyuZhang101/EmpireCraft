@@ -62,7 +62,7 @@ public static class EnfeoffmentHelper
         PersonalClanIdentity emperorIdentity = empire.Emperor.GetPersonalIdentity();
         PersonalClanIdentity actorIdentity = actor.GetPersonalIdentity();
         if (emperorIdentity == null || actorIdentity == null || !actorIdentity.CanHeir(emperorIdentity)) return false;
-        if (actorIdentity._specificClan != empire.EmpireSpecificClan) return false;
+        if (!SpecificClanManager.SameLineage(actorIdentity._specificClan, empire.EmpireSpecificClan)) return false;
         if (actor.id == (empire.CoreKingdom?.GetHeir()?.id ?? -1L)) return false;
         if (actor.HasVirtualEnfeoff(empire)) return false;
         if (actor.kingdom?.GetEmpire() != empire) return false;

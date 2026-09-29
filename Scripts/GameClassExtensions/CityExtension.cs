@@ -125,6 +125,7 @@ public static class CityExtension
         public Dictionary<string, float> household_land_shares = new Dictionary<string, float>();
         public Dictionary<string, long> household_land_representatives = new Dictionary<string, long>();
         public double last_land_economy_timestamp = -1d;
+        public double last_urban_employment_timestamp = -1d;
         public double last_land_rebellion_timestamp = -1d;
         public bool land_redistribution_pending = false;
         [JsonConverter(typeof(OccupiedStatusConverter))]

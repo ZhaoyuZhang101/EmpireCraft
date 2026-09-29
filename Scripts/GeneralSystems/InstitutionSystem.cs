@@ -50,7 +50,8 @@ public enum InstitutionNodeStatus
     Absorbed,           //本文化已掌握（从别的线吸收而来）
     ForeignLocked,      //外来节点，等级不够、还吸收不了
     ForeignContacting,  //外来节点，正在接触积累中
-    ForeignReady        //外来节点，接触度已达标，下一次年度结算就会被吸收
+    ForeignReady,       //外来节点，接触度已达标，下一次年度结算就会被吸收
+    Superseded          //本线节点，已被更新的制度取代(如两税法取代均田租庸)，不能再推行
 }
 
 public sealed class InstitutionNodeView
@@ -156,6 +157,13 @@ public static class InstitutionSystem
 
     public static bool IsEnacted(Empire empire, string nodeId) => IsEnacted(GetPrimaryCulture(empire), nodeId);
 
+    // 本文化已施行的某个节点声明了 replaces 这个节点 → 它已经过时，不能再推行
+    public static bool IsSuperseded(string culture, string nodeId)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        return state != null && IsSuperseded(state, nodeId);
+    }
+
     #region 制度特性
 
     // 特性值：文化已掌握的节点里声明该特性的最大值；没有任何节点声明时返回 0。
@@ -208,7 +216,8 @@ public static class InstitutionSystem
     private static bool IsForeignCandidate(InstitutionNodeConfig node, string targetLine,
         CultureInstitutionState target)
     {
-        if (node == null || IsSameLine(node.line, targetLine) || node.absorb?.enabled != true) return false;
+        if (node == null || IsSameLine(node.line, targetLine) || node.absorb?.enabled != true ||
+            IdeologyInstitutionPaths.TryGetIdeology(node.branch, out _)) return false;
         if (HasEquivalentEnacted(target, node)) return false;
         return !InstitutionDefinitionRegistry.GetForLine(targetLine).Any(own =>
             string.Equals(own.equivalence_key, node.equivalence_key, StringComparison.Ordinal));
@@ -460,6 +469,22 @@ public static class InstitutionSystem
             reason = "institution_reform_wrong_line";
             return false;
         }
+        if (IdeologyInstitutionPaths.TryGetIdeology(node.branch, out PartyIdeology ideology))
+        {
+            FixedFaction governing = PartySystem.GetGovernmentParty(empire);
+            if (governing?.IsParty != true || governing.Ban || governing.Ideology != ideology)
+            {
+                reason = "ideology_reform_requires_governing_party";
+                return false;
+            }
+        }
+        // 之前漏了这一条：被取代的旧制度(均田租庸/府兵制/察举制……)在强制全解锁之后仍然"前置满足"，
+        // AI 会去推行一个已经过时的制度
+        if (IsSuperseded(cultureState, node.id))
+        {
+            reason = "institution_reform_superseded";
+            return false;
+        }
         if (state.active_reform != null)
         {
             reason = "institution_reform_already_active";
@@ -561,10 +586,19 @@ public static class InstitutionSystem
         }
         InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(reform.node_id);
         string culture = GetPrimaryCulture(empire);
-        if (node == null || !IsSameLine(node.line, GetCultureLine(culture)))
+        if (node == null || !IsSameLine(node.line, GetCultureLine(culture)) || IsSuperseded(culture, node.id))
         {
-            // 节点被配置删掉了，或者这个帝国的主文化在改革期间变了（征服/同化导致）→ 本次改革作废
+            // 节点被配置删掉了，或者这个帝国的主文化在改革期间变了（征服/同化导致），
+            // 或者同文化已经施行了取代它的新制度 → 本次改革作废
             empire.data.institution_state.active_reform = null;
+            return;
+        }
+        if (IdeologyInstitutionPaths.TryGetIdeology(node.branch, out PartyIdeology ideology) &&
+            PartySystem.GetGovernmentParty(empire)?.Ideology != ideology)
+        {
+            empire.data.institution_state.active_reform = null;
+            string stopped = string.Format(LM.Get("ideology_reform_stopped_history"), GetNodeName(node));
+            empire.RecordHistory(directContent: stopped, kingdomId: empire.CoreKingdom?.id ?? -1L);
             return;
         }
         if (IsEnacted(culture, node.id))
@@ -747,13 +781,18 @@ public static class InstitutionSystem
         return added.Count;
     }
 
-    // 把本文化所在线的全部节点按等级依次强制点亮（互斥的分支也一并点亮）
+    // 把本文化所在线的全部节点按等级依次强制点亮（互斥的分支也一并点亮）。
+    // 意识形态车道除外：理念要一个个解锁(或由传播获得)，全部点亮就等于所有理念同时出现；需要时单独强制点亮。
+    public const string IdeologyBranch = "ideology";
+
     public static int ForceEnactAll(string culture)
     {
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         if (state == null) return 0;
         var added = new List<InstitutionNodeConfig>();
-        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)))
+        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture))
+                     .Where(node => node.branch != IdeologyBranch &&
+                                    !IdeologyInstitutionPaths.TryGetIdeology(node.branch, out _)))
             ForceEnactChain(state, node, added);
         AfterForceEnact(culture, added);
         return added.Count;
@@ -794,8 +833,9 @@ public static class InstitutionSystem
             if (empire?.data == null || empire.IsArchived() || empire.isRekt() || empire.CoreKingdom == null ||
                 !string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal)) continue;
             InstitutionEmpireState empireState = EnsureEmpireState(empire);
-            // 正在推进的改革对象已经被点亮了，就结束这次改革
-            if (empireState?.active_reform != null && IsEnacted(culture, empireState.active_reform.node_id))
+            // 正在推进的改革对象已经被点亮了，或者已经被新点亮的制度取代了，就结束这次改革
+            if (empireState?.active_reform != null && (IsEnacted(culture, empireState.active_reform.node_id) ||
+                                                       IsSuperseded(culture, empireState.active_reform.node_id)))
                 empireState.active_reform = null;
             if (TryResolveCultureRegime(culture, out RegimeType regime) &&
                 empire.CoreKingdom.GetRegime()?.type != regime)
@@ -988,6 +1028,10 @@ public static class InstitutionSystem
             }
             float target = InstitutionRules.Clamp100(opposition * config.opposition_target_multiplier -
                                                        support * config.support_relief_multiplier);
+            if (empire.data?.constitutional_economy?.welfare_funded == true &&
+                socialClass is SocialClass.Labour or SocialClass.Peasant)
+                target = InstitutionRules.Clamp100(target -
+                    8f * empire.data.constitutional_economy.welfare_level);
             float current = state.class_grievances[socialClass];
             state.class_grievances[socialClass] = InstitutionRules.Clamp100(
                 current + (target - current) * config.annual_adjustment_rate);
@@ -1166,8 +1210,7 @@ public static class InstitutionSystem
     private static int DefectCoreSoldiers(Empire empire, Kingdom rebel, SocialClass socialClass, float grievance)
     {
         Kingdom core = empire?.CoreKingdom;
-        City destination = rebel?.capital;
-        if (core?.units == null || destination == null || destination.isRekt()) return 0;
+        if (core?.units == null || rebel?.capital == null || rebel.capital.isRekt()) return 0;
         float fraction = Math.Max(0.3f, Math.Min(0.7f, grievance / 100f * 0.7f));
         if (socialClass is SocialClass.Noble or SocialClass.Army) fraction = Math.Min(0.85f, fraction * 1.3f);
 
@@ -1177,13 +1220,25 @@ public static class InstitutionSystem
             .ToList();
         int count = (int)Math.Round(candidates.Count * fraction);
         if (count <= 0) return 0;
-        foreach (Actor soldier in candidates.OrderBy(_ => Randy.randomFloat(0f, 1f)).Take(count))
+        return TransferDefectingSoldiers(core, rebel,
+            candidates.OrderBy(_ => Randy.randomFloat(0f, 1f)).Take(count));
+    }
+
+    public static int TransferDefectingSoldiers(Kingdom source, Kingdom rebel, IEnumerable<Actor> soldiers)
+    {
+        City destination = rebel?.capital;
+        if (source == null || destination == null || destination.isRekt() || soldiers == null) return 0;
+        int transferred = 0;
+        foreach (Actor soldier in soldiers.ToList())
         {
+            if (soldier == null || soldier.isRekt() || !soldier.isAlive() || !soldier.isWarrior() ||
+                soldier.isKing() || soldier.kingdom != source) continue;
             soldier.removeFromArmy();
             if (soldier.isCityLeader()) soldier.city.removeLeader();
             soldier.joinCity(destination);
+            transferred++;
         }
-        return count;
+        return transferred;
     }
 
     public static void ResolveSocialRebellion(War war, WarWinner winner)
@@ -1452,7 +1507,23 @@ public static class InstitutionSystem
     {
         InstitutionAbsorptionRuleConfig rule = InstitutionDefinitionRegistry.Global.absorption;
         if (rule == null || !rule.enabled) return;
-        Dictionary<string, Dictionary<string, float>> contacts = BuildCultureContacts(rule);
+        // An old de jure realm culture or saved research state is not evidence that a
+        // culture still has a population on this map.
+        var presentCultures = new HashSet<string>(StringComparer.Ordinal);
+        foreach (City city in World.world.cities.list)
+        {
+            if (city == null || city.isRekt() || city.getPopulationPeople() <= 0) continue;
+            string culture = CultureService.GetMainCulture(city);
+            if (CultureService.IsValidCulture(culture)) presentCultures.Add(culture);
+        }
+        foreach (KeyValuePair<string, CultureInstitutionState> pair in _cultureStates)
+        {
+            if (presentCultures.Contains(pair.Key)) continue;
+            pair.Value.exposure.Clear();
+            pair.Value.contact_years.Clear();
+            pair.Value.last_exposure_timestamp.Clear();
+        }
+        Dictionary<string, Dictionary<string, float>> contacts = BuildCultureContacts(rule, presentCultures);
         double now = World.world.getCurWorldTime();
 
         foreach (KeyValuePair<string, Dictionary<string, float>> targetPair in contacts)
@@ -1492,7 +1563,7 @@ public static class InstitutionSystem
 
     // 接触表：目标文化 → 来源文化 → 本年度权重（多条渠道之间取最大值，不累加）
     private static Dictionary<string, Dictionary<string, float>> BuildCultureContacts(
-        InstitutionAbsorptionRuleConfig rule)
+        InstitutionAbsorptionRuleConfig rule, HashSet<string> presentCultures)
     {
         var contacts = new Dictionary<string, Dictionary<string, float>>(StringComparer.Ordinal);
 
@@ -1500,6 +1571,7 @@ public static class InstitutionSystem
         {
             if (weight <= 0f || string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to) || from == to) return;
             if (!CultureService.IsValidCulture(from) || !CultureService.IsValidCulture(to)) return;
+            if (!presentCultures.Contains(from) || !presentCultures.Contains(to)) return;
             if (!contacts.TryGetValue(to, out Dictionary<string, float> sources))
             {
                 sources = new Dictionary<string, float>(StringComparer.Ordinal);
@@ -1747,6 +1819,9 @@ public static class InstitutionSystem
             case "grant_trait":
                 GrantTraitToWarriors(empire, effect.value);
                 break;
+            case "abolish_monarchy":
+                // The institution unlocks political abolition; the actual transition needs a party mandate.
+                break;
             case "open_private_land_market":
                 foreach (Kingdom kingdom in EnumerateAffectedKingdoms(empire))
                     LandEconomySystem.OpenPrivateLandMarket(kingdom, redistribute: false, revolutionary: false);
@@ -1829,7 +1904,32 @@ public static class InstitutionSystem
         }
     }
 
+    // 制度同步不会把已经改制共和的帝国拉回文化的政体；共和改制/复辟走 ChangeRegimeForTransition
     private static void ChangeRegime(Empire empire, RegimeType regimeType)
+    {
+        if (empire?.data?.constitutional_economy?.is_republic == true) return;
+        ApplyRegimeChange(empire, regimeType);
+    }
+
+    public static void ChangeRegimeForTransition(Empire empire, RegimeType regimeType) =>
+        ApplyRegimeChange(empire, regimeType);
+
+    // 把声明了某个特性的本线节点直接记为本文化已掌握(外来吸收，不看前置)；已掌握或没有这样的节点返回 false
+    public static bool AbsorbFeatureNode(string culture, string feature)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        if (state == null || string.IsNullOrWhiteSpace(feature)) return false;
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture))
+            .FirstOrDefault(candidate => candidate.features != null && candidate.features.ContainsKey(feature));
+        if (node == null || state.enacted_node_ids.Contains(node.id)) return false;
+        state.enacted_node_ids.Add(node.id);
+        if (!state.absorbed_node_ids.Contains(node.id)) state.absorbed_node_ids.Add(node.id);
+        state.enacted_timestamps ??= new Dictionary<string, double>();
+        state.enacted_timestamps[node.id] = World.world?.getCurWorldTime() ?? 0d;
+        return true;
+    }
+
+    private static void ApplyRegimeChange(Empire empire, RegimeType regimeType)
     {
         List<Kingdom> affected = EnumerateAffectedKingdoms(empire);
         foreach (Kingdom kingdom in affected)
@@ -1878,6 +1978,11 @@ public static class InstitutionSystem
                 view.Status = state.absorbed_node_ids.Contains(node.id)
                     ? InstitutionNodeStatus.Absorbed
                     : InstitutionNodeStatus.Enacted;
+            else if (IsSuperseded(state, node.id))
+            {
+                view.Status = InstitutionNodeStatus.Superseded;
+                view.Reason = "institution_reform_superseded";
+            }
             else if (node.id == activeNode)
                 view.Status = InstitutionNodeStatus.Reforming;
             else if (CanStartReform(empire, node, out string reason, false, balance))
@@ -1926,6 +2031,11 @@ public static class InstitutionSystem
                 view.Status = state.absorbed_node_ids.Contains(node.id)
                     ? InstitutionNodeStatus.Absorbed
                     : InstitutionNodeStatus.Enacted;
+            else if (IsSuperseded(state, node.id))
+            {
+                view.Status = InstitutionNodeStatus.Superseded;
+                view.Reason = "institution_reform_superseded";
+            }
             else if (reforming.Contains(node.id))
                 view.Status = InstitutionNodeStatus.Reforming;
             else if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, state.enacted_node_ids.Contains))
@@ -1995,6 +2105,9 @@ public static class InstitutionSystem
     {
         if (node == null) return LM.Get("label_none");
         string value = LM.Get(node.name_key);
+        if (IdeologyInstitutionPaths.TryGetIdeology(node.branch, out PartyIdeology ideology) &&
+            node.name_key.StartsWith("ideology_stage_", StringComparison.Ordinal))
+            return $"{PartySystem.GetIdeologyName(ideology)} · {value}";
         return string.IsNullOrWhiteSpace(value) || value == node.name_key ? node.id : value;
     }
 
