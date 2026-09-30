@@ -1588,7 +1588,11 @@ public static class ActorExtension
             {
                 KingdomTitle kt = ModClass.KINGDOM_TITLE_MANAGER.get(id);
                 if (kt == null) continue;
-                if (Date.getYearsSince(kt.data.timestamp_been_controlled) >= ModClass.TITLE_BEEN_DESTROY_TIME && kt != a.kingdom.GetMainTitle())
+                // 只销毁被本国完整控制满年限的法理(它的城市会全部并入主法理)。
+                // 城市分属多国(时间戳为 -1)或由别国控制(如现代国家收归中央、由省州受托管理的法理)的不能销毁，
+                // 否则别国手里的城市会被整片移出法理
+                if (kt.control_kingdom == a.kingdom && kt.data.timestamp_been_controlled > 0 &&
+                    kt.GetTitleBeenControlledYear() >= ModClass.TITLE_BEEN_DESTROY_TIME && kt != a.kingdom.GetMainTitle())
                 {
                     titles.Add(kt);
                 }

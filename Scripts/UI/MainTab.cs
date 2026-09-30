@@ -324,6 +324,7 @@ internal static class MainTab
             nameof(OnlineUpdateWindow),
             updateIcon);
         AddButton(DISPLAY_GROUP, updateButton);
+        EmpireCraft.Scripts.UI.Components.UpdateBadge.Attach(updateButton);
         updateButton._button.OnHover(() =>
         {
             Tooltip.show(updateButton, "normal", new TooltipData

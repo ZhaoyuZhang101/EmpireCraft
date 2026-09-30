@@ -16,6 +16,13 @@ public static class ExamSystem
         Empire, //殿试
         Office //官员晋级
     }
+    // 个人经历：现代国家的科举就是公务员考试，记作"通过某级公务员考试"
+    private static string PassedText(Actor actor, string level)
+    {
+        bool modern = actor?.kingdom?.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.Modern;
+        return LM.Get(modern ? $"personal_history_civil_exam_{level}_passed" : $"personal_history_exam_{level}_passed");
+    }
+
     public static void startExam(ExamType type, NanoObject nano)
     {
         switch (type) 
@@ -66,7 +73,7 @@ public static class ExamSystem
             sorted.Take(takeNum).ForEach(item=>
             {
                 item.Key.addTrait("juren");
-                item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_city_passed"));
+                item.Key.RecordPersonalHistory(PassedText(item.Key, "city"));
                 OfficeIdentity identity = new OfficeIdentity
                 {
                     actor_id = item.Key.getID()
@@ -79,7 +86,7 @@ public static class ExamSystem
             sorted.ForEach(item =>
             {
                 item.Key.addTrait("juren");
-                item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_city_passed"));
+                item.Key.RecordPersonalHistory(PassedText(item.Key, "city"));
                 OfficeIdentity identity = new OfficeIdentity
                 {
                     actor_id = item.Key.getID()
@@ -112,7 +119,7 @@ public static class ExamSystem
                 item.Key.addTrait("gongshi");
                 if (newlyPassed)
                 {
-                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_province_passed"));
+                    item.Key.RecordPersonalHistory(PassedText(item.Key, "province"));
                 }
                 OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 200;
@@ -126,7 +133,7 @@ public static class ExamSystem
                 item.Key.addTrait("gongshi");
                 if (newlyPassed)
                 {
-                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_province_passed"));
+                    item.Key.RecordPersonalHistory(PassedText(item.Key, "province"));
                 }
                 OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 200;
@@ -161,7 +168,7 @@ public static class ExamSystem
                 item.Key.addTrait("jingshi");
                 if (newlyPassed)
                 {
-                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_empire_passed"));
+                    item.Key.RecordPersonalHistory(PassedText(item.Key, "empire"));
                 }
                 OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 300;
@@ -174,7 +181,7 @@ public static class ExamSystem
                 item.Key.addTrait("jingshi");
                 if (newlyPassed)
                 {
-                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_empire_passed"));
+                    item.Key.RecordPersonalHistory(PassedText(item.Key, "empire"));
                 }
                 OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 300;

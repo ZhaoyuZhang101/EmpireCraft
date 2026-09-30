@@ -229,6 +229,13 @@ public static class WarlordEraSystem
         _lastScan = now;
         Roles.Clear();
         using var timing = new PerfTimer("军阀时期年度扫描");
+        // 进行中的战争：战争名里残留的原始国名(旧存档、开战后才改称的政权)换成铭牌国名
+        foreach (War war in World.world.wars.list.ToList())
+        {
+            if (war?.data == null || war.hasEnded()) continue;
+            war.data.name = EmpireCraft.Scripts.GamePatches.WorldLogNamePatch.UseDisplayNames(war.data.name,
+                war.main_attacker, war.main_defender);
+        }
         foreach (EmpireCore core in EmpireCoreManager.EmpireCores.Values.ToList())
         {
             try

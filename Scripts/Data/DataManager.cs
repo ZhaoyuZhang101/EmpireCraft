@@ -206,8 +206,11 @@ public static class DataManager
         {
             titleDatas = RebuildKingdomTitleDataFromCityData(saveData, cityById);
         }
+        // 城市自己记的法理只在指向一个确实存在的法理时才作数：-1(城市这边的记录丢了)或指向已不存在的法理时，
+        // 以法理存档里的城市名单为准，否则读旧档时这些城市会被整片移出法理
+        HashSet<long> existingTitleIds = new HashSet<long>(titleDatas.Where(data => data != null).Select(data => data.id));
         Dictionary<long, long> savedCityTitles = saveData.cityExtraData
-            .Where(cityData => cityData != null)
+            .Where(cityData => cityData != null && cityData.title_id > 0 && existingTitleIds.Contains(cityData.title_id))
             .GroupBy(cityData => cityData.id)
             .ToDictionary(group => group.Key, group => group.Last().title_id);
 

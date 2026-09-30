@@ -159,7 +159,7 @@ public static class EmpireCraftTooltipLibrary
 		pTooltip.setSpeciesIcon(kingdom.getSpeciesIcon());
 		string color_text = kingdom.getColor().color_text;
 		KingdomType type = kingdom.GetKingdomType();
-		pTooltip.setTitle(kingdom.GetKingdomFullName(), type.ToString(), kingdom.getColor().color_text);
+		pTooltip.setTitle(kingdom.GetKingdomFullName(), kingdom.GetKingdomTypeDisplayKey(), kingdom.getColor().color_text);
 		pTooltip.transform.FindRecursive("Stats").gameObject.SetActive(value: true);
 		AssetManager.tooltips.setIconValue(pTooltip, "i_age", kingdom.getAge());
 		AssetManager.tooltips.setIconValue(pTooltip, "i_population", kingdom.getPopulationPeople());
@@ -344,7 +344,7 @@ public static class EmpireCraftTooltipLibrary
             tKingdom.getColor().color_text, true);
         AddTooltipLine(pTooltip, "empire_tooltip_province_ruler", tKingdom.king?.getName(), "#FE9900", true);
         AddTooltipLine(pTooltip, "empire_tooltip_province_type",
-            LM.Get(tKingdom.GetKingdomType().ToString()), "#8FE7FF", true);
+            LM.Get(tKingdom.GetKingdomTypeDisplayKey()), "#8FE7FF", true);
         AddTooltipLine(pTooltip, "empire_tooltip_province_titles",
             GetOwnedTitleNames(tKingdom.king, null), "#FFD34E", true);
     }

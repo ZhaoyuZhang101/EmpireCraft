@@ -2271,8 +2271,7 @@ public static class CityExtension
     public static bool hasTitle(this City c)
     {
         if (c == null) return false;
-        if (GetOrCreate(c)==null) return false; 
-        return GetOrCreate(c).title_id!=-1L;
+        return c.GetTitle() != null;
     }
     
     public static void Clear()
@@ -2295,9 +2294,9 @@ public static class CityExtension
     {
         var ed = GetOrCreate(c);
         if (ed == null) return null;
-        KingdomTitle title = ed.title_id==-1L?null:ModClass.KINGDOM_TITLE_MANAGER.get(ed.title_id);
-        if (title==null) c.RemoveTitle();
-        return title;
+        // 查不到法理时只返回 null，不清掉城市记的法理编号：读档过程中法理管理器还没载入完，
+        // 此时清掉会被存进存档，下次读档这座城就被移出法理。法理真正解散时由 Dissolve 统一清除
+        return ed.title_id == -1L ? null : ModClass.KINGDOM_TITLE_MANAGER?.get(ed.title_id);
     }
     
 

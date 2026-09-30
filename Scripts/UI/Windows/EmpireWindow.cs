@@ -224,6 +224,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             topRect.sizeDelta = new Vector2(196, 68);
             LayoutRebuilder.ForceRebuildLayoutImmediate(topRect);
             _empireNameInput?.transform.SetAsLastSibling();
+            // 窗口开着时国号变了也跟着刷新；玩家正在输入时不打断
+            if (_empireNameInput != null && !_empireNameInput.input.isFocused &&
+                _empireNameInput.input.text != _empire.GetEmpireFullName())
+                _empireNameInput.input.text = _empire.GetEmpireFullName();
             
             AddIntoGroup("top_space", topSpace.gameObject);
         }
@@ -784,7 +788,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                 Clear();
                 return;
             }
-            SyncEmpireNameInput();
+            // 国号可能在窗口关闭期间变了(军阀时期改称中央、临时政府等)，每次打开都按当前完整国号刷新
+            SyncEmpireNameInput(forceValueSync: true);
             InitialTabButtons();
             StartCoroutine(ShowKingdomList());
         }

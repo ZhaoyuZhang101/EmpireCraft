@@ -99,17 +99,24 @@ public static class WarExtension
         public float peasant_landless_ratio;
     }
 
+    // 战争名里的国名与地图铭牌一致
+    private static string DisplayName(Kingdom kingdom, string fallback)
+    {
+        string name = EmpireCraft.Scripts.GameLibrary.EmpireCraftNamePlateLibrary.GetDisplayName(kingdom);
+        return string.IsNullOrWhiteSpace(name) ? fallback : name;
+    }
+
     public static void SetEmpireWarType(this War w, EmpireWarType type, string pre="", NanoObject nanoObject = null, bool isRebelling = false, FixedFaction belongingFaction = null)
     {
         GetOrCreate(w).empireWarType = type;
         Empire empire = w.main_attacker.GetEmpire();
         if (empire != null)
         {
-            w.data.name = empire.name + type + (!isRebelling?"战争":"");
+            w.data.name = DisplayName(empire.CoreKingdom, empire.name) + type + (!isRebelling?"战争":"");
         }
         else
         {
-            w.data.name = (string.IsNullOrEmpty(pre)?w.main_attacker?.name:pre) + type + (!isRebelling?"战争":"");
+            w.data.name = (string.IsNullOrEmpty(pre)?DisplayName(w.main_attacker, w.main_attacker?.name):pre) + type + (!isRebelling?"战争":"");
         }
         if (belongingFaction != null)
         {
@@ -124,7 +131,7 @@ public static class WarExtension
         {
             case EmpireWarType.索取法理:
                 var title = (KingdomTitle)nanoObject;
-                w.data.name = $"{w.getMainAttacker()?.name}索取{title?.name}法理战争";
+                w.data.name = $"{DisplayName(w.getMainAttacker(), w.getMainAttacker()?.name)}索取{title?.name}法理战争";
                 Kingdom defender = w.getMainDefender();
                 defender?.SyncRealmTitlesFromRuler();
                 w.GetOrCreate().defender_realm_title_ids = defender?.GetRealmTitleIds()

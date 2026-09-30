@@ -344,6 +344,10 @@ public class WarPatch: GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
         if (__result == null) return;
 
+        // 原版按模板用 kingdom.name 生成战争名，改用地图铭牌上的国名
+        if (__result.data != null)
+            __result.data.name = WorldLogNamePatch.UseDisplayNames(__result.data.name,
+                __result.main_attacker, __result.main_defender);
         ExpandFeudalWar(__result);
         RecordWarDeclared(__result);
         DetachHostileTributaries(__result);

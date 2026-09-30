@@ -81,6 +81,43 @@ public static class ModernTitleCentralization
             if (!title.owner.isRekt() && title.owner.kingdom == core) centralTitles.Add(title);
         }
         foreach (KingdomTitle title in centralTitles) GiveToHead(title, head);
+        AssignUntitledCities(empire);
+    }
+
+    // 现代国家里新建(或毁城后重建)的城市没有法理：成员国不能再建法理、中央主法理又常常满员，
+    // 这些城市会一直游离在法理之外。每年把它们编入所在行政区受托管理的法理(核心国编入主法理)，
+    // 满员或没有时编入相邻城市所在、仍有空位的法理(优先同国，其次同一国家的其他行政区)。
+    // 只收编无法理的城市，不改动已有法理的归属，因此冻结法理时同样适用。
+    private static void AssignUntitledCities(Empire empire)
+    {
+        foreach (Kingdom kingdom in empire.kingdoms_list.ToList())
+        {
+            if (kingdom?.cities == null || kingdom.isRekt()) continue;
+            KingdomTitle own = kingdom.GetMainTitle() ?? kingdom.GetAdministrativeTitle();
+            foreach (City city in kingdom.cities.ToList())
+            {
+                if (city == null || city.isRekt() || city.hasTitle()) continue;
+                KingdomTitle target = own != null && !own.isRekt() && KingdomTitleManager.HasRoomFor(own)
+                    ? own
+                    : NeighbourTitle(city, kingdom, empire);
+                target?.addCity(city);
+            }
+        }
+    }
+
+    private static KingdomTitle NeighbourTitle(City city, Kingdom kingdom, Empire empire)
+    {
+        KingdomTitle fallback = null;
+        foreach (City neighbour in city.neighbours_cities.ToList())
+        {
+            if (neighbour == null || neighbour.isRekt() || !neighbour.hasTitle()) continue;
+            KingdomTitle title = neighbour.GetTitle();
+            if (title == null || title.isRekt() || !KingdomTitleManager.HasRoomFor(title)) continue;
+            if (neighbour.kingdom == kingdom) return title;
+            if (fallback == null && neighbour.kingdom != null && neighbour.kingdom.GetEmpire() == empire)
+                fallback = title;
+        }
+        return fallback;
     }
 
     // 只挪归属名单，不走 Actor.removeTitle(那会连带改动旧主人所在王国的主法理、甚至脱离帝国)

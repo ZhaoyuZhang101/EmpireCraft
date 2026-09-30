@@ -112,6 +112,15 @@ public static class EmpireCraftUpdateService
         if (!RestoreInstallState()) CheckForUpdates();
     }
 
+    // 有新版本可更新(用于更新按钮上的小红点)
+    public static bool HasUpdateAvailable
+    {
+        get
+        {
+            lock (Sync) return _snapshot.Status == EmpireCraftUpdateStatus.UpdateAvailable;
+        }
+    }
+
     public static EmpireCraftUpdateSnapshot GetSnapshot()
     {
         lock (Sync)

@@ -444,46 +444,36 @@ public class ActorPatch : GamePatch
 
     public static void setParent(Actor __instance,Actor pParentActor, bool pIncreaseChildren)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
-        IdeologyPopulationSystem.Inherit(__instance, pParentActor);
-        if (pParentActor.HasSpecificClan())
-        {
-            PersonalClanIdentity parent_identity = pParentActor.GetPersonalIdentity();
-            if (parent_identity.is_main)
-            {
-                if (pParentActor.hasClan())
-                {
-                    __instance.setClan(pParentActor.clan);
-                }
-
-                __instance.GetModName().familyName = pParentActor.GetModName().familyName;
-                __instance.GetModName().SetName(__instance);
-                EnsureChildName(__instance, pParentActor);
-                parent_identity.addChild(__instance, true);
-            }
-        }
+        InheritFromParent(__instance, pParentActor);
     }
 
     public static void setParent2(Actor __instance, Actor pActor, bool pIncreaseChildren = true)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
-        IdeologyPopulationSystem.Inherit(__instance, pActor);
-        if (pActor.HasSpecificClan())
-        {
-            PersonalClanIdentity parent_identity = pActor.GetPersonalIdentity();
-            if (parent_identity.is_main)
-            {
-                if (pActor.hasClan())
-                {
-                    __instance.setClan(pActor.clan);
-                }
+        InheritFromParent(__instance, pActor);
+    }
 
-                __instance.GetModName().familyName = pActor.GetModName().familyName;
-                __instance.GetModName().SetName(__instance);
-                EnsureChildName(__instance, pActor);
-                parent_identity.addChild(__instance, true);
-            }
+    // 孩子继承父母的理念与氏族身份。父母的个人氏族身份可能尚未建立(或已被清理)，此时跳过，不能抛异常打断生育
+    private static void InheritFromParent(Actor child, Actor parent)
+    {
+        if (child == null || parent == null) return;
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(child)) return;
+        IdeologyPopulationSystem.Inherit(child, parent);
+        if (!parent.HasSpecificClan()) return;
+        PersonalClanIdentity parent_identity = parent.GetPersonalIdentity();
+        if (parent_identity == null || !parent_identity.is_main) return;
+        if (parent.hasClan())
+        {
+            child.setClan(parent.clan);
         }
+        Name childName = child.GetModName();
+        Name parentName = parent.GetModName();
+        if (childName != null && parentName != null)
+        {
+            childName.familyName = parentName.familyName;
+            childName.SetName(child);
+        }
+        EnsureChildName(child, parent);
+        parent_identity.addChild(child, true);
     }
 
     private static void EnsureChildName(Actor child, Actor parent)

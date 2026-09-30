@@ -131,6 +131,38 @@ public class WorldLogNamePatch : GamePatch
         return map;
     }
 
+    // 把一段文字(如战争名)里出现的这些国家的原始名称换成铭牌名称；每国只替换一次，先匹配最长的名称。
+    // 单字名称只在开头出现时才换，免得误改普通字词；已经是显示名称的不重复替换
+    public static string UseDisplayNames(string text, params Kingdom[] kingdoms)
+    {
+        if (string.IsNullOrEmpty(text) || kingdoms == null) return text;
+        try
+        {
+            var done = new HashSet<long>();
+            foreach (Kingdom kingdom in kingdoms)
+            {
+                if (kingdom?.data == null || kingdom.isRekt() || !done.Add(kingdom.id)) continue;
+                string display = EmpireCraftNamePlateLibrary.GetDisplayName(kingdom);
+                if (string.IsNullOrWhiteSpace(display) || text.Contains(display)) continue;
+                var raws = new List<string>(RawNames(kingdom));
+                raws.Sort((a, b) => b.Length.CompareTo(a.Length));
+                foreach (string raw in raws)
+                {
+                    if (raw == display || !text.Contains(raw)) continue;
+                    if (raw.Length < 2 && !text.StartsWith(raw, StringComparison.Ordinal)) continue;
+                    int at = text.IndexOf(raw, StringComparison.Ordinal);
+                    text = text.Substring(0, at) + display + text.Substring(at + raw.Length);
+                    break;
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            NeoModLoader.services.LogService.LogWarning($"[EmpireCraft] 名称替换失败: {exception.Message}");
+        }
+        return text;
+    }
+
     private static IEnumerable<string> RawNames(Kingdom kingdom)
     {
         var names = new HashSet<string>();

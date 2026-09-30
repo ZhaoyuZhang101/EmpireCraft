@@ -1749,6 +1749,15 @@ public static class KingdomExtension
         return LM.Get(kingdom.GetKingdomType().ToString());
     }
 
+    // 界面上显示的国家类别(文本键)。现代政体的默认类别是"直辖市(首都)"，那是政府核心国的类别；
+    // 尚未组建政府的现代势力(某系军阀、工农革命军……)显示为"地方武装"。只影响显示，不改动实际类别与国名后缀
+    public static string GetKingdomTypeDisplayKey(this Kingdom kingdom)
+    {
+        if (EmpireCraft.Scripts.GeneralSystems.WarlordEraSystem.TryGetNonGovernmentKingdomName(kingdom, out _))
+            return "kingdom_type_armed_force";
+        return kingdom.GetKingdomType().ToString();
+    }
+
     public static void SetKingdomType(this Kingdom k, KingdomType type)
     {
         k.GetOrCreate().kingdomType = type;

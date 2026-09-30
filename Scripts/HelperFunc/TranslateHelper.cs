@@ -799,6 +799,9 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
         public static void LogNewJingShi(Empire empire, Actor pActor)
         {
+            // 现代国家的科举就是常规的公务员考试：照常选拔官员，但不再发"殿试已毕、授进士第"的世界提示
+            if (empire?.CoreKingdom == null || pActor == null ||
+                empire.CoreKingdom.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.Modern) return;
 
             new WorldLogMessage(EmpireCraftWorldLogLibrary.new_jingshi_log,
                 empire.data.name,
