@@ -105,7 +105,7 @@
 - [RegimeEditor](/D:/Application/Steam/steamapps/common/worldbox/Mods/EmpireCraft/RegimeEditor)
   独立政体编辑器及配套工具
 
-- [Locales/Cultures/Culture_*/CultureRule.json](Locales/Cultures/README.md)
+- [Locales/Cultures/Culture_*/CultureRule.jsonc](Locales/Cultures/README.md)
   文化与政体绑定配置
 
 - [mod.json](/D:/Application/Steam/steamapps/common/worldbox/Mods/EmpireCraft/mod.json)

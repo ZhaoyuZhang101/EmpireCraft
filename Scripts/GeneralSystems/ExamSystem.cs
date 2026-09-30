@@ -45,7 +45,7 @@ public static class ExamSystem
             if (actor.hasTrait("jingshi")) continue;
             if (actor.hasTrait("juren")) continue;
             if (actor.hasTrait("gongshi")) continue;
-            actor.RecordPersonalHistory(LM.Get("personal_history_exam_city_attended"));
+            // 只记中榜，不记每次赴考：屡试不第的考生每次都记一条，存档会膨胀到几百 MB
             mark = actor.startCityExam();
             if (mark > 0)
             {
@@ -97,7 +97,7 @@ public static class ExamSystem
         {
             foreach (Actor actor in city.units.FindAll(a => a != null && !a.isRekt() && a.hasTrait("juren")))
             {
-                actor.RecordPersonalHistory(LM.Get("personal_history_exam_province_attended"));
+                // 只记中榜，不记每次赴考：屡试不第的考生每次都记一条，存档会膨胀到几百 MB
                 double mark = actor.startProvinceExam();
                 MarksData[actor] = mark;
             }
@@ -146,7 +146,7 @@ public static class ExamSystem
             {
                 if (!MarksData.TryGetValue(actor, out double m))
                 {
-                    actor.RecordPersonalHistory(LM.Get("personal_history_exam_empire_attended"));
+                    // 只记中榜，不记每次赴考：屡试不第的考生每次都记一条，存档会膨胀到几百 MB
                     double mark = actor.startEmpireExam();
                     MarksData.Add(actor, mark);
                 }

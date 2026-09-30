@@ -69,29 +69,44 @@ public static class OnomasticsHelper
             data.setGroup(groupName, content);
         }
     }
+    // 命名字表按路径缓存：放置种族时新建文化要一次读十来个字表，谥号、年号、宗教名也反复读同一批文件，
+    // 每次都从磁盘读会在放置种族那一刻卡一下
+    private static readonly global::System.Collections.Concurrent.ConcurrentDictionary<string, List<string>> KeyCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    // 模组加载时在后台线程预读所有文化字表(只读文件、不碰游戏对象)，第一次放置种族时就不用再读盘
+    public static void PreloadCultureFilesAsync()
+    {
+        string root = Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures");
+        Task.Run(() =>
+        {
+            try
+            {
+                if (!Directory.Exists(root)) return;
+                foreach (string file in Directory.EnumerateFiles(root, "*.csv", SearchOption.AllDirectories))
+                    ReadKeys(Path.GetFullPath(file));
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 预读命名字表失败: {exception.Message}");
+            }
+        });
+    }
+
+    private static List<string> ReadKeys(string fullPath) => KeyCache.GetOrAdd(fullPath, path =>
+        File.ReadAllLines(path).Skip(1).Select(line => line.Split(',')[0]).ToList());
+
     public static List<string> getKeysFromPath(string path)
     {
-        if (!File.Exists(path))
+        if (string.IsNullOrEmpty(path)) return null;
+        string fullPath = Path.GetFullPath(path);
+        if (!KeyCache.ContainsKey(fullPath) && !File.Exists(fullPath))
         {
             LogService.LogWarning("File not found: " + path);
             return null;
         }
-        else
-        {
-            string[] lines = File.ReadAllLines(path);
-            int index = 0;
-            List<String> keys = new();
-            foreach (string line in lines)
-            {
-                string[] strings = line.Split(',');
-                if (index != 0)
-                {
-                    keys.Add(strings[0]);
-                }
-                index++;
-            }
-            return keys;
-        }
+        // 返回副本，调用方改动列表不会污染缓存
+        return new List<string>(ReadKeys(fullPath));
     }
 
 }

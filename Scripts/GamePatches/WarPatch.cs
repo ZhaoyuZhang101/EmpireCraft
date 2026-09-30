@@ -95,6 +95,7 @@ public class WarPatch: GamePatch
         if (__instance.getMainAttacker() == null) return; // 坏战争，前置已经处理
 
         RecordWarDeclared(__instance);
+        WorldWarSystem.TryEscalate(__instance);
         if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.索取法理)
         {
             KingdomTitle targetTitle = __instance.GetTitleTarget();
@@ -178,6 +179,7 @@ public class WarPatch: GamePatch
             CaptureWarRoyalHouses(pWar);
             RememberDefeatedWarHouses(pWar, pWinner);
             RecordWarEnded(pWar, pWinner);
+            WorldWarSystem.Resolve(pWar, pWinner);
             World.world.game_stats.data.peacesMade++;
             World.world.map_stats.peacesMade++;
             pWar.setWinner(pWinner);
@@ -345,6 +347,7 @@ public class WarPatch: GamePatch
         ExpandFeudalWar(__result);
         RecordWarDeclared(__result);
         DetachHostileTributaries(__result);
+        WorldWarSystem.TryEscalate(__result, force: true);
 
         // 只“排队”，这里不再同步扫描全国人口/军队。
         QueueWarSideMobilization(__result, __result._list_attackers);
@@ -375,6 +378,7 @@ public class WarPatch: GamePatch
         ExpandFeudalWar(__instance);
         CaptureWarRoyalHouses(__instance);
         DetachHostileTributaries(__instance);
+        WorldWarSystem.TryEscalate(__instance, force: true);
 
         QueueKingdomMobilizationOnce(__instance, pKingdom);
     }

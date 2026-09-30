@@ -51,6 +51,7 @@ public static class IdeologySpreadSystem
     {
         if (World.world == null || ModClass.IS_CLEAR || ModClass.EMPIRE_MANAGER == null) return;
         if (TechnologySystem.PremodernLocked) return; // 禁止近代化：理念不再传播
+        IdeologyPopulationSystem.TickContact(); // 上一轮年度交往分帧处理中
         double now = World.world.getCurWorldTime();
         if (_lastScan < 0d || now < _lastScan)
         {

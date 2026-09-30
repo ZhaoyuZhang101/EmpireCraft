@@ -37,6 +37,17 @@ public class ArmyPatch : GamePatch
             {
                 __instance._captain = null;
             }
+            // 原版 save 用 ?. 取城市/王国的 id，只防 null 不防已销毁(data 已清空)的对象：
+            // 军队还指着已灭亡的城市或王国时读 id 空引用，整个存档(含自动存档)失败
+            if (__instance._city != null &&
+                (__instance._city.data == null || __instance._city.kingdom != null && __instance._city.kingdom.data == null))
+            {
+                __instance._city = null;
+            }
+            if (__instance._kingdom != null && __instance._kingdom.data == null)
+            {
+                __instance._kingdom = null;
+            }
         }
         catch
         {

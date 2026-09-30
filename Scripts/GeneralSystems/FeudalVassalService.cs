@@ -18,6 +18,14 @@ public static class FeudalVassalService
     private static bool IsFeudal(Kingdom kingdom) => kingdom != null && !kingdom.isRekt() &&
         kingdom.GetRegime()?.type == RegimeType.Feudalism;
 
+    // 废除君主制之后(共和国或现代政体)，任何文化的国家都可以拥有附庸国，不再需要西方封建化制度
+    // 只有国家本身(帝国核心王国或独立王国)能收附庸，共和国内部的成员国不能
+    public static bool IsPostMonarchy(Kingdom kingdom) => kingdom != null && !kingdom.isRekt() &&
+        (!kingdom.IsInEmpire() || kingdom.IsEmpire()) &&
+        (kingdom.GetRegime()?.type == RegimeType.Modern || RepublicSystem.IsRepublic(kingdom.GetEmpire()));
+
+    private static bool CanHoldVassals(Kingdom kingdom) => IsFeudal(kingdom) || IsPostMonarchy(kingdom);
+
     public static Kingdom GetOverlord(Kingdom subject)
     {
         if (subject == null || subject.isRekt() || World.world?.kingdoms == null) return null;
@@ -51,12 +59,13 @@ public static class FeudalVassalService
 
     public static bool CanBind(Kingdom lord, Kingdom subject)
     {
-        if (!IsFeudal(lord) || subject == null || subject.isRekt() || lord == subject ||
+        if (!CanHoldVassals(lord) || subject == null || subject.isRekt() || lord == subject ||
             AncientWarfareCompatibility.Owns(lord) || AncientWarfareCompatibility.Owns(subject) ||
-            subject.IsEmpire() ||
-            subject.king != null && subject.king == lord.king ||
-            lord.GetOrCreate().feudal_vassal_level >= 3 && GetOverlord(lord) != null ||
+            (subject.IsEmpire() && subject.GetRegime()?.type != RegimeType.Modern) ||
+            (subject.king != null && subject.king == lord.king) ||
+            (lord.GetOrCreate().feudal_vassal_level >= 3 && GetOverlord(lord) != null) ||
             IsInChain(lord, subject)) return false;
+        if (IsPostMonarchy(lord)) return true;
         string culture = CultureService.GetRealmCulture(lord);
         return InstitutionSystem.IsEnacted(culture, "western_feudalization");
     }
@@ -76,7 +85,8 @@ public static class FeudalVassalService
         }
         if (GetOverlord(subject) != null) Break(subject);
         Empire formerEmpire = subject.GetEmpire();
-        if (formerEmpire != null) formerEmpire.leave(subject);
+        // 现代正常国家可以作为附庸保留自己的政府；只有原本作为别国成员时才退出旧帝国。
+        if (formerEmpire != null && formerEmpire.CoreKingdom != subject) formerEmpire.leave(subject);
         if (subject.HasTakenAlliance()) subject.RemoveTakenAlliance();
         var data = subject.GetOrCreate();
         data.feudal_overlord_kingdom_id = lord.id;
@@ -109,8 +119,9 @@ public static class FeudalVassalService
         if (subject?.data == null || subject.isRekt()) return;
         if (subject.GetOrCreate().feudal_overlord_kingdom_id < 0) return;
         Kingdom lord = GetOverlord(subject);
-        if (!IsFeudal(lord) || subject.IsEmpire() ||
-            subject.king != null && subject.king == lord.king ||
+        if (!CanHoldVassals(lord) ||
+            (subject.IsEmpire() && subject.GetRegime()?.type != RegimeType.Modern) ||
+            (subject.king != null && subject.king == lord.king) ||
             AncientWarfareCompatibility.Owns(lord) || AncientWarfareCompatibility.Owns(subject) ||
             IsInChain(lord, subject))
         {
@@ -209,6 +220,19 @@ public static class FeudalVassalService
     public static bool Annex(Kingdom lord, Kingdom subject)
     {
         if (!CanAnnex(lord, subject)) return false;
+        if (IsPostMonarchy(lord))
+        {
+            // 共和国/现代国家没有君主可以兼领：附庸直接并入宗主国家
+            Empire subjectGovernment = subject.IsEmpire() ? subject.GetEmpire() : null;
+            Break(subject);
+            if (subjectGovernment != null && !subjectGovernment.IsArchived())
+                ModClass.EMPIRE_MANAGER?.dissolveEmpire(subjectGovernment);
+            if (lord.IsInEmpire()) lord.GetEmpire()?.join(subject, pForce: true);
+            else
+                foreach (City city in subject.cities?.ToList() ?? new List<City>())
+                    city.joinAnotherKingdom(lord);
+            return true;
+        }
         PersonalUnionService.CrownInUnion(subject, lord.king);
         if (subject.king != lord.king) return false;
         Break(subject);

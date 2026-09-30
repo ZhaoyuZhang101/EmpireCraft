@@ -581,7 +581,8 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     {
         Actor emperor = _empire.Emperor;
         string name = emperor == null ? LM.Get("office_vacant") : emperor.getName();
-        return BuildNode(LM.Get(GeneralSystems.RepublicSystem.IsRepublic(_empire) ? "bureau_head_of_state" : "bureau_sovereign"), "#F3C34A", emperor,
+        return BuildNode(GeneralSystems.RepublicSystem.IsRepublic(_empire)
+                ? GeneralSystems.RepublicSystem.GetHeadOfStateTitle(_empire) : LM.Get("bureau_sovereign"), "#F3C34A", emperor,
             name.ColorString(emperor == null ? "#8FA0A8" : "#F2EEE2"),
             _empire.GetEmpireName().ColorString("#65D6C4"), "", $"sovereign_{_empire.id}",
             $"{name}\n{_empire.GetEmpireName()}", null, highlight: true);

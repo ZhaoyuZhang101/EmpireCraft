@@ -247,6 +247,12 @@ public static class KingdomExtension
         public string custom_country_suffix = "";
         // 改制共和后按执政理念取的国号后缀(玩家自定义命名优先)
         public string ideology_country_suffix = "";
+        // 未组建政府的华夏系势力的称呼：按哪个理念抽的(-1 = 还没抽)、抽中历史名称池的第几个(-1 = 用理念通称)
+        public int non_government_label_ideology = -1;
+        public int non_government_label_pick = -1;
+        // 临时政府称呼同理：按哪个理念抽的、抽中词库第几个
+        public int provisional_label_ideology = -1;
+        public int provisional_label_pick = -1;
         // Stable EmpireCraft culture key selected from the founder/ruler's current Culture.
         public string realm_culture = "";
         public SpecificClan kingdomSpecificClan;
@@ -1271,6 +1277,8 @@ public static class KingdomExtension
         if (k.HasRebelledAgainst(empire)) return;
         // 没施行朝贡体系类制度的帝国一律不收朝贡国(强制也不行)
         if (!FeudalConquestService.HasTributeInstitution(empire)) return;
+        // 废除君主制后朝贡体系随之废除，改用附庸国(见 TributaryAbolitionService)
+        if (RepublicSystem.IsRepublic(empire)) return;
         if (!pForce && (!empire.CanAcceptVoluntarySubmission() ||
             !k.CanVoluntarilyBecomeTributaryOf(empire) ||
             !empire.MeetsTributaryPowerThreshold(k))) return;
@@ -1888,7 +1896,7 @@ public static class KingdomExtension
         if (k?.data == null || k.isRekt()) return;
         var culture = CultureService.GetRealmCulture(k);
         // 初始政体由该文化所属科技线的**一级制度**决定（华夏开局是周制，律令要等郡县官僚
-        // 研究出来），线里没声明才退回 CultureRule.json 里的 setting.regime。
+        // 研究出来），线里没声明才退回 CultureRule.jsonc 里的 setting.regime。
         RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)
             ? resolvedRegime
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
@@ -2179,6 +2187,12 @@ public static class KingdomExtension
     public static void SetMainTitle(this Kingdom k, KingdomTitle title)
     {
         if (k == null || title == null || title.isRekt()) return;
+        // 现代国家的成员国不持有王国法理：改为受托管理，法理本身归中央元首
+        if (ModernTitleCentralization.BlocksMemberMainTitle(k))
+        {
+            k.SetAdministrativeTitle(title);
+            return;
+        }
         // 城邦不能建立法理
         if (CityStateService.IsCityState(k)) return;
         if (title.title_capital == null || title.title_capital.isRekt()) return;
@@ -2277,6 +2291,8 @@ public static class KingdomExtension
     public static bool IsAdministrativeKingdomType(this Kingdom kingdom)
     {
         if (kingdom == null || kingdom.isRekt()) return false;
+        // 现代国家的省、州、自治州：法理归中央，自己受托管理(见 ModernTitleCentralization)
+        if (ModernTitleCentralization.IsModernDivisionType(kingdom)) return true;
         KingdomType kingdomType = kingdom.GetKingdomType();
         return (kingdom.GetRegime()?.type == RegimeType.LvLing &&
                 (kingdomType == KingdomType.LvLing_province ||
@@ -2899,9 +2915,22 @@ public static class KingdomExtension
                 return OverallHelperFunc.JoinNameParts(kingdom.GetKingdomName(),
                     kingdom.GetCustomCountrySuffix());
             }
+            // 现代核心王国就是该政府本身。统一走 Empire 的完整名称，保证临时政府在
+            // 王国提示框、地图铭牌和政府列表中都使用同一套理念命名。
+            if (kingdom.IsEmpire() && kingdom.GetRegime()?.type == RegimeType.Modern)
+            {
+                Empire government = kingdom.GetEmpire();
+                if (government != null && !government.IsArchived() && !government.isRekt())
+                    return government.GetEmpireFullName();
+            }
+            // 尚未组建正常政府的现代势力统一按理念命名；有法理也不会一律显示成军阀。
+            if (WarlordEraSystem.TryGetNonGovernmentKingdomName(kingdom, out string armedName)) return armedName;
+            string ideologySuffix = kingdom.GetOrCreate().ideology_country_suffix;
+            if (!kingdom.isRekt() && kingdom.GetRegime()?.type == RegimeType.Modern &&
+                !kingdom.HasMainTitle() && !string.IsNullOrWhiteSpace(ideologySuffix))
+                return OverallHelperFunc.JoinNameParts(kingdom.GetKingdomName(), ideologySuffix);
             if (!kingdom.isRekt() && (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling()))
                 return kingdom.data.name?.UseLocalizedNameSeparator() ?? "";
-            string ideologySuffix = kingdom.GetOrCreate().ideology_country_suffix;
             if (!string.IsNullOrWhiteSpace(ideologySuffix))
                 return OverallHelperFunc.JoinNameParts(kingdom.GetKingdomName(), ideologySuffix);
             string coreName = kingdom.EnsureKingdomCoreName();
@@ -3230,7 +3259,9 @@ public static class KingdomExtension
 
     public static List<War> GetWarsCached(this Kingdom kingdom, bool pRandom = false)
     {
+        if (kingdom == null || kingdom.isRekt()) return new List<War>();
         var ed = GetOrCreate(kingdom);
+        if (ed == null) return kingdom.getWars(pRandom).ToList();
         if (ed.last_wars_ts > 0 && Date.getMonthsSince(ed.last_wars_ts) < 1 && ed.cached_wars != null)
         {
             return ed.cached_wars;

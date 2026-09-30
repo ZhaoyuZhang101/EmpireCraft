@@ -1,0 +1,87 @@
+{
+    "name": "Slavonic",
+    "color": "#5DADE2",
+    "translate_cz": "斯拉夫",
+    "setting": {
+        "regime": "Feudalism",
+        "institution_line": "Roma",
+        // 宪法：名称词库(name_group / provisional_name_group)与本文化的制宪倾向(clauses，覆盖各党主张)
+        "Constitution": {
+            "clauses": { "territory": "Federal" }
+        },
+        // 现代政权称呼(见 Locales/Cultures/README.md 政党一节)：未组建政府的势力 / 临时政府；没配的理念用默认称呼
+        "Party": {
+            "untitled_groups": {
+                "Anarchism": "UntitledAnarchism",
+                "Centrism": "UntitledCentrism",
+                "Socialism": "UntitledSocialism",
+                "Communism": "UntitledCommunism",
+                "Conservatism": "UntitledConservatism",
+                "Fascism": "UntitledFascism"
+            },
+            "provisional_groups": {
+                "SocialDemocracy": "Slavonic:ProvisionalSocialism",
+                "Socialism": "ProvisionalSocialism",
+                "Conservatism": "ProvisionalConservatism"
+            }
+        },
+        "traits": ["patriarchy"],
+        "City": {
+            "groups": {
+                "group_1": "CityNames1"
+            },
+            "rule": [ "group_1" ],
+            "name_pos": 0
+        },
+        "Clan": {
+            "groups": {
+                "group_1": "ClanNames",
+                "group_2": "\u200A",
+                "group_3": "Clan"
+            },
+            "rule": [ "group_1", "group_2", "group_2" ],
+            "name_pos": 0,
+            "has_sex_post": true,
+            "use_local_as_lastname": false,
+            "sex_post_Male": ["夫", "v", "夫"],
+            "sex_post_Female": ["娃", "va", "娃"]
+        },
+        "Family": {
+            "groups": {
+                "group_1": "FamilyNames",
+                "group_2": "\u200A",
+                "group_3": "Family"
+            },
+            "rule": [ "group_1", "group_2", "group_3" ],
+            "name_pos": 0,
+            "has_sex_post": true,
+            "use_local_as_lastname": false
+        },
+        "Unit": {
+            "groups": {
+                "group_1": "UnitNamesMale1",
+                "group_2": "UnitNamesFemale1"
+            },
+            "rule": [
+                "group_1",
+                "sex_male",
+                "group_2",
+                "sex_female",
+                "space"
+            ],
+            "name_pos": 0,
+            "is_invert": true
+        },
+        "Kingdom": {
+            "groups": {
+                "group_1": "CountryNames"
+            },
+            "rule": [ "group_1" ],
+            "name_pos": 0
+        }
+    },
+    "beaurau_config": {
+        "CoreOffice": [],
+        "Divisions": []
+    }
+}

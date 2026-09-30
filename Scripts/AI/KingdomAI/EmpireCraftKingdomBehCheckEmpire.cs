@@ -199,6 +199,9 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         // 互为正统对手(僭越称帝后并立)的帝国：较强一方可发起正统之争
         if (empire != null && pKingdom == empire.CoreKingdom &&
             ImperialLegitimacyChallengeService.TryStartRivalryWar(empire)) return;
+        // Modern sovereign states enter the empire layer directly. This is state formation,
+        // not a monarch's proclamation plot, and therefore ignores pre-modern rise routes.
+        if (empire == null && ModernStateFormationSystem.TryUpdate(pKingdom)) return;
         if (pKingdom.hasKing() && ImperialLegitimacyChallengeService.TryFindTarget(pKingdom, out _))
         {
             var challengePlot = AssetManager.plots_library.basic_plots
@@ -230,6 +233,8 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
     public static bool CanStartEmpireFormation(Kingdom pKingdom, bool repairMainTitle = false)
     {
         if (pKingdom == null || pKingdom.isRekt()) return false;
+        // 现代政体没有称帝：政权只能经 ModernStateFormationSystem 组建政府(所有文化；华夏条件更苛刻)
+        if (pKingdom.GetRegime()?.type == RegimeType.Modern) return false;
         if (repairMainTitle && pKingdom.hasKing() && !pKingdom.HasMainTitle() &&
             !pKingdom.IsEmpire() && !pKingdom.IsInEmpire())
         {

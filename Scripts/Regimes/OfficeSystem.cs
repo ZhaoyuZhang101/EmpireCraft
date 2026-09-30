@@ -204,6 +204,7 @@ public class OfficeObject
 
     public void SetActor (Actor actor)
     {
+        if (actor == null || !actor.CanServeOffice(GetOfficeKingdom(actor))) return;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(actor) ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(meta_object)) return;
         var originalActor = GetActor();
@@ -299,6 +300,11 @@ public class OfficeObject
     public Actor GetActor()
     {
         var res = World.world.units.get(actor_id);
+        if (res != null && res.IsWarMachine())
+        {
+            ClearInvalidHolder(res);
+            return null;
+        }
         if (res != null)
         {
             if (res.isUnitFitToRule() && res.isAdult())
@@ -307,6 +313,26 @@ public class OfficeObject
             }
         }
         return null;
+    }
+
+    private Kingdom GetOfficeKingdom(Actor fallback = null)
+    {
+        if (meta_object is Kingdom kingdom) return kingdom;
+        if (meta_object is City city) return city.kingdom;
+        if (meta_object is Army army) return army._city?.kingdom;
+        return fallback?.kingdom;
+    }
+
+    private void ClearInvalidHolder(Actor actor)
+    {
+        if (actor != null)
+        {
+            actor.EndOffice();
+            if (actor.hasTrait("officer")) actor.removeTrait("officer");
+            if (actor.hasTrait("officerLeave")) actor.removeTrait("officerLeave");
+            actor.RemoveIdentity();
+        }
+        actor_id = -1L;
     }
     public int GetOnTime()
     {

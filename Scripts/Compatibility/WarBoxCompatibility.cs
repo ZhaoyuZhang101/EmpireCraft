@@ -5,6 +5,10 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
+using NeoModLoader.General;
 using HarmonyLib;
 using NeoModLoader.services;
 using UnityEngine;
@@ -34,12 +38,23 @@ public static class WarBoxCompatibility
         if (AccessTools.TypeByName("WarBox.Content.DiplomacyRelations") == null) return; // 没装 WarBox
 
         TryPatch(harmony, "WarBox.Content.DiplomacyRelations", "Set", nameof(BeforeSetRelation));
+        // 同一帝国/宗主附庸的军队在彼此境内不算"外国军队越境"
+        TryPatch(harmony, "WarBox.Content.DiplomacyEvents", "Record", nameof(BeforeDiplomacyEventRecord));
+        TryPatch(harmony, "WarBox.Content.DiplomacyEvents", "Chronicle", nameof(BeforeDiplomacyEventChronicle));
         TryPatch(harmony, "WarBox.Content.Patch_Diplomacy_PactBlocksWar", "Prefix", nameof(BeforePactBlock));
         TryPatch(harmony, "WarMobilization.WarSpoilsSystem", "HasTreaty", null, nameof(AfterHasTreaty));
         TryPatch(harmony, "WarMobilization.WarSpoilsSystem", "OnWarEnded", nameof(BeforeWarSpoils));
         TryPatch(harmony, "WarMobilization.PeacePlanSystem", "RequestPeace", nameof(BeforeRequestPeace));
         TryPatch(harmony, "WarBox.Content.OccupationSystem", "OnConquered", nameof(BeforeOccupation));
         TryPatch(harmony, "WarBox.Content.PoliticalSystem", "Calculate", null, nameof(AfterLegitimacy));
+        // 人民革命走本模组的政体机制；抗议的处置影响阶层怨气；帝国成员共用帝国的合法性；日志用完整国号
+        TryPatch(harmony, "WarBox.Content.ProtestSystem", "StartRevolution", nameof(BeforeRevolution));
+        TryPatch(harmony, "WarBox.Content.ProtestSystem", "RemoveKing", nameof(BeforeRemoveKing));
+        TryPatch(harmony, "WarBox.Content.ProtestSystem", "ApplyReaction", null, nameof(AfterProtestReaction));
+        TryPatch(harmony, "WarBox.Content.PoliticalSystem", "GetLegitimacy", null, nameof(AfterGetLegitimacy));
+        TryPatch(harmony, "WarBox.Content.PoliticalSystem", "UpdateChronicle", nameof(BeforeLegitimacyChronicle));
+        TryPatch(harmony, "WarBox.Content.DiplomacyEvents", "ChronicleAt", nameof(BeforeChronicleAt));
+        TryPatch(harmony, "WarBox.Content.DiplomacyEvents", "ChronicleRaw", nameof(BeforeChronicleRaw));
     }
 
     private static void TryPatch(Harmony harmony, string typeName, string methodName, string prefix,
@@ -115,6 +130,15 @@ public static class WarBoxCompatibility
         return false;
     }
 
+    // WarBox 的越境检测把同一帝国成员、宗主与附庸的驻军也当成外国军队，拦下这类记忆和史书
+    private const string BorderEvent = "border";
+
+    public static bool BeforeDiplomacyEventRecord(Kingdom from, Kingdom to, string ev) =>
+        ev != BorderEvent || !AreBound(from, to);
+
+    public static bool BeforeDiplomacyEventChronicle(Kingdom a, Kingdom b, string ev) =>
+        ev != BorderEvent || !AreBound(a, b);
+
     public static void AfterHasTreaty(Kingdom a, Kingdom b, ref bool __result)
     {
         if (__result && AreBound(a, b)) __result = false;
@@ -173,4 +197,182 @@ public static class WarBoxCompatibility
     }
 
     #endregion
+
+    #region 人民革命
+
+    // WarBox 的人民革命原本只是把国王撤掉(本模组的继承随即补上一位新君，等于什么都没变)。
+    // 帝国里改走本模组的政体机制：
+    //   · 君主国：民意所向(没有就选最大的非保守政党)的政党推动建立共和(够票和平退位，不够打革命战争)；
+    //     还没有政党政治的，王朝正统大损；
+    //   · 共和国：一党制垮台、重开党禁；多党制则提前大选；
+    //   · 帝国的成员国：就地起兵，地方叛乱。
+    // WarBox 自己的收尾(城市动荡复位、撤换城主、结束示威)照常执行，只拦下撤国王。
+    public static bool BeforeRevolution(Kingdom kingdom)
+    {
+        try
+        {
+            Empire empire = kingdom?.GetEmpire();
+            if (empire != null && !empire.isRekt() && !empire.IsArchived()) HandleEmpireRevolution(empire, kingdom);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] WarBox 人民革命对接失败: {exception.Message}");
+        }
+        return true;
+    }
+
+    public static bool BeforeRemoveKing(Kingdom kingdom, ref bool __result)
+    {
+        if (kingdom?.GetEmpire() == null) return true;
+        __result = false;
+        return false;
+    }
+
+    private static void HandleEmpireRevolution(Empire empire, Kingdom kingdom)
+    {
+        if (kingdom != empire.CoreKingdom)
+        {
+            StartMemberRebellion(empire, kingdom);
+            return;
+        }
+        if (!RepublicSystem.IsRepublic(empire))
+        {
+            FixedFaction party = PublicOpinionSystem.TryGetPreferred(empire, out PartyIdeology preferred)
+                ? PartySystem.GetParties(empire).FirstOrDefault(candidate => candidate.Ideology == preferred)
+                : null;
+            party ??= PartySystem.GetParties(empire).Where(candidate => candidate.Ideology != PartyIdeology.Conservatism)
+                .OrderByDescending(candidate => candidate.CentralRatio).FirstOrDefault();
+            if (party != null && party.Ideology != PartyIdeology.Conservatism)
+            {
+                RepublicSystem.PushRepublic(empire, party);
+                if (RepublicSystem.IsRepublic(empire) || RepublicSystem.HasActiveRevolutionWar(empire)) return;
+            }
+            empire.AddMandate(-20);
+            EventRecorder.Record(empire, string.Format(LM.Get("warbox_empire_revolution_monarchy"), empire.GetEmpireFullName()));
+            return;
+        }
+        if (RepublicSystem.IsOneParty(empire))
+        {
+            PartyBanSystem.Open(empire, "party_ban_reopened_revolution_history");
+            return;
+        }
+        ConstitutionalEconomyState state = empire.data?.constitutional_economy;
+        if (state != null) state.last_parliament_election = -1d;
+        EventRecorder.Record(empire, string.Format(LM.Get("warbox_empire_revolution_election"), empire.GetEmpireFullName()));
+    }
+
+    private static void StartMemberRebellion(Empire empire, Kingdom kingdom)
+    {
+        if (kingdom.IsLocalRebelling() || kingdom.IsFactionRebelling() || kingdom.getWars().Any() ||
+            empire.CoreKingdom == null) return;
+        if (!kingdom.StartLocalRebelling(EmpireWarType.地方叛乱)) return;
+        War war = World.world.diplomacy.startWar(kingdom, empire.CoreKingdom, WarTypeLibrary.rebellion);
+        if (war == null)
+        {
+            kingdom.EndLocalRebelling();
+            return;
+        }
+        war.SetEmpireWarType(EmpireWarType.地方叛乱);
+        RebellionStartupService.RaiseUprisingMilitia(kingdom, 0.6f);
+        EventRecorder.Record(empire, string.Format(LM.Get("warbox_empire_revolution_member"), kingdom.GetKingdomFullName(),
+            empire.GetEmpireFullName()));
+    }
+
+    #endregion
+
+    #region 抗议 → 阶层怨气
+
+    // 政府对示威的处置影响本模组的阶层怨气：置之不理、驱散会加重，谈判、让步、宣传会缓和。
+    // 受影响的阶层看示威的诉求。一次示威只是一座城的事，数值比阶层起义本身的累积小得多。
+    public static void AfterProtestReaction(object demo, bool __result)
+    {
+        if (!__result || demo == null) return;
+        try
+        {
+            Traverse traverse = Traverse.Create(demo);
+            Kingdom kingdom = traverse.Field("Kingdom").GetValue<Kingdom>();
+            Empire empire = kingdom?.GetEmpire();
+            InstitutionEmpireState institutions = empire?.data?.institution_state;
+            if (institutions == null) return;
+            string reaction = traverse.Field("Reaction").GetValue()?.ToString() ?? "";
+            float delta = reaction switch
+            {
+                "Ignore" => 2f,
+                "Disperse" => 4f,
+                "Negotiate" => -1.5f,
+                "Concessions" => -4f,
+                "Propaganda" => -1f,
+                _ => 0f
+            };
+            if (delta == 0f) return;
+            string demand = traverse.Field("DemandKey").GetValue<string>() ?? "";
+            SocialClass[] classes = demand switch
+            {
+                "warbox_protest_demand_taxes" => new[] { SocialClass.Peasant, SocialClass.Labour, SocialClass.Merchant },
+                "warbox_protest_demand_welfare" => new[] { SocialClass.Peasant, SocialClass.Labour, SocialClass.Citizen },
+                "warbox_protest_demand_peace" => new[] { SocialClass.Peasant, SocialClass.Labour, SocialClass.Citizen },
+                "warbox_protest_demand_corruption" => new[] { SocialClass.Merchant, SocialClass.Citizen },
+                _ => new[] { SocialClass.Citizen, SocialClass.Merchant, SocialClass.Labour }
+            };
+            institutions.class_grievances ??= new global::System.Collections.Generic.Dictionary<SocialClass, float>();
+            foreach (SocialClass socialClass in classes)
+            {
+                institutions.class_grievances.TryGetValue(socialClass, out float current);
+                institutions.class_grievances[socialClass] = Mathf.Clamp(current + delta, 0f, 100f);
+            }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] WarBox 抗议对接失败: {exception.Message}");
+        }
+    }
+
+    #endregion
+
+    #region 合法性：帝国成员共用帝国的
+
+    private static bool IsEmpireMember(Kingdom kingdom)
+    {
+        Empire empire = kingdom?.GetEmpire();
+        return empire?.CoreKingdom != null && empire.CoreKingdom != kingdom && !empire.isRekt();
+    }
+
+    // 成员国读帝国核心王国的合法性，危机只在帝国层面发生一次，不再每个成员国各报一次
+    public static void AfterGetLegitimacy(Kingdom kingdom, ref int __result)
+    {
+        if (!IsEmpireMember(kingdom)) return;
+        Kingdom core = kingdom.GetEmpire().CoreKingdom;
+        if (core?.data == null) return;
+        core.data.get("wb_political_legitimacy", out float value, -1f);
+        if (value >= 0f) __result = Mathf.Clamp(Mathf.RoundToInt(value), 0, 100);
+    }
+
+    public static bool BeforeLegitimacyChronicle(Kingdom kingdom) => !IsEmpireMember(kingdom);
+
+    #endregion
+
+    #region 日志国号
+
+    // WarBox 的日志直接用王国的原始名字(如"大理朝")，换成本模组的完整国号
+    public static void BeforeChronicleAt(Kingdom kingdom, ref string text) => text = UseFullName(kingdom, text);
+
+    public static void BeforeChronicleRaw(Kingdom k, ref string text) => text = UseFullName(k, text);
+
+    private static string UseFullName(Kingdom kingdom, string text)
+    {
+        try
+        {
+            string raw = kingdom?.data?.name;
+            if (string.IsNullOrWhiteSpace(raw) || string.IsNullOrEmpty(text) || !text.Contains(raw)) return text;
+            string full = kingdom.IsEmpire() ? kingdom.GetEmpire()?.GetEmpireFullName() : kingdom.GetKingdomFullName();
+            return string.IsNullOrWhiteSpace(full) || full == raw ? text : text.Replace(raw, full);
+        }
+        catch
+        {
+            return text;
+        }
+    }
+
+    #endregion
+
 }

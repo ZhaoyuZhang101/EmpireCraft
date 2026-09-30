@@ -5,7 +5,7 @@
 | 路径 | 作用 |
 |---|---|
 | `Settings.json` | 全局设置：文明等级、吸收规则、社会动荡、改革竞争、君主立宪 (`constitution`) |
-| `<线 id>.json` | 一条科技线，文件名即线 id。文化在 `Locales/Cultures/Culture_<文化>/CultureRule.json` 的 `setting.institution_line` 中认领 |
+| `<线 id>.json` | 一条科技线，文件名即线 id。文化在 `Locales/Cultures/Culture_<文化>/CultureRule.jsonc` 的 `setting.institution_line` 中认领 |
 | `Common/*.json` | 公共制度模板，可被任意线复用 |
 
 ## 公共模板（一个政策给多个文明用）

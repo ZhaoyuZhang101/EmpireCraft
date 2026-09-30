@@ -7,6 +7,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 
@@ -23,6 +24,8 @@ public static class ImperialLegitimacyChallengeService
             kingdom.king.isRekt() || kingdom.IsInEmpire() || kingdom.IsEmpire() || kingdom.hasEnemies() ||
             kingdom.GetMoney() < 0 || AncientWarfareCompatibility.BlocksEmpireFormation(kingdom) ||
             EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
+        // 现代政体没有僭越称帝：政权只能组建政府(见 ModernStateFormationSystem)
+        if (kingdom.GetRegime()?.type == RegimeType.Modern) return false;
         if (!kingdom.HasMainTitle() && !kingdom.GetControlledTitle().Any()) return false;
 
         string culture = CultureService.GetRealmCulture(kingdom);
@@ -165,8 +168,8 @@ public static class ImperialLegitimacyChallengeService
     public static void ClearRivalry(Empire empire)
     {
         if (empire?.data == null) return;
-        EmpireCore core = EmpireCoreManager.Get(empire);
-        if (core != null) core.false_core_against_empire_id = -1L;
+        // 正统对手关系可以结束，但伪核心的法理性质不能因此自动转正。
+        // 它只有在统一胜利后被销毁并由政权接管现成正规核心，或随政权败亡而消失。
         empire.data.legitimacy_rival_empire_id = -1L;
         empire.data.legitimacy_rivalry_recognized = false;
         empire.data.legitimacy_challenger = false;
@@ -264,7 +267,8 @@ public static class ImperialLegitimacyChallengeService
         EmpireCore provisionalCore = EmpireCoreManager.Get(challenger);
         if (challengerWasClaimant)
         {
-            // 挑战/僭越一方胜出：销毁自己的临时核心，接管原帝国的核心
+            // 僭越者胜出时伪核心本身不会转正：销毁伪核心，再让胜利政权接管
+            // 已经存在的正规核心。冻结法理不阻止这种所有者更替。
             if (provisionalCore != null && provisionalCore != inheritedCore)
                 EmpireCoreManager.DestroyEmpireCore(provisionalCore);
             if (inheritedCore != null) EmpireCoreManager.RebindEmpire(challenger, inheritedCore);
@@ -289,20 +293,24 @@ public static class ImperialLegitimacyChallengeService
                 emperor_id = formerEmperor.id,
                 royal_clan_id = formerEmperor.GetSpecificClan()?.id ?? -1L
             });
-            ForceGrantAnlePeerage(formerEmperor, challenger);
-            string enfeoffed = string.Format(LM.Get("history_deposed_emperor_enfeoffed_anle"),
-                formerEmperor.getName(), retirementCity?.GetCityName() ?? "");
-            challenger.RecordHistory(directContent: enfeoffed, actorId: formerEmperor.id,
-                kingdomId: retirementKingdom?.id ?? -1L);
-            formerEmperor.RecordPersonalHistory(enfeoffed, "deposed_emperor_enfeoffed_anle",
-                relatedActorId: challengerEmperor?.id ?? -1L);
+            if (ForceGrantAnlePeerage(formerEmperor, challenger))
+            {
+                string enfeoffed = string.Format(LM.Get("history_deposed_emperor_enfeoffed_anle"),
+                    formerEmperor.getName(), retirementCity?.GetCityName() ?? "");
+                challenger.RecordHistory(directContent: enfeoffed, actorId: formerEmperor.id,
+                    kingdomId: retirementKingdom?.id ?? -1L);
+                formerEmperor.RecordPersonalHistory(enfeoffed, "deposed_emperor_enfeoffed_anle",
+                    relatedActorId: challengerEmperor?.id ?? -1L);
+            }
         }
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(success, challenger.CoreKingdom);
     }
 
-    private static void ForceGrantAnlePeerage(Actor actor, Empire empire)
+    private static bool ForceGrantAnlePeerage(Actor actor, Empire empire)
     {
-        if (actor == null || actor.isRekt() || empire == null) return;
+        if (actor == null || actor.isRekt() || empire == null ||
+            empire.CoreKingdom?.GetRegime()?.type == RegimeType.Modern)
+            return false;
         actor.CheckSpecificClan(false);
         var actorData = actor.GetOrCreate();
         actorData.honorary_peerage_key = AnlePeerageKey;
@@ -310,6 +318,7 @@ public static class ImperialLegitimacyChallengeService
         actor.RemoveEmpire();
         empire.RememberHonoraryPeerageHolder(AnlePeerageKey, actor);
         TranslateHelper.LogHonoraryPeerageGranted(actor, empire, AnlePeerageKey);
+        return true;
     }
 
     private static void RecordDeclaration(Empire challenger, Empire incumbent, Actor challengerEmperor,

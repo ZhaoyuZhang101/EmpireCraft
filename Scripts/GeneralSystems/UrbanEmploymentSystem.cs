@@ -70,14 +70,18 @@ public static class UrbanEmploymentSystem
 
         int annualLimit = Math.Max(1, (int)Math.Ceiling(residents.Count * 0.02d));
         int openings = Math.Min(capacity - employed.Count, annualLimit);
-        if (openings <= 0) return;
-        foreach (Actor actor in residents.Where(actor => !IsEmployed(actor) && IsEligible(actor))
-                     .OrderByDescending(LandEconomySystem.IsLandlessResident)
-                     .ThenBy(actor => actor.money).ThenBy(actor => actor.id).Take(openings))
+        if (openings > 0)
         {
-            actor.GetOrCreate().urban_employment_city_id = city.id;
-            actor.SetSocialClass(SocialClass.Labour);
+            foreach (Actor actor in residents.Where(actor => !IsEmployed(actor) && IsEligible(actor))
+                         .OrderByDescending(LandEconomySystem.IsLandlessResident)
+                         .ThenBy(actor => actor.money).ThenBy(actor => actor.id).Take(openings))
+            {
+                actor.GetOrCreate().urban_employment_city_id = city.id;
+                actor.GetOrCreate().urban_citizen_city_id = -1L;
+                actor.SetSocialClass(SocialClass.Labour);
+            }
         }
+        UrbanCitizenSystem.UpdateCity(city, residents);
     }
 
     private static int GetStage(City city) => Math.Max(0, Math.Min(3,
@@ -101,7 +105,7 @@ public static class UrbanEmploymentSystem
         return Math.Min(demand, Math.Max(1, (int)Math.Ceiling(residents.Count * populationCap)));
     }
 
-    private static int CountFactories(City city) =>
+    public static int CountFactories(City city) =>
         city.buildings?.Count(building => building != null && !building.isUnderConstruction() &&
                                           TechnologySystem.IsFactory(building.asset)) ?? 0;
 
@@ -122,8 +126,12 @@ public static class UrbanEmploymentSystem
         !LandEconomySystem.IsLandlord(actor) &&
         !actor.GetOrCreate().is_economic_merchant && actor.GetOrCreate().socialClass != SocialClass.Noble;
 
-    private static bool IsEligible(Actor actor) => IsEligibleWorker(actor) &&
-        EmpireCaftActorJudgeClass.JudgeClass(actor) == SocialClass.Peasant;
+    private static bool IsEligible(Actor actor)
+    {
+        if (!IsEligibleWorker(actor)) return false;
+        SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
+        return socialClass is SocialClass.Peasant or SocialClass.Citizen;
+    }
 
     private static void Release(Actor actor)
     {

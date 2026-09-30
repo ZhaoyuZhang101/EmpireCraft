@@ -84,11 +84,13 @@ public static class OfficeSelector
                 var emperor = empire.Emperor;
                 var concubines = emperor.GetPersonalIdentity().concubines;
                 var lives = concubines.Select(pValueTuple => SpecificClanManager.getPerson(pValueTuple.identity)).ToList()
-                    .FindAll(a => a.is_alive&&!a._actor.IsSkeleton()).Select(a=>a._actor).ToList();
+                    .FindAll(a => a.is_alive && a._actor.CanServeOffice(pKingdom) && !a._actor.IsSkeleton())
+                    .Select(a=>a._actor).ToList();
                 if (pOffice.officeType != 13)
                 {
                     var lover = empire.getUnits().ToList().Find(a =>
-                        a.isSexFemale() && a.isAdult() && a.age <= 25&&!a.hasLover()&&!lives.Contains(a));
+                        a.CanServeOffice(pKingdom) && a.isSexFemale() && a.isAdult() && a.age <= 25 &&
+                        !a.hasLover() && !lives.Contains(a));
                     if (lover != null)
                     {
                         lover.lover = emperor;
@@ -99,13 +101,14 @@ public static class OfficeSelector
                 }
                 else
                 {
-                    if (emperor.hasLover())
+                    if (emperor.hasLover() && emperor.lover.CanServeOffice(pKingdom))
                     {
                         return emperor.lover;
                     }
 
                     var lover = empire.getUnits().ToList().Find(a =>
-                        a.isSexFemale() && a.isAdult() && a.age <= 25&&!a.hasLover() && !a.IsSkeleton());
+                        a.CanServeOffice(pKingdom) && a.isSexFemale() && a.isAdult() && a.age <= 25 &&
+                        !a.hasLover() && !a.IsSkeleton());
                     if (lover != null)
                     {
                         lover.lover = emperor;
@@ -158,7 +161,7 @@ public static class OfficeSelector
             Empire empire = pKingdom.GetEmpire();
             foreach (var k in empire.kingdoms_list)
             {
-                if (!k.hasKing()) continue;
+                if (!k.hasKing() || !k.king.CanServeOffice(pKingdom)) continue;
                 if (k.countTotalWarriors() >= currentWarriors)
                 {
                     kingdom = k;

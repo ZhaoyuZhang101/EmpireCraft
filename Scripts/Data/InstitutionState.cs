@@ -43,6 +43,8 @@ public sealed class CultureInstitutionState
     public double state_ideology_since = -1d;
     // 外来理念的接触度，满 100 解锁对应理念节点
     public Dictionary<string, float> ideology_exposure = new();
+    // 已经向人口实际播种过的理念；旧存档解锁节点后也只补播一次。
+    public List<string> seeded_ideologies = new();
     // 理念路线(保守/自由/中间/左翼，见 PartySystem.IdeologyRoute)：同一时间只有一条路线生效，玩家可在制度窗口手动切换
     public string active_ideology_route = "";
 }
@@ -117,5 +119,7 @@ public static class InstitutionStateNormalizer
         state.contact_years ??= new Dictionary<string, int>();
         state.last_exposure_timestamp ??= new Dictionary<string, double>();
         state.unlocked_succession_laws ??= new List<SuccessionLawType>();
+        state.ideology_exposure ??= new Dictionary<string, float>();
+        state.seeded_ideologies ??= new List<string>();
     }
 }

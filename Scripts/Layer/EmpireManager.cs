@@ -146,11 +146,18 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public void dissolveEmpire(Empire pEmpire)
     {
         if (pEmpire == null) return;
+        EmpireCore falseCore = EmpireCoreManager.Get(pEmpire);
+        bool destroyFalseCore = falseCore?.false_core_against_empire_id > 0 &&
+                                !EmpireCoreManager.GetEmpires(falseCore)
+                                    .Any(other => other != pEmpire && !other.IsArchived());
         EmpireFormationService.OnEmpireDissolving(pEmpire);
         pEmpire.dissolve();
         pEmpire.Dispose();
         pEmpire.Archive();
         removeObject(pEmpire);
+        // 伪核心只是僭称者自行制造的主张，不是可被后继国家继承的历史法理。
+        if (destroyFalseCore && EmpireCoreManager.Get(falseCore.id) == falseCore)
+            EmpireCoreManager.DestroyEmpireCore(falseCore);
     }
 
     private List<Empire> _to_dissolve = new List<Empire>();
@@ -217,7 +224,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     // replacingEmpire：由该帝国延续而来（核心王国灭亡后由皇族王国接续等）。它此刻仍然存在，
     // 不能把它当成"同文化已有帝国"而拒绝建立继承者。
     public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false,
-        bool allowCultureRival = false, bool forceNewCore = false, Empire replacingEmpire = null)
+        bool allowCultureRival = false, bool forceNewCore = false, Empire replacingEmpire = null,
+        bool suppressFoundingLog = false)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom)) return null;
         if (pKingdom == null || !pKingdom.isAlive())
@@ -262,7 +270,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         pKingdom.GetOrCreate().isEmpire = true;
         pKingdom.GetOrCreate().EmpireID = empire.id;
         EmpireFormationService.OnEmpireCreated(empire);
-        if (empire.data.has_year_name)
+        if (!suppressFoundingLog && empire.data.has_year_name)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())
             {
@@ -270,7 +278,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                 color_special1 = pKingdom.getColor().getColorText()
             }.add();
         }
-        else
+        else if (!suppressFoundingLog)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_west_log, pKingdom.king.name, empire.GetEmpireName())
             {

@@ -17,7 +17,7 @@
       <div class="list" id="cultureList"></div>
       <div class="note">
         每个文化就是 <code>Locales/Cultures/Culture_&lt;名字&gt;/</code> 一个文件夹：
-        <code>CultureRule.json</code> 是规则，其余 CSV 是各种词库。加文化、改词库都不用碰代码。
+        <code>CultureRule.jsonc</code> 是规则，其余 CSV 是各种词库。加文化、改词库都不用碰代码。
       </div>
     </aside>
     <main class="panel" id="main">
@@ -56,6 +56,26 @@
     const PLACEHOLDERS = "$word$ 词库  $topic$ 主题词  $author$ 作者  $city$ 城市  $kingdom$ 国家  $clan$ 氏族  $era$ 科技时代  " +
       "$dynasty$ 朝代(帝国名)  $dynasty_short$ 去掉“朝/国”的朝代名  $year_name$ 当朝年号  $emperor$ 当朝皇帝  " +
       "$past_emperor$ 某位先帝(有庙号用庙号)  $past_year_name$ 那位先帝的年号。取不到值(比如没有帝国)的模板会自动跳过。";
+    // 文化包 Party 下的四张"理念 → 词库名"表(对应 CultureRules.cs 的 PartySetting)
+    const PARTY_MAPS = ["groups", "suffix_groups", "untitled_groups", "provisional_groups"];
+    const PARTY_COLUMNS = [
+      ["groups", "党名词库", "Party<理念>"],
+      ["suffix_groups", "共和国号后缀词库", "Suffix<理念>"],
+      ["untitled_groups", "非政府势力称呼词库", "Untitled<理念>"],
+      ["provisional_groups", "临时政府称呼词库", "Provisional<理念>"]
+    ];
+
+    // 文化包 Constitution.clauses 的可选条款与方案(与 ConstitutionTemplates.json、ConstitutionSystem 一致)
+    const CONSTITUTION_CLAUSES = [
+      ["territory", "央地关系", [["Unitary", "单一制"], ["Federal", "联邦制"]]],
+      ["economy", "经济制度", [["PrivateProperty", "保护私有财产"], ["Mixed", "混合经济"], ["Planned", "计划经济"]]],
+      ["religion", "政教关系", [["Secular", "政教分离"], ["StateReligion", "确立国教"]]],
+      ["emergency", "紧急状态", [["Prohibited", "不得宣布"], ["Allowed", "元首可宣布"]]],
+      ["amendment", "修宪程序", [["ParliamentSupermajority", "议会三分之二"], ["Referendum", "全民公投"], ["PartyCongress", "党代会"]]],
+      ["term_years", "元首任期(年)", [2, 3, 4, 5, 6, 7, 8].map(n => [String(n), `${n} 年`])],
+      ["max_terms", "连任上限", [0, 1, 2, 3, 4].map(n => [String(n), n === 0 ? "不限" : `最多 ${n} 届`])]
+    ];
+
     const IDEOLOGIES = ["Anarchism", "SocialDemocracy", "Libertarianism", "SocialLiberalism", "Capitalism", "ConservativeLiberalism",
       "Centrism", "Socialism", "Communism", "ReligiousDemocracy", "Authoritarianism", "Conservatism", "Fascism"];
     const NAMING = {
@@ -140,14 +160,18 @@
       d.setting = d.setting || {};
       d.species = d.species || [];
       d.setting.traits = d.setting.traits || [];
+      d.setting.political_traits = d.setting.political_traits || [];
       for (const key of Object.keys(NAMING)) {
         d.setting[key] = d.setting[key] || { groups: {}, rule: [], name_pos: 0 };
         d.setting[key].groups = d.setting[key].groups || {};
         d.setting[key].rule = d.setting[key].rule || [];
       }
-      d.setting.Party = d.setting.Party || { groups: {}, suffix_groups: {} };
-      d.setting.Party.groups = d.setting.Party.groups || {};
-      d.setting.Party.suffix_groups = d.setting.Party.suffix_groups || {};
+      d.setting.Party = d.setting.Party || {};
+      for (const k of PARTY_MAPS) d.setting.Party[k] = d.setting.Party[k] || {};
+      d.setting.Constitution = d.setting.Constitution || {};
+      d.setting.Constitution.name_group = d.setting.Constitution.name_group || "";
+      d.setting.Constitution.provisional_name_group = d.setting.Constitution.provisional_name_group || "";
+      d.setting.Constitution.clauses = d.setting.Constitution.clauses || {};
     }
 
     function markDirty() {
@@ -162,7 +186,7 @@
       const main = document.getElementById("main");
       const c = S.current;
       if (!c) return;
-      const tabs = [["basic", "基本信息", "iconMainInfo"], ["naming", "命名规则", "iconCityName"], ["party", "政党", "iconPlot"],
+      const tabs = [["basic", "基本信息", "iconMainInfo"], ["naming", "命名规则", "iconCityName"], ["party", "政党", "iconPlot"], ["constitution", "宪法", "iconBooks"],
         ["books", "书籍词库", "iconBooks"], ["files", "全部词库", "iconCultureList"], ["raw", "JSON 原文", "iconEdit"]];
       main.innerHTML = `
         <h2><span class="dot" style="display:inline-block;width:18px;height:18px;border-radius:4px;background:${esc(S.data?.color || "#ccc")}"></span>
@@ -170,8 +194,8 @@
           <span style="flex:1"></span>
           <button id="openDirBtn" class="small">${ico("iconCultureList", "sm")}打开文件夹</button>
           <button id="saveBtn" class="primary">${ico("iconSaveLocal", "sm")}保存规则</button></h2>
-        ${c.error ? `<div class="note" style="color:var(--danger)">CultureRule.json 解析失败：${esc(c.error)}。请在“JSON 原文”里修正。</div>` : ""}
-        ${!c.data && !c.error ? `<div class="note">这个文件夹还没有 CultureRule.json，保存后会创建。</div>` : ""}
+        ${c.error ? `<div class="note" style="color:var(--danger)">CultureRule.jsonc 解析失败：${esc(c.error)}。请在“JSON 原文”里修正。</div>` : ""}
+        ${!c.data && !c.error ? `<div class="note">这个文件夹还没有 CultureRule.jsonc，保存后会创建。</div>` : ""}
         <div class="tabs">${tabs.map(([id, label, icon]) => `<button data-tab="${id}" class="${S.tab === id ? "active" : ""}">${ico(icon, "sm")}${label}</button>`).join("")}</div>
         <div id="tabBody"></div>`;
       if (!S.data && !c.error) { S.data = { name: c.name, color: "#888888", translate_cz: "", translate_en: "", translate_ch: "", species: [], setting: {} }; normalize(S.data); }
@@ -181,7 +205,7 @@
       if (S.dirty) document.getElementById("saveBtn").classList.add("dirty");
       const body = document.getElementById("tabBody");
       if (!S.data && S.tab !== "raw" && S.tab !== "files" && S.tab !== "books") { S.tab = "raw"; return renderMain(); }
-      ({ basic: renderBasic, naming: renderNaming, party: renderParty, books: renderBooks, files: renderFiles, raw: renderRaw })[S.tab](body);
+      ({ basic: renderBasic, naming: renderNaming, party: renderParty, constitution: renderConstitution, books: renderBooks, files: renderFiles, raw: renderRaw })[S.tab](body);
     }
 
     function bindInput(el, getter, setter) {
@@ -209,7 +233,9 @@
         <div id="bSpecies"></div>
         <h3>${ico("iconEditTrait")}文化特质</h3>
         <p class="muted">游戏里文化特质的 id，比如 patriarchy。</p>
-        <div id="bTraits"></div>`;
+        <div id="bTraits"></div>
+        <h3>${ico("iconKings")}政治特质</h3>
+        <div id="bPoliticalTraits"></div>`;
       bindInput(body.querySelector("#bCz"), () => d.translate_cz, v => d.translate_cz = v);
       bindInput(body.querySelector("#bEn"), () => d.translate_en, v => d.translate_en = v);
       bindInput(body.querySelector("#bCh"), () => d.translate_ch, v => d.translate_ch = v);
@@ -219,6 +245,7 @@
       bindInput(body.querySelector("#bReligion"), () => st.Religion, v => st.Religion = v);
       body.querySelector("#bSpecies").appendChild(chipEditor(d.species, { suggestions: S.species, placeholder: "物种 id，回车添加", onChange: markDirty }));
       body.querySelector("#bTraits").appendChild(chipEditor(st.traits, { suggestions: ["patriarchy", "matriarchy"], placeholder: "特质 id，回车添加", onChange: markDirty }));
+      body.querySelector("#bPoliticalTraits").appendChild(chipEditor(st.political_traits, { suggestions: ["strong_unification"], placeholder: "政治特质 id，回车添加", onChange: markDirty }));
     }
 
     function groupLabel(v) { return v === SPACE ? "(细空格)" : v; }
@@ -281,16 +308,24 @@
       }
     }
 
+    // "别的文化:词库名" 是引用别的文化的词库，不在本文件夹里，不能从这里打开
+    function partyLinkCell(lib) {
+      if (!lib) return `<td style="padding:2px 6px;width:70px"></td>`;
+      if (lib.includes(":")) return `<td style="padding:2px 6px;width:70px" class="muted" title="引用 Culture_${esc(lib.split(":")[0])} 的词库">引用</td>`;
+      return `<td style="padding:2px 6px;width:70px"><a href="#" data-open="${esc(lib)}">${hasCsv(lib) ? "打开" : "创建"}</a></td>`;
+    }
+
     function renderParty(body) {
       const p = S.data.setting.Party;
-      body.innerHTML = `<div class="note">理念 → 词库名(本文件夹 <code>${esc(S.current.name)}&lt;词库名&gt;.csv</code>)。留空的理念用
-        <code>Locales/Cultures/PartyNames/</code> 下的通用党名 / 国号后缀。</div>
-        <table class="sheet" style="margin-top:10px"><tr><th>理念</th><th>党名词库</th><th></th><th>共和国号后缀词库</th><th></th></tr>
-        ${IDEOLOGIES.map(id => `<tr><td style="padding:2px 6px">${id}</td>
-          <td><input data-p="groups" data-id="${id}" value="${esc(p.groups[id] || "")}" placeholder="(通用)"></td>
-          <td style="padding:2px 6px;width:70px">${p.groups[id] ? `<a href="#" data-open="${esc(p.groups[id])}">${hasCsv(p.groups[id]) ? "打开" : "创建"}</a>` : ""}</td>
-          <td><input data-p="suffix_groups" data-id="${id}" value="${esc(p.suffix_groups[id] || "")}" placeholder="(通用)"></td>
-          <td style="padding:2px 6px;width:70px">${p.suffix_groups[id] ? `<a href="#" data-open="${esc(p.suffix_groups[id])}">${hasCsv(p.suffix_groups[id]) ? "打开" : "创建"}</a>` : ""}</td></tr>`).join("")}
+      body.innerHTML = `<div class="note">理念 → 词库名(本文件夹 <code>${esc(S.current.name)}&lt;词库名&gt;.csv</code>)，也可以写
+        <code>别的文化:词库名</code>(如 <code>Huaxia:UntitledCommunism</code>)直接引用别的文化的词库。
+        留空的理念用 <code>Locales/Cultures/PartyNames/</code> 下的默认词库(表头括号里的文件)。<br>
+        非政府势力称呼 / 临时政府称呼里写 <code>{0}</code> 时代入势力名号(如 <code>{0}系军阀</code>)，否则接在名号后面(如 晋 + 工农红军)；
+        词库有多条时每个势力随机抽一条并记住。</div>
+        <table class="sheet" style="margin-top:10px"><tr><th>理念</th>${PARTY_COLUMNS.map(([, label, fallback]) =>
+          `<th title="默认：PartyNames/${fallback}.csv">${label}</th><th></th>`).join("")}</tr>
+        ${IDEOLOGIES.map(id => `<tr><td style="padding:2px 6px">${id}</td>${PARTY_COLUMNS.map(([map]) =>
+          `<td><input data-p="${map}" data-id="${id}" value="${esc(p[map][id] || "")}" placeholder="(默认)"></td>${partyLinkCell(p[map][id])}`).join("")}</tr>`).join("")}
         </table>
         <div class="toolbar" style="margin-top:8px"><button id="partyFill">全部按 Party&lt;理念&gt; 填上</button></div>`;
       body.querySelectorAll("input[data-p]").forEach(inp => inp.onchange = () => {
@@ -300,6 +335,33 @@
       });
       body.querySelectorAll("a[data-open]").forEach(a => a.onclick = e => { e.preventDefault(); openCsv(a.dataset.open); });
       body.querySelector("#partyFill").onclick = () => { IDEOLOGIES.forEach(id => p.groups[id] = p.groups[id] || `Party${id}`); markDirty(); renderParty(body); };
+    }
+
+    function renderConstitution(body) {
+      const c = S.data.setting.Constitution;
+      const nameRow = (field, label, fallback) => `<tr><td style="padding:2px 6px">${label}</td>
+          <td><input data-cn="${field}" value="${esc(c[field] || "")}" placeholder="(默认 ${fallback})"></td>${partyLinkCell(c[field])}</tr>`;
+      body.innerHTML = `<div class="note">名称词库：本文件夹 <code>${esc(S.current.name)}&lt;词库名&gt;.csv</code>(或 <code>别的文化:词库名</code>)，
+        每条写 <code>{0}</code> 代表国号，如 <code>{0}宪章</code>；有多条时颁布时随机取一条。<br>
+        制宪倾向：制宪会议起草时覆盖各党的主张(各理念的默认主张在模组根目录 <code>ConstitutionTemplates.json</code>)；
+        留“不指定”则按各党表决。</div>
+        <table class="sheet" style="margin-top:10px"><tr><th>名称</th><th>词库名</th><th></th></tr>
+          ${nameRow("name_group", "正式宪法", "{0}宪法")}
+          ${nameRow("provisional_name_group", "临时约法", "{0}临时约法")}
+        </table>
+        <table class="sheet" style="margin-top:10px"><tr><th>条款</th><th>本文化倾向</th></tr>
+          ${CONSTITUTION_CLAUSES.map(([key, label, options]) => `<tr><td style="padding:2px 6px">${label}</td>
+            <td><select data-cc="${key}"><option value="">(不指定)</option>${options.map(([v, text]) =>
+              `<option value="${esc(v)}" ${c.clauses[key] === v ? "selected" : ""}>${esc(text)}</option>`).join("")}</select></td></tr>`).join("")}
+        </table>`;
+      body.querySelectorAll("input[data-cn]").forEach(inp => inp.onchange = () => {
+        c[inp.dataset.cn] = inp.value.trim(); markDirty(); renderConstitution(body);
+      });
+      body.querySelectorAll("select[data-cc]").forEach(sel => sel.onchange = () => {
+        if (sel.value) c.clauses[sel.dataset.cc] = sel.value; else delete c.clauses[sel.dataset.cc];
+        markDirty();
+      });
+      body.querySelectorAll("a[data-open]").forEach(a => a.onclick = e => { e.preventDefault(); openCsv(a.dataset.open); });
     }
 
     function renderBooks(body) {
@@ -339,15 +401,15 @@
     }
 
     function renderRaw(body) {
-      body.innerHTML = `<div class="note">直接编辑 CultureRule.json(允许 // 注释)。这里保存会原样写入并保留注释；在其它页签保存则会按表单重新生成(注释会丢失)。</div>
+      body.innerHTML = `<div class="note">直接编辑 CultureRule.jsonc(允许 // 注释)。这里保存会原样写入并保留注释；在其它页签保存则会按表单重新生成(注释会丢失)。</div>
         <textarea class="code" id="rawText" style="margin-top:8px"></textarea>
         <div class="toolbar" style="margin-top:8px"><button class="primary" id="rawSave">${ico("iconSaveLocal", "sm")}按原文保存</button><button id="rawFromForm">用表单内容覆盖原文</button></div>`;
       const ta = body.querySelector("#rawText");
       ta.value = S.rawText || JSON.stringify(S.data, null, 4);
       body.querySelector("#rawSave").onclick = async () => {
         try { parseJsonLoose(ta.value); } catch (e) { return toast("JSON 格式错误：" + e.message, true); }
-        await api.writeText(`${S.current.rel}/CultureRule.json`, ta.value);
-        S.dirty = false; toast("已保存 CultureRule.json(保留原文)"); await reloadCultures(S.current.name);
+        await api.writeText(`${S.current.rel}/CultureRule.jsonc`, ta.value);
+        S.dirty = false; toast("已保存 CultureRule.jsonc(保留原文)"); await reloadCultures(S.current.name);
       };
       body.querySelector("#rawFromForm").onclick = () => { ta.value = JSON.stringify(S.data, null, 4); };
     }
@@ -358,7 +420,17 @@
       if (!out.translate_ch) delete out.translate_ch;
       if (!out.translate_en) delete out.translate_en;
       const p = out.setting.Party;
-      if (p && !Object.keys(p.groups).length && !Object.keys(p.suffix_groups).length) delete out.setting.Party;
+      if (p) {
+        for (const k of PARTY_MAPS) if (p[k] && !Object.keys(p[k]).length) delete p[k];
+        if (!PARTY_MAPS.some(k => p[k])) delete out.setting.Party;
+      }
+      const con = out.setting.Constitution;
+      if (con) {
+        if (!con.name_group) delete con.name_group;
+        if (!con.provisional_name_group) delete con.provisional_name_group;
+        if (con.clauses && !Object.keys(con.clauses).length) delete con.clauses;
+        if (!Object.keys(con).length) delete out.setting.Constitution;
+      }
       for (const key of Object.keys(NAMING)) {
         const cfg = out.setting[key];
         if (cfg && !Object.keys(cfg.groups).length && !cfg.rule.length) delete out.setting[key];
@@ -371,9 +443,9 @@
       if (S.tab === "raw") return document.getElementById("rawSave").click();
       if (!S.data) return toast("规则解析失败，请在 JSON 原文里修正", true);
       const text = JSON.stringify(cleanForSave(S.data), null, 4) + "\n";
-      await api.writeText(`${S.current.rel}/CultureRule.json`, text);
+      await api.writeText(`${S.current.rel}/CultureRule.jsonc`, text);
       S.dirty = false;
-      toast(`已保存 ${S.current.folder}/CultureRule.json`);
+      toast(`已保存 ${S.current.folder}/CultureRule.jsonc`);
       await reloadCultures(S.current.name);
     }
 

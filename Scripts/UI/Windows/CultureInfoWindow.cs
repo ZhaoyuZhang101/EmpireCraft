@@ -141,7 +141,17 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
             () => TechWindow.Open(_culture), size: new Vector2(60, 11));
         buttons.AddButtonIntoHoriLayout("culture_window_open_books", LM.Get("culture_window_open_books"),
             () => CultureBooksWindow.Open(_culture), size: new Vector2(50, 11));
+        buttons.AddButtonIntoHoriLayout("culture_window_modernize", LM.Get("culture_window_modernize"),
+            ModernizeWorld, size: new Vector2(90, 11));
         panel.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(PanelWidth, 48f));
+    }
+
+    private void ModernizeWorld()
+    {
+        CultureModernizationResult result = CultureModernizationSystem.ModernizeWorld();
+        WorldTip.showNow(string.Format(LM.Get("culture_window_modernize_result"),
+            result.Realms, result.States, result.Citizens, result.Parties), false, "top", 4f);
+        Rebuild();
     }
 
     // ── 分布 ──

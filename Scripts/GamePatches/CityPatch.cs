@@ -83,6 +83,16 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(isArmyOverLimit))
         );
 
+        // 国库亏空时只有京师养得起兵(见 EmpireBankruptcySystem)。原版招兵看 status.warrior_slots，不看 getMaxWarriors，两处都要改
+        new Harmony(nameof(unpaid_max_warriors)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.getMaxWarriors)),
+            postfix: new HarmonyMethod(GetType(), nameof(unpaid_max_warriors)) { priority = Priority.Last }
+        );
+        new Harmony(nameof(unpaid_warrior_slots)).Patch(
+            AccessTools.Method(typeof(City), "updateCityStatus"),
+            postfix: new HarmonyMethod(GetType(), nameof(unpaid_warrior_slots)) { priority = Priority.Last }
+        );
+
         new Harmony(nameof(removeData)).Patch(
             AccessTools.Method(typeof(City), nameof(City.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(removeData))
@@ -806,6 +816,15 @@ public class CityPatch : GamePatch
         __result = false;
         return false; 
     }
+    public static void unpaid_max_warriors(City __instance, ref int __result)
+    {
+        if (__result > 0 && EmpireBankruptcySystem.IsUnpaidGarrison(__instance)) __result = 0;
+    }
+    public static void unpaid_warrior_slots(City __instance)
+    {
+        if (__instance?.status != null && EmpireBankruptcySystem.IsUnpaidGarrison(__instance))
+            __instance.status.warrior_slots = 0;
+    }
     public static bool getPopulationMaximum(City __instance, ref int __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
@@ -991,12 +1010,36 @@ public class CityPatch : GamePatch
         }
         return false;
     }
+    // 存档里在世城市指向的王国不存在时(王国已被删除)，城市没有王国，随后加载单位时 City.isNeutral() 空引用、
+    // 整个存档读不进来。加载单位之前(SaveManagerPatch 的 loadActors 前置)把这些城市归到上一个王国，找不到就划为中立。
+    // 只修在世城市：统计库里已灭亡城市的历史记录本来就没有王国，不能碰。
+    public static void RepairLiveCityKingdoms()
+    {
+        if (World.world?.cities == null) return;
+        foreach (City city in World.world.cities.ToList())
+        {
+            if (city?.data == null || city.kingdom != null) continue;
+            Kingdom previous = city.data.last_kingdom_id > 0 ? World.world.kingdoms.get(city.data.last_kingdom_id) : null;
+            Kingdom fallback = previous != null && !previous.isRekt() && previous.asset != null
+                ? previous
+                : WildKingdomsManager.neutral;
+            city.setKingdom(fallback, pFromLoad: true);
+            LogService.LogWarning($"[EmpireCraft] 城市 {city.data.name}({city.id}) 指向的王国不存在，已归入 {fallback?.name}");
+        }
+    }
+
     public static bool makeOwnKingdom(City __instance, Actor pActor, bool pRebellion, bool pFellApart, ref Kingdom __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance == null || pActor == null)
         {
             return false;
+        }
+        // 非文明单位不能当建国者：换城里一个文明居民，找不到就不建
+        if (!pActor.CanFoundCivKingdom())
+        {
+            pActor = __instance.units?.FirstOrDefault(actor => actor.CanFoundCivKingdom() && actor.isAdult());
+            if (pActor == null) return false;
         }
 
         string pHappinessEvent = null;
@@ -1017,6 +1060,7 @@ public class CityPatch : GamePatch
         Empire rebellionOrigin = pRebellion ? pKingdom?.GetEmpire() : null;
         __instance.removeFromCurrentKingdom();
         __instance.removeLeader();
+        pActor.ClearDisposedKingdom();
         Kingdom kingdom = World.world.kingdoms.makeNewCivKingdom(pActor);
         kingdom.copyMetasFromOtherKingdom(pKingdom);
         kingdom.generateColor();
@@ -1046,6 +1090,7 @@ public class CityPatch : GamePatch
         ClanBranchSystem.TryYearlyScan();
         IdeologySpreadSystem.TryYearlyScan();
         TechnologySystem.TryYearlyScan();
+        CultureModernizationSystem.TryYearlyRealmTransitionScan();
 
         /*
         if (__instance.hasTitle())
@@ -1066,6 +1111,13 @@ public class CityPatch : GamePatch
     /// 劫掠战争不转移城市，因此不能由这里触发自动归降。
     /// </summary>
     private const int ImperialArrivalSurrenderPeakWarriors = 10;
+
+    // 存档后清理：去掉已消亡城市的重试冷却记录
+    public static void PruneDeadCityCaches()
+    {
+        foreach (City city in _imperialArrivalSurrenderCooldown.Keys.Where(city => city == null || city.isRekt()).ToList())
+            _imperialArrivalSurrenderCooldown.Remove(city);
+    }
 
     private static void TryImmediateSurrenderOnImperialArmyArrival(City city)
     {

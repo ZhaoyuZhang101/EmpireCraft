@@ -32,6 +32,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static string NARROW_SPACE = "\u200A";
     public static bool SAVE_FREEZE = false;
     public static int WAR_END_YEAR = 30;
+    // 现代政体统一过的帝国核心再分裂后，军阀时期持续多少年才承认分治；0 = 永远不分家
+    public static int WARLORD_ERA_YEARS = 200;
     public static Transform prefab_library;
     public static bool IS_CLEAR = true;
     public static EmpireManager EMPIRE_MANAGER;
@@ -132,6 +134,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         _declare = modDeclare;
         _modObject = gameObject;
         EmpireCraftDebugProbe.Initialize();
+        OnomasticsHelper.PreloadCultureFilesAsync();
         Config.isEditor = true; // Set this to true if you want to enable editor mode for your mod
         LogService.LogInfo("EmpireCraft Load Finished！！");
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));

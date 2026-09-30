@@ -40,4 +40,6 @@ public sealed class CultureTechState
     public List<string> landmark_books = new();
     // 本文化已有其思想的名著(自己写出的 + 读到别的文化写的)，决定名著对制度的推动
     public List<string> known_books = new();
+    // 已经真正引发过人口传播的理念名著；与 known_books 分开以兼容旧存档。
+    public List<string> ideology_book_outbreaks = new();
 }

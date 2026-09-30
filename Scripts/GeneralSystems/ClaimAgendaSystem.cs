@@ -141,14 +141,18 @@ public static class ClaimAgendaSystem
         Empire empire = context.Empire;
         float Grievance(SocialClass socialClass) => context.Grievances != null &&
             context.Grievances.TryGetValue(socialClass, out float value) ? value : 0f;
+        float Share(SocialClass socialClass) => context.ClassShares != null &&
+            context.ClassShares.TryGetValue(socialClass, out float value) ? value : 0f;
         return type switch
         {
             TemporaryFactionType.提高福利 =>
                 (Grievance(SocialClass.Labour) + Grievance(SocialClass.Peasant)) * 0.18f,
             TemporaryFactionType.土地改革 => GetLandlessUrgency(empire),
             TemporaryFactionType.降低赋税 => (empire.data?.TaxRate ?? 0f) * 25f,
-            TemporaryFactionType.建立共和 => (100f - empire.Mandate) * 0.25f,
-            TemporaryFactionType.推行普选 => PartySystem.HasUniversalSuffrage(empire) ? 0f : 15f,
+            TemporaryFactionType.建立共和 => (100f - empire.Mandate) * 0.18f +
+                Mathf.Max(0f, (Share(SocialClass.Labour) + Share(SocialClass.Peasant) - 0.45f) * 80f),
+            TemporaryFactionType.推行普选 => PartySystem.HasUniversalSuffrage(empire) ? 0f : 15f +
+                Mathf.Max(0f, (Share(SocialClass.Labour) + Share(SocialClass.Peasant) - 0.40f) * 100f),
             TemporaryFactionType.开放党禁 => PartySystem.IsActive(empire) ? 0f : 15f,
             _ => 0f
         };

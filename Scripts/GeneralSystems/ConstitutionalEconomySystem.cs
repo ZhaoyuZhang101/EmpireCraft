@@ -161,18 +161,31 @@ public static class ConstitutionalEconomySystem
         SyncRegime(empire, state);
         // 玩家随时可能在政体窗口切换国家制度：共和标记跟着实际政体走
         RepublicSystem.SyncWithRegime(empire);
+        // 旧存档清理：已废除君主制的国家名下还挂着朝贡国(共和国不再接收新朝贡国，所以只会出现在旧存档里)
+        if (RepublicSystem.IsRepublic(empire) && empire.taken_Kingdoms?.Count > 0)
+            TributaryAbolitionService.OnMonarchyAbolished(empire);
         RepublicSystem.UpdateTransition(empire);
         RepublicSystem.EnsureIdeologyBureau(empire);
         RepublicSystem.EnsureHeadOfState(empire);
+        // 现代国家的宪法：颁布/废止随国体与共和过渡阶段即时变化，条款同步每年一次
+        ConstitutionSystem.Update(empire, state);
         AdoptCultureConstitution(empire, state);
         // 开放党禁后：派系改组为政党、政党的年度分合(见 PartySystem)。不依赖议会，先于议会更新
         PartySystem.Update(empire, state);
         // 议会召开/改选/补选/解散。每次更新都检查，议会阶段一到立即召开，不必等年度结算
         ParliamentSystem.Update(empire);
+        // 党禁开关与选举制度(按帝国动态调整)；军阀时期(含帝国核心国号)
+        PartyBanSystem.Update(empire);
+        WarlordEraSystem.UpdateWorld();
         if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;
         state.last_economy_update = World.world.getCurWorldTime();
         PruneTrade(state);
         PublicOpinionSystem.Update(empire, state);
+        RepublicSystem.UpdateAbolitionPressure(empire);
+        RepublicSystem.TryMandateCollapseCoalition(empire);
+        RebellionSnowballSystem.Update(empire);
+        EmpireBankruptcySystem.Update(empire, state);
+        ModernTitleCentralization.Update(empire);
         UpdateBudding(empire, state);
         UpdateWelfare(empire, state);
 

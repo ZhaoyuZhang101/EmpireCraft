@@ -186,7 +186,7 @@ public static class FactionClassSystem
     public static string GetStratumKey(SocialClass socialClass) => socialClass switch
     {
         SocialClass.Peasant or SocialClass.Labour => "faction_class_group_common",
-        SocialClass.Merchant or SocialClass.Officer => "faction_class_group_middle",
+        SocialClass.Merchant or SocialClass.Officer or SocialClass.Citizen => "faction_class_group_middle",
         SocialClass.Noble or SocialClass.Landlord => "faction_class_group_elite",
         SocialClass.Army => "faction_class_group_military",
         _ => "faction_class_group_common"

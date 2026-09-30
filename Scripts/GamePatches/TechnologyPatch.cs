@@ -284,8 +284,13 @@ public class TechnologyPatch : GamePatch
         if (!_warBoxPlayerSpawnResolved)
         {
             _warBoxPlayerSpawnResolved = true;
-            _warBoxPlayerSpawn = AccessTools.TypeByName("WarBox.Content.VehicleSpawnGuard")?
-                .GetProperty("IsPlayerSpawn", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            // 不用 AccessTools.TypeByName：它会枚举所有程序集的所有类型，第一次生成单位(放置种族)时会卡一下；
+            // 按全名逐个程序集查找只是字典查询
+            Type guard = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("WarBox.Content.VehicleSpawnGuard", false))
+                .FirstOrDefault(type => type != null);
+            _warBoxPlayerSpawn = guard?.GetProperty("IsPlayerSpawn",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         }
         try
         {

@@ -178,7 +178,7 @@ app.whenReady().then(() => {
     return chooseModRoot();
   });
 
-  // 文化规则现在是每个文化一个文件：Locales/Cultures/Culture_<文化>/CultureRule.json
+  // 文化规则现在是每个文化一个文件：Locales/Cultures/Culture_<文化>/CultureRule.jsonc
   ipcMain.handle("load-culture-rules", async () => {
     const modRoot = resolveModRoot();
     const cultures = await listCultures(modRoot);
@@ -248,7 +248,7 @@ app.whenReady().then(() => {
     for (const [fileName, content] of Object.entries(writeTargets)) {
       await fs.writeFile(path.join(outputDir, fileName), String(content), "utf8");
     }
-    // 文化绑定：只改各文化 CultureRule.json 里的 setting.regime，原文(含注释)其余部分不动
+    // 文化绑定：只改各文化 CultureRule.jsonc 里的 setting.regime，原文(含注释)其余部分不动
     const changed = [];
     for (const binding of outputs.cultureRegimes || []) {
       if (!binding?.file) continue;

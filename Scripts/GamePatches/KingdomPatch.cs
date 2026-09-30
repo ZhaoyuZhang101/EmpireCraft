@@ -37,7 +37,17 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(NewCivKingdom)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.newCivKingdom)),
             postfix: new HarmonyMethod(GetType(), nameof(NewCivKingdom))
-        );       
+        );
+        // 王国资产不存档，读档时按建国者物种重算——非文明物种建的王国每次读档都会变回 null，
+        // 随后加载单位时 City.isNeutral() 空引用，整个存档读不进来。读完王国数据立刻补上
+        new Harmony(nameof(RepairAfterLoad)).Patch(
+            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.loadData), new[] { typeof(KingdomData) }),
+            postfix: new HarmonyMethod(GetType(), nameof(RepairAfterLoad))
+        );
+        new Harmony(nameof(RepairBeforeRemoval)).Patch(
+            AccessTools.Method(typeof(KingdomManager), nameof(KingdomManager.removeObject)),
+            prefix: new HarmonyMethod(GetType(), nameof(RepairBeforeRemoval))
+        );
         new Harmony(nameof(new_emperor)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.setKing)),
             prefix: new HarmonyMethod(GetType(), nameof(before_new_emperor)),
@@ -209,8 +219,34 @@ public class KingdomPatch : GamePatch
         }
     }
 
+    // 原版按建国者物种的 kingdom_id_civilization 取王国资产；非文明物种(动物、战争机器、别的模组单位)
+    // 取到的是 null，这个王国之后每次被销毁都在 getColor 抛空引用、永远删不掉，日志每帧刷屏。
+    // 建国时和销毁前都补一个文明资产
+    private static KingdomAsset FallbackCivAsset(Kingdom kingdom)
+    {
+        string founder = kingdom?.data?.original_actor_asset;
+        ActorAsset species = string.IsNullOrEmpty(founder) ? null : AssetManager.actor_library.get(founder);
+        string id = species?.kingdom_id_civilization;
+        if (!string.IsNullOrEmpty(id) && AssetManager.kingdoms.dict.TryGetValue(id, out KingdomAsset asset) &&
+            asset.civ) return asset;
+        return AssetManager.kingdoms.dict.TryGetValue("human", out asset) ? asset
+            : AssetManager.kingdoms.list.FirstOrDefault(candidate => candidate.civ);
+    }
+
+    public static void RepairKingdomAsset(Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.asset != null) return;
+        kingdom.asset = FallbackCivAsset(kingdom);
+        LogService.LogWarning($"[EmpireCraft] 王国 {kingdom.id} 缺少王国资产，已补为 {kingdom.asset?.id}");
+    }
+
+    public static void RepairBeforeRemoval(Kingdom pKingdom) => RepairKingdomAsset(pKingdom);
+
+    public static void RepairAfterLoad(Kingdom __instance) => RepairKingdomAsset(__instance);
+
     public static void NewCivKingdom(Kingdom __instance, Actor pActor)
     {
+        RepairKingdomAsset(__instance);
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         __instance.RememberInitialRandomKingdomName();
         __instance.SetLevel(4);

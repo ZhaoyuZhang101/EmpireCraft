@@ -409,7 +409,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
             city.SetEmpireCore(null);
         }
         this.recalculate();
-        if (this.city_list_hash.Count <= 0)
+        if (this.city_list_hash.Count <= 0 && !ModClass.KINGDOM_TITLE_FREEZE)
         {
             ModClass.KINGDOM_TITLE_MANAGER.dissolveTitle(this);
         }

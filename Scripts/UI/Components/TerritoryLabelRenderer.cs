@@ -220,13 +220,14 @@ public static class TerritoryLabelRenderer
         _submission_mode = mode;
     }
 
+    // icon：可选，画在名字前面的小图标(如理念图层的理念徽章)，随文字一起旋转、缩放
     public static void SubmitCities(string id, string text, IEnumerable<City> cities, TerritoryLabelStyle style,
-        bool fullyOpaque = false, bool ignoreOverlap = false, bool showCultureLock = false)
+        bool fullyOpaque = false, bool ignoreOverlap = false, bool showCultureLock = false, Sprite icon = null)
     {
         if (string.IsNullOrWhiteSpace(id) || cities == null || !EnsureHost()) return;
         MarkSubmissionFrame();
         GetOrCreateLabel(id).UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque, ignoreOverlap,
-            showCultureLock);
+            showCultureLock, icon);
     }
 
     public static void SubmitEmpireCore(string id, string text, EmpireCore core, TerritoryLabelStyle style,
@@ -510,6 +511,7 @@ public static class TerritoryLabelRenderer
         private TerritoryPlacement _placement;
         private Text _text;
         private Image _culture_lock_badge;
+        private Image _leading_icon;
         private TerritoryLabelGoldGradient _gold_gradient;
         private Outline _outline;
         private int _source_signature;
@@ -524,6 +526,7 @@ public static class TerritoryLabelRenderer
         private bool _render_fully_opaque;
         private bool _render_ignore_overlap;
         private bool _render_show_culture_lock;
+        private Sprite _render_icon;
         private bool _render_requested;
         private string _metrics_text;
         private FontStyle _metrics_style;
@@ -545,7 +548,7 @@ public static class TerritoryLabelRenderer
         public RuntimeLabel(string id) => _id = id;
 
         public void UpdateFromCities(string text, IEnumerable<City> cities, TerritoryLabelStyle style,
-            bool fullyOpaque, bool ignoreOverlap = false, bool showCultureLock = false)
+            bool fullyOpaque, bool ignoreOverlap = false, bool showCultureLock = false, Sprite icon = null)
         {
             text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
@@ -555,7 +558,7 @@ public static class TerritoryLabelRenderer
                 CollectCityZones(cities, _zones, _zone_ids);
                 RefreshZonePlacement(text, style, inputsChanged);
             }
-            QueueRender(text, style, fullyOpaque, ignoreOverlap, showCultureLock);
+            QueueRender(text, style, fullyOpaque, ignoreOverlap, showCultureLock, icon);
         }
 
         public void UpdateFromEmpireCore(string text, EmpireCore core, TerritoryLabelStyle style,
@@ -623,11 +626,14 @@ public static class TerritoryLabelRenderer
             if (_text != null && _text.gameObject.activeSelf) _text.gameObject.SetActive(false);
             if (_culture_lock_badge != null && _culture_lock_badge.gameObject.activeSelf)
                 _culture_lock_badge.gameObject.SetActive(false);
+            if (_leading_icon != null && _leading_icon.gameObject.activeSelf)
+                _leading_icon.gameObject.SetActive(false);
         }
 
         private void QueueRender(string text, TerritoryLabelStyle style, bool fullyOpaque, bool ignoreOverlap = false,
-            bool showCultureLock = false)
+            bool showCultureLock = false, Sprite icon = null)
         {
+            _render_icon = icon;
             _render_text = text;
             _render_style = style;
             _render_fully_opaque = fullyOpaque;
@@ -647,7 +653,7 @@ public static class TerritoryLabelRenderer
             if (last_seen_frame != activeSubmissionFrame) { Hide(); return; }
             if (_render_requested)
                 Render(_render_text, _render_style, _render_fully_opaque, _render_ignore_overlap,
-                    _render_show_culture_lock);
+                    _render_show_culture_lock, _render_icon);
         }
 
         private bool PlacementInputsChanged(string text, TerritoryLabelStyle style)
@@ -688,7 +694,7 @@ public static class TerritoryLabelRenderer
         }
 
         private void Render(string value, TerritoryLabelStyle style, bool fullyOpaque, bool ignoreOverlap,
-            bool showCultureLock)
+            bool showCultureLock, Sprite icon = null)
         {
             if (!_placement.valid || string.IsNullOrWhiteSpace(value) || World.world?.camera == null)
             {
@@ -771,6 +777,9 @@ public static class TerritoryLabelRenderer
             float renderedFontPixels = scale * TerritoryLabelProjection.ReferenceFontSize * canvasScale;
             bool displayCultureLock = showCultureLock && (fullyOpaque || renderedFontPixels >= 14f);
             float lockReferenceSize = Mathf.Clamp(_reference_height * 0.26f, 20f, 40f);
+            // 名字前的图标：与字同高，字太小(远景)时不画
+            bool displayIcon = icon != null && (fullyOpaque || renderedFontPixels >= 10f);
+            float iconReferenceSize = _reference_height * 0.9f;
             float textAlpha = (fullyOpaque ? 1f : style.text_color.a) * visibility;
             if (style.use_gold_gradient)
             {
@@ -798,6 +807,8 @@ public static class TerritoryLabelRenderer
             float widthPixels = _reference_width * scale * canvasScale + outlineDistance * 2f;
             if (displayCultureLock)
                 widthPixels += lockReferenceSize * scale * canvasScale * 1.45f;
+            if (displayIcon)
+                widthPixels += iconReferenceSize * scale * canvasScale * 1.25f;
             float heightPixels = _reference_height * scale * canvasScale + outlineDistance * 2f + arcHeight;
             float radians = rotation * Mathf.Deg2Rad;
             float boundWidth = Mathf.Abs(Mathf.Cos(radians)) * widthPixels +
@@ -838,6 +849,8 @@ public static class TerritoryLabelRenderer
             arc.Configure(_placement.curvature);
             UpdateCultureLockBadge(displayCultureLock, lockReferenceSize,
                 (fullyOpaque ? 1f : 0.78f) * visibility * screenCoverageVisibility);
+            UpdateLeadingIcon(displayIcon, icon, iconReferenceSize,
+                (fullyOpaque ? 1f : 0.9f) * visibility * screenCoverageVisibility);
             if (ignoreOverlap) rect.SetAsLastSibling();
             if (!_text.gameObject.activeSelf) _text.gameObject.SetActive(true);
             _text.enabled = true;
@@ -878,6 +891,37 @@ public static class TerritoryLabelRenderer
             _gold_gradient = textObject.AddComponent<TerritoryLabelGoldGradient>();
             _outline = textObject.AddComponent<Outline>();
             textObject.AddComponent<TerritoryLabelArc>();
+        }
+
+        private void UpdateLeadingIcon(bool visible, Sprite sprite, float referenceSize, float alpha)
+        {
+            if (!visible || sprite == null)
+            {
+                if (_leading_icon != null) _leading_icon.gameObject.SetActive(false);
+                return;
+            }
+            if (_leading_icon == null)
+            {
+                GameObject iconObject = new GameObject($"TerritoryLabelIcon_{_id}", typeof(RectTransform),
+                    typeof(CanvasRenderer), typeof(Image));
+                iconObject.transform.SetParent(_text.transform, false);
+                _leading_icon = iconObject.GetComponent<Image>();
+                _leading_icon.preserveAspect = true;
+                _leading_icon.raycastTarget = false;
+                RectTransform iconRect = _leading_icon.rectTransform;
+                iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+                iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+                iconRect.pivot = new Vector2(0.5f, 0.5f);
+            }
+            _leading_icon.sprite = sprite;
+            RectTransform rect = _leading_icon.rectTransform;
+            rect.sizeDelta = new Vector2(referenceSize, referenceSize);
+            rect.anchoredPosition = new Vector2(-(_reference_width * 0.5f + referenceSize * 0.65f), 0f);
+            rect.localRotation = Quaternion.identity;
+            rect.localScale = Vector3.one;
+            _leading_icon.color = new Color(1f, 1f, 1f, Mathf.Clamp01(alpha));
+            _leading_icon.transform.SetAsLastSibling();
+            if (!_leading_icon.gameObject.activeSelf) _leading_icon.gameObject.SetActive(true);
         }
 
         private void UpdateCultureLockBadge(bool visible, float referenceSize, float alpha)

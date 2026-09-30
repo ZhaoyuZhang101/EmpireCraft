@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.UI.Windows;
 using NCMS.Utils;
@@ -17,7 +18,13 @@ namespace EmpireCraft.Scripts.UI;
 internal static class MainTab
 {
     public const string KINGDOM_TITLE_GROUP = "kingdom_title_group";
+    // 标签页按类别分组(同原版标签页，组与组之间有分隔线)：法理 | 帝国核心 | 帝国 | 文化与理念 | 理念种子 | 显示与工具
+    public const string TITLE_GROUP = "title_group";
+    public const string EMPIRE_CORE_GROUP = "empire_core_group";
     public const string EMPIRE_GROUP = "empire_layer_group";
+    public const string CULTURE_GROUP = "culture_ideology_group";
+    public const string IDEOLOGY_SEED_GROUP = "ideology_seed_group";
+    public const string DISPLAY_GROUP = "display_tool_group";
     public const string EMPIRE_FUNCTIONS = "empire_function_group";
     public const string PROVINCE_GROUP = "province_group";
     public static PowersTab tab;
@@ -32,7 +39,12 @@ internal static class MainTab
         // 设置标签页的布局. 布局是一个字符串列表, 每个字符串是一个分类. 每个分类的名字不重要.
         tab.SetLayout(new List<string>()
         {
+            TITLE_GROUP,
+            EMPIRE_CORE_GROUP,
             EMPIRE_GROUP,
+            CULTURE_GROUP,
+            IDEOLOGY_SEED_GROUP,
+            DISPLAY_GROUP,
         });
         // Add buttons to the tab.
         // 向标签页添加按钮.
@@ -41,6 +53,9 @@ internal static class MainTab
         // Update the layout of the tab.
         // 更新标签页的布局.
         tab.UpdateLayout();
+        // 当前加载器版本的 UpdateLayout 把所有按钮排成一整列，不分组也不画分隔线：
+        // 在它排好的基础上按组重新排，组与组之间留空并画分隔线(同原版标签页)
+        ApplyGroupedLayout();
     }
 
     private static void _createWindows()
@@ -106,112 +121,91 @@ internal static class MainTab
     [Hotfixable]
     private static void _addButtons()
     {
+        // ---- 法理：图层与法理、省份的增删 ----
         PowerButton pb0 = FixFunctions.CreateLayerButton(MetaTypeExtension.KingdomTitle,
-                 SpriteTextureLoader.getSprite("ui/icons/iconTitleLayer.png"));
-        tab.AddPowerButton(EMPIRE_GROUP, pb0);
+                 SpriteTextureLoader.getSprite("ui/icons/iconToolTitleLayer.png"));
+        AddButton(TITLE_GROUP, pb0);
 
         CreateTitleButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
+        AddButton(TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_title",
-                  SpriteTextureLoader.getSprite("ui/icons/iconCreateTitle.png")));
-
-        CreateEmpireCoreButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("create_empire_core",
-                SpriteTextureLoader.getSprite("ui/icons/iconCreateTitle.png")));
+                  SpriteTextureLoader.getSprite("ui/icons/iconToolTitleCreate.png")));
 
         AddTitleButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
+        AddButton(TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("add_title",
-                SpriteTextureLoader.getSprite("ui/icons/iconAddTitle.png")));
-
-        AddTitleToEmpireCoreButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("add_title_to_empire_core",
-                SpriteTextureLoader.getSprite("ui/icons/iconAddTitle.png")));
+                SpriteTextureLoader.getSprite("ui/icons/iconToolTitleAdd.png")));
 
         RemoveTitleButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
+        AddButton(TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_title",
-                SpriteTextureLoader.getSprite("ui/icons/iconRemoveTitle.png")));
+                SpriteTextureLoader.getSprite("ui/icons/iconToolTitleRemove.png")));
+
+        CreateProvinceButton.init();
+        AddButton(TITLE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("create_province",
+                SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceCreate.png")));
+
+        AddProvinceButton.init();
+        AddButton(TITLE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("add_province",
+                SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceAdd.png")));
+
+        RemoveProvinceButton.init();
+        AddButton(TITLE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("remove_province",
+                SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceRemove.png")));
+
+        // ---- 帝国核心 ----
+        CreateEmpireCoreButton.init();
+        AddButton(EMPIRE_CORE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("create_empire_core",
+                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreCreate.png")));
+
+        AddTitleToEmpireCoreButton.init();
+        AddButton(EMPIRE_CORE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("add_title_to_empire_core",
+                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreAddTitle.png")));
 
         RemoveTitleFromEmpireCoreButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
+        AddButton(EMPIRE_CORE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_title_from_empire_core",
-                SpriteTextureLoader.getSprite("ui/icons/iconRemoveTitle.png")));
+                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreRemoveTitle.png")));
 
         DestroyEmpireCoreButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
+        AddButton(EMPIRE_CORE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("destroy_empire_core",
-                SpriteTextureLoader.getSprite("ui/icons/iconRemoveTitle.png")));
+                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreDestroy.png")));
         
+        // ---- 帝国：图层、称帝与解散、分封、列表、人物建国 ----
         PowerButton pb = FixFunctions.CreateLayerButton(MetaTypeExtension.Empire,
                  SpriteTextureLoader.getSprite("ui/icons/iconKingdom"));
-        tab.AddPowerButton(EMPIRE_GROUP, pb);
-
-        // 理念图层(独立于原版宗教图层)
-        PowerButton ideologyLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Ideology,
-                 SpriteTextureLoader.getSprite("ui/icons/iconBooks"));
-        tab.AddPowerButton(EMPIRE_GROUP, ideologyLayer);
+        AddButton(EMPIRE_GROUP, pb);
 
         CreateEmpireButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
+        AddButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_empire",
                 SpriteTextureLoader.getSprite("ui/icons/iconAlliance")));
 
         EmpireFormButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
+        AddButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("empire_form",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ChineseCrown.png")));
 
 
         RemoveEmpireButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
+        AddButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_empire",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ChineseCrown_remove.png")));
 
         EmpireEnfeoffButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
+        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));
 
-        DebugFrontLineButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("debug_frontline",
-                SpriteTextureLoader.getSprite("ui/icons/iconWar")));
-
-        var bugReportButton = PowerButtonCreator.CreateWindowButton("bug_report_button", nameof(BugReportWindow),
-            GetOriginalBugIcon());
-        tab.AddPowerButton(EMPIRE_GROUP, bugReportButton);
-        bugReportButton._button.OnHover(() =>
-        {
-            Tooltip.show(bugReportButton, "normal", new TooltipData
-            {
-                tip_name = "bug_report_button",
-                tip_description = "bug_report_button_description"
-            });
-        });
-        bugReportButton._button.OnHoverOut(Tooltip.hideTooltip);
-
-        Sprite updateIcon = SpriteTextureLoader.getSprite("ui/icons/iconDownload") ??
-                            SpriteTextureLoader.getSprite("ui/icons/iconSteam");
-        var updateButton = PowerButtonCreator.CreateWindowButton(
-            "online_update_button",
-            nameof(OnlineUpdateWindow),
-            updateIcon);
-        tab.AddPowerButton(EMPIRE_GROUP, updateButton);
-        updateButton._button.OnHover(() =>
-        {
-            Tooltip.show(updateButton, "normal", new TooltipData
-            {
-                tip_name = "online_update_button",
-                tip_description = "online_update_button_description"
-            });
-        });
-        updateButton._button.OnHoverOut(Tooltip.hideTooltip);
         //帝国势力列表
         var empireListButon = PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
             SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png"));
-        tab.AddPowerButton(EMPIRE_GROUP, empireListButon);
+        AddButton(EMPIRE_GROUP, empireListButon);
         empireListButon._button.OnHover(() =>
         {
             Tooltip.show(empireListButon,"normal", new TooltipData()
@@ -235,26 +229,28 @@ internal static class MainTab
                 });
             });
         specificClanListButton._button.OnHoverOut(Tooltip.hideTooltip);
-        tab.AddPowerButton(EMPIRE_GROUP, specificClanListButton);
+        AddButton(EMPIRE_GROUP, specificClanListButton);
         
-        CreateProvinceButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("create_province",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleCreate.png")));
+        ActorCreateKingdom.init();
+        AddButton(EMPIRE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("actor_create_kingdom",
+               SpriteTextureLoader.getSprite("ui/icons/iconKingdom")));
+        
+        // ---- 文化与理念：图层与文化配置 ----
+        // 原版文化图层的第二个入口：复用同一个 GodPower/OptionAsset，因此这里与
+        // 原版按钮的区域模式、边框和名称开关始终同步。
+        PowerButton cultureLayer = FixFunctions.CloneExistingLayerButton(MetaType.Culture,
+                 SpriteTextureLoader.getSprite("ui/icons/iconCulture"));
+        if (cultureLayer != null) AddButton(CULTURE_GROUP, cultureLayer);
 
-        AddProvinceButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("add_province",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleAdd.png")));
-
-        RemoveProvinceButton.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("remove_province",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TitleRemove.png")));
+        // 理念图层(独立于原版宗教图层)
+        PowerButton ideologyLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Ideology,
+                 SpriteTextureLoader.getSprite("ui/icons/iconBooks"));
+        AddButton(CULTURE_GROUP, ideologyLayer);
 
         var cultureConfigButton = PowerButtonCreator.CreateWindowButton("culture_list", nameof(CultureSpeciesPairWindow),
             SpriteTextureLoader.getSprite("ui/icons/iconCulture"));
-        tab.AddPowerButton(EMPIRE_GROUP, cultureConfigButton);
+        AddButton(CULTURE_GROUP, cultureConfigButton);
         cultureConfigButton._button.OnHover(() =>
         {
             Tooltip.show(cultureConfigButton,"normal", new TooltipData()
@@ -265,26 +261,156 @@ internal static class MainTab
         });
         cultureConfigButton._button.OnHoverOut(Tooltip.hideTooltip);
 
-        ActorCreateKingdom.init();
-        tab.AddPowerButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("actor_create_kingdom",
-               SpriteTextureLoader.getSprite("ui/icons/iconKingdom")));
-        
+        // ---- 理念种子 ----
+        IdeologyTraitIcons.Register();
+        IdeologySeedPower.Init();
+        foreach (GeneralSystems.PartyIdeology ideology in Enum.GetValues(typeof(GeneralSystems.PartyIdeology)))
+        {
+            string powerId = IdeologySeedPower.Id(ideology);
+            PowerButton seedButton = PowerButtonCreator.CreateGodPowerButton(powerId,
+                SpriteTextureLoader.getSprite(IdeologyTraitIcons.Path(ideology)));
+            // NML 从原版 inspect 按钮克隆 GodPower 按钮。当前游戏版本的预制体自带
+            // TipButton，若不覆盖就会一直显示它继承来的 "Normal Tooltip"。
+            TipButton tip = seedButton?.GetComponent<TipButton>();
+            if (tip != null)
+            {
+                tip.textOnClick = powerId;
+                tip.textOnClickDescription = powerId + "_description";
+                tip.text_description_2 = "";
+                tip.type = "normal";
+            }
+            AddButton(IDEOLOGY_SEED_GROUP, seedButton);
+        }
+
+        // ---- 显示与工具：显示开关、调试、反馈与更新 ----
         SwitchRealNumButton.init();
         PowerButton pb4 = PowerButtonCreator.CreateToggleButton("real_num",
             SpriteTextureLoader.getSprite("ui/realNumToggle"));
-        tab.AddPowerButton(EMPIRE_GROUP, pb4);
+        AddButton(DISPLAY_GROUP, pb4);
 
         SwitchSimpleNameplateButton.init();
         PowerButton simpleNameplateButton = PowerButtonCreator.CreateToggleButton("simple_nameplate",
             SpriteTextureLoader.getSprite("ui/icons/iconHideUI"));
-        tab.AddPowerButton(EMPIRE_GROUP, simpleNameplateButton);
+        AddButton(DISPLAY_GROUP, simpleNameplateButton);
 
         // 帝国视图下是否叠加显示同盟
         SwitchEmpireAllianceButton.init();
         PowerButton empireAllianceButton = PowerButtonCreator.CreateToggleButton("empire_show_alliance",
             SpriteTextureLoader.getSprite("plots/icons/plot_alliance_create"));
-        tab.AddPowerButton(EMPIRE_GROUP, empireAllianceButton);
+        AddButton(DISPLAY_GROUP, empireAllianceButton);
+
+        DebugFrontLineButton.init();
+        AddButton(DISPLAY_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("debug_frontline",
+                SpriteTextureLoader.getSprite("ui/icons/iconWar")));
+
+        var bugReportButton = PowerButtonCreator.CreateWindowButton("bug_report_button", nameof(BugReportWindow),
+            GetOriginalBugIcon());
+        AddButton(DISPLAY_GROUP, bugReportButton);
+        bugReportButton._button.OnHover(() =>
+        {
+            Tooltip.show(bugReportButton, "normal", new TooltipData
+            {
+                tip_name = "bug_report_button",
+                tip_description = "bug_report_button_description"
+            });
+        });
+        bugReportButton._button.OnHoverOut(Tooltip.hideTooltip);
+
+        Sprite updateIcon = SpriteTextureLoader.getSprite("ui/icons/iconDownload") ??
+                            SpriteTextureLoader.getSprite("ui/icons/iconSteam");
+        var updateButton = PowerButtonCreator.CreateWindowButton(
+            "online_update_button",
+            nameof(OnlineUpdateWindow),
+            updateIcon);
+        AddButton(DISPLAY_GROUP, updateButton);
+        updateButton._button.OnHover(() =>
+        {
+            Tooltip.show(updateButton, "normal", new TooltipData
+            {
+                tip_name = "online_update_button",
+                tip_description = "online_update_button_description"
+            });
+        });
+        updateButton._button.OnHoverOut(Tooltip.hideTooltip);
+    }
+
+    // 各组的按钮(按加入顺序)，用于自行分组排版
+    private static readonly List<KeyValuePair<string, PowerButton>> _buttonsInOrder = new();
+
+    private static void AddButton(string group, PowerButton button)
+    {
+        tab.AddPowerButton(group, button);
+        if (button != null) _buttonsInOrder.Add(new KeyValuePair<string, PowerButton>(group, button));
+    }
+
+    // 原版 PowersTab.sortButtons 按子物体顺序排版(子物体数量变化时重排)，会覆盖任何手动坐标；
+    // 但它认得名字以 "_line" 开头的子物体：遇到就收尾当前列、画一条分隔线再继续。
+    // 所以这里按组调整子物体顺序，并在组与组之间插入一条 "_line" 分隔线，交给原版排版
+    private static void ApplyGroupedLayout()
+    {
+        try
+        {
+            Transform parent = tab.transform;
+            int index = int.MaxValue;
+            foreach (var pair in _buttonsInOrder)
+                if (pair.Value != null && pair.Value.transform.parent == parent)
+                    index = Mathf.Min(index, pair.Value.transform.GetSiblingIndex());
+            if (index == int.MaxValue) return;
+            GameObject template = FindVanillaLine();
+            string current = null;
+            int lineCount = 0;
+            foreach (var pair in _buttonsInOrder)
+            {
+                if (pair.Value == null || pair.Value.transform.parent != parent) continue;
+                if (current != null && pair.Key != current)
+                {
+                    GameObject line = CreateLine(parent, template, lineCount++);
+                    line.transform.SetSiblingIndex(index++);
+                }
+                current = pair.Key;
+                pair.Value.transform.SetSiblingIndex(index++);
+            }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 标签页分组排版失败: {exception.Message}");
+        }
+    }
+
+    // 从原版标签页里找一条现成的分隔线做模板，外观与原版一致
+    private static GameObject FindVanillaLine()
+    {
+        foreach (PowersTab other in Resources.FindObjectsOfTypeAll<PowersTab>())
+        {
+            if (other == null || other == tab) continue;
+            foreach (Transform child in other.transform)
+                if (child.name.StartsWith("_line")) return child.gameObject;
+        }
+        return null;
+    }
+
+    private static GameObject CreateLine(Transform parent, GameObject template, int number)
+    {
+        GameObject line;
+        if (template != null)
+        {
+            line = UnityEngine.Object.Instantiate(template, parent);
+        }
+        else
+        {
+            line = new GameObject("_line", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+            line.transform.SetParent(parent, false);
+            var image = line.GetComponent<UnityEngine.UI.Image>();
+            image.color = new Color(0.16f, 0.14f, 0.12f, 0.9f);
+            image.raycastTarget = false;
+            line.GetComponent<RectTransform>().sizeDelta = new Vector2(2f, 48f);
+        }
+        line.name = $"_line_empirecraft_{number}";
+        var lineImage = line.GetComponent<UnityEngine.UI.Image>();
+        if (lineImage != null) lineImage.enabled = true;
+        line.SetActive(true);
+        return line;
     }
 
     private static Sprite GetOriginalBugIcon()

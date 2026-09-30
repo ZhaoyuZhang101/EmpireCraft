@@ -73,6 +73,21 @@ public static class WarExtension
         public bool republic_revolution_split_realm;
         public List<long> republic_revolution_allied_kingdom_ids = new List<long>();
         public int republic_revolution_defected_soldiers;
+        // Regional modernisation crisis: several imperial members form a defensive league,
+        // secede together and seek to found a separate republic rather than replace the centre.
+        public bool republic_regional_coalition;
+        public long republic_regional_leader_kingdom_id = -1L;
+        public long republic_regional_alliance_id = -1L;
+        // 正统崩溃时组成的互保同盟：打赢了不另立国家，而是逼原帝国退位、改行共和(辛亥式)
+        public bool republic_regional_forced_abdication;
+        // A large industrial-era conflict is promoted to a world war once both
+        // sides contain several independent political blocs. These fields keep
+        // the announcement and settlement idempotent across saves.
+        public bool world_war;
+        public bool world_war_end_recorded;
+        public double world_war_last_check = -1d;
+        public int world_war_bloc_count;
+        public float world_war_power_share;
         // 由土地兼并触发的农民起义独立于帝国制度，因此单一王国也能完整结算。
         public bool peasant_land_rebellion;
         public long peasant_land_rebellion_origin_kingdom_id = -1L;

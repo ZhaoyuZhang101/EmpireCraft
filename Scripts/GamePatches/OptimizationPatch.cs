@@ -54,6 +54,8 @@ namespace EmpireCraft.Scripts.GamePatches
                 nameof(Prefix_CivilianAi));
             PatchPrefix(harmony, AccessTools.Method(typeof(ActorManager), "calculateVisibleActors"),
                 nameof(Prefix_CalculateVisibleActors));
+            PatchPrefix(harmony, AccessTools.Method(typeof(Actor), "b6_0_updateDecision"),
+                nameof(Prefix_CivilianDecision));
 
             Debug.Log("[EmpireCraft] OptimizationPatch Initialized");
         }
@@ -115,6 +117,34 @@ namespace EmpireCraft.Scripts.GamePatches
 
             return (__instance.getID() & _civilianAiMask) ==
                    ((long)_civilianAiStep & _civilianAiMask);
+        }
+
+        // 远离前线的平民降低决策频率，不影响生育：
+        //   · 只在人口 ≥ DecisionThrottleThreshold 时生效(模组设置里的高人口性能开关)；
+        //   · 能生育、到了生育年龄的成年人一律照常决策(生育、找伴侣、投奔伴侣所在城市都走决策)；
+        //   · 所在国正在打仗的(前线)、士兵、军队成员、国王、城主、关注/跟随中的单位照常；
+        //   · 其余平民(孩童、老人、不能生育的成年人)的部分决策改成原版的"wait"任务(0.5~1.3 秒，
+        //     本身还能被生育、社交打断)，等完再重新决策——只是想得慢一点，不会卡住没任务。
+        private const int DecisionThrottleThreshold = 3000;
+
+        public static bool Prefix_CivilianDecision(Actor __instance)
+        {
+            if (!ModClass.PERFORMANCE_HIGH_POPULATION_MODE || __instance == null || World.world?.units == null)
+                return true;
+            int units = World.world.units.Count;
+            if (units < DecisionThrottleThreshold) return true;
+            // 原版这一帧本来就不决策的情况照原版处理
+            if (__instance._update_done || __instance._beh_skip || __instance.is_unconscious ||
+                __instance._has_status_possessed || !__instance.asset.has_ai_system) return true;
+            if (!__instance.hasCity() || __instance.hasArmy() || __instance.isWarrior() || __instance.isKing() ||
+                __instance.isCityLeader() || __instance.isFavorite() || __instance.isCameraFollowingUnit())
+                return true;
+            if (__instance.isAdult() && (__instance.canBreed() || __instance.isBreedingAge())) return true;
+            if (__instance.kingdom != null && __instance.kingdom.hasEnemies()) return true;
+            float skip = units >= ExtremePopulationThreshold ? 0.75f : 0.5f;
+            if (Random.value >= skip) return true;
+            __instance.setTask("wait");
+            return false;
         }
 
         public static bool Prefix_CalculateVisibleActors()

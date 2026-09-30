@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using Newtonsoft.Json;
@@ -17,6 +18,13 @@ public sealed class LandmarkBookConfig
     public string tech = "";
     public string feature = "";
     public float min_value = 1f;
+    // Ideology books require every listed technology in addition to their institution feature.
+    public List<string> required_techs = new();
+    // prosperous / industrial / industrial_unrest / militarized / mass_politics
+    public string environment = "";
+    public float annual_chance = 1f;
+    public string ideology = "";
+    public float ideology_outbreak;
     // 这本书推动的技术：技术 id → 立刻增加的进度(占费用的比例)
     public Dictionary<string, float> techs = new();
     // 这本书推动的制度/理论：制度特性 → 改革永久加速(0.3 = +30%)；以 * 结尾表示前缀匹配(如 ideology_stage:Communism:*)
@@ -68,6 +76,9 @@ public static class LandmarkBookSystem
             {
                 book.techs ??= new Dictionary<string, float>();
                 book.institutions ??= new Dictionary<string, float>();
+                book.required_techs ??= new List<string>();
+                book.annual_chance = Math.Max(0f, Math.Min(1f, book.annual_chance));
+                book.ideology_outbreak = Math.Max(0f, Math.Min(1f, book.ideology_outbreak));
             }
             return _books;
         }
@@ -95,11 +106,17 @@ public static class LandmarkBookSystem
     public static IEnumerable<(LandmarkBookConfig book, float fraction)> BooksForTech(string techId) =>
         Books.Where(book => book.techs.ContainsKey(techId)).Select(book => (book, book.techs[techId]));
 
-    private static bool IsTriggered(string culture, LandmarkBookConfig book) =>
-        !string.IsNullOrEmpty(book.tech)
+    private static bool IsTriggered(string culture, LandmarkBookConfig book)
+    {
+        bool primary = !string.IsNullOrEmpty(book.tech)
             ? TechnologySystem.HasTech(culture, book.tech)
             : !string.IsNullOrEmpty(book.feature) &&
               InstitutionSystem.GetFeature(culture, book.feature) >= book.min_value;
+        if (!primary || book.required_techs.Any(tech => !TechnologySystem.HasTech(culture, tech))) return false;
+        if (!TryGetIdeology(book, out PartyIdeology ideology)) return true;
+        return PartySystem.IsResearched(culture, ideology) &&
+               TechnologySystem.AreFeatureTechsMet(culture, IdeologySpreadSystem.FeatureKey(ideology));
+    }
 
     #region 写书
 
@@ -110,6 +127,8 @@ public static class LandmarkBookSystem
         state.known_books ??= new List<string>();
         foreach (LandmarkBookConfig book in Books)
         {
+            // Ideology books are gameplay events and remain eligible in old saves.
+            if (TryGetIdeology(book, out _)) continue;
             if (!IsTriggered(culture, book)) continue;
             if (!state.landmark_books.Contains(book.id)) state.landmark_books.Add(book.id);
             if (!state.known_books.Contains(book.id)) state.known_books.Add(book.id);
@@ -119,16 +138,73 @@ public static class LandmarkBookSystem
     public static void YearlyCheck(string culture, List<City> cities, CultureTechState state)
     {
         state.landmark_books ??= new List<string>();
+        state.known_books ??= new List<string>();
+        state.ideology_book_outbreaks ??= new List<string>();
         foreach (LandmarkBookConfig book in Books)
         {
-            if (state.landmark_books.Contains(book.id) || !IsTriggered(culture, book)) continue;
+            if (!IsTriggered(culture, book)) continue;
+            if (state.known_books.Contains(book.id))
+                TryApplyIdeologyEffect(culture, cities, state, book, 1f, GetTitle(book.id, culture));
+            if (state.landmark_books.Contains(book.id)) continue;
             if (TryWrite(culture, cities, book)) state.landmark_books.Add(book.id);
+        }
+        WriteScholarlyBooks(cities);
+    }
+
+    #region 士人著述
+
+    // 原版只有国王/城主/族人走"写书"剧情才会写书(要 10 级、200 金、进度 200，还要和一大堆剧情抢)，
+    // 本模组剧情一多几乎写不出书，著作目录里只剩名著。这里补上日常著述：
+    // 每年每座有空书位的城，按城里读书人(举人、贡士、官僚、市民)的多少有一定概率由最有学识的人写一本普通书(书种由原版决定)。
+    // 每个文化每年最多写 城市数/4 本，免得刷屏。
+    private const float ScholarBaseChance = 0.04f;
+    private const float ScholarChancePerLiterate = 0.03f;
+    private const int ScholarLiterateCap = 5;
+    private const float ScholarMaxChance = 0.3f;
+
+    private static void WriteScholarlyBooks(List<City> cities)
+    {
+        if (cities == null || World.world?.books == null) return;
+        using var timing = new PerfTimer("士人著述");
+        int budget = Math.Max(1, cities.Count / 4);
+        foreach (City city in cities.OrderBy(_ => UnityEngine.Random.value))
+        {
+            if (budget <= 0) return;
+            if (city == null || city.isRekt() || city.units == null || !city.hasBookSlots()) continue;
+            // 先掷骰：概率最高 30%，掷不中就不必统计全城人口(概率分布与先算后掷相同)
+            float roll = UnityEngine.Random.value;
+            if (roll >= ScholarMaxChance) continue;
+            List<Actor> adults = city.units.Where(actor => actor != null && actor.isAlive() && actor.isAdult() &&
+                                                           actor.city == city && !actor.IsWarMachine()).ToList();
+            if (adults.Count < 15) continue;
+            int literate = Math.Min(ScholarLiterateCap, adults.Count(IsLiterate));
+            float chance = Math.Min(ScholarMaxChance, ScholarBaseChance + ScholarChancePerLiterate * literate);
+            if (roll >= chance) continue;
+            Actor author = adults.Where(actor => actor.language != null && actor.culture != null)
+                .OrderByDescending(actor => actor.stats["intelligence"]).FirstOrDefault();
+            if (author == null) continue;
+            try
+            {
+                if (World.world.books.generateNewBook(author) != null) budget--;
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 士人著述失败: {exception.Message}");
+            }
         }
     }
 
+    private static bool IsLiterate(Actor actor) =>
+        actor.hasTrait("juren") || actor.hasTrait("gongshi") ||
+        actor.GetOrCreate().socialClass is SocialClass.Officer or SocialClass.Citizen;
+
+    #endregion
+
     private static bool TryWrite(string culture, List<City> cities, LandmarkBookConfig config)
     {
-        Actor author = PickAuthor(cities);
+        List<City> eligibleCities = cities?.Where(city => MeetsEnvironment(city, config)).ToList() ?? new List<City>();
+        if (eligibleCities.Count == 0 || UnityEngine.Random.value > config.annual_chance) return false;
+        Actor author = PickAuthor(eligibleCities);
         if (author == null) return false;
         Book book;
         try
@@ -150,8 +226,10 @@ public static class LandmarkBookSystem
         data.origin_culture = culture;
         data.inspired_cultures.Add(culture);
 
+        if (TryGetIdeology(config, out PartyIdeology ideology)) IdeologyPopulationSystem.Set(author, ideology);
+
         TechnologySystem.AddLandmarkBookPoints(culture);
-        Inspire(culture, config, 1f);
+        Inspire(culture, config, 1f, title);
         string text = BuildAnnouncement(culture, author, title);
         Announce(culture, author.kingdom, text, author.getID());
         // 关键名著问世：屏幕上方提示
@@ -214,12 +292,12 @@ public static class LandmarkBookSystem
         CultureTechState state = TechnologySystem.GetState(readerCulture);
         state.known_books ??= new List<string>();
         if (state.known_books.Contains(config.id)) return; // 本文化已经有这部书的思想了
-        Inspire(readerCulture, config, ForeignTechFactor);
+        Inspire(readerCulture, config, ForeignTechFactor, book.name);
         Announce(readerCulture, null, string.Format(LM.Get("landmark_book_spread_log"),
             book.name, readerCulture.GetCultureTranslate()), -1L);
     }
 
-    private static void Inspire(string culture, LandmarkBookConfig config, float techFactor)
+    private static void Inspire(string culture, LandmarkBookConfig config, float techFactor, string title)
     {
         CultureTechState state = TechnologySystem.GetState(culture);
         state.known_books ??= new List<string>();
@@ -227,7 +305,198 @@ public static class LandmarkBookSystem
         foreach (KeyValuePair<string, float> pair in config.techs)
             TechnologySystem.AddTechProgressFraction(culture, pair.Key, pair.Value * techFactor);
         PushActiveReforms(culture, config);
+        List<City> cities = World.world?.cities?.Where(city => city != null && !city.isRekt() &&
+            CultureService.GetMainCulture(city) == culture).ToList() ?? new List<City>();
+        TryApplyIdeologyEffect(culture, cities, state, config, techFactor, title);
     }
+
+    private static bool TryGetIdeology(LandmarkBookConfig config, out PartyIdeology ideology) =>
+        Enum.TryParse(config?.ideology, true, out ideology) && Enum.IsDefined(typeof(PartyIdeology), ideology);
+
+    private static bool MeetsEnvironment(City city, LandmarkBookConfig config)
+    {
+        if (city == null || city.isRekt() || city.kingdom == null || city.getBuildingWithBookSlot() == null)
+            return false;
+        string environment = config.environment?.Trim().ToLowerInvariant() ?? "";
+        if (string.IsNullOrEmpty(environment)) return true;
+        List<Actor> adults = city.units?.Where(actor => actor != null && !actor.isRekt() && actor.isAlive() &&
+            actor.isAdult() && actor.city == city).ToList() ?? new List<Actor>();
+        if (adults.Count == 0) return false;
+        UrbanEmploymentReport employment = UrbanEmploymentSystem.GetReport(city);
+        bool prosperous = adults.Count >= 30 && city.kingdom.GetMoney() >= 0 &&
+            (UrbanCitizenSystem.GetCapacity(city, adults.Count) > 0 ||
+             adults.Count(actor => actor.GetOrCreate().is_economic_merchant) >= Math.Max(1, adults.Count / 20));
+        bool industrial = employment.Stage >= 1 && (employment.Factories > 0 ||
+            employment.Workers >= Math.Max(2, (int)Math.Ceiling(adults.Count * 0.08f)));
+        float grievance = 0f;
+        Empire empire = city.kingdom.GetEmpire();
+        if (empire != null)
+        {
+            IReadOnlyDictionary<SocialClass, float> grievances = InstitutionSystem.GetClassGrievances(empire);
+            if (grievances.TryGetValue(SocialClass.Labour, out float labour)) grievance = Math.Max(grievance, labour);
+            if (grievances.TryGetValue(SocialClass.Peasant, out float peasant)) grievance = Math.Max(grievance, peasant);
+        }
+        bool unrest = industrial && (grievance >= 25f ||
+            LandEconomySystem.GetReport(city).LandlessPopulationRatio >= LandEconomySystem.RebellionLandlessThreshold);
+        bool militarized = city.kingdom.hasEnemies() ||
+            adults.Count(actor => actor.isWarrior()) >= Math.Max(3, (int)Math.Ceiling(adults.Count * 0.12f));
+        bool massPolitics = adults.Count >= 40 && InstitutionSystem.GetFeature(
+            CultureService.GetMainCulture(city), PartySystem.FeaturePartyPolitics) > 0f;
+        return environment switch
+        {
+            "prosperous" => prosperous,
+            "industrial" => industrial,
+            "industrial_unrest" => unrest,
+            "militarized" => militarized,
+            "mass_politics" => massPolitics,
+            _ => true
+        };
+    }
+
+    private static void TryApplyIdeologyEffect(string culture, List<City> cities, CultureTechState state,
+        LandmarkBookConfig config, float factor, string title)
+    {
+        if (!TryGetIdeology(config, out PartyIdeology ideology) || config.ideology_outbreak <= 0f) return;
+        state.ideology_book_outbreaks ??= new List<string>();
+        if (state.ideology_book_outbreaks.Contains(config.id) || !IsTriggered(culture, config) ||
+            cities == null || !cities.Any(city => MeetsEnvironment(city, config))) return;
+        int changed = IdeologyPopulationSystem.IntroduceToCulture(culture, ideology,
+            config.ideology_outbreak * factor);
+        state.ideology_book_outbreaks.Add(config.id);
+        if (changed <= 0) return;
+        Announce(culture, null, string.Format(LM.Get("landmark_book_ideology_outbreak_log"), title,
+            culture.GetCultureTranslate(), PartySystem.GetIdeologyName(ideology), changed), -1L);
+    }
+
+    #region 藏书的持续理念影响
+
+    // 藏在城里的理念名著每年持续说服本城成年人(强度 = ideology_outbreak × 本比例)，
+    // 再由本城向相邻城市传播：邻城强度按本城该理念信众占比打折，信的人越多传得越远。
+    // 刻意做得温和：每年只改变百分之一二的人，且某城信众达到 SaturationShare 后书就不再推动该城，
+    // 只让思想在当地扎根、慢慢外溢，不会把整片地区洗成同一种理念
+    private const float CityInfluenceFactor = 0.08f;
+    private const float NeighbourSpreadFactor = 0.35f;
+    private const float MaxCityIntensity = 0.05f;
+    private const float SaturationShare = 0.4f;
+
+    // 循序渐进：新书只有 25% 的影响力，随成书年数在 MaturityYears 年内逐渐增至满额；
+    // 城市社会条件(书的 environment：繁荣/工业化/工潮/军事化/大众政治)不成熟时，只有 UnripeSocietyFactor 的影响力。
+    // 于是思想先在少数城市缓慢扎根，等社会发展到相应阶段才真正流行起来
+    private const float MaturityYears = 40f;
+    private const float InitialMaturity = 0.25f;
+    private const float UnripeSocietyFactor = 0.35f;
+
+    private static float Maturity(Book book)
+    {
+        double created = book?.data?.created_time ?? 0d;
+        if (created <= 0d || World.world == null) return 1f;
+        float years = Math.Max(0f, Date.getYearsSince(created));
+        return InitialMaturity + (1f - InitialMaturity) * Math.Min(1f, years / MaturityYears);
+    }
+
+    private static float Damped(City city, PartyIdeology ideology, float intensity) =>
+        intensity * Math.Max(0f, 1f - IdeologyPopulationSystem.GetCityShare(city, ideology) / SaturationShare);
+
+    public readonly struct CityIdeologyBook
+    {
+        public readonly Book Book;
+        public readonly PartyIdeology Ideology;
+        public readonly float Maturity;       // 0.25~1：成书越久越高
+        public readonly bool SocietyReady;    // 本城社会条件是否符合这本书
+        public readonly float Strength;
+
+        public CityIdeologyBook(Book book, PartyIdeology ideology, float maturity, bool societyReady, float strength)
+        {
+            Book = book;
+            Ideology = ideology;
+            Maturity = maturity;
+            SocietyReady = societyReady;
+            Strength = strength;
+        }
+    }
+
+    // 城里藏着的理念名著(连同发酵程度、社会条件是否成熟)
+    public static List<CityIdeologyBook> GetCityIdeologyBooks(City city)
+    {
+        var result = new List<CityIdeologyBook>();
+        if (city?.buildings == null || World.world?.books == null) return result;
+        var environmentFit = new Dictionary<string, bool>();
+        foreach (Building building in city.buildings)
+        {
+            List<long> ids = building?.data?.books?.list_books;
+            if (ids == null) continue;
+            foreach (long id in ids)
+            {
+                Book book = World.world.books.get(id);
+                if (book == null || book.isRekt() || !book.TryGetLandmark(out BookExtension.BookExtraData data) ||
+                    !TryGetBook(data.landmark_id, out LandmarkBookConfig config) ||
+                    !TryGetIdeology(config, out PartyIdeology ideology) || config.ideology_outbreak <= 0f) continue;
+                if (!environmentFit.TryGetValue(config.id, out bool fits))
+                    environmentFit[config.id] = fits = MeetsEnvironmentCached(city, config);
+                float maturity = Maturity(book);
+                result.Add(new CityIdeologyBook(book, ideology, maturity, fits,
+                    config.ideology_outbreak * CityInfluenceFactor * maturity * (fits ? 1f : UnripeSocietyFactor)));
+            }
+        }
+        return result;
+    }
+
+    // 理念 → 强度(多本同理念的书叠加，有上限)
+    public static Dictionary<PartyIdeology, float> GetCityBookInfluences(City city)
+    {
+        var result = new Dictionary<PartyIdeology, float>();
+        foreach (CityIdeologyBook book in GetCityIdeologyBooks(city))
+        {
+            result.TryGetValue(book.Ideology, out float current);
+            result[book.Ideology] = Math.Min(MaxCityIntensity, current + book.Strength);
+        }
+        return result;
+    }
+
+    // 以前全图一次算完要 400 ms 左右(每本书都要算城市的就业/土地报告，邻城再算一遍)，年年卡一下。
+    // 现在由年度理念交往(IdeologyPopulationSystem.TickContact)处理完后排队，每帧只花约 2 ms；
+    // 城市经济形态、书的社会条件每轮各算一次。
+    private static readonly FrameBudgetQueue<City> InfluenceQueue = new(2d, InfluenceFromCity, "藏书理念影响");
+    private static readonly Dictionary<(long city, string environment), bool> EnvironmentCache = new();
+
+    public static void StartCityInfluence()
+    {
+        if (World.world?.cities == null) return;
+        EnvironmentCache.Clear();
+        InfluenceQueue.Start(World.world.cities);
+    }
+
+    public static void TickCityInfluence() => InfluenceQueue.Tick();
+
+    private static void InfluenceFromCity(City city)
+    {
+        if (city == null || city.isRekt() || city.units == null || city.units.Count == 0) return;
+        Dictionary<PartyIdeology, float> influences = GetCityBookInfluences(city);
+        foreach (KeyValuePair<PartyIdeology, float> pair in influences)
+        {
+            float radiance = pair.Value * NeighbourSpreadFactor *
+                             Math.Min(1f, IdeologyPopulationSystem.GetCityShare(city, pair.Key) / SaturationShare);
+            IdeologyPopulationSystem.InfluenceCity(city, pair.Key, Damped(city, pair.Key, pair.Value));
+            if (radiance <= 0f) continue;
+            foreach (City neighbour in city.neighbours_cities ?? Enumerable.Empty<City>())
+            {
+                if (neighbour == null || neighbour.isRekt() || neighbour.units == null) continue;
+                IdeologyPopulationSystem.InfluenceCity(neighbour, pair.Key, Damped(neighbour, pair.Key, radiance));
+            }
+        }
+    }
+
+    // 书的社会条件(繁荣/工业化/工潮……)要算城市的就业和土地报告，很贵；同一轮里同一城同一条件只算一次
+    private static bool MeetsEnvironmentCached(City city, LandmarkBookConfig config)
+    {
+        var key = (city.id, config.environment ?? "");
+        if (EnvironmentCache.TryGetValue(key, out bool cached)) return cached;
+        bool result = MeetsEnvironment(city, config);
+        EnvironmentCache[key] = result;
+        return result;
+    }
+
+    #endregion
 
     private static bool MatchesFeature(InstitutionNodeConfig node, string pattern)
     {

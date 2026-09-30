@@ -1,0 +1,99 @@
+{
+    "name": "Frankish",
+    "color": "#3457D5",
+    "translate_cz": "法兰克",
+    "setting": {
+        "regime": "Feudalism",
+        "institution_line": "Roma",
+        // 宪法：名称词库(name_group / provisional_name_group)与本文化的制宪倾向(clauses，覆盖各党主张)
+        "Constitution": {
+            "clauses": { "territory": "Unitary" }
+        },
+        // 现代政权称呼(见 Locales/Cultures/README.md 政党一节)：未组建政府的势力 / 临时政府；没配的理念用默认称呼
+        "Party": {
+            "untitled_groups": {
+                "Anarchism": "UntitledAnarchism",
+                "SocialLiberalism": "UntitledSocialLiberalism",
+                "Socialism": "UntitledSocialism",
+                "Communism": "UntitledCommunism",
+                "ReligiousDemocracy": "UntitledReligiousDemocracy",
+                "Conservatism": "UntitledConservatism",
+                "Fascism": "UntitledFascism"
+            },
+            "provisional_groups": {
+                "SocialLiberalism": "ProvisionalSocialLiberalism",
+                "ConservativeLiberalism": "ProvisionalConservativeLiberalism"
+            }
+        },
+        "traits": ["patriarchy"],
+        "City": {
+            "groups": {
+                "group_1": "CityNames1",
+                "group_2": "CityNames2",
+                "group_3": "\u200A",
+                "group_4": "CityNames3"
+            },
+            "rule": [ "group_1", "group_2", "group_3", "group_4" ],
+            "name_pos": 0
+        },
+        "Clan": {
+            "groups": {
+                "group_1": "ClanNames",
+                "group_2": "Clan",
+                "group_3": "MiddenClanNames",
+                "group_4": "\u200A"
+            },
+            "rule": [
+                "group_3",
+                "coin_flip",
+                "group_1",
+                "group_4",
+                "group_2"
+            ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false,
+            "sex_post_Male": ["", "", ""],
+            "sex_post_Female": ["", "", ""],
+            "sex_post_Male": ["", "", ""],
+            "sex_post_Female": ["", "", ""]
+        },
+        "Family": {
+            "groups": {
+                "group_1": "FamilyNames",
+                "group_2": "\u200A",
+                "group_3": "Family"
+            },
+            "rule": [ "group_1", "group_2", "group_3" ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false
+        },
+        "Unit": {
+            "groups": {
+                "group_1": "UnitNamesMale1",
+                "group_2": "UnitNamesFemale1"
+            },
+            "rule": [
+                "group_1",
+                "sex_male",
+                "group_2",
+                "sex_female",
+                "space"
+            ],
+            "name_pos": 0,
+            "is_invert": true
+        },
+        "Kingdom": {
+            "groups": {
+                "group_1": "CountryNames"
+            },
+            "rule": [ "group_1" ],
+            "name_pos": 0
+        }
+    },
+    "beaurau_config": {
+        "CoreOffice": [],
+        "Divisions": []
+    }
+}

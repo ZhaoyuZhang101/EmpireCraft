@@ -204,6 +204,9 @@ public class EmpireCraftHistory
     public string miaohao_suffix { get; set; }
     public string shihao_name { get; set; }
     public int total_time { get; set; }
+    // 共和国元首的任期(与君主的在位记录分开显示，不按姓氏分朝代)；office_title 为当时的元首称号(总统、主席……)
+    public bool is_republic { get; set; }
+    public string office_title { get; set; } = "";
 
     public List<string> initial_cities = new List<string>();
     public List<HistoryDescription> descriptions =  new List<HistoryDescription>();

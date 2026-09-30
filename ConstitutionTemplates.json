@@ -1,0 +1,31 @@
+{
+  "_comment": "制宪会议上各理念政党主张的宪法条款(见 Scripts/GeneralSystems/ConstitutionSystem.cs)。按 defaults → ideologies[理念] → monarchy[理念](君主立宪时) → one_party(一党制时) → 文化包 Constitution.clauses 的顺序依次覆盖。条款：territory(Unitary/Federal) economy(PrivateProperty/Mixed/Planned) religion(Secular/StateReligion) emergency(Prohibited/Allowed) amendment(ParliamentSupermajority/Referendum/PartyCongress) term_years(2~8) max_terms(0=不限)",
+  "defaults": {
+    "territory": "Unitary",
+    "economy": "Mixed",
+    "religion": "Secular",
+    "emergency": "Prohibited",
+    "amendment": "ParliamentSupermajority",
+    "term_years": "4",
+    "max_terms": "2"
+  },
+  "ideologies": {
+    "Anarchism": { "territory": "Federal", "amendment": "Referendum" },
+    "SocialDemocracy": { "amendment": "Referendum" },
+    "Libertarianism": { "territory": "Federal", "economy": "PrivateProperty", "amendment": "Referendum" },
+    "SocialLiberalism": { "amendment": "Referendum" },
+    "Capitalism": { "economy": "PrivateProperty" },
+    "ConservativeLiberalism": { "economy": "PrivateProperty" },
+    "Centrism": {},
+    "Socialism": { "economy": "Planned", "emergency": "Allowed", "amendment": "PartyCongress", "term_years": "5", "max_terms": "0" },
+    "Communism": { "economy": "Planned", "emergency": "Allowed", "amendment": "PartyCongress", "term_years": "5", "max_terms": "0" },
+    "ReligiousDemocracy": { "religion": "StateReligion" },
+    "Authoritarianism": { "emergency": "Allowed", "max_terms": "0" },
+    "Conservatism": { "economy": "PrivateProperty", "emergency": "Allowed", "max_terms": "0" },
+    "Fascism": { "emergency": "Allowed", "amendment": "PartyCongress", "max_terms": "0" }
+  },
+  "monarchy": {
+    "Conservatism": { "religion": "StateReligion" }
+  },
+  "one_party": { "amendment": "PartyCongress" }
+}

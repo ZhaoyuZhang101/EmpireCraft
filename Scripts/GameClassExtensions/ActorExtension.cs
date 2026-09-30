@@ -325,6 +325,21 @@ public enum PerformanceEventType
 }
 public static class ActorExtension
 {
+    // 单位仍指向已 Dispose 的王国(asset 为空)时，原版 joinKingdom 会在 kingdom.isCiv() 抛空引用，
+    // 让 makeNewCivKingdom 只建了一半。建国前先把这种失效引用清掉。
+    public static void ClearDisposedKingdom(this Actor actor)
+    {
+        if (actor?.kingdom != null && actor.kingdom.asset == null) actor.kingdom = null;
+    }
+
+    // 只有文明物种能建国：原版按 kingdom_id_civilization 取王国资产，非文明单位建出的王国没有资产
+    public static bool CanFoundCivKingdom(this Actor actor)
+    {
+        string id = actor?.asset?.kingdom_id_civilization;
+        return actor != null && !actor.isRekt() && actor.isAlive() && !string.IsNullOrEmpty(id) &&
+               AssetManager.kingdoms.dict.TryGetValue(id, out KingdomAsset asset) && asset.civ;
+    }
+
     public class ActorExtraData:ExtraDataBase
     {
         // 爵位  
@@ -348,7 +363,11 @@ public static class ActorExtension
         public SocialClass  socialClass = SocialClass.Peasant;
         // Mod-managed workshop employment. Tied to a city so migration ends the job.
         public long urban_employment_city_id = -1L;
+        // Advanced urban housing creates a persistent citizen stratum. Migration ends the status.
+        public long urban_citizen_city_id = -1L;
         public string personal_ideology = "";
+        // Used by the yearly ideology pass to react when urbanisation changes an actor's class.
+        public string last_ideology_social_class = "";
         // 商人不是职业，而是家庭长期收入形成的经济身份。收入按城市年度结算滚动。
         public int economic_income_current_year = 0;
         public int economic_income_previous_year = 0;
@@ -760,7 +779,7 @@ public static class ActorExtension
 
     public static bool CanServeOffice(this Actor a, Kingdom kingdom)
     {
-        if (a == null || a.IsWarMachine()) return false;
+        if (a == null || a.isRekt() || !a.isAlive() || a.IsWarMachine()) return false;
         if (kingdom == null || !kingdom.IsInEmpire())
         {
             return true;
@@ -940,6 +959,28 @@ public static class ActorExtension
             relatedActorId, relatedPersonalIdentityId);
     }
 
+    // 个人经历上限：族谱里连已故族人的经历也存档，不设上限存档会膨胀到几百 MB、读档内存不够直接闪退。
+    // 超出时丢掉最早的记录，但保留第一条(通常是出生)
+    // 已故族人只留 12 条(出生、婚育、官职、逝世这些大事足够)，族谱里绝大多数是已故的人
+    public const int MaxPersonalHistory = 80;
+    public const int MaxDeceasedPersonalHistory = 12;
+
+    public static void TrimPersonalHistory(PersonalClanIdentity identity)
+    {
+        List<PersonalHistoryRecord> history = identity?.personal_history;
+        int cap = identity?.is_alive == false ? MaxDeceasedPersonalHistory : MaxPersonalHistory;
+        if (history == null || history.Count <= cap) return;
+        history.RemoveRange(1, history.Count - cap);
+    }
+
+    // 存档前把所有族人的经历压到上限(已故的人不再记新经历，只能在这里收)
+    public static void TrimAllPersonalHistories()
+    {
+        foreach (SpecificClan clan in SpecificClanManager._specificClans ?? new List<SpecificClan>())
+        foreach (PersonalClanIdentity person in clan?.SnapshotPeople() ?? Array.Empty<PersonalClanIdentity>())
+            TrimPersonalHistory(person);
+    }
+
     public static void RecordPersonalHistory(this PersonalClanIdentity identity, string content, string historyDate = null,
         string kingdomName = "", long empireId = -1L, string eventKey = "", long relatedActorId = -1L,
         long relatedPersonalIdentityId = -1L)
@@ -961,6 +1002,7 @@ public static class ActorExtension
             owner_personal_identity_id = identity.id
         };
         identity.personal_history.Add(record);
+        TrimPersonalHistory(identity);
         PersonalClanIdentity relatedIdentity = relatedPersonalIdentityId > 0
             ? SpecificClanManager.getPerson(relatedPersonalIdentityId)
             : relatedActorId > 0 ? World.world.units.get(relatedActorId)?.GetPersonalIdentity() : null;
@@ -1079,7 +1121,8 @@ public static class ActorExtension
     {
         if (a == null || a.isRekt() || empire == null || string.IsNullOrEmpty(peerageKey)) return false;
         Regime regime = empire.CoreKingdom?.GetRegime();
-        if (regime?.virtual_honorary_peerages?.Contains(peerageKey) != true || a.HasHonoraryPeerage() ||
+        if (regime?.type == RegimeType.Modern ||
+            regime?.virtual_honorary_peerages?.Contains(peerageKey) != true || a.HasHonoraryPeerage() ||
             empire.IsHonoraryPeerageReserved(peerageKey)) return false;
         if (peerageKey == "tang_honorary_anle_gong" && empire.GetAnlePeeragePriority(a) <= 0) return false;
         a.CheckSpecificClan(false);

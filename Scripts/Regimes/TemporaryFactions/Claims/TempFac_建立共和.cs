@@ -33,6 +33,7 @@ public class TempFac_建立共和 : TemporaryFaction
         Empire empire = GetEmpire();
         FixedFaction party = GetFaction();
         return empire != null && party != null &&
-               (RepublicSystem.CanAbdicate(empire, party) || RepublicSystem.CanRevolt(empire, party));
+               (RepublicSystem.CanMassPoliticsTransition(empire, party) ||
+                RepublicSystem.CanAbdicate(empire, party) || RepublicSystem.CanRevolt(empire, party));
     }
 }

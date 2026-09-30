@@ -42,7 +42,8 @@ public static class ProductionInstitutionPaths
                     {
                         [SocialClass.Peasant] = 0.35f,
                         [SocialClass.Merchant] = 0.8f,
-                        [SocialClass.Labour] = 0.7f
+                        [SocialClass.Labour] = 0.7f,
+                        [SocialClass.Citizen] = 0.55f
                     },
                     oppose_classes = new Dictionary<SocialClass, float>
                     {

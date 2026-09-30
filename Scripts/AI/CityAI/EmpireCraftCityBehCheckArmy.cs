@@ -34,13 +34,15 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
         };
         if (pCity.kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi)
         {
-            pCity.units.ForEach(a =>
+            foreach (Actor a in pCity.units.ToList())
             {
+                // 单位列表里可能残留已死亡/无装备栏的单位，原版 makeWarrior 不判空
+                if (a == null || !a.isAlive() || a.equipment == null) continue;
                 if (pCity.checkCanMakeWarrior(a))
                 {
                     pCity.makeWarrior(a);
-                } 
-            });
+                }
+            }
         }
         pCity.checkArmyExistence();
         if (pCity.hasArmy())

@@ -1011,6 +1011,16 @@ public static class UIHelper
         string bodyKey = $"empirecraft_tip_body_{safeKey}";
         LM.AddToCurrentLocale(titleKey, title ?? "");
         LM.AddToCurrentLocale(bodyKey, body ?? "");
+        // 原版 TipButton 只在同物体上有 Button 或 Slider 时才挂悬停事件(见 TipButton.Start)，
+        // 纯文字没有 Button，悬停就什么都不显示：补一个不带视觉过渡的 Button，并让文字能接收指针
+        if (target.GetComponent<Button>() == null && target.GetComponent<Slider>() == null)
+        {
+            Button button = target.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+        }
+        Graphic graphic = target.GetComponent<Graphic>() ?? target.GetComponentInChildren<Graphic>(true);
+        if (graphic != null) graphic.raycastTarget = true;
         TipButton tip = target.GetComponent<TipButton>() ?? target.AddComponent<TipButton>();
         tip.type = "normal";
         tip.textOnClick = titleKey;

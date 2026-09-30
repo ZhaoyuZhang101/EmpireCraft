@@ -149,7 +149,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
             if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(title)) continue;
             // 法理默认文化不再由这里按年自动检查/转换：占比够高之后要靠"文治"派系发起
             // 文化转化决议来正式改变（见 TempFac_文化转化.cs），所以旧的按年计时器已移除。
-            if (!title.checkActive()) this._to_dissolve.Add(title);
+            if (!title.checkActive() && !ModClass.KINGDOM_TITLE_FREEZE) this._to_dissolve.Add(title);
         }
         for (int index = 0; index < this._to_dissolve.Count; index++)
         {

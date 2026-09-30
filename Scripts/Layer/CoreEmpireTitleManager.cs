@@ -46,7 +46,7 @@ public static class EmpireCoreManager
             empire_id = empire.id,
             culture = empire.CoreKingdom.culture.id,
             default_culture = CultureService.GetRealmCulture(empire.CoreKingdom),
-            name =  empire.GetEmpireName().AppendWithNarrowSpace("EmpireText".GetLocal()),
+            name = NormalizeCoreName(empire.GetEmpireName()),
             create_timestamp = empire.data.created_time,
             titlesRecord = empire.CoreKingdom.GetControlledTitles().Select(t=>(World.world.getCurWorldTime(), t.id)).ToList(),
             empire_history_ids = new List<long>(),
@@ -85,13 +85,23 @@ public static class EmpireCoreManager
     public static IEnumerable<City> EnumerateCities(EmpireCore core)
     {
         if (core?.titlesRecord == null) yield break;
+        bool provisional = core.false_core_against_empire_id > 0 || core.warlord_parent_core_id > 0;
         foreach (var record in core.titlesRecord)
         {
             KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(record.titleId);
             if (title == null || title.isRekt()) continue;
             foreach (City city in title.getCities())
             {
-                if (city != null && !city.isRekt()) yield return city;
+                if (city == null || city.isRekt()) continue;
+                // Claimant/provisional cores may reference the same kingdom title as the lawful
+                // core. Only draw territory actually assigned to the provisional core, otherwise
+                // its plate and colour cover the original de jure region.
+                if (provisional)
+                {
+                    EmpireCore assigned = city.GetEmpireCore();
+                    if (assigned != null && assigned != core) continue;
+                }
+                yield return city;
             }
         }
     }
@@ -183,16 +193,31 @@ public static class EmpireCoreManager
         if (core == null) return "";
         if (!string.IsNullOrWhiteSpace(core.name))
         {
-            return core.name;
+            string normalized = NormalizeCoreName(core.name);
+            if (!string.Equals(core.name, normalized, StringComparison.Ordinal)) core.name = normalized;
+            return normalized;
         }
 
         string cultureName = GetCultureDisplayName(core);
         if (!string.IsNullOrWhiteSpace(cultureName))
         {
-            return OverallHelperFunc.JoinNameParts(cultureName[0].ToString(), LM.Get("EmpireText"));
+            return cultureName[0].ToString();
         }
 
-        return LM.Get("EmpireText");
+        return "";
+    }
+
+    public static string NormalizeCoreName(string name)
+    {
+        string normalized = name?.Trim() ?? "";
+        string[] suffixes = { LM.Get("EmpireText"), "帝国", "帝國", "Empire" };
+        foreach (string suffix in suffixes.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct())
+        {
+            if (!normalized.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) continue;
+            normalized = normalized.Substring(0, normalized.Length - suffix.Length);
+            break;
+        }
+        return normalized.Trim().Trim(ModClass.NARROW_SPACE.ToCharArray()).Trim();
     }
 
     public static Empire GetLegitimateEmpire(EmpireCore core)
@@ -205,18 +230,15 @@ public static class EmpireCoreManager
     public static string GetStatusDisplayName(EmpireCore core)
     {
         string name = GetDisplayName(core);
-        return GetLegitimateEmpire(core) == null ? name : $"{name} ({LM.Get("empire_core_false")})";
+        // 伪核心不会因为原正统国家灭亡、解除对手关系或关闭法理冻结而转正。
+        // 胜利者取得正统时会销毁该对象并改绑到已有正规核心。
+        return core?.false_core_against_empire_id > 0
+            ? $"{name} ({LM.Get("empire_core_false")})"
+            : name;
     }
 
     public static string GetPlateName(EmpireCore core)
     {
-        if (core == null) return "";
-        string cultureName = GetCultureDisplayName(core);
-        if (!string.IsNullOrWhiteSpace(cultureName))
-        {
-            return OverallHelperFunc.JoinNameParts(cultureName[0].ToString(), LM.Get("EmpireText"));
-        }
-
         return GetDisplayName(core);
     }
 
@@ -442,7 +464,9 @@ public static class EmpireCoreManager
             empire_id = -1L,
             culture = kingdom?.culture?.id ?? -1L,
             default_culture = CultureService.GetRealmCulture(kingdom),
-            name = string.IsNullOrWhiteSpace(title.data?.name) ? (kingdom?.name ?? capital.GetCityName()) : title.data.name,
+            name = NormalizeCoreName(string.IsNullOrWhiteSpace(title.data?.name)
+                ? (kingdom?.name ?? capital.GetCityName())
+                : title.data.name),
             create_timestamp = World.world.getCurWorldTime(),
             titlesRecord = new List<(double time, long titleId)>()
         };

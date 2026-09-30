@@ -60,7 +60,7 @@
         说明：
         <br />1. 新增官职时，官职等级默认按创建顺序自动递增。
         <br />2. `core / division` 会额外显示部门命名规则。
-        <br />3. 桌面版会读取并直接修改现有的 `各文化的 CultureRule.json`，这里只改文化的政体字段。
+        <br />3. 桌面版会读取并直接修改现有的 各文化的 `CultureRule.jsonc`，这里只改文化的政体字段。
         <br />4. “打开政体目录”会尝试打开 `Scripts/Regimes/Configs/`。
         <br />5. 桌面版可以先选择一次模组目录，之后会自动记住。
         <br />6. 桌面版可以直接写入 `Scripts/Regimes/Configs/<政体文件夹名>/`，不用手动逐个下载。
@@ -135,7 +135,7 @@
 
       <section class="panel section-panel" id="cultures">
         <h2>文化绑定</h2>
-        <p class="muted">这里会读取真实的 `各文化的 CultureRule.json`，只修改每个文化的 `setting.regime`。界面只显示文化名称，方便直接勾选后绑定当前政体。</p>
+        <p class="muted">这里会读取真实的 各文化的 `CultureRule.jsonc`，只修改每个文化的 `setting.regime`。界面只显示文化名称，方便直接勾选后绑定当前政体。</p>
         <div class="toolbar">
           <button id="selectAllCulturesBtn">全选</button>
           <button id="clearCultureSelectionBtn">清空选择</button>
@@ -530,7 +530,7 @@
       for(const row of localeMap.values()) localeRows.push(row.map(csv).join(","));
 
         const editorState={meta,offices:state.offices,factions:state.factions,regimeOptions:state.regimeOptions,laws:state.laws};
-        // 每个文化一个 CultureRule.json：只把各自的 setting.regime 交给桌面端改，文件其余内容(含注释)不动
+        // 每个文化一个 CultureRule.jsonc：只把各自的 setting.regime 交给桌面端改，文件其余内容(含注释)不动
         const cultureRegimes=state.cultures.filter(c=>c.file).map(c=>({file:c.file,name:c.name,regime:c.regime}));
 
       return {systemText:JSON.stringify({[meta.regimeKey]:systemConfig},null,2),officialText:localeRows.join("\n"),stateText:JSON.stringify(editorState,null,2),cultureRegimes,cultureText:cultureRegimes.map(c=>`${c.name}: ${c.regime||"(未绑定)"}`).join("\n")};
@@ -857,8 +857,8 @@
         document.getElementById("officialPreview").value=out.officialText;
         document.getElementById("statePreview").value=out.stateText;
         document.getElementById("culturePreview").value=state.rawCultureRules.length
-          ? "不会生成新的 各文化的 CultureRule.json 文件。\n写入时会直接修改当前读取到的真实文化配置文件，并且只更新每个文化的 setting.regime 字段。"
-          : "还没有读取到真实文化配置文件。点击“读取文化配置”后，写入操作才会修改现有的 各文化的 CultureRule.json。";
+          ? "不会生成新的文化配置文件。\n写入时会直接修改当前读取到的真实文化配置文件，并且只更新每个文化的 setting.regime 字段。"
+          : "还没有读取到真实文化配置文件。点击“读取文化配置”后，写入操作才会修改各文化现有的 CultureRule.jsonc。";
         setStatus("预览已更新");
       }catch(err){setStatus(`预览更新失败：${err.message}`,true)}
     }
@@ -1017,8 +1017,8 @@
     document.getElementById("openConfigsBtn").addEventListener("click",async()=>{try{const result=await openConfigsDirectory();setStatus(`已打开政体目录：${result.path||"Scripts/Regimes/Configs"}`)}catch(err){setStatus(`打开政体目录失败：${err.message}`,true)}});
     document.getElementById("writeConfigsBtn").addEventListener("click",async()=>{try{const result=await writeConfigsToFolder();setStatus(`已写入政体目录：${result.directory}；文化配置已更新：${result.culturePath}`)}catch(err){setStatus(`写入政体目录失败：${err.message}`,true)}});
     document.getElementById("syncEnumsBtn").addEventListener("click",async()=>{try{const result=await syncEnumsToCode();const msg=result?.stdout?`同步完成：${result.stdout}`:"同步完成";setStatus(msg)}catch(err){setStatus(`同步枚举失败：${err.message}`,true)}});
-    document.getElementById("downloadBtn").addEventListener("click",()=>{try{const out=buildOutputs();const files=[["SystemConfig.json",out.systemText],["OfficialType.csv",out.officialText],["RegimeEditorState.json",out.stateText]];for(const [name,text] of files){const blob=new Blob([text],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url)}setStatus("导出文件已开始下载；各文化的 CultureRule.json 不会被导出成新文件")}catch(err){setStatus(`导出失败：${err.message}`,true)}});
-    document.getElementById("importEditorState").addEventListener("change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const json=JSON.parse(await file.text());const meta=json.meta||{};for(const [id,key] of [["folderName","folderName"],["regimeKey","regimeKey"],["regimeNameCh","regimeNameCh"],["regimeNameCz","regimeNameCz"],["regimeNameEn","regimeNameEn"],["descriptionCh","descriptionCh"],["descriptionCz","descriptionCz"],["descriptionEn","descriptionEn"],["iconUrl","iconUrl"],["defaultKingdom","defaultKingdom"],["cabinetNumber","cabinetNumber"]]){if(meta[key]!==undefined)document.getElementById(id).value=Array.isArray(meta[key])?meta[key].join(","):meta[key]} document.getElementById("leaderSelectMethod").value=meta.leaderSelectMethod||"Succession"; document.getElementById("eraName").checked=!!meta.eraName; document.getElementById("hasCabinet").checked=meta.hasCabinet!==false; document.getElementById("centreSeparate").checked=meta.centreSeparate!==false; state.offices={cores:[],division:[],harems:[],kingdoms:[],cities:[],armies:[]}; for(const scope of Object.keys(state.offices)) state.offices[scope]=(json.offices?.[scope]||[]).map(x=>makeOffice(scope,x)); state.factions=(json.factions||[]).map(makeFaction); state.regimeOptions=normalizeRegimeOptions(json.regimeOptions||meta.options); state.laws=normalizeLaws(json.laws||json.selectedLaws||meta.laws); renderOffices(); renderCultures(); renderMetaSelectors(); refreshPreview(); setStatus("编辑器状态已导入；文化列表仍以真实 各文化的 CultureRule.json 为准")}catch(err){setStatus(`导入编辑器状态失败：${err.message}`,true)}});
+    document.getElementById("downloadBtn").addEventListener("click",()=>{try{const out=buildOutputs();const files=[["SystemConfig.json",out.systemText],["OfficialType.csv",out.officialText],["RegimeEditorState.json",out.stateText]];for(const [name,text] of files){const blob=new Blob([text],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url)}setStatus("导出文件已开始下载；各文化的 CultureRule.jsonc 不会被导出成新文件")}catch(err){setStatus(`导出失败：${err.message}`,true)}});
+    document.getElementById("importEditorState").addEventListener("change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const json=JSON.parse(await file.text());const meta=json.meta||{};for(const [id,key] of [["folderName","folderName"],["regimeKey","regimeKey"],["regimeNameCh","regimeNameCh"],["regimeNameCz","regimeNameCz"],["regimeNameEn","regimeNameEn"],["descriptionCh","descriptionCh"],["descriptionCz","descriptionCz"],["descriptionEn","descriptionEn"],["iconUrl","iconUrl"],["defaultKingdom","defaultKingdom"],["cabinetNumber","cabinetNumber"]]){if(meta[key]!==undefined)document.getElementById(id).value=Array.isArray(meta[key])?meta[key].join(","):meta[key]} document.getElementById("leaderSelectMethod").value=meta.leaderSelectMethod||"Succession"; document.getElementById("eraName").checked=!!meta.eraName; document.getElementById("hasCabinet").checked=meta.hasCabinet!==false; document.getElementById("centreSeparate").checked=meta.centreSeparate!==false; state.offices={cores:[],division:[],harems:[],kingdoms:[],cities:[],armies:[]}; for(const scope of Object.keys(state.offices)) state.offices[scope]=(json.offices?.[scope]||[]).map(x=>makeOffice(scope,x)); state.factions=(json.factions||[]).map(makeFaction); state.regimeOptions=normalizeRegimeOptions(json.regimeOptions||meta.options); state.laws=normalizeLaws(json.laws||json.selectedLaws||meta.laws); renderOffices(); renderCultures(); renderMetaSelectors(); refreshPreview(); setStatus("编辑器状态已导入；文化列表仍以真实 各文化的 CultureRule.jsonc 为准")}catch(err){setStatus(`导入编辑器状态失败：${err.message}`,true)}});
     seedTemplate();
     renderOffices();
     renderCultures();

@@ -495,6 +495,7 @@ public static class DataManager
             if (core == null || core.id <= 0) continue;
             core.titlesRecord ??= new List<(double time, long titleId)>();
             core.empire_history_ids ??= new List<long>();
+            core.name = EmpireCoreManager.NormalizeCoreName(core.name);
             result[core.id] = core;
         }
         return result;

@@ -385,7 +385,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         ParliamentView parliament = ParliamentSystem.GetView(_empire);
         List<IdeologyPressureSource> pressure = state.ideology_pressure ?? new List<IdeologyPressureSource>();
 
-        const float height = 58f;
+        const float height = 84f;
         var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 1,
             pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(6, 6, 4, 4));
         _content.Add(panel.gameObject);
@@ -432,7 +432,53 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                 PublicOpinionSystem.CallSnapElection(_empire);
                 Rebuild();
             }, size: new Vector2(90, 11));
+        AddPartyBanControls(panel);
         panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+    }
+
+    // 党禁状态、选举制度、独裁度/重开压力，以及手动开关党禁、切换选举制度的按钮
+    private void AddPartyBanControls(AutoVertLayoutGroup panel)
+    {
+        string mode = PartyBanSystem.GetMode(_empire);
+        string modeColor = mode == PartyBanSystem.ModeOpen ? "#9EF29E" : "#E9A85B";
+        string electoral = !PartyBanSystem.CanChooseElectoralSystem(_empire)
+            ? LM.Get("electoral_restricted")
+            : LM.Get(PartyBanSystem.UsesDemocraticCentralism(_empire)
+                ? "electoral_democratic_centralism" : "electoral_universal_suffrage");
+        string metric = mode == PartyBanSystem.ModeOpen
+            ? string.Format(LM.Get("party_ban_autocracy"), PartyBanSystem.GetAutocracy(_empire).ToString("0"))
+            : string.Format(LM.Get("party_ban_reopen_pressure"),
+                PartyBanSystem.GetReopenPressure(_empire).ToString("0"),
+                (PartyBanSystem.GetCoreSupport(_empire).support * 100f).ToString("0"));
+        string status = $"{LM.Get("party_ban_title")}: {LM.Get($"party_ban_mode_{mode}").ColorString(modeColor)}   " +
+                        $"{LM.Get("electoral_title")}: {electoral}   {metric.ColorString("#B8C6CC")}";
+        float abolition = RepublicSystem.GetAbolitionPressure(_empire);
+        if (abolition > 0f)
+            status += "   " + string.Format(LM.Get("republic_abolition_pressure"), abolition.ToString("0"))
+                .ColorString(abolition >= 50f ? "#E05A4F" : "#E9A85B");
+        panel.AddTextIntoVertLayout(status, true, TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 10))
+            .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+
+        var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
+        if (PartyBanSystem.IsClosed(_empire))
+            buttons.AddButtonIntoHoriLayout("party_ban_open", LM.Get("party_ban_open"), () =>
+            {
+                PartyBanSystem.OpenManually(_empire);
+                Rebuild();
+            }, size: new Vector2(90, 11));
+        else if (PartyBanSystem.CanCloseManually(_empire, out _, out _))
+            buttons.AddButtonIntoHoriLayout("party_ban_close", LM.Get("party_ban_close"), () =>
+            {
+                PartyBanSystem.CloseManually(_empire);
+                Rebuild();
+            }, size: new Vector2(90, 11));
+        if (PartyBanSystem.CanChooseElectoralSystem(_empire))
+            buttons.AddButtonIntoHoriLayout("electoral_toggle", LM.Get(PartyBanSystem.UsesDemocraticCentralism(_empire)
+                ? "electoral_switch_to_suffrage" : "electoral_switch_to_centralism"), () =>
+            {
+                PartyBanSystem.ToggleElectoralSystem(_empire);
+                Rebuild();
+            }, size: new Vector2(90, 11));
     }
 
     private void AddSocialUnrest()

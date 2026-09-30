@@ -355,7 +355,14 @@ public class Empire : MetaObject<EmpireData>
         return EnsureEmpireCoreName();
     }
 
+    // 军阀时期(见 WarlordEraSystem)：帝国核心范围内的国家按中央/临时政府/军阀改称
     public string GetEmpireFullName()
+    {
+        string baseName = GetBaseEmpireFullName();
+        return WarlordEraSystem.DecorateName(this, baseName);
+    }
+
+    public string GetBaseEmpireFullName()
     {
         if (data == null) return "";
         try
@@ -369,6 +376,10 @@ public class Empire : MetaObject<EmpireData>
             if (string.IsNullOrWhiteSpace(coreName)) return data.name ?? "";
             // 改制共和后国号后缀按执政理念取
             string ideologySuffix = CoreKingdom?.GetOrCreate().ideology_country_suffix;
+            // 没经过改制就成了共和国的(直接组建政府、旧存档)补一个后缀，免得国号只剩核心名
+            if (string.IsNullOrWhiteSpace(ideologySuffix) && IsRepublicState && CoreKingdom != null)
+                ideologySuffix = CoreKingdom.GetOrCreate().ideology_country_suffix =
+                    PartySystem.PickCountrySuffix(this, IdeologyFamilies.StateIdeology(this));
             if (!string.IsNullOrWhiteSpace(ideologySuffix)) return OverallHelperFunc.JoinNameParts(coreName, ideologySuffix);
 
             if (string.IsNullOrWhiteSpace(data.empire_type_key))
@@ -510,6 +521,8 @@ public class Empire : MetaObject<EmpireData>
         City capital = core?.capital;
         if (actor == null || actor.isRekt() || !actor.isAlive() || core == null || capital == null) return false;
         if (Emperor?.id == actor.id) return true;
+        Actor previousHead = Emperor;
+        List<long> stateTitleIds = SnapshotSovereignTitles(previousHead, core);
         if (actor.isKing() && actor.kingdom != core) actor.kingdom.removeKing();
         if (core.king != null) core.removeKing();
         actor.joinCity(capital);
@@ -517,7 +530,40 @@ public class Empire : MetaObject<EmpireData>
         _completingMinisterUsurpation = true;
         try { core.setKing(actor); }
         finally { _completingMinisterUsurpation = false; }
-        return Emperor?.id == actor.id;
+        bool installed = Emperor?.id == actor.id;
+        if (installed) TransferSovereignTitles(previousHead, actor, core, stateTitleIds);
+        return installed;
+    }
+
+    private static List<long> SnapshotSovereignTitles(Actor head, Kingdom core)
+    {
+        HashSet<long> titleIds = new HashSet<long>(head?.GetOwnedTitle() ?? new List<long>());
+        if (core != null)
+        {
+            foreach (long titleId in core.GetRealmTitleIds()) titleIds.Add(titleId);
+        }
+        return titleIds.Where(titleId => titleId > 0 &&
+            ModClass.KINGDOM_TITLE_MANAGER.get(titleId) != null).ToList();
+    }
+
+    private static void TransferSovereignTitles(Actor previousHead, Actor newHead, Kingdom core,
+        IEnumerable<long> titleIds)
+    {
+        if (newHead == null || core == null || titleIds == null) return;
+        foreach (long titleId in titleIds.Distinct())
+        {
+            KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(titleId);
+            if (title == null || title.isRekt()) continue;
+            if (previousHead != null && previousHead != newHead)
+                previousHead.GetOwnedTitle()?.Remove(title.id);
+            if (title.owner != null && title.owner != newHead)
+                title.owner.GetOwnedTitle()?.Remove(title.id);
+            newHead.AddOwnedTitle(title);
+            title.owner = newHead;
+            if (title.main_kingdom == core || core.IsTitleWithinRealm(title))
+                core.RegisterRealmTitle(title);
+        }
+        core.TransferRealmTitlesToRuler(newHead);
     }
 
     private bool IsRepublicState => data?.constitutional_economy?.is_republic == true;
@@ -840,7 +886,9 @@ public class Empire : MetaObject<EmpireData>
             royal_surname = previousClan?.name ?? "",
             miaohao_name = "",
             shihao_name = "",
-            descriptions = new List<HistoryDescription>()
+            descriptions = new List<HistoryDescription>(),
+            is_republic = IsRepublicState,
+            office_title = IsRepublicState ? RepublicSystem.GetHeadOfStateTitle(this) : ""
         };
         RepairFoundingEmperorMarker();
         if (!IsRepublicState)
@@ -1058,7 +1106,7 @@ public class Empire : MetaObject<EmpireData>
 
     public bool AddCabinetMember(Actor actor)
     {
-        if (actor == null) return false;
+        if (actor == null || !actor.CanServeOffice(CoreKingdom)) return false;
         if (!actor.HasOfficeIdentity()) return false;
         OfficeIdentity identity = actor.GetIdentity();
         if (identity.IsCabinet()) return false;
@@ -1071,7 +1119,7 @@ public class Empire : MetaObject<EmpireData>
 
     public bool SetCabinetLeader(Actor actor)
     {
-        if (actor == null) return false;
+        if (actor == null || !actor.CanServeOffice(CoreKingdom)) return false;
         if (!actor.HasOfficeIdentity()) return false;
         if (GetCabinetLeader()?.id == actor.id) return false;
         OfficeIdentity identity = actor.GetIdentity();
@@ -1089,12 +1137,28 @@ public class Empire : MetaObject<EmpireData>
 
     public Actor GetCabinetLeader()
     {
-        return data.CabinetMembers.Count<=0?null:World.world.units.get(data.CabinetMembers[0]);
+        return GetCabinetMembers().FirstOrDefault();
     }
 
     public List<Actor> GetCabinetMembers()
     {
-        return data.CabinetMembers.Select(a=>World.world.units.get(a)).ToList();
+        List<long> validIds = new List<long>();
+        List<Actor> members = new List<Actor>();
+        foreach (long actorId in data.CabinetMembers ?? new List<long>())
+        {
+            Actor actor = World.world.units.get(actorId);
+            if (actor == null || !actor.CanServeOffice(CoreKingdom))
+            {
+                actor?.GetIdentity()?.ExitCabinet();
+                continue;
+            }
+            if (validIds.Contains(actorId)) continue;
+            validIds.Add(actorId);
+            members.Add(actor);
+        }
+        if (data.CabinetMembers == null || !data.CabinetMembers.SequenceEqual(validIds))
+            data.CabinetMembers = validIds;
+        return members;
     }
 
     public bool RemoveCabinetMember(Actor actor)
@@ -1545,6 +1609,9 @@ public class Empire : MetaObject<EmpireData>
         CompositeEmpireService.Update(this);
         ConstitutionalEconomySystem.Update(this);
         InstitutionSystem.Update(this);
+        // 上面的制度更新可能在本帧直接完成改制。后续行为必须读取新政体，
+        // 否则刚进入现代的国家还会按旧郡县制配置再册封一次。
+        regime = coreKingdom.GetRegime();
         if (regime?.type == RegimeType.LvLing)
         {
             // 议会存续期间由议会选出的总理大臣执政，不再产生权臣
@@ -1561,7 +1628,8 @@ public class Empire : MetaObject<EmpireData>
             if (IsWesternCentralized()) ProcessTerritorialAcquisitionEnfeoff();
             if (regime != null && data.powerful_minister_id > 0) ClearPowerfulMinister();
         }
-        if (regime?.enfeoff_virtual_only != true) return;
+        // 现代国家不再运行传统封爵、恩赏爵位或爵位承袭流程。
+        if (regime?.type == RegimeType.Modern || regime?.enfeoff_virtual_only != true) return;
         bool legalPeeragesDue = data.last_legal_peerage_timestamp < 0 ||
             Date.getMonthsSince(data.last_legal_peerage_timestamp) >= 1;
         bool honoraryPeeragesDue = regime.enable_auto_honorary_peerages &&
@@ -4168,7 +4236,10 @@ public class Empire : MetaObject<EmpireData>
 
     public Kingdom SetEnfeoff(City capital, Actor king)
     {
-        Kingdom pKingdom = capital.kingdom;
+        Kingdom pKingdom = capital?.kingdom;
+        // 先校验再拆城：拆完城后建国失败，城市会变成没有王国的孤城
+        if (pKingdom == null || pKingdom.asset == null || !king.CanFoundCivKingdom()) return null;
+        king.ClearDisposedKingdom();
         capital.removeFromCurrentKingdom();
         capital.removeLeader();
         Kingdom kingdom = World.world.kingdoms.makeNewCivKingdom(king, pLog:false);

@@ -58,7 +58,7 @@ public static class PartySystem
     public const string FeatureUniversalSuffrage = "universal_suffrage";
 
     private const int MaxParties = 7;
-    private const float FoundChance = 0.3f;
+    private const float FoundChance = 0.65f;
     private const int FoundRecruits = 6;
     private const float SwitchMargin = 25f;
     private const int MaxSwitchesPerYear = 5;
@@ -100,7 +100,8 @@ public static class PartySystem
         { SocialClass.Landlord, new Vector2(60f, -20f) },
         { SocialClass.Noble, new Vector2(50f, -55f) },
         { SocialClass.Army, new Vector2(20f, -65f) },
-        { SocialClass.Officer, new Vector2(0f, -20f) }
+        { SocialClass.Officer, new Vector2(0f, -20f) },
+        { SocialClass.Citizen, new Vector2(0f, 25f) }
     };
 
     // 政党沿用派系类型(制度立场、立宪态度按类型算)，理念 → 最接近的派系类型
@@ -130,7 +131,7 @@ public static class PartySystem
         { PartyIdeology.SocialLiberalism, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.推行普选, TemporaryFactionType.开放移民, TemporaryFactionType.自由信仰, TemporaryFactionType.开科取士 } },
         { PartyIdeology.Capitalism, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.降低赋税, TemporaryFactionType.拓展金融霸权, TemporaryFactionType.开放移民 } },
         { PartyIdeology.ConservativeLiberalism, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.降低赋税, TemporaryFactionType.拓展金融霸权, TemporaryFactionType.自由信仰 } },
-        { PartyIdeology.Centrism, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.开科取士, TemporaryFactionType.设置行政区, TemporaryFactionType.谋求统一 } },
+        { PartyIdeology.Centrism, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.推行普选, TemporaryFactionType.开科取士, TemporaryFactionType.设置行政区, TemporaryFactionType.谋求统一 } },
         { PartyIdeology.Socialism, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.土地改革, TemporaryFactionType.提高福利, TemporaryFactionType.提高赋税, TemporaryFactionType.推行普选 } },
         { PartyIdeology.Communism, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.土地改革, TemporaryFactionType.输出革命, TemporaryFactionType.扶持革命党, TemporaryFactionType.禁党, TemporaryFactionType.提高福利 } },
         { PartyIdeology.ReligiousDemocracy, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.确立国教, TemporaryFactionType.提高福利, TemporaryFactionType.神授君权 } },
@@ -140,7 +141,7 @@ public static class PartySystem
     };
 
     private static readonly SocialClass[] RestrictedFranchise =
-        { SocialClass.Landlord, SocialClass.Merchant, SocialClass.Noble, SocialClass.Officer };
+        { SocialClass.Landlord, SocialClass.Merchant, SocialClass.Noble, SocialClass.Officer, SocialClass.Citizen };
 
     #region 查询
 
@@ -231,7 +232,14 @@ public static class PartySystem
         new(Enum.GetValues(typeof(PartyIdeology)).Cast<PartyIdeology>()
             .Where(ideology => IsIdeologyUnlocked(empire, ideology)));
 
+    // 实际是否普选：宪法手定了选举权时按宪法(普选仍需本文化推行过普选制度)，否则按制度
     public static bool HasUniversalSuffrage(Empire empire) =>
+        ConstitutionSystem.TryGetLockedSuffrage(empire, out Data.ConstitutionSuffrage suffrage)
+            ? suffrage == Data.ConstitutionSuffrage.Universal && HasUniversalSuffragePolicy(empire)
+            : HasUniversalSuffragePolicy(empire);
+
+    // 本文化是否推行过普选制度(宪法能否规定普选的前提)
+    public static bool HasUniversalSuffragePolicy(Empire empire) =>
         InstitutionSystem.GetFeature(empire, FeatureUniversalSuffrage) > 0f;
 
     public static string GetIdeologyName(PartyIdeology ideology) => LM.Get($"party_ideology_{ideology}");
@@ -290,6 +298,7 @@ public static class PartySystem
             IdeologyPopulationSystem.SeedNewPartyPolitics(empire);
             Reorganize(empire, regime);
             state.parties_reorganized = true;
+            RepublicSystem.ApplyFoundingPartyRule(empire);
             state.last_party_update = World.world.getCurWorldTime();
             return;
         }
@@ -304,10 +313,12 @@ public static class PartySystem
             return;
         }
         List<Actor> citizens = GetCitizens(empire);
+        TryMerge(empire, regime, state);
         TryFoundParty(empire, regime, citizens);
         DriftMembers(empire, citizens);
-        TryMerge(empire, regime, state);
         TrySplit(empire, regime, state);
+        if (!RepublicSystem.TryMassPoliticsTransition(empire))
+            RepublicSystem.TryRegionalRepublicCoalition(empire);
     }
 
     // 开放党禁：朝中派系改组为政党，原班人马随之转入
@@ -370,7 +381,7 @@ public static class PartySystem
         faction.FixMissedTemporaryFactions();
     }
 
-    // A new party requires supporters amounting to at least one fifth of the realm.
+    // A new party needs a real social base and an ideology already available to the culture.
     private static void TryFoundParty(Empire empire, Regime regime, List<Actor> citizens)
     {
         List<FixedFaction> parties = GetParties(empire);
@@ -382,6 +393,7 @@ public static class PartySystem
         Actor founder = citizens
             .Where(actor => actor.GetFaction()?.GetLeader() != actor)
             .Where(actor => !represented.Contains(IdeologyPopulationSystem.Get(actor)) &&
+                            IsIdeologyUnlocked(empire, IdeologyPopulationSystem.Get(actor)) &&
                             counts.TryGetValue(IdeologyPopulationSystem.Get(actor), out int supporters) &&
                             supporters >= population * IdeologyPopulationSystem.PartyFoundingShare)
             .OrderByDescending(actor => actor.renown).FirstOrDefault();
@@ -541,6 +553,7 @@ public static class PartySystem
         reason = "";
         if (!IsActive(empire)) { reason = "party_found_inactive"; return false; }
         if (RepublicSystem.IsOneParty(empire)) { reason = "party_found_one_party"; return false; }
+        if (!IsIdeologyUnlocked(empire, ideology)) { reason = "party_found_locked"; return false; }
         if (IdeologyPopulationSystem.GetEmpireShare(empire, ideology) < IdeologyPopulationSystem.PartyFoundingShare)
         { reason = "party_found_insufficient_support"; return false; }
         if (GetParties(empire).Count >= PlayerMaxParties) { reason = "party_found_too_many"; return false; }
@@ -856,6 +869,37 @@ public static class PartySystem
             if (names.Count > 0) return names;
         }
         return ReadNames(Path.Combine(root, "PartyNames", $"Party{ideology}.csv"));
+    }
+
+    // 按文化取某类理念称呼的词库：本文化 Party 配置里 select 指向的词库(可写"别的文化:词库名"引用别的文化)，
+    // 没配或词库为空时用 PartyNames/<fallbackPrefix><理念>.csv
+    public static List<string> GetCultureNamePool(string culture, PartyIdeology ideology,
+        Func<PartySetting, Dictionary<string, string>> select, string fallbackPrefix)
+    {
+        string root = Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures");
+        List<string> pool = new List<string>();
+        if (!string.IsNullOrEmpty(culture) &&
+            OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) && setting?.Party != null &&
+            select(setting.Party) is Dictionary<string, string> groups &&
+            groups.TryGetValue(ideology.ToString(), out string group))
+            pool = GetCultureWordPool(culture, group);
+        if (pool.Count == 0) pool = ReadNames(Path.Combine(root, "PartyNames", $"{fallbackPrefix}{ideology}.csv"));
+        return pool;
+    }
+
+    // 文化包里某个词库的全部词条：词库名写"别的文化:词库名"时读那个文化文件夹里的词库
+    public static List<string> GetCultureWordPool(string culture, string group)
+    {
+        if (string.IsNullOrWhiteSpace(culture) || string.IsNullOrWhiteSpace(group)) return new List<string>();
+        string owner = culture;
+        int split = group.IndexOf(':');
+        if (split > 0)
+        {
+            owner = group.Substring(0, split).Trim();
+            group = group.Substring(split + 1).Trim();
+        }
+        string root = Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures");
+        return ReadNames(Path.Combine(root, $"Culture_{owner}", $"{owner}{group}.csv"));
     }
 
     private static List<string> ReadNames(string path)

@@ -4,10 +4,12 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameLibrary;
 
-// Small pixel badges are registered with the same sprite loader as the mod's PNG icons.
+// 理念徽章：优先用 GameResources/ui/icons/actor_traits/ideology_<理念>.png(模组加载时已注册到同一路径，
+// 按现实中的政治符号绘制)；缺图时才在这里用代码画一个简易徽章兜底。
 public static class IdeologyTraitIcons
 {
     private const int Size = 24;
+    private static bool _registered;
     private static readonly string[][] Marks =
     {
         new[] { "0011100", "0100010", "1010101", "1001001", "1010101", "0100010", "0011100" },
@@ -38,8 +40,13 @@ public static class IdeologyTraitIcons
 
     public static void Register()
     {
+        if (_registered) return;
+        _registered = true;
+        string folder = global::System.IO.Path.Combine(ModClass._declare.FolderPath, "GameResources", "ui", "icons",
+            "actor_traits");
         foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)))
         {
+            if (global::System.IO.File.Exists(global::System.IO.Path.Combine(folder, $"ideology_{ideology}.png"))) continue;
             int index = (int)ideology;
             var pixels = new Color32[Size * Size];
             Color32 ink = Colors[index];

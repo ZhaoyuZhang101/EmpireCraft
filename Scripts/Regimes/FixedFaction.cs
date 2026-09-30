@@ -588,7 +588,7 @@ public class FixedFaction
     private bool IsEligibleLeader(Actor actor)
     {
         return actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
-               actor != Empire?.Emperor && actor.kingdom?.GetEmpire() == Empire;
+               !actor.IsWarMachine() && actor != Empire?.Emperor && actor.kingdom?.GetEmpire() == Empire;
     }
 
     public Actor GetLeader()

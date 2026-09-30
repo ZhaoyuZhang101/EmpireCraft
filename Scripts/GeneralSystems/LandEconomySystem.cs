@@ -108,6 +108,7 @@ public static class LandEconomySystem
             if (redistribute) RedistributeLand(city);
             else EnsureInitialHouseholdShares(city);
         }
+        if (revolutionary) IdeologyPopulationSystem.TriggerLandRevolution(kingdom);
     }
 
     public static void RedistributeLand(City city)
@@ -544,6 +545,9 @@ public static class LandEconomySystem
             actor.SetSocialClass(AI.ActorAI.EmpireCaftActorJudgeClass.JudgeClass(actor));
     }
 
+    // 城市无地农民占人口的比例(土地买卖未开放时为 0)，供理念传播等使用
+    public static float GetLandlessRatio(City city) => CalculateLandlessPopulationRatio(city);
+
     private static float CalculateLandlessPopulationRatio(City city)
     {
         if (city == null || !IsLandMarketOpen(city.kingdom)) return 0f;
@@ -572,7 +576,8 @@ public static class LandEconomySystem
         CityExtension.CityExtraData data = EnsureData(city);
         if (data.last_land_rebellion_timestamp >= 0d &&
             Date.getYearsSince(data.last_land_rebellion_timestamp) < RebellionCooldownYears) return false;
-        Actor leader = city.units?.Where(actor => IsLivingResident(actor) && IsAgrarianCommoner(actor))
+        Actor leader = city.units?.Where(actor => IsLivingResident(actor) && IsAgrarianCommoner(actor) &&
+                                                  actor.CanFoundCivKingdom())
             .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
         if (leader == null) return false;
         Kingdom origin = city.kingdom;
@@ -594,6 +599,7 @@ public static class LandEconomySystem
         string cause = string.Format(LM.Get("land_rebellion_cause"), city.GetCityName(), ratio * 100f);
         war.data.name = LM.Get("land_rebellion_war_name");
         MarkPeasantSocialRebellion(war, rebel, origin, city, ratio, cause);
+        RebellionStartupService.RaiseUprisingMilitia(rebel, ratio);
         data.last_land_rebellion_timestamp = World.world.getCurWorldTime();
         string history = string.Format(LM.Get("land_rebellion_started_history"), city.GetCityName(),
             ratio * 100f, cause);

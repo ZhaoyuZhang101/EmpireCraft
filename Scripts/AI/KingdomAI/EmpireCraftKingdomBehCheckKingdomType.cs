@@ -273,7 +273,9 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         {
             Empire empire = pKingdom.GetEmpire();
             // Keep automatic empire naming alive beneath any temporary player-facing override.
-            empire?.SetEmpireName(pKingdom.GetAutomaticKingdomName());
+            // 已改用帝国核心名作国号的(如统一中华核心后称中华民国)不再被本国法理名覆盖回去
+            if (empire != null && (empire.data?.constitutional_economy?.named_after_core_id ?? -1L) <= 0)
+                empire.SetEmpireName(pKingdom.GetAutomaticKingdomName());
         }
         //获取国家政体后同步国家官位
         var regime = pKingdom.GetRegime();
@@ -336,12 +338,42 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         }
         var kingdomBack = LM.Get(newkingdomType.ToString());
         string cultureName = pKingdom.GetEmpireCraftCulture() ?? "Western";
-        pKingdom.SetKingdomName(OverallHelperFunc.FormatCountryTypeName(kingdomFront, kingdomBack, cultureName));
+        string kingdomName = OverallHelperFunc.FormatCountryTypeName(kingdomFront, kingdomBack, cultureName);
+        // 同名去重：法理省名可能被两个政权同时用上(自持法理的行政区不经过省名归属判定；交战中改不了名的政权
+        // 失去法理后还留着旧名)，地图上就出现两个"荆湖北军"。已有别的政权叫这个名字、而自己又没控制该法理的
+        // 首府时，改用自己首府的城名。
+        if (!pKingdom.IsEmpire() && IsNameTaken(pKingdom, kingdomName) && !HoldsTitleCapital(pKingdom) &&
+            pKingdom.capital != null && !pKingdom.capital.isRekt())
+            kingdomName = OverallHelperFunc.FormatCountryTypeName(pKingdom.capital.GetCityName(), kingdomBack, cultureName);
+        // 未组建政府的现代势力(某系军阀、工农红军……)：存下的国名与地图铭牌一致，王国窗口和翻页栏才不会显示成"某某直辖市(首都)"。
+        // 直接写显示名，不经 SetKingdomName——那会把"蜀系军阀"记成本国核心名，日后组建政府时国号就成了"蜀系军阀民国"
+        if (WarlordEraSystem.TryGetNonGovernmentKingdomName(pKingdom, out string armedName) &&
+            !string.IsNullOrWhiteSpace(armedName))
+            pKingdom.data.name = armedName.UseLocalizedNameSeparator();
+        else
+            pKingdom.SetKingdomName(kingdomName);
         foreach (var city in pKingdom.cities)
         {
             var cityBack = LM.Get(city.GetCityType().ToString());
             city.data.name = OverallHelperFunc.JoinNameParts(city.GetCityName(), cityBack);
         }
+    }
+
+    private static bool IsNameTaken(Kingdom kingdom, string name)
+    {
+        string normalized = name.UseLocalizedNameSeparator();
+        foreach (Kingdom other in World.world.kingdoms)
+            if (other != null && other != kingdom && !other.isRekt() &&
+                string.Equals(other.data?.name?.UseLocalizedNameSeparator(), normalized, StringComparison.Ordinal))
+                return true;
+        return false;
+    }
+
+    // 省名的正主：控制着所用法理(托管的或自持的)首府的那个政权
+    private static bool HoldsTitleCapital(Kingdom kingdom)
+    {
+        KingdomTitle title = kingdom.GetAdministrativeTitle() ?? kingdom.GetMainTitle();
+        return title?.title_capital != null && !title.title_capital.isRekt() && title.title_capital.kingdom == kingdom;
     }
 
     public static CityType CalcCityType(Kingdom kingdom)

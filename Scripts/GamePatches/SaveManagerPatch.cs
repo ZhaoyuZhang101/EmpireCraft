@@ -17,6 +17,7 @@ using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.GamePatches;
 public class SaveManagerPatch : GamePatch
@@ -27,12 +28,14 @@ public class SaveManagerPatch : GamePatch
     {
         new Harmony(nameof(save_mod_data)).Patch(
             AccessTools.Method(typeof(SaveManager), nameof(SaveManager.saveMapData)),
-            prefix: new HarmonyMethod(GetType(), nameof(save_mod_data))
-        );       
+            prefix: new HarmonyMethod(GetType(), nameof(save_mod_data)),
+            postfix: new HarmonyMethod(GetType(), nameof(ClearCachesAfterSave))
+        );
         new Harmony(nameof(loadActors)).Patch(
             AccessTools.Method(typeof(SaveManager), nameof(SaveManager.loadActors)),
+            prefix: new HarmonyMethod(GetType(), nameof(BeforeLoadActors)),
             postfix: new HarmonyMethod(GetType(), nameof(loadActors))
-        );        
+        );
         new Harmony(nameof(load_mod_data)).Patch(
             AccessTools.Method(typeof(SaveManager), nameof(SaveManager.loadData)),
             postfix: new HarmonyMethod(GetType(), nameof(load_mod_data))
@@ -46,6 +49,18 @@ public class SaveManagerPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(last_gc))
         );        
     }
+    public static void BeforeLoadActors()
+    {
+        try
+        {
+            CityPatch.RepairLiveCityKingdoms();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 读档修复城市王国失败: {exception.Message}");
+        }
+    }
+
     public static void loadActors(SaveManager __instance)
     {
         ActorPatch.startSessionMonth = Date.getMonthsSince(World.world.getCurSessionTime());
@@ -74,6 +89,14 @@ public class SaveManagerPatch : GamePatch
         if (ModClass.SAVE_FREEZE)
         {
             return false;
+        }
+        try
+        {
+            EmpireCraft.Scripts.GameClassExtensions.ActorExtension.TrimAllPersonalHistories();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 存档前精简个人经历失败: {exception.Message}");
         }
         DataManager.SaveAll(pFolder);
         return true;
@@ -108,6 +131,25 @@ public class SaveManagerPatch : GamePatch
                 ModClass.IS_CLEAR = false;
             }
         }, "LOADING EMPIRE MOD DATA", false, 0.001f);
+    }
+
+    // 存档(含自动存档)写完之后清缓存：只清可按需重建的派生缓存、剔除已消亡对象的残留，
+    // 不动征兵/调兵队列和单位行军状态这类进行中的运行状态，存档内容也不受影响。
+    // 存档本来就会停顿一下，顺带做一次完整 GC 把清出来的内存真正还回去
+    public static void ClearCachesAfterSave()
+    {
+        try
+        {
+            KingdomFrontLineHelper.ClearCache();
+            EmpireCraftActorCheckWarriorMoveAdvanced.ClearRuntimeState();
+            IdeologyPopulationSystem.ClearCaches();
+            CityPatch.PruneDeadCityCaches();
+            GC.Collect();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 存档后清理缓存失败: {exception.Message}");
+        }
     }
 
     private static void ClearRuntimeState()

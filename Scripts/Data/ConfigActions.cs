@@ -28,6 +28,11 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.WAR_END_YEAR = int.Parse(time);
         }
+        // 0 = 永远不承认分治
+        public static void WarlordEraYearsCallBack(string years)
+        {
+            if (int.TryParse(years, out int value)) ModClass.WARLORD_ERA_YEARS = global::System.Math.Max(0, value);
+        }
         public static void saveFreezeCallBack(bool on)
         {
             ModClass.SAVE_FREEZE = on;

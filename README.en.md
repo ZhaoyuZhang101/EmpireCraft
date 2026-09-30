@@ -104,7 +104,7 @@ It expands the base game with interconnected systems for **empires, legitimacy, 
 - [RegimeEditor](/D:/Application/Steam/steamapps/common/worldbox/Mods/EmpireCraft/RegimeEditor)  
   Standalone regime editor and supporting tools
 
-- [Locales/Cultures/Culture_*/CultureRule.json](Locales/Cultures/README.md)  
+- [Locales/Cultures/Culture_*/CultureRule.jsonc](Locales/Cultures/README.md)  
   Culture-to-regime binding data
 
 - [mod.json](/D:/Application/Steam/steamapps/common/worldbox/Mods/EmpireCraft/mod.json)  

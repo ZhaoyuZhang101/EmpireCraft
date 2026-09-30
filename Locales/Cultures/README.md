@@ -6,15 +6,15 @@
 ```
 Locales/Cultures/
 ├─ Culture_Huaxia/
-│  ├─ CultureRule.json            规则：名称、颜色、物种、政体、命名规则……
+│  ├─ CultureRule.jsonc            规则：名称、颜色、物种、政体、命名规则……
 │  ├─ HuaxiaCityNames1.csv        各种词库，文件名 = 文化id + 词库名
 │  ├─ HuaxiaBookTemplatesHistoryBook.csv
 │  └─ ...
 ├─ Books/                         书名的通用词库(文化没配的类型用这里)
-└─ PartyNames/                    党名、共和国号后缀的通用词库
+└─ PartyNames/                    党名、共和国号后缀、非政府势力称呼、临时政府称呼的默认词库
 ```
 
-## CultureRule.json
+## CultureRule.jsonc
 
 允许 `//` 注释。只有 `name` 和 `setting` 是必须的，其余都可以省略。
 
@@ -30,11 +30,14 @@ Locales/Cultures/
         "regime": "LvLing",          // 默认政体，对应 Scripts/Regimes/Configs/<政体>/
         "institution_line": "Huaxia",// 制度科技线，对应 InstitutionTrees/<线>.json；留空用默认线
         "traits": ["patriarchy"],    // 文化特质 id
+        "political_traits": ["strong_unification"], // 模组政治特质；强统一诉求会启用唯一中央、易帜、临时政府和统一继承
         "Religion": "ReligionNames", // 宗教名词库
         "City":    { "groups": { "group_1": "CityNames1" }, "rule": ["group_1"], "name_pos": 0 },
         "Kingdom": { "groups": { "group_1": "CountryNames" }, "rule": ["group_1"], "name_pos": 0, "english_type_prefix": false },
         "Clan":    { ... }, "Family": { ... }, "Unit": { ... },
-        "Party":   { "groups": { "Socialism": "PartySocialism" }, "suffix_groups": {} }
+        "Party":   { "groups": { "Socialism": "PartySocialism" }, "suffix_groups": {},
+                     "untitled_groups": { "Communism": "UntitledCommunism", "Centrism": "UntitledWarlord" },
+                     "provisional_groups": {} }
     }
 }
 ```
@@ -53,7 +56,34 @@ Locales/Cultures/
 
 理念 → 词库名。理念可选：Anarchism, SocialDemocracy, Libertarianism, SocialLiberalism, Capitalism,
 ConservativeLiberalism, Centrism, Socialism, Communism, ReligiousDemocracy, Authoritarianism, Conservatism, Fascism。
-没配的理念用 `PartyNames/Party<理念>.csv`；共和后的国号后缀 `suffix_groups` 没配用 `PartyNames/Suffix<理念>.csv`。
+| 字段 | 用途 | 没配时的默认词库 |
+|---|---|---|
+| `groups` | 党名 | `PartyNames/Party<理念>.csv` |
+| `suffix_groups` | 改制共和后的国号后缀(民国、共和国……) | `PartyNames/Suffix<理念>.csv` |
+| `untitled_groups` | 未组建政府的现代势力称呼(军阀、红军、护法军……) | `PartyNames/Untitled<理念>.csv` |
+| `provisional_groups` | 已组建政府但不是中央的临时政府称呼 | `PartyNames/Provisional<理念>.csv` |
+
+- 词库名也可以写成 `别的文化:词库名`(如 `"Huaxia:UntitledCommunism"`)，直接引用那个文化文件夹里的词库，
+  几个文化共用一套称呼时不必复制文件(现代中国、山海都这样引用华夏的称呼)。
+- 称呼里写 `{0}` 时代入势力名号(有王国法理用法理名，否则用国名)，如 `{0}系军阀` → 晋系军阀；
+  不写 `{0}` 就接在名号后面，如 晋 + 工农红军 → 晋工农红军。
+- 词库里有多条时，每个势力随机抽一条并记住，理念变了才重抽。
+
+### 宪法(Constitution)
+
+```jsonc
+"Constitution": {
+    "name_group": "ConstitutionNames",            // 正式宪法名称词库，每条写 {0} 代表国号(如 "{0}宪章")；没配用 "{0}宪法"
+    "provisional_name_group": "CharterNames",     // 临时约法名称词库；没配用 "{0}临时约法"
+    "clauses": { "territory": "Federal" }         // 本文化的制宪倾向，制宪会议起草时覆盖各党主张
+}
+```
+
+- 词库名同样可以写 `别的文化:词库名` 引用别的文化的词库。
+- `clauses` 可写的条款与方案：`territory`(Unitary / Federal)、`economy`(PrivateProperty / Mixed / Planned)、
+  `religion`(Secular / StateReligion)、`emergency`(Prohibited / Allowed)、
+  `amendment`(ParliamentSupermajority / Referendum / PartyCongress)、`term_years`(2~8)、`max_terms`(0 = 不限)。
+- 各理念政党的默认主张在模组根目录的 `ConstitutionTemplates.json`，按 默认 → 理念 → 君主立宪 → 一党制 → 文化倾向 的顺序覆盖。
 
 ## 词库 CSV
 

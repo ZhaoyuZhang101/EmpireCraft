@@ -17,11 +17,33 @@ public class EmpireCaftActorJudgeClass: GameAIActorBase
         pActor.SetSocialClass(JudgeClass(pActor));
         return BehResult.Continue;
     }
+    // 世袭王国的王族(贵族阶层)。原来每判定一个人就把全部王国复制成列表再逐个比，而判定阶层的地方很多
+    // (每个单位的 AI、就业/市民/土地系统统计每个居民)，是 单位数×王国数 的开销。
+    // 改成每帧只建一次王族集合，结果与原来完全一致(包括原逻辑里"无王的世袭王国 → 王族为 null"的匹配)。
+    private static readonly global::System.Collections.Generic.HashSet<Clan> NobleClans = new();
+    private static int _nobleClansFrame = -1;
+    private static object _nobleClansWorld;
+
+    private static bool IsNobleClan(Clan clan)
+    {
+        if (_nobleClansFrame != Time.frameCount || !ReferenceEquals(_nobleClansWorld, world))
+        {
+            _nobleClansFrame = Time.frameCount;
+            _nobleClansWorld = world;
+            NobleClans.Clear();
+            foreach (Kingdom kingdom in world.kingdoms)
+            {
+                Regime regime = kingdom?.GetRegime();
+                if (regime != null && regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
+                    NobleClans.Add(kingdom.getKingClan());
+            }
+        }
+        return NobleClans.Contains(clan);
+    }
+
     public static SocialClass JudgeClass( Actor pActor)
     {
-        if (world.kingdoms.ToList().FindAll(k => k.GetRegime() != null).Any(k =>
-                k.GetRegime().GetLeaderSelectMethod() == LeaderSelectMethod.Succession &&
-                k.getKingClan() == pActor.clan))
+        if (IsNobleClan(pActor.clan))
         {
             return SocialClass.Noble;
         }
@@ -37,6 +59,7 @@ public class EmpireCaftActorJudgeClass: GameAIActorBase
         if (LandEconomySystem.IsLandlord(pActor)) return SocialClass.Landlord;
         if (pActor.GetOrCreate().is_economic_merchant) return SocialClass.Merchant;
         if (UrbanEmploymentSystem.IsEmployed(pActor)) return SocialClass.Labour;
+        if (UrbanCitizenSystem.IsCitizen(pActor)) return SocialClass.Citizen;
         return SocialClass.Peasant;
     }
 

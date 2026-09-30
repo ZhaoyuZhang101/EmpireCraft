@@ -298,7 +298,10 @@ public static class EmpireCraftTooltipLibrary
             }
         }
         bool republic = RepublicSystem.IsRepublic(pEmpire);
-        pTooltip.addLineText(republic ? "head_of_state" : "emperor", pValue, "#FE9900", false, true, 21);
+        if (republic)
+            pTooltip.addLineText(RepublicSystem.GetHeadOfStateTitle(pEmpire), pValue, "#FE9900", false, false, 21);
+        else
+            pTooltip.addLineText("emperor", pValue, "#FE9900", false, true, 21);
         if (!republic && pEmpire.EmpireClan != null)
         {
             if (pEmpire.EmpireClan.isAlive())
@@ -630,23 +633,146 @@ public static class EmpireCraftTooltipLibrary
         }
     }
 
+    // 理念图层悬停提示，随图层三档切换：
+    //   0 理念区块 → 这片理念区的总览：规模、信众，以及是被哪些名著/执政党推动还是自然发展起来的
+    //   1 城市边界 → 这座城的理念占比
+    //   2 执政理念 → 这个国家的执政党与民间支持度
     private static void showIdeologyShareTooltip(Tooltip tooltip, string type, TooltipData data)
     {
         City city = data?.city;
         if (city == null || city.isRekt()) return;
+        tooltip.clear();
+        switch (EmpireCraftMetaTypeLibrary.ideology?.getZoneOptionState() ?? 1)
+        {
+            case 0: ShowIdeologyRegionTooltip(tooltip, city); break;
+            case 2: ShowRulingIdeologyTooltip(tooltip, city); break;
+            default: ShowCityIdeologyShares(tooltip, city); break;
+        }
+    }
+
+    private static string IdeologyHex(PartyIdeology ideology)
+    {
+        ColorAsset color = EmpireCraftNamePlateLibrary.GetIdeologyColorAsset(ideology);
+        return color == null ? "#7FD8EA" : "#" + ColorUtility.ToHtmlStringRGB(color.getColorBanner());
+    }
+
+    private static void ShowCityIdeologyShares(Tooltip tooltip, City city)
+    {
         Dictionary<PartyIdeology, int> counts = IdeologyPopulationSystem.GetCityCounts(city);
         int total = counts.Values.Sum();
-        tooltip.clear();
         tooltip.setTitle(city.GetCityFullName(), "ideology_population_title", "#FFFFFF");
-        foreach (KeyValuePair<PartyIdeology, int> pair in counts.OrderByDescending(pair => pair.Value).Take(5))
-        {
-            ColorAsset color = EmpireCraftNamePlateLibrary.GetIdeologyColorAsset(pair.Key);
-            string hex = color == null ? "#7FD8EA" : "#" + ColorUtility.ToHtmlStringRGB(color.getColorBanner());
+        foreach (KeyValuePair<PartyIdeology, int> pair in counts.OrderByDescending(pair => pair.Value).Take(6))
             tooltip.addLineText(PartySystem.GetIdeologyName(pair.Key),
-                total == 0 ? "0%" : $"{100f * pair.Value / total:0.#}%",
-                hex,
-                pPercent: false, pLocalize: false);
+                total == 0 ? "0%" : $"{100f * pair.Value / total:0.#}% ({pair.Value})",
+                IdeologyHex(pair.Key), pPercent: false, pLocalize: false);
+        List<LandmarkBookSystem.CityIdeologyBook> books = LandmarkBookSystem.GetCityIdeologyBooks(city);
+        if (books.Count > 0)
+            tooltip.addBottomDescription(string.Format(LM.Get("ideology_window_city_books"),
+                string.Join("、", books.Select(book => book.Ideology).Distinct().Select(PartySystem.GetIdeologyName))));
+    }
+
+    private sealed class IdeologyRegionSummary
+    {
+        public PartyIdeology Ideology;
+        public HashSet<City> Cities = new();
+        public int Believers;
+        public int Population;
+        public List<(City city, LandmarkBookSystem.CityIdeologyBook book)> Books = new();
+        public List<Kingdom> RulingKingdoms = new();
+        public float BuiltAt;
+    }
+
+    private static IdeologyRegionSummary _regionCache;
+
+    // 从悬停城市出发，沿相邻城市连出同一主理念的整片区域(跟区块图层的画法一致)；
+    // 提示每帧都会重建，结果缓存 1 秒
+    private static IdeologyRegionSummary GetIdeologyRegion(City start)
+    {
+        PartyIdeology ideology = LayerCityCache.Ideology(start);
+        if (_regionCache != null && _regionCache.Ideology == ideology && _regionCache.Cities.Contains(start) &&
+            Time.unscaledTime - _regionCache.BuiltAt < 1f) return _regionCache;
+        var summary = new IdeologyRegionSummary { Ideology = ideology, BuiltAt = Time.unscaledTime };
+        var queue = new Queue<City>();
+        queue.Enqueue(start);
+        summary.Cities.Add(start);
+        while (queue.Count > 0)
+        {
+            City city = queue.Dequeue();
+            foreach (City neighbour in city.neighbours_cities ?? Enumerable.Empty<City>())
+            {
+                if (neighbour == null || neighbour.isRekt() || neighbour.units == null || neighbour.units.Count == 0 ||
+                    summary.Cities.Contains(neighbour) || LayerCityCache.Ideology(neighbour) != ideology) continue;
+                summary.Cities.Add(neighbour);
+                queue.Enqueue(neighbour);
+            }
         }
+        var kingdoms = new HashSet<Kingdom>();
+        foreach (City city in summary.Cities)
+        {
+            Dictionary<PartyIdeology, int> counts = IdeologyPopulationSystem.GetCityCounts(city);
+            summary.Population += counts.Values.Sum();
+            summary.Believers += counts.TryGetValue(ideology, out int believers) ? believers : 0;
+            foreach (LandmarkBookSystem.CityIdeologyBook book in LandmarkBookSystem.GetCityIdeologyBooks(city))
+                if (book.Ideology == ideology) summary.Books.Add((city, book));
+            if (city.kingdom != null && !city.kingdom.isRekt() && kingdoms.Add(city.kingdom) &&
+                EmpireCraftNamePlateLibrary.TryGetRulingIdeology(city.kingdom, out PartyIdeology ruling) &&
+                ruling == ideology)
+                summary.RulingKingdoms.Add(city.kingdom);
+        }
+        _regionCache = summary;
+        return summary;
+    }
+
+    private static void ShowIdeologyRegionTooltip(Tooltip tooltip, City city)
+    {
+        IdeologyRegionSummary region = GetIdeologyRegion(city);
+        string hex = IdeologyHex(region.Ideology);
+        tooltip.setTitle(PartySystem.GetIdeologyName(region.Ideology), "ideology_tooltip_region", hex);
+        tooltip.addLineIntText("ideology_tooltip_region_cities", region.Cities.Count);
+        tooltip.addLineText("ideology_tooltip_region_believers",
+            $"{region.Believers}/{region.Population} " +
+            $"({(region.Population == 0 ? 0f : 100f * region.Believers / region.Population):0.#}%)", hex);
+
+        // 推动力量：名著(附发酵程度与社会条件) → 执政党 → 都没有则是自然发展
+        foreach (var (bookCity, book) in region.Books.OrderByDescending(pair => pair.book.Strength).Take(3))
+        {
+            string state = book.SocietyReady
+                ? book.Maturity >= 0.999f ? LM.Get("ideology_tooltip_book_flourishing")
+                  : string.Format(LM.Get("ideology_tooltip_book_maturing"), $"{book.Maturity * 100f:0}%")
+                : LM.Get("ideology_tooltip_book_unripe");
+            tooltip.addLineText("ideology_tooltip_driver_book",
+                $"《{book.Book.name}》· {bookCity.name} · {state}", book.SocietyReady ? "#FFD34E" : "#9FB7D9");
+        }
+        if (region.Books.Count > 3)
+            tooltip.addLineText("ideology_tooltip_driver_book",
+                string.Format(LM.Get("ideology_tooltip_more_books"), region.Books.Count - 3), "#9FB7D9");
+        if (region.RulingKingdoms.Count > 0)
+            tooltip.addLineText("ideology_tooltip_driver_state",
+                string.Join("、", region.RulingKingdoms.Take(3).Select(kingdom => kingdom.name)) +
+                (region.RulingKingdoms.Count > 3 ? "…" : ""), "#65E572");
+        if (region.Books.Count == 0 && region.RulingKingdoms.Count == 0)
+            tooltip.addBottomDescription(LM.Get("ideology_tooltip_natural"));
+    }
+
+    private static void ShowRulingIdeologyTooltip(Tooltip tooltip, City city)
+    {
+        Kingdom kingdom = city.kingdom;
+        if (kingdom == null || kingdom.isRekt())
+        {
+            ShowCityIdeologyShares(tooltip, city);
+            return;
+        }
+        tooltip.setTitle(kingdom.name, "ideology_tooltip_ruling", "#FFFFFF");
+        if (!EmpireCraftNamePlateLibrary.TryGetRulingIdeology(kingdom, out PartyIdeology ruling))
+        {
+            tooltip.addBottomDescription(LM.Get("ideology_tooltip_no_party_politics"));
+            return;
+        }
+        FixedFaction party = PartySystem.GetGovernmentParty(kingdom.GetEmpire());
+        tooltip.addLineText("republic_ruling_party",
+            $"{party?.Name} ({PartySystem.GetIdeologyName(ruling)})", IdeologyHex(ruling));
+        tooltip.addLineText("ideology_tooltip_ruling_support",
+            $"{IdeologyPopulationSystem.GetKingdomShare(kingdom, ruling) * 100f:0.#}%", IdeologyHex(ruling));
     }
 
     private static void showEmpireCraftActor(Tooltip pTooltip, string pType, TooltipData pData)

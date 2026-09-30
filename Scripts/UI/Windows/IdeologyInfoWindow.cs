@@ -391,8 +391,12 @@ public class IdeologyInfoWindow : AbstractWideWindow<IdeologyInfoWindow>
         if (_focusedCity == null || _focusedCity.isRekt()) return;
         Dictionary<PartyIdeology, int> local = IdeologyPopulationSystem.GetCityCounts(_focusedCity);
         int total = local.Values.Sum();
-        var card = Card(new Vector2(PanelWidth, 32f), "FactionFrame");
+        Dictionary<PartyIdeology, float> books = LandmarkBookSystem.GetCityBookInfluences(_focusedCity);
+        var card = Card(new Vector2(PanelWidth, books.Count > 0 ? 45f : 32f), "FactionFrame");
         CardTitle(card, "ui/icons/iconCity", _focusedCity.GetCityFullName());
+        if (books.Count > 0)
+            Note(card, string.Format(LM.Get("ideology_window_city_books"),
+                string.Join("、", books.Keys.Select(PartySystem.GetIdeologyName))));
         var bar = card.BeginHoriGroup(new Vector2(PanelWidth - 20f, 9f), TextAnchor.MiddleLeft, 0);
         if (total <= 0)
         {

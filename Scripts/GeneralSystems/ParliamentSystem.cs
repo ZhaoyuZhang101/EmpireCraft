@@ -273,11 +273,16 @@ public static class ParliamentSystem
         state.parliament_term++;
         // 开放党禁后议席按选票分给政党；此前按各派系中央占比分
         bool partyPolitics = PartySystem.IsActive(empire);
-        List<FixedFaction> factions = partyPolitics ? PartySystem.GetParties(empire) : GetSeatedFactions(empire);
+        // 党禁关闭时只有执政党和友党参选(旧存档里可能有没被正式取缔的政党)
+        List<FixedFaction> factions = partyPolitics
+            ? PartySystem.GetParties(empire).Where(party => PartyBanSystem.IsAllowedParty(empire, party)).ToList()
+            : GetSeatedFactions(empire);
         Dictionary<FixedFaction, float> votes = partyPolitics ? PartySystem.CountVotes(empire, factions) : null;
         // 普选后按行政区选举(区内按比例)；此前全国统一按得票/中央占比分
         List<(FixedFaction faction, long district)> slots;
-        if (partyPolitics && PartySystem.HasUniversalSuffrage(empire))
+        if (partyPolitics && PartyBanSystem.UsesDemocraticCentralism(empire))
+            slots = PartyBanSystem.AllocateCongressSeats(empire, factions, Config.parliament_seats);
+        else if (partyPolitics && PartySystem.HasUniversalSuffrage(empire))
             slots = PartySystem.AllocateDistrictSeats(empire, factions, Config.parliament_seats);
         else
         {

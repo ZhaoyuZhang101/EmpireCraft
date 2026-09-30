@@ -58,7 +58,7 @@ async function listCultures(modRoot) {
   for (const folder of dirs) {
     const name = folder.slice("Culture_".length);
     const dir = path.join(root, folder);
-    const file = path.join(dir, "CultureRule.json");
+    const file = path.join(dir, "CultureRule.jsonc");
     let text = "";
     let data = null;
     let error = null;
@@ -97,10 +97,10 @@ async function createCulture(modRoot, { name, copyFrom, copyCsv, translate_cz, t
   if (syncFs.existsSync(dir)) throw new Error(`文化 ${safe} 已存在。`);
   await fs.mkdir(dir, { recursive: true });
 
-  let rule = { name: safe, color: "#888888", translate_cz: "", translate_en: "", translate_ch: "", species: [], setting: { regime: "", institution_line: "", traits: [] } };
+  let rule = { name: safe, color: "#888888", translate_cz: "", translate_en: "", translate_ch: "", species: [], setting: { regime: "", institution_line: "", traits: [], political_traits: [] } };
   if (copyFrom) {
     const srcDir = path.join(root, `Culture_${copyFrom}`);
-    const srcFile = path.join(srcDir, "CultureRule.json");
+    const srcFile = path.join(srcDir, "CultureRule.jsonc");
     if (syncFs.existsSync(srcFile)) {
       rule = parseJsonLoose(await fs.readFile(srcFile, "utf8"));
       rule.name = safe;
@@ -130,7 +130,7 @@ async function createCulture(modRoot, { name, copyFrom, copyCsv, translate_cz, t
   if (translate_cz !== undefined) rule.translate_cz = translate_cz;
   if (translate_en !== undefined) rule.translate_en = translate_en;
   if (translate_ch !== undefined) rule.translate_ch = translate_ch;
-  const file = path.join(dir, "CultureRule.json");
+  const file = path.join(dir, "CultureRule.jsonc");
   await fs.writeFile(file, JSON.stringify(rule, null, 4) + "\n", "utf8");
   return { name: safe, file };
 }

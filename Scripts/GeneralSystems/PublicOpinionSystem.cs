@@ -255,18 +255,18 @@ public static class PublicOpinionSystem
         bool authoritarian = PartySystem.GetPosition(preferred).y <= -50f;
         if (authoritarian && RepublicSystem.CanCoup(empire, party))
         {
-            // 军方站在这一边：新党夺权，建立一党制
-            state.one_party_id = party.GetID();
+            // 军方站在这一边：新党夺权，建立一党制(原先的一党制先解除，再由新党关闭党禁)
+            if (RepublicSystem.IsOneParty(empire)) PartyBanSystem.Open(empire, "party_ban_reopened_core_history");
             Announce(empire, string.Format(LM.Get("public_opinion_seizure_log"), empire.GetEmpireName(),
                 party.Name));
+            PartyBanSystem.Close(empire, party, null, "party_ban_one_party_history");
             return;
         }
         if (RepublicSystem.IsOneParty(empire))
         {
             // 一党制垮台，恢复多党选举
-            state.one_party_id = "";
-            state.last_parliament_election = -1d;
             Announce(empire, string.Format(LM.Get("public_opinion_collapse_log"), empire.GetEmpireName()));
+            PartyBanSystem.Open(empire, "party_ban_reopened_core_history");
             return;
         }
         // 多党制：提前大选，让选票说话

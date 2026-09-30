@@ -69,23 +69,30 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "past_emperors"))
             {
                 var pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                pastEmperorsWindowTab.Setup("past_emperors", this.ScrollWindowComponent, action:ShowEmperors, sprite:SpriteTextureLoader.getSprite("ui/iconHistory"));
+                pastEmperorsWindowTab.Setup("past_emperors", this.ScrollWindowComponent, action:ShowEmperors, sprite:SpriteTextureLoader.getSprite("TabDynasty"));
             }
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_bureau"))
             {
                 var bureauWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                bureauWindowTab.Setup("empire_bureau", this.ScrollWindowComponent, action:ShowBureau, sprite:SpriteTextureLoader.getSprite("ChineseCrown"));
+                bureauWindowTab.Setup("empire_bureau", this.ScrollWindowComponent, action:ShowBureau, sprite:SpriteTextureLoader.getSprite("TabBureau"));
             }
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_setting"))
             {
                 var settingWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                settingWindowTab.Setup("empire_setting", this.ScrollWindowComponent, action:OpenEmpireSettingWindow);
+                settingWindowTab.Setup("empire_setting", this.ScrollWindowComponent, action:OpenEmpireSettingWindow,
+                    sprite: SpriteTextureLoader.getSprite("TabSetting"));
+            }
+            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_constitution"))
+            {
+                var constitutionTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                constitutionTab.Setup("empire_constitution", this.ScrollWindowComponent, action: ShowConstitution,
+                    sprite: SpriteTextureLoader.getSprite("TabConstitution"));
             }
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_institutions"))
             {
                 var institutionTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
                 institutionTab.Setup("empire_institutions", this.ScrollWindowComponent,
-                    action: OpenInstitutionWindow, sprite: SpriteTextureLoader.getSprite("ChineseCrown"));
+                    action: OpenInstitutionWindow, sprite: SpriteTextureLoader.getSprite("TabInstitutions"));
             }
         }
 
@@ -153,7 +160,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             var centerPart = avatarRow.BeginVertGroup(new Vector2(30, 60), pSpacing:0,
                 pAlignment:TextAnchor.MiddleCenter);
             string emperorTitle = (republic
-                    ? LM.Get("bureau_head_of_state")
+                    ? GeneralSystems.RepublicSystem.GetHeadOfStateTitle(_empire)
                     : LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B"))
                 .ColorString(pColor:new Color(1,0.8f,0));
             if (_empire.data.is_been_controlled)
@@ -530,34 +537,86 @@ namespace EmpireCraft.Scripts.UI.Windows
             EmpireCraftStatsRow statsRow = parent.GetComponent<EmpireCraftStatsRow>();
             
             string text = "";
+            // 君主按"姓氏·国号"分朝代；共和国的历任元首不分姓氏，合并成一组
             var groups = new List<string>();
             foreach (var h in _empire.data.history)
             {
-                var s = string.IsNullOrEmpty(h.royal_surname) ? "" : h.royal_surname;
-                var g = string.IsNullOrEmpty(s) ? h.empire_name : string.Join("·", s, h.empire_name);
+                string g = HistoryGroupKey(h);
                 if (!groups.Contains(g)) groups.Add(g);
             }
             foreach (var g in groups)
             {
-                parent.AddTextIntoVertLayout(g, true, TextAnchor.MiddleCenter);
+                parent.AddTextIntoVertLayout(g == RepublicGroupKey ? RepublicGroupTitle() : g, true, TextAnchor.MiddleCenter);
                 foreach (var h in _empire.data.history)
                 {
-                    var s = string.IsNullOrEmpty(h.royal_surname) ? "" : h.royal_surname;
-                    var k = string.IsNullOrEmpty(s) ? h.empire_name : string.Join("·", s, h.empire_name);
-                    if (k == g)
+                    if (HistoryGroupKey(h) == g)
                     {
                         ListPastEmperor(statsRow, h);
                     }
                 }
             }
-            text = _empire.GetEmpireName() + (_empire.data.has_year_name?_empire.data.year_name:"") + LM.Get("emperor");
-            statsRow.IShowStatsRow("current_emperor", _empire.Emperor?.name??"无" , _empire.getColor().color_text, pIconPath: "iconKings", action: () => OpenHistoryWindow(_empire.data.currentHistory));
+            bool republicNow = RepublicSystem.IsRepublic(_empire);
+            text = republicNow
+                ? _empire.GetEmpireFullName() + RepublicSystem.GetHeadOfStateTitle(_empire)
+                : _empire.GetEmpireName() + (_empire.data.has_year_name?_empire.data.year_name:"") + LM.Get("emperor");
+            statsRow.IShowStatsRow(republicNow ? "current_head_of_state" : "current_emperor", _empire.Emperor?.name??"无" , _empire.getColor().color_text, pIconPath: "iconKings", action: () => OpenHistoryWindow(_empire.data.currentHistory));
             if (_empire.Emperor != null)
             {
                 statsRow.IShowStatsRow("title_name", text, _empire.getColor().color_text);
             }
             StartCoroutine(ShowStatsRowsAndRefresh(statsRow));
         }
+        //显示宪法：条款可点击修改(见 ConstitutionSystem.CycleByPlayer)，手定的条款不再随制度自动变化
+        public void ShowConstitution(WindowMetaTab pArg0)
+        {
+            Clear();
+            InitialTopPartInfo();
+            var parent = CommonInitial("empire_constitution");
+            parent.AddComponent<EmpireCraftStatsRow>();
+            EmpireCraftStatsRow statsRow = parent.GetComponent<EmpireCraftStatsRow>();
+            string color = _empire.getColor().color_text;
+            ConstitutionData constitution = ConstitutionSystem.Get(_empire);
+            if (constitution == null)
+            {
+                statsRow.IShowStatsRow("empire_constitution", LM.Get("constitution_none"), color);
+                StartCoroutine(ShowStatsRowsAndRefresh(statsRow));
+                return;
+            }
+            string age = string.Format(LM.Get(constitution.provisional ? "constitution_age_provisional" : "constitution_age"),
+                Mathf.Max(0, Date.getYearsSince(constitution.promulgated_at)), constitution.number);
+            statsRow.IShowStatsRow("constitution_row_name", $"《{constitution.name}》", color, pIconPath: "iconBooks");
+            statsRow.IShowStatsRow("constitution_row_age", age, color);
+            parent.AddTextIntoVertLayout(LM.Get(constitution.provisional ? "constitution_hint_provisional" : "constitution_hint"),
+                true, TextAnchor.MiddleCenter);
+            foreach (string row in ConstitutionSystem.EditableRows)
+            {
+                string value = ConstitutionSystem.CurrentValue(constitution.clauses, row);
+                bool editable = ConstitutionSystem.Options(_empire, row).Count > 0;
+                string text = ConstitutionSystem.ValueText(row, value) +
+                              (ConstitutionSystem.IsPlayerLocked(_empire, row) ? LM.Get("constitution_locked_mark") : "") +
+                              (editable ? "" : LM.Get("constitution_readonly_mark"));
+                string clauseRow = row;
+                statsRow.IShowStatsRow($"constitution_clause_{row}", text, editable ? color : "#9A9A9A",
+                    action: editable
+                        ? () =>
+                        {
+                            if (ConstitutionSystem.CycleByPlayer(_empire, clauseRow)) ShowConstitution(pArg0);
+                        }
+                        : null);
+            }
+            List<ConstitutionAmendmentRecord> amendments = constitution.amendments ?? new List<ConstitutionAmendmentRecord>();
+            statsRow.IShowStatsRow("constitution_amendments", amendments.Count.ToString(), color);
+            foreach (ConstitutionAmendmentRecord record in Enumerable.Reverse(amendments).Take(10))
+            {
+                string when = string.Format(LM.Get("constitution_years_ago"), Mathf.Max(0, Date.getYearsSince(record.time)));
+                string by = LM.Get(record.by == "player" ? "constitution_by_player" : "constitution_by_sync");
+                statsRow.IShowStatsRow($"constitution_clause_{record.clause}",
+                    $"{ConstitutionSystem.ValueText(record.clause, record.from)} → {ConstitutionSystem.ValueText(record.clause, record.to)}（{when}·{by}）",
+                    "#C8C8C8");
+            }
+            StartCoroutine(ShowStatsRowsAndRefresh(statsRow));
+        }
+
         //显示个人历史
         public void ShowPersonalHistory()
         {
@@ -581,7 +640,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             var reignCard = parent.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter,
                 pSize: new Vector2(196, 34));
             AddReignInfoColumn(reignCard, LM.Get("year_name"), eraName, new Color(1f, 0.78f, 0.2f), new Vector2(52, 30), 9);
-            AddReignInfoColumn(reignCard, LM.Get("emperor"), emperorName, _empire.getColor()._color_text, new Vector2(82, 30), 11);
+            AddReignInfoColumn(reignCard, IsRepublicRecord(currentHistory) ? OfficeTitle(currentHistory) : LM.Get("emperor"),
+                emperorName, _empire.getColor()._color_text, new Vector2(82, 30), 11);
             AddReignInfoColumn(reignCard, LM.Get("empire_reign_duration"), $"{reignYears}{LM.Get("Year")}",
                 new Color(0.25f, 0.9f, 0.8f), new Vector2(52, 30), 9);
             reignCard.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(196, 34));
@@ -735,10 +795,55 @@ namespace EmpireCraft.Scripts.UI.Windows
             Clear();
         }
 
+        private const string RepublicGroupKey = "\u0001republic";
+
+        private string HistoryGroupKey(EmpireCraftHistory h)
+        {
+            if (IsRepublicRecord(h)) return RepublicGroupKey;
+            var s = string.IsNullOrEmpty(h.royal_surname) ? "" : h.royal_surname;
+            return string.IsNullOrEmpty(s) ? h.empire_name : string.Join("·", s, h.empire_name);
+        }
+
+        // 共和组的标题：现在仍是共和国就用现国号，否则用最后一任元首时的国号
+        private string RepublicGroupTitle()
+        {
+            string name = RepublicSystem.IsRepublic(_empire)
+                ? _empire.GetEmpireFullName()
+                : _empire.data.history.LastOrDefault(IsRepublicRecord)?.empire_full_name ?? "";
+            return string.Format(LM.Get("republic_history_group"), name);
+        }
+
+        // 旧存档的记录没有 is_republic 标记：任期内最早一条记载晚于建立共和的，算共和国元首
+        private bool IsRepublicRecord(EmpireCraftHistory h)
+        {
+            if (h == null) return false;
+            if (h.is_republic) return true;
+            var state = _empire.data?.constitutional_economy;
+            if (state == null || !state.is_republic || state.republic_since < 0d) return false;
+            if (h == _empire.data.currentHistory) return true;
+            double first = h.descriptions?.Where(d => d != null && d.timestamp >= 0d)
+                .Select(d => d.timestamp).DefaultIfEmpty(-1d).Min() ?? -1d;
+            return first >= 0d && first >= state.republic_since;
+        }
+
+        private string OfficeTitle(EmpireCraftHistory h) =>
+            !string.IsNullOrWhiteSpace(h.office_title) ? h.office_title : RepublicSystem.GetHeadOfStateTitle(_empire);
+
         public void ListPastEmperor(EmpireCraftStatsRow statsRow, EmpireCraftHistory history)
         {
             if (string.IsNullOrEmpty(history.emperor))
             {
+                return;
+            }
+            // 共和国元首：称号为"国家全称 + 职务"(如绥民国总统)，没有庙号谥号
+            if (IsRepublicRecord(history))
+            {
+                string fullName = string.IsNullOrWhiteSpace(history.empire_full_name)
+                    ? history.empire_name
+                    : history.empire_full_name;
+                statsRow.IShowStatsRow("past_head_of_state", history.emperor + $"(在任 {history.total_time}{LM.Get("Year")})", _empire.getColor().color_text, pIconPath: "iconKings", action: () => OpenHistoryWindow(history));
+                statsRow.IShowStatsRow("title_name", fullName + OfficeTitle(history), _empire.getColor().color_text);
+                statsRow.IShowStatsRow("empty", "=======================================================================================", "#ffffff");
                 return;
             }
             var text1 = history.empire_name + (_empire.data.has_year_name?history.year_name:"") + LM.Get("emperor");

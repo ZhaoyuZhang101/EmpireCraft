@@ -78,7 +78,9 @@ public static class HistoryRecordSystem
                     year_name = empire.data.year_name,
                     emperor = empire.Emperor?.getName() ?? "",
                     descriptions = new List<HistoryDescription>(),
-                    is_first = false
+                    is_first = false,
+                    is_republic = RepublicSystem.IsRepublic(empire),
+                    office_title = RepublicSystem.IsRepublic(empire) ? RepublicSystem.GetHeadOfStateTitle(empire) : ""
                 };
             }
             var description = new HistoryDescription
@@ -174,7 +176,9 @@ public static class HistoryRecordSystem
                     year_name = empire.data.year_name,
                     emperor = empire.Emperor?.getName() ?? "",
                     descriptions = new List<HistoryDescription>(),
-                    is_first = false
+                    is_first = false,
+                    is_republic = RepublicSystem.IsRepublic(empire),
+                    office_title = RepublicSystem.IsRepublic(empire) ? RepublicSystem.GetHeadOfStateTitle(empire) : ""
                 };
             }
             var description = new HistoryDescription
@@ -207,7 +211,9 @@ public static class HistoryRecordSystem
             shihao_name = "",
             initial_cities = empire.GetPreviousFinalCities(),
             descriptions = new List<HistoryDescription>(),
-            is_first = isNew
+            is_first = isNew,
+            is_republic = RepublicSystem.IsRepublic(empire),
+            office_title = RepublicSystem.IsRepublic(empire) ? RepublicSystem.GetHeadOfStateTitle(empire) : ""
         };
         if (RepublicSystem.IsRepublic(empire)) return;
         if (empire.data.has_year_name)
