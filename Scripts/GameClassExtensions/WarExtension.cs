@@ -80,6 +80,8 @@ public static class WarExtension
         public long republic_regional_alliance_id = -1L;
         // 正统崩溃时组成的互保同盟：打赢了不另立国家，而是逼原帝国退位、改行共和(辛亥式)
         public bool republic_regional_forced_abdication;
+        // 现代革命：共和国里另一理念占主导、提前大选也没能上台的政党起兵推翻现政府(不是废君)
+        public bool republic_modern_revolution;
         // A large industrial-era conflict is promoted to a world war once both
         // sides contain several independent political blocs. These fields keep
         // the announcement and settlement idempotent across saves.

@@ -369,6 +369,16 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             else TechnologySystem.ForceResearch(_culture, _selectedId);
             Rebuild();
         }, size: new Vector2(90, 11));
+        // 上帝模式：回退选中的技术(连同后续技术)或遗忘选中的材料
+        var rollback = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 13), TextAnchor.MiddleCenter, 4);
+        rollback.AddButtonIntoHoriLayout("tech_force_revoke", LM.Get("tech_force_revoke"), () =>
+        {
+            int count = _selectedId.StartsWith(TechGraphView.MaterialPrefix, StringComparison.Ordinal)
+                ? TechnologySystem.ForceForget(_culture, _selectedId.Substring(TechGraphView.MaterialPrefix.Length))
+                : TechnologySystem.ForceRevoke(_culture, _selectedId);
+            if (count <= 0) WorldTip.showNow(LM.Get("tech_force_revoke_nothing"), false, "top", 3f);
+            Rebuild();
+        }, size: new Vector2(186, 11));
         RefreshDetail();
     }
 

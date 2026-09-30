@@ -156,6 +156,7 @@ public static class CultureService
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
                 ? setting.regime
                 : RegimeType.Feudalism;
+        regimeType = InstitutionSystem.AdjustForMonarchyEmpire(kingdom, regimeType);
         if (!IsRegimeAvailable(regimeType)) return false;
         if (kingdom.GetRegime()?.type == regimeType) return true;
         kingdom.SetRegimeType(regimeType);
@@ -188,6 +189,7 @@ public static class CultureService
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
                 ? setting.regime
                 : RegimeType.Feudalism;
+        regimeType = InstitutionSystem.AdjustForMonarchyEmpire(kingdom, regimeType);
         // 配置里可能保留尚未实现的政体枚举。没有实际注册配置的政体不能生成归化谋划，
         // 否则 LoadRegime 会回退成封建制，而谋划又会在下一轮继续尝试，造成无限刷屏。
         if (!IsRegimeAvailable(regimeType)) return false;

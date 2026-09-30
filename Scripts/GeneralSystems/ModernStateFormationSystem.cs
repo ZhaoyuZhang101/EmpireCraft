@@ -251,9 +251,10 @@ public static class ModernStateFormationSystem
 
 
     // 已组建政府、但尚未取得中央地位或完成统一时，使用另一套理念临时政府称呼。
-    public static string GetProvisionalGovernmentLabel(Kingdom kingdom)
+    // ideology：按哪个理念取称呼。临时政府传它的立国理念，免得执政党一换称呼就跟着变
+    public static string GetProvisionalGovernmentLabel(Kingdom kingdom, PartyIdeology? ideologyOverride = null)
     {
-        PartyIdeology ideology = IdeologyFamilies.StateIdeology(kingdom);
+        PartyIdeology ideology = ideologyOverride ?? IdeologyFamilies.StateIdeology(kingdom);
         List<string> pool = PartySystem.GetCultureNamePool(CultureService.GetRealmCulture(kingdom), ideology,
             party => party.provisional_groups, "Provisional");
         if (kingdom?.data == null) return pool.FirstOrDefault() ?? PartySystem.GetIdeologyName(ideology);

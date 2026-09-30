@@ -249,7 +249,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void InitialTextInput()
         {
-            string text = _empire.GetEmpireName();
+            string text = _empire.GetEmpireFullName();
             this.transform.parent.transform.parent.GenerateTextInput(offset:new Vector2(0, 152), default_text:text, input:_empireNameInput);
         }
 
@@ -271,7 +271,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             if (forceValueSync || empireChanged)
             {
-                _empireNameInput.input.text = _empire.GetEmpireName();
+                _empireNameInput.input.text = _empire.GetEmpireFullName();
                 _textInputEmpire = _empire;
             }
 
@@ -876,12 +876,21 @@ namespace EmpireCraft.Scripts.UI.Windows
             ShowPersonalHistory();
         }
 
+        // 名称框显示与提示框、地图铭牌相同的完整国号；只有玩家真的改了名才生效
         public void name_change(string name)
         {
-            if (_empire != null)
+            if (_empire?.CoreKingdom == null) return;
+            name = name?.Trim() ?? "";
+            if (name.Length == 0 || name == _empire.GetEmpireFullName()) return;
+            // 现代政权、军阀时期改称的政权(中央、临时政府)：国号不是"名号 + 类型"拼出来的，按玩家输入的完整国号定名
+            if (_empire.CoreKingdom.GetRegime()?.type == RegimeType.Modern ||
+                _empire.GetEmpireFullName() != _empire.GetBaseEmpireFullName())
             {
-                _empire.SetEmpireName(name);
+                _empire.CoreKingdom.SetCustomCountryName(name);
+                _empire.CoreKingdom.SetCustomCountrySuffix("");
+                return;
             }
+            _empire.SetEmpireName(name);
         }
 
         public void AddIntoGroup(string title, GameObject obj)

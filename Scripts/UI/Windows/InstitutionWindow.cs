@@ -988,8 +988,15 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             return;
         }
 
-        if (view.Status is InstitutionNodeStatus.Enacted or InstitutionNodeStatus.Absorbed
-            or InstitutionNodeStatus.Superseded) return;
+        if (view.Status is InstitutionNodeStatus.Enacted or InstitutionNodeStatus.Absorbed)
+        {
+            // 上帝模式：回退已掌握的制度(连同依赖它的后续制度)；已废除的君主制只能这样恢复
+            _detailPanel.AddButtonIntoVertLayout("institution_force_revoke", LM.Get("institution_force_revoke"),
+                () => ForceRevoke(view.Node.id), SpriteTextureLoader.getSprite("ui/iconRemove"),
+                size: new Vector2(PanelWidth - 6f, 14));
+            return;
+        }
+        if (view.Status is InstitutionNodeStatus.Superseded) return;
 
         // 上帝模式：跳过改革直接点亮（连同前置），或点亮本文化整条线
         var godRow = _detailPanel.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
@@ -1052,6 +1059,13 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     {
         if (all) InstitutionSystem.ForceEnactAll(_culture);
         else InstitutionSystem.ForceEnactNode(_culture, nodeId);
+        _selectedId = nodeId;
+        Rebuild();
+    }
+
+    private void ForceRevoke(string nodeId)
+    {
+        if (InstitutionSystem.ForceRevokeNode(_culture, nodeId) <= 0) return;
         _selectedId = nodeId;
         Rebuild();
     }

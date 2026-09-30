@@ -223,6 +223,31 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
     // replacingEmpire：由该帝国延续而来（核心王国灭亡后由皇族王国接续等）。它此刻仍然存在，
     // 不能把它当成"同文化已有帝国"而拒绝建立继承者。
+    // 成员国、分封国沿用帝国的颜色；它后来自立成帝国(分裂、皇族延续如"南唐"、正统对手)时会和原帝国同色，
+    // 地图上连成一片分不清。两个现存帝国同色时，给较晚成立的一方换一个颜色
+    public static void EnsureDistinctColor(Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core?.data == null || core.isRekt() || ModClass.EMPIRE_MANAGER == null) return;
+        foreach (Empire other in ModClass.EMPIRE_MANAGER.ToList())
+        {
+            if (other == null || other == empire || other.isRekt() || other.IsArchived() ||
+                other.CoreKingdom?.data == null || other.CoreKingdom.isRekt()) continue;
+            if (other.CoreKingdom.data.color_id != core.data.color_id) continue;
+            Empire younger = other.data.timestamp_established_time > empire.data.timestamp_established_time
+                ? other
+                : empire;
+            Kingdom kingdom = younger.CoreKingdom;
+            ActorAsset asset = kingdom.king?.asset ?? kingdom.units?.FirstOrDefault(unit => unit != null)?.asset;
+            if (asset == null) return;
+            ColorAsset next = kingdom.getColorLibrary()?.getNextColor(asset);
+            if (next == null) return;
+            kingdom.updateColor(next);
+            younger.updateColor(kingdom.getColor());
+            return;
+        }
+    }
+
     public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false,
         bool allowCultureRival = false, bool forceNewCore = false, Empire replacingEmpire = null,
         bool suppressFoundingLog = false)
@@ -253,6 +278,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
+        EnsureDistinctColor(empire);
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
         var riseCore = forceNewCore ? null : EmpireCoreManager.GetRiseCandidateCore(pKingdom);
         // 候选核心已归属别的现存帝国时不能抢过来(主法理在别国核心里的根本不能称帝，见 EmpireFormationService)；

@@ -201,6 +201,10 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             ImperialLegitimacyChallengeService.TryStartRivalryWar(empire)) return;
         // Modern sovereign states enter the empire layer directly. This is state formation,
         // not a monarch's proclamation plot, and therefore ignores pre-modern rise routes.
+        // 本文化已废除君主制：独立的君主国(不在帝国里)改行现代政体，之后按现代国家组建政府或为军阀，不再有称帝
+        if (empire == null && !pKingdom.IsInEmpire() && CultureAbolishedMonarchy(pKingdom) &&
+            RegimeManager.IsMonarchy(pKingdom.GetRegime()?.type))
+            CultureService.ApplyCulturePoliticalSystem(pKingdom, CultureService.GetRealmCulture(pKingdom));
         if (empire == null && ModernStateFormationSystem.TryUpdate(pKingdom)) return;
         if (pKingdom.hasKing() && ImperialLegitimacyChallengeService.TryFindTarget(pKingdom, out _))
         {
@@ -229,12 +233,18 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         }
     }
 
+    private static bool CultureAbolishedMonarchy(Kingdom kingdom) =>
+        !TechnologySystem.PremodernLocked &&
+        InstitutionSystem.GetFeature(CultureService.GetRealmCulture(kingdom), RepublicSystem.FeatureAbolishMonarchy) > 0f;
+
     // 称帝资格：基础条件 + 不在失败冷却期 + 至少满足一条称帝路线(见 EmpireFormationService)
     public static bool CanStartEmpireFormation(Kingdom pKingdom, bool repairMainTitle = false)
     {
         if (pKingdom == null || pKingdom.isRekt()) return false;
         // 现代政体没有称帝：政权只能经 ModernStateFormationSystem 组建政府(所有文化；华夏条件更苛刻)
         if (pKingdom.GetRegime()?.type == RegimeType.Modern) return false;
+        // 本文化已废除君主制：不再有人称帝
+        if (CultureAbolishedMonarchy(pKingdom)) return false;
         if (repairMainTitle && pKingdom.hasKing() && !pKingdom.HasMainTitle() &&
             !pKingdom.IsEmpire() && !pKingdom.IsInEmpire())
         {

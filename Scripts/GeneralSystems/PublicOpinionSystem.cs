@@ -36,6 +36,8 @@ public static class PublicOpinionSystem
     private const float FarDistance = 90f;
     private const float BasePressure = 10f;
     private const int WaveYearsToRevolt = 2;
+    // 罢工城市占比达到这个值即为全国总罢工：记入史书，革命浪潮中革命提前一年爆发
+    private const float GeneralStrikeShare = 0.3f;
 
     public static int GetLevel(Empire empire) => State(empire)?.opinion_level ?? Content;
 
@@ -110,8 +112,11 @@ public static class PublicOpinionSystem
             .Sum(source => source.amount);
         IReadOnlyDictionary<SocialClass, float> grievances = InstitutionSystem.GetClassGrievances(empire);
         float grievance = grievances.Count == 0 ? 0f : grievances.Values.Average() / 100f;
+        // WarBox 的示威与罢工(年度统计见 ApplyStrikeEffects)：罢工城市越多民意越差
+        float strikeShare = state.strike_share;
+        float demonstrationShare = state.demonstration_share;
         float dissent = Mathf.Clamp01(far + middle * 0.5f + Mathf.Min(0.25f, hostilePressure / 200f) +
-                                      grievance * 0.15f);
+                                      grievance * 0.15f + strikeShare * 0.5f + demonstrationShare * 0.15f);
         state.opinion_support = support;
         state.opinion_dissent = dissent;
 
@@ -129,11 +134,63 @@ public static class PublicOpinionSystem
         ApplyConsequences(empire, state, level, preferred);
 
         state.opinion_wave_years = level == RevolutionaryWave ? state.opinion_wave_years + 1 : 0;
+        // 革命浪潮中的全国总罢工：革命提前一年爆发
+        if (level == RevolutionaryWave && strikeShare >= GeneralStrikeShare) state.opinion_wave_years++;
+        if (level < RevolutionaryWave) state.opinion_wave_elections = 0;
         if (state.opinion_wave_years >= WaveYearsToRevolt && preferred.HasValue)
         {
             state.opinion_wave_years = 0;
             Revolt(empire, state, preferred.Value);
         }
+    }
+
+    // WarBox 的示威与罢工对帝国的年度影响(所有国家，不论有没有政党政治；由 ConstitutionalEconomySystem 年度结算调用)：
+    //   · 罢工推高工人、农民、市民的怨气——共和革命战争、废君压力都看这些阶层的怨气；
+    //   · 正统按罢工城市占比流失(全停工每年 -10)，全国总罢工(≥30%)再 -3——革命战争、互保同盟逼宫、
+    //     叛乱滚雪球都以正统为门槛；
+    //   · 罢工城市首次达到三成时记"全国总罢工"。
+    // 统计结果存进 state，供随后的民意计算使用
+    private const int StrikeMandateLoss = 10;
+    private const int GeneralStrikeMandateLoss = 3;
+
+    public static void ApplyStrikeEffects(Empire empire, ConstitutionalEconomyState state)
+    {
+        if (empire?.CoreKingdom == null || state == null) return;
+        float strikeShare = ApplyProtests(empire, state, out float demonstrationShare);
+        state.strike_share = strikeShare;
+        state.demonstration_share = demonstrationShare;
+        int loss = Mathf.RoundToInt(strikeShare * StrikeMandateLoss) +
+                   (strikeShare >= GeneralStrikeShare ? GeneralStrikeMandateLoss : 0);
+        if (loss > 0) empire.AddMandate(-loss);
+    }
+
+    private static float ApplyProtests(Empire empire, ConstitutionalEconomyState state, out float demonstrationShare)
+    {
+        demonstrationShare = 0f;
+        EmpireCraft.Scripts.Compatibility.WarBoxCompatibility.CountProtests(empire, out int demonstrating,
+            out int striking);
+        int cities = empire.kingdoms_list.Where(kingdom => kingdom?.cities != null && !kingdom.isRekt())
+            .Sum(kingdom => kingdom.cities.Count(city => city != null && !city.isRekt()));
+        if (cities == 0) return 0f;
+        float strikeShare = (float)striking / cities;
+        demonstrationShare = (float)demonstrating / cities;
+        InstitutionEmpireState institutions = empire.data.institution_state;
+        if (striking > 0 && institutions != null)
+        {
+            institutions.class_grievances ??= new Dictionary<SocialClass, float>();
+            foreach ((SocialClass socialClass, float weight) in new[]
+                         { (SocialClass.Labour, 12f), (SocialClass.Peasant, 5f), (SocialClass.Citizen, 5f) })
+            {
+                institutions.class_grievances.TryGetValue(socialClass, out float current);
+                institutions.class_grievances[socialClass] = Mathf.Min(100f, current + weight * strikeShare + 1f);
+            }
+        }
+        bool general = strikeShare >= GeneralStrikeShare;
+        if (general && !state.general_strike)
+            Announce(empire, string.Format(LM.Get("public_opinion_general_strike_log"), empire.GetEmpireName(),
+                striking, cities));
+        state.general_strike = general;
+        return strikeShare;
     }
 
     private static void Reset(ConstitutionalEconomyState state)
@@ -269,7 +326,17 @@ public static class PublicOpinionSystem
             PartyBanSystem.Open(empire, "party_ban_reopened_core_history");
             return;
         }
-        // 多党制：提前大选，让选票说话
+        // 多党制：先提前大选，让选票说话；大选之后革命浪潮仍在、民意所向的政党还是没能上台，就转为现代革命
+        bool preferredGoverning = PartySystem.GetGovernmentParty(empire)?.Ideology == preferred;
+        if (state.opinion_wave_elections >= 1 && !preferredGoverning &&
+            RepublicSystem.StartModernRevolution(empire, party))
+        {
+            state.opinion_wave_elections = 0;
+            Announce(empire, string.Format(LM.Get("public_opinion_modern_revolution_log"), empire.GetEmpireName(),
+                ideologyName, party.Name));
+            return;
+        }
+        state.opinion_wave_elections++;
         state.last_parliament_election = -1d;
         Announce(empire, string.Format(LM.Get("public_opinion_election_log"), empire.GetEmpireName(), ideologyName));
     }

@@ -27,6 +27,7 @@ public static class ConstitutionSystem
     private enum Kind { None, Provisional, Full }
 
     public const string ClauseFormOfState = "form_of_state";
+    public const string ClauseFoundingIdeology = "founding_ideology";
     public const string ClausePowerCenter = "power_center";
     public const string ClauseHeadSelection = "head_selection";
     public const string ClauseSuffrage = "suffrage";
@@ -50,7 +51,7 @@ public static class ConstitutionSystem
     // 宪法页的编辑行顺序
     public static readonly string[] EditableRows =
     {
-        ClauseFormOfState, ClausePowerCenter, ClauseHeadSelection, ClauseSuffrage, ClausePartySystem,
+        ClauseFormOfState, ClauseFoundingIdeology, ClausePowerCenter, ClauseHeadSelection, ClauseSuffrage, ClausePartySystem,
         ClauseTerritory, ClauseEconomy, ClauseReligion, ClauseEmergency, ClauseAmendment, ClauseTermYears,
         ClauseMaxTerms
     };
@@ -143,7 +144,11 @@ public static class ConstitutionSystem
     // 共和：过渡期为临时约法，过渡结束为正式宪法；君主立宪：议会召开或已完成立宪
     private static Kind RequiredKind(Empire empire, ConstitutionalEconomyState state)
     {
-        if (state.is_republic) return state.republic_transition_stage > 0 ? Kind.Provisional : Kind.Full;
+        // 共和过渡期、以及军阀时期另立的临时政府：施行临时约法；取胜成为中央后颁布正式宪法
+        if (state.is_republic)
+            return state.republic_transition_stage > 0 || WarlordEraSystem.IsProvisionalGovernment(empire)
+                ? Kind.Provisional
+                : Kind.Full;
         if (!RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type)) return Kind.None;
         return state.constitutional_monarchy || ParliamentSystem.HasParliament(empire) ? Kind.Full : Kind.None;
     }
@@ -253,6 +258,10 @@ public static class ConstitutionSystem
         return clauses;
     }
 
+    // 该理念是否倾向统一：它在 ConstitutionTemplates.json 里主张单一制(不计文化倾向)
+    public static bool IdeologyPrefersUnitary(PartyIdeology ideology) =>
+        Template(ideology, false, false, null).territory == ConstitutionTerritory.Unitary;
+
     private static ConstitutionSetting CultureSetting(string culture) =>
         !string.IsNullOrEmpty(culture) && OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
             ? setting?.Constitution
@@ -358,6 +367,7 @@ public static class ConstitutionSystem
         constitution.amendments ??= new List<ConstitutionAmendmentRecord>();
         bool monarchy = !state.is_republic;
         ConstitutionHeadSelection head = DeriveHeadSelection(empire, monarchy);
+        clauses.founding_ideology = monarchy ? IdeologyFamilies.StateIdeology(empire) : state.republic_ideology;
         Set(constitution, ClauseFormOfState, clauses.form_of_state,
             monarchy ? ConstitutionFormOfState.ConstitutionalMonarchy : ConstitutionFormOfState.Republic,
             value => clauses.form_of_state = value, record);
@@ -440,6 +450,7 @@ public static class ConstitutionSystem
     public static string CurrentValue(ConstitutionClauses clauses, string row) => row switch
     {
         ClauseFormOfState => clauses.form_of_state.ToString(),
+        ClauseFoundingIdeology => clauses.founding_ideology.ToString(),
         ClausePowerCenter => clauses.power_center.ToString(),
         ClauseHeadSelection => clauses.head_selection.ToString(),
         ClauseSuffrage => clauses.suffrage.ToString(),
@@ -463,6 +474,13 @@ public static class ConstitutionSystem
         bool monarchy = constitution.clauses.form_of_state == ConstitutionFormOfState.ConstitutionalMonarchy;
         switch (row)
         {
+            case ClauseFoundingIdeology:
+                // 共和国才有国体可改；可选本文化已掌握的理念(当前的一并列出)
+                if (monarchy) break;
+                foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)))
+                    if (ideology == constitution.clauses.founding_ideology || PartySystem.IsIdeologyUnlocked(empire, ideology))
+                        options.Add(ideology.ToString());
+                break;
             case ClausePowerCenter:
                 if (monarchy) break;
                 options.AddRange(new[] { ConstitutionPowerCenter.Presidential, ConstitutionPowerCenter.Parliamentary,
@@ -535,6 +553,10 @@ public static class ConstitutionSystem
         string before = CurrentValue(clauses, row);
         switch (row)
         {
+            case ClauseFoundingIdeology:
+                clauses.founding_ideology = Parse<PartyIdeology>(value);
+                RepublicSystem.SetFoundingIdeology(empire, clauses.founding_ideology);
+                break;
             case ClausePowerCenter:
                 clauses.power_center = Parse<ConstitutionPowerCenter>(value);
                 bool congress = clauses.power_center == ConstitutionPowerCenter.Congress;
@@ -566,7 +588,9 @@ public static class ConstitutionSystem
         }
         constitution.player_locked ??= new List<string>();
         string lockKey = LockKey(row);
-        if (!constitution.player_locked.Contains(lockKey)) constitution.player_locked.Add(lockKey);
+        // 国体直接改写立国理念本身，不需要手定
+        if (row != ClauseFoundingIdeology && !constitution.player_locked.Contains(lockKey))
+            constitution.player_locked.Add(lockKey);
         if (before == value) return true;
         AddAmendment(constitution, row, before, value, "player");
         EventRecorder.Record(empire, string.Format(LM.Get("constitution_amended_history"), empire.GetEmpireFullName(),
@@ -577,6 +601,9 @@ public static class ConstitutionSystem
     // 条款取值的显示文字
     public static string ValueText(string row, string value) => row switch
     {
+        ClauseFoundingIdeology => Enum.TryParse(value, out PartyIdeology ideology)
+            ? PartySystem.GetIdeologyName(ideology)
+            : value,
         ClauseTermYears => string.Format(LM.Get("constitution_term_years_value"), value),
         ClauseMaxTerms => value == "0" ? LM.Get("constitution_max_terms_unlimited")
             : string.Format(LM.Get("constitution_max_terms_value"), value),

@@ -1902,6 +1902,7 @@ public static class KingdomExtension
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
                 ? setting.regime
                 : RegimeType.Feudalism;
+        regimeType = InstitutionSystem.AdjustForMonarchyEmpire(k, regimeType);
         // 改制共和的帝国：保留现在的政体，只重建官职——否则一丢官职就被按文化重置回君主制
         if (RepublicSystem.IsRegimeLocked(k)) regimeType = k.GetOrCreate().regimeType;
         k.SetRegimeType(regimeType);
@@ -2316,6 +2317,9 @@ public static class KingdomExtension
         if (!kingdom.CanUseAdministrativeProvinceName(title)) return null;
         return GetProvinceName(title);
     }
+
+    // 法理对应的省份名(法理上记录的省份名，没有则用法理首府城名)
+    public static string GetTitleProvinceName(this KingdomTitle title) => GetProvinceName(title);
 
     private static string GetProvinceName(KingdomTitle title)
     {

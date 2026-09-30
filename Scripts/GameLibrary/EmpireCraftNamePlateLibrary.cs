@@ -1315,6 +1315,19 @@ public static class EmpireCraftNamePlateLibrary
     private static readonly Dictionary<long, (string name, float at)> _empire_name_cache = new();
     private static readonly Dictionary<long, (string name, float at)> _kingdom_name_cache = new();
 
+    // 与地图铭牌一致的国名：帝国核心王国显示政府(帝国)国号，其余显示王国国号。世界提示据此统一名称
+    public static string GetDisplayName(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return "";
+        Empire empire = kingdom.IsEmpire() ? kingdom.GetEmpire() : null;
+        if (IsRenderableEmpire(empire) && empire.CoreKingdom == kingdom)
+        {
+            string empireName = GetSafeEmpireName(empire);
+            if (!string.IsNullOrWhiteSpace(empireName)) return empireName;
+        }
+        return GetSafeKingdomName(kingdom);
+    }
+
     private static string GetSafeEmpireName(Empire empire)
     {
         if (!IsRenderableEmpire(empire)) return "";

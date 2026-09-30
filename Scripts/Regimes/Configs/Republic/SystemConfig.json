@@ -6,7 +6,8 @@
     "era_name": false,
     "has_cabinet": false,
     "is_monarchy": false,
-    "allows_landlord_class": true,
+    // 共和：土地收归国有，不设地主阶层(私有土地市场随之关闭)
+    "allows_landlord_class": false,
     "cabinet_number": 0,
     "leader_select_method": "Vote",
     "default_kingdom": "Modern_centre",

@@ -168,6 +168,23 @@ public static class InstitutionSystem
 
     // 特性值：文化已掌握的节点里声明该特性的最大值；没有任何节点声明时返回 0。
     // 系统代码应当查询特性而不是具体节点 id，这样任何线（自研、吸收、公共模板实例）都能提供同一效果。
+    // 本文化最早掌握某项特性的时间(没有掌握或旧存档没记时间返回 -1)
+    public static double GetFeatureEnactedTime(string culture, string feature)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        if (state == null || string.IsNullOrWhiteSpace(feature)) return -1d;
+        double earliest = -1d;
+        foreach (string nodeId in state.enacted_node_ids)
+        {
+            InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
+            if (node == null || !node.features.ContainsKey(feature)) continue;
+            if (state.enacted_timestamps == null || !state.enacted_timestamps.TryGetValue(nodeId, out double at) ||
+                at < 0d) continue;
+            if (earliest < 0d || at < earliest) earliest = at;
+        }
+        return earliest;
+    }
+
     public static float GetFeature(string culture, string feature)
     {
         CultureInstitutionState state = GetOrCreateCultureState(culture);
@@ -311,10 +328,26 @@ public static class InstitutionSystem
     // 最高的那个；一个都没有就用本线根节点声明的政体——也就是**一级制度决定初始政体**，
     // 所以华夏开局是周制而不是律令制，律令要等郡县官僚（等级 5）研究出来。
     // 只看本线节点：从别的线吸收来的制度不该把本文化的政体形态也换掉。
+    // 仍在现存君主国里的成员国：跟随帝国核心的政体，不按文化直接变成现代政体(君主国的改制走 RepublicSystem)
+    public static RegimeType AdjustForMonarchyEmpire(Kingdom kingdom, RegimeType regime)
+    {
+        if (regime != RegimeType.Modern || kingdom == null || kingdom.IsEmpire() || !kingdom.IsInEmpire()) return regime;
+        RegimeType? core = kingdom.GetEmpire()?.CoreKingdom?.GetRegime()?.type;
+        return core.HasValue && RegimeManager.IsMonarchy(core) ? core.Value : regime;
+    }
+
     public static bool TryResolveCultureRegime(string culture, out RegimeType regime)
     {
         regime = default;
         if (!CultureService.IsValidCulture(culture)) return false;
+        // 本文化已废除君主制：此后新建、归化、分裂出来的本文化政权一律是现代政体，不会再出现皇帝
+        if (!TechnologySystem.PremodernLocked &&
+            GetFeature(culture, RepublicSystem.FeatureAbolishMonarchy) > 0f &&
+            RegimeManager.regimes != null && RegimeManager.regimes.ContainsKey(RegimeType.Modern))
+        {
+            regime = RegimeType.Modern;
+            return true;
+        }
         string line = GetCultureLine(culture);
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         InstitutionNodeConfig best = null;
@@ -835,6 +868,74 @@ public static class InstitutionSystem
         state.enacted_timestamps ??= new Dictionary<string, double>();
         state.enacted_timestamps[node.id] = World.world?.getCurWorldTime() ?? 0d;
         added.Add(node);
+    }
+
+    // 玩家手动回退：撤销本文化已掌握的一项制度，连同必须以它为前置的后续制度；它们当初取代的旧制度随之恢复。
+    // 这是已废除君主制的文化重新允许君主制的唯一途径(其他途径见 RepublicSystem.CanRestore 等的拦截)
+    public static int ForceRevokeNode(string culture, string nodeId)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        if (state == null || InstitutionDefinitionRegistry.Get(nodeId) == null ||
+            !state.enacted_node_ids.Contains(nodeId)) return 0;
+        var revoked = new HashSet<string>();
+        var queue = new Queue<string>();
+        queue.Enqueue(nodeId);
+        while (queue.Count > 0)
+        {
+            string id = queue.Dequeue();
+            if (!revoked.Add(id)) continue;
+            foreach (string other in state.enacted_node_ids)
+            {
+                if (revoked.Contains(other)) continue;
+                InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(other);
+                if (node == null) continue;
+                bool needsIt = node.requires.Contains(id) ||
+                               node.requires_any.Contains(id) && !node.requires_any.Any(alternative =>
+                                   alternative != id && !revoked.Contains(alternative) &&
+                                   state.enacted_node_ids.Contains(alternative));
+                if (needsIt) queue.Enqueue(other);
+            }
+        }
+        var removed = new List<InstitutionNodeConfig>();
+        foreach (string id in revoked)
+        {
+            state.enacted_node_ids.Remove(id);
+            state.absorbed_node_ids.Remove(id);
+            state.enacted_timestamps?.Remove(id);
+            InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(id);
+            if (node != null) removed.Add(node);
+        }
+        state.enacted_timestamps ??= new Dictionary<string, double>();
+        foreach (InstitutionNodeConfig node in removed)
+        foreach (string replaced in node.replaces)
+        {
+            if (state.enacted_node_ids.Contains(replaced) || IsSuperseded(state, replaced) ||
+                InstitutionDefinitionRegistry.Get(replaced) == null) continue;
+            state.enacted_node_ids.Add(replaced);
+            state.enacted_timestamps[replaced] = World.world?.getCurWorldTime() ?? 0d;
+        }
+        AfterForceRevoke(culture, removed);
+        return removed.Count;
+    }
+
+    private static void AfterForceRevoke(string culture, List<InstitutionNodeConfig> removed)
+    {
+        if (removed.Count == 0 || ModClass.EMPIRE_MANAGER == null) return;
+        string content = string.Format(LM.Get("institution_force_revoked_history"), culture.GetCultureTranslate(),
+            string.Join("、", removed.Select(GetNodeName)));
+        Kingdom messageKingdom = null;
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
+        {
+            if (empire?.data == null || empire.IsArchived() || empire.isRekt() || empire.CoreKingdom == null ||
+                !string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal)) continue;
+            InstitutionEmpireState empireState = EnsureEmpireState(empire);
+            if (empireState?.active_reform != null && removed.Any(node => node.id == empireState.active_reform.node_id))
+                empireState.active_reform = null;
+            SyncSharedEffects(empire);
+            empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
+            messageKingdom ??= empire.CoreKingdom;
+        }
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, messageKingdom);
     }
 
     private static void AfterForceEnact(string culture, List<InstitutionNodeConfig> added)
@@ -1925,6 +2026,10 @@ public static class InstitutionSystem
     private static void ChangeRegime(Empire empire, RegimeType regimeType)
     {
         if (empire?.data?.constitutional_economy?.is_republic == true) return;
+        // 已废除君主制的文化会解析出现代政体(见 TryResolveCultureRegime)，但现存的君主国不能随文化同步
+        // 直接变成现代国家：得走废君压力、退位、革命这些共和途径(RepublicSystem)，才有退位与史书
+        if (regimeType == RegimeType.Modern && RegimeManager.IsMonarchy(empire?.CoreKingdom?.GetRegime()?.type))
+            return;
         ApplyRegimeChange(empire, regimeType);
     }
 

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.Data;
 
@@ -51,6 +52,10 @@ public sealed class ConstitutionClauses
 {
     [JsonConverter(typeof(StringEnumConverter))]
     public ConstitutionFormOfState form_of_state;
+    // 国体(立国理念)：决定国号后缀与临时政府称呼；共和国与 ConstitutionalEconomyState.republic_ideology 同步，
+    // 只有革命或修宪(含修改临时约法)才会改变，不随执政党轮替
+    [JsonConverter(typeof(StringEnumConverter))]
+    public PartyIdeology founding_ideology;
     [JsonConverter(typeof(StringEnumConverter))]
     public ConstitutionPowerCenter power_center;
     [JsonConverter(typeof(StringEnumConverter))]

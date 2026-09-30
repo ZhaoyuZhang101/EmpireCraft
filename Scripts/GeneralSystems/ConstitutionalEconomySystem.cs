@@ -161,6 +161,8 @@ public static class ConstitutionalEconomySystem
         SyncRegime(empire, state);
         // 玩家随时可能在政体窗口切换国家制度：共和标记跟着实际政体走
         RepublicSystem.SyncWithRegime(empire);
+        // 本文化废除君主制之后才成立的君主国：强制改建现代国家
+        RepublicSystem.TryModernizeLateMonarchy(empire);
         // 旧存档清理：已废除君主制的国家名下还挂着朝贡国(共和国不再接收新朝贡国，所以只会出现在旧存档里)
         if (RepublicSystem.IsRepublic(empire) && empire.taken_Kingdoms?.Count > 0)
             TributaryAbolitionService.OnMonarchyAbolished(empire);
@@ -180,7 +182,13 @@ public static class ConstitutionalEconomySystem
         if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;
         state.last_economy_update = World.world.getCurWorldTime();
         PruneTrade(state);
+        // 与别的帝国同色(分裂/延续出来的帝国沿用了原色)时换色；旧存档也在这里修正
+        EmpireManager.EnsureDistinctColor(empire);
+        // WarBox 罢工：怨气、正统(所有国家)，并为民意计算统计罢工占比
+        PublicOpinionSystem.ApplyStrikeEffects(empire, state);
         PublicOpinionSystem.Update(empire, state);
+        // 国民教育：按宪法国体(立国理念)在国内扩散理念
+        IdeologyEducationSystem.Update(empire);
         RepublicSystem.UpdateAbolitionPressure(empire);
         RepublicSystem.TryMandateCollapseCoalition(empire);
         RebellionSnowballSystem.Update(empire);

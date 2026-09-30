@@ -35,6 +35,13 @@ public sealed class ConstitutionalEconomyState
     // 0 满意 / 1 异见 / 2 抵制 / 3 革命浪潮
     public int opinion_level;
     public int opinion_wave_years;
+    // 革命浪潮中已经为顺应民意举行过几次提前大选；选举仍未让民意所向的政党上台时转为现代革命
+    public int opinion_wave_elections;
+    // 去年是否处于全国总罢工(罢工城市 ≥30%)；用于只在总罢工开始时记一次史书
+    public bool general_strike;
+    // 今年 WarBox 示威/罢工城市占全国城市的比例(年度结算时统计，民意计算读取)
+    public float strike_share;
+    public float demonstration_share;
     public float opinion_support;
     public float opinion_dissent;
     public string opinion_preferred = "";

@@ -329,6 +329,49 @@ public static class WarBoxCompatibility
 
     #endregion
 
+    #region 示威与罢工 → 民意
+
+    private static MethodInfo _isStrike;
+    private static MethodInfo _isDemonstrating;
+    private static bool _protestLookupDone;
+
+    // 帝国境内正在示威、已转为罢工的城市数(没装 WarBox 时都为 0)。给 PublicOpinionSystem 计入民意
+    public static void CountProtests(Empire empire, out int demonstrating, out int striking)
+    {
+        demonstrating = 0;
+        striking = 0;
+        if (empire == null) return;
+        if (!_protestLookupDone)
+        {
+            _protestLookupDone = true;
+            Type type = AccessTools.TypeByName("WarBox.Content.ProtestSystem");
+            _isStrike = type == null ? null : AccessTools.Method(type, "IsStrike", new[] { typeof(City) });
+            _isDemonstrating = type == null ? null : AccessTools.Method(type, "IsDemonstrating", new[] { typeof(City) });
+        }
+        if (_isStrike == null && _isDemonstrating == null) return;
+        try
+        {
+            foreach (Kingdom kingdom in empire.kingdoms_list)
+            {
+                if (kingdom?.cities == null || kingdom.isRekt()) continue;
+                foreach (City city in kingdom.cities)
+                {
+                    if (city == null || city.isRekt()) continue;
+                    if (_isStrike != null && (bool)_isStrike.Invoke(null, new object[] { city })) striking++;
+                    else if (_isDemonstrating != null && (bool)_isDemonstrating.Invoke(null, new object[] { city }))
+                        demonstrating++;
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] WarBox 罢工统计失败: {exception.Message}");
+            _isStrike = _isDemonstrating = null;
+        }
+    }
+
+    #endregion
+
     #region 合法性：帝国成员共用帝国的
 
     private static bool IsEmpireMember(Kingdom kingdom)

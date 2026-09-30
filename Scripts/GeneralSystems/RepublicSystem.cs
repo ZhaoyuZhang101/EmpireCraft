@@ -242,6 +242,32 @@ public static class RepublicSystem
         return governing == party && party.CentralRatio >= 50;
     }
 
+    // 本文化废除君主制之后才成立的君主国不被承认：强制改建现代国家(走与退位相同的建立共和流程)。
+    // 废君之前就存在的君主国不在此列，仍按废君压力、退位、革命改制
+    // 修宪改变国体(立国理念)：国号后缀、临时政府称呼、中央机构随之按新理念重取
+    public static void SetFoundingIdeology(Empire empire, PartyIdeology ideology)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        if (state == null || !state.is_republic || state.republic_ideology == ideology) return;
+        state.republic_ideology = ideology;
+        empire.CoreKingdom.GetOrCreate().ideology_country_suffix = PartySystem.PickCountrySuffix(empire, ideology);
+        EnsureIdeologyBureau(empire);
+    }
+
+    public static bool TryModernizeLateMonarchy(Empire empire)
+    {
+        if (empire?.data == null || IsRepublic(empire) || !CanAbolish(empire)) return false;
+        double abolishedAt = InstitutionSystem.GetFeatureEnactedTime(InstitutionSystem.GetPrimaryCulture(empire),
+            FeatureAbolishMonarchy);
+        if (abolishedAt < 0d || empire.data.timestamp_established_time <= abolishedAt) return false;
+        FixedFaction party = PartySystem.GetGovernmentParty(empire) ??
+                             empire.CoreKingdom.GetRegime()?.GetDominateFaction();
+        if (party != null && (!party.IsParty || party.Ban)) party = null;
+        PartyIdeology ideology = party?.Ideology ?? IdeologyFamilies.StateIdeology(empire);
+        Establish(empire, party, ideology, party?.GetLeader(), false, "republic_late_monarchy_history");
+        return true;
+    }
+
     public static bool TryMassPoliticsTransition(Empire empire)
     {
         if (empire == null || IsRepublic(empire) || IsTransitioning(empire)) return false;
@@ -402,7 +428,17 @@ public static class RepublicSystem
         .ThenByDescending(actor => actor.GetFaction() == party)
         .ThenByDescending(actor => actor.renown).FirstOrDefault();
 
-    private static bool StartRevolutionWar(Empire empire, FixedFaction party)
+    // 现代革命：共和国里民意所向的理念迟迟不能经选举上台，其政党起兵推翻现政府。
+    // 条件：已是共和国(不在过渡期)、没有进行中的革命战争、该党有领袖且找得到起兵的地方
+    public static bool StartModernRevolution(Empire empire, FixedFaction party)
+    {
+        if (!IsRepublic(empire) || IsTransitioning(empire) || HasActiveRevolutionWar(empire) || party == null ||
+            !party.IsParty || party.Ban || party.GetLeader() == null) return false;
+        if (FindRebelKingdom(empire, party) == null && FindSplitLeader(empire, party) == null) return false;
+        return StartRevolutionWar(empire, party, modern: true);
+    }
+
+    private static bool StartRevolutionWar(Empire empire, FixedFaction party, bool modern = false)
     {
         Kingdom rebel = FindRebelKingdom(empire, party);
         City splitSeat = null;
@@ -434,7 +470,8 @@ public static class RepublicSystem
             return false;
         }
         war.SetEmpireWarType(splitSeat == null ? EmpireWarType.派系叛乱 : EmpireWarType.地方叛乱);
-        war.data.name = string.Format(LM.Get("republic_revolution_war_name"), party.Name);
+        war.data.name = string.Format(LM.Get(modern ? "republic_modern_revolution_war_name"
+            : "republic_revolution_war_name"), party.Name);
         WarExtension.WarExtraData snapshot = war.GetOrCreate();
         snapshot.republic_revolution_empire_id = empire.id;
         snapshot.republic_revolution_party_id = party.GetID();
@@ -442,12 +479,14 @@ public static class RepublicSystem
         snapshot.republic_revolution_ideology = party.Ideology;
         snapshot.republic_revolution_leader_id = party.GetLeader()?.id ?? -1L;
         snapshot.republic_revolution_split_realm = splitSeat != null;
+        snapshot.republic_modern_revolution = modern;
         int alliedRealms = RecruitRevolutionaryRealms(empire, party, war, rebel, snapshot);
         int volunteers = RaiseRevolutionaryMilitia(empire, rebel, party.Ideology, splitSeat != null);
         int defectors = DefectImperialSoldiers(empire, party, war, rebel);
         snapshot.republic_revolution_defected_soldiers = defectors;
         OrganizeRevolutionaryGarrison(rebel.capital, rebel);
-        Record(empire, string.Format(LM.Get("republic_revolution_started_history"), party.Name,
+        Record(empire, string.Format(LM.Get(modern ? "republic_modern_revolution_started_history"
+                : "republic_revolution_started_history"), party.Name,
             rebel.GetKingdomName(), empire.GetEmpireFullName()), party.GetLeader());
         if (alliedRealms > 0)
             Record(empire, string.Format(LM.Get("republic_revolution_allies_history"), alliedRealms),
@@ -597,6 +636,23 @@ public static class RepublicSystem
         Actor leader = World.world.units?.get(snapshot.republic_revolution_leader_id);
         if (leader == null || leader.isRekt() || !leader.isAlive()) leader = war.getMainAttacker()?.king;
         Kingdom rebelKingdom = war.getMainAttacker();
+        if (snapshot.republic_modern_revolution && IsRepublic(empire))
+        {
+            if (winner == WarWinner.Attackers && rebelKingdom != null && !rebelKingdom.isRekt())
+            {
+                if (snapshot.republic_revolution_split_realm)
+                    empire.join(rebelKingdom, pForce: true, pLegitimacyTransfer: true);
+                ApplyModernRevolution(empire, party, snapshot.republic_revolution_ideology, leader);
+                return;
+            }
+            if (winner == WarWinner.Defenders)
+            {
+                party?.BanFaction();
+                Record(empire, string.Format(LM.Get("republic_revolution_failed_history"),
+                    snapshot.republic_revolution_party_name, empire.GetEmpireName()), leader);
+            }
+            return;
+        }
         if (winner == WarWinner.Attackers && rebelKingdom != null && !rebelKingdom.isRekt())
         {
             Actor formerMonarch = empire.Emperor;
@@ -617,6 +673,27 @@ public static class RepublicSystem
             Record(empire, string.Format(LM.Get("republic_revolution_failed_history"),
                 snapshot.republic_revolution_party_name, empire.GetEmpireName()), leader);
         }
+    }
+
+    // 现代革命胜利：革命党组建新政府——改以其理念立国、领袖出任元首；一党专政理念关闭党禁，
+    // 其余理念重开选举；旧宪法作废，下次更新时颁布新宪法(第 N 部)
+    private static void ApplyModernRevolution(Empire empire, FixedFaction party, PartyIdeology ideology, Actor leader)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        if (state == null) return;
+        string oldName = empire.GetEmpireFullName();
+        if (IsOneParty(empire)) PartyBanSystem.Open(empire, "party_ban_reopened_revolution_history");
+        state.republic_ideology = ideology;
+        empire.CoreKingdom.GetOrCreate().ideology_country_suffix = PartySystem.PickCountrySuffix(empire, ideology);
+        if (party != null && !party.Ban && OnePartyIdeologies.Contains(ideology))
+            PartyBanSystem.Close(empire, party, null, "party_ban_one_party_history");
+        else
+            state.last_parliament_election = -1d;
+        if (leader != null && !leader.isRekt() && leader.isAlive()) empire.InstallHeadOfState(leader);
+        state.constitution = null;
+        EnsureIdeologyBureau(empire);
+        Record(empire, string.Format(LM.Get("republic_modern_revolution_history"), party?.Name ?? "",
+            PartySystem.GetIdeologyName(ideology), oldName, empire.GetEmpireFullName()), leader);
     }
 
     private static void ResolveRegionalRepublicCoalition(War war, WarWinner winner,
@@ -783,6 +860,8 @@ public static class RepublicSystem
         BeginTransition(state);
 
         TransitionRegime(empire, RegimeType.Modern);
+        // 现代政体不设地主阶层：土地收归国有，私有土地市场关闭，地主不复存在
+        Record(empire, string.Format(LM.Get("republic_land_nationalized_history"), empire.GetEmpireFullName()), leader);
         empire.CoreKingdom.RemoveHeir();
         empire.CoreKingdom.GetOrCreate().is_need_to_choose_heir = false;
         empire.CoreKingdom.GetOrCreate().ideology_country_suffix = PartySystem.PickCountrySuffix(empire, ideology);
@@ -844,6 +923,9 @@ public static class RepublicSystem
     {
         if (!IsRepublic(empire) || party == null || !party.IsParty || party.Ban ||
             party.Ideology != PartyIdeology.Conservatism) return false;
+        // 本文化已废除君主制(文化制度里的"废除君主制")：帝制不可能再复辟
+        if (InstitutionSystem.GetFeature(InstitutionSystem.GetPrimaryCulture(empire), FeatureAbolishMonarchy) > 0f)
+            return false;
         ConstitutionalEconomyState state = State(empire);
         int total = state?.parliament_seats?.Count ?? 0;
         return total > 0 && CanCoup(empire, party) &&

@@ -49,6 +49,16 @@ public static class WarlordEraSystem
 
     #region 国号
 
+    // 该政府眼下是否为军阀时期的临时政府(与 DecorateName 的判定一致)
+    public static bool IsProvisionalGovernment(Empire empire)
+    {
+        if (empire?.data == null || empire.CoreKingdom == null) return false;
+        if (ReferenceEquals(_world, World.world) && Roles.TryGetValue(empire.id, out var entry))
+            return entry.role == Role.Provisional;
+        EmpireCore ownCore = EmpireCoreManager.Get(empire);
+        return ownCore?.warlord_parent_core_id > 0 && EmpireCoreManager.Get(ownCore.warlord_parent_core_id) != null;
+    }
+
     public static string DecorateName(Empire empire, string baseName)
     {
         if (empire?.data == null || empire.CoreKingdom == null ||
@@ -81,14 +91,37 @@ public static class WarlordEraSystem
             kingdom.IsEmpire() || kingdom.IsInEmpire() || kingdom.GetAdministrativeTitle() != null) return false;
         // 正在造反的(农民军、起义军、某某叛乱)用自己的叛军名号，打赢独立之后才按军阀称呼
         if (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling()) return false;
-        // 名号用王国法理：自己的主法理 → 都城所在的法理(没有别的政权以它为主法理时) → 都城名
-        string front = TitleName(kingdom);
+        // 名号用王国法理：自己的主法理 → 都城所在的法理(没有别的政权以它为主法理时) → 都城名。
+        // 本文化废除君主制之后，王国称号不再沿用，改用该法理的省份名——偏保守的与军阀除外
+        string front = UsesProvinceName(kingdom) ? ProvinceFront(kingdom) : "";
+        if (string.IsNullOrWhiteSpace(front)) front = TitleName(kingdom);
         if (string.IsNullOrWhiteSpace(front)) front = CapitalTitleName(kingdom);
         if (string.IsNullOrWhiteSpace(front)) front = kingdom.GetUntitledKingdomName();
         if (string.IsNullOrWhiteSpace(front)) front = kingdom.capital?.GetCityName() ?? kingdom.data.name ?? "";
         // 称呼按文化包(Party.untitled_groups)：如华夏的中间派等为"{0}系军阀"，其余为工农红军、护法军……；没配用默认称呼
         name = ModernStateFormationSystem.FormatLabel(front, ModernStateFormationSystem.GetNonGovernmentLabel(kingdom));
         return true;
+    }
+
+    // 废除君主制之后改用省份名的势力：本文化已废除君主制，且其理念倾向统一——
+    // 主张单一制(见 ConstitutionTemplates.json)，也不是保守派、军阀(保守主义、保守自由主义、中间派、资本主义)。
+    // 不倾向统一的(联邦派、军阀、保守派)照旧用王国称号
+    private static bool UsesProvinceName(Kingdom kingdom)
+    {
+        if (TechnologySystem.PremodernLocked) return false;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (InstitutionSystem.GetFeature(culture, RepublicSystem.FeatureAbolishMonarchy) <= 0f) return false;
+        PartyIdeology ideology = ModernStateFormationSystem.NonGovernmentIdeology(kingdom);
+        if (ideology is PartyIdeology.Conservatism or PartyIdeology.ConservativeLiberalism or
+            PartyIdeology.Centrism or PartyIdeology.Capitalism) return false;
+        return ConstitutionSystem.IdeologyPrefersUnitary(ideology);
+    }
+
+    // 主法理(或都城所在法理)的省份名
+    private static string ProvinceFront(Kingdom kingdom)
+    {
+        KingdomTitle title = kingdom.GetMainTitle() ?? kingdom.GetCapitalDeJureTitle();
+        return title == null ? "" : title.GetTitleProvinceName()?.Trim() ?? "";
     }
 
     // 都城所在的王国法理名；该法理已是别的政权的主法理时不用(免得两个政权同叫"蜀系军阀")
@@ -102,14 +135,25 @@ public static class WarlordEraSystem
     }
 
     // 已组建政府、但在军阀时期里只算军阀的政权(比如被超过的前中央)
-    private static string WarlordEmpireName(Empire empire, EmpireCore core, string baseName)
-    {
-        return ProvisionalGovernmentName(empire, core);
-    }
+    // 已组建政府、但在军阀时期里只算军阀的政权：保留自己的国号(华夏的这类政府会被撤销，见 DemoteWarlordGovernments)
+    private static string WarlordEmpireName(Empire empire, EmpireCore core, string baseName) => baseName;
 
-    private static string ProvisionalGovernmentName(Empire empire, EmpireCore core) =>
-        ModernStateFormationSystem.FormatLabel(WarlordBaseName(empire, core),
-            ModernStateFormationSystem.GetProvisionalGovernmentLabel(empire.CoreKingdom));
+    // 临时政府命名："省份名 + 理念临时政府称呼"(如 某省份名护国临时政府)。
+    //   · 省份名取其王国法理的省份名，没有法理才用都城名；
+    //   · 称呼按立国理念(组建政府时定下，只有革命才会改)取，不随执政党轮替而变；
+    //   · 华夏只有另立的第二个中央是临时政府，其他文化对峙时双方都是临时政府(见 DecorateName)。
+    private static string ProvisionalGovernmentName(Empire empire, EmpireCore core)
+    {
+        string seat = ProvinceFront(empire.CoreKingdom);
+        if (string.IsNullOrWhiteSpace(seat)) seat = empire.CoreKingdom.capital?.GetCityName();
+        if (string.IsNullOrWhiteSpace(seat)) seat = empire.EnsureEmpireCoreName();
+        ConstitutionalEconomyState state = empire.data?.constitutional_economy;
+        PartyIdeology? founding = state != null && state.is_republic ? state.republic_ideology : null;
+        string label = ModernStateFormationSystem.GetProvisionalGovernmentLabel(empire.CoreKingdom, founding);
+        return string.IsNullOrWhiteSpace(label)
+            ? string.Format(LM.Get("warlord_era_huaxia_provisional_name"), seat)
+            : ModernStateFormationSystem.FormatLabel(seat, label);
+    }
 
     private static string TitleName(Kingdom kingdom) =>
         kingdom?.GetMainTitle()?.data?.name?.Trim().Trim(ModClass.NARROW_SPACE.ToCharArray()).Trim() ?? "";

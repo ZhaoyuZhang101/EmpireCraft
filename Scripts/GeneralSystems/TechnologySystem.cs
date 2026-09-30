@@ -1373,6 +1373,50 @@ public static class TechnologySystem
         foreach (TechNodeConfig tech in Config.techs.OrderBy(tech => tech.tier)) ForceResearch(culture, tech.id);
     }
 
+    // 上帝模式：回退一项已研究的技术，连同所有以它为前置(直接或间接)的已研究技术。
+    // 已投入的研究点保留，重新研究时不必从头再来。返回回退的技术数
+    public static int ForceRevoke(string culture, string techId)
+    {
+        if (!CultureService.IsValidCulture(culture) || !HasTech(culture, techId ?? "")) return 0;
+        return RevokeWithDependents(culture, new[] { techId });
+    }
+
+    // 上帝模式：遗忘一种已发现的材料，连同需要它的已研究技术及其后续技术
+    public static int ForceForget(string culture, string materialId)
+    {
+        if (!CultureService.IsValidCulture(culture) || !_materials.ContainsKey(materialId ?? "")) return 0;
+        CultureTechState state = GetState(culture);
+        if (!state.discovered_materials.Remove(materialId)) return 0;
+        state.timestamps.Remove($"mat:{materialId}");
+        List<string> direct = Config.techs.Where(tech => tech.requires_materials.Contains(materialId) &&
+                                                         state.researched_techs.Contains(tech.id))
+            .Select(tech => tech.id).ToList();
+        return 1 + RevokeWithDependents(culture, direct);
+    }
+
+    private static int RevokeWithDependents(string culture, IEnumerable<string> roots)
+    {
+        CultureTechState state = GetState(culture);
+        var revoked = new HashSet<string>(StringComparer.Ordinal);
+        var queue = new Queue<string>(roots);
+        while (queue.Count > 0)
+        {
+            string id = queue.Dequeue();
+            if (!state.researched_techs.Contains(id) || !revoked.Add(id)) continue;
+            foreach (TechNodeConfig tech in Config.techs)
+                if (tech.requires_techs.Contains(id) && state.researched_techs.Contains(tech.id))
+                    queue.Enqueue(tech.id);
+        }
+        foreach (string id in revoked)
+        {
+            state.researched_techs.Remove(id);
+            state.timestamps.Remove($"tech:{id}");
+        }
+        if (revoked.Contains(state.current_tech)) state.current_tech = "";
+        ResearchedCache.Remove(culture);
+        return revoked.Count;
+    }
+
     public static void ResetCulture(string culture)
     {
         if (!_states.Remove(culture ?? "")) return;
