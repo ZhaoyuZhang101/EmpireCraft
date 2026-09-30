@@ -1,21 +1,19 @@
-## 更新内容 (Update Features)
-
-1. 测试版本, 非必要请勿下载
-2. 理念系统完善：理念与宗教分离，新增独立的理念图层（三种显示模式）与理念窗口；新增民意与理念压力系统，强国会向邻国输出思潮，民意恶化会导致丢票、不信任案乃至革命。
-3. 新增文明科技树：先发现材料、再研究技术，才能解锁对应的武器、装备与建筑；科技按文化共享，沿接壤、战争和帝国关系扩散，并加入灵感加速、时代更替、世界首创与军队换装。
-4. 科技与文化制度联动：技术是制度与理念的基础，工业化等技术会推动相应改革并催生工人与工厂。
-5. 兼容 modernmod 与 WarBox（及 ModernBox 的枪械）：它们的武器、载具、工厂与高级建筑都纳入科技树管理；WarBox 的外交与战争系统已与帝国、封建体系对接。不安装这些模组也可正常运行。并为 WarBox 与 modernmod 补全了简体、繁体中文本地化。
-6. 文化包：每个文化独立成 `Locales/Cultures/Culture_<文化>/` 文件夹(规则 CultureRule.json + 词库)，新增文化无需改代码；书名模板大幅扩充(逸闻、实录、列传、某书……)并加入主题词与朝代简称。
-7. 编辑器升级：新增文化编辑器与科技 / 制度节点编辑器，可直接编辑文化、词库、科技树和制度树节点。
-8. 修复 WarBox 革命推翻国王后战争卡死、每帧报错的问题。
-
+# 更新内容 (Update Features)
 ---
+1. 宪法系统：现代国家（共和国、君主立宪国）颁布宪法，过渡期先行临时约法；正式宪法由制宪会议按各党议席表决，帝国窗口新增"宪法"页，可查看修正记录并手动修改条款。
+2. 财政与离心：国库亏空时只剩京师驻军，地方驻军解散；拖得越久正统流失越快，军府与自主性强的成员国拥兵自立，其余就近投靠叛军。
+3. 共和革命：本文化已研究"废除君主制"、帝国正统跌破 30 时，各省组成互保同盟另立革命政府，打赢后逼迫皇帝退位、原帝国改行共和。
+4. 现代国家：王国法理一律归中央元首，省、州按所辖法理的省份名命名；统一帝国核心后以核心名为国号，如中华民国；共和国元首不再按姓氏分朝代，合并为"历任元首"，称号为国号加职务。
+5. 军阀与称呼：军阀只保留中央、临时政府与革命政府的正常国家地位，其余一律撤销政府；华夏的中间派、保守派称"某系军阀"，其余理念按中国近代史称呼（工农红军、护法军等），其他文化使用各自的历史称呼；名称均可在文化包与政体编辑器中配置。
+6. 理念调整：共和国"共产主义"改称"社会主义"、"社会主义"改称"工团主义"；理念图标重绘为国徽风格，并显示在理念图层的名称旁。
+7. 界面：模组能力栏按类别分组并加入原版式分隔线；帝国窗口标签页、法理、省份与帝国核心工具换上专属图标。
+8. 修复：叛军被误称为军阀、朝贡体系废除提示反复刷屏、悬停说明不显示、战争盒子把同一帝国或宗主与附庸之间的军队误判为外国军队、废君危机提示后无后续等问题。
 
-1. Test build, please don't download unless necessary.
-2. Ideology overhaul: ideology is now separate from religion, with its own map layer (three display modes) and ideology window; new public opinion and ideological pressure system — strong nations export their ideology to neighbours, and poor public opinion leads to lost votes, no-confidence votes and even revolution.
-3. New civilization tech tree: discover materials, then research technologies to unlock the matching weapons, equipment and buildings; progress is shared by each culture and spreads through borders, wars and imperial ties, with eurekas, eras, world firsts and army modernization.
-4. Tech and culture institutions are linked: technology underpins institutions and ideologies, and advances such as industrialization drive reforms and give rise to workers and factories.
-5. Compatible with modernmod and WarBox (plus ModernBox firearms): their weapons, vehicles, factories and advanced buildings are gated by the tech tree, and WarBox's diplomacy and war systems now work with the empire and feudal systems. The mod still runs normally without them. Adds Simplified and Traditional Chinese localization for WarBox and modernmod.
-6. Culture packs: each culture now lives in its own `Locales/Cultures/Culture_<name>/` folder (CultureRule.json plus word lists), so new cultures need no code; many more book title templates, topic words and short dynasty names.
-7. Editor upgrade: new culture editor and tech / institution node editor for cultures, word lists, the tech tree and institution trees.
-8. Fixed wars getting stuck and spamming errors every frame after a WarBox revolution overthrew a king.
+1. Constitution system: modern states (republics and constitutional monarchies) promulgate a constitution, with a provisional charter during the republican transition. The permanent constitution is voted clause by clause at a constitutional convention by party seat share. A new "Constitution" tab in the empire window shows the amendment history and lets you edit clauses.
+2. Finances and fragmentation: when the treasury is in debt, only the capital keeps a garrison and provincial troops disband. The longer it lasts, the faster legitimacy drains; military governorates and highly autonomous members declare independence, while the rest defect to nearby rebels.
+3. Republican revolution: once a culture has researched Abolish Monarchy and an empire's legitimacy falls below 30, provinces form a mutual-protection league and a revolutionary government. If it wins, the emperor is forced to abdicate and the empire becomes a republic.
+4. Modern states: all kingdom-level de jure titles belong to the central head of state, and provinces and states are named after the province of the title they govern. A state that unifies an empire core takes the core's name, e.g. Republic of China. Republican heads of state are listed together as "Heads of State" rather than by surname, titled with the country name plus their office.
+5. Warlords and names: only the central government, provisional governments and revolutionary governments keep normal-state status; other governments are dissolved. In Huaxia, centrist and conservative regimes are called "X Clique", and other ideologies use names from modern Chinese history (Workers' and Peasants' Red Army, Constitution Protection Army, and so on). Other cultures use their own historical names. All names are configurable in culture packs and the regime editor.
+6. Ideology changes: "Communism" is renamed "Socialism" and "Socialism" is renamed "Syndicalism". The ideology icons are redrawn as national-emblem-style badges and also appear next to names on the ideology map layer.
+7. UI: the mod's power bar is grouped by category with vanilla-style dividers. The empire window tabs and the title, province and empire-core tools have their own icons.
+8. Fixes: rebels mislabelled as warlords, the tributary-abolition message spamming, hover tooltips not showing, WarBox treating troops from the same empire or from a lord and its vassal as foreign armies, and the abolition crisis message appearing with nothing following it.
