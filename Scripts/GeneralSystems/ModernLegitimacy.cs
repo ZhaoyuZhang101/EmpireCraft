@@ -29,15 +29,52 @@ public static class ModernLegitimacy
     // 军警镇压街头抗争后两年
     private const int Repression = -10;
 
-    public static bool Applies(Empire empire)
+    // 城市忠诚、好感、叛乱判定每次都要读 Empire.Legitimacy，大人口时每秒成千上万次：
+    // 是否适用与数值按帝国缓存 CacheSeconds 现实秒(各项来源都是按年变化的，短暂滞后无妨)，
+    // 避免反复新建来源列表产生 GC 垃圾。切换世界时清空；提示框里的来源明细(Breakdown)不走缓存
+    private const float CacheSeconds = 1f;
+    private static readonly Dictionary<long, (bool applies, int value, float at)> Cache = new();
+    private static object _cacheWorld;
+
+    private static (bool applies, int value) Cached(Empire empire)
+    {
+        if (!ReferenceEquals(_cacheWorld, World.world))
+        {
+            _cacheWorld = World.world;
+            Cache.Clear();
+        }
+        float now = Time.unscaledTime;
+        if (Cache.TryGetValue(empire.id, out var cached) && now - cached.at < CacheSeconds && now >= cached.at)
+            return (cached.applies, cached.value);
+        bool applies = ComputeApplies(empire);
+        int value = 0;
+        if (applies)
+        {
+            foreach ((string _, int amount) in Breakdown(empire)) value += amount;
+            value = Mathf.Clamp(value, 0, 100);
+        }
+        Cache[empire.id] = (applies, value, now);
+        return (applies, value);
+    }
+
+    // 立即作废某个帝国(或全部)的缓存，供需要马上看到新数值的地方调用
+    public static void Invalidate(Empire empire = null)
+    {
+        if (empire == null) Cache.Clear();
+        else Cache.Remove(empire.id);
+    }
+
+    public static bool Applies(Empire empire) =>
+        empire?.CoreKingdom != null && empire.data != null && Cached(empire).applies;
+
+    public static int Get(Empire empire) => empire?.data == null ? 0 : Cached(empire).value;
+
+    private static bool ComputeApplies(Empire empire)
     {
         if (empire?.CoreKingdom == null || empire.data == null) return false;
         if (WarlordEraSystem.IsProvisionalGovernment(empire) || RepublicSystem.IsTransitioning(empire)) return false;
         return ModernStability.IsModern(empire.CoreKingdom) || ParliamentSystem.HasParliament(empire);
     }
-
-    public static int Get(Empire empire) =>
-        Mathf.Clamp(Breakdown(empire).Sum(item => item.value), 0, 100);
 
     // 各项构成(界面悬停说明用)：(本地化 key, 数值)
     public static List<(string key, int value)> Breakdown(Empire empire)
