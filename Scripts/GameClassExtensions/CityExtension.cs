@@ -145,6 +145,8 @@ public static class CityExtension
         public Dictionary<int, long> OccupiedZoneOwners = new();
         // 民族情绪 0~100(见 NationalSentimentSystem)：受异族统治、外敌入侵时上升，否则回落
         public float national_sentiment;
+        // 城市人口数据层：按阶层/文化/物种/理念分组的居民人数(见 CityPopulationSystem)
+        public CityPopulationData population = new CityPopulationData();
     }
     
     private static int GetZoneId(TileZone zone)

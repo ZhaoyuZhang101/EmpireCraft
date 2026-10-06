@@ -74,6 +74,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     private void Update()
     {
         EmpireCraftStrategicScheduler.Tick();
+        EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Tick();
     }
 
     public GameObject GetGameObject()

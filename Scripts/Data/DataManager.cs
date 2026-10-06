@@ -38,6 +38,7 @@ public static class DataManager
     {
         InstitutionSystem.ResetWorldState();
         TechnologySystem.ResetWorldState();
+        CityPopulationSystem.ResetWorldState();
         string loadPath = Path.Combine(loadRootPath, EmpireCraftSaveFileName);
         CurrentSaveDataPath = loadPath;
         NormalizeLoadedNameSeparators();
