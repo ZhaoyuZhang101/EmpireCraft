@@ -280,10 +280,13 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.updateColor(pKingdom.getColor());
         EnsureDistinctColor(empire);
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
+        // 立国时间(开国气象 Empire.InFoundingGrace 用)
+        empire.data.created_time = World.world.getCurWorldTime();
         var riseCore = forceNewCore ? null : EmpireCoreManager.GetRiseCandidateCore(pKingdom);
         // 候选核心已归属别的现存帝国时不能抢过来(主法理在别国核心里的根本不能称帝，见 EmpireFormationService)；
         // 此时只可能是都城/其他法理落在别国核心里，主法理本身没有核心，按规则新建核心
-        if (riseCore != null && EmpireCoreManager.GetEmpires(riseCore).Any(other => other != empire && !other.IsArchived()))
+        if (riseCore != null && (EmpireCoreManager.GetEmpires(riseCore).Any(other => other != empire && !other.IsArchived()) ||
+                                 EmpireCoreManager.IsClaimedByContest(riseCore, empire)))
             riseCore = null;
         if (riseCore != null)
         {
@@ -414,8 +417,9 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         else
         {
-            empire.join(pKingdom1, true, true);
-            empire.join(pKingdom2, true, true);
+            // 玩家用权能手动加入是明确意图：无视以前的反叛记录(join 的 pLegitimacyTransfer 会一并清除)
+            empire.join(pKingdom1, true, true, pLegitimacyTransfer: true);
+            empire.join(pKingdom2, true, true, pLegitimacyTransfer: true);
         }
         return result;
     }

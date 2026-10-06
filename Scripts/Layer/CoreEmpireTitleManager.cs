@@ -36,6 +36,74 @@ public static class EmpireCoreManager
                 city.SetEmpireCore(null);
             }
         }
+        RestoreParentCities(core);
+    }
+
+    // 军阀时期另立政府的临时子核心(warlord_parent_core_id)只是技术记录：建立时登记了政府控制的全部法理，
+    // 却没从原核心里移走，两边共用同一批法理。城市只能记一个核心，谁最后同步就归谁——
+    // 子核心一同步(吸收法理、读档修复……)就会把这些城市从原核心抢走，地图上原核心被割得七零八落。
+    // 凡是法理同属上级核心的城市，一律归还上级核心。
+    public static void RestoreParentCities(EmpireCore child)
+    {
+        EmpireCore parent = child?.warlord_parent_core_id > 0 ? Get(child.warlord_parent_core_id) : null;
+        if (parent == null || parent == child || World.world?.cities == null) return;
+        foreach (City city in World.world.cities.list)
+        {
+            if (city == null || city.isRekt() || city.GetEmpireCoreID() != child.id) continue;
+            if (ContainsTitle(parent, city.GetTitle())) city.SetEmpireCore(parent);
+        }
+    }
+
+    // 军阀时期的核心"有主"：除了直接绑定它的帝国，挂在它下面的临时子核心政府、它记录的中央政府也算。
+    // 否则各政府都挂在子核心上时原核心看似无主，外人称帝就会把整个原核心拿走。
+    public static bool IsClaimedByContest(EmpireCore core, Empire except = null)
+    {
+        if (core == null || ModClass.EMPIRE_MANAGER == null) return false;
+        Empire central = core.central_empire_id > 0 ? ModClass.EMPIRE_MANAGER.get(core.central_empire_id) : null;
+        if (central != null && central != except && !central.isRekt() && !central.IsArchived()) return true;
+        return ModClass.EMPIRE_MANAGER.Any(empire => empire != null && empire != except && !empire.isRekt() &&
+                                                     !empire.IsArchived() &&
+                                                     Get(empire)?.warlord_parent_core_id == core.id);
+    }
+
+    // 读档修复：原核心被外来帝国占着(见 IsClaimedByContest)，而它记录的中央政府仍在、且挂在它下面时，
+    // 把原核心还给中央政府；外来帝国另立核心，只保留它自己实际控制的法理。
+    public static int RepairContestedCoreOwners()
+    {
+        if (EmpireCores == null || ModClass.EMPIRE_MANAGER == null) return 0;
+        int repaired = 0;
+        foreach (EmpireCore core in EmpireCores.Values.ToList())
+        {
+            if (core == null || core.warlord_parent_core_id > 0 || core.central_empire_id <= 0) continue;
+            Empire central = ModClass.EMPIRE_MANAGER.get(core.central_empire_id);
+            if (central == null || central.isRekt() || central.IsArchived() || central.CoreKingdom == null) continue;
+            EmpireCore centralCore = Get(central);
+            if (centralCore == core || centralCore?.warlord_parent_core_id != core.id) continue;
+            Empire intruder = core.empire_id > 0 ? ModClass.EMPIRE_MANAGER.get(core.empire_id) : null;
+            if (intruder == null || intruder == central || intruder.isRekt() || intruder.IsArchived() ||
+                intruder.CoreKingdom == null) continue;
+            // 外来帝国另立核心：它实际控制的法理从原核心移过去
+            List<KingdomTitle> owned = intruder.CoreKingdom.GetControlledTitles()
+                .Where(title => title != null && !title.isRekt()).ToList();
+            foreach (KingdomTitle title in owned) core.RemoveTitle(title);
+            intruder.data.empire_core_id = -1L;
+            newEmpireCore(intruder);
+            // 中央政府接管原核心，撤销它的临时子核心
+            RebindEmpire(central, core);
+            DestroyEmpireCore(centralCore);
+            SyncCitiesFromTitles(core);
+            repaired++;
+            NeoModLoader.services.LogService.LogInfo($"[EmpireCraft] 读档修复：{core.name} 核心归还中央政府 {central.GetEmpireName()}，" +
+                               $"{intruder.GetEmpireName()} 另立核心");
+        }
+        return repaired;
+    }
+
+    public static void RestoreAllParentCities()
+    {
+        if (EmpireCores == null) return;
+        foreach (EmpireCore core in EmpireCores.Values.ToList())
+            if (core?.warlord_parent_core_id > 0) RestoreParentCities(core);
     }
 
     public static EmpireCore newEmpireCore(Empire empire)

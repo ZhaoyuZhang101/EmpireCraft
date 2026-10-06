@@ -399,7 +399,9 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         recalculate();
     }
 
-    public void removeCity(City city)
+    // byPlayer：玩家用权能把城市从法理上摘下。冻结法理只防止城市毁灭、战乱让法理自然消失；
+    // 玩家亲手摘掉最后一座城时照样解散，否则会留下没有城市的"幽灵法理"
+    public void removeCity(City city, bool byPlayer = false)
     {
         EmpireCore core = this.title_capital?.GetEmpireCore();
         city.RemoveTitle();
@@ -409,7 +411,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
             city.SetEmpireCore(null);
         }
         this.recalculate();
-        if (this.city_list_hash.Count <= 0 && !ModClass.KINGDOM_TITLE_FREEZE)
+        if (this.city_list_hash.Count <= 0 && (byPlayer || !ModClass.KINGDOM_TITLE_FREEZE))
         {
             ModClass.KINGDOM_TITLE_MANAGER.dissolveTitle(this);
         }

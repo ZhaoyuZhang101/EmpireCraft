@@ -65,6 +65,7 @@ public static class ModernStateFormationSystem
             // 现代临时政府仍在原正规核心框架内争夺中央。这个子核心只是分治期间的
             // 技术记录，不能标成僭称帝号产生的伪核心；统一时它会被销毁并接管原核心。
             governmentCore.warlord_parent_core_id = contestedCore.id;
+            EmpireCoreManager.RestoreParentCities(governmentCore);
         }
         PartyIdeology ideology = ResolveGovernmentIdeology(kingdom);
         RepublicSystem.SyncWithRegime(empire, foundingIdeology: ideology);
@@ -84,6 +85,18 @@ public static class ModernStateFormationSystem
         return core?.warlord_parent_core_id > 0
             ? EmpireCoreManager.Get(core.warlord_parent_core_id)
             : core;
+    }
+
+    // 是否同属一个法统：政府按上级核心算，地方势力的主法理与都城可能落在不同核心里，任一处在政府法统内即算
+    private static bool SameLawfulCore(Kingdom governmentKingdom, Kingdom subject)
+    {
+        EmpireCore lawful = LawfulCore(governmentKingdom);
+        if (lawful == null) return false;
+        if (LawfulCore(subject) == lawful) return true;
+        EmpireCore capitalCore = subject?.capital?.GetEmpireCore();
+        if (capitalCore?.warlord_parent_core_id > 0)
+            capitalCore = EmpireCoreManager.Get(capitalCore.warlord_parent_core_id) ?? capitalCore;
+        return capitalCore == lawful;
     }
 
     private static bool TryGetSameCoreOverlord(Kingdom subject, out Kingdom overlord)
@@ -112,8 +125,7 @@ public static class ModernStateFormationSystem
             overlord?.GetRegime()?.type != RegimeType.Modern) return false;
         Empire government = overlord.GetEmpire();
         if (government == null || government.IsArchived() || government.isRekt() ||
-            government.CoreKingdom == null ||
-            LawfulCore(government.CoreKingdom) != LawfulCore(subject)) return false;
+            government.CoreKingdom == null || !SameLawfulCore(government.CoreKingdom, subject)) return false;
         if (subject.GetEmpire() == government)
         {
             FeudalVassalService.Break(subject);
@@ -213,6 +225,13 @@ public static class ModernStateFormationSystem
     // 抽中后记在王国上，理念不变就不再重抽。称呼可能含 {0}(见 FormatLabel)。
     public static string GetNonGovernmentLabel(Kingdom kingdom)
     {
+        // 民族情绪高涨(都城 ≥ 60)：改用民族主义武装的称呼(国民革命军、民族解放军……)
+        if (kingdom?.capital != null && NationalSentimentSystem.GetCity(kingdom.capital) >= 60f)
+        {
+            List<string> nationalist = Enumerable.Range(1, 6).Select(i => LM.Get($"nation_force_label_{i}"))
+                .Where(label => !label.StartsWith("nation_force_label_")).ToList();
+            if (nationalist.Count > 0) return nationalist[(int)(kingdom.id % nationalist.Count)];
+        }
         PartyIdeology ideology = NonGovernmentIdeology(kingdom);
         List<string> pool = PartySystem.GetCultureNamePool(CultureService.GetRealmCulture(kingdom), ideology,
             party => party.untitled_groups, "Untitled");

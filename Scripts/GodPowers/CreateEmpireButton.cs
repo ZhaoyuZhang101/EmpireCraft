@@ -88,13 +88,19 @@ internal static class CreateEmpireButton
                 Config.unity_A.GetEmpire().leave(Config.unity_A, true);
             }
         }
-        if (ModClass.EMPIRE_MANAGER.forceEmpire(Config.unity_A, Config.unity_B))
+        Kingdom first = Config.unity_A, second = Config.unity_B;
+        if (ModClass.EMPIRE_MANAGER.forceEmpire(first, second))
         {
             ActionLibrary.showWhisperTip("unity_new_empire");
         }
-        else
+        else if (first.IsInEmpire() && first.GetEmpire() == second.GetEmpire())
         {
             ActionLibrary.showWhisperTip("unity_joined_empire");
+        }
+        else
+        {
+            // 按实际结果提示：加入没有成功就不能说"已加入"
+            ActionLibrary.showWhisperTip("unity_join_failed");
         }
         Config.unity_A.affectKingByPowers();
         Config.unity_A = null;

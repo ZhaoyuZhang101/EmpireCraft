@@ -112,14 +112,15 @@ public static class ImperialLegitimacyChallengeService
         return true;
     }
 
-    // 僭越称帝：与主法理所在核心的现存帝国并立，互为正统对手(先不开战)，天命仅 20
+    // 僭越称帝：与主法理所在核心的现存帝国并立，互为正统对手(先不开战)；
+    // 天命在称帝路线的初始值(CompleteFormation 刚定下)上打折扣，见 EmpireFormationService.GetUsurpationMandate
     public static void DeclareUsurpation(Empire usurper, Empire incumbent)
     {
         if (!IsActiveEmpire(usurper) || !IsActiveEmpire(incumbent) || usurper == incumbent) return;
         MarkRivalry(usurper, incumbent, challengerIsClaimant: true);
         EmpireCore falseCore = EmpireCoreManager.Get(usurper);
         if (falseCore != null) falseCore.false_core_against_empire_id = incumbent.id;
-        usurper.data.Mandate = EmpireFormationService.UsurpationMandate;
+        usurper.data.Mandate = EmpireFormationService.GetUsurpationMandate(usurper.data.Mandate);
         string content = string.Format(LM.Get("history_usurpation_declared"),
             usurper.Emperor?.getName() ?? usurper.GetEmpireFullName(), usurper.GetEmpireFullName(),
             incumbent.GetEmpireFullName());

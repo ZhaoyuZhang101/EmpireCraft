@@ -22,7 +22,7 @@ public static class RemoveTitleButton
         {
             if (pTile.zone_city.hasTitle()) 
             {
-                pTile.zone_city.GetTitle().removeCity(pTile.zone_city);
+                pTile.zone_city.GetTitle().removeCity(pTile.zone_city, byPlayer: true);
             }
         }
         return true;

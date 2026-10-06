@@ -199,6 +199,7 @@ public static class DataManager
         }
         ModClass.EMPIRE_MANAGER.update(-1L);
         LogService.LogInfo("Sync Empire Data");
+        BookNamingSystem.RepairLegacyNames();
         EmpireCoreManager.EmpireCores = BuildEmpireCoreMap(saveData.empireCoreDatas);
 
         List<KingdomTitleData> titleDatas = saveData.kingdomTitleDatas;
@@ -236,9 +237,21 @@ public static class DataManager
 
         }
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
+        // 修复：临时子核心抢走的原核心城市归还原核心(见 EmpireCoreManager.RestoreParentCities)
+        EmpireCoreManager.RepairContestedCoreOwners();
+        EmpireCoreManager.RestoreAllParentCities();
         CultureService.MigrateWorldCultureData();
         SpecificClanManager._specificClans = saveData.specificClans;
         SpecificClanManager.RebuildCache();
+        try
+        {
+            int spouseFixes = SpecificClanManager.RepairSpouseRecords();
+            if (spouseFixes > 0) LogService.LogInfo($"[EmpireCraft] 读档修复了 {spouseFixes} 条对不上的配偶记录");
+        }
+        catch (Exception e)
+        {
+            LogService.LogError($"修复配偶记录失败，已跳过: {e}");
+        }
         LogService.LogInfo("Sync Titles Data");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         LogService.LogInfo("Sync history Data");

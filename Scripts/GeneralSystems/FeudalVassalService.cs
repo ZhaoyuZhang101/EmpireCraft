@@ -300,9 +300,20 @@ public static class FeudalVassalService
         return hostile && GetWarPower(attacker, false) > GetWarPower(target, true);
     }
 
+    public const int DefectorLoyaltyYears = 10;
+
+    // 军阀时期易帜归附(WarlordEraSystem)：记下时间，此后若干年内不得闹独立
+    public static void MarkDefected(Kingdom subject)
+    {
+        if (subject?.data != null && World.world != null)
+            subject.GetOrCreate().feudal_defected_at = World.world.getCurWorldTime();
+    }
+
     public static bool CanSeekIndependence(Kingdom subject)
     {
         Kingdom lord = GetOverlord(subject);
+        double defectedAt = subject?.data == null ? -1d : subject.GetOrCreate().feudal_defected_at;
+        if (defectedAt >= 0d && Date.getYearsSince(defectedAt) < DefectorLoyaltyYears) return false;
         return lord != null && subject.king != null && subject.king.isAlive() &&
                !subject.getWars().Any(war => war != null && !war.hasEnded()) &&
                GetWarPower(subject, false) > GetWarPower(lord, false, subject);
