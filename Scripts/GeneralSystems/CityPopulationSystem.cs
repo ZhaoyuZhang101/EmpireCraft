@@ -366,6 +366,10 @@ public static class CityPopulationSystem
             else commoners.Add(actor);
         }
 
+        // 留在地图上的人不用吃饭、不用睡觉：饥饿值补满，正在睡的叫醒
+        foreach (Actor actor in city.units)
+            if (actor?.data != null && !actor.isRekt() && actor.isAlive()) KeepFedAndAwake(actor);
+
         var toFold = new List<Actor>();
         if (!atWar && soldiers.Count > 1)
         {
@@ -401,6 +405,40 @@ public static class CityPopulationSystem
             AddBackground(city, socialClass, culture, species, ideology, 1f);
         }
         return toFold.Count;
+    }
+
+    private static bool _careResolved;
+    private static FieldInfo _nutritionField;
+    private static MethodInfo _maxNutrition;
+    private static MethodInfo _finishStatus;
+
+    // 饥饿值补满并结束睡眠。原版字段/方法名用反射查找(不同版本可能不同)，找不到的部分跳过
+    public static void KeepFedAndAwake(Actor actor)
+    {
+        if (!_careResolved)
+        {
+            _careResolved = true;
+            _nutritionField = AccessTools.Field(actor.data.GetType(), "nutrition");
+            _maxNutrition = AccessTools.Method(typeof(Actor), "getMaxNutrition", Type.EmptyTypes);
+            _finishStatus = AccessTools.Method(typeof(Actor), "finishStatusEffect", new[] { typeof(string) });
+            LogService.LogInfo($"[EmpireCraft][无小人模式] 补满饥饿={(_nutritionField != null ? "可用" : "不可用")} 叫醒={(_finishStatus != null ? "可用" : "不可用")}");
+        }
+        try
+        {
+            if (_nutritionField != null && _nutritionField.FieldType == typeof(int))
+            {
+                int max = _maxNutrition != null ? Convert.ToInt32(_maxNutrition.Invoke(actor, null)) : 100;
+                if (max > 0) _nutritionField.SetValue(actor.data, max);
+            }
+            if (_finishStatus != null && actor.hasStatus("sleeping"))
+                _finishStatus.Invoke(actor, new object[] { "sleeping" });
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][无小人模式] 补满饥饿/叫醒失败，停用: {exception.Message}");
+            _nutritionField = null;
+            _finishStatus = null;
+        }
     }
 
     private static int GeneralRank(Actor actor) =>
@@ -448,6 +486,7 @@ public static class CityPopulationSystem
         actor.joinKingdom(city.kingdom);
         actor.joinCity(city);
         IdeologyPopulationSystem.Set(actor, group.ideology);
+        KeepFedAndAwake(actor);
         if (soldier)
         {
             actor.setProfession(UnitProfession.Warrior);
