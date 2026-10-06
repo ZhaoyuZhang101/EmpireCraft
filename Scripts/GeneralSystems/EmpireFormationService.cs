@@ -24,7 +24,7 @@ public enum EmpireFormationRoute
 
 // 称帝逻辑：
 //   · 资格 = 基础条件(独立、有君、有主法理、国库不负、共主领地人口≥200、至少三城、不在冷却期；同文化已有帝国也可称帝)
-//     主法理在别国帝国核心里的称帝为"僭越"：天命 20，与该帝国并立并互为正统对手，之后任一方都可发起正统之争
+//     主法理在别国帝国核心里的称帝为"僭越"：天命在路线初始值上扣 10(不低于 50)，与该帝国并立并互为正统对手，之后任一方都可发起正统之争
 //            + 至少满足一条称帝路线；
 //   · 筹备期(称帝剧情进行中)打了败仗、国库转负、被同文化别国超过、或不再满足路线，称帝即失败，
 //     十年内不能再称帝，国王威望下降；
@@ -47,11 +47,12 @@ public static class EmpireFormationService
     public static int GetInitialMandate(EmpireFormationRoute route) => route switch
     {
         EmpireFormationRoute.Legitimacy => 80,
-        EmpireFormationRoute.Restoration => 70,
-        EmpireFormationRoute.Acclamation => 60,
-        EmpireFormationRoute.Hegemony => 40,
-        EmpireFormationRoute.Fallback => 30,
-        EmpireFormationRoute.SelfProclamation => 35,
+        // 都在叛乱滚雪球(40)之上留出余量：开国之君再弱也不至于一登基就崩
+        EmpireFormationRoute.Restoration => 75,
+        EmpireFormationRoute.Acclamation => 70,
+        EmpireFormationRoute.Hegemony => 55,
+        EmpireFormationRoute.Fallback => 50,
+        EmpireFormationRoute.SelfProclamation => 50,
         _ => 100
     };
 
@@ -294,7 +295,14 @@ public static class EmpireFormationService
             data.empire_formation_lost_war_timestamp = World.world.getCurWorldTime();
     }
 
-    public const int UsurpationMandate = 20;
+    // 僭越称帝的天命：在称帝路线的初始天命上扣 UsurpationPenalty，但不会因此跌进叛乱滚雪球区
+    // (压到 50 以下)，也不高于路线本身——以前一律压到 20，开国即低于
+    // 权臣篡位(30)、诸侯离心(20)的门槛，一建国就四分五裂
+    public const int UsurpationPenalty = 10;
+    public const int UsurpationFloor = 50;
+
+    public static int GetUsurpationMandate(int routeMandate) =>
+        Math.Max(routeMandate - UsurpationPenalty, Math.Min(routeMandate, UsurpationFloor));
 
     // 主法理所在核心目前属于哪个现存帝国；没有主法理的城邦才按都城查询。
     public static Empire GetSeatCoreEmpire(Kingdom kingdom)

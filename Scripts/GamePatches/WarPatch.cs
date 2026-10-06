@@ -117,7 +117,8 @@ public class WarPatch: GamePatch
             World.world.wars.endWar(__instance, WarWinner.Attackers);
             return;
         }
-        if (__instance.getDuration() > ModClass.WAR_END_YEAR)
+        // 同一法统内部的统一战争打到底，不受战争年限强制停战(见 WarlordEraSystem 统一进程)
+        if (__instance.getDuration() > ModClass.WAR_END_YEAR && !WarlordEraSystem.IsCivilWar(__instance))
         {
             var attacker = __instance.getMainAttacker()?.king;
             if (attacker != null)
@@ -159,6 +160,24 @@ public class WarPatch: GamePatch
         __instance.RemoveExtraData<War, WarExtraData>();
     }
 
+    // 战争结束：一方的城市里清掉另一方(这场战争的对手)留下的占领；若城主与该占领者还有别的战争在打，保留
+    private static void ClearOccupationAfterWar(War endedWar, List<Kingdom> owners, List<Kingdom> opponents)
+    {
+        foreach (Kingdom owner in owners)
+        {
+            if (owner?.cities == null || owner.isRekt()) continue;
+            var cleared = new HashSet<Kingdom>(opponents.Where(opponent => opponent != null &&
+                !StillAtWar(owner, opponent, endedWar)));
+            if (cleared.Count == 0) continue;
+            foreach (City city in owner.cities.ToList())
+                city?.ClearOccupationBy(cleared.Contains);
+        }
+    }
+
+    private static bool StillAtWar(Kingdom a, Kingdom b, War except) =>
+        a.getWars().Any(war => war != null && war != except && !war.hasEnded() &&
+                               (war.isAttacker(a) && war.isDefender(b) || war.isDefender(a) && war.isAttacker(b)));
+
     public static bool end_war(WarManager __instance, War pWar, WarWinner pWinner = WarWinner.Nobody)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pWar)) return true;
@@ -179,6 +198,7 @@ public class WarPatch: GamePatch
             CaptureWarRoyalHouses(pWar);
             RememberDefeatedWarHouses(pWar, pWinner);
             RecordWarEnded(pWar, pWinner);
+            ReignRecordSystem.OnWarEnded(pWar, pWinner);
             WorldWarSystem.Resolve(pWar, pWinner);
             World.world.game_stats.data.peacesMade++;
             World.world.map_stats.peacesMade++;
@@ -200,14 +220,9 @@ public class WarPatch: GamePatch
                 foreach (Kingdom loser in pWar._list_defenders.ToList()) EmpireFormationService.OnWarLost(loser);
             else if (pWinner == WarWinner.Defenders)
                 foreach (Kingdom loser in pWar._list_attackers.ToList()) EmpireFormationService.OnWarLost(loser);
-            foreach (var a in pWar._list_attackers)
-            {
-                a.cities.ForEach(c=>c.ClearOccupiedStatus());
-            }
-            foreach (var d in pWar._list_defenders)
-            {
-                d.cities.ForEach(c=>c.ClearOccupiedStatus());
-            }
+            // 只清掉这场战争的对手留下的占领；与城主还有别的仗在打的占领者保留进度
+            ClearOccupationAfterWar(pWar, pWar._list_attackers.ToList(), pWar._list_defenders.ToList());
+            ClearOccupationAfterWar(pWar, pWar._list_defenders.ToList(), pWar._list_attackers.ToList());
             if (pWinner == WarWinner.Attackers)
             {
                 if (aKingdom.IsEmpire())
@@ -344,6 +359,8 @@ public class WarPatch: GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
         if (__result == null) return;
 
+        WarSituation.RecordParticipant(__result, __result.main_attacker);
+        WarSituation.RecordParticipant(__result, __result.main_defender);
         // 原版按模板用 kingdom.name 生成战争名，改用地图铭牌上的国名
         if (__result.data != null)
             __result.data.name = WorldLogNamePatch.UseDisplayNames(__result.data.name,
@@ -379,6 +396,7 @@ public class WarPatch: GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
 
+        WarSituation.RecordParticipant(__instance, pKingdom);
         ExpandFeudalWar(__instance);
         CaptureWarRoyalHouses(__instance);
         DetachHostileTributaries(__instance);

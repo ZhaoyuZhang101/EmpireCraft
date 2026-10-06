@@ -1,4 +1,5 @@
 using System;
+using EmpireCraft.Scripts.GeneralSystems;
 using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -16,6 +17,8 @@ public class EmpireCraftEmpireBehCheckMandate : GameAIEmpireBase
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
         if (empire?.CoreKingdom == null) return BehResult.Continue;
+        RulerTraitSystem.CheckRestorer(empire);
+        ReignRecordSystem.OnYear(empire);
         if (empire.Emperor != null && empire.IsNeedToIncreaseMandate())
         {
             empire.AddMandate(1);

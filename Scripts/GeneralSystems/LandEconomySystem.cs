@@ -152,6 +152,7 @@ public static class LandEconomySystem
             TryMoveLandlessHousehold(city, households);
         }
         RefreshClasses(city);
+        TryFoundingLandReform(city);
 
         float landlessRatio = CalculateLandlessPopulationRatio(city);
         if (!TryJoinAdjacentPeasantRebellion(city, landlessRatio))
@@ -569,10 +570,75 @@ public static class LandEconomySystem
                job != "road_builder" && job != "cleaner" && job != "manure_cleaner";
     }
 
+    // 开国均田：新帝国立国(开国气象期)或改朝换代后开国君主在位期间，辖下每座城(含后来打下、归附的城)
+    // 平均一次地权，此后 RebellionCooldownYears 年内不再爆发农民起义。
+    // 每朝每城只均一次(land_reform_key)；土地买卖未开放的城没有土地兼并，只记下标记与冷却。
+    private static void TryFoundingLandReform(City city)
+    {
+        Empire empire = city.kingdom?.GetEmpire();
+        if (empire == null || empire.isRekt() || empire.IsArchived()) return;
+        long founderId = empire.data.dynasty_founder_actor_id;
+        bool founderReigning = founderId > 0 && empire.Emperor?.data?.id == founderId;
+        if (!empire.InFoundingGrace && !founderReigning) return;
+        string key = empire.id + ":" + founderId;
+        CityExtension.CityExtraData data = EnsureData(city);
+        if (data.land_reform_key == key) return;
+        data.land_reform_key = key;
+        if (IsLandMarketOpen(city.kingdom)) RedistributeLand(city);
+        data.last_land_rebellion_timestamp = World.world.getCurWorldTime();
+    }
+
+    // 一个政权(在帝国里就按整个帝国)各城无地农民比例的平均，按年缓存
+    private static readonly Dictionary<long, (double time, float ratio)> RealmLandlessCache = new();
+
+    public static float GetRealmLandlessRatio(Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.isRekt()) return 0f;
+        Empire empire = kingdom.GetEmpire();
+        long key = empire != null && !empire.isRekt() ? -empire.id : kingdom.id;
+        double now = World.world?.getCurWorldTime() ?? 0d;
+        if (RealmLandlessCache.TryGetValue(key, out var cached) && Date.getYearsSince(cached.time) < 1)
+            return cached.ratio;
+        List<City> cities = empire != null && !empire.isRekt() ? empire.AllCities() : kingdom.cities;
+        float sum = 0f;
+        int count = 0;
+        foreach (City city in cities)
+        {
+            if (city == null || city.isRekt()) continue;
+            sum += CalculateLandlessPopulationRatio(city);
+            count++;
+        }
+        float ratio = count > 0 ? sum / count : 0f;
+        RealmLandlessCache[key] = (now, ratio);
+        return ratio;
+    }
+
+    // 民心归附：本城土地兼并严重(无地农民 >= RebellionLandlessThreshold)，而来攻的政权兼并轻得多
+    // (平均无地率至少低 SurrenderLandlessGap)时，百姓望风归降，占领进度大幅加快(见 CaptureSpeedPatch)
+    public const float SurrenderLandlessGap = 0.10f;
+
+    public static bool WouldSurrenderTo(City city, Kingdom attacker, out float cityRatio)
+    {
+        cityRatio = 0f;
+        if (city?.kingdom == null || attacker == null || attacker.isRekt() || attacker == city.kingdom) return false;
+        cityRatio = CalculateLandlessPopulationRatio(city);
+        if (cityRatio < RebellionLandlessThreshold) return false;
+        return GetRealmLandlessRatio(attacker) <= cityRatio - SurrenderLandlessGap;
+    }
+
+    // 起义门槛随苛政降低(见 HarshRuleSystem)：苛政 60 时无地一成二即可起义，最低一成二
+    public static float EffectiveRebellionThreshold(City city) =>
+        RebellionLandlessThreshold - Mathf.Min(0.08f, HarshRuleSystem.GetRealmBurden(city?.kingdom) / 750f);
+
+    // 苛政民变的城市土地兼并严重时，改为农民土地起义(见 HarshRuleSystem)
+    public static bool TryStartPeasantLandRebellion(City city) =>
+        city != null && !city.isRekt() && TryStartPeasantLandRebellion(city, CalculateLandlessPopulationRatio(city));
+
     private static bool TryStartPeasantLandRebellion(City city, float ratio)
     {
-        if (ratio < RebellionLandlessThreshold || city == null || city.kingdom == null ||
+        if (ratio < EffectiveRebellionThreshold(city) || city == null || city.kingdom == null ||
             city.kingdom.isRekt() || city.kingdom.getWars().Any() || city == city.kingdom.capital) return false;
+        if (!ModernStability.PassRebellionGate(city.kingdom)) return false;
         CityExtension.CityExtraData data = EnsureData(city);
         if (data.last_land_rebellion_timestamp >= 0d &&
             Date.getYearsSince(data.last_land_rebellion_timestamp) < RebellionCooldownYears) return false;

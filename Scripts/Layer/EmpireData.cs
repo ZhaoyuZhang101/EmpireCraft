@@ -208,6 +208,21 @@ public class EmpireCraftHistory
     public bool is_republic { get; set; }
     public string office_title { get; set; } = "";
 
+    // 在位生平统计(谥法依据，见 ReignRecordSystem / PosthumousNameGenerator)；-1 表示旧档没有记录
+    public int start_cities { get; set; } = -1;
+    public int max_cities { get; set; } = -1;
+    public int end_cities { get; set; } = -1;
+    public int start_mandate { get; set; } = -1;
+    public int end_mandate { get; set; } = -1;
+    public int wars_won { get; set; }
+    public int wars_lost { get; set; }
+    public int rebellions { get; set; }
+    public int rebellions_lost { get; set; }
+    public int age_at_end { get; set; } = -1;
+    public bool ended_alive { get; set; }
+    public bool ended_dynasty { get; set; }
+    public bool restorer { get; set; }
+
     public List<string> initial_cities = new List<string>();
     public List<HistoryDescription> descriptions =  new List<HistoryDescription>();
 }

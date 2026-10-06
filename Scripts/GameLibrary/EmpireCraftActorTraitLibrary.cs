@@ -111,6 +111,22 @@ public static class EmpireCraftActorTraitLibrary
         });
         lib.t.base_stats["damage"] = 10f;
         lib.t.base_stats["speed"] = 10f;
+
+        // 开国雄主 / 中兴之主：授予条件与忠诚、腐败效果见 RulerTraitSystem
+        lib.add(new ActorTrait
+        {
+            id = RulerTraitSystem.Founder,
+            path_icon = "ui/icons/actor_traits/iconFounderRuler",
+            group_id = "EmpireOffice"
+        });
+        lib.t.base_stats["lifespan"] = 10f;
+        lib.t.base_stats["multiplier_lifespan"] = 0.3f;
+        lib.add(new ActorTrait
+        {
+            id = RulerTraitSystem.Restorer,
+            path_icon = "ui/icons/actor_traits/iconRestorerRuler",
+            group_id = "EmpireOffice"
+        });
     }
     public static bool been_soldier(NanoObject pTarget, BaseAugmentationAsset pTrait)
     {

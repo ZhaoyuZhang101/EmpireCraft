@@ -73,6 +73,13 @@ public static class CityExtension
         public TextInput limitationNumber { get; set; }
 
         public double corruption_rate = 0.0f;
+        // 屠城之恨(见 MassacreSystem)：哪国军队屠戮了本城平民、死难人数、最后一次屠戮的时间
+        public long massacre_by_kingdom_id = -1L;
+        public int massacre_victims;
+        public double massacre_last = -1d;
+        public bool massacre_noticed;
+        // 上次因苛政爆发民变的时间(见 HarshRuleSystem)
+        public double last_harsh_uprising = -1d;
         public long personalIdentityId = -1L;
         public bool is_choosing_heir = false;
         [JsonIgnore]
@@ -128,16 +135,65 @@ public static class CityExtension
         public double last_urban_employment_timestamp = -1d;
         public double last_land_rebellion_timestamp = -1d;
         public bool land_redistribution_pending = false;
+        // 开国均田：已为哪个帝国的哪一朝(帝国id:开国君主id)平均过地权，见 LandEconomySystem.TryFoundingLandReform
+        public string land_reform_key = "";
+        // 占领区年度扩散的计时(见 TryYearlyOccupationSpread)；-1 表示城里当前没有占领区
+        public double last_occupation_spread_timestamp = -1d;
         [JsonConverter(typeof(OccupiedStatusConverter))]
         public Dictionary<long, List<int>> OccupiedStatus = new();
         [JsonIgnore]
         public Dictionary<int, long> OccupiedZoneOwners = new();
+        // 民族情绪 0~100(见 NationalSentimentSystem)：受异族统治、外敌入侵时上升，否则回落
+        public float national_sentiment;
     }
     
     private static int GetZoneId(TileZone zone)
     {
         return zone?.id ?? -1;
     }
+    // 地块占领模式(所有时期)：被占的地块守方迟迟不夺回，占领区每年向四周扩散一层——
+    // 每个仍在交战的占领者，其每块占领地向相邻的本城地块各扩一块(规则同正统扩张：须连着己方前线、不抢友军)。
+    // 城里出现占领区时开始计时，满一年结算一次；全城被占即按正常流程完成占领。
+    public static void TryYearlyOccupationSpread(this City city)
+    {
+        if (!EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode.isEnabled())
+            return;
+        if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt()) return;
+        CityExtraData data = city.GetOrCreate();
+        if (data.OccupiedStatus == null || data.OccupiedStatus.All(pair => pair.Value == null || pair.Value.Count == 0))
+        {
+            data.last_occupation_spread_timestamp = -1d;
+            return;
+        }
+        double now = World.world.getCurWorldTime();
+        if (data.last_occupation_spread_timestamp < 0d)
+        {
+            data.last_occupation_spread_timestamp = now;
+            return;
+        }
+        if (Date.getYearsSince(data.last_occupation_spread_timestamp) < 1) return;
+        data.last_occupation_spread_timestamp = now;
+
+        Kingdom owner = city.kingdom;
+        foreach (KeyValuePair<long, List<int>> pair in data.OccupiedStatus.ToList())
+        {
+            Kingdom occupier = World.world.kingdoms.get(pair.Key);
+            if (occupier == null || occupier.isRekt() || !occupier.isInWarWith(owner) || pair.Value == null) continue;
+            List<TileZone> held = pair.Value.Select(GetZoneById).Where(zone => zone != null).ToList();
+            foreach (TileZone zone in held)
+            {
+                if (zone.neighbours_all == null) continue;
+                foreach (TileZone neighbour in zone.neighbours_all)
+                {
+                    if (city.IsValidAutoSpreadOccupyZone(occupier, neighbour))
+                        city.AddOccupiedTileZoneByMandateSpread(occupier, neighbour);
+                }
+            }
+            city.CheckFinishedCapture(occupier);
+            if (city.isRekt() || city.kingdom != owner) return;
+        }
+    }
+
     private static TileZone GetZoneById(int zoneId)
     {
         if (zoneId < 0 || World.world?.zone_calculator == null)
@@ -206,6 +262,20 @@ public static class CityExtension
             return;
         }
 
+        // 地块占领模式下的攻城加速(普通模式见 CaptureSpeedPatch)：
+        // 民心归附(本城土地兼并严重、来攻者兼并轻得多，见 LandEconomySystem.WouldSurrenderTo)：占下第一块地就开城归降
+        if (LandEconomySystem.WouldSurrenderTo(city, occupier, out float landless))
+        {
+            string cityName = city.GetCityName();
+            city.ForceOccupyAllRemainingZones(occupier);
+            TranslateHelper.LogEventMessage(string.Format(LM.Get("land_surrender_event"), cityName,
+                landless * 100f, occupier.GetKingdomName()), occupier);
+            return;
+        }
+        // 开国气象期间的帝国：每占一块地，顺势再拿下相邻的地块(与下面的正统扩张叠加)
+        if (occupier.GetEmpire()?.InFoundingGrace == true)
+            city.SpreadOccupation(occupier, startZone, 1, FoundingSpreadLimit);
+
         Empire occupierEmpire = occupier.GetEmpire();
         Empire defenderEmpire = defender.GetEmpire();
 
@@ -234,6 +304,15 @@ public static class CityExtension
             return;
         }
 
+        city.SpreadOccupation(occupier, startZone, spreadDepth, spreadLimit);
+    }
+
+    private const int FoundingSpreadLimit = 2;
+
+    // 从 startZone 向外按层扩张占领，最多 spreadDepth 层、spreadLimit 块
+    private static void SpreadOccupation(this City city, Kingdom occupier, TileZone startZone, int spreadDepth,
+        int spreadLimit)
+    {
         HashSet<TileZone> visited = new HashSet<TileZone>();
         Queue<(TileZone zone, int depth)> queue = new Queue<(TileZone zone, int depth)>();
 
@@ -1799,6 +1878,36 @@ public static class CityExtension
         }
     }
 
+    // 只清除指定国家留下的占领(区块占领与原版占领进度)，其他国家的占领保留。
+    // 战争结束时用：A 与 C 停战，不能把 B 正在攻占 A 城的进度一并清掉
+    public static void ClearOccupationBy(this City city, Func<Kingdom, bool> occupier)
+    {
+        if (city == null || occupier == null) return;
+        CityExtraData data = city.GetOrCreate();
+        if (data.OccupiedStatus != null && data.OccupiedStatus.Count > 0)
+        {
+            foreach (long id in data.OccupiedStatus.Keys.ToList())
+            {
+                Kingdom kingdom = World.world.kingdoms.get(id);
+                if (kingdom != null && !occupier(kingdom)) continue;
+                data.OccupiedStatus.Remove(id);
+                if (data.OccupiedZoneOwners == null) continue;
+                foreach (int zone in data.OccupiedZoneOwners.Where(pair => pair.Value == id).Select(pair => pair.Key).ToList())
+                    data.OccupiedZoneOwners.Remove(zone);
+            }
+        }
+        try
+        {
+            foreach (Kingdom kingdom in city._capturing_units.Keys.ToList())
+                if (kingdom != null && occupier(kingdom)) city._capturing_units.Remove(kingdom);
+            if (city.being_captured_by != null && occupier(city.being_captured_by)) city.clearCapture();
+        }
+        catch
+        {
+            // Ignore vanilla capture cleanup failures here.
+        }
+    }
+
     public static void ClearOccupiedStatus(this City city)
     {
         if (city == null)
@@ -1832,6 +1941,7 @@ public static class CityExtension
     public static void AddCorruptionRate(this City city, double addition)
     {
         if (city == null || addition == 0) return;
+        addition = RulerTraitSystem.ScaleCorruptionGain(city.kingdom, addition);
         double current = city.GetCorruptionRate();
         if ((current >= 1.0f && addition > 0) || (current <= 0.0f && addition < 0))
         {
