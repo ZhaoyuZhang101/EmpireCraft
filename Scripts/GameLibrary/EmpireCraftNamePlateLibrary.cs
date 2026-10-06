@@ -639,6 +639,22 @@ public static class EmpireCraftNamePlateLibrary
         // 理念有自己的图层，原版宗教图层与铭牌保持原样
         AssetManager.nameplates_library.map_modes_nameplates[assetIdeology.map_mode] = assetIdeology;
         AssetManager.nameplates_library.dict["Ideology"] = assetIdeology;
+
+        // 民族情绪图层只看地块颜色和悬停提示，不画铭牌。但原版 NameplateManager.update 每帧按当前图层
+        // 直接取 map_modes_nameplates[图层]，没登记就每帧抛异常，打断 MapBox.Update 后面的整帧世界更新
+        NameplateAsset assetNation = new NameplateAsset
+        {
+            id = "plate_nation",
+            path_sprite = "ui/nameplates/nameplate_kingdom",
+            map_mode = MetaTypeExtension.Nation,
+            action_main = (manager, asset) =>
+            {
+                if (!IsNameplateReady) return;
+                TerritoryLabelRenderer.HideAll();
+            }
+        };
+        AssetManager.nameplates_library.map_modes_nameplates[assetNation.map_mode] = assetNation;
+        AssetManager.nameplates_library.dict["Nation"] = assetNation;
     }
 
     private static IdeologyMapColor GetIdeologyColor(PartyIdeology ideology)
@@ -732,12 +748,13 @@ public static class EmpireCraftNamePlateLibrary
         _ => IsIdeologyBorder(neighbour, ideology)
     };
 
-    // 国家执政党的理念(共和国/开放党禁后的执政党)；没有政党政治返回 false
+    // 国家执政党的理念(共和国/开放党禁后的执政党)；有地方选举的行政区按本省执政党；没有政党政治返回 false
     public static bool TryGetRulingIdeology(Kingdom kingdom, out PartyIdeology ideology)
     {
         ideology = default;
         Empire empire = kingdom?.GetEmpire();
-        FixedFaction party = empire == null ? null : PartySystem.GetGovernmentParty(empire);
+        FixedFaction party = empire == null ? null
+            : ProvincialPoliticsSystem.GetGoverningParty(empire, kingdom) ?? PartySystem.GetGovernmentParty(empire);
         if (party?.IsParty != true || party.Ban) return false;
         ideology = party.Ideology;
         return true;
@@ -2085,7 +2102,7 @@ public static class EmpireCraftNamePlateLibrary
                             : "";
                         text =
                             $"\n{(empire.EmpireClan?.name ?? LM.Get("label_no_royal_clan")).ColorString(pColor: Color.yellow)} | {LM.Get("label_dominant_faction")}: {faction.Name}" +
-                            moneyText + "\n"+ $"{LM.Get("label_mandate")}:{empire.Mandate}" + "\n" +
+                            moneyText + "\n"+ $"{LM.Get(empire.LegitimacyLabelKey)}:{empire.Legitimacy}" + "\n" +
                             text +
                             $"\n{LM.Get("label_claim")}:{(tf!=null ? TranslateHelper.GetTemporaryFactionClaimText(tf.type) : LM.Get("label_none"))}".ColorString(
                                 pColor: new Color(0.5f, 0.9f, 0.5f)) +

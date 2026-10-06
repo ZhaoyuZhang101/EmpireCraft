@@ -608,12 +608,60 @@ namespace EmpireCraft.Scripts.UI.Windows
                         }
                         : null);
             }
+            // 意识形态强度三档的利弊说明
+            parent.AddTextIntoVertLayout(LM.Get("constitution_ideology_intensity_hint"), true, TextAnchor.MiddleCenter);
+            parent.AddTextIntoVertLayout(LM.Get("constitution_speech_hint"), true, TextAnchor.MiddleCenter);
+            parent.AddTextIntoVertLayout(LM.Get("constitution_nation_hint"), true, TextAnchor.MiddleCenter);
+            parent.AddTextIntoVertLayout(LM.Get("constitution_civil_service_hint"), true, TextAnchor.MiddleCenter);
+            float nationalSentiment = NationalSentimentSystem.GetEmpire(_empire);
+            statsRow.IShowStatsRow("national_sentiment", $"{nationalSentiment:0}%",
+                nationalSentiment >= 60f ? "#FF8A7A" : nationalSentiment >= 30f ? "#FFD34E" : color);
+            EmpireCore frontCore = EmpireCoreManager.Get(_empire);
+            if (frontCore?.warlord_parent_core_id > 0) frontCore = EmpireCoreManager.Get(frontCore.warlord_parent_core_id) ?? frontCore;
+            if (NationalSentimentSystem.InUnitedFront(frontCore))
+                statsRow.IShowStatsRow("nation_united_front", LM.Get("nation_united_front_active"), "#8FE7FF");
+            // 意识形态演变(见 IdeologyDynamicsSystem)：疲劳度、经济趋势、现行路线
+            ConstitutionalEconomyState dynamics = _empire.data?.constitutional_economy;
+            if (dynamics != null)
+            {
+                float fatigue = dynamics.ideology_fatigue;
+                statsRow.IShowStatsRow("ideology_fatigue", $"{fatigue:0}%",
+                    fatigue >= 60f ? "#FF8A7A" : fatigue >= 30f ? "#FFD34E" : "#7EE6A8");
+                string trendKey = dynamics.economic_crisis ? "economic_trend_crisis"
+                    : dynamics.economic_trend >= IdeologyDynamicsSystem.GrowthThreshold ? "economic_trend_growth"
+                    : dynamics.economic_trend <= IdeologyDynamicsSystem.DeclineThreshold ? "economic_trend_decline"
+                    : "economic_trend_stable";
+                statsRow.IShowStatsRow("economic_trend", LM.Get(trendKey),
+                    trendKey is "economic_trend_crisis" or "economic_trend_decline" ? "#FF8A7A"
+                    : trendKey == "economic_trend_growth" ? "#7EE6A8" : color);
+                float speechPressure = dynamics.speech_pressure;
+                statsRow.IShowStatsRow("speech_pressure",
+                    Mathf.Abs(speechPressure) < 10f ? LM.Get("speech_pressure_none")
+                    : string.Format(LM.Get(speechPressure > 0f ? "speech_pressure_loosen" : "speech_pressure_tighten"),
+                        Mathf.RoundToInt(Mathf.Abs(speechPressure) * 2f)),
+                    speechPressure > 0f ? "#8FE7FF" : speechPressure < 0f ? "#FF8A7A" : color);
+                float liberation = IdeologyDynamicsSystem.GetLiberation(_empire);
+                if (liberation > 0f)
+                    statsRow.IShowStatsRow("thought_liberation", string.Format(LM.Get("thought_liberation_value"),
+                        Mathf.CeilToInt(liberation * IdeologyDynamicsSystem.LiberationYears)), "#8FE7FF");
+                if (dynamics.suppressed_thought >= 1f)
+                    statsRow.IShowStatsRow("suppressed_thought", $"{dynamics.suppressed_thought:0}%",
+                        dynamics.suppressed_thought >= 30f ? "#FF8A7A" : "#FFD34E");
+                if (!string.IsNullOrEmpty(dynamics.ideology_line))
+                    statsRow.IShowStatsRow("ideology_line", LM.Get($"ideology_line_{dynamics.ideology_line}"), color);
+            }
             List<ConstitutionAmendmentRecord> amendments = constitution.amendments ?? new List<ConstitutionAmendmentRecord>();
             statsRow.IShowStatsRow("constitution_amendments", amendments.Count.ToString(), color);
             foreach (ConstitutionAmendmentRecord record in Enumerable.Reverse(amendments).Take(10))
             {
                 string when = string.Format(LM.Get("constitution_years_ago"), Mathf.Max(0, Date.getYearsSince(record.time)));
-                string by = LM.Get(record.by == "player" ? "constitution_by_player" : "constitution_by_sync");
+                string by = LM.Get(record.by switch
+                {
+                    "player" => "constitution_by_player",
+                    "line" => "constitution_by_line",
+                    "pressure" => "constitution_by_pressure",
+                    _ => "constitution_by_sync"
+                });
                 statsRow.IShowStatsRow($"constitution_clause_{record.clause}",
                     $"{ConstitutionSystem.ValueText(record.clause, record.from)} → {ConstitutionSystem.ValueText(record.clause, record.to)}（{when}·{by}）",
                     "#C8C8C8");
@@ -855,11 +903,12 @@ namespace EmpireCraft.Scripts.UI.Windows
             var text2 = "";
             if (_empire.data.has_year_name)
             {
-                if (!string.IsNullOrEmpty(history.miaohao_name))
+                if (!string.IsNullOrEmpty(history.shihao_name))
                 {
-                    text2 =
-                        history.empire_name + LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix) + "-" +
-                        history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
+                    string shi = history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
+                    text2 = string.IsNullOrEmpty(history.miaohao_name)
+                        ? shi
+                        : history.empire_name + LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix) + "-" + shi;
                 }
                 else
                 {

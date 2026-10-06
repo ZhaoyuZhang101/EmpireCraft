@@ -352,7 +352,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "feudal_offer_vassalage",
-                path_icon = "ui/icons/iconWar",
+                path_icon = "ui/icons/plots/plot_feudal_offer_vassalage",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 can_be_done_by_king = true,
@@ -369,7 +369,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "feudal_tighten_vassalage",
-                path_icon = "ui/icons/iconCrown",
+                path_icon = "ui/icons/plots/plot_feudal_tighten_vassalage",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 can_be_done_by_king = true,
@@ -386,7 +386,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "feudal_annex_vassal",
-                path_icon = "ui/icons/iconCrown",
+                path_icon = "ui/icons/plots/plot_feudal_annex_vassal",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 can_be_done_by_king = true,
@@ -403,7 +403,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "feudal_independence_war",
-                path_icon = "ui/icons/iconWar",
+                path_icon = "ui/icons/plots/plot_feudal_independence_war",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 can_be_done_by_king = true,
@@ -419,7 +419,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "become_empire",
-                path_icon = "ChineseCrown.png",
+                path_icon = "ui/icons/plots/plot_become_empire",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 0,
@@ -436,7 +436,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "usurp_imperial_legitimacy",
-                path_icon = "ChineseCrown.png",
+                path_icon = "ui/icons/plots/plot_usurp_imperial_legitimacy",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -452,7 +452,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "adopt_central_plains_institutions",
-                path_icon = "ChineseCrown.png",
+                path_icon = "ui/icons/plots/plot_adopt_central_plains_institutions",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -468,7 +468,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "combine_kingdom",
-                path_icon = "ChineseCrown.png",
+                path_icon = "ui/icons/plots/plot_combine_kingdom",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -550,7 +550,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empire_plots",
-                path_icon = "MinisterAcquireTitle.png",
+                path_icon = "ui/icons/plots/plot_empire_plots",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -606,7 +606,12 @@ namespace EmpireCraft.Scripts.AI
                         run.End();
                         return false;
                     }
+                    // 推动类决议(见 ClaimRules)：执行前取好目标制度，执行后对它发起改革
+                    Empire runEmpire = run.GetEmpire();
+                    var pushTarget = ClaimRules.FindPushTarget(runEmpire, run.type);
+                    string runFaction = run.factionID;
                     run.Execute();
+                    ClaimRules.AfterExecute(runEmpire, run.type, pushTarget, runFaction);
                     return true;
                 }
             });
@@ -614,7 +619,7 @@ namespace EmpireCraft.Scripts.AI
 		    {
 			    id = "force_stop_war",
 			    is_basic_plot = true,
-			    path_icon = "plots/icons/plot_stop_war",
+			    path_icon = "ui/icons/plots/plot_force_stop_war",
 			    group_id = "empirecraft_diplomacy",
 			    min_level = 4,
 			    money_cost = 0,
@@ -684,7 +689,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empire_move_back_to_capital",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_empire_move_back_to_capital",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -726,7 +731,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_petition_title",
-                path_icon = "TitleAcquire.png",
+                path_icon = "ui/icons/plots/plot_kingdom_petition_title",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -746,7 +751,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_start_join_taken_alliance",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_start_join_taken_alliance",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -776,7 +781,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_start_invite_to_faction",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_start_invite_to_faction",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -807,7 +812,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "faction_leader_influence_local_kingdom",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_faction_leader_influence_local_kingdom",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -844,7 +849,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empirecraft_city_culture_shift",
-                path_icon = "ui/icons/iconCulture",
+                path_icon = "ui/icons/plots/plot_empirecraft_city_culture_shift",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -883,7 +888,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empirecraft_independent_title_culture_conversion",
-                path_icon = "ui/icons/iconCulture",
+                path_icon = "ui/icons/plots/plot_empirecraft_independent_title_culture_conversion",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -907,7 +912,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empirecraft_restore_native_culture",
-                path_icon = "ui/icons/iconCulture",
+                path_icon = "ui/icons/plots/plot_empirecraft_restore_native_culture",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -938,7 +943,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empirecraft_cultural_assimilation_duty",
-                path_icon = "ui/icons/iconCulture",
+                path_icon = "ui/icons/plots/plot_empirecraft_cultural_assimilation_duty",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -984,7 +989,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empirecraft_kingdom_regime_conversion",
-                path_icon = "ui/icons/iconCulture",
+                path_icon = "ui/icons/plots/plot_empirecraft_kingdom_regime_conversion",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1016,7 +1021,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_expose_crime",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_expose_crime",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -1065,7 +1070,7 @@ namespace EmpireCraft.Scripts.AI
                         double rebellingPossibility = 0.2f;
                         if (!target.isOpinionTowardsKingdomGood(empire.CoreKingdom))
                         {
-                            rebellingPossibility = ((double)target.countTotalWarriors() / (double)empire.countWarriors()) * 0.5f + (0.5f*(double)(100.0f-empire.Mandate)/100.0f);
+                            rebellingPossibility = ((double)target.countTotalWarriors() / (double)empire.countWarriors()) * 0.5f + (0.5f*(double)(100.0f-empire.Legitimacy)/100.0f);
                         }
                         Random rand = new Random();
                         if (rand.NextDouble() < rebellingPossibility)
@@ -1116,7 +1121,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_start_religion_war",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_start_religion_war",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -1173,7 +1178,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "new_empire_royal",
-                path_icon = "ChineseCrown.png",
+                path_icon = "ui/icons/plots/plot_new_empire_royal",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 5,
@@ -1187,12 +1192,14 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.HasSpecificClan()) return false;
                     if (!kingdom.IsEmpire()) return false;
                     if (kingdom.hasEnemies()) return false;
+                    if (ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire())) return false;
                     if (!kingdom.GetEmpire().IsRoyalBeenChanged()) return false;
                     if (Date.getYearsSince(kingdom.GetEmpire().data.original_royal_been_changed_timestamp)<=5) return false;
                     return true;
                 },
                 action = delegate (Actor pActor)
                 {
+                    if (ConstitutionalSuccessionSystem.IsProtected(pActor.kingdom?.GetEmpire())) return false;
                     pActor.CheckSpecificClan();
                     Kingdom kingdom = pActor.kingdom;
                     Empire empire = kingdom.GetEmpire();
@@ -1240,7 +1247,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "emperor_year_name",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_emperor_year_name",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1270,7 +1277,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_allow_army",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_allow_army",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1285,7 +1292,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsInEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     Regime regime = kingdom.GetRegime();
-                    if (empire.Mandate > 60) return false;
+                    if (empire.Legitimacy > 60) return false;
                     if (regime == null) return false;
                     if (regime.IsAllowArmy()) return false;
                     if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
@@ -1303,7 +1310,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_allow_diplomacy",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_allow_diplomacy",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1318,7 +1325,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsInEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     Regime regime = kingdom.GetRegime();
-                    if (empire.Mandate > 60) return false;
+                    if (empire.Legitimacy > 60) return false;
                     if (regime == null) return false;
                     if (!regime.IsAllowArmy()) return false;
                     if (regime.IsAllowDiplomacy()) return false;
@@ -1337,7 +1344,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_allow_succession",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_allow_succession",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1371,7 +1378,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_allow_self_army",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_allow_self_army",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1406,7 +1413,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_allow_independent",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_allow_independent",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1421,7 +1428,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsInEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     Regime regime = kingdom.GetRegime();
-                    if (empire.Mandate > 40) return false;
+                    if (empire.Legitimacy > 40) return false;
                     if (regime == null) return false;
                     if (regime.type != RegimeType.Feudalism && regime.type != RegimeType.Arabic) return false;
                     if (!regime.IsAllowDiplomacy()) return false;
@@ -1446,7 +1453,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empire_take_back_title",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_empire_take_back_title",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1484,7 +1491,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "emperor_posthumous_name",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_emperor_posthumous_name",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1508,6 +1515,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsEmpire()) return false;
                     if (!kingdom.IsInEmpire()) return false;
                     if (kingdom.GetEmpire().Emperor == null) return false;
+                    // 剧情进行中改制为共和或现代政体：不再追封
+                    if (!kingdom.GetEmpire().AllowsPosthumousNames()) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
@@ -1525,24 +1534,24 @@ namespace EmpireCraft.Scripts.AI
                             if (string.IsNullOrEmpty(cHistory.shihao_name))
                             {
                                 Empire empire = kingdom.GetEmpire();
-                                bool isFirst = false;
-                                bool isLast = false;
-                                bool isGood = true;
-                                {
-                                    isFirst = empire.IsFoundingEmperorHistory(cHistory);
-                                    if (isFirst) cHistory.is_first = true;
-                                }
-                                var names = PosthumousNameGenerator.GenerateBoth(empire, 1, isFirst, isLast, isGood);
+                                if (empire.IsFoundingEmperorHistory(cHistory)) cHistory.is_first = true;
+                                // 谥法：按先帝生平定庙号谥号，见 PosthumousNameGenerator
+                                var names = PosthumousNameGenerator.Decide(empire, cHistory);
                                 cHistory.shihao_name = names.shi;
-                                cHistory.miaohao_name = names.miao.pre;
-                                cHistory.miaohao_suffix = names.miao.suf;
-                                empire.RecordHistory(EmpireHistoryType.give_posthumous_to_previous_emperor_history, new Dictionary<string, string>
-                                {
-                                    ["actor"] = empire.Emperor.data.name,
-                                    ["actor2"] = cHistory.emperor,
-                                    ["shihao"] = LM.Get(cHistory.shihao_name),
-                                    ["miaohao"] = LM.Get(cHistory.miaohao_name) + LM.Get(cHistory.miaohao_suffix)
-                                });
+                                cHistory.miaohao_name = names.miao;
+                                cHistory.miaohao_suffix = names.miao_suffix;
+                                string template = LM.Get(names.HasTemple
+                                    ? "history_name_previous_emperor_reason"
+                                    : "history_name_previous_emperor_no_temple");
+                                empire.RecordHistory(directContent: template
+                                    .Replace("$actor$", empire.Emperor.data.name)
+                                    .Replace("$actor2$", cHistory.emperor)
+                                    .Replace("$reason$", LM.Get(names.reason))
+                                    .Replace("$shihao$", LM.Get(cHistory.shihao_name))
+                                    .Replace("$miaohao$", names.HasTemple
+                                        ? LM.Get(cHistory.miaohao_name) + LM.Get(cHistory.miaohao_suffix)
+                                        : ""),
+                                    actorId: empire.Emperor.data.id);
                                 TranslateHelper.LogEmpeorNamingPreviousEmperor(pActor, cHistory.emperor);
                             }
                             //追封
@@ -1554,7 +1563,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "king_acquire_title",
-                path_icon = "TitleAcquire.png",
+                path_icon = "ui/icons/plots/plot_king_acquire_title",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1632,7 +1641,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_destroy_title",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_destroy_title",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1704,7 +1713,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_get_title",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_get_title",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1732,7 +1741,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_change_capital_title",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_change_capital_title",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1764,7 +1773,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_join_empire",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_join_empire",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1805,7 +1814,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_create_title",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_create_title",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1848,7 +1857,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_add_city_into_title",
-                path_icon = "EmperorQuest.png",
+                path_icon = "ui/icons/plots/plot_kingdom_add_city_into_title",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1883,7 +1892,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empress_dowager_install_son",
-                path_icon = "ChineseCrown.png",
+                path_icon = "ui/icons/plots/plot_empress_dowager_install_son",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1909,7 +1918,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "minister_acquire_empire",
-                path_icon = "ministerAcquireEmpire.png",
+                path_icon = "ui/icons/plots/plot_minister_acquire_empire",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1935,7 +1944,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "minister_acquire_title",
-                path_icon = "ministerAcquireTitle.png",
+                path_icon = "ui/icons/plots/plot_minister_acquire_title",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -1960,7 +1969,7 @@ namespace EmpireCraft.Scripts.AI
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "minister_receive_nine_bestowments",
-                path_icon = "ministerAcquireTitle.png",
+                path_icon = "ui/icons/plots/plot_minister_receive_nine_bestowments",
                 group_id = "empirecraft_diplomacy",
                 is_basic_plot = true,
                 min_level = 1,
@@ -2028,6 +2037,8 @@ namespace EmpireCraft.Scripts.AI
 				    {
 					    return false;
 				    }
+				    // 现代国家治理能力：大部分叛乱图谋起不来(见 ModernStability)
+				    if (!ModernStability.PassRebellionGate(kingdom)) return false;
 				    City city = pActor.city;
 				    if (city.isCapitalCity()&&!city.kingdom.IsInEmpire())
 				    {
@@ -2166,10 +2177,25 @@ namespace EmpireCraft.Scripts.AI
 				    return true;
 			    }
 		    }); 
+            // 开战更频繁：两场战争之间、同一对国家再战的间隔 5 年 -> 3 年(新建国 5 年保护期不变)
+            if (SimGlobals.m != null)
+            {
+                SimGlobals.m.diplomacy_years_war_timeout = 3;
+                SimGlobals.m.minimum_years_between_wars = 3;
+            }
+            // 原版"攻方议和"不适用于同一法统内部的统一战争(内战打到底，见 WarlordEraSystem 统一进程)
+            PlotAsset stopWar = AssetManager.plots_library.get("attacker_stop_war");
+            if (stopWar != null)
+            {
+                var stopWarContinue = stopWar.check_should_continue;
+                stopWar.check_should_continue = actor => !WarlordEraSystem.IsCivilWar(actor?.plot?.target_war) &&
+                                                         (stopWarContinue?.Invoke(actor) ?? true);
+            }
             PlotAsset vanillaWar = AssetManager.plots_library.get("new_war") ?? PlotsLibrary.new_war;
             if (vanillaWar != null)
             {
                 PlotsLibrary.new_war ??= vanillaWar;
+                vanillaWar.money_cost = 10;
                 var vanillaWarPossible = vanillaWar.check_is_possible;
                 var vanillaWarForced = vanillaWar.check_can_be_forced;
                 var vanillaWarStart = vanillaWar.try_to_start_advanced;
@@ -2205,7 +2231,7 @@ namespace EmpireCraft.Scripts.AI
                 group_id = "empirecraft_diplomacy",
                 min_level = 3,
                 min_warfare = 6,
-                money_cost = 20,
+                money_cost = 10,
                 min_renown_kingdom = 50,
                 can_be_done_by_king = true,
                 check_target_kingdom = true,
@@ -2520,6 +2546,8 @@ namespace EmpireCraft.Scripts.AI
 
         private static bool IsValidModWarTarget(Kingdom initiator, Kingdom target)
         {
+            // 民族统一战线期间，同一核心的各政府互不宣战(见 NationalSentimentSystem)
+            if (NationalSentimentSystem.InSameUnitedFront(initiator, target)) return false;
             if (initiator?.capital == null || target?.capital == null || initiator == target ||
                 !target.isAlive() ||
                 !target.hasCities() || target.getAge() < SimGlobals.m.minimum_kingdom_age_for_attack ||
@@ -2544,6 +2572,7 @@ namespace EmpireCraft.Scripts.AI
 
         private static bool IsValidImperialWarTarget(Kingdom initiator, Kingdom target)
         {
+            if (NationalSentimentSystem.InSameUnitedFront(initiator, target)) return false;
             if (initiator == null || target == null || initiator == target || !initiator.IsEmpire() ||
                 !target.isAlive() || target.IsInSameEmpire(initiator)) return false;
             Empire empire = initiator.GetEmpire();
@@ -2565,8 +2594,8 @@ namespace EmpireCraft.Scripts.AI
             if (kingdom.data.timestamp_last_war != -1d &&
                 Date.getYearsSince(kingdom.data.timestamp_last_war) <= SimGlobals.m.diplomacy_years_war_timeout)
                 return false;
-            if (empire.kingdoms_list.Any(member => member != null && !member.isRekt() &&
-                                                   World.world.wars.hasWars(member))) return false;
+            // 帝国本身(核心)没在打仗就可以对外开战；成员国各自的战事不再拖住整个帝国
+            if (World.world.wars.hasWars(kingdom)) return false;
             return empire.countWarriors() > SimGlobals.m.diplomacy_years_war_min_warriors;
         }
 

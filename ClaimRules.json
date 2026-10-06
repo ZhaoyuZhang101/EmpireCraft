@@ -1,0 +1,630 @@
+{
+  "_comment": "派系决议与文化制度树、科技时代的对应(见 Scripts/GeneralSystems/ClaimRules.cs)。cultures 只有这些文化才有；min_era/max_era 科技时代 tier(1 石器 … 7 工业 … 11 未来，0 不限)；lines 各制度线(Huaxia/Roma/Arabic/Youmu)的要求，没列出的线 = 没有这条路线、不出现；any 已施行其一才提出，none 已施行其一就不再提出，push 决议成功后对第一个未施行的制度发起改革；special: sinicized_nomad = 已采纳中原制度的游牧政权。没写进本文件的决议不受限制。",
+  "开科取士": {
+    "lines": {
+      "Huaxia": {}
+    }
+  },
+  "转天朝制度": {
+    "lines": {
+      "Huaxia": {},
+      "Roma": {
+        "push": [
+          "western_centralized_monarchy"
+        ]
+      },
+      "Arabic": {
+        "push": [
+          "arabic_sultanate_bureaucracy"
+        ]
+      },
+      "Youmu": {
+        "push": [
+          "youmu_provincial_system"
+        ]
+      }
+    }
+  },
+  "转周制": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "zhou_enfeoffment"
+        ]
+      }
+    }
+  },
+  "削藩": {
+    "lines": {
+      "Huaxia": {
+        "push": [
+          "huaxia_grace_edict",
+          "zhou_reduce_vassals"
+        ]
+      },
+      "Roma": {
+        "push": [
+          "western_centralized_monarchy"
+        ]
+      },
+      "Arabic": {
+        "push": [
+          "arabic_sultanate_bureaucracy"
+        ]
+      },
+      "Youmu": {
+        "push": [
+          "youmu_provincial_system"
+        ]
+      }
+    }
+  },
+  "夺取诸侯开战权": {
+    "lines": {
+      "Huaxia": {
+        "push": [
+          "zhou_forbid_private_wars"
+        ]
+      }
+    }
+  },
+  "土地改革": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_land_equalization",
+          "huaxia_ideology_socialism",
+          "huaxia_ideology_communism"
+        ]
+      },
+      "Roma": {
+        "any": [
+          "roma_ideology_socialism",
+          "roma_ideology_communism"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_ideology_socialism",
+          "arabic_ideology_communism"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_ideology_socialism",
+          "youmu_ideology_communism"
+        ]
+      }
+    }
+  },
+  "自由信仰": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_lift_party_ban"
+        ]
+      },
+      "Roma": {
+        "push": [
+          "western_reformation"
+        ],
+        "any": [
+          "roma_lift_party_ban"
+        ]
+      },
+      "Youmu": {
+        "push": [
+          "youmu_religious_tolerance"
+        ],
+        "any": [
+          "youmu_lift_party_ban"
+        ]
+      }
+    }
+  },
+  "分封": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "zhou_enfeoffment",
+          "huaxia_commandery_kingdom"
+        ],
+        "none": [
+          "zhou_reduce_vassals"
+        ]
+      },
+      "Roma": {
+        "any": [
+          "western_feudalization"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_iqta_military_fiscal"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_ulus_appanage"
+        ]
+      }
+    }
+  },
+  "允许诸侯自由开战": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "zhou_enfeoffment"
+        ],
+        "none": [
+          "zhou_forbid_private_wars"
+        ]
+      },
+      "Roma": {
+        "any": [
+          "western_feudalization"
+        ],
+        "none": [
+          "western_centralized_monarchy"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_iqta_military_fiscal"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_ulus_appanage"
+        ]
+      }
+    }
+  },
+  "转军府": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_warlord_succession"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_mamluk_corps"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_decimal_army"
+        ]
+      }
+    }
+  },
+  "撤销军府": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_warlord_succession"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_mamluk_corps"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_decimal_army"
+        ]
+      }
+    }
+  },
+  "设置行政区": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_prefecture_county_bureaucracy"
+        ]
+      },
+      "Roma": {
+        "any": [
+          "western_centralized_monarchy"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_sultanate_bureaucracy"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_provincial_system"
+        ]
+      }
+    }
+  },
+  "转世袭": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "zhou_vassal_self_succession",
+          "huaxia_warlord_succession"
+        ]
+      },
+      "Roma": {
+        "any": [
+          "western_feudal_contract"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_iqta_military_fiscal"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_ulus_appanage"
+        ]
+      }
+    }
+  },
+  "强者继承法": {
+    "lines": {
+      "Arabic": {
+        "any": [
+          "arabic_tribal_shura"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_khuriltai_election"
+        ]
+      }
+    }
+  },
+  "供养宗室": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_patriarchal_clan"
+        ]
+      },
+      "Roma": {},
+      "Arabic": {},
+      "Youmu": {}
+    }
+  },
+  "颁布金玺诏书": {
+    "cultures": [
+      "Germanic",
+      "Frankish",
+      "Roma",
+      "Western"
+    ],
+    "lines": {
+      "Roma": {
+        "any": [
+          "western_feudal_contract"
+        ]
+      }
+    }
+  },
+  "恢复世袭皇权": {
+    "cultures": [
+      "Germanic",
+      "Frankish",
+      "Roma",
+      "Western"
+    ],
+    "lines": {
+      "Roma": {
+        "push": [
+          "western_centralized_monarchy"
+        ]
+      }
+    }
+  },
+  "颁布帝国治安令": {
+    "cultures": [
+      "Germanic",
+      "Frankish",
+      "Roma",
+      "Western"
+    ],
+    "lines": {
+      "Roma": {
+        "any": [
+          "western_feudal_contract"
+        ],
+        "push": [
+          "western_centralized_monarchy"
+        ]
+      }
+    }
+  },
+  "确认诸侯特权": {
+    "cultures": [
+      "Germanic",
+      "Frankish",
+      "Roma",
+      "Western"
+    ],
+    "lines": {
+      "Roma": {
+        "any": [
+          "western_feudal_contract"
+        ]
+      }
+    }
+  },
+  "争夺主教叙任权": {
+    "cultures": [
+      "Germanic",
+      "Frankish",
+      "Roma",
+      "Western"
+    ],
+    "lines": {
+      "Roma": {
+        "any": [
+          "western_clerical_supremacy"
+        ]
+      }
+    }
+  },
+  "神授君权": {
+    "cultures": [
+      "Germanic",
+      "Frankish",
+      "Roma",
+      "Western"
+    ],
+    "lines": {
+      "Roma": {
+        "any": [
+          "western_clerical_supremacy"
+        ]
+      }
+    }
+  },
+  "恢复圣地": {
+    "cultures": [
+      "Germanic",
+      "Frankish",
+      "Roma",
+      "Western"
+    ],
+    "lines": {
+      "Roma": {
+        "any": [
+          "western_clerical_supremacy",
+          "western_theocratic_state"
+        ]
+      }
+    }
+  },
+  "划地给教廷": {
+    "cultures": [
+      "Germanic",
+      "Frankish",
+      "Roma",
+      "Western"
+    ],
+    "lines": {
+      "Roma": {
+        "any": [
+          "western_clerical_supremacy",
+          "western_theocratic_state"
+        ]
+      }
+    }
+  },
+  "加强神权": {
+    "lines": {
+      "Roma": {
+        "cultures": [
+          "Germanic",
+          "Frankish",
+          "Roma",
+          "Western"
+        ],
+        "any": [
+          "western_clerical_supremacy",
+          "western_theocratic_state"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_caliphal_theocracy"
+        ]
+      }
+    }
+  },
+  "迫使朝贡": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_tributary_system"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_tribal_confederation"
+        ],
+        "special": "sinicized_nomad"
+      }
+    }
+  },
+  "劫掠": {
+    "lines": {
+      "Youmu": {}
+    }
+  },
+  "游牧扩张": {
+    "lines": {
+      "Youmu": {}
+    }
+  },
+  "输出革命": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_ideology_communism",
+          "huaxia_ideology_socialism"
+        ]
+      },
+      "Roma": {
+        "any": [
+          "roma_ideology_communism",
+          "roma_ideology_socialism"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_ideology_communism",
+          "arabic_ideology_socialism"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_ideology_communism",
+          "youmu_ideology_socialism"
+        ]
+      }
+    }
+  },
+  "扶持革命党": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_ideology_communism",
+          "huaxia_ideology_socialism"
+        ]
+      },
+      "Roma": {
+        "any": [
+          "roma_ideology_communism",
+          "roma_ideology_socialism"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_ideology_communism",
+          "arabic_ideology_socialism"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_ideology_communism",
+          "youmu_ideology_socialism"
+        ]
+      }
+    }
+  },
+  "禁党": {
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_ideology_communism",
+          "huaxia_ideology_socialism"
+        ]
+      },
+      "Roma": {
+        "any": [
+          "roma_ideology_communism",
+          "roma_ideology_socialism"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_ideology_communism",
+          "arabic_ideology_socialism"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_ideology_communism",
+          "youmu_ideology_socialism"
+        ]
+      }
+    }
+  },
+  "提高赋税": {
+    "min_era": 3
+  },
+  "降低赋税": {
+    "min_era": 3
+  },
+  "确立国教": {
+    "min_era": 3,
+    "lines": {
+      "Huaxia": {},
+      "Roma": {
+        "none": [
+          "western_reformation"
+        ]
+      },
+      "Arabic": {},
+      "Youmu": {
+        "none": [
+          "youmu_religious_tolerance"
+        ]
+      }
+    }
+  },
+  "开放移民": {
+    "min_era": 7
+  },
+  "清除移民": {
+    "min_era": 7
+  },
+  "拓展金融霸权": {
+    "min_era": 7,
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_ideology_capitalism"
+        ]
+      },
+      "Roma": {
+        "any": [
+          "roma_ideology_capitalism"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_ideology_capitalism"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_ideology_capitalism"
+        ]
+      }
+    }
+  },
+  "缩减金融霸权": {
+    "min_era": 7,
+    "lines": {
+      "Huaxia": {
+        "any": [
+          "huaxia_ideology_capitalism"
+        ]
+      },
+      "Roma": {
+        "any": [
+          "roma_ideology_capitalism"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_ideology_capitalism"
+        ]
+      },
+      "Youmu": {
+        "any": [
+          "youmu_ideology_capitalism"
+        ]
+      }
+    }
+  }
+}

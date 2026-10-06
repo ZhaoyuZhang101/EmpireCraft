@@ -20,6 +20,33 @@ public sealed class ParliamentSeat
     public long district_kingdom_id = -1L;
 }
 
+// 一个行政区的地方政治(见 ProvincialPoliticsSystem)
+public sealed class ProvincePolitics
+{
+    // 地方选举选出的执政党(省长所属政党)；空 = 还没办过地方选举
+    public string governing_party_id = "";
+    // 各党在本省的支持率(0~1)：地方选举时记一次，玩家资助/打压后即时重算
+    public Dictionary<string, float> vote_shares = new();
+    public double last_election = -1d;
+    // 玩家资助(+)/打压(-)对各党本省得票的影响(-0.5~0.5)，逐年回落
+    public Dictionary<string, float> influence = new();
+}
+
+// 执政党的跨届施政议程：修改一条宪法条款，需要在议会里攒够票数(见 ParliamentSystem.UpdateAgenda)
+public sealed class GovernmentAgenda
+{
+    public string clause = "";
+    public string target = "";
+    // 推动议程的政党；换届后新政府主张一致就接手，否则废止
+    public string party_id = "";
+    public float progress;
+    public double started_at = -1d;
+    // 上一次结算时的支持议席占比与修宪门槛(界面显示用)
+    public float support;
+    public float threshold;
+    public bool stalled;
+}
+
 // 一个外国对本国施加的理念压力(民意系统每年重算，只用于显示和转化)
 public sealed class IdeologyPressureSource
 {
@@ -42,6 +69,32 @@ public sealed class ConstitutionalEconomyState
     // 今年 WarBox 示威/罢工城市占全国城市的比例(年度结算时统计，民意计算读取)
     public float strike_share;
     public float demonstration_share;
+    // 意识形态演变(见 IdeologyDynamicsSystem)：
+    // 疲劳度 0~100(宣传越久越空洞)；经济趋势(近十年繁荣度变化，金融危机记为衰退)；
+    // 上次检查时的元首(换人即路线之争)、现行路线；每年的全国繁荣度(最多 11 年)；看到的宪法序号(换宪法即重置疲劳)
+    public float ideology_fatigue;
+    public float economic_trend;
+    public bool economic_crisis;
+    public long ideology_line_head_id = -1L;
+    public string ideology_line = "";
+    public List<float> prosperity_history = new();
+    public int ideology_constitution_number;
+    // 言论压力 -100~100：正 = 要求放开言论，负 = 要求收紧；越过 ±50 言论自由改一档后归零(见 IdeologyDynamicsSystem)
+    public float speech_pressure;
+    // 思想解放期开始时间(-1 = 没有)；被压抑的思想 0~100(高压下不信立国理念、又不敢说的人积累，遇事爆发)；
+    // 上一年的言论自由(改为宽松即开启解放期)
+    public double liberation_started = -1d;
+    public bool liberation_announced_end = true;
+    public float suppressed_thought;
+    public string last_speech = "";
+    // 复辟帝制(见 RestorationSystem)：0 = 无，1 = 筹备(筹安会、劝进)，2 = 已称帝；
+    // 阶段开始时间、发起复辟的元首、现任元首上台时间、上次复辟失败的时间(冷却用)
+    public int restoration_stage;
+    public double restoration_started = -1d;
+    public long restoration_head_id = -1L;
+    public long tenure_head_id = -1L;
+    public double tenure_since = -1d;
+    public double restoration_failed_at = -1d;
     public float opinion_support;
     public float opinion_dissent;
     public string opinion_preferred = "";
@@ -123,4 +176,36 @@ public sealed class ConstitutionalEconomyState
     public string government_type = "";
     // 执政一方（单一派系或联盟）掌握的议席数
     public int government_seats;
+    // 执政联盟的全部成员(含总理所属派系)；多数/少数派政府只有一个
+    public List<string> coalition_faction_ids = new();
+    // 本届与上届各派系议席、得票占比(议席图的涨跌箭头)
+    public Dictionary<string, int> previous_seat_counts = new();
+    public Dictionary<string, float> vote_shares = new();
+    public Dictionary<string, float> previous_vote_shares = new();
+    // 本届政府组成的时间、上次不信任投票的时间、上次年度政局结算的时间
+    public double government_formed_at = -1d;
+    public double last_no_confidence = -1d;
+    public double last_government_review = -1d;
+    // 政党分肥制下换了执政党的时间：之后两年官员大换血，宪政合法性下降(见 ModernLegitimacy)
+    public double spoils_turnover_at = -1d;
+    public GovernmentAgenda government_agenda;
+    // —— 地方政治(见 ProvincialPoliticsSystem)——键为行政区(帝国内的国家)id
+    public Dictionary<long, ProvincePolitics> provinces = new();
+    // 地方选举在哪一届议会的中期办过(每届一次)
+    public int last_local_election_term = -1;
+    public double last_local_review = -1d;
+    // 连续几次地方选举在野党控制了六成以上的行政区(满两次推动改行联邦制)
+    public int local_opposition_streak;
+    // —— 苛政与民怨(见 HarshRuleSystem)——
+    public float harsh_burden;
+    public string harsh_main_cause = "";
+    // 现代国家的街头抗争：0 平静 / 1 游行示威 / 2 冲突 / 3 大规模暴乱；暴乱持续年数、连续镇压年数
+    public int street_unrest_stage;
+    public int street_unrest_years;
+    public int repression_years;
+    public double last_repression = -1d;
+    // 上一次回应街头抗争的时间与方式(repress / concede)、是否玩家亲自拍板
+    public double last_street_response = -1d;
+    public string last_street_response_kind = "";
+    public bool last_street_response_by_player;
 }

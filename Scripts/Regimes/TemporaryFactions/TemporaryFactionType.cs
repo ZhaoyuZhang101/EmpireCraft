@@ -8,8 +8,9 @@ public enum TemporaryFactionType
     转军府,
     [Description("当地方军府领导控制力大于当前地盘且对帝国忠诚度低时可发起扩张")]
     扩张地盘,
+    [Description("战局不利或久拖不决时岁输金帛以求停战")]
     提供岁币,
-    [Description("帝国处于战争时执行,立即停止战争并割让土地")]
+    [Description("战局不利(打满一年、丢城且敌强于我)时割让一座接壤小城以求停战")]
     割让城池,
     [Description("地方行政区的官位将会世袭罔替")]
     转世袭,

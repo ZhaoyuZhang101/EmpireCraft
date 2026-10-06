@@ -8,7 +8,7 @@
   <style>
     :root{--bg:#f6efe2;--panel:#fffaf1;--ink:#2d2318;--muted:#6f5d45;--line:#d8c5a4;--accent:#8d6836;--accent2:#6d4e24;--danger:#9f4335;--good:#446b49;--r:18px;--r2:12px}
     *{box-sizing:border-box} body{margin:0;color:var(--ink);font:14px/1.5 "Microsoft YaHei","Segoe UI",sans-serif;background:radial-gradient(circle at top left,rgba(141,104,54,.12),transparent 30%),linear-gradient(180deg,#fbf6ed 0%,var(--bg) 100%)}
-    .shell{width:min(1440px,calc(100vw - 24px));margin:12px auto 24px;display:grid;grid-template-columns:310px minmax(0,1fr);gap:16px}
+    .shell{width:min(1440px,calc(100vw - 24px));margin:12px auto 24px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px}
     .side,.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 36px rgba(50,36,15,.1)}
     .side{position:sticky;top:64px;align-self:start;padding:18px}.panel{padding:18px}.brand h1,.panel h2{margin:0 0 10px}.brand p,.muted{margin:0;color:var(--muted)}
     .stack,.grid,.cards,.toolbar{display:grid;gap:10px}.toolbar{display:flex;flex-wrap:wrap}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -29,26 +29,13 @@
     .office-group{display:grid;gap:10px}.office-group-title{font-size:18px;font-weight:700;color:var(--accent2);padding:6px 4px 0}.office-summary{display:grid;gap:6px;color:var(--muted)}
     @media (max-width:1120px){.shell{grid-template-columns:1fr}.side{position:static}} @media (max-width:760px){.grid.two,.grid.three{grid-template-columns:1fr}}
   </style>
+  <link rel="stylesheet" href="pixel-theme.css" />
 </head>
 <body>
   <div class="shell">
     <aside class="side">
-      <div class="brand">
-        <h1>EmpireCraft 政体编辑器</h1>
-        <p>独立放在模组根目录即可使用，面向新手的政体配置小工具。</p>
-      </div>
-      <div class="stack" style="margin-top:14px">
-        <button class="primary" id="loadTemplateBtn">载入模板</button>
-        <label class="button-like" for="importEditorState">导入编辑器状态</label>
-        <input id="importEditorState" type="file" accept=".json" hidden />
-        <button id="loadCultureRulesBtn">读取文化配置</button>
-        <button id="chooseModRootBtn">选择模组目录</button>
-        <button id="openConfigsBtn">打开政体目录</button>
-        <button class="primary" id="writeConfigsBtn">写入政体目录</button>
-        <button id="syncEnumsBtn">同步代码枚举</button>
-        <button id="downloadBtn">下载导出文件</button>
-      </div>
-      <div class="stack" style="margin-top:14px">
+      <div class="side-group">
+        <h4>编辑</h4>
         <div class="section-nav">
           <button type="button" data-open-section="meta" class="active">基本信息</button>
           <button type="button" data-open-section="offices">官职结构</button>
@@ -56,66 +43,88 @@
           <button type="button" data-open-section="preview">导出预览</button>
         </div>
       </div>
-      <div class="note" style="margin-top:14px">
-        说明：
-        <br />1. 新增官职时，官职等级默认按创建顺序自动递增。
-        <br />2. `core / division` 会额外显示部门命名规则。
-        <br />3. 桌面版会读取并直接修改现有的 各文化的 `CultureRule.jsonc`，这里只改文化的政体字段。
-        <br />4. “打开政体目录”会尝试打开 `Scripts/Regimes/Configs/`。
-        <br />5. 桌面版可以先选择一次模组目录，之后会自动记住。
-        <br />6. 桌面版可以直接写入 `Scripts/Regimes/Configs/<政体文件夹名>/`，不用手动逐个下载。
+      <div class="side-group">
+        <h4>文件</h4>
+        <div class="btn-grid">
+          <button id="loadTemplateBtn">载入模板</button>
+          <label class="button-like" for="importEditorState">导入状态</label>
+          <input id="importEditorState" type="file" accept=".json" hidden />
+          <button id="loadCultureRulesBtn" class="wide">读取文化配置</button>
+        </div>
       </div>
-      <div class="note" id="modRootNote" style="margin-top:14px">当前模组目录：未设置</div>
+      <div class="side-group">
+        <h4>保存到模组</h4>
+        <button class="primary wide" id="writeConfigsBtn">写入政体目录</button>
+        <div class="btn-list">
+          <button id="downloadBtn">下载导出文件</button>
+          <button id="openConfigsBtn">打开政体目录</button>
+          <button id="syncEnumsBtn">同步代码枚举</button>
+        </div>
+        <button id="chooseModRootBtn" hidden>选择模组目录</button>
+      </div>
       <div class="status" id="statusText"></div>
+      <details class="help">
+        <summary>使用说明</summary>
+        <ol>
+          <li>新增官职时，官职等级默认按创建顺序自动递增。</li>
+          <li><code>core / division</code> 会额外显示部门命名规则。</li>
+          <li>桌面版会读取并直接修改各文化的 <code>CultureRule.jsonc</code>，这里只改文化的政体字段。</li>
+          <li>"打开政体目录"会打开 <code>Scripts/Regimes/Configs/</code>。</li>
+          <li>模组目录在顶部右侧选择一次即可，之后会自动记住。</li>
+          <li>"写入政体目录"直接写到 <code>Scripts/Regimes/Configs/&lt;政体文件夹名&gt;/</code>，不用手动逐个下载。</li>
+        </ol>
+      </details>
+      <div class="side-foot" id="modRootNote">当前模组目录：未设置</div>
     </aside>
 
     <main class="stack">
       <section class="panel section-panel active" id="meta">
         <h2>基本信息</h2>
+
+        <h3>标识</h3>
         <div class="grid two">
           <label class="field">政体文件夹名<input id="folderName" value="CustomRegimeTemplate" /></label>
           <label class="field">政体键名<input id="regimeKey" value="CustomRegimeTemplate" /></label>
-        </div>
-        <div class="grid three" style="margin-top:12px">
-          <label class="field">简体名称<input id="regimeNameCh" value="自定义政体模板" /></label>
-          <label class="field">繁体名稱<input id="regimeNameCz" value="自訂政體模板" /></label>
-          <label class="field">英文名称<input id="regimeNameEn" value="Custom Regime Template" /></label>
-        </div>
-        <div class="grid three" style="margin-top:12px">
-          <label class="field">简体描述<textarea id="descriptionCh">一个用于演示自定义政体配置结构的模板政体。</textarea></label>
-          <label class="field">繁體描述<textarea id="descriptionCz">一個用於演示自訂政體配置結構的模板政體。</textarea></label>
-          <label class="field">英文描述<textarea id="descriptionEn">A template regime used to demonstrate a custom regime configuration structure.</textarea></label>
-        </div>
-        <div class="grid three" style="margin-top:12px">
+          <label class="field">默认国家职类 default_kingdom<input id="defaultKingdom" value="CustomRegimeTemplate_county" /></label>
           <label class="field">图标地址 icon_url<input id="iconUrl" /></label>
+        </div>
+
+        <h3>名称与描述</h3>
+        <div class="lang-grid">
+          <span></span><span class="lang-head">名称</span><span class="lang-head">描述</span>
+          <span class="lang-label">简体</span>
+          <input id="regimeNameCh" value="自定义政体模板" />
+          <textarea id="descriptionCh">一个用于演示自定义政体配置结构的模板政体。</textarea>
+          <span class="lang-label">繁體</span>
+          <input id="regimeNameCz" value="自訂政體模板" />
+          <textarea id="descriptionCz">一個用於演示自訂政體配置結構的模板政體。</textarea>
+          <span class="lang-label">English</span>
+          <input id="regimeNameEn" value="Custom Regime Template" />
+          <textarea id="descriptionEn">A template regime used to demonstrate a custom regime configuration structure.</textarea>
+        </div>
+
+        <h3>运作方式</h3>
+        <div class="grid two">
           <label class="field">默认选拔方式
             <select id="leaderSelectMethod">
               <option value="Succession">世袭继承</option><option value="Exam">科举考试</option><option value="Vote">投票推选</option><option value="Army">军权决定</option><option value="Harem">后宫生育</option><option value="Default">跟随默认</option>
             </select>
           </label>
-          <label class="field">default_kingdom<input id="defaultKingdom" value="CustomRegimeTemplate_county" /></label>
+          <label class="field">内阁人数 cabinet_number<input id="cabinetNumber" value="6" type="number" /></label>
         </div>
-        <div class="grid three" style="margin-top:12px">
+        <div class="toggles">
           <label class="check"><input id="eraName" type="checkbox" /> 启用年号</label>
           <label class="check"><input id="hasCabinet" type="checkbox" checked /> 启用内阁</label>
           <label class="check"><input id="centreSeparate" type="checkbox" checked /> 中央与帝国分离</label>
         </div>
-        <div class="grid two" style="margin-top:12px">
-          <label class="field">内阁人数 cabinet_number<input id="cabinetNumber" value="6" type="number" /></label>
-          <div class="field">
-            <span>启用法律 laws</span>
-            <div id="lawsEditor"></div>
-          </div>
-        </div>
-        <div class="grid two" style="margin-top:12px">
-          <div class="field">
-            <span>派系 factions</span>
-            <div id="factionsEditor"></div>
-          </div>
-          <div class="field">
-            <span>政体选项 options</span>
-            <div id="optionsEditor"></div>
-          </div>
+
+        <h3>法律 laws</h3>
+        <div id="lawsEditor"></div>
+
+        <h3>派系与选项</h3>
+        <div class="grid two">
+          <div class="field"><span>派系 factions</span><div id="factionsEditor"></div></div>
+          <div class="field"><span>政体选项 options</span><div id="optionsEditor"></div></div>
         </div>
       </section>
 

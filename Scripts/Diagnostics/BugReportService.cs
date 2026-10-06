@@ -166,12 +166,15 @@ public static class BugReportService
             : "Player.log";
     }
 
-    public static BugReportSendResult Send(bool includeSaveData = false)
+    // 玩家在反馈窗口里写的问题描述，写进报告摘要(EmpireCraft-report.txt)的开头；过长的截断
+    public const int MaximumDescriptionLength = 2000;
+
+    public static BugReportSendResult Send(bool includeSaveData = false, string description = "")
     {
-        return Send(CaptureEnvironment(), includeSaveData);
+        return Send(CaptureEnvironment(), includeSaveData, description);
     }
 
-    public static BugReportSendResult BeginSend(bool includeSaveData = false)
+    public static BugReportSendResult BeginSend(bool includeSaveData = false, string description = "")
     {
         ReportEnvironment environment = CaptureEnvironment();
 
@@ -216,7 +219,7 @@ public static class BugReportService
             BugReportSendResult result;
             try
             {
-                result = Send(environment, includeSaveData);
+                result = Send(environment, includeSaveData, description);
             }
             catch (Exception error)
             {
@@ -248,7 +251,8 @@ public static class BugReportService
 
     private static BugReportSendResult Send(
         ReportEnvironment environment,
-        bool includeSaveData
+        bool includeSaveData,
+        string description
     )
     {
         try
@@ -265,6 +269,7 @@ public static class BugReportService
             List<ReportFile> files = BuildReportFiles(
                 environment,
                 includeSaveData,
+                description,
                 out bool saveDataIncluded
             );
 
@@ -439,6 +444,7 @@ public static class BugReportService
     private static List<ReportFile> BuildReportFiles(
         ReportEnvironment environment,
         bool includeSaveData,
+        string description,
         out bool saveDataIncluded
     )
     {
@@ -487,7 +493,7 @@ public static class BugReportService
         }
 
         byte[] summaryBytes = new UTF8Encoding(false).GetBytes(
-            BuildSummary(environment, saveDataIncluded, saveDataStatus)
+            BuildSummary(environment, saveDataIncluded, saveDataStatus, description)
         );
 
         files.Add(
@@ -523,12 +529,21 @@ public static class BugReportService
     private static string BuildSummary(
         ReportEnvironment environment,
         bool saveDataIncluded,
-        string saveDataStatus
+        string saveDataStatus,
+        string description
     )
     {
         var text = new StringBuilder();
 
         text.AppendLine("EmpireCraft automatic bug report");
+        description = description?.Trim() ?? "";
+        if (description.Length > MaximumDescriptionLength)
+            description = description.Substring(0, MaximumDescriptionLength) + " …";
+        text.AppendLine();
+        text.AppendLine("=== Player description ===");
+        text.AppendLine(description.Length > 0 ? description : "(none)");
+        text.AppendLine("==========================");
+        text.AppendLine();
         text.AppendLine($"Created: {DateTime.Now:O}");
         text.AppendLine($"EmpireCraft: {environment.ModVersion}");
         text.AppendLine($"WorldBox: {environment.WorldBoxVersion}");

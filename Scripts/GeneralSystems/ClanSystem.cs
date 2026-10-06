@@ -791,6 +791,69 @@ public static class SpecificClanManager
             _specificClans.Add(sc);
         }
     }
+    // 读档修复配偶记录(以前嫁娶时会覆盖对方原有的配偶，留下双方对不上的记录)，返回修正的条数：
+    //   · 妾室名单里，记录的丈夫不是此人的，移出名单；
+    //   · 妾：丈夫的妾室名单里没有她——其实是正妻就改正标记，否则清掉这条失效记录；
+    //   · 正妻/正夫：双方互指则无误；对方没有配偶就补上回指；对方与第三人互指，说明这边是被覆盖的旧记录，清掉；
+    //     对方指向的第三人没有回指，说明对方的记录失效，改为与这边互指。
+    public static int RepairSpouseRecords()
+    {
+        List<PersonalClanIdentity> people;
+        lock (_clansLock) people = _globalPersonLookup.Values.ToList();
+        int fixes = 0;
+        foreach (PersonalClanIdentity husband in people)
+        {
+            if (husband.concubines == null || husband.concubines.Count == 0) continue;
+            fixes += husband.concubines.RemoveAll(entry =>
+            {
+                PersonalClanIdentity concubine = getPerson(entry.identity);
+                return concubine == null || concubine.id == husband.id || concubine.lover.identity != husband.id;
+            });
+        }
+        foreach (PersonalClanIdentity person in people)
+        {
+            if (!person.hasLover()) continue;
+            PersonalClanIdentity partner = getPerson(person.lover.identity);
+            if (partner == null || partner.id == person.id)
+            {
+                ClearLover(person);
+                fixes++;
+                continue;
+            }
+            bool listedAsConcubine = partner.concubines?.Any(entry => entry.identity == person.id) == true;
+            if (person.is_concubine)
+            {
+                if (listedAsConcubine) continue;
+                if (partner.lover.identity == person.id) person.is_concubine = false;
+                else ClearLover(person);
+                fixes++;
+                continue;
+            }
+            if (partner.lover.identity == person.id) continue;
+            fixes++;
+            if (listedAsConcubine)
+            {
+                person.is_concubine = true;
+                continue;
+            }
+            if (!partner.hasLover())
+            {
+                partner.lover = (person.specific_clan_id, person.id);
+                continue;
+            }
+            PersonalClanIdentity third = getPerson(partner.lover.identity);
+            if (third != null && third.lover.identity == partner.id) ClearLover(person);
+            else partner.lover = (person.specific_clan_id, person.id);
+        }
+        return fixes;
+    }
+
+    private static void ClearLover(PersonalClanIdentity person)
+    {
+        person.lover = (-1L, -1L);
+        person.is_concubine = false;
+    }
+
     public static PersonalClanIdentity getPerson(long identity_id)
     {
         if (_globalPersonLookup.TryGetValue(identity_id, out var pci))
@@ -1045,6 +1108,14 @@ public class PersonalClanIdentity
         return lover != (-1L, -1L);
     }
 
+    // 能否与 partnerId 结为夫妻/纳为妾：没有配偶，或配偶已去世(丧偶)，或本来就是这个人
+    public bool IsFreeToMarry(long partnerId)
+    {
+        if (!hasLover() || lover.identity == partnerId) return true;
+        PersonalClanIdentity current = SpecificClanManager.getPerson(lover.identity);
+        return current == null || !current.is_alive;
+    }
+
     public string getDeathday()
     {
         if ( String.IsNullOrEmpty(deathday))
@@ -1073,7 +1144,10 @@ public class PersonalClanIdentity
         }
         actor.CheckSpecificClan(false);
         PersonalClanIdentity lpci = actor.GetPersonalIdentity();
-        if (lpci == null) return;
+        if (lpci == null || lpci.id == id) return;
+        // 对方已有在世的配偶、或已是别人的妾：不能再嫁娶(以前直接覆盖对方的配偶记录，
+        // 原配偶那边还指着他，于是双方的配偶名字对不上)。丧偶的可以再婚
+        if (!lpci.IsFreeToMarry(id)) return;
         lpci.lover.specific_clan = specific_clan_id;
         lpci.lover.identity = id;
         lpci.is_main = !IsHeirPriority();

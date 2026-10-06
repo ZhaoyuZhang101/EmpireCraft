@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmpireCraft 派系决议规则</title>
+  <link rel="stylesheet" href="common.css" />
+  <style>
+    .line-card h4{margin:0 0 8px;display:flex;align-items:center;gap:8px}
+    .line-card.off{opacity:.55}
+    .line-card .rows{display:grid;gap:8px}
+    .hint{font-size:12px;color:var(--muted);line-height:1.6}
+    .tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:8px;background:#efe2c4;margin-left:6px}
+    .item .sub.has{color:#6b4f1d;font-weight:600}
+  </style>
+  <link rel="stylesheet" href="pixel-theme.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="side">
+      <input id="filter" placeholder="搜索决议…" />
+      <label class="field"><span><input type="checkbox" id="onlyRuled"> 只看已设规则的</span></label>
+      <div class="list" id="claimList"></div>
+      <div class="toolbar">
+        <button class="primary" id="saveBtn"><img class="ico sm" src="assets/icons/iconSaveLocal.png">保存 ClaimRules.json</button>
+        <button id="reloadBtn">重新读取</button>
+      </div>
+      <p class="hint">改完保存后需要重启游戏才会生效。</p>
+    </aside>
+    <main class="panel" id="editor"><p class="muted">从左侧选一个派系决议。</p></main>
+  </div>
+
+  <script src="common.js"></script>
+  <script>
+    // 派系决议与文化制度树、科技时代的对应(游戏端见 Scripts/GeneralSystems/ClaimRules.cs)
+    const LINES = [
+      ["Huaxia", "华夏线"], ["Roma", "西方线"], ["Arabic", "阿拉伯线"], ["Youmu", "游牧线"]
+    ];
+    const SPECIALS = [["", "无"], ["sinicized_nomad", "仅限已采纳中原制度的游牧政权"]];
+    const S = { rules: {}, claims: [], descriptions: {}, eras: [], nodes: {}, nodeNames: {}, cultures: [], selected: null, dirty: false };
+
+    async function load() {
+      if (!api) { toast("只有桌面版才能读写文件", true); return; }
+      try {
+        // 决议列表：直接读 C# 枚举，新加的决议也能编辑
+        const enumText = await api.readText("Scripts/Regimes/TemporaryFactions/TemporaryFactionType.cs");
+        const body = enumText.slice(enumText.indexOf("{") + 1, enumText.lastIndexOf("}"));
+        S.claims = []; S.descriptions = {};
+        let pendingDesc = "";
+        for (const raw of body.split(/\r?\n/)) {
+          const line = raw.trim();
+          const desc = line.match(/\[Description\("(.*)"\)\]/);
+          if (desc) pendingDesc = desc[1];
+          const rest = line.replace(/\[Description\(".*"\)\]/, "").replace(/\/\/.*$/, "").trim();
+          for (const name of rest.split(",").map(s => s.trim()).filter(s => /^[\p{L}_][\p{L}\p{N}_]*$/u.test(s))) {
+            S.claims.push(name);
+            if (pendingDesc) { S.descriptions[name] = pendingDesc; pendingDesc = ""; }
+          }
+        }
+        let rulesText = "{}";
+        try { rulesText = await api.readText("ClaimRules.json"); } catch { /* 文件不存在就从空白开始 */ }
+        S.rules = parseJsonLoose(rulesText || "{}");
+        const tree = parseJsonLoose(await api.readText("Technology/TechTree.json"));
+        const eraKeys = (tree.eras || []).map(e => e.key);
+        const nodeKeys = [];
+        for (const [line] of LINES) {
+          try {
+            const doc = parseJsonLoose(await api.readText(`InstitutionTrees/${line}.json`));
+            S.nodes[line] = (Array.isArray(doc) ? doc : doc.nodes || []).map(n => ({ id: n.id, key: n.name_key }));
+            nodeKeys.push(...S.nodes[line].map(n => n.key).filter(Boolean));
+          } catch { S.nodes[line] = []; }
+        }
+        const locales = await api.readLocales([...eraKeys, ...nodeKeys]);
+        S.eras = (tree.eras || []).map(e => ({ tier: e.tier, name: locales[e.key]?.cz || e.key }));
+        for (const line of Object.keys(S.nodes))
+          for (const n of S.nodes[line]) S.nodeNames[n.id] = locales[n.key]?.cz || n.id;
+        S.cultures = (await api.listCultures()).map(c => c.name);
+        S.dirty = false;
+        renderList();
+        if (S.selected) renderEditor();
+      } catch (e) { toast("读取失败：" + e.message, true); }
+    }
+
+    function ruleOf(name) { return S.rules[name]; }
+    function hasRule(name) { return !!S.rules[name]; }
+
+    function renderList() {
+      const q = document.getElementById("filter").value.trim();
+      const only = document.getElementById("onlyRuled").checked;
+      const el = document.getElementById("claimList");
+      el.innerHTML = S.claims.filter(c => (!q || c.includes(q)) && (!only || hasRule(c))).map(c =>
+        `<div class="item ${c === S.selected ? "active" : ""}" data-c="${esc(c)}">${esc(c)}` +
+        `<span class="sub ${hasRule(c) ? "has" : ""}">${hasRule(c) ? "已设规则" : "不限制"}</span></div>`).join("");
+      el.querySelectorAll(".item").forEach(i => i.addEventListener("click", () => { S.selected = i.dataset.c; renderList(); renderEditor(); }));
+    }
+
+    function markDirty() { S.dirty = true; }
+
+    function nodeLabel(id) { return S.nodeNames[id] ? `${S.nodeNames[id]}（${id}）` : id; }
+
+    function renderEditor() {
+      const name = S.selected;
+      const panel = document.getElementById("editor");
+      if (!name) return;
+      const rule = ruleOf(name);
+      panel.innerHTML = `<h2>${esc(name)}</h2><p class="hint">${esc(S.descriptions[name] || "")}</p>`;
+      if (!rule) {
+        const box = document.createElement("div");
+        box.innerHTML = `<p class="muted">这个决议目前不受限制：任何文化、任何时代都可能提出。</p>` +
+          `<button class="primary" id="addRule">添加规则</button>`;
+        panel.appendChild(box);
+        box.querySelector("#addRule").addEventListener("click", () => { S.rules[name] = {}; markDirty(); renderList(); renderEditor(); });
+        return;
+      }
+
+      // 通用条件：文化、时代
+      const common = document.createElement("div");
+      common.className = "card grid";
+      const eraOptions = v => `<option value="0">不限</option>` + S.eras.map(e => `<option value="${e.tier}" ${Number(v) === e.tier ? "selected" : ""}>${esc(e.name)}</option>`).join("");
+      common.innerHTML = `<div class="grid two">
+          <label class="field">最早时代(min_era)<select id="minEra">${eraOptions(rule.min_era || 0)}</select></label>
+          <label class="field">最晚时代(max_era)<select id="maxEra">${eraOptions(rule.max_era || 0)}</select></label>
+        </div>
+        <label class="field">只有这些文化才有(cultures，空 = 不限)</label>`;
+      rule.cultures = rule.cultures || [];
+      common.appendChild(chipEditor(rule.cultures, { placeholder: "文化名，回车添加", suggestions: S.cultures,
+        known: new Set(S.cultures), onChange: v => { rule.cultures = v; if (!v.length) delete rule.cultures; markDirty(); } }));
+      if (!rule.cultures.length) delete rule.cultures;
+      panel.appendChild(common);
+      common.querySelector("#minEra").addEventListener("change", e => { setNum(rule, "min_era", e.target.value); });
+      common.querySelector("#maxEra").addEventListener("change", e => { setNum(rule, "max_era", e.target.value); });
+
+      // 制度线
+      const linesBox = document.createElement("div");
+      linesBox.className = "card";
+      linesBox.style.marginTop = "12px";
+      const restricted = !!rule.lines;
+      linesBox.innerHTML = `<label class="field"><span><input type="checkbox" id="useLines" ${restricted ? "checked" : ""}> 按文化制度线限定(lines)：没勾选的线 = 没有这条路线、不出现</span></label>
+        <p class="hint">任一前提(any)：已施行其中任一制度才提出 · 已施行就不再提出(none) · 推动(push)：决议成功后对第一个未施行的制度发起改革；push 里还有未施行的制度、或满足 any，即可提出。</p>`;
+      panel.appendChild(linesBox);
+      linesBox.querySelector("#useLines").addEventListener("change", e => {
+        if (e.target.checked) rule.lines = rule.lines || {}; else delete rule.lines;
+        markDirty(); renderEditor();
+      });
+      if (restricted) {
+        const grid = document.createElement("div");
+        grid.className = "grid two";
+        grid.style.marginTop = "8px";
+        for (const [line, label] of LINES) grid.appendChild(lineCard(rule, line, label));
+        linesBox.appendChild(grid);
+      }
+
+      const tools = document.createElement("div");
+      tools.className = "toolbar";
+      tools.style.marginTop = "12px";
+      tools.innerHTML = `<button class="danger small" id="removeRule">删除这条规则(改回不限制)</button>`;
+      panel.appendChild(tools);
+      tools.querySelector("#removeRule").addEventListener("click", () => {
+        delete S.rules[name]; markDirty(); renderList(); renderEditor();
+      });
+    }
+
+    function setNum(obj, key, value) {
+      const n = Number(value) || 0;
+      if (n > 0) obj[key] = n; else delete obj[key];
+      markDirty();
+    }
+
+    function lineCard(rule, line, label) {
+      const on = !!rule.lines[line];
+      const card = document.createElement("div");
+      card.className = "card line-card" + (on ? "" : " off");
+      card.innerHTML = `<h4><input type="checkbox" ${on ? "checked" : ""}> ${esc(label)}<span class="tag">${esc(line)}</span></h4>`;
+      card.querySelector("input").addEventListener("change", e => {
+        if (e.target.checked) rule.lines[line] = {}; else delete rule.lines[line];
+        markDirty(); renderEditor();
+      });
+      if (!on) return card;
+      const entry = rule.lines[line];
+      const rows = document.createElement("div");
+      rows.className = "rows";
+      const ids = (S.nodes[line] || []).map(n => n.id);
+      const known = new Set(ids);
+      for (const [key, text] of [["any", "前提：已施行其一(any)"], ["none", "已施行就不再提出(none)"], ["push", "推动(push，按顺序)"]]) {
+        const lab = document.createElement("label");
+        lab.className = "field";
+        lab.textContent = text;
+        rows.appendChild(lab);
+        const values = entry[key] || [];
+        const editor = chipEditor(values, { placeholder: "制度 id，回车添加", suggestions: ids, known,
+          onChange: v => { if (v.length) entry[key] = v; else delete entry[key]; markDirty(); renderNames(); } });
+        rows.appendChild(editor);
+        const names = document.createElement("div");
+        names.className = "hint";
+        const renderNames = () => { names.textContent = (entry[key] || []).map(nodeLabel).join("、"); };
+        renderNames();
+        rows.appendChild(names);
+      }
+      const extra = document.createElement("div");
+      extra.className = "grid two";
+      extra.innerHTML = `<label class="field">额外条件(special)<select>${SPECIALS.map(([v, t]) =>
+        `<option value="${v}" ${(entry.special || "") === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`;
+      extra.querySelector("select").addEventListener("change", e => {
+        if (e.target.value) entry.special = e.target.value; else delete entry.special;
+        markDirty();
+      });
+      rows.appendChild(extra);
+      const cl = document.createElement("label");
+      cl.className = "field";
+      cl.textContent = "这条线里只有这些文化才有(cultures，空 = 不限)";
+      rows.appendChild(cl);
+      const lineCultures = entry.cultures || [];
+      rows.appendChild(chipEditor(lineCultures, { placeholder: "文化名，回车添加", suggestions: S.cultures, known: new Set(S.cultures),
+        onChange: v => { if (v.length) entry.cultures = v; else delete entry.cultures; markDirty(); } }));
+      card.appendChild(rows);
+      return card;
+    }
+
+    async function save() {
+      if (!api) return toast("只有桌面版才能保存", true);
+      try {
+        const ordered = {};
+        if (S.rules._comment) ordered._comment = S.rules._comment;
+        for (const c of S.claims) if (S.rules[c]) ordered[c] = S.rules[c];
+        for (const k of Object.keys(S.rules)) if (!(k in ordered)) ordered[k] = S.rules[k];
+        await api.writeText("ClaimRules.json", JSON.stringify(ordered, null, 2) + "\n");
+        S.dirty = false;
+        toast("已保存 ClaimRules.json，重启游戏后生效");
+      } catch (e) { toast("保存失败：" + e.message, true); }
+    }
+
+    mountAppBar("claims.html");
+    document.getElementById("filter").addEventListener("input", renderList);
+    document.getElementById("onlyRuled").addEventListener("change", renderList);
+    document.getElementById("saveBtn").addEventListener("click", save);
+    document.getElementById("reloadBtn").addEventListener("click", () => {
+      if (S.dirty && !confirm("有未保存的修改，确定重新读取？")) return;
+      load();
+    });
+    window.addEventListener("beforeunload", e => { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
+    load();
+  </script>
+</body>
+</html>

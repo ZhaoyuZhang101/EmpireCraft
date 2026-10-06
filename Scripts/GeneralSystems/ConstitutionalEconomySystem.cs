@@ -176,9 +176,12 @@ public static class ConstitutionalEconomySystem
         PartySystem.Update(empire, state);
         // 议会召开/改选/补选/解散。每次更新都检查，议会阶段一到立即召开，不必等年度结算
         ParliamentSystem.Update(empire);
+        // 地方政治：省级政治倾向与地方选举(每年一次)
+        ProvincialPoliticsSystem.Update(empire);
         // 党禁开关与选举制度(按帝国动态调整)；军阀时期(含帝国核心国号)
         PartyBanSystem.Update(empire);
         WarlordEraSystem.UpdateWorld();
+        NationalSentimentSystem.UpdateWorld();
         if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;
         state.last_economy_update = World.world.getCurWorldTime();
         PruneTrade(state);
@@ -186,9 +189,14 @@ public static class ConstitutionalEconomySystem
         EmpireManager.EnsureDistinctColor(empire);
         // WarBox 罢工：怨气、正统(所有国家)，并为民意计算统计罢工占比
         PublicOpinionSystem.ApplyStrikeEffects(empire, state);
+        // 苛政：前现代官逼民反，现代街头抗争逐级升级(先于民意结算，抗争推高异见)
+        HarshRuleSystem.Update(empire);
         PublicOpinionSystem.Update(empire, state);
         // 国民教育：按宪法国体(立国理念)在国内扩散理念
+        IdeologyDynamicsSystem.Update(empire, state);
+        RestorationSystem.Update(empire, state);
         IdeologyEducationSystem.Update(empire);
+        SpeechFreedomSystem.Update(empire);
         RepublicSystem.UpdateAbolitionPressure(empire);
         RepublicSystem.TryMandateCollapseCoalition(empire);
         RebellionSnowballSystem.Update(empire);

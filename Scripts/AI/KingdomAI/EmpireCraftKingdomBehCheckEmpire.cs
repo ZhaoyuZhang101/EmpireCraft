@@ -144,7 +144,8 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             core.SubMoney(militaryCost);
             if (core.hasEnemies())
             {
-                var warExpend = (empire.countWarriors() / 4) * core.getWars().Count();
+                // 战时军费：旧版 兵力/4×战争数 极易打到负债扣正统，现为 兵力/10，最多按两场战争计
+                var warExpend = (empire.countWarriors() / 10) * Math.Min(2, core.getWars().Count());
                 core.SubMoney(warExpend);
             }
 

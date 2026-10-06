@@ -22,6 +22,7 @@
     "files": [
       "CustomRegimeTemplate/**/*",
       "assets/**/*",
+      "claims.html",
       "common.css",
       "common.js",
       "culture.html",
@@ -29,6 +30,7 @@
       "index.html",
       "main.js",
       "nodes.html",
+      "pixel-theme.css",
       "package.json",
       "preload.js",
       "regime_enum_sync.py"

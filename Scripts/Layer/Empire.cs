@@ -39,6 +39,15 @@ public class Empire : MetaObject<EmpireData>
     private readonly int _avgCitiesPerKingdom = 3;
     public Clan EmpireClan;
     public int Mandate => data.Mandate;
+    // 统治合法性：前现代国家就是正统；现代国家(含召开议会的君主立宪国)改按宪政合法性(见 ModernLegitimacy)。
+    // 叛乱、革命、附庸态度、城市忠诚都看它
+    public int Legitimacy => EmpireCraft.Scripts.GeneralSystems.ModernLegitimacy.Applies(this)
+        ? EmpireCraft.Scripts.GeneralSystems.ModernLegitimacy.Get(this)
+        : Mandate;
+    // 界面上统治合法性的名称：现代国家为"宪政合法性"，其余为"正统"
+    public string LegitimacyLabelKey => EmpireCraft.Scripts.GeneralSystems.ModernLegitimacy.Applies(this)
+        ? "label_constitutional_legitimacy"
+        : "label_mandate";
     public Regime regime => CoreKingdom.GetRegime();
     public List<Kingdom> kingdoms_list = new List<Kingdom>();
     public HashSet<Kingdom> kingdoms_hashset = new HashSet<Kingdom>();
@@ -106,8 +115,16 @@ public class Empire : MetaObject<EmpireData>
     /// </summary>
     /// <param name="change">增加的数值</param>
     /// <returns></returns>
+    // 开国气象：立国头 FoundingGraceYears 年人心思定，正统的损失减半(至少仍减 1)，
+    // 免得新帝国刚称帝就被战争、罢工、民怨磨到叛乱门槛以下，永远统一不了
+    public const int FoundingGraceYears = 10;
+
+    public bool InFoundingGrace => data != null && data.created_time > 0d &&
+                                   Date.getYearsSince(data.created_time) < FoundingGraceYears;
+
     public void AddMandate(int change)
     {
+        if (change < 0 && InFoundingGrace) change = Math.Min(-1, change / 2);
         data.Mandate+=change;
         if (Mandate < 0)
         {
@@ -358,6 +375,8 @@ public class Empire : MetaObject<EmpireData>
     // 军阀时期(见 WarlordEraSystem)：帝国核心范围内的国家按中央/临时政府/军阀改称
     public string GetEmpireFullName()
     {
+        // 复辟帝制期间(见 RestorationSystem)：国号改为"某某帝国"
+        if (RestorationSystem.IsProclaimed(this)) return RestorationSystem.ImperialName(this);
         string baseName = GetBaseEmpireFullName();
         return WarlordEraSystem.DecorateName(this, baseName);
     }
@@ -520,6 +539,8 @@ public class Empire : MetaObject<EmpireData>
         Kingdom core = CoreKingdom;
         City capital = core?.capital;
         if (actor == null || actor.isRekt() || !actor.isAlive() || core == null || capital == null) return false;
+        if (ConstitutionalSuccessionSystem.IsProtected(this) &&
+            !ConstitutionalSuccessionSystem.CanInherit(this, actor)) return false;
         if (Emperor?.id == actor.id) return true;
         Actor previousHead = Emperor;
         List<long> stateTitleIds = SnapshotSovereignTitles(previousHead, core);
@@ -571,6 +592,8 @@ public class Empire : MetaObject<EmpireData>
     public void NewEmperor(Actor actor, bool isNew = false)
     {
         if (actor == null) return;
+        if (ConstitutionalSuccessionSystem.IsProtected(this) &&
+            !ConstitutionalSuccessionSystem.CanInherit(this, actor)) return;
         actor.SetEmpire(this);
         if (!IsRepublicState) RegnalNameService.OnEmperorCrowned(this, actor);
         // 共和国元首按选举更替，不扣正统
@@ -662,7 +685,7 @@ public class Empire : MetaObject<EmpireData>
                 foreach (var k in kingdoms_list.ToList())
                 {
                     if (_completingMinisterUsurpation) break;
-                    if (!k.isOpinionTowardsKingdomGood(CoreKingdom)&&Mandate<20)
+                    if (!k.isOpinionTowardsKingdomGood(CoreKingdom)&&Legitimacy<20)
                     {
                         this.leave(k);
                     }
@@ -680,6 +703,8 @@ public class Empire : MetaObject<EmpireData>
         if (isNew)
         {
             data.dynasty_founder_actor_id = actor.id;
+            // 改朝换代：前朝最后一位皇帝即末代之君(谥法另论，见 PosthumousNameGenerator)
+            if (!IsRepublicState) ReignRecordSystem.OnDynastyChanged(this, actor);
         }
         EmpireClan = actor.clan;
         CoreKingdom?.SetSpecificClan(currentSpecificClan);
@@ -712,12 +737,15 @@ public class Empire : MetaObject<EmpireData>
         
         //记录历史
         this.RecordNewEmperorHistory(isNew);
+        RulerTraitSystem.OnCrowned(this, actor);
     }
 
     private bool IsDynasticSuccessor(Actor actor, SpecificClan previousRoyalClan, Clan previousEmpireClan)
     {
         if (actor == null || previousRoyalClan == null) return false;
         if (actor.GetSpecificClan() == previousRoyalClan) return true;
+        if (ConstitutionalSuccessionSystem.IsProtected(this) &&
+            SpecificClanManager.SameLineage(actor.GetSpecificClan(), previousRoyalClan)) return true;
         if (previousEmpireClan != null && actor.clan == previousEmpireClan) return true;
 
         PersonalClanIdentity successorIdentity = actor.GetPersonalIdentity();
@@ -874,6 +902,7 @@ public class Empire : MetaObject<EmpireData>
     {
         Actor emperor = Emperor;
         if (emperor?.data == null) return;
+        bool protectedDynasty = ConstitutionalSuccessionSystem.IsProtected(this);
         SpecificClan previousClan = emperor.GetSpecificClan();
         data.currentHistory ??= new EmpireCraftHistory
         {
@@ -903,14 +932,20 @@ public class Empire : MetaObject<EmpireData>
         if (string.IsNullOrWhiteSpace(data.currentHistory.empire_full_name))
             data.currentHistory.empire_full_name = GetEmpireFullName();
         emperor.RemoveEmpire();
-        data.empire_specific_clan = previousClan?.id ?? -1L;
+        if (!protectedDynasty) data.empire_specific_clan = previousClan?.id ?? -1L;
         LogService.LogInfo("上一任皇氏族记录:" + (previousClan?.name ?? "无"));
         data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
+        ReignRecordSystem.OnReignEnd(this, emperor);
         data.history.Add(data.currentHistory);
         data.currentHistory = null;
     }
+    // 追封先帝(谥号、庙号)是君主制的礼制：共和国与现代政体不追封，历史记录里的前朝皇帝也不例外
+    public bool AllowsPosthumousNames() =>
+        !RepublicSystem.IsRepublic(this) && CoreKingdom?.GetRegime()?.type != RegimeType.Modern;
+
     public bool IsNeedToSetPosthumous()
     {
+        if (!AllowsPosthumousNames()) return false;
         if (this.data.history.Count > 0)
         {
             foreach (EmpireCraftHistory cHistory in this.data.history)
@@ -918,7 +953,8 @@ public class Empire : MetaObject<EmpireData>
                 Actor actor = World.world.units.get(cHistory.id);
                 if (!string.IsNullOrEmpty(cHistory.emperor))
                 {
-                    if (string.IsNullOrEmpty(cHistory.miaohao_name))
+                    // 以谥号判断是否已追封：失位、早夭、末代之君按谥法不立庙号，只有谥号
+                    if (string.IsNullOrEmpty(cHistory.shihao_name))
                     {
                         if (actor != null)
                         {
@@ -1536,6 +1572,7 @@ public class Empire : MetaObject<EmpireData>
         }
         RepairFoundingEmperorMarker();
         join(pKingdom, true, true);
+        RulerTraitSystem.OnCrowned(this, king);
     }
 
     public bool IsFoundingEmperorHistory(EmpireCraftHistory history)
@@ -1615,7 +1652,7 @@ public class Empire : MetaObject<EmpireData>
         if (regime?.type == RegimeType.LvLing)
         {
             // 议会存续期间由议会选出的总理大臣执政，不再产生权臣
-            if (ParliamentSystem.HasParliament(this))
+            if (ParliamentSystem.HasParliament(this) || ConstitutionalSuccessionSystem.IsProtected(this))
             {
                 if (data.powerful_minister_id > 0) ClearPowerfulMinister();
             }
@@ -2325,6 +2362,7 @@ public class Empire : MetaObject<EmpireData>
         // A rebel polity can never return to an empire it previously rebelled against,
         // including through forced or scripted membership changes.
         if (!pLegitimacyTransfer && pKingdom.HasRebelledAgainst(this)) return;
+        if (pLegitimacyTransfer) pKingdom.ForgiveRebellionAgainst(this);
         if (!pForce && !this.canJoin(pKingdom))
         {
             return;
@@ -3395,6 +3433,7 @@ public class Empire : MetaObject<EmpireData>
 
     private bool CanAdvanceMinisterPlot(Actor actor)
     {
+        if (ConstitutionalSuccessionSystem.IsProtected(this)) return false;
         Regime currentRegime = CoreKingdom?.GetRegime();
         if (!IsCurrentPowerfulMinister(actor) || !IsValidPowerfulMinister(actor) ||
             currentRegime?.type != RegimeType.LvLing || Emperor == null || Emperor.isRekt() ||

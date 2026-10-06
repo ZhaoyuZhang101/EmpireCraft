@@ -24,6 +24,8 @@ public static class WarExtension
         public MetaType metaType = MetaType.None;
         public long metaID = -1L;
         public FixedFaction belongingFaction = null;
+        // 各方参战时的城市数(帝国记帝国 id，独立王国记王国 id)：用于判断谁在这场仗里丢了城(见 WarSituation)
+        public Dictionary<long, int> initial_cities = new Dictionary<long, int>();
         public bool history_declaration_recorded;
         public bool history_end_recorded;
         public List<DefeatedEmpireHouse> attacker_empire_houses = new List<DefeatedEmpireHouse>();

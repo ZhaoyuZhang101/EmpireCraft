@@ -7,6 +7,7 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
+// 华夏线：推动郡县官僚(制度树上声明了 claim_reform:转天朝制度)；其他线：推动 ClaimRules.json 里对应的中央集权制度
 public class TempFac_转天朝制度 : TemporaryFaction
 {
     public override TemporaryFaction Clone(FixedFaction faction)
@@ -24,7 +25,8 @@ public class TempFac_转天朝制度 : TemporaryFaction
     {
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
-        InstitutionNodeConfig node = InstitutionSystem.FindClaimReformTarget(empire, "转天朝制度");
+        InstitutionNodeConfig node = InstitutionSystem.FindClaimReformTarget(empire, "转天朝制度") ??
+            ClaimRules.FindPushTarget(empire, type);
         if (empire != null && node != null)
         {
             bool force = !InstitutionSystem.CanStartReform(empire, node, out _, false) &&
@@ -37,7 +39,8 @@ public class TempFac_转天朝制度 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        InstitutionNodeConfig node = InstitutionSystem.FindClaimReformTarget(empire, "转天朝制度");
+        InstitutionNodeConfig node = InstitutionSystem.FindClaimReformTarget(empire, "转天朝制度") ??
+            ClaimRules.FindPushTarget(empire, type);
         if (empire == null || node == null) return false;
         if (empire.Mandate<70) return false;
         if (empire.CoreKingdom.GetSystemChangeYear() < 50)

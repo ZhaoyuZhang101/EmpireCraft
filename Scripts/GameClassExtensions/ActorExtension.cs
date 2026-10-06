@@ -772,6 +772,8 @@ public static class ActorExtension
     public static bool IsWarMachine(this Actor a)
     {
         if (a == null) return false;
+        // 原版的船只也是 Actor：不能当君主、官员、作者，也不算人口
+        if (a.asset?.is_boat == true) return true;
         if (a.hasTrait("warbox_unit")) return true;
         string id = a.asset?.id;
         return id != null && id.StartsWith("warbox_", StringComparison.Ordinal);

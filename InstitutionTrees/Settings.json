@@ -80,7 +80,7 @@
     "parliament_stage": 2,
     "responsible_government_stage": 3,
     "parliament_seats": 9,
-    "parliament_term_years": 5,
+    "parliament_term_years": 10,
     "government_majority_acceleration": 30.0,
     "faction_stances": {
       "自治": 20.0,

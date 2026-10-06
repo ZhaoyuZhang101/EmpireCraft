@@ -627,6 +627,8 @@ public abstract class TemporaryFaction
     {
         var empire = GetEmpire();
         if (empire == null || empire.isRekt() || !Active || !canBePushByLocal) return false;
+        // 与文化制度树、科技时代挂钩的前提(见 ClaimRules)：地方推动同样受限
+        if (!EmpireCraft.Scripts.GeneralSystems.ClaimRules.IsAllowed(empire, type, out _)) return false;
         if (actor == null || actor.isRekt() || actor.king == null || actor.king.isRekt() ||
             actor == empire.CoreKingdom || actor.GetEmpire() != empire || actor.isInWarWith(empire.CoreKingdom)) return false;
         var actorFaction = actor.king.GetFaction();

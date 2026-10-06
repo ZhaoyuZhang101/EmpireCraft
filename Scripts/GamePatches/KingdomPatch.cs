@@ -121,7 +121,8 @@ public class KingdomPatch : GamePatch
     public static void new_emperor(Kingdom __instance, Actor pActor, bool pFromLoad, Actor __state)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
-        if (pActor == null) return;
+        if (pActor == null || pActor.IsWarMachine()) return; // 被 before_new_emperor 拒绝的船只
+        if (__instance.king != pActor) return; // 被宪制拒绝的即位不能继续转移宗族和法理头衔
         if (!ModClass.IS_CLEAR)
         {
             pActor.CheckSpecificClan();
@@ -193,12 +194,18 @@ public class KingdomPatch : GamePatch
         }
     }
 
-    public static void before_new_emperor(Kingdom __instance, out Actor __state)
+    public static bool before_new_emperor(Kingdom __instance, Actor pActor, out Actor __state)
     {
         __state = __instance?.king;
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
-        if (ModClass.IS_CLEAR || __instance == null) return;
+        // 船只、战争机器不是人，不能当君主(不论哪条路径选出来的；读档时存档里已是船的也拒绝，由原版另选)
+        if (pActor != null && pActor.IsWarMachine()) return false;
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
+        if (ModClass.IS_CLEAR || __instance == null) return true;
+        Empire empire = __instance.IsEmpire() ? __instance.GetEmpire() : null;
+        if (ConstitutionalSuccessionSystem.IsProtected(empire) &&
+            !ConstitutionalSuccessionSystem.CanInherit(empire, pActor)) return false;
         __instance.SyncRealmTitlesFromRuler(__instance.king);
+        return true;
     }
 
     public static void emperor_left(Kingdom __instance)

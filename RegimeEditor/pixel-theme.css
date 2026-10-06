@@ -1,0 +1,221 @@
+/* 像素风主题(简洁版)：深色底 + 帝国窗口的金边框(assets/ui/regimeFrame.png) + 像素字体。
+   每个页面在自身样式之后加载本文件，统一覆盖外观；布局仍由 common.css 与页面自身样式决定。
+   原则：装饰只用在面板外框；导航、卡片、按钮都保持扁平，靠颜色层次区分，主要操作才用绿色、危险操作才用红色。 */
+
+/* 缝合像素字体(Fusion Pixel Font，SIL OFL 1.1，许可证见 assets/fonts/OFL.txt)：按 12px 设计，字号用 12 的整数倍才清晰 */
+@font-face{
+  font-family:"Fusion Pixel 12px Proportional SC";
+  src:url(assets/fonts/fusion-pixel-12px-proportional-zh_hans.otf.woff2) format("woff2");
+  font-display:swap;
+}
+
+:root{
+  --c-bg:#161916; --c-bar:#0e100e;
+  --c-panel:#242924; --c-card:#2d332d; --c-card2:#353c35; --c-input:#111311;
+  --c-line:#3c443b; --c-edge:#0b0d0b;
+  --c-text:#ece4cf; --c-muted:#9b957f; --c-gold:#f0c75a; --c-gold-dim:#a8873a;
+  --c-green:#4f9442; --c-green-hi:#73b862; --c-red:#c4483b; --c-red-hi:#e06d5d;
+  --c-btn:#394039; --c-btn-hi:#4b534a;
+  /* 兼容页面自身样式用到的变量 */
+  --ink:var(--c-text); --muted:var(--c-muted); --line:var(--c-line); --accent:var(--c-gold); --accent2:var(--c-gold);
+  --danger:var(--c-red-hi); --good:var(--c-green-hi); --panel:var(--c-panel); --bg:var(--c-bg); --r:0px; --r2:0px;
+}
+
+html,body{background:var(--c-bg) !important}
+body{
+  color:var(--c-text);
+  font:12px/1.75 "Fusion Pixel 12px Proportional SC","Microsoft YaHei","Segoe UI",sans-serif !important;
+}
+body *{font-weight:normal !important}
+img,img.ico{image-rendering:pixelated}
+::selection{background:var(--c-gold);color:#1a1205}
+
+/* ---------- 顶部导航：扁平标签 ---------- */
+.appbar{
+  background:var(--c-bar) !important;
+  border-bottom:2px solid var(--c-line);
+  box-shadow:none !important;
+  padding:0 12px !important;gap:2px !important;
+  flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;
+}
+.appbar::-webkit-scrollbar{display:none}
+.appbar .title{color:var(--c-gold);font-size:12px !important;margin-right:16px;white-space:nowrap;flex:none}
+.appbar a{
+  color:var(--c-muted) !important;text-decoration:none;white-space:nowrap;flex:none;
+  padding:12px 12px 10px !important;border:none !important;border-radius:0 !important;background:transparent !important;
+  box-shadow:none !important;
+}
+.appbar a:hover{color:var(--c-text) !important;background:#191c19 !important}
+.appbar a.active{color:var(--c-gold) !important;box-shadow:inset 0 -3px 0 var(--c-gold) !important}
+.appbar .root{color:var(--c-muted);flex:0 1 auto;min-width:60px}
+.appbar button{white-space:nowrap;flex:none}
+
+/* ---------- 面板：帝国窗口的金边框 ---------- */
+.side,.panel{
+  border:8px solid transparent !important;
+  border-image:url(assets/ui/regimeFrame.png) 8 / 8px stretch !important;
+  border-radius:0 !important;
+  background:var(--c-panel) padding-box !important;
+  box-shadow:0 4px 0 rgba(0,0,0,.35) !important;
+  image-rendering:pixelated;
+}
+.side{padding:10px !important}
+.panel{padding:14px 16px !important}
+
+/* ---------- 卡片：扁平色块 ---------- */
+.card,.note,.office,.culture,.preview,.config-card,.cond,.check,dialog{
+  border-radius:0 !important;
+  border:1px solid var(--c-line) !important;
+  background:var(--c-card) !important;
+  box-shadow:none !important;
+  color:var(--c-text);
+}
+.note,.cond{background:transparent !important;border-style:dashed !important;color:var(--c-muted)}
+dialog{border:2px solid var(--c-gold-dim) !important}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+.line-card.off{opacity:.45}
+
+/* ---------- 文字 ---------- */
+h1,h2,.brand h1,.panel h2{color:var(--c-gold);font-size:24px !important;line-height:1.3;text-shadow:none}
+h3,.office-group-title{
+  color:var(--c-gold) !important;font-size:12px !important;text-shadow:none;
+  border-bottom:1px solid var(--c-line);padding-bottom:4px;
+}
+h4{color:var(--c-gold);font-size:12px !important}
+.muted,.hint,.brand p,label.field,.office-summary{color:var(--c-muted) !important}
+a{color:var(--c-gold)}
+code,.mono{color:#ffe3a0;background:var(--c-input);padding:0 4px}
+
+/* ---------- 按钮：默认低调，主要操作绿，危险操作红 ---------- */
+button,.button-like,a.jump{
+  border-radius:0 !important;
+  border:2px solid var(--c-edge) !important;
+  background:var(--c-btn) !important;
+  color:var(--c-text) !important;
+  box-shadow:inset 0 2px 0 var(--c-btn-hi) !important;
+  text-shadow:none !important;
+  padding:4px 12px;
+  transition:none;
+}
+button:hover{background:var(--c-btn-hi) !important}
+button:active{box-shadow:inset 0 2px 0 var(--c-edge) !important;transform:translateY(1px)}
+button.primary,.section-nav button.active,.tabs button.active,.tag-preset button.active{
+  background:var(--c-green) !important;color:#fff !important;
+  box-shadow:inset 0 2px 0 var(--c-green-hi) !important;
+}
+button.primary:hover{background:#5ba54d !important}
+button.danger{
+  background:var(--c-red) !important;color:#fff !important;
+  box-shadow:inset 0 2px 0 var(--c-red-hi) !important;
+}
+button.small{padding:2px 8px}
+button:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---------- 输入 ---------- */
+input,select,textarea{
+  border-radius:0 !important;
+  border:1px solid var(--c-line) !important;
+  background:var(--c-input) !important;
+  color:var(--c-text) !important;
+  box-shadow:none !important;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--c-gold) !important}
+input::placeholder,textarea::placeholder{color:#6d6858}
+select option{background:var(--c-input);color:var(--c-text)}
+textarea.code{font-family:Consolas,monospace !important}
+/* 复选框：模组的绿色拨动开关 */
+input[type=checkbox]{
+  -webkit-appearance:none;appearance:none;
+  width:32px !important;height:12px !important;margin:0 6px 0 0;vertical-align:middle;cursor:pointer;
+  border:none !important;outline:none;
+  background:url(assets/ui/DefaultToggle1Off.png) center/32px 12px no-repeat !important;
+  image-rendering:pixelated;
+}
+input[type=checkbox]:checked{background-image:url(assets/ui/DefaultToggle1On.png) !important}
+input[type=checkbox]:focus-visible{outline:1px solid var(--c-gold)}
+
+/* ---------- 列表：选中项左侧金线 ---------- */
+.item{border-radius:0 !important;border:none !important;padding:6px 10px !important;color:var(--c-text)}
+.item:hover{background:var(--c-card) !important}
+.item.active{background:var(--c-card2) !important;box-shadow:inset 3px 0 0 var(--c-gold) !important;color:#fff}
+.item .sub{color:var(--c-muted)}
+.item .sub.has{color:var(--c-gold) !important}
+.item.bad{color:var(--danger)}
+
+/* ---------- 标签、徽章 ---------- */
+.chip,.tag,.badge{
+  border-radius:0 !important;border:1px solid var(--c-line) !important;
+  background:var(--c-card2) !important;color:var(--c-text) !important;box-shadow:none !important;
+}
+.chip.missing{border-color:var(--danger) !important;color:var(--danger) !important}
+.chip button,.tag button{background:transparent !important;border:none !important;box-shadow:none !important;color:var(--danger) !important;padding:0 4px}
+.badge{color:var(--c-gold) !important}
+
+/* ---------- 表格 ---------- */
+table.sheet th,table.sheet td{border:1px solid var(--c-line) !important}
+table.sheet th{background:var(--c-card2) !important;color:var(--c-gold)}
+table.sheet td input{background:transparent !important;border:none !important}
+table.sheet td input:focus{background:var(--c-input) !important}
+table.sheet tr:hover td{background:var(--c-card) !important}
+
+/* ---------- 选项卡 ---------- */
+.tabs{border-bottom:1px solid var(--c-line) !important}
+
+/* ---------- 提示条 ---------- */
+.status{border-radius:0 !important}
+.status.show{background:var(--c-green) !important;color:#fff;border:2px solid var(--c-edge);box-shadow:0 4px 0 rgba(0,0,0,.45) !important}
+.status.show.err{background:var(--c-red) !important}
+
+/* ---------- 节点关系图 ---------- */
+.graph{border-radius:0 !important;border:1px solid var(--c-line) !important;
+  background:repeating-linear-gradient(0deg,#262b26 0 39px,#202420 39px 40px) !important}
+.gnode{border-radius:0 !important;border:1px solid var(--c-line) !important;background:var(--c-card2) !important;color:var(--c-text);box-shadow:none}
+.gnode.rel{background:#3d4630 !important}
+.gnode.active{background:#5a4c22 !important;border-color:var(--c-gold) !important;color:#fff}
+.graph svg line,.graph svg path{stroke:var(--c-gold-dim)}
+
+/* ---------- 滚动条 ---------- */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--c-bar)}
+::-webkit-scrollbar-thumb{background:var(--c-line);border:2px solid var(--c-bar)}
+::-webkit-scrollbar-thumb:hover{background:var(--c-gold-dim)}
+::-webkit-scrollbar-corner{background:var(--c-bar)}
+
+/* ================= 布局：侧栏分组(编辑 / 文件 / 保存) + 主区分组标题 ================= */
+.side-group{display:grid;gap:6px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--c-line)}
+.side-group h4{margin:0 0 2px;color:var(--c-muted) !important;letter-spacing:1px}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.btn-grid .wide,button.wide{grid-column:1 / -1;width:100%}
+.btn-grid button,.btn-grid .button-like{width:100%;justify-content:center;text-align:center}
+button.wide{justify-content:center}
+/* 页面切换：竖排列表，当前页左侧金线 */
+.side .section-nav{display:grid !important;gap:2px}
+.side .section-nav button{
+  min-width:0 !important;width:100%;justify-content:flex-start;text-align:left;
+  background:transparent !important;border:none !important;box-shadow:none !important;
+  color:var(--c-text) !important;padding:6px 10px !important;
+}
+.side .section-nav button:hover{background:var(--c-card) !important}
+.side .section-nav button.active{background:var(--c-card2) !important;color:var(--c-gold) !important;box-shadow:inset 3px 0 0 var(--c-gold) !important}
+details.help{margin-top:4px}
+details.help summary{cursor:pointer;color:var(--c-muted);padding:4px 0}
+details.help summary:hover{color:var(--c-text)}
+details.help ol{margin:6px 0 0;padding-left:18px;color:var(--c-muted)}
+details.help li{margin-bottom:4px}
+.side-foot{margin-top:10px;color:var(--c-muted);font-size:12px;word-break:break-all;opacity:.8}
+.side .status{min-height:0}
+/* 主区：分组小标题与间距 */
+.panel h3{margin:20px 0 10px}
+.panel h2 + h3{margin-top:6px}
+.lang-grid{display:grid;grid-template-columns:64px minmax(0,1fr) minmax(0,2fr);gap:6px 10px;align-items:start}
+.lang-grid textarea{min-height:52px}
+.lang-grid .lang-head{color:var(--c-muted)}
+.lang-grid .lang-label{color:var(--c-muted);padding-top:6px}
+.toggles{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.toggles .check{padding:6px 10px !important}
+@media (max-width:760px){.lang-grid{grid-template-columns:1fr}.lang-grid .lang-head,.lang-grid span:first-child{display:none}}
+[hidden]{display:none !important}
+.btn-list{display:grid;gap:6px}
+.btn-list button{width:100%;justify-content:center}
+.btn-grid button,.btn-grid .button-like,.btn-list button{white-space:nowrap}

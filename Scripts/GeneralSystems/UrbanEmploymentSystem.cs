@@ -124,7 +124,7 @@ public static class UrbanEmploymentSystem
     private static bool IsEligibleWorker(Actor actor) => actor != null && !actor.IsOnOffice() &&
         !actor.isWarrior() && !EmpireCaftActorJudgeClass.IsManualWorkerJob(actor) &&
         !LandEconomySystem.IsLandlord(actor) &&
-        !actor.GetOrCreate().is_economic_merchant && actor.GetOrCreate().socialClass != SocialClass.Noble;
+        !actor.GetOrCreate().is_economic_merchant && !EmpireCaftActorJudgeClass.IsNoble(actor);
 
     private static bool IsEligible(Actor actor)
     {

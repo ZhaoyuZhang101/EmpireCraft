@@ -204,6 +204,9 @@ public class OfficeObject
 
     public void SetActor (Actor actor)
     {
+        if (is_local && meta_object is Kingdom constitutionalCore && constitutionalCore.IsEmpire() &&
+            ConstitutionalSuccessionSystem.IsProtected(constitutionalCore.GetEmpire()) &&
+            !ConstitutionalSuccessionSystem.CanInherit(constitutionalCore.GetEmpire(), actor)) return;
         if (actor == null || !actor.CanServeOffice(GetOfficeKingdom(actor))) return;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(actor) ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(meta_object)) return;

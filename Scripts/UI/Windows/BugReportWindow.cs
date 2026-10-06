@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using EmpireCraft.Scripts.Diagnostics;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
+using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
@@ -15,6 +16,7 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
     private readonly List<GameObject> _groups = new();
     private SimpleText _status;
     private AdvancedButton _saveDataToggle;
+    private TextInput _description;
     private bool _includeSaveData;
     private long _lastSendRevision = -1;
     private float _nextStatusRefresh;
@@ -52,7 +54,7 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
         _groups.Clear();
 
         AutoVertLayoutGroup panel = this.BeginVertGroup(
-            new Vector2(196, 184),
+            new Vector2(196, 234),
             pSpacing: 4,
             pAlignment: TextAnchor.UpperCenter,
             pPadding: new RectOffset(3, 3, 3, 3)
@@ -112,6 +114,23 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
             size: new Vector2(12, 12)
         );
 
+        // 问题描述：多行输入，发送时写进报告摘要的开头(重建窗口时保留已写的内容)
+        string draft = _description != null ? _description.input.text : "";
+        _description = Instantiate(TextInput.Prefab, panel.transform);
+        _description.Setup("", _ => { });
+        _description.SetSize(new Vector2(184, 44));
+        _description.input.GetComponent<RectTransform>().sizeDelta = new Vector2(184, 44);
+        _description.input.lineType = InputField.LineType.MultiLineNewline;
+        _description.input.characterLimit = BugReportService.MaximumDescriptionLength;
+        _description.input.textComponent.alignment = TextAnchor.UpperLeft;
+        _description.input.textComponent.horizontalOverflow = HorizontalWrapMode.Wrap;
+        _description.input.textComponent.verticalOverflow = VerticalWrapMode.Truncate;
+        if (_description.input.placeholder == null)
+            _description.input.SetupPlaceholder(_description.text.font, LM.Get("bug_report_description_placeholder"),
+                new Color(1f, 1f, 1f, 0.45f));
+        _description.input.text = draft;
+        panel.AddChild(_description.gameObject);
+
         AutoHoriLayoutGroup buttons =
             panel.BeginHoriGroup(
                 new Vector2(188, 22),
@@ -152,7 +171,7 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
 
         panel.transform.AddStretchBackground(
             "regimeFrame",
-            new Vector2(196, 184)
+            new Vector2(196, 234)
         );
 
         _groups.Add(panel.gameObject);
@@ -193,7 +212,7 @@ public class BugReportWindow : AutoLayoutWindow<BugReportWindow>
     private void SendReport()
     {
         BugReportSendResult result =
-            BugReportService.BeginSend(_includeSaveData);
+            BugReportService.BeginSend(_includeSaveData, _description?.input.text ?? "");
 
         ApplySendResult(result);
     }

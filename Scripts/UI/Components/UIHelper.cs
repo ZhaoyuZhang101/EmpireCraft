@@ -720,34 +720,56 @@ public static class UIHelper
             InstitutionSystem.GetFactionInstitutionStance(culture, faction.Type);
         InstitutionReformState activeReform = empire?.data.institution_state?.active_reform;
 
-        var row = panel.BeginHoriGroup(new Vector2(188, 32), TextAnchor.MiddleCenter, 2,
+        // 卡片：理念色条 | 理念徽章 | 领袖头像 | 名称·理念·中央占比条·阶层与立场 | 按钮
+        PartyIdeology ideology = PartySystem.LeaningOf(faction);
+        Color ideologyColor = IdeologyColor(ideology);
+        var row = panel.BeginHoriGroup(new Vector2(188, 32), TextAnchor.MiddleLeft, 2,
             new RectOffset(2, 2, 1, 1));
+        AddColorBlock(row.transform, new Vector2(3, 28), ideologyColor);
+        var badge = row.BeginVertGroup(new Vector2(15, 28), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
+        AddLayoutIcon(badge.transform,
+            SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)), 15f);
         row.AddActorViewIntoHoriLayout(faction.GetLeader());
 
         // 政党行多一个"合并"按钮，按钮栏加宽一格、信息栏让出来
         bool partyRow = faction.IsParty && !readOnly && !addMode;
-        var details = row.BeginVertGroup(new Vector2(partyRow ? 108 : 118, 28), pSpacing: 0,
+        float infoWidth = partyRow ? 84f : 94f;
+        var details = row.BeginVertGroup(new Vector2(infoWidth, 30), pSpacing: 0,
             pAlignment: TextAnchor.MiddleLeft);
         string state = addMode ? "" : kingdom.IsEmpire()
-            ? isDominate ? LM.Get("empire_faction_dominant_short").ColorString("#65D66E") : ""
+            ? isDominate ? LM.Get("empire_faction_dominant_short").ColorString("#F3C34A") : ""
             : LM.Get("empire_faction_inactive_short").ColorString("#D98C8C");
-        // 政党名后面标出理念
-        string displayName = faction.IsParty
-            ? $"{faction.Name} {$"[{PartySystem.GetIdeologyName(faction.Ideology)}]".ColorString("#C9A7E8")}"
-            : faction.Name;
-        var name = details.AddTextIntoVertLayout(
-            string.IsNullOrEmpty(state) ? displayName : $"{displayName} · {state}", true,
-            TextAnchor.MiddleLeft, new Vector2(122, 10));
+        if (!addMode && faction.IsParty && empire != null && PartyBanSystem.IsClosed(empire) &&
+            empire.data.constitutional_economy?.allied_party_ids?.Contains(faction.GetID()) == true)
+            state = (string.IsNullOrEmpty(state) ? "" : state + " ") +
+                    LM.Get("party_consultative_short").ColorString("#7FD8EA");
+        // 第一行：名称(主导派系标金色"主导")
+        string title = faction.Name.ColorString(isDominate ? "#FFE9A8" : "#F2EEE2");
+        var name = details.AddTextIntoVertLayout(string.IsNullOrEmpty(state) ? title : $"{title} {state}", true,
+            TextAnchor.MiddleLeft, new Vector2(infoWidth, 8.5f));
         name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         HoverMarqueeText.Attach(name);
-        var metrics = details.AddTextIntoVertLayout(
-            string.Format(LM.Get("empire_faction_metrics"), faction.CentralRatio, faction.ClassPower), true,
-            TextAnchor.MiddleLeft, new Vector2(122, 9));
-        metrics.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-        var stance = details.AddTextIntoVertLayout(
-            string.Format(LM.Get("empire_faction_stance_counts"), supports.Count, opposes.Count), true,
-            TextAnchor.MiddleLeft, new Vector2(122, 9));
-        stance.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        // 第二行：理念(党禁前的派系标"倾向")，政党再标民族色彩
+        string ideologyLabel = faction.IsParty
+            ? PartySystem.GetIdeologyName(ideology)
+            : string.Format(LM.Get("faction_ideology_leaning"), PartySystem.GetIdeologyName(ideology));
+        string ideologyLine = ideologyLabel.ColorString(pColor: Color.Lerp(ideologyColor, Color.white, 0.35f));
+        if (faction.IsParty && faction.Empire != null)
+            ideologyLine += (" · " + LM.Get(EmpireCraft.Scripts.GeneralSystems.NationalSentimentSystem.ColorKey(
+                EmpireCraft.Scripts.GeneralSystems.NationalSentimentSystem.PartyColor(faction.Empire, faction.Ideology))))
+                .ColorString("#A8B8BE");
+        details.AddTextIntoVertLayout(ideologyLine, true, TextAnchor.MiddleLeft, new Vector2(infoWidth, 7.5f))
+            .UseFixedFontSize(5, HorizontalWrapMode.Overflow);
+        // 第三行：中央占比条
+        var shareRow = details.BeginHoriGroup(new Vector2(infoWidth, 7f), TextAnchor.MiddleLeft, 2);
+        AddShareBar(shareRow.transform, new Vector2(infoWidth - 26f, 3f), faction.CentralRatio / 100f, ideologyColor);
+        shareRow.AddTextIntoHoriLayout($"{faction.CentralRatio}%".ColorString("#E6E0CF"), true, TextAnchor.MiddleLeft,
+            new Vector2(22f, 7f)).UseFixedFontSize(5, HorizontalWrapMode.Overflow);
+        // 第四行：阶层力量与制度立场
+        details.AddTextIntoVertLayout(string.Format(LM.Get("empire_faction_card_footer"),
+                    faction.ClassPower.ToString("0.#"), supports.Count, opposes.Count).ColorString("#A8B8BE"), true,
+                TextAnchor.MiddleLeft, new Vector2(infoWidth, 7f))
+            .UseFixedFontSize(5, HorizontalWrapMode.Overflow);
         AttachFactionTooltip(details.gameObject, faction, supports, opposes, empire, activeReform,
             includeBasicInfo: true);
 
@@ -824,6 +846,55 @@ public static class UIHelper
         row.transform.AddStretchBackground(isDominate ? "FactionFrame_dominate" : "FactionFrame",
             new Vector2(188, 32));
         if (!readOnly && !addMode) faction.CardUI = details;
+    }
+
+    private static Color IdeologyColor(PartyIdeology ideology)
+    {
+        ColorAsset asset = EmpireCraft.Scripts.GameLibrary.EmpireCraftNamePlateLibrary.GetIdeologyColorAsset(ideology);
+        Color color = asset?.getColorBanner() ?? new Color(0.5f, 0.85f, 0.92f);
+        color.a = 1f;
+        return color;
+    }
+
+    private static void AddColorBlock(Transform parent, Vector2 size, Color color)
+    {
+        var block = new GameObject("ColorBlock", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+            typeof(LayoutElement));
+        var rect = block.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.sizeDelta = size;
+        Image image = block.GetComponent<Image>();
+        image.color = color;
+        image.raycastTarget = false;
+        LayoutElement element = block.GetComponent<LayoutElement>();
+        element.preferredWidth = element.minWidth = size.x;
+        element.preferredHeight = element.minHeight = size.y;
+    }
+
+    // 占比条：深色底 + 按比例填充的颜色
+    private static void AddShareBar(Transform parent, Vector2 size, float fill, Color color)
+    {
+        var track = new GameObject("ShareBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+            typeof(LayoutElement));
+        var trackRect = track.GetComponent<RectTransform>();
+        trackRect.SetParent(parent, false);
+        trackRect.sizeDelta = size;
+        Image trackImage = track.GetComponent<Image>();
+        trackImage.color = new Color(0f, 0f, 0f, 0.55f);
+        trackImage.raycastTarget = false;
+        LayoutElement element = track.GetComponent<LayoutElement>();
+        element.preferredWidth = element.minWidth = size.x;
+        element.preferredHeight = element.minHeight = size.y;
+        var bar = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        var barRect = bar.GetComponent<RectTransform>();
+        barRect.SetParent(trackRect, false);
+        barRect.anchorMin = Vector2.zero;
+        barRect.anchorMax = new Vector2(Mathf.Clamp01(fill), 1f);
+        barRect.offsetMin = Vector2.zero;
+        barRect.offsetMax = Vector2.zero;
+        Image barImage = bar.GetComponent<Image>();
+        barImage.color = color;
+        barImage.raycastTarget = false;
     }
 
     // 提升该派系的中央占比：调用 TryIncreaseFactionRatio，总量已满时会按比例挤压其他派系

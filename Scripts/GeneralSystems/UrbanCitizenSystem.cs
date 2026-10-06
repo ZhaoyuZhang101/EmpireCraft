@@ -65,7 +65,7 @@ public static class UrbanCitizenSystem
         if (actor == null || actor.IsOnOffice() || actor.isWarrior() ||
             EmpireCaftActorJudgeClass.IsManualWorkerJob(actor) || UrbanEmploymentSystem.IsEmployed(actor) ||
             LandEconomySystem.IsLandlord(actor) || actor.GetOrCreate().is_economic_merchant) return false;
-        return actor.GetOrCreate().socialClass != SocialClass.Noble;
+        return !EmpireCaftActorJudgeClass.IsNoble(actor);
     }
 
     private static void Release(Actor actor)

@@ -198,7 +198,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["religion_level:>=|3", "empire_feature:theocratic_state"],
+          "condition": ["religion_level:>=|3", "empire_feature:theocratic_state", "empire_center:false"],
           "city_type": "Feudalism_religion_district"
         },
         "Feudalism_empire": {

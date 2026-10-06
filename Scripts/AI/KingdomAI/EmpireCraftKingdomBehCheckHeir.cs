@@ -22,6 +22,18 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
 
     public override BehResult execute(Kingdom pKingdom)
     {
+        Empire constitutionalEmpire = pKingdom.IsEmpire() ? pKingdom.GetEmpire() : null;
+        bool protectedDynasty = ConstitutionalSuccessionSystem.IsProtected(constitutionalEmpire);
+        if (protectedDynasty)
+        {
+            if (pKingdom.HasHeir() && !ConstitutionalSuccessionSystem.CanInherit(constitutionalEmpire, pKingdom.GetHeir()))
+                pKingdom.RemoveHeir();
+            if (pKingdom.king == null || pKingdom.king.isRekt() || !pKingdom.king.isAlive())
+            {
+                ConstitutionalSuccessionSystem.TryHandleVacancy(pKingdom);
+                return BehResult.Continue;
+            }
+        }
         if (!EmpireCraftKingdomBehCheckKing.NeedSuccession(pKingdom) || (pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir()))
         {
             pKingdom.RecoverToDefaultHeir();
@@ -32,6 +44,9 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         var heir = successionLaw == SuccessionLawType.强者继承法
             ? CheckStrongestHeir(pKingdom)
             : CheckHeir(pKingdom, pKingdom.GetHeirLaw(), successionLaw);
+        if (protectedDynasty && !ConstitutionalSuccessionSystem.CanInherit(constitutionalEmpire, heir.actor))
+            heir = (ConstitutionalSuccessionSystem.SelectRoyalHeir(constitutionalEmpire),
+                ConstitutionalSuccessionSystem.SelectionRelation(constitutionalEmpire));
         if (heir.actor.isRekt()||!heir.actor.isUnitFitToRule())
         {
             pKingdom.GoToNextHeirLaw();
@@ -117,6 +132,9 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 }
                 break;
             case EmpireHeirLawType.random:
+                if (ConstitutionalSuccessionSystem.IsProtected(k.GetEmpire()) && flag)
+                    return (ConstitutionalSuccessionSystem.SelectRoyalHeir(k.GetEmpire()),
+                        ConstitutionalSuccessionSystem.SelectionRelation(k.GetEmpire()));
                 List<Actor> randomClanMember = pci?._specificClan?.AllAliveMembers??new List<Actor>();
                 randomClanMember = randomClanMember.FindAll(c=>c.GetPersonalIdentity()?.CanHeir(pci)??false).OrderByDescending(a=>a.age).ToList();
                 if (randomClanMember.Any())
@@ -126,6 +144,9 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 }
                 break;
             case EmpireHeirLawType.officer:
+                if (ConstitutionalSuccessionSystem.IsProtected(k.GetEmpire()) && flag)
+                    return (ConstitutionalSuccessionSystem.SelectRoyalHeir(k.GetEmpire()),
+                        ConstitutionalSuccessionSystem.SelectionRelation(k.GetEmpire()));
                 if (flag)
                 {
                     Empire empire = k.GetEmpire();

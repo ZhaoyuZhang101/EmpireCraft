@@ -282,6 +282,13 @@ public static class KingdomExtension
         public int IndependentValue = 50;
         public bool is_need_to_choose_heir = false;
         public double corruption_rate = 0.0f;
+        // 弃核(见 NuclearDoctrineSystem)：迫于大国压力放弃核武器、停止相关研究；正被制裁
+        public bool nuclear_renounced;
+        public double nuclear_renounced_at = -1d;
+        public bool nuclear_sanctioned;
+        // 独立王国的苛政(见 HarshRuleSystem；帝国成员按帝国结算)
+        public float harsh_burden;
+        public string harsh_main_cause = "";
         public double last_exam_timestamp = -1L;
         public bool isFactionRebelling = false;
         public bool isLocalRebelling = false;
@@ -310,6 +317,8 @@ public static class KingdomExtension
         public bool union_city_state_local_succession;
         public long union_alliance_leader_kingdom_id = -1L;
         public long feudal_overlord_kingdom_id = -1L;
+        // 军阀时期易帜归附的时间：此后 FeudalVassalService.DefectorLoyaltyYears 年内不得发动独立战争
+        public double feudal_defected_at = -1d;
         public int feudal_vassal_level;
         public int feudal_vassal_progress;
         public double feudal_last_control_timestamp = -1d;
@@ -972,6 +981,7 @@ public static class KingdomExtension
     public static void AddCorruptionRate(this Kingdom kingdom, double addition)
     {
         if (kingdom == null || addition == 0) return;
+        addition = RulerTraitSystem.ScaleCorruptionGain(kingdom, addition);
         double current = kingdom.GetCorruptionRate();
         if ((current >= 1.0f && addition > 0) || (current <= 0.0f && addition < 0))
         {
@@ -1473,7 +1483,16 @@ public static class KingdomExtension
                 }
                 break;
             default:
-                kingdom.data.name =  (string.IsNullOrEmpty(pre)?kingdom.GetKingdomName():pre)+'\u200A' + '\u200A' + LM.Get("rebelling");
+                // 新起事的叛军(由城市另立、没有自己的法理)：原版建国时给的是随机国名，改用起事城市的名字，
+                // 并记为核心名——之后改称"某城民变""某城农民军"、或打赢后转为地方武装，前缀都是这座城
+                string front = pre;
+                if (string.IsNullOrEmpty(front) && !kingdom.HasMainTitle() && kingdom.capital != null)
+                {
+                    front = kingdom.capital.GetCityName();
+                    if (!string.IsNullOrWhiteSpace(front)) kingdom.SetKingdomCoreName(front);
+                }
+                if (string.IsNullOrEmpty(front)) front = kingdom.GetKingdomName();
+                kingdom.data.name = front + '\u200A' + '\u200A' + LM.Get("rebelling");
                 break;
         }
         var extraData = kingdom.GetOrCreate();
@@ -1497,6 +1516,10 @@ public static class KingdomExtension
     public static void EndLocalRebelling(this Kingdom k)
     {
         var extraData = k.GetOrCreate();
+        // 没有法理的叛军起义结束(独立或被招安)：国名回到起事时记下的地名，不再沿用"某城民变"之类的叛军名号
+        if (extraData.isLocalRebelling && k.data != null && !k.HasMainTitle() &&
+            !string.IsNullOrWhiteSpace(extraData.core_name))
+            k.SetKingdomCoreName(extraData.core_name, extraData.core_name);
         extraData.isLocalRebelling = false;
         extraData.rebellion_auto_expand_remaining = -1;
         extraData.rebellion_origin_city_value = -1;
@@ -1528,6 +1551,14 @@ public static class KingdomExtension
         {
             data.rebellion_origin_empire_ids.Add(empireId);
         }
+    }
+
+    // 和解：易帜归附、合并政府、正统转移等强制并入时清掉对该帝国的反叛记录，
+    // 否则成员检查(CheckEmpire)会以"曾反叛"为由把刚并入的成员再踢出去
+    public static void ForgiveRebellionAgainst(this Kingdom kingdom, Empire empire)
+    {
+        if (kingdom == null || empire == null) return;
+        kingdom.GetOrCreate().rebellion_origin_empire_ids?.Remove(empire.getID());
     }
 
     public static bool HasRebelledAgainst(this Kingdom kingdom, Empire empire)
@@ -1632,15 +1663,11 @@ public static class KingdomExtension
         return title == null || title.isRekt() ? null : title;
     }
 
+    // 没有法理的政权的地名：都城名；连都城都没有才退回原版建国时的随机名
     public static string GetUntitledKingdomName(this Kingdom kingdom)
     {
-        KingdomTitle capitalTitle = kingdom.GetCapitalDeJureTitle();
-        if (capitalTitle != null)
-        {
-            string capitalName = kingdom.capital.GetCityName();
-            if (!string.IsNullOrWhiteSpace(capitalName)) return capitalName;
-        }
-        return kingdom.GetInitialRandomKingdomName();
+        string capitalName = kingdom?.capital != null && !kingdom.capital.isRekt() ? kingdom.capital.GetCityName() : "";
+        return !string.IsNullOrWhiteSpace(capitalName) ? capitalName : kingdom.GetInitialRandomKingdomName();
     }
 
     private static string ExtractKingdomFront(Kingdom kingdom, string fullName)

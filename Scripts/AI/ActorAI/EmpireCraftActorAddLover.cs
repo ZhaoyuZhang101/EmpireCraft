@@ -49,9 +49,11 @@ public class EmpireCraftActorAddLover:GameAIActorBase
             if (possibility < 0.3f)
             {
                 pActor.addMoney(-25);
-                var actor = pActor.kingdom.units.Find(a => a.data.sex == loverSex 
+                // 原版的恋人与模组家族里的配偶/妾都要空着(只看原版会把别人的妻妾挑走)
+                var actor = pActor.kingdom.units.Find(a => a.data.sex == loverSex
                                                               && a.age <= 35 && a.isAdult()
-                                                              && !a.hasLover());
+                                                              && !a.hasLover()
+                                                              && a.GetPersonalIdentity()?.IsFreeToMarry(identity.id) != false);
                 if (actor == null) return BehResult.Continue;
                 identity.setLover(actor, true);
             }

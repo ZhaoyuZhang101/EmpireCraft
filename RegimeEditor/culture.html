@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>EmpireCraft 文化编辑器</title>
   <link rel="stylesheet" href="common.css" />
+  <link rel="stylesheet" href="pixel-theme.css" />
 </head>
 <body>
   <div class="layout">
@@ -71,8 +72,11 @@
       ["economy", "经济制度", [["PrivateProperty", "保护私有财产"], ["Mixed", "混合经济"], ["Planned", "计划经济"]]],
       ["religion", "政教关系", [["Secular", "政教分离"], ["StateReligion", "确立国教"]]],
       ["emergency", "紧急状态", [["Prohibited", "不得宣布"], ["Allowed", "元首可宣布"]]],
+      ["ideology_intensity", "意识形态强度", [["High", "高"], ["Medium", "中"], ["Low", "低"]]],
+      ["speech", "言论自由", [["Free", "宽松"], ["Limited", "一般"], ["Strict", "严格"]]],
+      ["nation", "民族政策", [["Pluralist", "多民族共存"], ["Moderate", "一般"], ["Nationalist", "民族主义立国"]]],
       ["amendment", "修宪程序", [["ParliamentSupermajority", "议会三分之二"], ["Referendum", "全民公投"], ["PartyCongress", "党代会"]]],
-      ["term_years", "元首任期(年)", [2, 3, 4, 5, 6, 7, 8].map(n => [String(n), `${n} 年`])],
+      ["term_years", "元首任期(年)", [5, 6, 8, 10, 12, 15, 20].map(n => [String(n), `${n} 年`])],
       ["max_terms", "连任上限", [0, 1, 2, 3, 4].map(n => [String(n), n === 0 ? "不限" : `最多 ${n} 届`])]
     ];
 

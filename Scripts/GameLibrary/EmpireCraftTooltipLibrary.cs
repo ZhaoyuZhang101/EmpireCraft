@@ -112,6 +112,12 @@ public static class EmpireCraftTooltipLibrary
             prefab_id = "tooltips/tooltip_normal",
             callback = showIdeologyShareTooltip
         });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = EmpireCraft.Scripts.Layer.NationMap.TooltipType,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = EmpireCraft.Scripts.Layer.NationMap.ShowTooltip
+        });
         // 窗口里"理念"一行的提示(见 IdeologyRowPatch)
         AddOrReplace(tl, new TooltipAsset
         {
@@ -220,6 +226,25 @@ public static class EmpireCraftTooltipLibrary
 			PartyIdeology ideology = IdeologyPopulationSystem.GetDominant(kingdom.capital);
 			pTooltip.addLineText("ideology_population_title", PartySystem.GetIdeologyName(ideology), "#7FD8EA");
 		}
+		// 独立王国的苛政(帝国成员看帝国提示框)
+		float kingdomBurden = HarshRuleSystem.GetBurden(kingdom);
+		if (kingdomBurden >= 1f)
+			pTooltip.addLineText("label_harsh_rule", $"{kingdomBurden:0}  " + string.Join("  ",
+					HarshRuleSystem.Breakdown(kingdom).Take(3).Select(item => $"{LM.Get(item.key)}{item.value}")),
+				kingdomBurden >= 60f ? "#FF6666" : kingdomBurden >= 30f ? "#E9A85B" : "#B8C6CC");
+		// 地方政治：本省执政党与各党支持率
+		Empire provinceEmpire = kingdom.GetEmpire();
+		if (ProvincialPoliticsSystem.IsProvince(provinceEmpire, kingdom) && PartySystem.IsActive(provinceEmpire))
+		{
+			FixedFaction localParty = ProvincialPoliticsSystem.GetGoverningParty(provinceEmpire, kingdom);
+			if (localParty != null)
+				pTooltip.addLineText("local_governing_party", localParty.Name +
+					(ProvincialPoliticsSystem.IsOppositionHeld(provinceEmpire, kingdom) ? LM.Get("local_opposition_mark") : ""),
+					ProvincialPoliticsSystem.IsOppositionHeld(provinceEmpire, kingdom) ? "#E9A85B" : "#65D66E");
+			string leaning = string.Join("  ", ProvincialPoliticsSystem.GetShares(provinceEmpire, kingdom).Take(3)
+				.Select(item => $"{item.party.Name} {item.share * 100f:0}%"));
+			if (!string.IsNullOrEmpty(leaning)) pTooltip.addLineText("local_party_leaning", leaning, "#C9A7E8");
+		}
 		Alliance alliance = kingdom.getAlliance();
 		if (alliance != null)
 		{
@@ -324,14 +349,34 @@ public static class EmpireCraftTooltipLibrary
 
         pTooltip.addLineBreak();
         EmpireCore core = EmpireCoreManager.Get(pEmpire);
-        AddTooltipLine(pTooltip, "empire_tooltip_core", EmpireCoreManager.GetStatusDisplayName(core), "#74D7FF", true);
+        // 现代政体没有"称帝"：帝国核心称法统，称帝法理称建政之地
+        bool modern = regime?.type == RegimeType.Modern;
+        // 分治期另立政府的子核心(warlord_parent_core_id)只是技术记录，显示它所属的正规核心
+        EmpireCore lawfulCore = core?.warlord_parent_core_id > 0
+            ? EmpireCoreManager.Get(core.warlord_parent_core_id) ?? core
+            : core;
+        AddTooltipLine(pTooltip, modern ? "modern_tooltip_core" : "empire_tooltip_core",
+            EmpireCoreManager.GetStatusDisplayName(lawfulCore), "#74D7FF", true);
         AddTooltipLine(pTooltip, "empire_core_legitimate_empire",
             EmpireCoreManager.GetLegitimateEmpire(core)?.GetEmpireFullName(), "#FF6666");
-        AddTooltipLine(pTooltip, "empire_tooltip_ascension_title",
+        AddTooltipLine(pTooltip, modern ? "modern_tooltip_founding_title" : "empire_tooltip_ascension_title",
             GetAscensionTitleName(pEmpire, core), "#FFD34E", true);
         AddTooltipLine(pTooltip, "label_treasury", pEmpire.CurrentMoney.ToString(),
             pEmpire.CurrentMoney < 0 ? "#FF6666" : "#76E6C2", true);
-        AddTooltipLine(pTooltip, "label_mandate", pEmpire.Mandate.ToString(), "#FFCF55", true);
+        AddTooltipLine(pTooltip, pEmpire.LegitimacyLabelKey, pEmpire.Legitimacy.ToString(), "#FFCF55", true);
+        // 苛政与街头抗争
+        float burden = HarshRuleSystem.GetBurden(pEmpire);
+        if (burden >= 1f)
+            AddTooltipLine(pTooltip, "label_harsh_rule", $"{burden:0}  " + string.Join("  ",
+                    HarshRuleSystem.Breakdown(pEmpire).Take(3).Select(item => $"{LM.Get(item.key)}{item.value}")),
+                burden >= 60f ? "#FF6666" : burden >= 30f ? "#E9A85B" : "#B8C6CC");
+        int streetStage = HarshRuleSystem.GetStreetStage(pEmpire);
+        if (ModernLegitimacy.Applies(pEmpire) && streetStage > 0)
+            AddTooltipLine(pTooltip, "label_street_unrest", HarshRuleSystem.GetStageName(streetStage),
+                streetStage >= 3 ? "#FF6666" : "#E9A85B");
+        if (ModernLegitimacy.Applies(pEmpire))
+            AddTooltipLine(pTooltip, "label_legitimacy_sources", string.Join("  ", ModernLegitimacy.Breakdown(pEmpire)
+                .Select(item => $"{LM.Get(item.key)}{(item.value > 0 ? "+" : "")}{item.value}")), "#B8C6CC");
 
         FixedFaction dominantFaction = regime?.GetDominateFaction();
         AddTooltipLine(pTooltip, "label_dominant_faction", dominantFaction?.Name, "#E78BFF", true);

@@ -215,6 +215,7 @@ public static class HistoryRecordSystem
             is_republic = RepublicSystem.IsRepublic(empire),
             office_title = RepublicSystem.IsRepublic(empire) ? RepublicSystem.GetHeadOfStateTitle(empire) : ""
         };
+        ReignRecordSystem.OnReignStart(empire);
         if (RepublicSystem.IsRepublic(empire)) return;
         if (empire.data.has_year_name)
         {

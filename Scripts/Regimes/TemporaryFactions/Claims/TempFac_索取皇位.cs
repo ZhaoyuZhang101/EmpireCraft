@@ -3,6 +3,7 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 using NCMS.Extensions;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -30,6 +31,13 @@ public class TempFac_索取皇位 : TemporaryFaction
 
     public override void Execute()
     {
+        Empire constitutionalEmpire = GetEmpire();
+        if (ConstitutionalSuccessionSystem.IsProtected(constitutionalEmpire))
+        {
+            ConstitutionalSuccessionSystem.TryHandleVacancy(constitutionalEmpire.CoreKingdom);
+            End();
+            return;
+        }
         LogService.LogInfo($"执行{this.type}");
         var target = GetActorTarget();
         Actor newEmperor = null;
@@ -131,11 +139,13 @@ public class TempFac_索取皇位 : TemporaryFaction
     public override bool CheckContinue()
     {
         Empire empire = GetEmpire();
+        if (ConstitutionalSuccessionSystem.IsProtected(empire)) return false;
         return empire?.Emperor == null;
     }
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (ConstitutionalSuccessionSystem.IsProtected(empire)) return false;
         if (empire != null)
         {
             if (empire.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return false;
