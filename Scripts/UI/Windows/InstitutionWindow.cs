@@ -108,6 +108,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         AddStatusPanel();
         AddOverviewCards();
         AddSocialUnrest();
+        AddStreetUnrest();
         AddPublicOpinion();
         AddLegend();
         AddGraph();
@@ -456,8 +457,20 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         if (abolition > 0f)
             status += "   " + string.Format(LM.Get("republic_abolition_pressure"), abolition.ToString("0"))
                 .ColorString(abolition >= 50f ? "#E05A4F" : "#E9A85B");
-        panel.AddTextIntoVertLayout(status, true, TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 10))
-            .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        List<FixedFaction> consultative = PartyBanSystem.GetConsultativeParties(_empire);
+        if (consultative.Count > 0)
+            status += "   " + string.Format(LM.Get("consultation_line"),
+                string.Join("、", consultative.Select(party => party.Name))).ColorString("#7FD8EA");
+        SimpleText statusText = panel.AddTextIntoVertLayout(status, true, TextAnchor.MiddleCenter,
+            new Vector2(PanelWidth - 12f, 10));
+        statusText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        if (consultative.Count > 0)
+            UIHelper.AttachTextTooltip(statusText.gameObject, $"consultation_status_{_empire.id}",
+                LM.Get("consultation_title"), string.Format(LM.Get("consultation_body"),
+                    string.Join("、", consultative.Select(party =>
+                        $"{party.Name}[{PartySystem.GetIdeologyName(party.Ideology)}]")),
+                    PartyBanSystem.ConsultationLegitimacy,
+                    Mathf.RoundToInt(PartyBanSystem.ConsultationDissent * 100f)));
 
         var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
         if (PartyBanSystem.IsClosed(_empire))
@@ -510,6 +523,54 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             true, TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 10));
         cause.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
         panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+    }
+
+    // 苛政与街头抗争(见 HarshRuleSystem)：现代国家出现抗争时给出镇压 / 让步两个按钮；
+    // 一年内没按的话，冲突及以上时由 AI 决定
+    private void AddStreetUnrest()
+    {
+        if (!ModernLegitimacy.Applies(_empire)) return;
+        int stage = HarshRuleSystem.GetStreetStage(_empire);
+        float burden = HarshRuleSystem.GetBurden(_empire);
+        if (stage == HarshRuleSystem.Calm && burden < 30f) return;
+        const float height = 32f;
+        var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 1,
+            pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(6, 6, 4, 4));
+        _content.Add(panel.gameObject);
+
+        string stageColor = stage >= HarshRuleSystem.Riots ? "#E05A4F" : stage >= HarshRuleSystem.Clashes ? "#E9A85B" : "#E9D35B";
+        var head = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 11), TextAnchor.MiddleCenter, 3);
+        AddIcon(head.transform, Icon("ui/icons/iconWarning", "ui/icons/iconWar"), 9f);
+        string causes = string.Join("  ", HarshRuleSystem.Breakdown(_empire).Take(4)
+            .Select(item => $"{LM.Get(item.key)}{item.value}"));
+        AddLabel(head, $"{LM.Get("label_street_unrest")}: " + HarshRuleSystem.GetStageName(stage).ColorString(stageColor) +
+                       $"   {LM.Get("label_harsh_rule")} {burden:0}  " + causes.ColorString("#B8C6CC"),
+            PanelWidth - 30f, 7, TextAnchor.MiddleLeft);
+
+        bool can = HarshRuleSystem.CanPlayerRespond(_empire) == null;
+        var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
+        var repress = buttons.AddButtonIntoHoriLayout("street_response_repress",
+            LM.Get("street_response_repress").ColorString(can ? "#FFFFFF" : "#8FA0A8"),
+            () => RespondToStreet(true), size: new Vector2(90, 11));
+        UIHelper.AttachTextTooltip(repress.gameObject, "street_repress_tip", LM.Get("street_response_repress"),
+            LM.Get("street_response_repress_tip"));
+        var concede = buttons.AddButtonIntoHoriLayout("street_response_concede",
+            LM.Get("street_response_concede").ColorString(can ? "#FFFFFF" : "#8FA0A8"),
+            () => RespondToStreet(false), size: new Vector2(90, 11));
+        UIHelper.AttachTextTooltip(concede.gameObject, "street_concede_tip", LM.Get("street_response_concede"),
+            LM.Get("street_response_concede_tip"));
+        panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+    }
+
+    private void RespondToStreet(bool repress)
+    {
+        string error = HarshRuleSystem.PlayerRespond(_empire, repress);
+        if (error != null)
+        {
+            ActionLibrary.showWhisperTip(error);
+            return;
+        }
+        Rebuild();
     }
 
     // ── 卡片小部件 ──

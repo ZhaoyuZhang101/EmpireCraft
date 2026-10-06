@@ -82,6 +82,8 @@ public static class RepublicSystem
     // 语言文件里可按文化覆盖：head_of_state_<文化>_<理念> → head_of_state_<理念> → head_of_state
     public static string GetHeadOfStateTitle(Empire empire)
     {
+        // 复辟帝制期间元首改称皇帝(见 RestorationSystem)
+        if (RestorationSystem.IsProclaimed(empire)) return LM.Get("emperor");
         PartyIdeology ideology = IdeologyFamilies.StateIdeology(empire);
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
         foreach (string key in new[] { $"head_of_state_{culture}_{ideology}", $"head_of_state_{ideology}", "head_of_state" })
@@ -223,7 +225,7 @@ public static class RepublicSystem
         if (!CanAbolish(empire) || party == null || !party.IsParty || party.Ban ||
             party.Ideology == PartyIdeology.Conservatism || party.GetLeader() == null) return false;
         if (HasActiveRevolutionWar(empire)) return false;
-        return empire.Mandate < RevolutionMandate && GetCoreGrievance(empire, party) >= RevolutionGrievance &&
+        return empire.Legitimacy < RevolutionMandate && GetCoreGrievance(empire, party) >= RevolutionGrievance &&
                (FindRebelKingdom(empire, party) != null || FindSplitLeader(empire, party) != null);
     }
 
@@ -282,7 +284,7 @@ public static class RepublicSystem
     // 高概率组成互保同盟另立革命政府，打赢了就逼皇帝退位(见 ResolveRegionalRepublicCoalition)。
     // 不要求开放党禁：没有政党时以帝国里势力最大的非保守理念为纲领。每年由 ConstitutionalEconomySystem 调用。
     public static bool TryMandateCollapseCoalition(Empire empire) =>
-        empire != null && empire.Mandate < RevolutionMandate && TryRegionalRepublicCoalition(empire, true);
+        empire != null && empire.Legitimacy < RevolutionMandate && TryRegionalRepublicCoalition(empire, true);
 
     public static bool TryRegionalRepublicCoalition(Empire empire, bool mandateCollapse = false)
     {
@@ -304,9 +306,9 @@ public static class RepublicSystem
         if (party == null && !mandateCollapse) return false;
         PartyIdeology ideology = party?.Ideology ?? StrongestReformIdeology(empire);
         float chance = mandateCollapse
-            ? 0.3f + 0.5f * Mathf.Clamp01((RevolutionMandate - empire.Mandate) / (float)RevolutionMandate)
+            ? 0.3f + 0.5f * Mathf.Clamp01((RevolutionMandate - empire.Legitimacy) / (float)RevolutionMandate)
             : 0.03f + (empire.CoreKingdom.hasEnemies() ? 0.06f : 0f) +
-              Mathf.Clamp01((60f - empire.Mandate) / 60f) * 0.09f;
+              Mathf.Clamp01((60f - empire.Legitimacy) / 60f) * 0.09f;
         if (UnityEngine.Random.value >= chance) return false;
 
         List<Kingdom> coalition = members
@@ -434,6 +436,7 @@ public static class RepublicSystem
     {
         if (!IsRepublic(empire) || IsTransitioning(empire) || HasActiveRevolutionWar(empire) || party == null ||
             !party.IsParty || party.Ban || party.GetLeader() == null) return false;
+        if (!ModernStability.PassRebellionGate(empire.CoreKingdom)) return false;
         if (FindRebelKingdom(empire, party) == null && FindSplitLeader(empire, party) == null) return false;
         return StartRevolutionWar(empire, party, modern: true);
     }
@@ -513,7 +516,7 @@ public static class RepublicSystem
             float localSupport = IdeologyPopulationSystem.GetKingdomShare(member, party.Ideology);
             float chance = Mathf.Clamp(0.12f + 0.10f * Mathf.Min(4, supporters) +
                 0.22f * localSupport + 0.32f * grievance +
-                0.18f * (RevolutionMandate - empire.Mandate) / RevolutionMandate,
+                0.18f * (RevolutionMandate - empire.Legitimacy) / RevolutionMandate,
                 0.12f, 0.85f);
             if (UnityEngine.Random.value < chance)
             {
@@ -562,7 +565,7 @@ public static class RepublicSystem
                     (soldier.GetFaction() == party ? 0.18f : 0f) +
                     (soldier.city == capital ? 0.15f : 0f) +
                     programBonus +
-                    0.10f * (RevolutionMandate - empire.Mandate) / RevolutionMandate, 0.02f, 0.7f);
+                    0.10f * (RevolutionMandate - empire.Legitimacy) / RevolutionMandate, 0.02f, 0.7f);
                 if (UnityEngine.Random.value < chance) defectors.Add(soldier);
             }
             total += InstitutionSystem.TransferDefectingSoldiers(source, rebel, defectors);
@@ -841,6 +844,34 @@ public static class RepublicSystem
         victim.setHealth(0);
     }
 
+    // 皇室绝嗣是宪制下的必然改制，不受废除君主制科技、党派议席或军方支持门槛限制。
+    public static bool ForceRepublicAfterDynastyExtinction(Empire empire)
+    {
+        if (!ConstitutionalSuccessionSystem.IsProtected(empire) ||
+            ConstitutionalSuccessionSystem.HasLivingDynasty(empire) || World.world == null) return false;
+        Actor incumbent = empire.Emperor;
+        if (incumbent != null && !incumbent.isRekt() && incumbent.isAlive()) return false;
+        Actor leader = ParliamentSystem.GetHeadOfGovernment(empire);
+        FixedFaction party = leader?.GetFaction();
+        if (party?.IsParty != true)
+            party = PartySystem.GetParties(empire).OrderByDescending(candidate => candidate.CentralRatio).FirstOrDefault();
+        leader ??= party?.GetLeader();
+        leader ??= empire.CoreKingdom.units?.Where(actor => actor != null && !actor.isRekt() &&
+            actor.isAlive() && actor.isAdult() && actor.isUnitFitToRule())
+            .OrderByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? 0d)
+            .ThenByDescending(actor => actor.stewardship).ThenByDescending(actor => actor.renown).FirstOrDefault();
+        PartyIdeology ideology = party?.Ideology ?? IdeologyFamilies.StateIdeology(empire);
+        Establish(empire, party, ideology, leader, false, "constitutional_dynasty_extinct_history");
+        ConstitutionalEconomyState state = State(empire);
+        state.constitutional_monarchy = false;
+        state.constitutional_reform_active = false;
+        state.constitutional_reform_stage = 0;
+        state.constitutional_reform_progress = 0f;
+        ConstitutionSystem.Update(empire, state);
+        EnsureHeadOfState(empire);
+        return IsRepublic(empire);
+    }
+
     private static void Establish(Empire empire, FixedFaction party, bool oneParty, string historyKey) =>
         Establish(empire, party, party.Ideology, party.GetLeader(), oneParty, historyKey);
 
@@ -966,6 +997,34 @@ public static class RepublicSystem
             monarch?.getName() ?? LM.Get("label_none"), empire.GetEmpireFullName()), monarch);
     }
 
+    // 强人复辟成功(见 RestorationSystem)：称帝的元首本人登基，共和国改回君主制。
+    // 调用前文化里的"废除君主制"已撤销(InstitutionSystem.RevokeAbolishMonarchy)
+    public static void RestoreByStrongman(Empire empire, Actor monarch)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        if (state == null || !IsRepublic(empire)) return;
+        RegimeType previous = state.previous_regime >= 0 ? (RegimeType)state.previous_regime : RegimeType.Feudalism;
+        state.is_republic = false;
+        state.republic_calendar_mode = 0;
+        state.one_party_id = "";
+        state.republic_transition_stage = 0;
+        state.republic_first_election_pending = false;
+        empire.CoreKingdom.GetOrCreate().ideology_country_suffix = "";
+        TransitionRegime(empire, previous);
+        empire.data.has_year_name = empire.CoreKingdom.GetRegime()?.HasEraName() == true;
+        if (monarch != null && !monarch.isRekt())
+        {
+            if (empire.Emperor?.id == monarch.id)
+            {
+                empire.EmperorLeft();
+                empire.NewEmperor(monarch, isNew: true);
+            }
+            else empire.InstallHeadOfState(monarch);
+        }
+        EnsureIdeologyBureau(empire);
+        EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(empire.CoreKingdom);
+    }
+
     #endregion
 
     #region 元首更替
@@ -979,6 +1038,19 @@ public static class RepublicSystem
             ? PartySystem.GetParties(empire).FirstOrDefault(party => party.GetID() == State(empire).one_party_id)?.GetLeader()
             : ParliamentSystem.GetPrimeMinister(empire);
         head ??= empire.CoreKingdom.GetRegime()?.GetDominateFaction()?.GetLeader();
+        if (head != null && (head.isRekt() || !head.isAlive())) head = null;
+        // 总理、党魁、主导派系都没有合适人选时元首不能一直空着(没有元首的国家不会宣战、结盟，正统也上不去)：
+        // 先找任一政党领袖，再从核心国里挑威望最高、适合执政的成年人代理
+        Actor current = empire.Emperor;
+        bool vacant = current == null || current.isRekt() || !current.isAlive();
+        if (head == null && vacant)
+        {
+            head = PartySystem.GetParties(empire).Select(party => party.GetLeader())
+                       .FirstOrDefault(leader => leader != null && !leader.isRekt() && leader.isAlive())
+                   ?? empire.CoreKingdom.units?.Where(actor => actor != null && !actor.isRekt() && actor.isAlive() &&
+                                                                actor.isAdult() && actor.isUnitFitToRule())
+                       .OrderByDescending(actor => actor.renown).FirstOrDefault();
+        }
         if (head == null || head.isRekt() || head.id == empire.Emperor?.id) return;
         string previous = empire.Emperor?.getName() ?? LM.Get("label_none");
         if (!empire.InstallHeadOfState(head)) return;

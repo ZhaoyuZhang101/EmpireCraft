@@ -187,7 +187,7 @@ public static class WarBoxCompatibility
             Empire empire = kingdom.GetEmpire();
             if (empire == null || empire.isRekt()) return;
             // WarBox 的基础值是 25；帝国成员改用正统值：正统 50 对应 25，满正统 50，正统见底 0
-            int basis = Mathf.Clamp(Mathf.RoundToInt(empire.Mandate * 0.5f), 0, 50);
+            int basis = Mathf.Clamp(Mathf.RoundToInt(empire.Legitimacy * 0.5f), 0, 50);
             Traverse.Create(__result).Field("Base").SetValue(basis);
         }
         catch
@@ -264,7 +264,7 @@ public static class WarBoxCompatibility
     private static void StartMemberRebellion(Empire empire, Kingdom kingdom)
     {
         if (kingdom.IsLocalRebelling() || kingdom.IsFactionRebelling() || kingdom.getWars().Any() ||
-            empire.CoreKingdom == null) return;
+            empire.CoreKingdom == null || !ModernStability.PassRebellionGate(empire.CoreKingdom)) return;
         if (!kingdom.StartLocalRebelling(EmpireWarType.地方叛乱)) return;
         War war = World.world.diplomacy.startWar(kingdom, empire.CoreKingdom, WarTypeLibrary.rebellion);
         if (war == null)
@@ -324,6 +324,50 @@ public static class WarBoxCompatibility
         catch (Exception exception)
         {
             LogService.LogWarning($"[EmpireCraft] WarBox 抗议对接失败: {exception.Message}");
+        }
+    }
+
+    #endregion
+
+    #region 金融危机 → 经济趋势
+
+    private static MethodInfo _financeSnapshot;
+    private static FieldInfo _crisisYearsLeft;
+    private static FieldInfo _defaultYearsLeft;
+    private static FieldInfo _unemploymentRate;
+    private static bool _financeLookupDone;
+
+    // WarBox 的金融状况：本国是否处于金融危机/国家违约，及失业率(没装 WarBox 时返回 false)
+    public static bool TryGetFinance(Kingdom kingdom, out bool crisis, out float unemployment)
+    {
+        crisis = false;
+        unemployment = 0f;
+        if (kingdom == null || kingdom.isRekt()) return false;
+        if (!_financeLookupDone)
+        {
+            _financeLookupDone = true;
+            Type type = AccessTools.TypeByName("WarBox.Content.EconomyFinanceSystem");
+            _financeSnapshot = type == null ? null : AccessTools.Method(type, "GetSnapshot", new[] { typeof(Kingdom) });
+            Type snapshot = _financeSnapshot?.ReturnType;
+            _crisisYearsLeft = snapshot == null ? null : AccessTools.Field(snapshot, "CrisisYearsLeft");
+            _defaultYearsLeft = snapshot == null ? null : AccessTools.Field(snapshot, "DefaultYearsLeft");
+            _unemploymentRate = snapshot == null ? null : AccessTools.Field(snapshot, "UnemploymentRate");
+        }
+        if (_financeSnapshot == null || _crisisYearsLeft == null) return false;
+        try
+        {
+            object result = _financeSnapshot.Invoke(null, new object[] { kingdom });
+            if (result == null) return false;
+            crisis = (int)_crisisYearsLeft.GetValue(result) > 0 ||
+                     _defaultYearsLeft != null && (int)_defaultYearsLeft.GetValue(result) > 0;
+            if (_unemploymentRate != null) unemployment = (float)_unemploymentRate.GetValue(result);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] WarBox 金融状况读取失败: {exception.Message}");
+            _financeSnapshot = null;
+            return false;
         }
     }
 

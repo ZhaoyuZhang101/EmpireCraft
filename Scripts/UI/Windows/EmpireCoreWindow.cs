@@ -209,7 +209,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 TextAnchor.MiddleLeft, new Vector2(170, 12)));
             HoverMarqueeText.Attach(details.AddTextIntoVertLayout($"{LM.Get("empire_core_royal_surname")}: {empire.EmpireSpecificClan?.name ?? LM.Get("empire_core_none")}",
                 true, TextAnchor.MiddleLeft, new Vector2(170, 10)));
-            details.AddTextIntoVertLayout($"{LM.Get("i_population")}: {empire.CountPopulation()}  |  {LM.Get("label_mandate")}: {empire.Mandate}",
+            details.AddTextIntoVertLayout($"{LM.Get("i_population")}: {empire.CountPopulation()}  |  {LM.Get(empire.LegitimacyLabelKey)}: {empire.Legitimacy}",
                 true, TextAnchor.MiddleLeft, new Vector2(140, 10));
             if (composite)
             {

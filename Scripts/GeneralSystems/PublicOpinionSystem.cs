@@ -115,8 +115,15 @@ public static class PublicOpinionSystem
         // WarBox 的示威与罢工(年度统计见 ApplyStrikeEffects)：罢工城市越多民意越差
         float strikeShare = state.strike_share;
         float demonstrationShare = state.demonstration_share;
-        float dissent = Mathf.Clamp01(far + middle * 0.5f + Mathf.Min(0.25f, hostilePressure / 200f) +
-                                      grievance * 0.15f + strikeShare * 0.5f + demonstrationShare * 0.15f);
+        // 宪法的意识形态强度：外部思潮的侵蚀力(高强度不易被颠覆)与民众对负面事件的反弹(高强度反弹更大)
+        hostilePressure *= ExternalSusceptibility(empire);
+        float backlash = Backlash(empire);
+        // 意识形态疲劳带来的犬儒：满疲劳时异见 +0.1(见 IdeologyDynamicsSystem)
+        float cynicism = IdeologyDynamicsSystem.GetFatigue(empire) / 1000f;
+        float dissent = Mathf.Clamp01(far + middle * 0.5f + cynicism + Mathf.Min(0.25f, hostilePressure / 200f) +
+                                      HarshRuleSystem.DissentBonus(empire) -
+                                      (PartyBanSystem.HasConsultation(empire) ? PartyBanSystem.ConsultationDissent : 0f) +
+                                      (grievance * 0.15f + strikeShare * 0.5f + demonstrationShare * 0.15f) * backlash);
         state.opinion_support = support;
         state.opinion_dissent = dissent;
 
@@ -159,10 +166,28 @@ public static class PublicOpinionSystem
         float strikeShare = ApplyProtests(empire, state, out float demonstrationShare);
         state.strike_share = strikeShare;
         state.demonstration_share = demonstrationShare;
-        int loss = Mathf.RoundToInt(strikeShare * StrikeMandateLoss) +
-                   (strikeShare >= GeneralStrikeShare ? GeneralStrikeMandateLoss : 0);
+        int loss = Mathf.RoundToInt((strikeShare * StrikeMandateLoss +
+                                     (strikeShare >= GeneralStrikeShare ? GeneralStrikeMandateLoss : 0)) * Backlash(empire));
         if (loss > 0) empire.AddMandate(-loss);
     }
+
+    // 宪法"意识形态强度"的两面(见 IdeologyEducationSystem)：
+    //   · 外部侵蚀：敌对思潮的压力倍数。高强度宣传筑起思想防线，外部难以颠覆；放开意识形态则容易被外部思潮渗透；
+    //   · 民众反弹：负面事件(罢工、示威、民怨、民意恶化)引发的抗议规模与正统损失倍数。
+    //     高强度下人民积怨更深，一有风吹草动反弹更大甚至反噬政权；放开意识形态的社会反弹温和
+    public static float ExternalSusceptibility(Empire empire) => ConstitutionSystem.GetIdeologyIntensity(empire) switch
+    {
+        ConstitutionIdeologyIntensity.High => 0.5f,
+        ConstitutionIdeologyIntensity.Low => 1.5f,
+        _ => 1f
+    };
+
+    public static float Backlash(Empire empire) => ConstitutionSystem.GetIdeologyIntensity(empire) switch
+    {
+        ConstitutionIdeologyIntensity.High => 1.5f,
+        ConstitutionIdeologyIntensity.Low => 0.6f,
+        _ => 1f
+    };
 
     private static float ApplyProtests(Empire empire, ConstitutionalEconomyState state, out float demonstrationShare)
     {
@@ -182,6 +207,7 @@ public static class PublicOpinionSystem
                          { (SocialClass.Labour, 12f), (SocialClass.Peasant, 5f), (SocialClass.Citizen, 5f) })
             {
                 institutions.class_grievances.TryGetValue(socialClass, out float current);
+                // 反弹倍数只在民意计算(Update)里乘一次，这里不再乘，免得罢工带来的怨气被放大两遍
                 institutions.class_grievances[socialClass] = Mathf.Min(100f, current + weight * strikeShare + 1f);
             }
         }
@@ -261,7 +287,8 @@ public static class PublicOpinionSystem
         PartyIdeology? preferred)
     {
         if (level < CivilResistance) return;
-        empire.AddMandate(level == RevolutionaryWave ? -2 : -1);
+        float backlash = Backlash(empire);
+        empire.AddMandate(-Mathf.Max(1, Mathf.RoundToInt((level == RevolutionaryWave ? 2 : 1) * backlash)));
         // 不信任案：有议会、不是一党制，距上次大选满一年时，抵制 25% / 革命浪潮 50% 的概率内阁倒台、提前大选
         if (ParliamentSystem.HasParliament(empire) && !RepublicSystem.IsOneParty(empire) &&
             state.last_parliament_election >= 0d && Date.getYearsSince(state.last_parliament_election) >= 1 &&
@@ -278,7 +305,7 @@ public static class PublicOpinionSystem
         {
             if (PartySystem.GetAffinity(preferred.Value, socialClass) < 30f) continue;
             institutions.class_grievances.TryGetValue(socialClass, out float current);
-            institutions.class_grievances[socialClass] = Mathf.Min(100f, current + 3f * level);
+            institutions.class_grievances[socialClass] = Mathf.Min(100f, current + 3f * level * backlash);
         }
     }
 

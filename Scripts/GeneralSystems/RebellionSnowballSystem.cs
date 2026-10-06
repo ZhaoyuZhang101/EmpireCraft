@@ -32,8 +32,8 @@ public static class RebellionSnowballSystem
     public static void Update(Empire empire)
     {
         Kingdom core = empire?.CoreKingdom;
-        if (core == null || core.isRekt() || empire.Mandate >= SnowballMandate) return;
-        float intensity = Mathf.Clamp01((SnowballMandate - empire.Mandate) / (float)SnowballMandate);
+        if (core == null || core.isRekt() || empire.Legitimacy >= SnowballMandate) return;
+        float intensity = Mathf.Clamp01((SnowballMandate - empire.Legitimacy) / (float)SnowballMandate);
         foreach (Kingdom rebel in FindRebels(empire, core).ToList())
         {
             try

@@ -127,6 +127,15 @@ public static class ClaimAgendaSystem
                 view.Blocker = "agenda_welfare_treasury";
         }
 
+        // 与文化制度树、科技时代挂钩的前提(见 ClaimRules)；推动类决议显示要推动的制度
+        if (view.CanPropose && !ClaimRules.IsAllowed(empire, claim.type, out string ruleBlocker))
+            view.Blocker = ruleBlocker;
+        if (string.IsNullOrEmpty(view.TechnologyName))
+        {
+            InstitutionNodeConfig pushTarget = ClaimRules.FindPushTarget(empire, claim.type);
+            if (pushTarget != null) view.TechnologyName = InstitutionSystem.GetNodeName(pushTarget);
+        }
+
         view.Score = view.Support - view.Opposition + view.Urgency +
                      (claim.IsStarted() ? 20f : 0f);
         view.ProgressMultiplier = Mathf.Clamp(0.65f +
@@ -149,7 +158,7 @@ public static class ClaimAgendaSystem
                 (Grievance(SocialClass.Labour) + Grievance(SocialClass.Peasant)) * 0.18f,
             TemporaryFactionType.土地改革 => GetLandlessUrgency(empire),
             TemporaryFactionType.降低赋税 => (empire.data?.TaxRate ?? 0f) * 25f,
-            TemporaryFactionType.建立共和 => (100f - empire.Mandate) * 0.18f +
+            TemporaryFactionType.建立共和 => (100f - empire.Legitimacy) * 0.18f +
                 Mathf.Max(0f, (Share(SocialClass.Labour) + Share(SocialClass.Peasant) - 0.45f) * 80f),
             TemporaryFactionType.推行普选 => PartySystem.HasUniversalSuffrage(empire) ? 0f : 15f +
                 Mathf.Max(0f, (Share(SocialClass.Labour) + Share(SocialClass.Peasant) - 0.40f) * 100f),
