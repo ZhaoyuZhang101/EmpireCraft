@@ -370,8 +370,8 @@ public static partial class ParliamentSystem
         if (partyPolitics) PartySystem.AfterElection(empire, allocation, seatCount);
         ElectPrimeMinister(empire, state, announce: "election");
         RepublicSystem.OnFirstRepublicElection(empire);
-        // 共和国：大选后由执政党领袖出任元首
-        RepublicSystem.UpdateHeadOfState(empire);
+        // 共和国：大选后产生元首(总统制为执政党领袖，议会制由议会改选虚位元首)
+        RepublicSystem.UpdateHeadOfState(empire, afterElection: true);
     }
 
     // 补选：议员去世、离开帝国或改换派系后，由原派系另推一人；返回是否有议席变动
@@ -467,7 +467,8 @@ public static partial class ParliamentSystem
     // 宪法任期限制：共和国里以执政党领袖身份赢得大选的届数达到"最多 N 届"后不能再出任总理(兼元首)
     private static bool HasReachedTermLimit(Empire empire, ConstitutionalEconomyState state, Actor actor)
     {
-        if (actor == null || !RepublicSystem.IsRepublic(empire)) return false;
+        // 只有总统制(元首兼总理)的总理受任期限制；议会制限的是虚位元首(见 RepublicSystem.UpdateCeremonialHead)
+        if (actor == null || !RepublicSystem.IsPresidentialRepublic(empire)) return false;
         int limit = ConstitutionSystem.GetClauses(empire)?.max_terms ?? 0;
         return limit > 0 && state.head_terms != null && state.head_terms.TryGetValue(actor.id, out int served) &&
                served >= limit;
@@ -537,7 +538,7 @@ public static partial class ParliamentSystem
     private static bool IsValidMember(Empire empire, Actor actor) =>
         actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && !actor.IsWarMachine() &&
         actor.kingdom?.GetEmpire() == empire &&
-        (actor.id != empire.Emperor?.id || RepublicSystem.IsRepublic(empire));
+        (actor.id != empire.Emperor?.id || RepublicSystem.IsRepublic(empire) && !RepublicSystem.IsParliamentaryRepublic(empire));
 
     private static FixedFaction FindFaction(Empire empire, string factionId) =>
         string.IsNullOrWhiteSpace(factionId)

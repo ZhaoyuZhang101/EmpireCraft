@@ -78,6 +78,17 @@ public static class ConstitutionalSuccessionSystem
         }
         else if (!HasLivingDynasty(empire))
             RepublicSystem.ForceRepublicAfterDynastyExtinction(empire);
+        else
+        {
+            // 宗室在世却没有能即位的成年人(都还年幼)：立年纪最长的宗室幼主，国政由议会/内阁代行(相当于摄政)，
+            // 不让皇位一直空着
+            Actor minor = LivingDynasty(empire)
+                .Where(actor => actor.GetPersonalIdentity() is { is_concubine: false })
+                .OrderByDescending(actor => actor.getAge()).ThenBy(actor => actor.id).FirstOrDefault();
+            if (minor != null && empire.InstallHeadOfState(minor))
+                EventRecorder.Record(empire, string.Format(LM.Get("constitutional_minor_succession_history"),
+                    SelectionRelation(empire), minor.getName(), empire.GetEmpireFullName()), minor);
+        }
         return true;
     }
 }

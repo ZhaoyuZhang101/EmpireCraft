@@ -49,6 +49,20 @@ public static class RepublicSystem
 
     public static bool IsOneParty(Empire empire) => !string.IsNullOrWhiteSpace(State(empire)?.one_party_id);
 
+    // 多党制共和国的权力中心(宪法"权力中心"条款；没有宪法时按总统制)：
+    //   · 总统制：大选后执政党领袖出任元首兼政府首脑(占总理之位)，任期固定，议会不能倒阁；任期限制管这个人；
+    //   · 议会制：元首是议会选出的虚位元首(执政联盟中总理以外威望最高的人)，每届大选后改选；
+    //     总理对议会负责，可被倒阁；任期限制管元首，不管总理；
+    //   · 代表大会制(民主集中制)：元首为执政党领袖(见一党制逻辑)
+    public static bool IsParliamentaryRepublic(Empire empire) =>
+        IsRepublic(empire) && !IsOneParty(empire) && !PartyBanSystem.UsesDemocraticCentralism(empire) &&
+        ConstitutionSystem.GetClauses(empire)?.power_center == ConstitutionPowerCenter.Parliamentary;
+
+    public static bool IsPresidentialRepublic(Empire empire) =>
+        IsRepublic(empire) && !IsOneParty(empire) && !PartyBanSystem.UsesDemocraticCentralism(empire) &&
+        (ConstitutionSystem.GetClauses(empire)?.power_center ?? ConstitutionPowerCenter.Presidential) ==
+        ConstitutionPowerCenter.Presidential;
+
     // 独裁度达到这个值，元首不再经过任何选举，由前任指定或直接接任(如朝鲜)
     public const float DesignatedSuccessionAutocracy = 80f;
 
@@ -1031,11 +1045,13 @@ public static class RepublicSystem
 
     #region 元首更替
 
-    // 共和国元首：多党制下每届大选后由执政党领袖(总理)出任；一党制下为执政党领袖，领袖换人即换
-    public static void UpdateHeadOfState(Empire empire)
+    // 共和国元首：总统制下每届大选后由执政党领袖(总理)出任；议会制下为议会选出的虚位元首(见 IsParliamentaryRepublic)；
+    // 一党制下为执政党领袖，领袖换人即换。afterElection：刚举行完大选(议会制据此改选元首)
+    public static void UpdateHeadOfState(Empire empire, bool afterElection = false)
     {
         if (!IsRepublic(empire) || IsTransitioning(empire) ||
             State(empire)?.republic_first_election_pending == true) return;
+        if (IsParliamentaryRepublic(empire) && UpdateCeremonialHead(empire, afterElection)) return;
         Actor head = IsOneParty(empire)
             ? PartySystem.GetParties(empire).FirstOrDefault(party => party.GetID() == State(empire).one_party_id)?.GetLeader()
             : ParliamentSystem.GetPrimeMinister(empire);
@@ -1060,6 +1076,46 @@ public static class RepublicSystem
     }
 
     #endregion
+
+    // 议会制的虚位元首：在任者仍然合格(在世、身在本国、不是总理)且不是刚大选完就留任；
+    // 否则由议会从执政联盟里选总理以外威望最高、未做满任期的人。返回是否已处理(没选出人时交回总统制逻辑兜底)
+    private static bool UpdateCeremonialHead(Empire empire, bool afterElection)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        Actor primeMinister = ParliamentSystem.GetPrimeMinister(empire);
+        Actor current = empire.Emperor;
+        bool currentValid = current != null && !current.isRekt() && current.isAlive() && current.isAdult() &&
+                            current.kingdom?.GetEmpire() == empire && current.id != primeMinister?.id;
+        int limit = ConstitutionSystem.GetClauses(empire)?.max_terms ?? 0;
+        state.head_terms ??= new Dictionary<long, int>();
+        bool TermLimited(Actor actor) => limit > 0 && state.head_terms.TryGetValue(actor.id, out int served) &&
+                                         served >= limit;
+        if (currentValid && !afterElection) return true;
+        if (currentValid && afterElection && !TermLimited(current))
+        {
+            // 议会连选连任
+            state.head_terms[current.id] = (state.head_terms.TryGetValue(current.id, out int kept) ? kept : 0) + 1;
+            return true;
+        }
+        var coalition = new HashSet<string>(ParliamentSystem.GetCoalitionIds(empire));
+        IEnumerable<FixedFaction> parties = PartySystem.GetParties(empire);
+        Actor head = parties.Where(party => coalition.Contains(party.GetID()))
+                         .Concat(parties.Where(party => !coalition.Contains(party.GetID())))
+                         .SelectMany(party => party.AllMembers)
+                         .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
+                                         actor.kingdom?.GetEmpire() == empire && actor.id != primeMinister?.id &&
+                                         !actor.IsWarMachine() && !TermLimited(actor))
+                         .OrderByDescending(actor => coalition.Contains(actor.GetFaction()?.GetID() ?? "") ? 1 : 0)
+                         .ThenByDescending(actor => actor.renown)
+                         .FirstOrDefault();
+        if (head == null) return currentValid;
+        string previous = current?.getName() ?? LM.Get("label_none");
+        if (!empire.InstallHeadOfState(head)) return currentValid;
+        state.head_terms[head.id] = (state.head_terms.TryGetValue(head.id, out int served) ? served : 0) + 1;
+        Record(empire, string.Format(LM.Get("republic_ceremonial_head_history"), head.getName(), previous,
+            GetHeadOfStateTitle(empire), head.GetFaction()?.Name ?? ""), head);
+        return true;
+    }
 
     #region 理念政体机构(只作用于本帝国，不随文化同步)
 

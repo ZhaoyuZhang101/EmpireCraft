@@ -199,8 +199,8 @@ public static partial class ParliamentSystem
 
         state.prime_minister_id = primeMinister.id;
         state.prime_minister_faction_id = plan.Formateur.GetID();
-        // 共和国：记下赢得大选出任总理(兼元首)的届数
-        if (termLimited && RepublicSystem.IsRepublic(empire))
+        // 总统制共和国：记下赢得大选出任总理(兼元首)的届数
+        if (termLimited && RepublicSystem.IsPresidentialRepublic(empire))
         {
             state.head_terms ??= new Dictionary<long, int>();
             state.head_terms[primeMinister.id] = (state.head_terms.TryGetValue(primeMinister.id, out int served) ? served : 0) + 1;
@@ -374,6 +374,8 @@ public static partial class ParliamentSystem
     {
         if (!HasResponsibleGovernment(empire) || RepublicSystem.IsOneParty(empire) ||
             PartyBanSystem.UsesDemocraticCentralism(empire)) return false;
+        // 总统制：总统任期固定，议会不能倒阁
+        if (RepublicSystem.IsPresidentialRepublic(empire)) return false;
         if (state.government_formed_at < 0d || Date.getYearsSince(state.government_formed_at) < 1) return false;
         if (state.last_no_confidence >= 0d && Date.getYearsSince(state.last_no_confidence) < 2) return false;
         // 临近大选不再倒阁
