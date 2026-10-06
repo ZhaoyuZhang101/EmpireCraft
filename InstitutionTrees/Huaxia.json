@@ -615,6 +615,7 @@
     },
     {
       "id": "huaxia_military_garrison",
+      "features": {"army_prefecture": 1},
       "name_key": "institution_huaxia_military_garrison",
       "description_key": "institution_huaxia_military_garrison_desc",
       "branch": "military",
@@ -712,7 +713,7 @@
         }
       ],
       "regime": "LvLing",
-      "features": {
+      "features": { "state_granary": 1,
         "vassal_authority": 100,
         "claim_reform:转天朝制度": 1
       }
@@ -776,6 +777,7 @@
     },
     {
       "id": "huaxia_warlord_succession",
+      "features": {"army_regional": 1},
       "name_key": "institution_huaxia_warlord_succession",
       "description_key": "institution_huaxia_warlord_succession_desc",
       "branch": "military",
@@ -998,6 +1000,7 @@
     },
     {
       "id": "huaxia_recruited_army",
+      "features": {"army_standing": 1},
       "name_key": "institution_huaxia_recruited_army",
       "description_key": "institution_huaxia_recruited_army_desc",
       "branch": "military",

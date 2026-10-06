@@ -801,6 +801,21 @@ def obj_calligraphy(img):
     over(img, shade(band, BRASS, bevel=4, gloss=0.9))
 
 
+def obj_farmland(img):
+    """规划农田：斜放的一方田地(黑胡桃色垄沟)，田里几株旧铜色麦穗，田边一根木界桩拉着暗红绳(耕地红线)。"""
+    field = poly([(28, 150), (150, 104), (232, 150), (110, 214)])
+    over(img, shade(field, WOOD, bevel=10, grain=0.5))
+    furrows = lines([[(52, 152), (156, 112)], [(74, 166), (178, 124)], [(96, 180), (200, 138)],
+                     [(118, 194), (214, 150)]], 6)
+    over(img, shade(furrows, LACQ, bevel=2, flat=True))
+    for x, y in [(80, 120), (112, 106), (144, 96), (100, 150), (132, 136)]:
+        over(img, shade(lines([[(x, y + 34), (x + 4, y)]], 5), GOLD, bevel=2, flat=True))
+        over(img, shade(ellipse([x - 8, y - 22, x + 14, y + 6]), GOLD, bevel=5, gloss=0.8, grain=0.3))
+    over(img, shade(rrect([196, 52, 214, 176], 4), WOOD, bevel=5, grain=0.3))
+    over(img, shade(ellipse([192, 44, 218, 66]), BRASS, bevel=5, gloss=0.9))
+    over(img, shade(lines([[(204, 92), (232, 150)], [(204, 92), (150, 104)]], 7), RED, bevel=3, gloss=0.6))
+
+
 GODPOWERS = {
     "empire_layer": (obj_title, "crown"),
     "create_empire": (obj_crown, "plus"),
@@ -809,6 +824,7 @@ GODPOWERS = {
     "empire_list": (obj_list, None),
     "actor_create_kingdom": (obj_flag, "plus"),
     "territory_font": (obj_calligraphy, None),
+    "farm_planning": (obj_farmland, None),
 }
 
 

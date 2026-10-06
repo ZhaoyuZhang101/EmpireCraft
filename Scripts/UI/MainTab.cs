@@ -160,6 +160,12 @@ internal static class MainTab
             PowerButtonCreator.CreateGodPowerButton("remove_province",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceRemove.png")));
 
+        // 规划农田区(耕地红线)
+        FarmPlanningButton.init();
+        AddButton(TITLE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("farm_planning",
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/farm_planning")));
+
         // ---- 帝国核心 ----
         CreateEmpireCoreButton.init();
         AddButton(EMPIRE_CORE_GROUP,

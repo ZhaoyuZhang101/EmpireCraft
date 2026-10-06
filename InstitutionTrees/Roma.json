@@ -30,6 +30,7 @@
     },
     {
       "id": "western_civic_legion",
+      "features": {"army_mobilization": 0.15},
       "name_key": "institution_western_civic_legion",
       "description_key": "institution_western_civic_legion_desc",
       "branch": "military",
@@ -526,7 +527,7 @@
           "int_value": -8
         }
       ],
-      "features": {
+      "features": { "state_granary": 1,
         "vassal_authority": 100,
         "direct_administration": 1
       }

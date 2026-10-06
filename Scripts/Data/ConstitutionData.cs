@@ -61,6 +61,14 @@ public enum ConstitutionNation { Moderate, Pluralist, Nationalist }
 // 政党分肥制(部长与各部主官都随执政党更替)。见 ParliamentSystem.AssignMinisters
 public enum ConstitutionCivilService { Mixed, Professional, Spoils }
 
+// 耕地红线(见 FarmlandSystem)：按生产力(红线比例随农业生产力下降) / 严守红线(固定比例) / 不设红线(规划农田不受保护)。
+// Adaptive 排第一：旧存档没有这一条时按"按生产力"读入
+public enum ConstitutionFarmland { Adaptive, Strict, None }
+
+// 粮食征收(见 GranarySystem)：征收粮赋(收成三成交国家粮仓) / 留归地方(全留本城) / 统购统销(七成交国家粮仓)。
+// Tribute 排第一：旧存档没有这一条时按"征收粮赋"读入
+public enum ConstitutionGrain { Tribute, Local, Central }
+
 public sealed class ConstitutionClauses
 {
     [JsonConverter(typeof(StringEnumConverter))]
@@ -99,6 +107,12 @@ public sealed class ConstitutionClauses
     // 文官制度(旧存档没有这一条，按混合制)
     [JsonConverter(typeof(StringEnumConverter))]
     public ConstitutionCivilService civil_service;
+    // 耕地红线(旧存档没有这一条，按生产力)
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ConstitutionFarmland farmland;
+    // 粮食征收(旧存档没有这一条，按征收粮赋)
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ConstitutionGrain grain;
     // 元首(君主立宪为首相)一届的年数，也是议会改选周期(见 ParliamentSystem.TermYears)
     public int term_years = 10;
     // 旧存档的任期按游戏时间换算过(以前 2~8 年太短，换届太快，决议推不完)

@@ -62,6 +62,27 @@ public static class MassacreSystem
             city.GetCityName()), killerKingdom);
     }
 
+    // 无小人模式：纵兵烧杀(见 ScorchedEarthSystem)杀害的背景人口也记入屠城之恨
+    public static void RecordBackgroundMassacre(City city, Kingdom killerKingdom, int victims)
+    {
+        if (World.world == null || city?.data == null || killerKingdom == null || victims <= 0) return;
+        CityExtension.CityExtraData data = city.GetOrCreate();
+        double now = World.world.getCurWorldTime();
+        if (data.massacre_by_kingdom_id != killerKingdom.id ||
+            data.massacre_last < 0d || Date.getYearsSince(data.massacre_last) >= MemoryYears)
+        {
+            data.massacre_by_kingdom_id = killerKingdom.id;
+            data.massacre_victims = 0;
+            data.massacre_noticed = false;
+        }
+        data.massacre_victims += victims;
+        data.massacre_last = now;
+        if (data.massacre_noticed) return;
+        data.massacre_noticed = true;
+        TranslateHelper.LogEventMessage(string.Format(LM.Get("massacre_event"), killerKingdom.GetKingdomName(),
+            city.GetCityName()), killerKingdom);
+    }
+
     // 屠城之恨：城市现在归屠城者(或与之同一帝国)统治时的忠诚惩罚
     public static int LoyaltyPenalty(City city)
     {

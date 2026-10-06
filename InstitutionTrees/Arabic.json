@@ -116,6 +116,7 @@
     },
     {
       "id": "arabic_mamluk_corps",
+      "features": {"army_standing": 1},
       "name_key": "institution_arabic_mamluk_corps",
       "description_key": "institution_arabic_mamluk_corps_desc",
       "branch": "military",
@@ -379,7 +380,7 @@
           "int_value": -8
         }
       ],
-      "features": {
+      "features": { "state_granary": 1,
         "constitution_basis_administration": 1,
         "vassal_authority": 100
       }

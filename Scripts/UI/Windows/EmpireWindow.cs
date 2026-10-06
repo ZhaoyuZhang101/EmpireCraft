@@ -613,6 +613,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             parent.AddTextIntoVertLayout(LM.Get("constitution_speech_hint"), true, TextAnchor.MiddleCenter);
             parent.AddTextIntoVertLayout(LM.Get("constitution_nation_hint"), true, TextAnchor.MiddleCenter);
             parent.AddTextIntoVertLayout(LM.Get("constitution_civil_service_hint"), true, TextAnchor.MiddleCenter);
+            parent.AddTextIntoVertLayout(LM.Get("constitution_farmland_hint"), true, TextAnchor.MiddleCenter);
+            parent.AddTextIntoVertLayout(LM.Get("constitution_grain_hint"), true, TextAnchor.MiddleCenter);
+            if (CityPopulationSystem.AbstractPopulationEnabled && GranarySystem.Enabled(_empire.CoreKingdom))
+                statsRow.IShowStatsRow("granary", $"{GranarySystem.Stock(_empire.CoreKingdom):0}", color);
             float nationalSentiment = NationalSentimentSystem.GetEmpire(_empire);
             statsRow.IShowStatsRow("national_sentiment", $"{nationalSentiment:0}%",
                 nationalSentiment >= 60f ? "#FF8A7A" : nationalSentiment >= 30f ? "#FFD34E" : color);

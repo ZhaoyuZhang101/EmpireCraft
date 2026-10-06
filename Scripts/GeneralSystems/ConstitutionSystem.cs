@@ -41,6 +41,8 @@ public static class ConstitutionSystem
     public const string ClauseSpeech = "speech";
     public const string ClauseNation = "nation";
     public const string ClauseCivilService = "civil_service";
+    public const string ClauseFarmland = "farmland";
+    public const string ClauseGrain = "grain";
     public const string ClauseTerm = "term";
     // 宪法页上"任期"拆成两行编辑，共用 ClauseTerm 的手定标记
     public const string ClauseTermYears = "term_years";
@@ -50,14 +52,14 @@ public static class ConstitutionSystem
     {
         ClauseFormOfState, ClausePowerCenter, ClauseHeadSelection, ClauseSuffrage, ClausePartySystem,
         ClauseTerritory, ClauseEconomy, ClauseReligion, ClauseEmergency, ClauseAmendment, ClauseTerm,
-        ClauseIdeologyIntensity, ClauseSpeech, ClauseNation, ClauseCivilService
+        ClauseIdeologyIntensity, ClauseSpeech, ClauseNation, ClauseCivilService, ClauseFarmland, ClauseGrain
     };
 
     // 宪法页的编辑行顺序
     public static readonly string[] EditableRows =
     {
         ClauseFormOfState, ClauseFoundingIdeology, ClauseIdeologyIntensity, ClauseSpeech, ClauseNation, ClausePowerCenter, ClauseHeadSelection, ClauseSuffrage, ClausePartySystem,
-        ClauseCivilService,
+        ClauseCivilService, ClauseFarmland, ClauseGrain,
         ClauseTerritory, ClauseEconomy, ClauseReligion, ClauseEmergency, ClauseAmendment, ClauseTermYears,
         ClauseMaxTerms
     };
@@ -308,6 +310,10 @@ public static class ConstitutionSystem
                     clauses.nation = nation; break;
                 case ClauseCivilService when Enum.TryParse(value, out ConstitutionCivilService civilService):
                     clauses.civil_service = civilService; break;
+                case ClauseFarmland when Enum.TryParse(value, out ConstitutionFarmland farmland):
+                    clauses.farmland = farmland; break;
+                case ClauseGrain when Enum.TryParse(value, out ConstitutionGrain grain):
+                    clauses.grain = grain; break;
                 case ClauseTermYears when int.TryParse(value, out int years):
                     clauses.term_years = UnityEngine.Mathf.Clamp(years, MinTermYears, MaxTermYears); break;
                 case ClauseMaxTerms when int.TryParse(value, out int terms):
@@ -340,6 +346,8 @@ public static class ConstitutionSystem
         target.speech = source.speech;
         target.nation = source.nation;
         target.civil_service = source.civil_service;
+        target.farmland = source.farmland;
+        target.grain = source.grain;
         target.term_years = source.term_years;
         target.max_terms = source.max_terms;
     }
@@ -377,6 +385,8 @@ public static class ConstitutionSystem
         clauses.speech = Vote(plan => plan.speech);
         clauses.nation = Vote(plan => plan.nation);
         clauses.civil_service = Vote(plan => plan.civil_service);
+        clauses.farmland = Vote(plan => plan.farmland);
+        clauses.grain = Vote(plan => plan.grain);
         clauses.max_terms = Vote(plan => plan.max_terms);
         float total = delegates.Sum(delegate_ => delegate_.weight);
         clauses.term_years = UnityEngine.Mathf.Clamp(UnityEngine.Mathf.RoundToInt(
@@ -531,6 +541,8 @@ public static class ConstitutionSystem
         ClauseSpeech => clauses.speech.ToString(),
         ClauseNation => clauses.nation.ToString(),
         ClauseCivilService => clauses.civil_service.ToString(),
+        ClauseFarmland => clauses.farmland.ToString(),
+        ClauseGrain => clauses.grain.ToString(),
         ClauseTermYears => clauses.term_years.ToString(),
         ClauseMaxTerms => clauses.max_terms.ToString(),
         _ => ""
@@ -598,6 +610,14 @@ public static class ConstitutionSystem
             case ClauseCivilService:
                 options.AddRange(new[] { ConstitutionCivilService.Mixed, ConstitutionCivilService.Professional,
                     ConstitutionCivilService.Spoils }.Select(value => value.ToString()));
+                break;
+            case ClauseFarmland:
+                options.AddRange(new[] { ConstitutionFarmland.Adaptive, ConstitutionFarmland.Strict,
+                    ConstitutionFarmland.None }.Select(value => value.ToString()));
+                break;
+            case ClauseGrain:
+                options.AddRange(new[] { ConstitutionGrain.Local, ConstitutionGrain.Tribute,
+                    ConstitutionGrain.Central }.Select(value => value.ToString()));
                 break;
             case ClauseTermYears:
                 for (int years = MinTermYears; years <= MaxTermYears; years++) options.Add(years.ToString());
@@ -673,6 +693,8 @@ public static class ConstitutionSystem
             case ClauseSpeech: clauses.speech = Parse<ConstitutionSpeech>(value); break;
             case ClauseNation: clauses.nation = Parse<ConstitutionNation>(value); break;
             case ClauseCivilService: clauses.civil_service = Parse<ConstitutionCivilService>(value); break;
+            case ClauseFarmland: clauses.farmland = Parse<ConstitutionFarmland>(value); break;
+            case ClauseGrain: clauses.grain = Parse<ConstitutionGrain>(value); break;
             case ClauseTermYears: clauses.term_years = int.Parse(value); break;
             case ClauseMaxTerms: clauses.max_terms = int.Parse(value); break;
             default: return false;
@@ -711,7 +733,7 @@ public static class ConstitutionSystem
     public static readonly string[] AgendaClauses =
     {
         ClauseEconomy, ClauseTerritory, ClauseReligion, ClauseSpeech, ClauseNation, ClauseIdeologyIntensity,
-        ClauseEmergency, ClauseCivilService
+        ClauseEmergency, ClauseCivilService, ClauseFarmland, ClauseGrain
     };
 
     // 某个理念的政党在这一条上的主张(与制宪会议用的同一套理念模板)
@@ -745,6 +767,8 @@ public static class ConstitutionSystem
             case ClauseSpeech: clauses.speech = Parse<ConstitutionSpeech>(value); break;
             case ClauseNation: clauses.nation = Parse<ConstitutionNation>(value); break;
             case ClauseCivilService: clauses.civil_service = Parse<ConstitutionCivilService>(value); break;
+            case ClauseFarmland: clauses.farmland = Parse<ConstitutionFarmland>(value); break;
+            case ClauseGrain: clauses.grain = Parse<ConstitutionGrain>(value); break;
             default: return false;
         }
         AddAmendment(constitution, clause, before, value, $"party:{partyId}");

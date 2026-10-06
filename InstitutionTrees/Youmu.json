@@ -121,6 +121,7 @@
     },
     {
       "id": "youmu_decimal_army",
+      "features": {"army_regional": 1, "army_mobilization": 0.2},
       "name_key": "institution_youmu_decimal_army",
       "description_key": "institution_youmu_decimal_army_desc",
       "branch": "military",
@@ -461,7 +462,7 @@
           "int_value": -5
         }
       ],
-      "features": {
+      "features": { "state_granary": 1,
         "vassal_authority": 100
       }
     },
@@ -517,6 +518,7 @@
     },
     {
       "id": "youmu_keshig_guard",
+      "features": {"army_standing": 1},
       "name_key": "institution_youmu_keshig_guard",
       "description_key": "institution_youmu_keshig_guard_desc",
       "branch": "military",
