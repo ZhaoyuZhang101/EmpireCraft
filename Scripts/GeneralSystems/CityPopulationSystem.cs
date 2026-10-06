@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reflection;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using HarmonyLib;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -43,7 +45,7 @@ public static class CityPopulationSystem
     private const float OvercrowdingLossRate = 0.25f;
 
     // ---- 并入普通人(无小人模式) ----
-    // 每座城保留的普通劳动者(给原版建造、种地、采集用)
+    // 每座城保留的普通劳动者(给原版建造、种地、采集用)；军人另算：太平时每城一名将领，交战时按兵额征召
     public const int KeptWorkersPerCity = 6;
     // 并入检查的间隔(游戏月)
     private const int FoldIntervalMonths = 1;
@@ -313,7 +315,9 @@ public static class CityPopulationSystem
             try
             {
                 FoldCommoners(city);
-                // 并入后立刻重数实体单位：刚并入的人已从"实体"挪到"背景"，上次校准后死去或新生的单位也一并更新，
+                RaiseLevies(city);
+                PopulationEconomySystem.Settle(city, Get(city), now);
+                // 并入/征召后立刻重数实体单位：刚并入的人已从"实体"挪到"背景"，上次校准后死去或新生的单位也一并更新，
                 // 否则在下次年度校准前同一个人会被同时算作实体和背景。无小人模式下城里单位很少，开销很小
                 Census(city, Get(city), keepBackground: true);
             }
@@ -324,55 +328,206 @@ public static class CityPopulationSystem
         }
     }
 
-    // 名人：保留为实体单位的人。君主、城主、军人、官僚、贵族、地主，党派/派系成员，
+    // 名人：保留为实体单位的人(军人另算，见 IsSoldier)。君主、城主、官僚、贵族、地主，党派/派系成员，
     // 正在谋划的人、玩家收藏或镜头跟随的人
     public static bool IsNotable(Actor actor)
     {
         if (actor?.data == null || actor.isRekt()) return true;
-        if (actor.isKing() || actor.isCityLeader() || actor.isWarrior() || actor.army != null) return true;
+        if (actor.isKing() || actor.isCityLeader()) return true;
         if (actor.isFavorite() || actor.isCameraFollowingUnit()) return true;
         if (actor.plot != null) return true;
         SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
         if (socialClass == SocialClass.Noble || socialClass == SocialClass.Officer ||
-            socialClass == SocialClass.Army || socialClass == SocialClass.Landlord) return true;
+            socialClass == SocialClass.Landlord) return true;
         if (actor.GetFaction() != null) return true;
         return false;
     }
 
-    // 把一座城里多余的普通人并入背景人口：保留 KeptWorkersPerCity 个劳动者，
-    // 再按空余兵额保留同等数量的成年人供原版征兵，其余的普通人移除单位、计入人口数据
+    public static bool IsSoldier(Actor actor) =>
+        actor != null && (actor.isWarrior() || actor.army != null || actor.is_army_captain);
+
+    // 无小人模式下的城市实体单位(参考 CK3 的征召兵)：
+    //   - 名人一律保留；
+    //   - 太平时每座城只驻扎一名实体将领(优先现任统领)，其余士兵解散回人口数据；
+    //   - 交战时士兵全部保留，并按空余兵额从背景人口里当场征召(见 RaiseLevies)；
+    //   - 普通人保留 KeptWorkersPerCity 个劳动者(成年人优先)，其余并入背景人口。
     public static int FoldCommoners(City city)
     {
         if (!AbstractPopulationEnabled || city?.units == null || city.units.Count == 0) return 0;
+        bool atWar = IsAtWar(city);
         var commoners = new List<Actor>();
+        var soldiers = new List<Actor>();
         foreach (Actor actor in city.units)
         {
             if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != city) continue;
             if (actor.asset == null || actor.asset.is_boat) continue;
             if (IsNotable(actor)) continue;
-            commoners.Add(actor);
+            if (IsSoldier(actor)) soldiers.Add(actor);
+            else commoners.Add(actor);
         }
-        int recruits = 0;
-        if (city.status != null)
-            recruits = Mathf.Max(0, city.status.warrior_slots - city.status.warriors_current);
-        int keep = KeptWorkersPerCity + recruits;
-        if (commoners.Count <= keep) return 0;
-        // 成年人优先留下(干活、当兵)，孩子优先并入
-        commoners.Sort((left, right) => right.isAdult().CompareTo(left.isAdult()));
-        int folded = 0;
-        for (int i = keep; i < commoners.Count; i++)
+
+        var toFold = new List<Actor>();
+        if (!atWar && soldiers.Count > 1)
         {
-            Actor actor = commoners[i];
+            // 留一名将领：现任统领优先，其次带着部队的人
+            soldiers.Sort((left, right) => GeneralRank(right).CompareTo(GeneralRank(left)));
+            for (int i = 1; i < soldiers.Count; i++) toFold.Add(soldiers[i]);
+        }
+        // 劳动者不够(被征去当兵、死亡)时，从背景人口里补上
+        for (int missing = KeptWorkersPerCity - commoners.Count; missing > 0; missing--)
+        {
+            PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f &&
+                                                               !string.IsNullOrEmpty(candidate.species));
+            if (group == null || SpawnFromGroup(city, group, soldier: false) == null) break;
+            RemoveBackground(group, 1f);
+        }
+        if (commoners.Count > KeptWorkersPerCity)
+        {
+            // 成年人优先留下干活，孩子优先并入
+            commoners.Sort((left, right) => right.isAdult().CompareTo(left.isAdult()));
+            for (int i = KeptWorkersPerCity; i < commoners.Count; i++) toFold.Add(commoners[i]);
+        }
+
+        foreach (Actor actor in toFold)
+        {
             SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
+            // 解散的士兵回到平民身份(按农民计入)，之后由同阶层思潮带着走
+            if (socialClass == SocialClass.Army) socialClass = SocialClass.Peasant;
             string culture = CultureService.GetActorCulture(actor) ?? "";
             string species = actor.asset?.id ?? "";
             PartyIdeology ideology = IdeologyPopulationSystem.Get(actor);
             // 不计入死亡统计、不写收藏日志
             actor.die(true, AttackType.Other, false, false);
             AddBackground(city, socialClass, culture, species, ideology, 1f);
-            folded++;
         }
-        return folded;
+        return toFold.Count;
+    }
+
+    private static int GeneralRank(Actor actor) =>
+        (actor.is_army_captain ? 4 : 0) + (actor.army != null ? 2 : 0) + (actor.isAdult() ? 1 : 0);
+
+    public static bool IsAtWar(City city) => city?.kingdom != null && city.kingdom.hasEnemies();
+
+    #endregion
+
+    #region 征召兵(无小人模式)
+
+    // 每次最多征召的人数，避免一帧里生成太多单位
+    private const int MaxLeviesPerPass = 30;
+    private static bool _spawnResolved;
+    private static MethodInfo _createWithSubspecies;
+
+    // 交战时按空余兵额从背景人口里当场生成士兵(在城里随机地块)，仗打完由 FoldCommoners 解散
+    public static int RaiseLevies(City city)
+    {
+        if (!AbstractPopulationEnabled || city?.status == null || city.kingdom == null || !IsAtWar(city)) return 0;
+        int need = Mathf.Min(MaxLeviesPerPass, city.status.warrior_slots - city.status.warriors_current);
+        int raised = 0;
+        for (int i = 0; i < need; i++)
+        {
+            PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f &&
+                                                               !string.IsNullOrEmpty(candidate.species));
+            if (group == null) break;
+            Actor actor = SpawnFromGroup(city, group, soldier: true);
+            if (actor == null) break;
+            RemoveBackground(group, 1f);
+            raised++;
+        }
+        return raised;
+    }
+
+    // 按人口组生成一个具体的人：物种、文化、理念取自人口组，加入本城与本国；soldier 为 true 时直接成为士兵
+    public static Actor SpawnFromGroup(City city, PopGroup group, bool soldier)
+    {
+        WorldTile tile = PickTile(city);
+        if (tile == null) return null;
+        Actor actor = CreateUnit(group.species, tile, city);
+        if (actor?.data == null) return null;
+        Culture culture = CultureService.GetNativeCultureObject(group.culture);
+        if (culture != null) actor.setCulture(culture);
+        actor.joinKingdom(city.kingdom);
+        actor.joinCity(city);
+        IdeologyPopulationSystem.Set(actor, group.ideology);
+        if (soldier)
+        {
+            actor.setProfession(UnitProfession.Warrior);
+            actor.SetSocialClass(SocialClass.Army);
+        }
+        else actor.SetSocialClass(group.social_class);
+        return actor;
+    }
+
+    private static WorldTile PickTile(City city)
+    {
+        if (city.zones == null || city.zones.Count == 0) return null;
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            TileZone zone = city.zones[UnityEngine.Random.Range(0, city.zones.Count)];
+            if (zone?.centerTile != null) return zone.centerTile;
+        }
+        return null;
+    }
+
+    // 优先用带亚种参数的 createNewUnit 重载，给新兵用本城的主要亚种(否则原版可能为每个新兵新建亚种)
+    private static Actor CreateUnit(string species, WorldTile tile, City city)
+    {
+        ResolveSpawn();
+        Subspecies subspecies = null;
+        try
+        {
+            subspecies = city.getMainSubspecies();
+        }
+        catch
+        {
+            // 取不到主要亚种就交给原版决定
+        }
+        if (_createWithSubspecies != null && subspecies != null)
+        {
+            try
+            {
+                ParameterInfo[] parameters = _createWithSubspecies.GetParameters();
+                object[] args = new object[parameters.Length];
+                bool idSet = false, tileSet = false;
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    Type type = parameters[i].ParameterType;
+                    if (type == typeof(string) && !idSet) { args[i] = species; idSet = true; }
+                    else if (type == typeof(WorldTile) && !tileSet) { args[i] = tile; tileSet = true; }
+                    else if (type == typeof(Subspecies)) args[i] = subspecies;
+                    else if (parameters[i].HasDefaultValue) args[i] = parameters[i].DefaultValue;
+                    else args[i] = type.IsValueType ? Activator.CreateInstance(type) : null;
+                }
+                if (_createWithSubspecies.Invoke(World.world.units, args) is Actor created) return created;
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 征召兵按亚种生成失败，改用默认生成: {exception.Message}");
+                _createWithSubspecies = null;
+            }
+        }
+        return World.world.units.createNewUnit(species, tile);
+    }
+
+    private static void ResolveSpawn()
+    {
+        if (_spawnResolved) return;
+        _spawnResolved = true;
+        foreach (MethodInfo method in AccessTools.GetDeclaredMethods(typeof(ActorManager)))
+        {
+            if (method.Name != nameof(ActorManager.createNewUnit) || method.ReturnType != typeof(Actor)) continue;
+            ParameterInfo[] parameters = method.GetParameters();
+            bool hasSubspecies = false, hasTile = false;
+            foreach (ParameterInfo parameter in parameters)
+            {
+                if (parameter.ParameterType == typeof(Subspecies)) hasSubspecies = true;
+                if (parameter.ParameterType == typeof(WorldTile)) hasTile = true;
+            }
+            if (hasSubspecies && hasTile)
+            {
+                _createWithSubspecies = method;
+                break;
+            }
+        }
     }
 
     #endregion

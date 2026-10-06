@@ -6,7 +6,7 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
-// 无小人模式：原版每次刷新城市状态时，把没有实体单位的背景人口也算进城市人口和已占用住房。
+// 无小人模式：太平时兵额压到 1(只驻扎一名将领)；原版每次刷新城市状态时，把没有实体单位的背景人口也算进城市人口和已占用住房。
 // 这样住房被背景人口占着，原版不会因为"空房很多"而无限生育；住满后又会照常盖新民居，
 // 城市能容纳的人数随建筑增长(容量本身仍由 getPopulationMaximum 按住房计算)。
 public class NoCommonersPatch : GamePatch
@@ -31,6 +31,9 @@ public class NoCommonersPatch : GamePatch
     {
         if (__instance?.status == null || !CityPopulationSystem.AbstractPopulationEnabled ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        // 太平时只驻扎一名实体将领：原版兵额压到 1，免得把留下的劳动者拉去当兵；交战时兵额照常，由征召兵补足
+        if (!CityPopulationSystem.IsAtWar(__instance) && __instance.status.warrior_slots > 1)
+            __instance.status.warrior_slots = 1;
         int background = CityPopulationSystem.BackgroundCount(__instance);
         if (background <= 0) return;
         // 原版的人口统计可能已经经过 getPopulationPeople(本模组已把背景人口算进去)，

@@ -38,4 +38,19 @@ public class CityPopulationData
     public double last_growth = -1d;
     // 上次校准时城里的实体单位数
     public int named_units;
+
+    // ---- 人口经济(无小人模式，见 PopulationEconomySystem) ----
+    // 上次结算产出与消耗的世界时间
+    public double last_economy = -1d;
+    // 未满一个整数单位的产出/消耗，留到下次结算累加
+    public Dictionary<string, float> output_carry = new Dictionary<string, float>();
+    public float food_need_carry;
+    public float construction_carry;
+    // 上一次结算的结果(每年折算)，给界面和日志看
+    public float last_jobs;
+    public float last_workforce;
+    public float last_food_output;
+    public float last_food_eaten;
+    public float last_food_shortage;
+    public float last_gold_output;
 }
