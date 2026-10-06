@@ -43,6 +43,8 @@ public class CityPopulationData
     public float levied;
     // 背景人口里农民阶层无地的比例(0~1，无小人模式，见 LandEconomySystem.UpdateBackgroundLand)
     public float background_landless;
+    // 背景人口的阶层结构是否已经调整过一次(旧存档背景人口几乎全是农民，第一次直接调整到位)
+    public bool classes_initialized;
     // 上次结算土地时的背景农民人数(人口减少时空出的地回到幸存者手里)
     public float background_peasants_last = -1f;
 

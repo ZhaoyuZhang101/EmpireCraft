@@ -316,6 +316,8 @@ public static class KingdomExtension
         public int proclamation_grudge_strength = 0;
         // 封国国王去世时记下其个人身份(原版会先清空国王)，推恩令据此找到他的儿子们。
         public long last_king_identity_id = -1L;
+        // 上一任君主的族谱身份(所有王国都记，无小人模式下从虚拟族谱里找继承人用)
+        public long last_ruler_identity_id = -1L;
         // 本国士兵数的历史峰值：只有"曾经有过军队、后来打光"的国家才会兵力崩溃、望风归降。
         public int peak_warriors = 0;
         // 共主联盟：城邦共主去世后，入盟城邦跟随盟主城邦(这个 id)的新君主；

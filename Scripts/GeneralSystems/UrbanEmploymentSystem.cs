@@ -40,7 +40,53 @@ public static class UrbanEmploymentSystem
         report.Employed = residents.Count(IsEmployed);
         report.Workers = residents.Count(actor => EmpireCaftActorJudgeClass.JudgeClass(actor) == SocialClass.Labour);
         report.AvailableResidents = residents.Count(actor => !IsEmployed(actor) && IsEligible(actor));
+        // 无小人模式：背景人口按阶层计入(真实人数)。工场岗位按户算出后折成人数
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            int perSlot = CityPopulationSystem.PeoplePerSlot(city);
+            Dictionary<SocialClass, float> classes = BackgroundAdults(city);
+            classes.TryGetValue(SocialClass.Merchant, out float merchants);
+            classes.TryGetValue(SocialClass.Labour, out float labour);
+            classes.TryGetValue(SocialClass.Peasant, out float peasants);
+            classes.TryGetValue(SocialClass.Citizen, out float citizens);
+            report.Merchants += (int)merchants;
+            report.Capacity = HouseholdCapacity(city) * perSlot;
+            report.Workers += (int)labour;
+            report.Employed = Math.Min(report.Capacity, report.Employed + (int)labour);
+            report.AvailableResidents += (int)(peasants + citizens);
+        }
         return report;
+    }
+
+    // 背景人口里各阶层的成年人(真实人数)
+    private static Dictionary<SocialClass, float> BackgroundAdults(City city)
+    {
+        var result = new Dictionary<SocialClass, float>();
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data?.groups == null) return result;
+        foreach (PopGroup group in data.groups)
+        {
+            float adults = group.Background * 0.7f;
+            if (adults <= 0f) continue;
+            result.TryGetValue(group.social_class, out float sum);
+            result[group.social_class] = sum + adults;
+        }
+        return result;
+    }
+
+    // 无小人模式：按户计的工场岗位(公式与实体居民相同，城市人口与商人数换成"实体 + 背景"的户数)，
+    // 背景人口里工人的比例由它决定(见 CityPopulationSystem.TargetClassShares)
+    public static int HouseholdCapacity(City city)
+    {
+        if (city == null || city.isRekt()) return 0;
+        int stage = GetStage(city);
+        int perSlot = CityPopulationSystem.PeoplePerSlot(city);
+        List<Actor> residents = GetAdults(city);
+        BackgroundAdults(city).TryGetValue(SocialClass.Merchant, out float merchants);
+        int adults = residents.Count + (int)(CityPopulationSystem.GetBackgroundTotal(city) * 0.7f / perSlot);
+        int merchantHouseholds = residents.Count(actor => actor.GetOrCreate().is_economic_merchant) +
+                                 (int)(merchants / perSlot);
+        return Capacity(city, stage, adults, merchantHouseholds);
     }
 
     public static void UpdateCity(City city)
@@ -93,10 +139,12 @@ public static class UrbanEmploymentSystem
         (int)InstitutionSystem.GetFeature(CultureService.GetMainCulture(city),
             InstitutionFeatures.UrbanProductionStage)));
 
-    private static int GetCapacity(City city, List<Actor> residents, int stage)
+    private static int GetCapacity(City city, List<Actor> residents, int stage) =>
+        Capacity(city, stage, residents.Count, residents.Count(actor => actor.GetOrCreate().is_economic_merchant));
+
+    private static int Capacity(City city, int stage, int adults, int merchants)
     {
-        if (stage <= 0 || residents.Count == 0) return 0;
-        int merchants = residents.Count(actor => actor.GetOrCreate().is_economic_merchant);
+        if (stage <= 0 || adults <= 0) return 0;
         int buildings = city.buildings?.Count ?? 0;
         int voyages = GetRecentVoyages(city);
         // 工厂(WarBox 的工厂/钢铁厂/火药厂等，类型在科技树 industry.factory_types 里配置)是最大的雇主
@@ -107,7 +155,7 @@ public static class UrbanEmploymentSystem
         // 工业技术让更多人口能进厂
         populationCap = Math.Min(0.6f, populationCap + TechnologySystem.GetEmploymentCapBonus(
             TechnologySystem.GetCultureOf(city)));
-        return Math.Min(demand, Math.Max(1, (int)Math.Ceiling(residents.Count * populationCap)));
+        return Math.Min(demand, Math.Max(1, (int)Math.Ceiling(adults * populationCap)));
     }
 
     public static int CountFactories(City city) =>

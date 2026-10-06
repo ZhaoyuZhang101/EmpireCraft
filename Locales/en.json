@@ -3236,6 +3236,7 @@
   "virtual_person_death_assassinated": "Was assassinated at the age of {0}.",
   "virtual_person_death_natural": "Died peacefully of old age at {0}.",
   "virtual_person_clan_dispersed": "The clan scattered; whereabouts unknown",
+  "virtual_heir_cadet_history": "With the main line of {0} extinct, {1} of a cadet branch succeeds to the throne.",
   "consultative_ratio_capped_title": "Consultative party at its cap",
   "consultative_ratio_capped_body": "Under a united front, consultative parties only take part in political consultation. Each may hold at most {0}% of the central share; anything above that goes to the leading party."
 }

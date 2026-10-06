@@ -288,6 +288,81 @@ public static class VirtualGenealogySystem
         DeathQueue.Tick();
     }
 
+    #region 继承人(无小人模式)
+
+    // 王位空缺、实体族人里找不到继承人时(皇族多半已成了虚拟族人)：按继承顺序——子女 → 孙辈 → 其他族人——
+    // 在虚拟族人里挑一位能继承的(优先成年人)，当场落成实体。皇族连可继承的虚拟族人也没有时，
+    // 从都城人口中生成一位宗室旁支编入皇族、改用皇族的姓，入继大统——封建王朝很少真正绝嗣
+    private static readonly ClanRelation[][] HeirPriority =
+    {
+        new[] { ClanRelation.CHILD },
+        new[] { ClanRelation.SSGB, ClanRelation.SSGG }
+    };
+
+    public static Actor RealizeHeir(Kingdom kingdom)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || kingdom?.data == null || kingdom.isRekt()) return null;
+        PersonalClanIdentity last = SpecificClanManager.getPerson(kingdom.GetOrCreate().last_ruler_identity_id);
+        SpecificClan clan = (kingdom.IsEmpire() ? kingdom.GetEmpire()?.EmpireSpecificClan : null) ?? last?._specificClan;
+        PersonalClanIdentity heir = null;
+        if (last != null)
+        {
+            List<(ClanRelation rel, PersonalClanIdentity id)> relations = SpecificClanManager.FindAllRelations(last);
+            foreach (ClanRelation[] group in HeirPriority)
+            {
+                heir = PickHeir(relations.Where(pair => group.Contains(pair.rel)).Select(pair => pair.id), last);
+                if (heir != null) break;
+            }
+            heir ??= PickHeir(relations.Select(pair => pair.id), last);
+        }
+        if (heir == null && clan != null) heir = PickHeir(clan.SnapshotPeople(), null);
+        Actor actor = heir?.Realize();
+        if (actor != null || clan == null || kingdom.capital == null) return actor;
+
+        // 宗室旁支入继
+        actor = CityPopulationSystem.SpawnCivilian(kingdom.capital);
+        if (actor == null) return null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(clan.name))
+            {
+                actor.GetModName().familyName = clan.name;
+                actor.GetModName().SetName(actor);
+            }
+            clan.addActor(actor);
+            string text = string.Format(LM.Get("virtual_heir_cadet_history"), kingdom.GetKingdomName(), actor.getName());
+            Layer.Empire empire = kingdom.IsEmpire() ? kingdom.GetEmpire() : null;
+            if (empire != null) EventRecorder.Record(empire, text, actor);
+            else EventRecorder.Record(kingdom, text, actor);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][虚拟族谱] 宗室旁支入继失败: {exception.Message}");
+        }
+        return actor;
+    }
+
+    private static PersonalClanIdentity PickHeir(IEnumerable<PersonalClanIdentity> people, PersonalClanIdentity last) =>
+        people.Where(person => person != null && person.is_alive && person.is_virtual && person.CanHeir(last))
+            .OrderByDescending(person => person.age >= HeadMinAge)
+            .ThenByDescending(person => person.age)
+            .FirstOrDefault();
+
+    // 正在统治某个王国或帝国的宗族(永不销户)
+    private static bool IsRulingClan(SpecificClan clan)
+    {
+        if (clan == null || World.world?.kingdoms == null) return false;
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+            if (kingdom?.data == null || kingdom.isRekt()) continue;
+            if (kingdom.IsEmpire() && kingdom.GetEmpire()?.EmpireSpecificClan == clan) return true;
+            if (kingdom.king != null && !kingdom.king.isRekt() && kingdom.king.GetSpecificClan() == clan) return true;
+        }
+        return false;
+    }
+
+    #endregion
+
     #region 族长(无小人模式)
 
     // 每个宗族至少保留一名实体族长：族长不会被并入虚拟人口；整个宗族都成了虚拟族人时，每年从中挑一位成年人落成实体当族长。
@@ -349,7 +424,8 @@ public static class VirtualGenealogySystem
         }
         List<PersonalClanIdentity> virtuals = people.Where(person => person.is_alive && person.is_virtual).ToList();
         if (virtuals.Count == 0) return;
-        if (clan.head_lost_to_calamity)
+        // 统治家族永不销户
+        if (clan.head_lost_to_calamity && !IsRulingClan(clan))
         {
             Disperse(clan, virtuals);
             return;

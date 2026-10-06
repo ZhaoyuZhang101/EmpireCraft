@@ -3236,6 +3236,7 @@
   "virtual_person_death_assassinated": "{0}岁时遇刺身亡。",
   "virtual_person_death_natural": "{0}岁时寿终正寝。",
   "virtual_person_clan_dispersed": "宗族离散，不知所终",
+  "virtual_heir_cadet_history": "{0}皇统已绝，以宗室旁支{1}入继大统。",
   "consultative_ratio_capped_title": "政协友党已达占比上限",
   "consultative_ratio_capped_body": "统一战线下，政协友党只参与政治协商，每党在中央的占比最多 {0}%，超出部分归领导党。"
 }

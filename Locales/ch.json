@@ -3236,6 +3236,7 @@
   "virtual_person_death_assassinated": "{0}歲時遇刺身亡。",
   "virtual_person_death_natural": "{0}歲時壽終正寢。",
   "virtual_person_clan_dispersed": "宗族離散，不知所終",
+  "virtual_heir_cadet_history": "{0}皇統已絕，以宗室旁支{1}入繼大統。",
   "consultative_ratio_capped_title": "政協友黨已達佔比上限",
   "consultative_ratio_capped_body": "統一戰線下，政協友黨只參與政治協商，每黨在中央的佔比最多 {0}%，超出部分歸領導黨。"
 }

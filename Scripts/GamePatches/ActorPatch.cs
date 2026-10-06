@@ -324,6 +324,8 @@ public class ActorPatch : GamePatch
         CityPopulationSystem.OnSoldierDied(__instance);
         VirtualGenealogySystem.OnActorDied(__instance, pType);
         Kingdom rulingKingdom = __instance.isKing() ? __instance.kingdom : null;
+        if (rulingKingdom != null)
+            rulingKingdom.GetOrCreate().last_ruler_identity_id = __instance.GetPersonalIdentity()?.id ?? -1L;
         if (rulingKingdom != null && !rulingKingdom.IsEmpire() && rulingKingdom.IsInEmpire())
             rulingKingdom.GetOrCreate().last_king_identity_id = __instance.GetPersonalIdentity()?.id ?? -1L;
         // 共主去世：城邦跟随盟主新君，封建王国按长幼分给子女

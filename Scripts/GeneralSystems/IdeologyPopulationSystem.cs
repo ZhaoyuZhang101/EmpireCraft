@@ -553,6 +553,21 @@ public static class IdeologyPopulationSystem
             else if (data.socialClass == SocialClass.Labour) workers++;
             else if (data.socialClass == SocialClass.Peasant) peasants++;
         }
+        // 无小人模式：背景人口的成年人按阶层计入
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            Data.CityPopulationData population = CityPopulationSystem.Get(city);
+            if (population?.groups != null)
+                foreach (Data.PopGroup group in population.groups)
+                {
+                    int count = Mathf.RoundToInt(group.Background * 0.7f);
+                    if (count <= 0) continue;
+                    adults += count;
+                    if (group.social_class is SocialClass.Merchant or SocialClass.Citizen) burghers += count;
+                    else if (group.social_class == SocialClass.Labour) workers += count;
+                    else if (group.social_class == SocialClass.Peasant) peasants += count;
+                }
+        }
         if (adults == 0) return default;
         float commerce = Mathf.Clamp01(burghers / (adults * 0.3f));
         float housing = UrbanCitizenSystem.GetCapacity(city, adults) > 0 ? 1f : 0f;

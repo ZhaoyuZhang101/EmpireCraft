@@ -44,6 +44,12 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
         if (NeedSuccession(pKingdom))
         {
+            // 无小人模式：实体族人里没有继承人时，从虚拟族谱里落成一位(见 VirtualGenealogySystem.RealizeHeir)
+            if (!pKingdom.HasHeir())
+            {
+                Actor virtualHeir = VirtualGenealogySystem.RealizeHeir(pKingdom);
+                if (virtualHeir != null) pKingdom.SetHeir(virtualHeir);
+            }
             if (pKingdom.HasHeir())
             {
                 ChooseKingFromHeir(pKingdom);  
@@ -62,6 +68,12 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         office.is_local = true;
         office.meta_object = pKingdom;
         office.Select(pKingdom, "国家");
+        // 无小人模式：选不出人(城里实体单位很少)时，从都城人口中生成一人出任
+        if (!pKingdom.hasKing() && CityPopulationSystem.AbstractPopulationEnabled && pKingdom.capital != null)
+        {
+            Actor ruler = CityPopulationSystem.SpawnCivilian(pKingdom.capital);
+            if (ruler != null) office.SetActor(ruler);
+        }
         return BehResult.Continue;
     }
 

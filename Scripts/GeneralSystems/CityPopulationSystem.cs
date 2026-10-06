@@ -540,6 +540,7 @@ public static class CityPopulationSystem
         if (years <= 0f) return;
         data.last_growth = now;
         AssimilateBackground(city, data, years);
+        DriftClasses(city, data, years);
 
         float background = 0f;
         foreach (PopGroup group in data.groups) background += group.Background;
@@ -570,6 +571,142 @@ public static class CityPopulationSystem
         float ratio = change / background;
         foreach (PopGroup group in data.groups)
             group.size = Mathf.Max(group.named, group.size + group.Background * ratio);
+    }
+
+    // ---- 背景人口的阶层结构(无小人模式) ----
+    // 实体单位的阶层由模组逐人判断(爵位 → 贵族、任官 → 官僚、地多 → 地主……)；背景人口没有这些个人条件，
+    // 按时代、制度与这座城自身的发展(规模、工厂、矿场、高级民居、无地比例、首都首府、城市国库)给出应有的阶层结构，
+    // 每月按差额靠拢(每年约 ClassDriftRate，第一次直接到位)，城市发展了结构就跟着变。
+    // 流动时保留文化、物种、理念，换了阶层后的理念再由理念交往慢慢变化。
+    private const float ClassDriftRate = 0.1f;
+
+    public static Dictionary<SocialClass, float> TargetClassShares(City city)
+    {
+        var shares = new Dictionary<SocialClass, float>();
+        Kingdom kingdom = city.kingdom;
+        Regime regime = kingdom?.GetRegime();
+        RegimeType? type = regime?.type;
+        int households = Households(city);
+        float size = Mathf.Clamp01(households / 200f);
+        int factories = 0;
+        int mines = 0;
+        bool advancedHousing = false;
+        try
+        {
+            factories = UrbanEmploymentSystem.CountFactories(city);
+            advancedHousing = UrbanCitizenSystem.GetCapacity(city, Mathf.Max(1, households)) > 0;
+            if (city.buildings != null)
+                foreach (Building building in city.buildings)
+                    if (building?.asset?.type == "type_mine" && !building.isUnderConstruction()) mines++;
+        }
+        catch
+        {
+            // 取不到就按没有算
+        }
+        // 商贸：有市场、码头的城才有成规模的商人；古代乡村小城没有商人
+        bool market = city.hasBuildingType("type_market");
+        bool docks = city.hasBuildingType("type_docks");
+        float trade = (market ? 0.03f : 0f) + (docks ? 0.02f : 0f);
+        bool town = households >= 50 || CityConstructionSystem.SeatBonus(city) > 0f;
+        // 工人：城市工场岗位(按生产阶段、建筑、商人、航运、工厂算，见 UrbanEmploymentSystem)占成年人口的比例，
+        // 加上伐木采矿等体力活
+        float urban = 0f;
+        try
+        {
+            urban = Mathf.Clamp01(UrbanEmploymentSystem.HouseholdCapacity(city) / Mathf.Max(1f, households * 0.7f));
+        }
+        catch
+        {
+            // 算不出按没有工场
+        }
+        bool landMarket = LandEconomySystem.IsLandMarketOpen(kingdom);
+        bool landlords = landMarket && RegimeManager.AllowsLandlordClass(type);
+        float landless = Get(city)?.background_landless ?? 0f;
+        if (ModernStability.IsModern(kingdom))
+        {
+            shares[SocialClass.Noble] = RegimeManager.IsMonarchy(type) ? 0.005f : 0f;
+            shares[SocialClass.Officer] = 0.03f;
+            shares[SocialClass.Landlord] = landlords ? Mathf.Min(0.03f, landless * 0.05f) : 0f;
+            shares[SocialClass.Merchant] = 0.02f + trade + 0.02f * size;
+            shares[SocialClass.Labour] = Mathf.Clamp(urban + 0.05f, 0.05f, 0.45f);
+            shares[SocialClass.Citizen] = advancedHousing ? 0.25f : 0.1f;
+        }
+        else
+        {
+            bool feudal = type is RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.YouMu;
+            bool bureaucratic = GranarySystem.Enabled(kingdom);
+            shares[SocialClass.Noble] = feudal ? 0.02f : 0.008f;
+            shares[SocialClass.Officer] = bureaucratic ? 0.02f : 0.01f;
+            shares[SocialClass.Landlord] = landlords ? Mathf.Clamp(landless * 0.08f, 0.005f, 0.05f) : 0f;
+            shares[SocialClass.Merchant] = trade > 0f || town ? trade + 0.02f * size : 0f;
+            shares[SocialClass.Labour] = Mathf.Min(0.4f, urban + 0.02f + 0.01f * mines);
+            shares[SocialClass.Citizen] = advancedHousing ? 0.05f : 0.01f * size;
+        }
+        // 城市自身的发展：首都、首府是官府与朝廷所在，官僚、贵族、商人更多；城市国库越充裕，商人、市民越多
+        float seat = CityConstructionSystem.SeatBonus(city);
+        float treasury = Mathf.Clamp01(city.GetMoney() / 1000f);
+        shares[SocialClass.Officer] *= 1f + 2f * seat;
+        shares[SocialClass.Noble] *= 1f + seat;
+        if (shares[SocialClass.Merchant] > 0f || seat > 0f) shares[SocialClass.Merchant] += 0.02f * seat + 0.02f * treasury;
+        shares[SocialClass.Citizen] += 0.03f * treasury;
+        shares[SocialClass.Army] = 0f;
+        float others = 0f;
+        foreach (float share in shares.Values) others += share;
+        shares[SocialClass.Peasant] = Mathf.Max(0.1f, 1f - others);
+        return shares;
+    }
+
+    private static void DriftClasses(City city, CityPopulationData data, float years)
+    {
+        if (!AbstractPopulationEnabled || data?.groups == null) return;
+        float total = 0f;
+        var current = new Dictionary<SocialClass, float>();
+        foreach (PopGroup group in data.groups)
+        {
+            float amount = group.Background;
+            if (amount <= 0f) continue;
+            total += amount;
+            current.TryGetValue(group.social_class, out float sum);
+            current[group.social_class] = sum + amount;
+        }
+        if (total < 1f) return;
+        Dictionary<SocialClass, float> shares = TargetClassShares(city);
+        float shareSum = 0f;
+        foreach (float share in shares.Values) shareSum += share;
+        float rate = data.classes_initialized ? Mathf.Clamp01(ClassDriftRate * years) : 1f;
+        data.classes_initialized = true;
+
+        // 各阶层比目标多出的部分按 rate 流出，按缺口大小流向少于目标的阶层
+        var deficits = new Dictionary<SocialClass, float>();
+        float deficitTotal = 0f;
+        foreach (KeyValuePair<SocialClass, float> pair in shares)
+        {
+            current.TryGetValue(pair.Key, out float have);
+            float gap = total * pair.Value / shareSum - have;
+            if (gap <= 0f) continue;
+            deficits[pair.Key] = gap;
+            deficitTotal += gap;
+        }
+        if (deficitTotal <= 0f) return;
+        var moves = new List<(PopGroup from, float amount)>();
+        foreach (PopGroup group in data.groups)
+        {
+            float amount = group.Background;
+            if (amount <= 0f || !current.TryGetValue(group.social_class, out float have)) continue;
+            shares.TryGetValue(group.social_class, out float share);
+            float surplus = have - total * share / shareSum;
+            if (surplus <= 0f) continue;
+            float outflow = amount * Mathf.Clamp01(surplus / have) * rate;
+            if (outflow > 0.001f) moves.Add((group, outflow));
+        }
+        foreach ((PopGroup from, float amount) in moves)
+        {
+            float removed = RemoveBackground(from, amount);
+            if (removed <= 0f) continue;
+            foreach (KeyValuePair<SocialClass, float> deficit in deficits)
+                AddBackground(city, deficit.Key, from.culture, from.species, from.ideology,
+                    removed * deficit.Value / deficitTotal);
+        }
     }
 
     // 背景人口的文化同化：城里非主流文化的居民每年有 AssimilationRate 的比例改用主流文化
