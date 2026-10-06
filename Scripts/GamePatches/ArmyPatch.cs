@@ -19,6 +19,19 @@ public class ArmyPatch : GamePatch
             AccessTools.Method(typeof(Army), nameof(Army.loadDataCaptains)),
             prefix: new HarmonyMethod(GetType(), nameof(load_captains))
         );
+        new Harmony(nameof(attacking_zone_available)).Patch(
+            AccessTools.Method(typeof(ai.behaviours.BehCityActorCheckAttack), nameof(ai.behaviours.BehCityActorCheckAttack.isAttackingZoneAvailable)),
+            prefix: new HarmonyMethod(GetType(), nameof(attacking_zone_available))
+        );
+    }
+
+    // 原版出征检查直接读 pActor.army：士兵刚征召还没编入军队、或所在军队刚解散时为空，空引用后整条 AI 批处理报错。
+    // 没有军队、没有城市的士兵这一轮不出征
+    public static bool attacking_zone_available(Actor pActor, ref bool __result)
+    {
+        if (pActor?.army != null && pActor.city != null) return true;
+        __result = false;
+        return false;
     }
 
     // 读档时军队的王国已不存在(存档时王国已灭亡，save 把它清成了 -1)：原版 loadDataCaptains 取王国颜色时
