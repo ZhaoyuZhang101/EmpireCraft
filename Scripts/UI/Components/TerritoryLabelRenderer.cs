@@ -50,22 +50,14 @@ public static class TerritoryLabelRenderer
     private static TerritoryLabelRendererHost _host;
     private static RectTransform _root;
     private static Text _text_template;
-    private static Font _clerical_font;
-    private static bool _clerical_font_resolved;
+    // 已建好的本机字体(按字体名)；字体设置改变时清空(见 TerritoryFontSettings)
+    private static readonly Dictionary<string, Font> _os_fonts = new(StringComparer.OrdinalIgnoreCase);
     private static Font _latin_font;
     private static bool _latin_font_resolved;
     private static Sprite _culture_lock_sprite;
     private static Texture2D _culture_lock_texture;
     private static int _submission_frame = -1;
     private static MetaType _submission_mode = MetaType.None;
-
-    private static readonly string[] ClericalFontNames =
-    {
-        "LiSu",
-        "隶书",
-        "STLiti",
-        "华文隶书"
-    };
 
     private static readonly string[] LatinFontNames =
     {
@@ -306,11 +298,41 @@ public static class TerritoryLabelRenderer
         return fallback;
     }
 
+    // 字体按铭牌字体设置(TerritoryFontSettings)：游戏字体 / 自动挑本机的传统书体 / 指定字体。
+    // 自动模式下含英文字母的名字用西文衬线字体
     private static Font ResolveTerritoryFont(Font fallback, string text, bool richText = false)
     {
-        return ContainsLatin(text, richText)
-            ? ResolveInstalledFont(LatinFontNames, fallback, ref _latin_font, ref _latin_font_resolved)
-            : ResolveInstalledFont(ClericalFontNames, fallback, ref _clerical_font, ref _clerical_font_resolved);
+        string choice = TerritoryFontSettings.Choice;
+        if (choice == TerritoryFontSettings.Game) return fallback;
+        if (choice == TerritoryFontSettings.Auto && ContainsLatin(text, richText))
+            return ResolveInstalledFont(LatinFontNames, fallback, ref _latin_font, ref _latin_font_resolved);
+        string fontName = TerritoryFontSettings.ResolveFontName();
+        return fontName == null ? fallback : GetOsFont(fontName) ?? fallback;
+    }
+
+    public static Font GetOsFont(string fontName)
+    {
+        if (string.IsNullOrEmpty(fontName)) return null;
+        if (_os_fonts.TryGetValue(fontName, out Font cached)) return cached;
+        Font font = null;
+        try
+        {
+            font = Font.CreateDynamicFontFromOSFont(fontName, 64);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"EmpireCraft could not load font {fontName}: {exception.Message}");
+        }
+        _os_fonts[fontName] = font;
+        return font;
+    }
+
+    // 字体设置改变：丢掉已建好的字体，各铭牌下一帧按新设置换字体
+    public static void ResetFonts()
+    {
+        _os_fonts.Clear();
+        _latin_font = null;
+        _latin_font_resolved = false;
     }
 
     public static void HideAll()

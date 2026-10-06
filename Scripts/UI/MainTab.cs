@@ -106,6 +106,8 @@ internal static class MainTab
             "EmpireCoreWindowTitle");
         BugReportWindow.CreateWindow(nameof(BugReportWindow),
             "bug_report_window_title");
+        TerritoryFontWindow.CreateWindow(nameof(TerritoryFontWindow),
+            "territory_font_window_title");
         OnlineUpdateWindow.CreateWindow(nameof(OnlineUpdateWindow),
             "online_update_window_title");
         // InstitutionWindow 换成了 AbstractWideWindow(真宽窗口)，注册方式跟其它
@@ -299,6 +301,20 @@ internal static class MainTab
         PowerButton simpleNameplateButton = PowerButtonCreator.CreateToggleButton("simple_nameplate",
             SpriteTextureLoader.getSprite("ui/icons/iconHideUI"));
         AddButton(DISPLAY_GROUP, simpleNameplateButton);
+
+        // 领土铭牌字体：自动(传统书体优先) / 游戏字体 / 本机任一字体
+        var territoryFontButton = PowerButtonCreator.CreateWindowButton("territory_font_button",
+            nameof(TerritoryFontWindow), SpriteTextureLoader.getSprite("ui/icons/iconBooks"));
+        AddButton(DISPLAY_GROUP, territoryFontButton);
+        territoryFontButton._button.OnHover(() =>
+        {
+            Tooltip.show(territoryFontButton, "normal", new TooltipData
+            {
+                tip_name = "territory_font_button",
+                tip_description = "territory_font_button_description"
+            });
+        });
+        territoryFontButton._button.OnHoverOut(Tooltip.hideTooltip);
 
         // 帝国视图下是否叠加显示同盟
         SwitchEmpireAllianceButton.init();
