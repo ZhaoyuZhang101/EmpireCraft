@@ -253,9 +253,14 @@ public static partial class ParliamentSystem
         }
         if (!KeepsCabinet(empire)) RetireCabinet(empire);
 
-        // 旧存档：议席指向读档后已不存在的派系(以前派系不进存档)，重新举行大选
-        if (state.parliament_seats.Any(seat => FindFaction(empire, seat.faction_id) == null))
+        // 议席指向已不存在的派系(政党解散、被取缔，或旧存档派系不进存档)：
+        // 全部议席都失效才重新大选；只是个别议席失效就转给议员现在的党或按得票补选，
+        // 不能因此提前大选(否则政党一解散就改选一次，届数飞涨)
+        if (state.parliament_seats.Count > 0 &&
+            state.parliament_seats.All(seat => FindFaction(empire, seat.faction_id) == null))
             state.last_parliament_election = -1d;
+        else if (ReassignOrphanSeats(empire, state))
+            ElectPrimeMinister(empire, state);
         bool firstSession = state.parliament_seats.Count == 0 && state.last_parliament_election < 0;
         if (state.parliament_seats.Count == 0 || state.last_parliament_election < 0 ||
             Date.getYearsSince(state.last_parliament_election) >= TermYears(empire))
@@ -375,6 +380,46 @@ public static partial class ParliamentSystem
             changed = true;
         }
         return changed;
+    }
+
+    // 所属派系已不存在的议席：议员还在且已转入现存的党，议席随人转党；否则按得票(没有得票记录时按议席)
+    // 补给现存最大的议会党团，由该党补选一人。返回是否有议席变动
+    private static bool ReassignOrphanSeats(Empire empire, ConstitutionalEconomyState state)
+    {
+        List<ParliamentSeat> orphans = state.parliament_seats
+            .Where(seat => FindFaction(empire, seat.faction_id) == null).ToList();
+        if (orphans.Count == 0) return false;
+        var used = new HashSet<long>(state.parliament_seats
+            .Where(seat => !orphans.Contains(seat) && seat.actor_id > 0).Select(seat => seat.actor_id));
+        FixedFaction fallback = state.parliament_seats
+            .Where(seat => !orphans.Contains(seat))
+            .Select(seat => seat.faction_id).Distinct()
+            .Select(id => FindFaction(empire, id)).Where(faction => faction != null)
+            .OrderByDescending(faction => state.vote_shares != null &&
+                                          state.vote_shares.TryGetValue(faction.GetID(), out float share) ? share : 0f)
+            .ThenByDescending(faction => state.parliament_seats.Count(seat => seat.faction_id == faction.GetID()))
+            .FirstOrDefault();
+        foreach (ParliamentSeat seat in orphans)
+        {
+            Actor holder = seat.actor_id > 0 ? World.world.units.get(seat.actor_id) : null;
+            FixedFaction current = IsValidMember(empire, holder) ? holder.GetFaction() : null;
+            if (current != null && FindFaction(empire, current.GetID()) != null)
+            {
+                seat.faction_id = current.GetID();
+                used.Add(holder.id);
+                continue;
+            }
+            if (fallback == null)
+            {
+                seat.actor_id = -1L;
+                continue;
+            }
+            seat.faction_id = fallback.GetID();
+            Actor replacement = PickCandidate(empire, fallback, seat.district_kingdom_id, used);
+            seat.actor_id = replacement?.id ?? -1L;
+            if (replacement != null) used.Add(replacement.id);
+        }
+        return true;
     }
 
     private static bool IsSeatHolderValid(Empire empire, ParliamentSeat seat)
