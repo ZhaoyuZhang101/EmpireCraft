@@ -63,8 +63,10 @@ public static class IdeologyEducationSystem
                             actor.GetFaction()?.IsParty != true)
             .OrderBy(actor => actor.getAge())
             .Take(quota).ToList() ?? new List<Actor>();
-        if (pupils.Count == 0) return;
         foreach (Actor pupil in pupils) IdeologyPopulationSystem.Set(pupil, ideology);
+        // 无小人模式：背景人口按同样的强度接受国民教育(年轻人为主，这里按全体折算)
+        int converted = CityPopulationSystem.ConvertBackground(city, ideology, _ => push);
+        if (pupils.Count == 0 && converted == 0) return;
         LayerCityCache.Invalidate(city);
     }
 }

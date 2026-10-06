@@ -702,6 +702,8 @@ public static class LandEconomySystem
         Actor leader = city.units?.Where(actor => IsLivingResident(actor) && IsAgrarianCommoner(actor) &&
                                                   actor.CanFoundCivKingdom())
             .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+        // 无小人模式：城里没有农民实体，从背景人口里生成带头的人
+        leader ??= CityPopulationSystem.SpawnRebelLeader(city);
         if (leader == null) return false;
         Kingdom origin = city.kingdom;
         Kingdom rebel = city.makeOwnKingdom(leader, pRebellion: true);

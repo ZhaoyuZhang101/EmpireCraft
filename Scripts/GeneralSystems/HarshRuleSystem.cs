@@ -240,6 +240,9 @@ public static class HarshRuleSystem
         Actor leader = city.units?.Where(actor => actor != null && !actor.isRekt() && actor.isAlive() &&
                                                   actor.isAdult() && !actor.isKing() && actor.CanFoundCivKingdom())
             .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+        // 无小人模式：民变由百姓带头，不由城里的官员、城主带头
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+            leader = CityPopulationSystem.SpawnRebelLeader(city) ?? leader;
         if (leader == null) return;
         Kingdom rebel = city.makeOwnKingdom(leader, pRebellion: true);
         if (rebel == null) return;
@@ -409,6 +412,12 @@ public static class HarshRuleSystem
                 .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
                                 actor != old && actor.kingdom?.GetEmpire() == empire)
                 .OrderByDescending(actor => actor.renown).FirstOrDefault();
+            // 无小人模式：党内实体很少，推举一位本党理念的读书人接任
+            if (successor == null && CityPopulationSystem.AbstractPopulationEnabled)
+            {
+                successor = PartySystem.SpawnFounder(empire, governing.Ideology);
+                if (successor != null) governing.AddMember(successor);
+            }
             if (successor != null)
             {
                 governing.SetLeader(successor);

@@ -552,7 +552,7 @@ public static class PartyBanSystem
             ? parties.FirstOrDefault(party => party.GetID() == state?.one_party_id)
             : null;
         Dictionary<FixedFaction, float> strength = parties.ToDictionary(party => party,
-            party => party.AllMembers.Count(actor => actor != null && actor.isAlive()) + 1f);
+            party => PartySystem.OrganizationSize(empire, party) + 1f);
 
         Dictionary<FixedFaction, int> national;
         if (leader != null)

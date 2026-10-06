@@ -421,6 +421,15 @@ public static class PartySystem
                             counts.TryGetValue(IdeologyPopulationSystem.Get(actor), out int supporters) &&
                             supporters >= population * IdeologyPopulationSystem.PartyFoundingShare)
             .OrderByDescending(actor => actor.renown).FirstOrDefault();
+        if (founder == null && CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            // 无小人模式：取支持率达到组党门槛、还没有政党代表的理念里支持者最多的一个，从京师推举发起人
+            PartyIdeology? candidate = counts
+                .Where(pair => !represented.Contains(pair.Key) && IsIdeologyUnlocked(empire, pair.Key) &&
+                               pair.Value >= population * IdeologyPopulationSystem.PartyFoundingShare)
+                .OrderByDescending(pair => pair.Value).Select(pair => (PartyIdeology?)pair.Key).FirstOrDefault();
+            if (candidate.HasValue) founder = SpawnFounder(empire, candidate.Value);
+        }
         if (founder == null) return;
         PartyIdeology ideology = IdeologyPopulationSystem.Get(founder);
         FixedFaction party = CreateParty(empire, regime, ideology, founder);
@@ -557,13 +566,13 @@ public static class PartySystem
         {
             if (party == null || party.Ban || ParliamentSystem.IsGoverningFaction(empire, party.GetID()) ||
                 PartyBanSystem.IsLeadingParty(empire, party)) continue;
-            int members = party.AllMembers.Count(actor => actor != null && !actor.isRekt() && actor.isAlive());
+            float members = OrganizationSize(empire, party);
             bool settled = party.PartyFoundedAt >= 0d && Date.getYearsSince(party.PartyFoundedAt) >= MinYearsBeforeMerge;
             int seats = state?.parliament_seats?.Count(seat => seat.faction_id == party.GetID()) ?? 0;
             float vote = state?.vote_shares != null && state.vote_shares.TryGetValue(party.GetID(), out float share)
                 ? share
                 : 1f;
-            bool empty = members == 0;
+            bool empty = members < 1f;
             bool defunct = settled && (members < DefunctMembers || seats == 0 && vote < DefunctVoteShare);
             if (!empty && (!defunct || Random.value >= DefunctDissolveChance)) continue;
             if (DissolveParty(empire, party)) return;
@@ -636,14 +645,16 @@ public static class PartySystem
         if (IdeologyPopulationSystem.GetEmpireShare(empire, ideology) < IdeologyPopulationSystem.PartyFoundingShare)
         { reason = "party_found_insufficient_support"; return false; }
         if (GetParties(empire).Count >= PlayerMaxParties) { reason = "party_found_too_many"; return false; }
-        if (FindFounder(empire, ideology) == null) { reason = "party_found_no_founder"; return false; }
+        if (FindFounder(empire, ideology) == null && !CityPopulationSystem.AbstractPopulationEnabled)
+        { reason = "party_found_no_founder"; return false; }
         return true;
     }
 
     public static FixedFaction PlayerFoundParty(Empire empire, PartyIdeology ideology)
     {
         if (!CanPlayerFound(empire, ideology, out _)) return null;
-        Actor founder = FindFounder(empire, ideology);
+        Actor founder = FindFounder(empire, ideology) ?? SpawnFounder(empire, ideology);
+        if (founder == null) return null;
         Regime regime = empire.CoreKingdom.GetRegime();
         FixedFaction party = CreateParty(empire, regime, ideology, founder);
         Recruit(party, GetCitizens(empire), FoundRecruits +
@@ -836,6 +847,38 @@ public static class PartySystem
                 for (int i = 0; i < parties.Count; i++) votes[parties[i]] += adults * weights[i] / sum;
             }
         }
+    }
+
+    // ---- 政党组织规模(无小人模式) ----
+    // 实体党员很少(只有名人)，按实体党员算，政党会被误判"名存实亡"、代表大会席位近乎随机。
+    // 组织规模 = 实体党员 + 背景人口中本党理念支持者户数的 VirtualMemberShare(同理念的几个党平分)
+    private const float VirtualMemberShare = 0.05f;
+
+    public static float OrganizationSize(Empire empire, FixedFaction party)
+    {
+        float members = party.AllMembers.Count(actor => actor != null && !actor.isRekt() && actor.isAlive());
+        if (!CityPopulationSystem.AbstractPopulationEnabled || empire == null) return members;
+        float supporters = 0f;
+        foreach (City city in CityPopulationSystem.CitiesOf(empire.kingdoms_list))
+        {
+            Data.CityPopulationData data = CityPopulationSystem.Get(city);
+            if (data?.groups == null) continue;
+            float perSlot = CityPopulationSystem.PeoplePerSlot(city);
+            foreach (Data.PopGroup group in data.groups)
+                if (group.ideology == party.Ideology) supporters += group.Background * 0.7f / perSlot;
+        }
+        int sameIdeology = Math.Max(1, GetParties(empire).Count(other => other.Ideology == party.Ideology));
+        return members + supporters * VirtualMemberShare / sameIdeology;
+    }
+
+    // 找不到实体发起人时(无小人模式)，从京师人口里推举一位该理念的读书人
+    public static Actor SpawnFounder(Empire empire, PartyIdeology ideology)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled) return null;
+        City capital = empire?.CoreKingdom?.capital;
+        Actor founder = capital == null ? null : CityPopulationSystem.SpawnScholar(capital);
+        if (founder != null) IdeologyPopulationSystem.Set(founder, ideology);
+        return founder;
     }
 
     // 普选后按行政区选举：每个行政区(帝国内的一国)按人口分得议席(至少 1 席)，区内按得票用顿特法分给各党。

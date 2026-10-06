@@ -243,6 +243,16 @@ public static class ProvincialPoliticsSystem
             .OrderBy(actor => actor.IsOnOffice() ? 1 : 0)
             .ThenByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? 0d)
             .ThenByDescending(actor => actor.renown).FirstOrDefault();
+        // 无小人模式：本省没有本党实体党员时，从本省都城人口里推举一位读书人入党出任
+        if (candidate == null && CityPopulationSystem.AbstractPopulationEnabled && province.capital != null)
+        {
+            candidate = CityPopulationSystem.SpawnScholar(province.capital);
+            if (candidate != null)
+            {
+                party.AddMember(candidate);
+                IdeologyPopulationSystem.Set(candidate, party.Ideology);
+            }
+        }
         if (candidate == null) return;
         office.SetActor(candidate);
         if (office.GetActor() == candidate)

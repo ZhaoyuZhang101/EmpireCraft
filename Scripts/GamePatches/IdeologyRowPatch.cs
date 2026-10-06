@@ -106,6 +106,10 @@ public class IdeologyRowPatch : GamePatch
         }
         Religion religion = data.religion;
         Dictionary<PartyIdeology, int> followers = Count(religion?.units);
+        // 无小人模式：信这个宗教的城市里的背景人口
+        if (religion != null && CityPopulationSystem.AbstractPopulationEnabled && World.world?.cities != null)
+            CityPopulationSystem.AddBackgroundCounts(World.world.cities.Where(c => c?.religion == religion),
+                followers, group => group.ideology);
         PartyIdeology main = Dominant(followers);
         tooltip.setTitle(PartySystem.GetIdeologyName(main), RowTitle, Hex(main));
         AddCounts(tooltip, null, followers);
@@ -193,7 +197,11 @@ public class IdeologyRowPatch : GamePatch
             if (kingdom != null && !kingdom.isRekt())
                 return (Dominant(KingdomCounts(kingdom)), () => new TooltipData { kingdom = kingdom });
         }
-        return (Dominant(Count(religion?.units)), () => new TooltipData { religion = religion });
+        Dictionary<PartyIdeology, int> believers = Count(religion?.units);
+        if (religion != null && CityPopulationSystem.AbstractPopulationEnabled && World.world?.cities != null)
+            CityPopulationSystem.AddBackgroundCounts(World.world.cities.Where(c => c?.religion == religion),
+                believers, group => group.ideology);
+        return (Dominant(believers), () => new TooltipData { religion = religion });
     }
 
     #endregion

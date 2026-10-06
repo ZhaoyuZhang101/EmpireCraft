@@ -191,6 +191,8 @@ public class EmpireCraftActorCheckWarrior : GameAIActorBase
     // 由 WarPatch.update 每帧调用；内部只跑一次。
     public static void ProcessEmergencyRecruitmentJobs()
     {
+        // 无小人模式：士兵由军制从背景人口征召，城里只剩官员、城主等名人，不再紧急征召实体单位
+        if (EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled) return;
         int frame = Time.frameCount;
 
         if (_lastRecruitQueueProcessFrame == frame)

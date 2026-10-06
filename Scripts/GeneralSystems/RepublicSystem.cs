@@ -430,7 +430,10 @@ public static class RepublicSystem
         .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom != empire.CoreKingdom &&
                           kingdom.hasKing() && !kingdom.IsFactionRebelling() &&
                           !kingdom.IsLocalRebelling() && !kingdom.getWars().Any() &&
-                          party.AllMembers.Any(actor => actor?.kingdom == kingdom))
+                          (party.AllMembers.Any(actor => actor?.kingdom == kingdom) ||
+                           // 无小人模式：党员实体很少，本藩国该理念支持率达到两成也算有群众基础
+                           CityPopulationSystem.AbstractPopulationEnabled &&
+                           IdeologyPopulationSystem.GetKingdomShare(kingdom, party.Ideology) >= 0.2f))
         .OrderByDescending(kingdom => IdeologyPopulationSystem.GetKingdomShare(kingdom, party.Ideology))
         .ThenByDescending(kingdom => party.AllMembers.Count(actor => actor?.kingdom == kingdom))
         .ThenByDescending(kingdom => kingdom.countTotalWarriors()).FirstOrDefault();

@@ -247,6 +247,8 @@ public static class IdeologyPopulationSystem
         return population == 0 ? 0f : (float)supporters / population;
     }
 
+    private const int MilitarySampleSize = 10;
+
     public static float GetMilitaryShare(Empire empire, PartyIdeology ideology)
     {
         if (empire == null) return 0f;
@@ -257,6 +259,14 @@ public static class IdeologyPopulationSystem
             if (actor == null || actor.isRekt() || !actor.isAlive() || !actor.isWarrior()) continue;
             soldiers++;
             if (Get(actor) == ideology) supporters++;
+        }
+        // 无小人模式：太平时只有几名将领，按他们算的比例会忽高忽低；兵源出自全国人口，
+        // 实体士兵不足 MilitarySampleSize 人时按人口中该理念的比例补足权重
+        if (CityPopulationSystem.AbstractPopulationEnabled && soldiers < MilitarySampleSize)
+        {
+            float weight = soldiers / (float)MilitarySampleSize;
+            float soldierShare = soldiers == 0 ? 0f : (float)supporters / soldiers;
+            return weight * soldierShare + (1f - weight) * GetEmpireShare(empire, ideology);
         }
         return soldiers == 0 ? 0f : (float)supporters / soldiers;
     }
