@@ -449,16 +449,35 @@ public static partial class ParliamentSystem
         RepublicSystem.UpdateHeadOfState(empire);
     }
 
-    // 派系领袖优先（须是本届议员或至少是本派合格成员），否则取本派排名最高的议员
-    private static Actor FindPartyLeader(Empire empire, ConstitutionalEconomyState state, FixedFaction faction)
+    // 派系领袖优先（须是本届议员或至少是本派合格成员），否则取本派排名最高的议员。
+    // termLimited：大选后组阁时按宪法"最多 N 届"条款，已做满的人不能再出任(共和国)
+    private static Actor FindPartyLeader(Empire empire, ConstitutionalEconomyState state, FixedFaction faction,
+        bool termLimited = false)
     {
+        bool Eligible(Actor actor) => IsValidMember(empire, actor) && (!termLimited || !HasReachedTermLimit(empire, state, actor));
         Actor leader = faction.GetLeader();
-        if (IsValidMember(empire, leader)) return leader;
+        if (Eligible(leader)) return leader;
         string factionId = faction.GetID();
         return state.parliament_seats
             .Where(seat => seat.faction_id == factionId && seat.actor_id > 0)
             .Select(seat => World.world.units.get(seat.actor_id))
-            .FirstOrDefault(actor => IsValidMember(empire, actor));
+            .FirstOrDefault(Eligible);
+    }
+
+    // 宪法任期限制：共和国里以执政党领袖身份赢得大选的届数达到"最多 N 届"后不能再出任总理(兼元首)
+    private static bool HasReachedTermLimit(Empire empire, ConstitutionalEconomyState state, Actor actor)
+    {
+        if (actor == null || !RepublicSystem.IsRepublic(empire)) return false;
+        int limit = ConstitutionSystem.GetClauses(empire)?.max_terms ?? 0;
+        return limit > 0 && state.head_terms != null && state.head_terms.TryGetValue(actor.id, out int served) &&
+               served >= limit;
+    }
+
+    public static int GetServedTerms(Empire empire, Actor actor)
+    {
+        ConstitutionalEconomyState state = GetState(empire);
+        return actor != null && state?.head_terms != null && state.head_terms.TryGetValue(actor.id, out int served)
+            ? served : 0;
     }
 
     #endregion
@@ -512,10 +531,13 @@ public static partial class ParliamentSystem
                ranked.FirstOrDefault();
     }
 
-    // 议员与总理的资格：在世、成年、身在本帝国，且不是皇帝本人
+    // 议员与总理的资格：在世、成年、身在本帝国；君主国的皇帝本人不能当议员和总理。
+    // 共和国的元首就是大选后执政党领袖(总理)本人(见 RepublicSystem.UpdateHeadOfState)，不能排除，
+    // 否则总理一出任元首就"失效"，议会改选党内另一人，下次重新确认政府时又把他装成元首，元首和总理轮番更替
     private static bool IsValidMember(Empire empire, Actor actor) =>
         actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && !actor.IsWarMachine() &&
-        actor.kingdom?.GetEmpire() == empire && actor.id != empire.Emperor?.id;
+        actor.kingdom?.GetEmpire() == empire &&
+        (actor.id != empire.Emperor?.id || RepublicSystem.IsRepublic(empire));
 
     private static FixedFaction FindFaction(Empire empire, string factionId) =>
         string.IsNullOrWhiteSpace(factionId)

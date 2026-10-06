@@ -603,8 +603,11 @@ public static class PartySystem
             if (MemberAffinity(member, party) > MemberAffinity(member, big)) member.SetFaction(party);
         }
         // 出走的议员带着议席走(跨党)，不留给原党补选
+        bool governing = ParliamentSystem.IsGoverningFaction(empire, big.GetID());
         foreach (ParliamentSeat seat in state.parliament_seats.Where(seat => seat.faction_id == big.GetID() && seat.actor_id > 0))
             if (World.world.units.get(seat.actor_id)?.GetFaction() == party) seat.faction_id = party.GetID();
+        // 执政党分裂：重新确认政府(多数可能已经不保，需要重新组阁)
+        if (governing) ParliamentSystem.ReelectGovernment(empire);
         Record(empire, string.Format(LM.Get("party_split_history"), rebel.getName(), big.Name, party.Name,
             GetIdeologyName(ideology)), rebel);
     }

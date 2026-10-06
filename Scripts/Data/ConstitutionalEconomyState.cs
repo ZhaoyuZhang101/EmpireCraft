@@ -45,6 +45,8 @@ public sealed class GovernmentAgenda
     public float support;
     public float threshold;
     public bool stalled;
+    // 开始卡在二读(票数不够)的时间；-1 表示没有卡住
+    public double stalled_since = -1d;
 }
 
 // 一个外国对本国施加的理念压力(民意系统每年重算，只用于显示和转化)
@@ -170,6 +172,8 @@ public sealed class ConstitutionalEconomyState
     public double last_parliament_election = -1d;
     // 上一次实际举行大选的时间(last_parliament_election 会被置 -1 表示"请求改选"，这里不会)，用于提前大选的冷却
     public double last_general_election_held = -1d;
+    // 共和国：每人以执政党领袖身份赢得大选、出任总理的届数(宪法"最多 N 届"条款据此限任)
+    public Dictionary<long, int> head_terms = new();
     public double last_parliament_by_election = -1d;
     // 议会选出的总理大臣
     public long prime_minister_id = -1L;

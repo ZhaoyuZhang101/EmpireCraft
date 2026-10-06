@@ -30,6 +30,8 @@ public static partial class ParliamentSystem
     private const float MaxCoalitionDistance = 110f;
     // 一边拥宪一边反宪的两派之间额外的隔阂
     private const float ConstitutionalRift = 100f;
+    // 施政议程票数不够、卡在二读满这么多年就搁置
+    private const int StalledAgendaYears = 3;
 
     private sealed class GovernmentPlan
     {
@@ -168,7 +170,9 @@ public static partial class ParliamentSystem
         if (announce == null && excluded == null && TryKeepGovernment(empire, state, blocs, total)) return;
 
         GovernmentPlan plan = FormGovernment(empire, state, blocs, total, excluded);
-        Actor primeMinister = plan == null ? null : FindPartyLeader(empire, state, plan.Formateur);
+        // 大选后组阁受宪法任期限制：党魁已做满届数就由本党另推一人
+        bool termLimited = announce == "election";
+        Actor primeMinister = plan == null ? null : FindPartyLeader(empire, state, plan.Formateur, termLimited);
         // 选中的派系一个合格人选都没有时，按议席顺序往下找能组阁的派系
         if (primeMinister == null)
         {
@@ -176,7 +180,7 @@ public static partial class ParliamentSystem
             foreach ((FixedFaction faction, int seats) in blocs)
             {
                 if (excluded != null && excluded.Contains(faction.GetID())) continue;
-                primeMinister = FindPartyLeader(empire, state, faction);
+                primeMinister = FindPartyLeader(empire, state, faction, termLimited);
                 if (primeMinister == null) continue;
                 plan = new GovernmentPlan
                     { Formateur = faction, Members = { (faction, seats) }, Type = GovernmentMinority, Seats = seats };
@@ -195,6 +199,12 @@ public static partial class ParliamentSystem
 
         state.prime_minister_id = primeMinister.id;
         state.prime_minister_faction_id = plan.Formateur.GetID();
+        // 共和国：记下赢得大选出任总理(兼元首)的届数
+        if (termLimited && RepublicSystem.IsRepublic(empire))
+        {
+            state.head_terms ??= new Dictionary<long, int>();
+            state.head_terms[primeMinister.id] = (state.head_terms.TryGetValue(primeMinister.id, out int served) ? served : 0) + 1;
+        }
         state.government_type = plan.Type;
         state.government_seats = plan.Seats;
         state.coalition_faction_ids = plan.Members.Select(item => item.faction.GetID()).ToList();
@@ -453,6 +463,12 @@ public static partial class ParliamentSystem
             ElectPrimeMinister(empire, state, "no_confidence", excluded);
             RepublicSystem.UpdateHeadOfState(empire);
         }
+        else if (!CanCallSnapElection(state))
+        {
+            // 刚选过不久(提前大选冷却中)：不解散议会，由其余政党组建看守(少数派)政府
+            ElectPrimeMinister(empire, state, "no_confidence", excluded);
+            RepublicSystem.UpdateHeadOfState(empire);
+        }
         else
         {
             EventRecorder.Record(empire, string.Format(LM.Get("parliament_snap_election_history"), country));
@@ -477,6 +493,12 @@ public static partial class ParliamentSystem
         if (alternative != null && alternative.Type != GovernmentMinority &&
             FindPartyLeader(empire, state, alternative.Formateur) != null)
         {
+            ElectPrimeMinister(empire, state, "no_confidence", excluded);
+            RepublicSystem.UpdateHeadOfState(empire);
+        }
+        else if (!CanCallSnapElection(state))
+        {
+            // 刚选过不久(提前大选冷却中)：由其余政党组建看守(少数派)政府
             ElectPrimeMinister(empire, state, "no_confidence", excluded);
             RepublicSystem.UpdateHeadOfState(empire);
         }
@@ -553,6 +575,16 @@ public static partial class ParliamentSystem
         agenda.support = supportShare;
         agenda.threshold = threshold;
         agenda.stalled = supportShare < threshold;
+        // 卡在二读太久(票数始终不够)就搁置，让政府改提别的议程，不能一条议程挂到换届
+        if (!agenda.stalled) agenda.stalled_since = -1d;
+        else if (agenda.stalled_since < 0d) agenda.stalled_since = World.world.getCurWorldTime();
+        else if (Date.getYearsSince(agenda.stalled_since) >= StalledAgendaYears)
+        {
+            EventRecorder.Record(empire, string.Format(LM.Get("government_agenda_shelved_history"), country,
+                governing.Name, AgendaText(agenda, current)));
+            state.government_agenda = null;
+            return;
+        }
         float gain = agenda.stalled ? 12f * supportShare / threshold : 34f * (1f - 0.4f * opposeShare);
         gain *= Mathf.Pow(0.7f, reluctantPartners);
         // 地方抗衡：在野党执政的行政区抵制中央议程(见 ProvincialPoliticsSystem)
