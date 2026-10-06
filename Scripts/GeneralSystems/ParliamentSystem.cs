@@ -297,6 +297,17 @@ public static partial class ParliamentSystem
         }
     }
 
+    // 政治原因的提前大选(民意不信任、革命浪潮、废君危机)距上次实际大选至少间隔这么多年；
+    // 制度变动(宪法改选举制度、开关党禁、革命后重组)引起的改选不受限制
+    public const int MinYearsBetweenSnapElections = 2;
+
+    public static bool CanCallSnapElection(ConstitutionalEconomyState state)
+    {
+        if (state == null || World.world == null) return false;
+        double last = state.last_general_election_held >= 0d ? state.last_general_election_held : state.last_parliament_election;
+        return last < 0d || Date.getYearsSince(last) >= MinYearsBetweenSnapElections;
+    }
+
     public static void Dissolve(ConstitutionalEconomyState state)
     {
         state.parliament_seats.Clear();
@@ -321,6 +332,7 @@ public static partial class ParliamentSystem
         state.parliament_seats.Clear();
         state.last_parliament_election = World.world.getCurWorldTime();
         state.last_parliament_by_election = World.world.getCurWorldTime();
+        state.last_general_election_held = World.world.getCurWorldTime();
         state.parliament_term++;
         // 开放党禁后议席按选票分给政党；此前按各派系中央占比分
         bool partyPolitics = PartySystem.IsActive(empire);

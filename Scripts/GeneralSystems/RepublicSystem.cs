@@ -150,6 +150,8 @@ public static class RepublicSystem
         FixedFaction governing = PartySystem.GetGovernmentParty(empire);
         if (ParliamentSystem.HasParliament(empire) && governing?.Ideology == PartyIdeology.Conservatism)
         {
+            // 刚选过(冷却中)：内阁勉强撑住，今年不倒阁
+            if (!ParliamentSystem.CanCallSnapElection(state)) return;
             // 保守派内阁顶不住压力倒台：提前大选，重组内阁
             state.last_parliament_election = -1d;
             state.abolition_pressure = Mathf.Max(0f, state.abolition_pressure - 15f);

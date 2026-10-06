@@ -289,9 +289,9 @@ public static class PublicOpinionSystem
         if (level < CivilResistance) return;
         float backlash = Backlash(empire);
         empire.AddMandate(-Mathf.Max(1, Mathf.RoundToInt((level == RevolutionaryWave ? 2 : 1) * backlash)));
-        // 不信任案：有议会、不是一党制，距上次大选满一年时，抵制 25% / 革命浪潮 50% 的概率内阁倒台、提前大选
+        // 不信任案：有议会、不是一党制，距上次大选满两年时，抵制 25% / 革命浪潮 50% 的概率内阁倒台、提前大选
         if (ParliamentSystem.HasParliament(empire) && !RepublicSystem.IsOneParty(empire) &&
-            state.last_parliament_election >= 0d && Date.getYearsSince(state.last_parliament_election) >= 1 &&
+            state.last_parliament_election >= 0d && ParliamentSystem.CanCallSnapElection(state) &&
             UnityEngine.Random.value < 0.25f * (level - 1))
         {
             state.last_parliament_election = -1d;
@@ -363,6 +363,8 @@ public static class PublicOpinionSystem
                 ideologyName, party.Name));
             return;
         }
+        // 刚选过(冷却中)就不再提前大选，等下一轮革命浪潮
+        if (!ParliamentSystem.CanCallSnapElection(state)) return;
         state.opinion_wave_elections++;
         state.last_parliament_election = -1d;
         Announce(empire, string.Format(LM.Get("public_opinion_election_log"), empire.GetEmpireName(), ideologyName));

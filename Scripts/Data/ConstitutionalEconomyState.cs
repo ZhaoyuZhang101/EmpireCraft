@@ -168,6 +168,8 @@ public sealed class ConstitutionalEconomyState
     // 第几届议会；每次全面改选 +1
     public int parliament_term;
     public double last_parliament_election = -1d;
+    // 上一次实际举行大选的时间(last_parliament_election 会被置 -1 表示"请求改选"，这里不会)，用于提前大选的冷却
+    public double last_general_election_held = -1d;
     public double last_parliament_by_election = -1d;
     // 议会选出的总理大臣
     public long prime_minister_id = -1L;
