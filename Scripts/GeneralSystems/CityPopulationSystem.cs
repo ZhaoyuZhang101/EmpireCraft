@@ -22,9 +22,31 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class CityPopulationSystem
 {
     private const double SliceBudgetMs = 2d;
-    // 背景人口在住房充足时的年自然增长率，以及超出住房上限时每年流失的超出部分比例
-    private const float BackgroundGrowthRate = 0.03f;
+    // ---- 背景人口的生育与死亡(每年) ----
+    // 基础出生率/死亡率：吃得饱、住得下、不打仗时，每年自然增长约 2%
+    private const float BaseBirthRate = 0.04f;
+    private const float BaseDeathRate = 0.02f;
+    // 人均存粮达到这个值算"吃得饱"；低于 FamineFoodPerCapita 发生饥荒
+    private const float ComfortFoodPerCapita = 1f;
+    private const float FamineFoodPerCapita = 0.2f;
+    private const float FamineDeathRate = 0.08f;
+    // 粮食越富余生得越多，最多到基础出生率的 1.5 倍
+    private const float MaxFoodBirthFactor = 1.5f;
+    // 经济越繁荣(商人、市民多)：死亡率下降，生育意愿也下降(人口转型)
+    private const float ProsperityDeathReduction = 0.5f;
+    private const float ProsperityBirthReduction = 0.4f;
+    // 城里有敌军占领的地块(战乱)时额外的死亡率
+    private const float WarDeathRate = 0.04f;
+    // 住房剩下不到两成时出生率开始按比例下降，住满则不再出生
+    private const float HousingSlowdownShare = 0.2f;
+    // 超出住房上限的人每年有这么多比例离开或死去
     private const float OvercrowdingLossRate = 0.25f;
+
+    // ---- 并入普通人(无小人模式) ----
+    // 每座城保留的普通劳动者(给原版建造、种地、采集用)
+    public const int KeptWorkersPerCity = 6;
+    // 并入检查的间隔(游戏月)
+    private const int FoldIntervalMonths = 1;
     // 人数低于这个值的人口组在结算后删除，避免碎片组越积越多
     private const float MinimumGroupSize = 0.05f;
     // 背景人口每年向本城同阶层名人的理念分布靠拢的比例：名人(有实体的单位)照常受交往、党派、
@@ -32,6 +54,8 @@ public static class CityPopulationSystem
     private const float BackgroundOpinionDrift = 0.3f;
 
     private static readonly Queue<City> PendingCities = new();
+    private static readonly Queue<City> PendingFolds = new();
+    private static double _lastFoldPass = -1d;
     private static object _world;
     private static double _lastPass = -1d;
 
@@ -48,8 +72,10 @@ public static class CityPopulationSystem
     public static void ResetWorldState()
     {
         PendingCities.Clear();
+        PendingFolds.Clear();
         _world = World.world;
         _lastPass = -1d;
+        _lastFoldPass = -1d;
         _passMilliseconds = 0d;
         _passCities = 0;
     }
@@ -73,6 +99,8 @@ public static class CityPopulationSystem
         if (!ReferenceEquals(_world, world)) ResetWorldState();
 
         double now = world.getCurWorldTime();
+        if (AbstractPopulationEnabled) TickFolds(world, now);
+        else PendingFolds.Clear();
         if (PendingCities.Count == 0)
         {
             bool due = _lastPass < 0d || now < _lastPass || Date.getYearsSince(_lastPass) >= 1;
@@ -116,7 +144,8 @@ public static class CityPopulationSystem
         CityPopulationData data = Get(city);
         if (data == null) return;
         if (AbstractPopulationEnabled) GrowBackground(city, data, now);
-        Census(city, data, keepBackground: AbstractPopulationEnabled);
+        // 背景人口始终保留：关掉开关时只是冻结(不增减、不计入统计)，重新打开后接着用
+        Census(city, data, keepBackground: true);
         if (AbstractPopulationEnabled) DriftBackgroundTowardNamed(data, BackgroundOpinionDrift);
         data.last_census = now;
     }
@@ -176,7 +205,10 @@ public static class CityPopulationSystem
         data.named_units = named;
     }
 
-    // 背景人口的自然增减：住房有余时按增长率增长(不超过空余住房)，超出住房上限时流失一部分超出人口
+    // 背景人口的自然增减(每年结算一次)：
+    //   出生 = 基础出生率 × 粮食系数 × (1 - 繁荣度 × 0.4) × 住房系数
+    //   死亡 = 基础死亡率 × (1 - 繁荣度 × 0.5) + 饥荒死亡率(人均存粮过低) + 战乱死亡率(城中有敌占地块)
+    //   超出住房上限的部分每年再流失 25%。住房上限由城里的民居等建筑决定(getPopulationMaximum)
     private static void GrowBackground(City city, CityPopulationData data, double now)
     {
         if (data.last_growth < 0d || now < data.last_growth)
@@ -192,16 +224,155 @@ public static class CityPopulationSystem
         foreach (PopGroup group in data.groups) background += group.Background;
         if (background <= 0f) return;
 
-        float capacity = Mathf.Max(0, city.getPopulationMaximum());
-        float total = GetTotal(data);
-        float change = total < capacity
-            ? Mathf.Min(background * BackgroundGrowthRate * years, capacity - total)
-            : -Mathf.Min(background, (total - capacity) * OvercrowdingLossRate * years);
+        GrowthFactors factors = GetGrowthFactors(city, data);
+        float change = background * (factors.BirthRate - factors.DeathRate) * years;
+        // 出生不能超过空余住房
+        if (change > 0f) change = Mathf.Min(change, Mathf.Max(0f, factors.Capacity - factors.Total));
+        if (factors.Total > factors.Capacity)
+            change -= Mathf.Min(background, (factors.Total - factors.Capacity) * OvercrowdingLossRate * years);
+        change = Mathf.Max(change, -background);
         if (Mathf.Abs(change) < 0.001f) return;
         // 增减按各组背景人口的比例分摊
         float ratio = change / background;
         foreach (PopGroup group in data.groups)
             group.size = Mathf.Max(group.named, group.size + group.Background * ratio);
+    }
+
+    public readonly struct GrowthFactors
+    {
+        public readonly float Total, Capacity, FoodPerCapita, Prosperity, BirthRate, DeathRate;
+        public readonly bool Famine, War;
+
+        public GrowthFactors(float total, float capacity, float foodPerCapita, float prosperity, float birthRate,
+            float deathRate, bool famine, bool war)
+        {
+            Total = total;
+            Capacity = capacity;
+            FoodPerCapita = foodPerCapita;
+            Prosperity = prosperity;
+            BirthRate = birthRate;
+            DeathRate = deathRate;
+            Famine = famine;
+            War = war;
+        }
+    }
+
+    // 当前的年出生率、死亡率及其成因(界面和日志可以直接显示)
+    public static GrowthFactors GetGrowthFactors(City city, CityPopulationData data = null)
+    {
+        data ??= Get(city);
+        float total = GetTotal(data);
+        float capacity = Mathf.Max(0, city.getPopulationMaximum());
+        float food = 0f;
+        try
+        {
+            food = city.getTotalFood();
+        }
+        catch
+        {
+            // 读不到存粮按吃得饱处理
+            food = total * ComfortFoodPerCapita;
+        }
+        float foodPerCapita = total > 0f ? food / total : ComfortFoodPerCapita;
+        float prosperity = Mathf.Clamp01(IdeologyPopulationSystem.CachedEconomy(city).Prosperity);
+        bool famine = foodPerCapita < FamineFoodPerCapita;
+        bool war = city.GetOrCreate().OccupiedStatus?.Count > 0;
+
+        float foodFactor = Mathf.Clamp(foodPerCapita / ComfortFoodPerCapita, 0f, MaxFoodBirthFactor);
+        float housingFactor = capacity <= 0f ? 0f
+            : Mathf.Clamp01((capacity - total) / Mathf.Max(1f, capacity * HousingSlowdownShare));
+        float birth = BaseBirthRate * foodFactor * (1f - ProsperityBirthReduction * prosperity) * housingFactor;
+        float death = BaseDeathRate * (1f - ProsperityDeathReduction * prosperity) +
+                      (famine ? FamineDeathRate : 0f) + (war ? WarDeathRate : 0f);
+        return new GrowthFactors(total, capacity, foodPerCapita, prosperity, birth, death, famine, war);
+    }
+
+    #endregion
+
+    #region 并入普通人(无小人模式)
+
+    // 每个游戏月把全部城市排队检查一次，分帧处理(与年度结算共用每帧时间上限)
+    private static void TickFolds(MapBox world, double now)
+    {
+        if (PendingFolds.Count == 0)
+        {
+            bool due = _lastFoldPass < 0d || now < _lastFoldPass || Date.getMonthsSince(_lastFoldPass) >= FoldIntervalMonths;
+            if (!due) return;
+            _lastFoldPass = now;
+            foreach (City city in world.cities)
+                if (city?.data != null && !city.isRekt()) PendingFolds.Enqueue(city);
+            if (PendingFolds.Count == 0) return;
+        }
+        using var timing = new PerfTimer("无小人模式并入普通人");
+        Stopwatch watch = Stopwatch.StartNew();
+        while (PendingFolds.Count > 0 && watch.Elapsed.TotalMilliseconds < SliceBudgetMs)
+        {
+            City city = PendingFolds.Dequeue();
+            if (city?.data == null || city.isRekt() ||
+                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city)) continue;
+            try
+            {
+                FoldCommoners(city);
+                // 并入后立刻重数实体单位：刚并入的人已从"实体"挪到"背景"，上次校准后死去或新生的单位也一并更新，
+                // 否则在下次年度校准前同一个人会被同时算作实体和背景。无小人模式下城里单位很少，开销很小
+                Census(city, Get(city), keepBackground: true);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 无小人模式并入普通人失败({city.data?.name}): {exception.Message}");
+            }
+        }
+    }
+
+    // 名人：保留为实体单位的人。君主、城主、军人、官僚、贵族、地主，党派/派系成员，
+    // 正在谋划的人、玩家收藏或镜头跟随的人
+    public static bool IsNotable(Actor actor)
+    {
+        if (actor?.data == null || actor.isRekt()) return true;
+        if (actor.isKing() || actor.isCityLeader() || actor.isWarrior() || actor.army != null) return true;
+        if (actor.isFavorite() || actor.isCameraFollowingUnit()) return true;
+        if (actor.plot != null) return true;
+        SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
+        if (socialClass == SocialClass.Noble || socialClass == SocialClass.Officer ||
+            socialClass == SocialClass.Army || socialClass == SocialClass.Landlord) return true;
+        if (actor.GetFaction() != null) return true;
+        return false;
+    }
+
+    // 把一座城里多余的普通人并入背景人口：保留 KeptWorkersPerCity 个劳动者，
+    // 再按空余兵额保留同等数量的成年人供原版征兵，其余的普通人移除单位、计入人口数据
+    public static int FoldCommoners(City city)
+    {
+        if (!AbstractPopulationEnabled || city?.units == null || city.units.Count == 0) return 0;
+        var commoners = new List<Actor>();
+        foreach (Actor actor in city.units)
+        {
+            if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != city) continue;
+            if (actor.asset == null || actor.asset.is_boat) continue;
+            if (IsNotable(actor)) continue;
+            commoners.Add(actor);
+        }
+        int recruits = 0;
+        if (city.status != null)
+            recruits = Mathf.Max(0, city.status.warrior_slots - city.status.warriors_current);
+        int keep = KeptWorkersPerCity + recruits;
+        if (commoners.Count <= keep) return 0;
+        // 成年人优先留下(干活、当兵)，孩子优先并入
+        commoners.Sort((left, right) => right.isAdult().CompareTo(left.isAdult()));
+        int folded = 0;
+        for (int i = keep; i < commoners.Count; i++)
+        {
+            Actor actor = commoners[i];
+            SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
+            string culture = CultureService.GetActorCulture(actor) ?? "";
+            string species = actor.asset?.id ?? "";
+            PartyIdeology ideology = IdeologyPopulationSystem.Get(actor);
+            // 不计入死亡统计、不写收藏日志
+            actor.die(true, AttackType.Other, false, false);
+            AddBackground(city, socialClass, culture, species, ideology, 1f);
+            folded++;
+        }
+        return folded;
     }
 
     #endregion
