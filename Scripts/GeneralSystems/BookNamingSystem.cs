@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -87,8 +88,7 @@ public static class BookNamingSystem
             ["$dynasty$"] = dynasty,
             ["$year_name$"] = empire != null && empire.HasYearName() ? empire.data.year_name : null,
             ["$emperor$"] = Tidy(empire?.Emperor?.getName()),
-            ["$past_emperor$"] = past == null ? null
-                : !string.IsNullOrWhiteSpace(past.miaohao_name) ? past.miaohao_name : Tidy(past.emperor),
+            ["$past_emperor$"] = Tidy(PastEmperorName(past)),
             ["$past_year_name$"] = string.IsNullOrWhiteSpace(past?.year_name) ? null : past.year_name
         };
         string result = pattern;
@@ -99,6 +99,72 @@ public static class BookNamingSystem
             result = result.Replace(pair.Key, pair.Value);
         }
         return result.Contains('$') ? null : result.Trim();
+    }
+
+    // 历史保存的是庙号前缀/后缀的本地化键，不能把前缀键直接当作先帝姓名。
+    private static string PastEmperorName(EmpireCraftHistory history)
+    {
+        if (history == null) return null;
+        string prefix = LocalizedTemplePart(history.miaohao_name);
+        string suffix = LocalizedTemplePart(history.miaohao_suffix);
+        if (!string.IsNullOrWhiteSpace(prefix) &&
+            (!string.IsNullOrWhiteSpace(suffix) ||
+             history.miaohao_name.IndexOf("miaohaoprefixes_", StringComparison.Ordinal) < 0))
+            return IsChinese() ? prefix + suffix : OverallHelperFunc.JoinNameParts(prefix, suffix);
+        return history.emperor;
+    }
+
+    private static string LocalizedTemplePart(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        string text = LM.Get(value);
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        if (text == value && (value.Contains("miaohaoprefixes_") || value.Contains("miaohaosuffixes_")))
+            return null;
+        return text;
+    }
+
+    private static readonly Regex LegacyTemplePrefix = new(@"(?:first|normal)_miaohaoprefixes_[a-z]+",
+        RegexOptions.CultureInvariant);
+
+    private static string RepairLegacyTitle(string title, IEnumerable<EmpireCraftHistory> history)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return title;
+        return LegacyTemplePrefix.Replace(title, match =>
+        {
+            string prefix = LocalizedTemplePart(match.Value);
+            if (prefix == null) return match.Value;
+            // 旧书只保存了前缀。记录能唯一确定完整庙号时补齐后缀，否则只翻译已知部分。
+            List<string> names = (history ?? Enumerable.Empty<EmpireCraftHistory>())
+                .Where(record => record?.miaohao_name == match.Value &&
+                                 LocalizedTemplePart(record.miaohao_suffix) != null)
+                .Select(PastEmperorName).Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.Ordinal).ToList();
+            return names.Count == 1 ? names[0] : prefix;
+        });
+    }
+
+    // 帝国史书加载完成后修复已生成的书，保留原有题材、作者与卷号。
+    public static int RepairLegacyNames()
+    {
+        if (World.world?.books == null) return 0;
+        int repaired = 0;
+        foreach (Book book in World.world.books)
+        {
+            if (book?.data == null || book.isRekt() || string.IsNullOrEmpty(book.name) ||
+                !LegacyTemplePrefix.IsMatch(book.name)) continue;
+            Kingdom kingdom = World.world.kingdoms.get(book.data.author_kingdom_id);
+            string title = RepairLegacyTitle(book.name, kingdom?.GetEmpire()?.data?.history);
+            if (title == book.name) continue;
+            book.setName(title);
+            repaired++;
+        }
+        if (repaired > 0)
+        {
+            _usedWorld = null;
+            _usedNames = null;
+        }
+        return repaired;
     }
 
     private static readonly string[] DynastySuffixes = { "王朝", "帝国", "帝國", "朝", "国", "國" };
@@ -135,6 +201,57 @@ public static class BookNamingSystem
         _usedNames = new HashSet<string>(World.world.books.Select(book => book.name)
             .Where(name => !string.IsNullOrEmpty(name)), StringComparer.Ordinal);
         return _usedNames;
+    }
+
+    // 取一个世界里没用过的书名(撞名加"卷二、卷三")并登记
+    public static string ClaimUnique(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || World.world == null) return name;
+        HashSet<string> used = UsedNames();
+        name = EnsureUnique(name, used);
+        used.Add(name);
+        return name;
+    }
+
+    public static bool IsUsed(string name) => !string.IsNullOrEmpty(name) && World.world != null && UsedNames().Contains(name);
+
+    // 带 key 的词库条目：文化自己的 Culture_<文化>/<文化><name>.csv 与通用的 Books/<name>.csv 合并
+    // (理念书库按 key 前缀区分理念，见 SpeechFreedomSystem)
+    public static List<(string key, string text)> Entries(string culture, string name)
+    {
+        string root = Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures");
+        var result = new List<(string key, string text)>();
+        if (CultureService.IsValidCulture(culture))
+            result.AddRange(ReadEntries(Path.Combine(root, $"Culture_{culture}", culture + name + ".csv")));
+        result.AddRange(ReadEntries(Path.Combine(root, "Books", name + ".csv")));
+        return result;
+    }
+
+    private static readonly Dictionary<string, List<(string key, string text)>> EntryCache = new(StringComparer.Ordinal);
+
+    private static List<(string key, string text)> ReadEntries(string path)
+    {
+        string language = Language();
+        string cacheKey = language + "|" + path;
+        if (EntryCache.TryGetValue(cacheKey, out var cached)) return cached;
+        var entries = new List<(string key, string text)>();
+        if (File.Exists(path))
+        {
+            string[] lines = File.ReadAllLines(path);
+            List<string> header = lines.Length > 0 ? SplitCsv(lines[0]) : new List<string>();
+            int[] columns = new[] { header.IndexOf(language), header.IndexOf("en"), header.IndexOf("cz") }
+                .Where(index => index > 0).Distinct().ToArray();
+            for (int i = 1; i < lines.Length && columns.Length > 0; i++)
+            {
+                List<string> cells = SplitCsv(lines[i]);
+                if (cells.Count == 0 || string.IsNullOrWhiteSpace(cells[0])) continue;
+                string text = columns.Where(index => index < cells.Count).Select(index => cells[index].Trim())
+                    .FirstOrDefault(value => value.Length > 0);
+                if (!string.IsNullOrEmpty(text)) entries.Add((cells[0].Trim(), text));
+            }
+        }
+        EntryCache[cacheKey] = entries;
+        return entries;
     }
 
     public static void MarkUsed(string name)

@@ -18,7 +18,7 @@ public sealed class LandmarkBookConfig
     public string tech = "";
     public string feature = "";
     public float min_value = 1f;
-    // Ideology books require every listed technology in addition to their institution feature.
+    // 理念名著依靠科技和社会条件产生；普通名著仍使用 tech/feature 触发。
     public List<string> required_techs = new();
     // prosperous / industrial / industrial_unrest / militarized / mass_politics
     public string environment = "";
@@ -108,14 +108,16 @@ public static class LandmarkBookSystem
 
     private static bool IsTriggered(string culture, LandmarkBookConfig book)
     {
+        bool ideological = TryGetIdeology(book, out PartyIdeology ideology);
+        // 理念名著先产生思想，再推动制度。ideology:* 是书的主题，不能要求先有对应制度。
+        bool ideaFeature = ideological && IdeologySpreadSystem.TryParseFeature(book.feature, out PartyIdeology featureIdeology) &&
+                           featureIdeology == ideology;
         bool primary = !string.IsNullOrEmpty(book.tech)
             ? TechnologySystem.HasTech(culture, book.tech)
-            : !string.IsNullOrEmpty(book.feature) &&
+            : ideaFeature || !string.IsNullOrEmpty(book.feature) &&
               InstitutionSystem.GetFeature(culture, book.feature) >= book.min_value;
         if (!primary || book.required_techs.Any(tech => !TechnologySystem.HasTech(culture, tech))) return false;
-        if (!TryGetIdeology(book, out PartyIdeology ideology)) return true;
-        return PartySystem.IsResearched(culture, ideology) &&
-               TechnologySystem.AreFeatureTechsMet(culture, IdeologySpreadSystem.FeatureKey(ideology));
+        return !ideological || TechnologySystem.AreFeatureTechsMet(culture, IdeologySpreadSystem.FeatureKey(ideology));
     }
 
     #region 写书
@@ -310,6 +312,20 @@ public static class LandmarkBookSystem
         TryApplyIdeologyEffect(culture, cities, state, config, techFactor, title);
     }
 
+    // 理念的奠基名著(资本论之于共产主义、国富论之于资本主义……)：LandmarkBooks.json 里标了该理念的名著
+    public static LandmarkBookConfig FoundingBook(PartyIdeology ideology) =>
+        Books.FirstOrDefault(book => TryGetIdeology(book, out PartyIdeology own) && own == ideology);
+
+    // 本文化是否已有这个理念的奠基名著(自己写出，或读到外来的而受启发)。没配奠基名著的理念不受限制
+    public static bool HasFoundingBook(string culture, PartyIdeology ideology)
+    {
+        LandmarkBookConfig founding = FoundingBook(ideology);
+        if (founding == null) return true;
+        if (!CultureService.IsValidCulture(culture)) return false;
+        CultureTechState state = TechnologySystem.GetState(culture);
+        return state?.known_books?.Contains(founding.id) == true || state?.landmark_books?.Contains(founding.id) == true;
+    }
+
     private static bool TryGetIdeology(LandmarkBookConfig config, out PartyIdeology ideology) =>
         Enum.TryParse(config?.ideology, true, out ideology) && Enum.IsDefined(typeof(PartyIdeology), ideology);
 
@@ -362,8 +378,8 @@ public static class LandmarkBookSystem
             cities == null || !cities.Any(city => MeetsEnvironment(city, config))) return;
         int changed = IdeologyPopulationSystem.IntroduceToCulture(culture, ideology,
             config.ideology_outbreak * factor);
-        state.ideology_book_outbreaks.Add(config.id);
         if (changed <= 0) return;
+        state.ideology_book_outbreaks.Add(config.id);
         Announce(culture, null, string.Format(LM.Get("landmark_book_ideology_outbreak_log"), title,
             culture.GetCultureTranslate(), PartySystem.GetIdeologyName(ideology), changed), -1L);
     }
@@ -428,14 +444,27 @@ public static class LandmarkBookSystem
             foreach (long id in ids)
             {
                 Book book = World.world.books.get(id);
-                if (book == null || book.isRekt() || !book.TryGetLandmark(out BookExtension.BookExtraData data) ||
+                if (book == null || book.isRekt()) continue;
+                // 理念著作(见 SpeechFreedomSystem)：影响力比名著小，不看社会条件
+                if (book.TryGetIdeologyTreatise(out BookExtension.BookExtraData treatise) &&
+                    Enum.TryParse(treatise.ideology, out PartyIdeology treatiseIdeology))
+                {
+                    float treatiseMaturity = Maturity(book);
+                    result.Add(new CityIdeologyBook(book, treatiseIdeology, treatiseMaturity, true,
+                        SpeechFreedomSystem.TreatiseOutbreak * CityInfluenceFactor * treatiseMaturity *
+                        SpeechFreedomSystem.BookReach(city, treatiseIdeology)));
+                    continue;
+                }
+                if (!book.TryGetLandmark(out BookExtension.BookExtraData data) ||
                     !TryGetBook(data.landmark_id, out LandmarkBookConfig config) ||
                     !TryGetIdeology(config, out PartyIdeology ideology) || config.ideology_outbreak <= 0f) continue;
                 if (!environmentFit.TryGetValue(config.id, out bool fits))
                     environmentFit[config.id] = fits = MeetsEnvironmentCached(city, config);
                 float maturity = Maturity(book);
+                // 言论自由对名著同样适用：严格时非立国理念的名著被查禁，宽松时流传更广
                 result.Add(new CityIdeologyBook(book, ideology, maturity, fits,
-                    config.ideology_outbreak * CityInfluenceFactor * maturity * (fits ? 1f : UnripeSocietyFactor)));
+                    config.ideology_outbreak * CityInfluenceFactor * maturity * (fits ? 1f : UnripeSocietyFactor) *
+                    SpeechFreedomSystem.BookReach(city, ideology)));
             }
         }
         return result;
@@ -458,6 +487,12 @@ public static class LandmarkBookSystem
     // 城市经济形态、书的社会条件每轮各算一次。
     private static readonly FrameBudgetQueue<City> InfluenceQueue = new(2d, InfluenceFromCity, "藏书理念影响");
     private static readonly Dictionary<(long city, string environment), bool> EnvironmentCache = new();
+
+    public static void ResetRuntimeState()
+    {
+        InfluenceQueue.Cancel();
+        EnvironmentCache.Clear();
+    }
 
     public static void StartCityInfluence()
     {

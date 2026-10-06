@@ -37,6 +37,19 @@ public static class IdeologyPopulationSystem
         SyncedTraits.Clear();
     }
 
+    // 读档可能复用 World.world 实例，因此不能只靠对象引用判断世界是否变化。
+    public static void ResetWorldState()
+    {
+        ClearCaches();
+        _cachedWorld = World.world;
+        _lastContactScan = -1d;
+        _contactFrame = -1;
+        ContactQueue.Cancel();
+        EconomyCache.Clear();
+        LandmarkBookSystem.ResetRuntimeState();
+        IdeologySpreadSystem.ResetWorldState();
+    }
+
     public static void SetTraitsReady()
     {
         _traitsReady = true;
@@ -84,9 +97,7 @@ public static class IdeologyPopulationSystem
         if (actor == null) return PartyIdeology.Conservatism;
         if (!ReferenceEquals(_cachedWorld, World.world))
         {
-            DominantCache.Clear();
-            SyncedTraits.Clear();
-            _cachedWorld = World.world;
+            ResetWorldState();
         }
         ActorExtension.ActorExtraData data = actor.GetOrCreate();
         // 查表代替每次 Enum.TryParse：统计全城人口时每个人都要走这里
@@ -244,6 +255,7 @@ public static class IdeologyPopulationSystem
             changed += Introduce(city.units, ideology, intensity);
             DominantCache.Remove(city);
         }
+        if (changed > 0) RegisterIdea(culture, ideology);
         return changed;
     }
 
@@ -251,10 +263,16 @@ public static class IdeologyPopulationSystem
     public static int InfluenceCity(City city, PartyIdeology ideology, float intensity)
     {
         if (city?.units == null || city.isRekt() || intensity <= 0f) return 0;
+        if (!TechnologySystem.AreFeatureTechsMet(CultureService.GetMainCulture(city),
+                IdeologySpreadSystem.FeatureKey(ideology))) return 0;
         // 与民间交往一样受城市经济形态影响：繁荣城市更易接受自由主义、难被传统理念说服；工业城市更易接受社会主义
         intensity *= EconomyFactor(ideology, CachedEconomy(city));
         int changed = Introduce(city.units.ToList(), ideology, intensity);
-        if (changed > 0) DominantCache.Remove(city);
+        if (changed > 0)
+        {
+            DominantCache.Remove(city);
+            RegisterIdea(CultureService.GetMainCulture(city), ideology);
+        }
         return changed;
     }
 
@@ -298,9 +316,21 @@ public static class IdeologyPopulationSystem
         var grievances = empire == null ? null : InstitutionSystem.GetClassGrievances(empire);
         PartyIdeology? governing = PartySystem.GetGovernmentParty(empire)?.Ideology;
         string culture = CultureService.GetMainCulture(city);
+        // 旧存档、移民和手动赋予的理念也属于当地已经接触过的思想。
+        foreach (PartyIdeology ideology in localCounts.Keys) RegisterIdea(culture, ideology);
         HashSet<PartyIdeology> available = GetAvailableIdeologies(culture, empire);
         // 外国理念压力(见 PublicOpinionSystem)：一部分"外来接触"换成压力最大的外国理念
         PartyIdeology? pressured = empire == null ? null : PublicOpinionSystem.PickPressured(empire);
+        PartyIdeology? founding = empire == null ? null : ConstitutionSystem.GetClauses(empire)?.founding_ideology;
+        float externalSusceptibility = empire == null ? 1f : PublicOpinionSystem.ExternalSusceptibility(empire);
+        float fatigue = IdeologyDynamicsSystem.GetFatigue(empire);
+        float economicTrend = IdeologyDynamicsSystem.GetTrend(empire);
+        // 思想解放期(见 IdeologyDynamicsSystem)：1 = 刚开始，0 = 没有
+        float liberation = IdeologyDynamicsSystem.GetLiberation(empire);
+        // 现代化侵蚀传统：开放政党政治后，城市化、学校、工业逐年削弱传统理念的吸引力(60 年后最多减六成)
+        double modernSince = string.IsNullOrEmpty(culture) ? -1d
+            : InstitutionSystem.GetFeatureEnactedTime(culture, PartySystem.FeaturePartyPolitics);
+        float traditionDecay = modernSince < 0d ? 0f : 0.6f * Mathf.Clamp01(Date.getYearsSince(modernSince) / 60f);
         // 经济越繁荣(商人、市民多，有高级民居)，自由主义越盛行、传统理念越式微；
         // 工人越多的工业城市，社会主义越盛行
         CityEconomyProfile economy = CachedEconomy(city);
@@ -331,6 +361,8 @@ public static class IdeologyPopulationSystem
                 : contact < 0.15f ? PickInitial(actor)
                 : contact < 0.3f ? (pressured.HasValue && available.Contains(pressured.Value) && contact < 0.24f
                     ? pressured.Value : available.Contains(foreign) ? foreign : PickInitial(actor))
+                // 思想解放期：不再一味随大流，一部分接触改为按自身阶层自由选择
+                : liberation > 0f && UnityEngine.Random.value < 0.5f * liberation ? PickInitial(actor)
                 : SampleLocal(localCounts, organizers, actor, available);
             // 繁荣之地更常接触到自由主义思想
             if (otherIsms.Count > 0 && UnityEngine.Random.value < pluralism * PluralismContact)
@@ -344,7 +376,7 @@ public static class IdeologyPopulationSystem
             else if (agrarianRadical.Count > 0 && UnityEngine.Random.value < economy.Landless * AgrarianRadicalContact)
                 target = WeightedChoice(agrarianRadical, actor, null);
             else if (agrarianTraditional.Count > 0 &&
-                     UnityEngine.Random.value < economy.Settled * AgrarianTraditionalContact)
+                     UnityEngine.Random.value < economy.Settled * AgrarianTraditionalContact * (1f - traditionDecay))
                 target = WeightedChoice(agrarianTraditional, actor, null);
             PartyIdeology current = Get(actor);
             if (current == target) continue;
@@ -365,6 +397,26 @@ public static class IdeologyPopulationSystem
             // 压力越大越容易被说服(最多翻倍)
             if (pressured.HasValue && target == pressured.Value)
                 chance *= 1f + Mathf.Min(1f, PublicOpinionSystem.GetPressure(empire, target) / 50f);
+            // 宪法的意识形态强度：来自外国的思潮(邻国主流理念、外国理念压力)改变立国理念信徒的难易——
+            // 高强度宣传不易被外部侵蚀，放开意识形态则容易被渗透
+            if (empire != null && current == founding && target != founding &&
+                (pressured.HasValue && target == pressured.Value || foreignCity != null && target == foreign))
+                chance *= externalSusceptibility;
+            // 代际更替：年轻人更容易接受新思想(思想解放期最多 ×3)，老人守着旧观念
+            int age = actor.getAge();
+            if (age < 30) chance *= 1.5f * (1f + liberation);
+            else if (age > 55) chance *= 0.6f;
+            // 现代化侵蚀传统
+            if (traditionDecay > 0f && IdeologyFamilies.IsTraditional(target)) chance *= 1f - traditionDecay;
+            // 意识形态疲劳：立国理念的信徒越来越不当真，满疲劳时改信的概率翻倍(见 IdeologyDynamicsSystem)
+            if (founding.HasValue && current == founding.Value && target != founding.Value)
+                chance *= 1f + fatigue / 100f;
+            // 经济趋势：繁荣时自由主义更易传播，衰退(含金融危机)时激进左右翼更易传播
+            if (economicTrend >= IdeologyDynamicsSystem.GrowthThreshold && IdeologyFamilies.IsLiberal(target))
+                chance *= 1.3f;
+            else if (economicTrend <= IdeologyDynamicsSystem.DeclineThreshold &&
+                     (IdeologyFamilies.IsAgrarianRadical(target) || IdeologyFamilies.IsAuthoritarian(target)))
+                chance *= 1.4f;
             chance *= EconomyFactor(target, economy);
             if (!IdeologyFamilies.IsLiberal(target)) chance *= 1f + PluralismBoost * pluralism;
             if (UnityEngine.Random.value < chance) Set(actor, target);
@@ -433,8 +485,12 @@ public static class IdeologyPopulationSystem
         float factories = UrbanEmploymentSystem.CountFactories(city) > 0 ? 1f : 0f;
         float agrarian = Mathf.Clamp01(peasants / (adults * 0.5f));
         float landless = agrarian > 0f ? Mathf.Clamp01(LandEconomySystem.GetLandlessRatio(city) * 2f) : 0f;
+        // 土地收归国有(政体不允许地主阶层，如共和)：农民没有"无地"可言，但也不再是守着自家田地的小农——
+        // 集体化的农民只保留三成"有地小农守传统"的倾向，否则国有化反而把整个农村推向保守主义
+        Regimes.Regime regime = city.kingdom?.GetRegime();
+        float settledFactor = regime != null && !Regimes.RegimeManager.AllowsLandlordClass(regime.type) ? 0.3f : 1f;
         return new CityEconomyProfile(0.7f * commerce + 0.3f * housing, 0.7f * labour + 0.3f * factories,
-            agrarian * (1f - landless), agrarian * landless);
+            agrarian * (1f - landless) * settledFactor, agrarian * landless);
     }
 
 
@@ -501,14 +557,34 @@ public static class IdeologyPopulationSystem
         return choices[choices.Length - 1];
     }
 
-    private static HashSet<PartyIdeology> GetAvailableIdeologies(string culture, Empire empire)
+    public static void RegisterIdea(string culture, PartyIdeology ideology)
+    {
+        if (!CultureService.IsValidCulture(culture) ||
+            !TechnologySystem.AreFeatureTechsMet(culture, IdeologySpreadSystem.FeatureKey(ideology))) return;
+        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture);
+        if (state == null) return;
+        state.discovered_ideologies ??= new List<string>();
+        string key = ideology.ToString();
+        if (!state.discovered_ideologies.Contains(key)) state.discovered_ideologies.Add(key);
+    }
+
+    public static bool IsIdeaAvailable(string culture, PartyIdeology ideology) =>
+        CultureService.IsValidCulture(culture) &&
+        TechnologySystem.AreFeatureTechsMet(culture, IdeologySpreadSystem.FeatureKey(ideology)) &&
+        (PartySystem.IsResearched(culture, ideology) ||
+         InstitutionSystem.GetOrCreateCultureState(culture)?.discovered_ideologies?.Contains(ideology.ToString()) == true ||
+         LandmarkBookSystem.FoundingBook(ideology) != null && LandmarkBookSystem.HasFoundingBook(culture, ideology));
+
+    internal static HashSet<PartyIdeology> GetAvailableIdeologies(string culture, Empire empire,
+        bool includeEmerging = false)
     {
         var choices = new HashSet<PartyIdeology>();
         if (CultureService.IsValidCulture(culture) &&
             InstitutionSystem.GetFeature(culture, PartySystem.FeaturePartyPolitics) > 0f)
         {
+            bool emergence = includeEmerging || IdeologyDynamicsSystem.GetLiberation(empire) > 0f;
             foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)))
-                if (PartySystem.IsResearched(culture, ideology) &&
+                if ((emergence || IsIdeaAvailable(culture, ideology)) &&
                     TechnologySystem.AreFeatureTechsMet(culture, IdeologySpreadSystem.FeatureKey(ideology)))
                     choices.Add(ideology);
         }
@@ -517,8 +593,7 @@ public static class IdeologyPopulationSystem
         return choices;
     }
 
-    // Force-unlocking an institution now introduces its ideas to real people once. Multiple
-    // newly unlocked ideologies are seeded in one weighted pass, so enum order cannot decide the winner.
+    // 解锁节点只给尚无人信奉的新思想补充传播起点，不再次改写已经出现过的思想分布。
     private static void EnsureUnlockedIdeologiesSeeded()
     {
         foreach (IGrouping<string, City> cultureCities in World.world.cities
@@ -538,13 +613,24 @@ public static class IdeologyPopulationSystem
             List<Actor> adults = cultureCities.SelectMany(city => city.units)
                 .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult())
                 .Distinct().ToList();
-            foreach (Actor actor in adults)
+            if (adults.Count == 0) continue; // 暂时没有读者时，下次年度检查继续尝试。
+            HashSet<PartyIdeology> present = new(adults.Select(Get));
+            List<PartyIdeology> missing = pending.Where(ideology => !present.Contains(ideology)).ToList();
+            List<Actor> candidates = adults.Where(actor => !actor.isKing() && !actor.isCityLeader() &&
+                actor.GetFaction()?.IsParty != true).ToList();
+            int quota = missing.Count == 0 ? 0 : Mathf.Min(candidates.Count,
+                Mathf.Max(missing.Count, Mathf.RoundToInt(candidates.Count * 0.4f)));
+            List<PartyIdeology> unseeded = new(missing);
+            foreach (Actor actor in candidates.OrderBy(_ => UnityEngine.Random.value).Take(quota))
             {
-                if (UnityEngine.Random.value > 0.4f) continue;
-                PartyIdeology target = WeightedChoice(pending, actor, null);
+                PartyIdeology target = WeightedChoice(unseeded.Count > 0 ? unseeded : missing, actor, null);
                 Set(actor, target);
+                unseeded.Remove(target);
+                present.Add(target);
+                RegisterIdea(culture, target);
             }
-            foreach (PartyIdeology ideology in pending) state.seeded_ideologies.Add(ideology.ToString());
+            foreach (PartyIdeology ideology in pending.Where(present.Contains))
+                state.seeded_ideologies.Add(ideology.ToString());
         }
         DominantCache.Clear();
     }
@@ -567,7 +653,7 @@ public static class IdeologyPopulationSystem
         });
     }
 
-    private static PartyIdeology WeightedChoice(IList<PartyIdeology> choices, Actor actor,
+    internal static PartyIdeology WeightedChoice(IList<PartyIdeology> choices, Actor actor,
         Func<PartyIdeology, float> multiplier)
     {
         if (choices == null || choices.Count == 0) return PartyIdeology.Conservatism;

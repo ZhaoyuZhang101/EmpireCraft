@@ -19,6 +19,8 @@ public static class IdeologySpreadSystem
     private const float UnlockExposure = 100f;
     private static double _lastScan = -1d;
 
+    public static void ResetWorldState() => _lastScan = -1d;
+
     public static string FeatureKey(PartyIdeology ideology) => $"ideology:{ideology}";
 
     public static bool TryParseFeature(string feature, out PartyIdeology ideology)
@@ -98,30 +100,34 @@ public static class IdeologySpreadSystem
         }
 
         foreach (KeyValuePair<string, Dictionary<PartyIdeology, float>> culture in gains)
+        foreach (KeyValuePair<PartyIdeology, float> gain in culture.Value)
+            ApplyExposure(culture.Key, gain.Key, gain.Value);
+    }
+
+    private static void ApplyExposure(string culture, PartyIdeology ideology, float gain)
+    {
+        // 基本理念随开放党禁而来，不单独播种。
+        if (PartySystem.BaseIdeologies.Contains(ideology) ||
+            InstitutionSystem.GetFeature(culture, FeatureKey(ideology)) > 0f) return;
+        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture);
+        if (state == null) return;
+        state.ideology_exposure ??= new Dictionary<string, float>();
+        string key = ideology.ToString();
+        float current = state.ideology_exposure.TryGetValue(key, out float previous) ? previous : 0f;
+        if (current < 0f)
         {
-            CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture.Key);
-            if (state == null) continue;
-            state.ideology_exposure ??= new Dictionary<string, float>();
-            foreach (KeyValuePair<PartyIdeology, float> gain in culture.Value)
-            {
-                // 基本理念随开放党禁而来，不单独传播(否则会把整个"开放党禁"节点吸收过去)
-                if (PartySystem.BaseIdeologies.Contains(gain.Key)) continue;
-                if (InstitutionSystem.GetFeature(culture.Key, FeatureKey(gain.Key)) > 0f) continue;
-                string key = gain.Key.ToString();
-                float current = state.ideology_exposure.TryGetValue(key, out float previous) ? previous : 0f;
-                if (current < 0f) continue;
-                float exposure = current + gain.Value;
-                // 思想可以传进来，但没有相应的技术基础(比如没工业化就没有工人阶级)就扎不下根：接触度停在门槛前
-                if (exposure >= UnlockExposure &&
-                    !TechnologySystem.AreFeatureTechsMet(culture.Key, FeatureKey(gain.Key)))
-                    exposure = UnlockExposure - 0.01f;
-                state.ideology_exposure[key] = exposure;
-                if (exposure < UnlockExposure) continue;
-                IdeologyPopulationSystem.IntroduceToCulture(culture.Key, gain.Key);
-                state.ideology_exposure[key] = -1f;
-                TranslateHelper.LogEventMessage(string.Format(LM.Get("ideology_spread_log"),
-                    PartySystem.GetIdeologyName(gain.Key), culture.Key.GetCultureTranslate()));
-            }
+            if (IdeologyPopulationSystem.IsIdeaAvailable(culture, ideology)) return;
+            current = UnlockExposure; // 旧存档可能把零人改信也记成了传播完成，允许重试。
         }
+        float exposure = Math.Min(UnlockExposure, current + Math.Max(0f, gain));
+        if (exposure >= UnlockExposure && !TechnologySystem.AreFeatureTechsMet(culture, FeatureKey(ideology)))
+            exposure = UnlockExposure - 0.01f;
+        state.ideology_exposure[key] = exposure;
+        if (exposure < UnlockExposure) return;
+        int changed = IdeologyPopulationSystem.IntroduceToCulture(culture, ideology);
+        if (changed <= 0) return; // 暂无读者或未说服任何人时，接触度保留在门槛，下一次继续。
+        state.ideology_exposure[key] = -1f;
+        TranslateHelper.LogEventMessage(string.Format(LM.Get("ideology_spread_log"),
+            PartySystem.GetIdeologyName(ideology), culture.GetCultureTranslate()));
     }
 }

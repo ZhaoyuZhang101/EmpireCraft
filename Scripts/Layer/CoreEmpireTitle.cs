@@ -31,6 +31,9 @@ public class EmpireCore
     public long warlord_parent_core_id { get; set; } = -1L;
     // 旧存档兼容字段。联合政府现由同一 Empire 的成员国表示，不再依赖原版 Alliance。
     public long rival_alliance_id { get; set; } = -1L;
+    // 民族统一战线(见 NationalSentimentSystem)：开始时间(-1 = 没有)、最近一次仍有外敌的时间
+    public double united_front_since { get; set; } = -1d;
+    public double united_front_last_threat { get; set; } = -1d;
 
     public bool SetCoreCapital(City city)
     {

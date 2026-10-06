@@ -13,6 +13,15 @@ public static class BookExtension
         public string culture = "";
         public string origin_culture = "";
         public List<string> inspired_cultures = new();
+        // 理念著作(见 SpeechFreedomSystem)：宣扬的理念(PartyIdeology 名)；空 = 不是理念著作
+        public string ideology = "";
+    }
+
+    // 不创建扩展，只看这本书是不是理念著作
+    public static bool TryGetIdeologyTreatise(this Book book, out BookExtraData data)
+    {
+        data = book == null ? null : ExtensionManager<Book, BookExtraData>.GetOrCreate(book, true);
+        return data != null && !string.IsNullOrEmpty(data.ideology);
     }
 
     public static BookExtraData GetOrCreate(this Book book, bool isSave = false) =>

@@ -80,6 +80,9 @@ public class MetaTypeExtensionsPatch:GamePatch
             case MetaTypeExtension.Ideology:
                 __result = "ideology";
                 return false;
+            case MetaTypeExtension.Nation:
+                __result = "nation";
+                return false;
             default:
                 Debug.LogError((object) ("MetaTypeExtensions.AsString missing option for : " + pType.ToString()));
                 __result = pType.ToString().ToLower();
