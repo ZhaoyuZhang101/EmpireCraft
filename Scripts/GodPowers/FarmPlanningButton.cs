@@ -10,7 +10,7 @@ namespace EmpireCraft.Scripts.GodPowers;
 // 划定后区块闪绿光，并立即在区块里开出第一批田；取消时闪灰光
 public static class FarmPlanningButton
 {
-    private const int FieldsOnPlan = 8;
+    private const int FieldsOnPlan = 64;
 
     public static void init()
     {
