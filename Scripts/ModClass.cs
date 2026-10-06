@@ -174,6 +174,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftWorldLawLibrary.init();
         EmpireCraftNamePlateLibrary.init();
         EmpireCraftActorTraitLibrary.init();
+        EmpireCraft.Scripts.UI.Components.HiResIconFilter.Apply();
         EmpireCraftMetaTypeLibrary.init();
         EmpireCraftHistoryDataLibrary.init();
         EmpireCraftActorTraitGroupLibrary.init();

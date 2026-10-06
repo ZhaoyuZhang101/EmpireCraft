@@ -1,6 +1,5 @@
-﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GamePatches;
-using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
@@ -13,121 +12,115 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Windows;
+
+// 文化配置：给每个文明种族指定文化模板。
+// 布局：顶部一行提示 + "注入文化"；文化面板(图标 + 名字)；搜索框；种族列表(种族 → 当前文化)。
+// 用法：先点种族所在的一行(选中后高亮)，再点上方文化面板里的文化即完成分配。
 public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindow>
 {
-    public ListPool<GameObject> gameObjects = new ListPool<GameObject>();
-    TextInput searchInput;
-    public string _currentSelectedSpecies = "";
-    public Dictionary<string, TextInput> TextInputs = new Dictionary<string, TextInput>();
-    public AutoGridLayoutGroup _gridGroup;
+    private const string Highlight = "#F3961F";
+    private static readonly Vector2 CellSize = new(30, 30);
+
+    private readonly List<GameObject> _rows = new();
+    private TextInput _searchInput;
+    private string _search = "";
+    private string _selectedSpecies = "";
+    private AutoGridLayoutGroup _palette;
+
     protected override void Init()
     {
-        TextInputs = new Dictionary<string, TextInput>();
-        AutoHoriLayoutGroup hGroup = this.BeginHoriGroup();
-        SimpleText Text1 = Instantiate(SimpleText.Prefab);
-        Text1.Setup(LM.Get("current_exist_culture"), pAlignment: TextAnchor.MiddleCenter, new Vector2(100, 20));
+        layout.spacing = 4;
+        AutoHoriLayoutGroup header = this.BeginHoriGroup(pSpacing: 4, pAlignment: TextAnchor.MiddleCenter);
+        SimpleText hint = Instantiate(SimpleText.Prefab);
+        hint.Setup(LM.Get("culture_pair_hint"), TextAnchor.MiddleLeft, new Vector2(130, 16));
+        hint.background.enabled = false;
+        header.AddChild(hint.gameObject);
         SimpleButton insertAllCulture = Instantiate(SimpleButton.Prefab);
-        insertAllCulture.Setup(InsertAllCulture, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), LM.Get("insert_all_culture"), new Vector2(35, 20));
-        insertAllCulture.Button.OnHover(() => 
+        insertAllCulture.Setup(InsertAllCulture, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"),
+            LM.Get("insert_all_culture"), new Vector2(45, 16));
+        insertAllCulture.Button.OnHover(() => Tooltip.show(insertAllCulture.gameObject, "normal", new TooltipData
         {
-            Tooltip.show(gameObjects, "normal", new TooltipData()
-            {
-                tip_name = "insert_all_culture",
-                tip_description = "insert_all_culture_description"
-            });
-        });
+            tip_name = "insert_all_culture",
+            tip_description = "insert_all_culture_description"
+        }));
         insertAllCulture.Button.OnHoverOut(Tooltip.hideTooltip);
-        hGroup.AddChild(Text1.gameObject);
-        hGroup.AddChild(insertAllCulture.gameObject);
+        header.AddChild(insertAllCulture.gameObject);
+        AddChild(header.gameObject);
 
-        _gridGroup = this.BeginGridGroup(6, pCellSize:new Vector2(25, 14));
-        AddChild(hGroup.gameObject);
-        AddChild(_gridGroup.gameObject);
-        searchInput = Instantiate(TextInput.Prefab);
-        searchInput.Setup(LM.Get("input_species"), StartSearch);
-        searchInput.SetSize(new Vector2(180, 20));
-        AddChild(searchInput.gameObject);
+        _palette = this.BeginGridGroup(6, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: CellSize,
+            pSpacing: new Vector2(2, 2));
+        AddChild(_palette.gameObject);
 
-        Show(ConfigData.AllCivSpecies);
+        _searchInput = Instantiate(TextInput.Prefab);
+        _searchInput.Setup(LM.Get("input_species"), StartSearch);
+        _searchInput.SetSize(new Vector2(180, 18));
+        AddChild(_searchInput.gameObject);
     }
 
     public override void OnFirstEnable()
     {
         base.OnFirstEnable();
-        foreach (var culture in ConfigData.currentExistCulture)
+        foreach (string culture in ConfigData.currentExistCulture.OrderBy(c => c.GetCultureTranslate()))
         {
-            var translate = culture.GetCultureTranslate();
-            _gridGroup.AddButtonIntoGirdLayout(culture, translate, ()=>SetCulture(culture), size:new Vector2(20, 14));
+            string key = culture;
+            AutoVertLayoutGroup cell = _palette.BeginVertGroup(pSize: CellSize, pSpacing: 0,
+                pAlignment: TextAnchor.UpperCenter);
+            AdvancedButton button = cell.AddButtonIntoVertLayout("culture_" + key, "", () => SetCulture(key),
+                CultureIcons.Get(key), size: new Vector2(18, 18));
+            button.Background.enabled = false;
+            cell.AddTextIntoVertLayout(key.GetCultureTranslate(), true, TextAnchor.MiddleCenter, new Vector2(30, 10));
+            _palette.AddChild(cell.gameObject);
         }
     }
 
-    public void SetCulture(string cultureName)
+    public override void OnNormalEnable()
     {
-        if (!string.IsNullOrEmpty(_currentSelectedSpecies))
+        base.OnNormalEnable();
+        _selectedSpecies = "";
+        Refresh();
+    }
+
+    private void StartSearch(string input)
+    {
+        _search = input == LM.Get("input_species") ? "" : input ?? "";
+        Refresh();
+    }
+
+    private void SelectSpecies(string species)
+    {
+        _selectedSpecies = _selectedSpecies == species ? "" : species;
+        if (!string.IsNullOrEmpty(_selectedSpecies))
+            WorldTip.showNow("speciesSelected", true, "top", 3f, Highlight);
+        Refresh();
+    }
+
+    private void SetCulture(string cultureName)
+    {
+        if (string.IsNullOrEmpty(_selectedSpecies))
         {
-            TextInputs[_currentSelectedSpecies].input.text = cultureName;
-            ConfigData.speciesCulturePair[_currentSelectedSpecies] = cultureName;
-            WorldTip.showNow("set_culture_complete", true, "top", 3f, "#F3961F");
-            _currentSelectedSpecies = "";
-            try
-            {
-                string SCP = JsonConvert.SerializeObject(ConfigData.speciesCulturePair, Formatting.Indented);
-                string parentFolder = Directory.GetParent(ModClass._declare.FolderPath)?.FullName;
-                if (parentFolder != null)
-                {
-                    string path = Path.Combine(parentFolder, "CultureSpeciesPairPlayerConfig.json");
-
-                    File.WriteAllText(path, SCP);
-                    LogService.LogInfo("储存用户文化配置数据成功");
-                }
-
-            }
-            catch (Exception e)
-            {
-                LogService.LogError($"储存用户文化配置数据失败: {e}");
-            }
+            WorldTip.showNow("please_select_species_first", true, "top", 3f, Highlight);
             return;
         }
-        WorldTip.showNow("please_select_species_first", true, "top", 3f, "#F3961F");
+        ConfigData.speciesCulturePair[_selectedSpecies] = cultureName;
+        SavePairs();
+        WorldTip.showNow("set_culture_complete", true, "top", 3f, Highlight);
+        _selectedSpecies = "";
+        Refresh();
     }
 
-    public void InsertAllCulture()
+    private static void SavePairs()
     {
-        foreach (Culture culture in World.world.cultures) 
-        {
-            if (culture.species_id!="")
-            {
-                string cultureName = ConfigData.speciesCulturePair.TryGetValue(culture.species_id, out string name) ? name : "Western";
-                CulturePatch.insertCultureTemplate(culture, cultureName);
-            }
-        }
-    }
-
-    public void ChangeCulture(string input, string civSpecies, TextInput inputText)
-    {
-        if (!ConfigData.currentExistCulture.Contains(input)) 
-        {
-            inputText.input.text = "";
-            return;
-        }
-        ConfigData.speciesCulturePair[civSpecies] = input;
         try
         {
-            string SCP = JsonConvert.SerializeObject(ConfigData.speciesCulturePair, Formatting.Indented);
             string parentFolder = Directory.GetParent(ModClass._declare.FolderPath)?.FullName;
-            if (parentFolder != null)
-            {
-                string path = Path.Combine(parentFolder, "CultureSpeciesPairPlayerConfig.json");
-
-                File.WriteAllText(path, SCP);
-                LogService.LogInfo("储存用户文化配置数据成功");
-            }
+            if (parentFolder == null) return;
+            File.WriteAllText(Path.Combine(parentFolder, "CultureSpeciesPairPlayerConfig.json"),
+                JsonConvert.SerializeObject(ConfigData.speciesCulturePair, Formatting.Indented));
+            LogService.LogInfo("储存用户文化配置数据成功");
         }
         catch (Exception e)
         {
@@ -135,99 +128,60 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
         }
     }
 
-    public void StartSearch(string input) 
+    public void InsertAllCulture()
     {
-        if (input=="")
+        foreach (Culture culture in World.world.cultures)
         {
-            searchInput.input.text = LM.Get("input_species");
-        }
-        Clear();
-        List<ActorAsset> species = ConfigData.AllCivSpecies.FindAll(a=>a.id.Contains(input)||a.getLocaleID().Contains(input)||a.getLocalizedDescription().Contains(input)||a.getLocalizedName().Contains(input));
-        Show(species);
-    }
-
-    public override void OnNormalEnable()
-    {
-        base.OnNormalEnable();
-        Clear();
-        Show(ConfigData.AllCivSpecies);
-    }
-
-    public void StartSelectCulture(string species)
-    {
-        _currentSelectedSpecies = species;
-        WorldTip.showNow("speciesSelected", true, "top", 3f, "#F3961F");
-    }
-    public void Show(List<ActorAsset> species)
-    {
-        foreach (var civSpecies in species)
-        {
-            AutoVertLayoutGroup wholeView = this.BeginVertGroup(pSpacing: 3);
-            // Create a horizontal layout group for each civSpecies
-            AutoHoriLayoutGroup pairGroup = this.BeginHoriGroup(pSpacing: 3);
-            var button = pairGroup.AddButtonIntoHoriLayout("icon", "", () => StartSelectCulture(civSpecies.id), civSpecies.getSpriteIcon(), hideBackground:true, size: new Vector2(15, 15));
-            button.Background.enabled = false;
-            // Create a new SimpleText instance for each civSpecies
-            SimpleText SpeciesText = Instantiate(SimpleText.Prefab);
-            SpeciesText.Setup(civSpecies.getLocalizedName()+":", pSize: new Vector2(40, 15));
-            SpeciesText.background.enabled = false;
-
-            TextInput inputField = Instantiate(TextInput.Prefab);
-            inputField.Setup(ConfigData.speciesCulturePair.TryGetValue(civSpecies.id, out string culture) ? culture : "", newValue => ChangeCulture(newValue, civSpecies.id, inputField));
-            inputField.SetSize(new Vector2(100, 18));
-            pairGroup.AddChild(SpeciesText.gameObject);
-            pairGroup.AddChild(inputField.gameObject);
-            TextInputs[civSpecies.id] = inputField;
-            ////设置按钮
-            //AutoHoriLayoutGroup settingGroup = this.BeginHoriGroup(pSpacing: 3);
-
-            //AutoVertLayoutGroup singleGroup1 = this.BeginVertGroup(pSpacing: 3);
-            //SimpleText settingName1 = Instantiate(SimpleText.Prefab);
-            //settingName1.Setup("姓名对调", TextAnchor.MiddleCenter);
-            //SimpleButton toggle1 = UIHelper.CreateToggleButton(() => ToggleInverseName(civSpecies));
-
-            
-
-
-            wholeView.AddChild(pairGroup.gameObject);
-
-
-
-            gameObjects.Add(wholeView.gameObject);
+            if (culture.species_id == "") continue;
+            string cultureName = ConfigData.speciesCulturePair.TryGetValue(culture.species_id, out string name)
+                ? name
+                : "Western";
+            CulturePatch.insertCultureTemplate(culture, cultureName);
         }
     }
 
-    public static void setToggle(bool toggle, SimpleButton button)
+    private void Refresh()
     {
-        if (toggle)
+        foreach (GameObject row in _rows)
         {
-            button.Icon.sprite = SpriteTextureLoader.getSprite("ui/toggle_open");
+            row.SetActive(false);
+            Destroy(row);
         }
-        else
-        {
-            button.Icon.sprite = SpriteTextureLoader.getSprite("ui/toggle_close");
-        }
+        _rows.Clear();
+        IEnumerable<ActorAsset> species = ConfigData.AllCivSpecies;
+        if (!string.IsNullOrWhiteSpace(_search))
+            species = species.Where(a => a.id.Contains(_search) || a.getLocalizedName().Contains(_search));
+        foreach (ActorAsset civSpecies in species) AddRow(civSpecies);
     }
 
-    private static void ToggleInverseName(string species)
+    // 一行：种族图标 种族名 → 文化图标 文化名；整行点哪里都是选中该种族
+    private void AddRow(ActorAsset civSpecies)
     {
-        //if (ConfigData.speciesCulturePair.TryGetValue(species, out string culture)) 
-        //{
-        //    bool togV = false;
-        //    OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting rule);
-        //    setToggle(togV, button);
-        //}
-    }
+        string id = civSpecies.id;
+        bool selected = id == _selectedSpecies;
+        string culture = ConfigData.speciesCulturePair.TryGetValue(id, out string c) ? c : "";
+        AutoHoriLayoutGroup row = this.BeginHoriGroup(pSpacing: 3, pAlignment: TextAnchor.MiddleLeft);
 
-    public void Clear()
-    {
-        float delay = 0.005f;
-        foreach(GameObject go in gameObjects)
-        {
-            go.SetActive(false);
-            GameObject.Destroy(go, delay);
-            delay += 0.005f;
-        }
-        gameObjects.Clear();
+        AdvancedButton speciesIcon = row.AddButtonIntoHoriLayout("species_" + id, "", () => SelectSpecies(id),
+            civSpecies.getSpriteIcon(), size: new Vector2(15, 15));
+        speciesIcon.Background.enabled = false;
+        AdvancedButton speciesName = row.AddButtonIntoHoriLayout("species_name_" + id,
+            (selected ? "▶ " : "") + civSpecies.getLocalizedName(), () => SelectSpecies(id), size: new Vector2(55, 15),
+            hideBackground: true);
+        speciesName.Text.color = selected ? Toolbox.makeColor(Highlight) : Color.white;
+        speciesName.Text.alignment = TextAnchor.MiddleLeft;
+
+        row.AddTextIntoHoriLayout("→", true, TextAnchor.MiddleCenter, new Vector2(12, 15));
+        AdvancedButton cultureIcon = row.AddButtonIntoHoriLayout("species_culture_icon_" + id, "",
+            () => SelectSpecies(id), CultureIcons.Get(culture), size: new Vector2(15, 15));
+        cultureIcon.Background.enabled = false;
+        AdvancedButton cultureName = row.AddButtonIntoHoriLayout("species_culture_" + id,
+            string.IsNullOrEmpty(culture) ? LM.Get("culture_pair_unset") : culture.GetCultureTranslate(),
+            () => SelectSpecies(id), size: new Vector2(60, 15), hideBackground: true);
+        cultureName.Text.color = selected ? Toolbox.makeColor(Highlight) : new Color(0.85f, 0.85f, 0.85f);
+        cultureName.Text.alignment = TextAnchor.MiddleLeft;
+
+        AddChild(row.gameObject);
+        _rows.Add(row.gameObject);
     }
 }

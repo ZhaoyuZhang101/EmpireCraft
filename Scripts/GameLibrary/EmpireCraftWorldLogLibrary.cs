@@ -51,6 +51,7 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset province_change_to_kingdom_log;
     public static WorldLogAsset minister_select_emperor_log;
     public static WorldLogAsset new_jingshi_log;
+    public static WorldLogAsset ideology_treatise_log;
     public static WorldLogAsset cotrolled_country_log;
     public static WorldLogAsset become_greater_general;
     public static WorldLogAsset join_empire_war_log;
@@ -114,7 +115,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(composite_empire_adoption_started_log),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "ui/icons/plots/plot_empirecraft_city_culture_shift",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -127,7 +128,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(composite_empire_adopted_log),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "ui/icons/plots/plot_empirecraft_city_culture_shift",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -140,7 +141,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(composite_empire_stage_changed_log),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "ui/icons/plots/plot_empirecraft_city_culture_shift",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -153,7 +154,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(composite_empire_cultural_name_adopted_log),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "ui/icons/plots/plot_empirecraft_city_culture_shift",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -166,7 +167,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(de_jure_culture_changed_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_empirecraft_independent_title_culture_conversion",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -179,7 +180,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(city_culture_shift_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_city_culture_shift",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -192,7 +193,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(foreign_culture_occupation_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_city_culture_shift",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -205,7 +206,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(culture_restoration_available_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_restore_native_culture",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -217,7 +218,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(city_culture_restored_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_restore_native_culture",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -230,7 +231,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(cultural_assimilation_duty_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_cultural_assimilation_duty",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -243,7 +244,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(cultural_assimilation_duty_assigned_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_cultural_assimilation_duty",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -255,7 +256,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(cultural_assimilation_duty_assigned_city_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_cultural_assimilation_duty",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -267,7 +268,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(cultural_assimilation_duty_completed_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_cultural_assimilation_duty",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -279,7 +280,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(kingdom_regime_conversion_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_kingdom_regime_conversion",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -292,7 +293,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(cultural_name_changed_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_city_culture_shift",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -305,7 +306,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(cultural_name_restored_log),
             group = "emperors",
-            path_icon = "ui/icons/iconCulture",
+            path_icon = "ui/icons/plots/plot_empirecraft_restore_native_culture",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -318,7 +319,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(history_new_emperor),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_become_empire",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -331,7 +332,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(history_emperor_new_year_name),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_emperor_year_name",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -344,7 +345,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empire_take_back_title_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_empire_take_back_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -357,7 +358,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(combine_kingdom_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_combine_kingdom",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -368,7 +369,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(history_new_emperor_west),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_become_empire",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -380,7 +381,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(royal_king_become_emperor_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_become_empire",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -392,7 +393,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(join_religion_war_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_kingdom_start_religion_war",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -404,7 +405,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(join_rebellion_war_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_feudal_independence_war",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -416,7 +417,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(religion_war_transfer_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_kingdom_start_religion_war",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -428,7 +429,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empire_pressure_surrender_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_force_stop_war",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -441,7 +442,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empire_pressure_surrender_city_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_force_stop_war",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -454,7 +455,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empire_core_absorb_title_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_kingdom_get_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -467,7 +468,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(官员品级调动),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/actor_traits/iconEmpireOfficer",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -480,7 +481,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(成为朝贡国),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_kingdom_start_join_taken_alliance",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -492,7 +493,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(邀请入派系),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_kingdom_start_invite_to_faction",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -505,7 +506,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(faction_leader_influence_local_kingdom_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_faction_leader_influence_local_kingdom",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -518,7 +519,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(追加罪行),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_kingdom_expose_crime",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -531,7 +532,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(officer_build_specific_clan),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "TabDynasty",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -543,7 +544,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_prepare_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_empire_plots",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -556,7 +557,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_prepare_no_target_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_empire_plots",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -568,7 +569,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_prepare_crime_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_expose_crime",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -581,7 +582,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_success_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_empire_plots",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -594,7 +595,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_success_no_target_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_empire_plots",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -606,7 +607,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_success_crime_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_expose_crime",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -619,7 +620,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_success_outcome_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_empire_plots",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -632,7 +633,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_failed_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_empire_plots",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -645,7 +646,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_failed_no_target_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_empire_plots",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -657,7 +658,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_failed_crime_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_expose_crime",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -670,7 +671,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_official_fall_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_expose_crime",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -682,7 +683,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_reduce_feudatory_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_feudal_tighten_vassalage",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -693,7 +694,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_revoke_war_right_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_force_stop_war",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -704,7 +705,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_revoke_military_region_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_allow_self_army",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -715,7 +716,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(temporary_faction_raise_tax_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_start_join_taken_alliance",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -726,7 +727,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empirecraft_event_log),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "TabBureau",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -750,7 +751,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(honorary_peerage_granted_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_minister_acquire_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -763,7 +764,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(honorary_peerage_inherited_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_minister_acquire_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -776,7 +777,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(become_greater_general),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_minister_receive_nine_bestowments",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -788,7 +789,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(king_choose_heir_log),
             group = "kings",
-            path_icon = "ui/Icons/iconKings",
+            path_icon = "ui/icons/plots/plot_kingdom_allow_succession",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -827,7 +828,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(join_empire_war_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_king_acquire_title",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -839,7 +840,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(history_empire_get_back_land),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_king_acquire_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -851,7 +852,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(cotrolled_country_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_minister_acquire_empire",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -863,7 +864,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(province_change_to_kingdom_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_create_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -875,7 +876,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(minister_select_emperor_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_new_empire_royal",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -887,7 +888,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(officer_join_faction),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_start_invite_to_faction",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -900,7 +901,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(officer_become_faction_leader),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_empire_plots",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -912,7 +913,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empire_law_enforced_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_expose_crime",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -925,7 +926,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empire_law_arrest_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_expose_crime",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -934,11 +935,24 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$crime$", 3);
             }
         });
+        ideology_treatise_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(ideology_treatise_log),
+            group = "kingdoms",
+            path_icon = "TabConstitution",
+            color = Toolbox.color_log_neutral,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$actor$", 1);
+                wl.updateText(ref pText, pMessage, "$book$", 2);
+                wl.updateText(ref pText, pMessage, "$ideology$", 3);
+            }
+        });
         new_jingshi_log = wl.add(new WorldLogAsset
         {
             id = nameof(new_jingshi_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/actor_traits/iconJingshi",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -950,7 +964,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(emperor_posthumous_name),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_emperor_posthumous_name",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -962,7 +976,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(become_kingdom_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_kingdom_get_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -975,7 +989,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empire_war),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_king_acquire_title",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -987,7 +1001,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(destroy_title_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_destroy_title",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -999,7 +1013,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(history_kingdom_change_capital_to_title),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_change_capital_title",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1012,7 +1026,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(history_kingdom_join_empire),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_join_empire",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1024,7 +1038,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(king_take_title_log),
             group = "emperors",
-            path_icon = "ministerAcquireEmpire",
+            path_icon = "ui/icons/plots/plot_kingdom_get_title",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1037,7 +1051,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(tributary_title_granted_log),
             group = "emperors",
-            path_icon = "TitleAcquire.png",
+            path_icon = "ui/icons/plots/plot_kingdom_petition_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1050,7 +1064,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(kingdom_change_main_title_log),
             group = "emperors",
-            path_icon = "crown2",
+            path_icon = "ui/icons/plots/plot_kingdom_create_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1062,7 +1076,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(king_create_title_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_create_title",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1075,7 +1089,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(city_add_to_title_log),
             group = "emperors",
-            path_icon = "EmperorQuest",
+            path_icon = "ui/icons/plots/plot_kingdom_add_city_into_title",
             color = Toolbox.color_log_warning,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1098,7 +1112,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(history_kingdom_attack_for_title),
             group = "emperors",
-            path_icon = "TitleAcquire.png",
+            path_icon = "ui/icons/plots/plot_king_acquire_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1111,7 +1125,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(become_new_empire_log),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "ui/icons/plots/plot_become_empire",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1123,7 +1137,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(become_new_empire_west_log),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "ui/icons/plots/plot_become_empire",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1135,7 +1149,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(minister_try_aqcuire_empire_log),
             group = "emperors",
-            path_icon = "ministerAcquireEmpire.png",
+            path_icon = "ui/icons/plots/plot_minister_acquire_empire",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1148,7 +1162,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(powerful_minister_aquire_empire_war),
             group = "emperors",
-            path_icon = "ministerAcquireEmpire.png",
+            path_icon = "ui/icons/plots/plot_minister_acquire_empire",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1161,7 +1175,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(minister_aqcuire_empire_log),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "ui/icons/plots/plot_usurp_imperial_legitimacy",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1174,7 +1188,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empire_powerful_minister_aquire_title),
             group = "emperors",
-            path_icon = "ministerAcquireTitle.png",
+            path_icon = "ui/icons/plots/plot_minister_acquire_title",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1187,7 +1201,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(powerful_minister_controls_court_log),
             group = "emperors",
-            path_icon = "ministerAcquireTitle.png",
+            path_icon = "ui/icons/plots/plot_minister_acquire_empire",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1200,7 +1214,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(powerful_minister_nine_bestowments_log),
             group = "emperors",
-            path_icon = "ministerAcquireTitle.png",
+            path_icon = "ui/icons/plots/plot_minister_receive_nine_bestowments",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1213,7 +1227,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(powerful_minister_usurpation_log),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "ui/icons/plots/plot_usurp_imperial_legitimacy",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1226,7 +1240,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(empress_dowager_installs_son_log),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "ui/icons/plots/plot_empress_dowager_install_son",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {
@@ -1239,7 +1253,7 @@ public static class EmpireCraftWorldLogLibrary
         {
             id = nameof(restore_historcial_empire),
             group = "emperors",
-            path_icon = "ChineseCrown.png",
+            path_icon = "ui/icons/plots/plot_new_empire_royal",
             color = Toolbox.color_log_good,
             text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
             {

@@ -86,6 +86,8 @@ internal static class MainTab
             nameof(SpecificClanWindow) + "Title");
         EmpireSettingWindow.CreateWindow(nameof(EmpireSettingWindow),
             nameof(EmpireSettingWindow) + "Title");
+        MetaColorWindow.CreateWindow(nameof(MetaColorWindow),
+            nameof(MetaColorWindow) + "Title");
         RegimeWindow.CreateWindow(nameof(RegimeWindow),
             "");
         SpecificClanListWindow.CreateWindow(nameof(SpecificClanListWindow),
@@ -179,24 +181,24 @@ internal static class MainTab
         
         // ---- 帝国：图层、称帝与解散、分封、列表、人物建国 ----
         PowerButton pb = FixFunctions.CreateLayerButton(MetaTypeExtension.Empire,
-                 SpriteTextureLoader.getSprite("ui/icons/iconKingdom"));
+                 SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_layer"));
         AddButton(EMPIRE_GROUP, pb);
 
         CreateEmpireButton.init();
         AddButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_empire",
-                SpriteTextureLoader.getSprite("ui/icons/iconAlliance")));
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/create_empire")));
 
         EmpireFormButton.init();
         AddButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("empire_form",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ChineseCrown.png")));
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_form")));
 
 
         RemoveEmpireButton.init();
         AddButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_empire",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ChineseCrown_remove.png")));
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/remove_empire")));
 
         EmpireEnfeoffButton.init();
         AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
@@ -204,7 +206,7 @@ internal static class MainTab
 
         //帝国势力列表
         var empireListButon = PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
-            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/icon.png"));
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_list"));
         AddButton(EMPIRE_GROUP, empireListButon);
         empireListButon._button.OnHover(() =>
         {
@@ -234,7 +236,7 @@ internal static class MainTab
         ActorCreateKingdom.init();
         AddButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("actor_create_kingdom",
-               SpriteTextureLoader.getSprite("ui/icons/iconKingdom")));
+               SpriteTextureLoader.getSprite("ui/icons/godpowers/actor_create_kingdom")));
         
         // ---- 文化与理念：图层与文化配置 ----
         // 原版文化图层的第二个入口：复用同一个 GodPower/OptionAsset，因此这里与
@@ -247,6 +249,11 @@ internal static class MainTab
         PowerButton ideologyLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Ideology,
                  SpriteTextureLoader.getSprite("ui/icons/iconBooks"));
         AddButton(CULTURE_GROUP, ideologyLayer);
+
+        // 民族情绪图层
+        PowerButton nationLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Nation,
+                 SpriteTextureLoader.getSprite("ui/icons/iconNationLayer"));
+        AddButton(CULTURE_GROUP, nationLayer);
 
         var cultureConfigButton = PowerButtonCreator.CreateWindowButton("culture_list", nameof(CultureSpeciesPairWindow),
             SpriteTextureLoader.getSprite("ui/icons/iconCulture"));
