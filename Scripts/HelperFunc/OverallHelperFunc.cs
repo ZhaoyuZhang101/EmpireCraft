@@ -189,7 +189,10 @@ namespace EmpireCraft.Scripts.HelperFunc
             }
             else
             {
-                result = JoinNameParts(coreName, typeName);
+                // 地名本身已带类别字时不再重复(幽州 + 州 → 幽州，而不是"幽州州")
+                result = coreName.TrimEnd().EndsWith(typeName.Trim(), global::System.StringComparison.Ordinal)
+                    ? coreName
+                    : JoinNameParts(coreName, typeName);
             }
             return result.ReduceNarrowSpaces();
         }

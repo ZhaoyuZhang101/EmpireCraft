@@ -150,10 +150,17 @@ public class ActorPatch : GamePatch
 
     // showWhisperTip treats its argument as a locale key; the mod also passes already
     // formatted text, which logs "missing text" every time. Show such text as-is.
+    // 原版把 $kingdom_A$/$kingdom_B$ 换成 kingdom.name(存档里的原始名，可能还是当年称帝时的旧名，
+    // 如现代政府仍叫"越帝国")；这里换成与地图铭牌一致的显示名。
     public static bool ShowWhisperTip(string pText)
     {
-        if (string.IsNullOrEmpty(pText) || LocalizedTextManager.stringExists(pText)) return true;
-        WorldTip.showNow(pText, pTranslate: false, "top", 6f);
+        if (string.IsNullOrEmpty(pText)) return true;
+        string text = LocalizedTextManager.stringExists(pText) ? LocalizedTextManager.getText(pText) : pText;
+        if (Config.whisper_A != null)
+            text = text.Replace("$kingdom_A$", EmpireCraftNamePlateLibrary.GetDisplayName(Config.whisper_A));
+        if (Config.whisper_B != null)
+            text = text.Replace("$kingdom_B$", EmpireCraftNamePlateLibrary.GetDisplayName(Config.whisper_B));
+        WorldTip.showNow(text, pTranslate: false, "top", 6f);
         return false;
     }
 
