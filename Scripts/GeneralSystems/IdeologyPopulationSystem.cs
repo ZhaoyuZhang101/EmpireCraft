@@ -143,12 +143,20 @@ public static class IdeologyPopulationSystem
     // 现算城市主理念(不走一个月的缓存)，给地图图层的轮换缓存用；用数组计数，不分配 LINQ 分组
     public static PartyIdeology ComputeDominant(City city)
     {
-        if (city?.units == null || city.units.Count == 0) return PartyIdeology.Conservatism;
+        if (city == null) return PartyIdeology.Conservatism;
         int[] counts = new int[ParsedIdeologies.Count];
-        foreach (Actor actor in city.units)
+        if (city.units != null)
+            foreach (Actor actor in city.units)
+            {
+                if (actor == null || actor.isRekt() || !actor.isAlive()) continue;
+                counts[(int)Get(actor)]++;
+            }
+        if (CityPopulationSystem.AbstractPopulationEnabled)
         {
-            if (actor == null || actor.isRekt() || !actor.isAlive()) continue;
-            counts[(int)Get(actor)]++;
+            var background = new Dictionary<PartyIdeology, int>();
+            CityPopulationSystem.AddBackgroundCounts(city, background, group => group.ideology);
+            foreach (KeyValuePair<PartyIdeology, int> pair in background)
+                if ((int)pair.Key >= 0 && (int)pair.Key < counts.Length) counts[(int)pair.Key] += pair.Value;
         }
         int best = 0;
         for (int i = 1; i < counts.Length; i++)
@@ -182,20 +190,29 @@ public static class IdeologyPopulationSystem
     public static Dictionary<PartyIdeology, int> GetCityCounts(City city)
     {
         var counts = new Dictionary<PartyIdeology, int>();
-        if (city?.units == null) return counts;
-        foreach (Actor actor in city.units)
-        {
-            if (actor == null || actor.isRekt() || !actor.isAlive()) continue;
-            PartyIdeology ideology = Get(actor);
-            counts[ideology] = counts.TryGetValue(ideology, out int count) ? count + 1 : 1;
-        }
+        if (city == null) return counts;
+        if (city.units != null)
+            foreach (Actor actor in city.units)
+            {
+                if (actor == null || actor.isRekt() || !actor.isAlive()) continue;
+                PartyIdeology ideology = Get(actor);
+                counts[ideology] = counts.TryGetValue(ideology, out int count) ? count + 1 : 1;
+            }
+        // 无小人模式：加上背景人口的理念构成
+        CityPopulationSystem.AddBackgroundCounts(city, counts, group => group.ideology);
         return counts;
     }
 
-    public static Dictionary<PartyIdeology, int> GetEmpireCounts(Empire empire) =>
-        empire == null ? new Dictionary<PartyIdeology, int>() :
-        empire.getUnits().Where(actor => actor != null && !actor.isRekt() && actor.isAlive())
+    public static Dictionary<PartyIdeology, int> GetEmpireCounts(Empire empire)
+    {
+        if (empire == null) return new Dictionary<PartyIdeology, int>();
+        Dictionary<PartyIdeology, int> counts = empire.getUnits()
+            .Where(actor => actor != null && !actor.isRekt() && actor.isAlive())
             .GroupBy(Get).ToDictionary(group => group.Key, group => group.Count());
+        CityPopulationSystem.AddBackgroundCounts(CityPopulationSystem.CitiesOf(empire.kingdoms_list), counts,
+            group => group.ideology);
+        return counts;
+    }
 
     public static float GetEmpireShare(Empire empire, PartyIdeology ideology)
     {
@@ -206,14 +223,26 @@ public static class IdeologyPopulationSystem
 
     public static float GetKingdomShare(Kingdom kingdom, PartyIdeology ideology)
     {
-        if (kingdom?.units == null) return 0f;
+        if (kingdom == null) return 0f;
         int population = 0;
         int supporters = 0;
-        foreach (Actor actor in kingdom.units)
+        if (kingdom.units != null)
+            foreach (Actor actor in kingdom.units)
+            {
+                if (actor == null || actor.isRekt() || !actor.isAlive()) continue;
+                population++;
+                if (Get(actor) == ideology) supporters++;
+            }
+        if (CityPopulationSystem.AbstractPopulationEnabled)
         {
-            if (actor == null || actor.isRekt() || !actor.isAlive()) continue;
-            population++;
-            if (Get(actor) == ideology) supporters++;
+            var background = new Dictionary<PartyIdeology, int>();
+            CityPopulationSystem.AddBackgroundCounts(CityPopulationSystem.CitiesOf(new[] { kingdom }), background,
+                group => group.ideology);
+            foreach (KeyValuePair<PartyIdeology, int> pair in background)
+            {
+                population += pair.Value;
+                if (pair.Key == ideology) supporters += pair.Value;
+            }
         }
         return population == 0 ? 0f : (float)supporters / population;
     }
@@ -253,6 +282,7 @@ public static class IdeologyPopulationSystem
             if (city?.units == null || city.isRekt() ||
                 CultureService.GetMainCulture(city) != culture) continue;
             changed += Introduce(city.units, ideology, intensity);
+            changed += IntroduceToBackground(city, ideology, intensity);
             DominantCache.Remove(city);
         }
         if (changed > 0) RegisterIdea(culture, ideology);
@@ -267,7 +297,8 @@ public static class IdeologyPopulationSystem
                 IdeologySpreadSystem.FeatureKey(ideology))) return 0;
         // 与民间交往一样受城市经济形态影响：繁荣城市更易接受自由主义、难被传统理念说服；工业城市更易接受社会主义
         intensity *= EconomyFactor(ideology, CachedEconomy(city));
-        int changed = Introduce(city.units.ToList(), ideology, intensity);
+        int changed = Introduce(city.units.ToList(), ideology, intensity) +
+                      IntroduceToBackground(city, ideology, intensity);
         if (changed > 0)
         {
             DominantCache.Remove(city);
@@ -669,6 +700,11 @@ public static class IdeologyPopulationSystem
         }
         return choices[choices.Count - 1];
     }
+
+    // 与 Introduce 相同的改信概率，按期望值作用在背景人口上(无小人模式)
+    private static int IntroduceToBackground(City city, PartyIdeology ideology, float intensity) =>
+        CityPopulationSystem.ConvertBackground(city, ideology, socialClass =>
+            Mathf.Clamp01(intensity) * Mathf.Clamp01((PartySystem.GetAffinity(ideology, socialClass) + 100f) / 200f));
 
     private static int Introduce(IEnumerable<Actor> actors, PartyIdeology ideology, float intensity)
     {

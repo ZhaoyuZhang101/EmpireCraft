@@ -1123,6 +1123,16 @@ public static class InstitutionSystem
                 counts[socialClass]++;
                 total++;
             }
+            // 无小人模式：加上背景人口的阶层构成
+            var background = new Dictionary<SocialClass, int>();
+            CityPopulationSystem.AddBackgroundCounts(CityPopulationSystem.CitiesOf(empire.kingdoms_hashset),
+                background, group => group.social_class);
+            foreach (KeyValuePair<SocialClass, int> pair in background)
+            {
+                if (!counts.ContainsKey(pair.Key)) continue;
+                counts[pair.Key] += pair.Value;
+                total += pair.Value;
+            }
         }
         var shares = new Dictionary<SocialClass, float>();
         foreach (KeyValuePair<SocialClass, int> pair in counts)

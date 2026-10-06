@@ -2192,9 +2192,10 @@ public static class CityExtension
 
     public static int CountLivingPopulation(this City city)
     {
-        if (city == null || city.units == null)
+        if (city == null) return 0;
+        if (city.units == null)
         {
-            return 0;
+            return CityPopulationSystem.BackgroundCount(city);
         }
 
         int count = 0;
@@ -2206,7 +2207,8 @@ public static class CityExtension
             count++;
         }
 
-        return count;
+        // 无小人模式：没有实体单位的背景人口也是城里的居民
+        return count + CityPopulationSystem.BackgroundCount(city);
     }
 
     public static int CountLivingWarriors(this City city)

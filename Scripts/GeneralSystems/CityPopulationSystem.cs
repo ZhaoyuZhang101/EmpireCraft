@@ -27,6 +27,9 @@ public static class CityPopulationSystem
     private const float OvercrowdingLossRate = 0.25f;
     // 人数低于这个值的人口组在结算后删除，避免碎片组越积越多
     private const float MinimumGroupSize = 0.05f;
+    // 背景人口每年向本城同阶层名人的理念分布靠拢的比例：名人(有实体的单位)照常受交往、党派、
+    // 战争等逐人模拟影响，背景人口以他们为样本跟随思潮变化
+    private const float BackgroundOpinionDrift = 0.3f;
 
     private static readonly Queue<City> PendingCities = new();
     private static object _world;
@@ -114,6 +117,7 @@ public static class CityPopulationSystem
         if (data == null) return;
         if (AbstractPopulationEnabled) GrowBackground(city, data, now);
         Census(city, data, keepBackground: AbstractPopulationEnabled);
+        if (AbstractPopulationEnabled) DriftBackgroundTowardNamed(data, BackgroundOpinionDrift);
         data.last_census = now;
     }
 
@@ -248,6 +252,145 @@ public static class CityPopulationSystem
             if (roll <= 0f) return group;
         }
         return null;
+    }
+
+    #endregion
+
+    #region 背景人口的理念变化
+
+    // 外力说服(藏书、思想引入)对背景人口的作用：每个阶层按 chance 的比例改信 target。返回改信的人数
+    public static int ConvertBackground(City city, PartyIdeology target, Func<SocialClass, float> chance)
+    {
+        if (!AbstractPopulationEnabled || chance == null) return 0;
+        CityPopulationData data = Get(city);
+        if (data?.groups == null) return 0;
+        var moves = new List<(PopGroup from, float amount)>();
+        foreach (PopGroup group in data.groups)
+        {
+            if (group.ideology == target) continue;
+            float amount = group.Background * Mathf.Clamp01(chance(group.social_class));
+            if (amount > 0f) moves.Add((group, amount));
+        }
+        float moved = 0f;
+        foreach ((PopGroup from, float amount) in moves)
+        {
+            float removed = RemoveBackground(from, amount);
+            if (removed <= 0f) continue;
+            AddBackground(city, from.social_class, from.culture, from.species, target, removed);
+            moved += removed;
+        }
+        return Mathf.RoundToInt(moved);
+    }
+
+    // 背景人口向同阶层名人的理念分布靠拢：按(阶层, 文化, 物种)分桶，桶内背景总人数不变，
+    // 只按 rate 的比例把理念构成换成该阶层名人的构成。没有名人的阶层保持原样
+    private static void DriftBackgroundTowardNamed(CityPopulationData data, float rate)
+    {
+        if (data?.groups == null || rate <= 0f) return;
+        var namedByClass = new Dictionary<SocialClass, Dictionary<PartyIdeology, float>>();
+        foreach (PopGroup group in data.groups)
+        {
+            if (group.named <= 0) continue;
+            if (!namedByClass.TryGetValue(group.social_class, out Dictionary<PartyIdeology, float> byIdeology))
+                namedByClass[group.social_class] = byIdeology = new Dictionary<PartyIdeology, float>();
+            byIdeology.TryGetValue(group.ideology, out float count);
+            byIdeology[group.ideology] = count + group.named;
+        }
+        if (namedByClass.Count == 0) return;
+
+        var buckets = new Dictionary<(SocialClass, string, string), float>();
+        foreach (PopGroup group in data.groups)
+        {
+            if (!namedByClass.ContainsKey(group.social_class)) continue;
+            float background = group.Background;
+            if (background <= 0f) continue;
+            var key = (group.social_class, group.culture ?? "", group.species ?? "");
+            buckets.TryGetValue(key, out float total);
+            buckets[key] = total + background;
+            // 先按 rate 缩减原有构成，再把缩减掉的人按名人构成补回
+            group.size -= background * rate;
+        }
+        foreach (KeyValuePair<(SocialClass, string, string), float> bucket in buckets)
+        {
+            (SocialClass socialClass, string culture, string species) = bucket.Key;
+            Dictionary<PartyIdeology, float> target = namedByClass[socialClass];
+            float namedTotal = 0f;
+            foreach (float count in target.Values) namedTotal += count;
+            if (namedTotal <= 0f) continue;
+            float pool = bucket.Value * rate;
+            foreach (KeyValuePair<PartyIdeology, float> pair in target)
+            {
+                PopGroup group = Find(data.groups, socialClass, culture, species, pair.Key);
+                if (group == null)
+                {
+                    group = new PopGroup
+                    {
+                        social_class = socialClass, culture = culture, species = species, ideology = pair.Key
+                    };
+                    data.groups.Add(group);
+                }
+                group.size += pool * pair.Value / namedTotal;
+            }
+        }
+        data.groups.RemoveAll(group => group.size < MinimumGroupSize && group.named <= 0);
+    }
+
+    #endregion
+
+    #region 给各系统的统计补上背景人口
+
+    // 城里的背景人口(没开无小人模式时为 0)
+    public static int BackgroundCount(City city) =>
+        AbstractPopulationEnabled ? Mathf.RoundToInt(GetBackgroundTotal(city)) : 0;
+
+    // 这些王国名下的城市(去重，跳过已灭亡和兼容模组接管的王国)
+    public static IEnumerable<City> CitiesOf(IEnumerable<Kingdom> kingdoms)
+    {
+        if (kingdoms == null) yield break;
+        var seen = new HashSet<City>();
+        foreach (Kingdom kingdom in kingdoms)
+        {
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom.cities == null ||
+                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) continue;
+            foreach (City city in kingdom.cities)
+                if (city?.data != null && !city.isRekt() && seen.Add(city)) yield return city;
+        }
+    }
+
+    // 把这些城市的背景人口按 keyOf 分类后加进按实体单位数出来的 counts。没开无小人模式时什么都不做
+    public static void AddBackgroundCounts<TKey>(IEnumerable<City> cities, Dictionary<TKey, int> counts,
+        Func<PopGroup, TKey> keyOf, Func<PopGroup, bool> filter = null)
+    {
+        if (!AbstractPopulationEnabled || cities == null || counts == null) return;
+        var sums = new Dictionary<TKey, float>();
+        foreach (City city in cities)
+        {
+            CityPopulationData data = Get(city);
+            if (data?.groups == null) continue;
+            foreach (PopGroup group in data.groups)
+            {
+                float background = group.Background;
+                if (background <= 0f || filter != null && !filter(group)) continue;
+                TKey key = keyOf(group);
+                sums.TryGetValue(key, out float sum);
+                sums[key] = sum + background;
+            }
+        }
+        foreach (KeyValuePair<TKey, float> pair in sums)
+        {
+            int amount = Mathf.RoundToInt(pair.Value);
+            if (amount <= 0) continue;
+            counts.TryGetValue(pair.Key, out int count);
+            counts[pair.Key] = count + amount;
+        }
+    }
+
+    public static void AddBackgroundCounts<TKey>(City city, Dictionary<TKey, int> counts,
+        Func<PopGroup, TKey> keyOf, Func<PopGroup, bool> filter = null)
+    {
+        // 这个重载在热路径上(每座城的理念统计)，没开无小人模式时不分配任何东西
+        if (city == null || !AbstractPopulationEnabled) return;
+        AddBackgroundCounts(new[] { city }, counts, keyOf, filter);
     }
 
     #endregion

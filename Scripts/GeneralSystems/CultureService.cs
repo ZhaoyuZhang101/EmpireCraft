@@ -418,6 +418,15 @@ public static class CultureService
             counts[culture] = counts.TryGetValue(culture, out int count) ? count + 1 : 1;
             recognizedPopulation++;
         }
+        // 无小人模式：背景人口的文化构成同样计入
+        var backgroundCultures = new Dictionary<string, int>();
+        CityPopulationSystem.AddBackgroundCounts(city, backgroundCultures, group => group.culture ?? "",
+            group => IsValidCulture(group.culture));
+        foreach (KeyValuePair<string, int> pair in backgroundCultures)
+        {
+            counts[pair.Key] = counts.TryGetValue(pair.Key, out int count) ? count + pair.Value : pair.Value;
+            recognizedPopulation += pair.Value;
+        }
 
         data.last_culture_share_sync_timestamp = now;
         if (recognizedPopulation <= 0) return false;

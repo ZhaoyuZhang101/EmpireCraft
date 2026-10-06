@@ -356,11 +356,16 @@ public static class ConstitutionalEconomySystem
 
     #endregion
 
+    // 无小人模式下背景人口折算户数时每户的人数
+    private const int PeoplePerBackgroundHousehold = 4;
+
     private static void CountHouseholds(Empire empire, out int households, out int merchants,
         out int merchantCities)
     {
         var seen = new HashSet<string>();
         var merchantKeys = new HashSet<string>();
+        float backgroundHouseholds = 0f;
+        float backgroundMerchants = 0f;
         merchantCities = 0;
         foreach (City city in (empire.kingdoms_list ?? new List<Kingdom>())
                      .Where(kingdom => kingdom != null && !kingdom.isRekt())
@@ -377,10 +382,24 @@ public static class ConstitutionalEconomySystem
                 merchantKeys.Add(key);
                 foundMerchant = true;
             }
+            // 无小人模式：背景人口按每户 PeoplePerBackgroundHousehold 人折算成户数，商人阶层折算成商户
+            if (CityPopulationSystem.AbstractPopulationEnabled)
+            {
+                var background = new Dictionary<SocialClass, int>();
+                CityPopulationSystem.AddBackgroundCounts(city, background, group => group.social_class);
+                int people = 0;
+                foreach (int count in background.Values) people += count;
+                backgroundHouseholds += people / (float)PeoplePerBackgroundHousehold;
+                if (background.TryGetValue(SocialClass.Merchant, out int traders) && traders > 0)
+                {
+                    backgroundMerchants += traders / (float)PeoplePerBackgroundHousehold;
+                    if (!foundMerchant) merchantCities++;
+                }
+            }
             if (foundMerchant) merchantCities++;
         }
-        households = seen.Count;
-        merchants = merchantKeys.Count;
+        households = seen.Count + UnityEngine.Mathf.RoundToInt(backgroundHouseholds);
+        merchants = merchantKeys.Count + UnityEngine.Mathf.RoundToInt(backgroundMerchants);
     }
 
     #region 查询（只读，UI 可以随便调用）
