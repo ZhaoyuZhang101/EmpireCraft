@@ -137,6 +137,39 @@ namespace EmpireCraft.Scripts.UI.Windows
                     action: _ => ShowTab(ContentTab.NameHistory),
                     sprite: SpriteTextureLoader.getSprite("ui/icons/iconCulture"));
             }
+            if (ScrollWindowComponent.tabs._tabs.All(tab => tab.name != "kingdom_title_color_tab"))
+            {
+                SimpleWindowTab colorTab = Instantiate(SimpleWindowTab.Prefab);
+                colorTab.Setup("kingdom_title_color_tab", ScrollWindowComponent,
+                    action: _ => OpenColorWindow(),
+                    sprite: SpriteTextureLoader.getSprite("TabColor"));
+            }
+        }
+
+        // 法理颜色与旗帜：原版色板任选一色、原版旗帜库切换底纹和纹章，法理图层和铭牌随之变化
+        private void OpenColorWindow()
+        {
+            KingdomTitle target = title;
+            if (target == null || target.isRekt() || target.data == null) return;
+            BannerAsset Banners()
+            {
+                ActorAsset asset = target.getActorAsset();
+                return asset == null ? null : AssetManager.kingdom_banners_library.get(asset.banner_id);
+            }
+            MetaColorWindow.Open("kingdom_title_color", () => AssetManager.kingdom_colors_library,
+                () => target.data.color_id,
+                index => target.updateColor(AssetManager.kingdom_colors_library.list[index]),
+                new MetaColorWindow.BannerSpec
+                {
+                    background = target.getElementBackground,
+                    icon = target.getElementIcon,
+                    background_get = () => target.data.banner_background_id,
+                    background_set = value => target.data.banner_background_id = value,
+                    background_count = () => Banners()?.backgrounds.Count ?? 0,
+                    icon_get = () => target.data.banner_icon_id,
+                    icon_set = value => target.data.banner_icon_id = value,
+                    icon_count = () => Banners()?.icons.Count ?? 0
+                });
         }
 
         private void ShowTab(ContentTab tab)

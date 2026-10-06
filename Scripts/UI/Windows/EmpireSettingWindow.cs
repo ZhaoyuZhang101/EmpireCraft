@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
@@ -36,6 +37,11 @@ public class EmpireSettingWindow : AutoLayoutWindow<EmpireSettingWindow>
 
         AddChild(vertLayout.gameObject);
 
+        // 颜色与旗帜：借原版"自定义王国"窗口编辑核心王国，见 EmpireColorPatch
+        SimpleButton colorButton = Instantiate(SimpleButton.Prefab, null);
+        colorButton.Setup(() => EmpireColorPatch.Open(EmpireCraftMetaTypeLibrary.selected_empire),
+            SpriteTextureLoader.getSprite("TabColor"), LM.Get("empire_change_color"), new Vector2(80, 18));
+        AddChild(colorButton.gameObject);
     }
     
     private void ToggleYearName()
