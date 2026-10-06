@@ -5,6 +5,7 @@ using System.Reflection;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Regimes;
 using HarmonyLib;
 using NeoModLoader.services;
 using UnityEngine;
@@ -45,8 +46,9 @@ public static class CityPopulationSystem
     private const float OvercrowdingLossRate = 0.25f;
 
     // ---- 并入普通人(无小人模式) ----
-    // 每座城保留的普通劳动者(给原版建造、种地、采集用)；军人另算：太平时每城一名将领，交战时按兵额征召
-    public const int KeptWorkersPerCity = 6;
+    // 每座城保留的普通劳动者。生产与施工已由人口经济按数据结算(见 PopulationEconomySystem)，不再留"没用的人"；
+    // 军人另算：太平时每城一名将领，交战时按兵额征召；官职、城主空缺时按需从人口中生成(见 SpawnForOffice)
+    public const int KeptWorkersPerCity = 0;
     // 并入检查的间隔(游戏月)
     private const int FoldIntervalMonths = 1;
     // 人数低于这个值的人口组在结算后删除，避免碎片组越积越多
@@ -366,6 +368,13 @@ public static class CityPopulationSystem
             else commoners.Add(actor);
         }
 
+        // 城主空缺：从人口中当场生成一人出任(总人口不变)
+        if (city.leader == null || city.leader.isRekt() || !city.leader.isAlive())
+        {
+            Actor leader = SpawnCivilian(city);
+            if (leader != null) city.setLeader(leader, true);
+        }
+
         // 留在地图上的人不用吃饭、不用睡觉：饥饿值补满，正在睡的叫醒
         foreach (Actor actor in city.units)
             if (actor?.data != null && !actor.isRekt() && actor.isAlive()) KeepFedAndAwake(actor);
@@ -494,6 +503,30 @@ public static class CityPopulationSystem
         }
         else actor.SetSocialClass(group.social_class);
         return actor;
+    }
+
+    // 从背景人口中生成一名成年平民(物种、文化、理念、阶层取自抽中的人口组)，并从背景人口里扣掉，总人口不变
+    public static Actor SpawnCivilian(City city)
+    {
+        if (!AbstractPopulationEnabled || city?.data == null || city.isRekt() || city.kingdom == null) return null;
+        PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f &&
+                                                           !string.IsNullOrEmpty(candidate.species));
+        if (group == null) return null;
+        Actor actor = SpawnFromGroup(city, group, soldier: false);
+        if (actor != null) RemoveBackground(group, 1f);
+        return actor;
+    }
+
+    // 官职空缺且找不到合适人选时(无小人模式)，从官职所在城市(否则本国首都)的人口中生成一人。
+    // 王位不在此列：君主空缺走继承制度，不能凭空生成
+    public static Actor SpawnForOffice(OfficeObject office, Kingdom kingdom)
+    {
+        if (!AbstractPopulationEnabled || office == null) return null;
+        if (office.is_local && office.meta_object is Kingdom) return null;
+        City city = office.meta_object as City ?? (office.meta_object as Army)?._city ?? kingdom?.capital;
+        if (city == null || city.isRekt() || city.kingdom == null) return null;
+        Actor actor = SpawnCivilian(city);
+        return actor != null && actor.CanServeOffice(kingdom ?? city.kingdom) ? actor : null;
     }
 
     private static WorldTile PickTile(City city)

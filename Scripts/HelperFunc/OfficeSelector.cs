@@ -66,6 +66,10 @@ public static class OfficeSelector
                 break;
         }
 
+        // 无小人模式：没有合适人选就从人口里生成一人补上(后宫除外)
+        if (actor == null && method != LeaderSelectMethod.Harem)
+            actor = CityPopulationSystem.SpawnForOffice(office, pKingdom);
+
         if (actor != null)
         {
             office.SetActor(actor);
