@@ -446,6 +446,115 @@ public static class CityPopulationSystem
             LastPassCities = _passCities;
             LastPassMilliseconds = _passMilliseconds;
             LogService.LogInfo($"[EmpireCraft][人口数据层] 本年校准 {LastPassCities} 座城市，共耗时 {LastPassMilliseconds:0.0} ms(分帧，每帧上限 {SliceBudgetMs} ms)");
+            FoldHomeless();
+            LogMemoryCensus();
+        }
+    }
+
+    // 流民：属于某个文明国家、却不属于任何城市的普通人和散兵(城破逃散、迁徙落空、军团解散后留在野外的)。
+    // 原版只有城市会收拢自己的人，这些人在无小人模式下永远留在地图上越积越多；
+    // 每年一次把它们并回本国随机一城的背景人口(名人照旧保留)
+    private const int MaxHomelessFoldsPerYear = 400;
+
+    private static void FoldHomeless()
+    {
+        if (!AbstractPopulationEnabled || World.world?.units == null) return;
+        var toFold = new List<Actor>();
+        foreach (Actor actor in World.world.units)
+        {
+            if (toFold.Count >= MaxHomelessFoldsPerYear) break;
+            if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != null) continue;
+            if (actor.asset == null || actor.asset.is_boat || !actor.asset.civ) continue;
+            Kingdom kingdom = actor.kingdom;
+            if (kingdom == null || kingdom.wild || kingdom.isRekt() || kingdom.cities.Count == 0) continue;
+            if (actor.is_army_captain || actor.army != null) continue;
+            if (IsNotable(actor)) continue;
+            toFold.Add(actor);
+        }
+        foreach (Actor actor in toFold)
+        {
+            try
+            {
+                City home = DrawKingdomCity(actor.kingdom);
+                if (home == null) continue;
+                SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
+                if (socialClass == SocialClass.Army) socialClass = SocialClass.Peasant;
+                string culture = CultureService.GetActorCulture(actor) ?? "";
+                string species = actor.asset?.id ?? "";
+                PartyIdeology ideology = IdeologyPopulationSystem.Get(actor);
+                float people = Mathf.Max(1f, LegionAlive(actor));
+                actor.GetOrCreate().legion_size = 0f;
+                VirtualGenealogySystem.Virtualize(actor, home);
+                actor.die(true, AttackType.Other, false, false);
+                AddBackground(home, socialClass, culture, species, ideology, people);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 无小人模式收拢流民失败: {exception.Message}");
+            }
+        }
+        if (toFold.Count > 0) LogService.LogInfo($"[EmpireCraft][无小人模式] 收拢流民 {toFold.Count} 人并入背景人口");
+    }
+
+    // 内存普查用：实体单位按"为什么还留在地图上"分类(按 IsNotable 的判断顺序取第一条)
+    private static string UnitCategory(Actor actor)
+    {
+        if (actor.asset == null || !actor.asset.civ) return "非文明生物";
+        if (actor.kingdom == null || actor.kingdom.wild) return "无国";
+        if (actor.city == null) return IsSoldier(actor) ? "无城士兵" : IsNotable(actor) ? "无城名人" : "流民";
+        if (actor.isKing()) return "君主";
+        if (actor.isCityLeader()) return "城主";
+        if (IsSoldier(actor)) return "士兵";
+        if (actor.isFavorite() || actor.isCameraFollowingUnit()) return "收藏";
+        if (actor.plot != null) return "谋划";
+        SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
+        if (socialClass == SocialClass.Officer) return "官员";
+        if (socialClass == SocialClass.Landlord) return "地主";
+        if (socialClass == SocialClass.Noble && IsImportantNoble(actor)) return "贵族";
+        if (actor.GetFaction() != null) return "派系";
+        if (actor.hasTrait("gongshi") || actor.hasTrait("jingshi") || actor.hasTrait("juren")) return "士人";
+        if (VirtualGenealogySystem.IsClanHead(actor)) return "族长";
+        return "普通人";
+    }
+
+    // 内存普查：每年记一次只增不减的几类对象有多少，找出内存膨胀的来源
+    private static void LogMemoryCensus()
+    {
+        try
+        {
+            int persons = EmpireCraft.Scripts.System.SpecificClanManager._globalPersonLookup.Count, alive = 0, virtuals = 0, histories = 0;
+            foreach (EmpireCraft.Scripts.System.PersonalClanIdentity person in EmpireCraft.Scripts.System.SpecificClanManager._globalPersonLookup.Values)
+            {
+                if (person == null) continue;
+                if (person.is_alive) alive++;
+                if (person.is_virtual) virtuals++;
+                histories += person.personal_history?.Count ?? 0;
+            }
+            int groups = 0;
+            foreach (City city in World.world.cities) groups += Get(city)?.groups?.Count ?? 0;
+            var categories = new Dictionary<string, int>();
+            foreach (Actor actor in World.world.units)
+            {
+                if (actor?.data == null || actor.isRekt() || !actor.isAlive()) continue;
+                string category = UnitCategory(actor);
+                categories[category] = categories.TryGetValue(category, out int n) ? n + 1 : 1;
+            }
+            var parts = new List<string>();
+            foreach (KeyValuePair<string, int> pair in categories.OrderByDescending(pair => pair.Value))
+                parts.Add($"{pair.Key} {pair.Value}");
+            int wheat = 0;
+            foreach (Building building in World.world.buildings)
+                if (building?.asset != null && building.asset.wheat) wheat++;
+            long mono = GC.GetTotalMemory(false) / (1024 * 1024);
+            LogService.LogInfo($"[EmpireCraft][内存普查] 托管内存 {mono} MB；宗族 {EmpireCraft.Scripts.System.SpecificClanManager._specificClans.Count}，" +
+                               $"族谱身份 {persons}(在世 {alive}，虚拟 {virtuals})，个人经历 {histories} 条；" +
+                               $"原版氏族 {World.world.clans.Count}，家庭 {World.world.families.Count}，书 {World.world.books.Count}，" +
+                               $"单位 {World.world.units.Count}，城市 {World.world.cities.Count}，人口组 {groups}；" +
+                               $"建筑 {World.world.buildings.Count}(庄稼 {wheat})；单位构成：{string.Join("，", parts)}");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 内存普查失败: {exception.Message}");
         }
     }
 
