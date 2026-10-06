@@ -355,6 +355,18 @@ public class FixedFaction
             ? TemporaryFactionTypesRecord
             : TemporaryFactionTypes ?? TemporaryFactionTypesRecord ?? new List<TemporaryFactionType>();
 
+    // 存档用的副本：保留 id、名称、党员、领袖、理念、阶层基础等全部持久字段；
+    // 诉求对象(抽象类，无法反序列化)不存，读档后按诉求清单重新生成(FixMissedTemporaryFactions)
+    public FixedFaction ToSaveCopy()
+    {
+        var copy = (FixedFaction)MemberwiseClone();
+        copy.Members = new List<long>(Members ?? new List<long>());
+        copy.TemporaryFactions = null;
+        copy.LockButton = null;
+        copy.CardUI = null;
+        return copy;
+    }
+
     public FixedFaction Clone()
     {
         FixedFaction newFaction = new FixedFaction()

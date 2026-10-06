@@ -239,6 +239,10 @@ public static class KingdomExtension
         [JsonIgnore]
         public Regime regime;
         public RegimeType regimeType;
+        // 政体对象不进存档(性能考虑)，读档时按模板重建；但派系/政党是游戏中逐渐形成的(改组、组党、改名、
+        // 党员归属、议席与执政联盟都按派系 id 记录)，单独存一份，读档重建政体时还原(见 LoadRegime)
+        public List<FixedFaction> saved_factions;
+        public RegimeType saved_factions_regime;
         public KingdomType kingdomType;
         public string core_name = "";
         public string core_name_source = "";
@@ -1891,6 +1895,13 @@ public static class KingdomExtension
             }
         }
         Regime regime = baseRegime?.Clone(k);
+        // 读档后第一次建政体：还原存档里的派系与政党(只用一次；之后改换政体照常按新政体的模板重建)
+        if (regime != null && ed.saved_factions != null)
+        {
+            if (ed.saved_factions_regime == type && ed.saved_factions.Count > 0)
+                regime.PlayerFactions = ed.saved_factions.Where(f => f != null).ToList();
+            ed.saved_factions = null;
+        }
         // regime 每次读档都会从模板重新 Clone,option_succession_law 的当前选择要从持久化的
         // KingdomExtraData.SuccessionLaw 同步回来,否则玩家选的继承法会在读档后被模板默认值覆盖。
         if (regime?.options != null && regime.options.TryGetValue("option_succession_law", out int[] successionLawOption) && successionLawOption.Length > 0)

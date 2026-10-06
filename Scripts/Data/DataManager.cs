@@ -353,7 +353,17 @@ public static class DataManager
         saveData.actorsExtraData = World.world.units.Select(a=>a.GetExtraData<Actor, ActorExtraData>(true)).Where(ed=>ed!=null).ToList();
         saveData.cityExtraData = World.world.cities.Select(a => a.GetExtraData<City, CityExtraData>(true)).Where(ed => ed != null).ToList();
         saveData.religionExtraData = World.world.religions.Select(a => a.GetExtraData<Religion, ReligionExtension.ReligionExtraData>(true)).Where(ed => ed != null).ToList();
-        saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.GetExtraData<Kingdom, KingdomExtraData>(true)).Where(ed => ed != null).ToList(); ;
+        // 派系与政党随王国一起存(政体对象本身不存，见 KingdomExtraData.saved_factions)；
+        // 读档后还没建过政体的王国保留读进来的那份
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+            if (kingdom?.data == null || kingdom.isRekt()) continue;
+            KingdomExtraData extra = kingdom.GetOrCreate();
+            if (extra?.regime?.PlayerFactions == null) continue;
+            extra.saved_factions = extra.regime.PlayerFactions.Where(f => f != null).Select(f => f.ToSaveCopy()).ToList();
+            extra.saved_factions_regime = extra.regime.type;
+        }
+        saveData.kingdomExtraData = World.world.kingdoms.Select(a => a.GetExtraData<Kingdom, KingdomExtraData>(true)).Where(ed => ed != null).ToList();
         saveData.warExtraData = World.world.wars.Select(a => a.GetExtraData<War, WarExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.clanExtraData = World.world.clans.Select(a => a.GetExtraData<Clan, ClanExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.bookExtraData = World.world.books.Select(b => b.GetExtraData<Book, BookExtension.BookExtraData>(true))
@@ -411,6 +421,9 @@ public static class DataManager
         saveData.switch_simple_nameplate = ModClass.SIMPLE_NAMEPLATE_SWITCH;
         saveData.switch_empire_show_alliance = ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH;
         string json = JsonConvert.SerializeObject(saveData, Formatting.None);
+        // 序列化完再清掉内存里的派系副本：政体已在内存中的王国不需要它，留着反而会在之后重建政体时被误用
+        foreach (KingdomExtraData extra in saveData.kingdomExtraData)
+            if (extra?.regime != null) extra.saved_factions = null;
         LogService.LogInfo($"Save Data: actors={saveData.actorsExtraData.Count}, wars={saveData.warExtraData.Count}, kingdoms={saveData.kingdomExtraData.Count}, cities={saveData.cityExtraData.Count}, religions={saveData.religionExtraData.Count}");
         File.WriteAllText(savePath, json);
         LogService.LogInfo("Save Finished");

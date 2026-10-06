@@ -253,6 +253,9 @@ public static partial class ParliamentSystem
         }
         if (!KeepsCabinet(empire)) RetireCabinet(empire);
 
+        // 旧存档：议席指向读档后已不存在的派系(以前派系不进存档)，重新举行大选
+        if (state.parliament_seats.Any(seat => FindFaction(empire, seat.faction_id) == null))
+            state.last_parliament_election = -1d;
         bool firstSession = state.parliament_seats.Count == 0 && state.last_parliament_election < 0;
         if (state.parliament_seats.Count == 0 || state.last_parliament_election < 0 ||
             Date.getYearsSince(state.last_parliament_election) >= TermYears(empire))

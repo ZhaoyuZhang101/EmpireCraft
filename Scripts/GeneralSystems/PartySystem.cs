@@ -295,6 +295,9 @@ public static class PartySystem
     {
         if (!IsActive(empire) || World.world == null) return;
         Regime regime = empire.CoreKingdom.GetRegime();
+        // 旧存档：以前政党不进存档，读档后退回了模板派系，却还标着"已改组"——重新改组一次
+        if (state.parties_reorganized && !regime.GetPlayerFactions().Any(faction => faction != null && faction.IsParty))
+            state.parties_reorganized = false;
         if (!state.parties_reorganized)
         {
             IdeologyPopulationSystem.SeedNewPartyPolitics(empire);
