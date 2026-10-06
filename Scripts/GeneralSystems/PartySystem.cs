@@ -747,7 +747,7 @@ public static class PartySystem
     // 各党得票：有选举权的各阶层人口按理念接近程度分票，再加一点党组织本身的动员力
     public static Dictionary<FixedFaction, float> CountVotes(Empire empire, List<FixedFaction> parties) =>
         ApplyOpinionSwing(empire, CountVotes(parties, GetCitizens(empire), HasUniversalSuffrage(empire),
-            InstitutionSystem.GetPrimaryCulture(empire)));
+            InstitutionSystem.GetPrimaryCulture(empire), CityPopulationSystem.CitiesOf(empire.kingdoms_list)));
 
     // 一个行政区里各党的得票(地方选举、省级政治倾向)：只算住在本省的选民
     public static Dictionary<FixedFaction, float> CountProvinceVotes(Empire empire, Kingdom province,
@@ -757,7 +757,7 @@ public static class PartySystem
                                                             actor.isAdult() && actor.id != empire.Emperor?.id)
             .ToList() ?? new List<Actor>();
         return ApplyOpinionSwing(empire, CountVotes(parties, voters, HasUniversalSuffrage(empire),
-            InstitutionSystem.GetPrimaryCulture(empire)));
+            InstitutionSystem.GetPrimaryCulture(empire), CityPopulationSystem.CitiesOf(new[] { province })));
     }
 
     // 民意影响选票(见 PublicOpinionSystem)：民意越差执政党越丢票、百姓想要的理念越得票；外国压力撑腰的理念也多拿票
@@ -781,10 +781,11 @@ public static class PartySystem
     }
 
     private static Dictionary<FixedFaction, float> CountVotes(List<FixedFaction> parties, List<Actor> citizens,
-        bool universal, string culture)
+        bool universal, string culture, IEnumerable<City> cities = null)
     {
         var votes = parties.ToDictionary(party => party, _ => 0f);
         if (parties.Count == 0) return votes;
+        AddBackgroundVotes(votes, parties, cities, universal);
         foreach (Actor citizen in citizens)
         {
             if (!universal && !RestrictedFranchise.Contains(ClassOf(citizen))) continue;
@@ -806,6 +807,37 @@ public static class PartySystem
         return votes;
     }
 
+    // 无小人模式：背景人口也投票。每个人口组的成年人按本组的理念与阶层，用和实体选民一样的亲和度在各党间分票；
+    // 限制选举时只有有选举权的阶层投票
+    private const float BackgroundAdultShare = 0.7f;
+
+    private static void AddBackgroundVotes(Dictionary<FixedFaction, float> votes, List<FixedFaction> parties,
+        IEnumerable<City> cities, bool universal)
+    {
+        if (cities == null || !CityPopulationSystem.AbstractPopulationEnabled) return;
+        var weights = new float[parties.Count];
+        foreach (City city in cities)
+        {
+            Data.CityPopulationData data = CityPopulationSystem.Get(city);
+            if (data?.groups == null) continue;
+            foreach (Data.PopGroup group in data.groups)
+            {
+                float adults = group.Background * BackgroundAdultShare;
+                if (adults <= 0f || !universal && !RestrictedFranchise.Contains(group.social_class)) continue;
+                float sum = 0f;
+                for (int i = 0; i < parties.Count; i++)
+                {
+                    FixedFaction party = parties[i];
+                    float affinity = (100f - Distance(group.ideology, party.Ideology) * 0.9f) * 0.75f +
+                                     GetAffinity(party.Ideology, group.social_class) * 0.25f;
+                    weights[i] = Mathf.Max(0f, affinity) + 1f;
+                    sum += weights[i];
+                }
+                for (int i = 0; i < parties.Count; i++) votes[parties[i]] += adults * weights[i] / sum;
+            }
+        }
+    }
+
     // 普选后按行政区选举：每个行政区(帝国内的一国)按人口分得议席(至少 1 席)，区内按得票用顿特法分给各党。
     // 返回每一席的 (政党, 行政区 id)。
     public static List<(FixedFaction party, long district)> AllocateDistrictSeats(Empire empire,
@@ -814,11 +846,19 @@ public static class PartySystem
         var result = new List<(FixedFaction, long)>();
         if (parties.Count == 0 || seats <= 0) return result;
         List<Actor> citizens = GetCitizens(empire);
-        List<(Kingdom kingdom, List<Actor> voters)> districts = empire.kingdoms_hashset
+        // 行政区人口：实体选民 + 背景人口(无小人模式)
+        List<(Kingdom kingdom, List<Actor> voters, float population)> districts = empire.kingdoms_hashset
             .Where(kingdom => kingdom != null && !kingdom.isRekt())
-            .Select(kingdom => (kingdom, voters: citizens.Where(actor => actor.kingdom == kingdom).ToList()))
-            .Where(district => district.voters.Count > 0)
-            .OrderByDescending(district => district.voters.Count).ThenBy(district => district.kingdom.id).ToList();
+            .Select(kingdom =>
+            {
+                List<Actor> voters = citizens.Where(actor => actor.kingdom == kingdom).ToList();
+                float background = CityPopulationSystem.AbstractPopulationEnabled
+                    ? CityPopulationSystem.CitiesOf(new[] { kingdom }).Sum(CityPopulationSystem.GetBackgroundTotal)
+                    : 0f;
+                return (kingdom, voters, population: voters.Count + background);
+            })
+            .Where(district => district.population > 0f)
+            .OrderByDescending(district => district.population).ThenBy(district => district.kingdom.id).ToList();
         if (districts.Count == 0) return result;
 
         // 每区先给 1 席(区比席多时只给人口最多的那几个区)，剩下的按人口最大余额法分
@@ -827,12 +867,12 @@ public static class PartySystem
         int remaining = seats - districtSeats.Values.Sum();
         if (remaining > 0)
         {
-            float population = districts.Sum(district => district.voters.Count);
+            float population = districts.Sum(district => district.population);
             var remainders = new List<(Kingdom kingdom, float remainder)>();
             int assigned = 0;
             foreach (var district in districts)
             {
-                float quota = district.voters.Count / population * remaining;
+                float quota = district.population / population * remaining;
                 int whole = (int)Math.Floor(quota);
                 districtSeats[district.kingdom] += whole;
                 assigned += whole;
@@ -847,7 +887,7 @@ public static class PartySystem
             int count = districtSeats[district.kingdom];
             if (count <= 0) continue;
             Dictionary<FixedFaction, float> votes = ApplyOpinionSwing(empire, CountVotes(parties, district.voters,
-                true, InstitutionSystem.GetPrimaryCulture(empire)));
+                true, InstitutionSystem.GetPrimaryCulture(empire), CityPopulationSystem.CitiesOf(new[] { district.kingdom })));
             // 顿特法：每次把一席给"得票 / (已得席位 + 1)"最大的党
             var won = parties.ToDictionary(party => party, _ => 0);
             for (int i = 0; i < count; i++)

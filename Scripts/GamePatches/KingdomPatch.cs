@@ -1,6 +1,7 @@
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
 using NeoModLoader.api;
@@ -298,12 +299,27 @@ public class KingdomPatch : GamePatch
     public static bool getPopulationPeople(Kingdom __instance, ref int __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
+        if (CityPopulationSystem.VanillaScale && CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            __result = CityPopulationSystem.Households(__instance);
+            return false;
+        }
         var ed = __instance.GetOrCreate();
         if (ed is { last_cached_timestamp: > 0 })
         {
             __result = ed.cached_population;
             return false;
         }
-        return true;
+        // 无小人模式：原版只数实体单位，补上各城的背景人口
+        if (!CityPopulationSystem.AbstractPopulationEnabled) return true;
+        int people = 0;
+        if (__instance.units != null)
+            foreach (Actor unit in __instance.units)
+                if (unit != null && unit.isAlive() && unit.asset?.is_boat != true && unit.kingdom == __instance) people++;
+        if (__instance.cities != null)
+            foreach (City city in __instance.cities)
+                people += CityPopulationSystem.BackgroundCount(city);
+        __result = people;
+        return false;
     }
 }

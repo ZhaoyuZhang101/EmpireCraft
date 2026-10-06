@@ -225,7 +225,8 @@ public static class ConstitutionalEconomySystem
 
     public static int GetWelfareAnnualCost(Empire empire, int level) =>
         empire?.CoreKingdom == null || level <= 0 ? 0 :
-        Math.Max(5, empire.CountPopulation() / 100) * level;
+        Math.Max(5, (CityPopulationSystem.AbstractPopulationEnabled
+            ? CityPopulationSystem.Households(empire) : empire.CountPopulation()) / 100) * level;
 
     private static void UpdateWelfare(Empire empire, ConstitutionalEconomyState state)
     {

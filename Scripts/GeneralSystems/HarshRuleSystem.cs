@@ -91,7 +91,8 @@ public static class HarshRuleSystem
         if (bankrupt) Add("harsh_bankrupt", 15f);
         // 土地兼并：各城无地农民比例的平均(帝国按全帝国)，无地两成五约 +20，最多 +30
         Add("harsh_land", Mathf.Min(30f, LandEconomySystem.GetRealmLandlessRatio(core) * 80f));
-        int population = realms.Sum(kingdom => kingdom.getPopulationPeople());
+        // 按户计(无小人模式下真实人数可达几百万，和士兵数、存粮不是一个量级)
+        int population = realms.Sum(kingdom => CityPopulationSystem.Households(kingdom));
         if (core.getWars().Any() && population > 0)
         {
             float soldiers = realms.Sum(kingdom => kingdom.countTotalWarriors()) / (float)population;

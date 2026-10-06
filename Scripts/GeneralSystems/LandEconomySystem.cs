@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
@@ -127,6 +128,8 @@ public static class LandEconomySystem
         TrimPrivateSharesToCapacity(city, data);
         data.land_redistribution_pending = false;
         RefreshClasses(city);
+        CityPopulationData population = CityPopulationSystem.Get(city);
+        if (population != null) population.background_landless = 0f;
     }
 
     public static void UpdateCity(City city)
@@ -154,6 +157,7 @@ public static class LandEconomySystem
         }
         RefreshClasses(city);
         TryFoundingLandReform(city);
+        UpdateBackgroundLand(city);
 
         float landlessRatio = CalculateLandlessPopulationRatio(city);
         if (!TryJoinAdjacentPeasantRebellion(city, landlessRatio))
@@ -554,10 +558,62 @@ public static class LandEconomySystem
     {
         if (city == null || !IsLandMarketOpen(city.kingdom)) return 0f;
         List<Actor> population = city.units?.Where(IsLivingResident).ToList() ?? new List<Actor>();
-        if (population.Count == 0) return 0f;
-        int landless = population.Count(actor => IsAgrarianCommoner(actor) &&
-                                                 GetHouseholdShare(city, GetHouseholdKey(actor)) <= 0f);
-        return (float)landless / population.Count;
+        float landless = population.Count(actor => IsAgrarianCommoner(actor) &&
+                                                   GetHouseholdShare(city, GetHouseholdKey(actor)) <= 0f);
+        float total = population.Count;
+        // 无小人模式：背景人口里的无地农民
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            CityPopulationData data = CityPopulationSystem.Get(city);
+            total += CityPopulationSystem.GetBackgroundTotal(city);
+            if (data != null) landless += BackgroundPeasants(data) * data.background_landless;
+        }
+        return total <= 0f ? 0f : landless / total;
+    }
+
+    // ---- 背景人口的土地(无小人模式) ----
+    // 背景人口没有一户一户的地权，按城汇总一个"农民无地比例"，每年演变：
+    //   兼并：每年 BaseConcentration 比例的有地农民失去土地；商人、地主越多越快；饥荒(卖地求活)、苛政再加速；
+    //   人口减少：死了人，空出的地回到幸存者手里，无地比例按人口减少的幅度回落；
+    //   均田(开国均田、土改、农民革命政权)：归零(见 RedistributeLand)。
+    private const float BaseConcentration = 0.02f;
+    private const float FamineConcentration = 0.05f;
+
+    private static float BackgroundPeasants(CityPopulationData data)
+    {
+        float peasants = 0f;
+        foreach (PopGroup group in data.groups)
+            if (group.social_class == SocialClass.Peasant) peasants += group.Background;
+        return peasants;
+    }
+
+    private static void UpdateBackgroundLand(City city)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled) return;
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data == null) return;
+        float peasants = BackgroundPeasants(data);
+        if (!IsLandMarketOpen(city.kingdom) || city.kingdom.GetOrCreate().is_peasant_revolutionary_government)
+        {
+            data.background_landless = 0f;
+            data.background_peasants_last = peasants;
+            return;
+        }
+        float landless = Mathf.Clamp01(data.background_landless);
+        // 人口减少：空出的地回到幸存者手里
+        if (data.background_peasants_last > 0f && peasants < data.background_peasants_last)
+            landless *= peasants / data.background_peasants_last;
+        // 兼并：商人、地主占比越高越快；饥荒、苛政加速
+        float total = Mathf.Max(1f, CityPopulationSystem.GetBackgroundTotal(city));
+        float buyers = 0f;
+        foreach (PopGroup group in data.groups)
+            if (group.social_class is SocialClass.Merchant or SocialClass.Landlord) buyers += group.Background;
+        float rate = BaseConcentration * (1f + 4f * buyers / total) +
+                     (data.last_food_shortage > 0f ? FamineConcentration : 0f) +
+                     Mathf.Min(0.03f, HarshRuleSystem.GetRealmBurden(city.kingdom) / 2000f);
+        landless += (1f - landless) * rate;
+        data.background_landless = Mathf.Clamp01(landless);
+        data.background_peasants_last = peasants;
     }
 
     private static bool IsAgrarianCommoner(Actor actor)

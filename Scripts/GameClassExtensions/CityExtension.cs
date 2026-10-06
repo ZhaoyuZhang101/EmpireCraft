@@ -80,6 +80,8 @@ public static class CityExtension
         public bool massacre_noticed;
         // 上次因苛政爆发民变的时间(见 HarshRuleSystem)
         public double last_harsh_uprising = -1d;
+        // 规划农田区(区块 id，见 FarmlandSystem)
+        public List<int> farm_zones = new List<int>();
         public long personalIdentityId = -1L;
         public bool is_choosing_heir = false;
         [JsonIgnore]
@@ -2319,7 +2321,10 @@ public static class CityExtension
         if (c == null) return true;
         var ed = c.GetOrCreate();
         if (ed == null) return true;
-        if (c.getPopulationPeople()>ed.MAX_POPULATION&&ed.MAX_POPULATION_LIMIT)
+        // 玩家设的人口上限管的是出生和迁入，按"户"(和单位个数同一量级)比较
+        int population = CityPopulationSystem.AbstractPopulationEnabled
+            ? CityPopulationSystem.Households(c) : c.getPopulationPeople();
+        if (population > ed.MAX_POPULATION && ed.MAX_POPULATION_LIMIT)
         {
             return true;
         }

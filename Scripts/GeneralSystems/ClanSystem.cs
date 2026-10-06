@@ -72,6 +72,8 @@ public class SpecificClan
     public SpecificClanType clan_sex_priority { get; set; }
     public string color { get; set; } = (new Color(0.7f, 0.8f, 0.7f)).ToHexString();
     public long ancestral_city_id { get; set; } = -1L;
+    // 族长死于战乱或饥荒(无小人模式，见 VirtualGenealogySystem)：不再从虚拟族人里补族长；之后又有实体族人时清除
+    public bool head_lost_to_calamity { get; set; }
     // 本宗族作为皇族统治的帝国灭亡的时间(-1 表示没有记录)，用于判定"宗室复国"的时效。
     public double empire_fall_timestamp { get; set; } = -1d;
     public long capital_city_id { get; set; }

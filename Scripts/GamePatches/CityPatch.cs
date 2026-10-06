@@ -800,7 +800,10 @@ public class CityPatch : GamePatch
     public static bool getPopulationPeople(City __instance, ref int __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
-        __result = __instance.CountLivingPopulation();
+        // 原版逻辑读人口时按户计(见 CityPopulationSystem.VanillaScale)，界面与统计读真实人数
+        __result = CityPopulationSystem.VanillaScale && CityPopulationSystem.AbstractPopulationEnabled
+            ? CityPopulationSystem.Households(__instance)
+            : __instance.CountLivingPopulation();
         return false;
     }
     public static bool isArmyOverLimit(City __instance, ref bool __result)
@@ -849,7 +852,8 @@ public class CityPatch : GamePatch
         if (WorldLawLibrary.world_law_civ_limit_population_100?.isEnabled() == true)
             cap = Math.Min(cap, 100);
 
-        __result = cap;
+        // 无小人模式：一个住房位住一户(古代 100 人、现代 1000 人)；原版逻辑读上限时仍按住房位数
+        __result = CityPopulationSystem.VanillaScale ? cap : cap * CityPopulationSystem.PeoplePerSlot(__instance);
         return false;
     }
     public static bool HasReachedWorldLawLimit(City __instance, ref bool __result)
@@ -1113,6 +1117,8 @@ public class CityPatch : GamePatch
         LandEconomySystem.UpdateCity(__instance);
         __instance.TryYearlyOccupationSpread();
         UrbanEmploymentSystem.UpdateCity(__instance);
+        // 无小人模式：城主一空缺立即从人口里补位
+        CityPopulationSystem.EnsureLeader(__instance);
         RunWorldYearlyScans();
 
         /*

@@ -806,6 +806,7 @@ public static class CultureService
             if (!string.Equals(GetActorCulture(resident), culture, StringComparison.Ordinal))
                 resident.setCulture(nativeCulture);
         }
+        CityPopulationSystem.ConvertBackgroundCulture(city, culture);
 
         data.culture_shares ??= new Dictionary<string, float>();
         data.culture_shares.Clear();

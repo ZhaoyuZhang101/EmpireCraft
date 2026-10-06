@@ -38,6 +38,13 @@ public class CityPopulationData
     public double last_growth = -1d;
     // 上次校准时城里的实体单位数
     public int named_units;
+    // 军团里的人(无小人模式)：本城征召的每个实体士兵代表一个军团，这里记军团除士兵本人以外的人数，
+    // 随士兵的生命值折损(见 CityPopulationSystem.UpdateLegions)，计入城市人口
+    public float levied;
+    // 背景人口里农民阶层无地的比例(0~1，无小人模式，见 LandEconomySystem.UpdateBackgroundLand)
+    public float background_landless;
+    // 上次结算土地时的背景农民人数(人口减少时空出的地回到幸存者手里)
+    public float background_peasants_last = -1f;
 
     // ---- 人口经济(无小人模式，见 PopulationEconomySystem) ----
     // 上次结算产出与消耗的世界时间
@@ -46,6 +53,8 @@ public class CityPopulationData
     public Dictionary<string, float> output_carry = new Dictionary<string, float>();
     public float food_need_carry;
     public float construction_carry;
+    // 上次结算城市建设(施工)的世界时间
+    public double last_construction = -1d;
     // 上一次结算的结果(每年折算)，给界面和日志看
     public float last_jobs;
     public float last_workforce;

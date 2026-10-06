@@ -178,12 +178,18 @@ public static class LandmarkBookSystem
             if (roll >= ScholarMaxChance) continue;
             List<Actor> adults = city.units.Where(actor => actor != null && actor.isAlive() && actor.isAdult() &&
                                                            actor.city == city && !actor.IsWarMachine()).ToList();
-            if (adults.Count < 15) continue;
-            int literate = Math.Min(ScholarLiterateCap, adults.Count(IsLiterate));
+            // 无小人模式：城里的人口与识字人口按户计(实体单位只剩名人)
+            bool abstracted = CityPopulationSystem.AbstractPopulationEnabled;
+            int population = abstracted ? CityPopulationSystem.Households(city) : adults.Count;
+            if (population < 15) continue;
+            int literate = Math.Min(ScholarLiterateCap, adults.Count(IsLiterate) +
+                                                        (abstracted ? CityPopulationSystem.LiterateHouseholds(city) : 0));
             float chance = Math.Min(ScholarMaxChance, ScholarBaseChance + ScholarChancePerLiterate * literate);
             if (roll >= chance) continue;
             Actor author = adults.Where(actor => actor.language != null && actor.culture != null)
                 .OrderByDescending(actor => actor.stats["intelligence"]).FirstOrDefault();
+            // 没有实体执笔人：从人口里请一位读书人
+            if (author == null && abstracted) author = CityPopulationSystem.SpawnScholar(city);
             if (author == null) continue;
             try
             {
@@ -275,6 +281,14 @@ public static class LandmarkBookSystem
                 bestScore = score;
                 best = actor;
             }
+        }
+        // 无小人模式：没有实体执笔人时，从人口最多的那座有藏书处的城里请一位读书人
+        if (best == null && CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            City city = cities.Where(candidate => candidate != null && !candidate.isRekt() &&
+                                                  candidate.getBuildingWithBookSlot() != null)
+                .OrderByDescending(CityPopulationSystem.Households).FirstOrDefault();
+            best = CityPopulationSystem.SpawnScholar(city);
         }
         return best;
     }

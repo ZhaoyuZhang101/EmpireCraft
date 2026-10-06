@@ -78,6 +78,43 @@ public static class IdeologyDynamicsSystem
 
     public static float GetSuppressed(Empire empire) => empire?.data?.constitutional_economy?.suppressed_thought ?? 0f;
 
+    private const float BurstAdultShare = 0.7f;
+
+    private static int BurstBackground(City city, PartyIdeology founding, List<PartyIdeology> targets,
+        List<PartyIdeology> emerging, Dictionary<PartyIdeology, int> counts, int total, float share)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || targets.Count == 0) return 0;
+        Data.CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data?.groups == null) return 0;
+        var moves = new List<(Data.PopGroup from, PartyIdeology to, float amount)>();
+        foreach (Data.PopGroup group in data.groups)
+        {
+            if (group.ideology != founding) continue;
+            float amount = group.Background * BurstAdultShare * share;
+            if (amount < 1f) continue;
+            // 分几批改信不同的思潮：先给尚未出现的思想一个起点，其余按阶级亲和度选
+            const int batches = 4;
+            for (int i = 0; i < batches; i++)
+            {
+                PartyIdeology chosen = IdeologyPopulationSystem.WeightedChoice(
+                    emerging.Count > 0 ? emerging : targets, group.social_class, ideology =>
+                        1f + (total > 0 && counts.TryGetValue(ideology, out int supporters) ? supporters / (float)total : 0f));
+                emerging.Remove(chosen);
+                moves.Add((group, chosen, amount / batches));
+            }
+        }
+        float moved = 0f;
+        foreach ((Data.PopGroup from, PartyIdeology to, float amount) in moves)
+        {
+            float removed = CityPopulationSystem.RemoveBackground(from, amount);
+            if (removed <= 0f) continue;
+            CityPopulationSystem.AddBackground(city, from.social_class, from.culture, from.species, to, removed);
+            IdeologyPopulationSystem.RegisterIdea(CultureService.GetMainCulture(city), to);
+            moved += removed;
+        }
+        return Mathf.RoundToInt(moved);
+    }
+
     private static void StartLiberation(Empire empire, ConstitutionalEconomyState state, string reasonKey)
     {
         bool already = GetLiberation(empire) > 0f;
@@ -164,6 +201,13 @@ public static class IdeologyDynamicsSystem
                 changed++;
             }
             if (quota > 0) LayerCityCache.Invalidate(city);
+            // 无小人模式：背景人口里信奉立国理念的成年人按同一比例改信，计入改信人数
+            int background = BurstBackground(city, founding, targets, emerging, counts, total, share);
+            if (background > 0)
+            {
+                changed += background;
+                LayerCityCache.Invalidate(city);
+            }
         }
         if (changed == 0) return false;
         state.suppressed_thought = 0f;

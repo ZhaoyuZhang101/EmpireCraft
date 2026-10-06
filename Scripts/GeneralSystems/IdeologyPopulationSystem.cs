@@ -383,34 +383,41 @@ public static class IdeologyPopulationSystem
             bool classChanged = !string.IsNullOrEmpty(data.last_ideology_social_class) &&
                                 data.last_ideology_social_class != socialClass.ToString();
             data.last_ideology_social_class = socialClass.ToString();
+            if (Decide(socialClass, Get(actor), actor.getAge(), classChanged, out PartyIdeology target))
+                Set(actor, target);
+        }
+        ContactBackground(city, Decide);
+
+        // 一个人(或背景人口里的一个"代表")这一年的思想交往：接触到哪种理念、会不会改信
+        bool Decide(SocialClass socialClass, PartyIdeology current, int age, bool classChanged, out PartyIdeology target)
+        {
             float grievance = grievances != null && grievances.TryGetValue(socialClass,
                 out float value) ? value / 100f : 0f;
             float contact = UnityEngine.Random.value;
             bool classResponse = UnityEngine.Random.value < 0.15f + 0.25f * grievance;
-            PartyIdeology target = classResponse
-                ? PickClassResponse(actor, available, grievance)
-                : contact < 0.15f ? PickInitial(actor)
+            target = classResponse
+                ? PickClassResponse(socialClass, city.kingdom, available, grievance)
+                : contact < 0.15f ? PickInitial(socialClass, city, city.kingdom)
                 : contact < 0.3f ? (pressured.HasValue && available.Contains(pressured.Value) && contact < 0.24f
-                    ? pressured.Value : available.Contains(foreign) ? foreign : PickInitial(actor))
+                    ? pressured.Value : available.Contains(foreign) ? foreign : PickInitial(socialClass, city, city.kingdom))
                 // 思想解放期：不再一味随大流，一部分接触改为按自身阶层自由选择
-                : liberation > 0f && UnityEngine.Random.value < 0.5f * liberation ? PickInitial(actor)
-                : SampleLocal(localCounts, organizers, actor, available);
+                : liberation > 0f && UnityEngine.Random.value < 0.5f * liberation ? PickInitial(socialClass, city, city.kingdom)
+                : SampleLocal(localCounts, organizers, socialClass, city, available);
             // 繁荣之地更常接触到自由主义思想
             if (otherIsms.Count > 0 && UnityEngine.Random.value < pluralism * PluralismContact)
                 target = otherIsms[UnityEngine.Random.Range(0, otherIsms.Count)];
             else if (liberal.Count > 0 && UnityEngine.Random.value < economy.Prosperity * ProsperityLiberalContact)
-                target = WeightedChoice(liberal, actor, null);
+                target = WeightedChoice(liberal, socialClass, null);
             // 工业城市更常接触到社会主义思想
             else if (socialist.Count > 0 && UnityEngine.Random.value < economy.Industry * IndustrySocialistContact)
-                target = WeightedChoice(socialist, actor, null);
+                target = WeightedChoice(socialist, socialClass, null);
             // 农村：无地农民接触激进左翼，有地小农守着传统
             else if (agrarianRadical.Count > 0 && UnityEngine.Random.value < economy.Landless * AgrarianRadicalContact)
-                target = WeightedChoice(agrarianRadical, actor, null);
+                target = WeightedChoice(agrarianRadical, socialClass, null);
             else if (agrarianTraditional.Count > 0 &&
                      UnityEngine.Random.value < economy.Settled * AgrarianTraditionalContact * (1f - traditionDecay))
-                target = WeightedChoice(agrarianTraditional, actor, null);
-            PartyIdeology current = Get(actor);
-            if (current == target) continue;
+                target = WeightedChoice(agrarianTraditional, socialClass, null);
+            if (current == target) return false;
             float classAffinity = PartySystem.GetAffinity(target, socialClass);
             float advantage = Mathf.Clamp01((classAffinity -
                 PartySystem.GetAffinity(current, socialClass) + 100f) / 200f);
@@ -434,7 +441,6 @@ public static class IdeologyPopulationSystem
                 (pressured.HasValue && target == pressured.Value || foreignCity != null && target == foreign))
                 chance *= externalSusceptibility;
             // 代际更替：年轻人更容易接受新思想(思想解放期最多 ×3)，老人守着旧观念
-            int age = actor.getAge();
             if (age < 30) chance *= 1.5f * (1f + liberation);
             else if (age > 55) chance *= 0.6f;
             // 现代化侵蚀传统
@@ -450,8 +456,46 @@ public static class IdeologyPopulationSystem
                 chance *= 1.4f;
             chance *= EconomyFactor(target, economy);
             if (!IdeologyFamilies.IsLiberal(target)) chance *= 1f + PluralismBoost * pluralism;
-            if (UnityEngine.Random.value < chance) Set(actor, target);
+            return UnityEngine.Random.value < chance;
         }
+    }
+
+    private delegate bool ContactDecision(SocialClass socialClass, PartyIdeology current, int age, bool classChanged,
+        out PartyIdeology target);
+
+    // 背景人口的思想交往(无小人模式)：每个人口组抽几名"代表"走和实体单位一样的接触、改信判定，
+    // 每名代表改信就把这一组成年人的 1/代表数 改信过去。这样城里的理念占比由全体居民的交往决定，
+    // 不再只看留在地图上的少数名人
+    private const int BackgroundContactSamples = 8;
+    private const float BackgroundAdultShare = 0.7f;
+
+    private static void ContactBackground(City city, ContactDecision decide)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled) return;
+        Data.CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data?.groups == null) return;
+        var moves = new List<(Data.PopGroup from, PartyIdeology to, float amount)>();
+        foreach (Data.PopGroup group in data.groups)
+        {
+            float adults = group.Background * BackgroundAdultShare;
+            if (adults < 1f) continue;
+            int samples = Mathf.Clamp(Mathf.CeilToInt(adults), 1, BackgroundContactSamples);
+            float each = adults / samples;
+            for (int i = 0; i < samples; i++)
+            {
+                int age = UnityEngine.Random.Range(16, 70);
+                if (decide(group.social_class, group.ideology, age, false, out PartyIdeology target) &&
+                    target != group.ideology)
+                    moves.Add((group, target, each));
+            }
+        }
+        foreach ((Data.PopGroup from, PartyIdeology to, float amount) in moves)
+        {
+            float removed = CityPopulationSystem.RemoveBackground(from, amount);
+            if (removed > 0f)
+                CityPopulationSystem.AddBackground(city, from.social_class, from.culture, from.species, to, removed);
+        }
+        if (moves.Count > 0) DominantCache.Remove(city);
     }
 
     // 繁荣度对理念的影响：繁荣城市里接触自由主义思想的概率、改信自由主义的加成、改信传统理念的折扣
@@ -552,36 +596,38 @@ public static class IdeologyPopulationSystem
     private const float IndustrySocialistBoost = 1.5f;
 
     private static PartyIdeology SampleLocal(Dictionary<PartyIdeology, int> counts,
-        Dictionary<PartyIdeology, int> organizers, Actor actor, HashSet<PartyIdeology> available)
+        Dictionary<PartyIdeology, int> organizers, SocialClass socialClass, City city, HashSet<PartyIdeology> available)
     {
         List<KeyValuePair<PartyIdeology, int>> candidates = counts
             .Where(pair => available.Contains(pair.Key)).ToList();
-        if (candidates.Count == 0) return PickInitial(actor);
+        if (candidates.Count == 0) return PickInitial(socialClass, city, city?.kingdom);
         float total = 0f;
         foreach (KeyValuePair<PartyIdeology, int> pair in candidates)
             total += pair.Value * (0.65f + 0.7f * Mathf.Clamp01((PartySystem.GetAffinity(pair.Key,
-                actor.GetOrCreate().socialClass) + 100f) / 200f)) +
+                socialClass) + 100f) / 200f)) +
                 (organizers.TryGetValue(pair.Key, out int members) ? members * 2f : 0f);
         float roll = UnityEngine.Random.value * total;
         foreach (KeyValuePair<PartyIdeology, int> pair in candidates)
         {
             roll -= pair.Value * (0.65f + 0.7f * Mathf.Clamp01((PartySystem.GetAffinity(pair.Key,
-                actor.GetOrCreate().socialClass) + 100f) / 200f)) +
+                socialClass) + 100f) / 200f)) +
                 (organizers.TryGetValue(pair.Key, out int members) ? members * 2f : 0f);
             if (roll <= 0f) return pair.Key;
         }
         return candidates[0].Key;
     }
 
-    private static PartyIdeology PickInitial(Actor actor)
+    private static PartyIdeology PickInitial(Actor actor) =>
+        PickInitial(actor.GetOrCreate().socialClass, actor.city, actor.kingdom);
+
+    private static PartyIdeology PickInitial(SocialClass socialClass, City city, Kingdom kingdom)
     {
-        Empire empire = actor.kingdom?.GetEmpire();
-        string culture = actor.city == null ? CultureService.GetRealmCulture(actor.kingdom) :
-            CultureService.GetMainCulture(actor.city);
+        Empire empire = kingdom?.GetEmpire();
+        string culture = city == null ? CultureService.GetRealmCulture(kingdom) : CultureService.GetMainCulture(city);
         PartyIdeology[] choices = GetAvailableIdeologies(culture, empire).ToArray();
         if (choices.Length == 0) return PartyIdeology.Conservatism;
         float[] weights = choices.Select(ideology =>
-            Mathf.Max(1f, PartySystem.GetAffinity(ideology, actor.GetOrCreate().socialClass) + 25f)).ToArray();
+            Mathf.Max(1f, PartySystem.GetAffinity(ideology, socialClass) + 25f)).ToArray();
         float roll = UnityEngine.Random.value * weights.Sum();
         for (int index = 0; index < choices.Length; index++)
             if ((roll -= weights[index]) <= 0f) return choices[index];
@@ -666,11 +712,11 @@ public static class IdeologyPopulationSystem
         DominantCache.Clear();
     }
 
-    private static PartyIdeology PickClassResponse(Actor actor, HashSet<PartyIdeology> available, float grievance)
+    private static PartyIdeology PickClassResponse(SocialClass socialClass, Kingdom kingdom,
+        HashSet<PartyIdeology> available, float grievance)
     {
-        SocialClass socialClass = actor.GetOrCreate().socialClass;
-        bool revolutionary = actor.kingdom?.GetOrCreate().is_peasant_revolutionary_government == true;
-        return WeightedChoice(available.ToList(), actor, ideology =>
+        bool revolutionary = kingdom?.GetOrCreate().is_peasant_revolutionary_government == true;
+        return WeightedChoice(available.ToList(), socialClass, ideology =>
         {
             float multiplier = 1f;
             if (socialClass is SocialClass.Peasant or SocialClass.Labour && IdeologyFamilies.IsLeft(ideology))
@@ -685,16 +731,20 @@ public static class IdeologyPopulationSystem
     }
 
     internal static PartyIdeology WeightedChoice(IList<PartyIdeology> choices, Actor actor,
+        Func<PartyIdeology, float> multiplier) =>
+        WeightedChoice(choices, actor.GetOrCreate().socialClass, multiplier);
+
+    internal static PartyIdeology WeightedChoice(IList<PartyIdeology> choices, SocialClass socialClass,
         Func<PartyIdeology, float> multiplier)
     {
         if (choices == null || choices.Count == 0) return PartyIdeology.Conservatism;
         float total = choices.Sum(ideology => Math.Max(1f,
-            PartySystem.GetAffinity(ideology, actor.GetOrCreate().socialClass) + 35f) *
+            PartySystem.GetAffinity(ideology, socialClass) + 35f) *
             Math.Max(0f, multiplier?.Invoke(ideology) ?? 1f));
         float roll = UnityEngine.Random.value * total;
         foreach (PartyIdeology ideology in choices)
         {
-            roll -= Math.Max(1f, PartySystem.GetAffinity(ideology, actor.GetOrCreate().socialClass) + 35f) *
+            roll -= Math.Max(1f, PartySystem.GetAffinity(ideology, socialClass) + 35f) *
                     Math.Max(0f, multiplier?.Invoke(ideology) ?? 1f);
             if (roll <= 0f) return ideology;
         }

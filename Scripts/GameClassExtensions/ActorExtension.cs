@@ -361,6 +361,10 @@ public static class ActorExtension
         public Name name;
         public bool has_become_cleric = false;
         public SocialClass  socialClass = SocialClass.Peasant;
+        // 无小人模式的征召兵：这个士兵代表的军团人数(含本人)，随生命值下降而阵亡的部分不再恢复
+        public float legion_size;
+        // 军团满编人数(征召时的人数)：回血时按生命值补员到这个数
+        public float legion_full;
         // Mod-managed workshop employment. Tied to a city so migration ends the job.
         public long urban_employment_city_id = -1L;
         // Advanced urban housing creates a persistent citizen stratum. Migration ends the status.

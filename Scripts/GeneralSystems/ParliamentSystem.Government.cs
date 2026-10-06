@@ -47,7 +47,10 @@ public static partial class ParliamentSystem
     public static int SeatCount(Empire empire)
     {
         int baseSeats = Math.Max(1, Config.parliament_seats);
-        int seats = Mathf.Clamp(baseSeats + (empire?.CountPopulation() ?? 0) / 100, baseSeats, MaxSeats);
+        // 按户计(无小人模式下真实人数可达几百万，议席会一直顶格)
+        int population = CityPopulationSystem.AbstractPopulationEnabled
+            ? CityPopulationSystem.Households(empire) : empire?.CountPopulation() ?? 0;
+        int seats = Mathf.Clamp(baseSeats + population / 100, baseSeats, MaxSeats);
         if (seats % 2 == 0) seats += seats + 1 > MaxSeats ? -1 : 1;
         return Math.Max(1, seats);
     }

@@ -100,6 +100,14 @@ public static class SpeechFreedomSystem
                                                          actor.city == city && actor.language != null &&
                                                          actor.culture != null && !actor.IsWarMachine())
             .OrderByDescending(actor => actor.stats["intelligence"]).Take(5).ToList();
+        // 无小人模式：实体单位只剩名人，从人口里请几位读书人执笔(他们的理念取自人口，著作反映民间思潮)
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+            for (int i = writers.Count; i < 3; i++)
+            {
+                Actor scholar = CityPopulationSystem.SpawnScholar(city);
+                if (scholar == null || scholar.language == null || scholar.culture == null) break;
+                writers.Add(scholar);
+            }
         if (writers.Count == 0) return false;
         PartyIdeology founding = clauses.founding_ideology;
         bool official = clauses.speech == ConstitutionSpeech.Strict ||

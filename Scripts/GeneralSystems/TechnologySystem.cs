@@ -898,7 +898,7 @@ public static class TechnologySystem
             case "resource":
                 return cities.Any(city => city.getResourcesAmount(boost.value) >= amount);
             case "population":
-                return cities.Sum(city => city.getPopulationPeople()) >= amount;
+                return cities.Sum(CityPopulationSystem.Households) >= amount;
             case "cities":
                 return cities.Count >= amount;
             case "material":
@@ -1043,7 +1043,7 @@ public static class TechnologySystem
         float basis = 0f, schools = 0f, war = 0f;
         foreach (City city in cities)
         {
-            float cityBasis = research.base_per_city + city.getPopulationPeople() * research.per_population;
+            float cityBasis = research.base_per_city + CityPopulationSystem.Households(city) * research.per_population;
             // 文化城池自带藏书阁和庙宇(合并民居后原版的图书馆、神庙都建不起来了)，每级按一座图书馆加一座神庙算
             int cityLevels = city.buildings.Where(b => b?.asset != null && b.asset.id.StartsWith("city_", StringComparison.Ordinal))
                 .Sum(b => b.asset.upgrade_level);

@@ -271,7 +271,7 @@ public static class ProvincialPoliticsSystem
     #region 玩家：资助 / 打压
 
     public static int InfluenceCost(Kingdom province) =>
-        20 + Mathf.RoundToInt(Mathf.Max(0, province?.getPopulationPeople() ?? 0) / 10f);
+        20 + Mathf.RoundToInt(Mathf.Max(0, CityPopulationSystem.Households(province)) / 10f);
 
     // direction：+1 资助，-1 打压。花中央国库的钱，返回失败原因的本地化 key(成功返回 null)
     public static string Influence(Empire empire, Kingdom province, FixedFaction party, int direction)

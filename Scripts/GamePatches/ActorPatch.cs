@@ -320,6 +320,9 @@ public class ActorPatch : GamePatch
             __instance.getSimpleComponent<Boat>()?.unloadPassengers(__instance.current_tile, pRandomForce: true);
         }
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        // 无小人模式：征召兵战死，他代表的军团一并从人口里扣掉
+        CityPopulationSystem.OnSoldierDied(__instance);
+        VirtualGenealogySystem.OnActorDied(__instance, pType);
         Kingdom rulingKingdom = __instance.isKing() ? __instance.kingdom : null;
         if (rulingKingdom != null && !rulingKingdom.IsEmpire() && rulingKingdom.IsInEmpire())
             rulingKingdom.GetOrCreate().last_king_identity_id = __instance.GetPersonalIdentity()?.id ?? -1L;

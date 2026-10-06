@@ -30,6 +30,8 @@ public static class VirtualGenealogySystem
     public static void ResetWorldState()
     {
         VirtualIds.Clear();
+        ClanHeads.Clear();
+        HeadQueue.Cancel();
         _world = null;
         _lastDeathPass = -1d;
     }
@@ -142,7 +144,7 @@ public static class VirtualGenealogySystem
         method.GetParameters().Select((parameter, index) => index == 0 ? first : parameter.DefaultValue).ToArray();
 
     // 把单位的年龄调到 target：优先改"额外年龄"，否则把出生时间往前推(按实际 getAge() 结果二分查找，不依赖每年秒数)
-    private static void SetAge(Actor actor, int target)
+    public static void SetAge(Actor actor, int target)
     {
         if (actor?.data == null || target <= 0) return;
         ResolveVanilla(actor);
@@ -265,23 +267,133 @@ public static class VirtualGenealogySystem
     {
         if (World.world == null) return;
         EnsureIndex();
+        // 上一轮还没检查完：接着分帧做(以前一帧检查全部虚拟族人，族谱大时一次卡几百毫秒)
+        if (DeathQueue.Active)
+        {
+            // 身故检查做完就接着检查各宗族的族长
+            if (DeathQueue.Tick() && CityPopulationSystem.AbstractPopulationEnabled)
+                HeadQueue.Start(SpecificClanManager._specificClans.Where(clan => clan != null).Select(clan => clan.id).ToList());
+            return;
+        }
+        if (HeadQueue.Active)
+        {
+            HeadQueue.Tick();
+            return;
+        }
         double now = World.world.getCurWorldTime();
         if (_lastDeathPass >= 0d && now >= _lastDeathPass && Date.getYearsSince(_lastDeathPass) < 1) return;
         _lastDeathPass = now;
         if (VirtualIds.Count == 0) return;
-        using var timing = new PerfTimer("虚拟族谱年度身故");
-        foreach (long id in VirtualIds.ToList())
+        DeathQueue.Start(VirtualIds.ToList());
+        DeathQueue.Tick();
+    }
+
+    #region 族长(无小人模式)
+
+    // 每个宗族至少保留一名实体族长：族长不会被并入虚拟人口；整个宗族都成了虚拟族人时，每年从中挑一位成年人落成实体当族长。
+    // 族长死于战乱或饥荒的宗族不再补族长；这样的宗族一个实体族人都不剩时销户——剩下的虚拟族人从族谱里注销，
+    // 变成所在城的普通百姓(人数不变)，宗族记录留在族谱里
+    private static readonly Dictionary<long, long> ClanHeads = new();
+    private static readonly EmpireCraft.Scripts.HelperFunc.FrameBudgetQueue<long> HeadQueue =
+        new(1.5d, CheckClanHead, "宗族族长检查");
+    private const int HeadMinAge = 16;
+
+    // 族长人选：在世的实体族人里，符合本族继承性别的优先，其次正支，再取年长者
+    private static PersonalClanIdentity PickHead(IEnumerable<PersonalClanIdentity> people) =>
+        people.OrderByDescending(person => person.IsHeirPriority())
+            .ThenByDescending(person => person.is_main)
+            .ThenByDescending(person => person.age)
+            .FirstOrDefault();
+
+    public static bool IsClanHead(Actor actor)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled) return false;
+        PersonalClanIdentity identity = actor?.GetPersonalIdentity();
+        SpecificClan clan = identity?._specificClan;
+        if (clan == null) return false;
+        if (ClanHeads.TryGetValue(clan.id, out long headId))
         {
-            PersonalClanIdentity person = SpecificClanManager.getPerson(id);
-            if (person == null || !person.is_alive || !person.is_virtual)
-            {
-                VirtualIds.Remove(id);
-                continue;
-            }
-            if (person.virtual_death_age < 0)
-                person.virtual_death_age = UnityEngine.Random.Range(MinDeathAge, MaxDeathAge + 1);
-            if (person.age >= person.virtual_death_age) Die(person);
+            PersonalClanIdentity head = SpecificClanManager.getPerson(headId);
+            if (head != null && head.is_alive && !head.is_virtual && head._actor != null) return headId == identity.id;
         }
+        PersonalClanIdentity chosen = PickHead(clan.SnapshotPeople()
+            .Where(person => person.is_alive && !person.is_virtual && person._actor != null));
+        if (chosen == null) return false;
+        ClanHeads[clan.id] = chosen.id;
+        return chosen.id == identity.id;
+    }
+
+    // 实体族长死于战乱(战死、所在城正在打仗)或饥荒(饿死、所在城缺粮)：记下来，之后不再补族长
+    public static void OnActorDied(Actor actor, AttackType type)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || actor?.data == null || !IsClanHead(actor)) return;
+        SpecificClan clan = actor.GetPersonalIdentity()?._specificClan;
+        if (clan == null) return;
+        City city = actor.city;
+        Data.CityPopulationData data = city == null ? null : CityPopulationSystem.Get(city);
+        bool calamity = type == AttackType.Weapon || type == AttackType.Starvation ||
+                        city != null && CityPopulationSystem.IsAtWar(city) || data != null && data.last_food_shortage > 0f;
+        if (calamity) clan.head_lost_to_calamity = true;
+        ClanHeads.Remove(clan.id);
+    }
+
+    private static void CheckClanHead(long clanId)
+    {
+        SpecificClan clan = SpecificClanManager.Get(clanId);
+        if (clan == null) return;
+        PersonalClanIdentity[] people = clan.SnapshotPeople();
+        if (people.Any(person => person.is_alive && !person.is_virtual && person._actor != null))
+        {
+            clan.head_lost_to_calamity = false;
+            return;
+        }
+        List<PersonalClanIdentity> virtuals = people.Where(person => person.is_alive && person.is_virtual).ToList();
+        if (virtuals.Count == 0) return;
+        if (clan.head_lost_to_calamity)
+        {
+            Disperse(clan, virtuals);
+            return;
+        }
+        PersonalClanIdentity heir = PickHead(virtuals.Where(person => person.age >= HeadMinAge)) ?? PickHead(virtuals);
+        Actor head = heir?.Realize();
+        if (head != null) ClanHeads[clan.id] = heir.id;
+    }
+
+    private static void Disperse(SpecificClan clan, List<PersonalClanIdentity> virtuals)
+    {
+        string date = Date.getDate(World.world.getCurWorldTime());
+        foreach (PersonalClanIdentity person in virtuals)
+        {
+            person.recordedAge = person.age;
+            person.is_alive = false;
+            person.is_virtual = false;
+            person.deathday = date;
+            if (!person.death_history_recorded)
+            {
+                person.death_history_recorded = true;
+                person.RecordPersonalHistory(LM.Get("virtual_person_clan_dispersed"));
+            }
+            VirtualIds.Remove(person.id);
+        }
+        ClanHeads.Remove(clan.id);
+        LogService.LogInfo($"[EmpireCraft][虚拟族谱] 宗族 {clan.name} 族长死于战乱饥荒、已无实体族人，销户({virtuals.Count} 人)");
+    }
+
+    #endregion
+
+    private static readonly EmpireCraft.Scripts.HelperFunc.FrameBudgetQueue<long> DeathQueue = new(1.5d, CheckDeath, "虚拟族谱年度身故");
+
+    private static void CheckDeath(long id)
+    {
+        PersonalClanIdentity person = SpecificClanManager.getPerson(id);
+        if (person == null || !person.is_alive || !person.is_virtual)
+        {
+            VirtualIds.Remove(id);
+            return;
+        }
+        if (person.virtual_death_age < 0)
+            person.virtual_death_age = UnityEngine.Random.Range(MinDeathAge, MaxDeathAge + 1);
+        if (person.age >= person.virtual_death_age) Die(person);
     }
 
     private static void Die(PersonalClanIdentity person)

@@ -21,7 +21,11 @@ public class EmpireCraftCityCombineHouses: GameAICityBase
             if (EmpireCraftWorldLawLibrary.empirecraft_law_combine_houses?.isEnabled() == false) return BehResult.Continue;
             if (pCity.buildings.Any(b => b.asset.type == "type_house" && b.asset.id.EndsWith("_modernmod")))
                 return BehResult.Continue;
-            if (pCity.countUnits() > 80)
+            // 无小人模式下城里实体单位很少，按户数判断
+            int population = EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled
+                ? EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Households(pCity)
+                : pCity.countUnits();
+            if (population > 80)
             {
                 var loc = pCity.buildings.Find(b => b.asset.type == "type_house")?.current_tile;
                 if (loc == null) return BehResult.Continue;
