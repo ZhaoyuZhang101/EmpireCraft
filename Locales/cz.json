@@ -3215,5 +3215,7 @@
   "constitutional_minor_succession_history": "皇位空悬而宗室皆年幼，宗室幼主{1}继承{2}皇位，国政由议会与总理代行。",
   "virtual_person_death_illness": "{0}岁时染病，不治身故。",
   "virtual_person_death_assassinated": "{0}岁时遇刺身亡。",
-  "virtual_person_death_natural": "{0}岁时寿终正寝。"
+  "virtual_person_death_natural": "{0}岁时寿终正寝。",
+  "consultative_ratio_capped_title": "政协友党已达占比上限",
+  "consultative_ratio_capped_body": "统一战线下，政协友党只参与政治协商，每党在中央的占比最多 {0}%，超出部分归领导党。"
 }

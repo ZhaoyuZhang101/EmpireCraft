@@ -907,11 +907,23 @@ public static class UIHelper
     private static void AddFactionRatioUpButton(AutoHoriLayoutGroup parent, FixedFaction faction, Kingdom kingdom,
         Action refresh)
     {
-        parent.AddButtonIntoHoriLayout("faction_ratio_up", "", () =>
+        // 统一战线的政协友党已到占比上限：按钮变灰不可点，悬停说明原因
+        Empire empire = kingdom != null && kingdom.IsEmpire() ? kingdom.GetEmpire() : null;
+        Dictionary<FixedFaction, int> ratios = kingdom?.GetOrCreate().FactionRatio;
+        bool capped = empire != null && PartyBanSystem.IsConsultative(empire, faction) && ratios != null &&
+                      ratios.TryGetValue(faction, out int ratio) && ratio >= PartyBanSystem.ConsultativeRatioCap;
+        AdvancedButton button = parent.AddButtonIntoHoriLayout("faction_ratio_up", "", () =>
         {
             if (kingdom == null || kingdom.isRekt()) return;
             if (kingdom.TryIncreaseFactionRatio(faction, FactionRatioStep)) refresh?.Invoke();
-        }, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(9, 9), showTip: true);
+        }, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(9, 9), showTip: !capped);
+        if (!capped) return;
+        button.Button.interactable = false;
+        if (button.Icon != null) button.Icon.color = new Color(0.45f, 0.45f, 0.45f, 0.6f);
+        if (button.Background != null) button.Background.color = new Color(0.45f, 0.45f, 0.45f, 0.6f);
+        AttachTextTooltip(button.gameObject, $"consultative_ratio_capped_{faction.GetID()}",
+            LM.Get("consultative_ratio_capped_title"),
+            string.Format(LM.Get("consultative_ratio_capped_body"), PartyBanSystem.ConsultativeRatioCap));
     }
 
     private static void RefreshEmpireFactionSpace(AutoHoriLayoutGroup layout, Kingdom kingdom)

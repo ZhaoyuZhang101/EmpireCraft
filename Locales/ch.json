@@ -3215,5 +3215,7 @@
   "constitutional_minor_succession_history": "皇位空懸而宗室皆年幼，宗室幼主{1}繼承{2}皇位，國政由議會與總理代行。",
   "virtual_person_death_illness": "{0}歲時染病，不治身故。",
   "virtual_person_death_assassinated": "{0}歲時遇刺身亡。",
-  "virtual_person_death_natural": "{0}歲時壽終正寢。"
+  "virtual_person_death_natural": "{0}歲時壽終正寢。",
+  "consultative_ratio_capped_title": "政協友黨已達佔比上限",
+  "consultative_ratio_capped_body": "統一戰線下，政協友黨只參與政治協商，每黨在中央的佔比最多 {0}%，超出部分歸領導黨。"
 }
