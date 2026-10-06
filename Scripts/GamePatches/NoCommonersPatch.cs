@@ -47,6 +47,17 @@ public class NoCommonersPatch : GamePatch
         PatchVanillaScale();
         try
         {
+            // 城破：伤亡、逃难、抢粮(见 ScorchedEarthSystem.OnCityCaptured)
+            new Harmony(nameof(NoCommonersPatch) + ".CityFall").Patch(
+                AccessTools.Method(typeof(City), nameof(City.joinAnotherKingdom)),
+                prefix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(BeforeJoinAnotherKingdom)));
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 无小人模式城破补丁未生效: {exception.Message}");
+        }
+        try
+        {
             // 耕地红线：规划农田区里不盖建筑
             new Harmony(nameof(NoCommonersPatch) + ".Farmland").Patch(
                 AccessTools.Method(typeof(City), nameof(City.planAllowsToPlaceBuildingInZone)),
@@ -200,6 +211,13 @@ public class NoCommonersPatch : GamePatch
     {
         if (!__result || pZone == null || __instance == null) return;
         if (FarmlandSystem.IsProtected(__instance) && FarmlandSystem.IsPlanned(__instance, pZone)) __result = false;
+    }
+
+    public static void BeforeJoinAnotherKingdom(City __instance, Kingdom pNewSetKingdom, bool pCaptured)
+    {
+        if (!pCaptured || __instance?.kingdom == null || pNewSetKingdom == null || __instance.kingdom == pNewSetKingdom ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        ScorchedEarthSystem.OnCityCaptured(__instance, __instance.kingdom, pNewSetKingdom);
     }
 
     public static void AfterGetHit(Actor __instance)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using UnityEngine;
@@ -46,6 +47,56 @@ public static class ScorchedEarthSystem
         return owners != null && zone != null && owners.ContainsKey(zone.id);
     }
 
+    // ---- 城破(无小人模式) ----
+    // 城市被攻占时：破城伤亡 SackDeathRate(会纵兵烧杀的再加 SackScorchDeathRate，记入屠城之恨)；
+    // 一部分人逃往原国家离得最近的其他城市(基础 RefugeeRate，异族占领、纵兵烧杀各再加)；城中存粮被抢走一部分
+    private const float SackDeathRate = 0.03f;
+    private const float SackScorchDeathRate = 0.07f;
+    private const float RefugeeRate = 0.05f;
+    private const float ForeignRefugeeRate = 0.1f;
+    private const float ScorchRefugeeRate = 0.1f;
+    private const int RefugeeNoticePeople = 100;
+
+    public static void OnCityCaptured(City city, Kingdom oldKingdom, Kingdom conqueror)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || city?.data == null || oldKingdom == null ||
+            conqueror == null || oldKingdom == conqueror || oldKingdom.wild || conqueror.wild) return;
+        try
+        {
+            bool scorch = WillScorch(conqueror, city);
+            string cityCulture = CultureService.GetMainCulture(city, initialize: false);
+            bool foreign = CultureService.IsValidCulture(cityCulture) &&
+                           cityCulture != CultureService.GetRealmCulture(conqueror) ||
+                           conqueror.king?.asset != null && city.getSpecies() != null &&
+                           city.getSpecies() != conqueror.king.asset.id;
+            int killed = Kill(city, SackDeathRate + (scorch ? SackScorchDeathRate : 0f));
+            if (scorch && killed > 0) MassacreSystem.RecordBackgroundMassacre(city, conqueror, killed);
+            Plunder(city, scorch ? 0.6f : 0.3f);
+
+            float refugees = RefugeeRate + (foreign ? ForeignRefugeeRate : 0f) + (scorch ? ScorchRefugeeRate : 0f);
+            City refuge = null;
+            float best = float.MaxValue;
+            if (oldKingdom.cities != null)
+                foreach (City other in oldKingdom.cities)
+                {
+                    if (other == null || other == city || other.isRekt()) continue;
+                    float distance = (other.city_center - city.city_center).sqrMagnitude;
+                    if (distance >= best) continue;
+                    best = distance;
+                    refuge = other;
+                }
+            if (refuge == null) return;
+            float moved = CityPopulationSystem.TransferBackground(city, refuge, refugees);
+            if (moved >= RefugeeNoticePeople)
+                TranslateHelper.LogEventMessage(string.Format(LM.Get("city_fall_refugees"), city.GetCityName(),
+                    Mathf.RoundToInt(moved), refuge.GetCityName()), oldKingdom);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][城破] 结算失败({city.data?.name}): {exception.Message}");
+        }
+    }
+
     // 每月随无小人模式的城市结算调用
     public static void Settle(City city)
     {
@@ -74,7 +125,7 @@ public static class ScorchedEarthSystem
         }
     }
 
-    private static int Kill(City city, float rate)
+    public static int Kill(City city, float rate)
     {
         CityPopulationData data = CityPopulationSystem.Get(city);
         if (data?.groups == null || rate <= 0f) return 0;
@@ -97,7 +148,7 @@ public static class ScorchedEarthSystem
         }
     }
 
-    private static void Plunder(City city, float rate)
+    public static void Plunder(City city, float rate)
     {
         if (rate <= 0f || AssetManager.resources?.list == null) return;
         foreach (ResourceAsset asset in AssetManager.resources.list)
