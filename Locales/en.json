@@ -3207,5 +3207,7 @@
   "constitutional_succession_parliament": "the royal successor selected by parliament, ",
   "constitutional_succession_cabinet": "the royal successor selected by the cabinet, ",
   "constitutional_succession_elected_history": "With the throne vacant and no lawful heir, {0}{1} was crowned monarch of {2}, preserving the original royal house and surname.",
-  "constitutional_dynasty_extinct_history": "The entire royal dynasty has died out, leaving no royal successor. Under its constitutional rules, {3} abolishes the monarchy and becomes a republic."
+  "constitutional_dynasty_extinct_history": "The entire royal dynasty has died out, leaving no royal successor. Under its constitutional rules, {3} abolishes the monarchy and becomes a republic.",
+  "empirecraft_law_no_commoners_title": "No Commoners Mode",
+  "empirecraft_law_no_commoners_description": "Ordinary city residents are carried as population data (head counts grouped by class, culture and ideology) instead of individual units; only notable people such as rulers, city lords, soldiers and officials stay as units, cutting unit counts for much higher frame rates. In development: only the population data layer is active for now, and vanilla units still spawn normally."
 }

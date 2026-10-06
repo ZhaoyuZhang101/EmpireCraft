@@ -32,8 +32,9 @@ public static class CityPopulationSystem
     private static object _world;
     private static double _lastPass = -1d;
 
-    // 无小人模式开关。第三步接入世界法则；在此之前恒为 false，背景人口始终为 0
-    public static bool AbstractPopulationEnabled => false;
+    // 无小人模式开关(世界法则)。关闭时背景人口始终为 0，数据层只是实体单位的统计镜像
+    public static bool AbstractPopulationEnabled =>
+        EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.empirecraft_law_no_commoners?.isEnabled() == true;
 
     // 最近一次年度结算的统计，用于日志和性能验证
     public static int LastPassCities { get; private set; }

@@ -3207,5 +3207,7 @@
   "constitutional_succession_parliament": "議會推選的宗室",
   "constitutional_succession_cabinet": "內閣推選的宗室",
   "constitutional_succession_elected_history": "皇位空缺且無合法繼承人，{0}{1}獲擁立為{2}的新君，原皇室與姓氏繼續保留。",
-  "constitutional_dynasty_extinct_history": "皇室全族絕嗣，無宗室可繼承皇位，{3}依憲制廢除君主制，強制改建共和國。"
+  "constitutional_dynasty_extinct_history": "皇室全族絕嗣，無宗室可繼承皇位，{3}依憲制廢除君主制，強制改建共和國。",
+  "empirecraft_law_no_commoners_title": "無小人模式",
+  "empirecraft_law_no_commoners_description": "開啟後，城市裡的普通人口改由人口數據（按階層、文化、理念分組的人數）承載，只保留君主、城主、軍人、官員等名人作為實體單位，用於大幅降低單位數量、提升幀數。開發中：目前只啟用人口數據層，原版單位仍會正常生成。"
 }

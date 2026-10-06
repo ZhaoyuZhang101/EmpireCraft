@@ -25,6 +25,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_tech_tree;
     public static WorldLawAsset empirecraft_law_combine_houses;
     public static WorldLawAsset empirecraft_law_premodern;
+    public static WorldLawAsset empirecraft_law_no_commoners;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -173,6 +174,14 @@ public static class EmpireCraftWorldLawLibrary
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconHoused",
             default_state = true
+        });
+        // 无小人模式(默认关闭)：普通人口由城市人口数据层承载，只保留名人作为实体单位(见 CityPopulationSystem)
+        AssetManager.world_laws_library.add(empirecraft_law_no_commoners = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_no_commoners),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconPopulation",
+            default_state = false
         });
         
     }
