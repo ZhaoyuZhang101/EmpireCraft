@@ -1,31 +1,114 @@
 {
-  "_comment": "制宪会议上各理念政党主张的宪法条款(见 Scripts/GeneralSystems/ConstitutionSystem.cs)。按 defaults → ideologies[理念] → monarchy[理念](君主立宪时) → one_party(一党制时) → 文化包 Constitution.clauses 的顺序依次覆盖。条款：territory(Unitary/Federal) economy(PrivateProperty/Mixed/Planned) religion(Secular/StateReligion) emergency(Prohibited/Allowed) amendment(ParliamentSupermajority/Referendum/PartyCongress) term_years(2~8) max_terms(0=不限)",
+  "_comment": "制宪会议上各理念政党主张的宪法条款(见 Scripts/GeneralSystems/ConstitutionSystem.cs)。按 defaults → ideologies[理念] → monarchy[理念](君主立宪时) → one_party(一党制时) → 文化包 Constitution.clauses 的顺序依次覆盖。条款：territory(Unitary/Federal) economy(PrivateProperty/Mixed/Planned) religion(Secular/StateReligion) emergency(Prohibited/Allowed) amendment(ParliamentSupermajority/Referendum/PartyCongress) term_years(5~20) max_terms(0=不限) ideology_intensity(High/Medium/Low) speech(Free/Limited/Strict) civil_service(Mixed/Professional/Spoils)",
   "defaults": {
     "territory": "Unitary",
     "economy": "Mixed",
     "religion": "Secular",
     "emergency": "Prohibited",
     "amendment": "ParliamentSupermajority",
-    "term_years": "4",
-    "max_terms": "2"
+    "term_years": "10",
+    "max_terms": "2",
+    "ideology_intensity": "Medium",
+    "speech": "Limited",
+    "nation": "Moderate",
+    "civil_service": "Mixed"
   },
   "ideologies": {
-    "Anarchism": { "territory": "Federal", "amendment": "Referendum" },
-    "SocialDemocracy": { "amendment": "Referendum" },
-    "Libertarianism": { "territory": "Federal", "economy": "PrivateProperty", "amendment": "Referendum" },
-    "SocialLiberalism": { "amendment": "Referendum" },
-    "Capitalism": { "economy": "PrivateProperty" },
-    "ConservativeLiberalism": { "economy": "PrivateProperty" },
+    "Anarchism": {
+      "territory": "Federal",
+      "amendment": "Referendum",
+      "ideology_intensity": "Low",
+      "speech": "Free",
+      "nation": "Pluralist"
+    },
+    "SocialDemocracy": {
+      "amendment": "Referendum",
+      "speech": "Free",
+      "nation": "Pluralist",
+      "civil_service": "Professional"
+    },
+    "Libertarianism": {
+      "territory": "Federal",
+      "economy": "PrivateProperty",
+      "amendment": "Referendum",
+      "ideology_intensity": "Low",
+      "speech": "Free",
+      "nation": "Pluralist",
+      "civil_service": "Professional"
+    },
+    "SocialLiberalism": {
+      "amendment": "Referendum",
+      "ideology_intensity": "Low",
+      "speech": "Free",
+      "nation": "Pluralist",
+      "civil_service": "Professional"
+    },
+    "Capitalism": {
+      "economy": "PrivateProperty",
+      "speech": "Free",
+      "civil_service": "Professional"
+    },
+    "ConservativeLiberalism": {
+      "economy": "PrivateProperty",
+      "speech": "Free",
+      "civil_service": "Professional"
+    },
     "Centrism": {},
-    "Socialism": { "economy": "Planned", "emergency": "Allowed", "amendment": "PartyCongress", "term_years": "5", "max_terms": "0" },
-    "Communism": { "economy": "Planned", "emergency": "Allowed", "amendment": "PartyCongress", "term_years": "5", "max_terms": "0" },
-    "ReligiousDemocracy": { "religion": "StateReligion" },
-    "Authoritarianism": { "emergency": "Allowed", "max_terms": "0" },
-    "Conservatism": { "economy": "PrivateProperty", "emergency": "Allowed", "max_terms": "0" },
-    "Fascism": { "emergency": "Allowed", "amendment": "PartyCongress", "max_terms": "0" }
+    "Socialism": {
+      "economy": "Planned",
+      "emergency": "Allowed",
+      "amendment": "PartyCongress",
+      "term_years": "10",
+      "max_terms": "0",
+      "ideology_intensity": "High",
+      "speech": "Strict",
+      "civil_service": "Spoils"
+    },
+    "Communism": {
+      "economy": "Planned",
+      "emergency": "Allowed",
+      "amendment": "PartyCongress",
+      "term_years": "10",
+      "max_terms": "0",
+      "ideology_intensity": "High",
+      "speech": "Strict",
+      "civil_service": "Spoils"
+    },
+    "ReligiousDemocracy": {
+      "religion": "StateReligion"
+    },
+    "Authoritarianism": {
+      "emergency": "Allowed",
+      "max_terms": "0",
+      "speech": "Strict",
+      "nation": "Nationalist",
+      "civil_service": "Spoils"
+    },
+    "Conservatism": {
+      "economy": "PrivateProperty",
+      "emergency": "Allowed",
+      "max_terms": "0",
+      "nation": "Nationalist"
+    },
+    "Fascism": {
+      "emergency": "Allowed",
+      "amendment": "PartyCongress",
+      "max_terms": "0",
+      "ideology_intensity": "High",
+      "speech": "Strict",
+      "nation": "Nationalist",
+      "civil_service": "Spoils"
+    }
   },
   "monarchy": {
-    "Conservatism": { "religion": "StateReligion" }
+    "Conservatism": {
+      "religion": "StateReligion"
+    }
   },
-  "one_party": { "amendment": "PartyCongress" }
+  "one_party": {
+    "amendment": "PartyCongress",
+    "ideology_intensity": "High",
+    "speech": "Strict",
+    "civil_service": "Spoils"
+  }
 }

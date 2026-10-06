@@ -25,6 +25,11 @@ public sealed class ParliamentFactionView
     public int CentralRatio;
     public bool Constitutionalist;
     public bool Governing;
+    public PartyIdeology Ideology;
+    // 上届议席(-1 = 上届没有议席)、本届与上届得票占比(0~1，-1 = 无记录)
+    public int PreviousSeats = -1;
+    public float VoteShare = -1f;
+    public float PreviousVoteShare = -1f;
 }
 
 public sealed class ParliamentView
@@ -40,6 +45,8 @@ public sealed class ParliamentView
     public int GovernmentSeats;
     public List<ParliamentSeatView> Seats = new();
     public List<ParliamentFactionView> Factions = new();
+    public GovernmentAgenda Agenda;
+    public int NextSeatCount;
 }
 
 // 议会与总理大臣。
@@ -48,12 +55,18 @@ public sealed class ParliamentView
 //   · 议席分配：议席总数 parliament_seats 按各派系中央占比，用最大余额法分给未被取缔的派系；
 //   · 议员产生：每个派系按"有官职者优先 → 政绩 → 声望"推举本派成员出任，人数不够的议席空缺；
 //   · 任期：每 parliament_term_years 年全面改选；期间议员去世、离开帝国或改换派系，由原派系补选；
-//   · 总理大臣由议会选举：单一派系议席过半 → 该派领袖出任（多数政府）；
-//     否则支持宪制的派系合计过半 → 其中议席最多的派系领袖出任（联合政府）；
-//     再否则由议席最多的派系领袖组建少数派政府。
+//   · 总理大臣由议会选举(组阁见 ParliamentSystem.Government.cs)：单一派系议席过半 → 单独组阁；
+//     否则第一大党(不成再由第二大党)拉拢理念最接近的派系凑够过半 → 联合政府；谈判破裂 → 少数派政府。
 //   · 皇帝照旧按继承法在位；总理占据原"权臣"的位置，议会存续期间不再产生权臣。
-public static class ParliamentSystem
+public static partial class ParliamentSystem
 {
+    // 议会改选周期：有宪法时按宪法的任期条款，没有宪法时按 InstitutionTrees/Settings.json 的 parliament_term_years
+    public static int TermYears(Empire empire)
+    {
+        int years = ConstitutionSystem.GetClauses(empire)?.term_years ?? 0;
+        return years > 0 ? years : Config.parliament_term_years;
+    }
+
     public const string GovernmentMajority = "majority";
     public const string GovernmentCoalition = "coalition";
     public const string GovernmentMinority = "minority";
@@ -148,11 +161,13 @@ public static class ParliamentSystem
         view.TotalSeats = state.parliament_seats.Count;
         view.YearsUntilElection = state.last_parliament_election < 0
             ? 0
-            : Math.Max(0, Config.parliament_term_years - Date.getYearsSince(state.last_parliament_election));
+            : Math.Max(0, TermYears(empire) - Date.getYearsSince(state.last_parliament_election));
         view.PrimeMinister = GetPrimeMinister(empire);
         view.PrimeMinisterFaction = GetGoverningFaction(empire);
         view.GovernmentType = state.government_type;
         view.GovernmentSeats = state.government_seats;
+        view.Agenda = state.government_agenda;
+        view.NextSeatCount = SeatCount(empire);
         HashSet<string> governing = GetGoverningFactionIds(empire, state);
         foreach (ParliamentSeat seat in state.parliament_seats)
         {
@@ -176,7 +191,16 @@ public static class ParliamentSystem
                 Seats = group.Count(),
                 CentralRatio = faction.CentralRatio,
                 Constitutionalist = ConstitutionalEconomySystem.IsConstitutionalist(faction, budding),
-                Governing = governing.Contains(group.Key)
+                Governing = governing.Contains(group.Key),
+                Ideology = PartySystem.LeaningOf(faction),
+                PreviousSeats = state.previous_seat_counts != null &&
+                                state.previous_seat_counts.TryGetValue(group.Key, out int before) ? before
+                    : state.previous_seat_counts?.Count > 0 ? 0 : -1,
+                VoteShare = state.vote_shares != null && state.vote_shares.TryGetValue(group.Key, out float share)
+                    ? share : -1f,
+                PreviousVoteShare = state.previous_vote_shares != null &&
+                                    state.previous_vote_shares.TryGetValue(group.Key, out float previousShare)
+                    ? previousShare : -1f
             });
         }
         view.Factions = view.Factions.OrderByDescending(item => item.Seats)
@@ -188,6 +212,12 @@ public static class ParliamentSystem
     {
         var result = new HashSet<string>(StringComparer.Ordinal);
         if (string.IsNullOrWhiteSpace(state.prime_minister_faction_id)) return result;
+        if (state.coalition_faction_ids?.Count > 0)
+        {
+            result.UnionWith(state.coalition_faction_ids);
+            result.Add(state.prime_minister_faction_id);
+            return result;
+        }
         if (state.government_type != GovernmentCoalition)
         {
             result.Add(state.prime_minister_faction_id);
@@ -225,7 +255,7 @@ public static class ParliamentSystem
 
         bool firstSession = state.parliament_seats.Count == 0 && state.last_parliament_election < 0;
         if (state.parliament_seats.Count == 0 || state.last_parliament_election < 0 ||
-            Date.getYearsSince(state.last_parliament_election) >= Config.parliament_term_years)
+            Date.getYearsSince(state.last_parliament_election) >= TermYears(empire))
         {
             HoldGeneralElection(empire, state);
             if (firstSession) RecordHistory(empire, "parliament_first_session_history");
@@ -240,6 +270,11 @@ public static class ParliamentSystem
             if (FillVacancies(empire, state)) ElectPrimeMinister(empire, state);
         }
         if (GetPrimeMinister(empire) == null) ElectPrimeMinister(empire, state);
+        if (state.last_government_review < 0 || Date.getYearsSince(state.last_government_review) >= 1)
+        {
+            state.last_government_review = World.world.getCurWorldTime();
+            ReviewGovernment(empire, state);
+        }
     }
 
     // 议会成立或存续期间，普通内阁不再存在
@@ -263,10 +298,18 @@ public static class ParliamentSystem
         state.government_seats = 0;
         state.last_parliament_election = -1d;
         state.last_parliament_by_election = -1d;
+        state.coalition_faction_ids?.Clear();
+        state.government_formed_at = -1d;
+        state.government_agenda = null;
     }
 
     private static void HoldGeneralElection(Empire empire, ConstitutionalEconomyState state)
     {
+        // 上届议席与得票留作对比(议席图的涨跌箭头)
+        state.previous_seat_counts = state.parliament_seats.GroupBy(seat => seat.faction_id)
+            .ToDictionary(group => group.Key, group => group.Count());
+        state.previous_vote_shares = state.vote_shares ?? new Dictionary<string, float>();
+        int seatCount = SeatCount(empire);
         state.parliament_seats.Clear();
         state.last_parliament_election = World.world.getCurWorldTime();
         state.last_parliament_by_election = World.world.getCurWorldTime();
@@ -281,12 +324,12 @@ public static class ParliamentSystem
         // 普选后按行政区选举(区内按比例)；此前全国统一按得票/中央占比分
         List<(FixedFaction faction, long district)> slots;
         if (partyPolitics && PartyBanSystem.UsesDemocraticCentralism(empire))
-            slots = PartyBanSystem.AllocateCongressSeats(empire, factions, Config.parliament_seats);
+            slots = PartyBanSystem.AllocateCongressSeats(empire, factions, seatCount);
         else if (partyPolitics && PartySystem.HasUniversalSuffrage(empire))
-            slots = PartySystem.AllocateDistrictSeats(empire, factions, Config.parliament_seats);
+            slots = PartySystem.AllocateDistrictSeats(empire, factions, seatCount);
         else
         {
-            Dictionary<FixedFaction, int> national = AllocateSeats(factions, Config.parliament_seats,
+            Dictionary<FixedFaction, int> national = AllocateSeats(factions, seatCount,
                 votes == null ? null : faction => votes.TryGetValue(faction, out float count) ? count : 0f);
             slots = factions.SelectMany(faction => Enumerable.Repeat((faction, -1L),
                 national.TryGetValue(faction, out int count) ? count : 0)).ToList();
@@ -301,8 +344,11 @@ public static class ParliamentSystem
             state.parliament_seats.Add(new ParliamentSeat
                 { faction_id = faction.GetID(), actor_id = actor?.id ?? -1L, district_kingdom_id = district });
         }
-        if (partyPolitics) PartySystem.AfterElection(empire, allocation, Config.parliament_seats);
-        ElectPrimeMinister(empire, state);
+        float voteTotal = votes?.Values.Sum() ?? factions.Sum(faction => Math.Max(0, faction.CentralRatio));
+        state.vote_shares = factions.ToDictionary(faction => faction.GetID(), faction => voteTotal <= 0f ? 0f :
+            (votes != null ? votes.TryGetValue(faction, out float count) ? count : 0f : Math.Max(0, faction.CentralRatio)) / voteTotal);
+        if (partyPolitics) PartySystem.AfterElection(empire, allocation, seatCount);
+        ElectPrimeMinister(empire, state, announce: "election");
         RepublicSystem.OnFirstRepublicElection(empire);
         // 共和国：大选后由执政党领袖出任元首
         RepublicSystem.UpdateHeadOfState(empire);
@@ -341,74 +387,6 @@ public static class ParliamentSystem
         if (!HasParliament(empire)) return;
         ElectPrimeMinister(empire, GetState(empire));
         RepublicSystem.UpdateHeadOfState(empire);
-    }
-
-    private static void ElectPrimeMinister(Empire empire, ConstitutionalEconomyState state)
-    {
-        long previous = state.prime_minister_id;
-        int total = state.parliament_seats.Count;
-        bool budding = state.capitalist_budding;
-        List<(FixedFaction faction, int seats)> blocs = state.parliament_seats
-            .GroupBy(seat => seat.faction_id)
-            .Select(group => (faction: FindFaction(empire, group.Key), seats: group.Count()))
-            .Where(item => item.faction != null)
-            .OrderByDescending(item => item.seats)
-            .ThenByDescending(item => item.faction.CentralRatio)
-            .ToList();
-
-        FixedFaction chosen = null;
-        string type = "";
-        int governmentSeats = 0;
-        if (blocs.Count > 0 && blocs[0].seats * 2 > total)
-        {
-            chosen = blocs[0].faction;
-            type = GovernmentMajority;
-            governmentSeats = blocs[0].seats;
-        }
-        else
-        {
-            List<(FixedFaction faction, int seats)> coalition = blocs
-                .Where(item => ConstitutionalEconomySystem.IsConstitutionalist(item.faction, budding)).ToList();
-            int coalitionSeats = coalition.Sum(item => item.seats);
-            if (coalition.Count > 0 && coalitionSeats * 2 > total)
-            {
-                chosen = coalition[0].faction;
-                type = GovernmentCoalition;
-                governmentSeats = coalitionSeats;
-            }
-            else if (blocs.Count > 0)
-            {
-                chosen = blocs[0].faction;
-                type = GovernmentMinority;
-                governmentSeats = blocs[0].seats;
-            }
-        }
-
-        Actor primeMinister = chosen == null ? null : FindPartyLeader(empire, state, chosen);
-        // 选中的派系一个合格人选都没有时，按议席顺序往下找能组阁的派系
-        if (primeMinister == null)
-        {
-            foreach (var (faction, seats) in blocs)
-            {
-                primeMinister = FindPartyLeader(empire, state, faction);
-                if (primeMinister == null) continue;
-                chosen = faction;
-                type = GovernmentMinority;
-                governmentSeats = seats;
-                break;
-            }
-        }
-
-        state.prime_minister_id = primeMinister?.id ?? -1L;
-        state.prime_minister_faction_id = primeMinister == null ? "" : chosen.GetID();
-        state.government_type = primeMinister == null ? "" : type;
-        state.government_seats = primeMinister == null ? 0 : governmentSeats;
-        if (primeMinister == null || primeMinister.id == previous) return;
-
-        string content = string.Format(LM.Get("parliament_prime_minister_elected_history"), primeMinister.getName(),
-            chosen.Name, LM.Get($"parliament_government_{type}"), governmentSeats, total);
-        empire.RecordHistory(directContent: content, actorId: primeMinister.id, kingdomId: empire.CoreKingdom.id);
-        primeMinister.RecordPersonalHistory(content);
     }
 
     // 派系领袖优先（须是本届议员或至少是本派合格成员），否则取本派排名最高的议员

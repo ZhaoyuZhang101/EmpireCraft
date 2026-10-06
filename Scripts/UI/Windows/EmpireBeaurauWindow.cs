@@ -364,56 +364,136 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
                 view.GovernmentSeats, view.TotalSeats);
         centerPart.AddTextIntoVertLayout($"{LM.Get("prime_minister_title")} · {government}", true,
             TextAnchor.MiddleCenter, new Vector2(110, 10));
-        centerPart.AddActorViewIntoVertLayout(view.PrimeMinister,
+
+        // 议席图：按理念从左到右排开政党，执政一方加金框，正中为过半线
+        List<GeneralSystems.ParliamentFactionView> ordered = view.Factions
+            .OrderBy(faction => GeneralSystems.PartySystem.GetPosition(faction.Ideology).x)
+            .ThenByDescending(faction => faction.Seats).ToList();
+        Dictionary<string, Color> colors = PartyColors(ordered);
+        var chartRow = centerPart.BeginHoriGroup(new Vector2(130, 50), TextAnchor.MiddleCenter, 2);
+        chartRow.AddActorViewIntoHoriLayout(view.PrimeMinister,
             description: view.PrimeMinisterFaction == null
                 ? LM.Get("label_none")
                 : view.PrimeMinisterFaction.Name.ColorString(pColor: GoverningColor));
+        var seats = new List<HemicycleChart.Seat>();
+        foreach (GeneralSystems.ParliamentFactionView faction in ordered)
+            seats.AddRange(view.Seats.Where(seat => seat.Faction == faction.Faction).Select(seat =>
+                new HemicycleChart.Seat
+                {
+                    Color = colors[faction.Faction.GetID()], Governing = faction.Governing,
+                    Vacant = seat.Representative == null
+                }));
+        GameObject chart = HemicycleChart.Create(chartRow.transform, new Vector2(96, 50), seats);
+        UIHelper.AttachTextTooltip(chart, $"parliament_hemicycle_{_empire.id}",
+            string.Format(LM.Get("parliament_members_title"), view.Term, view.YearsUntilElection),
+            string.Join("\n", ordered.Select(faction => FactionSeatLine(faction, colors, true))) + "\n" +
+            string.Format(LM.Get("parliament_majority_note"), view.TotalSeats / 2 + 1, view.TotalSeats) +
+            (view.NextSeatCount != view.TotalSeats
+                ? "\n" + string.Format(LM.Get("parliament_next_seat_count"), view.NextSeatCount) : "") +
+            "\n" + LM.Get("parliament_hemicycle_legend").ColorString("#8FA0A8"));
 
-        // 议员：按议席顺序排列，每行最多 5 人
-        centerPart.AddTextIntoVertLayout(string.Format(LM.Get("parliament_members_title"), view.Term,
-            view.YearsUntilElection), true, TextAnchor.MiddleCenter, new Vector2(110, 10));
-        const int perRow = 5;
-        for (int start = 0; start < view.Seats.Count; start += perRow)
+        // 施政议程
+        centerPart.AddTextIntoVertLayout(AgendaLine(view.Agenda), true, TextAnchor.MiddleCenter,
+            new Vector2(130, 9)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+
+        // 政治协商：参加的友党与作用
+        List<FixedFaction> consultative = GeneralSystems.PartyBanSystem.GetConsultativeParties(_empire);
+        if (consultative.Count > 0)
         {
-            var row = centerPart.BeginHoriGroup(pSpacing: -5);
-            foreach (GeneralSystems.ParliamentSeatView seat in view.Seats.Skip(start).Take(perRow))
-            {
-                string label = seat.Faction?.Name ?? LM.Get("label_none");
-                if (seat.Representative == null) label += $"({LM.Get("parliament_seat_vacant")})";
-                row.AddActorViewIntoHoriLayout(seat.Representative,
-                    description: label.ColorString(pColor: GetSeatColor(seat.Governing, seat.Constitutionalist)));
-            }
+            SimpleText consultation = centerPart.AddTextIntoVertLayout(
+                string.Format(LM.Get("consultation_line"), string.Join("、", consultative.Select(party => party.Name)))
+                    .ColorString("#7FD8EA"), true, TextAnchor.MiddleCenter, new Vector2(130, 9));
+            consultation.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            UIHelper.AttachTextTooltip(consultation.gameObject, $"consultation_{_empire.id}",
+                LM.Get("consultation_title"), string.Format(LM.Get("consultation_body"),
+                    string.Join("、", consultative.Select(party =>
+                        $"{party.Name}[{GeneralSystems.PartySystem.GetIdeologyName(party.Ideology)}]")),
+                    GeneralSystems.PartyBanSystem.ConsultationLegitimacy,
+                    Mathf.RoundToInt(GeneralSystems.PartyBanSystem.ConsultationDissent * 100f)));
         }
 
         // 说明：悬停查看议员与总理如何产生
         SimpleText hint = centerPart.AddTextIntoVertLayout(LM.Get("parliament_how_hint").ColorString("#8FA0A8"),
             false, TextAnchor.MiddleCenter, new Vector2(110, 10));
-        ConstitutionConfig config = GeneralSystems.InstitutionDefinitionRegistry.Global.constitution;
         UIHelper.AttachTextTooltip(hint.gameObject, $"parliament_how_{_empire.id}", LM.Get("parliament_title"),
-            string.Format(LM.Get("parliament_how_body"), config.parliament_seats, config.parliament_term_years) +
+            string.Format(LM.Get("parliament_how_body"), view.TotalSeats, GeneralSystems.ParliamentSystem.TermYears(_empire)) +
+            "\n" + LM.Get("parliament_politics_body") +
             (view.ResponsibleGovernment ? "\n" + LM.Get("parliament_responsible_government_body") : ""));
 
-        // 右侧：议席分布与图例
-        var seatPart = topSpace.BeginVertGroup(new Vector2(60, 90), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
+        // 右侧：各党议席、涨跌与得票
+        var seatPart = topSpace.BeginVertGroup(new Vector2(78, 90), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
         seatPart.AddTextIntoVertLayout(LM.Get("parliament_seat_distribution"), true, TextAnchor.MiddleCenter,
-            new Vector2(60, 10));
+            new Vector2(78, 10));
         foreach (GeneralSystems.ParliamentFactionView faction in view.Factions)
         {
-            string stance = LM.Get(faction.Constitutionalist ? "parliament_stance_pro" : "parliament_stance_anti");
-            seatPart.AddTextIntoVertLayout(
-                string.Format(LM.Get("parliament_faction_line"), faction.Faction.Name, faction.Seats,
-                    faction.CentralRatio, stance).ColorString(pColor: GetSeatColor(faction.Governing, faction.Constitutionalist)),
-                true, TextAnchor.MiddleCenter, new Vector2(60, 10));
+            var line = seatPart.BeginHoriGroup(new Vector2(78, 9), TextAnchor.MiddleLeft, 1);
+            UIHelper.AddLayoutIcon(line.transform,
+                SpriteTextureLoader.getSprite(IdeologyTraitIcons.Path(faction.Ideology)), 8f);
+            line.AddTextIntoHoriLayout(FactionSeatLine(faction, colors, false), true, TextAnchor.MiddleLeft,
+                new Vector2(69, 9)).UseFixedFontSize(5, HorizontalWrapMode.Overflow);
         }
-        seatPart.AddTextIntoVertLayout(LM.Get("parliament_legend"), true, TextAnchor.MiddleCenter, new Vector2(60, 20));
         if (GeneralSystems.ParliamentSystem.KeepsCabinet(_empire))
         {
             int electors = _empire.GetCabinetMembers().Count(actor => actor != null && !actor.isRekt());
             seatPart.AddTextIntoVertLayout(string.Format(LM.Get("parliament_electoral_college_note"), electors), true,
-                TextAnchor.MiddleCenter, new Vector2(60, 10));
+                TextAnchor.MiddleCenter, new Vector2(78, 10));
         }
 
         topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset: new Vector2(0, 0));
+    }
+
+    private static readonly Color[] FallbackPartyColors =
+    {
+        new(0.85f, 0.33f, 0.31f), new(0.31f, 0.55f, 0.85f), new(0.95f, 0.76f, 0.29f), new(0.4f, 0.75f, 0.45f),
+        new(0.65f, 0.45f, 0.8f), new(0.55f, 0.55f, 0.55f)
+    };
+
+    // 政党颜色取理念颜色；同一理念的几个党依次调亮，免得在议席图上分不清
+    private static Dictionary<string, Color> PartyColors(List<GeneralSystems.ParliamentFactionView> factions)
+    {
+        var result = new Dictionary<string, Color>();
+        var used = new Dictionary<GeneralSystems.PartyIdeology, int>();
+        for (int i = 0; i < factions.Count; i++)
+        {
+            GeneralSystems.ParliamentFactionView faction = factions[i];
+            ColorAsset asset = EmpireCraftNamePlateLibrary.GetIdeologyColorAsset(faction.Ideology);
+            Color color = asset?.getColorBanner() ?? FallbackPartyColors[i % FallbackPartyColors.Length];
+            color.a = 1f;
+            used.TryGetValue(faction.Ideology, out int repeat);
+            used[faction.Ideology] = repeat + 1;
+            result[faction.Faction.GetID()] = Color.Lerp(color, Color.white, 0.28f * repeat);
+        }
+        return result;
+    }
+
+    // "民主党·执政 4席 +1 得票32%"
+    private static string FactionSeatLine(GeneralSystems.ParliamentFactionView faction,
+        Dictionary<string, Color> colors, bool withIdeology)
+    {
+        // 党名用议席图上的颜色；执政一方另标金色的"执政"
+        string name = faction.Faction.Name.ColorString(pColor: colors[faction.Faction.GetID()]);
+        if (faction.Governing) name += LM.Get("parliament_governing_mark").ColorString("#F3C34A");
+        string line = $"{name} {string.Format(LM.Get("parliament_seats_short"), faction.Seats)}";
+        if (faction.PreviousSeats >= 0 && faction.PreviousSeats != faction.Seats)
+        {
+            int delta = faction.Seats - faction.PreviousSeats;
+            line += " " + (delta > 0 ? $"+{delta}".ColorString("#65D66E") : $"{delta}".ColorString("#E05A4F"));
+        }
+        if (faction.VoteShare >= 0f)
+            line += " " + string.Format(LM.Get("parliament_vote_share"), (faction.VoteShare * 100f).ToString("0"))
+                .ColorString("#A8B8BE");
+        if (withIdeology)
+            line += " " + $"[{GeneralSystems.PartySystem.GetIdeologyName(faction.Ideology)}]".ColorString("#C9A7E8");
+        return line;
+    }
+
+    private static string AgendaLine(GovernmentAgenda agenda)
+    {
+        if (agenda == null) return LM.Get("government_agenda_none").ColorString("#8FA0A8");
+        string text = string.Format(LM.Get("government_agenda_label"), LM.Get($"constitution_clause_{agenda.clause}"),
+            GeneralSystems.ConstitutionSystem.ValueText(agenda.clause, agenda.target), agenda.progress.ToString("0"));
+        if (agenda.stalled) text += LM.Get("government_agenda_stalled").ColorString("#E9A85B");
+        return text.ColorString("#7FD8EA");
     }
 
     private void BuildBureauPage()
@@ -556,6 +636,30 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         tip.Add(string.Format(LM.Get("office_history_count"), officeObject.history_officers.Count));
         tip.Add($"{LM.Get("office_powers")}: " +
                 (powers.Count == 0 ? LM.Get("label_none") : string.Join(" · ", powers)).ColorString("#65D66E"));
+        // 政党政治下标出官员党籍(后宫不标)；不属于任何政党的为"无党派"。
+        // 责任政府下按文官制度：不由执政党任命的官职是职业文官，政治中立，标"职业文官"
+        string rankLine = rank.ColorString("#65D6C4");
+        CenterOffice center = _empire.data.centerOffice;
+        bool careerPost = GeneralSystems.ParliamentSystem.ControlsMinistries(_empire) && o == null &&
+                          (center.CoreOffices.Contains(oid)
+                              ? !GeneralSystems.ParliamentSystem.PartyAppointsMinisters(_empire)
+                              : center.Divisions.Contains(oid) && !GeneralSystems.ParliamentSystem.PartyAppointsDivisions(_empire));
+        if (!vacant && careerPost && GeneralSystems.PartySystem.IsActive(_empire))
+        {
+            rankLine += " " + LM.Get("bureau_career_civil_servant").ColorString("#8FA0A8");
+            tip.Add(string.Format(LM.Get("bureau_officer_party"), LM.Get("bureau_career_civil_servant"))
+                .ColorString("#C9A7E8"));
+        }
+        else if (!vacant && titleHex != HaremTitleHex && GeneralSystems.PartySystem.IsActive(_empire))
+        {
+            FixedFaction party = officer.GetFaction();
+            bool member = party != null && party.IsParty;
+            string partyName = member ? party.Name : LM.Get("party_label_none");
+            rankLine += " " + partyName.ColorString(member ? "#C9A7E8" : "#8FA0A8");
+            tip.Add(string.Format(LM.Get("bureau_officer_party"), member
+                ? $"{party.Name} [{GeneralSystems.PartySystem.GetIdeologyName(party.Ideology)}]"
+                : partyName).ColorString("#C9A7E8"));
+        }
         // 行政区卡片点一下直接打开对应的国家界面
         Kingdom province = o as Kingdom;
         UnityAction openKingdom = null;
@@ -572,7 +676,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
         return BuildNode(officeName, titleHex, officer,
             (vacant ? LM.Get("office_vacant") : officer.data.name).ColorString(vacant ? "#8FA0A8" : "#F2EEE2"),
-            rank.ColorString("#65D6C4"), footer, $"office_{oid}", string.Join("\n", tip),
+            rankLine, footer, $"office_{oid}", string.Join("\n", tip),
             () => ChangeOfficer(officeObject), highlight: false, onClick: openKingdom);
     }
 

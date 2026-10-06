@@ -31,6 +31,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 return BehResult.Continue;
             }
         }
+        if (ConstitutionalSuccessionSystem.TryHandleVacancy(pKingdom)) return BehResult.Continue;
         // 共主联盟：城邦跟随盟主新君、封建共主的王国按长幼分给子女
         if (PersonalUnionService.TryHandleVacancy(pKingdom))
         {
@@ -54,6 +55,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 return BehResult.Continue;
             }
         } 
+        // 选举制国家的行政区：省长出缺由本省执政党递补
+        if (ProvincialPoliticsSystem.TryFillGovernorVacancy(pKingdom)) return BehResult.Continue;
         OfficeObject office = pKingdom.GetOffice();
         if (office == null) return BehResult.Continue;
         office.is_local = true;
@@ -64,6 +67,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
 
     public static bool NeedSuccession(Kingdom pKingdom)
     {
+        if (pKingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(pKingdom.GetEmpire())) return true;
         Regime regime = pKingdom.GetRegime();
         if (regime == null) return false;
         var method = regime.GetLeaderSelectMethod();

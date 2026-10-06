@@ -37,6 +37,10 @@ public static class ConstitutionSystem
     public const string ClauseReligion = "religion";
     public const string ClauseEmergency = "emergency";
     public const string ClauseAmendment = "amendment";
+    public const string ClauseIdeologyIntensity = "ideology_intensity";
+    public const string ClauseSpeech = "speech";
+    public const string ClauseNation = "nation";
+    public const string ClauseCivilService = "civil_service";
     public const string ClauseTerm = "term";
     // 宪法页上"任期"拆成两行编辑，共用 ClauseTerm 的手定标记
     public const string ClauseTermYears = "term_years";
@@ -45,13 +49,15 @@ public static class ConstitutionSystem
     public static readonly string[] ClauseNames =
     {
         ClauseFormOfState, ClausePowerCenter, ClauseHeadSelection, ClauseSuffrage, ClausePartySystem,
-        ClauseTerritory, ClauseEconomy, ClauseReligion, ClauseEmergency, ClauseAmendment, ClauseTerm
+        ClauseTerritory, ClauseEconomy, ClauseReligion, ClauseEmergency, ClauseAmendment, ClauseTerm,
+        ClauseIdeologyIntensity, ClauseSpeech, ClauseNation, ClauseCivilService
     };
 
     // 宪法页的编辑行顺序
     public static readonly string[] EditableRows =
     {
-        ClauseFormOfState, ClauseFoundingIdeology, ClausePowerCenter, ClauseHeadSelection, ClauseSuffrage, ClausePartySystem,
+        ClauseFormOfState, ClauseFoundingIdeology, ClauseIdeologyIntensity, ClauseSpeech, ClauseNation, ClausePowerCenter, ClauseHeadSelection, ClauseSuffrage, ClausePartySystem,
+        ClauseCivilService,
         ClauseTerritory, ClauseEconomy, ClauseReligion, ClauseEmergency, ClauseAmendment, ClauseTermYears,
         ClauseMaxTerms
     };
@@ -61,8 +67,9 @@ public static class ConstitutionSystem
 
     // 共和建立满这么久的旧存档：补建宪法时不再写"颁布"史书，免得读档时一口气刷出来
     private const int SilentMigrationYears = 1;
-    private const int MinTermYears = 2;
-    private const int MaxTermYears = 8;
+    // 游戏里的一年很短，派系决议动辄要推进好几年：任期 5~20 年，默认 10 年
+    public const int MinTermYears = 5;
+    public const int MaxTermYears = 20;
     private const int MaxTermLimit = 4;
 
     public static ConstitutionData Get(Empire empire) => empire?.data?.constitutional_economy?.constitution;
@@ -137,6 +144,13 @@ public static class ConstitutionSystem
             Promulgate(empire, state, kind == Kind.Provisional);
             return;
         }
+        // 旧存档的任期(以前 2~8 年)按 2.5 倍换算到现在的范围
+        if (current.clauses != null && !current.clauses.term_rescaled)
+        {
+            current.clauses.term_years = UnityEngine.Mathf.Clamp(
+                UnityEngine.Mathf.RoundToInt(current.clauses.term_years * 2.5f), MinTermYears, MaxTermYears);
+            current.clauses.term_rescaled = true;
+        }
         if (current.last_sync >= 0d && Date.getYearsSince(current.last_sync) < 1) return;
         SyncDerived(empire, state, current);
     }
@@ -164,7 +178,7 @@ public static class ConstitutionSystem
         {
             provisional = provisional,
             promulgated_at = World.world.getCurWorldTime(),
-            clauses = new ConstitutionClauses()
+            clauses = new ConstitutionClauses { term_rescaled = true }
         };
         if (!provisional)
         {
@@ -246,7 +260,7 @@ public static class ConstitutionSystem
     // 某个理念主张的宪法(只含颁布时定下的条款)：默认 → 理念 → 君主立宪 → 一党制 → 本文化倾向，依次覆盖
     private static ConstitutionClauses Template(PartyIdeology ideology, bool monarchy, bool oneParty, string culture)
     {
-        var clauses = new ConstitutionClauses();
+        var clauses = new ConstitutionClauses { term_rescaled = true };
         TemplateFile file = Templates;
         ApplyValues(clauses, file.defaults);
         if (file.ideologies != null && file.ideologies.TryGetValue(ideology.ToString(), out var byIdeology))
@@ -286,6 +300,14 @@ public static class ConstitutionSystem
                     clauses.emergency = emergency; break;
                 case ClauseAmendment when Enum.TryParse(value, out ConstitutionAmendment amendment):
                     clauses.amendment = amendment; break;
+                case ClauseIdeologyIntensity when Enum.TryParse(value, out ConstitutionIdeologyIntensity intensity):
+                    clauses.ideology_intensity = intensity; break;
+                case ClauseSpeech when Enum.TryParse(value, out ConstitutionSpeech speech):
+                    clauses.speech = speech; break;
+                case ClauseNation when Enum.TryParse(value, out ConstitutionNation nation):
+                    clauses.nation = nation; break;
+                case ClauseCivilService when Enum.TryParse(value, out ConstitutionCivilService civilService):
+                    clauses.civil_service = civilService; break;
                 case ClauseTermYears when int.TryParse(value, out int years):
                     clauses.term_years = UnityEngine.Mathf.Clamp(years, MinTermYears, MaxTermYears); break;
                 case ClauseMaxTerms when int.TryParse(value, out int terms):
@@ -314,6 +336,10 @@ public static class ConstitutionSystem
         target.religion = source.religion;
         target.emergency = source.emergency;
         target.amendment = source.amendment;
+        target.ideology_intensity = source.ideology_intensity;
+        target.speech = source.speech;
+        target.nation = source.nation;
+        target.civil_service = source.civil_service;
         target.term_years = source.term_years;
         target.max_terms = source.max_terms;
     }
@@ -347,6 +373,10 @@ public static class ConstitutionSystem
         clauses.religion = Vote(plan => plan.religion);
         clauses.emergency = Vote(plan => plan.emergency);
         clauses.amendment = Vote(plan => plan.amendment);
+        clauses.ideology_intensity = Vote(plan => plan.ideology_intensity);
+        clauses.speech = Vote(plan => plan.speech);
+        clauses.nation = Vote(plan => plan.nation);
+        clauses.civil_service = Vote(plan => plan.civil_service);
         clauses.max_terms = Vote(plan => plan.max_terms);
         float total = delegates.Sum(delegate_ => delegate_.weight);
         clauses.term_years = UnityEngine.Mathf.Clamp(UnityEngine.Mathf.RoundToInt(
@@ -362,7 +392,7 @@ public static class ConstitutionSystem
     private static void SyncDerived(Empire empire, ConstitutionalEconomyState state, ConstitutionData constitution,
         bool record = true)
     {
-        ConstitutionClauses clauses = constitution.clauses ??= new ConstitutionClauses();
+        ConstitutionClauses clauses = constitution.clauses ??= new ConstitutionClauses { term_rescaled = true };
         constitution.player_locked ??= new List<string>();
         constitution.amendments ??= new List<ConstitutionAmendmentRecord>();
         bool monarchy = !state.is_republic;
@@ -388,6 +418,31 @@ public static class ConstitutionSystem
         if (EqualityComparer<T>.Default.Equals(current, derived) || constitution.player_locked.Contains(clause)) return;
         apply(derived);
         if (record) AddAmendment(constitution, clause, current.ToString(), derived.ToString(), "sync");
+    }
+
+    // 新领导人上台的路线调整(见 IdeologyDynamicsSystem)：改写意识形态强度并记一次修宪；
+    // 玩家手定过这一条、或还在临时约法期间的不改
+    public static bool SetIdeologyIntensityByLine(Empire empire, ConstitutionIdeologyIntensity value)
+    {
+        ConstitutionData constitution = Get(empire);
+        if (constitution == null || constitution.provisional || IsPlayerLocked(empire, ClauseIdeologyIntensity)) return false;
+        ConstitutionIdeologyIntensity before = constitution.clauses.ideology_intensity;
+        if (before == value) return false;
+        constitution.clauses.ideology_intensity = value;
+        AddAmendment(constitution, ClauseIdeologyIntensity, before.ToString(), value.ToString(), "line");
+        return true;
+    }
+
+    // 迫于压力改变言论自由(见 IdeologyDynamicsSystem)；玩家手定过、或临时约法期间不改
+    public static bool SetSpeechByPressure(Empire empire, ConstitutionSpeech value)
+    {
+        ConstitutionData constitution = Get(empire);
+        if (constitution == null || constitution.provisional || IsPlayerLocked(empire, ClauseSpeech)) return false;
+        ConstitutionSpeech before = constitution.clauses.speech;
+        if (before == value) return false;
+        constitution.clauses.speech = value;
+        AddAmendment(constitution, ClauseSpeech, before.ToString(), value.ToString(), "pressure");
+        return true;
     }
 
     private static void AddAmendment(ConstitutionData constitution, string clause, string from, string to, string by)
@@ -444,6 +499,18 @@ public static class ConstitutionSystem
 
     #endregion
 
+    // 意识形态强度：没有宪法的国家按"中等"
+    public static ConstitutionIdeologyIntensity GetIdeologyIntensity(Empire empire) =>
+        Get(empire)?.clauses?.ideology_intensity ?? ConstitutionIdeologyIntensity.Medium;
+
+    // 民族政策：没有宪法的国家按"一般"
+    public static ConstitutionNation GetNation(Empire empire) =>
+        Get(empire)?.clauses?.nation ?? ConstitutionNation.Moderate;
+
+    // 言论自由：没有宪法的国家按"一般"
+    public static ConstitutionSpeech GetSpeech(Empire empire) =>
+        Get(empire)?.clauses?.speech ?? ConstitutionSpeech.Limited;
+
     #region 玩家修改(宪法页)
 
     // 这一行现在的取值(存档名)；任期两行返回数字
@@ -460,6 +527,10 @@ public static class ConstitutionSystem
         ClauseReligion => clauses.religion.ToString(),
         ClauseEmergency => clauses.emergency.ToString(),
         ClauseAmendment => clauses.amendment.ToString(),
+        ClauseIdeologyIntensity => clauses.ideology_intensity.ToString(),
+        ClauseSpeech => clauses.speech.ToString(),
+        ClauseNation => clauses.nation.ToString(),
+        ClauseCivilService => clauses.civil_service.ToString(),
         ClauseTermYears => clauses.term_years.ToString(),
         ClauseMaxTerms => clauses.max_terms.ToString(),
         _ => ""
@@ -512,6 +583,22 @@ public static class ConstitutionSystem
             case ClauseReligion: options.AddRange(Enum.GetNames(typeof(ConstitutionReligion))); break;
             case ClauseEmergency: options.AddRange(Enum.GetNames(typeof(ConstitutionEmergency))); break;
             case ClauseAmendment: options.AddRange(Enum.GetNames(typeof(ConstitutionAmendment))); break;
+            case ClauseIdeologyIntensity:
+                options.AddRange(new[] { ConstitutionIdeologyIntensity.High, ConstitutionIdeologyIntensity.Medium,
+                    ConstitutionIdeologyIntensity.Low }.Select(value => value.ToString()));
+                break;
+            case ClauseSpeech:
+                options.AddRange(new[] { ConstitutionSpeech.Free, ConstitutionSpeech.Limited, ConstitutionSpeech.Strict }
+                    .Select(value => value.ToString()));
+                break;
+            case ClauseNation:
+                options.AddRange(new[] { ConstitutionNation.Pluralist, ConstitutionNation.Moderate,
+                    ConstitutionNation.Nationalist }.Select(value => value.ToString()));
+                break;
+            case ClauseCivilService:
+                options.AddRange(new[] { ConstitutionCivilService.Mixed, ConstitutionCivilService.Professional,
+                    ConstitutionCivilService.Spoils }.Select(value => value.ToString()));
+                break;
             case ClauseTermYears:
                 for (int years = MinTermYears; years <= MaxTermYears; years++) options.Add(years.ToString());
                 break;
@@ -582,6 +669,10 @@ public static class ConstitutionSystem
             case ClauseReligion: clauses.religion = Parse<ConstitutionReligion>(value); break;
             case ClauseEmergency: clauses.emergency = Parse<ConstitutionEmergency>(value); break;
             case ClauseAmendment: clauses.amendment = Parse<ConstitutionAmendment>(value); break;
+            case ClauseIdeologyIntensity: clauses.ideology_intensity = Parse<ConstitutionIdeologyIntensity>(value); break;
+            case ClauseSpeech: clauses.speech = Parse<ConstitutionSpeech>(value); break;
+            case ClauseNation: clauses.nation = Parse<ConstitutionNation>(value); break;
+            case ClauseCivilService: clauses.civil_service = Parse<ConstitutionCivilService>(value); break;
             case ClauseTermYears: clauses.term_years = int.Parse(value); break;
             case ClauseMaxTerms: clauses.max_terms = int.Parse(value); break;
             default: return false;
@@ -611,6 +702,54 @@ public static class ConstitutionSystem
     };
 
     private static T Parse<T>(string value) where T : struct, Enum => (T)Enum.Parse(typeof(T), value);
+
+    #endregion
+
+    #region 执政党施政议程(见 ParliamentSystem.UpdateAgenda)
+
+    // 执政党可以通过议会推动修改的条款(国体、政党制度这些随制度变化的条款不在其内)
+    public static readonly string[] AgendaClauses =
+    {
+        ClauseEconomy, ClauseTerritory, ClauseReligion, ClauseSpeech, ClauseNation, ClauseIdeologyIntensity,
+        ClauseEmergency, ClauseCivilService
+    };
+
+    // 某个理念的政党在这一条上的主张(与制宪会议用的同一套理念模板)
+    public static string PartyPosition(Empire empire, PartyIdeology ideology, string clause)
+    {
+        ConstitutionalEconomyState state = empire?.data?.constitutional_economy;
+        if (state == null) return "";
+        return CurrentValue(Template(ideology, !state.is_republic, RepublicSystem.IsOneParty(empire),
+            InstitutionSystem.GetPrimaryCulture(empire)), clause);
+    }
+
+    // 修宪所需的议席占比：议会特别多数 2/3，公投与党代会过半
+    public static float AmendmentThreshold(Empire empire) =>
+        GetClauses(empire)?.amendment == ConstitutionAmendment.ParliamentSupermajority ? 2f / 3f : 0.5f;
+
+    // 议会通过执政党的议程：改写条款并记一次修宪(史书由调用方写)；玩家手定过的条款不改
+    public static bool AmendByGovernment(Empire empire, string clause, string value, string partyId)
+    {
+        ConstitutionData constitution = Get(empire);
+        if (constitution == null || constitution.provisional || IsPlayerLocked(empire, clause)) return false;
+        ConstitutionClauses clauses = constitution.clauses;
+        string before = CurrentValue(clauses, clause);
+        if (before == value) return false;
+        switch (clause)
+        {
+            case ClauseTerritory: clauses.territory = Parse<ConstitutionTerritory>(value); break;
+            case ClauseEconomy: clauses.economy = Parse<ConstitutionEconomy>(value); break;
+            case ClauseReligion: clauses.religion = Parse<ConstitutionReligion>(value); break;
+            case ClauseEmergency: clauses.emergency = Parse<ConstitutionEmergency>(value); break;
+            case ClauseIdeologyIntensity: clauses.ideology_intensity = Parse<ConstitutionIdeologyIntensity>(value); break;
+            case ClauseSpeech: clauses.speech = Parse<ConstitutionSpeech>(value); break;
+            case ClauseNation: clauses.nation = Parse<ConstitutionNation>(value); break;
+            case ClauseCivilService: clauses.civil_service = Parse<ConstitutionCivilService>(value); break;
+            default: return false;
+        }
+        AddAmendment(constitution, clause, before, value, $"party:{partyId}");
+        return true;
+    }
 
     #endregion
 }

@@ -121,7 +121,10 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
         var center = pEmpire.data.centerOffice;
         if (center == null) return;
         var emperor = pEmpire.Emperor;
-        foreach (var core in center.CoreOffices)
+        // 责任政府下由执政联盟任命的官职(见 ParliamentSystem.AssignMinisters)不再按任期轮换
+        bool partyCabinet = GeneralSystems.ParliamentSystem.PartyAppointsMinisters(pEmpire);
+        bool partyDivisions = GeneralSystems.ParliamentSystem.PartyAppointsDivisions(pEmpire);
+        foreach (var core in partyCabinet ? new List<long>() : center.CoreOffices)
         {
             if (OfficeManager.Offices.TryGetValue(core, out var value))
             {
@@ -132,7 +135,7 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
                 }
             }
         }
-        foreach (var division in center.Divisions)
+        foreach (var division in partyDivisions ? new List<long>() : center.Divisions)
         {
             if (OfficeManager.Offices.TryGetValue(division, out var value))
             {

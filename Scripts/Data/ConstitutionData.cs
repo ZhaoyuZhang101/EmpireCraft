@@ -48,6 +48,19 @@ public enum ConstitutionEmergency { Prohibited, Allowed }
 
 public enum ConstitutionAmendment { ParliamentSupermajority, Referendum, PartyCongress }
 
+// 意识形态强度。Medium 排第一：旧存档没有这一条时按"中等"读入
+public enum ConstitutionIdeologyIntensity { Medium, High, Low }
+
+// 言论自由。Limited 排第一：旧存档没有这一条时按"一般"读入
+public enum ConstitutionSpeech { Limited, Free, Strict }
+
+// 民族政策。Moderate 排第一：旧存档没有这一条时按"一般"读入
+public enum ConstitutionNation { Moderate, Pluralist, Nationalist }
+
+// 文官制度：混合制(部长随执政党，其下事务官考选) / 职业文官制(政治中立，不随换届更替) /
+// 政党分肥制(部长与各部主官都随执政党更替)。见 ParliamentSystem.AssignMinisters
+public enum ConstitutionCivilService { Mixed, Professional, Spoils }
+
 public sealed class ConstitutionClauses
 {
     [JsonConverter(typeof(StringEnumConverter))]
@@ -74,8 +87,22 @@ public sealed class ConstitutionClauses
     public ConstitutionEmergency emergency;
     [JsonConverter(typeof(StringEnumConverter))]
     public ConstitutionAmendment amendment;
-    // 元首(君主立宪为首相)一届的年数
-    public int term_years = 4;
+    // 意识形态强度：高 = 高强度宣传立国理念，中 = 一般，低 = 放开人民的意识形态(见 IdeologyEducationSystem)
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ConstitutionIdeologyIntensity ideology_intensity;
+    // 言论自由：宽松 = 各种理念著作频繁出版；严格 = 出版的多是立国理念的著作(见 SpeechFreedomSystem)
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ConstitutionSpeech speech;
+    // 民族政策：多民族共存 / 一般 / 民族主义立国(见 NationalSentimentSystem)
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ConstitutionNation nation;
+    // 文官制度(旧存档没有这一条，按混合制)
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ConstitutionCivilService civil_service;
+    // 元首(君主立宪为首相)一届的年数，也是议会改选周期(见 ParliamentSystem.TermYears)
+    public int term_years = 10;
+    // 旧存档的任期按游戏时间换算过(以前 2~8 年太短，换届太快，决议推不完)
+    public bool term_rescaled;
     // 最多连任几届；0 = 不限
     public int max_terms;
 

@@ -61,6 +61,20 @@ public static class PartyBanSystem
         return state.allied_party_ids.Count > 0 ? ModeUnitedFront : ModeOneParty;
     }
 
+    // 政治协商：一党领导下仍有友党参加(统一战线)。作用：宪政合法性 +ConsultationLegitimacy、
+    // 民意异见 -ConsultationDissent、友党参与施政议程协商(见 ModernLegitimacy / PublicOpinionSystem / ParliamentSystem)
+    public const int ConsultationLegitimacy = 5;
+    public const float ConsultationDissent = 0.05f;
+
+    public static List<FixedFaction> GetConsultativeParties(Empire empire)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        if (state == null || !IsClosed(empire) || state.allied_party_ids == null) return new List<FixedFaction>();
+        return PartySystem.GetParties(empire).Where(party => state.allied_party_ids.Contains(party.GetID())).ToList();
+    }
+
+    public static bool HasConsultation(Empire empire) => GetConsultativeParties(empire).Count > 0;
+
     public static bool IsAllowedParty(Empire empire, FixedFaction party)
     {
         ConstitutionalEconomyState state = State(empire);
@@ -140,6 +154,36 @@ public static class PartyBanSystem
 
     #region 开关党禁
 
+    // 进入一党制后其余政党的去留：有政治协商制度(统一战线，有友党)的，其余政党都参加政治协商、接受领导，
+    // 只有与执政党理念截然对立的(光谱距离 ≥ HostileDistance，如共产党领导时的法西斯、资本主义政党)被解散；
+    // 没有政治协商的(纯一党制)其余政党一律解散。返回参加政治协商的友党
+    private const float HostileDistance = 120f;
+
+    private static List<FixedFaction> SettleOtherParties(Empire empire, FixedFaction leader, List<FixedFaction> allies)
+    {
+        bool consultative = allies.Count > 0;
+        var allowed = new List<FixedFaction>(allies);
+        var dissolved = new List<string>();
+        foreach (FixedFaction party in empire.CoreKingdom.GetRegime().GetPlayerFactions()
+                     .Where(party => party != null && party.IsParty && party != leader && !allowed.Contains(party))
+                     .ToList())
+        {
+            if (consultative && !party.Ban &&
+                PartySystem.IdeologyDistance(party.Ideology, leader.Ideology) < HostileDistance)
+            {
+                allowed.Add(party);
+                continue;
+            }
+            if (!party.Ban) dissolved.Add(party.Name);
+            PartySystem.DisbandParty(empire, party);
+        }
+        foreach (FixedFaction ally in allowed) ally.Ban = false;
+        if (dissolved.Count > 0)
+            EventRecorder.Record(empire, string.Format(LM.Get("party_ban_dissolved_history"),
+                empire.GetEmpireFullName(), string.Join("、", dissolved)));
+        return allowed;
+    }
+
     public static void Close(Empire empire, FixedFaction leader, IEnumerable<FixedFaction> allies, string historyKey)
     {
         ConstitutionalEconomyState state = State(empire);
@@ -147,10 +191,8 @@ public static class PartyBanSystem
         List<FixedFaction> allowed = (allies ?? Enumerable.Empty<FixedFaction>())
             .Where(ally => ally != null && ally != leader && ally.IsParty && !ally.Ban).Distinct().ToList();
         state.one_party_id = leader.GetID();
+        allowed = SettleOtherParties(empire, leader, allowed);
         state.allied_party_ids = allowed.Select(ally => ally.GetID()).ToList();
-        foreach (FixedFaction party in PartySystem.GetParties(empire)
-                     .Where(party => party != leader && !allowed.Contains(party)).ToList())
-            party.BanFaction();
         if (CanChooseElectoralSystem(empire)) state.democratic_centralism = true;
         state.party_ban_reopen_pressure = 0f;
         state.party_ban_since = World.world.getCurWorldTime();
@@ -209,12 +251,7 @@ public static class PartyBanSystem
         }
         else
         {
-            foreach (FixedFaction party in PartySystem.GetParties(empire).Where(party => party != leader))
-            {
-                if (allies.Contains(party)) party.Ban = false;
-                else if (!party.Ban) party.BanFaction();
-            }
-            foreach (FixedFaction ally in allies) ally.Ban = false;
+            allies = SettleOtherParties(empire, leader, allies);
             state.allied_party_ids = allies.Select(ally => ally.GetID()).ToList();
             state.last_parliament_election = -1d;
         }
@@ -312,6 +349,12 @@ public static class PartyBanSystem
         bool fixedByConstitution = ConstitutionSystem.IsPlayerLocked(empire, ConstitutionSystem.ClausePartySystem);
         if (IsClosed(empire))
         {
+            // 旧存档：一党制下还挂着"已取缔"的政党，按现行规则解散
+            FixedFaction ruling = PartySystem.GetParties(empire).FirstOrDefault(party => party.GetID() == state.one_party_id);
+            if (ruling != null && empire.CoreKingdom.GetRegime().GetPlayerFactions().Any(party => party != null && party.IsParty && party.Ban))
+                foreach (FixedFaction banned in empire.CoreKingdom.GetRegime().GetPlayerFactions()
+                             .Where(party => party != null && party.IsParty && party.Ban).ToList())
+                    PartySystem.DisbandParty(empire, banned);
             if (!fixedByConstitution) UpdateReopenPressure(empire, state);
             return;
         }
@@ -387,7 +430,7 @@ public static class PartyBanSystem
             .FirstOrDefault();
         if (party == null) return;
         int opinion = PublicOpinionSystem.GetLevel(empire);
-        float chance = CoupChance * (opinion + (empire.Mandate < 40 ? 1 : 0));
+        float chance = CoupChance * (opinion + (empire.Legitimacy < 40 ? 1 : 0));
         if (chance <= 0f || UnityEngine.Random.value >= chance) return;
         if (!RepublicSystem.IsRepublic(empire))
         {

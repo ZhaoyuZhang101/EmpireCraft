@@ -65,7 +65,78 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         InitialRegimeSelection();
         InitialCustomNaming();
         UIHelper.InitialFactionSpace(this.BeginHoriGroup(), _kingdom, _groups);
+        InitialLocalPolitics();
         InitialSetting();
+    }
+
+    // 地方政治(见 ProvincialPoliticsSystem)：本省执政党、各党支持率，玩家可花国库资助/打压某党
+    private void InitialLocalPolitics()
+    {
+        Empire empire = _kingdom?.GetEmpire();
+        if (!ProvincialPoliticsSystem.IsProvince(empire, _kingdom) || !PartySystem.IsActive(empire)) return;
+        List<(FixedFaction party, float share)> shares = ProvincialPoliticsSystem.GetShares(empire, _kingdom);
+        if (shares.Count == 0) return;
+        float height = 32f + shares.Count * 14f;
+        var panel = this.BeginVertGroup(new Vector2(196, height), pSpacing: 1, pAlignment: TextAnchor.UpperCenter,
+            pPadding: new RectOffset(4, 4, 3, 3));
+        _groups.Add(panel.gameObject);
+
+        FixedFaction governing = ProvincialPoliticsSystem.GetGoverningParty(empire, _kingdom);
+        bool opposition = ProvincialPoliticsSystem.IsOppositionHeld(empire, _kingdom);
+        string title = LM.Get("local_politics_title").ColorString("#7FD8EA");
+        if (governing != null)
+            title += " · " + string.Format(LM.Get("local_politics_governing"), governing.Name)
+                .ColorString(opposition ? "#E9A85B" : "#65D66E");
+        panel.AddTextIntoVertLayout(title, true, TextAnchor.MiddleLeft, new Vector2(188, 11))
+            .UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+        int years = ProvincialPoliticsSystem.YearsUntilLocalElection(empire);
+        string status = years < 0 ? LM.Get("local_politics_no_elections")
+            : string.Format(LM.Get("local_politics_next_election"), years) +
+              (opposition ? "  " + LM.Get("local_politics_resistance") : "");
+        SimpleText statusText = panel.AddTextIntoVertLayout(status.ColorString("#A8B8BE"), true, TextAnchor.MiddleLeft,
+            new Vector2(188, 9));
+        statusText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        UIHelper.AttachTextTooltip(statusText.gameObject, "local_politics_help", LM.Get("local_politics_title"),
+            LM.Get("local_politics_help_body"));
+
+        int cost = ProvincialPoliticsSystem.InfluenceCost(_kingdom);
+        foreach ((FixedFaction party, float share) in shares)
+        {
+            FixedFaction target = party;
+            var row = panel.BeginHoriGroup(new Vector2(188, 13), TextAnchor.MiddleLeft, 2);
+            UIHelper.AddLayoutIcon(row.transform,
+                SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(party.Ideology)), 10f);
+            string line = party.Name.ColorString(party == governing ? "#F3C34A" : "#E6E0CF") +
+                          $" {share * 100f:0}%".ColorString("#C9A7E8");
+            float influence = ProvincialPoliticsSystem.GetInfluence(empire, _kingdom, party);
+            if (Mathf.Abs(influence) >= 0.01f)
+                line += " " + string.Format(LM.Get("local_politics_influence"),
+                        (influence > 0 ? "+" : "") + Mathf.RoundToInt(influence * 100f))
+                    .ColorString(influence > 0 ? "#65D66E" : "#E05A4F");
+            row.AddTextIntoHoriLayout(line, true, TextAnchor.MiddleLeft, new Vector2(110, 12))
+                .UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            var fund = row.AddButtonIntoHoriLayout($"local_fund_{party.GetID()}", LM.Get("local_politics_fund"),
+                () => ApplyLocalInfluence(empire, target, 1), size: new Vector2(31, 11));
+            UIHelper.AttachTextTooltip(fund.gameObject, "local_fund_tip", LM.Get("local_politics_fund"),
+                string.Format(LM.Get("local_politics_fund_tip"), cost));
+            var suppress = row.AddButtonIntoHoriLayout($"local_suppress_{party.GetID()}",
+                LM.Get("local_politics_suppress"), () => ApplyLocalInfluence(empire, target, -1),
+                size: new Vector2(31, 11));
+            UIHelper.AttachTextTooltip(suppress.gameObject, "local_suppress_tip", LM.Get("local_politics_suppress"),
+                string.Format(LM.Get("local_politics_suppress_tip"), cost));
+        }
+        panel.transform.AddStretchBackground("regimeFrame", new Vector2(196, height));
+    }
+
+    private void ApplyLocalInfluence(Empire empire, FixedFaction party, int direction)
+    {
+        string error = ProvincialPoliticsSystem.Influence(empire, _kingdom, party, direction);
+        if (error != null)
+        {
+            ActionLibrary.showWhisperTip(error);
+            return;
+        }
+        InitialContent();
     }
 
     private void InitialCustomNaming()

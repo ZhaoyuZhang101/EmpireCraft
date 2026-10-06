@@ -63,14 +63,16 @@ public static class PartySystem
     private const float SwitchMargin = 25f;
     private const int MaxSwitchesPerYear = 5;
     private const float SwitchChance = 0.35f;
-    private const float MergeSeatShare = 0.06f;
-    private const float MergeDistance = 45f;
+    // 弱势政党：议席与得票都不到一成二；理念相距 70 以内(如社会自由与保守自由、社会主义与共产主义)算相近
+    private const float MergeSeatShare = 0.12f;
+    private const float MergeDistance = 70f;
+    private const float MergeBaseChance = 0.3f;
     private const float SplitSeatShare = 0.4f;
     private const float SplitChance = 0.1f;
     private const float SplitDistance = 60f;
     private const int DissolveAfterZeroSeatElections = 2;
     private const int MinimumParties = 2;
-    private const int MinYearsBeforeMerge = 5;
+    private const int MinYearsBeforeMerge = 3;
     private const float OrganisationVotesPerMember = 0.3f;
 
     // 光谱坐标：x 经济(-100 左 ~ 100 右)，y 权力(100 自由 ~ -100 极权)
@@ -152,11 +154,11 @@ public static class PartySystem
         empire?.CoreKingdom != null && InstitutionSystem.GetFeature(empire, FeaturePartyPolitics) > 0f &&
         UnlockedIdeologies(empire).Count > 0;
 
-    // 可用 = 本文化已研究(或吸收)该理念，且它属于当前生效的路线
+    // 民间已接触到理念就能组织政党；理念制度由执政党推进，不能反过来作为建党的前提。
     public static bool IsIdeologyUnlocked(Empire empire, PartyIdeology ideology)
     {
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
-        return IsResearched(culture, ideology);
+        return IdeologyPopulationSystem.IsIdeaAvailable(culture, ideology);
     }
 
     #region 理念路线
@@ -186,7 +188,7 @@ public static class PartySystem
     public static string GetRouteName(IdeologyRoute route) => LM.Get($"ideology_route_{route}");
 
     // 开放党禁本身就带来最基本的几种理念(保守、保守自由、社会自由、中间)，党禁一开就能组党；
-    // 其余理念要在制度树"意识形态"车道里研究或由传播获得
+    // 其余理念通过名著、外来传播或思想爆发进入民间；对应制度仍由执政党推动。
     public static readonly HashSet<PartyIdeology> BaseIdeologies = new()
     {
         PartyIdeology.Conservatism, PartyIdeology.ConservativeLiberalism,
@@ -314,6 +316,7 @@ public static class PartySystem
         }
         List<Actor> citizens = GetCitizens(empire);
         TryMerge(empire, regime, state);
+        TryDissolveDefunct(empire, state);
         TryFoundParty(empire, regime, citizens);
         DriftMembers(empire, citizens);
         TrySplit(empire, regime, state);
@@ -357,6 +360,22 @@ public static class PartySystem
         }
         if (lines.Count == 0) return;
         Record(empire, string.Format(LM.Get("party_reorganized_history"), string.Join("、", lines)), null);
+    }
+
+    // 派系/政党代表的理念：政党就是它的理念；党禁前的派系按它偏向的阶层落到光谱上最近的理念(与开放党禁时改组的算法一致)
+    public static PartyIdeology LeaningOf(FixedFaction faction)
+    {
+        if (faction == null) return PartyIdeology.Centrism;
+        if (faction.IsParty) return faction.Ideology;
+        if (faction.ClassAffinities == null || faction.ClassAffinities.Count == 0) FactionClassSystem.EnsureProfile(faction);
+        Vector2 weighted = Vector2.zero;
+        float total = 0f;
+        foreach (KeyValuePair<SocialClass, float> pair in faction.ClassAffinities.Where(pair => pair.Value > 0f))
+        {
+            weighted += ClassPositions[pair.Key] * pair.Value;
+            total += pair.Value;
+        }
+        return NearestIdeology(total > 0f ? weighted / total : Vector2.zero);
     }
 
     private static void ConvertToParty(Empire empire, FixedFaction faction, PartyIdeology ideology, string name)
@@ -467,30 +486,80 @@ public static class PartySystem
         }
     }
 
-    // 同理念的党必定合并；议席很少的小党并入光谱上最近的大党
+    // 同理念的党必定合并。弱势政党(议席与得票都不到一成二、成立满三年)每年有机会并入理念相近的较大政党：
+    //   基础三成；得票比上届下滑 +两成；与对方同在执政联盟 +一成五；按行政区选举(小党被挤压) +一成；
+    //   理念越远越难谈拢(每 10 点距离 -3%)。每年每国最多合并一次
     private static void TryMerge(Empire empire, Regime regime, ConstitutionalEconomyState state)
     {
         List<FixedFaction> parties = GetParties(empire);
         if (parties.Count <= MinimumParties) return;
         float ShareOf(FixedFaction party) => Share(empire, state, party);
+        float VoteOf(FixedFaction party) =>
+            state?.vote_shares != null && state.vote_shares.TryGetValue(party.GetID(), out float vote) ? vote : ShareOf(party);
+        bool Declining(FixedFaction party) =>
+            state?.previous_vote_shares != null &&
+            state.previous_vote_shares.TryGetValue(party.GetID(), out float before) && VoteOf(party) < before - 0.01f;
+        var coalition = new HashSet<string>(ParliamentSystem.GetCoalitionIds(empire));
+        bool districts = HasUniversalSuffrage(empire);
 
         foreach (FixedFaction small in parties.OrderBy(ShareOf).ThenBy(party => party.Count))
         {
             // 小党至少要存在几年才会被并掉，免得刚成立就被吞
-            bool smallAndSettled = ShareOf(small) < MergeSeatShare && small.PartyFoundedAt >= 0d &&
-                                   Date.getYearsSince(small.PartyFoundedAt) >= MinYearsBeforeMerge;
+            bool weak = ShareOf(small) < MergeSeatShare && VoteOf(small) < MergeSeatShare &&
+                        small.PartyFoundedAt >= 0d && Date.getYearsSince(small.PartyFoundedAt) >= MinYearsBeforeMerge;
             FixedFaction target = parties
-                .Where(other => other != small && ShareOf(other) >= ShareOf(small))
+                .Where(other => other != small && !other.Ban &&
+                                (ShareOf(other) > ShareOf(small) ||
+                                 ShareOf(other) == ShareOf(small) && other.Count > small.Count))
                 .Where(other => other.Ideology == small.Ideology ||
-                                smallAndSettled && Distance(other.Ideology, small.Ideology) <= MergeDistance)
-                .OrderBy(other => Distance(other.Ideology, small.Ideology)).FirstOrDefault();
+                                weak && Distance(other.Ideology, small.Ideology) <= MergeDistance)
+                .OrderBy(other => Distance(other.Ideology, small.Ideology))
+                .ThenByDescending(ShareOf).FirstOrDefault();
             if (target == null) continue;
+            if (target.Ideology != small.Ideology)
+            {
+                float chance = MergeBaseChance + (Declining(small) ? 0.2f : 0f) +
+                               (coalition.Contains(small.GetID()) && coalition.Contains(target.GetID()) ? 0.15f : 0f) +
+                               (districts ? 0.1f : 0f) - Distance(target.Ideology, small.Ideology) / 330f;
+                if (Random.value >= chance) continue;
+            }
+            bool governing = ParliamentSystem.IsGoverningFaction(empire, small.GetID());
             Absorb(empire, regime, target, small);
             // 并入的党原有的议席随人一起归到新党名下
             foreach (ParliamentSeat seat in state.parliament_seats.Where(seat => seat.faction_id == small.GetID()))
                 seat.faction_id = target.GetID();
+            empire.CoreKingdom.ClampFactionRatio();
+            if (governing) ParliamentSystem.ReelectGovernment(empire);
             Record(empire, string.Format(LM.Get("party_merged_history"), small.Name, target.Name), target.GetLeader());
             return;
+        }
+    }
+
+    // 名存实亡的政党自行解散(党员各投立场最近的党，见 DissolveParty)：
+    //   · 党员走光了：当即解散；
+    //   · 成立满三年、党员不足三人，或得票跌到 3% 以下且没有议席：每年四成机会解散。
+    // 执政一方不解散；全国至少保留 MinimumParties 个政党；每年每国最多解散一个
+    private const int DefunctMembers = 3;
+    private const float DefunctVoteShare = 0.03f;
+    private const float DefunctDissolveChance = 0.4f;
+
+    private static void TryDissolveDefunct(Empire empire, ConstitutionalEconomyState state)
+    {
+        List<FixedFaction> parties = GetParties(empire);
+        if (parties.Count <= MinimumParties) return;
+        foreach (FixedFaction party in parties.OrderBy(party => party.Count).ToList())
+        {
+            if (party == null || party.Ban || ParliamentSystem.IsGoverningFaction(empire, party.GetID())) continue;
+            int members = party.AllMembers.Count(actor => actor != null && !actor.isRekt() && actor.isAlive());
+            bool settled = party.PartyFoundedAt >= 0d && Date.getYearsSince(party.PartyFoundedAt) >= MinYearsBeforeMerge;
+            int seats = state?.parliament_seats?.Count(seat => seat.faction_id == party.GetID()) ?? 0;
+            float vote = state?.vote_shares != null && state.vote_shares.TryGetValue(party.GetID(), out float share)
+                ? share
+                : 1f;
+            bool empty = members == 0;
+            bool defunct = settled && (members < DefunctMembers || seats == 0 && vote < DefunctVoteShare);
+            if (!empty && (!defunct || Random.value >= DefunctDissolveChance)) continue;
+            if (DissolveParty(empire, party)) return;
         }
     }
 
@@ -670,6 +739,17 @@ public static class PartySystem
         ApplyOpinionSwing(empire, CountVotes(parties, GetCitizens(empire), HasUniversalSuffrage(empire),
             InstitutionSystem.GetPrimaryCulture(empire)));
 
+    // 一个行政区里各党的得票(地方选举、省级政治倾向)：只算住在本省的选民
+    public static Dictionary<FixedFaction, float> CountProvinceVotes(Empire empire, Kingdom province,
+        List<FixedFaction> parties)
+    {
+        List<Actor> voters = province?.units?.Where(actor => actor != null && !actor.isRekt() && actor.isAlive() &&
+                                                            actor.isAdult() && actor.id != empire.Emperor?.id)
+            .ToList() ?? new List<Actor>();
+        return ApplyOpinionSwing(empire, CountVotes(parties, voters, HasUniversalSuffrage(empire),
+            InstitutionSystem.GetPrimaryCulture(empire)));
+    }
+
     // 民意影响选票(见 PublicOpinionSystem)：民意越差执政党越丢票、百姓想要的理念越得票；外国压力撑腰的理念也多拿票
     private static Dictionary<FixedFaction, float> ApplyOpinionSwing(Empire empire,
         Dictionary<FixedFaction, float> votes)
@@ -683,6 +763,8 @@ public static class PartySystem
             if (party == governing) factor *= 1f - 0.1f * level;
             if (hasPreferred && party.Ideology == preferred) factor *= 1f + 0.1f * level;
             factor *= 1f + Mathf.Min(0.2f, PublicOpinionSystem.GetPressure(empire, party.Ideology) / 100f);
+            // 民族情绪高涨时，民族主义色彩浓的政党多拿票(见 NationalSentimentSystem)
+            factor *= NationalSentimentSystem.VoteFactor(empire, party.Ideology);
             votes[party] *= factor;
         }
         return votes;
@@ -809,6 +891,14 @@ public static class PartySystem
     #endregion
 
     #region 工具
+
+    // 一党制下被解散的政党(见 PartyBanSystem.Close)：党员成为无党派，政党从格局中移除
+    public static void DisbandParty(Empire empire, FixedFaction party)
+    {
+        Regime regime = empire?.CoreKingdom?.GetRegime();
+        if (regime == null || party == null) return;
+        RemoveParty(empire, regime, party);
+    }
 
     private static void RemoveParty(Empire empire, Regime regime, FixedFaction party)
     {

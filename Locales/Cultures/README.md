@@ -9,10 +9,14 @@ Locales/Cultures/
 │  ├─ CultureRule.jsonc            规则：名称、颜色、物种、政体、命名规则……
 │  ├─ HuaxiaCityNames1.csv        各种词库，文件名 = 文化id + 词库名
 │  ├─ HuaxiaBookTemplatesHistoryBook.csv
+│  ├─ icon.png                     (可选)文化图标，文化配置窗口里显示；没有就用模组内置图标或默认白旗
 │  └─ ...
 ├─ Books/                         书名的通用词库(文化没配的类型用这里)
 └─ PartyNames/                    党名、共和国号后缀、非政府势力称呼、临时政府称呼的默认词库
 ```
+
+文化图标建议 28×28 像素、透明背景，风格参照 `Tools/IconForge/STYLE.md`(深褐描边、右下投影、左上受光)。
+模组内置的文化图标在 `GameResources/ui/icons/cultures/`，由 `Tools/IconForge/icon_forge.py` 生成。
 
 ## CultureRule.jsonc
 
@@ -81,8 +85,8 @@ ConservativeLiberalism, Centrism, Socialism, Communism, ReligiousDemocracy, Auth
 
 - 词库名同样可以写 `别的文化:词库名` 引用别的文化的词库。
 - `clauses` 可写的条款与方案：`territory`(Unitary / Federal)、`economy`(PrivateProperty / Mixed / Planned)、
-  `religion`(Secular / StateReligion)、`emergency`(Prohibited / Allowed)、
-  `amendment`(ParliamentSupermajority / Referendum / PartyCongress)、`term_years`(2~8)、`max_terms`(0 = 不限)。
+  `religion`(Secular / StateReligion)、`emergency`(Prohibited / Allowed)、`ideology_intensity`(High / Medium / Low)、`speech`(Free / Limited / Strict)、`nation`(Pluralist / Moderate / Nationalist)、`civil_service`(Mixed / Professional / Spoils)、
+  `amendment`(ParliamentSupermajority / Referendum / PartyCongress)、`term_years`(5~20)、`max_terms`(0 = 不限)。
 - 各理念政党的默认主张在模组根目录的 `ConstitutionTemplates.json`，按 默认 → 理念 → 君主立宪 → 一党制 → 文化倾向 的顺序覆盖。
 
 ## 词库 CSV
@@ -125,3 +129,11 @@ LoveStory 爱情、BiologyBook 博物、Mathbook 算学、DiplomacyManual 外交
 
 另外两个文件：`<文化>LandmarkBooks.csv` 是本文化的传世名著书名(key 为 `landmark_book_<书id>`，书的定义在
 `Technology/LandmarkBooks.json`)；`<文化>LandmarkBookLogs.csv` 是名著问世时的世界播报，`{0}` 文化、`{1}` 作者、`{2}` 书名、`{3}` 城市。
+
+理念书库 `<文化>IdeologyBooks.csv`(通用的是 `Books/IdeologyBooks.csv`，两者合并使用)：国内读书人每年写的理念著作的书名，
+数量与理念分布由宪法的"言论自由"决定(见 `Scripts/GeneralSystems/SpeechFreedomSystem.cs`)。
+key 以 `<理念>_` 开头(如 `Socialism_3`、`Communism_Huaxia_1`)的是该理念专属书名；以 `Any_` 开头的是各理念通用的体裁模板。
+占位符：`{0}` 理念名、`{1}` 作者、`{2}` 城市、`{3}` 该理念奠基名著的书名(资本论、国富论……)。
+理念名：Anarchism、SocialDemocracy、Libertarianism、SocialLiberalism、Capitalism、ConservativeLiberalism、Centrism、
+Socialism、Communism、ReligiousDemocracy、Authoritarianism、Conservatism、Fascism。
+一个理念要本文化已有它的奠基名著(`Technology/LandmarkBooks.json` 里标了该理念的名著)才会有人写它的著作。
