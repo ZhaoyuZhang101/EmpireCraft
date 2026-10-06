@@ -1558,7 +1558,11 @@ public static class EmpireCraftNamePlateLibrary
             : pMetaObject.getColor();
         npt.setupMeta(pMetaObject.data, displayColor);
         string displayName = GetSafeKingdomName(pMetaObject);
-        string pNewText = $"{displayName} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
+        // 无小人模式：兵力显示军团总人数(一个兵代表一个军团)
+        string warriors = CityPopulationSystem.AbstractPopulationEnabled
+            ? CityPopulationSystem.LegionPeople(pMetaObject).ToString()
+            : $"{pMetaObject.countTotalWarriors()}/{pMetaObject.countWarriorsMax()}";
+        string pNewText = $"{displayName} {pMetaObject.getPopulationPeople().ToString()+additionNum} | {warriors}";
         pNewText = AppendFeudalLordLabel(npt, pMetaObject, pNewText);
         if (pMetaObject.HasTakenAlliance() && displayedEmpire != null)
         {

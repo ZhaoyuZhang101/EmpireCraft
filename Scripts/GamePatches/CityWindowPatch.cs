@@ -76,6 +76,7 @@ public class CityWindowPatch : GamePatch
         __instance.showStatRow("city_landless_population", $"{land.LandlessPopulationRatio:P0}",
             land.LandlessPopulationRatio >= LandEconomySystem.RebellionLandlessThreshold ? "#E66B66" : "#B8C6CC",
             pIconPath: "iconChildren");
+        if (CityPopulationSystem.AbstractPopulationEnabled) ShowPopulationRows(__instance, metaObject);
         UrbanEmploymentReport employment = UrbanEmploymentSystem.GetReport(metaObject);
         __instance.showStatRow("city_production_stage",
             LM.Get($"urban_production_stage_{employment.Stage}"), "#F3C34A", pIconPath: "iconMoney");
@@ -97,6 +98,45 @@ public class CityWindowPatch : GamePatch
         }
         return false;
     }
+    // 无小人模式的城市人口面板：规模与户数、年增长率、粮食、就业、在外军团，以及阶层、文化、物种构成
+    private static void ShowPopulationRows(CityWindow window, City city)
+    {
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data == null) return;
+        int people = city.getPopulationPeople();
+        int households = CityPopulationSystem.Households(city);
+        window.showStatRow("city_pop_scale", string.Format(LM.Get("city_pop_scale_format"), people, households,
+            CityPopulationSystem.PeoplePerSlot(city)), "#F3C34A", pIconPath: "iconPopulation");
+        CityPopulationSystem.GrowthFactors factors = CityPopulationSystem.GetGrowthFactors(city, data);
+        float growth = factors.BirthRate - factors.DeathRate;
+        window.showStatRow("city_pop_growth", $"{growth:+0.0%;-0.0%;0.0%}",
+            growth >= 0f ? "#66D98A" : "#E66B66", pIconPath: "iconPopulation");
+        string food = string.Format(LM.Get("city_pop_food_format"), factors.FoodPerCapita,
+            factors.Famine ? LM.Get("city_pop_famine") : "");
+        window.showStatRow("city_pop_food", food, factors.Famine ? "#E66B66" : "#B8C6CC", pIconPath: "iconPopulation");
+        if (data.last_workforce > 0f)
+            window.showStatRow("city_pop_employment", $"{Mathf.Clamp01(data.last_jobs / data.last_workforce):P0}",
+                "#7FD8EA", pIconPath: "iconMoney");
+        if (data.levied > 0f)
+            window.showStatRow("city_pop_legions", Mathf.RoundToInt(data.levied).ToString(), "#E6A166",
+                pIconPath: "iconWar");
+        window.showStatRow("city_pop_classes", Top(CityPopulationSystem.GetClassCounts(city),
+            socialClass => socialClass.ToTranslate(), 4), "#B8C6CC", pIconPath: "iconKings");
+        window.showStatRow("city_pop_cultures", Top(CityPopulationSystem.GetCultureCounts(city),
+            culture => string.IsNullOrEmpty(culture) ? "-" : culture.GetCultureTranslate(), 3), "#B8C6CC",
+            pIconPath: "iconCulture");
+        window.showStatRow("city_pop_species", Top(CityPopulationSystem.GetSpeciesCounts(city),
+            species => LM.Get(species), 3), "#B8C6CC", pIconPath: "iconPopulation");
+    }
+
+    private static string Top<TKey>(Dictionary<TKey, float> counts, Func<TKey, string> name, int take)
+    {
+        float total = counts.Values.Sum();
+        if (total <= 0f) return "-";
+        return string.Join("  ", counts.OrderByDescending(pair => pair.Value).Take(take)
+            .Select(pair => $"{name(pair.Key)} {pair.Value / total:P0}"));
+    }
+
     public static void startShowingWindow(CityWindow __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
