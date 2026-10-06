@@ -122,7 +122,9 @@ public class SpecificClan
     [JsonIgnore]
     public List<PersonalClanIdentity> all_valid_members => SnapshotPeople().ToList().FindAll(i=>i.CanHeir());
     [JsonIgnore] 
-    public List<Actor> AllAliveMembers => SnapshotPeople().ToList().FindAll(i => i.is_alive).Select(i=>i._actor).ToList();
+    // 有实体的在世族人(虚拟族人不在其中：他们没有单位，需要时用 PersonalClanIdentity.Realize() 落成)
+    public List<Actor> AllAliveMembers => SnapshotPeople().ToList().FindAll(i => i.is_alive && !i.is_virtual)
+        .Select(i=>i._actor).Where(actor => actor != null).ToList();
     [JsonIgnore]
     private readonly object _cacheLock = new();
     public Dictionary<long, PersonalClanIdentity> _cache = new();
@@ -270,7 +272,7 @@ public class SpecificClan
 
         if (identity.is_alive)
         {
-            identity._actor.RemoveSpecificClan();
+            identity._actor?.RemoveSpecificClan();
         }
     }
 
@@ -1022,7 +1024,10 @@ public class PersonalClanIdentity
         get
         {
             Actor actor = _actor;
-            return is_alive && actor != null ? actor.getAge() : recordedAge;
+            if (is_alive && actor != null) return actor.getAge();
+            if (is_alive && is_virtual && virtual_since >= 0d && World.world != null)
+                return recordedAge + Date.getYearsSince(virtual_since);
+            return recordedAge;
         }
     }
     [JsonIgnore] public string isMainText => hasLover()?(is_main ? "i_first" : "i_second"):"i_none_lover";
@@ -1040,6 +1045,20 @@ public class PersonalClanIdentity
     public List<PersonalHistoryRecord> related_history_records = new List<PersonalHistoryRecord>();
     public List<long> pending_child_birth_history_parents = new List<long>();
     public bool death_history_recorded = false;
+
+    // —— 虚拟族谱(无小人模式，见 VirtualGenealogySystem) ——
+    // 并入人口数据后没有实体单位、但仍在世的族人：只记人名、出生地、受封(爵位/封号)，需要时再落成实体
+    public bool is_virtual { get; set; }
+    public string birthplace { get; set; } = "";
+    // 落成实体时生成在哪座城(并入时所在的城)
+    public long virtual_city_id { get; set; } = -1L;
+    // 成为虚拟族人的时间，用来推算年龄
+    public double virtual_since { get; set; } = -1d;
+    // 预定的寿数(60~80 随机)，到了就以病逝/遇刺/寿终之一身故
+    public int virtual_death_age { get; set; } = -1;
+
+    // 需要这个人(继承、分封、作乱……)时调用：虚拟族人当场落成实体，否则返回现有实体
+    public Actor Realize() => is_virtual && is_alive ? VirtualGenealogySystem.Realize(this) : _actor;
 
     public void newPersonalClanIdentity(SpecificClan specificClan, Actor a)
     {

@@ -88,7 +88,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         if (namePart.Length == 0) return;
         _clanInput.input.text = OverallHelperFunc.JoinNameParts(namePart[0], LM.Get("specific_clan"));
         _sc.name = namePart[0];
-        foreach (var member in _sc._cache.Where(member => member.Value.is_alive))
+        foreach (var member in _sc._cache.Where(member => member.Value.is_alive && member.Value._actor != null))
         {
             member.Value._actor.GetModName().familyName = namePart[0];
             member.Value._actor.GetModName().SetName(member.Value._actor);
@@ -727,7 +727,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         
         leftVertGroup.AddTextIntoVertLayout($"<color=#FF4500>{(actor.is_alive?"":LM.Get("is_dead")+"-")}</color>{actor.name} ({LM.Get($"relation_{relation.ToString()}")}-{LM.Get(actor.isMainText)})", size: new Vector2(50, 10));
         leftVertGroup.AddTextIntoVertLayout($"{actor.birthday+"-"+actor.getDeathday()}", size: new Vector2(50, 10));
-        var flag = actor.is_alive && actor._actor.IsOnOffice();
+        var flag = actor.is_alive && actor._actor?.IsOnOffice() == true;
         leftVertGroup.AddTextIntoVertLayout($"官职：{GetDisplayOfficeName(actor).ColorString(pColor:flag?Color.yellow:Color.gray)}");
         leftVertGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(leftVertGroup.gameObject);
@@ -748,7 +748,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         nameText.Setup($"<color=#FF4500>{(actor.is_alive?"":LM.Get("is_dead")+"-")}</color>{actor.name}-{LM.Get(actor.isMainText)}", pSize: new Vector2(50, 10));
 
         SimpleText levelText = GameObject.Instantiate(SimpleText.Prefab);
-        var flag = actor.is_alive && actor._actor.IsOnOffice();
+        var flag = actor.is_alive && actor._actor?.IsOnOffice() == true;
         levelText.Setup($"官职：{GetDisplayOfficeName(actor).ColorString(pColor:flag?Color.yellow:Color.gray)}", pSize: new Vector2(50, 10));
 
         SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);

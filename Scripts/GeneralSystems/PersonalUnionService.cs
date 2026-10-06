@@ -115,7 +115,7 @@ public static class PersonalUnionService
                     .Select(item => item.Item2)
                     .Where(person => person != null && person.is_alive)
                     .OrderBy(person => person.rank)
-                    .Select(person => person._actor)
+                    .Select(person => person.Realize())
                     .FirstOrDefault(child => child != null && !child.isRekt() && child.isAlive() &&
                                              child.isUnitFitToRule() && (child.data?.renown ?? 0) >= 500);
 
@@ -142,7 +142,7 @@ public static class PersonalUnionService
             .Select(item => item.Item2)
             .Where(person => person != null && person.is_alive)
             .OrderBy(person => person.rank)
-            .Select(person => person._actor)
+            .Select(person => person.Realize())
             .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.isUnitFitToRule())
             .ToList();
         if (children.Count == 0) return;

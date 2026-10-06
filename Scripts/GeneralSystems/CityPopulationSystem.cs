@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.Data;
@@ -80,6 +81,7 @@ public static class CityPopulationSystem
         _world = World.world;
         _lastPass = -1d;
         _lastFoldPass = -1d;
+        VirtualGenealogySystem.ResetWorldState();
         _passMilliseconds = 0d;
         _passCities = 0;
     }
@@ -103,6 +105,8 @@ public static class CityPopulationSystem
         if (!ReferenceEquals(_world, world)) ResetWorldState();
 
         double now = world.getCurWorldTime();
+        // 虚拟族人的年度身故：关掉无小人模式后已有的虚拟族人仍会老去
+        VirtualGenealogySystem.Tick();
         if (AbstractPopulationEnabled) TickFolds(world, now);
         else PendingFolds.Clear();
         if (PendingCities.Count == 0)
@@ -409,6 +413,8 @@ public static class CityPopulationSystem
             string culture = CultureService.GetActorCulture(actor) ?? "";
             string species = actor.asset?.id ?? "";
             PartyIdeology ideology = IdeologyPopulationSystem.Get(actor);
+            // 族谱里的人转为虚拟族人(仍在世，需要时再落成实体)，单位移除时不会被记为死亡
+            VirtualGenealogySystem.Virtualize(actor, city);
             // 不计入死亡统计、不写收藏日志
             actor.die(true, AttackType.Other, false, false);
             AddBackground(city, socialClass, culture, species, ideology, 1f);
@@ -527,6 +533,36 @@ public static class CityPopulationSystem
         if (city == null || city.isRekt() || city.kingdom == null) return null;
         Actor actor = SpawnCivilian(city);
         return actor != null && actor.CanServeOffice(kingdom ?? city.kingdom) ? actor : null;
+    }
+
+    // 落成一名指定物种/文化的人(虚拟族人用)：优先从同物种同文化的背景人口里扣，其次同物种，
+    // 都没有就直接生成(人口多出一人)
+    public static Actor SpawnPerson(City city, string species, string culture)
+    {
+        if (city?.data == null || city.isRekt() || city.kingdom == null || string.IsNullOrEmpty(species)) return null;
+        PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f && candidate.species == species &&
+                                                           candidate.culture == (culture ?? ""))
+                         ?? DrawBackground(city, candidate => candidate.Background >= 1f && candidate.species == species);
+        PopGroup template = group ?? new PopGroup
+        {
+            social_class = SocialClass.Peasant, culture = culture ?? "", species = species,
+            ideology = IdeologyPopulationSystem.GetDominant(city)
+        };
+        Actor actor = SpawnFromGroup(city, template, soldier: false);
+        if (actor != null && group != null) RemoveBackground(group, 1f);
+        return actor;
+    }
+
+    // 从背景人口里减去一名指定物种/文化的人(虚拟族人身故)
+    public static void RemovePerson(City city, string species, string culture)
+    {
+        CityPopulationData data = Get(city);
+        if (data?.groups == null) return;
+        PopGroup group = data.groups.FirstOrDefault(candidate => candidate.Background >= 1f &&
+                                                                 candidate.species == species && candidate.culture == (culture ?? ""))
+                         ?? data.groups.FirstOrDefault(candidate => candidate.Background >= 1f && candidate.species == species)
+                         ?? data.groups.FirstOrDefault(candidate => candidate.Background >= 1f);
+        RemoveBackground(group, 1f);
     }
 
     private static WorldTile PickTile(City city)

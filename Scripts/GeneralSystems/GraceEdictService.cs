@@ -48,7 +48,7 @@ public static class GraceEdictService
             .Select(item => item.Item2)
             .Where(identity => identity != null && identity.CanHeir())
             .OrderBy(identity => identity.rank)
-            .Select(identity => identity._actor)
+            .Select(identity => identity.Realize())
             .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && !actor.isKing() &&
                             actor.kingdom?.GetEmpire() == empire)
             .ToList();
@@ -171,7 +171,7 @@ public static class GraceEdictService
         PersonalClanIdentity identity = king.GetPersonalIdentity();
         IEnumerable<Actor> Relatives(IEnumerable<(ClanRelation, PersonalClanIdentity)> list) => list
             .Select(item => item.Item2).Where(person => person != null && person.CanHeir())
-            .OrderBy(person => person.rank).Select(person => person._actor);
+            .OrderBy(person => person.rank).Select(person => person.Realize());
         if (identity != null)
         {
             Actor child = Relatives(SpecificClanManager.getChildren(identity)).FirstOrDefault(IsAvailable);

@@ -40,14 +40,36 @@ public static class ConstitutionalSuccessionSystem
             .GroupBy(actor => actor.id).Select(group => group.First()).ToList();
     }
 
-    public static bool HasLivingDynasty(Empire empire) => LivingDynasty(empire).Count > 0;
+    // 皇室在世的虚拟族人(无小人模式下并入人口数据、需要时再落成实体的宗室)
+    private static List<PersonalClanIdentity> VirtualDynasty(Empire empire)
+    {
+        SpecificClan royal = empire?.EmpireSpecificClan;
+        if (royal == null) return new List<PersonalClanIdentity>();
+        return SpecificClanManager._specificClans
+            .Where(clan => clan != null && SpecificClanManager.SameLineage(clan, royal))
+            .SelectMany(clan => clan.SnapshotPeople())
+            .Where(person => person != null && person.is_alive && person.is_virtual && !person.is_concubine)
+            .GroupBy(person => person.id).Select(group => group.First()).ToList();
+    }
 
-    public static Actor SelectRoyalHeir(Empire empire) => LivingDynasty(empire)
-        .Where(actor => actor != empire.Emperor && CanInherit(empire, actor))
-        .OrderByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? 0d)
-        .ThenByDescending(actor => actor.stewardship)
-        .ThenByDescending(actor => actor.renown)
-        .ThenBy(actor => actor.id).FirstOrDefault();
+    public static bool HasLivingDynasty(Empire empire) => LivingDynasty(empire).Count > 0 || VirtualDynasty(empire).Count > 0;
+
+    // 有实体的宗室优先(按政绩、治理、声望)；都没有就从虚拟宗室里挑最年长的成年人落成实体
+    public static Actor SelectRoyalHeir(Empire empire)
+    {
+        Actor real = LivingDynasty(empire)
+            .Where(actor => actor != empire.Emperor && CanInherit(empire, actor))
+            .OrderByDescending(actor => actor.GetIdentity()?.TotalPerformance ?? 0d)
+            .ThenByDescending(actor => actor.stewardship)
+            .ThenByDescending(actor => actor.renown)
+            .ThenBy(actor => actor.id).FirstOrDefault();
+        if (real != null) return real;
+        PersonalClanIdentity virtualHeir = VirtualDynasty(empire)
+            .Where(person => person.age >= 16)
+            .OrderBy(person => person.rank).ThenByDescending(person => person.age).FirstOrDefault();
+        Actor realized = virtualHeir?.Realize();
+        return CanInherit(empire, realized) ? realized : null;
+    }
 
     public static string SelectionRelation(Empire empire) => LM.Get(ParliamentSystem.HasParliament(empire)
         ? "constitutional_succession_parliament" : "constitutional_succession_cabinet");

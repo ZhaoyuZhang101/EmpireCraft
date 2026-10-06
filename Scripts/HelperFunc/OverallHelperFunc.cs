@@ -539,7 +539,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 string officeName = "";
                 string name = cIdentity.Item2.name;
                 string educationLevel = "";
-                if (cIdentity.Item2.is_alive)
+                if (cIdentity.Item2.is_alive && cIdentity.Item2._actor != null)
                 {
                     Actor actor = cIdentity.Item2._actor;
                     OfficeIdentity identity = actor.GetIdentity();

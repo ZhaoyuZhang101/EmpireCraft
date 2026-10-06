@@ -145,7 +145,7 @@ public static class FeudalConquestService
             .Select(item => item.Item2)
             .Where(identity => identity != null && identity.CanHeir())
             .OrderBy(identity => identity.rank)
-            .Select(identity => identity._actor)
+            .Select(identity => identity.Realize())
             .FirstOrDefault(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
                                      !actor.isKing() && actor.id != crownPrinceId &&
                                      actor.kingdom?.GetEmpire() == empire);

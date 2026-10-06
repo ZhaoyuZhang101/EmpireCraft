@@ -54,8 +54,8 @@ public class TempFac_索取皇位 : TemporaryFaction
             {
                 if (empire.EmpireSpecificClan != null)
                 {
-                    var kingCandidate = empire.EmpireSpecificClan.all_valid_members.FindAll(v=>v._actor.isKing());
-                    var normalCandidate = empire.EmpireSpecificClan.all_valid_members.FindAll(v=>!v._actor.isKing());
+                    var kingCandidate = empire.EmpireSpecificClan.all_valid_members.FindAll(v=>v._actor?.isKing() == true);
+                    var normalCandidate = empire.EmpireSpecificClan.all_valid_members.FindAll(v=>v._actor?.isKing() != true);
                     if (kingCandidate.Count > 0)
                     {
                         newEmperor = kingCandidate.OrderByDescending(k=>k._actor.kingdom.countTotalWarriors()).FirstOrDefault()?._actor;
@@ -66,9 +66,9 @@ public class TempFac_索取皇位 : TemporaryFaction
                     {
                         if (normalCandidate.Count > 0)
                         {
-                            newEmperor = normalCandidate.OrderBy(k => k._actor.GetIdentity()?.honoraryOfficial??999)
+                            newEmperor = normalCandidate.OrderBy(k => k._actor?.GetIdentity()?.honoraryOfficial??999)
                                 .FirstOrDefault()
-                                ?._actor;
+                                ?.Realize();
                             if (newEmperor != null) TranslateHelper.LogMinisterSelectEmpire(empire, newEmperor.GetOffice(), null, newEmperor);
                         }
                     }

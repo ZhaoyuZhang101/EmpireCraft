@@ -87,7 +87,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 if (eligibleChildren.Any())
                 {
                     var actor_pci = eligibleChildren.First().Item2; // Assuming eldest is the last after sorting by age
-                    actor = actor_pci._actor;
+                    actor = actor_pci.Realize();
                     relationText =
                         string.Format(
                             LM.Get($"rank_child_{logPreText}_{(actor_pci.sex == ActorSex.Female ? "female" : "male")}"),
@@ -98,7 +98,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 if (children.Any())
                 {
                     var actor_pci = children.Last().Item2;
-                    actor = actor_pci._actor; // Assuming youngest is the first after sorting by age
+                    actor = actor_pci.Realize(); // Assuming youngest is the first after sorting by age
                     relationText =
                         string.Format(
                             LM.Get(
@@ -116,7 +116,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                     .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
                 if (brothers.Any())
                 {
-                    actor = brothers.Last().Item2._actor;
+                    actor = brothers.Last().Item2.Realize();
                     relationText = LM.Get(relationText).ColorString(pColor:new Color(0.2f, 0.3f, 0.9f));
                 }
                 break;
@@ -127,7 +127,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                     .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
                 if (grandChildren.Any())
                 {
-                    actor = grandChildren.Last().Item2._actor;
+                    actor = grandChildren.Last().Item2.Realize();
                     relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.1f, 0.9f));
                 }
                 break;
@@ -189,13 +189,14 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         List<PersonalClanIdentity> candidates = SpecificClanManager.getChildren(pci).FindAll(a => a.Item2.CanHeir(pci))
             .Concat(SpecificClanManager.GetSiblingsWithRelation(pci).FindAll(a => a.Item2.CanHeir(pci)))
             .Select(a => a.Item2)
-            .Where(identity => identity?._actor != null)
+            .Where(identity => identity != null && (identity._actor != null || identity.is_virtual))
             .ToList();
         if (!candidates.Any()) return (null, "");
+        // 虚拟族人(无小人模式)没有政绩，排在有实体的人之后
         PersonalClanIdentity strongest = candidates
-            .OrderByDescending(identity => identity._actor.GetIdentity()?.TotalPerformance ?? 0d)
+            .OrderByDescending(identity => identity._actor?.GetIdentity()?.TotalPerformance ?? -1d)
             .First();
         string relationText = LM.Get(SuccessionLawType.强者继承法.ToString()).ColorString(pColor: new Color(0.6f, 0.05f, 0.05f));
-        return (strongest._actor, relationText);
+        return (strongest.Realize(), relationText);
     }
 }

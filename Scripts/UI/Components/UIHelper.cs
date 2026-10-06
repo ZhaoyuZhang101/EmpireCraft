@@ -207,9 +207,11 @@ public static class UIHelper
         {
             unitLoader._actor_image.gameObject.SetActive(false);
         }
-        if (!pIsAlive)
+        // 虚拟族人(无小人模式：在世但没有实体单位)用通用小人图标
+        bool virtualPerson = pIsAlive && actor == null && pIdentity is { is_virtual: true, is_alive: true };
+        if (!pIsAlive || virtualPerson)
         {
-            unitLoader._actor_image.sprite = SpriteTextureLoader.getSprite("ui/deadIcon");
+            unitLoader._actor_image.sprite = SpriteTextureLoader.getSprite(virtualPerson ? "ui/virtualPersonIcon" : "ui/deadIcon");
             unitLoader._actor_image.transform.localScale = new Vector2(1, 1);
             var rt1 = unitLoader._actor_image.rectTransform;            // shortcut for GetComponent<RectTransform>()
             rt1.anchorMin       = new Vector2(0.5f, 0.5f);

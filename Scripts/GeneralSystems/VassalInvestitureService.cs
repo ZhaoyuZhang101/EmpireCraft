@@ -355,6 +355,8 @@ public static class VassalInvestitureService
         long crownPrinceId = empire.CoreKingdom?.GetHeir()?.id ?? -1L;
         bool IsAvailable(PersonalClanIdentity identity)
         {
+            // 虚拟族人(无小人模式)：只要能继承就算可选，选中后再落成实体
+            if (identity is { is_virtual: true, is_alive: true }) return identity.CanHeir();
             Actor actor = identity?._actor;
             return actor != null && !actor.isRekt() && actor.isAlive() && !actor.isKing() && actor != heir &&
                    actor.id != crownPrinceId && identity.CanHeir() && actor.kingdom?.GetEmpire() == empire &&
@@ -362,7 +364,7 @@ public static class VassalInvestitureService
         }
         Actor Pick(IEnumerable<(ClanRelation, PersonalClanIdentity)> relatives) => relatives
             .Select(item => item.Item2).Where(IsAvailable).OrderBy(identity => identity.rank)
-            .Select(identity => identity._actor).FirstOrDefault();
+            .Select(identity => identity.Realize()).FirstOrDefault();
 
         PersonalClanIdentity heirIdentity = heir?.GetPersonalIdentity();
         PersonalClanIdentity emperorIdentity = empire.Emperor?.GetPersonalIdentity();
