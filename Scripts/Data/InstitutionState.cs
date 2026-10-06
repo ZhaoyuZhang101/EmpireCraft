@@ -18,6 +18,9 @@ public sealed class CultureInstitutionState
 {
     // 本文化已掌握的制度（自研完成的 + 从别的线吸收来的 + 开局的根节点）
     public List<string> enacted_node_ids = new();
+    // 时代潮流(见 InstitutionSystem.UpdateCultureDrift)：没有政权推动时，民间自发推行的制度与进度
+    public string drift_node_id = "";
+    public float drift_progress;
     // 上面这些里面，哪些是从别的线吸收来的（只用于 UI 区分显示和历史记录）
     public List<string> absorbed_node_ids = new();
     // 0 表示按已掌握制度自动评级；正数表示玩家在窗口里手动指定的文明等级。
@@ -45,6 +48,8 @@ public sealed class CultureInstitutionState
     public Dictionary<string, float> ideology_exposure = new();
     // 已经向人口实际播种过的理念；旧存档解锁节点后也只补播一次。
     public List<string> seeded_ideologies = new();
+    // 已在民间出现的理念（名著、外国传播、思想爆发），不等于已推行它的制度。
+    public List<string> discovered_ideologies = new();
     // 理念路线(保守/自由/中间/左翼，见 PartySystem.IdeologyRoute)：同一时间只有一条路线生效，玩家可在制度窗口手动切换
     public string active_ideology_route = "";
 }
@@ -121,5 +126,6 @@ public static class InstitutionStateNormalizer
         state.unlocked_succession_laws ??= new List<SuccessionLawType>();
         state.ideology_exposure ??= new Dictionary<string, float>();
         state.seeded_ideologies ??= new List<string>();
+        state.discovered_ideologies ??= new List<string>();
     }
 }

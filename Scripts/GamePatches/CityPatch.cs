@@ -358,10 +358,13 @@ public class CityPatch : GamePatch
 
             // 原版的接收国解析在帝国战争里可能返回守城国自己（进攻方并非战争的直接参与者时），
             // 这样"占领"不会让城市易主，只会每次重复结算。此时改由实际进攻方接收；
-            // 两者相同则放弃本次结算并清空占领进度。
+            // 同一帝国的成员之间(藩王之乱、地方叛乱、军阀混战)只要确实在交战，同样由进攻方接收——
+            // 以前同帝国一律放弃结算，内战里城市占满进度就被清零、永远打不下来。
+            // 进攻方就是守城国、或双方并未交战时才放弃本次结算并清空占领进度。
             if (joinAfterCapture == oldKingdom)
             {
-                if (pNewKingdom != oldKingdom && !pNewKingdom.IsInSameEmpire(oldKingdom))
+                if (pNewKingdom != oldKingdom &&
+                    (!pNewKingdom.IsInSameEmpire(oldKingdom) || pNewKingdom.isInWarWith(oldKingdom)))
                 {
                     joinAfterCapture = pNewKingdom;
                 }
@@ -1086,10 +1089,14 @@ public class CityPatch : GamePatch
         // 该城立即归降。
         TryImmediateSurrenderOnImperialArmyArrival(__instance);
         LandEconomySystem.UpdateCity(__instance);
+        __instance.TryYearlyOccupationSpread();
         UrbanEmploymentSystem.UpdateCity(__instance);
         ClanBranchSystem.TryYearlyScan();
         IdeologySpreadSystem.TryYearlyScan();
         TechnologySystem.TryYearlyScan();
+        InstitutionSystem.TryYearlyCultureDrift();
+        HarshRuleSystem.TryYearlyKingdomScan();
+        EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.TryYearlyScan();
         CultureModernizationSystem.TryYearlyRealmTransitionScan();
 
         /*

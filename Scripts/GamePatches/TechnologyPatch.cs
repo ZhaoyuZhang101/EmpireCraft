@@ -317,7 +317,8 @@ public class TechnologyPatch : GamePatch
             };
             if (!string.IsNullOrEmpty(culture)) break;
         }
-        if (TechnologySystem.CanUse(culture, tech)) return true;
+        if (TechnologySystem.CanUse(culture, tech) &&
+            !EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.BlocksNuclearUse(tech, __args)) return true;
         __result = false;
         // 带 out string 的方法(比如玩家手动下令核打击)把原因带回去，免得对方界面拿到空串
         ParameterInfo[] parameters = __originalMethod.GetParameters();

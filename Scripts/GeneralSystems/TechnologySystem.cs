@@ -508,6 +508,8 @@ public static class TechnologySystem
     // 文化制度对技术的约束(科技树关闭时不限制)
     public static bool AreCultureRequirementsMet(string culture, TechNodeConfig tech) =>
         !(PremodernLocked && tech.tier > PremodernMaxTier) &&
+        // 本文化的主体被迫弃核：停止核研究(见 NuclearDoctrineSystem)
+        !EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsResearchBanned(culture, tech.id) &&
         (!IsEnabled || tech.tier <= GetMaxTierForCulture(culture)) &&
         (!IsEnabled || tech.requires_institutions.All(requirement => IsInstitutionRequirementMet(culture, requirement)));
 

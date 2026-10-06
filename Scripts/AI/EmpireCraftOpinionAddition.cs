@@ -23,6 +23,14 @@ public static class EmpireCraftOpinionAddition
             translation_key = "opinion_empire_proclamation_grudge",
             calc = EmpireCraft.Scripts.GeneralSystems.EmpireFormationService.GetGrudgeOpinion
         });
+        // 核威慑：对方有核则不敢轻易开战，自己有核则有恃无恐(见 NuclearDoctrineSystem)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_nuclear_deterrence",
+            translation_key = "opinion_nuclear_deterrence",
+            translation_key_negative = "opinion_nuclear_superiority",
+            calc = EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.DeterrenceOpinion
+        });
         opl.add(new OpinionAsset
         {
             id = "opinion_false_empire_core",
@@ -47,7 +55,7 @@ public static class EmpireCraftOpinionAddition
                 {
                     if (!pMain.IsEmpire()&&pTarget.IsEmpire())
                     {
-                        var mandate = pTarget.GetEmpire().Mandate;
+                        var mandate = pTarget.GetEmpire().Legitimacy;
                         result = (mandate-50)*5;
                     }
                 }
