@@ -117,6 +117,21 @@ public class CityWindowPatch : GamePatch
         if (data.last_workforce > 0f)
             window.showStatRow("city_pop_employment", $"{Mathf.Clamp01(data.last_jobs / data.last_workforce):P0}",
                 "#7FD8EA", pIconPath: "iconMoney");
+        if (MarketSystem.Blockaded(city))
+            window.showStatRow("city_market_status", data.siege_famine_months > 0
+                ? string.Format(LM.Get("city_market_siege_famine"), data.siege_famine_months)
+                : LM.Get("city_market_blockaded"), "#E66B66", pIconPath: "iconWar");
+        else if (city.kingdom != null && city.kingdom.hasEnemies())
+            window.showStatRow("city_market_status", LM.Get("city_market_embargo"), "#E6A166", pIconPath: "iconWar");
+        window.showStatRow("city_market_prices", string.Format(LM.Get("city_market_prices_format"),
+                MarketSystem.Price(city, MarketSystem.Good.Food), MarketSystem.Price(city, MarketSystem.Good.Wood),
+                MarketSystem.Price(city, MarketSystem.Good.Stone), MarketSystem.Price(city, MarketSystem.Good.Metal)),
+            "#F3C34A", pIconPath: "iconMoney");
+        if (data.last_market_bought > 0f || data.last_market_sold > 0f || data.market_sold_month > 0f)
+            window.showStatRow("city_market_trade", string.Format(LM.Get("city_market_trade_format"),
+                    Mathf.RoundToInt(data.last_market_bought),
+                    Mathf.RoundToInt(Mathf.Max(data.last_market_sold, data.market_sold_month))),
+                "#7FD8EA", pIconPath: "iconMoney");
         if (data.last_tax_income > 0f)
             window.showStatRow("city_pop_tax", Mathf.RoundToInt(data.last_tax_income).ToString(), "#43FF43",
                 pIconPath: "iconMoney");

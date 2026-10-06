@@ -372,6 +372,7 @@ public static class CityPopulationSystem
     {
         LeaderRetryAt.Clear();
         GranarySystem.ResetWorldState();
+        MarketSystem.ResetWorldState();
         PrefectureCache.Clear();
         _frameCacheFrame = -1;
         FrontCache.Clear();
@@ -558,6 +559,23 @@ public static class CityPopulationSystem
             destination = other;
         }
         if (destination != null) TransferBackground(city, destination, MaxMigrationRate * push);
+    }
+
+    // ---- 读书(无小人模式) ----
+    // 原版由小人去藏书处读书，读书给本文化攒科技点、名著被别的文化读到会启发那个文化。
+    // 没有平民实体后由城里的读书人代读：每月读 1 + 识字人口户数/3 本(最多 4 本)
+    private const int MaxReadsPerMonth = 4;
+
+    private static void ReadBooks(City city)
+    {
+        if (city.countBooks() <= 0) return;
+        int reads = Mathf.Clamp(1 + LiterateHouseholds(city) / 3, 1, MaxReadsPerMonth);
+        for (int i = 0; i < reads; i++)
+        {
+            Book book = city.getRandomBook();
+            if (book == null) break;
+            book.increaseReadTimes();
+        }
     }
 
     // ---- 瘟疫(无小人模式) ----
@@ -906,10 +924,14 @@ public static class CityPopulationSystem
                 RaiseLevies(city);
                 MarchToFront(city);
                 PopulationEconomySystem.Settle(city, Get(city), now);
+                MarketSystem.Settle(city, Get(city));
+                MarketSystem.CheckSiegeSurrender(city, Get(city));
+                if (city.isRekt() || city.kingdom == null) continue;
                 SettleConstruction(city, Get(city), now);
                 ScorchedEarthSystem.Settle(city);
                 Migrate(city, Get(city), now);
                 Plague(city, Get(city));
+                ReadBooks(city);
                 // 生育死亡每月按经过的时间结算一小步，人口平稳增长，而不是每年跳一次
                 GrowBackground(city, Get(city), now);
                 // 并入/征召后立刻重数实体单位：刚并入的人已从"实体"挪到"背景"，上次校准后死去或新生的单位也一并更新，
@@ -1389,6 +1411,21 @@ public static class CityPopulationSystem
         {
             LogService.LogWarning($"[EmpireCraft] 无小人模式设定年龄失败: {exception.Message}");
         }
+    }
+
+    // 起事首领(无小人模式)：民变、农民起义要有个带头的平民，城里没有平民实体时从背景人口里生成一人，优先农民
+    public static Actor SpawnRebelLeader(City city)
+    {
+        if (!AbstractPopulationEnabled || city?.data == null || city.isRekt() || city.kingdom == null) return null;
+        PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f &&
+                                                           !string.IsNullOrEmpty(candidate.species) &&
+                                                           candidate.social_class == SocialClass.Peasant)
+                         ?? DrawBackground(city, candidate => candidate.Background >= 1f &&
+                                                              !string.IsNullOrEmpty(candidate.species));
+        if (group == null) return null;
+        Actor actor = SpawnFromGroup(city, group, soldier: false);
+        if (actor != null) RemoveBackground(group, 1f);
+        return actor;
     }
 
     // 执笔的读书人(无小人模式)：写书不需要实体居民，但书要有作者。城里没有合适的实体单位时，

@@ -132,6 +132,33 @@ public static class ConstitutionalEconomySystem
         PruneTrade(state);
     }
 
+    // 市场交换(无小人模式，见 MarketSystem)：记作一次商队往来，城市就业的"近期航运"、资本主义萌芽都会计入
+    public static void RecordTrade(City origin, City destination, bool foreign, int gold)
+    {
+        if (origin == null || destination == null || World.world == null || gold <= 0) return;
+        Empire empire = destination.kingdom?.GetEmpire() ?? origin.kingdom?.GetEmpire();
+        ConstitutionalEconomyState state = Ensure(empire);
+        if (state == null || empire.IsArchived() || empire.isRekt()) return;
+        double now = World.world.getCurWorldTime();
+        // 同一对城市一个月只记一次
+        foreach (CompletedTradeVoyage voyage in state.recent_trade)
+            if (voyage.origin_city_id == origin.id && voyage.destination_city_id == destination.id &&
+                Date.getMonthsSince(voyage.timestamp) < 1)
+            {
+                voyage.delivered_gold = Math.Min(Config.max_gold_per_voyage, voyage.delivered_gold + gold);
+                return;
+            }
+        state.recent_trade.Add(new CompletedTradeVoyage
+        {
+            timestamp = now,
+            origin_city_id = origin.id,
+            destination_city_id = destination.id,
+            foreign_kingdom = foreign,
+            delivered_gold = Math.Min(Config.max_gold_per_voyage, gold)
+        });
+        PruneTrade(state);
+    }
+
     private static void ClearPendingTrade(ActorExtension.ActorExtraData data)
     {
         data.pending_trade_origin_city_id = -1L;

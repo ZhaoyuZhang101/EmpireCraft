@@ -66,5 +66,12 @@ public class CityPopulationData
     public float last_gold_output;
     // 背景人口纳税(见 PopulationEconomySystem.PayTaxes)：零头与上次结算的年税收
     public float tax_carry;
+    // 市场(见 MarketSystem)：上个月买进的总价值；上个月卖出的总价值(当月累计中)
+    public float last_market_bought;
+    public float last_market_sold;
+    public float market_sold_month;
+    public double market_sold_since = -1d;
+    // 围困断粮的月数(被围封锁且闹饥荒，见 MarketSystem.CheckSiegeSurrender)
+    public int siege_famine_months;
     public float last_tax_income;
 }
