@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
 using HarmonyLib;
 using NeoModLoader.services;
 using UnityEngine;
@@ -123,6 +124,7 @@ public static class PopulationEconomySystem
                       Get(workforceByClass, SocialClass.Merchant) * MerchantGoldPerYear +
                       Get(workforceByClass, SocialClass.Citizen) * CitizenGoldPerYear) * productivity * years;
         Deposit(city, data, "gold", gold);
+        PayTaxes(city, data, workforceByClass, years);
         // 施工改由城市建设力推进(见 CityConstructionSystem)，不再按工人数
         float eaten = EatFood(city, data, background * FoodPerPersonYear * years, out float shortage);
         // 饥荒：国家粮仓开仓赈灾，调来的粮食补上缺口
@@ -174,6 +176,29 @@ public static class PopulationEconomySystem
     private static readonly (string, float)[] MineOutput = { ("stone", 6f), ("common_metals", 4f), ("gold", 1f) };
 
     private static bool IsFood(string resource) => AssetManager.resources?.get(resource)?.type == ResType.Food;
+
+    // 背景人口纳税：原版和模组的财政是"实体单位交税给城市国库 → 城市交给国家"，无小人模式下纳税的实体几乎没有，
+    // 国库会枯竭。这里按户和阶层算出背景人口的年收入，按本国税率交进城市国库(之后照常由城市上交国家)
+    private static readonly Dictionary<SocialClass, float> IncomePerHousehold = new()
+    {
+        [SocialClass.Peasant] = 1f, [SocialClass.Labour] = 1.5f, [SocialClass.Citizen] = 2f,
+        [SocialClass.Officer] = 3f, [SocialClass.Merchant] = 4f, [SocialClass.Landlord] = 5f,
+        [SocialClass.Noble] = 5f, [SocialClass.Army] = 0.5f
+    };
+
+    private static void PayTaxes(City city, CityPopulationData data, Dictionary<SocialClass, float> workforceByClass,
+        float years)
+    {
+        if (city.kingdom == null || city.kingdom.wild) return;
+        float income = 0f;
+        foreach (KeyValuePair<SocialClass, float> pair in workforceByClass)
+            income += pair.Value / WorkingAgeShare * (IncomePerHousehold.TryGetValue(pair.Key, out float rate) ? rate : 1f);
+        float tax = income * years * (float)city.kingdom.GetTaxRate() + data.tax_carry;
+        int whole = Mathf.FloorToInt(tax);
+        data.tax_carry = tax - whole;
+        if (whole > 0) city.AddMoney(whole);
+        data.last_tax_income = years > 0f ? whole / years : 0f;
+    }
 
     private static float Get(Dictionary<SocialClass, float> values, SocialClass key) =>
         values.TryGetValue(key, out float value) ? value : 0f;

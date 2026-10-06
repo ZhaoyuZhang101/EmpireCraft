@@ -3245,6 +3245,7 @@
   "city_pop_food_format": "每户存粮 {0:0.00}{1}",
   "city_pop_famine": "  饥荒",
   "city_pop_employment": "就业率",
+  "city_pop_tax": "人口年纳税",
   "city_pop_legions": "在外军团",
   "city_pop_classes": "阶层构成",
   "city_pop_cultures": "文化构成",

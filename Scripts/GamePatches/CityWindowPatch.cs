@@ -117,6 +117,9 @@ public class CityWindowPatch : GamePatch
         if (data.last_workforce > 0f)
             window.showStatRow("city_pop_employment", $"{Mathf.Clamp01(data.last_jobs / data.last_workforce):P0}",
                 "#7FD8EA", pIconPath: "iconMoney");
+        if (data.last_tax_income > 0f)
+            window.showStatRow("city_pop_tax", Mathf.RoundToInt(data.last_tax_income).ToString(), "#43FF43",
+                pIconPath: "iconMoney");
         if (data.levied > 0f)
             window.showStatRow("city_pop_legions", Mathf.RoundToInt(data.levied).ToString(), "#E6A166",
                 pIconPath: "iconWar");

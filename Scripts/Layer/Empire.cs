@@ -518,8 +518,10 @@ public class Empire : MetaObject<EmpireData>
                 kingdom.RemoveGivenAlliance();
                 continue;
             }
-            CoreKingdom.SubMoney(countUnits()/2);
-            kingdom.AddMoney(countUnits()/2);
+            // 岁赐按人口(无小人模式按户，和单位个数同一量级)
+            int gift = (CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.Households(this) : countUnits()) / 2;
+            CoreKingdom.SubMoney(gift);
+            kingdom.AddMoney(gift);
             if (kingdom.NeedToRemoveGivenAlliance())
             {
                 kingdom.RemoveGivenAlliance();

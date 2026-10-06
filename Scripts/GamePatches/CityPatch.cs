@@ -1175,6 +1175,8 @@ public class CityPatch : GamePatch
         int kingdomWarriors = defendingEmpire != null && !defendingEmpire.IsArchived() && !defendingEmpire.isRekt()
             ? GetEmpireLivingWarriorCount(defendingEmpire)
             : GetKingdomLivingWarriorCount(defenderKingdom);
+        // 无小人模式：太平时只留少数将领，还能按战时兵额动员的不算"兵败"
+        kingdomWarriors += CityPopulationSystem.MobilizableReserve(defenderKingdom);
         KingdomExtension.KingdomExtraData defenderData = defenderKingdom.GetOrCreate();
         if (kingdomWarriors > defenderData.peak_warriors) defenderData.peak_warriors = kingdomWarriors;
 

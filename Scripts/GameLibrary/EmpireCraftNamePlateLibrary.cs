@@ -1609,7 +1609,7 @@ public static class EmpireCraftNamePlateLibrary
             case 1:
                 if (pMetaObject.HasTakenAlliance())
                 {
-                    pNewText += $"\n朝贡金额{pMetaObject.countUnits()/2} | 退出朝贡倾向:{pMetaObject.GetLeaveTakenAlliancePreference() * 100}%";
+                    pNewText += $"\n朝贡金额{(CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.Households(pMetaObject) : pMetaObject.countUnits())/2} | 退出朝贡倾向:{pMetaObject.GetLeaveTakenAlliancePreference() * 100}%";
                 }
                 break;
             case 2:

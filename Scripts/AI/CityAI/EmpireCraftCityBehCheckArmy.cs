@@ -32,7 +32,9 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
             if (ced != null) ced.last_army_check_ts = World.world.getCurWorldTime();
             return BehResult.Continue;
         };
-        if (pCity.kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi)
+        // 无小人模式下城里只剩官员、城主等名人，士兵由军制征召，不再把全城的人拉去当兵
+        if (pCity.kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi &&
+            !EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled)
         {
             foreach (Actor a in pCity.units.ToList())
             {

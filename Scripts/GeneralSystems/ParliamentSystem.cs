@@ -528,8 +528,16 @@ public static partial class ParliamentSystem
     private static Actor PickCandidate(Empire empire, FixedFaction faction, long district, HashSet<long> exclude)
     {
         List<Actor> ranked = RankCandidates(empire, faction, exclude).ToList();
-        return (district > 0 ? ranked.FirstOrDefault(actor => actor.kingdom?.id == district) : null) ??
-               ranked.FirstOrDefault();
+        Actor chosen = (district > 0 ? ranked.FirstOrDefault(actor => actor.kingdom?.id == district) : null) ??
+                       ranked.FirstOrDefault();
+        if (chosen != null || !CityPopulationSystem.AbstractPopulationEnabled) return chosen;
+        // 无小人模式：党员实体很少，从选区(没有选区就是京师)人口里推举一位读书人入党出任议员
+        City city = (district > 0 ? World.world.kingdoms.get(district)?.capital : null) ?? empire.CoreKingdom?.capital;
+        Actor scholar = city == null ? null : CityPopulationSystem.SpawnScholar(city);
+        if (scholar == null || !IsValidMember(empire, scholar)) return null;
+        faction.AddMember(scholar);
+        IdeologyPopulationSystem.Set(scholar, faction.Ideology);
+        return scholar;
     }
 
     // 议员与总理的资格：在世、成年、身在本帝国；君主国的皇帝本人不能当议员和总理。

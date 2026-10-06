@@ -3245,6 +3245,7 @@
   "city_pop_food_format": "{0:0.00} per household{1}",
   "city_pop_famine": "  famine",
   "city_pop_employment": "Employment",
+  "city_pop_tax": "Annual Taxes",
   "city_pop_legions": "Legions Away",
   "city_pop_classes": "Classes",
   "city_pop_cultures": "Cultures",

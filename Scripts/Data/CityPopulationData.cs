@@ -64,4 +64,7 @@ public class CityPopulationData
     public float last_food_eaten;
     public float last_food_shortage;
     public float last_gold_output;
+    // 背景人口纳税(见 PopulationEconomySystem.PayTaxes)：零头与上次结算的年税收
+    public float tax_carry;
+    public float last_tax_income;
 }

@@ -18,6 +18,7 @@ public class CaptureSpeedPatch : GamePatch
 
     private const float FoundingMultiplier = 2f;
     private const float SurrenderMultiplier = 4f;
+    private const float MinMilitiaFactor = 0.25f;
 
     public void Initialize()
     {
@@ -45,7 +46,11 @@ public class CaptureSpeedPatch : GamePatch
         if (attacker.GetEmpire()?.InFoundingGrace == true) multiplier *= FoundingMultiplier;
         bool surrender = LandEconomySystem.WouldSurrenderTo(__instance, attacker, out float landless);
         if (surrender) multiplier *= SurrenderMultiplier;
-        if (multiplier <= 1f) return;
+        // 无小人模式：没有守兵的城由百姓组织团练抵抗，人口越多越难攻(每 100 户慢一倍，最多慢到 1/4)；民心归附时不抵抗
+        if (!surrender && CityPopulationSystem.AbstractPopulationEnabled && __instance.countWarriors() == 0)
+            multiplier *= UnityEngine.Mathf.Max(MinMilitiaFactor,
+                1f / (1f + CityPopulationSystem.Households(__instance) / 100f));
+        if (UnityEngine.Mathf.Approximately(multiplier, 1f)) return;
 
         __instance._capture_ticks += delta * (multiplier - 1f);
         if (__instance._capture_ticks < 100f) return;

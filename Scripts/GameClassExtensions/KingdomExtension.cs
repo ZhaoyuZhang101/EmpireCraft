@@ -924,7 +924,9 @@ public static class KingdomExtension
         data.annual_power_population = Math.Max(0, CityPopulationSystem.AbstractPopulationEnabled
             ? CityPopulationSystem.Households(kingdom)
             : kingdom.getPopulationPeople());
-        data.annual_power_military = Math.Max(0, kingdom.countTotalWarriors());
+        // 无小人模式：太平时只留少数将领，军力按战时能动员的兵力算
+        data.annual_power_military = Math.Max(0, Math.Max(kingdom.countTotalWarriors(),
+            CityPopulationSystem.WarPotential(kingdom)));
         data.annual_power_economy = Math.Max(0, kingdom.GetMoney());
         data.annual_power_index = NationalPowerRules.Calculate(data.annual_power_population,
             data.annual_power_military, data.annual_power_economy);
@@ -1108,12 +1110,15 @@ public static class KingdomExtension
         if (empire == null || empire.isRekt() || empire.IsArchived()) return;
         var core = empire.CoreKingdom;
         if (core == null || core.isRekt()) return;
-        var value = k.units != null ? k.units.Count / 2 : 0;
+        // 贡金按人口(无小人模式按户，和单位个数同一量级)
+        bool abstracted = CityPopulationSystem.AbstractPopulationEnabled;
+        int population = abstracted ? CityPopulationSystem.Households(k) : k.units?.Count ?? 0;
+        var value = population / 2;
         k.SubMoney(value);
         core.AddMoney(value);
         if (k.GetMoney()<=0)
         {
-            if ((k.units?.Count ?? 0) / 3 > empire.getUnits().Count())
+            if (population / 3 > (abstracted ? CityPopulationSystem.Households(empire) : empire.getUnits().Count()))
             {
                 k.GetOrCreate().leave_taken_alliance_preference += 0.05f;
             }

@@ -600,6 +600,9 @@ public static class RepublicSystem
         int needed = Mathf.Max(0, target - rebel.countTotalWarriors());
         if (splitRealm) needed = Mathf.Max(8, needed);
         int raised = 0;
+        // 无小人模式：从都城背景人口里武装革命军
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+            raised += CityPopulationSystem.RaiseMilitia(capital, needed, 0.1f);
         foreach (Actor resident in capital.units.ToList())
         {
             if (raised >= needed) break;

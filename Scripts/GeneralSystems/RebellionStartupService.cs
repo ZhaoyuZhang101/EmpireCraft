@@ -23,6 +23,13 @@ public static class RebellionStartupService
         foreach (City city in rebel.cities.ToList())
         {
             if (city == null || city.isRekt() || city.units == null) continue;
+            // 无小人模式：城里几乎没有平民实体，从背景人口里武装义军(每个兵代表一支义军)
+            if (CityPopulationSystem.AbstractPopulationEnabled)
+            {
+                int militia = Math.Max(MinMilitia, Math.Min(15,
+                    (int)Math.Ceiling(CityPopulationSystem.Households(city) * share * 0.3f)));
+                raised += CityPopulationSystem.RaiseMilitia(city, militia, share);
+            }
             var candidates = city.units.Where(actor => actor != null && actor.isAlive() && actor.isAdult() &&
                                                        actor.kingdom == rebel && !actor.isWarrior() &&
                                                        !actor.isKing() && !actor.isCityLeader() &&

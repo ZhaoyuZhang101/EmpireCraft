@@ -153,7 +153,10 @@ public static class CityPopulationSystem
     }
 
     // 这座城现在应有的兵额(实体士兵个数，每个代表一个军团)：不是军镇为 0；国库亏空发不出饷时只留将领
-    public static int LevyTarget(City city)
+    public static int LevyTarget(City city) => LevyTarget(city, false);
+
+    // forceWar：按战时兵额算(不管现在是否在打仗)
+    public static int LevyTarget(City city, bool forceWar)
     {
         if (!AbstractPopulationEnabled || city?.kingdom == null) return 0;
         ArmyDoctrine doctrine = DoctrineOf(city.kingdom);
@@ -161,7 +164,7 @@ public static class CityPopulationSystem
         if (post == ArmyPost.None) return 0;
         if (EmpireBankruptcySystem.IsUnpaidGarrison(city)) return 1;
         int households = Households(city.kingdom);
-        if (!OnWarFooting(city))
+        if (!forceWar && !OnWarFooting(city))
         {
             bool standing = post == ArmyPost.Central ? doctrine.CentralStanding && !doctrine.Regional ||
                                                        doctrine.CentralStanding && doctrine.DistrictStanding
@@ -1010,9 +1013,10 @@ public static class CityPopulationSystem
             if (actor?.data != null && !actor.isRekt() && actor.isAlive()) KeepFedAndAwake(actor);
 
         var toFold = new List<Actor>();
-        // 军制(见 LevyTarget)：不是军镇的城不留兵；军镇太平时只留常备兵额(没有常备军就留一名将领)，交战时全部保留
+        // 军制(见 LevyTarget)：太平时不是军镇的城不留兵、军镇只留常备兵额(没有常备军就留一名将领)；
+        // 交战(含战备)期间一律不遣散——起义城市临时武装的义军、调防途中的军团都留着
         int keep = LevyTarget(city);
-        if (keep <= 0 || !atWar && soldiers.Count > keep)
+        if (!atWar && soldiers.Count > Mathf.Max(0, keep))
         {
             // 现任统领优先留下，其次带着部队的人
             soldiers.Sort((left, right) => GeneralRank(right).CompareTo(GeneralRank(left)));
@@ -1153,6 +1157,64 @@ public static class CityPopulationSystem
         }
         if (raised > 0) UpdateLegions(city);
         return raised;
+    }
+
+    // 义军(无小人模式)：起义、革命时从本城背景人口里当场武装 count 个兵，每个兵代表一支义军，
+    // 一共动员背景人口的 share。返回实际征到的人数(兵)
+    public static int RaiseMilitia(City city, int count, float share)
+    {
+        if (!AbstractPopulationEnabled || city?.data == null || city.isRekt() || city.kingdom == null || count <= 0)
+            return 0;
+        float background = GetBackgroundTotal(city);
+        if (background < 1f) return 0;
+        float legion = Mathf.Clamp(background * Mathf.Clamp01(share) / count, 1f, PeoplePerLegion);
+        int raised = 0;
+        for (int i = 0; i < count; i++)
+        {
+            PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f &&
+                                                               !string.IsNullOrEmpty(candidate.species));
+            if (group == null) break;
+            Actor actor = SpawnFromGroup(city, group, soldier: true);
+            if (actor == null) break;
+            float taken = RemoveBackground(group, legion);
+            for (int attempt = 0; taken < legion && attempt < 8; attempt++)
+            {
+                PopGroup more = DrawBackground(city, candidate => candidate.Background >= 1f);
+                if (more == null) break;
+                taken += RemoveBackground(more, legion - taken);
+            }
+            actor.GetOrCreate().legion_size = Mathf.Max(1f, taken);
+            actor.GetOrCreate().legion_full = Mathf.Max(1f, taken);
+            raised++;
+        }
+        if (raised > 0) UpdateLegions(city);
+        return raised;
+    }
+
+    // 战时能动员的兵力(各军镇的战时兵额与现有士兵取大者之和)：原版 AI 判断要不要开战、打谁时用
+    public static int WarPotential(Kingdom kingdom)
+    {
+        if (!AbstractPopulationEnabled || kingdom?.cities == null) return 0;
+        int total = 0;
+        foreach (City city in kingdom.cities)
+        {
+            if (city == null || city.isRekt()) continue;
+            total += Mathf.Max(LevyTarget(city, true), city.status?.warriors_current ?? 0);
+        }
+        return total;
+    }
+
+    // 守方还能动员的兵(实体士兵之外，各军镇按战时兵额尚未征召的部分)。入城即降据此判断是否真的无兵可征
+    public static int MobilizableReserve(Kingdom kingdom)
+    {
+        if (!AbstractPopulationEnabled || kingdom?.cities == null) return 0;
+        int reserve = 0;
+        foreach (City city in kingdom.cities)
+        {
+            if (city == null || city.isRekt() || city.status == null) continue;
+            reserve += Mathf.Max(0, LevyTarget(city) - city.status.warriors_current);
+        }
+        return reserve;
     }
 
     // 军团现存人数：按士兵当前生命值折算满编人数，掉血就是减员，阵亡的人不会回来

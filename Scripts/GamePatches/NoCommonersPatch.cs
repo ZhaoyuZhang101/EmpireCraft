@@ -139,7 +139,10 @@ public class NoCommonersPatch : GamePatch
                      (typeof(Actor), "isPlacePrivateForBreeding"),
                      (typeof(City), "needSettlers"),
                      (typeof(WorldBehaviourActions), "updateMigrants"),
-                     (typeof(DisasterLibrary), "spawnMadThought")
+                     (typeof(DisasterLibrary), "spawnMadThought"),
+                     // 原版 AI 开战：本国士兵要超过 10 人、并比较双方士兵数——按战时能动员的兵力算(见 AfterCountTotalWarriors)
+                     (typeof(DiplomacyHelpers), "isWarNeeded"),
+                     (typeof(DiplomacyHelpers), "getWarTarget")
                  })
         {
             try
@@ -172,6 +175,15 @@ public class NoCommonersPatch : GamePatch
         catch (Exception exception)
         {
             LogService.LogWarning($"[EmpireCraft] 无小人模式扩张补丁未生效: {exception.Message}");
+        }
+        try
+        {
+            harmony.Patch(AccessTools.Method(typeof(Kingdom), nameof(Kingdom.countTotalWarriors)),
+                postfix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterCountTotalWarriors)));
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 无小人模式开战兵力补丁未生效: {exception.Message}");
         }
         try
         {
@@ -266,6 +278,12 @@ public class NoCommonersPatch : GamePatch
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled) return;
         CityPopulationSystem.TransferBackground(pFromCity, pNewCity, SettlerShare);
+    }
+
+    public static void AfterCountTotalWarriors(Kingdom __instance, ref int __result)
+    {
+        if (!CityPopulationSystem.VanillaScale || !CityPopulationSystem.AbstractPopulationEnabled) return;
+        __result = Math.Max(__result, CityPopulationSystem.WarPotential(__instance));
     }
 
     private static bool InVanillaScale(Func<bool> check)
