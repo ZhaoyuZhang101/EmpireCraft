@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -469,7 +470,72 @@ public static class VirtualGenealogySystem
         }
         if (person.virtual_death_age < 0)
             person.virtual_death_age = UnityEngine.Random.Range(MinDeathAge, MaxDeathAge + 1);
-        if (person.age >= person.virtual_death_age) Die(person);
+        if (person.age >= person.virtual_death_age)
+        {
+            Die(person);
+            return;
+        }
+        TryBirth(person);
+    }
+
+    // ---- 虚拟族人生育 ----
+    // 虚拟族人也成家生子：宗族里继承一方性别(男系宗族看男子，女系看女子)的正支成年人，
+    // 18~40 岁每年有 BirthChance 的机会添一名虚拟子女(在世子女不超过 MaxChildren)，记入族谱；
+    // 孩子算在所在城的背景人口里(人口的生育已由人口数据层结算，这里只是给族谱记上名字)
+    private const int BirthMinAge = 18;
+    private const int BirthMaxAge = 40;
+    private const float BirthChance = 0.09f;
+    private const int MaxChildren = 4;
+    // 宗族在世人数(含虚拟族人)达到这个数就不再添丁，免得一代代按指数增长
+    private const int MaxClanAlive = 30;
+
+    private static void TryBirth(PersonalClanIdentity parent)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || !parent.is_main || !parent.IsHeirPriority()) return;
+        int age = parent.age;
+        if (age < BirthMinAge || age > BirthMaxAge || UnityEngine.Random.value >= BirthChance) return;
+        SpecificClan clan = parent._specificClan;
+        if (clan == null) return;
+        int living = parent.children.Count(id => SpecificClanManager.getPerson(id)?.is_alive == true);
+        if (living >= MaxChildren) return;
+        if (clan.SnapshotPeople().Count(person => person.is_alive) >= MaxClanAlive) return;
+        double now = World.world.getCurWorldTime();
+        var child = new PersonalClanIdentity
+        {
+            id = OverallHelperFunc.IdGenerator.NextId(),
+            specific_clan_id = clan.id,
+            actor_id = -1L,
+            is_alive = true,
+            is_virtual = true,
+            virtual_since = now,
+            virtual_city_id = parent.virtual_city_id,
+            recordedAge = 0,
+            birthday = Date.getDate(now),
+            sex = UnityEngine.Random.value < 0.5f ? ActorSex.Male : ActorSex.Female,
+            species = parent.species,
+            culture = parent.culture,
+            generation = parent.generation + 1,
+            is_main = true
+        };
+        if (parent.isMale()) child.father = parent.id;
+        else child.mother = parent.id;
+        child.name = ChildName(clan, child, parent);
+        lock (clan)
+        {
+            clan._cache[child.id] = child;
+        }
+        SpecificClanManager._globalPersonLookup[child.id] = child;
+        parent.children.Add(child.id);
+        VirtualIds.Add(child.id);
+    }
+
+    private static string ChildName(SpecificClan clan, PersonalClanIdentity child, PersonalClanIdentity parent)
+    {
+        string generated = CultureService.GenerateCulturalName(MetaType.Unit, child.id, parent.culture);
+        string[] parts = (generated ?? "").SplitNameParts();
+        string given = parts.Length > 0 ? parts[parts.Length - 1] : "";
+        if (string.IsNullOrWhiteSpace(given)) given = generated ?? "";
+        return string.IsNullOrWhiteSpace(clan.name) ? given : OverallHelperFunc.JoinNameParts(clan.name, given);
     }
 
     private static void Die(PersonalClanIdentity person)

@@ -3237,6 +3237,18 @@
   "virtual_person_death_natural": "{0}岁时寿终正寝。",
   "virtual_person_clan_dispersed": "宗族离散，不知所终",
   "virtual_heir_cadet_history": "{0}皇统已绝，以宗室旁支{1}入继大统。",
+  "city_fall_refugees": "{0}陷落，约{1}人逃往{2}。",
+  "city_pop_scale": "人口规模",
+  "city_pop_scale_format": "{0} 人 · {1} 户(每户 {2} 人)",
+  "city_pop_growth": "人口年增长",
+  "city_pop_food": "粮食",
+  "city_pop_food_format": "每户存粮 {0:0.00}{1}",
+  "city_pop_famine": "  饥荒",
+  "city_pop_employment": "就业率",
+  "city_pop_legions": "在外军团",
+  "city_pop_classes": "阶层构成",
+  "city_pop_cultures": "文化构成",
+  "city_pop_species": "物种构成",
   "consultative_ratio_capped_title": "政协友党已达占比上限",
   "consultative_ratio_capped_body": "统一战线下，政协友党只参与政治协商，每党在中央的占比最多 {0}%，超出部分归领导党。"
 }

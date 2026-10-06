@@ -42,7 +42,16 @@ public static class ExamSystem
     {
         City city = (City)nano;
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
-        foreach(Actor actor in city.units)
+        // 无小人模式：城里几乎没有平民实体，从人口里召集几位读书人赴考(识字人口越多、有藏书处的城越多)；
+        // 落榜的下次并入时回到人口数据里，中举的有了功名就一直保留为实体(见 CityPopulationSystem.IsNotable)
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            int examinees = UnityEngine.Mathf.Clamp(1 + CityPopulationSystem.LiterateHouseholds(city) / 3 +
+                                                    (city.hasBookSlots() ? 1 : 0), 1, 6);
+            for (int i = 0; i < examinees; i++)
+                if (CityPopulationSystem.SpawnScholar(city) == null) break;
+        }
+        foreach(Actor actor in city.units.ToList())
         {
             double mark = 0;
             if (!actor.isAdult()) continue;

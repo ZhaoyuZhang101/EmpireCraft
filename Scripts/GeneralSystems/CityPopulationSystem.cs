@@ -511,6 +511,74 @@ public static class CityPopulationSystem
         data.named_units = named;
     }
 
+    // ---- 城市间迁徙(无小人模式) ----
+    // 原版迁徙只搬实体单位。背景人口每月从"推力"大的城(过挤、缺粮、失业)流向本国"拉力"大的城
+    // (空房多、不缺粮、就业好)，每月最多迁出 MaxMigrationRate × 推力。颁布逃人法的国家禁止流动
+    private const float MaxMigrationRate = 0.02f;
+
+    private static float Push(City city, CityPopulationData data)
+    {
+        GrowthFactors factors = GetGrowthFactors(city, data);
+        float push = 0f;
+        if (factors.Capacity > 0f && factors.Total > factors.Capacity) push += Mathf.Clamp01(factors.Total / factors.Capacity - 1f);
+        if (data.last_food_shortage > 0f || factors.Famine) push += 0.5f;
+        if (data.last_workforce > 0f) push += 0.5f * (1f - Mathf.Clamp01(data.last_jobs / data.last_workforce));
+        return Mathf.Clamp01(push);
+    }
+
+    private static float Pull(City city, CityPopulationData data)
+    {
+        GrowthFactors factors = GetGrowthFactors(city, data);
+        if (factors.Capacity <= 0f || factors.Famine || data.last_food_shortage > 0f) return 0f;
+        float room = Mathf.Clamp01((factors.Capacity - factors.Total) / factors.Capacity);
+        float jobs = data.last_workforce > 0f ? Mathf.Clamp01(data.last_jobs / data.last_workforce) : 1f;
+        return room * (0.5f + 0.5f * jobs);
+    }
+
+    private static void Migrate(City city, CityPopulationData data, double now)
+    {
+        if (data == null || city.kingdom == null || city.kingdom.wild || city.kingdom.cities == null) return;
+        KingdomExtension.KingdomExtraData kingdomData = city.kingdom.GetOrCreate();
+        if (kingdomData.fugitive_household_law_enacted || EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.HasLaw(city.kingdom, EmpireCraft.Scripts.GeneralSystems.EmpireLaw.LawType.逃人法)) return;
+        float push = Push(city, data);
+        if (push <= 0.05f) return;
+        City destination = null;
+        float best = 0.1f;
+        foreach (City other in city.kingdom.cities)
+        {
+            if (other == null || other == city || other.isRekt()) continue;
+            CityPopulationData otherData = Get(other);
+            if (otherData == null) continue;
+            float pull = Pull(other, otherData);
+            if (pull <= best) continue;
+            best = pull;
+            destination = other;
+        }
+        if (destination != null) TransferBackground(city, destination, MaxMigrationRate * push);
+    }
+
+    // ---- 瘟疫(无小人模式) ----
+    // 原版的瘟疫只在实体单位之间传染。城里有染疫的实体单位时，背景人口也按染疫比例死亡：
+    // 每月 PlagueBaseDeath + PlagueDeathPerShare × 染疫比例(最多 PlagueMaxDeath)
+    private const float PlagueBaseDeath = 0.01f;
+    private const float PlagueDeathPerShare = 0.04f;
+    private const float PlagueMaxDeath = 0.05f;
+
+    private static void Plague(City city, CityPopulationData data)
+    {
+        if (data?.groups == null || city.units == null || city.units.Count == 0) return;
+        int infected = 0, alive = 0;
+        foreach (Actor actor in city.units)
+        {
+            if (actor == null || actor.isRekt() || !actor.isAlive()) continue;
+            alive++;
+            if (actor.hasTrait("plague")) infected++;
+        }
+        if (infected == 0 || alive == 0) return;
+        float rate = Mathf.Min(PlagueMaxDeath, PlagueBaseDeath + PlagueDeathPerShare * infected / alive);
+        foreach (PopGroup group in data.groups) RemoveBackground(group, group.Background * rate);
+    }
+
     // 城市建设：按上次结算以来的秒数推进施工(见 CityConstructionSystem)
     private static void SettleConstruction(City city, CityPopulationData data, double now)
     {
@@ -837,6 +905,8 @@ public static class CityPopulationSystem
                 PopulationEconomySystem.Settle(city, Get(city), now);
                 SettleConstruction(city, Get(city), now);
                 ScorchedEarthSystem.Settle(city);
+                Migrate(city, Get(city), now);
+                Plague(city, Get(city));
                 // 生育死亡每月按经过的时间结算一小步，人口平稳增长，而不是每年跳一次
                 GrowBackground(city, Get(city), now);
                 // 并入/征召后立刻重数实体单位：刚并入的人已从"实体"挪到"背景"，上次校准后死去或新生的单位也一并更新，
@@ -859,12 +929,48 @@ public static class CityPopulationSystem
         if (actor.isFavorite() || actor.isCameraFollowingUnit()) return true;
         if (actor.plot != null) return true;
         SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
-        if (socialClass == SocialClass.Noble || socialClass == SocialClass.Officer ||
-            socialClass == SocialClass.Landlord) return true;
+        if (socialClass == SocialClass.Officer || socialClass == SocialClass.Landlord) return true;
+        // 贵族只保留要紧的人；世袭国家整个统治氏族都算贵族，远支一律留在地图上会代代繁衍、越滚越多
+        if (socialClass == SocialClass.Noble && IsImportantNoble(actor)) return true;
         if (actor.GetFaction() != null) return true;
+        // 有功名的读书人：选官的人才库。进士、贡士一律保留；举人每城只留政绩最好的 MaxKeptJuren 位，
+        // 其余回到人口里(族谱里的人转为虚拟族人)，免得每年中举的人越积越多
+        if (actor.hasTrait("gongshi") || actor.hasTrait("jingshi")) return true;
+        if (actor.hasTrait("juren") && IsKeptJuren(actor)) return true;
         // 宗族族长：每个宗族至少保留一名实体族长
         if (VirtualGenealogySystem.IsClanHead(actor)) return true;
         return false;
+    }
+
+    // 要紧的贵族：君主、继承人、君主的配偶与子女、有封地或爵位的人。其余宗室并入虚拟族谱，需要时再落成
+    private static bool IsImportantNoble(Actor actor)
+    {
+        if (actor.isKing()) return true;
+        Kingdom kingdom = actor.kingdom;
+        if (kingdom != null && kingdom.GetHeir() == actor) return true;
+        if (actor.lover != null && !actor.lover.isRekt() && actor.lover.isKing()) return true;
+        foreach (Actor parent in actor.getParents())
+            if (parent != null && !parent.isRekt() && parent.isKing()) return true;
+        if (actor.GetOwnedTitle()?.Count > 0) return true;
+        return actor.HasHonoraryPeerage() || actor.HasVirtualEnfeoff();
+    }
+
+    private const int MaxKeptJuren = 5;
+
+    private static bool IsKeptJuren(Actor actor)
+    {
+        City city = actor.city;
+        if (city?.units == null) return true;
+        double mine = actor.GetIdentity()?.TotalPerformance ?? 0d;
+        int better = 0;
+        foreach (Actor other in city.units)
+        {
+            if (other == null || other == actor || other.isRekt() || !other.isAlive() || !other.hasTrait("juren")) continue;
+            double theirs = other.GetIdentity()?.TotalPerformance ?? 0d;
+            if (theirs > mine || theirs == mine && other.id < actor.id) better++;
+            if (better >= MaxKeptJuren) return false;
+        }
+        return true;
     }
 
     public static bool IsSoldier(Actor actor) =>
@@ -1148,7 +1254,22 @@ public static class CityPopulationSystem
             actor.SetSocialClass(SocialClass.Army);
             EquipLevy(actor, city);
         }
-        else actor.SetSocialClass(group.social_class);
+        else
+        {
+            actor.SetSocialClass(group.social_class);
+            // 从人口里生成的人自立一个氏族(按文化取姓)，不会被并进别人的氏族、冒用别人的姓
+            if (!actor.hasClan())
+            {
+                try
+                {
+                    World.world.clans.newClan(actor, true);
+                }
+                catch (Exception exception)
+                {
+                    LogService.LogWarning($"[EmpireCraft] 无小人模式生成平民建氏族失败: {exception.Message}");
+                }
+            }
+        }
         return actor;
     }
 
@@ -1601,6 +1722,16 @@ public static class CityPopulationSystem
             moved += removed;
         }
         return moved;
+    }
+
+    // 军团兵力(真实人数)：本国各城征召在外的军团人数 + 实体士兵
+    public static int LegionPeople(Kingdom kingdom)
+    {
+        if (kingdom?.cities == null) return 0;
+        float total = kingdom.countTotalWarriors();
+        foreach (City city in kingdom.cities)
+            if (city != null && !city.isRekt()) total += Get(city)?.levied ?? 0f;
+        return Mathf.RoundToInt(total);
     }
 
     // 城里的背景人口(没开无小人模式时为 0)

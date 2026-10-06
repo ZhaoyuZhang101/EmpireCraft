@@ -3237,6 +3237,18 @@
   "virtual_person_death_natural": "{0}歲時壽終正寢。",
   "virtual_person_clan_dispersed": "宗族離散，不知所終",
   "virtual_heir_cadet_history": "{0}皇統已絕，以宗室旁支{1}入繼大統。",
+  "city_fall_refugees": "{0}陷落，約{1}人逃往{2}。",
+  "city_pop_scale": "人口規模",
+  "city_pop_scale_format": "{0} 人 · {1} 戶(每戶 {2} 人)",
+  "city_pop_growth": "人口年增長",
+  "city_pop_food": "糧食",
+  "city_pop_food_format": "每戶存糧 {0:0.00}{1}",
+  "city_pop_famine": "  饑荒",
+  "city_pop_employment": "就業率",
+  "city_pop_legions": "在外軍團",
+  "city_pop_classes": "階層構成",
+  "city_pop_cultures": "文化構成",
+  "city_pop_species": "物種構成",
   "consultative_ratio_capped_title": "政協友黨已達佔比上限",
   "consultative_ratio_capped_body": "統一戰線下，政協友黨只參與政治協商，每黨在中央的佔比最多 {0}%，超出部分歸領導黨。"
 }
