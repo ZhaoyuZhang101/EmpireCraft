@@ -263,6 +263,9 @@ public static class KingdomExtension
         public string realm_culture = "";
         public SpecificClan kingdomSpecificClan;
         public int Money = 0;
+        // 国家粮仓(见 GranarySystem)：存粮与上次结算损耗的时间
+        public float granary;
+        public double granary_last_spoil = -1d;
         public long CenterArmID = -1L;
         [JsonIgnore]
         public Task<(Actor, string)> CalcTask;
@@ -915,7 +918,10 @@ public static class KingdomExtension
             return;
         }
 
-        data.annual_power_population = Math.Max(0, kingdom.getPopulationPeople());
+        // 按户计：无小人模式下真实人数可达几百万，直接相加会让人口压过军力和经济
+        data.annual_power_population = Math.Max(0, CityPopulationSystem.AbstractPopulationEnabled
+            ? CityPopulationSystem.Households(kingdom)
+            : kingdom.getPopulationPeople());
         data.annual_power_military = Math.Max(0, kingdom.countTotalWarriors());
         data.annual_power_economy = Math.Max(0, kingdom.GetMoney());
         data.annual_power_index = NationalPowerRules.Calculate(data.annual_power_population,
@@ -1525,10 +1531,14 @@ public static class KingdomExtension
     public static void EndLocalRebelling(this Kingdom k)
     {
         var extraData = k.GetOrCreate();
-        // 没有法理的叛军起义结束(独立或被招安)：国名回到起事时记下的地名，不再沿用"某城民变"之类的叛军名号
-        if (extraData.isLocalRebelling && k.data != null && !k.HasMainTitle() &&
-            !string.IsNullOrWhiteSpace(extraData.core_name))
-            k.SetKingdomCoreName(extraData.core_name, extraData.core_name);
+        // 没有法理的叛军起义结束(独立或被招安)：不再沿用"某城民变"之类的叛军名号，改用本文化国名库的国名
+        // (起事时用的城市名只是叛军名号的前缀；成了正式政权就该有国号)
+        if (extraData.isLocalRebelling && k.data != null && !k.HasMainTitle())
+        {
+            string name = k.GetInitialRandomKingdomName();
+            if (string.IsNullOrWhiteSpace(name)) name = extraData.core_name;
+            if (!string.IsNullOrWhiteSpace(name)) k.SetKingdomCoreName(name, name);
+        }
         extraData.isLocalRebelling = false;
         extraData.rebellion_auto_expand_remaining = -1;
         extraData.rebellion_origin_city_value = -1;
@@ -1672,15 +1682,24 @@ public static class KingdomExtension
         return title == null || title.isRekt() ? null : title;
     }
 
-    // 没有法理的现代势力的称号前缀：自定义国名 → 都城名 → 原版随机名
+    // 没有法理的现代势力的称号前缀：自定义国名 → 都城名 → 文化国名
     public static string GetModernUntitledFront(this Kingdom kingdom)
     {
         string custom = kingdom.GetCustomCountryName();
-        return !string.IsNullOrWhiteSpace(custom) ? custom : kingdom.GetUntitledKingdomName();
+        return !string.IsNullOrWhiteSpace(custom) ? custom : kingdom.GetCapitalPlaceName();
     }
 
-    // 没有法理的政权的地名：都城名；连都城都没有才退回原版建国时的随机名
+    // 没有法理的普通政权的国名：本文化国名库里的随机国名(齐、楚、秦……)，取不到才用都城名。
+    // 法理头衔也按王国名命名，所以这里不能用都城名，否则法理会变成一片城市名
     public static string GetUntitledKingdomName(this Kingdom kingdom)
+    {
+        string random = kingdom.GetInitialRandomKingdomName();
+        if (!string.IsNullOrWhiteSpace(random)) return random;
+        return kingdom?.capital != null && !kingdom.capital.isRekt() ? kingdom.capital.GetCityName() : "";
+    }
+
+    // 以都城为名(叛军、现代无名号势力、军阀)：都城名，没有都城才用文化国名
+    public static string GetCapitalPlaceName(this Kingdom kingdom)
     {
         string capitalName = kingdom?.capital != null && !kingdom.capital.isRekt() ? kingdom.capital.GetCityName() : "";
         return !string.IsNullOrWhiteSpace(capitalName) ? capitalName : kingdom.GetInitialRandomKingdomName();

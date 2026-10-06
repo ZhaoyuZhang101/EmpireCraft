@@ -99,7 +99,7 @@ public static partial class WarlordEraSystem
         string front = UsesProvinceName(kingdom) ? ProvinceFront(kingdom) : "";
         if (string.IsNullOrWhiteSpace(front)) front = TitleName(kingdom);
         if (string.IsNullOrWhiteSpace(front)) front = CapitalTitleName(kingdom);
-        if (string.IsNullOrWhiteSpace(front)) front = kingdom.GetUntitledKingdomName();
+        if (string.IsNullOrWhiteSpace(front)) front = kingdom.GetCapitalPlaceName();
         if (string.IsNullOrWhiteSpace(front)) front = kingdom.capital?.GetCityName() ?? kingdom.data.name ?? "";
         // 称呼按文化包(Party.untitled_groups)：如华夏的中间派等为"{0}系军阀"，其余为工农红军、护法军……；没配用默认称呼
         name = ModernStateFormationSystem.FormatLabel(front, ModernStateFormationSystem.GetNonGovernmentLabel(kingdom));

@@ -686,6 +686,35 @@ namespace EmpireCraft.Scripts.AI
 				    return true;
 			    }
 		    });
+            // "还于旧都"：回到本朝建国时的旧都；或者延续政权(帝国核心历代里有同一宗族的前朝)、
+            // 复国之君(中兴/复国特质)迁往核心首都。其余为"迁都"
+            static bool IsReturningCapital(Empire empire, City target, Actor ruler)
+            {
+                if (target == empire.OriginalCapital) return true;
+                if (ruler != null && ruler.hasTrait(RulerTraitSystem.Restorer)) return true;
+                EmpireCore core = EmpireCoreManager.Get(empire);
+                long clan = empire.data?.empire_specific_clan ?? -1L;
+                if (core?.empire_history_ids == null || clan <= 0) return false;
+                foreach (long id in core.empire_history_ids)
+                {
+                    if (id == empire.id) continue;
+                    Empire previous = ModClass.EMPIRE_MANAGER.get(id);
+                    if (previous?.data != null && previous.data.empire_specific_clan == clan) return true;
+                }
+                return false;
+            }
+            static City CapitalToMoveTo(Kingdom kingdom)
+            {
+                Empire empire = kingdom?.GetEmpire();
+                if (empire == null || !kingdom.IsEmpire()) return null;
+                City core = EmpireCoreManager.Get(empire)?.GetCoreCapital();
+                if (core != null && !core.isRekt() && core.kingdom == kingdom)
+                    return core == kingdom.capital ? null : core;
+                City original = empire.OriginalCapital;
+                if (original == null || original.isRekt() || original.kingdom != kingdom || original == kingdom.capital)
+                    return null;
+                return original;
+            }
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "empire_move_back_to_capital",
@@ -695,36 +724,31 @@ namespace EmpireCraft.Scripts.AI
                 min_level = 5,
                 progress_needed = 15f,
                 can_be_done_by_king = true,
+                // 迁都：建国后优先迁往帝国核心的核心首都(历代定都之地)，本国没占着核心首都时迁回建国时的旧都
                 check_is_possible = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!pActor.IsEmperor()) return false;
                     if (!pActor.isKing()) return false;
                     if (!kingdom.IsEmpire()) return false;
-                    Empire empire = kingdom.GetEmpire();
-                    if (empire == null) return false;
-                    if (empire.OriginalCapital == null) return false;
-                    if (empire.OriginalCapital==kingdom.capital) return false;
-                    if (empire.OriginalCapital.kingdom!=kingdom) return false;
-                    return true;
+                    return CapitalToMoveTo(kingdom) != null;
                 },
                 check_should_continue = delegate (Actor actor)
                 {
-                    Kingdom kingdom = actor.kingdom;
                     if (!actor.IsEmperor()) return false;
                     if (!actor.isKing()) return false;
-                    Empire empire = kingdom.GetEmpire();
-                    if (empire == null) return false;
-                    if (empire.OriginalCapital == kingdom.capital) return false;
-                    if (empire.OriginalCapital.kingdom != kingdom) return false;
-                    return true;
+                    return CapitalToMoveTo(actor.kingdom) != null;
                 },
                 action = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor.kingdom;
                     Empire empire = kingdom.GetEmpire();
-                    if (empire == null) return false;
-                    kingdom.setCapital(empire.OriginalCapital);
+                    City target = CapitalToMoveTo(kingdom);
+                    if (empire == null || target == null) return false;
+                    bool returning = IsReturningCapital(empire, target, pActor);
+                    kingdom.setCapital(target);
+                    EventRecorder.Record(empire, string.Format(LM.Get(returning ? "empire_return_capital_history"
+                        : "empire_move_capital_history"), empire.GetEmpireFullName(), target.GetCityName()), pActor);
                     return true;
                 }
             });
