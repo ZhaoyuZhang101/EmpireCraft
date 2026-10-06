@@ -624,7 +624,7 @@ public static class UIHelper
             : new List<PartyIdeology>();
         float bottomHeight = partyMode ? Mathf.CeilToInt(foundable.Count / 2f) * 15f + 4f
             : factions.Count < 3 ? 20f : 0f;
-        float panelHeight = 19f + factions.Count * 34f + bottomHeight;
+        float panelHeight = 19f + factions.Count * (FactionCardHeight + 2f) + bottomHeight;
         RectTransform overviewRect = layout.GetComponent<RectTransform>();
         overviewRect.sizeDelta = new Vector2(196, panelHeight);
         LayoutElement overviewElement = layout.GetComponent<LayoutElement>() ?? layout.gameObject.AddComponent<LayoutElement>();
@@ -708,6 +708,9 @@ public static class UIHelper
     //   普通(派系格局面板) —— 详情 + 锁定 / 提升占比 / 移除；
     //   readOnly(官署窗口顶部只展示主导派系) —— 只留详情；
     //   addMode(添加派系窗口里的派系库) —— 详情 + 加入本国 / 从派系库删除。
+    // 派系卡片高度：名称、理念、占比条、阶层与立场四行
+    private const float FactionCardHeight = 40f;
+
     private static void AddEmpireFactionRow(AutoVertLayoutGroup panel, FixedFaction faction, Kingdom kingdom,
         AutoHoriLayoutGroup overview, bool readOnly = false, bool addMode = false, UnityAction onLibraryChanged = null)
     {
@@ -723,10 +726,10 @@ public static class UIHelper
         // 卡片：理念色条 | 理念徽章 | 领袖头像 | 名称·理念·中央占比条·阶层与立场 | 按钮
         PartyIdeology ideology = PartySystem.LeaningOf(faction);
         Color ideologyColor = IdeologyColor(ideology);
-        var row = panel.BeginHoriGroup(new Vector2(188, 32), TextAnchor.MiddleLeft, 2,
+        var row = panel.BeginHoriGroup(new Vector2(188, FactionCardHeight), TextAnchor.MiddleLeft, 2,
             new RectOffset(2, 2, 1, 1));
-        AddColorBlock(row.transform, new Vector2(3, 28), ideologyColor);
-        var badge = row.BeginVertGroup(new Vector2(15, 28), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
+        AddColorBlock(row.transform, new Vector2(3, FactionCardHeight - 4f), ideologyColor);
+        var badge = row.BeginVertGroup(new Vector2(15, FactionCardHeight - 4f), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
         AddLayoutIcon(badge.transform,
             SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)), 15f);
         row.AddActorViewIntoHoriLayout(faction.GetLeader());
@@ -734,7 +737,7 @@ public static class UIHelper
         // 政党行多一个"合并"按钮，按钮栏加宽一格、信息栏让出来
         bool partyRow = faction.IsParty && !readOnly && !addMode;
         float infoWidth = partyRow ? 84f : 94f;
-        var details = row.BeginVertGroup(new Vector2(infoWidth, 30), pSpacing: 0,
+        var details = row.BeginVertGroup(new Vector2(infoWidth, FactionCardHeight - 2f), pSpacing: 1,
             pAlignment: TextAnchor.MiddleLeft);
         string state = addMode ? "" : kingdom.IsEmpire()
             ? isDominate ? LM.Get("empire_faction_dominant_short").ColorString("#F3C34A") : ""
@@ -773,7 +776,7 @@ public static class UIHelper
         AttachFactionTooltip(details.gameObject, faction, supports, opposes, empire, activeReform,
             includeBasicInfo: true);
 
-        var actions = row.BeginVertGroup(new Vector2(partyRow ? 42 : 32, 28), pSpacing: 1,
+        var actions = row.BeginVertGroup(new Vector2(partyRow ? 42 : 32, FactionCardHeight - 4f), pSpacing: 1,
             pAlignment: TextAnchor.MiddleCenter);
         var detailButton = actions.AddButtonIntoVertLayout("EnterFactionCard", LM.Get("empire_faction_details_short"),
             () =>
@@ -844,7 +847,7 @@ public static class UIHelper
         }
 
         row.transform.AddStretchBackground(isDominate ? "FactionFrame_dominate" : "FactionFrame",
-            new Vector2(188, 32));
+            new Vector2(188, FactionCardHeight));
         if (!readOnly && !addMode) faction.CardUI = details;
     }
 

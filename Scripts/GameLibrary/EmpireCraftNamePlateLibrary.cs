@@ -1386,6 +1386,9 @@ public static class EmpireCraftNamePlateLibrary
         if (kingdom?.IsEmpire() == true && kingdom.GetRegime()?.type == RegimeType.Modern)
             return kingdomName;
         if (!ModClass.SIMPLE_NAMEPLATE_SWITCH || string.IsNullOrWhiteSpace(kingdomName)) return kingdomName;
+        // 隐藏后缀：没有法理的现代势力只显示都城名(不显示原版随机国名)
+        if (kingdom.GetRegime()?.type == RegimeType.Modern && !kingdom.HasMainTitle())
+            return kingdom.GetModernUntitledFront();
         return kingdom.GetKingdomName();
     }
 

@@ -476,6 +476,8 @@
   "territory_font_more": "还有 {0} 款未列出",
   "territory_font_preview": "江山如画",
   "font_style_clerical": "隶书",
+  "font_style_seal_large": "大篆",
+  "font_style_seal_small": "小篆",
   "font_style_seal": "篆书",
   "font_style_cursive": "草书",
   "font_style_running": "行书",

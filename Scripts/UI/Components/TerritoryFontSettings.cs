@@ -8,7 +8,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.UI.Components;
 
 // 领土铭牌(简化铭牌)的字体。字体取自本机已安装的字体，不同电脑装的字体不同，所以给出三种选择：
-//   · auto(默认)：按传统书体的优先级挑本机已有的字体——隶书 → 篆书 → 草书 → 行书 → 魏碑 → 楷书 → 宋/明体，
+//   · auto(默认)：按传统书体的优先级挑本机已有的字体——隶书 → 篆书(大篆、小篆) → 草书 → 行书 → 魏碑 → 楷书 → 宋/明体，
 //     一个都没有就用游戏字体；含英文字母的名字仍用西文衬线字体；
 //   · game：一律用游戏自带字体，所有电脑显示一致；
 //   · 其他：指定某个已安装字体的名字(选了不存在的字体按游戏字体显示)。
@@ -23,7 +23,10 @@ public static class TerritoryFontSettings
     private static readonly (string key, int rank, string[] keywords)[] Styles =
     {
         ("font_style_clerical", 0, new[] { "隶", "隸", "LiSu", "Liti", "LiShu" }),
-        ("font_style_seal", 1, new[] { "篆", "Zhuan" }),
+        // 篆书：先认大篆(金文、钟鼎、甲骨)，再认小篆(说文、秦篆)，其余带"篆/Seal"的归篆书
+        ("font_style_seal_large", 1, new[] { "大篆", "金文", "钟鼎", "鐘鼎", "甲骨", "Bronze", "Oracle", "DaZhuan" }),
+        ("font_style_seal_small", 1, new[] { "小篆", "说文", "說文", "Shuowen", "XiaoZhuan", "Small Seal" }),
+        ("font_style_seal", 1, new[] { "篆", "Zhuan", "Seal" }),
         ("font_style_cursive", 2, new[] { "草", "Cao" }),
         ("font_style_running", 3, new[] { "行楷", "行书", "行書", "Xingkai", "XingShu", "舒体", "ShuTi" }),
         ("font_style_weibei", 4, new[] { "魏", "WeiBei", "Xinwei" }),

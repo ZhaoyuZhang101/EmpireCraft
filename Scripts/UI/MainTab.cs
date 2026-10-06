@@ -304,7 +304,7 @@ internal static class MainTab
 
         // 领土铭牌字体：自动(传统书体优先) / 游戏字体 / 本机任一字体
         var territoryFontButton = PowerButtonCreator.CreateWindowButton("territory_font_button",
-            nameof(TerritoryFontWindow), SpriteTextureLoader.getSprite("ui/icons/iconBooks"));
+            nameof(TerritoryFontWindow), SpriteTextureLoader.getSprite("ui/icons/godpowers/territory_font"));
         AddButton(DISPLAY_GROUP, territoryFontButton);
         territoryFontButton._button.OnHover(() =>
         {

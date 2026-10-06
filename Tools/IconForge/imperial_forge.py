@@ -782,6 +782,25 @@ def obj_flag(img):
     over(img, shade(poly([(72, 34), (210, 46), (192, 90), (214, 132), (72, 124)]), RED, bevel=12, gloss=0.6, grain=0.35))
 
 
+def obj_calligraphy(img):
+    """铭牌字体：书法字帖——旧纸上横、竖、撇、捺几道浓墨(抽象笔画，不成字)，左下朱印，右侧斜放毛笔。"""
+    over(img, shade(rrect([24, 30, 168, 224], 6), PARCH, bevel=12, gloss=0.3, grain=0.4))
+    ink = union(
+        lines([[(48, 76), (140, 66)]], 18),
+        lines([[(92, 72), (96, 182)]], 16),
+        lines([[(90, 124), (50, 178)]], 14),
+        lines([[(100, 128), (148, 174)]], 14),
+    )
+    over(img, shade(ink, LACQ, bevel=3, flat=True))
+    over(img, shade(rrect([40, 190, 68, 216], 3), RED, bevel=4, grain=0.2))
+    handle = rotate(rrect([178, 10, 210, 166], 12), 20, 194, 120)
+    over(img, shade(handle, WOOD, bevel=9, gloss=0.6, grain=0.35))
+    tip = rotate(poly([(174, 164), (214, 164), (206, 212), (194, 238), (182, 212)]), 20, 194, 120)
+    over(img, shade(tip, LACQ, bevel=8, gloss=0.5))
+    band = rotate(rrect([172, 152, 216, 168], 4), 20, 194, 120)
+    over(img, shade(band, BRASS, bevel=4, gloss=0.9))
+
+
 GODPOWERS = {
     "empire_layer": (obj_title, "crown"),
     "create_empire": (obj_crown, "plus"),
@@ -789,6 +808,7 @@ GODPOWERS = {
     "remove_empire": (obj_crown, "cross"),
     "empire_list": (obj_list, None),
     "actor_create_kingdom": (obj_flag, "plus"),
+    "territory_font": (obj_calligraphy, None),
 }
 
 

@@ -390,6 +390,8 @@
   "territory_font_more": "{0} more not listed",
   "territory_font_preview": "Realm",
   "font_style_clerical": "Clerical",
+  "font_style_seal_large": "Large Seal",
+  "font_style_seal_small": "Small Seal",
   "font_style_seal": "Seal",
   "font_style_cursive": "Cursive",
   "font_style_running": "Running",

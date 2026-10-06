@@ -1667,6 +1667,13 @@ public static class KingdomExtension
         return title == null || title.isRekt() ? null : title;
     }
 
+    // 没有法理的现代势力的称号前缀：自定义国名 → 都城名 → 原版随机名
+    public static string GetModernUntitledFront(this Kingdom kingdom)
+    {
+        string custom = kingdom.GetCustomCountryName();
+        return !string.IsNullOrWhiteSpace(custom) ? custom : kingdom.GetUntitledKingdomName();
+    }
+
     // 没有法理的政权的地名：都城名；连都城都没有才退回原版建国时的随机名
     public static string GetUntitledKingdomName(this Kingdom kingdom)
     {
@@ -2977,11 +2984,21 @@ public static class KingdomExtension
             // 尚未组建正常政府的现代势力统一按理念命名；有法理也不会一律显示成军阀。
             if (WarlordEraSystem.TryGetNonGovernmentKingdomName(kingdom, out string armedName)) return armedName;
             string ideologySuffix = kingdom.GetOrCreate().ideology_country_suffix;
+            // 没有法理的现代势力("某某人民革命军"等)：前缀用都城名，不用原版建国时随机起的国名
             if (!kingdom.isRekt() && kingdom.GetRegime()?.type == RegimeType.Modern &&
                 !kingdom.HasMainTitle() && !string.IsNullOrWhiteSpace(ideologySuffix))
-                return OverallHelperFunc.JoinNameParts(kingdom.GetKingdomName(), ideologySuffix);
+                return OverallHelperFunc.JoinNameParts(kingdom.GetModernUntitledFront(), ideologySuffix);
             if (!kingdom.isRekt() && (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling()))
-                return kingdom.data.name?.UseLocalizedNameSeparator() ?? "";
+            {
+                string rebelName = kingdom.data.name?.UseLocalizedNameSeparator() ?? "";
+                // 旧存档里没有法理的叛军：名号前缀可能还是原版随机国名，显示时换成都城名
+                string randomName = kingdom.HasMainTitle() ? "" : kingdom.GetInitialRandomKingdomName();
+                string capitalName = kingdom.capital?.GetCityName();
+                if (!string.IsNullOrWhiteSpace(randomName) && !string.IsNullOrWhiteSpace(capitalName) &&
+                    randomName != capitalName && rebelName.StartsWith(randomName, StringComparison.Ordinal))
+                    rebelName = capitalName + rebelName.Substring(randomName.Length);
+                return rebelName;
+            }
             if (!string.IsNullOrWhiteSpace(ideologySuffix))
                 return OverallHelperFunc.JoinNameParts(kingdom.GetKingdomName(), ideologySuffix);
             string coreName = kingdom.EnsureKingdomCoreName();

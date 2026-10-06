@@ -419,3 +419,4 @@ EmpireCraft.debug.log
 .*
 !.gitignore
 !.gitattribute
+/Tasks/Claude-旧版机制优化任务书.md
