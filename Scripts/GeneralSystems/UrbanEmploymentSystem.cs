@@ -49,9 +49,14 @@ public static class UrbanEmploymentSystem
         CityExtension.CityExtraData data = city.GetOrCreate();
         double now = World.world?.getCurWorldTime() ?? -1d;
         if (now < 0d) return;
-        if (data.last_urban_employment_timestamp >= 0d &&
-            Date.getYearsSince(data.last_urban_employment_timestamp) < 1) return;
-        data.last_urban_employment_timestamp = now;
+        // 各城错峰(见 YearlyStagger)
+        if (data.last_urban_employment_timestamp < 0d)
+        {
+            data.last_urban_employment_timestamp = EmpireCraft.Scripts.HelperFunc.YearlyStagger.Initial(now);
+            return;
+        }
+        if (Date.getYearsSince(data.last_urban_employment_timestamp) < 1) return;
+        data.last_urban_employment_timestamp = EmpireCraft.Scripts.HelperFunc.YearlyStagger.Next(now);
 
         List<Actor> residents = GetAdults(city);
         int capacity = GetCapacity(city, residents, GetStage(city));

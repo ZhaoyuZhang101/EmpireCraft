@@ -168,11 +168,11 @@ public static class CityExtension
         double now = World.world.getCurWorldTime();
         if (data.last_occupation_spread_timestamp < 0d)
         {
-            data.last_occupation_spread_timestamp = now;
+            data.last_occupation_spread_timestamp = EmpireCraft.Scripts.HelperFunc.YearlyStagger.Initial(now);
             return;
         }
         if (Date.getYearsSince(data.last_occupation_spread_timestamp) < 1) return;
-        data.last_occupation_spread_timestamp = now;
+        data.last_occupation_spread_timestamp = EmpireCraft.Scripts.HelperFunc.YearlyStagger.Next(now);
 
         Kingdom owner = city.kingdom;
         foreach (KeyValuePair<long, List<int>> pair in data.OccupiedStatus.ToList())

@@ -742,8 +742,7 @@ public static class UIHelper
         string state = addMode ? "" : kingdom.IsEmpire()
             ? isDominate ? LM.Get("empire_faction_dominant_short").ColorString("#F3C34A") : ""
             : LM.Get("empire_faction_inactive_short").ColorString("#D98C8C");
-        if (!addMode && faction.IsParty && empire != null && PartyBanSystem.IsClosed(empire) &&
-            empire.data.constitutional_economy?.allied_party_ids?.Contains(faction.GetID()) == true)
+        if (!addMode && faction.IsParty && empire != null && PartyBanSystem.IsConsultative(empire, faction))
             state = (string.IsNullOrEmpty(state) ? "" : state + " ") +
                     LM.Get("party_consultative_short").ColorString("#7FD8EA");
         // 第一行：名称(主导派系标金色"主导")

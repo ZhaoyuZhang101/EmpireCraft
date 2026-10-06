@@ -70,7 +70,63 @@ public static class PartyBanSystem
     {
         ConstitutionalEconomyState state = State(empire);
         if (state == null || !IsClosed(empire) || state.allied_party_ids == null) return new List<FixedFaction>();
-        return PartySystem.GetParties(empire).Where(party => state.allied_party_ids.Contains(party.GetID())).ToList();
+        return PartySystem.GetParties(empire).Where(party => party.GetID() != state.one_party_id &&
+                                                             state.allied_party_ids.Contains(party.GetID())).ToList();
+    }
+
+    public static bool IsConsultative(Empire empire, FixedFaction party)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        return party != null && state != null && IsClosed(empire) && party.GetID() != state.one_party_id &&
+               state.allied_party_ids.Contains(party.GetID());
+    }
+
+    public static bool IsLeadingParty(Empire empire, FixedFaction party)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        return party != null && state != null && IsClosed(empire) && party.GetID() == state.one_party_id;
+    }
+
+    // 政党被并入、解散后：从友党名单中移除；若它是一党制的领导党，由并入的目标党接任，
+    // 没有目标党时由实力最强的友党(没有友党则最强的政党)接任；一个政党都不剩就重开党禁
+    public static void OnPartyRemoved(Empire empire, FixedFaction removed, FixedFaction successor)
+    {
+        if (removed != null) HandOver(empire, removed.GetID(), successor);
+    }
+
+    private static void HandOver(Empire empire, string id, FixedFaction successor)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        if (state == null) return;
+        state.allied_party_ids.Remove(id);
+        if (state.one_party_id != id) return;
+        List<FixedFaction> parties = PartySystem.GetParties(empire);
+        FixedFaction heir = successor != null && parties.Contains(successor) ? successor : null;
+        heir ??= parties.Where(party => state.allied_party_ids.Contains(party.GetID()))
+            .OrderByDescending(party => party.CentralRatio).FirstOrDefault();
+        heir ??= parties.OrderByDescending(party => party.CentralRatio).FirstOrDefault();
+        if (heir == null)
+        {
+            state.one_party_id = "";
+            state.allied_party_ids.Clear();
+            return;
+        }
+        state.one_party_id = heir.GetID();
+        state.allied_party_ids.Remove(heir.GetID());
+        heir.Ban = false;
+        state.last_parliament_election = -1d;
+    }
+
+    // 旧存档修复：领导党早已不在(并入、解散时没有交接)，或领导党同时挂在友党名单里
+    private static void RepairLeadingParty(Empire empire, ConstitutionalEconomyState state)
+    {
+        if (!IsClosed(empire)) return;
+        if (PartySystem.GetParties(empire).All(party => party.GetID() != state.one_party_id))
+        {
+            HandOver(empire, state.one_party_id, null);
+            return;
+        }
+        state.allied_party_ids.Remove(state.one_party_id);
     }
 
     public static bool HasConsultation(Empire empire) => GetConsultativeParties(empire).Count > 0;
@@ -340,6 +396,7 @@ public static class PartyBanSystem
     {
         ConstitutionalEconomyState state = State(empire);
         if (state == null || World.world == null || !PartySystem.IsActive(empire)) return;
+        RepairLeadingParty(empire, state);
         TrackRulingStreak(empire, state);
         if (RepublicSystem.IsTransitioning(empire) || RepublicSystem.HasActiveRevolutionWar(empire)) return;
         if (state.last_party_ban_check >= 0d && Date.getYearsSince(state.last_party_ban_check) < 1) return;

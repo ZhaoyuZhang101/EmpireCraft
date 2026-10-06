@@ -134,13 +134,14 @@ public static class LandEconomySystem
         if (city == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt()) return;
         CityExtension.CityExtraData data = EnsureData(city);
         double now = World.world?.getCurWorldTime() ?? -1d;
+        // 各城错峰(见 YearlyStagger)，免得全部城市在同一刻做年度结算
         if (data.last_land_economy_timestamp < 0d)
         {
-            data.last_land_economy_timestamp = now;
+            data.last_land_economy_timestamp = EmpireCraft.Scripts.HelperFunc.YearlyStagger.Initial(now);
             return;
         }
         if (Date.getYearsSince(data.last_land_economy_timestamp) < 1) return;
-        data.last_land_economy_timestamp = now;
+        data.last_land_economy_timestamp = EmpireCraft.Scripts.HelperFunc.YearlyStagger.Next(now);
 
         Dictionary<string, List<Actor>> households = BuildHouseholds(city);
         UpdateMerchantHouseholds(households);

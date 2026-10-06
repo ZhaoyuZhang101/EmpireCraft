@@ -321,9 +321,11 @@ public static class IdeologyDynamicsSystem
             if (moderate.HasValue) Convert(empire, founding, moderate.Value, 0.05f);
             state.ideology_fatigue = Mathf.Max(0f, state.ideology_fatigue - 15f);
             state.speech_pressure = Mathf.Clamp(state.speech_pressure + 30f, -100f, 100f);
-            EventRecorder.Record(empire, string.Format(LM.Get("ideology_line_reform_history"),
-                empire.GetEmpireFullName(), head.getName(),
-                moderate.HasValue ? PartySystem.GetIdeologyName(moderate.Value) : LM.Get("label_none")));
+            // 找不到相近的温和理念时不写"部分民众转向……"
+            EventRecorder.Record(empire, moderate.HasValue
+                ? string.Format(LM.Get("ideology_line_reform_history"), empire.GetEmpireFullName(), head.getName(),
+                    PartySystem.GetIdeologyName(moderate.Value))
+                : string.Format(LM.Get("ideology_line_reform_plain_history"), empire.GetEmpireFullName(), head.getName()));
         }
         else
         {

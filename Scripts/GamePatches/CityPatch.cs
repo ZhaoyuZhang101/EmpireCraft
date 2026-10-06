@@ -1080,6 +1080,28 @@ public class CityPatch : GamePatch
     }
 
 
+    // 全世界的年度扫描：以前挂在每座城的更新里，第一座城一到期就七个一起跑，叠成大顿挫。
+    // 现在每帧只轮到其中一个(各扫描自己仍按"一年一次"判断是否到期)，到期的扫描最多晚几帧执行
+    private static readonly Action[] WorldYearlyScans =
+    {
+        ClanBranchSystem.TryYearlyScan,
+        IdeologySpreadSystem.TryYearlyScan,
+        TechnologySystem.TryYearlyScan,
+        InstitutionSystem.TryYearlyCultureDrift,
+        HarshRuleSystem.TryYearlyKingdomScan,
+        EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.TryYearlyScan,
+        CultureModernizationSystem.TryYearlyRealmTransitionScan
+    };
+    private static int _worldScanFrame = -1;
+
+    private static void RunWorldYearlyScans()
+    {
+        int frame = Time.frameCount;
+        if (frame == _worldScanFrame) return;
+        _worldScanFrame = frame;
+        WorldYearlyScans[frame % WorldYearlyScans.Length]();
+    }
+
     public static void city_update(City __instance, float pElapsed)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
@@ -1091,13 +1113,7 @@ public class CityPatch : GamePatch
         LandEconomySystem.UpdateCity(__instance);
         __instance.TryYearlyOccupationSpread();
         UrbanEmploymentSystem.UpdateCity(__instance);
-        ClanBranchSystem.TryYearlyScan();
-        IdeologySpreadSystem.TryYearlyScan();
-        TechnologySystem.TryYearlyScan();
-        InstitutionSystem.TryYearlyCultureDrift();
-        HarshRuleSystem.TryYearlyKingdomScan();
-        EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.TryYearlyScan();
-        CultureModernizationSystem.TryYearlyRealmTransitionScan();
+        RunWorldYearlyScans();
 
         /*
         if (__instance.hasTitle())
@@ -1151,8 +1167,7 @@ public class CityPatch : GamePatch
         // 独立国按全国兵力；帝国成员按全帝国兵力，避免弱小诸侯在两支帝国军之间反复归附。
         Empire defendingEmpire = defenderKingdom.GetEmpire();
         int kingdomWarriors = defendingEmpire != null && !defendingEmpire.IsArchived() && !defendingEmpire.isRekt()
-            ? defendingEmpire.kingdoms_list.Where(member => member != null && !member.isRekt())
-                .Sum(GetKingdomLivingWarriorCount)
+            ? GetEmpireLivingWarriorCount(defendingEmpire)
             : GetKingdomLivingWarriorCount(defenderKingdom);
         KingdomExtension.KingdomExtraData defenderData = defenderKingdom.GetOrCreate();
         if (kingdomWarriors > defenderData.peak_warriors) defenderData.peak_warriors = kingdomWarriors;
@@ -1214,6 +1229,26 @@ public class CityPatch : GamePatch
     /// - 士兵人在国外、前线、船上或其他城市，只要 actor.kingdom == kingdom，
     ///   且仍然存活并且 isWarrior()，都算作这个国家的兵力。
     /// </summary>
+    // 全帝国兵力：同一帧内各城共用(随王国兵力缓存一起按帧清空)
+    private static readonly Dictionary<long, int> _empireLivingWarriorCounts = new();
+
+    private static int GetEmpireLivingWarriorCount(Empire empire)
+    {
+        EnsureKingdomWarriorCountCache();
+        if (_empireLivingWarriorCounts.TryGetValue(empire.id, out int cached)) return cached;
+        int total = 0;
+        List<Kingdom> members = empire.kingdoms_list;
+        if (members != null)
+            for (int i = 0; i < members.Count; i++)
+            {
+                Kingdom member = members[i];
+                if (member != null && !member.isRekt() && _kingdomLivingWarriorCounts.TryGetValue(member, out int count))
+                    total += count;
+            }
+        _empireLivingWarriorCounts[empire.id] = total;
+        return total;
+    }
+
     private static int GetKingdomLivingWarriorCount(Kingdom kingdom)
     {
         if (kingdom == null || kingdom.isRekt())
@@ -1235,6 +1270,7 @@ public class CityPatch : GamePatch
 
         _kingdomWarriorCountCacheFrame = frame;
         _kingdomLivingWarriorCounts.Clear();
+        _empireLivingWarriorCounts.Clear();
 
         if (World.world == null || World.world.units == null)
             return;

@@ -319,6 +319,13 @@ public static partial class WarlordEraSystem
 
     #region 年度扫描
 
+    // 年度扫描分帧：到期时把全部核心排进队列，之后每帧最多处理 SliceBudgetMs 毫秒，剩下的下一帧接着做
+    // (以前一次性遍历全部核心，大地图上单次可达 100 多毫秒，造成每年一次的大顿挫)。
+    // force 时(加冕、文化现代化等需要立即生效的场合)仍一次做完
+    private const double SliceBudgetMs = 4d;
+    private static readonly Queue<long> PendingCores = new();
+    private static int _sliceFrame = -1;
+
     public static void UpdateWorld(bool force = false)
     {
         if (World.world == null || EmpireCoreManager.EmpireCores == null) return;
@@ -328,20 +335,33 @@ public static partial class WarlordEraSystem
             _world = World.world;
             _lastScan = -1d;
             Roles.Clear();
+            PendingCores.Clear();
         }
-        if (!force && _lastScan >= 0d && now >= _lastScan && Date.getYearsSince(_lastScan) < 1) return;
-        _lastScan = now;
-        Roles.Clear();
+        bool due = force || _lastScan < 0d || now < _lastScan || Date.getYearsSince(_lastScan) >= 1;
+        if (due)
+        {
+            _lastScan = now;
+            Roles.Clear();
+            // 进行中的战争：战争名里残留的原始国名(旧存档、开战后才改称的政权)换成铭牌国名
+            foreach (War war in World.world.wars.list.ToList())
+            {
+                if (war?.data == null || war.hasEnded()) continue;
+                war.data.name = EmpireCraft.Scripts.GamePatches.WorldLogNamePatch.UseDisplayNames(war.data.name,
+                    war.main_attacker, war.main_defender);
+            }
+            PendingCores.Clear();
+            foreach (long id in EmpireCoreManager.EmpireCores.Keys.ToList()) PendingCores.Enqueue(id);
+        }
+        if (PendingCores.Count == 0) return;
+        // 同一帧只处理一次切片(本方法每帧会被多个帝国的更新调用)
+        if (!force && Time.frameCount == _sliceFrame) return;
+        _sliceFrame = Time.frameCount;
         using var timing = new PerfTimer("军阀时期年度扫描");
-        // 进行中的战争：战争名里残留的原始国名(旧存档、开战后才改称的政权)换成铭牌国名
-        foreach (War war in World.world.wars.list.ToList())
+        var watch = global::System.Diagnostics.Stopwatch.StartNew();
+        while (PendingCores.Count > 0 && (force || watch.Elapsed.TotalMilliseconds < SliceBudgetMs))
         {
-            if (war?.data == null || war.hasEnded()) continue;
-            war.data.name = EmpireCraft.Scripts.GamePatches.WorldLogNamePatch.UseDisplayNames(war.data.name,
-                war.main_attacker, war.main_defender);
-        }
-        foreach (EmpireCore core in EmpireCoreManager.EmpireCores.Values.ToList())
-        {
+            long id = PendingCores.Dequeue();
+            if (!EmpireCoreManager.EmpireCores.TryGetValue(id, out EmpireCore core)) continue;
             try
             {
                 UpdateCore(core, now);

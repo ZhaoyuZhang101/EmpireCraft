@@ -322,6 +322,12 @@ internal static class MainTab
             SpriteTextureLoader.getSprite("plots/icons/plot_alliance_create"));
         AddButton(DISPLAY_GROUP, empireAllianceButton);
 
+        // 原版性能面板：打开原版自带的计时窗口
+        VanillaBenchmarkButton.init();
+        AddButton(DISPLAY_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("vanilla_benchmark",
+                SpriteTextureLoader.getSprite("ui/icons/iconHideUI")));
+
         DebugFrontLineButton.init();
         AddButton(DISPLAY_GROUP,
             PowerButtonCreator.CreateGodPowerButton("debug_frontline",

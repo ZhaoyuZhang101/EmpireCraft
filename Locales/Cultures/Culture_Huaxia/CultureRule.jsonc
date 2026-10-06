@@ -31,7 +31,21 @@
                 "Fascism": "PartyFascism"
             },
             // 改制共和后的国号后缀词库：理念 → 词库名(规则同上)；没配的理念用 Locales/Cultures/PartyNames/Suffix<理念>.csv
-            "suffix_groups": {},
+            "suffix_groups": {
+                "Centrism": "SuffixCentrism",
+                "SocialLiberalism": "SuffixSocialLiberalism",
+                "ConservativeLiberalism": "SuffixConservativeLiberalism",
+                "Conservatism": "SuffixConservatism",
+                "Capitalism": "SuffixCapitalism",
+                "Libertarianism": "SuffixLibertarianism",
+                "SocialDemocracy": "SuffixSocialDemocracy",
+                "Socialism": "SuffixSocialism",
+                "Communism": "SuffixCommunism",
+                "Anarchism": "SuffixAnarchism",
+                "Authoritarianism": "SuffixAuthoritarianism",
+                "Fascism": "SuffixFascism",
+                "ReligiousDemocracy": "SuffixReligiousDemocracy"
+            },
             // 未组建政府的现代势力称呼：理念 → 词库名；称呼里写 {0} 代入势力名号(如"{0}系军阀")，否则接在名号后面。
             // 没配的理念用 Locales/Cultures/PartyNames/Untitled<理念>.csv 的默认称呼
             "untitled_groups": {

@@ -381,6 +381,9 @@ public class Empire : MetaObject<EmpireData>
         return WarlordEraSystem.DecorateName(this, baseName);
     }
 
+    // 国号后缀词库的版本：词库内容有调整时加一，旧国号会按新词库核对一次
+    private const int SuffixPoolVersion = 1;
+
     public string GetBaseEmpireFullName()
     {
         if (data == null) return "";
@@ -399,6 +402,17 @@ public class Empire : MetaObject<EmpireData>
             if (string.IsNullOrWhiteSpace(ideologySuffix) && IsRepublicState && CoreKingdom != null)
                 ideologySuffix = CoreKingdom.GetOrCreate().ideology_country_suffix =
                     PartySystem.PickCountrySuffix(this, IdeologyFamilies.StateIdeology(this));
+            // 国号后缀词库更新后(如华夏补了"民国"等后缀)：旧国号的后缀不在本文化、本理念的现行词库里，重新挑一次
+            if (!string.IsNullOrWhiteSpace(ideologySuffix) && CoreKingdom != null &&
+                CoreKingdom.GetOrCreate().ideology_suffix_pool_version < SuffixPoolVersion)
+            {
+                var extra = CoreKingdom.GetOrCreate();
+                extra.ideology_suffix_pool_version = SuffixPoolVersion;
+                PartyIdeology stateIdeology = IdeologyFamilies.StateIdeology(this);
+                List<string> pool = PartySystem.CountrySuffixPool(InstitutionSystem.GetPrimaryCulture(this), stateIdeology);
+                if (pool.Count > 0 && !pool.Contains(ideologySuffix))
+                    ideologySuffix = extra.ideology_country_suffix = PartySystem.PickCountrySuffix(this, stateIdeology);
+            }
             if (!string.IsNullOrWhiteSpace(ideologySuffix)) return OverallHelperFunc.JoinNameParts(coreName, ideologySuffix);
 
             if (string.IsNullOrWhiteSpace(data.empire_type_key))

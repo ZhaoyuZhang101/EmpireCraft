@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -259,6 +260,13 @@ public static partial class ParliamentSystem
 
     // 由执政联盟任命的官职(混合制：六部；政党分肥制：六部与下级部门)按各党议席比例分配；
     // 本党已在任的留任，空出来的由该党推举
+    // 有官职空缺时立即补任(内阁成员去世、调任后不必等到年度政局审查)
+    public static void FillVacantMinistries(Empire empire)
+    {
+        ConstitutionalEconomyState state = GetState(empire);
+        if (state != null) AssignMinisters(empire, state, announce: false);
+    }
+
     private static void AssignMinisters(Empire empire, ConstitutionalEconomyState state, bool announce)
     {
         if (!PartyAppointsMinisters(empire) || empire.data?.centerOffice == null) return;
@@ -271,7 +279,13 @@ public static partial class ParliamentSystem
         var coalition = new HashSet<string>(GetGoverningFactionIds(empire, state));
         List<(FixedFaction faction, int seats)> members = Blocs(empire, state)
             .Where(item => coalition.Contains(item.faction.GetID())).ToList();
-        if (members.Count == 0) return;
+        if (members.Count == 0)
+        {
+            // 没有执政联盟(组阁中、过渡期)：空着的官职照常由文官补任，不让副总统、国务卿等长期悬空
+            foreach (OfficeObject office in offices.Where(office => office.GetActor() == null))
+                office.Select(empire.CoreKingdom);
+            return;
+        }
         Dictionary<string, int> quota = AllocateSeats(members.Select(item => item.faction).ToList(), offices.Count,
                 faction => members.First(item => item.faction == faction).seats)
             .ToDictionary(pair => pair.Key.GetID(), pair => pair.Value);
@@ -304,6 +318,18 @@ public static partial class ParliamentSystem
             office.SetActor(candidate);
             if (office.GetActor() != candidate) continue;
             used.Add(candidate.id);
+            changed = true;
+        }
+        // 按配额补不上的(某党人手不够、党员都不能任官)：先由联盟其他党的党员补，再不行由文官补任
+        foreach (OfficeObject office in vacancies.Where(office => office.GetActor() == null))
+        {
+            Actor candidate = members.SelectMany(item => RankCandidates(empire, item.faction, used))
+                .Where(actor => actor.CanServeOffice(empire.CoreKingdom))
+                .OrderBy(actor => actor.IsOnOffice() ? 1 : 0).FirstOrDefault();
+            if (candidate != null) office.SetActor(candidate);
+            if (office.GetActor() == null) office.Select(empire.CoreKingdom);
+            if (office.GetActor() == null) continue;
+            used.Add(office.GetActor().id);
             changed = true;
         }
         if (!announce || !changed) return;

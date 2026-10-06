@@ -251,6 +251,8 @@ public static class KingdomExtension
         public string custom_country_suffix = "";
         // 改制共和后按执政理念取的国号后缀(玩家自定义命名优先)
         public string ideology_country_suffix = "";
+        // 国号后缀已按现行文化词库核对过(词库更新后，旧国号不在新词库里的重新挑一次)
+        public int ideology_suffix_pool_version;
         // 未组建政府的华夏系势力的称呼：按哪个理念抽的(-1 = 还没抽)、抽中历史名称池的第几个(-1 = 用理念通称)
         public int non_government_label_ideology = -1;
         public int non_government_label_pick = -1;

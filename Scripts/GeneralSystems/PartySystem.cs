@@ -507,6 +507,7 @@ public static class PartySystem
 
         foreach (FixedFaction small in parties.OrderBy(ShareOf).ThenBy(party => party.Count))
         {
+            if (PartyBanSystem.IsLeadingParty(empire, small)) continue;
             // 小党至少要存在几年才会被并掉，免得刚成立就被吞
             bool weak = ShareOf(small) < MergeSeatShare && VoteOf(small) < MergeSeatShare &&
                         small.PartyFoundedAt >= 0d && Date.getYearsSince(small.PartyFoundedAt) >= MinYearsBeforeMerge;
@@ -552,7 +553,8 @@ public static class PartySystem
         if (parties.Count <= MinimumParties) return;
         foreach (FixedFaction party in parties.OrderBy(party => party.Count).ToList())
         {
-            if (party == null || party.Ban || ParliamentSystem.IsGoverningFaction(empire, party.GetID())) continue;
+            if (party == null || party.Ban || ParliamentSystem.IsGoverningFaction(empire, party.GetID()) ||
+                PartyBanSystem.IsLeadingParty(empire, party)) continue;
             int members = party.AllMembers.Count(actor => actor != null && !actor.isRekt() && actor.isAlive());
             bool settled = party.PartyFoundedAt >= 0d && Date.getYearsSince(party.PartyFoundedAt) >= MinYearsBeforeMerge;
             int seats = state?.parliament_seats?.Count(seat => seat.faction_id == party.GetID()) ?? 0;
@@ -573,7 +575,7 @@ public static class PartySystem
         Dictionary<FixedFaction, int> ratios = empire.CoreKingdom.GetOrCreate().FactionRatio;
         if (ratios != null && ratios.TryGetValue(absorbed, out int ratio))
             ratios[target] = (ratios.TryGetValue(target, out int current) ? current : 0) + ratio;
-        RemoveParty(empire, regime, absorbed);
+        RemoveParty(empire, regime, absorbed, target);
     }
 
     // 大党里有声望的人立场与党的理念相去太远 → 率众出走另组新党
@@ -857,18 +859,13 @@ public static class PartySystem
     // 改制后的国号后缀：本文化给这个理念配的后缀词库 → 通用词库
     public static string PickCountrySuffix(Empire empire, PartyIdeology ideology)
     {
-        string culture = InstitutionSystem.GetPrimaryCulture(empire);
-        string root = Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures");
-        List<string> pool = new List<string>();
-        if (!string.IsNullOrEmpty(culture) &&
-            OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) &&
-            setting?.Party?.suffix_groups != null &&
-            setting.Party.suffix_groups.TryGetValue(ideology.ToString(), out string group) &&
-            !string.IsNullOrWhiteSpace(group))
-            pool = ReadNames(Path.Combine(root, $"Culture_{culture}", $"{culture}{group}.csv"));
-        if (pool.Count == 0) pool = ReadNames(Path.Combine(root, "PartyNames", $"Suffix{ideology}.csv"));
+        List<string> pool = CountrySuffixPool(InstitutionSystem.GetPrimaryCulture(empire), ideology);
         return pool.Count == 0 ? LM.Get("republic_default_suffix") : pool[Random.Range(0, pool.Count)];
     }
+
+    // 国号后缀词库：本文化 Party.suffix_groups 配的词库(可写"别的文化:词库名") → PartyNames/Suffix<理念>.csv
+    public static List<string> CountrySuffixPool(string culture, PartyIdeology ideology) =>
+        GetCultureNamePool(culture, ideology, party => party.suffix_groups, "Suffix");
 
     // 选后：中央占比按议席比例重算；连续两届没有议席的党解散
     public static void AfterElection(Empire empire, Dictionary<FixedFaction, int> allocation, int totalSeats)
@@ -885,7 +882,8 @@ public static class PartySystem
         foreach (FixedFaction party in parties)
         {
             party.ZeroSeatElections = allocation.TryGetValue(party, out int seats) && seats > 0 ? 0 : party.ZeroSeatElections + 1;
-            if (party.ZeroSeatElections < DissolveAfterZeroSeatElections || GetParties(empire).Count <= MinimumParties) continue;
+            if (party.ZeroSeatElections < DissolveAfterZeroSeatElections || GetParties(empire).Count <= MinimumParties ||
+                PartyBanSystem.IsLeadingParty(empire, party)) continue;
             Record(empire, string.Format(LM.Get("party_dissolved_history"), party.Name), null);
             RemoveParty(empire, regime, party);
         }
@@ -903,13 +901,15 @@ public static class PartySystem
         RemoveParty(empire, regime, party);
     }
 
-    private static void RemoveParty(Empire empire, Regime regime, FixedFaction party)
+    // successor：并入的目标党(一党制下领导党被并入时由它接任领导党)
+    private static void RemoveParty(Empire empire, Regime regime, FixedFaction party, FixedFaction successor = null)
     {
         foreach (long memberId in party.Members.ToList())
             World.world.units.get(memberId)?.RemoveFaction();
         party.Members.Clear();
         regime.GetPlayerFactions().Remove(party);
         empire.CoreKingdom.ReconcileFactionRatios(regime.GetPlayerFactions());
+        PartyBanSystem.OnPartyRemoved(empire, party, successor);
     }
 
     private static List<Actor> GetCitizens(Empire empire) =>

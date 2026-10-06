@@ -124,6 +124,9 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
         // 责任政府下由执政联盟任命的官职(见 ParliamentSystem.AssignMinisters)不再按任期轮换
         bool partyCabinet = GeneralSystems.ParliamentSystem.PartyAppointsMinisters(pEmpire);
         bool partyDivisions = GeneralSystems.ParliamentSystem.PartyAppointsDivisions(pEmpire);
+        if (partyCabinet && center.CoreOffices.Concat(partyDivisions ? center.Divisions : Enumerable.Empty<long>())
+                .Any(id => OfficeManager.Offices.TryGetValue(id, out OfficeObject office) && office.GetActor() == null))
+            GeneralSystems.ParliamentSystem.FillVacantMinistries(pEmpire);
         foreach (var core in partyCabinet ? new List<long>() : center.CoreOffices)
         {
             if (OfficeManager.Offices.TryGetValue(core, out var value))
