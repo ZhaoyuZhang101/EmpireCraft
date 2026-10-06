@@ -314,6 +314,8 @@ public static class PartySystem
         // 一党制：不再有建党、流动、分合，只看执政党领袖有没有换人
         if (RepublicSystem.IsOneParty(empire))
         {
+            // 统一战线：政协友党占比超过上限的(含旧存档)压回去，超出部分归领导党
+            empire.CoreKingdom.ClampFactionRatio();
             RepublicSystem.UpdateHeadOfState(empire);
             return;
         }

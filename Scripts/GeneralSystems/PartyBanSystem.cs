@@ -74,6 +74,29 @@ public static class PartyBanSystem
                                                              state.allied_party_ids.Contains(party.GetID())).ToList();
     }
 
+    // 政协友党在中央的占比上限：友党只参与协商，不能压过领导党、更不能成为主导派系
+    public const int ConsultativeRatioCap = 5;
+
+    // 把各政协友党的中央占比压到 ConsultativeRatioCap 以内，超出部分归领导党
+    public static void CapConsultativeRatios(Kingdom kingdom, Dictionary<FixedFaction, int> ratios)
+    {
+        if (kingdom == null || ratios == null || ratios.Count == 0 || !kingdom.IsEmpire()) return;
+        Empire empire = kingdom.GetEmpire();
+        ConstitutionalEconomyState state = State(empire);
+        if (empire?.CoreKingdom != kingdom || state == null || !IsClosed(empire) ||
+            state.allied_party_ids == null || state.allied_party_ids.Count == 0) return;
+        FixedFaction leader = ratios.Keys.FirstOrDefault(faction => faction != null && faction.GetID() == state.one_party_id);
+        int excess = 0;
+        foreach (FixedFaction faction in ratios.Keys.ToList())
+        {
+            if (faction == null || faction == leader || !state.allied_party_ids.Contains(faction.GetID())) continue;
+            if (ratios[faction] <= ConsultativeRatioCap) continue;
+            excess += ratios[faction] - ConsultativeRatioCap;
+            ratios[faction] = ConsultativeRatioCap;
+        }
+        if (excess > 0 && leader != null) ratios[leader] = Mathf.Min(100, ratios[leader] + excess);
+    }
+
     public static bool IsConsultative(Empire empire, FixedFaction party)
     {
         ConstitutionalEconomyState state = State(empire);
@@ -249,6 +272,7 @@ public static class PartyBanSystem
         state.one_party_id = leader.GetID();
         allowed = SettleOtherParties(empire, leader, allowed);
         state.allied_party_ids = allowed.Select(ally => ally.GetID()).ToList();
+        empire.CoreKingdom?.ClampFactionRatio();
         if (CanChooseElectoralSystem(empire)) state.democratic_centralism = true;
         state.party_ban_reopen_pressure = 0f;
         state.party_ban_since = World.world.getCurWorldTime();
@@ -309,6 +333,7 @@ public static class PartyBanSystem
         {
             allies = SettleOtherParties(empire, leader, allies);
             state.allied_party_ids = allies.Select(ally => ally.GetID()).ToList();
+            empire.CoreKingdom?.ClampFactionRatio();
             state.last_parliament_election = -1d;
         }
         ParliamentSystem.Update(empire);

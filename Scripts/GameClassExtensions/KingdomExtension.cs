@@ -665,6 +665,9 @@ public static class KingdomExtension
             ratios[faction] = Mathf.Clamp(ratios[faction], 0, 100);
         }
 
+        // 统一战线下的政协友党每党最多 5%，超出部分归领导党(所有调整占比的地方最后都经过这里)
+        PartyBanSystem.CapConsultativeRatios(kingdom, ratios);
+
         int total = kingdom.GetFactionRatioTotal();
 
         if (total <= 100)
