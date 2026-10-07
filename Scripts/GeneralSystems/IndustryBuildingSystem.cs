@@ -203,8 +203,8 @@ public static class IndustryBuildingSystem
         foreach (CityBuildOrderAsset template in AssetManager.city_build_orders.list)
         {
             if (template?.list == null) continue;
-            // 伐木场：每城一座(工业区越多可以越多)，人口 15、建筑 8 座以后才建
-            Neutral(template.addBuilding("order_ec_lumber_1", 1, 15, 8));
+            // 伐木场：每城一座起(树林越多、工业区越多可以越多，见 ForestExtraLimit/ExtraLimit)，人口 8、建筑 4 座以后就建
+            Neutral(template.addBuilding("order_ec_lumber_1", 1, 8, 4));
             // 牧场每城一座(游牧国家可多建两座)，屠宰场每城一座(工业区越多可以越多)
             Neutral(template.addBuilding("order_ec_pasture", 1, 10, 5));
             Neutral(template.addBuilding("order_ec_slaughterhouse", 1, 20, 8));
@@ -235,6 +235,24 @@ public static class IndustryBuildingSystem
     }
 
     public static int ExtraLimit(City city) => Mathf.Min(3, ZonePlanSystem.Count(city, ZoneUse.Industry));
+
+    // 树林多的城可以多建伐木场：城里每 TreesPerExtraLumber 棵树多一座，最多多 3 座(每城每 5 秒重数一次)
+    private const int TreesPerExtraLumber = 40;
+    private static readonly Dictionary<City, (float at, int trees)> TreeCache = new();
+
+    public static int CountTrees(City city)
+    {
+        if (city?.zones == null) return 0;
+        if (TreeCache.TryGetValue(city, out var cached) && Time.unscaledTime - cached.at < 5f) return cached.trees;
+        if (TreeCache.Count > (World.world?.cities?.Count ?? 0) * 2) TreeCache.Clear();
+        int trees = 0;
+        foreach (TileZone zone in city.zones)
+            trees += zone?.getHashset(BuildingList.Trees)?.Count ?? 0;
+        TreeCache[city] = (Time.unscaledTime, trees);
+        return trees;
+    }
+
+    public static int ForestExtraLimit(City city) => Mathf.Min(3, CountTrees(city) / TreesPerExtraLumber);
 
     public static int CountIndustry(City city)
     {

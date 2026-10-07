@@ -59,9 +59,9 @@ public class ZonePlanPatch : GamePatch
             if (zone == null || !ZonePlanSystem.IsPreferredZone(pCity, zone, use)) continue;
             (preferred ??= new List<TileZone>()).Add(zone);
         }
-        // 还没有工业区的城：伐木场挑树最多的几块空区块建(建在林子边上)；有工业区就照工业区集中建
-        if (preferred == null && IndustryBuildingSystem.IsLumber(pBuildingAsset) &&
-            ZonePlanSystem.Count(pCity, ZoneUse.Industry) == 0)
+        // 伐木场：工业区里没地方(或还没有工业区)时，挑树最多的几块空区块建(建在林子边上)，不干等工业区扩地
+        bool woodsFallback = false;
+        if (preferred == null && IndustryBuildingSystem.IsLumber(pBuildingAsset))
         {
             var woods = new List<TileZone>();
             foreach (TileZone zone in pList)
@@ -70,7 +70,11 @@ public class ZonePlanPatch : GamePatch
             woods.Sort((a, b) => (b.getHashset(BuildingList.Trees)?.Count ?? 0)
                 .CompareTo(a.getHashset(BuildingList.Trees)?.Count ?? 0));
             if (woods.Count > 4) woods.RemoveRange(4, woods.Count - 4);
-            if (woods.Count > 0) preferred = woods;
+            if (woods.Count > 0)
+            {
+                preferred = woods;
+                woodsFallback = true;
+            }
         }
         bool clustered = use == ZoneUse.Industry || use == ZoneUse.Residential;
         if (preferred == null)
@@ -90,7 +94,7 @@ public class ZonePlanPatch : GamePatch
         {
             _preferring = false;
         }
-        if (tile == null && !clustered) return true;
+        if (tile == null && (!clustered || woodsFallback)) return true;
         if (tile == null) ZonePlanSystem.RequestSpace(pCity, use);
         __result = tile;
         return false;
@@ -118,6 +122,7 @@ public class ZonePlanPatch : GamePatch
         if (IndustryBuildingSystem.IsMine(asset) || IndustryBuildingSystem.IsLumber(asset) ||
             asset?.type == AnimalHusbandrySystem.SlaughterhouseType)
             __result += IndustryBuildingSystem.ExtraLimit(__instance);
+        if (IndustryBuildingSystem.IsLumber(asset)) __result += IndustryBuildingSystem.ForestExtraLimit(__instance);
         // 森林多的城多建伐木场
         if (IndustryBuildingSystem.IsLumber(asset)) __result += IndustryBuildingSystem.ForestExtraLimit(__instance);
         else if (asset?.type == AnimalHusbandrySystem.PastureType && AnimalHusbandrySystem.IsNomadic(__instance.kingdom))
