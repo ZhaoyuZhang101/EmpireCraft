@@ -246,8 +246,12 @@ public static class MineralResourceSystem
         float share = Mathf.Min(coal / Mathf.Max(1f, wantCoal), metal / Mathf.Max(1f, wantMetal));
         int useCoal = Mathf.Max(1, Mathf.RoundToInt(wantCoal * share));
         int useMetal = Mathf.Max(1, Mathf.RoundToInt(wantMetal * share));
-        city.takeResource("coal", Mathf.Min(useCoal, coal));
-        city.takeResource("common_metals", Mathf.Min(useMetal, metal));
+        // 百姓的工业用料，不是公家用途
+        using (PopulationEconomySystem.PrivateUse())
+        {
+            city.takeResource("coal", Mathf.Min(useCoal, coal));
+            city.takeResource("common_metals", Mathf.Min(useMetal, metal));
+        }
         // 收入只算炼钢增加的价值
         PopulationEconomySystem.ConsumeInputs(city, data, "coal", Mathf.Min(useCoal, coal));
         PopulationEconomySystem.ConsumeInputs(city, data, "common_metals", Mathf.Min(useMetal, metal));

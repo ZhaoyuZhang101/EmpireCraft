@@ -183,7 +183,7 @@ public static class PopulationEconomySystem
     // 每座矿场每年的固定产出
     private static readonly (string, float)[] MineOutput = { ("stone", 6f), ("common_metals", 4f), ("gold", 1f) };
 
-    private static bool IsFood(string resource) => AssetManager.resources?.get(resource)?.type == ResType.Food;
+    public static bool IsFood(string resource) => AssetManager.resources?.get(resource)?.type == ResType.Food;
 
     // 背景人口纳税：原版和模组的财政是"实体单位交税给城市国库 → 城市交给国家"，无小人模式下纳税的实体几乎没有，
     // 国库会枯竭。背景人口的收入就是他们的真实产出(按市场价折算，见 Deposit)，按本国税率交进城市国库
@@ -229,6 +229,69 @@ public static class PopulationEconomySystem
             data.private_savings = city == null ? 0f : MarketSystem.Stock(city, MarketSystem.Good.Food) * price;
         }
         return data.private_savings;
+    }
+
+    // ---- 公家用百姓的东西要付钱(无小人模式) ----
+    // 仓库里的东西默认是百姓的(产出时已经算进民间收入)。盖房、造船、打造装备等公家用途从仓库里拿非粮食的东西时，
+    // 先用公家自己从市场买的(public_stock，不用付钱)，不够的部分由城市国库按价付给百姓：钱换货，民间家底不变；
+    // 国库钱不够，没付上的部分算征用，民间家底少了这些货的价值。
+    // 市场搬货、炼钢、百姓自己用的皮革等不是公家用途，期间不算(见 PrivateUse)
+    [global::System.ThreadStatic] private static int _privateUse;
+
+    public static bool InPrivateUse => _privateUse > 0;
+
+    public readonly struct PrivateUseScope : global::System.IDisposable
+    {
+        public void Dispose() => _privateUse--;
+    }
+
+    public static PrivateUseScope PrivateUse()
+    {
+        _privateUse++;
+        return new PrivateUseScope();
+    }
+
+    public static void AddPublicStock(City city, string resource, int amount)
+    {
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data == null || amount <= 0 || string.IsNullOrEmpty(resource)) return;
+        data.public_stock ??= new Dictionary<string, int>();
+        data.public_stock.TryGetValue(resource, out int have);
+        data.public_stock[resource] = have + amount;
+    }
+
+    // 从公家存货里扣掉 amount(不超过公家有的)，返回扣掉的数量
+    public static int TakePublicStock(City city, string resource, int amount)
+    {
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data?.public_stock == null || amount <= 0 || !data.public_stock.TryGetValue(resource, out int have)) return 0;
+        // 仓库里实际没这么多(被抢、被烧)，公家存货也跟着少
+        have = Mathf.Min(have, amount + Mathf.Max(0, city.getResourcesAmount(resource)));
+        int take = Mathf.Min(have, amount);
+        if (have - take > 0) data.public_stock[resource] = have - take;
+        else data.public_stock.Remove(resource);
+        return take;
+    }
+
+    // 公家从仓库里用掉了 amount 份 resource
+    public static void ChargePublicUse(City city, string resource, int amount)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || city == null || amount <= 0 || InPrivateUse) return;
+        if (string.IsNullOrEmpty(resource) || IsFood(resource)) return;
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data == null) return;
+        int fromPeople = amount - TakePublicStock(city, resource, amount);
+        if (fromPeople <= 0) return;
+        float value = fromPeople * UnitValue(city, resource);
+        int pay = Mathf.Min(Mathf.CeilToInt(value), Mathf.Max(0, city.GetMoney()));
+        if (pay > 0) city.SubMoney(pay);
+        data.public_paid += pay;
+        float unpaid = Mathf.Max(0f, value - pay);
+        if (unpaid > 0f)
+        {
+            data.public_unpaid += unpaid;
+            AddSavings(city, data, -unpaid);
+        }
     }
 
     public static void AddSavings(City city, CityPopulationData data, float amount)
@@ -364,7 +427,9 @@ public static class PopulationEconomySystem
         try
         {
             take = Mathf.Min(whole, city.getResourcesAmount("leather"));
-            if (take > 0) city.takeResource("leather", take);
+            if (take > 0)
+                using (PrivateUse())
+                    city.takeResource("leather", take);
         }
         catch (Exception exception)
         {

@@ -76,6 +76,11 @@ public class CityPopulationData
     public float last_income;
     // 民间存款(见 PopulationEconomySystem.Savings)：-1 表示还没建账；上次结算的年消费
     public float private_savings = -1f;
+    // 公家的建材(资源 id → 数量)：城市国库从市场买进的木石金属，公家用时不用再付给百姓
+    public Dictionary<string, int> public_stock = new();
+    // 上次结算以来公家用掉百姓的建材付的钱、没付上的钱(国库不够)
+    public float public_paid;
+    public float public_unpaid;
     public float last_consumption;
     // 背景人口纳税(见 PopulationEconomySystem.PayTaxes)：零头与上次结算的年税收
     public float tax_carry;

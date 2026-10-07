@@ -265,17 +265,27 @@ public static class MarketSystem
                     int amount = Mathf.Min(Mathf.FloorToInt(Mathf.Min(need, surplus)), Mathf.Min(capacity, affordable));
                     amount = Mathf.Min(amount, Capacity(seller));
                     if (amount <= 0) continue;
-                    int moved = Move(seller, buyer, good, amount);
+                    int moved;
+                    using (PopulationEconomySystem.PrivateUse()) moved = Move(seller, buyer, good, amount);
                     if (moved <= 0) continue;
                     int value = Mathf.CeilToInt(moved * price);
-                    // 买粮：钱换粮，民间家底不变；买木石金属：城市国库付钱
-                    if (good != Good.Food) buyer.SubMoney(value);
+                    // 买粮：钱换粮，民间家底不变；买木石金属：城市国库付钱，买来的算公家的
+                    if (good != Good.Food)
+                    {
+                        buyer.SubMoney(value);
+                        PopulationEconomySystem.AddPublicStock(buyer, MaterialId(good), moved);
+                    }
                     else foodSpent += value;
-                    // 卖方：货是百姓的，九成价卖掉，家底少一成(商人的利润)；卖粮的钱里租地收成那部分是地主的
-                    int sellerGets = Mathf.FloorToInt(value * SellerShare);
+                    // 卖方：先卖公家的存货，九成价钱归城市国库
+                    int fromPublic = good == Good.Food ? 0 : PopulationEconomySystem.TakePublicStock(seller, MaterialId(good), moved);
+                    int publicValue = Mathf.FloorToInt(value * (float)fromPublic / moved);
+                    if (publicValue > 0) seller.AddMoney(Mathf.FloorToInt(publicValue * SellerShare));
+                    // 其余是百姓的货，九成价卖掉，家底少一成(商人的利润)；卖粮的钱里租地收成那部分是地主的
+                    int privateValue = value - publicValue;
+                    int sellerGets = Mathf.FloorToInt(privateValue * SellerShare);
                     int rent = good == Good.Food
                         ? Mathf.FloorToInt(sellerGets * LandEconomySystem.BackgroundRentShare(seller)) : 0;
-                    LandEconomySystem.AddBackgroundIncome(seller, value - sellerGets, rent);
+                    LandEconomySystem.AddBackgroundIncome(seller, privateValue - sellerGets, rent);
                     need -= moved;
                     capacity -= moved;
                     bought += value;
@@ -310,6 +320,9 @@ public static class MarketSystem
         data.market_sold_month += value;
     }
 
+    private static string MaterialId(Good good) =>
+        good == Good.Wood ? "wood" : good == Good.Stone ? "stone" : "common_metals";
+
     // 从卖方仓库搬到买方仓库，返回实际搬运的数量
     private static int Move(City seller, City buyer, Good good, int amount)
     {
@@ -329,7 +342,7 @@ public static class MarketSystem
             }
             return moved;
         }
-        string id = good == Good.Wood ? "wood" : good == Good.Stone ? "stone" : "common_metals";
+        string id = MaterialId(good);
         int available = Mathf.Min(amount, seller.getResourcesAmount(id));
         if (available <= 0) return 0;
         seller.takeResource(id, available);
