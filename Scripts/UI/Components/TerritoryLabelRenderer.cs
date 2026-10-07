@@ -329,7 +329,7 @@ public static class TerritoryLabelRenderer
         display = text;
         if (sealFont && TerritoryFontSettings.SealHuaxiaNames)
         {
-            foreach (BundledFont bundled in BundledTerritoryFonts.All)
+            foreach (BundledFont bundled in BundledTerritoryFonts.SealChain)
                 if (bundled.TryAdapt(text, richText, out string adapted) && CanRender(bundled.Font, adapted, richText))
                 {
                     display = adapted;
@@ -413,6 +413,9 @@ public static class TerritoryLabelRenderer
             }
             string glyphs = builder.ToString();
             if (glyphs.Length == 0) return true;
+            // 字形包：把字拼进贴图，拼得进就画得出
+            BakedGlyphFont baked = BundledTerritoryFonts.BakedOf(font);
+            if (baked != null) return baked.Ensure(glyphs);
             int size = TerritoryLabelProjection.ReferenceFontSize;
             font.RequestCharactersInTexture(glyphs, size, FontStyle.Normal);
             foreach (char character in glyphs)
@@ -901,13 +904,18 @@ public static class TerritoryLabelRenderer
             if (_metrics_text != trimmedValue || _metrics_style != effectiveFontStyle || _metrics_font != _text.font)
             {
                 _text.text = trimmedValue;
-                _text.fontSize = TerritoryLabelProjection.ReferenceFontSize;
-                _text.fontStyle = effectiveFontStyle;
-                _text.font?.RequestCharactersInTexture(trimmedValue, _text.fontSize, effectiveFontStyle);
+                // 字形包字体不是动态字体：不认字号和字形样式(设了会报警告)，字形已按参考字号排好
+                BakedGlyphFont baked = BundledTerritoryFonts.BakedOf(_text.font);
+                _text.fontSize = baked != null ? 0 : TerritoryLabelProjection.ReferenceFontSize;
+                _text.fontStyle = baked != null ? FontStyle.Normal : effectiveFontStyle;
+                if (baked != null) baked.Ensure(trimmedValue);
+                else _text.font?.RequestCharactersInTexture(trimmedValue, _text.fontSize, effectiveFontStyle);
                 _text.cachedTextGenerator.Invalidate();
                 _text.cachedTextGeneratorForLayout.Invalidate();
                 _reference_width = Mathf.Max(1f, _text.preferredWidth);
                 _reference_height = Mathf.Max(1f, _text.preferredHeight);
+                // 字形包字体的行高 Unity 量不出来，按字形包的上伸加下伸算
+                if (baked != null) _reference_height = Mathf.Max(_reference_height, baked.LineHeight);
                 rect.sizeDelta = new Vector2(_reference_width + 2f, _reference_height + 2f);
                 _metrics_text = trimmedValue;
                 _metrics_style = effectiveFontStyle;

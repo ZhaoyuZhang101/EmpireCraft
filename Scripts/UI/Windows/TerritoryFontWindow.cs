@@ -135,7 +135,13 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
                     }
                 }
                 text.material = null;
-                text.fontSize = 12;
+                // 字形包字体不认字号：字号设 0，按参考字号排好的字形整体缩到 12 号大小
+                BakedGlyphFont baked = BundledTerritoryFonts.BakedOf(text.font);
+                text.fontSize = baked != null ? 0 : 12;
+                text.rectTransform.localScale = baked != null
+                    ? Vector3.one * (12f / BakedGlyphFont.ReferenceSize)
+                    : Vector3.one;
+                text.verticalOverflow = VerticalWrapMode.Overflow;
                 text.resizeTextForBestFit = false;
                 text.supportRichText = false;
                 text.horizontalOverflow = HorizontalWrapMode.Overflow;

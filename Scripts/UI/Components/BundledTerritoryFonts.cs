@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 随模组分发的篆书字体(见 Assets/Fonts 下各目录的 README)：
 //   全字库说文解字(小篆，6745 字，按繁体编码，显示前把简体转成繁体再查字)；
 //   敬峰中山王篆(战国中山国铜器文字，归大篆，3060 字，简繁都有)。
-// 加载：本机装了同名字体就用系统字体(最稳)；没装就直接读模组里的字体文件。
+// 加载：本机装了同名字体就用系统字体；有预先画好的字形包(.glyphs)就用字形包(不靠 Unity 读字体文件，见 BakedGlyphFont)；
+// 都没有才直接读模组里的字体文件(游戏里常常画不出字)。
 // 缺字检查一律读字体文件的 cmap 表(从文件建的 Unity 字体 HasCharacter 不可靠)。
 public sealed class BundledFont
 {
@@ -23,13 +24,17 @@ public sealed class BundledFont
     private readonly string _folder;
     private readonly string _file;
     private readonly string[] _osNames;
+    // 字形包文件名(同目录)；没有为 null
+    private readonly string _glyphPack;
+    private BakedGlyphFont _baked;
     private bool _loaded;
     private Font _font;
     private HashSet<int> _codepoints;
 
     public BundledFont(string id, string name, string styleKey, bool traditional, string folder, string file,
-        params string[] osNames)
+        string glyphPack, params string[] osNames)
     {
+        _glyphPack = glyphPack;
         Id = id;
         Name = name;
         StyleKey = styleKey;
@@ -41,6 +46,8 @@ public sealed class BundledFont
 
     public string FilePath => Path.Combine(ModClass._declare.FolderPath, "Assets", "Fonts", _folder, _file);
     public Font Font => _font;
+    // 正在用字形包显示(不是系统字体或字体文件)
+    public BakedGlyphFont Baked => _font != null && _baked != null && _font == _baked.Font ? _baked : null;
     public bool Available => Load() != null;
 
     public Font Load()
@@ -48,12 +55,13 @@ public sealed class BundledFont
         if (_loaded) return _font;
         _loaded = true;
         string path = FilePath;
-        if (!File.Exists(path))
+        string packPath = _glyphPack == null ? null : Path.Combine(ModClass._declare.FolderPath, "Assets", "Fonts", _folder, _glyphPack);
+        if (!File.Exists(path) && (packPath == null || !File.Exists(packPath)))
         {
             LogService.LogWarning($"[EmpireCraft] 内置字体文件不存在: {path}");
             return null;
         }
-        _codepoints = BundledTerritoryFonts.ReadCodepoints(path);
+        if (File.Exists(path)) _codepoints = BundledTerritoryFonts.ReadCodepoints(path);
         string source = "文件";
         try
         {
@@ -74,6 +82,15 @@ public sealed class BundledFont
                 candidate = Font.CreateDynamicFontFromOSFont(installed, 64);
                 source = "本机已安装(" + installed + ")";
             }
+            // 字形包：按包里收的字查字
+            if (candidate == null && packPath != null && (_baked = BakedGlyphFont.TryLoad(packPath, Id)) != null)
+            {
+                _font = _baked.Font;
+                _codepoints = null;
+                LogService.LogInfo($"[EmpireCraft] 内置字体已加载: {Name} 来源=字形包 字数={_baked.Count}");
+                return _font;
+            }
+            if (candidate == null && !File.Exists(path)) return null;
             // 带目录的路径走 Unity 的 Internal_CreateFontFromPath：直接读字体文件，不要求系统安装
             if (candidate == null)
             {
@@ -110,6 +127,7 @@ public sealed class BundledFont
 
     public bool Supports(int codepoint)
     {
+        if (Baked != null) return Baked.Supports(codepoint);
         if (_codepoints != null) return _codepoints.Contains(codepoint);
         return _font != null && _font.HasCharacter((char)codepoint);
     }
@@ -156,12 +174,13 @@ public static class BundledTerritoryFonts
     public const string ShuoWen = "QuanZiKu_ShuoWen";
 
     public static readonly BundledFont ShuoWenFont = new(ShuoWen, "全字库说文解字", "font_style_seal_small", true,
-        "QuanZiKuShuoWen", "QuanZiKuShuoWen.ttf", "全字庫說文解字", "EBAS");
+        "QuanZiKuShuoWen", "QuanZiKuShuoWen.ttf", "ShuoWen.glyphs", "全字庫說文解字", "EBAS");
     public static readonly BundledFont JingfengFont = new(Seal, "敬峰中山王篆", "font_style_seal_large", false,
-        "JFZSKSealScript", "JFZSKSealScript_V3.ttf", "Jingfeng_ZSKSS", "大学论语敬峰中山王篆", "敬峰中山王篆", "JFZSKSealScript");
+        "JFZSKSealScript", "JFZSKSealScript_V3.ttf", null, "Jingfeng_ZSKSS", "大学论语敬峰中山王篆", "敬峰中山王篆", "JFZSKSealScript");
 
-    // 华夏国号用篆书时的先后：小篆字多先用，缺字再用中山王篆
     public static readonly BundledFont[] All = { ShuoWenFont, JingfengFont };
+    // 华夏国号用篆书：只用说文小篆(中山王篆是战国铜器文字，笔画细长，不像通常的篆书国号)，缺字走兜底
+    public static readonly BundledFont[] SealChain = { ShuoWenFont };
 
     public static BundledFont Find(string id) => All.FirstOrDefault(font => font.Id == id);
 
@@ -175,6 +194,9 @@ public static class BundledTerritoryFonts
     public static Font Load() => JingfengFont.Load();
 
     public static bool IsBundled(Font font) => Of(font) != null;
+
+    // 用字形包显示的字体(非动态字体：不认字号，Text.fontSize 要设 0，行高按 LineHeight)
+    public static BakedGlyphFont BakedOf(Font font) => Of(font)?.Baked;
 
     public static bool Supports(Font font, char character)
     {
