@@ -191,6 +191,10 @@ public class CityWindowPatch : GamePatch
         if (data.last_income > 0f)
             window.showStatRow("city_pop_income", Mathf.RoundToInt(data.last_income).ToString(), "#C8E66A",
                 pIconPath: "iconMoney");
+        if (data.private_savings > 0f)
+            window.showStatRow("city_pop_savings", string.Format(LM.Get("city_pop_savings_format"),
+                    Mathf.RoundToInt(data.private_savings), Mathf.RoundToInt(data.last_consumption)), "#E6D36A",
+                pIconPath: "iconMoney");
         if (data.last_tax_income > 0f)
             window.showStatRow("city_pop_tax", Mathf.RoundToInt(data.last_tax_income).ToString(), "#43FF43",
                 pIconPath: "iconMoney");

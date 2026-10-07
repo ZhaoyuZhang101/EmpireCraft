@@ -12,7 +12,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 这里按数据结算：
 //   市场：同一国家(帝国则是整个帝国)的城市组成国内市场；有市场或码头的城还能和相邻、未交战的外国城市通商。
 //   商品：粮食、木材、石料、金属。每城按户数算出应有储备(粮食一年口粮；木石按建设；金属按打造装备，交战时多备)。
-//   交换：每月，储备不足的城向市场里有余量(超出储备一半以上)的城买进，按价格用城市国库付钱，
+//   交换：每月，储备不足的城向市场里有余量(超出储备一半以上)的城买进，按价格付钱
+//        (粮食由民间存款付，木石金属由城市国库付，卖方的货是百姓的，见 PopulationEconomySystem.Savings)，
 //        卖方收九成(一成是商人的利润，归卖方城里的背景商人；
 //        卖粮的钱里租地收成那部分归地主，见 LandEconomySystem.AddBackgroundIncome)；每月能买卖多少受商贸能力限制(商人越多、有市场码头越多)。
 //   价格：按市场总需求 ÷ 总供给在基础价的 0.25~4 倍之间浮动。
@@ -235,6 +236,8 @@ public static class MarketSystem
         {
             int capacity = Capacity(buyer);
             float bought = 0f;
+            // 本月已经用民间存款买粮花掉的钱
+            float foodSpent = 0f;
             List<City> sellers = null;
             foreach (Good good in Goods)
             {
@@ -254,18 +257,24 @@ public static class MarketSystem
                 foreach ((City seller, float surplus) in offers)
                 {
                     if (need < 1f || capacity <= 0) break;
-                    int affordable = price <= 0f ? 0 : Mathf.FloorToInt(Mathf.Max(0, buyer.GetMoney()) / price);
+                    // 粮食是百姓自己买，看民间存款；木石金属是公家买，看城市国库
+                    float purse = good == Good.Food
+                        ? Mathf.Max(0f, PopulationEconomySystem.Savings(buyer, data) - foodSpent)
+                        : Mathf.Max(0, buyer.GetMoney());
+                    int affordable = price <= 0f ? 0 : Mathf.FloorToInt(purse / price);
                     int amount = Mathf.Min(Mathf.FloorToInt(Mathf.Min(need, surplus)), Mathf.Min(capacity, affordable));
                     amount = Mathf.Min(amount, Capacity(seller));
                     if (amount <= 0) continue;
                     int moved = Move(seller, buyer, good, amount);
                     if (moved <= 0) continue;
                     int value = Mathf.CeilToInt(moved * price);
-                    buyer.SubMoney(value);
+                    // 买粮：钱换粮，民间家底不变；买木石金属：城市国库付钱
+                    if (good != Good.Food) buyer.SubMoney(value);
+                    else foodSpent += value;
+                    // 卖方：货是百姓的，九成价卖掉，家底少一成(商人的利润)；卖粮的钱里租地收成那部分是地主的
                     int sellerGets = Mathf.FloorToInt(value * SellerShare);
                     int rent = good == Good.Food
                         ? Mathf.FloorToInt(sellerGets * LandEconomySystem.BackgroundRentShare(seller)) : 0;
-                    seller.AddMoney(sellerGets - rent);
                     LandEconomySystem.AddBackgroundIncome(seller, value - sellerGets, rent);
                     need -= moved;
                     capacity -= moved;

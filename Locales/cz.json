@@ -3349,5 +3349,7 @@
   "mineral_tooltip_locked": "需 {0} 级矿场 · 储量 {1}/{2}",
   "mineral_tooltip_depleted": "已枯竭 · 还需 {0} 年恢复（共 {1} 年）",
   "mineral_tooltip_footer": "本城矿场等级：{0}。矿藏采空后进入冷却，冷却结束发现新矿脉，储量回满。",
-  "city_pop_income": "人口年收入"
+  "city_pop_income": "人口年收入",
+  "city_pop_savings": "民间存款",
+  "city_pop_savings_format": "{0}（年消费 {1}）"
 }

@@ -120,13 +120,17 @@ public static class PopulationEconomySystem
         // 施工改由城市建设力推进(见 CityConstructionSystem)，不再按工人数
         float eaten = EatFood(city, data, background * FoodPerPersonYear * years, out float shortage);
         ConsumeGoods(city, data, background, years);
+        // 吃掉的粮食、用掉的皮革是民间的消费，按价值从民间存款里扣(赈灾粮是国家给的，不扣)
+        float consumption = eaten * UnitValue(city, _foodId ?? "wheat") + data.last_leather_used * UnitValue(city, "leather");
+        AddSavings(city, data, -consumption);
+        data.last_consumption = years > 0f ? consumption / years : 0f;
         // 饥荒：国家粮仓开仓赈灾，调来的粮食补上缺口
         if (shortage > 0f)
         {
             float relief = GranarySystem.Relieve(city, shortage);
             if (relief > 0f)
             {
-                Deposit(city, data, _foodId ?? "wheat", relief);
+                Deposit(city, data, _foodId ?? "wheat", relief, income: false);
                 float served = EatFood(city, data, Mathf.Floor(Mathf.Min(shortage, relief)), out _);
                 eaten += served;
                 shortage = Mathf.Max(0f, shortage - served);
@@ -190,11 +194,47 @@ public static class PopulationEconomySystem
         data.produced_value = 0f;
         data.last_income = years > 0f ? income / years : 0f;
         if (city.kingdom == null || city.kingdom.wild) return;
-        float tax = income * (float)city.kingdom.GetTaxRate() + data.tax_carry;
+        float due = income * (float)city.kingdom.GetTaxRate();
+        float tax = due + data.tax_carry;
         int whole = Mathf.FloorToInt(tax);
         data.tax_carry = tax - whole;
         if (whole > 0) city.AddMoney(whole);
         data.last_tax_income = years > 0f ? whole / years : 0f;
+        // 税后收入进民间存款
+        AddSavings(city, data, income - due);
+    }
+
+    // ---- 民间存款(无小人模式) ----
+    // 背景人口没有各自的钱包，全城合记一个民间存款(连同仓库里属于百姓的存货，算作民间的家底)：
+    //   进：税后收入(产出的价值减去税)；卖地的钱(税后)
+    //   出：吃掉的粮食、用掉的皮革(按价值)；商人地主攒去买地的钱
+    //   城与城之间买粮由民间存款付账：付出的钱换来同样价值的粮食，家底不变，所以只看存款够不够；
+    //   卖给外城的货也是百姓的：按九成价卖掉，家底少一成(这一成是商人的利润)
+    //   买木头、石头、金属是公家盖房、打造装备用的，由城市国库出钱
+    // 旧存档第一次建账时，把仓库里现有粮食的价值记作民间存款
+    public static float Savings(City city, CityPopulationData data)
+    {
+        if (data == null) return 0f;
+        if (data.private_savings < 0f)
+        {
+            float price = 1f;
+            try
+            {
+                price = MarketSystem.Price(city, MarketSystem.Good.Food);
+            }
+            catch
+            {
+                // 按基础价
+            }
+            data.private_savings = city == null ? 0f : MarketSystem.Stock(city, MarketSystem.Good.Food) * price;
+        }
+        return data.private_savings;
+    }
+
+    public static void AddSavings(City city, CityPopulationData data, float amount)
+    {
+        if (data == null) return;
+        data.private_savings = Mathf.Max(0f, Savings(city, data) + amount);
     }
 
     // 一份资源值多少钱：粮食、木头、石头、金属按国内市场价(见 MarketSystem.Price)，其它按固定价
@@ -313,6 +353,8 @@ public static class PopulationEconomySystem
 
     private static void ConsumeGoods(City city, CityPopulationData data, float households, float years)
     {
+        // 本次没扣到整份时用量是 0(民间消费按这个算)
+        data.last_leather_used = 0f;
         float need = households * LeatherPerHouseholdYear * years *
                      (ModernStability.IsModern(city.kingdom) ? 2f : 1f) + data.leather_need_carry;
         int whole = Mathf.FloorToInt(need);

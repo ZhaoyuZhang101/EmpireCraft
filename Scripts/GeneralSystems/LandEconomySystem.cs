@@ -554,7 +554,7 @@ public static class LandEconomySystem
         population.background_landless = Mathf.Clamp01(1f - (owned - amount) / (pool - amount));
         data.household_land_shares[key] = GetHouseholdShare(city, key) + amount;
         data.household_land_representatives[key] = buyer.id;
-        PayBackgroundTax(city, population, price);
+        ReceiveLandSale(city, population, price);
         return true;
     }
 
@@ -562,14 +562,23 @@ public static class LandEconomySystem
     private static float BackgroundLandPool(City city, CityExtension.CityExtraData data) =>
         Mathf.Max(0f, GetPrivateLandCapacity(city) - data.household_land_shares.Values.Where(value => value > 0f).Sum());
 
-    // 背景人口的进账按税率交进城市国库(卖地的钱、商人利润、地租)
-    private static void PayBackgroundTax(City city, CityPopulationData population, float paid)
+    // 背景人口的进账按税率交进城市国库(卖地的钱、商人利润)，返回应交的税
+    private static float PayBackgroundTax(City city, CityPopulationData population, float paid)
     {
-        if (city.kingdom == null || paid <= 0f) return;
-        float tax = paid * Mathf.Clamp01((float)city.kingdom.GetTaxRate()) + population.tax_carry;
+        if (city.kingdom == null || paid <= 0f) return 0f;
+        float due = paid * Mathf.Clamp01((float)city.kingdom.GetTaxRate());
+        float tax = due + population.tax_carry;
         int whole = Mathf.FloorToInt(tax);
         population.tax_carry = tax - whole;
         if (whole > 0) city.AddMoney(whole);
+        return due;
+    }
+
+    // 卖地的农民拿到钱，交过税存进民间存款
+    private static void ReceiveLandSale(City city, CityPopulationData population, float paid)
+    {
+        float tax = PayBackgroundTax(city, population, paid);
+        PopulationEconomySystem.AddSavings(city, population, paid - tax);
     }
 
     private static void TryMoveLandlessHousehold(City city, Dictionary<string, List<Actor>> households)
@@ -661,13 +670,19 @@ public static class LandEconomySystem
         float merchants = 0f;
         foreach (PopGroup group in data.groups)
             if (group.social_class == SocialClass.Merchant) merchants += group.Background;
-        if (merchants < 1f) margin = 0f;
-        float income = margin + rent;
-        if (income <= 0f) return;
-        float taxRate = city.kingdom == null ? 0f : Mathf.Clamp01((float)city.kingdom.GetTaxRate());
-        PayBackgroundTax(city, data, margin);
+        // 货是按九成价卖的，民间家底少了这一成；城里有背景商人，这一成是他们赚的，还在城里
+        if (merchants < 1f)
+        {
+            PopulationEconomySystem.AddSavings(city, data, -margin);
+            margin = 0f;
+        }
+        if (margin + rent <= 0f) return;
+        float tax = PayBackgroundTax(city, data, margin);
+        float before = Mathf.Max(0f, data.background_land_fund);
         data.background_land_fund = Mathf.Min(BackgroundLandPrice * 100f,
-            Mathf.Max(0f, data.background_land_fund) + (margin * (1f - taxRate) + rent) * BuyerSavingShare);
+            before + (margin - tax + rent) * BuyerSavingShare);
+        // 交的税和攒去买地的钱从民间存款里出
+        PopulationEconomySystem.AddSavings(city, data, -(tax + data.background_land_fund - before));
     }
 
     private static float BackgroundPeasants(CityPopulationData data)
@@ -713,7 +728,7 @@ public static class LandEconomySystem
             paid += boughtVoluntary * BackgroundLandPrice;
             data.background_land_fund = Mathf.Max(0f, data.background_land_fund - paid);
             landless = 1f - Mathf.Max(0f, owned - boughtDistress - boughtVoluntary) / pool;
-            PayBackgroundTax(city, data, paid);
+            ReceiveLandSale(city, data, paid);
         }
         data.background_landless = Mathf.Clamp01(landless);
         data.background_peasants_last = peasants;

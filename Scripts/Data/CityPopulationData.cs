@@ -74,6 +74,9 @@ public class CityPopulationData
     // 背景人口的收入：上次结算以来真实产出的价值(按市场价折算，见 PopulationEconomySystem.Deposit)与上次结算的年收入
     public float produced_value;
     public float last_income;
+    // 民间存款(见 PopulationEconomySystem.Savings)：-1 表示还没建账；上次结算的年消费
+    public float private_savings = -1f;
+    public float last_consumption;
     // 背景人口纳税(见 PopulationEconomySystem.PayTaxes)：零头与上次结算的年税收
     public float tax_carry;
     // 市场(见 MarketSystem)：上个月买进的总价值；上个月卖出的总价值(当月累计中)
