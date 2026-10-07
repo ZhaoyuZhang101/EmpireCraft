@@ -3340,5 +3340,6 @@
   "territory_font_previous": "Previous",
   "territory_font_next": "Next",
   "farm_planning_no_windmill": "This zone has no farmable land within 9 tiles of its city windmill.",
-  "zone_planning_contiguous": "Industrial and residential districts can only expand into neighboring zones; a second disconnected district cannot be created."
+  "zone_planning_contiguous": "Industrial and residential districts can only expand into neighboring zones; a second disconnected district cannot be created.",
+  "founder_bandwagon_history": "Overawed by {2}, founder of {1}, {0} submitted without a fight."
 }

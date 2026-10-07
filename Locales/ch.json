@@ -3340,5 +3340,6 @@
   "territory_font_previous": "上一頁",
   "territory_font_next": "下一頁",
   "farm_planning_no_windmill": "這個區塊沒有位於本城風車周圍9格內的可耕地。",
-  "zone_planning_contiguous": "工業區和住宅區只能向現有區域的相鄰區塊擴展，不能另建一片。"
+  "zone_planning_contiguous": "工業區和住宅區只能向現有區域的相鄰區塊擴展，不能另建一片。",
+  "founder_bandwagon_history": "{0}懾於{1}開國雄主{2}的威勢，望風歸附。"
 }

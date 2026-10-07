@@ -117,8 +117,10 @@ public class WarPatch: GamePatch
             World.world.wars.endWar(__instance, WarWinner.Attackers);
             return;
         }
-        // 同一法统内部的统一战争打到底，不受战争年限强制停战(见 WarlordEraSystem 统一进程)
-        if (__instance.getDuration() > ModClass.WAR_END_YEAR && !WarlordEraSystem.IsCivilWar(__instance))
+        // 同一法统内部的统一战争打到底，不受战争年限强制停战(见 WarlordEraSystem 统一进程)；
+        // 开国雄主统一本帝国核心的战争同样打到底
+        if (__instance.getDuration() > ModClass.WAR_END_YEAR && !WarlordEraSystem.IsCivilWar(__instance) &&
+            !RulerTraitSystem.IsFounderUnificationWar(__instance))
         {
             var attacker = __instance.getMainAttacker()?.king;
             if (attacker != null)

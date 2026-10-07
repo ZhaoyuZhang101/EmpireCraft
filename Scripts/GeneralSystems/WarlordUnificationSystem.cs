@@ -199,6 +199,43 @@ public static partial class WarlordEraSystem
         }
     }
 
+    // 开国雄主的望风归附(古代王朝，不限军阀时期)：开国雄主在位的帝国控制本核心过半城市时，
+    // 接壤、尚未入帝国、没有宗主的本核心割据政权每年按控制比例有一定概率归附(与"大势所趋"同一套概率与归附方式)
+    private static void FounderBandwagon(EmpireCore core, Dictionary<Kingdom, int> held, int total)
+    {
+        if (total <= 0 || NationalSentimentSystem.InUnitedFront(core)) return;
+        Kingdom founderKingdom = held.Keys
+            .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.IsEmpire() &&
+                              kingdom.GetEmpire()?.CoreKingdom == kingdom && RulerTraitSystem.FounderReigns(kingdom) &&
+                              IsLocalHolder(core, kingdom))
+            .OrderByDescending(kingdom => held[kingdom]).FirstOrDefault();
+        if (founderKingdom == null) return;
+        Empire founder = founderKingdom.GetEmpire();
+        float share = held[founderKingdom] / (float)total;
+        if (share < BandwagonShare) return;
+        float chance = Mathf.Clamp(0.10f + (share - BandwagonShare) * 1.25f, 0f, 0.5f);
+        foreach (Kingdom holder in held.Keys.ToList())
+        {
+            if (holder == null || holder == founderKingdom || holder.isRekt() || !holder.hasKing() ||
+                !IsLocalHolder(core, holder) || holder.IsInEmpire() || FeudalVassalService.GetOverlord(holder) != null ||
+                holder.GetRegime()?.type == RegimeType.Modern || !Borders(holder, founder) ||
+                Random.value >= chance) continue;
+            War war = FindActiveWar(holder, founderKingdom);
+            if (war != null)
+                World.world.wars.endWar(war, war.isAttacker(founderKingdom) ? WarWinner.Attackers : WarWinner.Defenders);
+            if (holder.isEnemy(founderKingdom) || !AbsorbDefector(founder, holder)) continue;
+            EmpireCoreControl.Invalidate(core);
+            EventRecorder.Record(founderKingdom, string.Format(LM.Get("founder_bandwagon_history"),
+                holder.GetKingdomFullName(), founder.GetBaseEmpireFullName(), founder.Emperor?.getName() ?? ""));
+        }
+    }
+
+    // 与这个帝国接壤：本国有城市与帝国的城市相邻
+    private static bool Borders(Kingdom kingdom, Empire empire) =>
+        kingdom?.cities != null && kingdom.cities.Any(city =>
+            city?.neighbours_cities != null && city.neighbours_cities.Any(neighbour =>
+                neighbour?.kingdom != null && neighbour.kingdom.GetEmpire() == empire));
+
     // 6. 兵败如山倒
     private static void Collapse(Dictionary<Kingdom, int> held, int total, Empire central,
         HashSet<Empire> representatives)

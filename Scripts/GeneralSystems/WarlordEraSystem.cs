@@ -402,6 +402,8 @@ public static partial class WarlordEraSystem
         Kingdom strongest = localHolders[0].Key;
         float share = held[strongest] / (float)total;
         bool strongUnification = HasStrongUnification(core.default_culture);
+        // 开国雄主统一天下(古代王朝)：控制核心过半后接壤的割据政权望风归附
+        FounderBandwagon(core, held, total);
 
         // 统一：现代政体控制 80% 以上
         if (share >= UnifyShare && strongest.GetRegime()?.type == RegimeType.Modern)

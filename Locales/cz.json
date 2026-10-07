@@ -3340,5 +3340,6 @@
   "territory_font_previous": "上一页",
   "territory_font_next": "下一页",
   "farm_planning_no_windmill": "这个区块没有位于本城风车周围9格内的可耕地。",
-  "zone_planning_contiguous": "工业区和住宅区只能向现有区域的相邻区块扩展，不能另建一片。"
+  "zone_planning_contiguous": "工业区和住宅区只能向现有区域的相邻区块扩展，不能另建一片。",
+  "founder_bandwagon_history": "{0}慑于{1}开国雄主{2}的威势，望风归附。"
 }

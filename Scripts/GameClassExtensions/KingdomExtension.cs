@@ -1465,6 +1465,8 @@ public static class KingdomExtension
     public static bool StartLocalRebelling(this Kingdom kingdom, EmpireWarType warType, string pre = "")
     {
         if (kingdom?.data == null) return false;
+        // 开国雄主在位：帝国境内不发生叛乱
+        if (RulerTraitSystem.FounderReigns(kingdom)) return false;
         kingdom.RememberRebellionOrigin(kingdom.GetEmpire());
         switch (warType)
         {

@@ -116,11 +116,12 @@ public class Empire : MetaObject<EmpireData>
     /// <param name="change">增加的数值</param>
     /// <returns></returns>
     // 开国气象：立国头 FoundingGraceYears 年人心思定，正统的损失减半(至少仍减 1)，
-    // 免得新帝国刚称帝就被战争、罢工、民怨磨到叛乱门槛以下，永远统一不了
+    // 免得新帝国刚称帝就被战争、罢工、民怨磨到叛乱门槛以下，永远统一不了；开国雄主在位期间一直有效
     public const int FoundingGraceYears = 10;
 
-    public bool InFoundingGrace => data != null && data.created_time > 0d &&
-                                   Date.getYearsSince(data.created_time) < FoundingGraceYears;
+    public bool InFoundingGrace => data != null &&
+                                   (data.created_time > 0d && Date.getYearsSince(data.created_time) < FoundingGraceYears ||
+                                    RulerTraitSystem.FounderReigns(CoreKingdom));
 
     public void AddMandate(int change)
     {

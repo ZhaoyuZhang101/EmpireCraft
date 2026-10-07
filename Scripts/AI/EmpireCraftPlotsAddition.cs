@@ -637,7 +637,8 @@ namespace EmpireCraft.Scripts.AI
 				    for (int wi = 0; wi < warsList1.Count; wi++)
 				    {
                         var war3 = warsList1[wi];
-					    if (war3.isAttacker(kingdom)&&war3.getDuration()>=ModClass.WAR_END_YEAR)
+					    if (war3.isAttacker(kingdom)&&war3.getDuration()>=ModClass.WAR_END_YEAR&&
+					        !EmpireCraft.Scripts.GeneralSystems.RulerTraitSystem.IsFounderUnificationWar(war3))
 					    {
 							war = war3;
 							break;
