@@ -320,6 +320,9 @@ public class ActorPatch : GamePatch
             __instance.getSimpleComponent<Boat>()?.unloadPassengers(__instance.current_tile, pRandomForce: true);
         }
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        // 动物、怪物没有官职爵位族谱：直接跳过(一次清掉几万只时，逐个遍历各帝国内阁会卡死)
+        if (__instance.asset != null && !__instance.asset.civ && !__instance.isKing() &&
+            __instance.GetPersonalIdentity() == null) return;
         // 无小人模式：征召兵战死，他代表的军团一并从人口里扣掉
         CityPopulationSystem.OnSoldierDied(__instance);
         VirtualGenealogySystem.OnActorDied(__instance, pType);

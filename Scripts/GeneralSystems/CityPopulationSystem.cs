@@ -542,6 +542,14 @@ public static class CityPopulationSystem
             var parts = new List<string>();
             foreach (KeyValuePair<string, int> pair in categories.OrderByDescending(pair => pair.Value))
                 parts.Add($"{pair.Key} {pair.Value}");
+            var wild = new Dictionary<string, int>();
+            foreach (Actor actor in World.world.units)
+                if (actor?.asset != null && !actor.asset.civ && actor.isAlive())
+                    wild[actor.asset.id] = wild.TryGetValue(actor.asset.id, out int w) ? w + 1 : 1;
+            var wildParts = new List<string>();
+            foreach (KeyValuePair<string, int> pair in wild.OrderByDescending(pair => pair.Value).Take(6))
+                wildParts.Add($"{pair.Key} {pair.Value}");
+            parts.Add("非文明生物前几位：" + string.Join("、", wildParts));
             int wheat = 0;
             foreach (Building building in World.world.buildings)
                 if (building?.asset != null && building.asset.wheat) wheat++;
@@ -795,7 +803,8 @@ public static class CityPopulationSystem
             advancedHousing = UrbanCitizenSystem.GetCapacity(city, Mathf.Max(1, households)) > 0;
             if (city.buildings != null)
                 foreach (Building building in city.buildings)
-                    if (building?.asset?.type == "type_mine" && !building.isUnderConstruction()) mines++;
+                    if ((IndustryBuildingSystem.IsMine(building?.asset) || IndustryBuildingSystem.IsLumber(building?.asset)) &&
+                        !building.isUnderConstruction()) mines++;
         }
         catch
         {
@@ -1056,7 +1065,9 @@ public static class CityPopulationSystem
 
     // 名人：保留为实体单位的人(军人另算，见 IsSoldier)。君主、城主、官僚、贵族、地主，党派/派系成员，
     // 正在谋划的人、玩家收藏或镜头跟随的人
-    public static bool IsNotable(Actor actor)
+    public static bool IsNotable(Actor actor) => IsNotable(actor, includeClanHead: true);
+
+    public static bool IsNotable(Actor actor, bool includeClanHead)
     {
         if (actor?.data == null || actor.isRekt()) return true;
         if (actor.isKing() || actor.isCityLeader()) return true;
@@ -1072,7 +1083,7 @@ public static class CityPopulationSystem
         if (actor.hasTrait("gongshi") || actor.hasTrait("jingshi")) return true;
         if (actor.hasTrait("juren") && IsKeptJuren(actor)) return true;
         // 宗族族长：每个宗族至少保留一名实体族长
-        if (VirtualGenealogySystem.IsClanHead(actor)) return true;
+        if (includeClanHead && VirtualGenealogySystem.IsClanHead(actor)) return true;
         return false;
     }
 
@@ -1141,7 +1152,12 @@ public static class CityPopulationSystem
 
         // 留在地图上的人不用吃饭、不用睡觉：饥饿值补满，正在睡的叫醒
         foreach (Actor actor in city.units)
-            if (actor?.data != null && !actor.isRekt() && actor.isAlive()) KeepFedAndAwake(actor);
+            if (actor?.data != null && !actor.isRekt() && actor.isAlive())
+            {
+                KeepFedAndAwake(actor);
+                // 已经领了原版差事(农夫、樵夫、矿工……)的名人放下差事
+                if (actor.citizen_job != null && !IsSoldier(actor)) actor.endJob();
+            }
 
         var toFold = new List<Actor>();
         // 军制(见 LevyTarget)：太平时不是军镇的城不留兵、军镇只留常备兵额(没有常备军就留一名将领)；

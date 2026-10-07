@@ -321,7 +321,9 @@ public class CityPatch : GamePatch
     public static bool getMainSubspecies(City __instance, ref Subspecies __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
-        if (__instance.CountLivingPopulation() == 0)
+        // 无小人模式下人口计入虚拟人口，城里可能一个实体都没有：原版会去取 units[0] 越界
+        if (__instance.CountLivingPopulation() == 0 ||
+            !__instance.hasLeader() && (__instance.units == null || __instance.units.Count == 0))
         {
             __result = null;
             return false;

@@ -134,6 +134,24 @@ public class NoCommonersPatch : GamePatch
         var harmony = new Harmony(nameof(NoCommonersPatch) + ".VanillaScale");
         var enter = new HarmonyMethod(typeof(NoCommonersPatch), nameof(EnterScale));
         var exit = new HarmonyMethod(typeof(NoCommonersPatch), nameof(ExitScale));
+        try
+        {
+            harmony.Patch(AccessTools.Method(typeof(Actor), "isPlacePrivateForBreeding"),
+                postfix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterIsPlacePrivateForBreeding)));
+            // 摄魂繁殖(火元素等)、分裂等不走 isPlacePrivateForBreeding，只看 isMetaLimitsReached：一并受上限约束
+            harmony.Patch(AccessTools.Method(typeof(BabyHelper), nameof(BabyHelper.isMetaLimitsReached)),
+                postfix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterIsMetaLimitsReached)));
+            // 宗族图层(按城显示)：城市铭牌后面列出本城的地方豪强
+            harmony.Patch(AccessTools.Method(typeof(NameplateText), nameof(NameplateText.showTextClanCity)),
+                postfix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterShowTextClanCity)));
+            // 生物群系随机刷动物(苍蝇、蚱蜢、甲虫等)同样受上限约束
+            harmony.Patch(AccessTools.Method(typeof(WorldBehaviourActions), "updateUnitSpawn"),
+                prefix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(BeforeUpdateUnitSpawn)));
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 无小人模式野生动物繁殖上限补丁未生效: {exception.Message}");
+        }
         foreach ((Type type, string name) in new[]
                  {
                      (typeof(Actor), "isPlacePrivateForBreeding"),
@@ -191,7 +209,10 @@ public class NoCommonersPatch : GamePatch
             if (decision?.action_check_launch != null)
             {
                 DecisionAction original = decision.action_check_launch;
-                decision.action_check_launch = actor => InVanillaScale(() => original(actor));
+                // 生产已经自动化：留在地图上的名人(族长、官员、士人等)不再去种地、砍树、采矿，只有士兵照原版找差事
+                decision.action_check_launch = actor =>
+                    (!CityPopulationSystem.AbstractPopulationEnabled || CityPopulationSystem.IsSoldier(actor)) &&
+                    InVanillaScale(() => original(actor));
             }
             PlotAsset plot = AssetManager.plots_library?.get("clan_ascension");
             if (plot?.check_is_possible != null)
@@ -300,6 +321,100 @@ public class NoCommonersPatch : GamePatch
     }
 
     public static void EnterScale() => CityPopulationSystem.EnterVanillaScale();
+
+    // 野生动物繁殖上限：无小人模式下地图上几乎没有平民打猎、开荒，野生动物会一路繁殖到几万只，
+    // 每帧逐个更新拖垮帧率(暂停时原版仍逐个处理可见性和死亡检查)。全图非文明生物超过上限就不再繁殖
+    private static int _wildCount;
+    private static float _wildCountedAt = -100f;
+    private const float WildCountInterval = 5f;
+
+    // 全图野生生物上限：每座城 WildPerCity 只(畜牧、狩猎的产出已经按地形自动结算，地图上的动物只是点缀)
+    private const int WildPerCity = 2;
+    public static int WildCap => (World.world?.cities?.Count ?? 0) * WildPerCity;
+
+    public static int WildCount()
+    {
+        if (Time.unscaledTime - _wildCountedAt < WildCountInterval) return _wildCount;
+        _wildCountedAt = Time.unscaledTime;
+        int count = 0;
+        foreach (Actor actor in World.world.units)
+            if (actor?.asset != null && !actor.asset.civ && !actor.asset.is_boat) count++;
+        return _wildCount = count;
+    }
+
+    public static void AfterIsMetaLimitsReached(Actor pActor, ref bool __result)
+    {
+        if (__result || !CityPopulationSystem.AbstractPopulationEnabled || pActor?.asset == null || pActor.asset.civ) return;
+        if (WildCount() >= WildCap) __result = true;
+    }
+
+    // 超出上限的野生生物分帧清掉(每帧最多 CullPerFrame 只，静默移除、不计死亡)，先清火元素等怪物，再清普通动物；
+    // 收藏和镜头跟随的不动
+    private const int CullPerFrame = 400;
+    private static readonly global::System.Collections.Generic.List<Actor> _cullBuffer = new();
+
+    public static void CullExcessWild()
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || World.world?.units == null || Config.paused ||
+            !Config.game_loaded) return;
+        int excess = WildCount() - WildCap;
+        if (excess <= 0) return;
+        _cullBuffer.Clear();
+        foreach (Actor actor in World.world.units)
+        {
+            if (_cullBuffer.Count >= CullPerFrame) break;
+            if (actor?.asset == null || actor.asset.civ || actor.asset.is_boat || !actor.isAlive()) continue;
+            if (actor.isFavorite() || actor.isCameraFollowingUnit() || AnimalHusbandrySystem.IsGame(actor.asset)) continue;
+            _cullBuffer.Add(actor);
+        }
+        if (_cullBuffer.Count < CullPerFrame)
+            foreach (Actor actor in World.world.units)
+            {
+                if (_cullBuffer.Count >= CullPerFrame) break;
+                if (actor?.asset == null || actor.asset.civ || actor.asset.is_boat || !actor.isAlive()) continue;
+                if (actor.isFavorite() || actor.isCameraFollowingUnit() || !AnimalHusbandrySystem.IsGame(actor.asset)) continue;
+                _cullBuffer.Add(actor);
+            }
+        int removed = 0;
+        foreach (Actor actor in _cullBuffer)
+        {
+            if (removed >= excess) break;
+            try
+            {
+                actor.die(true, AttackType.Other, false, false);
+                removed++;
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 清理野生生物失败: {exception.Message}");
+                break;
+            }
+        }
+        _wildCount = Mathf.Max(0, _wildCount - removed);
+        _cullBuffer.Clear();
+    }
+
+    public static void AfterShowTextClanCity(NameplateText __instance, Clan pMetaObject, City pCity)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || pCity == null || __instance == null) return;
+        var magnates = VirtualGenealogySystem.MagnatesOf(pCity);
+        if (magnates.Count == 0) return;
+        var names = new global::System.Collections.Generic.List<string>();
+        foreach (EmpireCraft.Scripts.System.SpecificClan clan in magnates) names.Add(clan.GetDisplayName());
+        string text = __instance._text_name.text + "  " + string.Format(NeoModLoader.General.LM.Get("clan_layer_magnates"),
+            string.Join("、", names));
+        __instance.setText(text, pCity.city_center);
+    }
+
+    public static bool BeforeUpdateUnitSpawn() =>
+        !CityPopulationSystem.AbstractPopulationEnabled || WildCount() < WildCap;
+
+    public static void AfterIsPlacePrivateForBreeding(Actor __instance, ref bool __result)
+    {
+        if (!__result || !CityPopulationSystem.AbstractPopulationEnabled || __instance?.asset == null ||
+            __instance.asset.civ || __instance.hasCity()) return;
+        if (WildCount() >= WildCap) __result = false;
+    }
 
     public static Exception ExitScale(Exception __exception)
     {
