@@ -88,7 +88,7 @@ public static class CityConstructionSystem
     // ---- 民居跟上科技 ----
     // 原版升级民居要求城里人口够多(按户计)，无小人模式下城市户数少，民居永远停在平房。这里每月直接按科技
     // 升级民居：本文化掌握了上一级民居的技术就能升(见 TechnologySystem.CanBuild)，不看人口。
-    // 每月最多 2 + 建设力/5 座，先升等级最低的；花钱同普通升级，仓库材料不够时改为付双倍的钱。
+    // 每月最多 2 + 建设力/5 座，先升等级最低的；花钱同普通升级，还要按等级花建材(见 HousingMaterials)，建材不够就等。
     private static void UpgradeHousing(City city, float rate)
     {
         if (city.buildings == null) return;
@@ -108,17 +108,43 @@ public static class CityConstructionSystem
         {
             if (limit <= 0) break;
             BuildingAsset target = AssetManager.buildings.get(house.asset.upgrade_to);
-            bool hasMaterials = city.hasEnoughResourcesFor(target.cost);
-            int cost = (UpgradeBaseCost + target.construction_progress_needed / 2) * (hasMaterials ? 1 : 2);
+            // 建材按房屋等级：木屋用木头，砖石房用石头，楼房用铁(金属)加石头；取原版造价和等级造价的大者。
+            // 仓库里不够就先不升(建材靠伐木场、矿场和市场)
+            (int wood, int stone, int metal) need = HousingMaterials(target);
+            if (city.getResourcesAmount("wood") < need.wood || city.getResourcesAmount("stone") < need.stone ||
+                city.getResourcesAmount("common_metals") < need.metal) continue;
+            int cost = UpgradeBaseCost + target.construction_progress_needed / 2;
             int fromCity = Mathf.Min(cost, Mathf.Max(0, city.GetMoney()));
             int fromState = cost - fromCity;
             if (fromState > 0 && (kingdom == null || kingdom.wild || kingdom.GetMoney() < fromState)) break;
-            bool upgraded = hasMaterials ? CityBehBuild.upgradeBuilding(house, city) : house.upgradeBuilding();
-            if (!upgraded) continue;
+            if (!house.upgradeBuilding()) continue;
+            if (need.wood > 0) city.takeResource("wood", need.wood);
+            if (need.stone > 0) city.takeResource("stone", need.stone);
+            if (need.metal > 0) city.takeResource("common_metals", need.metal);
             if (fromCity > 0) city.SubMoney(fromCity);
             if (fromState > 0) kingdom.SubMoney(fromState);
             limit--;
         }
+    }
+
+    // 升到 target 这一级民居要的建材(木头, 石头, 金属)：
+    //   1~2 级木屋：木头 4 + 2×等级；3~5 级砖石房：石头 4 + 2×等级、木头 2；6 级以上楼房：金属 2 + 等级、石头 4 + 等级。
+    // 与原版造价逐项取大者
+    private static (int wood, int stone, int metal) HousingMaterials(BuildingAsset target)
+    {
+        int level = Mathf.Max(1, target.upgrade_level + 1);
+        int wood, stone, metal;
+        if (level <= 2) { wood = 4 + 2 * level; stone = 0; metal = 0; }
+        else if (level <= 5) { wood = 2; stone = 4 + 2 * level; metal = 0; }
+        else { wood = 0; stone = 4 + level; metal = 2 + level; }
+        ConstructionCost cost = target.cost;
+        if (cost != null)
+        {
+            wood = Mathf.Max(wood, cost.wood);
+            stone = Mathf.Max(stone, cost.stone);
+            metal = Mathf.Max(metal, cost.common_metals);
+        }
+        return (wood, stone, metal);
     }
 
     // ---- 修路 ----

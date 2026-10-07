@@ -117,6 +117,8 @@ public static class IndustryBuildingSystem
     {
         BuildingAsset asset = AssetManager.buildings.get(id) ?? AssetManager.buildings.clone(id, from);
         asset.sprite_path = "buildings/" + id;
+        // 造型里的屋顶用原版的品红占位色画，游戏里换成王国颜色(和原版民居一样)
+        asset.has_kingdom_color = true;
         asset.building_sprites = null;
         asset.sprites_are_initiated = false;
         asset.has_sprites_main = true;
@@ -248,6 +250,75 @@ public static class IndustryBuildingSystem
     public static float MineOutputFactor(City city) => OutputFactor(city, IsMine);
     public static float LumberOutputFactor(City city) => OutputFactor(city, IsLumber);
     public static float WoodPerYear(City city) => LumberOutputFactor(city) * WoodPerLumberYear;
+
+    // ---- 伐木：伐木场真的砍本城领地里的树 ----
+    // 每座伐木场(按等级、工业区折算的产出倍数)每年砍 TreesPerLumberYear 棵，每棵出 WoodPerTree 份木头；
+    // 保护区里的树不砍。领地里没树了就只剩一点枯枝杂木(两成)，木头就得从别处买了。
+    // 树倒下有原版的倒树动画，砍掉的地方原版的树会慢慢再长回来
+    private const float TreesPerLumberYear = 8f;
+    private const float WoodPerTree = 3f;
+    private const float DeadwoodShare = 0.2f;
+    private static readonly Dictionary<long, float> FellCarry = new();
+
+    public static float HarvestTrees(City city, float years)
+    {
+        float factor = LumberOutputFactor(city);
+        if (factor <= 0f || city?.zones == null || city.data == null) return 0f;
+        FellCarry.TryGetValue(city.data.id, out float carry);
+        float want = factor * TreesPerLumberYear * years + carry;
+        int target = Mathf.FloorToInt(want);
+        FellCarry[city.data.id] = want - target;
+        int cut = 0;
+        if (target > 0)
+        {
+            // 先砍树最多的区块
+            var zones = new List<(TileZone zone, int trees)>();
+            foreach (TileZone zone in city.zones)
+            {
+                if (zone == null || ZonePlanSystem.Get(city, zone) == ZoneUse.Reserve) continue;
+                int count = zone.getHashset(BuildingList.Trees)?.Count ?? 0;
+                if (count > 0) zones.Add((zone, count));
+            }
+            zones.Sort((a, b) => b.trees.CompareTo(a.trees));
+            var felled = new List<Building>();
+            foreach ((TileZone zone, int _) in zones)
+            {
+                foreach (Building tree in zone.getHashset(BuildingList.Trees))
+                {
+                    if (felled.Count >= target) break;
+                    if (tree?.asset == null || tree.chopped || tree.isRuin()) continue;
+                    felled.Add(tree);
+                }
+                if (felled.Count >= target) break;
+            }
+            foreach (Building tree in felled)
+            {
+                try
+                {
+                    tree.chopTree();
+                    cut++;
+                }
+                catch (Exception exception)
+                {
+                    LogService.LogWarning($"[EmpireCraft][伐木] 砍树失败: {exception.Message}");
+                    break;
+                }
+            }
+        }
+        float shortfall = Mathf.Max(0f, target - cut);
+        return cut * WoodPerTree + shortfall * WoodPerTree * DeadwoodShare;
+    }
+
+    // 森林多的城可以多建伐木场：领地里每 40 棵树多许一座，最多多 4 座
+    public static int ForestExtraLimit(City city)
+    {
+        if (city?.zones == null) return 0;
+        int trees = 0;
+        foreach (TileZone zone in city.zones)
+            if (zone != null && ZonePlanSystem.Get(city, zone) != ZoneUse.Reserve)
+                trees += zone.getHashset(BuildingList.Trees)?.Count ?? 0;
+        return Mathf.Min(4, trees / 40);
+    }
 
     private static float OutputFactor(City city, Func<BuildingAsset, bool> kind)
     {

@@ -89,6 +89,8 @@ public class ZonePlanPatch : GamePatch
         if (IndustryBuildingSystem.IsMine(asset) || IndustryBuildingSystem.IsLumber(asset) ||
             asset?.type == AnimalHusbandrySystem.SlaughterhouseType)
             __result += IndustryBuildingSystem.ExtraLimit(__instance);
+        // 森林多的城多建伐木场
+        if (IndustryBuildingSystem.IsLumber(asset)) __result += IndustryBuildingSystem.ForestExtraLimit(__instance);
         else if (asset?.type == AnimalHusbandrySystem.PastureType && AnimalHusbandrySystem.IsNomadic(__instance.kingdom))
             __result += 2;
     }
