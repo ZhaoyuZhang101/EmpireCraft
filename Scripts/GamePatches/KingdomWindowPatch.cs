@@ -68,6 +68,9 @@ public class KingdomWindowPatch: GamePatch
                 __instance.showStatRow("creature_statistics_personality", (object) metaObject.king.s_personality.getTranslatedName(), MetaType.None, -1L, "actor_traits/iconStupid", (string) null, (TooltipDataGetter) null);
             __instance.showStatRow("kingdom_statistics_king_ruled", (object) Date.getYearsSince(metaObject.data.timestamp_king_rule), MetaType.None, -1L, "iconClock", (string) null, (TooltipDataGetter) null);
             __instance.showStatRow("ruler_money", (object) metaObject.GetMoney(), "#43FF43", pIconPath: "iconMoney");
+            if (!metaObject.wild)
+                __instance.showStatRow("plan_policy", EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.PolicyName(
+                    EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.PolicyOf(metaObject)), "#F3C34A", pIconPath: "iconCity");
             if (metaObject.GetKingdomType() == KingdomType.Feudalism_papal_state)
             {
                 __instance.showStatRow("religion_point", (object) metaObject.GetRegime().religion_point, "#43FF43", pIconPath: "iconMoney");

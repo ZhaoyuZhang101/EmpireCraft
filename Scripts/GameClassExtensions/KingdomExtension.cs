@@ -266,6 +266,10 @@ public static class KingdomExtension
         // 国家粮仓(见 GranarySystem)：存粮与上次结算损耗的时间
         public float granary;
         public double granary_last_spoil = -1d;
+        // 规划决议(见 ZonePlanSystem.PlanPolicy)：-1 = 还没定；上次评估的时间；神力手动定下的时间(之后若干年 AI 不改)
+        public int plan_policy = -1;
+        public double plan_policy_reviewed = -1d;
+        public double plan_policy_locked_at = -1d;
         public long CenterArmID = -1L;
         [JsonIgnore]
         public Task<(Actor, string)> CalcTask;

@@ -82,6 +82,10 @@ public static class CityExtension
         public double last_harsh_uprising = -1d;
         // 规划农田区(区块 id，见 FarmlandSystem)
         public List<int> farm_zones = new List<int>();
+        // 退耕的区块(区块 id)：AI 不再自动划为农田、风车周围也不再开田，直到重新手动规划
+        public List<int> retired_farm_zones = new List<int>();
+        // 区块用途(区块 id → ZoneUse，农耕区另存在 farm_zones 里，见 ZonePlanSystem)
+        public Dictionary<int, int> zone_uses = new Dictionary<int, int>();
         public long personalIdentityId = -1L;
         public bool is_choosing_heir = false;
         [JsonIgnore]

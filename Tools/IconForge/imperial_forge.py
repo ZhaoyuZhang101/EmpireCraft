@@ -816,6 +816,80 @@ def obj_farmland(img):
     over(img, shade(lines([[(204, 92), (232, 150)], [(204, 92), (150, 104)]], 7), RED, bevel=3, gloss=0.6))
 
 
+def obj_factory(img):
+    """工业区：锯齿屋顶的厂房(枪灰)，两根黑铁烟囱，门前旧铜齿轮。"""
+    over(img, shade(rrect([150, 30, 176, 150], 3), IRON, bevel=6, grain=0.3))
+    over(img, shade(rrect([190, 56, 214, 150], 3), IRON, bevel=6, grain=0.3))
+    roof = poly([(28, 120), (28, 96), (76, 72), (76, 96), (124, 72), (124, 96), (172, 72), (172, 96), (228, 96),
+                 (228, 120)])
+    over(img, shade(roof, STEEL, bevel=8, gloss=0.6))
+    over(img, shade(rrect([28, 116, 228, 214], 4), STEEL, bevel=12, grain=0.3))
+    for x in (48, 92, 136):
+        over(img, shade(rrect([x, 136, x + 26, 160], 2), BRASS, bevel=3, gloss=0.8))
+    gear = sub(ellipse([150, 140, 222, 212]), ellipse([174, 164, 198, 188]))
+    for k in range(8):
+        a = k * math.pi / 4
+        cx, cy = 186 + 38 * math.cos(a), 176 + 38 * math.sin(a)
+        gear = union(gear, rrect([cx - 8, cy - 8, cx + 8, cy + 8], 2))
+    over(img, shade(sub(gear, ellipse([174, 164, 198, 188])), BRASS, bevel=8, gloss=0.9))
+
+
+def obj_houses(img):
+    """居住区：一排三座民居，骨白墙、暗红坡顶、黑胡桃门窗。"""
+    for x0, h, pal in ((24, 96, BONE), (92, 70, BONE), (164, 100, BONE)):
+        top = 214 - h - 40
+        over(img, shade(rrect([x0, 214 - h, x0 + 68, 214], 3), pal, bevel=8, grain=0.3))
+        over(img, shade(poly([(x0 - 6, 214 - h + 4), (x0 + 34, top), (x0 + 74, 214 - h + 4)]), RED, bevel=8, gloss=0.6))
+        over(img, shade(rrect([x0 + 24, 176, x0 + 44, 214], 2), LACQ, bevel=3))
+        over(img, shade(rrect([x0 + 10, 214 - h + 14, x0 + 26, 214 - h + 30], 2), LACQ, bevel=2))
+
+
+def obj_market(img):
+    """商业区：条纹遮阳篷(暗红/骨白)的货摊，台面上旧铜钱币一摞。"""
+    over(img, shade(rrect([40, 96, 50, 214], 3), WOOD, bevel=4, grain=0.3))
+    over(img, shade(rrect([206, 96, 216, 214], 3), WOOD, bevel=4, grain=0.3))
+    for k in range(6):
+        x0 = 30 + k * 33
+        over(img, shade(poly([(x0, 60), (x0 + 33, 60), (x0 + 36, 110), (x0 - 3, 110)]), RED if k % 2 == 0 else BONE,
+                        bevel=6, gloss=0.6))
+    over(img, shade(rrect([30, 150, 226, 176], 4), WOOD, bevel=8, grain=0.4))
+    for k in range(4):
+        over(img, shade(ellipse([96, 136 - k * 12, 160, 156 - k * 12]), GOLD, bevel=5, gloss=1.0))
+
+
+def obj_tower(img):
+    """军事区：石砌箭楼(枪灰)带雉堞，木杆上一面暗红三角旗(无任何国家标志)。"""
+    over(img, shade(rrect([120, 20, 128, 80], 2), WOOD, bevel=3, grain=0.3))
+    over(img, shade(poly([(128, 22), (180, 38), (128, 56)]), RED, bevel=5, gloss=0.6))
+    body = union(rrect([72, 92, 184, 222], 4), *[rrect([68 + k * 30, 70, 88 + k * 30, 100], 2) for k in range(4)])
+    over(img, shade(body, STEEL, bevel=14, grain=0.4))
+    over(img, shade(rrect([116, 120, 140, 160], 8), LACQ, bevel=3))
+    over(img, shade(rrect([108, 178, 148, 222], 10), LACQ, bevel=3))
+
+
+def obj_pine(img):
+    """保护区：两株苍松(暗翠)与一根旧铜界碑。"""
+    for cx, base, scale in ((100, 222, 1.0), (176, 222, 0.75)):
+        over(img, shade(rrect([cx - 8, base - 40 * scale, cx + 8, base], 3), WOOD, bevel=4, grain=0.3))
+        for k in range(3):
+            y = base - 40 * scale - k * 46 * scale
+            w = (64 - k * 14) * scale
+            over(img, shade(poly([(cx - w, y), (cx, y - 70 * scale), (cx + w, y)]), JADE, bevel=10, gloss=0.5, grain=0.3))
+    over(img, shade(rrect([30, 150, 58, 222], 6), BRASS, bevel=6, gloss=0.8))
+
+
+def obj_blueprint(img):
+    """规划决议：摊开的规划图(羊皮纸，方格与分区色块)，上压一把旧铜分规。"""
+    over(img, shade(rrect([30, 40, 226, 216], 6), PARCH, bevel=10, grain=0.4))
+    grid = lines([[(30, y), (226, y)] for y in range(72, 216, 32)] + [[(x, 40), (x, 216)] for x in range(62, 226, 32)], 2)
+    over(img, shade(grid, WOOD, bevel=1, flat=True))
+    over(img, shade(rrect([64, 74, 124, 134], 2), RED, bevel=3, flat=True))
+    over(img, shade(rrect([128, 138, 188, 198], 2), JADE, bevel=3, flat=True))
+    over(img, shade(rrect([64, 138, 124, 166], 2), STEEL, bevel=3, flat=True))
+    over(img, shade(lines([[(150, 40), (96, 220)], [(150, 40), (214, 210)]], 9), BRASS, bevel=4, gloss=0.9))
+    over(img, shade(ellipse([136, 26, 164, 54]), BRASS, bevel=6, gloss=1.0))
+
+
 GODPOWERS = {
     "empire_layer": (obj_title, "crown"),
     "create_empire": (obj_crown, "plus"),
@@ -825,6 +899,12 @@ GODPOWERS = {
     "actor_create_kingdom": (obj_flag, "plus"),
     "territory_font": (obj_calligraphy, None),
     "farm_planning": (obj_farmland, None),
+    "zone_industry": (obj_factory, None),
+    "zone_residential": (obj_houses, None),
+    "zone_commerce": (obj_market, None),
+    "zone_military": (obj_tower, None),
+    "zone_reserve": (obj_pine, None),
+    "plan_policy": (obj_blueprint, None),
 }
 
 
@@ -918,6 +998,87 @@ EMPIRELIST = {
 }
 
 
+# ═════════════ 战略矿产(ui/icons/resources/iconRes_*) ═════════════
+def _ore_pile(img, body, fleck=None, flecks=()):
+    """三块堆叠的矿石，fleck 给出矿石表面的闪点(矿脉)。"""
+    for box in ([40, 120, 150, 222], [110, 104, 222, 218], [70, 52, 184, 160]):
+        over(img, shade(poly([(box[0], (box[1] + box[3]) // 2), ((box[0] + box[2]) // 2 - 20, box[1]),
+                              (box[2] - 10, box[1] + 14), (box[2], (box[1] + box[3]) // 2 + 10),
+                              ((box[0] + box[2]) // 2 + 14, box[3]), (box[0] + 12, box[3] - 8)]),
+                        body, bevel=14, gloss=0.5, grain=0.4))
+    if fleck is not None:
+        for x, y, r in flecks:
+            over(img, shade(ellipse([x - r, y - r, x + r, y + r]), fleck, bevel=4, gloss=1.0))
+
+
+def obj_res_copper(img):
+    """铜矿：铁灰矿石上一道道铜绿与赤铜色矿脉。"""
+    _ore_pile(img, IRON, BRASS, [(100, 90, 10), (150, 150, 9), (82, 170, 8), (176, 120, 7), (126, 112, 6)])
+    over(img, shade(ellipse([150, 76, 172, 98]), JADE, bevel=4, gloss=0.7))
+
+
+def obj_res_coal(img):
+    """煤：漆黑发亮的煤块。"""
+    _ore_pile(img, LACQ, STEEL, [(110, 80, 5), (170, 140, 4), (80, 160, 4)])
+
+
+def obj_res_saltpeter(img):
+    """硝石：骨白色结晶簇。"""
+    for x0, h in ((60, 130), (100, 170), (140, 150), (176, 110)):
+        over(img, shade(poly([(x0, 220), (x0 + 16, 220 - h), (x0 + 34, 220)]), BONE, bevel=8, gloss=0.9))
+    over(img, shade(rrect([40, 210, 216, 230], 6), STEEL, bevel=5, grain=0.3))
+
+
+def obj_res_sulfur(img):
+    """硫磺：旧铜黄的晶块。"""
+    _ore_pile(img, GOLD, BONE, [(110, 82, 6), (164, 140, 5), (84, 166, 5)])
+
+
+def obj_res_oil(img):
+    """石油：黑铁油桶，桶口淌出一滴黑油。"""
+    over(img, shade(rrect([64, 60, 192, 224], 14), IRON, bevel=14, gloss=0.7, grain=0.2))
+    for y in (100, 168):
+        over(img, shade(rrect([60, y, 196, y + 12], 4), STEEL, bevel=4, gloss=0.8))
+    over(img, shade(ellipse([150, 44, 178, 72]), STEEL, bevel=5))
+    over(img, shade(union(ellipse([196, 150, 230, 196]), poly([(198, 166), (213, 116), (228, 166)])), LACQ,
+                    bevel=6, gloss=1.0))
+
+
+def obj_res_aluminium(img):
+    """铝土：赭红色铝土矿石旁边一块银白铝锭。"""
+    _ore_pile(img, RED, BONE, [(96, 92, 4), (164, 150, 4)])
+    over(img, shade(poly([(118, 200), (140, 168), (228, 168), (206, 200)]), STEEL, bevel=8, gloss=1.0))
+    over(img, shade(poly([(118, 200), (206, 200), (206, 228), (118, 228)]), STEEL, bevel=6, gloss=0.6))
+
+
+def obj_res_rare_earth(img):
+    """稀土：灰黑矿石嵌着几颗暗翠与血红的晶粒。"""
+    _ore_pile(img, STEEL, JADE, [(104, 92, 9), (160, 146, 8), (84, 168, 7)])
+    for x, y, r in ((140, 104, 8), (120, 180, 6)):
+        over(img, shade(ellipse([x - r, y - r, x + r, y + r]), BLOOD, bevel=4, gloss=1.0))
+
+
+def obj_res_uranium(img):
+    """铀：铅灰矿石泛着暗绿的光，旁边一个黑底骨白的辐射警示牌(通用安全标识，非国家标志)。"""
+    _ore_pile(img, IRON, JADE, [(100, 96, 12), (160, 150, 10), (84, 170, 9), (172, 110, 8)])
+    over(img, shade(ellipse([150, 20, 236, 106]), BONE, bevel=6, gloss=0.6))
+    for k in range(3):
+        a0 = -math.pi / 2 + k * 2 * math.pi / 3 - 0.5
+        pts = [(193, 63)]
+        for j in range(7):
+            a = a0 + j * (1.0 / 6)
+            pts.append((193 + 36 * math.cos(a), 63 + 36 * math.sin(a)))
+        over(img, shade(poly(pts), LACQ, bevel=2, flat=True))
+    over(img, shade(ellipse([186, 56, 200, 70]), BONE, bevel=2, flat=True))
+    over(img, shade(ellipse([189, 59, 197, 67]), LACQ, bevel=1, flat=True))
+
+
+RESOURCES = {
+    "copper": obj_res_copper, "coal": obj_res_coal, "saltpeter": obj_res_saltpeter, "sulfur": obj_res_sulfur,
+    "oil": obj_res_oil, "aluminium": obj_res_aluminium, "rare_earth": obj_res_rare_earth, "uranium": obj_res_uranium,
+}
+
+
 # ═════════════ 生成 ═════════════
 def build():
     out = {}
@@ -931,6 +1092,8 @@ def build():
         out[f"GameResources/ui/icons/godpowers/{name}.png"] = make_plot(obj, badge)
     for name, (obj, badge) in EMPIRELIST.items():
         out[f"GameResources/ui/icons/empirelist/{name}.png"] = make_plot(obj, badge)
+    for name, obj in RESOURCES.items():
+        out[f"GameResources/ui/icons/resources/iconRes_{name}.png"] = make_plot(obj, None)
     for name, (obj, badge) in TOOLS.items():
         out[f"GameResources/ui/icons/{name}.png"] = make_plot(obj, badge)
     src = os.path.join(HERE, "source")

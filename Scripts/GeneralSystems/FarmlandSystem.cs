@@ -46,7 +46,7 @@ public static class FarmlandSystem
     {
         ConstitutionFarmland.None => 0f,
         ConstitutionFarmland.Strict => RedLineBase,
-        _ => RedLineBase / Productivity(city)
+        _ => RedLineBase / Productivity(city) * ZonePlanSystem.FarmFactor(city?.kingdom)
     };
 
     public static bool IsProtected(City city) => city != null && Policy(city.kingdom) != ConstitutionFarmland.None;
@@ -61,14 +61,64 @@ public static class FarmlandSystem
     public static bool IsPlanned(City city, TileZone zone) =>
         city?.data != null && zone != null && zone.city == city && Zones(city).Contains(zone.id);
 
-    // 划入/取消规划农田区，返回划入后的状态
+    private static List<int> RetiredZones(City city)
+    {
+        CityExtension.CityExtraData data = city.GetOrCreate();
+        data.retired_farm_zones ??= new List<int>();
+        return data.retired_farm_zones;
+    }
+
+    public static bool IsRetired(City city, TileZone zone) =>
+        city?.data != null && zone != null && RetiredZones(city).Contains(zone.id);
+
+    // 划入/退耕，返回划入后的状态。退耕：取消规划、拆掉庄稼、田地恢复成周围的草地(见 RetireZone)
     public static bool TogglePlanned(City city, TileZone zone)
     {
         if (city?.data == null || zone == null || zone.city != city) return false;
         List<int> zones = Zones(city);
-        if (zones.Remove(zone.id)) return false;
+        if (zones.Remove(zone.id))
+        {
+            RetireZone(zone);
+            if (!RetiredZones(city).Contains(zone.id)) RetiredZones(city).Add(zone.id);
+            return false;
+        }
         zones.Add(zone.id);
+        RetiredZones(city).Remove(zone.id);
         return true;
+    }
+
+    // 退耕还草：区块里的庄稼拆掉，田地换回相邻地块最常见的地表(草地、林地等)；周围也都是田就退成裸土
+    public static int RetireZone(TileZone zone)
+    {
+        if (zone?.tiles == null) return 0;
+        int count = 0;
+        var counts = new Dictionary<TopTileType, int>();
+        foreach (WorldTile tile in zone.tiles)
+        {
+            if (tile?.Type == null || !tile.Type.farm_field) continue;
+            Building crop = tile.building;
+            if (crop?.asset != null && crop.asset.wheat) crop.startDestroyBuilding();
+            counts.Clear();
+            TopTileType best = null;
+            int bestCount = 0;
+            if (tile.neighboursAll != null)
+                foreach (WorldTile neighbour in tile.neighboursAll)
+                {
+                    TopTileType top = neighbour?.top_type;
+                    if (top == null || top.farm_field) continue;
+                    int n = counts.TryGetValue(top, out int c) ? c + 1 : 1;
+                    counts[top] = n;
+                    if (n > bestCount)
+                    {
+                        bestCount = n;
+                        best = top;
+                    }
+                }
+            if (best != null) MapAction.terraformTop(tile, best);
+            else MapAction.terraformTile(tile, tile.main_type, null);
+            count++;
+        }
+        return count;
     }
 
     // 本城现在还归它的规划农田区
@@ -236,7 +286,7 @@ public static class FarmlandSystem
         foreach (WorldTile tile in city.calculated_place_for_farms)
         {
             if (count >= MaxFieldsPerSettle) break;
-            if (tile?.zone?.tiles == null || !CanMakeField(tile)) continue;
+            if (tile?.zone?.tiles == null || !CanMakeField(tile) || IsRetired(city, tile.zone)) continue;
             if (!origins.TryGetValue(tile.zone, out (int x, int y) origin)) origins[tile.zone] = origin = ZoneOrigin(tile.zone);
             if (!IsFieldSpot(tile, origin)) continue;
             MapAction.terraformTop(tile, TopTileLibrary.field);
@@ -275,7 +325,8 @@ public static class FarmlandSystem
         WorldTile center = city.getTile();
         foreach (TileZone zone in city.zones)
         {
-            if (zone?.tiles == null || IsPlanned(city, zone) || center != null && center.zone == zone) continue;
+            if (zone?.tiles == null || IsPlanned(city, zone) || IsRetired(city, zone) ||
+                center != null && center.zone == zone) continue;
             int score = 0;
             foreach (WorldTile tile in zone.tiles)
                 if (tile?.Type != null && (tile.Type.farm_field || CanMakeField(tile))) score++;

@@ -23,12 +23,47 @@ public static class EmpireCraftMetaTypeLibrary
       AddKingdomTitleMeta();
       AddIdeologyMeta();
       AddNationMeta();
+      AddMineralMeta();
       AssetManager.meta_type_library.linkAssets();
     }
 
     // 理念图层：按各城市的主理念上色，独立于原版宗教；点城市打开理念窗口
     public static MetaTypeAsset ideology;
     public static MetaTypeAsset nation;
+    public static MetaTypeAsset mineral;
+
+    // 矿产图层：地块按城描边、有矿藏的城淡淡上色，城上方并排显示矿藏图标(见 Layer/MineralMap.cs)
+    public static void AddMineralMeta()
+    {
+        var asset = new MetaTypeAsset
+        {
+            id = "mineral",
+            ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5),
+            window_name = "IdeologyInfoWindow",
+            power_tab_id = "selected_empire",
+            force_zone_when_selected = false,
+            set_icon_for_cancel_button = true,
+            icon_list = "iconReligionList",
+            icon_single_path = "ui/icons/resources/iconRes_coal",
+            has_dynamic_zones = false,
+            reports = new string[0],
+            map_mode = MetaTypeExtension.Mineral,
+            option_id = "map_Mineral_layer",
+            power_option_zone_id = "Mineral_layer"
+        };
+        asset.window_action_clear = (MetaTypeAction) (() => { });
+        asset.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.get_list = (MetaTypeListAction) (() => Enumerable.Empty<NanoObject>());
+        asset.has_any = (MetaTypeListHasAction) (() => false);
+        asset.get_selected = (MetaSelectedGetter) (() => null);
+        asset.set_selected = (MetaSelectedSetter) (_ => { });
+        asset.get = (MetaGetter) (_ => null);
+        asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
+        asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
+        EmpireCraft.Scripts.Layer.MineralMap.Configure(asset);
+        mineral = AssetManager.meta_type_library.add(asset);
+    }
 
     // 民族情绪图层：与理念图层一样不开 has_dynamic_zones，地块在 draw_zones 里自己画(见 Layer/NationMap.cs)
     public static void AddNationMeta()

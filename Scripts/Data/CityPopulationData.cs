@@ -63,11 +63,21 @@ public class CityPopulationData
     public float last_food_output;
     public float last_food_eaten;
     public float last_food_shortage;
+    // 上次结算的皮革消耗与缺口(按户数，见 PopulationEconomySystem.ConsumeGoods)
+    public float last_leather_used;
+    public float last_leather_shortage;
+    public float leather_need_carry;
     public float last_gold_output;
     // 背景人口纳税(见 PopulationEconomySystem.PayTaxes)：零头与上次结算的年税收
     public float tax_carry;
     // 市场(见 MarketSystem)：上个月买进的总价值；上个月卖出的总价值(当月累计中)
     public float last_market_bought;
+    // 牧群头数与上月畜牧产肉(见 AnimalHusbandrySystem)
+    public float herd;
+    // 矿藏储量(资源 id → 已采出的量)与枯竭时间(资源 id → 枯竭时的世界时间)，见 MineralResourceSystem
+    public Dictionary<string, float> deposit_mined = new();
+    public Dictionary<string, double> deposit_depleted_at = new();
+    public float last_husbandry_meat;
     public float last_market_sold;
     public float market_sold_month;
     public double market_sold_since = -1d;

@@ -655,6 +655,23 @@ public static class EmpireCraftNamePlateLibrary
         };
         AssetManager.nameplates_library.map_modes_nameplates[assetNation.map_mode] = assetNation;
         AssetManager.nameplates_library.dict["Nation"] = assetNation;
+
+        // 矿产图层不画铭牌，每帧在这里提交矿藏图标(见 Layer/MineralMap.cs)
+        NameplateAsset assetMineral = new NameplateAsset
+        {
+            id = "plate_mineral",
+            path_sprite = "ui/nameplates/nameplate_kingdom",
+            map_mode = MetaTypeExtension.Mineral,
+            action_main = (manager, asset) =>
+            {
+                if (!IsNameplateReady) return;
+                TerritoryLabelRenderer.HideAll();
+                EmpireCraft.Scripts.Layer.MineralIconRenderer.Submit(
+                    EmpireCraftMetaTypeLibrary.mineral?.getZoneOptionState() ?? 0);
+            }
+        };
+        AssetManager.nameplates_library.map_modes_nameplates[assetMineral.map_mode] = assetMineral;
+        AssetManager.nameplates_library.dict["Mineral"] = assetMineral;
     }
 
     private static IdeologyMapColor GetIdeologyColor(PartyIdeology ideology)

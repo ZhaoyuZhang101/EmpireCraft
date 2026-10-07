@@ -112,14 +112,16 @@ public static class PopulationEconomySystem
             }
         }
         Deposit(city, data, _foodId ?? "berries", background * SubsistenceFoodPerYear * years);
-        // 矿场固定产矿：每座建成的矿场每年产出固定数量，不看岗位和人口
-        int mines = 0;
-        if (city.buildings != null)
-            foreach (Building building in city.buildings)
-                if (building?.asset?.type == "type_mine" && !building.isUnderConstruction()) mines++;
-        if (mines > 0)
+        // 矿场、伐木场固定产出：每座建成的每年产出固定数量，按等级倍增、在工业区再加成，不看岗位和人口
+        // (见 IndustryBuildingSystem)
+        float mines = IndustryBuildingSystem.MineOutputFactor(city);
+        if (mines > 0f)
             foreach ((string resource, float amount) in MineOutput)
                 if (AssetManager.resources?.get(resource) != null) Deposit(city, data, resource, mines * amount * years);
+        // 战略矿产(铜、煤、硝石……)按矿场等级和本城矿藏开采，见 MineralResourceSystem
+        MineralResourceSystem.Produce(city, data, years);
+        float wood = IndustryBuildingSystem.WoodPerYear(city);
+        if (wood > 0f && AssetManager.resources?.get("wood") != null) Deposit(city, data, "wood", wood * years);
         float gold = (Get(workforceByClass, SocialClass.Labour) * LabourGoldPerYear +
                       Get(workforceByClass, SocialClass.Merchant) * MerchantGoldPerYear +
                       Get(workforceByClass, SocialClass.Citizen) * CitizenGoldPerYear) * productivity * years;
@@ -127,6 +129,7 @@ public static class PopulationEconomySystem
         PayTaxes(city, data, workforceByClass, years);
         // 施工改由城市建设力推进(见 CityConstructionSystem)，不再按工人数
         float eaten = EatFood(city, data, background * FoodPerPersonYear * years, out float shortage);
+        ConsumeGoods(city, data, background, years);
         // 饥荒：国家粮仓开仓赈灾，调来的粮食补上缺口
         if (shortage > 0f)
         {
@@ -219,7 +222,7 @@ public static class PopulationEconomySystem
     }
 
     // 产出攒满整数再存进仓库，零头留到下次
-    private static void Deposit(City city, CityPopulationData data, string resource, float amount)
+    public static void Deposit(City city, CityPopulationData data, string resource, float amount)
     {
         if (amount <= 0f) return;
         data.output_carry ??= new Dictionary<string, float>();
@@ -267,6 +270,31 @@ public static class PopulationEconomySystem
         }
         shortage = portions - eaten;
         return eaten;
+    }
+
+    // 日用消耗(按户数)：皮革做衣履、鞍具。肉类已经和粮食一起按户吃掉(见 EatFood)。
+    // 现代翻倍；库存不够只记缺口
+    private const float LeatherPerHouseholdYear = 0.01f;
+
+    private static void ConsumeGoods(City city, CityPopulationData data, float households, float years)
+    {
+        float need = households * LeatherPerHouseholdYear * years *
+                     (ModernStability.IsModern(city.kingdom) ? 2f : 1f) + data.leather_need_carry;
+        int whole = Mathf.FloorToInt(need);
+        data.leather_need_carry = need - whole;
+        if (whole <= 0) return;
+        int take = 0;
+        try
+        {
+            take = Mathf.Min(whole, city.getResourcesAmount("leather"));
+            if (take > 0) city.takeResource("leather", take);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][人口经济] 扣皮革失败: {exception.Message}");
+        }
+        data.last_leather_used = take;
+        data.last_leather_shortage = whole - take;
     }
 
     // 工人去工地：按攒下的施工点数推进城里在建的建筑

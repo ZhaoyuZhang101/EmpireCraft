@@ -165,6 +165,14 @@ internal static class MainTab
         AddButton(TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("farm_planning",
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/farm_planning")));
+        // 城市规划(工业区、居住区、商业区、军事区、保护区)与规划决议
+        ZonePlanningButtons.init();
+        foreach ((string id, _) in ZonePlanningButtons.Powers)
+            AddButton(TITLE_GROUP,
+                PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
+        AddButton(TITLE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("plan_policy",
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/plan_policy")));
 
         // ---- 帝国核心 ----
         CreateEmpireCoreButton.init();
@@ -262,6 +270,11 @@ internal static class MainTab
         PowerButton nationLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Nation,
                  SpriteTextureLoader.getSprite("ui/icons/iconNationLayer"));
         AddButton(CULTURE_GROUP, nationLayer);
+
+        // 矿产图层(图标用现成的资源图标)
+        PowerButton mineralLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Mineral,
+                 SpriteTextureLoader.getSprite("ui/icons/resources/iconRes_coal"));
+        AddButton(CULTURE_GROUP, mineralLayer);
 
         var cultureConfigButton = PowerButtonCreator.CreateWindowButton("culture_list", nameof(CultureSpeciesPairWindow),
             SpriteTextureLoader.getSprite("ui/icons/iconCulture"));

@@ -545,6 +545,15 @@ public static class IdeologyPopulationSystem
         }
     }
 
+    // 上次结算的皮革缺口比例(0~1)
+    public static float GoodsShortage(City city)
+    {
+        Data.CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data == null) return 0f;
+        float need = data.last_leather_used + data.last_leather_shortage;
+        return need <= 0f ? 0f : Mathf.Clamp01(data.last_leather_shortage / need);
+    }
+
     // 城市经济形态(各 0~1)：
     //   繁荣度 = 商人与市民占成年人口的比例(三成即满)占七成 + 有高级民居(能容纳市民)占三成 → 自由主义；
     //   工业化 = 工人占成年人口的比例(三成即满)占七成 + 有工厂占三成 → 社会主义；
@@ -589,7 +598,9 @@ public static class IdeologyPopulationSystem
         // 集体化的农民只保留三成"有地小农守传统"的倾向，否则国有化反而把整个农村推向保守主义
         Regimes.Regime regime = city.kingdom?.GetRegime();
         float settledFactor = regime != null && !Regimes.RegimeManager.AllowsLandlordClass(regime.type) ? 0.3f : 1f;
-        return new CityEconomyProfile(0.7f * commerce + 0.3f * housing, 0.7f * labour + 0.3f * factories,
+        // 日用品短缺(皮革不够做衣履鞍具)：繁荣度最多打七折
+        float prosperity = (0.7f * commerce + 0.3f * housing) * (1f - 0.3f * GoodsShortage(city));
+        return new CityEconomyProfile(prosperity, 0.7f * labour + 0.3f * factories,
             agrarian * (1f - landless) * settledFactor, agrarian * landless);
     }
 

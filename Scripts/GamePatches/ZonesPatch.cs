@@ -99,6 +99,11 @@ public class ZonesPatch:GamePatch
             __result = MetaTypeExtension.Nation;
             return false;
         }
+        if (EmpireCraftMetaTypeLibrary.mineral?.isActive(pCheckOnlyOption) == true)
+        {
+            __result = MetaTypeExtension.Mineral;
+            return false;
+        }
         __result = MetaType.City;
         return false;
     }

@@ -69,12 +69,18 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         IS_CLEAR = false;
         // 所有模组都加载完了，补上兼容模组的译文(盖掉它们初始化时写的英文)
         Compatibility.CompatLocalization.Apply();
+        // 所有模组都加载完了，重新接上矿场伐木场的升级链(盖掉其他模组对原版矿场升级的设置)
+        EmpireCraft.Scripts.GeneralSystems.IndustryBuildingSystem.Link();
     }
 
     private void Update()
     {
         EmpireCraftStrategicScheduler.Tick();
         EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Tick();
+        EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.Tick();
+        EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.TickOverlay();
+        EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.Tick();
+        EmpireCraft.Scripts.GamePatches.NoCommonersPatch.CullExcessWild();
     }
 
     public GameObject GetGameObject()

@@ -77,6 +77,7 @@ public class CityWindowPatch : GamePatch
             land.LandlessPopulationRatio >= LandEconomySystem.RebellionLandlessThreshold ? "#E66B66" : "#B8C6CC",
             pIconPath: "iconChildren");
         if (CityPopulationSystem.AbstractPopulationEnabled) ShowPopulationRows(__instance, metaObject);
+        ShowZoneRows(__instance, metaObject);
         UrbanEmploymentReport employment = UrbanEmploymentSystem.GetReport(metaObject);
         __instance.showStatRow("city_production_stage",
             LM.Get($"urban_production_stage_{employment.Stage}"), "#F3C34A", pIconPath: "iconMoney");
@@ -98,6 +99,53 @@ public class CityWindowPatch : GamePatch
         }
         return false;
     }
+    // 城市规划：各用途的区块数，以及矿场、伐木场的最高等级
+    private static void ShowZoneRows(CityWindow window, City city)
+    {
+        var parts = new global::System.Collections.Generic.List<string>();
+        foreach (ZoneUse use in new[] { ZoneUse.Farm, ZoneUse.Industry, ZoneUse.Residential, ZoneUse.Commerce,
+                     ZoneUse.Military, ZoneUse.Reserve })
+        {
+            int count = ZonePlanSystem.Count(city, use);
+            if (count > 0) parts.Add($"{ZonePlanSystem.UseName(use)} {count}");
+        }
+        if (parts.Count > 0)
+            window.showStatRow("city_zone_plan", string.Join(" / ", parts), "#B8C6CC", pIconPath: "iconCity");
+        int mine = 0, lumber = 0;
+        if (city.buildings != null)
+            foreach (Building building in city.buildings)
+            {
+                if (building?.asset == null || building.isUnderConstruction()) continue;
+                int tier = IndustryBuildingSystem.Tier(building.asset);
+                if (IndustryBuildingSystem.IsMine(building.asset) && tier > mine) mine = tier;
+                if (IndustryBuildingSystem.IsLumber(building.asset) && tier > lumber) lumber = tier;
+            }
+        float herd = CityPopulationSystem.Get(city)?.herd ?? 0f;
+        float capacity = AnimalHusbandrySystem.HerdCapacity(city);
+        if (capacity > 0f || herd > 0f)
+            window.showStatRow("city_herd", string.Format(LM.Get("city_herd_format"), Mathf.RoundToInt(herd),
+                Mathf.RoundToInt(capacity)), "#B8E07A", pIconPath: "iconPopulation");
+        var deposits = MineralResourceSystem.Deposits(city);
+        if (deposits.Count > 0)
+        {
+            var names = new global::System.Collections.Generic.List<string>();
+            foreach ((string id, bool minable, float remaining, int cooldown) in deposits)
+            {
+                if (cooldown > 0)
+                    names.Add($"<color=#E66B66>{string.Format(LM.Get("deposit_cooldown"), LM.Get(id), cooldown)}</color>");
+                else if (minable) names.Add($"{LM.Get(id)} {remaining:P0}");
+                else names.Add($"<color=#8A8A8A>{LM.Get(id)}</color>");
+            }
+            window.showStatRow("city_deposits", string.Join(" ", names), "#E6C27A", pIconPath: "iconMoney");
+        }
+        float shortage = IdeologyPopulationSystem.GoodsShortage(city);
+        if (shortage > 0f)
+            window.showStatRow("city_leather_shortage", $"{shortage:P0}", "#E6A166", pIconPath: "iconMoney");
+        if (mine > 0 || lumber > 0)
+            window.showStatRow("city_industry_tier", string.Format(LM.Get("city_industry_tier_format"), mine, lumber),
+                "#E6A166", pIconPath: "iconMoney");
+    }
+
     // 无小人模式的城市人口面板：规模与户数、年增长率、粮食、就业、在外军团，以及阶层、文化、物种构成
     private static void ShowPopulationRows(CityWindow window, City city)
     {
