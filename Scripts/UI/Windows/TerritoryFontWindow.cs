@@ -88,7 +88,8 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
             Font font = TerritoryLabelRenderer.GetOsFont(name);
             if (text != null)
             {
-                if (font != null && text.text.Where(c => !char.IsWhiteSpace(c)).All(font.HasCharacter)) text.font = font;
+                if (font != null && text.text.Where(c => !char.IsWhiteSpace(c)).All(c => BundledTerritoryFonts.IsBundled(font) ? BundledTerritoryFonts.Supports(c) : font.HasCharacter(c)))
+                    text.font = font;
                 text.material = null;
                 text.fontSize = 12;
                 text.resizeTextForBestFit = false;

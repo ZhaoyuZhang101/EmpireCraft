@@ -318,7 +318,11 @@ public static class TerritoryLabelRenderer
         {
             if (richText && character == '<') { insideTag = true; continue; }
             if (insideTag) { if (character == '>') insideTag = false; continue; }
-            if (character is not ('\n' or '\r' or '\t') && selected != null && !selected.HasCharacter(character)) return fallback;
+            if (character is ('\n' or '\r' or '\t') || selected == null) continue;
+            // 内置篆书按字体文件的字表判断(从文件建的字体 HasCharacter 不可靠)
+            bool has = BundledTerritoryFonts.IsBundled(selected) ? BundledTerritoryFonts.Supports(character)
+                : selected.HasCharacter(character);
+            if (!has) return fallback;
         }
         return selected;
     }
