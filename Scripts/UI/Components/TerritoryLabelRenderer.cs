@@ -303,8 +303,8 @@ public static class TerritoryLabelRenderer
 
     // 字体按铭牌字体设置(TerritoryFontSettings)：游戏字体 / 自动挑本机的传统书体 / 指定字体。
     // 自动模式下含英文字母的名字用西文衬线字体。
-    // sealFont(华夏国号)：依次试内置篆书(小篆 → 中山王篆)，都缺字就用隶书兜底。
-    // 选中的字体缺字时也先用本机隶书兜底，再不行才用游戏字体。
+    // sealFont(华夏国号)：依次试内置篆书(小篆 → 中山王篆)。
+    // 隶书兜底：选中的字体(或篆书)缺字、加载出错、取不到字形(会显示成空白)时一律改用本机隶书，本机没有隶书才用游戏字体。
     // display：实际要显示的文字(繁体篆书会把简体转成繁体)
     // 每帧每个铭牌都要问一次：按(文字, 富文本, 篆书)缓存结果，字体设置改变时清空(见 ResetFonts)
     private static readonly Dictionary<(string, bool, bool, Font), (Font font, string display)> _resolve_cache = new();
@@ -330,7 +330,7 @@ public static class TerritoryLabelRenderer
         if (sealFont && TerritoryFontSettings.SealHuaxiaNames)
         {
             foreach (BundledFont bundled in BundledTerritoryFonts.All)
-                if (bundled.TryAdapt(text, richText, out string adapted))
+                if (bundled.TryAdapt(text, richText, out string adapted) && CanRender(bundled.Font, adapted, richText))
                 {
                     display = adapted;
                     return bundled.Font;
@@ -352,13 +352,13 @@ public static class TerritoryLabelRenderer
         BundledFont chosen = BundledTerritoryFonts.Of(selected);
         if (chosen != null)
         {
-            if (chosen.TryAdapt(text, richText, out string adapted))
+            if (chosen.TryAdapt(text, richText, out string adapted) && CanRender(selected, adapted, richText))
             {
                 display = adapted;
                 return selected;
             }
         }
-        else if (HasAll(selected, text, richText)) return selected;
+        else if (HasAll(selected, text, richText) && CanRender(selected, text, richText)) return selected;
         return ClericalFallback(text, richText, selected) ?? fallback;
     }
 
@@ -375,16 +375,48 @@ public static class TerritoryLabelRenderer
         return true;
     }
 
-    // 隶书兜底：本机装的隶书里第一个字全的
-    private static Font ClericalFallback(string text, bool richText, Font except = null)
+    // 隶书兜底：本机装的隶书里第一个字全、画得出来的
+    public static Font ClericalFallback(string text, bool richText, Font except = null)
     {
         foreach ((string name, string styleKey) in TerritoryFontSettings.TraditionalFonts())
         {
             if (styleKey != "font_style_clerical") continue;
             Font font = GetOsFont(name);
-            if (font != null && font != except && HasAll(font, text, richText)) return font;
+            if (font != null && font != except && HasAll(font, text, richText) && CanRender(font, text, richText))
+                return font;
         }
         return null;
+    }
+
+    // 字体真的画得出这些字吗：先让字体把字形画进图集，再看每个字都有大小、图集贴图存在。
+    // 从文件读的字体有时认得字却画不出来(显示成空白)，这里查出来就改用隶书
+    public static bool CanRender(Font font, string text, bool richText)
+    {
+        if (font == null) return false;
+        try
+        {
+            var builder = new global::System.Text.StringBuilder();
+            bool insideTag = false;
+            foreach (char character in text ?? "")
+            {
+                if (richText && character == '<') { insideTag = true; continue; }
+                if (insideTag) { if (character == '>') insideTag = false; continue; }
+                if (!char.IsWhiteSpace(character)) builder.Append(character);
+            }
+            string glyphs = builder.ToString();
+            if (glyphs.Length == 0) return true;
+            int size = TerritoryLabelProjection.ReferenceFontSize;
+            font.RequestCharactersInTexture(glyphs, size, FontStyle.Normal);
+            foreach (char character in glyphs)
+                if (!font.GetCharacterInfo(character, out CharacterInfo info, size, FontStyle.Normal) ||
+                    info.glyphWidth <= 0 || info.glyphHeight <= 0)
+                    return false;
+            return font.material != null && font.material.mainTexture != null;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public static Font GetOsFont(string fontName)

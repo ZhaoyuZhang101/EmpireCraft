@@ -100,17 +100,21 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
             if (text != null)
             {
                 BundledFont bundled = BundledTerritoryFonts.Of(font);
-                if (bundled != null)
+                string shown = text.text;
+                // 繁体篆书先把预览字转成繁体；缺字或画不出来(空白)时用隶书预览
+                bool usable = bundled != null
+                    ? bundled.TryAdapt(text.text, false, out shown)
+                    : font != null && text.text.Where(c => !char.IsWhiteSpace(c)).All(font.HasCharacter);
+                if (usable && TerritoryLabelRenderer.CanRender(font, shown, false))
                 {
-                    // 繁体篆书先把预览字转成繁体
-                    if (bundled.TryAdapt(text.text, false, out string adapted))
-                    {
-                        text.text = adapted;
-                        text.font = font;
-                    }
-                }
-                else if (font != null && text.text.Where(c => !char.IsWhiteSpace(c)).All(font.HasCharacter))
+                    text.text = shown;
                     text.font = font;
+                }
+                else
+                {
+                    Font clerical = TerritoryLabelRenderer.ClericalFallback(text.text, false);
+                    if (clerical != null) text.font = clerical;
+                }
                 text.material = null;
                 text.fontSize = 12;
                 text.resizeTextForBestFit = false;

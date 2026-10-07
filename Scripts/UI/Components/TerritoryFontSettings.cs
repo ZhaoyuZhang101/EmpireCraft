@@ -8,7 +8,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.UI.Components;
 
 // 领土铭牌(简化铭牌)的字体。包含随模组分发的篆书和本机字体，提供三种选择：
-//   · auto(默认)：优先使用内置篆书，其次按隶书 → 其他篆书 → 草书 → 行书 → 魏碑 → 楷书 → 宋/明体挑本机字体，
+//   · auto(默认)：按隶书 → 篆书(内置与本机) → 草书 → 行书 → 魏碑 → 楷书 → 宋/明体挑字体，
 //     一个都没有就用游戏字体；含英文字母的名字仍用西文衬线字体；
 //   · game：一律用游戏自带字体，所有电脑显示一致；
 //   · 其他：指定某个已安装字体的名字(选了不存在的字体按游戏字体显示)。
@@ -159,8 +159,9 @@ public static class TerritoryFontSettings
     public static (string key, int rank)? StyleOf(string fontName)
     {
         if (string.IsNullOrEmpty(fontName)) return null;
+        // 内置篆书排在隶书后面：自动模式默认用隶书
         BundledFont bundled = BundledTerritoryFonts.Find(fontName);
-        if (bundled != null) return (bundled.StyleKey, -1);
+        if (bundled != null) return (bundled.StyleKey, 1);
         foreach ((string key, int rank, string[] keywords) in Styles)
             if (keywords.Any(keyword => fontName.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0))
                 return (key, rank);
