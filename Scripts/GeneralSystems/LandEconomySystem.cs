@@ -651,7 +651,8 @@ public static class LandEconomySystem
     }
 
     // 背景商人、地主的真实收入：市场买卖里商人赚的一成利润(城里没有背景商人就是损耗)，加上卖租粮的钱。
-    // 交过税后大部分攒成买地钱，最多攒够买下全城私田
+    // 利润按税率交税；租粮在收割时已经算进产出交过税(见 PopulationEconomySystem.PayTaxes)，不再交。
+    // 大部分攒成买地钱，最多攒够买下全城私田
     public static void AddBackgroundIncome(City city, float margin, float rent)
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled || city == null) return;
@@ -664,9 +665,9 @@ public static class LandEconomySystem
         float income = margin + rent;
         if (income <= 0f) return;
         float taxRate = city.kingdom == null ? 0f : Mathf.Clamp01((float)city.kingdom.GetTaxRate());
-        PayBackgroundTax(city, data, income);
+        PayBackgroundTax(city, data, margin);
         data.background_land_fund = Mathf.Min(BackgroundLandPrice * 100f,
-            Mathf.Max(0f, data.background_land_fund) + income * (1f - taxRate) * BuyerSavingShare);
+            Mathf.Max(0f, data.background_land_fund) + (margin * (1f - taxRate) + rent) * BuyerSavingShare);
     }
 
     private static float BackgroundPeasants(CityPopulationData data)

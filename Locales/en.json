@@ -3348,5 +3348,6 @@
   "mineral_tooltip_mining": "Mining · {0}/{1} left ({2:P0})",
   "mineral_tooltip_locked": "Needs a tier {0} mine · reserve {1}/{2}",
   "mineral_tooltip_depleted": "Depleted · recovers in {0} years (of {1})",
-  "mineral_tooltip_footer": "Mine tier in this city: {0}. An exhausted deposit cools down; when the cooldown ends a new vein is found and the reserve refills."
+  "mineral_tooltip_footer": "Mine tier in this city: {0}. An exhausted deposit cools down; when the cooldown ends a new vein is found and the reserve refills.",
+  "city_pop_income": "Annual Income"
 }

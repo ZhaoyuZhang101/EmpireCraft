@@ -71,7 +71,9 @@ public class CityPopulationData
     public float last_leather_used;
     public float last_leather_shortage;
     public float leather_need_carry;
-    public float last_gold_output;
+    // 背景人口的收入：上次结算以来真实产出的价值(按市场价折算，见 PopulationEconomySystem.Deposit)与上次结算的年收入
+    public float produced_value;
+    public float last_income;
     // 背景人口纳税(见 PopulationEconomySystem.PayTaxes)：零头与上次结算的年税收
     public float tax_carry;
     // 市场(见 MarketSystem)：上个月买进的总价值；上个月卖出的总价值(当月累计中)

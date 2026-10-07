@@ -3348,5 +3348,6 @@
   "mineral_tooltip_mining": "開採中 · 剩餘 {0}/{1}（{2:P0}）",
   "mineral_tooltip_locked": "需 {0} 級礦場 · 儲量 {1}/{2}",
   "mineral_tooltip_depleted": "已枯竭 · 還需 {0} 年恢復（共 {1} 年）",
-  "mineral_tooltip_footer": "本城礦場等級：{0}。礦藏採空後進入冷卻，冷卻結束發現新礦脈，儲量回滿。"
+  "mineral_tooltip_footer": "本城礦場等級：{0}。礦藏採空後進入冷卻，冷卻結束發現新礦脈，儲量回滿。",
+  "city_pop_income": "人口年收入"
 }

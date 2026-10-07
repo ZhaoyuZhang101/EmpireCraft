@@ -188,6 +188,9 @@ public class CityWindowPatch : GamePatch
                     Mathf.RoundToInt(data.last_market_bought),
                     Mathf.RoundToInt(Mathf.Max(data.last_market_sold, data.market_sold_month))),
                 "#7FD8EA", pIconPath: "iconMoney");
+        if (data.last_income > 0f)
+            window.showStatRow("city_pop_income", Mathf.RoundToInt(data.last_income).ToString(), "#C8E66A",
+                pIconPath: "iconMoney");
         if (data.last_tax_income > 0f)
             window.showStatRow("city_pop_tax", Mathf.RoundToInt(data.last_tax_income).ToString(), "#43FF43",
                 pIconPath: "iconMoney");

@@ -248,6 +248,9 @@ public static class MineralResourceSystem
         int useMetal = Mathf.Max(1, Mathf.RoundToInt(wantMetal * share));
         city.takeResource("coal", Mathf.Min(useCoal, coal));
         city.takeResource("common_metals", Mathf.Min(useMetal, metal));
+        // 收入只算炼钢增加的价值
+        PopulationEconomySystem.ConsumeInputs(city, data, "coal", Mathf.Min(useCoal, coal));
+        PopulationEconomySystem.ConsumeInputs(city, data, "common_metals", Mathf.Min(useMetal, metal));
         PopulationEconomySystem.Deposit(city, data, "common_metals", mills * SteelMetalOutPerYear * years * share);
     }
 
