@@ -1096,16 +1096,22 @@ public class CityPatch : GamePatch
         InstitutionSystem.TryYearlyCultureDrift,
         HarshRuleSystem.TryYearlyKingdomScan,
         EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.TryYearlyScan,
-        CultureModernizationSystem.TryYearlyRealmTransitionScan
+        CultureModernizationSystem.TryYearlyRealmTransitionScan,
+        CapitalLossNamingSystem.TryYearlyScan
     };
+    private static readonly string[] WorldYearlyScanNames =
+        { "宗族分支", "理念传播", "科技", "制度漂移", "苛政", "核威慑", "文化近代化", "失都改称" };
     private static int _worldScanFrame = -1;
+    private const int SurrenderCheckEvery = 10;
+    private const int SlowHookCitiesPerFrame = 3;
 
     private static void RunWorldYearlyScans()
     {
         int frame = Time.frameCount;
         if (frame == _worldScanFrame) return;
         _worldScanFrame = frame;
-        WorldYearlyScans[frame % WorldYearlyScans.Length]();
+        int index = frame % WorldYearlyScans.Length;
+        using (FrameProfiler.Measure("年度扫描·" + WorldYearlyScanNames[index])) WorldYearlyScans[index]();
     }
 
     public static void city_update(City __instance, float pElapsed)
@@ -1116,10 +1122,20 @@ public class CityPatch : GamePatch
         // 只要敌对帝国的 Warrior 实际进入本城市任意 Zone，
         // 该城立即归降。
         // 每座城每帧都跑：分段累计计时，每 10 秒在日志里报一次平均每帧耗时(见 FrameProfiler)
-        using (FrameProfiler.Measure("城市钩子·入城归降")) TryImmediateSurrenderOnImperialArmyArrival(__instance);
-        using (FrameProfiler.Measure("城市钩子·土地经济")) LandEconomySystem.UpdateCity(__instance);
-        using (FrameProfiler.Measure("城市钩子·占领扩散")) __instance.TryYearlyOccupationSpread();
-        using (FrameProfiler.Measure("城市钩子·城市就业")) UrbanEmploymentSystem.UpdateCity(__instance);
+        // 这几项按年、按月更新就够，不用每座城每帧都查：
+        //   入城归降每座城每 10 帧查一次；土地经济、占领扩散、城市就业每帧只轮到约 3 座城
+        //   (100 多座城大约两秒轮一遍；游戏开得再快，这几项的总开销也不会跟着翻倍)
+        int frame = Time.frameCount;
+        long cityKey = __instance.data?.id ?? 0L;
+        if ((cityKey + frame) % SurrenderCheckEvery == 0)
+            using (FrameProfiler.Measure("城市钩子·入城归降")) TryImmediateSurrenderOnImperialArmyArrival(__instance);
+        int cycle = Math.Max(1, (World.world?.cities?.Count ?? 1) / SlowHookCitiesPerFrame);
+        if ((cityKey + frame) % cycle == 0)
+        {
+            using (FrameProfiler.Measure("城市钩子·土地经济")) LandEconomySystem.UpdateCity(__instance);
+            using (FrameProfiler.Measure("城市钩子·占领扩散")) __instance.TryYearlyOccupationSpread();
+            using (FrameProfiler.Measure("城市钩子·城市就业")) UrbanEmploymentSystem.UpdateCity(__instance);
+        }
         // 无小人模式：城主一空缺立即从人口里补位
         using (FrameProfiler.Measure("城市钩子·城主补位")) CityPopulationSystem.EnsureLeader(__instance);
         using (FrameProfiler.Measure("城市钩子·年度扫描")) RunWorldYearlyScans();

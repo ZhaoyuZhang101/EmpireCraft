@@ -212,7 +212,7 @@ public class Empire : MetaObject<EmpireData>
 
     public override IEnumerable<City> getCities()
     {
-        return cities_list;
+        return EmpireMembershipService.EnumerateCities(this);
     }
 
     public bool IsNeedToExam()
@@ -1455,7 +1455,7 @@ public class Empire : MetaObject<EmpireData>
             newEmpire.data.empire_specific_clan = newKingdom.king.GetSpecificClan().id;
         }
         TranslateHelper.LogministerAqcuireEmpire(newKingdom.king, newEmpire);
-        foreach (Kingdom kingdom in kingdoms_hashset)
+        foreach (Kingdom kingdom in kingdoms_hashset.Where(kingdom => EmpireMembershipService.BelongsTo(this, kingdom)).ToList())
         {
             newEmpire.kingdoms_hashset.Add(kingdom);
             kingdom.EmpireJoin(newEmpire);
@@ -1870,7 +1870,7 @@ public class Empire : MetaObject<EmpireData>
 
         foreach (Kingdom kingdom in kingdoms_hashset)
         {
-            if (kingdom != null && !kingdom.isRekt())
+            if (EmpireMembershipService.BelongsTo(this, kingdom))
             {
                 rebuiltKingdoms.Add(kingdom);
             }
@@ -1878,7 +1878,7 @@ public class Empire : MetaObject<EmpireData>
 
         foreach (Kingdom kingdom in kingdoms_list)
         {
-            if (kingdom != null && !kingdom.isRekt())
+            if (EmpireMembershipService.BelongsTo(this, kingdom))
             {
                 rebuiltKingdoms.Add(kingdom);
             }
@@ -1887,7 +1887,7 @@ public class Empire : MetaObject<EmpireData>
         foreach (long kingdomId in data.kingdoms)
         {
             Kingdom kingdom = World.world.kingdoms.get(kingdomId);
-            if (kingdom != null && !kingdom.isRekt())
+            if (EmpireMembershipService.BelongsTo(this, kingdom))
             {
                 rebuiltKingdoms.Add(kingdom);
             }
@@ -1908,27 +1908,11 @@ public class Empire : MetaObject<EmpireData>
             repaired = true;
         }
 
+        List<City> previousCities = cities_list;
         recalculate();
 
-        List<City> rebuiltCities = new List<City>();
-        HashSet<long> seenCityIds = new HashSet<long>();
-        foreach (Kingdom kingdom in kingdoms_list)
+        if (previousCities.Count != cities_list.Count || previousCities.Except(cities_list).Any())
         {
-            if (kingdom == null || kingdom.isRekt()) continue;
-            kingdom.SetEmpireID(this.id);
-            foreach (City city in kingdom.cities)
-            {
-                if (city == null || city.isRekt()) continue;
-                if (seenCityIds.Add(city.id))
-                {
-                    rebuiltCities.Add(city);
-                }
-            }
-        }
-
-        if (cities_list.Count != rebuiltCities.Count || cities_list.Except(rebuiltCities).Any())
-        {
-            cities_list = rebuiltCities;
             repaired = true;
         }
 
@@ -2180,10 +2164,11 @@ public class Empire : MetaObject<EmpireData>
     {
         foreach (Kingdom kingdom in this.kingdoms_hashset)
         {
-            kingdom?.EmpireLeave();
+            if (EmpireMembershipService.BelongsTo(this, kingdom)) kingdom.EmpireLeave();
         }
         this.kingdoms_hashset.Clear();
         this.kingdoms_list.Clear();
+        this.cities_list.Clear();
     }
 
     // Token: 0x06001126 RID: 4390 RVA: 0x000C7810 File Offset: 0x000C5A10
@@ -2198,8 +2183,10 @@ public class Empire : MetaObject<EmpireData>
     public void recalculate()
     {
         if (AncientWarfareCompatibility.Owns(CoreKingdom)) return;
+        kingdoms_hashset.RemoveWhere(kingdom => !EmpireMembershipService.BelongsTo(this, kingdom));
         this.kingdoms_list.Clear();
         this.kingdoms_list.AddRange(this.kingdoms_hashset.Where(k => !AncientWarfareCompatibility.Owns(k)));
+        cities_list = EmpireMembershipService.EnumerateCities(this).ToList();
         this.mergeWars();
     }
 
@@ -2249,6 +2236,7 @@ public class Empire : MetaObject<EmpireData>
         }
         if (this.CoreKingdom == null) return;
         if (this.CoreKingdom.data == null) return;
+        recalculate();
         this.data.kingdoms = new List<long>();
         foreach (Kingdom tKingdom in this.kingdoms_hashset)
         {
@@ -2307,13 +2295,11 @@ public class Empire : MetaObject<EmpireData>
             SyncCoreKingdomReference();
             return;
         }
-        foreach (long tKingdomID in this.data.kingdoms)
+        foreach (long tKingdomID in this.data.kingdoms ?? new List<long>())
         {
             Kingdom tKingdom = World.world.kingdoms.get(tKingdomID);
-            if (tKingdom != null)
+            if (EmpireMembershipService.BelongsTo(this, tKingdom))
             {
-
-                tKingdom.SetEmpireID(this.id);
                 kingdoms_hashset.Add(tKingdom);
             }
         }
@@ -2322,7 +2308,7 @@ public class Empire : MetaObject<EmpireData>
             foreach (long tCityID in this.data.cities)
             {
                 City tCity = World.world.cities.get(tCityID);
-                if (tCity != null)
+                if (tCity != null && EmpireMembershipService.BelongsTo(this, tCity.kingdom))
                 {
                     cities_list.Add(tCity);
                 }
@@ -2349,14 +2335,15 @@ public class Empire : MetaObject<EmpireData>
 
         this.Religion = World.world.religions.get(pData.Religion);
         this.CoreKingdom = World.world.kingdoms.get(pData.empire);
-        if (this.CoreKingdom == null || this.CoreKingdom.isRekt())
+        if (!EmpireMembershipService.BelongsTo(this, CoreKingdom))
         {
             this.CoreKingdom = World.world.kingdoms.get(pData.last_core_kingdom_id);
         }
-        if (this.CoreKingdom != null && !this.CoreKingdom.isRekt())
+        if (!EmpireMembershipService.BelongsTo(this, CoreKingdom)) CoreKingdom = null;
+        if (this.CoreKingdom != null)
         {
-            this.CoreKingdom.SetEmpireID(this.id);
             this.CoreKingdom.GetOrCreate().isEmpire = true;
+            kingdoms_hashset.Add(CoreKingdom);
             SyncCoreKingdomReference();
         }
         this.EmpireClan = World.world.clans.get(pData.empire_clan);
@@ -2418,11 +2405,22 @@ public class Empire : MetaObject<EmpireData>
 
     public void leave(Kingdom pKingdom, bool pRecalc = true, bool isLeave = false)
     {
+        if (pKingdom == null) return;
+        // 旧帝国只清掉自己的残留记录，不能把已转投别国的国家清成独立，更不能解散新帝国。
+        if (pKingdom.GetEmpireID() != id)
+        {
+            kingdoms_hashset.Remove(pKingdom);
+            kingdoms_list.Remove(pKingdom);
+            cities_list.RemoveAll(city => city?.kingdom == pKingdom);
+            data.kingdoms?.RemoveAll(kingdomId => kingdomId == pKingdom.id);
+            if (pRecalc) recalculate();
+            return;
+        }
         if (isLeave)
         {
             pKingdom.RememberRebellionOrigin(this);
         }
-        bool isCoreKingdom = pKingdom != null && (pKingdom == CoreKingdom || pKingdom.IsEmpire());
+        bool isCoreKingdom = pKingdom == CoreKingdom;
         this.kingdoms_hashset.Remove(pKingdom);
         pKingdom.EmpireLeave(isLeave);
         cities_list = this.cities_list.Except(pKingdom?.cities??new List<City>()).ToList();
@@ -2485,10 +2483,9 @@ public class Empire : MetaObject<EmpireData>
     public List<TileZone> allZones()
     {
         _zoneScratch.Clear();
-        foreach (var k in kingdoms_list)
-            if (k.cities.Count>0)
-                foreach (var city in k.cities)
-                    _zoneScratch.AddRange(city.zones);
+        foreach (City city in EmpireMembershipService.EnumerateCities(this))
+            foreach (TileZone zone in city.zones)
+                if (zone?.city == city) _zoneScratch.Add(zone);
         return _zoneScratch;
     }
 
@@ -2560,14 +2557,7 @@ public class Empire : MetaObject<EmpireData>
 
     public List<City> AllCities()
     {
-        List<City> tResult = new List<City>();
-        List<Kingdom> tKingdoms = this.kingdoms_list;
-        for (int i = 0; i < tKingdoms.Count; i++)
-        {
-            Kingdom tKingdom = tKingdoms[i];
-            tResult.AddRange(tKingdom.cities);
-        }
-        return tResult;
+        return EmpireMembershipService.EnumerateCities(this).ToList();
     }
 
 
@@ -2647,7 +2637,7 @@ public class Empire : MetaObject<EmpireData>
     // Token: 0x06001137 RID: 4407 RVA: 0x000C7F33 File Offset: 0x000C6133
     public bool hasKingdom(Kingdom pKingdom)
     {
-        return this.kingdoms_hashset.Contains(pKingdom);
+        return EmpireMembershipService.BelongsTo(this, pKingdom) && this.kingdoms_hashset.Contains(pKingdom);
     }
 
     // Token: 0x06001138 RID: 4408 RVA: 0x000C7F44 File Offset: 0x000C6144

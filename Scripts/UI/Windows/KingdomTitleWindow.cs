@@ -274,7 +274,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 SetSelectedTitleCulture, SpriteTextureLoader.getSprite("ui/changeOfficer"),
                 size: new Vector2(61, 15), showTip: false);
             actions.AddButtonIntoHoriLayout("toggle_title_culture_lock", lockState, ToggleCultureLock,
-                SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), size: new Vector2(61, 15), showTip: false);
+                SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"), size: new Vector2(61, 15), showTip: false);
             actions.AddButtonIntoHoriLayout("clear_title_culture_override", LM.Get("kingdom_title_clear_override"),
                 ClearCultureOverride, SpriteTextureLoader.getSprite("ui/changeOfficer"),
                 size: new Vector2(61, 15), showTip: false);
@@ -340,7 +340,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             card.AddButtonIntoVertLayout($"add_selected_culture_{city.id}",
                 LM.Get("kingdom_title_add_selected_culture"), () => AddSelectedCulture(city),
-                SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"),
+                SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"),
                 size: new Vector2(150, 15), showTip: false);
             card.transform.AddStretchBackground(city == title.title_capital ? "FactionFrame_dominate" : "FactionFrame",
                 new Vector2(200, cardHeight));

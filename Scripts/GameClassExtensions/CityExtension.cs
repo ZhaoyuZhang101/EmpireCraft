@@ -78,6 +78,8 @@ public static class CityExtension
         public int massacre_victims;
         public double massacre_last = -1d;
         public bool massacre_noticed;
+        // 播报过屠城的国家 → 播报时间：同一国在同一城 MemoryYears 年内只播报一次(几国轮番烧杀时不会刷屏)
+        public Dictionary<long, double> massacre_announced = new Dictionary<long, double>();
         // 上次因苛政爆发民变的时间(见 HarshRuleSystem)
         public double last_harsh_uprising = -1d;
         // 规划农田区(区块 id，见 FarmlandSystem)
@@ -86,6 +88,9 @@ public static class CityExtension
         public List<int> retired_farm_zones = new List<int>();
         // 区块用途(区块 id → ZoneUse，农耕区另存在 farm_zones 里，见 ZonePlanSystem)
         public Dictionary<int, int> zone_uses = new Dictionary<int, int>();
+        // 建筑选址失败时请求扩大现有连片区域；重新加载后由建造流程再次判断。
+        [JsonIgnore]
+        public int district_space_requests;
         public long personalIdentityId = -1L;
         public bool is_choosing_heir = false;
         [JsonIgnore]

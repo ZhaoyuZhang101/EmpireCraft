@@ -1542,11 +1542,10 @@ public static class KingdomExtension
     public static void EndLocalRebelling(this Kingdom k)
     {
         var extraData = k.GetOrCreate();
-        // 没有法理的叛军起义结束(独立或被招安)：不再沿用"某城民变"之类的叛军名号，改用本文化国名库的国名
-        // (起事时用的城市名只是叛军名号的前缀；成了正式政权就该有国号)
+        // 无主法理的叛军起义结束：都城在法理内就用城名，否则恢复随机国名。
         if (extraData.isLocalRebelling && k.data != null && !k.HasMainTitle())
         {
-            string name = k.GetInitialRandomKingdomName();
+            string name = k.GetUntitledKingdomName();
             if (string.IsNullOrWhiteSpace(name)) name = extraData.core_name;
             if (!string.IsNullOrWhiteSpace(name)) k.SetKingdomCoreName(name, name);
         }
@@ -1700,13 +1699,16 @@ public static class KingdomExtension
         return !string.IsNullOrWhiteSpace(custom) ? custom : kingdom.GetCapitalPlaceName();
     }
 
-    // 没有法理的普通政权的国名：本文化国名库里的随机国名(齐、楚、秦……)，取不到才用都城名。
-    // 法理头衔也按王国名命名，所以这里不能用都城名，否则法理会变成一片城市名
+    // 无主法理的普通政权：都城位于法理内用都城名；都城没有法理则沿用随机国名。
     public static string GetUntitledKingdomName(this Kingdom kingdom)
     {
-        string random = kingdom.GetInitialRandomKingdomName();
-        if (!string.IsNullOrWhiteSpace(random)) return random;
-        return kingdom?.capital != null && !kingdom.capital.isRekt() ? kingdom.capital.GetCityName() : "";
+        KingdomTitle capitalTitle = kingdom.GetCapitalDeJureTitle();
+        if (capitalTitle != null)
+        {
+            string capitalName = kingdom.capital.GetCityName();
+            if (!string.IsNullOrWhiteSpace(capitalName)) return capitalName;
+        }
+        return kingdom.GetInitialRandomKingdomName();
     }
 
     // 以都城为名(叛军、现代无名号势力、军阀)：都城名，没有都城才用文化国名
@@ -1819,6 +1821,9 @@ public static class KingdomExtension
     /// </summary>
     public static string GetKingdomTypeSuffixText(this Kingdom kingdom)
     {
+        // 华夏王朝的旧都失陷期间，暂驻的都城称"行在"(如南宋临安)：核心王国的直隶类别改称行在
+        if (EmpireCraft.Scripts.GeneralSystems.CapitalLossNamingSystem.IsTemporaryCapital(kingdom))
+            return LM.Get("kingdom_type_xingzai");
         return LM.Get(kingdom.GetKingdomType().ToString());
     }
 
@@ -2090,9 +2095,11 @@ public static class KingdomExtension
 
     public static Actor GetHeir(this Kingdom k)
     {
+        if (k?.data == null || World.world?.units == null) return null;
         var ed = k.GetOrCreate();
         if (IsRepublicCore(k)) return null;
-        return World.world.units.get(ed.HeirID);
+        Actor heir = World.world.units.get(ed.HeirID);
+        return heir != null && heir != k.king && !heir.isRekt() && heir.isAlive() && heir.isUnitFitToRule() ? heir : null;
     }
     public static void RemoveHeir(this Kingdom k)
     {
@@ -2101,9 +2108,7 @@ public static class KingdomExtension
     }
     public static bool HasHeir(this Kingdom k)
     {
-        var ed = k.GetOrCreate();
-        if (ed.HeirID == -1L) return false;
-        return !World.world.units.get(ed.HeirID).isRekt();
+        return k.GetHeir() != null;
     }
 
     public static OfficeObject[] GetAllOffices(this Kingdom k)
@@ -2984,6 +2989,13 @@ public static class KingdomExtension
     {
         if (kingdom?.data == null) return "";
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
+        // 旧档和交战中的政权可能缓存着旧核心名；显示时按现都城的法理状态解析，不等和平后同步。
+        if (!kingdom.isRekt() && !kingdom.IsEmpire() && !kingdom.HasMainTitle() &&
+            !kingdom.IsFactionRebelling() && !kingdom.IsLocalRebelling())
+        {
+            string name = GetKingdomFrontFallback(kingdom);
+            if (!string.IsNullOrWhiteSpace(name)) return name;
+        }
         return kingdom.EnsureKingdomCoreName();
     }
 
@@ -3036,7 +3048,7 @@ public static class KingdomExtension
             }
             if (!string.IsNullOrWhiteSpace(ideologySuffix))
                 return OverallHelperFunc.JoinNameParts(kingdom.GetKingdomName(), ideologySuffix);
-            string coreName = kingdom.EnsureKingdomCoreName();
+            string coreName = kingdom.GetAutomaticKingdomName();
             if (string.IsNullOrWhiteSpace(coreName)) return kingdom.data.name ?? "";
             if (kingdom.isRekt()) return coreName;
             string typeName = kingdom.GetKingdomTypeSuffixText();
@@ -3074,7 +3086,12 @@ public static class KingdomExtension
 
     public static void SetEmpireID(this Kingdom kingdom, long value)
     {
-        GetOrCreate(kingdom).EmpireID = value;
+        if (kingdom == null) return;
+        KingdomExtraData extra = GetOrCreate(kingdom);
+        if (extra.EmpireID == value) return;
+        extra.EmpireID = value;
+        if (ModClass.EMPIRE_MANAGER != null) ModClass.EMPIRE_MANAGER._dirty_cities = true;
+        World.world?.zone_calculator?.dirtyAndClear();
     }
     public static long GetEmpireID(this Kingdom kingdom)
     {
@@ -3147,7 +3164,7 @@ public static class KingdomExtension
     public static void EmpireJoin(this Kingdom kingdom, Empire pEmpire)
     {
         if (kingdom == null || pEmpire == null || kingdom.HasRebelledAgainst(pEmpire)) return;
-        GetOrCreate(kingdom).EmpireID = pEmpire.data.id;
+        kingdom.SetEmpireID(pEmpire.data.id);
         GetOrCreate(kingdom).TimestampEmpire = World.world.getCurWorldTime();
     }
 
@@ -3175,7 +3192,7 @@ public static class KingdomExtension
         if (kingdom==null) return;
         if (GetOrCreate(kingdom) == null) return;
         kingdom.generateColor();
-        GetOrCreate(kingdom).EmpireID = -1L;
+        kingdom.SetEmpireID(-1L);
         kingdom.GetOrCreate().isEmpire = false;
     }
     public static int GetLevel(this Kingdom kingdom)

@@ -214,6 +214,11 @@ public class KingdomPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (ModClass.IS_CLEAR) return;
         Actor king = __instance.king;
+        if (king != null)
+        {
+            __instance.GetOrCreate().last_ruler_identity_id = king.GetPersonalIdentity()?.id ?? -1L;
+            EmpireCraftKingdomBehCheckHeir.PrepareForSuccession(__instance, king.GetPersonalIdentity());
+        }
         __instance.SyncRealmTitlesFromRuler(king);
         if (__instance.HasMainCrime()) __instance.RemoveMainCrime();
         if (king != null && king.HasOfficeIdentity())

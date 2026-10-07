@@ -365,7 +365,7 @@ internal static class MainTab
         });
         bugReportButton._button.OnHoverOut(Tooltip.hideTooltip);
 
-        Sprite updateIcon = SpriteTextureLoader.getSprite("ui/icons/iconDownload") ??
+        Sprite updateIcon = SpriteTextureLoader.getSprite("ui/icons/iconArrowUP") ??
                             SpriteTextureLoader.getSprite("ui/icons/iconSteam");
         var updateButton = PowerButtonCreator.CreateWindowButton(
             "online_update_button",
@@ -476,6 +476,6 @@ internal static class MainTab
                 if (string.Equals(sprite.name, name, StringComparison.OrdinalIgnoreCase)) return sprite;
             }
         }
-        return SpriteTextureLoader.getSprite("ui/icons/iconInfo");
+        return SpriteTextureLoader.getSprite("ui/icons/iconMainInfo");
     }
 }

@@ -172,6 +172,8 @@ public static class DataManager
                 religion.SyncData(entry);
         }
         LogService.LogInfo("Sync Religion Data");
+        EmpireMembershipService.NormalizeLoadedMembership(saveData.empireDatas, World.world.kingdoms,
+            new HashSet<long>(saveData.kingdomExtraData.Where(entry => entry != null).Select(entry => entry.id)));
         foreach (EmpireData empireData in saveData.empireDatas)
         {
             if (empireData == null) continue;

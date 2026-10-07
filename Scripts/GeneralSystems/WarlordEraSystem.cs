@@ -357,8 +357,10 @@ public static partial class WarlordEraSystem
         if (!force && Time.frameCount == _sliceFrame) return;
         _sliceFrame = Time.frameCount;
         using var timing = new PerfTimer("军阀时期年度扫描");
+        using var frameWork = EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.Measure();
         var watch = global::System.Diagnostics.Stopwatch.StartNew();
-        while (PendingCores.Count > 0 && (force || watch.Elapsed.TotalMilliseconds < SliceBudgetMs))
+        while (PendingCores.Count > 0 && (force || watch.Elapsed.TotalMilliseconds < SliceBudgetMs &&
+               EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.HasTime))
         {
             long id = PendingCores.Dequeue();
             if (!EmpireCoreManager.EmpireCores.TryGetValue(id, out EmpireCore core)) continue;

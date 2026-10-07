@@ -44,10 +44,7 @@ public static class CityPopulationSystem
     private const float WarDeathRate = 0.04f;
     // 住房剩下不到两成时出生率开始按比例下降，住满则不再出生
     private const float HousingSlowdownShare = 0.2f;
-    // 超出住房上限的人每年有这么多比例离开或死去
-    private const float OvercrowdingLossRate = 0.25f;
-    // 有空房、不缺粮时每年至少迁入的户数
-    private const float MinimumInflowHouseholds = 0.5f;
+    // 拥挤流失和最低迁入的纯数值公式在 PopulationMathWorkers 中计算。
 
     // ---- 人口规模(无小人模式) ----
     // 原版一个住房位住一个单位；没有实体单位后，一个住房位代表一户聚居的人：古代 100 人，现代 1000 人，
@@ -326,16 +323,18 @@ public static class CityPopulationSystem
     private static City DrawKingdomCity(Kingdom kingdom)
     {
         if (kingdom?.cities == null) return null;
-        float total = KingdomBackground(kingdom);
-        if (total <= 0f) return null;
-        float roll = UnityEngine.Random.value * total;
+        float total = 0f;
+        City chosen = null;
+        // 加权蓄水池抽样：保持相同分布，只遍历一次，不再先统计全国再重复读各城人口组。
         foreach (City city in kingdom.cities)
         {
             if (city == null || city.isRekt()) continue;
-            roll -= GetBackgroundTotal(city);
-            if (roll <= 0f) return city;
+            float weight = GetBackgroundTotal(city);
+            if (weight <= 0f) continue;
+            total += weight;
+            if (UnityEngine.Random.value * total < weight) chosen = city;
         }
-        return null;
+        return chosen;
     }
 
     #endregion
@@ -354,9 +353,18 @@ public static class CityPopulationSystem
 
     private static readonly Queue<City> PendingCities = new();
     private static readonly Queue<City> PendingFolds = new();
+    private static City _foldCity;
+    private static Kingdom _foldOwner;
+    private static int _foldPhase;
+    private static double _foldNow;
+    private static float _foldHarvest;
+    private static bool _foldEconomyDue;
+    private static bool _foldsFirst;
+    private static bool _waitingForMath;
     private static double _lastFoldPass = -1d;
     private static object _world;
     private static double _lastPass = -1d;
+    private static bool? _populationMode;
 
     // 无小人模式开关(世界法则)。关闭时背景人口始终为 0，数据层只是实体单位的统计镜像
     public static bool AbstractPopulationEnabled =>
@@ -370,6 +378,7 @@ public static class CityPopulationSystem
 
     public static void ResetWorldState()
     {
+        PopulationParallelSystem.ResetWorldState();
         LeaderRetryAt.Clear();
         GranarySystem.ResetWorldState();
         MarketSystem.ResetWorldState();
@@ -381,9 +390,14 @@ public static class CityPopulationSystem
         _mobilizingAt = -1d;
         PendingCities.Clear();
         PendingFolds.Clear();
+        _foldCity = null;
+        _foldOwner = null;
+        _foldPhase = 0;
         _world = World.world;
         _lastPass = -1d;
         _lastFoldPass = -1d;
+        _populationMode = null;
+        EmpireCraft.Scripts.GamePatches.NoCommonersPatch.ResetPopulationIndex();
         VirtualGenealogySystem.ResetWorldState();
         _passMilliseconds = 0d;
         _passCities = 0;
@@ -408,10 +422,34 @@ public static class CityPopulationSystem
         if (!ReferenceEquals(_world, world)) ResetWorldState();
 
         double now = world.getCurWorldTime();
+        bool enabled = AbstractPopulationEnabled;
+        bool changed = _populationMode.HasValue && _populationMode.Value != enabled;
+        if (changed || !_populationMode.HasValue)
+        {
+            foreach (City city in world.cities)
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                CityPopulationData population = Get(city);
+                PopulationSettlementRules.SynchronizeMode(population, enabled, now, changed);
+            }
+            if (changed)
+            {
+                PopulationParallelSystem.ResetWorldState();
+                SimulationFrameBudget.Reset();
+                AnimalHusbandrySystem.ResetWorldState();
+                PendingFolds.Clear(); _foldCity = null; _foldOwner = null; _lastFoldPass = -1d;
+            }
+            _populationMode = enabled;
+        }
         // 虚拟族人的年度身故：关掉无小人模式后已有的虚拟族人仍会老去
-        VirtualGenealogySystem.Tick();
-        if (AbstractPopulationEnabled) TickFolds(world, now);
-        else PendingFolds.Clear();
+        _foldsFirst = !_foldsFirst;
+        if (AbstractPopulationEnabled && _foldsFirst) TickFolds(world, now);
+        if (SimulationFrameBudget.HasTime) VirtualGenealogySystem.Tick();
+        if (AbstractPopulationEnabled)
+        {
+            if (!_foldsFirst && SimulationFrameBudget.HasTime) TickFolds(world, now);
+        }
+        else { PendingFolds.Clear(); _foldCity = null; _foldOwner = null; }
         if (PendingCities.Count == 0)
         {
             bool due = _lastPass < 0d || now < _lastPass || Date.getYearsSince(_lastPass) >= 1;
@@ -426,8 +464,12 @@ public static class CityPopulationSystem
 
         using var timing = new PerfTimer("城市人口数据层年度结算");
         Stopwatch watch = Stopwatch.StartNew();
-        while (PendingCities.Count > 0 && watch.Elapsed.TotalMilliseconds < SliceBudgetMs)
+        // 每帧至少校准一座城：月度结算把每帧预算用光时，年度校准也不会被一直饿着(以前一年都跑不完)
+        int calibrated = 0;
+        while (PendingCities.Count > 0 && (calibrated == 0 ||
+                                           watch.Elapsed.TotalMilliseconds < SliceBudgetMs && SimulationFrameBudget.HasTime))
         {
+            calibrated++;
             City city = PendingCities.Dequeue();
             if (city?.data == null || city.isRekt()) continue;
             try
@@ -447,7 +489,9 @@ public static class CityPopulationSystem
             LastPassMilliseconds = _passMilliseconds;
             LogService.LogInfo($"[EmpireCraft][人口数据层] 本年校准 {LastPassCities} 座城市，共耗时 {LastPassMilliseconds:0.0} ms(分帧，每帧上限 {SliceBudgetMs} ms)");
             FoldHomeless();
-            LogMemoryCensus();
+            // 全世界内存普查只在调试时主动调用，避免年度分帧结束后再集中扫描一遍所有单位与族谱。
+            // 人口诊断只遍历城市，开销小，每年记一次
+            LogPopulationDiagnosis();
         }
     }
 
@@ -477,16 +521,7 @@ public static class CityPopulationSystem
             {
                 City home = DrawKingdomCity(actor.kingdom);
                 if (home == null) continue;
-                SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
-                if (socialClass == SocialClass.Army) socialClass = SocialClass.Peasant;
-                string culture = CultureService.GetActorCulture(actor) ?? "";
-                string species = actor.asset?.id ?? "";
-                PartyIdeology ideology = IdeologyPopulationSystem.Get(actor);
-                float people = Mathf.Max(1f, LegionAlive(actor));
-                actor.GetOrCreate().legion_size = 0f;
-                VirtualGenealogySystem.Virtualize(actor, home);
-                actor.die(true, AttackType.Other, false, false);
-                AddBackground(home, socialClass, culture, species, ideology, people);
+                FoldIntoPopulation(actor, home);
             }
             catch (Exception exception)
             {
@@ -563,6 +598,59 @@ public static class CityPopulationSystem
         catch (Exception exception)
         {
             LogService.LogWarning($"[EmpireCraft] 内存普查失败: {exception.Message}");
+        }
+        LogPopulationDiagnosis();
+    }
+
+    // 人口诊断(每年一次，跟内存普查一起)：全世界人口与住房上限、饥荒城数、超员城数、平均出生死亡率，
+    // 以及人口最少的几座城各卡在哪一项，用来找"城市人口上不去"的原因
+    private static void LogPopulationDiagnosis()
+    {
+        if (!AbstractPopulationEnabled) return;
+        try
+        {
+            int cities = 0, famine = 0, crowded = 0, war = 0;
+            double total = 0d, capacity = 0d, birth = 0d, death = 0d, satisfaction = 0d;
+            int satisfied = 0;
+            var smallest = new List<(float total, string line)>();
+            foreach (City city in World.world.cities)
+            {
+                if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.wild) continue;
+                CityPopulationData data = Get(city);
+                if (data == null) continue;
+                GrowthFactors f = GetGrowthFactors(city, data);
+                cities++;
+                total += f.Total;
+                capacity += f.Capacity;
+                birth += f.BirthRate;
+                death += f.DeathRate;
+                if (f.Famine) famine++;
+                if (f.War) war++;
+                if (f.Total >= f.Capacity * 0.95f) crowded++;
+                float sat = PopulationSettlementRules.FoodSatisfaction(data);
+                if (sat >= 0f)
+                {
+                    satisfaction += sat;
+                    satisfied++;
+                }
+                smallest.Add((f.Total, $"{city.data.name} 人口 {f.Total:0} / 上限 {f.Capacity:0}，存粮 {f.FoodPerCapita:0.0}/户，" +
+                                       $"吃饱 {(sat < 0f ? "-" : sat.ToString("P0"))}，生 {f.BirthRate:P1} 死 {f.DeathRate:P1}" +
+                                       $"{(f.Famine ? " 饥荒" : "")}{(f.War ? " 战乱" : "")}，废墟 {CityConstructionSystem.CountRuins(city)}"));
+            }
+            if (cities == 0) return;
+            smallest.Sort((a, b) => a.total.CompareTo(b.total));
+            var worst = new List<string>();
+            for (int i = 0; i < Mathf.Min(5, smallest.Count); i++) worst.Add(smallest[i].line);
+            LogService.LogInfo($"[EmpireCraft][人口诊断] {cities} 城，总人口 {total:0}，住房上限合计 {capacity:0}；" +
+                               $"饥荒 {famine} 城，战乱 {war} 城，住满 {crowded} 城；" +
+                               $"平均出生 {birth / cities:P1} 死亡 {death / cities:P1}，平均吃饱 " +
+                               $"{(satisfied == 0 ? "-" : (satisfaction / satisfied).ToString("P0"))}；" +
+                               CityConstructionSystem.TakeStats() + "。最小的城：" +
+                               string.Join("；", worst));
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 人口诊断失败: {exception.Message}");
         }
     }
 
@@ -748,35 +836,7 @@ public static class CityPopulationSystem
         AssimilateBackground(city, data, years);
         DriftClasses(city, data, years);
 
-        float background = 0f;
-        foreach (PopGroup group in data.groups) background += group.Background;
-
-        GrowthFactors factors = GetGrowthFactors(city, data);
-        // 出生按全城人口算(名人家里生的孩子也落进背景人口)，死亡只算背景人口(名人由原版逐人结算生死)；
-        // 有空房、不缺粮时每年至少迁入 MinimumInflow 人，免得刚建的小城人口一直是个位数
-        float births = factors.Total * factors.BirthRate * years;
-        if (factors.BirthRate > 0f && !factors.Famine)
-            births = Mathf.Max(births, MinimumInflowHouseholds * PeoplePerSlot(city) * years);
-        float change = births - background * factors.DeathRate * years;
-        // 出生不能超过空余住房
-        if (change > 0f) change = Mathf.Min(change, Mathf.Max(0f, factors.Capacity - factors.Total));
-        if (factors.Total > factors.Capacity)
-            change -= Mathf.Min(background, (factors.Total - factors.Capacity) * OvercrowdingLossRate * years);
-        change = Mathf.Max(change, -background);
-        if (Mathf.Abs(change) < 0.001f) return;
-        if (background <= 0f)
-        {
-            // 还没有背景人口：新生人口照名人的阶层、文化、物种、理念分布落户
-            float named = 0f;
-            foreach (PopGroup group in data.groups) named += group.named;
-            if (named <= 0f || change <= 0f) return;
-            foreach (PopGroup group in data.groups) group.size += change * group.named / named;
-            return;
-        }
-        // 增减按各组背景人口的比例分摊
-        float ratio = change / background;
-        foreach (PopGroup group in data.groups)
-            group.size = Mathf.Max(group.named, group.size + group.Background * ratio);
+        PopulationParallelSystem.StartGrowth(city, data, now, years);
     }
 
     // ---- 背景人口的阶层结构(无小人模式) ----
@@ -989,16 +1049,19 @@ public static class CityPopulationSystem
             // 读不到存粮按吃得饱处理
             food = total * ComfortFoodPerCapita;
         }
-        food += Mathf.Max(0f, data?.last_food_output ?? 0f);
         // 仓库里的粮食按"户"计(见 PopulationEconomySystem)，人均存粮也按户算
         float households = total / PeoplePerSlot(city);
         // 不到一户的零星人口靠采集渔猎就能糊口，不算饥荒(否则人口一旦跌到个位数，没人种地又判饥荒，永远长不回来)
         float foodPerCapita = households >= 1f ? food / households : ComfortFoodPerCapita;
         float prosperity = Mathf.Clamp01(IdeologyPopulationSystem.CachedEconomy(city).Prosperity);
-        bool famine = foodPerCapita < FamineFoodPerCapita;
+        float satisfaction = PopulationSettlementRules.FoodSatisfaction(data);
+        bool famine = households >= 1f && (satisfaction >= 0f
+            ? satisfaction < 0.8f : foodPerCapita < FamineFoodPerCapita);
         bool war = city.GetOrCreate().OccupiedStatus?.Count > 0;
 
         float foodFactor = Mathf.Clamp(foodPerCapita / ComfortFoodPerCapita, 0f, MaxFoodBirthFactor);
+        if (satisfaction >= 0f) foodFactor = Mathf.Max(foodFactor, satisfaction);
+        if (famine) foodFactor *= satisfaction >= 0f ? satisfaction : 0f;
         float housingFactor = capacity <= 0f ? 0f
             : Mathf.Clamp01((capacity - total) / Mathf.Max(1f, capacity * HousingSlowdownShare));
         // 就业：岗位不够时一部分人外出谋生、晚婚少育(没结算过经济的城市按充分就业算)
@@ -1019,7 +1082,8 @@ public static class CityPopulationSystem
     // 每个游戏月把全部城市排队检查一次，分帧处理(与年度结算共用每帧时间上限)
     private static void TickFolds(MapBox world, double now)
     {
-        if (PendingFolds.Count == 0)
+        _waitingForMath = false;
+        if (_foldCity == null && PendingFolds.Count == 0)
         {
             bool due = _lastFoldPass < 0d || now < _lastFoldPass || Date.getMonthsSince(_lastFoldPass) >= FoldIntervalMonths;
             if (!due) return;
@@ -1029,38 +1093,86 @@ public static class CityPopulationSystem
             if (PendingFolds.Count == 0) return;
         }
         using var timing = new PerfTimer("无小人模式并入普通人");
+        PopulationParallelSystem.PrewarmWorkforce(PendingFolds, now);
         Stopwatch watch = Stopwatch.StartNew();
-        while (PendingFolds.Count > 0 && watch.Elapsed.TotalMilliseconds < SliceBudgetMs)
+        while ((_foldCity != null || PendingFolds.Count > 0) && watch.Elapsed.TotalMilliseconds < SliceBudgetMs &&
+               SimulationFrameBudget.HasTime)
         {
-            City city = PendingFolds.Dequeue();
-            if (city?.data == null || city.isRekt() ||
-                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city)) continue;
+            if (_foldCity == null)
+            {
+                _foldCity = PendingFolds.Dequeue();
+                _foldOwner = _foldCity?.kingdom;
+                _foldPhase = 0;
+                _foldNow = now;
+            }
+            City city = _foldCity;
+            if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom != _foldOwner ||
+                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city))
+            {
+                PopulationParallelSystem.Discard(city);
+                _foldCity = null;
+                continue;
+            }
             try
             {
-                EnsureFloor(city);
-                FoldCommoners(city);
-                RaiseLevies(city);
-                MarchToFront(city);
-                PopulationEconomySystem.Settle(city, Get(city), now);
-                MarketSystem.Settle(city, Get(city));
-                MarketSystem.CheckSiegeSurrender(city, Get(city));
-                if (city.isRekt() || city.kingdom == null) continue;
-                SettleConstruction(city, Get(city), now);
-                ScorchedEarthSystem.Settle(city);
-                Migrate(city, Get(city), now);
-                Plague(city, Get(city));
-                ReadBooks(city);
-                // 生育死亡每月按经过的时间结算一小步，人口平稳增长，而不是每年跳一次
-                GrowBackground(city, Get(city), now);
-                // 并入/征召后立刻重数实体单位：刚并入的人已从"实体"挪到"背景"，上次校准后死去或新生的单位也一并更新，
-                // 否则在下次年度校准前同一个人会被同时算作实体和背景。无小人模式下城里单位很少，开销很小
-                Census(city, Get(city), keepBackground: true);
+                using var phaseTiming = new PerfTimer($"城市月度步骤 {_foldPhase} ({city.data.name})");
+                if (ExecuteFoldPhase(city, Get(city), _foldNow, _foldPhase++)) _foldCity = null;
+                if (_waitingForMath) break;
             }
             catch (Exception exception)
             {
+                PopulationParallelSystem.Discard(city);
+                _foldCity = null;
                 LogService.LogWarning($"[EmpireCraft] 无小人模式并入普通人失败({city.data?.name}): {exception.Message}");
             }
         }
+    }
+
+    // 每个步骤完成后即可让出这一帧；同一次城市结算使用同一个时间，避免分帧重复扣粮/增长。
+    private static bool ExecuteFoldPhase(City city, CityPopulationData data, double now, int phase)
+    {
+        switch (phase)
+        {
+            case 0:
+                _foldHarvest = 0f;
+                _foldEconomyDue = data.last_economy >= 0d && now >= data.last_economy && Date.getMonthsSince(data.last_economy) > 0;
+                EnsureFloor(city);
+                break;
+            case 1:
+                FoldCommoners(city);
+                // 实体转背景必须在本步骤内完成校准，避免跨帧重复计入同一个人。
+                Census(city, data, keepBackground: true);
+                break;
+            case 2: RaiseLevies(city); Census(city, data, keepBackground: true); break;
+            case 3: MarchToFront(city); PopulationParallelSystem.PrepareWorkforce(city, now); break;
+            case >= 4 and <= 8:
+                if (_foldEconomyDue)
+                    _foldHarvest += PopulationEconomySystem.DepositFarmHarvest(city, data,
+                        FarmlandSystem.SettlePhase(city, data, phase - 4));
+                break;
+            case 9: PopulationEconomySystem.Settle(city, data, now, _foldHarvest); break;
+            case 10: MarketSystem.Settle(city, data); break;
+            case 11: MarketSystem.CheckSiegeSurrender(city, data); break;
+            case 12: SettleConstruction(city, data, now); break;
+            case 13: ScorchedEarthSystem.Settle(city); break;
+            case 14: Migrate(city, data, now); break;
+            case 15: Plague(city, data); break;
+            case 16: ReadBooks(city); break;
+            case 17: GrowBackground(city, data, now); break;
+            default:
+                if (!PopulationParallelSystem.TryCompleteGrowth(city))
+                { _foldPhase = 18; _waitingForMath = true; return false; }
+                Census(city, data, keepBackground: true);
+                return true;
+        }
+        return false;
+    }
+
+    public static void FlushPendingGrowth()
+    {
+        if (!AbstractPopulationEnabled) { PopulationParallelSystem.ResetWorldState(); return; }
+        foreach (City city in PopulationParallelSystem.FlushGrowth())
+            if (city?.data != null && !city.isRekt()) Census(city, Get(city), keepBackground: true);
     }
 
     // 名人：保留为实体单位的人(军人另算，见 IsSoldier)。君主、城主、官僚、贵族、地主，党派/派系成员，
@@ -1073,18 +1185,49 @@ public static class CityPopulationSystem
         if (actor.isKing() || actor.isCityLeader()) return true;
         if (actor.isFavorite() || actor.isCameraFollowingUnit()) return true;
         if (actor.plot != null) return true;
-        SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
+        // 各步分别累计计时(见 FrameProfiler)，用来找月度并入"分类"一步的大头
+        SocialClass socialClass;
+        using (FrameProfiler.Measure("名人判定·阶层")) socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
         if (socialClass == SocialClass.Officer || socialClass == SocialClass.Landlord) return true;
         // 贵族只保留要紧的人；世袭国家整个统治氏族都算贵族，远支一律留在地图上会代代繁衍、越滚越多
-        if (socialClass == SocialClass.Noble && IsImportantNoble(actor)) return true;
-        if (actor.GetFaction() != null) return true;
+        if (socialClass == SocialClass.Noble)
+            using (FrameProfiler.Measure("名人判定·要紧贵族"))
+                if (IsImportantNoble(actor)) return true;
+        using (FrameProfiler.Measure("名人判定·派系"))
+            if (actor.GetFaction() != null) return true;
         // 有功名的读书人：选官的人才库。进士、贡士一律保留；举人每城只留政绩最好的 MaxKeptJuren 位，
         // 其余回到人口里(族谱里的人转为虚拟族人)，免得每年中举的人越积越多
         if (actor.hasTrait("gongshi") || actor.hasTrait("jingshi")) return true;
-        if (actor.hasTrait("juren") && IsKeptJuren(actor)) return true;
+        if (actor.hasTrait("juren"))
+            using (FrameProfiler.Measure("名人判定·举人"))
+                if (IsKeptJuren(actor)) return true;
         // 宗族族长：每个宗族至少保留一名实体族长
-        if (includeClanHead && VirtualGenealogySystem.IsClanHead(actor)) return true;
+        if (includeClanHead)
+            using (FrameProfiler.Measure("名人判定·族长"))
+                if (VirtualGenealogySystem.IsClanHead(actor)) return true;
         return false;
+    }
+
+    // 月度并入用的名人判定：结果按单位缓存 NotableCacheMonths 个月，每次并入最多重算 MaxNotableRecomputes 人，
+    // 其余还没轮到重算的先当名人留着(宁可晚并一个月，不误并)。这样一座城的并入不会一帧卡几十毫秒
+    private const int MaxNotableRecomputes = 12;
+    private const int NotableCacheMonths = 3;
+    private static readonly Dictionary<long, (double at, bool notable)> NotableCache = new();
+
+    private static bool IsNotableThrottled(Actor actor, ref int recompute)
+    {
+        // 君主、城主、收藏、谋划中这些便宜的判断照常实时做
+        if (actor.isKing() || actor.isCityLeader() || actor.isFavorite() || actor.plot != null) return true;
+        long id = actor.getID();
+        double now = World.world.getCurWorldTime();
+        if (NotableCache.TryGetValue(id, out (double at, bool notable) cached) && now >= cached.at &&
+            Date.getMonthsSince(cached.at) < NotableCacheMonths) return cached.notable;
+        if (recompute <= 0) return true;
+        recompute--;
+        bool notable = IsNotable(actor);
+        if (NotableCache.Count > 20000) NotableCache.Clear();
+        NotableCache[id] = (now, notable);
+        return notable;
     }
 
     // 要紧的贵族：君主、继承人、君主的配偶与子女、有封地或爵位的人。其余宗室并入虚拟族谱，需要时再落成
@@ -1130,17 +1273,22 @@ public static class CityPopulationSystem
     {
         if (!AbstractPopulationEnabled || city?.units == null || city.units.Count == 0) return 0;
         bool atWar = OnWarFooting(city);
+        // 名人判定很贵(每人零点几毫秒)：结果缓存三个月，每次最多重算 MaxNotableRecomputes 人
+        int recompute = MaxNotableRecomputes;
         var commoners = new List<Actor>();
         var soldiers = new List<Actor>();
+        // 分段计时：整段超过 8 ms 时在日志里列出各段耗时，定位月度结算的大头
+        long t0 = Stopwatch.GetTimestamp();
         foreach (Actor actor in city.units)
         {
             if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != city) continue;
             if (actor.asset == null || IsVehicle(actor)) continue;
-            if (IsNotable(actor)) continue;
+            if (IsNotableThrottled(actor, ref recompute)) continue;
             if (IsSoldier(actor)) soldiers.Add(actor);
             else commoners.Add(actor);
         }
 
+        long tClassify = Stopwatch.GetTimestamp();
         // 城主由士兵兼任(城里只剩征召兵时原版会这样选)：卸任城主，另行补位，士兵留在军中
         if (city.leader != null && !city.leader.isRekt() && IsSoldier(city.leader)) city.removeLeader();
         // 城主空缺：从人口中当场生成一人出任(总人口不变)
@@ -1150,6 +1298,7 @@ public static class CityPopulationSystem
             if (leader != null) city.setLeader(leader, true);
         }
 
+        long tLeader = Stopwatch.GetTimestamp();
         // 留在地图上的人不用吃饭、不用睡觉：饥饿值补满，正在睡的叫醒
         foreach (Actor actor in city.units)
             if (actor?.data != null && !actor.isRekt() && actor.isAlive())
@@ -1159,6 +1308,7 @@ public static class CityPopulationSystem
                 if (actor.citizen_job != null && !IsSoldier(actor)) actor.endJob();
             }
 
+        long tCare = Stopwatch.GetTimestamp();
         var toFold = new List<Actor>();
         // 军制(见 LevyTarget)：太平时不是军镇的城不留兵、军镇只留常备兵额(没有常备军就留一名将领)；
         // 交战(含战备)期间一律不遣散——起义城市临时武装的义军、调防途中的军团都留着
@@ -1185,33 +1335,66 @@ public static class CityPopulationSystem
         }
 
         if (toFold.Count > MaxFoldsPerPass) toFold.RemoveRange(MaxFoldsPerPass, toFold.Count - MaxFoldsPerPass);
+        int folded = 0;
         foreach (Actor actor in toFold)
         {
-            SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
-            // 解散的士兵回到平民身份(按农民计入)，之后由同阶层思潮带着走
-            if (socialClass == SocialClass.Army) socialClass = SocialClass.Peasant;
-            string culture = CultureService.GetActorCulture(actor) ?? "";
-            string species = actor.asset?.id ?? "";
-            PartyIdeology ideology = IdeologyPopulationSystem.Get(actor);
-            // 解散的军团：活下来的人全部回乡(阵亡的部分已在生命值下降时减掉)
-            float people = Mathf.Max(1f, LegionAlive(actor));
-            actor.GetOrCreate().legion_size = 0f;
-            // 族谱里的人转为虚拟族人(仍在世，需要时再落成实体)，单位移除时不会被记为死亡
-            VirtualGenealogySystem.Virtualize(actor, city);
-            // 不计入死亡统计、不写收藏日志
-            actor.die(true, AttackType.Other, false, false);
-            // 军团的兵是从全国征来的，退伍时按各城人口分散回乡；本人回驻地
-            AddBackground(city, socialClass, culture, species, ideology, 1f);
-            for (float rest = people - 1f; rest > 0.5f;)
-            {
-                float part = Mathf.Min(rest, Mathf.Max(1f, (people - 1f) / 4f));
-                City home = DrawKingdomCity(city.kingdom) ?? city;
-                AddBackground(home, socialClass, culture, species, ideology, part);
-                rest -= part;
-            }
+            if (folded > 0 && !SimulationFrameBudget.HasTime) break;
+            FoldIntoPopulation(actor, city);
+            folded++;
         }
+        long tFold = Stopwatch.GetTimestamp();
         UpdateLegions(city);
-        return toFold.Count;
+        long tEnd = Stopwatch.GetTimestamp();
+        double Ms(long a, long b) => (b - a) * 1000d / Stopwatch.Frequency;
+        if (Ms(t0, tEnd) >= 8d)
+            LogService.LogWarning($"[EmpireCraft][性能] 并入分段({city.data?.name}) 单位 {city.units.Count}：" +
+                                  $"分类 {Ms(t0, tClassify):0.0} / 城主补位 {Ms(tClassify, tLeader):0.0} / " +
+                                  $"喂饱叫醒 {Ms(tLeader, tCare):0.0} / 并入 {folded} 人 {Ms(tCare, tFold):0.0} / " +
+                                  $"军团 {Ms(tFold, tEnd):0.0} ms");
+        return folded;
+    }
+
+    public static void EnsureLegionOrigins(Actor actor)
+    {
+        ActorExtension.ActorExtraData extra = actor.GetOrCreate();
+        if (extra.legion_population != null || extra.legion_size <= 0f) return;
+        extra.legion_population = new List<LegionPopulationContribution>();
+        extra.legion_home_city_id = actor.city?.id ?? -1L;
+        // 旧存档没有来源记录，只能保留当前士兵的身份；新征召逐组记来源。
+        LegionPopulationRules.Add(extra.legion_population, extra.legion_home_city_id, new PopGroup
+        {
+            social_class = SocialClass.Peasant, culture = CultureService.GetActorCulture(actor) ?? "",
+            species = actor.asset?.id ?? "", ideology = IdeologyPopulationSystem.Get(actor)
+        }, extra.legion_size - 1f);
+    }
+
+    private static void FoldIntoPopulation(Actor actor, City fallback)
+    {
+        SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
+        if (socialClass == SocialClass.Army) socialClass = SocialClass.Peasant;
+        string culture = CultureService.GetActorCulture(actor) ?? "";
+        string species = actor.asset?.id ?? "";
+        PartyIdeology ideology = IdeologyPopulationSystem.Get(actor);
+        ActorExtension.ActorExtraData extra = actor.GetOrCreate();
+        LegionAlive(actor);
+        List<LegionPopulationContribution> origins = extra.legion_population;
+        City Home(long cityId) => fallback.kingdom?.cities.FirstOrDefault(candidate =>
+            candidate?.data != null && !candidate.isRekt() && candidate.id == cityId) ?? fallback;
+        City home = Home(extra.legion_home_city_id);
+        if (extra.legion_home_city_id >= 0L) socialClass = extra.legion_home_social_class;
+        if (socialClass == SocialClass.Army) socialClass = SocialClass.Peasant;
+        // 在 die 的回调前清空，避免退伍重复扣减或让数据跟随复用的 Actor。
+        extra.legion_size = extra.legion_full = 0f;
+        extra.legion_population = null;
+        extra.legion_home_city_id = -1L;
+        VirtualGenealogySystem.Virtualize(actor, home);
+        actor.die(true, AttackType.Other, false, false);
+        AddBackground(home, socialClass, culture, species, ideology, 1f);
+        if (origins == null) return;
+        foreach (LegionPopulationContribution origin in origins)
+            if (origin != null && origin.size > 0f)
+                AddBackground(Home(origin.city_id), origin.social_class == SocialClass.Army
+                    ? SocialClass.Peasant : origin.social_class, origin.culture, origin.species, origin.ideology, origin.size);
     }
 
     private static bool _careResolved;
@@ -1283,6 +1466,7 @@ public static class CityPopulationSystem
         int raised = 0;
         for (int i = 0; i < need; i++)
         {
+            if (i > 0 && !SimulationFrameBudget.HasTime) break;
             City source = DrawKingdomCity(city.kingdom) ?? city;
             PopGroup group = DrawBackground(source, candidate => candidate.Background >= 1f &&
                                                                  !string.IsNullOrEmpty(candidate.species));
@@ -1290,13 +1474,20 @@ public static class CityPopulationSystem
             Actor actor = SpawnFromGroup(city, group, soldier: true);
             if (actor == null) break;
             // 主要从抽中的城与组出人，不够的从本国其他城补
+            ActorExtension.ActorExtraData extra = actor.GetOrCreate();
+            extra.legion_home_city_id = source.id;
+            extra.legion_home_social_class = group.social_class;
+            extra.legion_population = new List<LegionPopulationContribution>();
             float taken = RemoveBackground(group, legion);
+            LegionPopulationRules.Add(extra.legion_population, source.id, group, taken - 1f);
             for (int attempt = 0; taken < legion && attempt < 8; attempt++)
             {
                 City other = DrawKingdomCity(city.kingdom);
                 PopGroup more = other == null ? null : DrawBackground(other, candidate => candidate.Background >= 1f);
                 if (more == null) break;
-                taken += RemoveBackground(more, legion - taken);
+                float contribution = RemoveBackground(more, legion - taken);
+                LegionPopulationRules.Add(extra.legion_population, other.id, more, contribution);
+                taken += contribution;
             }
             actor.GetOrCreate().legion_size = Mathf.Max(1f, taken);
             actor.GetOrCreate().legion_full = Mathf.Max(1f, taken);
@@ -1323,12 +1514,19 @@ public static class CityPopulationSystem
             if (group == null) break;
             Actor actor = SpawnFromGroup(city, group, soldier: true);
             if (actor == null) break;
+            ActorExtension.ActorExtraData extra = actor.GetOrCreate();
+            extra.legion_home_city_id = city.id;
+            extra.legion_home_social_class = group.social_class;
+            extra.legion_population = new List<LegionPopulationContribution>();
             float taken = RemoveBackground(group, legion);
+            LegionPopulationRules.Add(extra.legion_population, city.id, group, taken - 1f);
             for (int attempt = 0; taken < legion && attempt < 8; attempt++)
             {
                 PopGroup more = DrawBackground(city, candidate => candidate.Background >= 1f);
                 if (more == null) break;
-                taken += RemoveBackground(more, legion - taken);
+                float contribution = RemoveBackground(more, legion - taken);
+                LegionPopulationRules.Add(extra.legion_population, city.id, more, contribution);
+                taken += contribution;
             }
             actor.GetOrCreate().legion_size = Mathf.Max(1f, taken);
             actor.GetOrCreate().legion_full = Mathf.Max(1f, taken);
@@ -1374,10 +1572,12 @@ public static class CityPopulationSystem
         if (actor?.data == null || actor.isRekt()) return 0f;
         if (IsVehicle(actor)) return 0f;
         ActorExtension.ActorExtraData extra = actor.GetOrCreate();
+        EnsureLegionOrigins(actor);
         if (extra.legion_size <= 1f) return 1f;
         if (extra.legion_full < extra.legion_size) extra.legion_full = extra.legion_size;
         float alive = Mathf.Max(1f, extra.legion_full * HealthRatio(actor));
         if (alive < extra.legion_size) extra.legion_size = alive;
+        LegionPopulationRules.ReduceTo(extra.legion_population, extra.legion_size - 1f);
         return extra.legion_size;
     }
 
@@ -1399,7 +1599,8 @@ public static class CityPopulationSystem
     private static void ReinforceLegion(Actor actor, Kingdom kingdom)
     {
         ActorExtension.ActorExtraData extra = actor.GetOrCreate();
-        if (extra.legion_size <= 1f || extra.legion_full <= extra.legion_size || kingdom == null) return;
+        if (extra.legion_size <= 0f || extra.legion_full <= extra.legion_size || kingdom == null) return;
+        LegionAlive(actor);
         float need = extra.legion_full * HealthRatio(actor) - extra.legion_size;
         if (need < 1f) return;
         float taken = 0f;
@@ -1408,7 +1609,9 @@ public static class CityPopulationSystem
             City source = DrawKingdomCity(kingdom);
             PopGroup group = source == null ? null : DrawBackground(source, candidate => candidate.Background >= 1f);
             if (group == null) break;
-            taken += RemoveBackground(group, need - taken);
+            float contribution = RemoveBackground(group, need - taken);
+            LegionPopulationRules.Add(extra.legion_population, source.id, group, contribution);
+            taken += contribution;
         }
         extra.legion_size += taken;
     }
@@ -1419,9 +1622,11 @@ public static class CityPopulationSystem
     {
         if (!AbstractPopulationEnabled || actor?.data == null) return;
         ActorExtension.ActorExtraData extra = actor.GetOrCreate();
-        if (extra.legion_size <= 1f) return;
+        if (extra.legion_size <= 0f) return;
         float lost = LegionAlive(actor) - 1f;
-        extra.legion_size = 0f;
+        extra.legion_size = extra.legion_full = 0f;
+        extra.legion_population = null;
+        extra.legion_home_city_id = -1L;
         CityPopulationData data = actor.city == null ? null : Get(actor.city);
         if (data != null && lost > 0f) data.levied = Mathf.Max(0f, data.levied - lost);
     }
@@ -1436,7 +1641,8 @@ public static class CityPopulationSystem
         foreach (Actor actor in city.units)
         {
             if (actor?.data == null || actor.isRekt() || !actor.isAlive()) continue;
-            if (actor.GetOrCreate().legion_size <= 1f) continue;
+            ActorExtension.ActorExtraData extra = actor.GetOrCreate();
+            if (extra.legion_size <= 0f || (extra.legion_size <= 1f && extra.legion_full <= 1f)) continue;
             // 旧版生成的征召兵年龄是刚出生，补成服役年龄
             if (!actor.isAdult()) AssignAdultAge(actor, 18, 35);
             ReinforceLegion(actor, actor.kingdom ?? city.kingdom);

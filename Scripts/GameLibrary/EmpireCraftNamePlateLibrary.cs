@@ -1277,36 +1277,8 @@ public static class EmpireCraftNamePlateLibrary
     private static IEnumerable<City> EnumerateEmpireViewCities(Empire empire, int view)
     {
         HashSet<City> yieldedCities = new HashSet<City>();
-        if (empire.kingdoms_list != null)
-        {
-            foreach (Kingdom member in empire.kingdoms_list)
-            {
-                if (!IsRenderableKingdom(member)) continue;
-                foreach (City city in member.cities)
-                {
-                    if (city != null && !city.isRekt() && yieldedCities.Add(city)) yield return city;
-                }
-            }
-        }
-
-        if (yieldedCities.Count == 0 && empire.CoreKingdom?.cities != null)
-        {
-            foreach (City city in empire.CoreKingdom.cities)
-            {
-                if (city != null && !city.isRekt() &&
-                    !AncientWarfareCompatibility.OwnsObject(city) && yieldedCities.Add(city)) yield return city;
-            }
-        }
-
-        // Old saves can restore the aggregate cache before kingdom membership is rebuilt.
-        if (yieldedCities.Count == 0 && empire.cities_list != null)
-        {
-            foreach (City city in empire.cities_list)
-            {
-                if (city != null && !city.isRekt() &&
-                    !AncientWarfareCompatibility.OwnsObject(city) && yieldedCities.Add(city)) yield return city;
-            }
-        }
+        foreach (City city in EmpireMembershipService.EnumerateCities(empire))
+            if (yieldedCities.Add(city)) yield return city;
 
         List<Kingdom> associatedKingdoms = view == 1 ? empire.taken_Kingdoms :
             view == 2 ? empire.given_Kingdoms : null;
@@ -1314,8 +1286,10 @@ public static class EmpireCraftNamePlateLibrary
         foreach (Kingdom kingdom in associatedKingdoms)
         {
             if (!IsRenderableKingdom(kingdom)) continue;
+            if (view == 1 && kingdom.GetTakenAllianceEmpire() != empire ||
+                view == 2 && kingdom.GetGivenAllianceEmpire() != empire) continue;
             foreach (City city in kingdom.cities)
-                if (city != null && !city.isRekt() && yieldedCities.Add(city)) yield return city;
+                if (city != null && !city.isRekt() && city.kingdom == kingdom && yieldedCities.Add(city)) yield return city;
         }
     }
 
@@ -1328,13 +1302,11 @@ public static class EmpireCraftNamePlateLibrary
     private static bool IsRenderableEmpire(Empire empire)
     {
         // 只认成员国实际持有的城市；cities_list 是缓存，可能残留已经易主的城市
-        bool hasTerritory = empire?.CoreKingdom?.cities?.Count > 0 ||
-                            empire?.kingdoms_list?.Any(kingdom => kingdom != null &&
-                                !kingdom.isRekt() && kingdom.cities?.Count > 0) == true;
         return empire != null && empire.data != null && !empire.IsArchived() &&
                !AncientWarfareCompatibility.Owns(empire.CoreKingdom) &&
                empire.CoreKingdom != null && empire.CoreKingdom.data != null &&
-               !empire.CoreKingdom.isRekt() && hasTerritory;
+               !empire.CoreKingdom.isRekt() && empire.CoreKingdom.GetEmpire() == empire &&
+               EmpireMembershipService.EnumerateCities(empire).Any();
     }
 
     private static bool IsRenderableKingdom(Kingdom kingdom)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -135,23 +136,67 @@ public static class AnimalHusbandrySystem
     private static readonly Dictionary<City, List<Actor>> PestsByCity = new();
     private static double _lastPass = -1d;
     private const double SliceBudgetMs = 1.5d;
+    private static object _world;
+    private static readonly HashSet<City> Wanted = new();
+    private static List<City> _groupCities;
+    private static List<Actor> _groupActors;
+    private static int _groupCityIndex, _groupActorIndex, _groupActorLimit;
+    private static bool _pestControl;
+
+    public static void ResetWorldState()
+    {
+        _world = World.world;
+        _lastPass = -1d;
+        Pending.Clear();
+        Wanted.Clear();
+        AnimalsByCity.Clear();
+        PestsByCity.Clear();
+        Terrain.Clear();
+        _groupCities = null;
+        _groupActors = null;
+    }
 
     public static void Tick()
     {
         MapBox world = World.world;
-        if (world?.cities == null || Config.paused || !Config.game_loaded) return;
+        if (world?.cities == null || Config.paused || !Config.game_loaded || SmoothLoader.isLoading()) return;
+        if (!ReferenceEquals(_world, world)) ResetWorldState();
         double now = world.getCurWorldTime();
-        if (Pending.Count == 0)
+        if (Pending.Count == 0 && _groupCities == null)
         {
             if (_lastPass >= 0d && now >= _lastPass && Date.getMonthsSince(_lastPass) < 1) return;
             _lastPass = now;
-            GroupAnimals(world);
-            foreach (City city in world.cities)
-                if (city?.data != null && !city.isRekt() && city.kingdom != null && !city.kingdom.wild)
-                    Pending.Enqueue(city);
+            AnimalsByCity.Clear();
+            PestsByCity.Clear();
+            Wanted.Clear();
+            _groupCities = new List<City>(world.cities);
+            _groupActors = world.units.getSimpleList();
+            _groupActorLimit = _groupActors.Count;
+            _groupCityIndex = _groupActorIndex = 0;
+            _pestControl = CityPopulationSystem.AbstractPopulationEnabled;
         }
         Stopwatch watch = Stopwatch.StartNew();
-        while (Pending.Count > 0 && watch.Elapsed.TotalMilliseconds < SliceBudgetMs)
+        if (_groupCities != null)
+        {
+            while (_groupCityIndex < _groupCities.Count && (!_pestControl ||
+                   watch.Elapsed.TotalMilliseconds < SliceBudgetMs && SimulationFrameBudget.HasTime))
+            {
+                City city = _groupCities[_groupCityIndex++];
+                if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.wild) continue;
+                Pending.Enqueue(city);
+                if (CountBuildings(city, PastureType) > 0 || CountBuildings(city, SlaughterhouseType) > 0) Wanted.Add(city);
+            }
+            if (_groupCityIndex < _groupCities.Count) return;
+            if (Wanted.Count == 0 && !_pestControl) _groupActorIndex = _groupActorLimit;
+            while (_groupActorIndex < Math.Min(_groupActorLimit, _groupActors.Count) &&
+                   (!_pestControl || watch.Elapsed.TotalMilliseconds < SliceBudgetMs && SimulationFrameBudget.HasTime))
+                GroupAnimal(_groupActors[_groupActorIndex++]);
+            if (_groupActorIndex < Math.Min(_groupActorLimit, _groupActors.Count)) return;
+            _groupCities = null;
+            _groupActors = null;
+            if (!_pestControl) watch.Restart(); // 普通模式维持一次分组后开始计畜牧结算预算。
+        }
+        while (Pending.Count > 0 && watch.Elapsed.TotalMilliseconds < SliceBudgetMs && SimulationFrameBudget.HasTime)
         {
             City city = Pending.Dequeue();
             if (city?.data == null || city.isRekt()) continue;
@@ -167,49 +212,38 @@ public static class AnimalHusbandrySystem
         if (Pending.Count == 0)
         {
             if (Terrain.Count > world.cities.Count * 2) Terrain.Clear();
+            Wanted.Clear();
             AnimalsByCity.Clear();
             PestsByCity.Clear();
         }
     }
 
     // 只看有牧场或屠宰场的城的领地，省得每月给所有动物分组
-    private static void GroupAnimals(MapBox world)
+    private static void GroupAnimal(Actor actor)
     {
-        AnimalsByCity.Clear();
-        PestsByCity.Clear();
-        var wanted = new HashSet<City>();
-        foreach (City city in world.cities)
-            if (city?.data != null && !city.isRekt() &&
-                (CountBuildings(city, PastureType) > 0 || CountBuildings(city, SlaughterhouseType) > 0))
-                wanted.Add(city);
-        bool pestControl = CityPopulationSystem.AbstractPopulationEnabled;
-        if (wanted.Count == 0 && !pestControl) return;
-        foreach (Actor actor in world.units)
-        {
-            if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.asset == null) continue;
-            if (actor.isFavorite() || actor.isCameraFollowingUnit()) continue;
+            if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.asset == null) return;
+            if (actor.isFavorite() || actor.isCameraFollowingUnit()) return;
             WorldTile tile = actor.current_tile;
             City owner = tile?.zone?.city;
-            if (owner == null) continue;
+            if (owner == null) return;
             // 无小人模式没有农民赶虫：农田(田地、规划农耕区)上的害虫由城市每月清除
-            if (pestControl && IsPest(actor.asset) &&
+            if (_pestControl && IsPest(actor.asset) &&
                 (tile.Type != null && tile.Type.farm_field || ZonePlanSystem.Get(owner, tile.zone) == ZoneUse.Farm))
             {
                 if (!PestsByCity.TryGetValue(owner, out List<Actor> pests)) PestsByCity[owner] = pests = new List<Actor>();
                 if (pests.Count < PestsPerCity) pests.Add(actor);
-                continue;
+                return;
             }
-            if (!IsGame(actor.asset) || !wanted.Contains(owner)) continue;
+            if (!IsGame(actor.asset) || !Wanted.Contains(owner)) return;
             if (!AnimalsByCity.TryGetValue(owner, out List<Actor> list)) AnimalsByCity[owner] = list = new List<Actor>();
             list.Add(actor);
-        }
     }
 
     private static void Settle(City city)
     {
         if (PestsByCity.TryGetValue(city, out List<Actor> pestList))
             foreach (Actor pest in pestList)
-                if (pest != null && !pest.isRekt() && pest.isAlive()) Remove(pest);
+                if (pest != null && !pest.isRekt() && pest.isAlive() && pest.current_tile?.zone?.city == city) Remove(pest);
         CityPopulationData data = CityPopulationSystem.Get(city);
         if (data == null) return;
         int pastures = CountBuildings(city, PastureType);
@@ -218,6 +252,8 @@ public static class AnimalHusbandrySystem
         float capacity = HerdCapacity(city);
         if (data.herd > capacity) data.herd = capacity;
         AnimalsByCity.TryGetValue(city, out List<Actor> animals);
+        animals?.RemoveAll(animal => animal?.asset == null || animal.isRekt() || !animal.isAlive() ||
+            animal.current_tile?.zone?.city != city);
         float meat = 0f, leather = 0f, bones = 0f;
 
         // 牧场：圈进家畜

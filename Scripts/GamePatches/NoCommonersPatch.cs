@@ -1,6 +1,7 @@
 using System;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Data;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.services;
@@ -243,7 +244,8 @@ public class NoCommonersPatch : GamePatch
     public static void AfterPlanAllowsBuilding(City __instance, TileZone pZone, ref bool __result)
     {
         if (!__result || pZone == null || __instance == null) return;
-        if (FarmlandSystem.IsProtected(__instance) && FarmlandSystem.IsPlanned(__instance, pZone)) __result = false;
+        if (FarmlandSystem.IsProtected(__instance) && FarmlandSystem.IsPlanned(__instance, pZone) &&
+            FarmlandSystem.HasFarmArea(__instance, pZone)) __result = false;
     }
 
     public static void BeforeJoinAnotherKingdom(City __instance, Kingdom pNewSetKingdom, bool pCaptured)
@@ -352,33 +354,42 @@ public class NoCommonersPatch : GamePatch
     // 收藏和镜头跟随的不动
     private const int CullPerFrame = 400;
     private static readonly global::System.Collections.Generic.List<Actor> _cullBuffer = new();
+    private static object _cullWorld;
+    private static int _cullCursor;
+    private static bool _cullGame;
 
     public static void CullExcessWild()
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled || World.world?.units == null || Config.paused ||
             !Config.game_loaded) return;
+        if (!ReferenceEquals(_cullWorld, World.world))
+        {
+            _cullWorld = World.world;
+            _cullCursor = 0;
+            _cullGame = false;
+            _wildCountedAt = -100f;
+        }
         int excess = WildCount() - WildCap;
         if (excess <= 0) return;
         _cullBuffer.Clear();
-        foreach (Actor actor in World.world.units)
+        var actors = World.world.units.getSimpleList();
+        int count = actors.Count;
+        if (count == 0) return;
+        if (_cullCursor >= count) { _cullCursor = 0; _cullGame = !_cullGame; }
+        bool gamePass = _cullGame;
+        for (int scanned = 0; scanned < count && _cullCursor < count && _cullBuffer.Count < CullPerFrame &&
+             (scanned == 0 || EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.HasTime); scanned++)
         {
-            if (_cullBuffer.Count >= CullPerFrame) break;
+            Actor actor = actors[_cullCursor++];
             if (actor?.asset == null || actor.asset.civ || actor.asset.is_boat || !actor.isAlive()) continue;
-            if (actor.isFavorite() || actor.isCameraFollowingUnit() || AnimalHusbandrySystem.IsGame(actor.asset)) continue;
+            if (actor.isFavorite() || actor.isCameraFollowingUnit() || AnimalHusbandrySystem.IsGame(actor.asset) != gamePass) continue;
             _cullBuffer.Add(actor);
         }
-        if (_cullBuffer.Count < CullPerFrame)
-            foreach (Actor actor in World.world.units)
-            {
-                if (_cullBuffer.Count >= CullPerFrame) break;
-                if (actor?.asset == null || actor.asset.civ || actor.asset.is_boat || !actor.isAlive()) continue;
-                if (actor.isFavorite() || actor.isCameraFollowingUnit() || !AnimalHusbandrySystem.IsGame(actor.asset)) continue;
-                _cullBuffer.Add(actor);
-            }
+        if (_cullCursor >= count) { _cullCursor = 0; _cullGame = !_cullGame; }
         int removed = 0;
         foreach (Actor actor in _cullBuffer)
         {
-            if (removed >= excess) break;
+            if (removed >= excess || removed > 0 && !EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.HasTime) break;
             try
             {
                 actor.die(true, AttackType.Other, false, false);
@@ -427,8 +438,8 @@ public class NoCommonersPatch : GamePatch
     #region 人口统计一律计入背景人口
 
     // 世界统计(智慧生物人口、总人口)，以及文化、宗教、语言、亚种的人口：原版只数实体单位，
-    // 这里补上各城的背景人口与在外军团(城市、王国、联盟在别处已经补上)。背景人口按所在城市的
-    // 文化、宗教、语言、主要亚种归类。每帧最多汇总一次
+    // 这里补上各城的背景人口与在外军团(城市、王国、联盟在别处已经补上)。文化按人口组和军团来源归类；
+    // 宗教、语言、主要亚种尚无人口组对应的原版对象 id，仍按所在城市归类。每帧最多汇总一次。
     private static void PatchPopulationQueries()
     {
         try
@@ -469,6 +480,23 @@ public class NoCommonersPatch : GamePatch
     private static int _indexFrame = -1;
     private static long _worldBackground;
     private static readonly global::System.Collections.Generic.Dictionary<object, int> MetaBackground = new();
+    private static readonly global::System.Collections.Generic.Dictionary<string, float> CultureBackground = new();
+
+    public static void ResetPopulationIndex()
+    {
+        _indexFrame = -1;
+        MetaBackground.Clear();
+        CultureBackground.Clear();
+        _worldBackground = 0L;
+    }
+
+    private static void AddCulture(string key, float amount, Culture fallback)
+    {
+        if (amount <= 0f) return;
+        if (string.IsNullOrEmpty(key)) { Add(fallback, Mathf.RoundToInt(amount)); return; }
+        CultureBackground.TryGetValue(key, out float current);
+        CultureBackground[key] = current + amount;
+    }
 
     private static void RebuildIndex()
     {
@@ -477,14 +505,26 @@ public class NoCommonersPatch : GamePatch
         _indexFrame = frame;
         _worldBackground = 0L;
         MetaBackground.Clear();
+        CultureBackground.Clear();
         if (World.world?.cities == null) return;
         foreach (City city in World.world.cities)
         {
             if (city?.data == null || city.isRekt()) continue;
             int background = CityPopulationSystem.BackgroundCount(city);
-            if (background <= 0) continue;
             _worldBackground += background;
-            Add(city.culture, background);
+            CityPopulationData population = CityPopulationSystem.Get(city);
+            foreach (PopGroup group in population.groups)
+                if (group != null) AddCulture(group.culture, group.Background, city.culture);
+            if (city.units != null)
+                foreach (Actor actor in city.units)
+                {
+                    if (actor?.data == null || actor.isRekt() || !actor.isAlive()) continue;
+                    ActorExtension.ActorExtraData extra = actor.GetOrCreate();
+                    if (extra.legion_size <= 1f) continue;
+                    CityPopulationSystem.LegionAlive(actor);
+                    foreach (LegionPopulationContribution origin in extra.legion_population)
+                        if (origin != null) AddCulture(origin.culture, origin.size, city.culture);
+                }
             Add(city.religion, background);
             Add(city.language, background);
             Subspecies subspecies = null;
@@ -498,13 +538,22 @@ public class NoCommonersPatch : GamePatch
             }
             Add(subspecies, background);
         }
+        // 一个模板可以对应多个原版 Culture；人数只归一个对象，避免汇总翻倍。
+        var assigned = new global::System.Collections.Generic.HashSet<string>();
+        if (World.world.cultures != null)
+            foreach (Culture culture in World.world.cultures)
+            {
+                string key = CulturePatch.GetInjectedCultureName(culture);
+                if (!string.IsNullOrEmpty(key) && assigned.Add(key) &&
+                    CultureBackground.TryGetValue(key, out float amount)) Add(culture, Mathf.RoundToInt(amount));
+            }
     }
 
     private static void Add(object meta, int amount)
     {
         if (meta == null) return;
         MetaBackground.TryGetValue(meta, out int current);
-        MetaBackground[meta] = current + amount;
+        MetaBackground[meta] = (int)Math.Min(int.MaxValue, (long)current + amount);
     }
 
     private static long WorldBackground()
@@ -518,6 +567,9 @@ public class NoCommonersPatch : GamePatch
         if (!__result || !CityPopulationSystem.AbstractPopulationEnabled ||
             __instance is not (Culture or Religion or Language or Subspecies)) return;
         RebuildIndex();
+        if (__instance is Culture culture && CultureBackground.TryGetValue(
+                CulturePatch.GetInjectedCultureName(culture) ?? "", out float people) && people > 0f)
+            __result = false;
         if (MetaBackground.TryGetValue(__instance, out int background) && background > 0) __result = false;
     }
 
@@ -532,7 +584,8 @@ public class NoCommonersPatch : GamePatch
         if (!CityPopulationSystem.AbstractPopulationEnabled ||
             __instance is not (Culture or Religion or Language or Subspecies)) return;
         RebuildIndex();
-        if (MetaBackground.TryGetValue(__instance, out int background)) __result += background;
+        if (MetaBackground.TryGetValue(__instance, out int background))
+            __result = (int)Math.Min(int.MaxValue, (long)__result + background);
     }
 
     #endregion

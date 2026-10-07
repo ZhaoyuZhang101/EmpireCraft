@@ -329,6 +329,8 @@ public class ActorPatch : GamePatch
         Kingdom rulingKingdom = __instance.isKing() ? __instance.kingdom : null;
         if (rulingKingdom != null)
             rulingKingdom.GetOrCreate().last_ruler_identity_id = __instance.GetPersonalIdentity()?.id ?? -1L;
+        if (rulingKingdom != null)
+            EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckHeir.PrepareForSuccession(rulingKingdom, __instance.GetPersonalIdentity());
         if (rulingKingdom != null && !rulingKingdom.IsEmpire() && rulingKingdom.IsInEmpire())
             rulingKingdom.GetOrCreate().last_king_identity_id = __instance.GetPersonalIdentity()?.id ?? -1L;
         // 共主去世：城邦跟随盟主新君，封建王国按长幼分给子女

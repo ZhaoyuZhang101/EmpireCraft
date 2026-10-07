@@ -82,6 +82,8 @@ public class SpecificClan
     public long ancestral_city_id { get; set; } = -1L;
     // 族长死于战乱或饥荒(无小人模式，见 VirtualGenealogySystem)：不再从虚拟族人里补族长；之后又有实体族人时清除
     public bool head_lost_to_calamity { get; set; }
+    // 整族都已过世的时间(-1 = 还有在世族人)；绝嗣久了的小宗族会被族谱瘦身清掉，见 VirtualGenealogySystem
+    public double extinct_since { get; set; } = -1d;
     // 平民宗族整族成为虚拟族人的时间(-1 = 还有实体族人)；沉寂太久就销户，见 VirtualGenealogySystem
     public double virtual_since { get; set; } = -1d;
     // 本宗族作为皇族统治的帝国灭亡的时间(-1 表示没有记录)，用于判定"宗室复国"的时效。
@@ -886,6 +888,13 @@ public static class SpecificClanManager
     {
         lock (_clansLock) _specificClans.RemoveAll(c => c.id == id);
     }
+
+    // 一次删掉一批宗族(族谱瘦身用，逐个 RemoveClan 是平方复杂度)
+    public static void RemoveClans(HashSet<long> ids)
+    {
+        if (ids == null || ids.Count == 0) return;
+        lock (_clansLock) _specificClans.RemoveAll(c => c == null || ids.Contains(c.id));
+    }
     public static void removePerson(PersonalClanIdentity pci)
     {
         foreach (var sc in _specificClans)
@@ -973,14 +982,34 @@ public static class SpecificClanManager
         return a.GetRootClan() == b.GetRootClan();
     }
 
+    // 按 id 找宗族：以前每次都在整个宗族列表里线性查找(几万个宗族时，每个族人取一次宗族就要扫几万遍，
+    // 分户、族长、宗族分支这些逐人处理的地方因此每帧卡十几毫秒)。改用字典索引；列表的增删有好几处
+    // 直接改 _specificClans，索引在数量变化或查到的对不上时整体重建
+    private static readonly Dictionary<long, SpecificClan> _clanIndex = new();
+    private static int _clanIndexCount = -1;
+    private static List<SpecificClan> _clanIndexList;
+
     public static SpecificClan Get(long id)
     {
-        SpecificClan clan = _specificClans.Find(sc => sc.id == id);
-        if (clan == null)
+        lock (_clansLock)
         {
-            return null;
-        } 
-        return clan;
+            if (_clanIndexCount != _specificClans.Count || !ReferenceEquals(_clanIndexList, _specificClans))
+                RebuildClanIndex();
+            if (!_clanIndex.TryGetValue(id, out SpecificClan clan)) return null;
+            if (clan != null && clan.id == id) return clan;
+            // 索引过期(宗族改过 id 或被原地替换)：重建一次再查
+            RebuildClanIndex();
+            return _clanIndex.TryGetValue(id, out clan) ? clan : null;
+        }
+    }
+
+    private static void RebuildClanIndex()
+    {
+        _clanIndex.Clear();
+        foreach (SpecificClan clan in _specificClans)
+            if (clan != null) _clanIndex[clan.id] = clan;
+        _clanIndexCount = _specificClans.Count;
+        _clanIndexList = _specificClans;
     }
     public static void Remove(SpecificClan sc)
     {

@@ -146,22 +146,28 @@ public static class LandEconomySystem
         if (Date.getYearsSince(data.last_land_economy_timestamp) < 1) return;
         data.last_land_economy_timestamp = EmpireCraft.Scripts.HelperFunc.YearlyStagger.Next(now);
 
-        Dictionary<string, List<Actor>> households = BuildHouseholds(city);
-        UpdateMerchantHouseholds(households);
+        // 各步分别累计计时(见 FrameProfiler)
+        Dictionary<string, List<Actor>> households;
+        using (FrameProfiler.Measure("土地经济·分户")) households = BuildHouseholds(city);
+        using (FrameProfiler.Measure("土地经济·商户")) UpdateMerchantHouseholds(households);
         if (IsLandMarketOpen(city.kingdom))
-        {
-            if (data.land_redistribution_pending) RedistributeLand(city);
-            EnsureInitialHouseholdShares(city, households);
-            ProcessLandPurchases(city, households);
-            TryMoveLandlessHousehold(city, households);
-        }
-        RefreshClasses(city);
-        TryFoundingLandReform(city);
-        UpdateBackgroundLand(city);
+            using (FrameProfiler.Measure("土地经济·土地买卖"))
+            {
+                if (data.land_redistribution_pending) RedistributeLand(city);
+                EnsureInitialHouseholdShares(city, households);
+                ProcessLandPurchases(city, households);
+                TryMoveLandlessHousehold(city, households);
+            }
+        using (FrameProfiler.Measure("土地经济·阶层刷新")) RefreshClasses(city);
+        using (FrameProfiler.Measure("土地经济·土改")) TryFoundingLandReform(city);
+        using (FrameProfiler.Measure("土地经济·背景人口土地")) UpdateBackgroundLand(city);
 
-        float landlessRatio = CalculateLandlessPopulationRatio(city);
-        if (!TryJoinAdjacentPeasantRebellion(city, landlessRatio))
-            TryStartPeasantLandRebellion(city, landlessRatio);
+        using (FrameProfiler.Measure("土地经济·农民起义"))
+        {
+            float landlessRatio = CalculateLandlessPopulationRatio(city);
+            if (!TryJoinAdjacentPeasantRebellion(city, landlessRatio))
+                TryStartPeasantLandRebellion(city, landlessRatio);
+        }
     }
 
     public static CityLandReport GetReport(City city)

@@ -391,9 +391,9 @@ public class InstitutionGraphView
         "administration" => Icon("ui/icons/iconWorldLaws", "ui/icons/iconKingdom"),
         "finance" => Icon("ui/icons/iconTax", "ui/icons/iconMoney"),
         "military" => Icon("ui/icons/iconArmy", "ui/icons/iconSoldier", "ui/icons/iconWar"),
-        "society" => Icon("ui/icons/iconPopulation", "ui/icons/iconCitizen"),
+        "society" => Icon("ui/icons/iconPopulation", "ui/icons/iconPopulation"),
         "ideology" => Icon("ui/icons/iconBooks", "ui/icons/iconKnowledge"),
-        _ => Icon("ui/icons/iconKnowledge", "ui/icons/iconTech")
+        _ => Icon("ui/icons/iconKnowledge", "ui/icons/culture_traits/iconTech")
     };
 
     private static Sprite GetStatusIcon(InstitutionNodeStatus status) => status switch
@@ -405,7 +405,7 @@ public class InstitutionGraphView
         InstitutionNodeStatus.Forceable => Icon("ui/icons/iconWar"),
         InstitutionNodeStatus.ForeignReady or InstitutionNodeStatus.ForeignContacting =>
             Icon("ui/icons/iconDiplomacy", "ui/icons/iconAlliance"),
-        InstitutionNodeStatus.Superseded => Icon("ui/icons/iconAgeUnknown", "ui/icons/iconBooks"),
+        InstitutionNodeStatus.Superseded => Icon("ui/icons/iconAge", "ui/icons/iconBooks"),
         _ => Icon("ui/icons/iconLock")
     };
 

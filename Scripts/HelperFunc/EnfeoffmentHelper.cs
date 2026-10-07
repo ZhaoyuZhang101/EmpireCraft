@@ -47,12 +47,27 @@ public static class EnfeoffmentHelper
     public static Actor FindEnfeoffmentCandidate(Empire empire)
     {
         PersonalClanIdentity emperorIdentity = empire?.Emperor?.GetPersonalIdentity();
-        return SpecificClanManager.GetSiblingsWithRelation(emperorIdentity)
+        Actor actor = SpecificClanManager.GetSiblingsWithRelation(emperorIdentity)
             .Select(item => item.Item2)
             .Where(identity => identity != null && IsEligibleSibling(identity._actor, empire))
             .OrderBy(identity => identity.rank)
             .Select(identity => identity._actor)
             .FirstOrDefault();
+        if (actor != null || !CityPopulationSystem.AbstractPopulationEnabled) return actor;
+        // 无小人模式：皇帝的兄弟多半已转为虚拟族人(族谱里在世、但地图上没有单位)。
+        // 按长幼挑一位够资格的虚拟兄弟落成实体，再按常规条件校验
+        foreach (PersonalClanIdentity sibling in SpecificClanManager.GetSiblingsWithRelation(emperorIdentity)
+                     .Select(item => item.Item2)
+                     .Where(identity => identity != null && identity.is_alive && identity.is_virtual &&
+                                        identity.CanHeir(emperorIdentity) &&
+                                        SpecificClanManager.SameLineage(identity._specificClan, empire.EmpireSpecificClan))
+                     .OrderBy(identity => identity.rank)
+                     .Take(3))
+        {
+            Actor realized = sibling.Realize();
+            if (IsEligibleSibling(realized, empire)) return realized;
+        }
+        return null;
     }
 
     public static bool IsEligibleSibling(Actor actor, Empire empire)

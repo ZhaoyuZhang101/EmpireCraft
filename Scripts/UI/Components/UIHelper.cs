@@ -1187,7 +1187,7 @@ public static class UIHelper
     public static SimpleButton CreateToggleButton(UnityAction action)
     {
         SimpleButton year_name_button = UnityEngine.Object.Instantiate(SimpleButton.Prefab, null);
-        year_name_button.Setup(action, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"));
+        year_name_button.Setup(action, SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"));
         year_name_button.Background.enabled = false;
         year_name_button.SetSize(new Vector2(15, 15));
         return year_name_button;

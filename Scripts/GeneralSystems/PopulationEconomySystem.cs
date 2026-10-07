@@ -59,7 +59,7 @@ public static class PopulationEconomySystem
     private static MethodInfo _updateBuild;
 
     // 每个游戏月对一座城结算一次(由 CityPopulationSystem 的并入流程调用)
-    public static void Settle(City city, CityPopulationData data, double now)
+    public static void Settle(City city, CityPopulationData data, double now, float? farmHarvest = null)
     {
         if (city?.data == null || data?.groups == null) return;
         if (data.last_economy < 0d || now < data.last_economy)
@@ -77,18 +77,12 @@ public static class PopulationEconomySystem
         float background = 0f;
         // 产出、吃粮、施工都按"户"结算(一户 = 一个住房位的人)，仓库装得下、数值和原版居民一个量级
         float perSlot = CityPopulationSystem.PeoplePerSlot(city);
-        foreach (PopGroup group in data.groups)
-        {
-            float amount = group.Background / perSlot;
-            if (amount <= 0f) continue;
-            background += amount;
-            workforceByClass.TryGetValue(group.social_class, out float workers);
-            workforceByClass[group.social_class] = workers + amount * WorkingAgeShare;
-        }
+        var numeric = PopulationParallelSystem.GetWorkforce(city, data, perSlot);
+        background = numeric.BackgroundHouseholds;
+        foreach (var pair in numeric.Workforce) workforceByClass[(SocialClass)pair.Key] = pair.Value;
         // 农田自动耕作(开田、播种、收割)，粮食来自实际收割的麦子(见 FarmlandSystem)
         // 收成按粮食征收政策一部分交国家粮仓(见 GranarySystem)，其余留在本城
-        float harvested = GranarySystem.Collect(city, FarmlandSystem.Settle(city, data));
-        if (harvested > 0f) Deposit(city, data, _foodId ?? "wheat", harvested);
+        float harvested = farmHarvest ?? DepositFarmHarvest(city, data, FarmlandSystem.Settle(city, data));
         if (background <= 0f) return;
 
         float workforce = background * WorkingAgeShare;
@@ -138,7 +132,9 @@ public static class PopulationEconomySystem
             if (relief > 0f)
             {
                 Deposit(city, data, _foodId ?? "wheat", relief);
-                shortage = Mathf.Max(0f, shortage - relief);
+                float served = EatFood(city, data, Mathf.Floor(Mathf.Min(shortage, relief)), out _);
+                eaten += served;
+                shortage = Mathf.Max(0f, shortage - served);
             }
         }
 
@@ -148,6 +144,16 @@ public static class PopulationEconomySystem
         data.last_food_eaten = years > 0f ? eaten / years : 0f;
         data.last_food_shortage = years > 0f ? shortage / years : 0f;
         data.last_gold_output = years > 0f ? gold / years : 0f;
+    }
+
+    // 分帧收割后立即入库，避免两步骤之间保存/占城导致已经收下的粮食丢失。
+    public static float DepositFarmHarvest(City city, CityPopulationData data, float rawHarvest)
+    {
+        if (rawHarvest <= 0f) return 0f;
+        ResolveReflection();
+        float harvested = GranarySystem.Collect(city, rawHarvest);
+        if (harvested > 0f) Deposit(city, data, _foodId ?? "wheat", harvested);
+        return harvested;
     }
 
     // 没有农田时每户每年的自给口粮(不够吃饱：一户一年吃 1 份)

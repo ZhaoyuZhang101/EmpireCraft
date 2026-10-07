@@ -59,7 +59,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         {
             var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
             tab.Setup("specific_clan_relations", ScrollWindowComponent, action: _ => refreshAll(),
-                sprite: SpriteTextureLoader.getSprite("ui/iconOptions"));
+                sprite: SpriteTextureLoader.getSprite("ui/icons/iconOptions"));
         }
         if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_history"))
         {

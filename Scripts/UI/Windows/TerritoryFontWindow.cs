@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
@@ -12,19 +12,28 @@ using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
-// 领土铭牌字体(见 TerritoryFontSettings)：自动(传统书体优先) / 游戏字体 / 本机已安装的任一字体。
-// 传统书体按隶书、篆书、草书、行书、魏碑、楷书、宋明体分类列在前面，并用该字体本身显示预览。
 public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
 {
-    private const float Width = 190f;
-    private const int MaxOtherFonts = 200;
+    private const float Width = 204f;
+    private const int PageSize = 8;
     private readonly List<GameObject> _groups = new();
+    private string _search = "";
+    private int _page;
 
     protected override void Init()
     {
-        layout.spacing = 2;
-        layout.padding = new RectOffset(4, 4, 6, 4);
+        layout.spacing = 4;
+        layout.padding = new RectOffset(6, 6, 8, 8);
         layout.childAlignment = TextAnchor.UpperCenter;
+        TextInput search = Instantiate(TextInput.Prefab);
+        search.Setup(LM.Get("territory_font_search"), value =>
+        {
+            _search = value == LM.Get("territory_font_search") ? "" : (value ?? "").Trim();
+            _page = 0;
+            Rebuild();
+        });
+        search.SetSize(new Vector2(Width, 18f));
+        AddChild(search.gameObject);
     }
 
     public override void OnNormalEnable()
@@ -36,62 +45,69 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
     private void Rebuild()
     {
         foreach (GameObject group in _groups)
-            if (group != null) Destroy(group);
+            if (group != null) { group.SetActive(false); Destroy(group); }
         _groups.Clear();
-
-        var panel = this.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperCenter);
+        var panel = this.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
         _groups.Add(panel.gameObject);
-
         string choice = TerritoryFontSettings.Choice;
-        string current = choice == TerritoryFontSettings.Auto
-            ? string.Format(LM.Get("territory_font_auto_current"),
-                TerritoryFontSettings.ResolveFontName() ?? LM.Get("territory_font_game"))
-            : choice == TerritoryFontSettings.Game
-                ? LM.Get("territory_font_game")
-                : choice + (TerritoryFontSettings.IsInstalled(choice) ? "" : LM.Get("territory_font_missing"));
-        AddLine(panel, string.Format(LM.Get("territory_font_current"), current).ColorString("#F3C34A"), 8, 12f);
-        AddLine(panel, LM.Get("territory_font_hint").ColorString("#A8B8BE"), 6, 30f, HorizontalWrapMode.Wrap);
+        string current = choice == TerritoryFontSettings.Game ? LM.Get("territory_font_game")
+            : BundledTerritoryFonts.DisplayName(TerritoryFontSettings.ResolveFontName()) ?? LM.Get("territory_font_game");
+        AddLine(panel, LM.Get("territory_font_current").Replace("{0}", current), 8, 16f, "#D5B982");
+        AddLine(panel, LM.Get("territory_font_hint"), 6, 28f, "#ADB3B8", HorizontalWrapMode.Wrap);
+        var modes = panel.BeginHoriGroup(new Vector2(Width, 18f), TextAnchor.MiddleCenter, 4);
+        Mode(modes, "territory_font_auto", choice == TerritoryFontSettings.Auto, () => Choose(TerritoryFontSettings.Auto));
+        Mode(modes, "territory_font_game", choice == TerritoryFontSettings.Game, () => Choose(TerritoryFontSettings.Game));
+        Mode(modes, "territory_font_rescan", false, () => { TerritoryFontSettings.Rescan(); Rebuild(); });
 
-        var modes = panel.BeginHoriGroup(new Vector2(Width, 13f), TextAnchor.MiddleCenter, 3);
-        modes.AddButtonIntoHoriLayout("territory_font_auto", Highlight(LM.Get("territory_font_auto"),
-            choice == TerritoryFontSettings.Auto), () => Choose(TerritoryFontSettings.Auto), size: new Vector2(62f, 12f));
-        modes.AddButtonIntoHoriLayout("territory_font_game", Highlight(LM.Get("territory_font_game"),
-            choice == TerritoryFontSettings.Game), () => Choose(TerritoryFontSettings.Game), size: new Vector2(62f, 12f));
-        modes.AddButtonIntoHoriLayout("territory_font_rescan", LM.Get("territory_font_rescan"), () =>
+        var fonts = TerritoryFontSettings.TraditionalFonts()
+            .Select(item => (item.name, item.styleKey)).Concat(TerritoryFontSettings.OtherFonts()
+                .Select(name => (name, styleKey: "territory_font_style_other")))
+            .Where(item => string.IsNullOrEmpty(_search) ||
+                (BundledTerritoryFonts.DisplayName(item.name) + " " + item.name + " " + LM.Get(item.styleKey))
+                    .IndexOf(_search, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+        int pages = Math.Max(1, (fonts.Count + PageSize - 1) / PageSize);
+        _page = Math.Max(0, Math.Min(_page, pages - 1));
+        AddLine(panel, string.Format(LM.Get("territory_font_results"), fonts.Count, _page + 1, pages), 7, 13f, "#8FA0A8");
+        string previousStyle = null;
+        foreach ((string name, string styleKey) in fonts.Skip(_page * PageSize).Take(PageSize))
         {
-            TerritoryFontSettings.Rescan();
-            Rebuild();
-        }, size: new Vector2(56f, 12f));
-
-        // 传统书体：用字体本身显示预览
-        List<(string name, string styleKey)> traditional = TerritoryFontSettings.TraditionalFonts();
-        AddLine(panel, string.Format(LM.Get("territory_font_traditional"), traditional.Count).ColorString("#7FD8EA"), 7, 11f);
-        if (traditional.Count == 0)
-            AddLine(panel, LM.Get("territory_font_none_traditional").ColorString("#8FA0A8"), 6, 10f);
-        string preview = LM.Get("territory_font_preview");
-        foreach ((string name, string styleKey) in traditional)
-        {
+            if (previousStyle != styleKey)
+            {
+                AddLine(panel, LM.Get(styleKey), 7, 12f, "#D5B982");
+                previousStyle = styleKey;
+            }
             string fontName = name;
-            AdvancedButton button = panel.AddButtonIntoVertLayout($"territory_font_{fontName}",
-                Highlight($"{preview}  {LM.Get(styleKey)} · {fontName}", choice == fontName),
-                () => Choose(fontName), size: new Vector2(Width, 16f));
-            Font font = TerritoryLabelRenderer.GetOsFont(fontName);
+            bool selected = choice == name;
+            var card = panel.BeginVertGroup(new Vector2(Width, 38f), pSpacing: 1, pAlignment: TextAnchor.MiddleCenter);
+            AddLine(card, BundledTerritoryFonts.DisplayName(name) + (selected ? "  " + LM.Get("territory_font_selected") : ""),
+                7, 12f, selected ? "#E2C796" : "#BBC0C5");
+            AdvancedButton button = card.AddButtonIntoVertLayout("territory_font_" + name,
+                LM.Get("territory_font_preview"), () => Choose(fontName), size: new Vector2(Width, 24f));
+            button.Background.color = selected ? new Color(0.32f, 0.26f, 0.18f, 0.9f) : new Color(0.13f, 0.15f, 0.17f, 0.9f);
             Text text = button.GetComponentInChildren<Text>();
-            if (font != null && text != null) text.font = font;
+            Font font = TerritoryLabelRenderer.GetOsFont(name);
+            if (text != null)
+            {
+                if (font != null && text.text.Where(c => !char.IsWhiteSpace(c)).All(font.HasCharacter)) text.font = font;
+                text.material = null;
+                text.fontSize = 12;
+                text.resizeTextForBestFit = false;
+                text.supportRichText = false;
+                text.horizontalOverflow = HorizontalWrapMode.Overflow;
+                text.color = selected ? new Color32(226, 199, 150, 255) : new Color32(215, 219, 223, 255);
+            }
         }
-
-        // 其他已安装字体
-        List<string> others = TerritoryFontSettings.OtherFonts();
-        AddLine(panel, string.Format(LM.Get("territory_font_others"), others.Count).ColorString("#7FD8EA"), 7, 11f);
-        foreach (string name in others.Take(MaxOtherFonts))
+        if (fonts.Count == 0) AddLine(panel, LM.Get("territory_font_no_results"), 7, 20f, "#ADB3B8");
+        if (pages > 1)
         {
-            string fontName = name;
-            panel.AddButtonIntoVertLayout($"territory_font_{fontName}", Highlight(fontName, choice == fontName),
-                () => Choose(fontName), size: new Vector2(Width, 11f));
+            var paging = panel.BeginHoriGroup(new Vector2(Width, 18f), TextAnchor.MiddleCenter, 8);
+            var prev = paging.AddButtonIntoHoriLayout("font_prev", LM.Get("territory_font_previous"),
+                () => { _page--; Rebuild(); }, size: new Vector2(90f, 16f));
+            var next = paging.AddButtonIntoHoriLayout("font_next", LM.Get("territory_font_next"),
+                () => { _page++; Rebuild(); }, size: new Vector2(90f, 16f));
+            prev.Button.interactable = _page > 0;
+            next.Button.interactable = _page + 1 < pages;
         }
-        if (others.Count > MaxOtherFonts)
-            AddLine(panel, string.Format(LM.Get("territory_font_more"), others.Count - MaxOtherFonts)
-                .ColorString("#8FA0A8"), 6, 10f);
     }
 
     private void Choose(string choice)
@@ -100,14 +116,21 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
         Rebuild();
     }
 
-    private static string Highlight(string text, bool selected) =>
-        selected ? text.ColorString("#F3C34A") : text;
+    private static void Mode(AutoHoriLayoutGroup row, string key, bool selected, UnityEngine.Events.UnityAction action)
+    {
+        AdvancedButton button = row.AddButtonIntoHoriLayout(key, LM.Get(key), action, size: new Vector2(64f, 17f));
+        button.Background.color = selected ? new Color(0.38f, 0.30f, 0.18f) : new Color(0.17f, 0.19f, 0.21f);
+        button.Text.fontSize = 7;
+    }
 
-    private static void AddLine(AutoVertLayoutGroup panel, string text, int fontSize, float height,
+    private static void AddLine(AutoVertLayoutGroup panel, string text, int fontSize, float height, string color,
         HorizontalWrapMode wrap = HorizontalWrapMode.Overflow)
     {
-        SimpleText line = panel.AddTextIntoVertLayout(text, true, TextAnchor.MiddleCenter, new Vector2(Width, height),
-            mode: wrap);
+        SimpleText line = panel.AddTextIntoVertLayout(text, true, TextAnchor.MiddleCenter, new Vector2(Width, height), mode: wrap);
+        line.background.enabled = false;
+        line.text.text = text;
+        ColorUtility.TryParseHtmlString(color, out Color tint);
+        line.text.color = tint;
         line.UseFixedFontSize(fontSize, wrap);
     }
 }

@@ -293,7 +293,7 @@ public class CityWindowPatch : GamePatch
         limitInput.Setup(city.GetMaxPopulationLimitStats()? city.GetMaxPopulation().ToString(): LM.Get("population_limit_text"), newValue => InputCityPopLimit(newValue, limitInput));
         limitInput.SetSize(new Vector2(210, 30));
         limitInput.transform.localScale = Vector3.one;
-        limitToggle.Setup(() => LimitationToggleSwitch(limitToggle, limitInput), SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), city.GetMaxPopulationLimitStats() ? LM.Get("On") : LM.Get("Off"), pSize: new Vector2(65, 30));
+        limitToggle.Setup(() => LimitationToggleSwitch(limitToggle, limitInput), SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"), city.GetMaxPopulationLimitStats() ? LM.Get("On") : LM.Get("Off"), pSize: new Vector2(65, 30));
         // 强制输入框大小
         var inputLayout = limitInput.gameObject.AddComponent<LayoutElement>();
         inputLayout.minWidth = inputLayout.preferredWidth = 210;

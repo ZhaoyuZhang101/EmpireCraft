@@ -40,7 +40,7 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
         hint.background.enabled = false;
         header.AddChild(hint.gameObject);
         SimpleButton insertAllCulture = Instantiate(SimpleButton.Prefab);
-        insertAllCulture.Setup(InsertAllCulture, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"),
+        insertAllCulture.Setup(InsertAllCulture, SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"),
             LM.Get("insert_all_culture"), new Vector2(45, 16));
         insertAllCulture.Button.OnHover(() => Tooltip.show(insertAllCulture.gameObject, "normal", new TooltipData
         {

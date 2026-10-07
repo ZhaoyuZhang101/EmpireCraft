@@ -114,6 +114,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     {
         base.update(pElapsed);
         if (this.Count <= 0) return;
+        using var frameWork = SimulationFrameBudget.Measure();
         _titleUpdateBuffer.Clear();
         bool forceFullUpdate = pElapsed < 0f;
         if (forceFullUpdate)
@@ -139,12 +140,14 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
             for (int index = 0; index < count; index++)
             {
                 if (_scheduledUpdateCursor >= this.list.Count) _scheduledUpdateCursor = 0;
-                _titleUpdateBuffer.Add(this.list[_scheduledUpdateCursor++]);
+                _titleUpdateBuffer.Add(this.list[(_scheduledUpdateCursor + index) % this.list.Count]);
             }
         }
 
         for (int index = 0; index < _titleUpdateBuffer.Count; index++)
         {
+            if (!forceFullUpdate && !SimulationFrameBudget.HasTime) break;
+            if (!forceFullUpdate) _scheduledUpdateCursor = (_scheduledUpdateCursor + 1) % this.list.Count;
             KingdomTitle title = _titleUpdateBuffer[index];
             if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(title)) continue;
             // 法理默认文化不再由这里按年自动检查/转换：占比够高之后要靠"文治"派系发起

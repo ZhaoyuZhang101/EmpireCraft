@@ -44,6 +44,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
         if (NeedSuccession(pKingdom))
         {
+            EmpireCraftKingdomBehCheckHeir.PrepareForSuccession(pKingdom);
             // 无小人模式：实体族人里没有继承人时，从虚拟族谱里落成一位(见 VirtualGenealogySystem.RealizeHeir)
             if (!pKingdom.HasHeir())
             {

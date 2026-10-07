@@ -105,20 +105,20 @@ public static class EmpireCraftStrategicScheduler
         int processedEmpires = 0;
         do
         {
-            if (!ProcessNextEmpire(realtime, empires)) break;
+            if (!SimulationFrameBudget.HasTime || !ProcessNextEmpire(realtime, empires)) break;
             processedEmpires++;
         }
-        while (EmpireCraftFrameSchedulingRules.CanContinue(processedEmpires, minimumEmpires, maximumEmpires,
+        while (SimulationFrameBudget.HasTime && EmpireCraftFrameSchedulingRules.CanContinue(processedEmpires, minimumEmpires, maximumEmpires,
             ElapsedMilliseconds(started), Math.Max(MinimumEmpireBudgetMilliseconds,
                 budgetMilliseconds * EmpireBudgetShare)));
 
         int processed = 0;
         do
         {
-            if (!ProcessNextKingdom(realtime, kingdoms)) break;
+            if (!SimulationFrameBudget.HasTime || !ProcessNextKingdom(realtime, kingdoms)) break;
             processed++;
         }
-        while (EmpireCraftFrameSchedulingRules.CanContinue(processed, minimumKingdoms, maximumKingdoms,
+        while (SimulationFrameBudget.HasTime && EmpireCraftFrameSchedulingRules.CanContinue(processed, minimumKingdoms, maximumKingdoms,
             ElapsedMilliseconds(started), budgetMilliseconds));
     }
 

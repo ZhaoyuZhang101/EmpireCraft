@@ -365,6 +365,9 @@ public static class ActorExtension
         public float legion_size;
         // 军团满编人数(征召时的人数)：回血时按生命值补员到这个数
         public float legion_full;
+        public long legion_home_city_id = -1L;
+        public SocialClass legion_home_social_class = SocialClass.Peasant;
+        public List<LegionPopulationContribution> legion_population;
         // Mod-managed workshop employment. Tied to a city so migration ends the job.
         public long urban_employment_city_id = -1L;
         // Advanced urban housing creates a persistent citizen stratum. Migration ends the status.

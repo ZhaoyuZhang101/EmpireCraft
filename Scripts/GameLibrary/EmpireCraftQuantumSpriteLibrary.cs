@@ -27,59 +27,59 @@ public static class EmpireCraftQuantumSpriteLibrary
     public static Sprite _LvLing_jiedushi_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_happy");
     public static Sprite _LvLing_jiedushi_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_sad");
 
-    public static Sprite _LvLing_king_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_king_normal");
-    public static Sprite _LvLing_king_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_king_angry");
-    public static Sprite _LvLing_king_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_king_surprised");
-    public static Sprite _LvLing_king_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_king_happy");
-    public static Sprite _LvLing_king_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_king_sad");
+    public static Sprite _LvLing_king_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_normal");
+    public static Sprite _LvLing_king_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_angry");
+    public static Sprite _LvLing_king_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_surprised");
+    public static Sprite _LvLing_king_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_happy");
+    public static Sprite _LvLing_king_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_sad");
 
-    public static Sprite _Feudalism_Western_emperor_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/Feudalism/Western/minimap_emperor_normal");
-    public static Sprite _Feudalism_Western_emperor_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/Western/minimap_emperor_angry");
-    public static Sprite _Feudalism_Western_emperor_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/Feudalism/Western/minimap_emperor_surprised");
-    public static Sprite _Feudalism_Western_emperor_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/Western/minimap_emperor_happy");
-    public static Sprite _Feudalism_Western_emperor_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/Feudalism/Western/minimap_emperor_sad");
+    public static Sprite _Feudalism_Western_emperor_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/minimap_king_normal");
+    public static Sprite _Feudalism_Western_emperor_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/minimap_king_angry");
+    public static Sprite _Feudalism_Western_emperor_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/minimap_king_surprised");
+    public static Sprite _Feudalism_Western_emperor_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/minimap_king_happy");
+    public static Sprite _Feudalism_Western_emperor_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/minimap_king_sad");
 
-    public static Sprite _Feudalism_Western_king_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/Feudalism/Western/minimap_king_normal");
-    public static Sprite _Feudalism_Western_king_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/Western/minimap_king_angry");
-    public static Sprite _Feudalism_Western_king_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/Feudalism/Western/minimap_king_surprised");
-    public static Sprite _Feudalism_Western_king_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/Western/minimap_king_happy");
-    public static Sprite _Feudalism_Western_king_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/Feudalism/Western/minimap_king_sad");
+    public static Sprite _Feudalism_Western_king_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/minimap_king_normal");
+    public static Sprite _Feudalism_Western_king_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/minimap_king_angry");
+    public static Sprite _Feudalism_Western_king_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/minimap_king_surprised");
+    public static Sprite _Feudalism_Western_king_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/minimap_king_happy");
+    public static Sprite _Feudalism_Western_king_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/minimap_king_sad");
 
-    public static Sprite _Feudalism_Eastern_emperor_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/Feudalism/Eastern/minimap_emperor_normal");
-    public static Sprite _Feudalism_Eastern_emperor_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/Eastern/minimap_emperor_angry");
-    public static Sprite _Feudalism_Eastern_emperor_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/Feudalism/Eastern/minimap_emperor_surprised");
-    public static Sprite _Feudalism_Eastern_emperor_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/Eastern/minimap_emperor_happy");
-    public static Sprite _Feudalism_Eastern_emperor_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/Feudalism/Eastern/minimap_emperor_sad");
+    public static Sprite _Feudalism_Eastern_emperor_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_emperor_normal");
+    public static Sprite _Feudalism_Eastern_emperor_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_emperor_angry");
+    public static Sprite _Feudalism_Eastern_emperor_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_emperor_surprised");
+    public static Sprite _Feudalism_Eastern_emperor_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_emperor_happy");
+    public static Sprite _Feudalism_Eastern_emperor_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_emperor_sad");
 
-    public static Sprite _Feudalism_Eastern_king_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/Feudalism/Eastern/minimap_king_normal");
-    public static Sprite _Feudalism_Eastern_king_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/Eastern/minimap_king_angry");
-    public static Sprite _Feudalism_Eastern_king_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/Feudalism/Eastern/minimap_king_surprised");
-    public static Sprite _Feudalism_Eastern_king_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/Eastern/minimap_king_happy");
-    public static Sprite _Feudalism_Eastern_king_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/Feudalism/Eastern/minimap_king_sad");
+    public static Sprite _Feudalism_Eastern_king_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_normal");
+    public static Sprite _Feudalism_Eastern_king_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_angry");
+    public static Sprite _Feudalism_Eastern_king_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_surprised");
+    public static Sprite _Feudalism_Eastern_king_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_happy");
+    public static Sprite _Feudalism_Eastern_king_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/LvLing/minimap_jiedushi_sad");
 
-    public static Sprite _Feudalism_MidEastern_emperor_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/Feudalism/MidEastern/minimap_emperor_normal");
-    public static Sprite _Feudalism_MidEastern_emperor_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/MidEastern/minimap_emperor_angry");
-    public static Sprite _Feudalism_MidEastern_emperor_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/Feudalism/MidEastern/minimap_emperor_surprised");
-    public static Sprite _Feudalism_MidEastern_emperor_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/MidEastern/minimap_emperor_happy");
-    public static Sprite _Feudalism_MidEastern_emperor_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/Feudalism/MidEastern/minimap_emperor_sad");
+    public static Sprite _Feudalism_MidEastern_emperor_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/minimap_king_normal");
+    public static Sprite _Feudalism_MidEastern_emperor_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/minimap_king_angry");
+    public static Sprite _Feudalism_MidEastern_emperor_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/minimap_king_surprised");
+    public static Sprite _Feudalism_MidEastern_emperor_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/minimap_king_happy");
+    public static Sprite _Feudalism_MidEastern_emperor_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/minimap_king_sad");
 
-    public static Sprite _Feudalism_MidEastern_king_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/Feudalism/MidEastern/minimap_king_normal");
-    public static Sprite _Feudalism_MidEastern_king_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/MidEastern/minimap_king_angry");
-    public static Sprite _Feudalism_MidEastern_king_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/Feudalism/MidEastern/minimap_king_surprised");
-    public static Sprite _Feudalism_MidEastern_king_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/Feudalism/MidEastern/minimap_king_happy");
-    public static Sprite _Feudalism_MidEastern_king_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/Feudalism/MidEastern/minimap_king_sad");
+    public static Sprite _Feudalism_MidEastern_king_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/minimap_king_normal");
+    public static Sprite _Feudalism_MidEastern_king_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/minimap_king_angry");
+    public static Sprite _Feudalism_MidEastern_king_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/minimap_king_surprised");
+    public static Sprite _Feudalism_MidEastern_king_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/minimap_king_happy");
+    public static Sprite _Feudalism_MidEastern_king_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/minimap_king_sad");
 
-    public static Sprite _Republic_president_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_emperor_normal");
-    public static Sprite _Republic_president_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_emperor_angry");
-    public static Sprite _Republic_president_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_emperor_surprised");
-    public static Sprite _Republic_president_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_emperor_happy");
-    public static Sprite _Republic_president_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_emperor_sad");
+    public static Sprite _Republic_president_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/minimap_leader_normal");
+    public static Sprite _Republic_president_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/minimap_leader_angry");
+    public static Sprite _Republic_president_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/minimap_leader_surprised");
+    public static Sprite _Republic_president_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/minimap_leader_happy");
+    public static Sprite _Republic_president_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/minimap_leader_sad");
 
-    public static Sprite _Republic_officer_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_king_normal");
-    public static Sprite _Republic_officer_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_king_angry");
-    public static Sprite _Republic_officer_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_king_surprised");
-    public static Sprite _Republic_officer_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_king_happy");
-    public static Sprite _Republic_officer_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/Republic/minimap_king_sad");
+    public static Sprite _Republic_officer_sprite_normal =    SpriteTextureLoader.getSprite("civ/icons/minimap_leader_normal");
+    public static Sprite _Republic_officer_sprite_angry =     SpriteTextureLoader.getSprite("civ/icons/minimap_leader_angry");
+    public static Sprite _Republic_officer_sprite_surprised = SpriteTextureLoader.getSprite("civ/icons/minimap_leader_surprised");
+    public static Sprite _Republic_officer_sprite_happy =     SpriteTextureLoader.getSprite("civ/icons/minimap_leader_happy");
+    public static Sprite _Republic_officer_sprite_sad =       SpriteTextureLoader.getSprite("civ/icons/minimap_leader_sad");
     public static void init()
     {
         // 覆盖原版的同名资产：先从库里移除，免得 add 在日志里报"duplicate asset"错误

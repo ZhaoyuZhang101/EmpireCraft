@@ -7,8 +7,8 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Components;
 
-// 领土铭牌(简化铭牌)的字体。字体取自本机已安装的字体，不同电脑装的字体不同，所以给出三种选择：
-//   · auto(默认)：按传统书体的优先级挑本机已有的字体——隶书 → 篆书(大篆、小篆) → 草书 → 行书 → 魏碑 → 楷书 → 宋/明体，
+// 领土铭牌(简化铭牌)的字体。包含随模组分发的篆书和本机字体，提供三种选择：
+//   · auto(默认)：优先使用内置篆书，其次按隶书 → 其他篆书 → 草书 → 行书 → 魏碑 → 楷书 → 宋/明体挑本机字体，
 //     一个都没有就用游戏字体；含英文字母的名字仍用西文衬线字体；
 //   · game：一律用游戏自带字体，所有电脑显示一致；
 //   · 其他：指定某个已安装字体的名字(选了不存在的字体按游戏字体显示)。
@@ -91,7 +91,9 @@ public static class TerritoryFontSettings
         if (_installed != null) return _installed;
         try
         {
-            _installed = Font.GetOSInstalledFontNames().Distinct().OrderBy(name => name, StringComparer.Ordinal).ToArray();
+            IEnumerable<string> names = Font.GetOSInstalledFontNames();
+            if (BundledTerritoryFonts.Available) names = names.Concat(new[] { BundledTerritoryFonts.Seal });
+            _installed = names.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name, StringComparer.Ordinal).ToArray();
         }
         catch (Exception exception)
         {
@@ -104,6 +106,7 @@ public static class TerritoryFontSettings
     // 重新扫描已安装字体(刚装了新字体时)
     public static void Rescan()
     {
+        BundledTerritoryFonts.Reset();
         _installed = null;
         _resolvedValid = false;
         TerritoryLabelRenderer.ResetFonts();
@@ -113,6 +116,7 @@ public static class TerritoryFontSettings
     public static (string key, int rank)? StyleOf(string fontName)
     {
         if (string.IsNullOrEmpty(fontName)) return null;
+        if (fontName == BundledTerritoryFonts.Seal) return ("font_style_seal_large", -1);
         foreach ((string key, int rank, string[] keywords) in Styles)
             if (keywords.Any(keyword => fontName.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0))
                 return (key, rank);

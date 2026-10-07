@@ -29,7 +29,7 @@ public class EmpireSettingWindow : AutoLayoutWindow<EmpireSettingWindow>
         ToggleText.Setup($"{open_year_name}: ", TextAnchor.MiddleCenter, new Vector2(30, 15));
         ToggleText.background.enabled = false;
         yearNameButton = Instantiate(SimpleButton.Prefab, null);
-        yearNameButton.Setup(ToggleYearName, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"));
+        yearNameButton.Setup(ToggleYearName, SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"));
         yearNameButton.Background.enabled = false;
         yearNameButton.SetSize(new Vector2(10, 10));
         vertLayout.AddChild(ToggleText.gameObject);

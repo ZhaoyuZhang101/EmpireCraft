@@ -54,7 +54,11 @@ public static class ZonePlanningButtons
             return false;
         }
         bool clear = ZonePlanSystem.Get(city, zone) == use;
-        ZonePlanSystem.Set(city, zone, clear ? ZoneUse.None : use);
+        if (!ZonePlanSystem.Set(city, zone, clear ? ZoneUse.None : use))
+        {
+            WorldTip.showNow(LM.Get("zone_planning_contiguous"), false, "top", 3f);
+            return false;
+        }
         KingdomFrontLineHelper.HighlightZones(zone, ZonePlanSystem.ColorOf(clear ? ZoneUse.None : use));
         WorldTip.showNow(string.Format(LM.Get(clear ? "zone_planning_removed" : "zone_planning_added"),
             city.GetCityName(), ZonePlanSystem.UseName(use)), false, "top", 3f);

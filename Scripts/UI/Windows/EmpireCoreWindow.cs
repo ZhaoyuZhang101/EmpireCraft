@@ -170,7 +170,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 // 让锁定状态正确级联到帝国旗下所有王国法理。
                 CultureService.SetEmpireCultureLock(_core, !_core.culture_locked);
                 RefreshWindow();
-            }, SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), size: new Vector2(190, 14), showTip: false);
+            }, SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"), size: new Vector2(190, 14), showTip: false);
             card.transform.AddStretchBackground("FactionFrame", new Vector2(200, 48));
         }
 

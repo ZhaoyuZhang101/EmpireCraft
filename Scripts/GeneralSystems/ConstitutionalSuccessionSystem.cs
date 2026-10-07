@@ -83,7 +83,8 @@ public static class ConstitutionalSuccessionSystem
         Actor emperor = empire.Emperor;
         if (emperor != null && !emperor.isRekt() && emperor.isAlive()) return true;
 
-        Actor heir = kingdom.GetHeir();
+        Actor hereditary = EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckHeir.ResolveHeir(kingdom, false).actor;
+        Actor heir = CanInherit(empire, hereditary) ? hereditary : kingdom.GetHeir();
         bool elected = !CanInherit(empire, heir);
         if (elected)
         {

@@ -36,6 +36,8 @@ public class CityPopulationData
     public double last_census = -1d;
     // 上次结算背景人口自然增减的世界时间
     public double last_growth = -1d;
+    // 存档期间关闭无小人模式时，重新启用不能补算停用期间的增长和消耗。
+    public bool abstract_population_suspended;
     // 上次校准时城里的实体单位数
     public int named_units;
     // 军团里的人(无小人模式)：本城征召的每个实体士兵代表一个军团，这里记军团除士兵本人以外的人数，

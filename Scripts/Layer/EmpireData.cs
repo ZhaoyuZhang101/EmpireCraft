@@ -57,6 +57,10 @@ public class EmpireData : MetaObjectData
     public long founder_kingdom_id { get; set; } = -1L;
 
     public string directPre = "";
+    // 失都改称(见 CapitalLossNamingSystem)：核心首都失陷的时间(-1 = 没失陷)、是否已加方位、加方位前原来的前缀
+    public double core_capital_lost_since = -1d;
+    public bool capital_loss_prefix_applied;
+    public string capital_loss_previous_prefix = "";
     public string core_name = "";
     public string empire_type_key = "";
     // 西方封建帝国的代数：同名封建帝国反复建立时称"第二帝国""第三帝国"(0/1 表示不加序数)

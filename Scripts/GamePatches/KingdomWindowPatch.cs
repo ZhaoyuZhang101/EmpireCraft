@@ -40,7 +40,7 @@ public class KingdomWindowPatch: GamePatch
         if (__instance.tabs._tabs.All(p => p.name != "regime"))
         {
             SimpleWindowTab simpleWindowTab = Object.Instantiate(SimpleWindowTab.Prefab);
-            simpleWindowTab.Setup("regime", __instance.scroll_window, action:(_) => ShowRegime(), sprite:SpriteTextureLoader.getSprite("ui/regime"));
+            simpleWindowTab.Setup("regime", __instance.scroll_window, action:(_) => ShowRegime(), sprite:SpriteTextureLoader.getSprite("TabConstitution"));
         }
         if (__instance.tabs._tabs.All(p => p.name != "technology"))
         {

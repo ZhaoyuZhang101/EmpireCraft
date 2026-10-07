@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using ai.behaviours;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -11,7 +10,6 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
-using NeoModLoader.services;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
@@ -20,183 +18,199 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
 {
     public override Type OriginalBeh => GetType();
 
-    public override BehResult execute(Kingdom pKingdom)
+    public override BehResult execute(Kingdom kingdom)
     {
-        Empire constitutionalEmpire = pKingdom.IsEmpire() ? pKingdom.GetEmpire() : null;
-        bool protectedDynasty = ConstitutionalSuccessionSystem.IsProtected(constitutionalEmpire);
-        if (protectedDynasty)
+        if (kingdom?.data == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom))
+            return BehResult.Continue;
+        if (!EmpireCraftKingdomBehCheckKing.NeedSuccession(kingdom))
         {
-            if (pKingdom.HasHeir() && !ConstitutionalSuccessionSystem.CanInherit(constitutionalEmpire, pKingdom.GetHeir()))
-                pKingdom.RemoveHeir();
-            if (pKingdom.king == null || pKingdom.king.isRekt() || !pKingdom.king.isAlive())
-            {
-                ConstitutionalSuccessionSystem.TryHandleVacancy(pKingdom);
-                return BehResult.Continue;
-            }
-        }
-        if (!EmpireCraftKingdomBehCheckKing.NeedSuccession(pKingdom) || (pKingdom.HasHeir()&&!pKingdom.IsNeedToChooseHeir()))
-        {
-            pKingdom.RecoverToDefaultHeir();
+            kingdom.RecoverToDefaultHeir();
             return BehResult.Continue;
         }
-
-        var successionLaw = pKingdom.GetSuccessionLaw();
-        var heir = successionLaw == SuccessionLawType.强者继承法
-            ? CheckStrongestHeir(pKingdom)
-            : CheckHeir(pKingdom, pKingdom.GetHeirLaw(), successionLaw);
-        if (protectedDynasty && !ConstitutionalSuccessionSystem.CanInherit(constitutionalEmpire, heir.actor))
-            heir = (ConstitutionalSuccessionSystem.SelectRoyalHeir(constitutionalEmpire),
-                ConstitutionalSuccessionSystem.SelectionRelation(constitutionalEmpire));
-        if (heir.actor.isRekt()||!heir.actor.isUnitFitToRule())
+        bool vacancy = kingdom.king == null || kingdom.king.isRekt() || !kingdom.king.isAlive();
+        if (vacancy && kingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire()))
         {
-            pKingdom.GoToNextHeirLaw();
+            ConstitutionalSuccessionSystem.TryHandleVacancy(kingdom);
+            return BehResult.Continue;
         }
-        else
-        {
-            pKingdom.SetHeir(heir.actor);
-            TranslateHelper.LogKingChooseHeir(pKingdom, heir.relation, heir.actor);
-            pKingdom.RecoverToDefaultHeir();
-            pKingdom.ChooseHeirFinished();
-        }
-        
+        // 在位时从本继承法起点复查，不保留以前级联到旁系的结果。
+        InstallHeir(kingdom, ResolveHeir(kingdom, vacancy));
         return BehResult.Continue;
     }
-    private static (Actor actor, string relation) CheckHeir(Kingdom k, EmpireHeirLawType secondSelection=EmpireHeirLawType.eldest_child, SuccessionLawType successionLaw = SuccessionLawType.嫡长子继承法, PersonalClanIdentity pActor = null)
+
+    private static void InstallHeir(Kingdom kingdom, (Actor actor, string relation) heir)
     {
-        if (k == null) return (null, "");
-        Actor actor = null;
-        var flag = k.IsEmpire();
-        var logPreText = flag ? "empire" : "kingdom";
-        PersonalClanIdentity pci = pActor??k.king?.GetPersonalIdentity();
-        List<(ClanRelation, PersonalClanIdentity)> children = SpecificClanManager.getChildren(pci).FindAll(a=>a.Item2.CanHeir(pci));
-        // 西方封建制允许女性继承(仍男性优先)：没有符合男女优先的子女/兄弟时，放宽到所有在世子女/兄弟姐妹，
-        // 已外嫁的女儿也算——联姻继承多国正是靠这一点
-        bool allowFemale = PersonalUnionService.AllowsFemaleSuccession(k);
-        if (allowFemale && !children.Any())
-            children = SpecificClanManager.getChildren(pci).FindAll(a => a.Item2 != null && a.Item2.is_alive && a.Item2.id != pci.id);
-        var relationText = secondSelection.ToString();
-        switch (secondSelection)
+        kingdom.RecoverToDefaultHeir();
+        if (!IsFitCandidate(heir.actor, null))
+        {
+            kingdom.RemoveHeir();
+            kingdom.StartToChooseHeir();
+            return;
+        }
+        bool changed = kingdom.GetHeir() != heir.actor;
+        kingdom.SetHeir(heir.actor);
+        kingdom.ChooseHeirFinished();
+        if (changed) TranslateHelper.LogKingChooseHeir(kingdom, heir.relation, heir.actor);
+    }
+
+    // 死亡、退位和真正的王位空缺才允许兄弟→孙辈→宗族→官员的原有兜底。
+    public static void PrepareForSuccession(Kingdom kingdom, PersonalClanIdentity predecessor = null)
+    {
+        if (kingdom?.data == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom) ||
+            !EmpireCraftKingdomBehCheckKing.NeedSuccession(kingdom)) return;
+        InstallHeir(kingdom, ResolveHeir(kingdom, true, predecessor));
+    }
+
+    public static PersonalClanIdentity PredecessorOf(Kingdom kingdom)
+    {
+        if (kingdom?.king != null)
+        {
+            kingdom.king.CheckSpecificClan(false);
+            PersonalClanIdentity current = kingdom.king.GetPersonalIdentity();
+            if (current != null) return current;
+        }
+        return kingdom == null ? null : SpecificClanManager.getPerson(kingdom.GetOrCreate().last_ruler_identity_id);
+    }
+
+    public static (Actor actor, string relation) ResolveHeir(Kingdom kingdom, bool allowFallback,
+        PersonalClanIdentity predecessor = null)
+    {
+        if (kingdom?.data == null) return (null, "");
+        PersonalClanIdentity parent = predecessor ?? PredecessorOf(kingdom);
+        if (parent == null) return (null, "");
+        SuccessionLawType law = kingdom.GetSuccessionLaw();
+        if (law == SuccessionLawType.强者继承法)
+            return CheckStrongestHeir(kingdom, parent, !allowFallback);
+        EmpireHeirLawType start = KingdomExtension.ResolveHeirLawStart(law);
+        // 兄终弟及仍在交接时按兄弟顺序继承，在位时不预立旁系。
+        if (!allowFallback && start == EmpireHeirLawType.siblings) return (null, "");
+        var result = CheckHeir(kingdom, start, law, parent);
+        if (result.actor != null || !allowFallback) return result;
+        foreach (EmpireHeirLawType step in new[] { EmpireHeirLawType.siblings, EmpireHeirLawType.grand_child_generation,
+                     EmpireHeirLawType.random, EmpireHeirLawType.officer })
+        {
+            if (step == start || step == EmpireHeirLawType.officer && kingdom.IsEmpire()) continue;
+            result = CheckHeir(kingdom, step, law, parent);
+            if (result.actor != null) return result;
+        }
+        return (null, "");
+    }
+
+    private static List<PersonalClanIdentity> ChildrenOf(PersonalClanIdentity parent)
+    {
+        var children = new Dictionary<long, PersonalClanIdentity>();
+        foreach (var pair in SpecificClanManager.getChildren(parent))
+            if (pair.Item2 != null) children[pair.Item2.id] = pair.Item2;
+        // 旧档可能有原版亲子关系，却没有完整的模组索引；只补实际在世单位的缺失链接。
+        Actor actor = parent?._actor;
+        if (actor != null)
+            foreach (Actor child in actor.getChildren(pOnlyCurrentFamily: false))
+            {
+                if (child == null || child.isRekt() || !child.isAlive()) continue;
+                child.CheckSpecificClan(false);
+                PersonalClanIdentity identity = child.GetPersonalIdentity();
+                if (identity == null) continue;
+                if (!parent.children.Contains(identity.id)) identity.setParent(parent, recordHistory: false);
+                foreach (Actor otherParent in child.getParents())
+                {
+                    if (otherParent == null || otherParent == actor) continue;
+                    otherParent.CheckSpecificClan(false);
+                    PersonalClanIdentity other = otherParent.GetPersonalIdentity();
+                    if (other != null && (other.sex == ActorSex.Male ? identity.father <= 0 : identity.mother <= 0))
+                        identity.setParent(other, recordHistory: false);
+                }
+                children[identity.id] = identity;
+            }
+        return children.Values.ToList();
+    }
+
+    private static bool IsEligibleRelative(PersonalClanIdentity person, PersonalClanIdentity parent, bool allowFemale) =>
+        person != null && person.id != parent?.id && person.is_alive && !person.is_concubine &&
+        person._specificClan != null && (person.CanHeir(parent) || allowFemale && person.sex == ActorSex.Female);
+
+    private static bool IsFitCandidate(Actor actor, PersonalClanIdentity parent) =>
+        actor != null && actor != parent?._actor && !actor.isRekt() && actor.isAlive() && actor.isUnitFitToRule();
+
+    private static Actor Pick(Kingdom kingdom, IEnumerable<PersonalClanIdentity> candidates, PersonalClanIdentity parent,
+        out PersonalClanIdentity selected)
+    {
+        bool protectedDynasty = kingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire());
+        foreach (PersonalClanIdentity person in candidates)
+        {
+            Actor actor = person.Realize();
+            if (!IsFitCandidate(actor, parent) || protectedDynasty && !ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor)) continue;
+            selected = person;
+            return actor;
+        }
+        selected = null;
+        return null;
+    }
+
+    private static (Actor actor, string relation) CheckHeir(Kingdom kingdom, EmpireHeirLawType selection,
+        SuccessionLawType law, PersonalClanIdentity parent)
+    {
+        bool allowFemale = PersonalUnionService.AllowsFemaleSuccession(kingdom);
+        string relation = LM.Get(selection.ToString());
+        IEnumerable<PersonalClanIdentity> candidates;
+        switch (selection)
         {
             case EmpireHeirLawType.eldest_child:
-                // 嫡长子继承法收紧为必须是儿子且出自正妻(非侍妾),失败时留空以进入级联回退
-                var eligibleChildren = successionLaw == SuccessionLawType.嫡长子继承法
-                    ? children.FindAll(c => c.Item2.sex == ActorSex.Male && IsBornOfPrimarySpouse(pci, c.Item2))
-                    : children;
-                if (allowFemale && !eligibleChildren.Any() && successionLaw == SuccessionLawType.嫡长子继承法)
-                    eligibleChildren = children.FindAll(c => IsBornOfPrimarySpouse(pci, c.Item2));
-                if (eligibleChildren.Any())
-                {
-                    var actor_pci = eligibleChildren.First().Item2; // Assuming eldest is the last after sorting by age
-                    actor = actor_pci.Realize();
-                    relationText =
-                        string.Format(
-                            LM.Get($"rank_child_{logPreText}_{(actor_pci.sex == ActorSex.Female ? "female" : "male")}"),
-                            actor_pci.rank).ColorString(pColor:new Color(0.9f, 0.3f, 0.2f));
-                }
-                break;
             case EmpireHeirLawType.smallest_child:
-                if (children.Any())
-                {
-                    var actor_pci = children.Last().Item2;
-                    actor = actor_pci.Realize(); // Assuming youngest is the first after sorting by age
-                    relationText =
-                        string.Format(
-                            LM.Get(
-                                $"rank_child_{logPreText}_{(actor_pci.sex == ActorSex.Female ? "female" : "male")}"),
-                            actor_pci.rank).ColorString(pColor: new Color(0.5f, 0.1f, 0.7f));
-                }
-                break;
+                var children = ChildrenOf(parent).Where(person => IsEligibleRelative(person, parent, allowFemale));
+                // 嫡子优先，嫡系没有合适儿子时仍在自己的子嗣中接续，不提前跳到叔伯。
+                var ordered = children.OrderByDescending(person => person.IsHeirPriority())
+                    .ThenByDescending(person => law == SuccessionLawType.嫡长子继承法 && IsBornOfPrimarySpouse(parent, person));
+                candidates = selection == EmpireHeirLawType.smallest_child
+                    ? ordered.ThenBy(person => person.age).ThenByDescending(person => person.rank).ThenBy(person => person.id)
+                    : ordered.ThenByDescending(person => person.age).ThenBy(person => person.rank).ThenBy(person => person.id);
+                Actor child = Pick(kingdom, candidates, parent, out PersonalClanIdentity selected);
+                if (child != null)
+                    relation = string.Format(LM.Get($"rank_child_{(kingdom.IsEmpire() ? "empire" : "kingdom")}_{(selected.sex == ActorSex.Female ? "female" : "male")}"), selected.rank);
+                return (child, relation.ColorString(pColor: new Color(0.9f, 0.3f, 0.2f)));
             case EmpireHeirLawType.siblings:
-                // Logic for selecting a brother heir can be added here
-                List<(ClanRelation, PersonalClanIdentity)> brothers = SpecificClanManager.GetSiblingsWithRelation(pci).FindAll(a=>a.Item2.CanHeir(pci));
-                if (allowFemale && !brothers.Any())
-                    brothers = SpecificClanManager.GetSiblingsWithRelation(pci)
-                        .FindAll(a => a.Item2 != null && a.Item2.is_alive && a.Item2.id != pci.id);
-                brothers.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>
-                    .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
-                if (brothers.Any())
-                {
-                    actor = brothers.Last().Item2.Realize();
-                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.2f, 0.3f, 0.9f));
-                }
+                candidates = SpecificClanManager.GetSiblingsWithRelation(parent).Select(pair => pair.Item2)
+                    .Where(person => IsEligibleRelative(person, parent, allowFemale))
+                    .OrderByDescending(person => person.IsHeirPriority()).ThenByDescending(person => person.age).ThenBy(person => person.id);
                 break;
             case EmpireHeirLawType.grand_child_generation:
-                List<(ClanRelation, PersonalClanIdentity)> grandChildren = SpecificClanManager.GetGrandChildren(pci);
-                grandChildren = grandChildren.FindAll(c=>c.Item2.CanHeir(pci));
-                grandChildren.Sort(Comparer<(ClanRelation, PersonalClanIdentity)>
-                    .Create((a, b) => a.Item2.age.CompareTo(b.Item2.age)));
-                if (grandChildren.Any())
-                {
-                    actor = grandChildren.Last().Item2.Realize();
-                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.1f, 0.9f));
-                }
+                candidates = SpecificClanManager.GetGrandChildren(parent).Select(pair => pair.Item2)
+                    .Where(person => IsEligibleRelative(person, parent, allowFemale))
+                    .OrderByDescending(person => person.IsHeirPriority()).ThenByDescending(person => person.age).ThenBy(person => person.id);
                 break;
             case EmpireHeirLawType.random:
-                if (ConstitutionalSuccessionSystem.IsProtected(k.GetEmpire()) && flag)
-                    return (ConstitutionalSuccessionSystem.SelectRoyalHeir(k.GetEmpire()),
-                        ConstitutionalSuccessionSystem.SelectionRelation(k.GetEmpire()));
-                List<Actor> randomClanMember = pci?._specificClan?.AllAliveMembers??new List<Actor>();
-                randomClanMember = randomClanMember.FindAll(c=>c.GetPersonalIdentity()?.CanHeir(pci)??false).OrderByDescending(a=>a.age).ToList();
-                if (randomClanMember.Any())
-                {
-                    actor = randomClanMember.First();
-                    relationText = LM.Get(relationText).ColorString(pColor:new Color(0.9f, 0.6f, 0.9f));
-                }
+                if (kingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire()))
+                    return (ConstitutionalSuccessionSystem.SelectRoyalHeir(kingdom.GetEmpire()), ConstitutionalSuccessionSystem.SelectionRelation(kingdom.GetEmpire()));
+                candidates = parent._specificClan?.SnapshotPeople() ?? Enumerable.Empty<PersonalClanIdentity>();
+                candidates = candidates.Where(person => IsEligibleRelative(person, parent, allowFemale))
+                    .OrderByDescending(person => person.age).ThenBy(person => person.id);
                 break;
             case EmpireHeirLawType.officer:
-                if (ConstitutionalSuccessionSystem.IsProtected(k.GetEmpire()) && flag)
-                    return (ConstitutionalSuccessionSystem.SelectRoyalHeir(k.GetEmpire()),
-                        ConstitutionalSuccessionSystem.SelectionRelation(k.GetEmpire()));
-                if (flag)
-                {
-                    Empire empire = k.GetEmpire();
-                    List<long> officeIDs = new List<long>();
-                    officeIDs.AddRange(empire.data.centerOffice.CoreOffices);
-                    officeIDs.AddRange(empire.data.centerOffice.Divisions);
-                    officeIDs.AddRange(empire.kingdoms_list?.ToList().Select(pKingdom=>pKingdom.GetOfficeID()) ?? Array.Empty<long>());
-                    officeIDs.Add(k.capital.GetOfficeID());
-                    var office = officeIDs.Select(id=>OfficeManager.Offices.TryGetValue(id, out var value)?value:null).ToList().Find(o=>o!=null&&o.GetActor()!=null);
-                    actor = office.GetActor();
-                    var officeName = office.GetName();
-                    relationText = LM.Get(officeName).ColorString(pColor:new Color(1.0f, 1.0f, 1.0f));
-                }
-                else
-                {
-                    if (k.cities.Any())
-                    {
-                        actor = k.cities.ToList().Find(c => c?.hasLeader()??false)?.leader;
-                        relationText = LM.Get(relationText).ColorString(pColor:new Color(1.0f, 1.0f, 1.0f));
-                    }
-                }
-                break;
+                if (kingdom.IsEmpire()) return (null, relation);
+                Actor officer = kingdom.cities.Select(city => city?.leader).FirstOrDefault(actor => IsFitCandidate(actor, parent));
+                return (officer, relation);
+            default: return (null, relation);
         }
-        return (actor, relationText);
+        return (Pick(kingdom, candidates, parent, out _), relation.ColorString(pColor: new Color(0.3f, 0.3f, 0.9f)));
     }
 
     private static bool IsBornOfPrimarySpouse(PersonalClanIdentity parent, PersonalClanIdentity child)
     {
-        if (parent == null || child == null) return false;
-        long otherParentIdentityId = parent.sex == ActorSex.Male ? child.mother : child.father;
-        if (otherParentIdentityId <= 0) return false;
-        return parent.lover.identity == otherParentIdentityId;
+        long otherId = parent.sex == ActorSex.Male ? child.mother : child.father;
+        if (otherId <= 0) return false;
+        if (parent.lover.identity == otherId) return true;
+        // 再婚不能把前任正妻所生的孩子全部降为非嫡。
+        PersonalClanIdentity other = SpecificClanManager.getPerson(otherId);
+        return other != null && !other.is_concubine && !parent.concubines.Any(pair => pair.identity == otherId);
     }
 
-    //强者继承法不走 EmpireHeirLawType 级联,在子嗣与兄弟候选池里按绩效值(沿用内阁选拔同款指标)选最强者
-    private static (Actor actor, string relation) CheckStrongestHeir(Kingdom k)
+    private static (Actor actor, string relation) CheckStrongestHeir(Kingdom kingdom, PersonalClanIdentity parent, bool childrenOnly)
     {
-        if (k == null) return (null, "");
-        PersonalClanIdentity pci = k.king?.GetPersonalIdentity();
-        List<PersonalClanIdentity> candidates = SpecificClanManager.getChildren(pci).FindAll(a => a.Item2.CanHeir(pci))
-            .Concat(SpecificClanManager.GetSiblingsWithRelation(pci).FindAll(a => a.Item2.CanHeir(pci)))
-            .Select(a => a.Item2)
-            .Where(identity => identity != null && (identity._actor != null || identity.is_virtual))
-            .ToList();
-        if (!candidates.Any()) return (null, "");
-        // 虚拟族人(无小人模式)没有政绩，排在有实体的人之后
-        PersonalClanIdentity strongest = candidates
-            .OrderByDescending(identity => identity._actor?.GetIdentity()?.TotalPerformance ?? -1d)
-            .First();
-        string relationText = LM.Get(SuccessionLawType.强者继承法.ToString()).ColorString(pColor: new Color(0.6f, 0.05f, 0.05f));
-        return (strongest.Realize(), relationText);
+        IEnumerable<PersonalClanIdentity> pool = ChildrenOf(parent);
+        if (!childrenOnly) pool = pool.Concat(SpecificClanManager.GetSiblingsWithRelation(parent).Select(pair => pair.Item2));
+        var candidates = pool.Where(person => IsEligibleRelative(person, parent, false))
+            .OrderByDescending(person => person._actor?.GetIdentity()?.TotalPerformance ?? -1d)
+            .ThenByDescending(person => person.age).ThenBy(person => person.id);
+        return (Pick(kingdom, candidates, parent, out _),
+            LM.Get(SuccessionLawType.强者继承法.ToString()).ColorString(pColor: new Color(0.6f, 0.05f, 0.05f)));
     }
 }

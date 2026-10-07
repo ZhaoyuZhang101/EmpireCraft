@@ -129,7 +129,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
         var tags = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 12), TextAnchor.MiddleCenter, 6);
         AddTag(tags, Icon("ui/icons/iconCulture"), _culture.GetCultureTranslate(), "#F3C34A");
-        AddTag(tags, Icon("ui/icons/iconTech", "ui/icons/iconKnowledge"),
+        AddTag(tags, Icon("ui/icons/culture_traits/iconTech", "ui/icons/iconKnowledge"),
             LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(ranking.Line)) + LM.Get("institution_line_label"),
             "#7FD8EA");
         AddTag(tags, Icon("ui/icons/iconCrown", "ui/icons/iconKingdom"),
@@ -224,7 +224,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         string reformStatus = reform != null
             ? LM.Get("institution_status_reforming").ColorString("#65D6C4")
             : LM.Get("label_none").ColorString("#8FA0A8");
-        AddCardHeader(reformCard, Icon("ui/icons/iconKnowledge", "ui/icons/iconTech"),
+        AddCardHeader(reformCard, Icon("ui/icons/iconKnowledge", "ui/icons/culture_traits/iconTech"),
             LM.Get("institution_card_reform"), reformStatus);
         if (reform != null)
         {
@@ -281,7 +281,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         string supportColor = constitution.parliamentary_support >= constitutionConfig.support_threshold
             ? "#65D66E" : "#D98C8C";
         AddChipRow(constitutionCard,
-            (Icon("ui/icons/iconPopulation", "ui/icons/iconCitizen"), LM.Get("constitution_stat_merchants"),
+            (Icon("ui/icons/iconPopulation", "ui/icons/iconPopulation"), LM.Get("constitution_stat_merchants"),
                 $"{constitution.merchant_households}/{constitution.total_households}"),
             (Icon("ui/icons/iconGold", "ui/icons/iconMoney"), LM.Get("constitution_stat_budding"), budding));
         AddChipRow(constitutionCard,

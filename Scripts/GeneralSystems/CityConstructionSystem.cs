@@ -151,6 +151,16 @@ public static class CityConstructionSystem
     // 没有修路工：每月替城市铺路。原版在建筑落成时排好"要修的路"(相邻建筑之间连一条)，由修路工一格格铺；
     // 这里每月挑几座建筑重新排一次连路，再把排好的路直接铺上(每月最多 RoadTilesPerMonth + 建设力 格)
     private const int RoadTilesPerMonth = 20;
+    // 诊断计数(每年随人口诊断记一次后清零)：修路规划次数、规划出的路格、铺下的路格、清掉的废墟、因没钱没清的废墟
+    public static int StatRoadPlans, StatRoadPlanned, StatRoadBuilt, StatRuinsCleared, StatRuinsNoMoney;
+
+    public static string TakeStats()
+    {
+        string text = $"修路规划 {StatRoadPlans} 次/规划 {StatRoadPlanned} 格/铺设 {StatRoadBuilt} 格，" +
+                      $"清废墟 {StatRuinsCleared} 座/没钱没清 {StatRuinsNoMoney} 座";
+        StatRoadPlans = StatRoadPlanned = StatRoadBuilt = StatRuinsCleared = StatRuinsNoMoney = 0;
+        return text;
+    }
     private const int RoadPlansPerMonth = 3;
 
     private static void BuildRoads(City city, float rate)
@@ -162,7 +172,10 @@ public static class CityConstructionSystem
             {
                 Building building = city.buildings[UnityEngine.Random.Range(0, city.buildings.Count)];
                 if (building?.asset == null || !building.asset.build_road_to || building.isUnderConstruction()) continue;
+                int before = city.road_tiles_to_build.Count;
                 CityBehBuild.makeRoadsBuildings(city, building);
+                StatRoadPlans++;
+                StatRoadPlanned += city.road_tiles_to_build.Count - before;
             }
             int limit = RoadTilesPerMonth + Mathf.FloorToInt(rate);
             for (int i = 0; i < limit; i++)
@@ -176,6 +189,7 @@ public static class CityConstructionSystem
                 }
                 MapAction.createRoadTile(tile);
                 city.road_tiles_to_build.Remove(tile);
+                if (tile.Type != null && tile.Type.road) StatRoadBuilt++;
             }
         }
         catch (Exception exception)
@@ -212,9 +226,14 @@ public static class CityConstructionSystem
             int cost = RuinBaseCost + (fundament == null ? 1 : Mathf.Max(1, fundament.width * fundament.height / 4));
             int fromCity = Mathf.Min(cost, Mathf.Max(0, city.GetMoney()));
             int fromState = cost - fromCity;
-            if (fromState > 0 && (kingdom == null || kingdom.wild || kingdom.GetMoney() < fromState)) break;
+            if (fromState > 0 && (kingdom == null || kingdom.wild || kingdom.GetMoney() < fromState))
+            {
+                StatRuinsNoMoney += ruins.Count - cleared;
+                break;
+            }
             if (fromCity > 0) city.SubMoney(fromCity);
             if (fromState > 0) kingdom.SubMoney(fromState);
+            StatRuinsCleared++;
             try
             {
                 if (ruin.asset.cost.wood > 0) city.addResourcesToRandomStockpile("wood", 1);

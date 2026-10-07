@@ -65,7 +65,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         {
             var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
             tab.Setup("empire_bureau_offices", ScrollWindowComponent, action: ShowBureauOffices,
-                sprite: SpriteTextureLoader.getSprite("ui/iconOptions"));
+                sprite: SpriteTextureLoader.getSprite("ui/icons/iconOptions"));
         }
         if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_virtual_peerages"))
         {

@@ -10,12 +10,12 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 农田(无小人模式下自动耕作)：
-//   - 耕地：风车周围的可耕地(原版农田范围)，加上城市的"规划农田区"(不受风车范围限制)；
+//   - 耕地：与原版一致，只在本城风车周围半径 9 格内；规划和缺粮都不能扩大这个范围。
 //   - 自动耕作：每月替城市把可耕地开成田、给空田播种麦子、收割长熟的麦子(地图上照样看得到田和庄稼)，
 //     粮食来自实际收割的麦子，每株产量 × 农业生产力；
-//   - 规划农田区：神力"规划农田"点选区块划入/取消；缺粮或低于耕地红线时 AI 自动补划，已划定的不收回；
-//   - 耕地红线(宪法条款，见 ConstitutionFarmland)：按生产力 = 每城至少 25% ÷ 农业生产力的区块是农田(古代 25%，
-//     现代约 8%)；严守红线 = 固定 25%；不设红线 = 只在缺粮时规划，且规划区不受保护(可以在上面盖房)。
+//   - 规划农田区：只能划入风车范围内的可耕区；旧规划区超出范围的田地分批退耕。
+//   - 耕地红线(宪法条款，见 ConstitutionFarmland)：规划目标为城市区块的 25% ÷ 农业生产力(现代约 8%)，
+//     严守红线目标为 25%；目标受风车可耕范围限制。不设红线只在缺粮时规划，住房仍须为规划农田让位。
 //     有红线时规划农田区受保护，城市不在上面盖建筑(见 NoCommonersPatch.AfterPlanAllowsBuilding)。
 // 农业生产力：古代 1，现代 3。
 public static class FarmlandSystem
@@ -27,8 +27,8 @@ public static class FarmlandSystem
     // 神力手动划定的不受此限
     private const int MaxAutoPlannedZones = 6;
     private const int MaxFieldsPerSettle = 8;
-    private const int MaxPlantsPerSettle = 16;
-    private const int MaxHarvestsPerSettle = 40;
+    private const int WindmillRangeSquared = 81;
+    private const int MaxRetiredFieldsPerSettle = 64;
     // 一个区块至少有这么多可耕地才值得划为农田
     private const int MinFarmableTilesInZone = 8;
 
@@ -41,7 +41,7 @@ public static class FarmlandSystem
             : ConstitutionSystem.GetClauses(empire)?.farmland ?? ConstitutionFarmland.Adaptive;
     }
 
-    // 耕地红线：本城至少多大比例的区块是规划农田
+    // 耕地红线的规划目标比例，实际面积不能超过风车范围。
     public static float RedLineShare(City city) => Policy(city?.kingdom) switch
     {
         ConstitutionFarmland.None => 0f,
@@ -60,6 +60,27 @@ public static class FarmlandSystem
 
     public static bool IsPlanned(City city, TileZone zone) =>
         city?.data != null && zone != null && zone.city == city && Zones(city).Contains(zone.id);
+
+    // 原版 CityBehCheckFarms 使用本城的 type_windmill，距离平方不超过 81。
+    public static bool IsWithinWindmillRange(City city, WorldTile tile) =>
+        InRange(city, tile, city?.getBuildingOfType("type_windmill")?.current_tile);
+
+    private static bool InRange(City city, WorldTile tile, WorldTile windmill)
+    {
+        if (city == null || tile?.zone?.city != city || windmill == null) return false;
+        int dx = tile.x - windmill.x, dy = tile.y - windmill.y;
+        return dx * dx + dy * dy <= WindmillRangeSquared;
+    }
+
+    public static bool HasFarmArea(City city, TileZone zone)
+    {
+        if (zone?.tiles == null || zone.city != city) return false;
+        WorldTile windmill = city?.getBuildingOfType("type_windmill")?.current_tile;
+        foreach (WorldTile tile in zone.tiles)
+            if (InRange(city, tile, windmill) && tile.Type != null &&
+                (tile.Type.farm_field || CanPlanField(tile))) return true;
+        return false;
+    }
 
     private static List<int> RetiredZones(City city)
     {
@@ -82,20 +103,26 @@ public static class FarmlandSystem
             if (!RetiredZones(city).Contains(zone.id)) RetiredZones(city).Add(zone.id);
             return false;
         }
+        if (!HasFarmArea(city, zone)) return false;
         zones.Add(zone.id);
         RetiredZones(city).Remove(zone.id);
+        ZonePlanSystem.OnFarmPlanned(city, zone);
         return true;
     }
 
     // 退耕还草：区块里的庄稼拆掉，田地换回相邻地块最常见的地表(草地、林地等)；周围也都是田就退成裸土
     public static int RetireZone(TileZone zone)
+        => RetireFields(zone, null, int.MaxValue);
+
+    private static int RetireFields(TileZone zone, Func<WorldTile, bool> filter, int limit)
     {
         if (zone?.tiles == null) return 0;
         int count = 0;
         var counts = new Dictionary<TopTileType, int>();
         foreach (WorldTile tile in zone.tiles)
         {
-            if (tile?.Type == null || !tile.Type.farm_field) continue;
+            if (count >= limit) break;
+            if (tile?.Type == null || !tile.Type.farm_field || filter != null && !filter(tile)) continue;
             Building crop = tile.building;
             if (crop?.asset != null && crop.asset.wheat) crop.startDestroyBuilding();
             counts.Clear();
@@ -121,6 +148,33 @@ public static class FarmlandSystem
         return count;
     }
 
+    // 只回收本模组记录的规划区，保留风车内的田和其他来源的远处田地。
+    private static void ConstrainPlannedFields(City city)
+    {
+        List<int> ids = Zones(city);
+        if (city.zones == null || ids.Count == 0) return;
+        WorldTile windmill = city.getBuildingOfType("type_windmill")?.current_tile;
+        int remaining = MaxRetiredFieldsPerSettle;
+        var owned = new HashSet<int>();
+        foreach (TileZone zone in city.zones)
+        {
+            if (zone?.city != city) continue;
+            owned.Add(zone.id);
+            if (!ids.Contains(zone.id) || zone.tiles == null) continue;
+            remaining -= RetireFields(zone, tile => !InRange(city, tile, windmill), remaining);
+            bool outsideFields = false;
+            foreach (WorldTile tile in zone.tiles)
+                if (tile?.Type != null && tile.Type.farm_field && !InRange(city, tile, windmill))
+                {
+                    outsideFields = true;
+                    break;
+                }
+            // 尚未退完的区块留在存档记录里，下一月继续，不丢失清理进度。
+            if (!outsideFields && !HasFarmArea(city, zone)) ids.Remove(zone.id);
+        }
+        ids.RemoveAll(id => !owned.Contains(id));
+    }
+
     // 本城现在还归它的规划农田区
     public static IEnumerable<TileZone> PlannedZones(City city)
     {
@@ -138,11 +192,7 @@ public static class FarmlandSystem
         float food = 0f;
         try
         {
-            EnsureRedLine(city, data);
-            food = Harvest(city);
-            Plant(city);
-            foreach (TileZone zone in PlannedZones(city)) CultivateZone(city, zone, MaxTilesPerSettle);
-            MakeVanillaFields(city);
+            for (int phase = 0; phase < 5; phase++) food += SettlePhase(city, data, phase);
         }
         catch (Exception exception)
         {
@@ -151,11 +201,30 @@ public static class FarmlandSystem
         return food;
     }
 
+    // 月度队列逐步执行；收获量由调用者保存，最后经济结算时一次入库。
+    public static float SettlePhase(City city, CityPopulationData data, int phase)
+    {
+        if (city?.data == null || city.isRekt() || World.world == null) return 0f;
+        switch (phase)
+        {
+            case 0:
+                ConstrainPlannedFields(city);
+                foreach (TileZone zone in PlannedZones(city)) ZonePlanSystem.ClearHousing(city, zone, ZoneUse.Farm);
+                break;
+            case 1: CityBehCheckFarms.check(city); EnsureRedLine(city, data); break;
+            case 2: return Harvest(city);
+            case 3: Plant(city); break;
+            case 4:
+                foreach (TileZone zone in PlannedZones(city)) CultivateZone(city, zone, MaxTilesPerSettle);
+                MakeVanillaFields(city);
+                break;
+        }
+        return 0f;
+    }
+
     // ---- 成片耕作：田块整齐、同季播种、同时收割 ----
     // 按区块整块经营：区块里的田大部分空着才整块一起播种，庄稼同时生长；全部成熟才整块一起收割。
-    // 开田按区块内的局部坐标排成方田：第 0 行、第 0 列留作地头(相邻两块规划区之间就有一条小路)，
-    // 每隔 FurrowEvery 列留一条田埂，形成几条整齐的长条田
-    private const int FurrowEvery = 4;
+    // 开田围绕风车，不再按城市区块铺出大片长条方田。
     private const float PlantWhenEmptyShare = 0.8f;
     private const int MaxTilesPerSettle = 256;
 
@@ -233,62 +302,36 @@ public static class FarmlandSystem
         }
     }
 
-    // 区块内的局部坐标(相对区块左下角)
-    private static (int x, int y) ZoneOrigin(TileZone zone)
-    {
-        int minX = int.MaxValue, minY = int.MaxValue;
-        foreach (WorldTile tile in zone.tiles)
-        {
-            if (tile == null) continue;
-            if (tile.x < minX) minX = tile.x;
-            if (tile.y < minY) minY = tile.y;
-        }
-        return (minX, minY);
-    }
+    // 隔行播种，保持原有每株折算两格田的产量；不缓存可被原版复用的 TileZone。
+    private static bool IsCropSpot(WorldTile tile, TileZone zone) => (tile.y & 1) == 1;
 
-    // 庄稼只种在区块内的奇数行(偶数行是空着的田垄)
-    private static readonly Dictionary<TileZone, (int x, int y)> _origins = new();
-
-    private static bool IsCropSpot(WorldTile tile, TileZone zone)
-    {
-        if (zone?.tiles == null) return true;
-        if (!_origins.TryGetValue(zone, out (int x, int y) origin)) _origins[zone] = origin = ZoneOrigin(zone);
-        return (tile.y - origin.y) % 2 == 1;
-    }
-
-    private static bool IsFieldSpot(WorldTile tile, (int x, int y) origin)
-    {
-        int lx = tile.x - origin.x, ly = tile.y - origin.y;
-        return ly != 0 && lx % FurrowEvery != 0;
-    }
-
-    // 规划农田区：按方田的格局把可耕地开成田(划定时也会立即开出第一批，地图上马上看得到)
+    // 规划区也只能在原版风车范围内开田。
     public static int CultivateZone(City city, TileZone zone, int limit)
     {
-        if (zone?.tiles == null || zone.city != city) return 0;
-        (int x, int y) origin = ZoneOrigin(zone);
+        if (zone?.tiles == null || zone.city != city || !CanFarmZone(city, zone) ||
+            ScorchedEarthSystem.IsOccupiedZone(city, zone)) return 0;
+        WorldTile windmill = city?.getBuildingOfType("type_windmill")?.current_tile;
         int count = 0;
         foreach (WorldTile tile in zone.tiles)
         {
             if (count >= limit) break;
-            if (tile == null || !IsFieldSpot(tile, origin) || !CanMakeField(tile)) continue;
+            if (!InRange(city, tile, windmill) || !CanMakeField(tile)) continue;
             MapAction.terraformTop(tile, TopTileLibrary.field);
             count++;
         }
         return count;
     }
 
-    // 风车周围原版算好的可耕地，同样按方田的格局开
+    // 原版算好的可耕地也再次核对范围，避免风车拆掉后使用过期缓存。
     private static void MakeVanillaFields(City city)
     {
         int count = 0;
-        var origins = new Dictionary<TileZone, (int x, int y)>();
+        WorldTile windmill = city.getBuildingOfType("type_windmill")?.current_tile;
         foreach (WorldTile tile in city.calculated_place_for_farms)
         {
             if (count >= MaxFieldsPerSettle) break;
-            if (tile?.zone?.tiles == null || !CanMakeField(tile) || IsRetired(city, tile.zone)) continue;
-            if (!origins.TryGetValue(tile.zone, out (int x, int y) origin)) origins[tile.zone] = origin = ZoneOrigin(tile.zone);
-            if (!IsFieldSpot(tile, origin)) continue;
+            if (!InRange(city, tile, windmill) || !CanFarmZone(city, tile.zone) || !CanMakeField(tile) || IsRetired(city, tile.zone) ||
+                ScorchedEarthSystem.IsOccupiedZone(city, tile.zone)) continue;
             MapAction.terraformTop(tile, TopTileLibrary.field);
             count++;
         }
@@ -298,42 +341,57 @@ public static class FarmlandSystem
         tile?.Type != null && tile.Type.can_be_farm && !tile.Type.farm_field &&
         (!tile.hasBuilding() || tile.building.canRemoveForFarms());
 
-    // 本城的农田地块：风车周围原版算好的农田 + 规划农田区里已经开成田的地块
+    // 规划时住房可以让位；真正开田仍要等原版拆除释放地块。
+    private static bool CanPlanField(WorldTile tile) => CanMakeField(tile) ||
+        tile?.Type != null && tile.Type.can_be_farm && ZonePlanSystem.IsHousing(tile.building?.asset);
+
+    private static bool CanFarmZone(City city, TileZone zone)
+    {
+        ZoneUse use = ZonePlanSystem.Get(city, zone);
+        return use == ZoneUse.None || use == ZoneUse.Farm || use == ZoneUse.Residential;
+    }
+
+    // 无论农田来自原版还是规划，都核对风车范围和归属。
     private static IEnumerable<WorldTile> FarmTiles(City city)
     {
+        WorldTile windmill = city.getBuildingOfType("type_windmill")?.current_tile;
         foreach (WorldTile tile in city.calculated_farm_fields)
-            if (tile != null) yield return tile;
+            if (InRange(city, tile, windmill) && CanFarmZone(city, tile.zone) && tile.Type?.farm_field == true) yield return tile;
         foreach (TileZone zone in PlannedZones(city))
         {
             if (zone.tiles == null) continue;
             foreach (WorldTile tile in zone.tiles)
-                if (tile?.Type != null && tile.Type.farm_field) yield return tile;
+                if (InRange(city, tile, windmill) && tile.Type?.farm_field == true) yield return tile;
         }
     }
 
-    // 耕地红线：规划农田低于红线，或者缺粮时，自动补划一块(每月最多一块)；已划定的不收回
+    // 红线或缺粮每月最多补划一块，候选区仍严格受风车范围限制。
     private static void EnsureRedLine(City city, CityPopulationData data)
     {
         if (city.zones == null || city.zones.Count == 0) return;
         int planned = 0;
-        foreach (TileZone _ in PlannedZones(city)) planned++;
+        foreach (TileZone zone in PlannedZones(city))
+            if (HasFarmArea(city, zone)) planned++;
         int required = Mathf.Min(MaxAutoPlannedZones, Mathf.CeilToInt(city.zones.Count * RedLineShare(city)));
         bool hungry = data != null && data.last_food_shortage > 0f;
         if (planned >= required && !(hungry && planned < MaxAutoPlannedZones && planned * 2 < city.zones.Count)) return;
         TileZone best = null;
         int bestScore = MinFarmableTilesInZone - 1;
         WorldTile center = city.getTile();
+        WorldTile windmill = city.getBuildingOfType("type_windmill")?.current_tile;
+        if (windmill == null) return;
         foreach (TileZone zone in city.zones)
         {
-            if (zone?.tiles == null || IsPlanned(city, zone) || IsRetired(city, zone) ||
+            if (zone?.tiles == null || !CanFarmZone(city, zone) || IsPlanned(city, zone) || IsRetired(city, zone) ||
                 center != null && center.zone == zone) continue;
             int score = 0;
             foreach (WorldTile tile in zone.tiles)
-                if (tile?.Type != null && (tile.Type.farm_field || CanMakeField(tile))) score++;
+                if (InRange(city, tile, windmill) && tile.Type != null &&
+                    (tile.Type.farm_field || CanPlanField(tile))) score++;
             if (score <= bestScore) continue;
             bestScore = score;
             best = zone;
         }
-        if (best != null) Zones(city).Add(best.id);
+        if (best != null) TogglePlanned(city, best);
     }
 }

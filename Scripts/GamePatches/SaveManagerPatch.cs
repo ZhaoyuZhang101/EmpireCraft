@@ -98,6 +98,7 @@ public class SaveManagerPatch : GamePatch
         {
             LogService.LogWarning($"[EmpireCraft] 存档前精简个人经历失败: {exception.Message}");
         }
+        EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.FlushPendingGrowth();
         DataManager.SaveAll(pFolder);
         return true;
 
@@ -154,6 +155,7 @@ public class SaveManagerPatch : GamePatch
 
     private static void ClearRuntimeState()
     {
+        SimulationFrameBudget.Reset();
         EmpireCraftStrategicScheduler.Reset();
         KingdomFrontLineHelper.ClearCache();
         EmpireCraftActorCheckWarrior.ClearRuntimeState();
@@ -164,6 +166,9 @@ public class SaveManagerPatch : GamePatch
     private static void ClearPersistentWorldState()
     {
         DataManager.ResetCurrentSaveDataPath();
+        CulturePatch.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.ResetWorldState();
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         ModClass.ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();

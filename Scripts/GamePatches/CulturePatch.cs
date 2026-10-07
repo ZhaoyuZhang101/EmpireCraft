@@ -130,15 +130,31 @@ public class CulturePatch : GamePatch
         internal object data;
         internal string empireCraftCulture;
     }
-    private static readonly ConditionalWeakTable<Culture, NamingTemplateState> NamingTemplates = new();
+    private static ConditionalWeakTable<Culture, NamingTemplateState> NamingTemplates = new();
+
+    public static void ResetWorldState()
+    {
+        NamingTemplates = new();
+    }
+
+    private static NamingTemplateState GetNamingTemplateState(Culture culture)
+    {
+        NamingTemplateState state = NamingTemplates.GetOrCreateValue(culture);
+        // 原版会回收复用 Culture 对象；绑定只属于当前数据，不能跟随对象进入另一份存档。
+        if (!ReferenceEquals(state.data, culture.data))
+        {
+            state.data = culture.data;
+            state.signature = null;
+            state.empireCraftCulture = null;
+        }
+        return state;
+    }
 
     internal static void EnsureEmpireNaming(Culture culture)
     {
         if (!AncientWarfareCompatibility.Loaded || culture?.data == null) return;
-        NamingTemplateState state = NamingTemplates.GetOrCreateValue(culture);
-        string cultureName = !string.IsNullOrWhiteSpace(state.empireCraftCulture)
-            ? state.empireCraftCulture
-            : OverallHelperFunc.GetCultureFromSpecies(culture.data.creator_species_id);
+        NamingTemplateState state = GetNamingTemplateState(culture);
+        string cultureName = GetInjectedCultureName(culture);
         if (!OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(cultureName)) return;
         string signature = cultureName + "/" + PlayerConfig.detectLanguage();
         state.empireCraftCulture = cultureName;
@@ -152,7 +168,7 @@ public class CulturePatch : GamePatch
     public static string GetInjectedCultureName(Culture culture)
     {
         if (culture?.data == null) return "";
-        NamingTemplateState state = NamingTemplates.GetOrCreateValue(culture);
+        NamingTemplateState state = GetNamingTemplateState(culture);
         if (!string.IsNullOrWhiteSpace(state.empireCraftCulture) &&
             OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(state.empireCraftCulture))
         {
@@ -161,7 +177,11 @@ public class CulturePatch : GamePatch
 
         // Legacy cultures did not persist the injected key. Recover it from the culture's
         // own creator metadata, never from the current actor's race.
-        string recovered = OverallHelperFunc.GetCultureFromSpecies(culture.data.creator_species_id);
+        // 更早的存档没有 creator_species_id，但仍保存了文化自身的 original_actor_asset。
+        string species = !string.IsNullOrWhiteSpace(culture.data.creator_species_id)
+            ? culture.data.creator_species_id
+            : culture.data.original_actor_asset;
+        string recovered = OverallHelperFunc.GetCultureFromSpecies(species);
         if (!OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(recovered)) return "";
         state.empireCraftCulture = recovered;
         return recovered;
@@ -210,7 +230,7 @@ public class CulturePatch : GamePatch
             if (!OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(binding.Value)) continue;
             Culture culture = World.world.cultures.get(binding.Key);
             if (culture?.data == null) continue;
-            NamingTemplates.GetOrCreateValue(culture).empireCraftCulture = binding.Value;
+            GetNamingTemplateState(culture).empireCraftCulture = binding.Value;
             insertCultureTemplate(culture, binding.Value, addTraits: false);
         }
     }
@@ -241,7 +261,7 @@ public class CulturePatch : GamePatch
         {
             return;
         }
-        NamingTemplates.GetOrCreateValue(culture).empireCraftCulture = cultureName;
+        GetNamingTemplateState(culture).empireCraftCulture = cultureName;
         SyncCultureDisplayName(culture, cultureName);
         FamilySetting familySetting = setting.Family;
         UnitSetting unitSetting = setting.Unit;

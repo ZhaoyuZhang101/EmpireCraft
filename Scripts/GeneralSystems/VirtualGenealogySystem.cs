@@ -36,6 +36,7 @@ public static class VirtualGenealogySystem
         Magnates.Clear();
         MagnatesByCity.Clear();
         HeadQueue.Cancel();
+        DeathQueue.Cancel();
         _world = null;
         _lastDeathPass = -1d;
     }
@@ -287,13 +288,117 @@ public static class VirtualGenealogySystem
             HeadQueue.Tick();
             return;
         }
+        if (PruneQueue.Active)
+        {
+            if (PruneQueue.Tick()) FinishPrune();
+            return;
+        }
         double now = World.world.getCurWorldTime();
+        // 世界还没载入完(宗族列表是空的)时不算一轮，免得开局空跑一次就要等一年
+        if (SpecificClanManager._specificClans.Count > 0 &&
+            (_lastPrunePass < 0d || now < _lastPrunePass || Date.getYearsSince(_lastPrunePass) >= 1))
+        {
+            _lastPrunePass = now;
+            PrunedClans.Clear();
+            _prunedPeople = 0;
+            _trimmedRecords = 0;
+            PruneQueue.Start(SpecificClanManager._specificClans.Where(clan => clan != null).Select(clan => clan.id).ToList());
+            return;
+        }
         if (_lastDeathPass >= 0d && now >= _lastDeathPass && Date.getYearsSince(_lastDeathPass) < 1) return;
         _lastDeathPass = now;
         if (VirtualIds.Count == 0) return;
         DeathQueue.Start(VirtualIds.ToList());
         DeathQueue.Tick();
     }
+
+    #region 族谱瘦身
+    // 族谱里绝大多数是早已绝嗣的一人小宗族(以前每生成一个人就立一个宗族)和死者的生平记录，
+    // 存档几百 MB、内存几 GB、自动存档一卡一秒多。每年分帧整理一次：
+    //   - 死者的生平只留第一条和最后两条(出生、晚年、身故)；
+    //   - 绝嗣满 ExtinctYears 年的小宗族(不超过 SmallClanSize 人)整族从族谱里删掉，但以下的保留：
+    //     称过帝(有历史帝号)、是某个帝国的皇族、族人里有人封过爵/做过官/有过头衔、族人是在世者的父母或配偶。
+    private const int ExtinctYears = 30;
+    private const int SmallClanSize = 3;
+    private const int KeepHistoryHead = 1;
+    private const int KeepHistoryTail = 2;
+    private static readonly EmpireCraft.Scripts.HelperFunc.FrameBudgetQueue<long> PruneQueue =
+        new(1.5d, PruneClan, "族谱瘦身");
+    private static readonly HashSet<long> PrunedClans = new();
+    private static double _lastPrunePass = -1d;
+    private static int _prunedPeople, _trimmedRecords;
+
+    private static void PruneClan(long clanId)
+    {
+        SpecificClan clan = SpecificClanManager.Get(clanId);
+        if (clan == null) return;
+        PersonalClanIdentity[] people = clan.SnapshotPeople();
+        bool anyAlive = false;
+        foreach (PersonalClanIdentity person in people)
+        {
+            if (person == null) continue;
+            if (person.is_alive)
+            {
+                anyAlive = true;
+                continue;
+            }
+            List<PersonalHistoryRecord> history = person.personal_history;
+            if (history == null || history.Count <= KeepHistoryHead + KeepHistoryTail) continue;
+            int remove = history.Count - KeepHistoryHead - KeepHistoryTail;
+            history.RemoveRange(KeepHistoryHead, remove);
+            _trimmedRecords += remove;
+        }
+        double now = World.world.getCurWorldTime();
+        if (anyAlive)
+        {
+            clan.extinct_since = -1d;
+            return;
+        }
+        if (clan.extinct_since < 0d || now < clan.extinct_since)
+        {
+            // 老存档没有绝嗣时间：建族已满两倍年限的，按早已绝嗣处理(以建族时间计)，免得再等三十年
+            bool old = clan.established_timestamp >= 0d && now >= clan.established_timestamp &&
+                       Date.getYearsSince(clan.established_timestamp) >= ExtinctYears * 2;
+            clan.extinct_since = old ? clan.established_timestamp : now;
+            if (!old) return;
+        }
+        if (Date.getYearsSince(clan.extinct_since) < ExtinctYears || people.Length > SmallClanSize) return;
+        if (IsHistoricClan(clan, people)) return;
+        clan.dispose();
+        PrunedClans.Add(clan.id);
+        _prunedPeople += people.Length;
+    }
+
+    private static bool IsHistoricClan(SpecificClan clan, PersonalClanIdentity[] people)
+    {
+        if (clan.HasHistoryEmpire() || !string.IsNullOrEmpty(clan.empire_name)) return true;
+        if (ModClass.EMPIRE_MANAGER != null)
+            foreach (EmpireCraft.Scripts.Layer.Empire empire in ModClass.EMPIRE_MANAGER)
+                if (empire?.data != null && empire.data.empire_specific_clan == clan.id) return true;
+        foreach (PersonalClanIdentity person in people)
+        {
+            if (person == null) continue;
+            if (!string.IsNullOrEmpty(person.PeeragesLevel) || !string.IsNullOrEmpty(person.officeName) ||
+                !string.IsNullOrEmpty(person.fullOfficeName) || person.ownedTitleNames?.Count > 0) return true;
+            // 是在世者的父母或配偶：删了在世者的族谱就断了
+            foreach (long child in person.children ?? new List<long>())
+                if (SpecificClanManager.getPerson(child)?.is_alive == true) return true;
+            if (person.lover.identity > 0 && SpecificClanManager.getPerson(person.lover.identity)?.is_alive == true) return true;
+        }
+        return false;
+    }
+
+    private static void FinishPrune()
+    {
+        if (PrunedClans.Count > 0)
+            SpecificClanManager.RemoveClans(PrunedClans);
+        LogService.LogInfo($"[EmpireCraft][族谱瘦身] 删去绝嗣小宗族 {PrunedClans.Count} 个({_prunedPeople} 人)，" +
+                           $"精简死者生平 {_trimmedRecords} 条；现有宗族 {SpecificClanManager._specificClans.Count} 个、" +
+                           $"族谱身份 {SpecificClanManager._globalPersonLookup.Count} 人");
+        PrunedClans.Clear();
+    }
+
+    #endregion
 
     #region 继承人(无小人模式)
 

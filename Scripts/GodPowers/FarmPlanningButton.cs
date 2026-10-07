@@ -31,6 +31,11 @@ public static class FarmPlanningButton
             WorldTip.showNow(LM.Get("farm_planning_no_city"), false, "top", 3f);
             return false;
         }
+        if (!FarmlandSystem.IsPlanned(city, zone) && !FarmlandSystem.HasFarmArea(city, zone))
+        {
+            WorldTip.showNow(LM.Get("farm_planning_no_windmill"), false, "top", 3f);
+            return false;
+        }
         bool planned = FarmlandSystem.TogglePlanned(city, zone);
         if (planned)
         {

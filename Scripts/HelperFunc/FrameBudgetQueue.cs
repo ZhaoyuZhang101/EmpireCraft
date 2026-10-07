@@ -28,12 +28,20 @@ public sealed class FrameBudgetQueue<T>
 
     public void Start(IEnumerable<T> items)
     {
+        // 高速游戏进入下一年度时，不能把尚未完成的旧队列反复清零，导致尾部城市永远轮不到。
+        if (EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled &&
+            Active && ReferenceEquals(_world, World.world)) return;
         _items = items?.ToList() ?? new List<T>();
         _index = 0;
         _world = World.world;
     }
 
-    public void Cancel() => _items = null;
+    public void Cancel()
+    {
+        _items = null;
+        _world = null;
+        _index = 0;
+    }
 
     // 处理到时间预算用完为止；本次调用把队列处理完时返回 true
     public bool Tick()
@@ -41,11 +49,12 @@ public sealed class FrameBudgetQueue<T>
         if (_items == null) return false;
         if (!ReferenceEquals(_world, World.world))
         {
-            _items = null;
+            Cancel();
             return false;
         }
+        using var frameWork = SimulationFrameBudget.Measure();
         long started = Stopwatch.GetTimestamp();
-        while (_index < _items.Count)
+        while (_index < _items.Count && SimulationFrameBudget.HasTime)
         {
             T item = _items[_index++];
             try
@@ -58,7 +67,8 @@ public sealed class FrameBudgetQueue<T>
             }
             if ((Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency >= _budgetMilliseconds) return false;
         }
-        _items = null;
+        if (_index < _items.Count) return false;
+        Cancel();
         return true;
     }
 }

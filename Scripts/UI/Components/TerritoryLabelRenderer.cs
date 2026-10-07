@@ -304,10 +304,23 @@ public static class TerritoryLabelRenderer
     {
         string choice = TerritoryFontSettings.Choice;
         if (choice == TerritoryFontSettings.Game) return fallback;
+        Font selected;
         if (choice == TerritoryFontSettings.Auto && ContainsLatin(text, richText))
-            return ResolveInstalledFont(LatinFontNames, fallback, ref _latin_font, ref _latin_font_resolved);
-        string fontName = TerritoryFontSettings.ResolveFontName();
-        return fontName == null ? fallback : GetOsFont(fontName) ?? fallback;
+            selected = ResolveInstalledFont(LatinFontNames, fallback, ref _latin_font, ref _latin_font_resolved);
+        else
+        {
+            string fontName = TerritoryFontSettings.ResolveFontName();
+            selected = fontName == null ? fallback : GetOsFont(fontName) ?? fallback;
+        }
+        // 展示字体字库较小；名字缺字时回退，不能让整张铭牌变成空白。
+        bool insideTag = false;
+        foreach (char character in text ?? "")
+        {
+            if (richText && character == '<') { insideTag = true; continue; }
+            if (insideTag) { if (character == '>') insideTag = false; continue; }
+            if (character is not ('\n' or '\r' or '\t') && selected != null && !selected.HasCharacter(character)) return fallback;
+        }
+        return selected;
     }
 
     public static Font GetOsFont(string fontName)
@@ -317,7 +330,8 @@ public static class TerritoryLabelRenderer
         Font font = null;
         try
         {
-            font = Font.CreateDynamicFontFromOSFont(fontName, 64);
+            font = fontName == BundledTerritoryFonts.Seal ? BundledTerritoryFonts.Load()
+                : Font.CreateDynamicFontFromOSFont(fontName, 64);
         }
         catch (Exception exception)
         {
@@ -327,12 +341,16 @@ public static class TerritoryLabelRenderer
         return font;
     }
 
-    // 字体设置改变：丢掉已建好的字体，各铭牌下一帧按新设置换字体
+    // 字体设置改变：保留字体对象，作废铭牌的材质与文字尺寸缓存。
     public static void ResetFonts()
     {
-        _os_fonts.Clear();
-        _latin_font = null;
-        _latin_font_resolved = false;
+        // 复用已经加载的 Font，反复选择不再创建新图集或让旧材质引用失效。
+        var missing = new List<string>();
+        foreach (KeyValuePair<string, Font> pair in _os_fonts)
+            if (pair.Value == null) missing.Add(pair.Key);
+        foreach (string name in missing) _os_fonts.Remove(name);
+        if (_latin_font == null) _latin_font_resolved = false;
+        foreach (RuntimeLabel label in _labels.Values) label.InvalidateFont();
     }
 
     public static void HideAll()
@@ -755,11 +773,9 @@ public static class TerritoryLabelRenderer
             if (_text.font != desiredFont)
             {
                 _text.font = desiredFont;
-                Text template = GetTextTemplate();
-                if (desiredFont == _fallback_font && template?.material != null)
-                    _text.material = template.material;
-                else if (desiredFont?.material != null)
-                    _text.material = desiredFont.material;
+                // Text.mainTexture 随当前字体取图集；不保留上一个字体的显式材质。
+                _text.material = null;
+                _text.SetAllDirty();
 
                 _metrics_text = null;
                 _metrics_font = null;
@@ -781,6 +797,9 @@ public static class TerritoryLabelRenderer
                 _text.text = trimmedValue;
                 _text.fontSize = TerritoryLabelProjection.ReferenceFontSize;
                 _text.fontStyle = effectiveFontStyle;
+                _text.font?.RequestCharactersInTexture(trimmedValue, _text.fontSize, effectiveFontStyle);
+                _text.cachedTextGenerator.Invalidate();
+                _text.cachedTextGeneratorForLayout.Invalidate();
                 _reference_width = Mathf.Max(1f, _text.preferredWidth);
                 _reference_height = Mathf.Max(1f, _text.preferredHeight);
                 rect.sizeDelta = new Vector2(_reference_width + 2f, _reference_height + 2f);
@@ -885,6 +904,17 @@ public static class TerritoryLabelRenderer
             return false;
         }
 
+        public void InvalidateFont()
+        {
+            _metrics_text = null;
+            _metrics_font = null;
+            if (_text == null) return;
+            _text.material = null;
+            _text.cachedTextGenerator.Invalidate();
+            _text.cachedTextGeneratorForLayout.Invalidate();
+            _text.SetAllDirty();
+        }
+
         private void EnsureText()
         {
             if (_text != null || _root == null) return;
@@ -902,10 +932,7 @@ public static class TerritoryLabelRenderer
             _text.resizeTextForBestFit = false;
             _text.supportRichText = false;
             _text.raycastTarget = false;
-            if (template?.material != null)
-                _text.material = template.material;
-            else if (fallbackFont?.material != null)
-                _text.material = fallbackFont.material;
+            _text.material = null;
             RectTransform rect = _text.rectTransform;
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);

@@ -929,7 +929,17 @@ def obj_heat_flag(img):
 
 
 # godpower：法理、行政区、帝国核心工具(直接覆盖原文件路径，代码不用改)
+def obj_lock(img):
+    """未解锁：黑铁锁梁，旧铜锁体，骨白钥匙孔。"""
+    loop = sub(ellipse([66, 30, 190, 164]), ellipse([91, 55, 165, 154]))
+    over(img, shade(loop, STEEL, bevel=9, gloss=0.8))
+    over(img, shade(rrect([52, 112, 204, 230], 14), BRASS, bevel=12, gloss=0.65, grain=0.25))
+    keyhole = union(ellipse([113, 145, 143, 175]), poly([(122, 164), (134, 164), (143, 200), (113, 200)]))
+    over(img, shade(keyhole, LACQ, bevel=3, flat=True))
+
+
 TOOLS = {
+    "iconLock": (obj_lock, None),
     "iconToolTitleLayer": (obj_title, None),
     "iconToolTitleCreate": (obj_title, "star"),
     "iconToolTitleAdd": (obj_title, "arrow"),

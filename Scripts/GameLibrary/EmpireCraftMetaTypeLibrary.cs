@@ -268,12 +268,12 @@ public static class EmpireCraftMetaTypeLibrary
 			        foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
 			        {
                 if (pEmpire == null || pEmpire.IsArchived()) continue;
-                if (pEmpire.CoreKingdom.HasTakenAlliance()) continue;
+                if (pEmpire.CoreKingdom == null || pEmpire.CoreKingdom.HasTakenAlliance()) continue;
                 drawEmpireViewCities(pEmpire, pEmpire.getCities());
                 foreach (var kingdom in pEmpire.taken_Kingdoms)
                 {
-                  if (kingdom.isRekt()) continue;
-                  drawEmpireViewCities(pEmpire, kingdom.cities);
+                  if (kingdom == null || kingdom.isRekt() || kingdom.GetTakenAllianceEmpire() != pEmpire) continue;
+                  drawEmpireViewCities(pEmpire, kingdom.cities.Where(city => city?.kingdom == kingdom));
                 }
 			        }
 			        break;
@@ -281,12 +281,12 @@ public static class EmpireCraftMetaTypeLibrary
               foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
               {
                 if (pEmpire == null || pEmpire.IsArchived()) continue;
-                if (pEmpire.CoreKingdom.HasGivenAlliance()) continue;
+                if (pEmpire.CoreKingdom == null || pEmpire.CoreKingdom.HasGivenAlliance()) continue;
                 drawEmpireViewCities(pEmpire, pEmpire.getCities());
                 foreach (var kingdom in pEmpire.given_Kingdoms)
                 {
-                  if (kingdom.isRekt()) continue;
-                  drawEmpireViewCities(pEmpire, kingdom.cities);
+                  if (kingdom == null || kingdom.isRekt() || kingdom.GetGivenAllianceEmpire() != pEmpire) continue;
+                  drawEmpireViewCities(pEmpire, kingdom.cities.Where(city => city?.kingdom == kingdom));
                 }
               }
 			        break;
@@ -736,7 +736,7 @@ public static class EmpireCraftMetaTypeLibrary
       if (kingdom?.cities == null) return;
       foreach (City city in kingdom.cities)
       {
-        if (city == null || city.isRekt()) continue;
+        if (city == null || city.isRekt() || city.kingdom != kingdom) continue;
         QuantumSpriteLibrary.colorZones(pQAsset, city.zones, color);
       }
     }
@@ -755,7 +755,11 @@ public static class EmpireCraftMetaTypeLibrary
         : pZoneOption == 2 ? empire.given_Kingdoms : null;
       if (associatedKingdoms == null) return;
       foreach (Kingdom kingdom in associatedKingdoms)
+      {
+        if (kingdom == null || pZoneOption == 1 && kingdom.GetTakenAllianceEmpire() != empire ||
+            pZoneOption == 2 && kingdom.GetGivenAllianceEmpire() != empire) continue;
         highlightKingdomZones(kingdom, pQAsset, color);
+      }
     }
 
     private static void drawEmpireViewCities(Empire empire, IEnumerable<City> cities)
@@ -766,6 +770,7 @@ public static class EmpireCraftMetaTypeLibrary
         if (city == null || city.isRekt()) continue;
         foreach (TileZone zone in city.zones)
         {
+          if (zone?.city != city) continue;
           zone_manager.drawBegin();
           drawZoneEmpireWithKingdomBorder(zone, empire);
           zone_manager.drawEnd(zone);

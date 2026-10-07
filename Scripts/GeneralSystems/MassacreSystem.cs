@@ -58,8 +58,7 @@ public static class MassacreSystem
         data.massacre_last = now;
         if (data.massacre_noticed || data.massacre_victims < NoticeVictims) return;
         data.massacre_noticed = true;
-        TranslateHelper.LogEventMessage(string.Format(LM.Get("massacre_event"), killerKingdom.GetKingdomName(),
-            city.GetCityName()), killerKingdom);
+        Announce(city, data, killerKingdom, now);
     }
 
     // 无小人模式：纵兵烧杀(见 ScorchedEarthSystem)杀害的背景人口也记入屠城之恨
@@ -79,6 +78,17 @@ public static class MassacreSystem
         data.massacre_last = now;
         if (data.massacre_noticed) return;
         data.massacre_noticed = true;
+        Announce(city, data, killerKingdom, now);
+    }
+
+    // 同一国在同一城 MemoryYears 年内只播报一次：几国轮番烧杀同一座城时，记账的屠城者来回换，
+    // 以前每换一次就重播一次，消息刷屏
+    private static void Announce(City city, CityExtension.CityExtraData data, Kingdom killerKingdom, double now)
+    {
+        data.massacre_announced ??= new global::System.Collections.Generic.Dictionary<long, double>();
+        if (data.massacre_announced.TryGetValue(killerKingdom.id, out double at) && at >= 0d && now >= at &&
+            Date.getYearsSince(at) < MemoryYears) return;
+        data.massacre_announced[killerKingdom.id] = now;
         TranslateHelper.LogEventMessage(string.Format(LM.Get("massacre_event"), killerKingdom.GetKingdomName(),
             city.GetCityName()), killerKingdom);
     }

@@ -46,7 +46,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         ClearStaleLegitimacyRivalries();
         double worldTime = World.world.getCurWorldTime();
-        if (_lastStatsCacheTimestamp <= 0 || Date.getMonthsSince(_lastStatsCacheTimestamp) >= 1)
+        if (_dirty_cities || _lastStatsCacheTimestamp <= 0 || worldTime < _lastStatsCacheTimestamp ||
+            Date.getMonthsSince(_lastStatsCacheTimestamp) >= 1)
         {
             // 禁止原版结盟时，旧存档遗留或其他途径漏进来的原版同盟也一并清掉(模组同盟与神力强制同盟保留)
             if (ModAllianceService.IsVanillaAllianceBanned()) ModAllianceService.DissolveVanillaAlliances();
@@ -55,6 +56,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             foreach (Empire e in _empiresToProcess)
             {
                 if (e.IsArchived()) continue;
+                e.recalculate();
                 int pop = 0;
                 int warriors = 0;
                 int warriorsMax = 0;
@@ -62,6 +64,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                 for (int i = 0; i < tKingdoms.Count; i++)
                 {
                     var k = tKingdoms[i];
+                    if (!EmpireMembershipService.BelongsTo(e, k)) continue;
                     var ked = KingdomExtension.GetOrCreate(k);
                     ked.last_cached_timestamp = -1L;
                     int kp = k.getPopulationPeople();
@@ -90,6 +93,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                 e.data.last_cached_timestamp = worldTime;
             }
             _lastStatsCacheTimestamp = worldTime;
+            _dirty_cities = false;
         }
 
         foreach (Empire current in _empiresToProcess)
@@ -297,7 +301,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             EmpireCoreManager.newEmpireCore(empire);
         }
         pKingdom.GetOrCreate().isEmpire = true;
-        pKingdom.GetOrCreate().EmpireID = empire.id;
+        pKingdom.SetEmpireID(empire.id);
         EmpireFormationService.OnEmpireCreated(empire);
         if (!suppressFoundingLog && empire.data.has_year_name)
         {

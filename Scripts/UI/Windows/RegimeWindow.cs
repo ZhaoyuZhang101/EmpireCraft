@@ -191,9 +191,9 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         ["toggle_allow_army"] = new[] { "ui/icons/iconWar", "ui/icons/iconArmy" },
         ["toggle_support_army_to_center"] = new[] { "ui/icons/iconKingdom", "ui/icons/iconWar" },
         ["option_tax_level"] = new[] { "ui/icons/iconMoney", "ui/icons/iconGold", "ui/icons/iconKingdom" },
-        ["option_leader_select_method"] = new[] { "ui/icons/iconKing", "ui/icons/actor_traits/iconJingshi" },
+        ["option_leader_select_method"] = new[] { "ui/icons/iconKings", "ui/icons/actor_traits/iconJingshi" },
         ["option_religion_type"] = new[] { "ui/icons/iconReligion", "ui/icons/iconCulture" },
-        ["option_succession_law"] = new[] { "ui/icons/iconHeir", "ui/icons/iconFamily", "ui/specificClanIcon" }
+        ["option_succession_law"] = new[] { "ui/icons/iconChildren", "ui/icons/iconFamily", "ui/specificClanIcon" }
     };
 
     private static Sprite LoadFirstSprite(IEnumerable<string> paths, string fallback = "ui/icons/iconOptions")
