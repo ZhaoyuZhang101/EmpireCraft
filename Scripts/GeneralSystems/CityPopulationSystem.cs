@@ -895,7 +895,8 @@ public static class CityPopulationSystem
             shares[SocialClass.Officer] = 0.03f;
             shares[SocialClass.Landlord] = landlords ? Mathf.Min(0.03f, landless * 0.05f) : 0f;
             shares[SocialClass.Merchant] = 0.02f + trade + 0.02f * size;
-            shares[SocialClass.Labour] = Mathf.Clamp(urban + 0.05f, 0.05f, 0.45f);
+            // 矿场、伐木场的体力活：和古代一样每座多 1% 工人
+            shares[SocialClass.Labour] = Mathf.Clamp(urban + 0.05f + 0.01f * mines, 0.05f, 0.45f);
             shares[SocialClass.Citizen] = advancedHousing ? 0.25f : 0.1f;
         }
         else
