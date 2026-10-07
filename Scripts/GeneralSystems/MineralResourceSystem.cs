@@ -190,8 +190,31 @@ public static class MineralResourceSystem
     }
 
     // 每年开采(由人口经济结算按经过的年数调用)
+    // 钢铁厂(WarBox)：无小人模式下没有工人，按座数每年用煤和金属炼钢，成品折成金属
+    // (每座每年：煤 4 + 金属 4 → 金属 12，原料不够按比例减产)
+    private const float SteelCoalPerYear = 4f;
+    private const float SteelMetalInPerYear = 4f;
+    private const float SteelMetalOutPerYear = 12f;
+
+    public static void SmeltSteel(City city, CityPopulationData data, float years)
+    {
+        int mills = city?.countBuildingsType("type_steel_mill", true) ?? 0;
+        if (mills <= 0 || AssetManager.resources.get("coal") == null) return;
+        float wantCoal = mills * SteelCoalPerYear * years, wantMetal = mills * SteelMetalInPerYear * years;
+        int coal = Mathf.Min(Mathf.FloorToInt(wantCoal), city.getResourcesAmount("coal"));
+        int metal = Mathf.Min(Mathf.FloorToInt(wantMetal), city.getResourcesAmount("common_metals"));
+        if (coal <= 0 || metal <= 0) return;
+        float share = Mathf.Min(coal / Mathf.Max(1f, wantCoal), metal / Mathf.Max(1f, wantMetal));
+        int useCoal = Mathf.Max(1, Mathf.RoundToInt(wantCoal * share));
+        int useMetal = Mathf.Max(1, Mathf.RoundToInt(wantMetal * share));
+        city.takeResource("coal", Mathf.Min(useCoal, coal));
+        city.takeResource("common_metals", Mathf.Min(useMetal, metal));
+        PopulationEconomySystem.Deposit(city, data, "common_metals", mills * SteelMetalOutPerYear * years * share);
+    }
+
     public static void Produce(City city, CityPopulationData data, float years)
     {
+        SmeltSteel(city, data, years);
         int tier = MineTier(city);
         if (tier <= 0) return;
         float output = IndustryBuildingSystem.MineOutputFactor(city);

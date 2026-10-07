@@ -588,7 +588,7 @@ public static class CityPopulationSystem
             for (int i = 0; i < city.units.Count; i++)
             {
                 Actor actor = city.units[i];
-                if (actor?.data == null || actor.isRekt() || !actor.isAlive()) continue;
+                if (actor?.data == null || actor.isRekt() || !actor.isAlive() || IsVehicle(actor)) continue;
                 SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
                 actor.SetSocialClass(socialClass);
                 var key = (socialClass, CultureService.GetActorCulture(actor) ?? "", actor.asset?.id ?? "",
@@ -1135,7 +1135,7 @@ public static class CityPopulationSystem
         foreach (Actor actor in city.units)
         {
             if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != city) continue;
-            if (actor.asset == null || actor.asset.is_boat) continue;
+            if (actor.asset == null || IsVehicle(actor)) continue;
             if (IsNotable(actor)) continue;
             if (IsSoldier(actor)) soldiers.Add(actor);
             else commoners.Add(actor);
@@ -1365,9 +1365,14 @@ public static class CityPopulationSystem
     }
 
     // 军团现存人数：按士兵当前生命值折算满编人数，掉血就是减员，阵亡的人不会回来
+    // 载具(WarBox 的坦克、装甲车、飞机等)不是人：不计人口、不代表军团、不并回人口
+    public static bool IsVehicle(Actor actor) =>
+        actor?.asset != null && (actor.asset.is_boat || actor.asset.id.StartsWith("warbox_") || actor.hasTrait("warbox_unit"));
+
     public static float LegionAlive(Actor actor)
     {
         if (actor?.data == null || actor.isRekt()) return 0f;
+        if (IsVehicle(actor)) return 0f;
         ActorExtension.ActorExtraData extra = actor.GetOrCreate();
         if (extra.legion_size <= 1f) return 1f;
         if (extra.legion_full < extra.legion_size) extra.legion_full = extra.legion_size;

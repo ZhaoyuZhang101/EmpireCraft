@@ -1115,13 +1115,14 @@ public class CityPatch : GamePatch
         // 守城军已经被打到 3 人及以下时：
         // 只要敌对帝国的 Warrior 实际进入本城市任意 Zone，
         // 该城立即归降。
-        TryImmediateSurrenderOnImperialArmyArrival(__instance);
-        LandEconomySystem.UpdateCity(__instance);
-        __instance.TryYearlyOccupationSpread();
-        UrbanEmploymentSystem.UpdateCity(__instance);
+        // 每座城每帧都跑：分段累计计时，每 10 秒在日志里报一次平均每帧耗时(见 FrameProfiler)
+        using (FrameProfiler.Measure("城市钩子·入城归降")) TryImmediateSurrenderOnImperialArmyArrival(__instance);
+        using (FrameProfiler.Measure("城市钩子·土地经济")) LandEconomySystem.UpdateCity(__instance);
+        using (FrameProfiler.Measure("城市钩子·占领扩散")) __instance.TryYearlyOccupationSpread();
+        using (FrameProfiler.Measure("城市钩子·城市就业")) UrbanEmploymentSystem.UpdateCity(__instance);
         // 无小人模式：城主一空缺立即从人口里补位
-        CityPopulationSystem.EnsureLeader(__instance);
-        RunWorldYearlyScans();
+        using (FrameProfiler.Measure("城市钩子·城主补位")) CityPopulationSystem.EnsureLeader(__instance);
+        using (FrameProfiler.Measure("城市钩子·年度扫描")) RunWorldYearlyScans();
 
         /*
         if (__instance.hasTitle())

@@ -16,7 +16,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   - 建什么仍由原版城市规划决定(资源够不够、要不要、科技解锁了没有)，但越富庶的城越倾向于先把已有建筑
 //     升级到科技允许的最高一级；升级除了原版的资源外还要花钱，先花城市国库，不够由国家国库出；
 //   - 越富庶的城，民居上限越高，房屋越密集(见 NoCommonersPatch.AfterRecalculateMaxHouses)；
-//   - 首都、首府优先：建设力 ×1.6 / ×1.3，更倾向于升级，民居上限更高。
+//   - 首都、首府优先：建设力 ×1.6 / ×1.3，更倾向于升级，民居上限更高；
+//   - 民居跟上科技：每月按本文化掌握的技术直接升级民居，不看人口(见 UpgradeHousing)；
+//   - 修路：没有修路工，城市每月自己把建筑之间的路铺上(见 BuildRoads)；
+//   - 清理废墟：没有清洁工，城里的废墟每月花钱请人拆(见 ClearRuins)，先花城市国库，不够由国家出；
+//     拆下来的木头、石头回到仓库。没钱就留着，废墟占着地方盖不了新房。
 // 富庶度 = 经济繁荣度(商人、市民多、高级民居)与城市国库的综合，0~1。
 public static class CityConstructionSystem
 {
@@ -75,7 +79,141 @@ public static class CityConstructionSystem
         data.construction_carry = points - whole;
         int used = Advance(city, whole);
         if (funded && used > 0) kingdom.SubMoney(Mathf.CeilToInt(used / PointsPerFundingGold));
+        ClearRuins(city, rate);
+        BuildRoads(city, rate);
+        UpgradeHousing(city, rate);
         if (!HasConstruction(city)) StartNext(city);
+    }
+
+    // ---- 民居跟上科技 ----
+    // 原版升级民居要求城里人口够多(按户计)，无小人模式下城市户数少，民居永远停在平房。这里每月直接按科技
+    // 升级民居：本文化掌握了上一级民居的技术就能升(见 TechnologySystem.CanBuild)，不看人口。
+    // 每月最多 2 + 建设力/5 座，先升等级最低的；花钱同普通升级，仓库材料不够时改为付双倍的钱。
+    private static void UpgradeHousing(City city, float rate)
+    {
+        if (city.buildings == null) return;
+        int limit = 2 + Mathf.FloorToInt(rate / 5f);
+        var houses = new List<Building>();
+        foreach (Building building in city.buildings)
+        {
+            if (building?.asset == null || !building.asset.hasHousingSlots() || !building.canBeUpgraded()) continue;
+            BuildingAsset target = AssetManager.buildings.get(building.asset.upgrade_to ?? "");
+            if (target == null || !TechnologySystem.CanBuild(city, target.id)) continue;
+            houses.Add(building);
+        }
+        if (houses.Count == 0) return;
+        houses.Sort((a, b) => a.asset.upgrade_level.CompareTo(b.asset.upgrade_level));
+        Kingdom kingdom = city.kingdom;
+        foreach (Building house in houses)
+        {
+            if (limit <= 0) break;
+            BuildingAsset target = AssetManager.buildings.get(house.asset.upgrade_to);
+            bool hasMaterials = city.hasEnoughResourcesFor(target.cost);
+            int cost = (UpgradeBaseCost + target.construction_progress_needed / 2) * (hasMaterials ? 1 : 2);
+            int fromCity = Mathf.Min(cost, Mathf.Max(0, city.GetMoney()));
+            int fromState = cost - fromCity;
+            if (fromState > 0 && (kingdom == null || kingdom.wild || kingdom.GetMoney() < fromState)) break;
+            bool upgraded = hasMaterials ? CityBehBuild.upgradeBuilding(house, city) : house.upgradeBuilding();
+            if (!upgraded) continue;
+            if (fromCity > 0) city.SubMoney(fromCity);
+            if (fromState > 0) kingdom.SubMoney(fromState);
+            limit--;
+        }
+    }
+
+    // ---- 修路 ----
+    // 没有修路工：每月替城市铺路。原版在建筑落成时排好"要修的路"(相邻建筑之间连一条)，由修路工一格格铺；
+    // 这里每月挑几座建筑重新排一次连路，再把排好的路直接铺上(每月最多 RoadTilesPerMonth + 建设力 格)
+    private const int RoadTilesPerMonth = 20;
+    private const int RoadPlansPerMonth = 3;
+
+    private static void BuildRoads(City city, float rate)
+    {
+        if (city.buildings == null || city.buildings.Count < 2) return;
+        try
+        {
+            for (int i = 0; i < RoadPlansPerMonth && city.road_tiles_to_build.Count == 0; i++)
+            {
+                Building building = city.buildings[UnityEngine.Random.Range(0, city.buildings.Count)];
+                if (building?.asset == null || !building.asset.build_road_to || building.isUnderConstruction()) continue;
+                CityBehBuild.makeRoadsBuildings(city, building);
+            }
+            int limit = RoadTilesPerMonth + Mathf.FloorToInt(rate);
+            for (int i = 0; i < limit; i++)
+            {
+                WorldTile tile = city.getRoadTileToBuild(null);
+                if (tile == null) break;
+                if (tile.Type == null || tile.Type.liquid || tile.Type.road)
+                {
+                    city.road_tiles_to_build.Remove(tile);
+                    continue;
+                }
+                MapAction.createRoadTile(tile);
+                city.road_tiles_to_build.Remove(tile);
+            }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][城市建设] 修路失败({city.data?.name}): {exception.Message}");
+        }
+    }
+
+    // ---- 清理废墟 ----
+    // 每月最多拆 2 + 建设力/5 座；每座花 RuinBaseCost + 占地格数 金
+    private const int RuinBaseCost = 2;
+
+    private static void ClearRuins(City city, float rate)
+    {
+        if (city.zones == null) return;
+        int limit = 2 + Mathf.FloorToInt(rate / 5f);
+        Kingdom kingdom = city.kingdom;
+        var ruins = new List<Building>();
+        foreach (TileZone zone in city.zones)
+        {
+            HashSet<Building> set = zone?.getHashset(BuildingList.Ruins);
+            if (set == null) continue;
+            foreach (Building ruin in set)
+            {
+                if (ruins.Count >= limit) break;
+                if (ruin?.asset != null && ruin.isRuin()) ruins.Add(ruin);
+            }
+            if (ruins.Count >= limit) break;
+        }
+        int cleared = 0;
+        foreach (Building ruin in ruins)
+        {
+            BuildingFundament fundament = ruin.asset.fundament;
+            int cost = RuinBaseCost + (fundament == null ? 1 : Mathf.Max(1, fundament.width * fundament.height / 4));
+            int fromCity = Mathf.Min(cost, Mathf.Max(0, city.GetMoney()));
+            int fromState = cost - fromCity;
+            if (fromState > 0 && (kingdom == null || kingdom.wild || kingdom.GetMoney() < fromState)) break;
+            if (fromCity > 0) city.SubMoney(fromCity);
+            if (fromState > 0) kingdom.SubMoney(fromState);
+            try
+            {
+                if (ruin.asset.cost.wood > 0) city.addResourcesToRandomStockpile("wood", 1);
+                if (ruin.asset.cost.stone > 0) city.addResourcesToRandomStockpile("stone", 1);
+            }
+            catch
+            {
+                // 没有仓库就不回收
+            }
+            ruin.startDestroyBuilding();
+            cleared++;
+        }
+        if (LastRuinsCleared.Count > (World.world?.cities?.Count ?? 0) * 2) LastRuinsCleared.Clear();
+        LastRuinsCleared[city] = cleared;
+    }
+
+    // 上月拆了几座废墟(城市面板用)
+    public static readonly Dictionary<City, int> LastRuinsCleared = new();
+
+    public static int CountRuins(City city)
+    {
+        int count = 0;
+        if (city?.zones == null) return 0;
+        foreach (TileZone zone in city.zones) count += zone?.getHashset(BuildingList.Ruins)?.Count ?? 0;
+        return count;
     }
 
     private static bool HasConstruction(City city)

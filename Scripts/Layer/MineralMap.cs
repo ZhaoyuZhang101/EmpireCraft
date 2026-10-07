@@ -95,9 +95,12 @@ public static class MineralMap
 public static class MineralIconRenderer
 {
     // 图标跟着地图缩放(和简化铭牌一样)：每个图标在地图上占 IconWorldSize 格，缩得太小(< MinPixels 屏幕像素)就不画
-    private const float IconWorldSize = 5f;
+    // 为了看得清：图标屏幕大小夹在 MinIconPixels~MaxIconPixels 之间，整排图标衬一块半透明深色底板
+    private const float IconWorldSize = 8f;
     private const float SpacingShare = 0.12f;
-    private const float MinPixels = 4f;
+    private const float MinPixels = 3f;
+    private const float MinIconPixels = 16f;
+    private const float MaxIconPixels = 40f;
     private const int MaxCities = 400;
 
     private static RectTransform _root;
@@ -106,7 +109,8 @@ public static class MineralIconRenderer
     private static int _submittedFrame = -1;
     private static readonly List<Image> _icons = new();
     private static readonly List<Text> _labels = new();
-    private static int _usedIcons, _usedLabels;
+    private static readonly List<Image> _plates = new();
+    private static int _usedIcons, _usedLabels, _usedPlates;
 
     // 每帧调用(矿产图层激活时)
     public static void Submit(int mode)
@@ -116,17 +120,19 @@ public static class MineralIconRenderer
         _root.gameObject.SetActive(true);
         _usedIcons = 0;
         _usedLabels = 0;
+        _usedPlates = 0;
         Camera camera = World.world?.camera;
         if (camera == null || camera.orthographicSize <= 0f) return;
         float scale = _root.lossyScale.x <= 0f ? 1f : _root.lossyScale.x;
         // 一格地图在屏幕上多少像素 → 图标的屏幕像素 → 画布单位
         float pixelsPerTile = Screen.height / (2f * camera.orthographicSize);
         float iconPixels = IconWorldSize * pixelsPerTile;
-        if (iconPixels < MinPixels)
+        if (pixelsPerTile < MinPixels / IconWorldSize * 2f)
         {
             HideUnused();
             return;
         }
+        iconPixels = Mathf.Clamp(iconPixels, MinIconPixels, MaxIconPixels);
         float iconUnits = iconPixels / scale;
         int cities = 0;
         foreach (City city in World.world.cities)
@@ -141,6 +147,15 @@ public static class MineralIconRenderer
             cities++;
             float step = iconPixels * (1f + SpacingShare);
             float x = screen.x - (deposits.Count - 1) * step / 2f;
+            bool anyCooldown = false;
+            foreach ((string _, bool _, float _, int cooldown) in deposits) anyCooldown |= cooldown > 0;
+            // 深色底板(有冷却红字时往下加长一截)
+            Image plate = NextPlate();
+            float plateWidth = deposits.Count * step + iconPixels * 0.25f;
+            float plateHeight = iconPixels * (anyCooldown ? 1.75f : 1.25f);
+            plate.rectTransform.sizeDelta = new Vector2(plateWidth / scale, plateHeight / scale);
+            plate.rectTransform.position = new Vector3(screen.x,
+                screen.y - (anyCooldown ? iconPixels * 0.25f : 0f), 0f);
             foreach ((string id, bool minable, float _, int cooldown) in deposits)
             {
                 ResourceAsset resource = AssetManager.resources.get(id);
@@ -167,8 +182,29 @@ public static class MineralIconRenderer
         HideUnused();
     }
 
+    private static Image NextPlate()
+    {
+        Image plate;
+        if (_usedPlates < _plates.Count) plate = _plates[_usedPlates];
+        else
+        {
+            var go = new GameObject("MineralPlate", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(_root, false);
+            go.transform.SetAsFirstSibling();
+            plate = go.GetComponent<Image>();
+            plate.raycastTarget = false;
+            plate.color = new Color(0.06f, 0.05f, 0.04f, 0.6f);
+            _plates.Add(plate);
+        }
+        _usedPlates++;
+        if (!plate.gameObject.activeSelf) plate.gameObject.SetActive(true);
+        return plate;
+    }
+
     private static void HideUnused()
     {
+        for (int i = _usedPlates; i < _plates.Count; i++)
+            if (_plates[i].gameObject.activeSelf) _plates[i].gameObject.SetActive(false);
         for (int i = _usedIcons; i < _icons.Count; i++)
             if (_icons[i].gameObject.activeSelf) _icons[i].gameObject.SetActive(false);
         for (int i = _usedLabels; i < _labels.Count; i++)
@@ -247,6 +283,7 @@ public static class MineralIconRenderer
         if (_root != null) Object.Destroy(_root.gameObject);
         _icons.Clear();
         _labels.Clear();
+        _plates.Clear();
         var rootObject = new GameObject("EmpireCraftMineralIcons", typeof(RectTransform), typeof(MineralIconHost));
         _root = rootObject.GetComponent<RectTransform>();
         _root.SetParent(canvas.transform, false);

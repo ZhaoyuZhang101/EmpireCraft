@@ -125,6 +125,14 @@ public class CityWindowPatch : GamePatch
         if (capacity > 0f || herd > 0f)
             window.showStatRow("city_herd", string.Format(LM.Get("city_herd_format"), Mathf.RoundToInt(herd),
                 Mathf.RoundToInt(capacity)), "#B8E07A", pIconPath: "iconPopulation");
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            int ruins = CityConstructionSystem.CountRuins(city);
+            if (ruins > 0)
+                window.showStatRow("city_ruins", string.Format(LM.Get("city_ruins_format"), ruins,
+                    CityConstructionSystem.LastRuinsCleared.TryGetValue(city, out int cleared) ? cleared : 0),
+                    "#B8A27A", pIconPath: "iconMoney");
+        }
         var deposits = MineralResourceSystem.Deposits(city);
         if (deposits.Count > 0)
         {

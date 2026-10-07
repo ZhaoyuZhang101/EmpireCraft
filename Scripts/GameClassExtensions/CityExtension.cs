@@ -2210,6 +2210,8 @@ public static class CityExtension
             Actor actor = city.units[i];
             if (actor == null || actor.isRekt()) continue;
             if (!actor.isAlive()) continue;
+            // 载具不是人，不计人口
+            if (CityPopulationSystem.IsVehicle(actor)) continue;
             count++;
         }
 

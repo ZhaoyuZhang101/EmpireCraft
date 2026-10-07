@@ -663,9 +663,11 @@ public static class InstitutionSystem
         InstitutionReformEnvironment environment = GetReformEnvironment(empire, node);
         // 技术爆炸推动相应的制度变革：掌握的相关技术越多，改革推进越快
         float techPush = TechnologySystem.GetInstitutionPush(culture, node);
+        // 时代落差越大，改革越快(最短年限每档减一年，最少一年)
+        int minimumYears = Math.Max(1, environment.EffectiveMinimumYears - EraLag(culture, node));
         reform.progress = Math.Min(100f, reform.progress + InstitutionRules.CalculateDurationScaledAnnualProgress(
             node.reform.base_progress_per_year, balance.Support, balance.Opposition,
-            environment.EffectiveMinimumYears) * (1f + techPush));
+            minimumYears) * (1f + techPush));
         reform.radicalism = InstitutionRules.Clamp100(reform.radicalism +
             InstitutionRules.CalculateAnnualRadicalism(balance.Support, balance.Opposition,
                 replacesVestedInterest, reform.forced));
@@ -676,7 +678,7 @@ public static class InstitutionSystem
             reform.resistance_triggered = TryEscalateResistance(empire, node);
         }
         int elapsedYears = Math.Max(0, Date.getYearsSince(reform.started_timestamp));
-        if (reform.progress >= 100f && elapsedYears >= environment.EffectiveMinimumYears)
+        if (reform.progress >= 100f && elapsedYears >= minimumYears)
             CompleteReform(empire, node);
     }
 
@@ -1076,12 +1078,32 @@ public static class InstitutionSystem
 
     #endregion
 
+    // 时代落差：本文化的科技时代(1~11)比这项制度的等级(1~11)高出几档。科技遥遥领先而制度还停在封建时，
+    // 落差每一档给这项改革加 EraLagSupport 点支持、把最短改革年限减一年，AI 也改为每年尝试一次改革
+    private const float EraLagSupport = 8f;
+
+    public static int EraLag(string culture, InstitutionNodeConfig node) =>
+        node == null ? 0 : Math.Max(0, TechnologySystem.GetEraTier(culture) - node.advancement);
+
+    private static int EnactedAdvancement(string culture)
+    {
+        int max = 0;
+        foreach (string id in GetOrCreateCultureState(culture)?.enacted_node_ids ?? new List<string>())
+        {
+            InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(id);
+            if (node != null) max = Math.Max(max, node.advancement);
+        }
+        return max;
+    }
+
     private static void TryStartAiReform(Empire empire)
     {
         if (!InstitutionDefinitionRegistry.Global.ai_enabled) return;
         InstitutionEmpireState state = empire.data.institution_state;
+        string primaryCulture = GetPrimaryCulture(empire);
+        int interval = TechnologySystem.GetEraTier(primaryCulture) - EnactedAdvancement(primaryCulture) >= 3 ? 1 : 3;
         if (state.last_ai_reform_attempt_timestamp >= 0 &&
-            Date.getYearsSince(state.last_ai_reform_attempt_timestamp) < 3) return;
+            Date.getYearsSince(state.last_ai_reform_attempt_timestamp) < interval) return;
         state.last_ai_reform_attempt_timestamp = World.world.getCurWorldTime();
 
         // 全人口只扫一遍，所有候选节点共用这份阶级构成
@@ -1540,7 +1562,8 @@ public static class InstitutionSystem
         // 时代潮流：本文化已经掌握这项制度所需的技术，掌握的相关技术越多，支持者越多
         string culture = GetPrimaryCulture(empire);
         if (TechnologySystem.AreInstitutionTechsMet(culture, node, out _))
-            result.Support += TrendSupportBase + TechnologySystem.GetInstitutionPush(culture, node) * TrendSupportPerPush;
+            result.Support += TrendSupportBase + TechnologySystem.GetInstitutionPush(culture, node) * TrendSupportPerPush +
+                              EraLag(culture, node) * EraLagSupport;
         result.Support = InstitutionRules.Clamp100(result.Support);
         result.Opposition = InstitutionRules.Clamp100(result.Opposition);
         return result;
