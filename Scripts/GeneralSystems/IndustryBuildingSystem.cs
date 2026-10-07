@@ -236,23 +236,6 @@ public static class IndustryBuildingSystem
 
     public static int ExtraLimit(City city) => Mathf.Min(3, ZonePlanSystem.Count(city, ZoneUse.Industry));
 
-    // 树林多的城可以多建伐木场：城里每 TreesPerExtraLumber 棵树多一座，最多多 3 座(每城每 5 秒重数一次)
-    private const int TreesPerExtraLumber = 40;
-    private static readonly Dictionary<City, (float at, int trees)> TreeCache = new();
-
-    public static int CountTrees(City city)
-    {
-        if (city?.zones == null) return 0;
-        if (TreeCache.TryGetValue(city, out var cached) && Time.unscaledTime - cached.at < 5f) return cached.trees;
-        if (TreeCache.Count > (World.world?.cities?.Count ?? 0) * 2) TreeCache.Clear();
-        int trees = 0;
-        foreach (TileZone zone in city.zones)
-            trees += zone?.getHashset(BuildingList.Trees)?.Count ?? 0;
-        TreeCache[city] = (Time.unscaledTime, trees);
-        return trees;
-    }
-
-    public static int ForestExtraLimit(City city) => Mathf.Min(3, CountTrees(city) / TreesPerExtraLumber);
 
     public static int CountIndustry(City city)
     {
@@ -324,7 +307,51 @@ public static class IndustryBuildingSystem
             }
         }
         float shortfall = Mathf.Max(0f, target - cut);
+        TrackBarrenLumber(city, years, target > 0 && cut == 0);
         return cut * WoodPerTree + shortfall * WoodPerTree * DeadwoodShare;
+    }
+
+    // 林子砍光的城：连续 BarrenLumberYears 年一棵树都没砍到，就拆掉一座等级最低的伐木场，空出地块
+    // (之后每再满这么多年拆一座；树长回来、又砍得到树就重新计时)
+    private const float BarrenLumberYears = 3f;
+    private static readonly Dictionary<long, float> BarrenYears = new();
+
+    private static void TrackBarrenLumber(City city, float years, bool barren)
+    {
+        long id = city.data.id;
+        if (!barren)
+        {
+            BarrenYears.Remove(id);
+            return;
+        }
+        BarrenYears.TryGetValue(id, out float total);
+        total += years;
+        if (total < BarrenLumberYears)
+        {
+            BarrenYears[id] = total;
+            return;
+        }
+        BarrenYears.Remove(id);
+        Building weakest = null;
+        int weakestTier = int.MaxValue;
+        foreach (Building building in city.buildings)
+        {
+            if (building?.asset == null || !IsLumber(building.asset) || building.isOnRemove()) continue;
+            int tier = Tiers.TryGetValue(building.asset.id, out int value) ? value : 1;
+            if (tier >= weakestTier) continue;
+            weakest = building;
+            weakestTier = tier;
+        }
+        if (weakest == null) return;
+        try
+        {
+            weakest.startDestroyBuilding();
+            LogService.LogInfo($"[EmpireCraft][伐木] {city.data.name} 林木已尽，拆除一座伐木场");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][伐木] 拆除伐木场失败: {exception.Message}");
+        }
     }
 
     // 森林多的城可以多建伐木场：领地里每 40 棵树多许一座，最多多 4 座

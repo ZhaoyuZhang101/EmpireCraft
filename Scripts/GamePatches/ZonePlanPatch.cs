@@ -119,10 +119,11 @@ public class ZonePlanPatch : GamePatch
     {
         if (__result <= 0 || pElement == null) return;
         BuildingAsset asset = pElement.getBuildingAsset(__instance);
-        if (IndustryBuildingSystem.IsMine(asset) || IndustryBuildingSystem.IsLumber(asset) ||
-            asset?.type == AnimalHusbandrySystem.SlaughterhouseType)
+        // 矿场的额外配额只给有模组矿藏的城(没矿的城保留原版的那一座就够，免得白建一排矿场)
+        if (IndustryBuildingSystem.IsMine(asset) && !MineralResourceSystem.HasAnyDeposit(__instance)) { }
+        else if (IndustryBuildingSystem.IsMine(asset) || IndustryBuildingSystem.IsLumber(asset) ||
+                 asset?.type == AnimalHusbandrySystem.SlaughterhouseType)
             __result += IndustryBuildingSystem.ExtraLimit(__instance);
-        if (IndustryBuildingSystem.IsLumber(asset)) __result += IndustryBuildingSystem.ForestExtraLimit(__instance);
         // 森林多的城多建伐木场
         if (IndustryBuildingSystem.IsLumber(asset)) __result += IndustryBuildingSystem.ForestExtraLimit(__instance);
         else if (asset?.type == AnimalHusbandrySystem.PastureType && AnimalHusbandrySystem.IsNomadic(__instance.kingdom))

@@ -69,17 +69,22 @@ public static class RulerTraitSystem
         NeoModLoader.General.LM.Get(ruler != null && ruler.hasTrait(GreatRestorer) && !ruler.hasTrait(Founder)
             ? "trait_" + GreatRestorer : "trait_" + Founder);
 
-    // 开国雄主对本帝国核心(法理疆域)内割据政权发动的统一战争
+    // 开国雄主与本帝国核心(法理疆域)内割据政权之间的战争：不论谁先开战，都算统一战争
     public static bool IsFounderUnificationWar(War war)
     {
         if (war == null || war.hasEnded()) return false;
         Kingdom attacker = war.getMainAttacker();
         Kingdom defender = war.getMainDefender();
-        Empire empire = attacker?.GetEmpire();
-        if (empire == null || defender == null || empire.CoreKingdom != attacker || !FounderReigns(attacker)) return false;
-        if (defender.GetEmpire() == empire) return false;
+        return IsFounderAgainstLocalRival(attacker, defender) || IsFounderAgainstLocalRival(defender, attacker);
+    }
+
+    private static bool IsFounderAgainstLocalRival(Kingdom founderSide, Kingdom rival)
+    {
+        Empire empire = founderSide?.GetEmpire();
+        if (empire == null || rival == null || empire.CoreKingdom != founderSide || !FounderReigns(founderSide)) return false;
+        if (rival.GetEmpire() == empire) return false;
         EmpireCore core = EmpireCoreManager.Get(empire);
-        EmpireCore target = defender.capital?.GetEmpireCore();
+        EmpireCore target = rival.capital?.GetEmpireCore();
         return core != null && target != null && (target == core || target.warlord_parent_core_id == core.id);
     }
 

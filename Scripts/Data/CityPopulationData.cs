@@ -79,6 +79,8 @@ public class CityPopulationData
     // 矿藏储量(资源 id → 已采出的量)与枯竭时间(资源 id → 枯竭时的世界时间)，见 MineralResourceSystem
     public Dictionary<string, float> deposit_mined = new();
     public Dictionary<string, double> deposit_depleted_at = new();
+    // 本城有没有某种矿藏：第一次判定后固定下来(资源 id → 有无)，不随砍树、挖湖等地形变化而忽有忽无
+    public Dictionary<string, bool> deposits_fixed = new();
     public float last_husbandry_meat;
     public float last_market_sold;
     public float market_sold_month;

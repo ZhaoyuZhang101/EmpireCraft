@@ -179,10 +179,33 @@ public static class MineralResourceSystem
         return Mathf.Clamp(chance, 0.02f, 0.9f);
     }
 
-    // 城市有没有某种矿藏：按地形定概率，按城市编号和资源 id 固定地取舍
+    // 城市有没有某种矿藏：按地形定概率，按城市编号和资源 id 固定地取舍；第一次判定后存进存档固定下来，
+    // 之后砍树、挖湖改变地形也不会让矿藏忽有忽无
     public static bool HasDeposit(City city, string id, float baseChance)
     {
         if (city?.data == null) return false;
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data != null)
+        {
+            data.deposits_fixed ??= new Dictionary<string, bool>();
+            if (data.deposits_fixed.TryGetValue(id, out bool known)) return known;
+            bool found = RollDeposit(city, id, baseChance);
+            data.deposits_fixed[id] = found;
+            return found;
+        }
+        return RollDeposit(city, id, baseChance);
+    }
+
+    // 本城有没有任何一种模组矿藏
+    public static bool HasAnyDeposit(City city)
+    {
+        foreach ((string id, _, _, float chance) in Minerals)
+            if (HasDeposit(city, id, chance)) return true;
+        return false;
+    }
+
+    private static bool RollDeposit(City city, string id, float baseChance)
+    {
         float chance = ChanceFor(city, id, baseChance);
         unchecked
         {
