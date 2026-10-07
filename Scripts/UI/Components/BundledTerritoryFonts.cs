@@ -1,77 +1,226 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
 using NeoModLoader.services;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Components;
 
-public static class BundledTerritoryFonts
+// 随模组分发的篆书字体(见 Assets/Fonts 下各目录的 README)：
+//   全字库说文解字(小篆，6745 字，按繁体编码，显示前把简体转成繁体再查字)；
+//   敬峰中山王篆(战国中山国铜器文字，归大篆，3060 字，简繁都有)。
+// 加载：本机装了同名字体就用系统字体(最稳)；没装就直接读模组里的字体文件。
+// 缺字检查一律读字体文件的 cmap 表(从文件建的 Unity 字体 HasCharacter 不可靠)。
+public sealed class BundledFont
 {
-    public const string Seal = "Jingfeng_ZSKSS";
-    private static bool _loaded;
-    private static Font _font;
-    // 字体文件里实际收录的字(读 cmap 表)。从文件建的 Unity 字体 HasCharacter 常常对所有字都报 false，
-    // 铭牌的缺字检查就会把每个名字都回退成游戏字体，所以缺字检查改用这张表
-    private static HashSet<int> _codepoints;
+    public readonly string Id;
+    public readonly string Name;
+    public readonly string StyleKey;
+    // 字体按繁体编码：显示前把简体转成繁体
+    public readonly bool Traditional;
+    private readonly string _folder;
+    private readonly string _file;
+    private readonly string[] _osNames;
+    private bool _loaded;
+    private Font _font;
+    private HashSet<int> _codepoints;
 
-    private static string FontPath => Path.Combine(ModClass._declare.FolderPath, "Assets", "Fonts", "JFZSKSealScript",
-        "JFZSKSealScript_V3.ttf");
-
-    public static bool IsBundled(Font font) => font != null && font == _font;
-
-    // 字体收录了这个字吗(读不到字表时退回 Unity 的判断)
-    public static bool Supports(char character)
+    public BundledFont(string id, string name, string styleKey, bool traditional, string folder, string file,
+        params string[] osNames)
     {
-        if (_codepoints != null) return _codepoints.Contains(character);
-        return _font != null && _font.HasCharacter(character);
+        Id = id;
+        Name = name;
+        StyleKey = styleKey;
+        Traditional = traditional;
+        _folder = folder;
+        _file = file;
+        _osNames = osNames;
     }
 
-    public static bool Available => Load() != null;
+    public string FilePath => Path.Combine(ModClass._declare.FolderPath, "Assets", "Fonts", _folder, _file);
+    public Font Font => _font;
+    public bool Available => Load() != null;
 
-    public static Font Load()
+    public Font Load()
     {
         if (_loaded) return _font;
         _loaded = true;
-        string path = FontPath;
+        string path = FilePath;
         if (!File.Exists(path))
         {
-            LogService.LogWarning($"[EmpireCraft] 内置篆书文件不存在: {path}");
+            LogService.LogWarning($"[EmpireCraft] 内置字体文件不存在: {path}");
             return null;
         }
+        _codepoints = BundledTerritoryFonts.ReadCodepoints(path);
+        string source = "文件";
         try
         {
-            // 带目录的路径走 Unity 的 Internal_CreateFontFromPath：直接读字体文件，随模组加载，不要求系统安装。
-            Font candidate = new Font(path);
-            candidate.RequestCharactersInTexture("华夏国", 64, FontStyle.Normal);
-            // 刚从文件建的字体 HasCharacter 可能还报 false，再看字形是否真的进了图集；两种都不认才算失败
-            bool has = candidate.HasCharacter('华') ||
-                       candidate.GetCharacterInfo('华', out CharacterInfo info, 64, FontStyle.Normal) && info.advance > 0;
-            _codepoints = ReadCodepoints(path);
-            if (!has && _codepoints != null && _codepoints.Contains('华')) has = true;
+            // 本机装了这款字体：用系统字体，和其它本机字体走同一条路
+            string installed = null;
+            try
+            {
+                string[] names = Font.GetOSInstalledFontNames();
+                installed = _osNames.FirstOrDefault(name => names.Contains(name, StringComparer.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                // 读不到本机字体列表就直接读文件
+            }
+            Font candidate = null;
+            if (installed != null)
+            {
+                candidate = Font.CreateDynamicFontFromOSFont(installed, 64);
+                source = "本机已安装(" + installed + ")";
+            }
+            // 带目录的路径走 Unity 的 Internal_CreateFontFromPath：直接读字体文件，不要求系统安装
+            if (candidate == null)
+            {
+                candidate = new Font(path);
+                source = "文件";
+            }
+            candidate.RequestCharactersInTexture(Traditional ? "華夏國" : "华夏国", 64, FontStyle.Normal);
+            bool has = _codepoints != null && _codepoints.Count > 0 || candidate.HasCharacter(Traditional ? '華' : '华');
             if (has)
             {
                 _font = candidate;
-                LogService.LogInfo($"[EmpireCraft] 内置篆书已加载: {candidate.name} 字表={_codepoints?.Count ?? -1} " +
-                                   $"HasCharacter(华)={candidate.HasCharacter('华')} 动态={candidate.dynamic} " +
+                LogService.LogInfo($"[EmpireCraft] 内置字体已加载: {Name} 来源={source} 字表={_codepoints?.Count ?? -1} " +
+                                   $"HasCharacter={candidate.HasCharacter(Traditional ? '華' : '华')} 动态={candidate.dynamic} " +
                                    $"材质={(candidate.material == null ? "无" : candidate.material.name)} " +
                                    $"贴图={(candidate.material?.mainTexture == null ? "无" : candidate.material.mainTexture.width + "x" + candidate.material.mainTexture.height)}");
             }
             else
             {
-                LogService.LogWarning("[EmpireCraft] 内置篆书已读入但取不到字形，改用游戏字体");
+                LogService.LogWarning($"[EmpireCraft] 内置字体 {Name} 读入但取不到字形");
                 UnityEngine.Object.Destroy(candidate);
             }
         }
         catch (Exception exception)
         {
-            LogService.LogWarning($"[EmpireCraft] 内置篆书加载失败: {exception.Message}");
+            LogService.LogWarning($"[EmpireCraft] 内置字体 {Name} 加载失败: {exception.Message}");
         }
         return _font;
     }
 
+    public void Reset()
+    {
+        if (_font == null) _loaded = false;
+    }
+
+    public bool Supports(int codepoint)
+    {
+        if (_codepoints != null) return _codepoints.Contains(codepoint);
+        return _font != null && _font.HasCharacter((char)codepoint);
+    }
+
+    // 把要显示的文字改写成这款字体能显示的样子(繁体字体先转繁体)；有字显示不了返回 false。
+    // 富文本的标签原样保留，空白不查
+    public bool TryAdapt(string text, bool richText, out string adapted)
+    {
+        adapted = text ?? "";
+        if (Load() == null) return false;
+        var builder = new StringBuilder(adapted.Length);
+        bool insideTag = false;
+        foreach (char character in adapted)
+        {
+            if (richText && character == '<') insideTag = true;
+            if (insideTag || char.IsWhiteSpace(character))
+            {
+                if (insideTag && character == '>') insideTag = false;
+                builder.Append(character);
+                continue;
+            }
+            char shown = character;
+            if (Traditional)
+            {
+                // 一简对多繁时取字体里有的第一个；都没有就看原字
+                shown = '\0';
+                foreach (char candidate in BundledTerritoryFonts.Traditionals(character))
+                    if (Supports(candidate)) { shown = candidate; break; }
+                if (shown == '\0' && Supports(character)) shown = character;
+                if (shown == '\0') return false;
+            }
+            else if (!Supports(character)) return false;
+            builder.Append(shown);
+        }
+        adapted = builder.ToString();
+        return true;
+    }
+}
+
+public static class BundledTerritoryFonts
+{
+    // 字体设置里用的名字(保持旧的 Seal 名字不变，旧设置文件仍然有效)
+    public const string Seal = "Jingfeng_ZSKSS";
+    public const string ShuoWen = "QuanZiKu_ShuoWen";
+
+    public static readonly BundledFont ShuoWenFont = new(ShuoWen, "全字库说文解字", "font_style_seal_small", true,
+        "QuanZiKuShuoWen", "QuanZiKuShuoWen.ttf", "全字庫說文解字", "EBAS");
+    public static readonly BundledFont JingfengFont = new(Seal, "敬峰中山王篆", "font_style_seal_large", false,
+        "JFZSKSealScript", "JFZSKSealScript_V3.ttf", "Jingfeng_ZSKSS", "大学论语敬峰中山王篆", "敬峰中山王篆", "JFZSKSealScript");
+
+    // 华夏国号用篆书时的先后：小篆字多先用，缺字再用中山王篆
+    public static readonly BundledFont[] All = { ShuoWenFont, JingfengFont };
+
+    public static BundledFont Find(string id) => All.FirstOrDefault(font => font.Id == id);
+
+    public static BundledFont Of(Font font) => font == null ? null : All.FirstOrDefault(item => item.Font == font);
+
+    public static bool Available => All.Any(font => font.Available);
+
+    public static IEnumerable<string> AvailableIds => All.Where(font => font.Available).Select(font => font.Id);
+
+    // 旧接口：中山王篆
+    public static Font Load() => JingfengFont.Load();
+
+    public static bool IsBundled(Font font) => Of(font) != null;
+
+    public static bool Supports(Font font, char character)
+    {
+        BundledFont bundled = Of(font);
+        return bundled != null ? bundled.TryAdapt(character.ToString(), false, out _) : font != null && font.HasCharacter(character);
+    }
+
+    public static string DisplayName(string name) => Find(name)?.Name ?? name;
+
+    // ---- 简繁对照(OpenCC STCharacters.txt) ----
+    private static Dictionary<char, char[]> _traditional;
+
+    public static IEnumerable<char> Traditionals(char character)
+    {
+        if (_traditional == null) LoadTraditional();
+        return _traditional.TryGetValue(character, out char[] values) ? values : Array.Empty<char>();
+    }
+
+    private static void LoadTraditional()
+    {
+        _traditional = new Dictionary<char, char[]>();
+        string path = Path.Combine(ModClass._declare.FolderPath, "Assets", "Fonts", "OpenCC", "STCharacters.txt");
+        try
+        {
+            if (!File.Exists(path))
+            {
+                LogService.LogWarning($"[EmpireCraft] 简繁对照表不存在: {path}");
+                return;
+            }
+            foreach (string line in File.ReadAllLines(path, Encoding.UTF8))
+            {
+                if (line.Length < 3 || line[0] == '#') continue;
+                string[] parts = line.Split('\t');
+                if (parts.Length < 2 || parts[0].Length != 1) continue;
+                char[] values = parts[1].Split(' ').Where(value => value.Length == 1).Select(value => value[0]).ToArray();
+                if (values.Length > 0) _traditional[parts[0][0]] = values;
+            }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 读取简繁对照表失败: {exception.Message}");
+        }
+    }
+
     // 读 TrueType 的 cmap 表：优先 Windows Unicode 全集(3,10，格式 12)，其次 Windows BMP(3,1，格式 4)或 Unicode 平台(0,*)
-    private static HashSet<int> ReadCodepoints(string path)
+    public static HashSet<int> ReadCodepoints(string path)
     {
         try
         {
@@ -142,8 +291,6 @@ public static class BundledTerritoryFonts
     // 重新扫描时再试一次(上次失败不会永久记住)
     public static void Reset()
     {
-        if (_font == null) _loaded = false;
+        foreach (BundledFont font in All) font.Reset();
     }
-
-    public static string DisplayName(string name) => name == Seal ? "敬峰中山王篆" : name;
 }

@@ -302,34 +302,89 @@ public static class TerritoryLabelRenderer
     }
 
     // 字体按铭牌字体设置(TerritoryFontSettings)：游戏字体 / 自动挑本机的传统书体 / 指定字体。
-    // 自动模式下含英文字母的名字用西文衬线字体
-    private static Font ResolveTerritoryFont(Font fallback, string text, bool richText = false, bool sealFont = false)
+    // 自动模式下含英文字母的名字用西文衬线字体。
+    // sealFont(华夏国号)：依次试内置篆书(小篆 → 中山王篆)，都缺字就用隶书兜底。
+    // 选中的字体缺字时也先用本机隶书兜底，再不行才用游戏字体。
+    // display：实际要显示的文字(繁体篆书会把简体转成繁体)
+    // 每帧每个铭牌都要问一次：按(文字, 富文本, 篆书)缓存结果，字体设置改变时清空(见 ResetFonts)
+    private static readonly Dictionary<(string, bool, bool, Font), (Font font, string display)> _resolve_cache = new();
+
+    private static Font ResolveTerritoryFont(Font fallback, string text, bool richText, bool sealFont, out string display)
     {
+        var key = (text ?? "", richText, sealFont, fallback);
+        if (_resolve_cache.TryGetValue(key, out var cached))
+        {
+            display = cached.display;
+            return cached.font;
+        }
+        if (_resolve_cache.Count > 4096) _resolve_cache.Clear();
+        Font font = ResolveTerritoryFontUncached(fallback, text, richText, sealFont, out display);
+        _resolve_cache[key] = (font, display);
+        return font;
+    }
+
+    private static Font ResolveTerritoryFontUncached(Font fallback, string text, bool richText, bool sealFont,
+        out string display)
+    {
+        display = text;
+        if (sealFont && TerritoryFontSettings.SealHuaxiaNames)
+        {
+            foreach (BundledFont bundled in BundledTerritoryFonts.All)
+                if (bundled.TryAdapt(text, richText, out string adapted))
+                {
+                    display = adapted;
+                    return bundled.Font;
+                }
+            return ClericalFallback(text, richText) ?? fallback;
+        }
         string choice = TerritoryFontSettings.Choice;
-        Font seal = sealFont && TerritoryFontSettings.SealHuaxiaNames ? BundledTerritoryFonts.Load() : null;
-        if (seal == null && choice == TerritoryFontSettings.Game) return fallback;
+        if (choice == TerritoryFontSettings.Game) return fallback;
         Font selected;
-        if (seal != null) selected = seal;
-        else if (choice == TerritoryFontSettings.Auto && ContainsLatin(text, richText))
+        if (choice == TerritoryFontSettings.Auto && ContainsLatin(text, richText))
             selected = ResolveInstalledFont(LatinFontNames, fallback, ref _latin_font, ref _latin_font_resolved);
         else
         {
             string fontName = TerritoryFontSettings.ResolveFontName();
             selected = fontName == null ? fallback : GetOsFont(fontName) ?? fallback;
         }
-        // 展示字体字库较小；名字缺字时回退，不能让整张铭牌变成空白。
+        if (selected == null || selected == fallback) return fallback;
+        // 展示字体字库较小；名字缺字时回退，不能让整张铭牌变成空白
+        BundledFont chosen = BundledTerritoryFonts.Of(selected);
+        if (chosen != null)
+        {
+            if (chosen.TryAdapt(text, richText, out string adapted))
+            {
+                display = adapted;
+                return selected;
+            }
+        }
+        else if (HasAll(selected, text, richText)) return selected;
+        return ClericalFallback(text, richText, selected) ?? fallback;
+    }
+
+    private static bool HasAll(Font font, string text, bool richText)
+    {
         bool insideTag = false;
         foreach (char character in text ?? "")
         {
             if (richText && character == '<') { insideTag = true; continue; }
             if (insideTag) { if (character == '>') insideTag = false; continue; }
-            if (character is ('\n' or '\r' or '\t') || selected == null) continue;
-            // 内置篆书按字体文件的字表判断(从文件建的字体 HasCharacter 不可靠)
-            bool has = BundledTerritoryFonts.IsBundled(selected) ? BundledTerritoryFonts.Supports(character)
-                : selected.HasCharacter(character);
-            if (!has) return fallback;
+            if (char.IsWhiteSpace(character)) continue;
+            if (!font.HasCharacter(character)) return false;
         }
-        return selected;
+        return true;
+    }
+
+    // 隶书兜底：本机装的隶书里第一个字全的
+    private static Font ClericalFallback(string text, bool richText, Font except = null)
+    {
+        foreach ((string name, string styleKey) in TerritoryFontSettings.TraditionalFonts())
+        {
+            if (styleKey != "font_style_clerical") continue;
+            Font font = GetOsFont(name);
+            if (font != null && font != except && HasAll(font, text, richText)) return font;
+        }
+        return null;
     }
 
     public static Font GetOsFont(string fontName)
@@ -339,8 +394,8 @@ public static class TerritoryLabelRenderer
         Font font = null;
         try
         {
-            font = fontName == BundledTerritoryFonts.Seal ? BundledTerritoryFonts.Load()
-                : Font.CreateDynamicFontFromOSFont(fontName, 64);
+            BundledFont bundled = BundledTerritoryFonts.Find(fontName);
+            font = bundled != null ? bundled.Load() : Font.CreateDynamicFontFromOSFont(fontName, 64);
         }
         catch (Exception exception)
         {
@@ -359,6 +414,7 @@ public static class TerritoryLabelRenderer
             if (pair.Value == null) missing.Add(pair.Key);
         foreach (string name in missing) _os_fonts.Remove(name);
         if (_latin_font == null) _latin_font_resolved = false;
+        _resolve_cache.Clear();
         foreach (RuntimeLabel label in _labels.Values) label.InvalidateFont();
     }
 
@@ -778,8 +834,8 @@ public static class TerritoryLabelRenderer
             EnsureText();
             if (_text == null) return;
 
-            string trimmedValue = value.Trim();
-            Font desiredFont = ResolveTerritoryFont(_fallback_font ?? _text.font, trimmedValue, style.rich_text, seal_font);
+            Font desiredFont = ResolveTerritoryFont(_fallback_font ?? _text.font, value.Trim(), style.rich_text, seal_font,
+                out string trimmedValue);
             if (_text.font != desiredFont)
             {
                 _text.font = desiredFont;

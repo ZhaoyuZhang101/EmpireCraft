@@ -68,6 +68,7 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
         sealToggle.Text.fontSize = 7;
         if (!BundledTerritoryFonts.Available)
             AddLine(panel, LM.Get("territory_font_seal_missing"), 6, 14f, "#E07A6A");
+        else AddLine(panel, LM.Get("territory_font_seal_install_hint"), 6, 22f, "#ADB3B8", HorizontalWrapMode.Wrap);
 
         var fonts = TerritoryFontSettings.TraditionalFonts()
             .Select(item => (item.name, item.styleKey)).Concat(TerritoryFontSettings.OtherFonts()
@@ -98,7 +99,17 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
             Font font = TerritoryLabelRenderer.GetOsFont(name);
             if (text != null)
             {
-                if (font != null && text.text.Where(c => !char.IsWhiteSpace(c)).All(c => BundledTerritoryFonts.IsBundled(font) ? BundledTerritoryFonts.Supports(c) : font.HasCharacter(c)))
+                BundledFont bundled = BundledTerritoryFonts.Of(font);
+                if (bundled != null)
+                {
+                    // 繁体篆书先把预览字转成繁体
+                    if (bundled.TryAdapt(text.text, false, out string adapted))
+                    {
+                        text.text = adapted;
+                        text.font = font;
+                    }
+                }
+                else if (font != null && text.text.Where(c => !char.IsWhiteSpace(c)).All(font.HasCharacter))
                     text.font = font;
                 text.material = null;
                 text.fontSize = 12;

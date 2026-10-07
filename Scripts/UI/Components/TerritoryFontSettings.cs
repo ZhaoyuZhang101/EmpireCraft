@@ -47,7 +47,7 @@ public static class TerritoryFontSettings
         }
     }
 
-    // 华夏国号用大篆：开启后华夏文化(非现代政体)的国号铭牌一律用内置篆书、不带后缀，不受上面的字体选择影响。
+    // 华夏国号用篆书：开启后华夏文化(非现代政体)的国号铭牌一律用内置篆书、不带后缀，不受上面的字体选择影响。
     // 默认开启；存在模组目录外，模组更新不会清掉
     public static bool SealHuaxiaNames
     {
@@ -135,7 +135,7 @@ public static class TerritoryFontSettings
         try
         {
             IEnumerable<string> names = Font.GetOSInstalledFontNames();
-            if (BundledTerritoryFonts.Available) names = names.Concat(new[] { BundledTerritoryFonts.Seal });
+            names = names.Concat(BundledTerritoryFonts.AvailableIds);
             _installed = names.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name, StringComparer.Ordinal).ToArray();
         }
         catch (Exception exception)
@@ -159,7 +159,8 @@ public static class TerritoryFontSettings
     public static (string key, int rank)? StyleOf(string fontName)
     {
         if (string.IsNullOrEmpty(fontName)) return null;
-        if (fontName == BundledTerritoryFonts.Seal) return ("font_style_seal_large", -1);
+        BundledFont bundled = BundledTerritoryFonts.Find(fontName);
+        if (bundled != null) return (bundled.StyleKey, -1);
         foreach ((string key, int rank, string[] keywords) in Styles)
             if (keywords.Any(keyword => fontName.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0))
                 return (key, rank);
