@@ -335,7 +335,7 @@ public static class TerritoryLabelRenderer
                     display = adapted;
                     return bundled.Font;
                 }
-            return ClericalFallback(text, richText) ?? fallback;
+            return ClericalFallback(text, richText, out display) ?? fallback;
         }
         string choice = TerritoryFontSettings.Choice;
         if (choice == TerritoryFontSettings.Game) return fallback;
@@ -359,7 +359,7 @@ public static class TerritoryLabelRenderer
             }
         }
         else if (HasAll(selected, text, richText) && CanRender(selected, text, richText)) return selected;
-        return ClericalFallback(text, richText, selected) ?? fallback;
+        return ClericalFallback(text, richText, out display, selected) ?? fallback;
     }
 
     private static bool HasAll(Font font, string text, bool richText)
@@ -375,15 +375,23 @@ public static class TerritoryLabelRenderer
         return true;
     }
 
-    // 隶书兜底：本机装的隶书里第一个字全、画得出来的
-    public static Font ClericalFallback(string text, bool richText, Font except = null)
+    // 兜底字体(默认本机隶书，可在字体窗口里另选，见 TerritoryFontSettings.FallbackCandidates)：第一个字全、画得出来的
+    public static Font ClericalFallback(string text, bool richText, out string display, Font except = null)
     {
-        foreach ((string name, string styleKey) in TerritoryFontSettings.TraditionalFonts())
+        display = text;
+        foreach (string name in TerritoryFontSettings.FallbackCandidates())
         {
-            if (styleKey != "font_style_clerical") continue;
             Font font = GetOsFont(name);
-            if (font != null && font != except && HasAll(font, text, richText) && CanRender(font, text, richText))
+            if (font == null || font == except) continue;
+            // 兜底选了内置篆书：按它的字表查字(繁体篆书先转繁体)
+            BundledFont bundled = BundledTerritoryFonts.Find(name);
+            string shown = text;
+            bool has = bundled != null ? bundled.TryAdapt(text, richText, out shown) : HasAll(font, text, richText);
+            if (has && CanRender(font, shown, richText))
+            {
+                display = shown;
                 return font;
+            }
         }
         return null;
     }

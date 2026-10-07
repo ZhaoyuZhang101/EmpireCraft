@@ -3355,5 +3355,9 @@
   "territory_font_seal_huaxia_on": "华夏国号用篆书：开（无后缀）",
   "territory_font_seal_huaxia_off": "华夏国号用篆书：关",
   "territory_font_seal_missing": "内置篆书没有加载成功，请看日志",
-  "territory_font_seal_install_hint": "篆书显示空白：把模组 Assets/Fonts 里的字体文件右键“安装”，重启游戏即可"
+  "territory_font_seal_install_hint": "篆书显示空白：把模组 Assets/Fonts 里的字体文件右键“安装”，重启游戏即可",
+  "territory_font_fallback_current": "兜底字体：{0}",
+  "territory_font_fallback_clerical": "隶书",
+  "territory_font_fallback_pick": "选兜底",
+  "territory_font_fallback_pick_hint": "点下面的字体，设为兜底字体"
 }

@@ -3355,5 +3355,9 @@
   "territory_font_seal_huaxia_on": "Huaxia names in seal script: On (no suffix)",
   "territory_font_seal_huaxia_off": "Huaxia names in seal script: Off",
   "territory_font_seal_missing": "Bundled seal font failed to load, see log",
-  "territory_font_seal_install_hint": "Seal text blank? Right-click the font files in the mod's Assets/Fonts, choose Install, then restart"
+  "territory_font_seal_install_hint": "Seal text blank? Right-click the font files in the mod's Assets/Fonts, choose Install, then restart",
+  "territory_font_fallback_current": "Fallback font: {0}",
+  "territory_font_fallback_clerical": "Clerical",
+  "territory_font_fallback_pick": "Pick fallback",
+  "territory_font_fallback_pick_hint": "Click a font below to use it as the fallback"
 }

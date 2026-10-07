@@ -36,6 +36,64 @@ public static class TerritoryFontSettings
     };
 
     private static string _choice;
+    // 兜底字体：clerical(默认，本机隶书) / game(游戏字体) / 某个字体名
+    public const string FallbackClerical = "clerical";
+    private static string _fallback;
+
+    private static string FallbackPath
+    {
+        get
+        {
+            string parent = Directory.GetParent(ModClass._declare.FolderPath)?.FullName ?? ModClass._declare.FolderPath;
+            return Path.Combine(parent, "EmpireCraftTerritoryFallback.txt");
+        }
+    }
+
+    // 主字体(或篆书)缺字、出错、画不出来时用的字体，默认隶书；存在模组目录外
+    public static string FallbackChoice
+    {
+        get
+        {
+            if (_fallback != null) return _fallback;
+            _fallback = FallbackClerical;
+            try
+            {
+                if (File.Exists(FallbackPath))
+                {
+                    string saved = File.ReadAllText(FallbackPath).Trim();
+                    if (!string.IsNullOrEmpty(saved)) _fallback = saved;
+                }
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 读取兜底字体设置失败: {exception.Message}");
+            }
+            return _fallback;
+        }
+        set
+        {
+            _fallback = string.IsNullOrWhiteSpace(value) ? FallbackClerical : value.Trim();
+            try
+            {
+                File.WriteAllText(FallbackPath, _fallback);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 保存兜底字体设置失败: {exception.Message}");
+            }
+            TerritoryLabelRenderer.ResetFonts();
+        }
+    }
+
+    // 兜底依次试的字体：选了某个字体先试它，再试本机隶书；选了游戏字体就不试别的
+    public static IEnumerable<string> FallbackCandidates()
+    {
+        string fallback = FallbackChoice;
+        if (fallback == Game) yield break;
+        if (fallback != FallbackClerical && IsInstalled(fallback)) yield return fallback;
+        foreach ((string name, string styleKey) in TraditionalFonts())
+            if (styleKey == "font_style_clerical" && name != fallback) yield return name;
+    }
     private static bool? _sealHuaxia;
 
     private static string SealHuaxiaPath

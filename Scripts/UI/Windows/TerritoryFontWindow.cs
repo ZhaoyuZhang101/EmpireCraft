@@ -19,6 +19,8 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
     private readonly List<GameObject> _groups = new();
     private string _search = "";
     private int _page;
+    // 点字体卡片是设主字体还是设兜底字体
+    private bool _pickFallback;
 
     protected override void Init()
     {
@@ -68,6 +70,19 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
         sealToggle.Text.fontSize = 7;
         if (!BundledTerritoryFonts.Available)
             AddLine(panel, LM.Get("territory_font_seal_missing"), 6, 14f, "#E07A6A");
+        // 兜底字体：默认隶书，可点"选兜底"后再点字体卡片另选
+        string fallback = TerritoryFontSettings.FallbackChoice;
+        string fallbackName = fallback == TerritoryFontSettings.FallbackClerical ? LM.Get("territory_font_fallback_clerical")
+            : fallback == TerritoryFontSettings.Game ? LM.Get("territory_font_game")
+            : BundledTerritoryFonts.DisplayName(fallback);
+        AddLine(panel, LM.Get("territory_font_fallback_current").Replace("{0}", fallbackName), 7, 13f, "#D5B982");
+        var fallbackRow = panel.BeginHoriGroup(new Vector2(Width, 18f), TextAnchor.MiddleCenter, 4);
+        Mode(fallbackRow, "territory_font_fallback_pick", _pickFallback, () => { _pickFallback = !_pickFallback; Rebuild(); });
+        Mode(fallbackRow, "territory_font_fallback_clerical", fallback == TerritoryFontSettings.FallbackClerical,
+            () => { TerritoryFontSettings.FallbackChoice = TerritoryFontSettings.FallbackClerical; _pickFallback = false; Rebuild(); });
+        Mode(fallbackRow, "territory_font_game", fallback == TerritoryFontSettings.Game,
+            () => { TerritoryFontSettings.FallbackChoice = TerritoryFontSettings.Game; _pickFallback = false; Rebuild(); });
+        if (_pickFallback) AddLine(panel, LM.Get("territory_font_fallback_pick_hint"), 6, 13f, "#E2C796");
         else AddLine(panel, LM.Get("territory_font_seal_install_hint"), 6, 22f, "#ADB3B8", HorizontalWrapMode.Wrap);
 
         var fonts = TerritoryFontSettings.TraditionalFonts()
@@ -112,8 +127,12 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
                 }
                 else
                 {
-                    Font clerical = TerritoryLabelRenderer.ClericalFallback(text.text, false);
-                    if (clerical != null) text.font = clerical;
+                    Font clerical = TerritoryLabelRenderer.ClericalFallback(text.text, false, out string fallbackText);
+                    if (clerical != null)
+                    {
+                        text.text = fallbackText;
+                        text.font = clerical;
+                    }
                 }
                 text.material = null;
                 text.fontSize = 12;
@@ -138,7 +157,13 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
 
     private void Choose(string choice)
     {
-        TerritoryFontSettings.Choice = choice;
+        // 选兜底模式下点字体卡片：设为兜底字体
+        if (_pickFallback && choice != TerritoryFontSettings.Auto && choice != TerritoryFontSettings.Game)
+        {
+            TerritoryFontSettings.FallbackChoice = choice;
+            _pickFallback = false;
+        }
+        else TerritoryFontSettings.Choice = choice;
         Rebuild();
     }
 
