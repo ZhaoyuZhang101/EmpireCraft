@@ -25,6 +25,8 @@ namespace EmpireCraft.Scripts.UI.Windows;
 public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 {
     Actor _actor;
+    // 下次打开时按这个族谱身份显示(整族虚拟的宗族没有实体可选)
+    public static PersonalClanIdentity OpenIdentity;
     private string _lastSearchContent = "";
     private readonly Dictionary<string, AutoVertLayoutGroup> _groups = new ();
     private readonly Dictionary<string, AutoHoriLayoutGroup> _hGroups = new ();
@@ -104,6 +106,19 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
+        // 从宗族列表打开整族虚拟的宗族：没有实体，按族谱身份显示
+        if (OpenIdentity != null)
+        {
+            PersonalClanIdentity identity = OpenIdentity;
+            OpenIdentity = null;
+            this._actor = identity._actor;
+            _identity = identity;
+            _sc = identity._specificClan;
+            if (_sc == null) return;
+            InitialTabButtons();
+            refreshAll();
+            return;
+        }
         this._actor = SelectedUnit.unit;
         if (this._actor == null) return;
         if (!this._actor.HasSpecificClan()) return;

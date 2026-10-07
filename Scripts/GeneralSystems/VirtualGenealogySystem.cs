@@ -32,6 +32,9 @@ public static class VirtualGenealogySystem
     {
         VirtualIds.Clear();
         ClanHeads.Clear();
+        Prominent.Clear();
+        Magnates.Clear();
+        MagnatesByCity.Clear();
         HeadQueue.Cancel();
         _world = null;
         _lastDeathPass = -1d;
@@ -273,7 +276,10 @@ public static class VirtualGenealogySystem
         {
             // 身故检查做完就接着检查各宗族的族长
             if (DeathQueue.Tick() && CityPopulationSystem.AbstractPopulationEnabled)
+            {
+                ComputeMagnates();
                 HeadQueue.Start(SpecificClanManager._specificClans.Where(clan => clan != null).Select(clan => clan.id).ToList());
+            }
             return;
         }
         if (HeadQueue.Active)
@@ -366,13 +372,72 @@ public static class VirtualGenealogySystem
 
     #region 族长(无小人模式)
 
-    // 每个宗族至少保留一名实体族长：族长不会被并入虚拟人口；整个宗族都成了虚拟族人时，每年从中挑一位成年人落成实体当族长。
+    // 显赫宗族(统治家族，或有族人做官、有爵位封地、是地主、入了党派、有功名、当君主城主)保留一名实体族长：
+    // 族长不会被并入虚拟人口；整个宗族都成了虚拟族人时，每年从中挑一位成年人落成实体当族长。
+    // 地方豪强(每城族人最多的两个宗族)也保留实体族长；
+    // 其余平民宗族不留实体族长：族长和其他平民一样每月并回虚拟人口(每城每月最多并 10 人，几个月就清完)，
+    // 宗族照样留在族谱里，族人以后做了官就又成为显赫宗族；整族虚拟、沉寂 DormantYears 年仍无人出仕的平民宗族销户。
     // 族长死于战乱或饥荒的宗族不再补族长；这样的宗族一个实体族人都不剩时销户——剩下的虚拟族人从族谱里注销，
     // 变成所在城的普通百姓(人数不变)，宗族记录留在族谱里
     private static readonly Dictionary<long, long> ClanHeads = new();
     private static readonly EmpireCraft.Scripts.HelperFunc.FrameBudgetQueue<long> HeadQueue =
         new(1.5d, CheckClanHead, "宗族族长检查");
     private const int HeadMinAge = 16;
+    private const int DormantYears = 30;
+    // 宗族是否显赫(每年检查族长时重算)；没算过的按显赫处理，读档后第一轮检查前不会误并族长
+    private static readonly Dictionary<long, bool> Prominent = new();
+
+    // 地方豪强：每座城族人最多的 MagnatesPerCity 个宗族，即使没人做官也保留实体族长
+    private const int MagnatesPerCity = 2;
+    private static readonly HashSet<long> Magnates = new();
+    private static readonly Dictionary<long, List<long>> MagnatesByCity = new();
+
+    // 某城的地方豪强宗族(族人多的在前)
+    public static List<SpecificClan> MagnatesOf(City city)
+    {
+        var list = new List<SpecificClan>();
+        if (city?.data == null || !MagnatesByCity.TryGetValue(city.data.id, out List<long> ids)) return list;
+        foreach (long id in ids)
+        {
+            SpecificClan clan = SpecificClanManager.Get(id);
+            if (clan != null) list.Add(clan);
+        }
+        return list;
+    }
+
+    private static void ComputeMagnates()
+    {
+        Magnates.Clear();
+        MagnatesByCity.Clear();
+        var byCity = new Dictionary<long, List<(long clan, int size)>>();
+        foreach (SpecificClan clan in SpecificClanManager._specificClans)
+        {
+            if (clan == null) continue;
+            int size = 0;
+            long cityId = clan.ancestral_city_id;
+            foreach (PersonalClanIdentity person in clan.SnapshotPeople())
+            {
+                if (person == null || !person.is_alive) continue;
+                size++;
+                if (person._actor?.city?.data != null && !person.is_virtual) cityId = person._actor.city.data.id;
+            }
+            if (size == 0 || cityId < 0) continue;
+            if (!byCity.TryGetValue(cityId, out List<(long, int)> list)) byCity[cityId] = list = new List<(long, int)>();
+            list.Add((clan.id, size));
+        }
+        foreach (KeyValuePair<long, List<(long clan, int size)>> pair in byCity)
+            foreach ((long clan, int _) in pair.Value.OrderByDescending(entry => entry.size).Take(MagnatesPerCity))
+            {
+                Magnates.Add(clan);
+                if (!MagnatesByCity.TryGetValue(pair.Key, out List<long> ids)) MagnatesByCity[pair.Key] = ids = new List<long>();
+                ids.Add(clan);
+            }
+    }
+
+    public static bool IsMagnate(SpecificClan clan) => clan != null && Magnates.Contains(clan.id);
+
+    public static bool IsProminent(SpecificClan clan) =>
+        clan != null && (!Prominent.TryGetValue(clan.id, out bool prominent) || prominent);
 
     // 族长人选：在世的实体族人里，符合本族继承性别的优先，其次正支，再取年长者
     private static PersonalClanIdentity PickHead(IEnumerable<PersonalClanIdentity> people) =>
@@ -386,7 +451,7 @@ public static class VirtualGenealogySystem
         if (!CityPopulationSystem.AbstractPopulationEnabled) return false;
         PersonalClanIdentity identity = actor?.GetPersonalIdentity();
         SpecificClan clan = identity?._specificClan;
-        if (clan == null) return false;
+        if (clan == null || !IsProminent(clan)) return false;
         if (ClanHeads.TryGetValue(clan.id, out long headId))
         {
             PersonalClanIdentity head = SpecificClanManager.getPerson(headId);
@@ -418,17 +483,32 @@ public static class VirtualGenealogySystem
         SpecificClan clan = SpecificClanManager.Get(clanId);
         if (clan == null) return;
         PersonalClanIdentity[] people = clan.SnapshotPeople();
-        if (people.Any(person => person.is_alive && !person.is_virtual && person._actor != null))
+        List<PersonalClanIdentity> entities = people
+            .Where(person => person.is_alive && !person.is_virtual && person._actor != null && !person._actor.isRekt())
+            .ToList();
+        bool ruling = IsRulingClan(clan);
+        Prominent[clan.id] = ruling || IsMagnate(clan) ||
+                             entities.Any(person => CityPopulationSystem.IsNotable(person._actor, includeClanHead: false));
+        if (entities.Count > 0)
         {
             clan.head_lost_to_calamity = false;
+            clan.virtual_since = -1d;
             return;
         }
         List<PersonalClanIdentity> virtuals = people.Where(person => person.is_alive && person.is_virtual).ToList();
         if (virtuals.Count == 0) return;
         // 统治家族永不销户
-        if (clan.head_lost_to_calamity && !IsRulingClan(clan))
+        if (clan.head_lost_to_calamity && !ruling)
         {
             Disperse(clan, virtuals);
+            return;
+        }
+        // 平民宗族：不落成族长；整族虚拟沉寂太久就销户(族人编入所在城的普通百姓)。地方豪强照常落成族长
+        if (!ruling && !IsMagnate(clan))
+        {
+            double now = World.world.getCurWorldTime();
+            if (clan.virtual_since < 0d || now < clan.virtual_since) clan.virtual_since = now;
+            else if (Date.getYearsSince(clan.virtual_since) >= DormantYears) Disperse(clan, virtuals, dormant: true);
             return;
         }
         PersonalClanIdentity heir = PickHead(virtuals.Where(person => person.age >= HeadMinAge)) ?? PickHead(virtuals);
@@ -436,7 +516,7 @@ public static class VirtualGenealogySystem
         if (head != null) ClanHeads[clan.id] = heir.id;
     }
 
-    private static void Disperse(SpecificClan clan, List<PersonalClanIdentity> virtuals)
+    private static void Disperse(SpecificClan clan, List<PersonalClanIdentity> virtuals, bool dormant = false)
     {
         string date = Date.getDate(World.world.getCurWorldTime());
         foreach (PersonalClanIdentity person in virtuals)
@@ -448,12 +528,15 @@ public static class VirtualGenealogySystem
             if (!person.death_history_recorded)
             {
                 person.death_history_recorded = true;
-                person.RecordPersonalHistory(LM.Get("virtual_person_clan_dispersed"));
+                person.RecordPersonalHistory(LM.Get(dormant ? "virtual_person_clan_dormant" : "virtual_person_clan_dispersed"));
             }
             VirtualIds.Remove(person.id);
         }
         ClanHeads.Remove(clan.id);
-        LogService.LogInfo($"[EmpireCraft][虚拟族谱] 宗族 {clan.name} 族长死于战乱饥荒、已无实体族人，销户({virtuals.Count} 人)");
+        Prominent.Remove(clan.id);
+        LogService.LogInfo(dormant
+            ? $"[EmpireCraft][虚拟族谱] 宗族 {clan.name} 沉寂 {DormantYears} 年无人出仕，销户编入民籍({virtuals.Count} 人)"
+            : $"[EmpireCraft][虚拟族谱] 宗族 {clan.name} 族长死于战乱饥荒、已无实体族人，销户({virtuals.Count} 人)");
     }
 
     #endregion

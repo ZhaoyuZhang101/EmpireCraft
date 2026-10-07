@@ -67,13 +67,23 @@ public class SpecificClan
     public string name { get; set; }
     public double established_timestamp { get; set; }
     [JsonIgnore]
-    public ActorAsset asset => AllAliveMembers?.FirstOrDefault()?.asset ?? null;
+    // 整族虚拟时没有实体族人，按族谱里在世族人记的物种取
+    public ActorAsset asset => AllAliveMembers?.FirstOrDefault()?.asset ??
+                               AssetManager.actor_library.get(SnapshotPeople()
+                                   .FirstOrDefault(person => person != null && person.is_alive &&
+                                                             !string.IsNullOrEmpty(person.species))?.species ?? "");
+    // 在世族人(含虚拟族人)
+    [JsonIgnore]
+    public List<PersonalClanIdentity> LivingPeople =>
+        SnapshotPeople().Where(person => person != null && person.is_alive).ToList();
     public long founder { get; set; }
     public SpecificClanType clan_sex_priority { get; set; }
     public string color { get; set; } = (new Color(0.7f, 0.8f, 0.7f)).ToHexString();
     public long ancestral_city_id { get; set; } = -1L;
     // 族长死于战乱或饥荒(无小人模式，见 VirtualGenealogySystem)：不再从虚拟族人里补族长；之后又有实体族人时清除
     public bool head_lost_to_calamity { get; set; }
+    // 平民宗族整族成为虚拟族人的时间(-1 = 还有实体族人)；沉寂太久就销户，见 VirtualGenealogySystem
+    public double virtual_since { get; set; } = -1d;
     // 本宗族作为皇族统治的帝国灭亡的时间(-1 表示没有记录)，用于判定"宗室复国"的时效。
     public double empire_fall_timestamp { get; set; } = -1d;
     public long capital_city_id { get; set; }

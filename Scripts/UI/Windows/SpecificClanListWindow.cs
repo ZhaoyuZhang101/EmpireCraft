@@ -84,9 +84,9 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
     public void StartSearchSpecificClan(string content)
     {
         _lastSearchContent = content;
-        var result = SpecificClanManager._specificClans.FindAll(a => a.Count>0&&(a.asset.getLocaleID()
-                                                                     +a.asset.getLocalizedName()
-                                                                     +a.asset.getLocalizedDescription()
+        var result = SpecificClanManager._specificClans.FindAll(a => a.Count>0&&((a.asset?.getLocaleID() ?? "")
+                                                                     +(a.asset?.getLocalizedName() ?? "")
+                                                                     +(a.asset?.getLocalizedDescription() ?? "")
                                                                      +a.name
                                                                      +a.branch_label
                                                                      +a.empire_name
@@ -103,7 +103,7 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
 
     public void RefreshAccordingToSpecies(string species, List<SpecificClan> list = null, bool search = false)
     {
-        var result = list??SpecificClanManager._specificClans.ToList().FindAll(s => s?.AllAliveMembers?.Any(a => a?.asset?.id == species)??false);
+        var result = list??SpecificClanManager._specificClans.ToList().FindAll(s => IsSpecies(s, species));
         Clear();
         ShowTopPart();
         InitialSearchSpace();
@@ -119,13 +119,12 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
         AutoGridLayoutGroup specificClanGrid = _content.BeginGridGroup(4, pCellSize: new Vector2(55, 90), pSpacing:new Vector2(0, 0));
         _groups.Add(specificClanGrid.gameObject);
         yield return CoroutineHelper.wait_for_next_frame;
-        var list = specificClans ?? SpecificClanManager._specificClans.ToList().FindAll(s => s?.AllAliveMembers != null && s.AllAliveMembers.Any(a => a?.asset?.id == "human"));
+        var list = specificClans ?? SpecificClanManager._specificClans.ToList().FindAll(s => IsSpecies(s, "human"));
+        // 实体宗族在前，整族虚拟的宗族排在后面
+        list = list.Where(s => s != null && s.LivingPeople.Count > 0)
+            .OrderByDescending(s => s.AllAliveMembers.Count > 0).ToList();
         foreach (var sc in list)
         {
-            if (sc.AllAliveMembers.Count <= 0)
-            {
-                continue;
-            }
             ShowSpecificClan(sc, specificClanGrid);
             yield return CoroutineHelper.wait_for_next_frame;
         }
@@ -154,10 +153,20 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
             hideBackground:true, TextAnchor.MiddleCenter, size:new Vector2(49, 10));
         var actor = specificClan.AllAliveMembers.ToList()?.OrderByDescending(a => a?.age??0)?
             .FirstOrDefault();
-        vertCard.AddActorViewIntoVertLayout(actor);
+        List<PersonalClanIdentity> living = specificClan.LivingPeople;
+        int virtuals = living.Count(person => person.is_virtual);
+        // 整族虚拟：没有实体头像，显示一行"虚拟宗族"和族中最年长者
+        PersonalClanIdentity eldest = living.OrderByDescending(person => person.age).FirstOrDefault();
+        if (actor != null) vertCard.AddActorViewIntoVertLayout(actor);
+        else
+            vertCard.AddTextIntoVertLayout($"{LM.Get("virtual_clan_label")}\n{eldest?.name ?? ""}",
+                size:new Vector2(49, 30), hideBackground:true, anchor:TextAnchor.MiddleCenter);
         string founderName = SpecificClanManager.getPerson(specificClan.founder)?.name ?? LM.Get("none");
         vertCard.AddTextIntoVertLayout($"{LM.Get("i_founder")}：{founderName}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
-        vertCard.AddTextIntoVertLayout($"{LM.Get("total_sc_count")}：{specificClan.AllAliveMembers.Count}/{specificClan._cache.Count}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
+        vertCard.AddTextIntoVertLayout($"{LM.Get("total_sc_count")}：{living.Count}/{specificClan._cache.Count}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
+        if (virtuals > 0)
+            vertCard.AddTextIntoVertLayout(string.Format(LM.Get("virtual_clan_members"), virtuals), size:new Vector2(49, 8),
+                hideBackground:true, anchor:TextAnchor.MiddleCenter);
         var hori = vertCard.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         if (empire != null && !empire.isRekt())
         {
@@ -169,9 +178,25 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
             }, size:new Vector2(15, 10));
         }
         
-        hori.AddButtonIntoHoriLayout("enter_empire", "详情", ()=> OpenWindow(actor), size:new Vector2(15, 10));
+        hori.AddButtonIntoHoriLayout("enter_empire", "详情", ()=>
+        {
+            if (actor != null) OpenWindow(actor);
+            else if (eldest != null) OpenIdentity(eldest);
+        }, size:new Vector2(15, 10));
         vertCard.transform.AddStretchBackground("clanFrame", size:new Vector2(50, 90));
         _groups.Add(vertCard.gameObject);
+    }
+
+    private static bool IsSpecies(SpecificClan clan, string species) =>
+        clan != null && (clan.AllAliveMembers.Any(a => a?.asset?.id == species) ||
+                         clan.LivingPeople.Any(person => person.is_virtual && person.species == species));
+
+    // 整族虚拟的宗族：按族谱身份打开宗族窗口
+    public void OpenIdentity(PersonalClanIdentity identity)
+    {
+        SpecificClanWindow.OpenIdentity = identity;
+        SelectedUnit._unit_main = null;
+        ScrollWindow.showWindow(nameof(SpecificClanWindow));
     }
 
     public void OpenWindow(Actor pActor)
