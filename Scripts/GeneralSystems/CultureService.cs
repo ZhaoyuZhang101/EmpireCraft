@@ -8,6 +8,7 @@ using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -80,7 +81,9 @@ public static class CultureService
         KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
         if (IsValidCulture(data.realm_culture)) return data.realm_culture;
 
-        string culture = GetActorCulture(kingdom.king);
+        // 旧档缺少 realm_culture 时先恢复国家已有的绑定，不能让外文化的新君主改写国家身份。
+        string culture = CulturePatch.GetInjectedCultureName(kingdom.culture);
+        if (!IsValidCulture(culture)) culture = GetActorCulture(kingdom.king);
         if (!IsValidCulture(culture) && kingdom.capital != null)
         {
             culture = GetMainCulture(kingdom.capital, initialize: false);
@@ -143,6 +146,26 @@ public static class CultureService
         if (!IsRegimeAvailable(fallback)) return;
         kingdom.SetRegimeType(fallback);
         kingdom.LoadRegime();
+    }
+
+    private static void RepairForeignDefaultRegime(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
+        KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
+        // 只修复历史上的阿拉伯默认值污染；正常改革、手动指定及复合帝国的区域制度另有规则。
+        if (data.regimeType != RegimeType.Arabic || data.regime_manually_selected ||
+            RepublicSystem.IsRegimeLocked(kingdom) || CompositeEmpireService.IsComposite(kingdom.GetEmpire())) return;
+        string culture = GetRealmCulture(kingdom);
+        if (!IsValidCulture(culture)) return;
+        string line = culture.GetInstitutionLine();
+        if (InstitutionDefinitionRegistry.HasLine(line) &&
+            InstitutionDefinitionRegistry.GetForLine(line).Any(node =>
+                InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType type) && type == RegimeType.Arabic)) return;
+        if (OnomasticsRule.ALL_CULTURE_RULE[culture].regime == RegimeType.Arabic) return;
+        if (!ApplyCulturePoliticalSystem(kingdom, culture)) return;
+        EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+        LogService.LogInfo($"[EmpireCraft] 修复国家 {kingdom.id} 的外文化默认政体: Arabic -> {data.regimeType}，绑定文化 {culture}");
     }
 
     public static bool ApplyCulturePoliticalSystem(Kingdom kingdom, string culture)
@@ -598,6 +621,7 @@ public static class CultureService
         {
             GetRealmCulture(kingdom);
             RepairUnavailableSavedRegime(kingdom);
+            RepairForeignDefaultRegime(kingdom);
         }
     }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -379,6 +380,7 @@ public static class CityPopulationSystem
     public static void ResetWorldState()
     {
         PopulationParallelSystem.ResetWorldState();
+        ResetClassification();
         LeaderRetryAt.Clear();
         GranarySystem.ResetWorldState();
         MarketSystem.ResetWorldState();
@@ -397,6 +399,7 @@ public static class CityPopulationSystem
         _lastPass = -1d;
         _lastFoldPass = -1d;
         _populationMode = null;
+        _homelessRemaining = _homelessCursor = _homelessFolded = 0;
         EmpireCraft.Scripts.GamePatches.NoCommonersPatch.ResetPopulationIndex();
         VirtualGenealogySystem.ResetWorldState();
         _passMilliseconds = 0d;
@@ -434,7 +437,10 @@ public static class CityPopulationSystem
             }
             if (changed)
             {
+                EmpireCraft.Scripts.GamePatches.NoCommonersPatch.ResetPopulationIndex();
                 PopulationParallelSystem.ResetWorldState();
+                ResetClassification();
+                _homelessRemaining = _homelessCursor = _homelessFolded = 0;
                 SimulationFrameBudget.Reset();
                 AnimalHusbandrySystem.ResetWorldState();
                 PendingFolds.Clear(); _foldCity = null; _foldOwner = null; _lastFoldPass = -1d;
@@ -450,6 +456,7 @@ public static class CityPopulationSystem
             if (!_foldsFirst && SimulationFrameBudget.HasTime) TickFolds(world, now);
         }
         else { PendingFolds.Clear(); _foldCity = null; _foldOwner = null; }
+        if (enabled && SimulationFrameBudget.HasTime) TickHomeless();
         if (PendingCities.Count == 0)
         {
             bool due = _lastPass < 0d || now < _lastPass || Date.getYearsSince(_lastPass) >= 1;
@@ -499,36 +506,57 @@ public static class CityPopulationSystem
     // 原版只有城市会收拢自己的人，这些人在无小人模式下永远留在地图上越积越多；
     // 每年一次把它们并回本国随机一城的背景人口(名人照旧保留)
     private const int MaxHomelessFoldsPerYear = 400;
+    private static int _homelessRemaining, _homelessCursor, _homelessFolded;
 
     private static void FoldHomeless()
     {
         if (!AbstractPopulationEnabled || World.world?.units == null) return;
-        var toFold = new List<Actor>();
-        foreach (Actor actor in World.world.units)
+        // 年度结算只排队，不在同一帧扫描全世界并连做四百次身故/族谱回调。
+        if (_homelessRemaining > 0) return;
+        _homelessRemaining = World.world.units.Count;
+        _homelessFolded = 0;
+    }
+
+    private static void TickHomeless()
+    {
+        if (!AbstractPopulationEnabled || _homelessRemaining <= 0 || World.world?.units == null) return;
+        using var timing = FrameProfiler.Measure("虚拟人口·流民收拢");
+        var actors = World.world.units.getSimpleList();
+        int scanned = 0, folded = 0;
+        while (_homelessRemaining > 0 && actors.Count > 0 && scanned < 128 && folded < 4 &&
+               (scanned == 0 || SimulationFrameBudget.HasTime))
         {
-            if (toFold.Count >= MaxHomelessFoldsPerYear) break;
+            if (_homelessFolded >= MaxHomelessFoldsPerYear) break;
+            if (_homelessCursor >= actors.Count) _homelessCursor = 0;
+            Actor actor = actors[_homelessCursor++];
+            _homelessRemaining--;
+            scanned++;
             if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != null) continue;
             if (actor.asset == null || actor.asset.is_boat || !actor.asset.civ) continue;
             Kingdom kingdom = actor.kingdom;
             if (kingdom == null || kingdom.wild || kingdom.isRekt() || kingdom.cities.Count == 0) continue;
+            if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(actor)) continue;
             if (actor.is_army_captain || actor.army != null) continue;
             if (IsNotable(actor)) continue;
-            toFold.Add(actor);
-        }
-        foreach (Actor actor in toFold)
-        {
             try
             {
                 City home = DrawKingdomCity(actor.kingdom);
                 if (home == null) continue;
                 FoldIntoPopulation(actor, home);
+                folded++;
+                _homelessFolded++;
             }
             catch (Exception exception)
             {
                 LogService.LogWarning($"[EmpireCraft] 无小人模式收拢流民失败: {exception.Message}");
             }
         }
-        if (toFold.Count > 0) LogService.LogInfo($"[EmpireCraft][无小人模式] 收拢流民 {toFold.Count} 人并入背景人口");
+        if (_homelessRemaining <= 0 || actors.Count == 0 || _homelessFolded >= MaxHomelessFoldsPerYear)
+        {
+            _homelessRemaining = 0;
+            if (_homelessFolded > 0)
+                LogService.LogInfo($"[EmpireCraft][无小人模式] 分帧收拢流民 {_homelessFolded} 人并入背景人口");
+        }
     }
 
     // 内存普查用：实体单位按"为什么还留在地图上"分类(按 IsNotable 的判断顺序取第一条)
@@ -1094,6 +1122,7 @@ public static class CityPopulationSystem
             if (PendingFolds.Count == 0) return;
         }
         using var timing = new PerfTimer("无小人模式并入普通人");
+        PopulationJurenRanking.Prewarm(PendingFolds);
         PopulationParallelSystem.PrewarmWorkforce(PendingFolds, now);
         Stopwatch watch = Stopwatch.StartNew();
         while ((_foldCity != null || PendingFolds.Count > 0) && watch.Elapsed.TotalMilliseconds < SliceBudgetMs &&
@@ -1145,7 +1174,7 @@ public static class CityPopulationSystem
                 Census(city, data, keepBackground: true);
                 break;
             case 2: RaiseLevies(city); Census(city, data, keepBackground: true); break;
-            case 3: MarchToFront(city); PopulationParallelSystem.PrepareWorkforce(city, now); break;
+            case 3: MarchToFront(city); PopulationParallelSystem.PrepareWorkforce(city, now, true); break;
             case >= 4 and <= 8:
                 if (_foldEconomyDue)
                     _foldHarvest += PopulationEconomySystem.DepositFarmHarvest(city, data,
@@ -1209,27 +1238,18 @@ public static class CityPopulationSystem
         return false;
     }
 
-    // 月度并入用的名人判定：结果按单位缓存 NotableCacheMonths 个月，每次并入最多重算 MaxNotableRecomputes 人，
-    // 其余还没轮到重算的先当名人留着(宁可晚并一个月，不误并)。这样一座城的并入不会一帧卡几十毫秒
+    // 月度并入最多重算十二人，由每城游标轮转，未知者等待检查。
     private const int MaxNotableRecomputes = 12;
-    private const int NotableCacheMonths = 3;
-    private static readonly Dictionary<long, (double at, bool notable)> NotableCache = new();
+    private static ConditionalWeakTable<City, PopulationClassificationCache> Classification = new();
 
-    private static bool IsNotableThrottled(Actor actor, ref int recompute)
+    private static void ResetClassification()
     {
-        // 君主、城主、收藏、谋划中这些便宜的判断照常实时做
-        if (actor.isKing() || actor.isCityLeader() || actor.isFavorite() || actor.plot != null) return true;
-        long id = actor.getID();
-        double now = World.world.getCurWorldTime();
-        if (NotableCache.TryGetValue(id, out (double at, bool notable) cached) && now >= cached.at &&
-            Date.getMonthsSince(cached.at) < NotableCacheMonths) return cached.notable;
-        if (recompute <= 0) return true;
-        recompute--;
-        bool notable = IsNotable(actor);
-        if (NotableCache.Count > 20000) NotableCache.Clear();
-        NotableCache[id] = (now, notable);
-        return notable;
+        Classification = new();
+        PopulationJurenRanking.Reset();
     }
+
+    private static bool ImmediatelyProtected(Actor actor) => actor.isKing() || actor.isCityLeader() ||
+        actor.isFavorite() || actor.isCameraFollowingUnit() || actor.plot != null;
 
     // 要紧的贵族：君主、继承人、君主的配偶与子女、有封地或爵位的人。其余宗室并入虚拟族谱，需要时再落成
     private static bool IsImportantNoble(Actor actor)
@@ -1248,6 +1268,7 @@ public static class CityPopulationSystem
 
     private static bool IsKeptJuren(Actor actor)
     {
+        if (PopulationJurenRanking.TryIsKept(actor, out bool kept)) return kept;
         City city = actor.city;
         if (city?.units == null) return true;
         double mine = actor.GetIdentity()?.TotalPerformance ?? 0d;
@@ -1273,21 +1294,44 @@ public static class CityPopulationSystem
     public static int FoldCommoners(City city)
     {
         if (!AbstractPopulationEnabled || city?.units == null || city.units.Count == 0) return 0;
+        using var timing = FrameProfiler.Measure("虚拟人口·实体并入");
+        PopulationJurenRanking.BeginPass(city);
+        try { return FoldCommonersPass(city); }
+        finally { PopulationJurenRanking.EndPass(); }
+    }
+
+    private static int FoldCommonersPass(City city)
+    {
         bool atWar = OnWarFooting(city);
-        // 名人判定很贵(每人零点几毫秒)：结果缓存三个月，每次最多重算 MaxNotableRecomputes 人
-        int recompute = MaxNotableRecomputes;
+        PopulationClassificationCache cache = Classification.GetOrCreateValue(city);
+        double now = World.world.getCurWorldTime();
         var commoners = new List<Actor>();
         var soldiers = new List<Actor>();
+        var liveIds = new List<long>();
+        bool unknown = false;
         // 分段计时：整段超过 8 ms 时在日志里列出各段耗时，定位月度结算的大头
         long t0 = Stopwatch.GetTimestamp();
+        cache.Warm(city.units.Count, MaxNotableRecomputes, index =>
+        {
+            Actor actor = city.units[index];
+            if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != city ||
+                actor.asset == null || IsVehicle(actor) || ImmediatelyProtected(actor)) return false;
+            if (cache.TryGet(actor.id, now, Date.getMonthsSince, out _)) return false;
+            cache.Set(actor.id, now, IsNotable(actor));
+            return true;
+        }, () => SimulationFrameBudget.HasTime);
         foreach (Actor actor in city.units)
         {
             if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != city) continue;
             if (actor.asset == null || IsVehicle(actor)) continue;
-            if (IsNotableThrottled(actor, ref recompute)) continue;
+            liveIds.Add(actor.id);
+            if (ImmediatelyProtected(actor)) continue;
+            if (!cache.TryGet(actor.id, now, Date.getMonthsSince, out bool notable)) { unknown = true; continue; }
+            if (notable) continue;
             if (IsSoldier(actor)) soldiers.Add(actor);
             else commoners.Add(actor);
         }
+        cache.Prune(liveIds);
 
         long tClassify = Stopwatch.GetTimestamp();
         // 城主由士兵兼任(城里只剩征召兵时原版会这样选)：卸任城主，另行补位，士兵留在军中
@@ -1321,7 +1365,7 @@ public static class CityPopulationSystem
             for (int i = Mathf.Max(0, keep); i < soldiers.Count; i++) toFold.Add(soldiers[i]);
         }
         // 劳动者不够(被征去当兵、死亡)时，从背景人口里补上
-        for (int missing = KeptWorkersPerCity - commoners.Count; missing > 0; missing--)
+        for (int missing = unknown ? 0 : KeptWorkersPerCity - commoners.Count; missing > 0; missing--)
         {
             PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f &&
                                                                !string.IsNullOrEmpty(candidate.species));
@@ -1337,9 +1381,15 @@ public static class CityPopulationSystem
 
         if (toFold.Count > MaxFoldsPerPass) toFold.RemoveRange(MaxFoldsPerPass, toFold.Count - MaxFoldsPerPass);
         int folded = 0;
+        int reviewed = 0;
         foreach (Actor actor in toFold)
         {
-            if (folded > 0 && !SimulationFrameBudget.HasTime) break;
+            if (reviewed++ > 0 && !SimulationFrameBudget.HasTime) break;
+            // 缓存期间可能升官、获封或被收藏。真正并入前实时复核，不能把新名人误删。
+            if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != city) continue;
+            bool notable = IsNotable(actor);
+            cache.Set(actor.id, now, notable);
+            if (notable) continue;
             FoldIntoPopulation(actor, city);
             folded++;
         }
@@ -1551,15 +1601,18 @@ public static class CityPopulationSystem
     }
 
     // 守方还能动员的兵(实体士兵之外，各军镇按战时兵额尚未征召的部分)。入城即降据此判断是否真的无兵可征
-    public static int MobilizableReserve(Kingdom kingdom)
+    public static int MobilizableReserve(Kingdom kingdom, bool forceRefresh = false)
     {
         if (!AbstractPopulationEnabled || kingdom?.cities == null) return 0;
+        EnsureFrameCache();
+        if (!forceRefresh && MobilizableReserveCache.TryGetValue(kingdom, out int cached)) return cached;
         int reserve = 0;
         foreach (City city in kingdom.cities)
         {
             if (city == null || city.isRekt() || city.status == null) continue;
             reserve += Mathf.Max(0, LevyTarget(city) - city.status.warriors_current);
         }
+        MobilizableReserveCache[kingdom] = reserve;
         return reserve;
     }
 
@@ -2188,6 +2241,7 @@ public static class CityPopulationSystem
     private static readonly Dictionary<City, int> CityHouseholdsCache = new();
     private static readonly Dictionary<Kingdom, int> KingdomHouseholdsCache = new();
     private static readonly Dictionary<Kingdom, ArmyDoctrine> DoctrineCache = new();
+    private static readonly Dictionary<Kingdom, int> MobilizableReserveCache = new();
 
     private static void EnsureFrameCache()
     {
@@ -2197,6 +2251,7 @@ public static class CityPopulationSystem
         CityHouseholdsCache.Clear();
         KingdomHouseholdsCache.Clear();
         DoctrineCache.Clear();
+        MobilizableReserveCache.Clear();
     }
 
     public static int Households(City city)

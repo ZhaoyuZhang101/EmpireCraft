@@ -239,11 +239,12 @@ public static class KingdomExtension
         [JsonIgnore]
         public Regime regime;
         public RegimeType regimeType;
+        public bool regime_manually_selected;
         // 政体对象不进存档(性能考虑)，读档时按模板重建；但派系/政党是游戏中逐渐形成的(改组、组党、改名、
         // 党员归属、议席与执政联盟都按派系 id 记录)，单独存一份，读档重建政体时还原(见 LoadRegime)
         public List<FixedFaction> saved_factions;
         public RegimeType saved_factions_regime;
-        public KingdomType kingdomType;
+        public KingdomType kingdomType = KingdomType.default_country_post;
         public string core_name = "";
         public string core_name_source = "";
         // Player-facing overrides are kept separate so clearing them restores automatic naming.
@@ -1845,7 +1846,13 @@ public static class KingdomExtension
 
     public static KingdomType GetKingdomType(this Kingdom k)
     {
-        return k.GetOrCreate().kingdomType;
+        var data = k.GetOrCreate();
+        var regime = k.GetRegime();
+        // 枚举的 0 是哈里发国。旧档漏字段或改制后尚未同步时，显示当前政体的真实类别。
+        if (regime?.bureau_config?.kingdoms != null &&
+            !regime.bureau_config.kingdoms.ContainsKey(data.kingdomType))
+            return EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(k);
+        return data.kingdomType;
     }
     public static void SetOffice(this Kingdom k, OfficeObject office)
     {
@@ -1922,6 +1929,7 @@ public static class KingdomExtension
     {
         if (k?.data == null || k.isRekt()) return;
         k.GetOrCreate().regimeType = type;
+        k.GetOrCreate().regime_manually_selected = false;
     }
     public static void SetRegime(this Kingdom k, Regime regime)
     {

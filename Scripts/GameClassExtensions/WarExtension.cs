@@ -164,6 +164,13 @@ public static class WarExtension
         KingdomTitle title)
     {
         if (war == null || title == null || title.isRekt()) return false;
+        var result = OccupationReadIndex.ReadControl(war, title, () => CountTitleControl(war, title),
+            () => OccupationReadIndex.Membership(title.getCities()));
+        return DeJureTitleClaimRules.ControlsAll(result.Controlled, result.Total);
+    }
+
+    private static OccupationReadIndex.Control CountTitleControl(War war, KingdomTitle title)
+    {
         int controlled = 0;
         int total = 0;
         HashSet<int> seenZones = new HashSet<int>();
@@ -180,7 +187,7 @@ public static class WarExtension
                 if (controller != null && war._list_attackers.Contains(controller)) controlled++;
             }
         }
-        return DeJureTitleClaimRules.ControlsAll(controlled, total);
+        return new OccupationReadIndex.Control(controlled, total);
     }
 
     public static void InitializeLegitimacyChallenge(this War war, Empire challenger, Empire defender)
@@ -223,6 +230,14 @@ public static class WarExtension
         WarExtraData data = war.GetOrCreate();
         if (data.legitimacy_initial_zone_count <= 0) return war.IsMainDefenderEliminated();
 
+        var result = OccupationReadIndex.ReadControl(war, data, () => CountLegitimacyControl(war, data),
+            () => OccupationReadIndex.Membership((data.legitimacy_defender_city_ids ?? new List<long>())
+                .Select(id => World.world?.cities?.get(id))));
+        return ImperialLegitimacyRules.HasOccupiedThird(result.Controlled, data.legitimacy_initial_zone_count);
+    }
+
+    private static OccupationReadIndex.Control CountLegitimacyControl(War war, WarExtraData data)
+    {
         int controlled = 0;
         var seenZones = new HashSet<int>();
         foreach (long cityId in data.legitimacy_defender_city_ids ?? new List<long>())
@@ -238,7 +253,7 @@ public static class WarExtension
                 if (controller != null && war._list_attackers.Contains(controller)) controlled++;
             }
         }
-        return ImperialLegitimacyRules.HasOccupiedThird(controlled, data.legitimacy_initial_zone_count);
+        return new OccupationReadIndex.Control(controlled, seenZones.Count);
     }
 
     public static Empire GetEmpireTarget(this War w)

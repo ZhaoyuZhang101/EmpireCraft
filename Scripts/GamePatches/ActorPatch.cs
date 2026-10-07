@@ -528,6 +528,7 @@ public class ActorPatch : GamePatch
     public static void setKingdom(Actor __instance, Kingdom pKingdomToSet)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        EmpireCraft.Scripts.HelperFunc.OfficeCandidateRoster.Invalidate();
         if (__instance.city == null) return;
         if (__instance.city.kingdom == null) return;
         if (!pKingdomToSet.IsInEmpire())
@@ -605,6 +606,7 @@ public class ActorPatch : GamePatch
     }
     public static void removeData(Actor __instance)
     {
+        EmpireCraft.Scripts.HelperFunc.OfficeCandidateRoster.Invalidate();
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         IdeologyPopulationSystem.Forget(__instance);
         if (__instance.HasSpecificClan())

@@ -478,53 +478,48 @@ public class NoCommonersPatch : GamePatch
     }
 
     private static int _indexFrame = -1;
+    private static int _cultureIndexFrame = -1;
+    private static object _indexWorld;
     private static long _worldBackground;
     private static readonly global::System.Collections.Generic.Dictionary<object, int> MetaBackground = new();
     private static readonly global::System.Collections.Generic.Dictionary<string, float> CultureBackground = new();
+    private static readonly global::System.Collections.Generic.Dictionary<Culture, int> CultureMetaBackground = new();
 
     public static void ResetPopulationIndex()
     {
+        _indexWorld = World.world;
         _indexFrame = -1;
+        _cultureIndexFrame = -1;
         MetaBackground.Clear();
         CultureBackground.Clear();
+        CultureMetaBackground.Clear();
         _worldBackground = 0L;
+        LegionStatisticsReadCache.Reset();
     }
 
     private static void AddCulture(string key, float amount, Culture fallback)
     {
         if (amount <= 0f) return;
-        if (string.IsNullOrEmpty(key)) { Add(fallback, Mathf.RoundToInt(amount)); return; }
+        if (string.IsNullOrEmpty(key)) { AddCultureObject(fallback, Mathf.RoundToInt(amount)); return; }
         CultureBackground.TryGetValue(key, out float current);
         CultureBackground[key] = current + amount;
     }
 
     private static void RebuildIndex()
     {
+        if (!ReferenceEquals(_indexWorld, World.world)) ResetPopulationIndex();
         int frame = UnityEngine.Time.frameCount;
         if (frame == _indexFrame) return;
+        using var timing = FrameProfiler.Measure("虚拟人口·全图统计索引");
         _indexFrame = frame;
         _worldBackground = 0L;
         MetaBackground.Clear();
-        CultureBackground.Clear();
         if (World.world?.cities == null) return;
         foreach (City city in World.world.cities)
         {
             if (city?.data == null || city.isRekt()) continue;
             int background = CityPopulationSystem.BackgroundCount(city);
             _worldBackground += background;
-            CityPopulationData population = CityPopulationSystem.Get(city);
-            foreach (PopGroup group in population.groups)
-                if (group != null) AddCulture(group.culture, group.Background, city.culture);
-            if (city.units != null)
-                foreach (Actor actor in city.units)
-                {
-                    if (actor?.data == null || actor.isRekt() || !actor.isAlive()) continue;
-                    ActorExtension.ActorExtraData extra = actor.GetOrCreate();
-                    if (extra.legion_size <= 1f) continue;
-                    CityPopulationSystem.LegionAlive(actor);
-                    foreach (LegionPopulationContribution origin in extra.legion_population)
-                        if (origin != null) AddCulture(origin.culture, origin.size, city.culture);
-                }
             Add(city.religion, background);
             Add(city.language, background);
             Subspecies subspecies = null;
@@ -538,6 +533,29 @@ public class NoCommonersPatch : GamePatch
             }
             Add(subspecies, background);
         }
+    }
+
+    // 世界总人口、宗教和语言查询不需要扫描军团。只有文化查询才读取来源。
+    private static void RebuildCultureIndex()
+    {
+        if (!ReferenceEquals(_indexWorld, World.world)) ResetPopulationIndex();
+        int frame = Time.frameCount;
+        if (frame == _cultureIndexFrame) return;
+        using var timing = FrameProfiler.Measure("虚拟人口·文化统计索引");
+        _cultureIndexFrame = frame;
+        CultureBackground.Clear();
+        CultureMetaBackground.Clear();
+        if (World.world?.cities == null) return;
+        foreach (City city in World.world.cities)
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            foreach (PopGroup group in CityPopulationSystem.Get(city).groups)
+                if (group != null) AddCulture(group.culture, group.Background, city.culture);
+            if (city.units == null) continue;
+            foreach (Actor actor in city.units)
+                foreach (var origin in LegionStatisticsReadCache.Read(actor))
+                    AddCulture(origin.Culture, origin.Size, city.culture);
+        }
         // 一个模板可以对应多个原版 Culture；人数只归一个对象，避免汇总翻倍。
         var assigned = new global::System.Collections.Generic.HashSet<string>();
         if (World.world.cultures != null)
@@ -545,8 +563,15 @@ public class NoCommonersPatch : GamePatch
             {
                 string key = CulturePatch.GetInjectedCultureName(culture);
                 if (!string.IsNullOrEmpty(key) && assigned.Add(key) &&
-                    CultureBackground.TryGetValue(key, out float amount)) Add(culture, Mathf.RoundToInt(amount));
+                    CultureBackground.TryGetValue(key, out float amount)) AddCultureObject(culture, Mathf.RoundToInt(amount));
             }
+    }
+
+    private static void AddCultureObject(Culture culture, int amount)
+    {
+        if (culture == null) return;
+        CultureMetaBackground.TryGetValue(culture, out int current);
+        CultureMetaBackground[culture] = (int)Math.Min(int.MaxValue, (long)current + amount);
     }
 
     private static void Add(object meta, int amount)
@@ -566,11 +591,17 @@ public class NoCommonersPatch : GamePatch
     {
         if (!__result || !CityPopulationSystem.AbstractPopulationEnabled ||
             __instance is not (Culture or Religion or Language or Subspecies)) return;
-        RebuildIndex();
-        if (__instance is Culture culture && CultureBackground.TryGetValue(
-                CulturePatch.GetInjectedCultureName(culture) ?? "", out float people) && people > 0f)
-            __result = false;
-        if (MetaBackground.TryGetValue(__instance, out int background) && background > 0) __result = false;
+        if (__instance is Culture culture)
+        {
+            RebuildCultureIndex();
+            if (CultureBackground.TryGetValue(CulturePatch.GetInjectedCultureName(culture) ?? "", out float people) && people > 0f ||
+                CultureMetaBackground.TryGetValue(culture, out int count) && count > 0) __result = false;
+        }
+        else
+        {
+            RebuildIndex();
+            if (MetaBackground.TryGetValue(__instance, out int background) && background > 0) __result = false;
+        }
     }
 
     public static void AfterCivWorldPopulation(ref int __result)
@@ -583,9 +614,18 @@ public class NoCommonersPatch : GamePatch
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled ||
             __instance is not (Culture or Religion or Language or Subspecies)) return;
-        RebuildIndex();
-        if (MetaBackground.TryGetValue(__instance, out int background))
-            __result = (int)Math.Min(int.MaxValue, (long)__result + background);
+        if (__instance is Culture culture)
+        {
+            RebuildCultureIndex();
+            if (CultureMetaBackground.TryGetValue(culture, out int background))
+                __result = (int)Math.Min(int.MaxValue, (long)__result + background);
+        }
+        else
+        {
+            RebuildIndex();
+            if (MetaBackground.TryGetValue(__instance, out int background))
+                __result = (int)Math.Min(int.MaxValue, (long)__result + background);
+        }
     }
 
     #endregion

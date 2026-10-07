@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using ai.behaviours;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -16,6 +17,8 @@ namespace EmpireCraft.Scripts.AI.KingdomAI;
 
 public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
 {
+    private sealed class ChildRepairState { public float NextScan; }
+    private static readonly ConditionalWeakTable<Actor, ChildRepairState> ChildRepairs = new();
     public override Type OriginalBeh => GetType();
 
     public override BehResult execute(Kingdom kingdom)
@@ -78,6 +81,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         if (kingdom?.data == null) return (null, "");
         PersonalClanIdentity parent = predecessor ?? PredecessorOf(kingdom);
         if (parent == null) return (null, "");
+        // 真正交接时不能受十秒修复间隔影响而漏掉异地子女、误选旁系。
+        if (allowFallback && CityPopulationSystem.AbstractPopulationEnabled) ChildrenOf(parent, true);
         SuccessionLawType law = kingdom.GetSuccessionLaw();
         if (law == SuccessionLawType.强者继承法)
             return CheckStrongestHeir(kingdom, parent, !allowFallback);
@@ -96,7 +101,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         return (null, "");
     }
 
-    private static List<PersonalClanIdentity> ChildrenOf(PersonalClanIdentity parent)
+    private static List<PersonalClanIdentity> ChildrenOf(PersonalClanIdentity parent, bool forceRepair = false)
     {
         var children = new Dictionary<long, PersonalClanIdentity>();
         foreach (var pair in SpecificClanManager.getChildren(parent))
@@ -104,7 +109,21 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         // 旧档可能有原版亲子关系，却没有完整的模组索引；只补实际在世单位的缺失链接。
         Actor actor = parent?._actor;
         if (actor != null)
-            foreach (Actor child in actor.getChildren(pOnlyCurrentFamily: false))
+        {
+            bool virtualPopulation = CityPopulationSystem.AbstractPopulationEnabled;
+            IEnumerable<Actor> nativeChildren = virtualPopulation ? actor.getChildren() :
+                actor.getChildren(pOnlyCurrentFamily: false);
+            int knownLiving = children.Values.Count(person => person._actor != null && !person._actor.isRekt() && person._actor.isAlive());
+            if (virtualPopulation && (forceRepair || knownLiving < actor.current_children_count))
+            {
+                ChildRepairState repair = ChildRepairs.GetValue(actor, _ => new ChildRepairState());
+                if (forceRepair || Time.unscaledTime >= repair.NextScan)
+                {
+                    repair.NextScan = Time.unscaledTime + 10f;
+                    nativeChildren = nativeChildren.Concat(actor.getChildren(pOnlyCurrentFamily: false));
+                }
+            }
+            foreach (Actor child in nativeChildren)
             {
                 if (child == null || child.isRekt() || !child.isAlive()) continue;
                 child.CheckSpecificClan(false);
@@ -121,6 +140,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 }
                 children[identity.id] = identity;
             }
+        }
         return children.Values.ToList();
     }
 

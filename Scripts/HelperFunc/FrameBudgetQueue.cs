@@ -44,7 +44,7 @@ public sealed class FrameBudgetQueue<T>
     }
 
     // 处理到时间预算用完为止；本次调用把队列处理完时返回 true
-    public bool Tick()
+    public bool Tick(Func<bool> canContinue = null)
     {
         if (_items == null) return false;
         if (!ReferenceEquals(_world, World.world))
@@ -54,7 +54,7 @@ public sealed class FrameBudgetQueue<T>
         }
         using var frameWork = SimulationFrameBudget.Measure();
         long started = Stopwatch.GetTimestamp();
-        while (_index < _items.Count && SimulationFrameBudget.HasTime)
+        while (_index < _items.Count && SimulationFrameBudget.HasTime && (canContinue?.Invoke() ?? true))
         {
             T item = _items[_index++];
             try

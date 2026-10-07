@@ -40,8 +40,10 @@ public static class SimulationFrameBudget
         if (_sampleSeconds >= 30d)
         {
             LastMeasuredFramesPerSecond = _sampleFrames / _sampleSeconds;
-            LogService.LogInfo($"[EmpireCraft][帧率] 最近 {_sampleSeconds:0} 秒平均 {LastMeasuredFramesPerSecond:0.0} FPS；" +
-                $"最慢帧 {_worstFrame:0.0} ms；超过 25 ms 的帧 {_slowFrames}/{_sampleFrames}；目标 40 FPS");
+            string report = $"[EmpireCraft][帧率] 最近 {_sampleSeconds:0} 秒平均 {LastMeasuredFramesPerSecond:0.0} FPS；" +
+                $"最慢帧 {_worstFrame:0.0} ms；超过 25 ms 的帧 {_slowFrames}/{_sampleFrames}；目标 40 FPS";
+            LogService.LogInfo(report);
+            EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile.Record(report);
             _sampleSeconds = _worstFrame = 0d;
             _sampleFrames = _slowFrames = 0;
         }

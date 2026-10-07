@@ -231,11 +231,12 @@ public static class FarmlandSystem
     private static Dictionary<TileZone, List<WorldTile>> FieldsByZone(City city)
     {
         var result = new Dictionary<TileZone, List<WorldTile>>();
+        var seen = new HashSet<WorldTile>();
         foreach (WorldTile tile in FarmTiles(city))
         {
-            if (tile?.zone == null) continue;
+            if (tile?.zone == null || !seen.Add(tile)) continue;
             if (!result.TryGetValue(tile.zone, out List<WorldTile> list)) result[tile.zone] = list = new List<WorldTile>();
-            if (!list.Contains(tile)) list.Add(tile);
+            list.Add(tile);
         }
         return result;
     }

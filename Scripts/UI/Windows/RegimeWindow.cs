@@ -476,6 +476,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         GeneralSystems.RepublicSystem.CarryPartiesAcrossRegimeChange(_kingdom, () =>
         {
             _kingdom.SetRegimeType(pType);
+            _kingdom.GetOrCreate().regime_manually_selected = true;
             _kingdom.LoadRegime();
         });
         if (empire != null && empire.CoreKingdom == _kingdom) GeneralSystems.RepublicSystem.SyncWithRegime(empire, manual: true);

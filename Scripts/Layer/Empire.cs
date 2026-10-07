@@ -793,7 +793,7 @@ public class Empire : MetaObject<EmpireData>
         }
         else if (identity.specific_clan_id != previousRoyalClan.id)
         {
-            identity._specificClan?._cache.Remove(identity.id);
+            identity._specificClan?.TakePerson(identity.id);
             identity.specific_clan_id = previousRoyalClan.id;
             previousRoyalClan.Upsert(identity);
             actor.SetPersonalIdentity(identity);

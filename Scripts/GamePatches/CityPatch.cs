@@ -988,6 +988,8 @@ public class CityPatch : GamePatch
     public static bool removeZone(City __instance, TileZone pZone)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
+        ZonePlanSystem.InvalidatePlanning(__instance);
+        OccupationReadIndex.Invalidate(__instance);
         if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
         {
             return false;
@@ -1000,6 +1002,8 @@ public class CityPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (!__instance.zones.Contains(pZone))
         {
+            ZonePlanSystem.InvalidatePlanning(__instance);
+            OccupationReadIndex.Invalidate(__instance);
             if (pZone.city != null)
             {
                 if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
@@ -1214,6 +1218,17 @@ public class CityPatch : GamePatch
 
         if (!IsValidImperialSurrenderAttacker(city, attackerKingdom))
             return;
+
+        // 同帧各城共用动员统计；真正转移城市前再核对，避免本帧刚征兵或切换军制时误降。
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            int fresh = (defendingEmpire != null && !defendingEmpire.IsArchived() && !defendingEmpire.isRekt()
+                ? GetEmpireLivingWarriorCount(defendingEmpire) : GetKingdomLivingWarriorCount(defenderKingdom)) +
+                CityPopulationSystem.MobilizableReserve(defenderKingdom, true);
+            if (fresh > defenderData.peak_warriors) defenderData.peak_warriors = fresh;
+            if (fresh > ImperialArrivalSurrenderWarriorThreshold) return;
+            kingdomWarriors = fresh;
+        }
 
         try
         {
@@ -1683,6 +1698,8 @@ public class CityPatch : GamePatch
     public static void setKingdom_Postfix(City __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        ZonePlanSystem.InvalidatePlanning(__instance);
+        OccupationReadIndex.Invalidate(__instance);
         if (__instance.hasTitle())
         {
             __instance.GetTitle().isBeenControlled();
@@ -1749,6 +1766,8 @@ public class CityPatch : GamePatch
     public static void removeData(City __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        OccupationReadIndex.Invalidate(__instance);
+        ZonePlanSystem.InvalidatePlanning(__instance);
         __instance.RemoveExtraData<City, CityExtraData>();
         _imperialArrivalSurrenderCooldown.Remove(__instance);
     }

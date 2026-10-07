@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.GeneralSystems;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GameLibrary;
@@ -207,6 +208,7 @@ public static class EmpireCraftQuantumSpriteLibrary
     }
 private static void DrawEmpireCraftOccupiedZones(QuantumSpriteAsset pAsset)
 {
+    if (CityPopulationSystem.AbstractPopulationEnabled) { DrawIndexedOccupiedZones(pAsset); return; }
     using ListPool<TileZone> listPool = new ListPool<TileZone>();
 
     foreach (City city in World.world.cities)
@@ -348,6 +350,25 @@ private static void DrawEmpireCraftOccupiedZones(QuantumSpriteAsset pAsset)
         }
     }
 }
+    private static void DrawIndexedOccupiedZones(QuantumSpriteAsset asset)
+    {
+        foreach (City city in World.world.cities)
+        {
+            if (city == null || !city.hasZones()) continue;
+            foreach (OccupationReadIndex.Group group in OccupationReadIndex.Read(city))
+            {
+                Kingdom occupier = group.Occupier;
+                if (occupier == null || occupier.isRekt() || city.kingdom == null || city.kingdom == occupier ||
+                    occupier.isInWarOnSameSide(city.kingdom)) continue;
+                Color color = occupier.getColor().getColorBorderOut_capture();
+                foreach (TileZone zone in group.Zones)
+                {
+                    if (zone?.centerTile == null || zone.city != city || city.GetTileZoneOccupier(zone) != occupier) continue;
+                    QuantumSpriteLibrary.drawQuantumSprite(asset, zone.centerTile, pTileTarget: null).setColor(ref color);
+                }
+            }
+        }
+    }
     public static bool ShowEmpireZones(bool pCheckOnlyOption = false)
     {
         return EmpireCraftMetaTypeLibrary.empire.isActive(pCheckOnlyOption);

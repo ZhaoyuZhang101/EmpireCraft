@@ -76,6 +76,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     private int _backgroundCursor;
     private void Update()
     {
+        EmpireCraft.Scripts.GeneralSystems.NativeVegetationScheduler.Tick();
+        EmpireCraft.Scripts.GeneralSystems.PopulationRuntimeDiagnostics.Tick();
         if (!EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled)
         {
             EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.Reset();
@@ -163,6 +165,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     {
         AncientWarfareIsolation.CaptureOriginalCallbacks();
         _declare = modDeclare;
+        PerformanceTraceFile.Configure(modDeclare.FolderPath);
         _modObject = gameObject;
         EmpireCraftDebugProbe.Initialize();
         OnomasticsHelper.PreloadCultureFilesAsync();

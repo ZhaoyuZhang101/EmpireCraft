@@ -708,10 +708,7 @@ public static class VirtualGenealogySystem
         if (parent.isMale()) child.father = parent.id;
         else child.mother = parent.id;
         child.name = ChildName(clan, child, parent);
-        lock (clan)
-        {
-            clan._cache[child.id] = child;
-        }
+        clan.Upsert(child);
         SpecificClanManager._globalPersonLookup[child.id] = child;
         parent.children.Add(child.id);
         VirtualIds.Add(child.id);

@@ -12,7 +12,12 @@ public static class FrameProfiler
     private const float ReportSeconds = 10f;
     private const double MinMsPerFrame = 0.3d;
 
-    private static readonly Dictionary<string, long> Ticks = new();
+    private struct Sample
+    {
+        internal long Ticks, Peak;
+        internal int Calls;
+    }
+    private static readonly Dictionary<string, Sample> Ticks = new();
     private static float _since = -1f;
     private static int _startFrame;
 
@@ -29,18 +34,30 @@ public static class FrameProfiler
 
         public void Dispose()
         {
+            if (_label == null) return;
             long elapsed = Stopwatch.GetTimestamp() - _started;
-            Ticks[_label] = Ticks.TryGetValue(_label, out long total) ? total + elapsed : elapsed;
+            Ticks.TryGetValue(_label, out Sample sample);
+            sample.Ticks += elapsed;
+            sample.Peak = System.Math.Max(sample.Peak, elapsed);
+            sample.Calls++;
+            Ticks[_label] = sample;
             Report();
         }
     }
 
     public static Scope Measure(string label) => new(label);
 
+    public static void Reset()
+    {
+        Ticks.Clear();
+        _since = -1f;
+        _startFrame = 0;
+    }
+
     private static void Report()
     {
         float now = Time.unscaledTime;
-        if (_since < 0f)
+        if (_since < 0f || now < _since || Time.frameCount < _startFrame)
         {
             _since = now;
             _startFrame = Time.frameCount;
@@ -49,12 +66,20 @@ public static class FrameProfiler
         if (now - _since < ReportSeconds) return;
         int frames = Mathf.Max(1, Time.frameCount - _startFrame);
         var line = new StringBuilder();
-        foreach (KeyValuePair<string, long> pair in Ticks)
+        var ordered = new List<KeyValuePair<string, Sample>>(Ticks);
+        ordered.Sort((a, b) => b.Value.Ticks.CompareTo(a.Value.Ticks));
+        foreach (KeyValuePair<string, Sample> pair in ordered)
         {
-            double perFrame = pair.Value * 1000d / Stopwatch.Frequency / frames;
-            if (perFrame >= MinMsPerFrame) line.Append($"{pair.Key} {perFrame:0.00} ms；");
+            double perFrame = pair.Value.Ticks * 1000d / Stopwatch.Frequency / frames;
+            double peak = pair.Value.Peak * 1000d / Stopwatch.Frequency;
+            if (perFrame >= MinMsPerFrame || peak >= 4d)
+                line.Append($"{pair.Key} {perFrame:0.00} ms/帧，单次峰值 {peak:0.00} ms，{pair.Value.Calls} 次；");
         }
-        if (line.Length > 0) LogService.LogWarning($"[EmpireCraft][每帧耗时] {line}");
+        string report = $"[EmpireCraft][每帧耗时] {line}";
+        if (line.Length > 0) LogService.LogWarning(report);
+        if (EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled)
+            EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile.Record(line.Length > 0 ? report :
+                "[EmpireCraft][每帧耗时] 被计时片段均低于 0.3 ms/帧且单次峰值低于 4 ms");
         Ticks.Clear();
         _since = now;
         _startFrame = Time.frameCount;

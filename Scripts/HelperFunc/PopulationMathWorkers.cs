@@ -18,6 +18,10 @@ public readonly struct PopulationGroupValue
 
 public sealed class PopulationNumericInput
 {
+    public readonly PopulationContactInput Contact;
+    public readonly PopulationProductionInput Production;
+    public readonly PopulationRankValue[] Candidates;
+    public readonly int RankLimit;
     public readonly PopulationGroupValue[] Groups;
     public readonly float PeoplePerSlot, Total, Capacity, BirthRate, DeathRate, Years;
     public readonly bool Growth, Famine;
@@ -29,14 +33,36 @@ public sealed class PopulationNumericInput
         Growth = growth; Total = total; Capacity = capacity;
         BirthRate = birthRate; DeathRate = deathRate; Years = years; Famine = famine;
     }
+
+    public PopulationNumericInput(PopulationRankValue[] candidates, int limit)
+    {
+        Groups = Array.Empty<PopulationGroupValue>();
+        PeoplePerSlot = 1f;
+        Candidates = (PopulationRankValue[])candidates.Clone();
+        RankLimit = Math.Max(0, limit);
+    }
+    public PopulationNumericInput(PopulationContactInput contact)
+    { Groups=Array.Empty<PopulationGroupValue>();Contact=contact.Copy();PeoplePerSlot=1f; }
+    public PopulationNumericInput(PopulationGroupValue[] groups,float peoplePerSlot,PopulationProductionInput production)
+        :this(groups,peoplePerSlot) { Production=production?.Copy(); }
+}
+
+public readonly struct PopulationRankValue
+{
+    public readonly long Id;
+    public readonly double Score;
+    public PopulationRankValue(long id, double score) { Id = id; Score = score; }
 }
 
 public sealed class PopulationNumericResult
 {
+    public PopulationContactResult Contact;
+    public PopulationProductionResult Production;
     public float BackgroundHouseholds;
     public readonly Dictionary<int, float> Workforce = new();
     public float[] Sizes;
     public int ThreadId;
+    public long[] RankedIds;
 }
 
 public static class PopulationMathWorkers
@@ -120,6 +146,24 @@ public static class PopulationMathWorkers
     public static PopulationNumericResult Compute(PopulationNumericInput input)
     {
         var result = new PopulationNumericResult { ThreadId = Thread.CurrentThread.ManagedThreadId };
+        if(input.Contact!=null){result.Contact=PopulationContactMath.Compute(input.Contact);return result;}
+        if (input.Candidates != null)
+        {
+            // 与旧规则一致：政绩高者优先，同分时 ID 小者优先。NaN 在旧比较中没有更优者，仍保留。
+            var candidates = new List<PopulationRankValue>();
+            var ids = new List<long>();
+            foreach (PopulationRankValue candidate in input.Candidates)
+                if (double.IsNaN(candidate.Score)) ids.Add(candidate.Id);
+                else candidates.Add(candidate);
+            candidates.Sort((left, right) =>
+            {
+                int score = right.Score.CompareTo(left.Score);
+                return score != 0 ? score : left.Id.CompareTo(right.Id);
+            });
+            for (int i = 0; i < Math.Min(input.RankLimit, candidates.Count); i++) ids.Add(candidates[i].Id);
+            result.RankedIds = ids.ToArray();
+            return result;
+        }
         float background = 0f;
         foreach (PopulationGroupValue group in input.Groups)
         {
@@ -130,6 +174,7 @@ public static class PopulationMathWorkers
             result.Workforce.TryGetValue(group.Class, out float workers);
             result.Workforce[group.Class] = workers + amount * 0.6f;
         }
+        if(input.Production!=null)result.Production=PopulationProductionMath.Compute(input.Production,result.BackgroundHouseholds);
         if (!input.Growth) return result;
         const float InflowShare = 0.04f;
         result.Sizes = new float[input.Groups.Length];

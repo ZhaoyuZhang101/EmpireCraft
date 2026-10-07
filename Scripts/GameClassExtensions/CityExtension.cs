@@ -154,6 +154,8 @@ public static class CityExtension
         public Dictionary<long, List<int>> OccupiedStatus = new();
         [JsonIgnore]
         public Dictionary<int, long> OccupiedZoneOwners = new();
+        [JsonIgnore]
+        public long occupation_revision;
         // 民族情绪 0~100(见 NationalSentimentSystem)：受异族统治、外敌入侵时上升，否则回落
         public float national_sentiment;
         // 城市人口数据层：按阶层/文化/物种/理念分组的居民人数(见 CityPopulationSystem)
@@ -648,6 +650,7 @@ public static class CityExtension
 
         zones.Add(tileZoneId);
         city.GetOccupiedZoneOwnerMap()[tileZoneId] = occupier.id;
+        OccupationReadIndex.Invalidate(city);
         if (city.TryTriggerOccupationCaptureEvent(occupier, tileZone, zoneOccupationMode:true))
         {
             return true;
@@ -721,6 +724,7 @@ public static class CityExtension
 
         zones.Add(tileZoneId);
         city.GetOccupiedZoneOwnerMap()[tileZoneId] = occupierId;
+        OccupationReadIndex.Invalidate(city);
 
         // 高正统占领自动扩张：只在手动/士兵占领成功后触发
         city.TrySpreadOccupiedZonesByMandate(occupier, tileZone);
@@ -753,6 +757,7 @@ public static class CityExtension
         if (zones == null)
         {
             occupiedStatus.Remove(occupierId);
+            OccupationReadIndex.Invalidate(city);
             return false;
         }
 
@@ -768,6 +773,7 @@ public static class CityExtension
         {
             occupiedStatus.Remove(occupierId);
         }
+        OccupationReadIndex.Invalidate(city);
         return removed;
     }
     public static bool TransferOccupiedTileZone(this City city, Kingdom toKingdom, TileZone tileZone)
@@ -903,6 +909,8 @@ public static class CityExtension
                 ownerMap?.Remove(tileZoneId);
             }
         }
+
+        OccupationReadIndex.Invalidate(city);
 
         return removedAny;
     }
@@ -1328,6 +1336,7 @@ public static class CityExtension
         {
             return;
         }
+        OccupationReadIndex.Invalidate(city);
         var occupierId = occupier?.id??-1L;
         Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
         if (!occupiedStatus.ContainsKey(occupierId))
@@ -1896,6 +1905,7 @@ public static class CityExtension
     public static void ClearOccupationBy(this City city, Func<Kingdom, bool> occupier)
     {
         if (city == null || occupier == null) return;
+        OccupationReadIndex.Invalidate(city);
         CityExtraData data = city.GetOrCreate();
         if (data.OccupiedStatus != null && data.OccupiedStatus.Count > 0)
         {
@@ -1927,6 +1937,7 @@ public static class CityExtension
         {
             return;
         }
+        OccupationReadIndex.Invalidate(city);
 
         try
         {

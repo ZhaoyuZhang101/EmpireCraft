@@ -11,7 +11,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // Personal conviction is independent of party membership and of the state's current policy.
-public static class IdeologyPopulationSystem
+public static partial class IdeologyPopulationSystem
 {
     public const float PartyFoundingShare = 0.10f;
     private const string TraitPrefix = "empire_ideology_";
@@ -45,6 +45,7 @@ public static class IdeologyPopulationSystem
         _lastContactScan = -1d;
         _contactFrame = -1;
         ContactQueue.Cancel();
+        ResetParallelContact();
         EconomyCache.Clear();
         LandmarkBookSystem.ResetRuntimeState();
         IdeologySpreadSystem.ResetWorldState();
@@ -320,6 +321,7 @@ public static class IdeologyPopulationSystem
     public static void TryYearlyContact()
     {
         if (World.world?.cities == null) return;
+        if (CityPopulationSystem.AbstractPopulationEnabled && (ContactQueue.Active || PendingContact.Count > 0 || _contactWavePending)) return;
         double now = World.world.getCurWorldTime();
         if (_lastContactScan >= 0 && now >= _lastContactScan && Date.getYearsSince(_lastContactScan) < 1) return;
         _lastContactScan = now;
@@ -338,7 +340,17 @@ public static class IdeologyPopulationSystem
         if (Time.frameCount == _contactFrame) return;
         _contactFrame = Time.frameCount;
         LandmarkBookSystem.TickCityInfluence();
-        if (ContactQueue.Tick()) LandmarkBookSystem.StartCityInfluence();
+        bool parallel = CityPopulationSystem.AbstractPopulationEnabled;
+        if (!parallel)
+        {
+            if (PendingContact.Count > 0 || _contactWavePending) ResetParallelContact();
+            if (ContactQueue.Tick()) LandmarkBookSystem.StartCityInfluence();
+            return;
+        }
+        CompleteParallelContact();
+        if (ContactQueue.Tick(() => PendingContact.Count < 16)) _contactWavePending = true;
+        if (_contactWavePending && PendingContact.Count == 0)
+        { _contactWavePending = false; LandmarkBookSystem.StartCityInfluence(); }
     }
 
     private static void ContactCity(City city)
@@ -385,6 +397,26 @@ public static class IdeologyPopulationSystem
             : localCounts.Where(pair => IdeologyFamilies.IsLiberal(pair.Key)).Sum(pair => pair.Value) / (float)localTotal;
         float pluralism = Mathf.Clamp01((liberalShare - 0.5f) * 2f);
         List<PartyIdeology> otherIsms = available.Where(ideology => !IdeologyFamilies.IsLiberal(ideology)).ToList();
+        if (CityPopulationSystem.AbstractPopulationEnabled &&
+            !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city))
+        {
+            var settings = new ContactSettings
+            {
+                Foreign=(int)foreign,Pressured=pressured.HasValue?(int)pressured.Value:-1,
+                Founding=founding.HasValue?(int)founding.Value:-1,Governing=governing.HasValue?(int)governing.Value:-1,
+                Conservative=(int)PartyIdeology.Conservatism,Peasant=(int)SocialClass.Peasant,
+                Labour=(int)SocialClass.Labour,Citizen=(int)SocialClass.Citizen,
+                Empire=empire!=null,ForeignCity=foreignCity!=null,
+                Revolutionary=city.kingdom?.GetOrCreate().is_peasant_revolutionary_government==true,
+                Pressure=pressured.HasValue?PublicOpinionSystem.GetPressure(empire,pressured.Value):0f,
+                External=externalSusceptibility,Fatigue=fatigue,Trend=economicTrend,Liberation=liberation,
+                Decay=traditionDecay,Prosperity=economy.Prosperity,Industry=economy.Industry,
+                Settled=economy.Settled,Landless=economy.Landless,Pluralism=pluralism,
+                GrowthThreshold=IdeologyDynamicsSystem.GrowthThreshold,DeclineThreshold=IdeologyDynamicsSystem.DeclineThreshold
+            };
+            StartParallelContact(city,localCounts,organizers,available,grievances,culture,settings);
+            return;
+        }
         foreach (Actor actor in city.units)
         {
             if (actor == null || actor.isRekt() || !actor.isAlive() || !actor.isAdult()) continue;

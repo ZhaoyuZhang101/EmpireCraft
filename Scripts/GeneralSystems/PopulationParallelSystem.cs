@@ -19,11 +19,14 @@ public static class PopulationParallelSystem
     private static readonly Dictionary<City, Request> Workforce = new();
     private static readonly Dictionary<City, Request> Growth = new();
     private static bool _announced;
+    public static int EconomyWorkerResults { get; private set; }
+    public static int EconomyFallbackResults { get; private set; }
 
     public static void ResetWorldState()
     {
         Workforce.Clear();
         Growth.Clear();
+        EconomyWorkerResults = EconomyFallbackResults = 0;
         PopulationMathWorkers.Reset();
     }
 
@@ -71,30 +74,39 @@ public static class PopulationParallelSystem
         }
     }
 
-    public static void PrepareWorkforce(City city, double now)
+    public static void PrepareWorkforce(City city, double now, bool refreshProduction = false)
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled || city?.data == null || city.isRekt() || city.kingdom == null ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city)) return;
         CityPopulationData data = CityPopulationSystem.Get(city);
         if (data.last_economy < 0d || now < data.last_economy || Date.getMonthsSince(data.last_economy) <= 0) return;
         float perSlot = CityPopulationSystem.PeoplePerSlot(city);
+        PopulationProductionInput production = refreshProduction ? PopulationEconomySystem.CaptureProduction(city, now) : null;
         if (Workforce.TryGetValue(city, out Request old) && ReferenceEquals(old.Data, data) && old.Owner == city.kingdom &&
-            old.Input.PeoplePerSlot == perSlot && Matches(old.Input, data)) return;
-        var input = new PopulationNumericInput(CopyGroups(data), perSlot);
+            old.Input.PeoplePerSlot == perSlot && Matches(old.Input, data) &&
+            (!refreshProduction || production == null || old.Input.Production?.Matches(production) == true)) return;
+        // 全图预热只取人口小数组；实际城市到步骤 3 才复制岗位，避免反复扫描未来城市的建筑。
+        var input = new PopulationNumericInput(CopyGroups(data), perSlot, production);
         Workforce[city] = new Request { Owner = city.kingdom, Data = data, Input = input, Job = Submit(input) };
     }
 
-    public static PopulationNumericResult GetWorkforce(City city, CityPopulationData data, float perSlot)
+    public static PopulationNumericResult GetWorkforce(City city, CityPopulationData data, float perSlot, PopulationProductionInput production = null)
     {
         if (Workforce.TryGetValue(city, out Request request))
         {
             Workforce.Remove(city);
             if (CityPopulationSystem.AbstractPopulationEnabled && ReferenceEquals(request.Data, data) && request.Owner == city.kingdom &&
                 request.Input.PeoplePerSlot == perSlot && Matches(request.Input, data) &&
-                request.Job != null && request.Job.TryGetResult(out PopulationNumericResult result)) return result;
+                (production == null || request.Input.Production?.Matches(production) == true) &&
+                request.Job != null && request.Job.TryGetResult(out PopulationNumericResult result))
+            {
+                if (production != null) EconomyWorkerResults++;
+                return result;
+            }
         }
         // 未完成或快照过期时，直接计算当前小数组，不阻塞游戏线程。
-        return PopulationMathWorkers.Compute(new PopulationNumericInput(CopyGroups(data), perSlot));
+        if (production != null) EconomyFallbackResults++;
+        return PopulationMathWorkers.Compute(new PopulationNumericInput(CopyGroups(data), perSlot, production));
     }
 
     private static PopulationNumericInput GrowthInput(City city, CityPopulationData data, float years)

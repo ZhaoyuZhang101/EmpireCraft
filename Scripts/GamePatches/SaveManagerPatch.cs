@@ -99,6 +99,7 @@ public class SaveManagerPatch : GamePatch
             LogService.LogWarning($"[EmpireCraft] 存档前精简个人经历失败: {exception.Message}");
         }
         EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.FlushPendingGrowth();
+        EmpireCraft.Scripts.GeneralSystems.IdeologyPopulationSystem.FlushParallelContact();
         DataManager.SaveAll(pFolder);
         return true;
 
@@ -155,6 +156,7 @@ public class SaveManagerPatch : GamePatch
 
     private static void ClearRuntimeState()
     {
+        NativeWorldOptimizationPatch.Reset();
         SimulationFrameBudget.Reset();
         EmpireCraftStrategicScheduler.Reset();
         KingdomFrontLineHelper.ClearCache();

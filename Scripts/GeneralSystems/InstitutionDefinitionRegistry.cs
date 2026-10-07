@@ -73,12 +73,12 @@ public static class InstitutionDefinitionRegistry
     public static bool HasLine(string line) =>
         !string.IsNullOrWhiteSpace(line) && Trees.ContainsKey(line);
 
-    // 文化配的线不存在时的兜底线：优先用 Settings.json 的 default_line，再退化成目录里的第一条
+    // 未配置科技线时可使用显式默认线；不能按文件名顺序随机借用另一文化的线。
     public static string ResolveLine(string line)
     {
         if (HasLine(line)) return line;
         if (HasLine(Global.default_line)) return Global.default_line;
-        return Trees.Count > 0 ? Lines[0] : "";
+        return "";
     }
 
     public static void Load()

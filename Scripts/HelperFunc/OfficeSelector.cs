@@ -186,9 +186,9 @@ public static class OfficeSelector
 
     private static Actor TryGetExamOfficer(OfficeObject pOffice, Kingdom  pKingdom)
     {
-        List<Actor> targetPool;
+        IEnumerable<Actor> targetPool;
         if (pOffice.meta_object.isRekt()) return null;
-        ListPool<Actor> pool = new ListPool<Actor>();
+        using ListPool<Actor> pool = new ListPool<Actor>();
         if (pOffice.select_from_local)
         {
             targetPool = pOffice.meta_object.meta_type == MetaType.City
@@ -203,7 +203,7 @@ public static class OfficeSelector
             if (kingdom.IsInEmpire())
             {
                 Empire empire = kingdom.GetEmpire();
-                targetPool = empire.getUnits().ToList();
+                targetPool = CityPopulationSystem.AbstractPopulationEnabled ? OfficeCandidateRoster.Empire(empire.kingdoms_list) : empire.getUnits().ToList();
             }
             else
             {
@@ -227,7 +227,8 @@ public static class OfficeSelector
                     {
                         flag1 = true;
                     }
-                    if (pOffice.require_traits.FindAll(t => unit.hasTrait(t)).Any())
+                    if (CityPopulationSystem.AbstractPopulationEnabled ? pOffice.require_traits.Any(t => unit.hasTrait(t)) :
+                        pOffice.require_traits.FindAll(t => unit.hasTrait(t)).Any())
                     {
                         flag2 = true;
                     }
@@ -321,19 +322,21 @@ public static class OfficeSelector
         foreach (Actor unit in listPool2)
             if (IsPreferredOfficeCandidate(unit, pKingdom)) preferredOther.Add(unit);
 
-        return SelectBestCandidate(preferredRoyal, pKingdom) ??
-               SelectBestCandidate(preferredOther, pKingdom) ??
+        return SelectBestCandidate(preferredRoyal, pKingdom, alreadyPreferred: true) ??
+               SelectBestCandidate(preferredOther, pKingdom, alreadyPreferred: true) ??
                SelectBestCandidate(listPool, pKingdom) ??
                SelectBestCandidate(listPool2, pKingdom);
     }
 
-    private static Actor SelectBestCandidate(ListPool<Actor> pool, Kingdom kingdom)
+    private static Actor SelectBestCandidate(ListPool<Actor> pool, Kingdom kingdom, bool alreadyPreferred = false)
     {
         if (!pool.Any()) return null;
         using ListPool<Actor> preferred = new ListPool<Actor>();
-        foreach (Actor unit in pool)
-            if (IsPreferredOfficeCandidate(unit, kingdom)) preferred.Add(unit);
-        ListPool<Actor> candidates = preferred.Any() ? preferred : pool;
+        bool ready = alreadyPreferred && CityPopulationSystem.AbstractPopulationEnabled;
+        if (!ready)
+            foreach (Actor unit in pool)
+                if (IsPreferredOfficeCandidate(unit, kingdom)) preferred.Add(unit);
+        ListPool<Actor> candidates = ready ? pool : preferred.Any() ? preferred : pool;
         if (kingdom.hasCulture())
             return ListSorters.getUnitSortedByAgeAndTraits(candidates, kingdom.culture);
         candidates.Sort(ListSorters.sortUnitByAgeOldFirst);

@@ -341,6 +341,9 @@ public static class InstitutionSystem
     {
         regime = default;
         if (!CultureService.IsValidCulture(culture)) return false;
+        // 政体不能借用别的文化的默认科技线。缺线时交给调用方按本文化 setting.regime 兜底。
+        string line = culture.GetInstitutionLine();
+        if (!InstitutionDefinitionRegistry.HasLine(line)) return false;
         // 本文化已废除君主制：此后新建、归化、分裂出来的本文化政权一律是现代政体，不会再出现皇帝
         if (!TechnologySystem.PremodernLocked &&
             GetFeature(culture, RepublicSystem.FeatureAbolishMonarchy) > 0f &&
@@ -349,7 +352,6 @@ public static class InstitutionSystem
             regime = RegimeType.Modern;
             return true;
         }
-        string line = GetCultureLine(culture);
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         InstitutionNodeConfig best = null;
         foreach (string nodeId in state?.enacted_node_ids ?? Enumerable.Empty<string>())

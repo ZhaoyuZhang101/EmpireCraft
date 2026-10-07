@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using HarmonyLib;
 using NeoModLoader.services;
 using UnityEngine;
@@ -60,6 +61,7 @@ public static class PopulationEconomySystem
     public static void Settle(City city, CityPopulationData data, double now, float? farmHarvest = null)
     {
         if (city?.data == null || data?.groups == null) return;
+        using IDisposable timing = CityPopulationSystem.AbstractPopulationEnabled ? FrameProfiler.Measure("多核经济·主线程结算") : null;
         if (data.last_economy < 0d || now < data.last_economy)
         {
             data.last_economy = now;
@@ -75,7 +77,9 @@ public static class PopulationEconomySystem
         float background = 0f;
         // 产出、吃粮、施工都按"户"结算(一户 = 一个住房位的人)，仓库装得下、数值和原版居民一个量级
         float perSlot = CityPopulationSystem.PeoplePerSlot(city);
-        var numeric = PopulationParallelSystem.GetWorkforce(city, data, perSlot);
+        ProductionSnapshot plan = CityPopulationSystem.AbstractPopulationEnabled && data.groups.Any(group => group?.Background > 0f)
+            ? CaptureProductionSnapshot(city, years) : null;
+        var numeric = PopulationParallelSystem.GetWorkforce(city, data, perSlot, plan?.Input);
         background = numeric.BackgroundHouseholds;
         foreach (var pair in numeric.Workforce) workforceByClass[(SocialClass)pair.Key] = pair.Value;
         // 农田自动耕作(开田、播种、收割)，粮食来自实际收割的麦子(见 FarmlandSystem)
@@ -83,15 +87,24 @@ public static class PopulationEconomySystem
         float harvested = farmHarvest ?? DepositFarmHarvest(city, data, FarmlandSystem.Settle(city, data));
         if (background <= 0f) return;
 
-        float workforce = background * WorkingAgeShare;
-        float jobs = CountJobs(city);
+        float workforce = numeric.Production?.Workforce ?? background * WorkingAgeShare;
+        float jobs = plan?.Input.Jobs ?? CountJobs(city);
         float employment = workforce <= 0f ? 0f : Mathf.Clamp01(jobs / workforce);
         float productivity = employment + (1f - employment) * UnemployedOutputShare;
 
         // 生产不看工人：原版按城里的建筑与周围地形给每座城算好了岗位(有风车才有农田岗位、有矿场才有矿工、
         // 树木灌木矿脉的多少决定樵夫采集采矿的岗位)，每个岗位按种类自动产出。另有自给口粮与商业收入
         float food = background * SubsistenceFoodPerYear * years + harvested;
-        foreach ((CitizenJobAsset job, (string resource, float amount)[] outputs) in JobOutputs())
+        if (plan != null)
+        {
+            for (int i=0;i<plan.JobCount;i++)
+            {
+                float produced=numeric.Production.Outputs[i];
+                if(plan.Input.Outputs[i].Food)food+=produced;
+                Deposit(city,data,plan.Resources[i],produced);
+            }
+        }
+        else foreach ((CitizenJobAsset job, (string resource, float amount)[] outputs) in JobOutputs())
         {
             if (job == null) continue;
             int slots = city.jobs.countCurrentJobs(job);
@@ -104,11 +117,13 @@ public static class PopulationEconomySystem
             }
         }
         // 自给口粮自己吃掉，不是收入
-        Deposit(city, data, _foodId ?? "berries", background * SubsistenceFoodPerYear * years, income: false);
+        Deposit(city, data, _foodId ?? "berries", numeric.Production?.Subsistence ?? background * SubsistenceFoodPerYear * years, income: false);
         // 矿场、伐木场固定产出：每座建成的每年产出固定数量，按等级倍增、在工业区再加成，不看岗位和人口
         // (见 IndustryBuildingSystem)
-        float mines = IndustryBuildingSystem.MineOutputFactor(city);
-        if (mines > 0f)
+        float mines = plan == null ? IndustryBuildingSystem.MineOutputFactor(city) : 0f;
+        if(plan != null)
+            for(int i=plan.JobCount;i<plan.Resources.Length;i++)Deposit(city,data,plan.Resources[i],numeric.Production.Outputs[i]);
+        else if (mines > 0f)
             foreach ((string resource, float amount) in MineOutput)
                 if (AssetManager.resources?.get(resource) != null) Deposit(city, data, resource, mines * amount * years);
         // 战略矿产(铜、煤、硝石……)按矿场等级和本城矿藏开采，见 MineralResourceSystem
@@ -118,8 +133,8 @@ public static class PopulationEconomySystem
         if (wood > 0f && AssetManager.resources?.get("wood") != null) Deposit(city, data, "wood", wood * years);
         PayTaxes(city, data, years);
         // 施工改由城市建设力推进(见 CityConstructionSystem)，不再按工人数
-        float eaten = EatFood(city, data, background * FoodPerPersonYear * years, out float shortage);
-        ConsumeGoods(city, data, background, years);
+        float eaten = EatFood(city, data, numeric.Production?.FoodNeed ?? background * FoodPerPersonYear * years, out float shortage);
+        ConsumeGoods(city, data, background, years, numeric.Production?.LeatherNeed);
         // 吃掉的粮食、用掉的皮革是民间的消费，按价值从民间存款里扣(赈灾粮是国家给的，不扣)
         float consumption = eaten * UnitValue(city, _foodId ?? "wheat") + data.last_leather_used * UnitValue(city, "leather");
         AddSavings(city, data, -consumption);
@@ -142,6 +157,43 @@ public static class PopulationEconomySystem
         data.last_food_output = years > 0f ? food / years : 0f;
         data.last_food_eaten = years > 0f ? eaten / years : 0f;
         data.last_food_shortage = years > 0f ? shortage / years : 0f;
+    }
+
+    private sealed class ProductionSnapshot
+    {
+        public PopulationProductionInput Input;
+        public string[] Resources;
+        public int JobCount;
+    }
+
+    // 主线程只复制原版岗位和建筑产能，乘算及需求计算交由数值工作线程。
+    private static ProductionSnapshot CaptureProductionSnapshot(City city,float years)
+    {
+        using var timing = FrameProfiler.Measure("多核经济·取得快照");
+        var resources=new List<string>();var outputs=new List<ProductionOutput>();
+        foreach(var pair in JobOutputs())
+        {
+            if(pair.Item1==null)continue;
+            int slots=city.jobs.countCurrentJobs(pair.Item1);if(slots<=0)continue;
+            foreach(var output in pair.Item2)
+            {resources.Add(output.Item1);outputs.Add(new ProductionOutput(slots,output.Item2,IsFood(output.Item1)));}
+        }
+        int jobs=outputs.Count;float mines=IndustryBuildingSystem.MineOutputFactor(city);
+        if(mines>0f)foreach(var output in MineOutput)
+            if(AssetManager.resources?.get(output.Item1)!=null)
+            {resources.Add(output.Item1);outputs.Add(new ProductionOutput(mines,output.Item2,false));}
+        return new ProductionSnapshot{Resources=resources.ToArray(),JobCount=jobs,
+            Input=new PopulationProductionInput(outputs.ToArray(),years,CountJobs(city),ModernStability.IsModern(city.kingdom),resources.ToArray())};
+    }
+
+    public static PopulationProductionInput CaptureProduction(City city,double now)
+    {
+        if(!CityPopulationSystem.AbstractPopulationEnabled||city?.data==null)return null;
+        CityPopulationData data=CityPopulationSystem.Get(city);
+        if(data.last_economy<0d||now<data.last_economy)return null;
+        if(!data.groups.Any(group=>group?.Background>0f))return null;
+        int months=Mathf.Clamp(Date.getMonthsSince(data.last_economy),0,24);
+        return months>0?CaptureProductionSnapshot(city,months/12f).Input:null;
     }
 
     // 分帧收割后立即入库，避免两步骤之间保存/占城导致已经收下的粮食丢失。
@@ -414,12 +466,12 @@ public static class PopulationEconomySystem
     // 现代翻倍；库存不够只记缺口
     private const float LeatherPerHouseholdYear = 0.01f;
 
-    private static void ConsumeGoods(City city, CityPopulationData data, float households, float years)
+    private static void ConsumeGoods(City city, CityPopulationData data, float households, float years, float? calculatedNeed = null)
     {
         // 本次没扣到整份时用量是 0(民间消费按这个算)
         data.last_leather_used = 0f;
-        float need = households * LeatherPerHouseholdYear * years *
-                     (ModernStability.IsModern(city.kingdom) ? 2f : 1f) + data.leather_need_carry;
+        float need = (calculatedNeed ?? households * LeatherPerHouseholdYear * years *
+                     (ModernStability.IsModern(city.kingdom) ? 2f : 1f)) + data.leather_need_carry;
         int whole = Mathf.FloorToInt(need);
         data.leather_need_carry = need - whole;
         if (whole <= 0) return;

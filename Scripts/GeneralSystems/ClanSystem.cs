@@ -75,7 +75,8 @@ public class SpecificClan
     // 在世族人(含虚拟族人)
     [JsonIgnore]
     public List<PersonalClanIdentity> LivingPeople =>
-        SnapshotPeople().Where(person => person != null && person.is_alive).ToList();
+        CityPopulationSystem.AbstractPopulationEnabled ? LivingSnapshot().ToList() :
+            SnapshotPeople().Where(person => person != null && person.is_alive).ToList();
     public long founder { get; set; }
     public SpecificClanType clan_sex_priority { get; set; }
     public string color { get; set; } = (new Color(0.7f, 0.8f, 0.7f)).ToHexString();
@@ -130,21 +131,46 @@ public class SpecificClan
     {
         lock (_cacheLock)
         {
-            return _cache.Remove(personId);
+            bool removed = _cache.Remove(personId);
+            if (removed) _peopleRevision++;
+            return removed;
         }
     }
     [JsonIgnore]
-    public List<PersonalClanIdentity> all_valid_members => SnapshotPeople().ToList().FindAll(i=>i.CanHeir());
+    public List<PersonalClanIdentity> all_valid_members => CityPopulationSystem.AbstractPopulationEnabled
+        ? LivingSnapshot().Where(i => i.CanHeir()).ToList() : SnapshotPeople().ToList().FindAll(i=>i.CanHeir());
     [JsonIgnore] 
     // 有实体的在世族人(虚拟族人不在其中：他们没有单位，需要时用 PersonalClanIdentity.Realize() 落成)
-    public List<Actor> AllAliveMembers => SnapshotPeople().ToList().FindAll(i => i.is_alive && !i.is_virtual)
+    public List<Actor> AllAliveMembers => (CityPopulationSystem.AbstractPopulationEnabled ? LivingSnapshot() : SnapshotPeople())
+        .Where(i => i.is_alive && !i.is_virtual)
         .Select(i=>i._actor).Where(actor => actor != null).ToList();
     [JsonIgnore]
     private readonly object _cacheLock = new();
     public Dictionary<long, PersonalClanIdentity> _cache = new();
+    private Dictionary<long, PersonalClanIdentity> _peopleSource;
+    private PersonalClanIdentity[] _livingSnapshot;
+    private long _peopleRevision, _livingRevision = -1;
+    private int _peopleCount = -1;
     [JsonIgnore]
-    public int Count => SnapshotPeople().ToList().FindAll(i=>i.is_alive).Count;
-    public int CountTotal =>SnapshotPeople().ToList().Count;
+    public int Count => CityPopulationSystem.AbstractPopulationEnabled ? LivingSnapshot().Length : SnapshotPeople().ToList().FindAll(i=>i.is_alive).Count;
+    public int CountTotal { get { if (!CityPopulationSystem.AbstractPopulationEnabled) return SnapshotPeople().ToList().Count;
+        lock (_cacheLock) return _cache.Count; } }
+
+    public void InvalidatePeople() { lock (_cacheLock) _peopleRevision++; }
+
+    private PersonalClanIdentity[] LivingSnapshot()
+    {
+        lock (_cacheLock)
+        {
+            if (_livingSnapshot == null || !ReferenceEquals(_peopleSource, _cache) || _peopleCount != _cache.Count ||
+                _livingRevision != _peopleRevision)
+            {
+                _livingSnapshot = _cache.Values.Where(person => person != null && person.is_alive).ToArray();
+                _peopleSource = _cache; _peopleCount = _cache.Count; _livingRevision = _peopleRevision;
+            }
+            return _livingSnapshot;
+        }
+    }
     public PersonalClanIdentity GetPerson(long personId)
     {
         lock (_cacheLock)
@@ -166,6 +192,7 @@ public class SpecificClan
         lock (_cacheLock)
         {
             _cache[p.id] = p;
+            _peopleRevision++;
         }
     }
     public void RecordHistoryEmpire(Empire empire, City capital)
@@ -280,6 +307,7 @@ public class SpecificClan
         lock (_cacheLock)
         {
             _cache.Remove(identity.id);
+            _peopleRevision++;
         }
         SpecificClanManager._globalPersonLookup.Remove(identity.id);
         SpecificClanManager._actorToPersonLookup.Remove(identity.actor_id);
@@ -323,6 +351,7 @@ public class SpecificClan
                 SpecificClanManager._actorToPersonLookup.Remove(pci.actor_id);
             }
             _cache.Clear();
+            _peopleRevision++;
         }
     }
 }
@@ -1056,7 +1085,12 @@ public class PersonalClanIdentity
     [JsonIgnore]
     public Actor _actor => World.world.units.get(actor_id);
     public int rank = 1;
-    public bool is_alive { get; set; }
+    private bool _isAlive;
+    public bool is_alive
+    {
+        get => _isAlive;
+        set { if (_isAlive == value) return; _isAlive = value; _specificClan?.InvalidatePeople(); }
+    }
     public bool is_concubine {  get; set; } = false; //是否是小妾/男宠（当小妾/男宠无自身宗族时，会加入丈夫/妻子氏族并标记为小妾/男宠身份）
     public bool is_main { get; set; } = true; //在婚姻关系中是否为主要角色（对于爱人来说是嫁/入赘，还是娶/招亲）
     [JsonIgnore]

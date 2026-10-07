@@ -23,6 +23,7 @@ public static class EmpireCraftStrategicScheduler
     {
         public double LastStrategicWorldTime = -1d;
         public float NextMembershipCheck;
+        public int MonthlyPhase = -1;
     }
 
     private sealed class EmpireScheduleState
@@ -222,7 +223,9 @@ public static class EmpireCraftStrategicScheduler
             }
 
             ProcessTemporaryFactions(kingdom);
-            if (state.LastStrategicWorldTime < 0d || Date.getMonthsSince(state.LastStrategicWorldTime) >= 1)
+            if (!CityPopulationSystem.AbstractPopulationEnabled) state.MonthlyPhase = -1;
+            if (!CityPopulationSystem.AbstractPopulationEnabled &&
+                (state.LastStrategicWorldTime < 0d || Date.getMonthsSince(state.LastStrategicWorldTime) >= 1))
             {
                 double now = World.world.getCurWorldTime();
                 state.LastStrategicWorldTime = now;
@@ -232,6 +235,29 @@ public static class EmpireCraftStrategicScheduler
                 PlotCheck.execute(kingdom);
                 TemporaryFactionCheck.execute(kingdom);
                 ReligionKingdomCheck.execute(kingdom);
+            }
+            else if (CityPopulationSystem.AbstractPopulationEnabled)
+            {
+                if (state.MonthlyPhase < 0 &&
+                    (state.LastStrategicWorldTime < 0d || Date.getMonthsSince(state.LastStrategicWorldTime) >= 1))
+                {
+                    state.LastStrategicWorldTime = World.world.getCurWorldTime();
+                    state.MonthlyPhase = 0;
+                }
+                // 六个检查分别续跑，不把正在执行的旧月度工作重置为下一月。
+                while (state.MonthlyPhase >= 0 && SimulationFrameBudget.HasTime)
+                {
+                    switch (state.MonthlyPhase++)
+                    {
+                        case 0: KingdomTypeCheck.execute(kingdom); break;
+                        case 1: CultureService.UpdateCityCultureShiftCandidates(kingdom); break;
+                        case 2: CultureService.UpdateCulturalAssimilationDuty(kingdom); break;
+                        case 3: PlotCheck.execute(kingdom); break;
+                        case 4: TemporaryFactionCheck.execute(kingdom); break;
+                        case 5: ReligionKingdomCheck.execute(kingdom); break;
+                    }
+                    if (state.MonthlyPhase >= 6) state.MonthlyPhase = -1;
+                }
             }
             FaultRetryTimes.Remove(kingdom.id);
         }

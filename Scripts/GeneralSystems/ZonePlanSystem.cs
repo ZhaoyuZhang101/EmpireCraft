@@ -39,7 +39,7 @@ public enum PlanPolicy
     Mercantile = 3
 }
 
-public static class ZonePlanSystem
+public static partial class ZonePlanSystem
 {
     // ---- 区块用途的读写 ----
     private static Dictionary<int, int> Uses(City city)
@@ -60,6 +60,7 @@ public static class ZonePlanSystem
     public static bool Set(City city, TileZone zone, ZoneUse use)
     {
         if (city?.data == null || zone == null || zone.city != city) return false;
+        InvalidatePlanning(city);
         NormalizeDistricts(city);
         if (use == ZoneUse.Farm && !FarmlandSystem.HasFarmArea(city, zone)) return false;
         if (!CanAddToDistrict(city, zone, use)) return false;
@@ -160,6 +161,7 @@ public static class ZonePlanSystem
 
     public static void OnFarmPlanned(City city, TileZone zone)
     {
+        InvalidatePlanning(city);
         Uses(city).Remove(zone.id);
         NormalizeDistricts(city);
         ClearHousing(city, zone, ZoneUse.Farm);
@@ -426,6 +428,7 @@ public static class ZonePlanSystem
 
     public static void ResetWorldState()
     {
+        ResetContinuation();
         Pending.Clear();
         _lastPass = -1d;
         Flashes.Clear();
@@ -436,6 +439,9 @@ public static class ZonePlanSystem
     {
         MapBox world = World.world;
         if (world?.cities == null || Config.paused || !Config.game_loaded || SmoothLoader.isLoading()) return;
+        if (CityPopulationSystem.AbstractPopulationEnabled) { TickContinuation(world); return; }
+        if (_planningCity != null) Pending.Enqueue(_planningCity);
+        CancelContinuation();
         double now = world.getCurWorldTime();
         if (Pending.Count == 0)
         {
