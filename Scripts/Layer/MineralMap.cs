@@ -26,7 +26,8 @@ public sealed class MineralMapColor : MetaObject<IdeologyMapColorData>
     }
 }
 
-// 矿产图层(MetaTypeExtension.Mineral)：不画铭牌，每座城上方并排显示本城矿藏的图标(用资源原有图标)。
+// 矿产图层(MetaTypeExtension.Mineral)：不画铭牌，每座城上方并排显示本城矿藏的图标(用资源原有图标)，
+// 图标跟着地图缩放(固定占几格地图大小)。
 // 三种显示模式(图层按钮切换)：0 全部矿藏；1 正在开采的(矿场等级够、未枯竭)；2 枯竭冷却中的。
 // 枯竭冷却中的矿：图标变灰，图标下方标出还要冷却几年。地块按城描边，有矿藏的城淡淡上色。
 public static class MineralMap
@@ -93,8 +94,10 @@ public static class MineralMap
 // 矿产图标层：画在地图名字画布上(和领土大字同一层)，每帧由矿产图层的铭牌动作提交，没提交的帧整层隐藏
 public static class MineralIconRenderer
 {
-    private const float IconSize = 16f;
-    private const float Spacing = 2f;
+    // 图标跟着地图缩放(和简化铭牌一样)：每个图标在地图上占 IconWorldSize 格，缩得太小(< MinPixels 屏幕像素)就不画
+    private const float IconWorldSize = 5f;
+    private const float SpacingShare = 0.12f;
+    private const float MinPixels = 4f;
     private const int MaxCities = 400;
 
     private static RectTransform _root;
@@ -114,7 +117,17 @@ public static class MineralIconRenderer
         _usedIcons = 0;
         _usedLabels = 0;
         Camera camera = World.world?.camera;
-        if (camera == null) return;
+        if (camera == null || camera.orthographicSize <= 0f) return;
+        float scale = _root.lossyScale.x <= 0f ? 1f : _root.lossyScale.x;
+        // 一格地图在屏幕上多少像素 → 图标的屏幕像素 → 画布单位
+        float pixelsPerTile = Screen.height / (2f * camera.orthographicSize);
+        float iconPixels = IconWorldSize * pixelsPerTile;
+        if (iconPixels < MinPixels)
+        {
+            HideUnused();
+            return;
+        }
+        float iconUnits = iconPixels / scale;
         int cities = 0;
         foreach (City city in World.world.cities)
         {
@@ -126,8 +139,7 @@ public static class MineralIconRenderer
             List<(string id, bool minable, float remaining, int cooldown)> deposits = MineralMap.Visible(city, mode);
             if (deposits.Count == 0) continue;
             cities++;
-            float scale = _root.lossyScale.x <= 0f ? 1f : _root.lossyScale.x;
-            float step = (IconSize + Spacing) * scale;
+            float step = iconPixels * (1f + SpacingShare);
             float x = screen.x - (deposits.Count - 1) * step / 2f;
             foreach ((string id, bool minable, float _, int cooldown) in deposits)
             {
@@ -139,16 +151,24 @@ public static class MineralIconRenderer
                 // 冷却中：灰暗；还不能开采：半透明；正在开采：原色
                 icon.color = cooldown > 0 ? new Color(0.45f, 0.45f, 0.45f, 0.9f) :
                     minable ? Color.white : new Color(1f, 1f, 1f, 0.5f);
+                icon.rectTransform.sizeDelta = new Vector2(iconUnits, iconUnits);
                 icon.rectTransform.position = new Vector3(x, screen.y, 0f);
                 if (cooldown > 0)
                 {
                     Text label = NextLabel();
                     label.text = string.Format(NeoModLoader.General.LM.Get("mineral_layer_cooldown"), cooldown);
-                    label.rectTransform.position = new Vector3(x, screen.y - IconSize * 0.75f * scale, 0f);
+                    label.fontSize = Mathf.Clamp(Mathf.RoundToInt(iconUnits * 0.45f), 4, 40);
+                    label.rectTransform.sizeDelta = new Vector2(iconUnits * 2f, iconUnits * 0.6f);
+                    label.rectTransform.position = new Vector3(x, screen.y - iconPixels * 0.75f, 0f);
                 }
                 x += step;
             }
         }
+        HideUnused();
+    }
+
+    private static void HideUnused()
+    {
         for (int i = _usedIcons; i < _icons.Count; i++)
             if (_icons[i].gameObject.activeSelf) _icons[i].gameObject.SetActive(false);
         for (int i = _usedLabels; i < _labels.Count; i++)
@@ -172,7 +192,6 @@ public static class MineralIconRenderer
             icon = go.GetComponent<Image>();
             icon.raycastTarget = false;
             icon.preserveAspect = true;
-            icon.rectTransform.sizeDelta = new Vector2(IconSize, IconSize);
             _icons.Add(icon);
         }
         _usedIcons++;
@@ -190,12 +209,10 @@ public static class MineralIconRenderer
             go.transform.SetParent(_root, false);
             label = go.GetComponent<Text>();
             label.font = ResolveFont();
-            label.fontSize = 8;
             label.alignment = TextAnchor.MiddleCenter;
             label.color = new Color(1f, 0.42f, 0.4f);
             label.raycastTarget = false;
             label.horizontalOverflow = HorizontalWrapMode.Overflow;
-            label.rectTransform.sizeDelta = new Vector2(IconSize * 2f, 10f);
             go.GetComponent<Outline>().effectColor = new Color(0f, 0f, 0f, 0.8f);
             _labels.Add(label);
         }
