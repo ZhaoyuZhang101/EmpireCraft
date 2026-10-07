@@ -53,10 +53,26 @@ public static class MineralResourceSystem
         return Mathf.Max(0, left);
     }
 
+    // 查询(界面用)：总储量、枯竭后的冷却年数、开采所需矿场等级、剩余储量
+    public static float ReserveOf(string id) => Reserves(id).reserve;
+    public static int CooldownYears(string id) => Reserves(id).cooldown;
+
+    public static int RequiredTier(string id)
+    {
+        foreach ((string mineral, int tier, _, _) in Minerals)
+            if (mineral == id) return tier;
+        return 0;
+    }
+
+    public static float RemainingAmount(CityPopulationData data, string id) =>
+        RemainingShare(data, id) * Reserves(id).reserve;
+
     // 剩余储量比例(0~1)
     public static float RemainingShare(CityPopulationData data, string id)
     {
         if (CooldownLeft(data, id) > 0) return 0f;
+        // 冷却已结束、下次开采才重置储量：此时已发现新矿脉，按储量回满显示
+        if (data?.deposit_depleted_at != null && data.deposit_depleted_at.ContainsKey(id)) return 1f;
         float mined = data?.deposit_mined != null && data.deposit_mined.TryGetValue(id, out float m) ? m : 0f;
         return Mathf.Clamp01(1f - mined / Reserves(id).reserve);
     }

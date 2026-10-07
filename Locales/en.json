@@ -3343,5 +3343,10 @@
   "zone_planning_contiguous": "Industrial and residential districts can only expand into neighboring zones; a second disconnected district cannot be created.",
   "founder_bandwagon_history": "Overawed by {2}, {3} of {1}, {0} submitted without a fight.",
   "trait_greatRestorerRuler": "Great Restorer",
-  "trait_greatRestorerRuler_info": "A rare restorer who remakes the realm. Halves corruption growth and also has every founder trait: longer life, higher city loyalty, lasting founding vigour, unification wars exempt from forced peace, rival states submitting without a fight, and no rebellions."
+  "trait_greatRestorerRuler_info": "A rare restorer who remakes the realm. Halves corruption growth and also has every founder trait: longer life, higher city loyalty, lasting founding vigour, unification wars exempt from forced peace, rival states submitting without a fight, and no rebellions.",
+  "mineral_tooltip_title": "Deposits",
+  "mineral_tooltip_mining": "Mining · {0}/{1} left ({2:P0})",
+  "mineral_tooltip_locked": "Needs a tier {0} mine · reserve {1}/{2}",
+  "mineral_tooltip_depleted": "Depleted · recovers in {0} years (of {1})",
+  "mineral_tooltip_footer": "Mine tier in this city: {0}. An exhausted deposit cools down; when the cooldown ends a new vein is found and the reserve refills."
 }

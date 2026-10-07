@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using EmpireCraft.Scripts.Compatibility;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GeneralSystems;
@@ -86,8 +87,60 @@ public static class MineralMap
             QuantumSpriteLibrary.colorZones(highlight, hovered.zones, highlight.color);
         });
         asset.check_tile_has_meta = (MetaZoneTooltipAction)((zone, meta, option) => Shown(zone?.city));
-        asset.check_cursor_tooltip = (zone, meta, option) => false;
+        // 悬停：本城每种矿藏的剩余储量、能否开采、枯竭冷却还剩几年
+        asset.check_cursor_tooltip = (zone, meta, option) =>
+        {
+            City city = zone?.city;
+            if (!Shown(city) || MineralResourceSystem.Deposits(city).Count == 0) return false;
+            Tooltip.hideTooltip(city, true, TooltipType);
+            Tooltip.show(city, TooltipType, new TooltipData
+            {
+                city = city, kingdom = city.kingdom, tooltip_scale = 0.7f, is_sim_tooltip = true
+            });
+            return true;
+        };
         asset.click_action_zone = new MetaZoneClickAction((tile, power) => false);
+    }
+
+    public const string TooltipType = "empirecraft_mineral_deposits";
+
+    public static void ShowTooltip(Tooltip tooltip, string type, TooltipData data)
+    {
+        City city = data?.city;
+        if (city == null || city.isRekt()) return;
+        tooltip.clear();
+        tooltip.setTitle(city.GetCityFullName(), "mineral_tooltip_title", "#E6C27A");
+        CityPopulationData population = CityPopulationSystem.Get(city);
+        int tier = MineralResourceSystem.MineTier(city);
+        foreach ((string id, bool minable, float remaining, int cooldown) in MineralResourceSystem.Deposits(city))
+        {
+            string name = NeoModLoader.General.LM.Get(id);
+            float reserve = MineralResourceSystem.ReserveOf(id);
+            string value;
+            string color;
+            if (cooldown > 0)
+            {
+                value = string.Format(NeoModLoader.General.LM.Get("mineral_tooltip_depleted"), cooldown,
+                    MineralResourceSystem.CooldownYears(id));
+                color = "#E66B66";
+            }
+            else if (minable)
+            {
+                value = string.Format(NeoModLoader.General.LM.Get("mineral_tooltip_mining"),
+                    Mathf.RoundToInt(MineralResourceSystem.RemainingAmount(population, id)), Mathf.RoundToInt(reserve),
+                    remaining);
+                color = remaining < 0.2f ? "#E6A166" : "#9FD67A";
+            }
+            else
+            {
+                value = string.Format(NeoModLoader.General.LM.Get("mineral_tooltip_locked"),
+                    MineralResourceSystem.RequiredTier(id), Mathf.RoundToInt(MineralResourceSystem.RemainingAmount(population, id)),
+                    Mathf.RoundToInt(reserve));
+                color = "#8A8A8A";
+            }
+            tooltip.addLineText(name, value, color, pPercent: false, pLocalize: false);
+        }
+        tooltip.addBottomDescription(string.Format(NeoModLoader.General.LM.Get("mineral_tooltip_footer"), tier));
     }
 }
 

@@ -3343,5 +3343,10 @@
   "zone_planning_contiguous": "工业区和住宅区只能向现有区域的相邻区块扩展，不能另建一片。",
   "founder_bandwagon_history": "{0}慑于{1}{3}{2}的威势，望风归附。",
   "trait_greatRestorerRuler": "中兴雄主",
-  "trait_greatRestorerRuler_info": "极为罕见的中兴之主，再造社稷。在位期间腐败增长减半，并享有开国雄主的全部特性：寿命更长、各城忠诚提高、开国气象常在、统一战争不受停战年限、割据者望风归附、境内无叛乱"
+  "trait_greatRestorerRuler_info": "极为罕见的中兴之主，再造社稷。在位期间腐败增长减半，并享有开国雄主的全部特性：寿命更长、各城忠诚提高、开国气象常在、统一战争不受停战年限、割据者望风归附、境内无叛乱",
+  "mineral_tooltip_title": "矿藏",
+  "mineral_tooltip_mining": "开采中 · 剩余 {0}/{1}（{2:P0}）",
+  "mineral_tooltip_locked": "需 {0} 级矿场 · 储量 {1}/{2}",
+  "mineral_tooltip_depleted": "已枯竭 · 还需 {0} 年恢复（共 {1} 年）",
+  "mineral_tooltip_footer": "本城矿场等级：{0}。矿藏采空后进入冷却，冷却结束发现新矿脉，储量回满。"
 }
