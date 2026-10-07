@@ -26,6 +26,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static partial class ParliamentSystem
 {
     private const int MaxSeats = 45;
+    // 人口每增长十倍增加的议席
+    private const float SeatsPerTenfold = 6f;
     // 理念相距超过这个距离的政党不会结成联合政府(见 PartySystem 的理念光谱坐标)
     private const float MaxCoalitionDistance = 110f;
     // 一边拥宪一边反宪的两派之间额外的隔阂
@@ -47,10 +49,13 @@ public static partial class ParliamentSystem
     public static int SeatCount(Empire empire)
     {
         int baseSeats = Math.Max(1, Config.parliament_seats);
-        // 按户计(无小人模式下真实人数可达几百万，议席会一直顶格)
-        int population = CityPopulationSystem.AbstractPopulationEnabled
-            ? CityPopulationSystem.Households(empire) : empire?.CountPopulation() ?? 0;
-        int seats = Mathf.Clamp(baseSeats + population / 100, baseSeats, MaxSeats);
+        // 按人口的数量级定议席：100 人以下为基础议席，人口每增长十倍多 SeatsPerTenfold 席
+        // (100 人 9 席、1 万人 21 席、100 万人 33 席)。无小人模式下用真实人口(可达百万)，两种模式同一条规则
+        float population = CityPopulationSystem.AbstractPopulationEnabled
+            ? CityPopulationSystem.CitiesOf(empire?.kingdoms_list).Sum(city => CityPopulationSystem.GetTotal(city))
+            : empire?.CountPopulation() ?? 0;
+        int extra = Mathf.RoundToInt(SeatsPerTenfold * Mathf.Log10(Mathf.Max(1f, population / 100f)));
+        int seats = Mathf.Clamp(baseSeats + extra, baseSeats, MaxSeats);
         if (seats % 2 == 0) seats += seats + 1 > MaxSeats ? -1 : 1;
         return Math.Max(1, seats);
     }
