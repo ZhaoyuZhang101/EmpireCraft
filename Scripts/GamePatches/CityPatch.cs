@@ -379,6 +379,9 @@ public class CityPatch : GamePatch
                 }
             }
 
+            // 正统高时，帝国成员在对外战争里打下的城优先划归中央(帝国核心国)
+            joinAfterCapture = PreferCentralGovernment(joinAfterCapture, oldKingdom);
+
             LogService.LogInfo($"{__instance.kingdom}的城市{__instance.name}即将被{joinAfterCapture.name}捕获");
             War war = null;
             War expendWar = null;
@@ -528,6 +531,28 @@ public class CityPatch : GamePatch
         }
 
         return false;
+    }
+
+    // 正统高于这个值，帝国成员打下的城开始有机会划归中央；每高 1 点机会多 1/30，到 90 必定归中央
+    private const int CentralCaptureLegitimacy = 60;
+
+    // 帝国成员(行政区等)在对外战争里打下的城：正统越高，越可能直接划归帝国核心国(中央)。
+    // 不算：中央自己打的、帝国内战与叛乱(守城国在同一帝国)、正在叛乱的成员、封国(分封的诸侯自取其地)、
+    // 中央并没有和守城国交战(成员自己的战争)
+    private static Kingdom PreferCentralGovernment(Kingdom capturer, Kingdom oldKingdom)
+    {
+        if (capturer == null || oldKingdom == null || !capturer.IsInEmpire()) return capturer;
+        Empire empire = capturer.GetEmpire();
+        Kingdom core = empire?.CoreKingdom;
+        if (core == null || core.isRekt() || core == capturer) return capturer;
+        if (capturer.IsInSameEmpire(oldKingdom)) return capturer;
+        if (capturer.IsFactionRebelling() || capturer.IsLocalRebelling()) return capturer;
+        if (FeudalVassalService.GetOverlord(capturer) != null) return capturer;
+        if (!core.isInWarWith(oldKingdom)) return capturer;
+        float chance = Mathf.Clamp01((empire.Legitimacy - CentralCaptureLegitimacy) / 30f);
+        if (chance <= 0f || !Randy.randomChance(chance)) return capturer;
+        LogService.LogInfo($"正统{empire.Legitimacy}：{capturer.name}打下的城市划归中央{core.name}");
+        return core;
     }
 
     private static void ClearResolvedCaptureProgress(City city)
