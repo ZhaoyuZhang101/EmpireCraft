@@ -49,6 +49,8 @@ public class CityPopulationData
     public bool classes_initialized;
     // 上次结算土地时的背景农民人数(人口减少时空出的地回到幸存者手里)
     public float background_peasants_last = -1f;
+    // 背景人口里商人、地主攒下的买地钱(见 LandEconomySystem.UpdateBackgroundLand)
+    public float background_land_fund;
 
     // ---- 人口经济(无小人模式，见 PopulationEconomySystem) ----
     // 上次结算产出与消耗的世界时间

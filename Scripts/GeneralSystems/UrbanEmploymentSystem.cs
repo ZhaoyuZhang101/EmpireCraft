@@ -144,7 +144,15 @@ public static class UrbanEmploymentSystem
 
     private static int Capacity(City city, int stage, int adults, int merchants)
     {
-        if (stage <= 0 || adults <= 0) return 0;
+        if (adults <= 0) return 0;
+        // 还没有城市工场的文化：只有工厂招工(按最低一档)，其它工场岗位没有
+        if (stage <= 0)
+        {
+            int jobs = CountFactories(city) * TechnologySystem.Config.industry.jobs_per_factory;
+            if (jobs <= 0) return 0;
+            float cap = Math.Min(0.6f, 0.08f + TechnologySystem.GetEmploymentCapBonus(TechnologySystem.GetCultureOf(city)));
+            return Math.Min(jobs, Math.Max(1, (int)Math.Ceiling(adults * cap)));
+        }
         int buildings = city.buildings?.Count ?? 0;
         int voyages = GetRecentVoyages(city);
         // 工厂(WarBox 的工厂/钢铁厂/火药厂等，类型在科技树 industry.factory_types 里配置)是最大的雇主
