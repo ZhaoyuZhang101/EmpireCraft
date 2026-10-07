@@ -372,7 +372,7 @@
   "trait_empireSoldier": "帝國軍人",
   "trait_empireArmedProvinceSoldier": "帝國軍府軍人",
   "trait_founderRuler": "開國雄主",
-  "trait_founderRuler_info": "改朝換代的第一位皇帝。壽命更長，在位期間帝國各城忠誠度提高",
+  "trait_founderRuler_info": "改朝換代的第一位皇帝。壽命更長；在位期間帝國各城忠誠提高、開國氣象常在(攻城加速、正統損失減半)、統一本核心的戰爭不受停戰年限、控制核心過半後割據者望風歸附、境內無叛亂",
   "trait_restorerRuler": "中興之主",
   "trait_restorerRuler_info": "管理才能出眾的守成之君。在位期間帝國腐敗增長減半",
   "founder_ruler_loyalty": "開國雄主",
@@ -3341,5 +3341,7 @@
   "territory_font_next": "下一頁",
   "farm_planning_no_windmill": "這個區塊沒有位於本城風車周圍9格內的可耕地。",
   "zone_planning_contiguous": "工業區和住宅區只能向現有區域的相鄰區塊擴展，不能另建一片。",
-  "founder_bandwagon_history": "{0}懾於{1}開國雄主{2}的威勢，望風歸附。"
+  "founder_bandwagon_history": "{0}懾於{1}{3}{2}的威勢，望風歸附。",
+  "trait_greatRestorerRuler": "中興雄主",
+  "trait_greatRestorerRuler_info": "極為罕見的中興之主，再造社稷。在位期間腐敗增長減半，並享有開國雄主的全部特性：壽命更長、各城忠誠提高、開國氣象常在、統一戰爭不受停戰年限、割據者望風歸附、境內無叛亂"
 }

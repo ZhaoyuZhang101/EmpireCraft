@@ -127,6 +127,15 @@ public static class EmpireCraftActorTraitLibrary
             path_icon = "ui/icons/actor_traits/iconRestorerRuler",
             group_id = "EmpireOffice"
         });
+        // 中兴雄主(极品中兴之主)：与开国雄主同样长寿，其余特性见 RulerTraitSystem
+        lib.add(new ActorTrait
+        {
+            id = RulerTraitSystem.GreatRestorer,
+            path_icon = "ui/icons/actor_traits/iconGreatRestorerRuler",
+            group_id = "EmpireOffice"
+        });
+        lib.t.base_stats["lifespan"] = 10f;
+        lib.t.base_stats["multiplier_lifespan"] = 0.3f;
     }
     public static bool been_soldier(NanoObject pTarget, BaseAugmentationAsset pTrait)
     {

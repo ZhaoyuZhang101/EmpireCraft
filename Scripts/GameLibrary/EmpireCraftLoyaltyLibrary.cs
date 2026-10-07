@@ -85,14 +85,13 @@ public static class EmpireCraftLoyaltyLibrary
                 ? EmpireCraft.Scripts.GeneralSystems.ModernStability.Loyalty
                 : 0
         });
-        // 开国雄主在位：帝国各城忠诚加成
+        // 开国雄主(或中兴雄主)在位：帝国各城忠诚加成
         lib.add(new LoyaltyAsset()
         {
             id = "founder_ruler",
             translation_key = "founder_ruler_loyalty",
             calc = pCity => pCity?.kingdom != null &&
-                            EmpireCraft.Scripts.GeneralSystems.RulerTraitSystem.ReignedBy(pCity.kingdom,
-                                EmpireCraft.Scripts.GeneralSystems.RulerTraitSystem.Founder)
+                            EmpireCraft.Scripts.GeneralSystems.RulerTraitSystem.FounderReigns(pCity.kingdom)
                 ? EmpireCraft.Scripts.GeneralSystems.RulerTraitSystem.FounderLoyalty
                 : 0
         });

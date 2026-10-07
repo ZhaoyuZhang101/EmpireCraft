@@ -226,7 +226,8 @@ public static partial class WarlordEraSystem
             if (holder.isEnemy(founderKingdom) || !AbsorbDefector(founder, holder)) continue;
             EmpireCoreControl.Invalidate(core);
             EventRecorder.Record(founderKingdom, string.Format(LM.Get("founder_bandwagon_history"),
-                holder.GetKingdomFullName(), founder.GetBaseEmpireFullName(), founder.Emperor?.getName() ?? ""));
+                holder.GetKingdomFullName(), founder.GetBaseEmpireFullName(), founder.Emperor?.getName() ?? "",
+                RulerTraitSystem.FounderTitle(founder.Emperor)));
         }
     }
 

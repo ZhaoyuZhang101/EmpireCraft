@@ -287,7 +287,7 @@
   "trait_empireSoldier": "Imperial Soldier",
   "trait_empireArmedProvinceSoldier": "Imperial Military Prefecture Soldier",
   "trait_founderRuler": "Dynasty Founder",
-  "trait_founderRuler_info": "First emperor of a new dynasty. Lives longer; cities across the empire are more loyal during the reign",
+  "trait_founderRuler_info": "The first emperor of a new dynasty. Lives longer; while reigning, raises city loyalty, keeps the founding vigour (faster sieges, halved mandate losses), fights unification wars in the core without forced peace, makes rival states submit once over half the core is held, and suffers no rebellions.",
   "trait_restorerRuler": "Restorer",
   "trait_restorerRuler_info": "A ruler of outstanding stewardship. Corruption grows at half speed across the empire during the reign",
   "founder_ruler_loyalty": "Dynasty Founder",
@@ -3341,5 +3341,7 @@
   "territory_font_next": "Next",
   "farm_planning_no_windmill": "This zone has no farmable land within 9 tiles of its city windmill.",
   "zone_planning_contiguous": "Industrial and residential districts can only expand into neighboring zones; a second disconnected district cannot be created.",
-  "founder_bandwagon_history": "Overawed by {2}, founder of {1}, {0} submitted without a fight."
+  "founder_bandwagon_history": "Overawed by {2}, {3} of {1}, {0} submitted without a fight.",
+  "trait_greatRestorerRuler": "Great Restorer",
+  "trait_greatRestorerRuler_info": "A rare restorer who remakes the realm. Halves corruption growth and also has every founder trait: longer life, higher city loyalty, lasting founding vigour, unification wars exempt from forced peace, rival states submitting without a fight, and no rebellions."
 }
