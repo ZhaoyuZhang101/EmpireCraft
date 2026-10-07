@@ -1122,7 +1122,8 @@ public static class EmpireCraftNamePlateLibrary
                 GetSafeEmpireName(empire),
                 EnumerateEmpireViewCities(empire, view),
                 style,
-                view != 0 && empire == hoveredEmpire);
+                view != 0 && empire == hoveredEmpire,
+                sealFont: UseSealName(empire.CoreKingdom));
         }
 
         // 帝国视图的补充：同盟标签覆盖其(不在帝国里的)成员国，悬停时淡出并显示成员国
@@ -1166,7 +1167,8 @@ public static class EmpireCraftNamePlateLibrary
                     kingdom == hoveredKingdom || belongsToHoveredEmpire,
                     // The faded empire caption is only contextual while hovered;
                     // its member administrative labels must render above it.
-                    belongsToHoveredEmpire);
+                    belongsToHoveredEmpire,
+                    sealFont: UseSealName(kingdom));
             }
         }
         TerritoryLabelRenderer.EndFrame();
@@ -1188,7 +1190,8 @@ public static class EmpireCraftNamePlateLibrary
                 text,
                 kingdom.cities,
                 empire == null ? GetTerritoryKingdomStyle(kingdom) : TerritoryLabelRenderer.EmpireStyle,
-                kingdom == hoveredKingdom);
+                kingdom == hoveredKingdom,
+                sealFont: UseSealName(kingdom));
         }
         TerritoryLabelRenderer.EndFrame();
     }
@@ -1345,10 +1348,19 @@ public static class EmpireCraftNamePlateLibrary
         return name;
     }
 
+    // 华夏国号用大篆(见 TerritoryFontSettings.SealHuaxiaNames)：华夏文化、不是现代政体、内置篆书可用
+    private static bool UseSealName(Kingdom kingdom) =>
+        kingdom != null && TerritoryFontSettings.SealHuaxiaNames && kingdom.GetRegime()?.type != RegimeType.Modern &&
+        kingdom.GetEmpireCraftCulture() == "Huaxia" && BundledTerritoryFonts.Available;
+
     private static string BuildSafeEmpireName(Empire empire)
     {
         string empireName = empire.GetEmpireFullName();
         if (string.IsNullOrWhiteSpace(empireName)) return GetSafeKingdomName(empire.CoreKingdom);
+        // 篆书国号不带后缀
+        if (UseSealName(empire.CoreKingdom) && empire.CoreKingdom?.HasCustomCountryNaming() != true)
+            return OverallHelperFunc.JoinNameParts(OverallHelperFunc.LocalizeDirectPrefix(empire.data),
+                empire.GetEmpireName());
         if (empire.CoreKingdom?.GetRegime()?.type == RegimeType.Modern) return empireName;
         if (!ModClass.SIMPLE_NAMEPLATE_SWITCH) return empireName;
         if (empire.CoreKingdom?.HasCustomCountryNaming() == true) return empire.GetEmpireName();
@@ -1374,6 +1386,8 @@ public static class EmpireCraftNamePlateLibrary
         string kingdomName = kingdom?.GetKingdomFullName() ?? "";
         if (kingdom?.IsEmpire() == true && kingdom.GetRegime()?.type == RegimeType.Modern)
             return kingdomName;
+        // 篆书国号不带后缀
+        if (UseSealName(kingdom) && !string.IsNullOrWhiteSpace(kingdom.GetKingdomName())) return kingdom.GetKingdomName();
         if (!ModClass.SIMPLE_NAMEPLATE_SWITCH || string.IsNullOrWhiteSpace(kingdomName)) return kingdomName;
         // 隐藏后缀：没有法理的现代势力只显示都城名(不显示原版随机国名)
         if (kingdom.GetRegime()?.type == RegimeType.Modern && !kingdom.HasMainTitle())

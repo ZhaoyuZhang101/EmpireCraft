@@ -3351,5 +3351,8 @@
   "mineral_tooltip_footer": "本城礦場等級：{0}。礦藏採空後進入冷卻，冷卻結束發現新礦脈，儲量回滿。",
   "city_pop_income": "人口年收入",
   "city_pop_savings": "民間存款",
-  "city_pop_savings_format": "{0}（年消費 {1}）"
+  "city_pop_savings_format": "{0}（年消費 {1}）",
+  "territory_font_seal_huaxia_on": "華夏國號用大篆：開（無後綴）",
+  "territory_font_seal_huaxia_off": "華夏國號用大篆：關",
+  "territory_font_seal_missing": "內置篆書沒有載入成功，請看日誌"
 }

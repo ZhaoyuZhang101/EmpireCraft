@@ -36,6 +36,49 @@ public static class TerritoryFontSettings
     };
 
     private static string _choice;
+    private static bool? _sealHuaxia;
+
+    private static string SealHuaxiaPath
+    {
+        get
+        {
+            string parent = Directory.GetParent(ModClass._declare.FolderPath)?.FullName ?? ModClass._declare.FolderPath;
+            return Path.Combine(parent, "EmpireCraftSealHuaxia.txt");
+        }
+    }
+
+    // 华夏国号用大篆：开启后华夏文化(非现代政体)的国号铭牌一律用内置篆书、不带后缀，不受上面的字体选择影响。
+    // 默认开启；存在模组目录外，模组更新不会清掉
+    public static bool SealHuaxiaNames
+    {
+        get
+        {
+            if (_sealHuaxia.HasValue) return _sealHuaxia.Value;
+            _sealHuaxia = true;
+            try
+            {
+                if (File.Exists(SealHuaxiaPath)) _sealHuaxia = File.ReadAllText(SealHuaxiaPath).Trim() != "0";
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 读取华夏国号篆书设置失败: {exception.Message}");
+            }
+            return _sealHuaxia.Value;
+        }
+        set
+        {
+            _sealHuaxia = value;
+            try
+            {
+                File.WriteAllText(SealHuaxiaPath, value ? "1" : "0");
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 保存华夏国号篆书设置失败: {exception.Message}");
+            }
+            TerritoryLabelRenderer.ResetFonts();
+        }
+    }
     private static string[] _installed;
     // 铭牌每帧都要问用哪个字体：解析结果缓存起来，设置改变或重新扫描时作废
     private static string _resolved;

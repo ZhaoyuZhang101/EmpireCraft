@@ -58,6 +58,16 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
         Mode(modes, "territory_font_auto", choice == TerritoryFontSettings.Auto, () => Choose(TerritoryFontSettings.Auto));
         Mode(modes, "territory_font_game", choice == TerritoryFontSettings.Game, () => Choose(TerritoryFontSettings.Game));
         Mode(modes, "territory_font_rescan", false, () => { TerritoryFontSettings.Rescan(); Rebuild(); });
+        // 华夏国号用大篆(不带后缀)
+        bool seal = TerritoryFontSettings.SealHuaxiaNames;
+        AdvancedButton sealToggle = panel.AddButtonIntoVertLayout("territory_font_seal_huaxia",
+            LM.Get(seal ? "territory_font_seal_huaxia_on" : "territory_font_seal_huaxia_off"),
+            () => { TerritoryFontSettings.SealHuaxiaNames = !TerritoryFontSettings.SealHuaxiaNames; Rebuild(); },
+            size: new Vector2(Width, 17f));
+        sealToggle.Background.color = seal ? new Color(0.38f, 0.30f, 0.18f) : new Color(0.17f, 0.19f, 0.21f);
+        sealToggle.Text.fontSize = 7;
+        if (!BundledTerritoryFonts.Available)
+            AddLine(panel, LM.Get("territory_font_seal_missing"), 6, 14f, "#E07A6A");
 
         var fonts = TerritoryFontSettings.TraditionalFonts()
             .Select(item => (item.name, item.styleKey)).Concat(TerritoryFontSettings.OtherFonts()

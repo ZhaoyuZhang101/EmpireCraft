@@ -213,13 +213,16 @@ public static class TerritoryLabelRenderer
     }
 
     // icon：可选，画在名字前面的小图标(如理念图层的理念徽章)，随文字一起旋转、缩放
+    // sealFont：这个铭牌用内置篆书(华夏国号，见 TerritoryFontSettings.SealHuaxiaNames)
     public static void SubmitCities(string id, string text, IEnumerable<City> cities, TerritoryLabelStyle style,
-        bool fullyOpaque = false, bool ignoreOverlap = false, bool showCultureLock = false, Sprite icon = null)
+        bool fullyOpaque = false, bool ignoreOverlap = false, bool showCultureLock = false, Sprite icon = null,
+        bool sealFont = false)
     {
         if (string.IsNullOrWhiteSpace(id) || cities == null || !EnsureHost()) return;
         MarkSubmissionFrame();
-        GetOrCreateLabel(id).UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque, ignoreOverlap,
-            showCultureLock, icon);
+        RuntimeLabel label = GetOrCreateLabel(id);
+        label.seal_font = sealFont;
+        label.UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque, ignoreOverlap, showCultureLock, icon);
     }
 
     public static void SubmitEmpireCore(string id, string text, EmpireCore core, TerritoryLabelStyle style,
@@ -300,12 +303,14 @@ public static class TerritoryLabelRenderer
 
     // 字体按铭牌字体设置(TerritoryFontSettings)：游戏字体 / 自动挑本机的传统书体 / 指定字体。
     // 自动模式下含英文字母的名字用西文衬线字体
-    private static Font ResolveTerritoryFont(Font fallback, string text, bool richText = false)
+    private static Font ResolveTerritoryFont(Font fallback, string text, bool richText = false, bool sealFont = false)
     {
         string choice = TerritoryFontSettings.Choice;
-        if (choice == TerritoryFontSettings.Game) return fallback;
+        Font seal = sealFont && TerritoryFontSettings.SealHuaxiaNames ? BundledTerritoryFonts.Load() : null;
+        if (seal == null && choice == TerritoryFontSettings.Game) return fallback;
         Font selected;
-        if (choice == TerritoryFontSettings.Auto && ContainsLatin(text, richText))
+        if (seal != null) selected = seal;
+        else if (choice == TerritoryFontSettings.Auto && ContainsLatin(text, richText))
             selected = ResolveInstalledFont(LatinFontNames, fallback, ref _latin_font, ref _latin_font_resolved);
         else
         {
@@ -541,6 +546,7 @@ public static class TerritoryLabelRenderer
         private const float SampleSpacing = 3.25f;
 
         private readonly string _id;
+        public bool seal_font;
         private readonly List<Vector3> _points = new List<Vector3>(64);
         private readonly List<TileZone> _zones = new List<TileZone>(64);
         private readonly List<TileZone> _walk_component = new List<TileZone>(64);
@@ -773,7 +779,7 @@ public static class TerritoryLabelRenderer
             if (_text == null) return;
 
             string trimmedValue = value.Trim();
-            Font desiredFont = ResolveTerritoryFont(_fallback_font ?? _text.font, trimmedValue, style.rich_text);
+            Font desiredFont = ResolveTerritoryFont(_fallback_font ?? _text.font, trimmedValue, style.rich_text, seal_font);
             if (_text.font != desiredFont)
             {
                 _text.font = desiredFont;
