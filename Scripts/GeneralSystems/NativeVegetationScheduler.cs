@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
@@ -29,11 +30,20 @@ public static class NativeVegetationScheduler
             _world = World.world;
         }
         if (building?.batch == null || building.data == null) return;
-        bool idle = CityPopulationSystem.AbstractPopulationEnabled && building.isUsable() &&
-            building.isNormal() && building.component_fruit_growth != null &&
-            building.components_list?.Count == 1 &&
-            ReferenceEquals(building.components_list[0], building.component_fruit_growth) &&
-            building.hasResourcesToCollect();
+
+        var components = (IList)building.components_list;
+
+        bool idle = CityPopulationSystem.AbstractPopulationEnabled &&
+                    building.isUsable() &&
+                    building.isNormal() &&
+                    building.component_fruit_growth != null &&
+                    components.Count == 1 &&
+                    ReferenceEquals(
+                        components[0],
+                        building.component_fruit_growth
+                    ) &&
+                    building.hasResourcesToCollect();
+
         if (idle)
         {
             // ObjectContainer 延迟执行增删，允许在组件更新中调用。
