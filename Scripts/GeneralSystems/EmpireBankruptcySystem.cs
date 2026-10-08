@@ -18,7 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 地方离心：每年亏空越久，成员国越容易离开——
 //       军府(节度使)与自主性强的(可自募军队、自办外交、不供养中央军)拥兵自立，打独立战争；
 //       自主性弱的就近投靠正在与朝廷交战的叛军，举地归附；附近没有叛军的才偶尔自立；
-//   · 正统逐年流失，拖得越久流失越快。
+//   · 前现代正统按当前亏空状况有界扣分；现代/过渡政体保留原有年度事件法统扣分。
 // 国库转正后亏空结束。每年由 ConstitutionalEconomySystem 的年度结算调用。
 public static class EmpireBankruptcySystem
 {
@@ -41,6 +41,8 @@ public static class EmpireBankruptcySystem
         {
             Kingdom kingdom = city?.kingdom;
             if (kingdom == null || kingdom.isRekt()) return false;
+            if (TreasurySystem.Enabled(city)) return city != kingdom.GetEmpire()?.CoreKingdom?.capital &&
+                city.GetOrCreate().stability?.withdrawn == true;
             Empire empire = kingdom.GetEmpire();
             if (empire == null || empire.isRekt() || !IsBankrupt(empire)) return false;
             return city != empire.CoreKingdom.capital;
@@ -54,6 +56,7 @@ public static class EmpireBankruptcySystem
     public static void Update(Empire empire, ConstitutionalEconomyState state)
     {
         if (state == null || empire?.CoreKingdom == null || World.world == null) return;
+        MonarchyLegitimacy.Invalidate(empire);
         if (!IsBankrupt(empire))
         {
             if (state.bankrupt_since >= 0d)
@@ -68,7 +71,8 @@ public static class EmpireBankruptcySystem
             return;
         }
         int years = Date.getYearsSince(state.bankrupt_since);
-        empire.AddMandate(-Mathf.Min(5, 1 + years / 5));
+        // 前现代亏空是有界的现状贡献，财政恢复即解除，不再永久累扣原始法统。
+        if (!MonarchyLegitimacy.Applies(empire)) empire.AddMandate(-Mathf.Min(5, 1 + years / 5));
         try
         {
             Disintegrate(empire, years);
@@ -82,6 +86,8 @@ public static class EmpireBankruptcySystem
     private static void Disintegrate(Empire empire, int years)
     {
         Kingdom core = empire.CoreKingdom;
+        // 新财政逐城评估欠款、稳定恢复和撤军，不再凭国库瞬时负数随机拆分地方。
+        if (TreasurySystem.Enabled(core)) return;
         float chance = Mathf.Min(MaxChance, BaseChance + ChancePerYear * years);
         List<Kingdom> rebels = RebellionSnowballSystem.FindRebels(empire, core).ToList();
         List<Kingdom> members = empire.kingdoms_list.Where(kingdom => kingdom != null && !kingdom.isRekt() &&

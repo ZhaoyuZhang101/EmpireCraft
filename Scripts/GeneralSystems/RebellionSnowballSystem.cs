@@ -64,7 +64,8 @@ public static class RebellionSnowballSystem
         List<City> frontier = rebelCities
             .SelectMany(city => (IEnumerable<City>)city.neighbours_cities ?? Enumerable.Empty<City>())
             .Where(city => city != null && !city.isRekt() && city.kingdom != null && city.kingdom.GetEmpire() == empire &&
-                           city != core.capital)
+                           city != core.capital && RebellionSystem.CanAttempt(city.kingdom) &&
+                           CityStabilitySystem.CanRise(city))
             .Distinct().OrderBy(_ => UnityEngine.Random.value).ToList();
         var defected = new List<string>();
         foreach (City city in frontier)

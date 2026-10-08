@@ -25,7 +25,7 @@ public class EmpireData : MetaObjectData
     public long empire_specific_clan { get; set; } = -1L;
     public float TaxRate = 0.2f;
     public int banner_icon_id { get; set; }
-    public int Mandate { get; set; } = 100; //正统
+    public int Mandate { get; set; } = 100; // 原始事件法统；综合正统由 MonarchyLegitimacy 计算
     public List<long> CabinetMembers { get; set; } = new List<long>();
     public long Religion { get; set; } = -1L;
     public EmpireHeirLawType heir_type { get; set; }
@@ -33,6 +33,7 @@ public class EmpireData : MetaObjectData
     public List<int> PreviousYearsMoney = new();
     public double MilitaryExpenditureRate { get; set; } = 0.2;
     public int MilitaryExpenditure = 0;
+    public double last_military_expenditure_timestamp = -1d;
     public double last_increase_mandate_timestamp = -1L;
     public bool original_royal_been_changed { get; set; } = false;
     public bool feed_royal = false;
@@ -50,6 +51,8 @@ public class EmpireData : MetaObjectData
     public bool is_been_controlled { get; set; } = false;
     //岁币国
     public List<long> given_Kingdoms = new List<long>();
+    // 岁赐报价随协定保存，人口变化不改变已签订的年度金额。
+    public Dictionary<long, int> given_annual_quotes = new();
     //朝贡国
     public List<long> taken_Kingdoms = new List<long>();
     public EmpireAddition additions = new EmpireAddition();

@@ -165,6 +165,9 @@ public static class CultureService
         if (OnomasticsRule.ALL_CULTURE_RULE[culture].regime == RegimeType.Arabic) return;
         if (!ApplyCulturePoliticalSystem(kingdom, culture)) return;
         EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+        Empire empire = kingdom.GetEmpire();
+        if (empire?.CoreKingdom == kingdom && empire.data?.centerOffice != null)
+            empire.data.centerOffice.Init(kingdom);
         LogService.LogInfo($"[EmpireCraft] 修复国家 {kingdom.id} 的外文化默认政体: Arabic -> {data.regimeType}，绑定文化 {culture}");
     }
 

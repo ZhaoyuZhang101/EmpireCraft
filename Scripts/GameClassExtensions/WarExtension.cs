@@ -28,6 +28,7 @@ public static class WarExtension
         public Dictionary<long, int> initial_cities = new Dictionary<long, int>();
         public bool history_declaration_recorded;
         public bool history_end_recorded;
+        public RebellionCauseData rebellion_cause;
         public List<DefeatedEmpireHouse> attacker_empire_houses = new List<DefeatedEmpireHouse>();
         public List<DefeatedEmpireHouse> defender_empire_houses = new List<DefeatedEmpireHouse>();
         public List<long> defender_realm_title_ids = new List<long>();

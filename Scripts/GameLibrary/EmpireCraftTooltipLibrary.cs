@@ -191,10 +191,12 @@ public static class EmpireCraftTooltipLibrary
 				$"{feudalLord.GetKingdomName()} ({fealty.feudal_vassal_level}, {fealty.feudal_vassal_progress}/{FeudalVassalService.ProgressPerLevel})",
 				"#FF5555");
 		}
-		if (kingdom.hasKing())
-		{
-			pTooltip.addLineIntText("ruler_money", kingdom.king.money);
-		}
+		pTooltip.addLineText("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(kingdom.GetMoney()));
+        if (CityPopulationSystem.AbstractPopulationEnabled && ExclaveMaintenanceSystem.Status(kingdom) is string exclaveStatus)
+            pTooltip.addLineText("exclave_maintenance", exclaveStatus);
+		if (CityPopulationSystem.AbstractPopulationEnabled && !kingdom.wild &&
+		    !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom))
+			pTooltip.addLineText("state_settlement", StateSettlementSystem.Status(kingdom), "#F3C34A");
 		pTooltip.addLineBreak();
 		pTooltip.addLineText("villages", kingdom.cities.Count.ToText() + "/" + kingdom.getMaxCities().ToText());
         int deJureExemptCities = kingdom.CountDeJureCapacityExemptCities();
@@ -235,10 +237,13 @@ public static class EmpireCraftTooltipLibrary
 		// 独立王国的苛政(帝国成员看帝国提示框)
 		float kingdomBurden = HarshRuleSystem.GetBurden(kingdom);
 		if (kingdomBurden >= 1f)
-			pTooltip.addLineText("label_harsh_rule", $"{kingdomBurden:0}  " + string.Join("  ",
-					HarshRuleSystem.Breakdown(kingdom).Take(3).Select(item => $"{LM.Get(item.key)}{item.value}")),
-				kingdomBurden >= 60f ? "#FF6666" : kingdomBurden >= 30f ? "#E9A85B" : "#B8C6CC");
+		{
+			string burdenColor = kingdomBurden >= 60f ? "#FF6666" : kingdomBurden >= 30f ? "#E9A85B" : "#B8C6CC";
+			pTooltip.addLineText("label_harsh_rule", $"{kingdomBurden:0}", burdenColor);
+			AddTooltipSources(pTooltip, HarshRuleSystem.Breakdown(kingdom).Take(3), burdenColor);
+		}
 		// 地方政治：本省执政党与各党支持率
+		AddStabilityTooltip(pTooltip, kingdom);
 		Empire provinceEmpire = kingdom.GetEmpire();
 		if (ProvincialPoliticsSystem.IsProvince(provinceEmpire, kingdom) && PartySystem.IsActive(provinceEmpire))
 		{
@@ -367,22 +372,37 @@ public static class EmpireCraftTooltipLibrary
             EmpireCoreManager.GetLegitimateEmpire(core)?.GetEmpireFullName(), "#FF6666");
         AddTooltipLine(pTooltip, modern ? "modern_tooltip_founding_title" : "empire_tooltip_ascension_title",
             GetAscensionTitleName(pEmpire, core), "#FFD34E", true);
-        AddTooltipLine(pTooltip, "label_treasury", pEmpire.CurrentMoney.ToString(),
+        AddTooltipLine(pTooltip, "label_treasury", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(pEmpire.CurrentMoney),
             pEmpire.CurrentMoney < 0 ? "#FF6666" : "#76E6C2", true);
         AddTooltipLine(pTooltip, pEmpire.LegitimacyLabelKey, pEmpire.Legitimacy.ToString(), "#FFCF55", true);
         // 苛政与街头抗争
         float burden = HarshRuleSystem.GetBurden(pEmpire);
         if (burden >= 1f)
-            AddTooltipLine(pTooltip, "label_harsh_rule", $"{burden:0}  " + string.Join("  ",
-                    HarshRuleSystem.Breakdown(pEmpire).Take(3).Select(item => $"{LM.Get(item.key)}{item.value}")),
-                burden >= 60f ? "#FF6666" : burden >= 30f ? "#E9A85B" : "#B8C6CC");
+        {
+            string burdenColor = burden >= 60f ? "#FF6666" : burden >= 30f ? "#E9A85B" : "#B8C6CC";
+            AddTooltipLine(pTooltip, "label_harsh_rule", $"{burden:0}", burdenColor);
+            AddTooltipSources(pTooltip, HarshRuleSystem.Breakdown(pEmpire).Take(3), burdenColor);
+        }
         int streetStage = HarshRuleSystem.GetStreetStage(pEmpire);
+        double corruption = CorruptionSystem.GetRate(pEmpire);
+        AddTooltipLine(pTooltip, "label_realm_corruption", $"{corruption:P0}",
+            corruption >= 0.5d ? "#FF6666" : "#B8C6CC");
         if (ModernLegitimacy.Applies(pEmpire) && streetStage > 0)
             AddTooltipLine(pTooltip, "label_street_unrest", HarshRuleSystem.GetStageName(streetStage),
                 streetStage >= 3 ? "#FF6666" : "#E9A85B");
         if (ModernLegitimacy.Applies(pEmpire))
-            AddTooltipLine(pTooltip, "label_legitimacy_sources", string.Join("  ", ModernLegitimacy.Breakdown(pEmpire)
-                .Select(item => $"{LM.Get(item.key)}{(item.value > 0 ? "+" : "")}{item.value}")), "#B8C6CC");
+        {
+            pTooltip.addLineText("label_legitimacy_sources", "", "#B8C6CC");
+            AddTooltipSources(pTooltip, ModernLegitimacy.Breakdown(pEmpire), "#B8C6CC", signed: true);
+        }
+        else if (MonarchyLegitimacy.Applies(pEmpire))
+        {
+            pTooltip.addLineText("label_mandate_sources", "", "#B8C6CC");
+            AddTooltipSources(pTooltip, MonarchyLegitimacy.Breakdown(pEmpire), "#B8C6CC", signed: true);
+            AddTooltipLine(pTooltip, "label_dynasty_age", DynasticCycleSystem.GetAge(pEmpire).ToString(), "#B8C6CC");
+            AddTooltipLine(pTooltip, "label_dynastic_strain", $"{DynasticCycleSystem.GetPressure(pEmpire):0.0}/100",
+                DynasticCycleSystem.InCrisis(pEmpire) ? "#FF6666" : "#B8C6CC");
+        }
 
         FixedFaction dominantFaction = regime?.GetDominateFaction();
         AddTooltipLine(pTooltip, "label_dominant_faction", dominantFaction?.Name, "#E78BFF", true);
@@ -888,6 +908,34 @@ public static class EmpireCraftTooltipLibrary
             ActorSex.Female => LM.Get("empirecraft_actor_gender_female"),
             _ => LM.Get("empirecraft_actor_gender_unknown")
         };
+    }
+
+    // 原版提示框用两个独立文本列，右列不按左列宽度换行。明细必须逐项使用同一行的名称和数值。
+    private static void AddStabilityTooltip(Tooltip tooltip, Kingdom kingdom)
+    {
+        if (kingdom.hasCapital() && TreasurySystem.Enabled(kingdom.capital))
+        {
+            float stability = CityStabilitySystem.Effective(kingdom.capital);
+            AddTooltipLine(tooltip, "city_stability", $"{stability:0}/100", stability < 40f ? "#FF6666" : "#65D66E");
+            AddTooltipLine(tooltip, "city_garrison", CityStabilitySystem.GarrisonText(kingdom.capital), "#B8C6CC");
+        }
+        int grace = RebellionSystem.GraceYearsRemaining(kingdom);
+        if (grace > 0) AddTooltipLine(tooltip, "rebellion_grace_remaining", grace.ToString(), "#65D66E");
+        var cause = kingdom.GetOrCreate().last_rebellion_cause;
+        if (cause == null) return;
+        AddTooltipLine(tooltip, "rebellion_last_reason", LM.Get(cause.reason_key), "#E9A85B");
+        if (cause.legitimacy >= 0) AddTooltipLine(tooltip, "rebellion_original_legitimacy", cause.legitimacy.ToString(), "#B8C6CC");
+        if (cause.loyalty.HasValue) AddTooltipLine(tooltip, "rebellion_original_loyalty", cause.loyalty.Value.ToString(), "#B8C6CC");
+        if (cause.stability.HasValue) AddTooltipLine(tooltip, "rebellion_original_stability", $"{cause.stability:0}", "#B8C6CC");
+        foreach (string line in RebellionSystem.DetailLines(cause.detail))
+            tooltip.addLineText(line, "", "#B8C6CC", pLocalize: false);
+    }
+
+    private static void AddTooltipSources(Tooltip tooltip, IEnumerable<(string key, int value)> sources,
+        string color, bool signed = false)
+    {
+        foreach (var item in sources)
+            AddTooltipLine(tooltip, item.key, (signed && item.value > 0 ? "+" : "") + item.value, color);
     }
 
     private static void AddTooltipLine(Tooltip tooltip, string key, string value, string color, bool showNone = false)

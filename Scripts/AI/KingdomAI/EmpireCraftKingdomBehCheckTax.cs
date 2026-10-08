@@ -1,6 +1,7 @@
 using System;
 using ai.behaviours;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.Layer;
 
@@ -13,7 +14,7 @@ public class EmpireCraftKingdomBehCheckTax : GameAIKingdomBase
     public override BehResult execute(Kingdom pKingdom)
     {
         pKingdom.CheckEmpire();
-        if (!pKingdom.IsInEmpire())
+        if (!TreasurySystem.Enabled(pKingdom) && !pKingdom.IsInEmpire())
         {
             if (pKingdom.GetMoney() < 0)
             {
@@ -32,36 +33,32 @@ public class EmpireCraftKingdomBehCheckTax : GameAIKingdomBase
                 pEmpireKingdom = empire.CoreKingdom;
             }
         }
-        int money = pKingdom.GetMoney();
-        int num = (int)((float)money * pTaxRate);
+        int money = Math.Max(0, pKingdom.GetMoney());
+        int num = (int)(money * Math.Max(0d, Math.Min(1d, pTaxRate)));
         int corruptedMoney = 0;
-        if (pKingdom.hasKing())
+        if (pKingdom.hasKing() && !pKingdom.king.isRekt() && pKingdom.king.isAlive())
         {
             Actor actor = pKingdom.king;
             var corruptionValue = actor.CalcCorruptionValue();
-            if (pKingdom.IsInEmpire())
-            {
-                if (corruptionValue > 0)
-                {
-                    pKingdom.AddCorruptionRate(corruptionValue / 10f);
-                }
-            }
-            else
-            {
-                pKingdom.AddCorruptionRate(-0.2f);
-            }
-            corruptedMoney = (int)(corruptionValue / 2) * num;
-
-            if (corruptedMoney > 0)
-            {
-                actor.addMoney(corruptedMoney);
-                actor.RecordCrime(LawType.贪污);
-            }
+            pKingdom.AddCorruptionRate(CorruptionSystem.AnnualOfficeChange(actor, pKingdom, corruptionValue));
+            corruptedMoney = (int)(num * Math.Max(0d, Math.Min(1d, corruptionValue / 2d)));
         }
-        pKingdom.SubMoney((int)(num * (1.0f - pKingdom.GetCorruptionRate())));
+        if (TreasurySystem.Enabled(pKingdom))
+        {
+            pKingdom.RecordTaxTime();
+            return BehResult.Continue;
+        }
+        int collected = (int)(num * Math.Max(0d, Math.Min(1d, 1d - pKingdom.GetCorruptionRate())));
+        corruptedMoney = Math.Min(collected, corruptedMoney);
+        if (corruptedMoney > 0 && pKingdom.hasKing())
+        {
+            pKingdom.king.addMoney(corruptedMoney);
+            pKingdom.king.RecordCrime(LawType.贪污);
+        }
+        pKingdom.SubMoney(collected);
         if (pEmpireKingdom != null)
         {
-            pEmpireKingdom.AddMoney((int)((num - corruptedMoney) * (1.0f - pKingdom.GetCorruptionRate())));
+            pEmpireKingdom.AddMoney(collected - corruptedMoney);
         }
         pKingdom.RecordTaxTime();
         return BehResult.Continue;

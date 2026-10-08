@@ -18,6 +18,7 @@ public readonly struct PopulationGroupValue
 
 public sealed class PopulationNumericInput
 {
+    public readonly EmpireCraft.Scripts.GeneralSystems.CityStabilityInput[] Stability;
     public readonly PopulationContactInput Contact;
     public readonly PopulationProductionInput Production;
     public readonly PopulationRankValue[] Candidates;
@@ -45,6 +46,9 @@ public sealed class PopulationNumericInput
     { Groups=Array.Empty<PopulationGroupValue>();Contact=contact.Copy();PeoplePerSlot=1f; }
     public PopulationNumericInput(PopulationGroupValue[] groups,float peoplePerSlot,PopulationProductionInput production)
         :this(groups,peoplePerSlot) { Production=production?.Copy(); }
+    public PopulationNumericInput(EmpireCraft.Scripts.GeneralSystems.CityStabilityInput[] stability)
+    { Groups = Array.Empty<PopulationGroupValue>(); PeoplePerSlot = 1f;
+      Stability = (EmpireCraft.Scripts.GeneralSystems.CityStabilityInput[])stability.Clone(); }
 }
 
 public readonly struct PopulationRankValue
@@ -56,6 +60,7 @@ public readonly struct PopulationRankValue
 
 public sealed class PopulationNumericResult
 {
+    public EmpireCraft.Scripts.GeneralSystems.CityStabilityBudget[] Stability;
     public PopulationContactResult Contact;
     public PopulationProductionResult Production;
     public float BackgroundHouseholds;
@@ -146,6 +151,8 @@ public static class PopulationMathWorkers
     public static PopulationNumericResult Compute(PopulationNumericInput input)
     {
         var result = new PopulationNumericResult { ThreadId = Thread.CurrentThread.ManagedThreadId };
+        if (input.Stability != null)
+        { result.Stability = EmpireCraft.Scripts.GeneralSystems.CityStabilityMath.Compute(input.Stability); return result; }
         if(input.Contact!=null){result.Contact=PopulationContactMath.Compute(input.Contact);return result;}
         if (input.Candidates != null)
         {

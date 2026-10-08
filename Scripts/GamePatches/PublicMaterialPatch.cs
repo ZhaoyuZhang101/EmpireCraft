@@ -23,7 +23,7 @@ public class PublicMaterialPatch : GamePatch
         var harmony = new Harmony(nameof(PublicMaterialPatch));
         var take = AccessTools.Method(typeof(City), "takeResource", new[] { typeof(string), typeof(int) });
         if (take != null)
-            harmony.Patch(take, prefix: new HarmonyMethod(GetType(), nameof(BeforeTake)),
+            harmony.Patch(take, prefix: new HarmonyMethod(GetType(), nameof(BeforeTake)) { priority = Priority.First },
                 postfix: new HarmonyMethod(GetType(), nameof(AfterTake)));
         var spend = AccessTools.Method(typeof(City), "spendResourcesForBuildingAsset");
         if (spend != null)

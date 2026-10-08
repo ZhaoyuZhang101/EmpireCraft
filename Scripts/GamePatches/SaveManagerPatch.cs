@@ -43,7 +43,12 @@ public class SaveManagerPatch : GamePatch
         new Harmony(nameof(clear_data)).Patch(
             AccessTools.Method(typeof(MapBox), nameof(MapBox.startTheGame)),
             prefix: new HarmonyMethod(GetType(), nameof(clear_data))
-        );         
+        );
+        // 游戏内重新生成地图直接走 clearWorld，不会重新调用 startTheGame。
+        new Harmony(nameof(BeforeClearWorld)).Patch(
+            AccessTools.Method(typeof(MapBox), nameof(MapBox.clearWorld)),
+            prefix: new HarmonyMethod(GetType(), nameof(BeforeClearWorld))
+        );
         new Harmony(nameof(last_gc)).Patch(
             AccessTools.Method(typeof(MapBox), nameof(MapBox.lastGC)),
             postfix: new HarmonyMethod(GetType(), nameof(last_gc))
@@ -72,6 +77,11 @@ public class SaveManagerPatch : GamePatch
         ModClass.IS_CLEAR = false;
     }
     public static void clear_data(MapBox __instance, bool pForceGenerate)
+    {
+        BeforeClearWorld();
+    }
+
+    public static void BeforeClearWorld()
     {
         ModClass.IS_CLEAR = true;
         DBManagerPatch.AllClear();
@@ -156,6 +166,8 @@ public class SaveManagerPatch : GamePatch
 
     private static void ClearRuntimeState()
     {
+        // MapBox 实例在重新生成地图时会复用，不能只依赖 World.world 引用变化来取消旧任务。
+        CityPopulationSystem.ResetWorldState();
         NativeWorldOptimizationPatch.Reset();
         SimulationFrameBudget.Reset();
         EmpireCraftStrategicScheduler.Reset();

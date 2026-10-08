@@ -175,26 +175,8 @@ public class NoCommonersPatch : GamePatch
                 LogService.LogWarning($"[EmpireCraft] 无小人模式原尺度补丁未生效({type.Name}.{name}): {exception.Message}");
             }
         }
-        // 扩张(国王建新城)：原版先看本国有没有不足 30 个单位的城(有就先不扩张)，再从老城挑最多 6 人搬去新城。
-        // 无小人模式下城里实体单位很少，前者会让所有国家都不再扩张，后者搬不出人。改为按户数判断，
-        // 建城后把老城一成的背景人口迁到新城
-        try
-        {
-            Type foundation = AccessTools.TypeByName("ai.behaviours.BehKingCheckNewCityFoundation") ??
-                              AccessTools.TypeByName("BehKingCheckNewCityFoundation");
-            if (foundation != null)
-            {
-                harmony.Patch(AccessTools.Method(foundation, "hasCitiesWithoutPopulation"),
-                    prefix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(BeforeHasCitiesWithoutPopulation)));
-                harmony.Patch(AccessTools.Method(foundation, "moveSomeUnitsToNewCity"),
-                    postfix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterMoveSomeUnitsToNewCity)));
-            }
-            else LogService.LogWarning("[EmpireCraft] 无小人模式扩张补丁：找不到 BehKingCheckNewCityFoundation");
-        }
-        catch (Exception exception)
-        {
-            LogService.LogWarning($"[EmpireCraft] 无小人模式扩张补丁未生效: {exception.Message}");
-        }
+        // 已有国家的虚拟移民统一由 StateSettlementPatch/System 接管，
+        // 不再保留原版国王建城之后额外迁出一成人口的旧路径。
         try
         {
             harmony.Patch(AccessTools.Method(typeof(Kingdom), nameof(Kingdom.countTotalWarriors)),
@@ -228,8 +210,6 @@ public class NoCommonersPatch : GamePatch
         }
     }
 
-    private const int ExpansionMinimumHouseholds = 30;
-    private const float SettlerShare = 0.1f;
 
     // 民居上限 × (1 + 富庶度)：最富的城可以盖到两倍的民居
     public static void AfterRecalculateMaxHouses(City __instance)
@@ -276,31 +256,6 @@ public class NoCommonersPatch : GamePatch
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         Actor civilian = CityPopulationSystem.SpawnCivilian(__instance);
         if (civilian != null) pActor = civilian;
-    }
-
-    public static bool BeforeHasCitiesWithoutPopulation(Kingdom pKingdom, ref bool __result)
-    {
-        if (!CityPopulationSystem.AbstractPopulationEnabled || pKingdom?.capital == null) return true;
-        WorldTile capital = pKingdom.capital.getTile();
-        __result = false;
-        if (capital == null) return false;
-        foreach (City city in pKingdom.getCities())
-        {
-            if (CityPopulationSystem.Households(city) > ExpansionMinimumHouseholds) continue;
-            WorldTile tile = city.getTile();
-            if (tile != null && tile.reachableFrom(capital))
-            {
-                __result = true;
-                break;
-            }
-        }
-        return false;
-    }
-
-    public static void AfterMoveSomeUnitsToNewCity(City pNewCity, City pFromCity)
-    {
-        if (!CityPopulationSystem.AbstractPopulationEnabled) return;
-        CityPopulationSystem.TransferBackground(pFromCity, pNewCity, SettlerShare);
     }
 
     public static void AfterCountTotalWarriors(Kingdom __instance, ref int __result)

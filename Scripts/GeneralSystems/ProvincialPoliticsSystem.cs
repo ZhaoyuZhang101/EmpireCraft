@@ -290,12 +290,12 @@ public static class ProvincialPoliticsSystem
         if (state == null || party == null || !IsProvince(empire, province) || !PartySystem.IsActive(empire))
             return "local_influence_unavailable";
         int cost = InfluenceCost(province);
-        if (empire.CoreKingdom.GetMoney() < cost) return "local_influence_no_money";
+        if (StateSettlementSystem.DiscretionaryFunds(empire.CoreKingdom) < cost) return "local_influence_no_money";
         ProvincePolitics data = GetOrCreate(state, province);
         float value = data.influence.TryGetValue(party.GetID(), out float current) ? current : 0f;
         float next = Mathf.Clamp(value + InfluenceStep * Math.Sign(direction), -MaxInfluence, MaxInfluence);
         if (Mathf.Approximately(next, value)) return "local_influence_maxed";
-        empire.CoreKingdom.SubMoney(cost);
+        if (!TreasurySystem.TrySpend(empire.CoreKingdom, cost, TreasuryCategory.Policy)) return "local_influence_no_money";
         data.influence[party.GetID()] = next;
         data.vote_shares = ComputeShares(empire, province, data)
             .ToDictionary(item => item.party.GetID(), item => item.share);

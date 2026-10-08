@@ -68,17 +68,19 @@ public static class CityConstructionSystem
     public static void Settle(City city, CityPopulationData data, float seconds)
     {
         if (city?.data == null || city.isRekt() || data == null || seconds <= 0f) return;
+        StateSettlementPatch.FlushSupplies(city);
         float rate = Mathf.Min(MaxPointsPerSecond,
             (BasePointsPerSecond + CityPopulationSystem.Households(city) * PointsPerHousehold) * (1f + Wealth(city)) *
             (1f + SeatBonus(city)));
         Kingdom kingdom = city.kingdom;
-        bool funded = kingdom != null && !kingdom.wild && kingdom.GetMoney() >= FundingThreshold;
+        bool funded = kingdom != null && !kingdom.wild && StateSettlementSystem.DiscretionaryFunds(kingdom) >= FundingThreshold;
         if (funded) rate *= FundingBonus;
         float points = rate * seconds + data.construction_carry;
         int whole = Mathf.FloorToInt(points);
         data.construction_carry = points - whole;
         int used = Advance(city, whole);
-        if (funded && used > 0) kingdom.SubMoney(Mathf.CeilToInt(used / PointsPerFundingGold));
+        if (funded && used > 0) kingdom.SubMoney(Mathf.Min(
+            StateSettlementSystem.DiscretionaryFunds(kingdom), Mathf.CeilToInt(used / PointsPerFundingGold)), TreasuryCategory.Construction);
         ClearRuins(city, rate);
         BuildRoads(city, rate);
         UpgradeHousing(city, rate);
@@ -116,13 +118,13 @@ public static class CityConstructionSystem
             int cost = UpgradeBaseCost + target.construction_progress_needed / 2;
             int fromCity = Mathf.Min(cost, Mathf.Max(0, city.GetMoney()));
             int fromState = cost - fromCity;
-            if (fromState > 0 && (kingdom == null || kingdom.wild || kingdom.GetMoney() < fromState)) break;
+            if (fromState > 0 && (kingdom == null || kingdom.wild || StateSettlementSystem.DiscretionaryFunds(kingdom) < fromState)) break;
             if (!house.upgradeBuilding()) continue;
             if (need.wood > 0) city.takeResource("wood", need.wood);
             if (need.stone > 0) city.takeResource("stone", need.stone);
             if (need.metal > 0) city.takeResource("common_metals", need.metal);
-            if (fromCity > 0) city.SubMoney(fromCity);
-            if (fromState > 0) kingdom.SubMoney(fromState);
+            if (fromCity > 0) city.SubMoney(fromCity, TreasuryCategory.Construction);
+            if (fromState > 0) kingdom.SubMoney(fromState, TreasuryCategory.Construction);
             limit--;
         }
     }
@@ -226,13 +228,13 @@ public static class CityConstructionSystem
             int cost = RuinBaseCost + (fundament == null ? 1 : Mathf.Max(1, fundament.width * fundament.height / 4));
             int fromCity = Mathf.Min(cost, Mathf.Max(0, city.GetMoney()));
             int fromState = cost - fromCity;
-            if (fromState > 0 && (kingdom == null || kingdom.wild || kingdom.GetMoney() < fromState))
+            if (fromState > 0 && (kingdom == null || kingdom.wild || StateSettlementSystem.DiscretionaryFunds(kingdom) < fromState))
             {
                 StatRuinsNoMoney += ruins.Count - cleared;
                 break;
             }
-            if (fromCity > 0) city.SubMoney(fromCity);
-            if (fromState > 0) kingdom.SubMoney(fromState);
+            if (fromCity > 0) city.SubMoney(fromCity, TreasuryCategory.Construction);
+            if (fromState > 0) kingdom.SubMoney(fromState, TreasuryCategory.Construction);
             StatRuinsCleared++;
             try
             {
@@ -309,6 +311,13 @@ public static class CityConstructionSystem
         }
     }
 
+    public static void StartSettlement(City city)
+    {
+        if (city == null || city.isRekt() || HasConstruction(city)) return;
+        // 新城没有可升级建筑，正常建造顺序先安置居民和农业，后续按月施工。
+        StartNext(city);
+    }
+
     // 升级：在原版允许的升级订单里(资源够、科技已解锁)挑一个，花原版资源外再花钱(城市国库优先，不够国家出)
     private static bool TryUpgrade(City city)
     {
@@ -334,10 +343,10 @@ public static class CityConstructionSystem
         Kingdom kingdom = city.kingdom;
         int fromCity = Mathf.Min(cost, Mathf.Max(0, city.GetMoney()));
         int fromState = cost - fromCity;
-        if (fromState > 0 && (kingdom == null || kingdom.wild || kingdom.GetMoney() < fromState)) return false;
+        if (fromState > 0 && (kingdom == null || kingdom.wild || StateSettlementSystem.DiscretionaryFunds(kingdom) < fromState)) return false;
         if (!CityBehBuild.upgradeBuilding(building, city)) return false;
-        if (fromCity > 0) city.SubMoney(fromCity);
-        if (fromState > 0) kingdom.SubMoney(fromState);
+        if (fromCity > 0) city.SubMoney(fromCity, TreasuryCategory.Construction);
+        if (fromState > 0) kingdom.SubMoney(fromState, TreasuryCategory.Construction);
         return true;
     }
 }

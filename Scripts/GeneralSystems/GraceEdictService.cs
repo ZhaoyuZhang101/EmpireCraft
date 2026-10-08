@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -89,6 +90,7 @@ public static class GraceEdictService
     // 次子们各得一城：立为只用城市名的小封国，不带法理头衔，同样世袭、归属帝国
     private static bool CreateCityFief(Empire empire, Regime parentRegime, City city, Actor son)
     {
+        if (city == null || city.isRekt() || EnfeoffmentHelper.IsRealmCapital(city)) return false;
         Kingdom cityFief = city.makeOwnKingdom(son);
         if (cityFief == null) return false;
         cityFief.SetRegimeType(parentRegime.type);

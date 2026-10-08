@@ -7,6 +7,7 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NCMS.Extensions;
@@ -102,6 +103,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         {
             if (k == null || k.isRekt() || !k.hasKing() || k.king == null) continue;
             if (k.IsEmpire()) continue;
+            if (!RebellionSystem.CanAttempt(k) || !CityStabilitySystem.CanRise(k.capital)) continue;
             if (k == pKingdom) continue;
             if (!k.king.HasFaction()) continue;
             if (k.GetHighestFactionRatio()!=faction) continue;

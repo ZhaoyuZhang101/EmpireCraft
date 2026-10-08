@@ -19,7 +19,16 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 public abstract class TemporaryFaction
 {
     [JsonIgnore]
-    public TemporaryFactionType type => Enum.TryParse(GetType().ToString().Split('_').Last(), out TemporaryFactionType res) ? res : default;
+    public TemporaryFactionType type => ResolveType(GetType().Name);
+
+    internal static TemporaryFactionType ResolveType(string name)
+    {
+        string key = name.StartsWith("KingdomMind_", StringComparison.Ordinal)
+            ? "国_" + name.Substring("KingdomMind_".Length)
+            : name.StartsWith("TempFac_", StringComparison.Ordinal) ? name.Substring("TempFac_".Length)
+                : name.Split('_').Last();
+        return Enum.TryParse(key, out TemporaryFactionType result) ? result : default;
+    }
 
     public int Acc = 0;
     public bool Hide = false;
@@ -353,7 +362,8 @@ public abstract class TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (kingdom == null || kingdom.isRekt() || empire == null || empire.isRekt() ||
-            empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
+            empire.CoreKingdom == null || empire.CoreKingdom.isRekt() || kingdom == empire.CoreKingdom ||
+            !RebellionSystem.CanAttempt(kingdom) || !CityStabilitySystem.CanRise(kingdom.capital)) return false;
         var targetFaction = kingdom?.king?.GetFaction();
         //全部势力
         var cities = new List<City>();
@@ -394,8 +404,12 @@ public abstract class TemporaryFaction
                 }
             }
         }
-        var totalWarriors = cities.Where(city => city != null && !city.isRekt()).Sum(c => c.countWarriors());
-        if (totalWarriors >= empire.countWarriors() - totalWarriors || (kingdom.GetEmpire()?.CoreKingdom?.GetMoney() ?? 9999) < 0)
+        cities = cities.Where(city => city != null && !city.isRekt() &&
+            city.kingdom?.GetEmpire() == empire &&
+            RebellionSystem.CanAttempt(city.kingdom) && CityStabilitySystem.CanRise(city)).Distinct().ToList();
+        var totalWarriors = cities.Sum(c => c.countWarriors());
+        if (totalWarriors > 0 && (totalWarriors >= empire.countWarriors() - totalWarriors ||
+            empire.CoreKingdom.GetMoney() < 0))
         {
             var leader = targetFaction?.GetLeader()??kingdom?.king;
             var royalMembers = targetFaction?.Members?
@@ -409,20 +423,22 @@ public abstract class TemporaryFaction
 
             if (leader != null)
             {
-                kingdom.StartFactionRebelling(targetFaction);
-                foreach (var c in cities)
-                {
-                    if (c == kingdom.capital) continue;
-                    c.joinAnotherKingdom(kingdom);
-                }
-
+                var cause = RebellionSystem.Capture(kingdom, kingdom.capital, "rebellion_reason_faction",
+                    targetFaction?.Name ?? kingdom.GetOffice().GetName());
                 var war = World.world.diplomacy.startWar(kingdom, empire.CoreKingdom,
                     WarTypeLibrary.normal);
                 if (war == null)
                 {
                     return false;
                 }
+                kingdom.StartFactionRebelling(targetFaction);
+                foreach (var c in cities)
+                {
+                    if (c == kingdom.capital) continue;
+                    c.joinAnotherKingdom(kingdom);
+                }
                 war.SetEmpireWarType(EmpireWarType.派系叛乱);
+                RebellionSystem.Record(kingdom, war, cause);
                 if (targetFaction != null)
                 {
                     war.data.name = targetFaction.Name + "\u200A" + "叛乱";
@@ -521,7 +537,7 @@ public abstract class TemporaryFaction
 
     public void FinishedAction()
     {
-        GetEmpire()?.CoreKingdom?.SubMoney(Budget);
+        GetEmpire()?.CoreKingdom?.SubMoney(Budget, TreasuryCategory.Policy);
     }
 
     public void JoinKingdom(Kingdom kingdom)

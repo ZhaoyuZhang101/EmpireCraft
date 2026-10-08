@@ -19,7 +19,7 @@ public static class ModernStability
         return realm?.GetRegime()?.type == RegimeType.Modern;
     }
 
-    // 返回 false 表示这次叛乱被压下去了：开国雄主在位时不发生叛乱；现代国家按治理能力压下一部分
+    // 开国保护、新地方稳定期和当前正统统一在改动归属前判断。
     public static bool PassRebellionGate(Kingdom kingdom) =>
-        !RulerTraitSystem.FounderReigns(kingdom) && (!IsModern(kingdom) || UnityEngine.Random.value < RebellionFactor);
+        RebellionSystem.CanAttempt(kingdom) && UnityEngine.Random.value < RebellionSystem.ChanceFactor(kingdom);
 }

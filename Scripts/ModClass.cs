@@ -45,6 +45,20 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static int TITLE_BEEN_DESTROY_TIME = 50;
     // 法理扩张(未冻结法理)时单个法理最多容纳的城市数，0 表示不限
     public static int TITLE_MAX_CITIES = 5;
+    // 和平扩张时单座城市的区域数上限；0 = 不限，不限制战争占领或玩家改地。
+    public static int CITY_MAX_ZONES = 50;
+    public static int SETTLEMENT_BASE_GOLD = 200;
+    public static int SETTLEMENT_PER_CITY_GOLD = 25;
+    public static int SETTLEMENT_RESERVE_GOLD = 200;
+    public static int SETTLEMENT_WOOD = 20;
+    public static int SETTLEMENT_STONE = 10;
+    public static int SETTLEMENT_MIN_HOUSEHOLDS = 10;
+    public static int SETTLEMENT_TARGET_HOUSEHOLDS = 20;
+    public static int SETTLEMENT_RETAIN_HOUSEHOLDS = 30;
+    public static int SETTLEMENT_MAX_MIGRATION_PERCENT = 25;
+    public static int SETTLEMENT_FOOD_YEARS = 2;
+    public static int SETTLEMENT_PREPARATION_MONTHS = 6;
+    public static int SETTLEMENT_COOLDOWN_MONTHS = 36;
     public static int FEUDAL_UNION_REALM_LIMIT = 3;
     public static bool PERFORMANCE_HIGH_POPULATION_MODE = true;
     public static bool PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE = true;

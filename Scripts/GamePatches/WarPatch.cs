@@ -55,10 +55,12 @@ public class WarPatch: GamePatch
         );
         new Harmony(nameof(join_war_side)).Patch(
             AccessTools.Method(typeof(War), nameof(War.joinAttackers), new[] { typeof(Kingdom) }),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(BeforeJoinAttackers)),
             postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(join_war_side))
         );
         new Harmony(nameof(join_war_side) + "_defenders").Patch(
             AccessTools.Method(typeof(War), nameof(War.joinDefenders), new[] { typeof(Kingdom) }),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(BeforeJoinDefenders)),
             postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(join_war_side))
         );
         LogService.LogInfo("战争补丁加载成功");
@@ -73,7 +75,8 @@ public class WarPatch: GamePatch
     {
         if (__instance?.data == null || __instance.hasEnded()) return true;
         if (__instance.getMainAttacker() != null &&
-            (__instance.isTotalWar() || __instance.getMainDefender() != null)) return true;
+            (__instance.isTotalWar() || __instance.getMainDefender() != null &&
+             __instance.getMainAttacker() != __instance.getMainDefender())) return true;
         try
         {
             World.world.wars.endWar(__instance, WarWinner.Nobody);
@@ -81,11 +84,11 @@ public class WarPatch: GamePatch
         catch (Exception exception)
         {
             if (_brokenWarsLogged.Add(__instance.data.id))
-                LogService.LogWarning($"[EmpireCraft] 结束缺少主攻/主守方的战争 {__instance.data.name} 失败: {exception.Message}");
+                LogService.LogWarning($"[EmpireCraft] 结束主攻/主守方缺失或相同的战争 {__instance.data.name} 失败: {exception.Message}");
             return false;
         }
         if (_brokenWarsLogged.Add(__instance.data.id))
-            LogService.LogInfo($"[EmpireCraft] 战争 {__instance.data.name} 缺少主攻方或主守方，已自动结束");
+            LogService.LogInfo($"[EmpireCraft] 战争 {__instance.data.name} 主攻/主守方缺失或相同，已自动结束");
         return false;
     }
 
@@ -393,9 +396,33 @@ public class WarPatch: GamePatch
         }
     }
 
-    // 同一个 Postfix 兼容 joinAttackers(Kingdom) / joinDefenders(Kingdom)。
-    public static void join_war_side(War __instance, Kingdom pKingdom)
+    public static bool BeforeJoinAttackers(War __instance, Kingdom pKingdom, ref bool __state)
     {
+        return __state = CanJoinWarSide(__instance, pKingdom, attackers: true);
+    }
+
+    public static bool BeforeJoinDefenders(War __instance, Kingdom pKingdom, ref bool __state)
+    {
+        return __state = CanJoinWarSide(__instance, pKingdom, attackers: false);
+    }
+
+    public static bool CanJoinWarSide(War war, Kingdom kingdom, bool attackers)
+    {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(war)) return true;
+        if (war?.data == null || kingdom?.data == null || kingdom.isRekt()) return false;
+        // During creation the main defender is known before its first native join runs.
+        if (attackers && !war.isTotalWar() && kingdom.id == war.data.main_defender ||
+            !attackers && kingdom.id == war.data.main_attacker) return false;
+        // Native joins only check the destination list; alliance auto-joining can otherwise
+        // put one polity on both sides, even when feudal expansion itself filters correctly.
+        var opposite = attackers ? war.data.list_defenders : war.data.list_attackers;
+        return opposite?.Contains(kingdom.id) != true;
+    }
+
+    // 同一个 Postfix 兼容 joinAttackers(Kingdom) / joinDefenders(Kingdom)。
+    public static void join_war_side(War __instance, Kingdom pKingdom, bool __state)
+    {
+        if (!__state) return;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
 
         WarSituation.RecordParticipant(__instance, pKingdom);

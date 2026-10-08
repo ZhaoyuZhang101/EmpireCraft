@@ -120,6 +120,7 @@
     { "id": "steelmaking", "branch": "metallurgy", "tier": 5, "cost": 260, "requires_techs": ["ironworking"], "requires_materials": ["coal"], "unlock_materials": ["steel"], "unlock_buildings": ["ec_mine_3", "ec_lumber_3"], "boosts": [{"type": "building_type", "value": "type_mine", "amount": 5}] },
     { "id": "alchemy", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics"], "requires_materials": ["gold"], "research_bonus": 0.1, "boosts": [{"type": "resource", "value": "gold", "amount": 20}] },
     { "id": "printing", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics"], "research_bonus": 0.2, "unlock_buildings": ["university"], "boosts": [{"type": "building_type", "value": "type_library", "amount": 2}] },
+    { "id": "ocean_navigation", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics", "carpentry"], "boosts": [{"type": "building_type", "value": "type_docks", "amount": 1}] },
 
     { "id": "gunpowder", "branch": "military", "tier": 6, "cost": 420, "requires_techs": ["alchemy"], "requires_materials": ["saltpeter", "coal"], "unlock_buildings": ["gunpowder_mill"], "boosts": [{"type": "resource", "value": "gunpowder", "amount": 1}, {"type": "war_knows", "value": "", "amount": 1}] },
     { "id": "matchlock", "branch": "military", "tier": 6, "cost": 420, "requires_techs": ["gunpowder", "steelmaking"], "unlock_items": ["Musket", "Flintlock", "musket"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },

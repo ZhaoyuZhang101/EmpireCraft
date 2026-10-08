@@ -16,6 +16,10 @@ namespace EmpireCraft.Scripts.HelperFunc;
 // 提炼出来供分割继承法(一次继承事件里批量分封新君的所有合法兄弟)复用，行为完全不变。
 public static class EnfeoffmentHelper
 {
+    // 首都身份以国家当前指针为准，不能只依赖可能尚未同步的法理编号。
+    internal static bool IsRealmCapital(City city) => city != null &&
+        (city.kingdom?.capital == city || city.isCapitalCity());
+
     // 按法理分封：可分的是核心王国手里的法理头衔(整块封出去)，但王畿不分——都城所在的头衔、
     // 以及跟帝国同名的头衔留给天子。之前是挑一座城，并且跳过帝国核心法理内的所有城市；而帝国
     // 建立时会把当时控制的全部法理都登记为核心，结果一般帝国一座可封的城都找不到，分封从不发生。
@@ -31,7 +35,9 @@ public static class EnfeoffmentHelper
                             !string.Equals(title.data?.name, empireName, StringComparison.Ordinal))
             .Where(title => title.title_capital != null && !title.title_capital.isRekt() &&
                             title.title_capital.kingdom == coreKingdom && title.title_capital != coreKingdom.capital &&
-                            !title.title_capital.isCapitalCity())
+                            !IsRealmCapital(title.title_capital))
+            .Where(title => !title.getCities().Any(city => city == coreKingdom.capital ||
+                city?.id == coreKingdom.capital.id))
             .OrderByDescending(title => title.getCities().Count(city => city != null && !city.isRekt() &&
                                                                        city.kingdom == coreKingdom))
             .ThenBy(title => title.id)
@@ -94,17 +100,21 @@ public static class EnfeoffmentHelper
         KingdomTitle fief = FindEnfeoffableTitle(empire);
         City city = fief?.title_capital;
         if (empireRegime == null || empireRegime.enfeoff_virtual_only ||
-            !IsEligibleSibling(actor, empire) || city == null)
+            !IsEligibleSibling(actor, empire) || city == null || IsRealmCapital(city))
         {
             return false;
         }
 
+        City retainedCapital = coreKingdom.capital;
+        List<City> grantedCities = fief.getCities().ToList();
+        if (grantedCities.Any(other => other == retainedCapital || other?.id == retainedCapital?.id)) return false;
         Kingdom kingdom = city.makeOwnKingdom(actor);
         if (kingdom == null) return false;
         // 整块法理一起封出去：法理首府立国之后，同一法理下仍归核心王国的城市随之划入封国
-        foreach (City other in fief.getCities().ToList())
+        foreach (City other in grantedCities)
         {
-            if (other == null || other.isRekt() || other == city || other.kingdom != coreKingdom) continue;
+            if (other == null || other.isRekt() || other == city || other.kingdom != coreKingdom ||
+                other == retainedCapital || IsRealmCapital(other)) continue;
             other.joinAnotherKingdom(kingdom);
         }
 

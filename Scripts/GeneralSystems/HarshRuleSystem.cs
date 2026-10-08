@@ -67,8 +67,18 @@ public static class HarshRuleSystem
         if (core == null || core.isRekt()) return new List<(string key, int value)>();
         List<Kingdom> realms = empire.kingdoms_list?.Where(kingdom => kingdom != null && !kingdom.isRekt()).ToList() ??
                                new List<Kingdom>();
-        return Breakdown(core, realms, State(empire)?.bankrupt_since >= 0d,
-            ModernLegitimacy.Applies(empire) && ConstitutionSystem.GetSpeech(empire) == ConstitutionSpeech.Strict);
+        var items = Breakdown(core, realms, State(empire)?.bankrupt_since >= 0d,
+            ModernLegitimacy.Applies(empire) && ConstitutionSystem.GetSpeech(empire) == ConstitutionSpeech.Strict,
+            CorruptionSystem.GetRate(empire));
+        AddDynasticBurden(empire, items);
+        return items.OrderByDescending(item => item.value).ToList();
+    }
+
+    private static void AddDynasticBurden(Empire empire, List<(string key, int value)> items)
+    {
+        items.RemoveAll(item => item.key == DynasticCycleSystem.HarshSource);
+        int strain = DynasticCycleRules.HarshBurden(DynasticCycleSystem.GetPressure(empire));
+        if (strain > 0) items.Add((DynasticCycleSystem.HarshSource, strain));
     }
 
     // 独立王国的苛政构成(国库为负算欠饷)
@@ -78,7 +88,7 @@ public static class HarshRuleSystem
             : Breakdown(kingdom, new List<Kingdom> { kingdom }, kingdom.GetMoney() < 0, false);
 
     private static List<(string key, int value)> Breakdown(Kingdom core, List<Kingdom> realms, bool bankrupt,
-        bool censorship)
+        bool censorship, double? corruptionRate = null)
     {
         var items = new List<(string key, int value)>();
         void Add(string key, float value)
@@ -87,7 +97,7 @@ public static class HarshRuleSystem
             if (rounded > 0) items.Add((key, rounded));
         }
         Add("harsh_tax", Mathf.Clamp(((float)core.GetTaxRate() - 0.25f) * 100f, 0f, 50f));
-        Add("harsh_corruption", (float)core.GetCorruptionRate() * 40f);
+        Add("harsh_corruption", (float)(corruptionRate ?? CorruptionSystem.GetRate(core)) * 40f);
         if (bankrupt) Add("harsh_bankrupt", 15f);
         // 土地兼并：各城无地农民比例的平均(帝国按全帝国)，无地两成五约 +20，最多 +30
         Add("harsh_land", Mathf.Min(30f, LandEconomySystem.GetRealmLandlessRatio(core) * 80f));
@@ -112,6 +122,17 @@ public static class HarshRuleSystem
         return empire != null ? GetBurden(empire) : GetBurden(kingdom);
     }
 
+    // 腐败和王朝积弊已经有独立正统来源，不能再通过苛政把同一项重复扣一次。
+    public static float OtherGovernanceBurden(Empire empire)
+    {
+        float settled = State(empire)?.harsh_other_burden ?? -1f;
+        if (settled >= 0f) return Mathf.Clamp(settled, 0f, 100f);
+        int corruption = State(empire)?.harsh_corruption_burden ?? -1;
+        if (corruption < 0) corruption = Mathf.RoundToInt((float)CorruptionSystem.GetRate(empire) * 40f);
+        return Mathf.Max(0f, GetBurden(empire) - corruption -
+            DynasticCycleRules.HarshBurden(DynasticCycleSystem.GetPressure(empire)));
+    }
+
     // 独立王国的苛政(帝国成员返回 0，按帝国看 GetBurden(Empire))
     public static float GetBurden(Kingdom kingdom) =>
         kingdom != null && !kingdom.IsInEmpire() ? kingdom.GetOrCreate().harsh_burden : 0f;
@@ -122,9 +143,21 @@ public static class HarshRuleSystem
     {
         ConstitutionalEconomyState state = State(empire);
         if (state == null || empire.CoreKingdom == null || World.world == null) return;
+        CorruptionSystem.Update(empire);
+        // 年度治理入口兜底；旧档的国家意志任务缺失时仍可整顿，同一年共用去重标记。
+        CorruptionSystem.TryYearlyCampaign(empire.CoreKingdom);
         List<(string key, int value)> breakdown = Breakdown(empire);
+        state.harsh_corruption_burden = breakdown.Where(item => item.key == "harsh_corruption").Sum(item => item.value);
+        state.harsh_other_burden = Mathf.Clamp(breakdown.Where(item => item.key != "harsh_corruption" &&
+            item.key != DynasticCycleSystem.HarshSource).Sum(item => item.value), 0f, 100f);
+        float governanceBurden = Mathf.Clamp(breakdown.Where(item => item.key != DynasticCycleSystem.HarshSource)
+            .Sum(item => item.value), 0f, 100f);
+        DynasticCycleSystem.Update(empire, state, governanceBurden);
+        AddDynasticBurden(empire, breakdown);
+        breakdown = breakdown.OrderByDescending(item => item.value).ToList();
         state.harsh_burden = Mathf.Clamp(breakdown.Sum(item => item.value), 0f, 100f);
         state.harsh_main_cause = breakdown.Count > 0 ? breakdown[0].key : "";
+        MonarchyLegitimacy.Invalidate(empire);
         if (ModernLegitimacy.Applies(empire)) UpdateStreetUnrest(empire, state);
         else
         {
@@ -210,22 +243,40 @@ public static class HarshRuleSystem
     private static void TryUprising(IEnumerable<Kingdom> realms, float burden, string causeKey, Empire empire,
         bool modern)
     {
-        if (burden < UprisingBurden || UnityEngine.Random.value >= (burden - 50f) / 100f) return;
-        City city = (realms ?? Enumerable.Empty<Kingdom>())
-            .Where(kingdom => kingdom != null && !kingdom.isRekt() && !kingdom.getWars().Any())
-            .SelectMany(kingdom => kingdom.cities.Where(c => c != null && !c.isRekt() && c != kingdom.capital))
-            .Where(c => c.getLoyalty() < 10 && CanRiseAgain(c))
-            .OrderBy(c => c.getLoyalty()).FirstOrDefault();
-        if (city == null) return;
-        if (modern && !ModernStability.PassRebellionGate(city.kingdom)) return;
-        // 土地兼并严重的城市：民变打出均田的旗号，成为农民土地起义
-        if (LandEconomySystem.GetLandlessRatio(city) >= LandEconomySystem.EffectiveRebellionThreshold(city) &&
-            LandEconomySystem.TryStartPeasantLandRebellion(city))
+        if (burden < UprisingBurden) return;
+        bool crisis = !modern && DynasticCycleSystem.InCrisis(empire);
+        if (crisis)
         {
-            city.GetOrCreate().last_harsh_uprising = World.world.getCurWorldTime();
-            return;
+            ConstitutionalEconomyState state = State(empire);
+            double now = World.world.getCurWorldTime();
+            if (state.last_dynastic_uprising_attempt >= 0d && now >= state.last_dynastic_uprising_attempt &&
+                Date.getYearsSince(state.last_dynastic_uprising_attempt) < 1) return;
+            state.last_dynastic_uprising_attempt = now;
         }
-        StartUprising(empire, city, burden, causeKey);
+        if (UnityEngine.Random.value >= (burden - 50f) / 100f) return;
+        int waves = crisis ? DynasticCycleRules.UprisingWaves(DynasticCycleSystem.GetPressure(empire), burden) : 1;
+        List<City> cities = (realms ?? Enumerable.Empty<Kingdom>())
+            .Where(kingdom => RebellionSystem.CanAttempt(kingdom) && (crisis || !kingdom.getWars().Any()))
+            .SelectMany(kingdom => kingdom.cities.Where(c => c != null && !c.isRekt() && c != kingdom.capital))
+            .Where(c => c.getLoyalty() < (crisis ? 20 : 10) && CanRiseAgain(c) && CityStabilitySystem.CanRise(c))
+            .OrderBy(c => c.getLoyalty()).Take(waves).ToList();
+        foreach (City city in cities)
+        {
+            // 第一批起事的原版/模组回调可能改动后一座城，逐城重验归属和首都保护。
+            if (city == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt() ||
+                city == city.kingdom.capital || !CanRiseAgain(city) ||
+                (empire != null && city.kingdom.GetEmpire() != empire)) continue;
+            if (!RebellionSystem.CanAttempt(city.kingdom)) continue;
+            // 土地兼并严重的城市：民变打出均田的旗号，成为农民土地起义
+            if (LandEconomySystem.GetLandlessRatio(city) >= LandEconomySystem.EffectiveRebellionThreshold(city) &&
+                LandEconomySystem.TryStartPeasantLandRebellion(city))
+            {
+                city.GetOrCreate().last_harsh_uprising = World.world.getCurWorldTime();
+                continue;
+            }
+            if (!ModernStability.PassRebellionGate(city.kingdom)) continue;
+            StartUprising(empire, city, burden, causeKey);
+        }
     }
 
     private static bool CanRiseAgain(City city)
@@ -244,6 +295,8 @@ public static class HarshRuleSystem
         if (CityPopulationSystem.AbstractPopulationEnabled)
             leader = CityPopulationSystem.SpawnRebelLeader(city) ?? leader;
         if (leader == null) return;
+        RebellionCauseData cause = RebellionSystem.Capture(origin, city, "rebellion_reason_harsh_rule",
+            string.Format(LM.Get("rebellion_harsh_detail"), Cause(causeKey), Mathf.RoundToInt(burden)));
         Kingdom rebel = city.makeOwnKingdom(leader, pRebellion: true);
         if (rebel == null) return;
         if (!rebel.StartLocalRebelling(EmpireWarType.地方叛乱))
@@ -260,6 +313,7 @@ public static class HarshRuleSystem
             return;
         }
         war.SetEmpireWarType(EmpireWarType.地方叛乱);
+        RebellionSystem.Record(rebel, war, cause);
         war.data.name = string.Format(LM.Get("harsh_uprising_war_name"), cityName);
         RebellionStartupService.RaiseUprisingMilitia(rebel, burden / 100f);
         city.GetOrCreate().last_harsh_uprising = World.world.getCurWorldTime();

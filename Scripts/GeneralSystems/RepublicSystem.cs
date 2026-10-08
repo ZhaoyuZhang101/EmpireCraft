@@ -309,6 +309,7 @@ public static class RepublicSystem
         // 正统崩溃时正在打仗的省份也会倒戈，只排除已经在造反的
         List<Kingdom> members = empire.kingdoms_list.Where(kingdom => kingdom != null && !kingdom.isRekt() &&
             kingdom != empire.CoreKingdom && kingdom.hasKing() && kingdom.HasMainTitle() &&
+            RebellionSystem.CanAttempt(kingdom) && CityStabilitySystem.CanRise(kingdom.capital) &&
             (mandateCollapse || !kingdom.getWars().Any()) &&
             !kingdom.IsFactionRebelling() && !kingdom.IsLocalRebelling()).ToList();
         if (members.Count < 2) return false;
@@ -325,7 +326,7 @@ public static class RepublicSystem
             ? 0.3f + 0.5f * Mathf.Clamp01((RevolutionMandate - empire.Legitimacy) / (float)RevolutionMandate)
             : 0.03f + (empire.CoreKingdom.hasEnemies() ? 0.06f : 0f) +
               Mathf.Clamp01((60f - empire.Legitimacy) / 60f) * 0.09f;
-        if (UnityEngine.Random.value >= chance) return false;
+        if (UnityEngine.Random.value >= chance * RebellionSystem.ChanceFactor(empire.CoreKingdom)) return false;
 
         List<Kingdom> coalition = members
             .Where(member => IdeologyPopulationSystem.GetKingdomShare(member, ideology) >= 0.12f ||
@@ -340,6 +341,8 @@ public static class RepublicSystem
                 .Take(2 - coalition.Count).ToList());
         if (coalition.Count < 2) return false;
         Kingdom leaderRealm = coalition[0];
+        var causes = coalition.ToDictionary(member => member, member => RebellionSystem.Capture(member,
+            member.capital, "rebellion_reason_republic", party?.Name ?? PartySystem.GetIdeologyName(ideology)));
         foreach (Kingdom member in coalition) empire.leave(member, pRecalc: false, isLeave: true);
         empire.recalculate();
 
@@ -368,6 +371,7 @@ public static class RepublicSystem
         }
         foreach (Kingdom member in coalition.Skip(1)) war.joinAttackers(member);
         war.SetEmpireWarType(EmpireWarType.派系叛乱);
+        foreach (Kingdom member in coalition) RebellionSystem.Record(member, war, causes[member]);
         war.data.name = string.Format(LM.Get("regional_republic_war_name"), alliance.name);
         WarExtension.WarExtraData snapshot = war.GetOrCreate();
         snapshot.republic_revolution_empire_id = empire.id;
@@ -428,6 +432,7 @@ public static class RepublicSystem
 
     private static Kingdom FindRebelKingdom(Empire empire, FixedFaction party) => empire.kingdoms_list
         .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom != empire.CoreKingdom &&
+                          RebellionSystem.CanAttempt(kingdom) && CityStabilitySystem.CanRise(kingdom.capital) &&
                           kingdom.hasKing() && !kingdom.IsFactionRebelling() &&
                           !kingdom.IsLocalRebelling() && !kingdom.getWars().Any() &&
                           (party.AllMembers.Any(actor => actor?.kingdom == kingdom) ||
@@ -443,6 +448,7 @@ public static class RepublicSystem
         .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
                         actor.hasCity() && actor.city.kingdom != null &&
                         empire.kingdoms_hashset.Contains(actor.city.kingdom) &&
+                        RebellionSystem.CanAttempt(actor.city.kingdom) && CityStabilitySystem.CanRise(actor.city) &&
                         actor.city != actor.city.kingdom.capital && !actor.isKing() &&
                         PartySystem.GetAffinity(party.Ideology, actor.GetOrCreate().socialClass) >= CoreClassAffinity)
         .Distinct().OrderByDescending(actor => IdeologyPopulationSystem.GetCityShare(actor.city, party.Ideology))
@@ -465,12 +471,15 @@ public static class RepublicSystem
         Kingdom rebel = FindRebelKingdom(empire, party);
         City splitSeat = null;
         Kingdom splitOrigin = null;
+        var cause = rebel == null ? null : RebellionSystem.Capture(rebel, rebel.capital,
+            "rebellion_reason_republic", party.Name);
         if (rebel == null)
         {
             Actor leader = FindSplitLeader(empire, party);
             splitSeat = leader?.city;
             splitOrigin = splitSeat?.kingdom;
             if (splitSeat == null) return false;
+            cause = RebellionSystem.Capture(splitOrigin, splitSeat, "rebellion_reason_republic", party.Name);
             rebel = splitSeat.makeOwnKingdom(leader, pRebellion: true);
             if (rebel == null) return false;
         }
@@ -492,6 +501,7 @@ public static class RepublicSystem
             return false;
         }
         war.SetEmpireWarType(splitSeat == null ? EmpireWarType.派系叛乱 : EmpireWarType.地方叛乱);
+        RebellionSystem.Record(rebel, war, cause);
         war.data.name = string.Format(LM.Get(modern ? "republic_modern_revolution_war_name"
             : "republic_revolution_war_name"), party.Name);
         WarExtension.WarExtraData snapshot = war.GetOrCreate();
@@ -528,6 +538,7 @@ public static class RepublicSystem
         {
             if (member == null || member.isRekt() || member == empire.CoreKingdom || member == rebel ||
                 member.IsFactionRebelling() || member.IsLocalRebelling() ||
+                !RebellionSystem.CanAttempt(member) || !CityStabilitySystem.CanRise(member.capital) ||
                 member.getWars().Any(other => other != war && !other.hasEnded())) continue;
             if (war._list_attackers.Contains(member) || war._list_defenders.Contains(member)) continue;
 

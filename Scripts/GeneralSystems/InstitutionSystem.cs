@@ -1369,6 +1369,8 @@ public static class InstitutionSystem
                         !FeudalConquestService.HasEnfeoffmentInstitution(empire);
         Kingdom rebel = coreOnly ? null : empire.kingdoms_list.Where(kingdom => kingdom != null && !kingdom.isRekt() &&
                                                               kingdom != empire.CoreKingdom &&
+                                                              RebellionSystem.CanAttempt(kingdom) &&
+                                                              CityStabilitySystem.CanRise(kingdom.capital) &&
                                                               !kingdom.IsFactionRebelling() &&
                                                               !kingdom.IsLocalRebelling() &&
                                                               !kingdom.getWars().Any())
@@ -1381,6 +1383,7 @@ public static class InstitutionSystem
         // 在非首都城市建立叛军政权，避免“只有分封帝国才会有农民起义”的反直觉结果。
         City splitSeat = null;
         Kingdom splitOrigin = null;
+        Actor splitLeader = null;
         if (rebel == null)
         {
             IEnumerable<Kingdom> sourceKingdoms = coreOnly
@@ -1389,12 +1392,18 @@ public static class InstitutionSystem
             Actor leader = EmpirePopulation.Enumerate(sourceKingdoms)
                 .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.hasCity() &&
                                 actor.city.kingdom != null && actor.city != actor.city.kingdom.capital &&
+                                RebellionSystem.CanAttempt(actor.city.kingdom) && CityStabilitySystem.CanRise(actor.city) &&
                                 actor.GetOrCreate().socialClass == socialClass)
                 .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
             splitSeat = leader?.city;
             splitOrigin = splitSeat?.kingdom;
-            if (splitSeat != null) rebel = splitSeat.makeOwnKingdom(leader, pRebellion: true);
+            splitLeader = leader;
         }
+        RebellionCauseData rebellionCause = RebellionSystem.Capture(rebel ?? splitOrigin,
+            splitSeat ?? rebel?.capital, "rebellion_reason_class",
+            string.Format(LM.Get("rebellion_class_detail"), LM.Get($"class_{socialClass}"), grievance,
+                GetSocialGrievanceCause(empire, socialClass)));
+        if (splitSeat != null) rebel = splitSeat.makeOwnKingdom(splitLeader, pRebellion: true);
         if (rebel == null) return false;
 
         string originalName = rebel.data?.name;
@@ -1421,6 +1430,7 @@ public static class InstitutionSystem
         warData.institution_social_rebellion_class = socialClass;
         warData.institution_social_rebellion_cause = cause;
         warData.institution_social_rebellion_grievance = grievance;
+        RebellionSystem.Record(rebel, war, rebellionCause);
         if (socialClass == SocialClass.Peasant)
         {
             City originCity = rebel.capital;
@@ -1670,10 +1680,14 @@ public static class InstitutionSystem
             .OrderByDescending(faction => empire.CoreKingdom.GetFactionRatioValue(faction)).FirstOrDefault();
         Kingdom rebel = empire.kingdoms_list.Where(kingdom => kingdom != null && !kingdom.isRekt() &&
                                                               kingdom != empire.CoreKingdom &&
+                                                              RebellionSystem.CanAttempt(kingdom) &&
+                                                              CityStabilitySystem.CanRise(kingdom.capital) &&
                                                               !kingdom.IsFactionRebelling() &&
                                                               !kingdom.getWars().Any())
             .OrderByDescending(kingdom => kingdom.countTotalWarriors()).FirstOrDefault();
         if (opposition == null || rebel == null) return false;
+        var cause = RebellionSystem.Capture(rebel, rebel.capital, "rebellion_reason_reform",
+            GetNodeName(node) + "：" + GetResistanceReason(node));
         rebel.StartFactionRebelling(opposition);
         War war = World.world.diplomacy.startWar(rebel, empire.CoreKingdom, WarTypeLibrary.normal);
         if (war == null)
@@ -1682,6 +1696,7 @@ public static class InstitutionSystem
             return false;
         }
         war.SetEmpireWarType(EmpireWarType.派系叛乱);
+        RebellionSystem.Record(rebel, war, cause);
         InstitutionReformState reform = empire.data.institution_state.active_reform;
         FixedFaction sponsor = GetReformSponsor(empire, reform);
         WarExtension.WarExtraData warData = war.GetOrCreate();

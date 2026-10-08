@@ -24,7 +24,8 @@ public static class FeudalVassalService
         (!kingdom.IsInEmpire() || kingdom.IsEmpire()) &&
         (kingdom.GetRegime()?.type == RegimeType.Modern || RepublicSystem.IsRepublic(kingdom.GetEmpire()));
 
-    private static bool CanHoldVassals(Kingdom kingdom) => IsFeudal(kingdom) || IsPostMonarchy(kingdom);
+    private static bool CanHoldVassals(Kingdom kingdom) => RealmDiplomacySystem.CanChooseOverlord(kingdom) &&
+        (IsFeudal(kingdom) || IsPostMonarchy(kingdom));
 
     public static Kingdom GetOverlord(Kingdom subject)
     {
@@ -60,6 +61,7 @@ public static class FeudalVassalService
     public static bool CanBind(Kingdom lord, Kingdom subject)
     {
         if (!CanHoldVassals(lord) || subject == null || subject.isRekt() || lord == subject ||
+            !RealmDiplomacySystem.CanChooseOverlord(subject) ||
             AncientWarfareCompatibility.Owns(lord) || AncientWarfareCompatibility.Owns(subject) ||
             (subject.IsEmpire() && subject.GetRegime()?.type != RegimeType.Modern) ||
             (subject.king != null && subject.king == lord.king) ||
@@ -89,6 +91,7 @@ public static class FeudalVassalService
         if (formerEmpire != null && formerEmpire.CoreKingdom != subject) formerEmpire.leave(subject);
         if (subject.HasTakenAlliance()) subject.RemoveTakenAlliance();
         var data = subject.GetOrCreate();
+        data.feudal_independent_color_id = subject.data.color_id;
         data.feudal_overlord_kingdom_id = lord.id;
         data.feudal_vassal_level = 1;
         data.feudal_vassal_progress = 0;
@@ -100,18 +103,25 @@ public static class FeudalVassalService
         return true;
     }
 
-    public static void Break(Kingdom subject, bool restoreOriginalColor = false)
+    public static void Break(Kingdom subject, bool restoreOriginalColor = true)
     {
         if (subject?.data == null || subject.isRekt()) return;
         var data = subject.GetOrCreate();
         if (data.feudal_overlord_kingdom_id < 0) return;
+        Kingdom formerOverlord = GetOverlord(subject);
+        ColorAsset formerColor = formerOverlord?.getColor() ?? subject.getColor();
+        int independentColorId = data.feudal_independent_color_id;
         data.feudal_overlord_kingdom_id = -1L;
         data.feudal_vassal_level = 0;
         data.feudal_vassal_progress = 0;
         data.feudal_last_control_timestamp = -1d;
-        if (restoreOriginalColor) subject.RestoreOriginalKingdomColor();
-        else subject.generateColor();
+        KingdomColorService.Restore(subject, restoreOriginalColor ? independentColorId : -1, formerColor,
+            useOriginalColor: restoreOriginalColor);
+        data.feudal_independent_color_id = -1;
         SyncColors(subject);
+        Empire ownEmpire = subject.GetEmpire();
+        if (ownEmpire?.CoreKingdom == subject && !ownEmpire.isRekt())
+            EmpireCraft.Scripts.GamePatches.EmpireColorPatch.SyncFromCore(ownEmpire);
     }
 
     public static void Sync(Kingdom subject)
@@ -120,6 +130,7 @@ public static class FeudalVassalService
         if (subject.GetOrCreate().feudal_overlord_kingdom_id < 0) return;
         Kingdom lord = GetOverlord(subject);
         if (!CanHoldVassals(lord) ||
+            !RealmDiplomacySystem.CanChooseOverlord(subject) ||
             (subject.IsEmpire() && subject.GetRegime()?.type != RegimeType.Modern) ||
             (subject.king != null && subject.king == lord.king) ||
             AncientWarfareCompatibility.Owns(lord) || AncientWarfareCompatibility.Owns(subject) ||

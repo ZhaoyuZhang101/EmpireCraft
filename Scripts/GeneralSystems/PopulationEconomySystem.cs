@@ -64,12 +64,14 @@ public static class PopulationEconomySystem
         using IDisposable timing = CityPopulationSystem.AbstractPopulationEnabled ? FrameProfiler.Measure("多核经济·主线程结算") : null;
         if (data.last_economy < 0d || now < data.last_economy)
         {
+            if (now < data.last_economy) data.economy_periods?.Clear();
             data.last_economy = now;
             return;
         }
         int months = Mathf.Clamp(Date.getMonthsSince(data.last_economy), 0, 24);
         if (months <= 0) return;
         data.last_economy = now;
+        EmpireCraft.Scripts.AI.ActorAI.EmpireCraftActorCheckTax.SettleVirtualCity(city);
         float years = months / 12f;
         ResolveReflection();
 
@@ -132,6 +134,9 @@ public static class PopulationEconomySystem
         float wood = IndustryBuildingSystem.HarvestTrees(city, years) / Mathf.Max(0.0001f, years);
         if (wood > 0f && AssetManager.resources?.get("wood") != null) Deposit(city, data, "wood", wood * years);
         PayTaxes(city, data, years);
+        float settledIncome = data.last_income * years;
+        float settledTax = data.last_tax_income * years + data.other_background_tax;
+        data.other_background_tax = 0f;
         // 施工改由城市建设力推进(见 CityConstructionSystem)，不再按工人数
         float eaten = EatFood(city, data, numeric.Production?.FoodNeed ?? background * FoodPerPersonYear * years, out float shortage);
         ConsumeGoods(city, data, background, years, numeric.Production?.LeatherNeed);
@@ -157,6 +162,7 @@ public static class PopulationEconomySystem
         data.last_food_output = years > 0f ? food / years : 0f;
         data.last_food_eaten = years > 0f ? eaten / years : 0f;
         data.last_food_shortage = years > 0f ? shortage / years : 0f;
+        PopulationEconomyAccounts.Record(data, years, settledIncome, settledTax, consumption);
     }
 
     private sealed class ProductionSnapshot
@@ -245,12 +251,13 @@ public static class PopulationEconomySystem
         float income = Mathf.Max(0f, data.produced_value);
         data.produced_value = 0f;
         data.last_income = years > 0f ? income / years : 0f;
+        data.last_tax_income = 0f;
         if (city.kingdom == null || city.kingdom.wild) return;
-        float due = income * (float)city.kingdom.GetTaxRate();
+        float due = income * Mathf.Clamp01((float)city.kingdom.GetTaxRate());
         float tax = due + data.tax_carry;
         int whole = Mathf.FloorToInt(tax);
         data.tax_carry = tax - whole;
-        if (whole > 0) city.AddMoney(whole);
+        if (whole > 0) TreasurySystem.CollectResidentTax(city, whole);
         data.last_tax_income = years > 0f ? whole / years : 0f;
         // 税后收入进民间存款
         AddSavings(city, data, income - due);
@@ -336,7 +343,7 @@ public static class PopulationEconomySystem
         if (fromPeople <= 0) return;
         float value = fromPeople * UnitValue(city, resource);
         int pay = Mathf.Min(Mathf.CeilToInt(value), Mathf.Max(0, city.GetMoney()));
-        if (pay > 0) city.SubMoney(pay);
+        if (pay > 0) city.SubMoney(pay, TreasuryCategory.Construction);
         data.public_paid += pay;
         float unpaid = Mathf.Max(0f, value - pay);
         if (unpaid > 0f)
@@ -397,6 +404,20 @@ public static class PopulationEconomySystem
     // 岗位：每座建成的非民居建筑 + 每个地块的农田岗位
     public static float CountJobs(City city)
     {
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            float productive = 0f;
+            foreach (var pair in JobOutputs())
+                if (pair.Item1 != null && pair.Item2.Length > 0)
+                    productive += Math.Max(0, city.jobs.countCurrentJobs(pair.Item1));
+            foreach (Building building in city.buildings)
+                if (building?.asset != null && !building.isUnderConstruction() &&
+                    (IndustryBuildingSystem.IsMine(building.asset) || IndustryBuildingSystem.IsLumber(building.asset)))
+                    productive += JobsPerBuilding;
+            if (city.getBuildingOfType("type_windmill", pCountOnlyFinished: true, pRandom: false) != null)
+                productive += CityPopulationSystem.Get(city)?.farm_jobs ?? 0f;
+            return productive;
+        }
         int buildings = 0;
         if (city.buildings != null)
             foreach (Building building in city.buildings)

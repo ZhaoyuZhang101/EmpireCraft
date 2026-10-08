@@ -570,7 +570,8 @@ public static class LandEconomySystem
         float tax = due + population.tax_carry;
         int whole = Mathf.FloorToInt(tax);
         population.tax_carry = tax - whole;
-        if (whole > 0) city.AddMoney(whole);
+        if (whole > 0) TreasurySystem.CollectResidentTax(city, whole);
+        if (whole > 0 && CityPopulationSystem.AbstractPopulationEnabled) population.other_background_tax += whole;
         return due;
     }
 
@@ -809,10 +810,16 @@ public static class LandEconomySystem
     public static bool TryStartPeasantLandRebellion(City city) =>
         city != null && !city.isRekt() && TryStartPeasantLandRebellion(city, CalculateLandlessPopulationRatio(city));
 
+    internal static bool CanStartPeasantLandUprising(City city, float ratio) => city != null && !city.isRekt() &&
+        city.kingdom != null && !city.kingdom.isRekt() && city != city.kingdom.capital &&
+        RebellionSystem.CanAttempt(city.kingdom) &&
+        CityStabilitySystem.CanRise(city) &&
+        ratio >= EffectiveRebellionThreshold(city) &&
+        (!city.kingdom.getWars().Any() || DynasticCycleSystem.InCrisis(city.kingdom.GetEmpire()));
+
     private static bool TryStartPeasantLandRebellion(City city, float ratio)
     {
-        if (ratio < EffectiveRebellionThreshold(city) || city == null || city.kingdom == null ||
-            city.kingdom.isRekt() || city.kingdom.getWars().Any() || city == city.kingdom.capital) return false;
+        if (!CanStartPeasantLandUprising(city, ratio)) return false;
         if (!ModernStability.PassRebellionGate(city.kingdom)) return false;
         CityExtension.CityExtraData data = EnsureData(city);
         if (data.last_land_rebellion_timestamp >= 0d &&
@@ -824,6 +831,8 @@ public static class LandEconomySystem
         leader ??= CityPopulationSystem.SpawnRebelLeader(city);
         if (leader == null) return false;
         Kingdom origin = city.kingdom;
+        RebellionCauseData rebellionCause = RebellionSystem.Capture(origin, city, "rebellion_reason_land",
+            string.Format(LM.Get("land_rebellion_cause"), city.GetCityName(), ratio * 100f));
         Kingdom rebel = city.makeOwnKingdom(leader, pRebellion: true);
         if (rebel == null) return false;
         if (!rebel.StartLocalRebelling(EmpireWarType.地方叛乱))
@@ -842,6 +851,7 @@ public static class LandEconomySystem
         string cause = string.Format(LM.Get("land_rebellion_cause"), city.GetCityName(), ratio * 100f);
         war.data.name = LM.Get("land_rebellion_war_name");
         MarkPeasantSocialRebellion(war, rebel, origin, city, ratio, cause);
+        RebellionSystem.Record(rebel, war, rebellionCause);
         RebellionStartupService.RaiseUprisingMilitia(rebel, ratio);
         data.last_land_rebellion_timestamp = World.world.getCurWorldTime();
         string history = string.Format(LM.Get("land_rebellion_started_history"), city.GetCityName(),
@@ -853,7 +863,8 @@ public static class LandEconomySystem
 
     private static bool TryJoinAdjacentPeasantRebellion(City city, float ratio)
     {
-        if (city == null || ratio < ContagionLandlessThreshold || city.neighbours_cities == null) return false;
+        if (city == null || ratio < ContagionLandlessThreshold || city.neighbours_cities == null ||
+            !RebellionSystem.CanAttempt(city.kingdom) || !CityStabilitySystem.CanRise(city)) return false;
         foreach (City neighbour in city.neighbours_cities)
         {
             Kingdom rebel = neighbour?.kingdom;

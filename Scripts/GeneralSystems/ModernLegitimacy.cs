@@ -114,7 +114,8 @@ public static class ModernLegitimacy
         int street = HarshRuleSystem.LegitimacyPenalty(empire);
         if (street != 0) items.Add(("legitimacy_street_unrest", street));
         if (HarshRuleSystem.RecentlyRepressed(empire)) items.Add(("legitimacy_repression", Repression));
-        int mandate = Mathf.RoundToInt((empire.Mandate - 50) * MandateWeight);
+        // 原始事件值，与前现代治理正统分开，避免两套来源模型互相调用。
+        int mandate = Mathf.RoundToInt((empire.data.Mandate - 50) * MandateWeight);
         if (mandate != 0) items.Add(("legitimacy_mandate", mandate));
         return items;
     }

@@ -74,10 +74,20 @@ public class CityPopulationData
     // 背景人口的收入：上次结算以来真实产出的价值(按市场价折算，见 PopulationEconomySystem.Deposit)与上次结算的年收入
     public float produced_value;
     public float last_income;
+    public float farm_jobs;
+    public List<PopulationEconomyPeriod> economy_periods;
+    // 土地交易等途径实缴的背景税，也要进入同一统计窗口。
+    public float other_background_tax;
     // 民间存款(见 PopulationEconomySystem.Savings)：-1 表示还没建账；上次结算的年消费
     public float private_savings = -1f;
     // 公家的建材(资源 id → 数量)：城市国库从市场买进的木石金属，公家用时不用再付给百姓
     public Dictionary<string, int> public_stock = new();
+    // 开城物资在没有可用仓库时临时保管，计入可用库存；不会凭空增产。
+    public Dictionary<string, int> settlement_supplies;
+    // 自发聚落及空城安置可以不足一户，不能用保底人口把迁来的少数居民扩成整户。
+    public bool spontaneous_settlement;
+    // 空城安置每月至多参与一次；出发地与目的地都记录，帝国/封国调度与读档不能重复迁人。
+    public double last_resettlement = -1d;
     // 上次结算以来公家用掉百姓的建材付的钱、没付上的钱(国库不够)
     public float public_paid;
     public float public_unpaid;

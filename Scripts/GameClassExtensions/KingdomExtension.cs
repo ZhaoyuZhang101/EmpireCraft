@@ -15,6 +15,7 @@ using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Compatibility;
 using HarmonyLib;
 using NCMS.Extensions;
 using UnityEngine;
@@ -264,6 +265,9 @@ public static class KingdomExtension
         public string realm_culture = "";
         public SpecificClan kingdomSpecificClan;
         public int Money = 0;
+        public TreasuryData treasury;
+        public int tax_corruption_carry;
+        public StateSettlementData settlement;
         // 国家粮仓(见 GranarySystem)：存粮与上次结算损耗的时间
         public float granary;
         public double granary_last_spoil = -1d;
@@ -333,6 +337,8 @@ public static class KingdomExtension
         public bool union_city_state_local_succession;
         public long union_alliance_leader_kingdom_id = -1L;
         public long feudal_overlord_kingdom_id = -1L;
+        // Preserve the player's current independent color across vassalage and save/load.
+        public int feudal_independent_color_id = -1;
         // 军阀时期易帜归附的时间：此后 FeudalVassalService.DefectorLoyaltyYears 年内不得发动独立战争
         public double feudal_defected_at = -1d;
         public int feudal_vassal_level;
@@ -347,6 +353,8 @@ public static class KingdomExtension
         public long peasant_land_rebellion_origin_kingdom_id = -1L;
         // Persist every empire this polity has rebelled against; ending a war must not permit re-entry.
         public List<long> rebellion_origin_empire_ids = new List<long>();
+        public RebellionCauseData last_rebellion_cause;
+        public double last_stability_release = -1d;
         // 地方叛乱自动吸纳政权时可再接收的城市数。
         public int rebellion_auto_expand_remaining = -1;
         public int rebellion_origin_city_value = -1;
@@ -354,6 +362,7 @@ public static class KingdomExtension
         public double last_rebellion_exclave_disengagement_roll = -1L;
         public bool isNeedToMaintainGoodOpinion = false;
         public double last_tax_timestamp = -1L;
+        public ExclaveMaintenanceData exclave_maintenance;
         public double last_office_exam_timestamp = -1L;
         public double corruption_timestamp = -1L;
         public EmpireHeirLawType HeirLaw = EmpireHeirLawType.eldest_child;
@@ -387,7 +396,7 @@ public static class KingdomExtension
         //宗主国
         public long taken_empire = -1L;
         //上一次朝贡时间
-        public long last_taken_time = -1L;
+        public double last_taken_time = -1d;
         //退出朝贡国倾向
         public float leave_taken_alliance_preference = 0.0f;
         public Dictionary<long, int> local_claim_failed_opinion = new Dictionary<long, int>();
@@ -1106,7 +1115,7 @@ public static class KingdomExtension
     }
     public static bool IsNeedToTaken(this Kingdom k)
     {
-        return Date.getYearsSince(k.GetOrCreate().last_taken_time)>1&&k.HasTakenAlliance();
+        return Date.getYearsSince(k.GetOrCreate().last_taken_time) >= (TreasurySystem.Enabled(k) ? 1 : 2) && k.HasTakenAlliance();
     }
 
     public static void StartToTaken(this Kingdom k)
@@ -1115,12 +1124,17 @@ public static class KingdomExtension
         if (empire == null || empire.isRekt() || empire.IsArchived()) return;
         var core = empire.CoreKingdom;
         if (core == null || core.isRekt()) return;
+        if (AncientWarfareCompatibility.Owns(k) || AncientWarfareCompatibility.Owns(core)) return;
+        bool fiscal = TreasurySystem.Enabled(k);
+        if (fiscal && !k.IsNeedToTaken()) return;
+        if (fiscal) k.GetOrCreate().last_taken_time = World.world.getCurWorldTime();
         // 贡金按人口(无小人模式按户，和单位个数同一量级)
         bool abstracted = CityPopulationSystem.AbstractPopulationEnabled;
         int population = abstracted ? CityPopulationSystem.Households(k) : k.units?.Count ?? 0;
         var value = population / 2;
-        k.SubMoney(value);
-        core.AddMoney(value);
+        if (fiscal) value = Math.Min(value, Math.Max(0, k.GetMoney()));
+        k.SubMoney(value, TreasuryCategory.Tribute);
+        core.AddMoney(value, TreasuryCategory.Tribute);
         if (k.GetMoney()<=0)
         {
             if (population / 3 > (abstracted ? CityPopulationSystem.Households(empire) : empire.getUnits().Count()))
@@ -1283,6 +1297,7 @@ public static class KingdomExtension
         if (empire != null)
         {
             empire.given_Kingdoms.Remove(k);
+            empire.data.given_annual_quotes?.Remove(k.id);
         }
         k.GetOrCreate().given_empire = -1L;
     }
@@ -1311,7 +1326,7 @@ public static class KingdomExtension
         }
         // Force may bypass diplomatic/de-jure eligibility after a tribute war, but a rebel
         // polity can never return to its original empire even as a tributary.
-        if (k.HasRebelledAgainst(empire)) return;
+        if (k.HasRebelledAgainst(empire) || !RealmDiplomacySystem.CanChooseOverlord(k)) return;
         // 没施行朝贡体系类制度的帝国一律不收朝贡国(强制也不行)
         if (!FeudalConquestService.HasTributeInstitution(empire)) return;
         // 废除君主制后朝贡体系随之废除，改用附庸国(见 TributaryAbolitionService)
@@ -1353,6 +1368,7 @@ public static class KingdomExtension
     {
         if (kingdom == null || kingdom.isRekt() || empire == null || empire.IsArchived() || empire.isRekt())
             return false;
+        if (!RealmDiplomacySystem.CanChooseOverlord(kingdom)) return false;
         KingdomTitle mainTitle = kingdom.GetMainTitle();
         if (mainTitle == null)
             return EmpireSubmissionRules.CanVoluntarilyBecomeTributary(false, false);
@@ -1384,24 +1400,14 @@ public static class KingdomExtension
     {
         if (!k.HasTakenAlliance()) return false;
         Empire empire = k.GetTakenAllianceEmpire();
-        return empire == null||k.IsInEmpire();
+        return empire == null||k.IsInEmpire()||!RealmDiplomacySystem.CanChooseOverlord(k);
     }
 
     // updateColor is used by older releases when a tributary joins. Restore the persistent
     // pre-existing kingdom color rather than generating a new random one when it leaves.
     public static void RestoreOriginalKingdomColor(this Kingdom kingdom)
     {
-        if (kingdom?.data == null || kingdom.isRekt()) return;
-        var colors = kingdom.getColorLibrary()?.list;
-        int originalColorId = kingdom.data.original_color_id;
-        if (colors != null && originalColorId >= 0 && originalColorId < colors.Count)
-        {
-            kingdom.updateColor(colors[originalColorId]);
-            return;
-        }
-
-        // Corrupt or legacy saves may not retain a valid original color entry.
-        kingdom.generateColor();
+        KingdomColorService.Restore(kingdom);
     }
     public static bool HasGivenAlliance(this Kingdom k)
     {
@@ -1759,12 +1765,18 @@ public static class KingdomExtension
         return k.GetOrCreate().Money;
     }
     public static void AddMoney(this Kingdom k, int money)
+        => AddMoney(k, money, TreasuryCategory.Other);
+    public static void AddMoney(this Kingdom k, int money, TreasuryCategory category)
     {
         k.GetOrCreate().Money += money;
+        TreasurySystem.Record(k, money, category);
     }
     public static void SubMoney(this Kingdom k, int money)
+        => SubMoney(k, money, TreasuryCategory.Other);
+    public static void SubMoney(this Kingdom k, int money, TreasuryCategory category)
     {
         k.GetOrCreate().Money -= money; 
+        TreasurySystem.Record(k, -(long)money, category);
     }
     
     public static double GetLastTaxTime(this Kingdom k)
@@ -2008,8 +2020,10 @@ public static class KingdomExtension
                 : RegimeType.Feudalism;
         regimeType = InstitutionSystem.AdjustForMonarchyEmpire(k, regimeType);
         // 改制共和的帝国：保留现在的政体，只重建官职——否则一丢官职就被按文化重置回君主制
-        if (RepublicSystem.IsRegimeLocked(k)) regimeType = k.GetOrCreate().regimeType;
+        if (RepublicSystem.IsRegimeLocked(k) || k.GetOrCreate().regime_manually_selected) regimeType = k.GetOrCreate().regimeType;
+        bool manuallySelected = k.GetOrCreate().regime_manually_selected;
         k.SetRegimeType(regimeType);
+        k.GetOrCreate().regime_manually_selected = manuallySelected;
         k.LoadRegime();
         var regime = k.GetRegime();
         if (regime == null) return;
@@ -3148,7 +3162,7 @@ public static class KingdomExtension
     public static List<Empire> GetEmpiresCanBeJoined(this Kingdom kingdom)
     {
         List<Empire> empires = new List<Empire>();
-        if (kingdom == null) return empires;
+        if (kingdom == null || kingdom.IsInEmpire() || !RealmDiplomacySystem.CanChooseOverlord(kingdom)) return empires;
         if (ModClass.EMPIRE_MANAGER == null) return empires;
         if (!ModClass.EMPIRE_MANAGER.Any()) return empires;
         foreach(City city in kingdom.cities)
@@ -3201,7 +3215,7 @@ public static class KingdomExtension
     {
         if (kingdom==null) return;
         if (GetOrCreate(kingdom) == null) return;
-        kingdom.generateColor();
+        kingdom.RestoreOriginalKingdomColor();
         kingdom.SetEmpireID(-1L);
         kingdom.GetOrCreate().isEmpire = false;
     }

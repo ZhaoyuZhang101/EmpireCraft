@@ -799,6 +799,7 @@ namespace EmpireCraft.Scripts.AI
                         return false;
                     }
                     kingdom.JoinTakenAlliance(empire);
+                    if (kingdom.GetTakenAllianceEmpire() != empire) return false;
                     TranslateHelper.LogJoinTakenAlliance(kingdom, empire);
                     return true;
                 }
@@ -1095,15 +1096,23 @@ namespace EmpireCraft.Scripts.AI
                         double rebellingPossibility = 0.2f;
                         if (!target.isOpinionTowardsKingdomGood(empire.CoreKingdom))
                         {
-                            rebellingPossibility = ((double)target.countTotalWarriors() / (double)empire.countWarriors()) * 0.5f + (0.5f*(double)(100.0f-empire.Legitimacy)/100.0f);
+                            rebellingPossibility = Math.Min(1d, target.countTotalWarriors() /
+                                (double)Math.Max(1, empire.countWarriors())) * 0.5d +
+                                Math.Max(0d, 100d - empire.Legitimacy) / 200d;
                         }
                         Random rand = new Random();
-                        if (rand.NextDouble() < rebellingPossibility)
+                        rebellingPossibility *= RebellionSystem.ChanceFactor(target);
+                        if (RebellionSystem.CanAttempt(target) && CityStabilitySystem.CanRise(target.capital) &&
+                            rand.NextDouble() < rebellingPossibility)
                         {
+                            RebellionCauseData cause = RebellionSystem.Capture(target, target.capital,
+                                "rebellion_reason_crime", crime.ToString());
                             var war = DiplomacyHelpers.wars.newWar(target, kingdom, WarTypeLibrary.normal);
+                            if (war == null) return false;
                             war.SetEmpireWarType(EmpireWarType.地方叛乱, pre: kingdom.name, nanoObject:empire, belongingFaction:target.king?.GetFaction());
                             empire.leave(target, true, true);
                             target.StartLocalRebelling(EmpireWarType.地方叛乱);
+                            RebellionSystem.Record(target, war, cause);
                         }
                         else
                         {
@@ -1453,7 +1462,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsInEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     Regime regime = kingdom.GetRegime();
-                    if (empire.Legitimacy > 40) return false;
+                    if (empire.Legitimacy > 40 || !RebellionSystem.CanAttempt(kingdom) ||
+                        !CityStabilitySystem.CanRise(kingdom.capital)) return false;
                     if (regime == null) return false;
                     if (regime.type != RegimeType.Feudalism && regime.type != RegimeType.Arabic) return false;
                     if (!regime.IsAllowDiplomacy()) return false;
@@ -1463,15 +1473,23 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
                     return true;
                 },
+                check_should_continue = actor => actor?.isKing() == true &&
+                    actor.kingdom.GetEmpire() is Empire current && current.Legitimacy <= 40 &&
+                    RebellionSystem.CanAttempt(actor.kingdom) && CityStabilitySystem.CanRise(actor.kingdom.capital),
                 action = delegate(Actor pActor) 
                 {
                     Kingdom kingdom = pActor.kingdom;
-                    kingdom.FinishedSelfPlot();
                     Empire empire = kingdom.GetEmpire();
-                    if (empire.isRekt()) return false;
-                    empire.leave(kingdom);
+                    if (empire == null || empire.isRekt() || empire.Legitimacy > 40 ||
+                        !RebellionSystem.CanAttempt(kingdom) || !CityStabilitySystem.CanRise(kingdom.capital)) return false;
+                    RebellionCauseData cause = RebellionSystem.Capture(kingdom, kingdom.capital,
+                        "rebellion_reason_secession");
                     var war = DiplomacyHelpers.wars.newWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
+                    if (war == null) return false;
+                    kingdom.FinishedSelfPlot();
+                    empire.leave(kingdom, true, true);
                     war.SetEmpireWarType(EmpireWarType.地方独立);
+                    RebellionSystem.Record(kingdom, war, cause);
                     return true;
                 }
             });
@@ -1826,7 +1844,11 @@ namespace EmpireCraft.Scripts.AI
                 action = delegate(Actor pActor) 
                 {
                     Kingdom kingdom = pActor.kingdom;
-                    kingdom.GetEmpiresCanBeJoined().First().join(kingdom);
+                    if (!pActor.isKing() || kingdom.IsInEmpire() || !RealmDiplomacySystem.CanChooseOverlord(kingdom)) return false;
+                    Empire destination = kingdom.GetEmpiresCanBeJoined().FirstOrDefault();
+                    if (destination == null) return false;
+                    destination.join(kingdom);
+                    if (kingdom.GetEmpire() != destination) return false;
                     var warsList5 = KingdomExtension.GetWarsCached(kingdom, false);
                     for (int wi = 0; wi < warsList5.Count; wi++)
                     {
@@ -2075,7 +2097,8 @@ namespace EmpireCraft.Scripts.AI
                         return false;
                     }
                     CityValueSnapshot cityValue = city.GetCityStrategicValue();
-                    if (city.isHappy() && !CityValueRules.CanRebelWhileContent(cityValue))
+                    if (city.isHappy() && (!CityValueRules.CanRebelWhileContent(cityValue) ||
+                        city.getLoyalty() > CityValueRules.GetIsolationRebellionLoyaltyThreshold(cityValue)))
                     {
                         return false;
                     }
@@ -2175,25 +2198,36 @@ namespace EmpireCraft.Scripts.AI
                     {
                         return false;
                     }
-				    return true;
+                    return RebellionSystem.CanContinueCityPlot(pActor, pActor.plot?.data.forced == true);
 			    },
 			    action = delegate(Actor pActor)
 			    {
-				    bool pCheckForHappiness = !pActor.plot.data.forced;
-				    DiplomacyHelpersRebellion.startRebellion(pActor, pActor.plot, pCheckForHappiness);
+                    Plot plot = pActor?.plot;
+                    if (plot == null || !RebellionSystem.CanContinueCityPlot(pActor, plot.data.forced)) return false;
+                    Kingdom origin = pActor.kingdom;
+                    City originCity = pActor.city;
+                    RebellionCauseData cause = RebellionSystem.Capture(origin, originCity,
+                        originCity.isHappy() ? "rebellion_reason_exclave" : "rebellion_reason_city_loyalty",
+                        RebellionSystem.CityLoyaltyCauses(originCity));
+				    bool pCheckForHappiness = !plot.data.forced;
+				    DiplomacyHelpersRebellion.startRebellion(pActor, plot, pCheckForHappiness);
+                    if (pActor.kingdom == null || pActor.kingdom == origin) return false;
                     War war = null;
                     if (pActor.kingdom.hasEnemies())
                     {
-                        war = pActor.kingdom.getWars()?.First();
+                        war = pActor.kingdom.getWars()?.FirstOrDefault(w => !w.hasEnded() &&
+                            (w.isAttacker(origin) || w.isDefender(origin) ||
+                             w.isAttacker(plot.target_kingdom) || w.isDefender(plot.target_kingdom)));
                     }
                     else
                     {
-                        war = World.world.diplomacy.startWar(pActor.kingdom, pActor.plot.target_kingdom, WarTypeLibrary.rebellion);
+                        war = World.world.diplomacy.startWar(pActor.kingdom, plot.target_kingdom, WarTypeLibrary.rebellion);
                     }
                     if (war != null)
                     {
                         war.SetEmpireWarType(EmpireWarType.地方独立);
                         pActor.kingdom.StartLocalRebelling(EmpireWarType.地方独立, pre: pActor.city.GetCityName());
+                        RebellionSystem.Record(pActor.kingdom, war, cause);
                         if (pActor.plot.target_kingdom.IsInEmpire() && !pActor.plot.target_kingdom.IsEmpire())
                         {
                             war.joinDefenders(pActor.plot.target_kingdom.GetEmpire().CoreKingdom);

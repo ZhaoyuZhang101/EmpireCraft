@@ -55,10 +55,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
                 pKingdom.EndCorrupting();
             }
 
-            if (pKingdom.GetCorruptionTime() > 1)
-            {
-                empire.AddMandate(-5);
-            }
+            // 亏空的正统影响由治理来源/年度破产结算负责，不能每次 AI 检查都再扣一次。
         }
     }
     /// <summary>
@@ -114,7 +111,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         }
     }
     /// <summary>
-    /// 计算军费，通过4年内的平均增长的数值来计算
+    /// 每年计算一次军费，使用最近十年的财政记录
     /// </summary>
     /// <param name="pKingdom"></param>
     public void CalcMilitaryExpenditure(Kingdom pKingdom)
@@ -122,12 +119,27 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         Empire empire = pKingdom.GetEmpire();
         if (empire == null || empire.isRekt() || empire.IsArchived()) return;
         var core = empire.CoreKingdom;
-        if (core == null) return;
+        if (core == null || World.world == null) return;
+        double now = World.world.getCurWorldTime();
+        if (empire.data.last_military_expenditure_timestamp >= 0d &&
+            now >= empire.data.last_military_expenditure_timestamp &&
+            Date.getYearsSince(empire.data.last_military_expenditure_timestamp) < 1) return;
+        empire.data.last_military_expenditure_timestamp = now;
+        if (TreasurySystem.Enabled(core))
+        {
+            // 城市月度驻军/野战军账单已实际扣款，年度只汇总，不能再扣旧公式军费。
+            var fiscal = TreasurySystem.Consolidated(core);
+            fiscal.expense_sources.TryGetValue(nameof(TreasuryCategory.Military), out long fieldArmy);
+            fiscal.expense_sources.TryGetValue(nameof(TreasuryCategory.Garrison), out long garrisons);
+            empire.data.MilitaryExpenditure = (int)Math.Min(int.MaxValue, fieldArmy + garrisons);
+            if (empire.IsNeedToGive()) empire.StartToGive();
+            return;
+        }
         //计算军费
         // 追加当年财政数据
         empire.data.PreviousYearsMoney.Add(empire.CurrentMoney);
 
-        // 始终只保留最近4年
+        // 始终只保留最近十年
         while (empire.data.PreviousYearsMoney.Count > 10)
             empire.data.PreviousYearsMoney.RemoveAt(0);
         
@@ -141,12 +153,12 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             double growthAvg = Math.Max(0, avg4 - avg3);
             int militaryCost = (int)(growthAvg  * rate);
             empire.data.MilitaryExpenditure = militaryCost;
-            core.SubMoney(militaryCost);
+            core.SubMoney(militaryCost, TreasuryCategory.Military);
             if (core.hasEnemies())
             {
                 // 战时军费：旧版 兵力/4×战争数 极易打到负债扣正统，现为 兵力/10，最多按两场战争计
                 var warExpend = (empire.countWarriors() / 10) * Math.Min(2, core.getWars().Count());
-                core.SubMoney(warExpend);
+                core.SubMoney(warExpend, TreasuryCategory.Military);
             }
 
             var jiedushis = empire.kingdoms_list.FindAll(k => k.GetKingdomType() == KingdomType.LvLing_jiedushi);
@@ -154,7 +166,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             {
                 //军府维护金
                 var junfuMoney = jiedushis.Sum(k => k.countTotalWarriors());
-                core.SubMoney(junfuMoney);
+                core.SubMoney(junfuMoney, TreasuryCategory.Military);
             }
         }
         if (empire.IsNeedToGive())

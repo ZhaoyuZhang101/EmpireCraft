@@ -111,7 +111,8 @@ public static class EmpireCraftOpinionAddition
                     {
                         if (pMain.king.GetFaction() != pTarget.king.GetFaction())
                         {
-                            result = -300;
+                            // 前现代分封的不同派系是有限的政见分歧，不能单项压过全部正统贡献。
+                            result = EmpireCraft.Scripts.GeneralSystems.ModernLegitimacy.Applies(pMain.GetEmpire()) ? -300 : -30;
                         }
                     }
                 }
@@ -124,19 +125,8 @@ public static class EmpireCraftOpinionAddition
             translation_key = "opinion_empire_maintained",
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
-                int result = 0;
-                if (pMain.IsInSameEmpire(pTarget))
-                {
-                    if (pTarget.IsEmpire())
-                    {
-                        if (pMain.IsNeedToMaintainGoodOpinion() &&
-                            (pTarget.GetEmpire()?.GetMinisterOppositionPenalty() ?? 0) == 0)
-                        {
-                            result = 99999;
-                        }
-                    }
-                }
-                return result;
+                // 保留资产 ID 以兼容旧档；旧维持标记不再提供异常的免叛好感。
+                return 0;
             }
         });
         opl.add(new OpinionAsset

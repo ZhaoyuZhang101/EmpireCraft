@@ -50,6 +50,9 @@ public static class EmpireCraftStrategicScheduler
         MapBox currentWorld = World.world;
         if (currentWorld == null || !Config.game_loaded || Config.paused || SmoothLoader.isLoading()) return;
         if (!ReferenceEquals(_boundWorld, currentWorld)) Reset(currentWorld);
+        StateSettlementSystem.Tick();
+        ExclaveMaintenanceSystem.Tick();
+        CityStabilitySystem.Tick();
 
         float realtime = Time.realtimeSinceStartup;
         if (realtime >= _nextCompatibilityRefresh)
@@ -130,6 +133,8 @@ public static class EmpireCraftStrategicScheduler
 
     private static void Reset(MapBox world)
     {
+        StateSettlementSystem.ResetWorldState();
+        CityStabilitySystem.ResetWorldState();
         _boundWorld = world;
         _kingdomCursor = 0;
         _empireCursor = 0;
@@ -235,6 +240,7 @@ public static class EmpireCraftStrategicScheduler
                 PlotCheck.execute(kingdom);
                 TemporaryFactionCheck.execute(kingdom);
                 ReligionKingdomCheck.execute(kingdom);
+                ExclaveMaintenanceSystem.Check(kingdom);
             }
             else if (CityPopulationSystem.AbstractPopulationEnabled)
             {
@@ -244,7 +250,7 @@ public static class EmpireCraftStrategicScheduler
                     state.LastStrategicWorldTime = World.world.getCurWorldTime();
                     state.MonthlyPhase = 0;
                 }
-                // 六个检查分别续跑，不把正在执行的旧月度工作重置为下一月。
+                // 各个检查分别续跑，不把正在执行的旧月度工作重置为下一月。
                 while (state.MonthlyPhase >= 0 && SimulationFrameBudget.HasTime)
                 {
                     switch (state.MonthlyPhase++)
@@ -255,8 +261,10 @@ public static class EmpireCraftStrategicScheduler
                         case 3: PlotCheck.execute(kingdom); break;
                         case 4: TemporaryFactionCheck.execute(kingdom); break;
                         case 5: ReligionKingdomCheck.execute(kingdom); break;
+                        case 6: StateSettlementSystem.Check(kingdom); break;
+                        case 7: ExclaveMaintenanceSystem.Check(kingdom); break;
                     }
-                    if (state.MonthlyPhase >= 6) state.MonthlyPhase = -1;
+                    if (state.MonthlyPhase >= 8) state.MonthlyPhase = -1;
                 }
             }
             FaultRetryTimes.Remove(kingdom.id);

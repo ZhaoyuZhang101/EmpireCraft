@@ -54,14 +54,41 @@ public class CityWindowPatch : GamePatch
         __instance.tryToShowActor("founder", metaObject.data.founder_id, metaObject.data.founder_name, pIconPath: "actor_traits/iconStupid");
         __instance.tryShowPastRulers();
         __instance.tryToShowActor("village_statistics_leader", pObject: metaObject.leader, pIconPath: "iconLeaders");
-        if (metaObject.hasLeader())
-            __instance.showStatRow("ruler_money", (object) metaObject.GetMoney(), "#43FF43", pIconPath: "iconMoney");
+        __instance.showStatRow("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(metaObject.GetMoney()), "#43FF43", pIconPath: "iconMoney");
+        if (TreasurySystem.Enabled(metaObject))
+        {
+            var fiscal = TreasurySystem.Report(metaObject);
+            __instance.showStatRow("fiscal_flows", TreasurySystem.FlowText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_transfers", TreasurySystem.TransferText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_spending", TreasurySystem.SpendingText(fiscal), "#F3C34A", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_operating_balance", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                fiscal.operating_balance), fiscal.operating_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
+            foreach (var item in TreasurySystem.Details(fiscal))
+                __instance.showStatRow(item.key, item.value, "#B8C6CC", pIconPath: "iconMoney");
+        }
+        if (CityStabilitySystem.State(metaObject) is CityStabilityData stability)
+        {
+            __instance.showStatRow("city_stability", $"{CityStabilitySystem.Effective(metaObject):0}/100", "#7FD8EA", pIconPath: "iconKings");
+            __instance.showStatRow("city_stability_base", $"{stability.stability:0} / {stability.natural_stability:0}", "#B8C6CC", pIconPath: "iconKings");
+            __instance.showStatRow("city_garrison", CityStabilitySystem.GarrisonText(metaObject), "#F3C34A", pIconPath: "iconWar");
+            __instance.showStatRow("city_stability_cost", CityStabilitySystem.CostText(stability), "#B8C6CC", pIconPath: "iconMoney");
+            __instance.showStatRow("city_stability_unfunded", stability.unfunded_months.ToString(), "#E6A166", pIconPath: "iconClock");
+            __instance.showStatRow("city_stability_arrears", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(stability.arrears), "#E6A166", pIconPath: "iconMoney");
+            __instance.showStatRow("city_governance_quality", $"{stability.governance_quality:0}/100", "#7FD8EA", pIconPath: "iconKings");
+            if (!string.IsNullOrEmpty(stability.pressure_detail))
+                foreach (string line in RebellionSystem.DetailLines(stability.pressure_detail))
+                    __instance.showStatRow("city_stability_pressure", line, "#E6A166", pIconPath: "iconKings");
+        }
         CityValueSnapshot cityValue = metaObject.GetCityStrategicValue();
         string cityValueText = $"{cityValue.Total}/100" +
                                (cityValue.IsIsolated ? $" ({LM.Get("city_value_isolated")})" : "");
         __instance.showStatRow("city_value", cityValueText, "#FFD34E", pIconPath: "iconKings");
         __instance.showStatRow("tax", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_local_low");
-        __instance.showStatRow("tribute", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
+        if (TreasurySystem.Enabled(metaObject))
+            __instance.showStatRow("fiscal_tax_shares", TreasurySystem.TaxSharingText(metaObject), "#B8C6CC",
+                pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
+        else
+            __instance.showStatRow("tribute", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
         __instance.tryToShowActor("king", pObject: metaObject.kingdom.king, pIconPath: "iconKings");
         __instance.tryToShowMetaSpecies("founder_species", metaObject.getFounderSpecies()?.id);
         CityLandReport land = LandEconomySystem.GetReport(metaObject);
@@ -163,6 +190,8 @@ public class CityWindowPatch : GamePatch
         int households = CityPopulationSystem.Households(city);
         window.showStatRow("city_pop_scale", string.Format(LM.Get("city_pop_scale_format"), people, households,
             CityPopulationSystem.PeoplePerSlot(city)), "#F3C34A", pIconPath: "iconPopulation");
+        window.showStatRow("city_pop_economy_scale", string.Format(LM.Get("city_pop_economy_scale_format"),
+            CityPopulationSystem.PeoplePerSlot(city)), "#B8C6CC", pIconPath: "iconMoney");
         CityPopulationSystem.GrowthFactors factors = CityPopulationSystem.GetGrowthFactors(city, data);
         float growth = factors.BirthRate - factors.DeathRate;
         window.showStatRow("city_pop_growth", $"{growth:+0.0%;-0.0%;0.0%}",
@@ -188,16 +217,15 @@ public class CityWindowPatch : GamePatch
                     Mathf.RoundToInt(data.last_market_bought),
                     Mathf.RoundToInt(Mathf.Max(data.last_market_sold, data.market_sold_month))),
                 "#7FD8EA", pIconPath: "iconMoney");
-        if (data.last_income > 0f)
-            window.showStatRow("city_pop_income", Mathf.RoundToInt(data.last_income).ToString(), "#C8E66A",
-                pIconPath: "iconMoney");
-        if (data.private_savings > 0f)
+        window.showStatRow("city_pop_income", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_income), "#C8E66A",
+            pIconPath: "iconMoney");
+        if (data.private_savings >= 0f)
             window.showStatRow("city_pop_savings", string.Format(LM.Get("city_pop_savings_format"),
-                    Mathf.RoundToInt(data.private_savings), Mathf.RoundToInt(data.last_consumption)), "#E6D36A",
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.private_savings),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_consumption)), "#E6D36A",
                 pIconPath: "iconMoney");
-        if (data.last_tax_income > 0f)
-            window.showStatRow("city_pop_tax", Mathf.RoundToInt(data.last_tax_income).ToString(), "#43FF43",
-                pIconPath: "iconMoney");
+        window.showStatRow("city_pop_tax", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_tax_income), "#43FF43",
+            pIconPath: "iconMoney");
         if (data.levied > 0f)
             window.showStatRow("city_pop_legions", Mathf.RoundToInt(data.levied).ToString(), "#E6A166",
                 pIconPath: "iconWar");
@@ -332,6 +360,30 @@ public class CityWindowPatch : GamePatch
 
         city_setting_contents.Add(nameHistoryTitle.transform);
         city_setting_contents.Add(openNameHistoryButton.transform);
+        foreach (bool governance in new[] { true, false })
+        {
+            SimpleButton policy = GameObject.Instantiate(SimpleButton.Prefab);
+            bool governor = governance;
+            string Label()
+            {
+                var state = CityStabilitySystem.State(city);
+                return LM.Get(governor ? "city_governance_policy" : "city_garrison_policy") + "：" +
+                    CityStabilitySystem.PolicyText(governor ? state?.governance_policy ?? -1 : state?.garrison_policy ?? -1);
+            }
+            policy.Setup(() =>
+            {
+                var state = CityStabilitySystem.State(city);
+                if (state == null) return;
+                if (governor) state.governance_policy = state.governance_policy >= 2 ? -1 : state.governance_policy + 1;
+                else state.garrison_policy = state.garrison_policy >= 2 ? -1 : state.garrison_policy + 1;
+                policy.Text.text = Label();
+            }, SpriteTextureLoader.getSprite("ui/icons/iconMoney"), Label(), pSize: new Vector2(220, 30));
+            policy.transform.localScale = Vector3.one;
+            var size = policy.gameObject.AddComponent<LayoutElement>();
+            size.minWidth = size.preferredWidth = 220;
+            size.minHeight = size.preferredHeight = 30;
+            city_setting_contents.Add(policy.transform);
+        }
 
         return city_setting_contents;
     }

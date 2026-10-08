@@ -274,6 +274,10 @@ public static class EmpireLawSystem
             CrimeDate = crimeDate
         };
 
+        City corruptionCity = actor.GetOffice()?.meta_object as City;
+        if (corruptionCity == null && actor.isCityLeader()) corruptionCity = actor.city;
+        bool corruptionAdministration = kingdom.king == actor || actor.GetOffice()?.meta_object == kingdom;
+        int moneyBefore = actor.money;
         foreach (PunishmentLevel punishment in law.Punishments ?? new List<PunishmentLevel>())
         {
             if (ApplyPunishment(context, punishment))
@@ -286,6 +290,9 @@ public static class EmpireLawSystem
         {
             extraPunishment(context);
         }
+
+        CorruptionSystem.OnLawEnforced(kingdom, corruptionCity, corruptionAdministration, type,
+            context.AppliedPunishments, moneyBefore, actor.money);
 
         if (context.AppliedPunishments.Count > 0)
         {

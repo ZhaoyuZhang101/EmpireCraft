@@ -26,7 +26,8 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
         if (!pCity.hasKingdom()) return BehResult.Continue;
         if (!WorldLawLibrary.world_law_civ_army.isEnabled()) return BehResult.Continue;
         Regime regime = pCity.kingdom.GetRegime();
-        if (regime == null || !regime.IsAllowArmy())
+        if (regime == null || !regime.IsAllowArmy() &&
+            EmpireCraft.Scripts.GeneralSystems.CityStabilitySystem.FundedSlots(pCity) <= 0)
         {
             pCity.disbandArmy();
             if (ced != null) ced.last_army_check_ts = World.world.getCurWorldTime();

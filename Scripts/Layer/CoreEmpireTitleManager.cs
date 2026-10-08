@@ -480,9 +480,9 @@ public static class EmpireCoreManager
         if (CultureService.IsValidCulture(empireCulture) && CultureService.IsValidCulture(titleCulture) &&
             !string.Equals(empireCulture, titleCulture, StringComparison.Ordinal)) return false;
         int cost = GetAssimilationCost(empire, title);
-        if (empire.CurrentMoney < cost) return false;
-        empire.CoreKingdom.SubMoney(cost);
+        if (!TreasurySystem.TrySpend(empire.CoreKingdom, cost, TreasuryCategory.Policy)) return false;
         bool result = AddTitleToCore(core, title);
+        if (!result) empire.CoreKingdom.AddMoney(cost, TreasuryCategory.Policy);
         if (result)
         {
             TranslateHelper.LogEmpireCoreAbsorbTitle(empire, title, core);

@@ -203,6 +203,19 @@ public sealed class ConstitutionalEconomyState
     // 连续几次地方选举在野党控制了六成以上的行政区(满两次推动改行联邦制)
     public int local_opposition_streak;
     // —— 苛政与民怨(见 HarshRuleSystem)——
+    // 王朝积弊：前现代按年累积/整顿，现代与过渡政体不适用。保存年标记防止读档重复结算。
+    public double dynastic_since = -1d;
+    public double last_dynastic_update = -1d;
+    public double last_dynastic_uprising_attempt = -1d;
+    public float dynastic_strain;
+    public bool dynastic_crisis_announced;
+    // 封国/城市腐败按户加权的年度快照；中央腐败仍实时读取原值。-1 兼容旧档。
+    public double local_corruption_snapshot = -1d;
+    public double last_corruption_snapshot = -1d;
+    public double last_anticorruption_campaign = -1d;
+    public double last_anticorruption_check = -1d;
+    public int harsh_corruption_burden = -1;
+    public float harsh_other_burden = -1f;
     public float harsh_burden;
     public string harsh_main_cause = "";
     // 现代国家的街头抗争：0 平静 / 1 游行示威 / 2 冲突 / 3 大规模暴乱；暴乱持续年数、连续镇压年数

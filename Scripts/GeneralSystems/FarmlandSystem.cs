@@ -238,6 +238,8 @@ public static class FarmlandSystem
             if (!result.TryGetValue(tile.zone, out List<WorldTile> list)) result[tile.zone] = list = new List<WorldTile>();
             list.Add(tile);
         }
+        CityPopulationData population = CityPopulationSystem.Get(city);
+        if (population != null) population.farm_jobs = seen.Count / 8f;
         return result;
     }
 

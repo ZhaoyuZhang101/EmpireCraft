@@ -69,6 +69,10 @@ public static class CityExtension
         public bool MAX_POPULATION_LIMIT = false;
         public double last_tax_timestamp = -1L;
         public int Money = 0;
+        public TreasuryData treasury;
+        public CityStabilityData stability;
+        public string tax_sharing_relationship;
+        public int tax_city_carry, tax_central_carry, tax_corruption_carry;
         [JsonIgnore]
         public TextInput limitationNumber { get; set; }
 
@@ -2178,13 +2182,19 @@ public static class CityExtension
     }
 
     public static void AddMoney(this City c, int money)
+        => AddMoney(c, money, TreasuryCategory.Other);
+    public static void AddMoney(this City c, int money, TreasuryCategory category)
     {
         c.GetOrCreate().Money += money;
+        TreasurySystem.Record(c, money, category);
     }
 
     public static void SubMoney(this City c, int money)
+        => SubMoney(c, money, TreasuryCategory.Other);
+    public static void SubMoney(this City c, int money, TreasuryCategory category)
     {
         c.GetOrCreate().Money -= money; 
+        TreasurySystem.Record(c, -(long)money, category);
     }
 
     public static CityType GetCityType(this City c)

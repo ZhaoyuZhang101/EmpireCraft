@@ -42,6 +42,7 @@ public static class ReignRecordSystem
 
     public static void OnDynastyChanged(Empire empire, Actor newEmperor)
     {
+        DynasticCycleSystem.OnDynastyChanged(empire);
         EmpireCraftHistory last = empire?.data?.history?.LastOrDefault(reign => reign != null && !reign.is_republic);
         if (last != null && last.id != newEmperor?.data?.id) last.ended_dynasty = true;
     }

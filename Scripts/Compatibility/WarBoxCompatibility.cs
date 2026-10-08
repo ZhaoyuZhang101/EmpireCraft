@@ -264,7 +264,9 @@ public static class WarBoxCompatibility
     private static void StartMemberRebellion(Empire empire, Kingdom kingdom)
     {
         if (kingdom.IsLocalRebelling() || kingdom.IsFactionRebelling() || kingdom.getWars().Any() ||
-            empire.CoreKingdom == null || !ModernStability.PassRebellionGate(empire.CoreKingdom)) return;
+            empire.CoreKingdom == null || !CityStabilitySystem.CanRise(kingdom.capital) ||
+            !ModernStability.PassRebellionGate(kingdom)) return;
+        var cause = RebellionSystem.Capture(kingdom, kingdom.capital, "rebellion_reason_protests");
         if (!kingdom.StartLocalRebelling(EmpireWarType.地方叛乱)) return;
         War war = World.world.diplomacy.startWar(kingdom, empire.CoreKingdom, WarTypeLibrary.rebellion);
         if (war == null)
@@ -273,6 +275,7 @@ public static class WarBoxCompatibility
             return;
         }
         war.SetEmpireWarType(EmpireWarType.地方叛乱);
+        RebellionSystem.Record(kingdom, war, cause);
         RebellionStartupService.RaiseUprisingMilitia(kingdom, 0.6f);
         EventRecorder.Record(empire, string.Format(LM.Get("warbox_empire_revolution_member"), kingdom.GetKingdomFullName(),
             empire.GetEmpireFullName()));

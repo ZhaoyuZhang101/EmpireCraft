@@ -159,7 +159,8 @@ public static class CityPopulationSystem
         if (!AbstractPopulationEnabled || city?.kingdom == null) return 0;
         ArmyDoctrine doctrine = DoctrineOf(city.kingdom);
         ArmyPost post = PostOf(city, doctrine);
-        if (post == ArmyPost.None) return 0;
+        int guards = CityStabilitySystem.FundedSlots(city);
+        if (post == ArmyPost.None) return guards;
         if (EmpireBankruptcySystem.IsUnpaidGarrison(city)) return 1;
         int households = Households(city.kingdom);
         if (!forceWar && !OnWarFooting(city))
@@ -167,9 +168,9 @@ public static class CityPopulationSystem
             bool standing = post == ArmyPost.Central ? doctrine.CentralStanding && !doctrine.Regional ||
                                                        doctrine.CentralStanding && doctrine.DistrictStanding
                 : post == ArmyPost.District && doctrine.DistrictStanding;
-            if (!standing) return 1;
+            if (!standing) return Math.Max(1, guards);
             int max = post == ArmyPost.District && doctrine.Regional ? 10 : 12;
-            return Mathf.Clamp(Mathf.CeilToInt(households * StandingLegionsPerHousehold), 2, max);
+            return Math.Max(guards, Mathf.Clamp(Mathf.CeilToInt(households * StandingLegionsPerHousehold), 2, max));
         }
         switch (post)
         {
@@ -379,6 +380,8 @@ public static class CityPopulationSystem
 
     public static void ResetWorldState()
     {
+        ExclaveMaintenanceSystem.ResetWorldState();
+        StateSettlementSystem.ResetWorldState();
         PopulationParallelSystem.ResetWorldState();
         ResetClassification();
         LeaderRetryAt.Clear();
@@ -429,11 +432,19 @@ public static class CityPopulationSystem
         bool changed = _populationMode.HasValue && _populationMode.Value != enabled;
         if (changed || !_populationMode.HasValue)
         {
+            if (changed) ExclaveMaintenanceSystem.ModeChanged();
+            if (changed || !enabled) StateSettlementSystem.ModeChanged(enabled);
             foreach (City city in world.cities)
             {
                 if (city?.data == null || city.isRekt()) continue;
                 CityPopulationData population = Get(city);
                 PopulationSettlementRules.SynchronizeMode(population, enabled, now, changed);
+                if (changed)
+                {
+                    population.economy_periods?.Clear();
+                    population.last_income = population.last_tax_income = population.last_consumption = 0f;
+                    population.other_background_tax = 0f;
+                }
             }
             if (changed)
             {
@@ -695,7 +706,7 @@ public static class CityPopulationSystem
 
     // 用城里的实体单位校准人口组。keepBackground 为 false 时丢弃背景人口，人口组完全等于单位统计；
     // 为 true 时保留每组的背景人口，只把实体单位部分换成这次数到的人数
-    public static void Census(City city, CityPopulationData data, bool keepBackground)
+    public static void Census(City city, CityPopulationData data, bool keepBackground, bool preserveSmallGroups = false)
     {
         var counted = new Dictionary<(SocialClass, string, string, PartyIdeology), int>();
         int named = 0;
@@ -721,7 +732,7 @@ public static class CityPopulationSystem
             foreach (PopGroup group in data.groups)
             {
                 float background = group.Background;
-                if (background < MinimumGroupSize) continue;
+                if (background < MinimumGroupSize && (!preserveSmallGroups || background <= 0f)) continue;
                 rebuilt.Add(new PopGroup
                 {
                     social_class = group.social_class, culture = group.culture ?? "", species = group.species ?? "",
@@ -1183,7 +1194,10 @@ public static class CityPopulationSystem
             case 9: PopulationEconomySystem.Settle(city, data, now, _foldHarvest); break;
             case 10: MarketSystem.Settle(city, data); break;
             case 11: MarketSystem.CheckSiegeSurrender(city, data); break;
-            case 12: SettleConstruction(city, data, now); break;
+            case 12:
+                if (_foldEconomyDue) EmpireCraft.Scripts.GamePatches.CityExpansionPatch.GrowVirtualCity(city);
+                SettleConstruction(city, data, now);
+                break;
             case 13: ScorchedEarthSystem.Settle(city); break;
             case 14: Migrate(city, data, now); break;
             case 15: Plague(city, data); break;
@@ -1417,6 +1431,33 @@ public static class CityPopulationSystem
             social_class = SocialClass.Peasant, culture = CultureService.GetActorCulture(actor) ?? "",
             species = actor.asset?.id ?? "", ideology = IdeologyPopulationSystem.Get(actor)
         }, extra.legion_size - 1f);
+    }
+
+    public static void DemobilizeSoldier(Actor actor, City home)
+    {
+        if (actor == null || !actor.isAlive() || home == null || actor.isKing() || actor.isCityLeader()) return;
+        if (AbstractPopulationEnabled)
+        {
+            LegionAlive(actor);
+            var extra = actor.GetOrCreate();
+            var origins = extra.legion_population;
+            extra.legion_population = null;
+            extra.legion_size = extra.legion_full = 0f;
+            extra.legion_home_city_id = -1L;
+            if (origins != null)
+                foreach (var origin in origins)
+                    if (origin != null && origin.size > 0f)
+                    {
+                        City destination = home.kingdom?.cities.FirstOrDefault(candidate => candidate != null &&
+                            !candidate.isRekt() && candidate.id == origin.city_id) ?? home;
+                        AddBackground(destination, origin.social_class == SocialClass.Army ? SocialClass.Peasant :
+                            origin.social_class, origin.culture, origin.species, origin.ideology, origin.size);
+                    }
+        }
+        actor.removeFromArmy();
+        actor.stopBeingWarrior();
+        UpdateLegions(home);
+        InvalidateHouseholdCaches();
     }
 
     private static void FoldIntoPopulation(Actor actor, City fallback)
@@ -1772,7 +1813,7 @@ public static class CityPopulationSystem
                 bool made = ItemCrafting.craftItem(actor, maker, type, Mathf.Max(1, actor.asset.item_making_skill), city);
                 int spent = Mathf.Max(0, budget - actor.data.money);
                 actor.data.money = saved;
-                if (made && spent > 0) treasury.SubMoney(spent);
+                if (made && spent > 0) treasury.SubMoney(spent, TreasuryCategory.Military);
             }
             actor.setStatsDirty();
         }
@@ -2125,10 +2166,15 @@ public static class CityPopulationSystem
     // 背景人口不足保底时补足：按现有人口组(没有背景人口就按名人)的构成补，一个人口组都没有时按城市的物种、主流文化补
     public static void EnsureFloor(City city)
     {
+        if (StateSettlementSystem.AwaitingPopulation(city)) return;
         if (!AbstractPopulationEnabled || city?.data == null || city.isRekt() || city.kingdom == null ||
             city.kingdom.wild) return;
         CityPopulationData data = Get(city);
         if (data == null) return;
+        if (data.spontaneous_settlement) return;
+        // 真正的空城等待真实移民。刚开启模式、尚未校准但仍有实体居民的城市继续原有初始化。
+        if (GetTotal(city) < 1f && city.units?.Any(actor => actor != null && actor.city == city &&
+            !actor.isRekt() && actor.isAlive()) != true) return;
         float floor = MinimumHouseholds * PeoplePerSlot(city);
         float background = GetBackgroundTotal(city);
         if (background >= floor) return;
@@ -2212,6 +2258,43 @@ public static class CityPopulationSystem
         }
         return moved;
     }
+
+    // 国家移民只迁真实背景平民，按同一比例保留文化、物种、阶层和理念。
+    public static float CivilianBackground(City city)
+    {
+        CityPopulationData data = Get(city);
+        if (data?.groups == null) return 0f;
+        float total = 0f;
+        foreach (PopGroup group in data.groups)
+            if (group != null && group.social_class != SocialClass.Army && group.social_class != SocialClass.Officer)
+                total += group.Background;
+        return total;
+    }
+
+    public static float TransferCivilianBackground(City from, City to, float amount)
+    {
+        if (from == null || to == null || from == to || amount <= 0f) return 0f;
+        CityPopulationData source = Get(from);
+        CityPopulationData destination = Get(to);
+        float total = CivilianBackground(from);
+        if (source?.groups == null || destination == null || total <= 0f) return 0f;
+        PopulationParallelSystem.Discard(from);
+        PopulationParallelSystem.Discard(to);
+        float share = Mathf.Min(1f, amount / total);
+        float moved = 0f;
+        foreach (PopGroup group in source.groups)
+        {
+            if (group == null || group.social_class == SocialClass.Army || group.social_class == SocialClass.Officer) continue;
+            float removed = RemoveBackground(group, group.Background * share);
+            if (removed <= 0f) continue;
+            AddBackground(to, group.social_class, group.culture, group.species, group.ideology, removed);
+            moved += removed;
+        }
+        InvalidateHouseholdCaches();
+        return moved;
+    }
+
+    public static void InvalidateHouseholdCaches() => _frameCacheFrame = -1;
 
     // 军团兵力(真实人数)：本国各城征召在外的军团人数 + 实体士兵
     public static int LegionPeople(Kingdom kingdom)

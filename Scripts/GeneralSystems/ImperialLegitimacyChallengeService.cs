@@ -49,13 +49,34 @@ public static class ImperialLegitimacyChallengeService
 
     private static bool SharesLandBorder(Kingdom challenger, Empire incumbent)
     {
-        if (challenger?.cities == null || incumbent?.kingdoms_hashset == null) return false;
+        if (challenger == null || challenger.isRekt() || challenger.cities == null || incumbent == null) return false;
         foreach (City city in challenger.cities)
         {
-            if (city == null || city.isRekt() || city.neighbours_kingdoms == null) continue;
-            foreach (Kingdom neighbour in city.neighbours_kingdoms)
+            if (city != null && city.kingdom == challenger && SharesLandBorder(city, incumbent)) return true;
+        }
+        return false;
+    }
+
+    private static bool SharesLandBorder(Empire challenger, Empire incumbent)
+    {
+        if (challenger == null || incumbent == null || challenger == incumbent) return false;
+        foreach (City city in EmpireMembershipService.EnumerateCities(challenger))
+            if (SharesLandBorder(city, incumbent)) return true;
+        return false;
+    }
+
+    private static bool SharesLandBorder(City city, Empire incumbent)
+    {
+        if (city == null || city.isRekt() || city.zones == null) return false;
+        // 读取当前区域归属，避免城市易主后旧邻国缓存仍判定接壤；四向相邻才有共同边界。
+        foreach (TileZone zone in city.zones)
+        {
+            if (zone == null || zone.city != city || zone.neighbours == null) continue;
+            foreach (TileZone neighbour in zone.neighbours)
             {
-                if (neighbour != null && !neighbour.isRekt() && incumbent.kingdoms_hashset.Contains(neighbour))
+                City neighbouringCity = neighbour?.city;
+                if (neighbouringCity != null && neighbouringCity != city && !neighbouringCity.isRekt() &&
+                    EmpireMembershipService.BelongsTo(incumbent, neighbouringCity.kingdom))
                     return true;
             }
         }
@@ -131,7 +152,7 @@ public static class ImperialLegitimacyChallengeService
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, usurper.CoreKingdom);
     }
 
-    // 互为正统对手的两个帝国：较强的一方(双方之间没有战争时)可以发起正统之争；每次检查有一定概率
+    // 互为正统对手且领土接壤的两个帝国：较强的一方(双方之间没有战争时)可以发起正统之争。
     public static bool TryStartRivalryWar(Empire empire)
     {
         if (!IsActiveEmpire(empire) || !empire.data.legitimacy_rivalry_recognized) return false;
@@ -142,6 +163,7 @@ public static class ImperialLegitimacyChallengeService
         if (core == null || rivalCore == null || core.isRekt() || rivalCore.isRekt()) return false;
         if (core.isInWarWith(rivalCore) || core.GetMoney() < 0) return false;
         if (empire.GetNationalPower() <= rival.GetNationalPower()) return false;
+        if (!SharesLandBorder(empire, rival)) return false;
         if (UnityEngine.Random.value > RivalryWarChance) return false;
 
         War war = DiplomacyHelpers.wars.newWar(core, rivalCore, WarTypeLibrary.normal);

@@ -418,18 +418,7 @@ public class CityPatch : GamePatch
             //检测城市是否被劫掠如果是则不执行占领城市逻辑但是相应的城市金库会被劫走
             if (war!= null)
             {
-                var money = 0;
-                if (__instance.isCapitalCity())
-                {
-                    money = __instance.kingdom.GetMoney();
-                    __instance.kingdom.SubMoney(__instance.kingdom.GetMoney());
-                }
-                else
-                {
-                    money = __instance.GetMoney();
-                    __instance.SubMoney(__instance.GetMoney());
-                }
-                pNewKingdom.AddMoney(money);
+                EmpireCraft.Scripts.GeneralSystems.TreasurySystem.TransferWarSpoils(__instance, pNewKingdom);
                 ClearResolvedCaptureProgress(__instance);
                 // 劫掠是一次性有限战争：第一座城市被成功洗劫后，
                 // 立即判进攻方获胜并结束整场战争，而不是只让当前守城国退出。
@@ -851,10 +840,13 @@ public class CityPatch : GamePatch
     }
     public static void unpaid_max_warriors(City __instance, ref int __result)
     {
+        __result = Math.Max(__result, CityStabilitySystem.FundedSlots(__instance));
         if (__result > 0 && EmpireBankruptcySystem.IsUnpaidGarrison(__instance)) __result = 0;
     }
     public static void unpaid_warrior_slots(City __instance)
     {
+        if (__instance?.status != null)
+            __instance.status.warrior_slots = Math.Max(__instance.status.warrior_slots, CityStabilitySystem.FundedSlots(__instance));
         if (__instance?.status != null && EmpireBankruptcySystem.IsUnpaidGarrison(__instance))
             __instance.status.warrior_slots = 0;
     }
@@ -1013,13 +1005,9 @@ public class CityPatch : GamePatch
     public static bool removeZone(City __instance, TileZone pZone)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
+        if (!CityTerritoryProtection.CanRemoveZone(__instance, pZone)) return false;
         ZonePlanSystem.InvalidatePlanning(__instance);
         OccupationReadIndex.Invalidate(__instance);
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
-        {
-            return false;
-        }
-
         return true;
     }
     public static bool addZone(City __instance, TileZone pZone)
@@ -1031,11 +1019,10 @@ public class CityPatch : GamePatch
             OccupationReadIndex.Invalidate(__instance);
             if (pZone.city != null)
             {
-                if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
-                {
-                    return false;
-                }
+                if (!CityTerritoryProtection.CanRemoveZone(pZone.city, pZone)) return false;
                 pZone.city.removeZone(pZone);
+                // Another mod may veto removal. Never add a still-owned zone to a second city.
+                if (pZone.city != null) return false;
             }
             __instance.zones.Add(pZone);
             pZone.setCity(__instance);
@@ -1735,6 +1722,7 @@ public class CityPatch : GamePatch
     // 城邦：开国之城定国名，之后新建的城独立为殖民城邦
     public static void CityBuilt(City __result, Actor pActor)
     {
+        if (StateSettlementSystem.CreatingCity) return; // 国家移民安置完毕后再处理城邦独立。
         if (__result == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
         CityStateService.OnCityBuilt(__result, pActor);
     }
@@ -1750,10 +1738,6 @@ public class CityPatch : GamePatch
     public static bool zone_steal(CityBehBorderSteal __instance, City pCity)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
-        {
-            return false;
-        }
         return true;
     }
 

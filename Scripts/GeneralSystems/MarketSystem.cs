@@ -272,14 +272,14 @@ public static class MarketSystem
                     // 买粮：钱换粮，民间家底不变；买木石金属：城市国库付钱，买来的算公家的
                     if (good != Good.Food)
                     {
-                        buyer.SubMoney(value);
+                        buyer.SubMoney(value, TreasuryCategory.PublicTrade);
                         PopulationEconomySystem.AddPublicStock(buyer, MaterialId(good), moved);
                     }
                     else foodSpent += value;
                     // 卖方：先卖公家的存货，九成价钱归城市国库
                     int fromPublic = good == Good.Food ? 0 : PopulationEconomySystem.TakePublicStock(seller, MaterialId(good), moved);
                     int publicValue = Mathf.FloorToInt(value * (float)fromPublic / moved);
-                    if (publicValue > 0) seller.AddMoney(Mathf.FloorToInt(publicValue * SellerShare));
+                    if (publicValue > 0) seller.AddMoney(Mathf.FloorToInt(publicValue * SellerShare), TreasuryCategory.PublicTrade);
                     // 其余是百姓的货，九成价卖掉，家底少一成(商人的利润)；卖粮的钱里租地收成那部分是地主的
                     int privateValue = value - publicValue;
                     int sellerGets = Mathf.FloorToInt(privateValue * SellerShare);

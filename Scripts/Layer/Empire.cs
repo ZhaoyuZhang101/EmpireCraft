@@ -38,8 +38,8 @@ public class Empire : MetaObject<EmpireData>
     private readonly List<TileZone> _zoneScratch = new();
     private readonly int _avgCitiesPerKingdom = 3;
     public Clan EmpireClan;
-    public int Mandate => data.Mandate;
-    // 统治合法性：前现代国家就是正统；现代国家(含召开议会的君主立宪国)改按宪政合法性(见 ModernLegitimacy)。
+    public int Mandate => MonarchyLegitimacy.Applies(this) ? MonarchyLegitimacy.Get(this) : data.Mandate;
+    // 前现代正统按治理来源计算；现代国家与议会君主国按宪政合法性计算。
     // 叛乱、革命、附庸态度、城市忠诚都看它
     public int Legitimacy => EmpireCraft.Scripts.GeneralSystems.ModernLegitimacy.Applies(this)
         ? EmpireCraft.Scripts.GeneralSystems.ModernLegitimacy.Get(this)
@@ -126,15 +126,10 @@ public class Empire : MetaObject<EmpireData>
     public void AddMandate(int change)
     {
         if (change < 0 && InFoundingGrace) change = Math.Min(-1, change / 2);
-        data.Mandate+=change;
-        if (Mandate < 0)
-        {
-            data.Mandate = 0;
-        }
-        if (Mandate > 100)
-        {
-            data.Mandate = 100;
-        }
+        // 存档中的旧值保留为事件法统，不能拿综合正统来判断它是否越界。
+        data.Mandate = (int)Math.Max(0L, Math.Min(100L, (long)data.Mandate + change));
+        MonarchyLegitimacy.Invalidate(this);
+        ModernLegitimacy.Invalidate(this);
     }
 
     public bool IsNeedToIncreaseMandate()
@@ -153,6 +148,7 @@ public class Empire : MetaObject<EmpireData>
     public void AddTaxRate(float addition = 0.1f)
     {
         if (!ConstitutionalEconomySystem.CanChangeTax(this)) return;
+        float before = data.TaxRate;
         if (data.TaxRate < 1.0f)
         {
             data.TaxRate += addition;
@@ -162,12 +158,13 @@ public class Empire : MetaObject<EmpireData>
             }
         }
         //增加税收减少正统性
-        AddMandate(-(int)(addition * 100));
+        AddMandate(-(int)Math.Round((data.TaxRate - before) * 100f));
     }
 
     public void SubTaxRate(float substraction = 0.1f)
     {
         if (!ConstitutionalEconomySystem.CanChangeTax(this)) return;
+        float before = data.TaxRate;
         if (data.TaxRate > 0.0f)
         {
             data.TaxRate  -= substraction;
@@ -177,7 +174,7 @@ public class Empire : MetaObject<EmpireData>
             }
         }
         //减少税收增加正统性
-        AddMandate((int)(substraction * 100));
+        AddMandate((int)Math.Round((before - data.TaxRate) * 100f));
     }
 
     public List<Kingdom> GetKingdomNeighbours()
@@ -509,6 +506,33 @@ public class Empire : MetaObject<EmpireData>
     //提供岁币
     public void StartToGive()
     {
+        if (TreasurySystem.Enabled(CoreKingdom))
+        {
+            if (!IsNeedToGive()) return;
+            data.timestamp_given_time = World.world.getCurWorldTime();
+            var recipients = given_Kingdoms.Where(k => k != CoreKingdom && TreasurySystem.Enabled(k)).Distinct().ToArray();
+            int available = StateSettlementSystem.DiscretionaryFunds(CoreKingdom);
+            var report = TreasurySystem.Report(CoreKingdom);
+            long incomeLimit = report.months > 0 ? report.stable_income / 10 : available / 10;
+            int totalBudget = (int)Math.Min(available / 10, incomeLimit);
+            data.given_annual_quotes ??= new Dictionary<long, int>();
+            foreach (long id in data.given_annual_quotes.Keys.Where(id => !recipients.Any(k => k.id == id)).ToArray())
+                data.given_annual_quotes.Remove(id);
+            foreach (Kingdom recipient in recipients)
+                if (!data.given_annual_quotes.ContainsKey(recipient.id))
+                    data.given_annual_quotes[recipient.id] = Math.Max(1, CityPopulationSystem.Households(recipient) / 20);
+            // 先覆盖能完整履约的协定，避免把预算分成所有协定都不够的碎款。
+            foreach (Kingdom recipient in recipients.OrderBy(k => data.given_annual_quotes[k.id]).ThenBy(k => k.id))
+            {
+                int quote = Math.Max(1, data.given_annual_quotes[recipient.id]);
+                if (quote > totalBudget || !TreasurySystem.TrySpend(CoreKingdom, quote, TreasuryCategory.Gift))
+                { recipient.RemoveGivenAlliance(); continue; }
+                totalBudget -= quote;
+                recipient.AddMoney(quote, TreasuryCategory.Gift);
+                if (recipient.NeedToRemoveGivenAlliance()) recipient.RemoveGivenAlliance();
+            }
+            return;
+        }
         data.timestamp_given_time = World.world.getCurWorldTime();
         var tempGiven = given_Kingdoms.ToList();
         foreach (var kingdom in tempGiven)
@@ -4054,11 +4078,10 @@ public class Empire : MetaObject<EmpireData>
         City capital = CoreKingdom?.capital;
         if (capital != null && !capital.isRekt()) protectedCities.Add(capital.id);
 
-        KingdomTitle foundingTitle = CoreKingdom?.GetMainTitle();
-        if (foundingTitle == null || foundingTitle.isRekt())
-            foundingTitle = capital?.GetTitle();
-        if (foundingTitle != null && !foundingTitle.isRekt())
+        // 开国法理和迁都后的首都法理都保留，不能只保护其中一个。
+        foreach (KingdomTitle foundingTitle in new[] { CoreKingdom?.GetMainTitle(), capital?.GetTitle() }.Distinct())
         {
+            if (foundingTitle == null || foundingTitle.isRekt()) continue;
             foreach (City city in GetPartitionTitleCities(foundingTitle))
                 if (city != null && !city.isRekt()) protectedCities.Add(city.id);
         }
@@ -4068,6 +4091,7 @@ public class Empire : MetaObject<EmpireData>
     private bool IsDirectPartitionCandidate(City city, HashSet<long> protectedCities)
     {
         return city != null && !city.isRekt() && city.kingdom == CoreKingdom &&
+               !EnfeoffmentHelper.IsRealmCapital(city) &&
                (protectedCities == null || !protectedCities.Contains(city.id));
     }
 
@@ -4123,7 +4147,7 @@ public class Empire : MetaObject<EmpireData>
     private bool CanTransferPartitionCity(City city, Kingdom target)
     {
         Kingdom source = city?.kingdom;
-        if (source == null || target == null || source == target) return false;
+        if (source == null || target == null || source == target || EnfeoffmentHelper.IsRealmCapital(city)) return false;
         if (source == CoreKingdom) return true;
         if (source.GetEmpire() != this || AncientWarfareCompatibility.Owns(source)) return false;
         // 郡国并行：郡的土地不能被分封出去
@@ -4137,7 +4161,8 @@ public class Empire : MetaObject<EmpireData>
     private Kingdom CreateTerritorialPartition(List<City> region, KingdomTitle title, Regime regime,
         bool createAdministration)
     {
-        region = region?.Where(city => city != null && !city.isRekt() && city.kingdom == CoreKingdom)
+        HashSet<long> protectedCities = GetProtectedDirectCityIds();
+        region = region?.Where(city => IsDirectPartitionCandidate(city, protectedCities))
             .Distinct().ToList() ?? new List<City>();
         if (region.Count == 0) return null;
 
@@ -4151,7 +4176,7 @@ public class Empire : MetaObject<EmpireData>
         Kingdom newKingdom = SetEnfeoff(capital, governor);
         if (newKingdom == null) return null;
         foreach (City city in region)
-            if (city != capital && city.kingdom == CoreKingdom) city.joinAnotherKingdom(newKingdom);
+            if (city != capital && IsDirectPartitionCandidate(city, protectedCities)) city.joinAnotherKingdom(newKingdom);
 
         newKingdom.setCapital(capital);
         newKingdom.SetFiedTimestamp(World.world.getCurWorldTime());
@@ -4284,7 +4309,8 @@ public class Empire : MetaObject<EmpireData>
     {
         Kingdom pKingdom = capital?.kingdom;
         // 先校验再拆城：拆完城后建国失败，城市会变成没有王国的孤城
-        if (pKingdom == null || pKingdom.asset == null || !king.CanFoundCivKingdom()) return null;
+        if (pKingdom == null || pKingdom.asset == null || capital.isRekt() ||
+            EnfeoffmentHelper.IsRealmCapital(capital) || !king.CanFoundCivKingdom()) return null;
         king.ClearDisposedKingdom();
         capital.removeFromCurrentKingdom();
         capital.removeLeader();

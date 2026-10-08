@@ -194,17 +194,23 @@ public static class NationalSentimentSystem
             {
                 if (member == null || member.isRekt() || member == core || !member.hasKing() || member.capital == null ||
                     member.IsFactionRebelling() || member.IsLocalRebelling() || member.getWars().Any()) continue;
+                if (!RebellionSystem.CanAttempt(member) || !CityStabilitySystem.CanRise(member.capital)) continue;
                 float sentiment = GetCity(member.capital);
                 if (sentiment < IndependenceThreshold) continue;
                 string memberCulture = CultureService.GetMainCulture(member.capital);
                 if (!CultureService.IsValidCulture(memberCulture) ||
                     string.Equals(memberCulture, rulerCulture, StringComparison.Ordinal)) continue;
                 float chance = 0.03f + 0.15f * (sentiment - IndependenceThreshold) / (100f - IndependenceThreshold);
-                if (ModernStability.IsModern(core)) chance *= ModernStability.RebellionFactor;
+                chance *= RebellionSystem.ChanceFactor(member);
                 if (UnityEngine.Random.value >= chance) continue;
-                empire.leave(member);
+                RebellionCauseData cause = RebellionSystem.Capture(member, member.capital,
+                    "rebellion_reason_national", string.Format(LM.Get("rebellion_national_detail"),
+                        memberCulture.GetCultureTranslate(), sentiment));
                 War war = DiplomacyHelpers.wars.newWar(member, core, WarTypeLibrary.normal);
-                war?.SetEmpireWarType(EmpireWarType.地方独立);
+                if (war == null) continue;
+                empire.leave(member, true, true);
+                war.SetEmpireWarType(EmpireWarType.地方独立);
+                RebellionSystem.Record(member, war, cause);
                 EventRecorder.Record(empire, actor: member.king, logKingdom: member, text: string.Format(
                     LM.Get("nation_independence_history"), member.GetKingdomFullName(),
                     memberCulture.GetCultureTranslate(), empire.GetEmpireFullName()));

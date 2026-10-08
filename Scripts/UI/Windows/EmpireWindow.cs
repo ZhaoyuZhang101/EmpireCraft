@@ -59,6 +59,12 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
         private void InitialTabButtons()
         {
+            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_finance"))
+            {
+                var financeTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                financeTab.Setup("empire_finance", ScrollWindowComponent, action: ShowFinance,
+                    sprite: SpriteTextureLoader.getSprite("ui/icons/iconMoney"));
+            }
             if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_controlled_kingdoms"))
             {
                 var kingdomsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
@@ -570,6 +576,33 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             StartCoroutine(ShowStatsRowsAndRefresh(statsRow));
         }
+        public void ShowFinance(WindowMetaTab pArg0)
+        {
+            Clear();
+            InitialTopPartInfo();
+            var parent = CommonInitial("empire_finance");
+            EmpireCraftStatsRow rows = parent.AddComponent<EmpireCraftStatsRow>();
+            Kingdom core = _empire?.CoreKingdom;
+            if (!TreasurySystem.Enabled(core)) return;
+            string color = _empire.getColor().color_text;
+            TreasuryReport report = TreasurySystem.Report(core);
+            rows.IShowStatsRow("fiscal_central_account", core.GetKingdomName(), color);
+            rows.IShowStatsRow("label_national_treasury", MoneyDisplay.Format(core.GetMoney()), color, pIconPath: "iconMoney");
+            rows.IShowStatsRow("fiscal_available", MoneyDisplay.Format(StateSettlementSystem.DiscretionaryFunds(core)), color);
+            rows.IShowStatsRow("fiscal_recorded_months", report.months, color);
+            rows.IShowStatsRow("fiscal_income", MoneyDisplay.Format(report.income), "#65D66E");
+            rows.IShowStatsRow("fiscal_expense", MoneyDisplay.Format(report.expense), "#E9A85B");
+            rows.IShowStatsRow("fiscal_operating_balance", MoneyDisplay.Format(report.operating_balance),
+                report.operating_balance < 0 ? "#FF6666" : "#65D66E");
+            foreach (var item in TreasurySystem.Details(report))
+                rows.IShowStatsRow(item.key, item.value, color, pIconPath: "iconMoney");
+            TreasuryReport realm = TreasurySystem.Consolidated(core);
+            rows.IShowStatsRow("fiscal_realm_operating_balance", MoneyDisplay.Format(realm.operating_balance),
+                realm.operating_balance < 0 ? "#FF6666" : "#65D66E");
+            parent.AddTextIntoVertLayout(LM.Get("fiscal_account_hint"), true, TextAnchor.MiddleCenter);
+            StartCoroutine(ShowStatsRowsAndRefresh(rows));
+        }
+
         //显示宪法：条款可点击修改(见 ConstitutionSystem.CycleByPlayer)，手定的条款不再随制度自动变化
         public void ShowConstitution(WindowMetaTab pArg0)
         {

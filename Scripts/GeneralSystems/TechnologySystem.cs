@@ -637,6 +637,8 @@ public static class TechnologySystem
     // 技术解锁的东西里，当前游戏里真正存在的(没装对应模组的会被列成"未安装")
     public static IEnumerable<(string label, bool present)> DescribeUnlocks(TechNodeConfig tech)
     {
+        if (tech.id == SettlementSeaSearch.OceanNavigationTech)
+            yield return (LM.Get("tech_unlock_ocean_settlement"), true);
         foreach (string material in tech.unlock_materials)
             yield return (string.Format(LM.Get("tech_unlock_material"), LM.Get($"tech_material_{material}")), true);
         foreach (string item in tech.unlock_items)
@@ -1118,41 +1120,44 @@ public static class TechnologySystem
     #region 研究经费
 
     private static List<Kingdom> KingdomsOf(List<City> cities) =>
-        cities.Select(city => city.kingdom).Where(kingdom => kingdom != null && !kingdom.isRekt()).Distinct().ToList();
+        cities.Select(city => city.kingdom).Where(kingdom => kingdom != null && !kingdom.isRekt() &&
+            !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)).Distinct().ToList();
 
     public static int GetCultureTreasury(string culture) =>
-        KingdomsOf(CitiesOf(culture)).Sum(kingdom => Math.Max(0, kingdom.GetMoney()));
+        (int)Math.Min(int.MaxValue, KingdomsOf(CitiesOf(culture)).Sum(kingdom => (long)Math.Max(0, kingdom.GetMoney())));
 
     // 国库买得起多少科技点
-    private static float Affordable(List<City> cities)
+    private static int ResearchBudget(Kingdom kingdom, bool automatic) => automatic || TreasurySystem.Enabled(kingdom)
+        ? StateSettlementSystem.DiscretionaryFunds(kingdom) : Math.Max(0, kingdom.GetMoney());
+
+    private static float Affordable(List<City> cities, bool automatic)
     {
         float price = Config.research.gold_per_point;
         if (price <= 0f) return float.MaxValue;
-        return KingdomsOf(cities).Sum(kingdom => Math.Max(0, kingdom.GetMoney())) / price;
+        long available = KingdomsOf(cities).Sum(kingdom => (long)ResearchBudget(kingdom, automatic));
+        return (float)(Math.Min(int.MaxValue, available) / (double)price);
     }
 
     // 按实际投入的科技点扣钱，各国按国库多少分摊
-    private static void PayFor(List<City> cities, float points)
+    private static void PayFor(List<City> cities, float points, bool automatic)
     {
         float price = Config.research.gold_per_point;
         if (price <= 0f || points <= 0f) return;
         List<Kingdom> kingdoms = KingdomsOf(cities);
-        float total = kingdoms.Sum(kingdom => Math.Max(0, kingdom.GetMoney()));
-        if (total <= 0f) return;
-        int bill = Mathf.CeilToInt(points * price);
-        foreach (Kingdom kingdom in kingdoms)
-        {
-            int money = Math.Max(0, kingdom.GetMoney());
-            int share = Math.Min(money, Mathf.CeilToInt(bill * money / total));
-            if (share > 0) kingdom.SubMoney(share);
-        }
+        int[] budgets = kingdoms.Select(kingdom => ResearchBudget(kingdom, automatic)).ToArray();
+        int bill = (int)Math.Min(int.MaxValue, Math.Ceiling(points * price));
+        int[] shares = TreasuryRules.Allocate(bill, budgets);
+        for (int i = 0; i < kingdoms.Count; i++)
+            if (shares[i] > 0) TreasurySystem.TrySpend(kingdoms[i], shares[i], TreasuryCategory.Research,
+                automatic || TreasurySystem.Enabled(kingdoms[i]));
     }
 
     // 把储备投进研究：只投国库买得起的部分；techId 为空时按 AI/玩家目标自动挑
     private static float SpendBank(string culture, List<City> cities, string techId)
     {
         CultureTechState state = GetState(culture);
-        float affordable = Affordable(cities);
+        bool automatic = string.IsNullOrEmpty(techId);
+        float affordable = Affordable(cities, automatic);
         float budget = Math.Min(state.research_bank, affordable);
         state.last_unfunded = Math.Max(0f, state.research_bank - affordable);
         if (budget <= 0f) return 0f;
@@ -1176,7 +1181,7 @@ public static class TechnologySystem
             else state.tech_progress[techId] = progress + used;
         }
         state.research_bank -= used;
-        PayFor(cities, used);
+        PayFor(cities, used, automatic);
         return used;
     }
 
@@ -1255,11 +1260,12 @@ public static class TechnologySystem
                 if (done >= perCity) break;
                 if (actor == null || !actor.isAlive() || !actor.isWarrior() || actor.equipment == null ||
                     actor.IsWarMachine()) continue;
-                int grant = Math.Max(0, Math.Min(subsidy, kingdom.GetMoney()));
+                int grant = Math.Max(0, Math.Min(subsidy, TreasurySystem.Enabled(kingdom)
+                    ? StateSettlementSystem.DiscretionaryFunds(kingdom) : kingdom.GetMoney()));
                 int own = actor.money;
                 if (grant > 0)
                 {
-                    kingdom.SubMoney(grant);
+                    kingdom.SubMoney(grant, TreasuryCategory.Military);
                     actor.addMoney(grant);
                 }
                 bool weapon = ItemCrafting.tryToCraftRandomWeapon(actor, city);
@@ -1269,7 +1275,7 @@ public static class TechnologySystem
                 if (refund > 0)
                 {
                     actor.spendMoney(refund);
-                    kingdom.AddMoney(refund);
+                    kingdom.AddMoney(refund, TreasuryCategory.Military);
                 }
                 done++;
                 if (weapon || armor) upgraded++;

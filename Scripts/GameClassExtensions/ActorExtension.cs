@@ -387,6 +387,7 @@ public static class ActorExtension
         public bool pending_trade_foreign_kingdom = false;
         public OfficeIdentity officeIdentity { get; set; } = null;
         public double last_tax_timestamp = -1L;
+        public double last_fiscal_corruption_crime_timestamp = -1d;
         public double last_add_lover_timestamp = -1L;
         public double last_give_birth_timestamp = -1L;
         public long empire_id { get; set; } = -1L;

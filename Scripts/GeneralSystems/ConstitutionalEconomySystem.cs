@@ -259,7 +259,7 @@ public static class ConstitutionalEconomySystem
     {
         int cost = GetWelfareAnnualCost(empire, state.welfare_level);
         state.welfare_funded = cost > 0 && empire.CoreKingdom.GetMoney() >= cost;
-        if (state.welfare_funded) empire.CoreKingdom.SubMoney(cost);
+        if (state.welfare_funded) empire.CoreKingdom.SubMoney(cost, TreasuryCategory.Welfare);
     }
 
     private static void UpdateBudding(Empire empire, ConstitutionalEconomyState state)

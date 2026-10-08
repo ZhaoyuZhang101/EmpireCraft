@@ -95,13 +95,17 @@ public static class DataManager
                 kingdom.SyncData(entry);
                 if (kingdom.GetOfficeID() == -1L)
                 {
+                    bool manuallySelected = kingdom.GetOrCreate().regime_manually_selected;
                     var culture = CultureService.GetRealmCulture(kingdom);
                     RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)
             ? resolvedRegime
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
                 ? setting.regime
                 : RegimeType.Feudalism;
+                    if (manuallySelected || RepublicSystem.IsRegimeLocked(kingdom))
+                        regimeType = kingdom.GetOrCreate().regimeType;
                     kingdom.SetRegimeType(regimeType);
+                    kingdom.GetOrCreate().regime_manually_selected = manuallySelected;
                     kingdom.LoadRegime();
                     EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
                 }
