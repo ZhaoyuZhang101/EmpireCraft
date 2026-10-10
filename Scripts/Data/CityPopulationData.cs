@@ -86,6 +86,11 @@ public class CityPopulationData
     // 民间混合资产(含存货估值，非真实现金，见 PopulationEconomySystem.Savings)：
     // -1 表示还没建账；last_consumption为上次结算的年消费。
     public float private_savings = -1f;
+    // 民间投资池与官营利润(见 EnterpriseSystem)：池余额、本期累计流量、官营利润零头、上期年化数值
+    public float investment_pool;
+    public float investment_acc, private_investment_spent_acc, wage_inflow_acc, public_profit_acc, public_profit_carry;
+    public float last_wage_inflow, last_public_profit, last_private_investment;
+    public double wage_tax_carry;
     // 普通实体并入、宗族销户时保管的已存在钱包，不属于混合资产估值或国库。
     // 按城市汇总，不为普通人口逐人创建账户；消费/迁移接入前不能当额外收入发放。
     public WalletReserve civilian_wallet_reserve;

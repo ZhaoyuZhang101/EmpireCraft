@@ -654,7 +654,10 @@
           "type": "add_mandate",
           "int_value": -5
         }
-      ]
+      ],
+      "features": {
+        "state_enterprise": 1
+      }
     },
     {
       "id": "huaxia_military_garrison",

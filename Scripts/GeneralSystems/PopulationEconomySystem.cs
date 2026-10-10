@@ -251,6 +251,9 @@ public static class PopulationEconomySystem
     {
         float income = Mathf.Max(0f, data.produced_value);
         data.produced_value = 0f;
+        // 官营产业的利润归国库，不进民间收入、不再征工业税(见 EnterpriseSystem)
+        if (city.kingdom != null && !city.kingdom.wild)
+            income = Mathf.Max(0f, income - EnterpriseSystem.TakePublicProfit(city, data));
         data.last_income = years > 0f ? income / years : 0f;
         data.last_tax_income = 0f;
         if (city.kingdom == null || city.kingdom.wild) return;
@@ -275,8 +278,10 @@ public static class PopulationEconomySystem
         }
         data.produced_sector_values.Clear();
         data.last_tax_income = years > 0f ? wholeTotal / years : 0f;
-        // 税后收入进民间存款
+        // 税后收入进民间存款；超过储备的部分转入民间投资池
         AddSavings(city, data, income - due);
+        EnterpriseSystem.AccrueInvestment(city, data, years);
+        EnterpriseSystem.RollPeriod(data, years);
     }
 
     // ---- 民间存款(无小人模式) ----

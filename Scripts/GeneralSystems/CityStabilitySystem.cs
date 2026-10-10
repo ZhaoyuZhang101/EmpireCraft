@@ -306,6 +306,8 @@ public static class CityStabilitySystem
             if (remaining == 0) break;
         }
         if (!municipalFirst && remaining > 0) Municipality();
+        // 俸禄、军饷付给本城的官员和士兵，回到民间(无小人模式，见 EnterpriseSystem)
+        EnterpriseSystem.ReturnToLocal(city, Math.Max(0, bill) - remaining);
         return Math.Max(0, bill) - remaining;
     }
 

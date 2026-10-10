@@ -75,11 +75,15 @@ public static class CityAssetSettlement
             }
             // 民间存款随逃难百姓归入首都
             City capital = kingdom.capital;
+            // 民间投资池也是百姓的钱，一并带走
+            float assets = extra.population == null ? 0f
+                : Math.Max(0f, extra.population.private_savings) + Math.Max(0f, extra.population.investment_pool);
             if (CityPopulationSystem.AbstractPopulationEnabled && capital != null && capital != city && !capital.isRekt() &&
-                extra.population != null && extra.population.private_savings > 0f)
+                assets > 0f)
             {
-                PopulationEconomySystem.AddSavings(capital, CityPopulationSystem.Get(capital), extra.population.private_savings);
+                PopulationEconomySystem.AddSavings(capital, CityPopulationSystem.Get(capital), assets);
                 extra.population.private_savings = 0f;
+                extra.population.investment_pool = 0f;
             }
         }
         catch (Exception exception)

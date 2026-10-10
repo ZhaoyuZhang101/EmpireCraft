@@ -232,6 +232,22 @@ public class CityWindowPatch : GamePatch
                 pIconPath: "iconMoney");
         window.showStatRow("city_pop_tax", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_tax_income), "#43FF43",
             pIconPath: "iconMoney");
+        // 民间投资、官营产业、俸饷回流各占一行，值保持简短，避免盖住左边的标题
+        if (data.investment_pool >= 1f || data.last_private_investment > 0f)
+            window.showStatRow("city_enterprise_pool", string.Format(LM.Get("city_enterprise_pool_format"),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.investment_pool),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_private_investment)), "#D9B36A",
+                pIconPath: "iconMoney");
+        EnterpriseSystem.CountEnterprises(city, out int enterprises, out int publicEnterprises);
+        if (enterprises > 0)
+            window.showStatRow("city_enterprise_public", string.Format(LM.Get("city_enterprise_public_format"),
+                    publicEnterprises, enterprises,
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_public_profit)), "#D9B36A",
+                pIconPath: "iconMoney");
+        if (data.last_wage_inflow > 0f)
+            window.showStatRow("city_enterprise_wages", string.Format(LM.Get("city_enterprise_wages_format"),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_wage_inflow)), "#D9B36A",
+                pIconPath: "iconMoney");
         if (data.levied > 0f)
             window.showStatRow("city_pop_legions", Mathf.RoundToInt(data.levied).ToString(), "#E6A166",
                 pIconPath: "iconWar");

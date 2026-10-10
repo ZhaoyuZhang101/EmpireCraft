@@ -74,13 +74,23 @@ public static class CityConstructionSystem
             (1f + SeatBonus(city)));
         Kingdom kingdom = city.kingdom;
         bool funded = kingdom != null && !kingdom.wild && StateSettlementSystem.DiscretionaryFunds(kingdom) >= FundingThreshold;
-        if (funded) rate *= FundingBonus;
+        // 国家不拨款时，民间投资池充裕也能出资加快施工
+        bool privatelyFunded = !funded && EnterpriseSystem.Pool(city) >= EnterpriseSystem.PrivateFundingThreshold;
+        if (funded || privatelyFunded) rate *= FundingBonus;
         float points = rate * seconds + data.construction_carry;
         int whole = Mathf.FloorToInt(points);
         data.construction_carry = points - whole;
         int used = Advance(city, whole);
-        if (funded && used > 0) kingdom.SubMoney(Mathf.Min(
-            StateSettlementSystem.DiscretionaryFunds(kingdom), Mathf.CeilToInt(used / PointsPerFundingGold)), TreasuryCategory.Construction);
+        if (funded && used > 0)
+        {
+            int grant = Mathf.Min(StateSettlementSystem.DiscretionaryFunds(kingdom), Mathf.CeilToInt(used / PointsPerFundingGold));
+            if (grant > 0)
+            {
+                kingdom.SubMoney(grant, TreasuryCategory.Construction);
+                EnterpriseSystem.ReturnToLocal(city, grant);
+            }
+        }
+        else if (privatelyFunded && used > 0) EnterpriseSystem.SpendPool(city, Mathf.CeilToInt(used / PointsPerFundingGold));
         ClearRuins(city, rate);
         BuildRoads(city, rate);
         UpgradeHousing(city, rate);
@@ -116,15 +126,16 @@ public static class CityConstructionSystem
             if (city.getResourcesAmount("wood") < need.wood || city.getResourcesAmount("stone") < need.stone ||
                 city.getResourcesAmount("common_metals") < need.metal) continue;
             int cost = UpgradeBaseCost + target.construction_progress_needed / 2;
-            int fromCity = Mathf.Min(cost, Mathf.Max(0, city.GetMoney()));
-            int fromState = cost - fromCity;
-            if (fromState > 0 && (kingdom == null || kingdom.wild || StateSettlementSystem.DiscretionaryFunds(kingdom) < fromState)) break;
+            if (!EnterpriseSystem.CanPay(city, cost, privateFirst: true)) break;
             if (!house.upgradeBuilding()) continue;
-            if (need.wood > 0) city.takeResource("wood", need.wood);
-            if (need.stone > 0) city.takeResource("stone", need.stone);
-            if (need.metal > 0) city.takeResource("common_metals", need.metal);
-            if (fromCity > 0) city.SubMoney(fromCity, TreasuryCategory.Construction);
-            if (fromState > 0) kingdom.SubMoney(fromState, TreasuryCategory.Construction);
+            // 民居是百姓自己的房子：建材是私用，不由国库向百姓买
+            using (PopulationEconomySystem.PrivateUse())
+            {
+                if (need.wood > 0) city.takeResource("wood", need.wood);
+                if (need.stone > 0) city.takeResource("stone", need.stone);
+                if (need.metal > 0) city.takeResource("common_metals", need.metal);
+            }
+            EnterpriseSystem.PayPrivateFirst(city, cost);
             limit--;
         }
     }
@@ -256,15 +267,12 @@ public static class CityConstructionSystem
         {
             BuildingFundament fundament = ruin.asset.fundament;
             int cost = RuinBaseCost + (fundament == null ? 1 : Mathf.Max(1, fundament.width * fundament.height / 4));
-            int fromCity = Mathf.Min(cost, Mathf.Max(0, city.GetMoney()));
-            int fromState = cost - fromCity;
-            if (fromState > 0 && (kingdom == null || kingdom.wild || StateSettlementSystem.DiscretionaryFunds(kingdom) < fromState))
+            // 公家先出，不够由民间集资(工钱都付给本城的人)
+            if (!EnterpriseSystem.PayPublicFirst(city, cost) && !EnterpriseSystem.PayPrivateFirst(city, cost))
             {
                 StatRuinsNoMoney += ruins.Count - cleared;
                 break;
             }
-            if (fromCity > 0) city.SubMoney(fromCity, TreasuryCategory.Construction);
-            if (fromState > 0) kingdom.SubMoney(fromState, TreasuryCategory.Construction);
             StatRuinsCleared++;
             try
             {
@@ -334,6 +342,7 @@ public static class CityConstructionSystem
             city.under_construction_building = null;
             if (UnityEngine.Random.value < 0.3f + 0.6f * Wealth(city) + SeatBonus(city) && TryUpgrade(city)) return;
             CityBehBuild.buildTick(city);
+            EnterpriseSystem.OnConstructionStarted(city, city.under_construction_building);
         }
         catch (Exception exception)
         {
@@ -370,13 +379,12 @@ public static class CityConstructionSystem
         BuildingAsset target = AssetManager.buildings.get(building.asset.upgrade_to);
         if (target == null) return false;
         int cost = UpgradeBaseCost + target.construction_progress_needed / 2;
-        Kingdom kingdom = city.kingdom;
-        int fromCity = Mathf.Min(cost, Mathf.Max(0, city.GetMoney()));
-        int fromState = cost - fromCity;
-        if (fromState > 0 && (kingdom == null || kingdom.wild || StateSettlementSystem.DiscretionaryFunds(kingdom) < fromState)) return false;
+        bool privateOwned = building.asset.hasHousingSlots() ||
+                            EnterpriseSystem.IsEnterprise(building.asset) && !EnterpriseSystem.IsPublic(city, building);
+        if (!EnterpriseSystem.CanPay(city, cost, privateOwned)) return false;
         if (!CityBehBuild.upgradeBuilding(building, city)) return false;
-        if (fromCity > 0) city.SubMoney(fromCity, TreasuryCategory.Construction);
-        if (fromState > 0) kingdom.SubMoney(fromState, TreasuryCategory.Construction);
+        if (privateOwned) EnterpriseSystem.PayPrivateFirst(city, cost);
+        else EnterpriseSystem.PayPublicFirst(city, cost);
         return true;
     }
 }

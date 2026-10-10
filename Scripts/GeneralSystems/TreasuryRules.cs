@@ -10,7 +10,8 @@ public enum TreasuryCategory
     Other, ResidentTax, InternalTransfer, PublicTrade, RecoveredFunds, Tribute,
     Military, Administration, Welfare, Maintenance, Research, Construction, Diplomacy, Corruption, Policy, Gift,
     Garrison, Governance, LandTax, IndustrialTax, CommercialTax,
-    GovernanceArrears, GarrisonArrears, MilitaryArrears
+    GovernanceArrears, GarrisonArrears, MilitaryArrears,
+    PublicEnterprise
 }
 
 public sealed class TreasuryReport
@@ -166,7 +167,8 @@ public static class TreasuryRules
             if (repayment) report.debt_repayment += expense ? value : -value;
             if (!expense && (pair.Key == nameof(TreasuryCategory.ResidentTax) || pair.Key == nameof(TreasuryCategory.LandTax) ||
                 pair.Key == nameof(TreasuryCategory.IndustrialTax) || pair.Key == nameof(TreasuryCategory.CommercialTax) || pair.Key == nameof(TreasuryCategory.InternalTransfer) ||
-                pair.Key == nameof(TreasuryCategory.PublicTrade) || pair.Key == nameof(TreasuryCategory.Tribute))) report.stable_income += value;
+                pair.Key == nameof(TreasuryCategory.PublicTrade) || pair.Key == nameof(TreasuryCategory.Tribute) ||
+                pair.Key == nameof(TreasuryCategory.PublicEnterprise))) report.stable_income += value;
             // 每个账户的经常收支包含真实央地分成，投资和偶发款项单列。
             if (pair.Key != nameof(TreasuryCategory.Construction) && pair.Key != nameof(TreasuryCategory.Research) &&
                 pair.Key != nameof(TreasuryCategory.RecoveredFunds) &&
