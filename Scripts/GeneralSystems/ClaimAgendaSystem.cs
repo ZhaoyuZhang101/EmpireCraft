@@ -20,6 +20,7 @@ public sealed class ClaimAgendaContext
     public Dictionary<PartyIdeology, int> IdeologyCounts;
     public int Population;
     public int ParliamentSeats;
+    public PartyOpeningPressure PartyOpening;
 }
 
 public sealed class ClaimAgendaView
@@ -49,6 +50,7 @@ public static class ClaimAgendaSystem
             ClassShares = InstitutionSystem.BuildClassShares(empire),
             Grievances = InstitutionSystem.GetClassGrievances(empire),
             IdeologyCounts = counts,
+            PartyOpening = PartyOpeningRules.Measure(counts, IdeologyFamilies.StateIdeology(empire)),
             Population = counts.Values.Sum(),
             ParliamentSeats = empire.data?.constitutional_economy?.parliament_seats?.Count ?? 0
         };
@@ -89,6 +91,19 @@ public static class ClaimAgendaSystem
             (context.ParliamentSeats > 0 ? (100f - view.LegislativeShare) * 0.12f : 0f), 0f, 100f);
         view.Urgency = GetUrgency(context, claim.type);
 
+        if (claim.type == TemporaryFactionType.开放党禁)
+        {
+            if (context.PartyOpening?.HasChallenge != true)
+                view.Blocker = "agenda_party_ban_requires_challenge";
+            else
+            {
+                view.PopulationShare = context.PartyOpening.Population > 0
+                    ? 100f * context.PartyOpening.ChallengerPeople / context.PartyOpening.Population : 0f;
+                view.Support = Mathf.Clamp(view.Support + context.PartyOpening.LeadShare * 50f, 0f, 100f);
+                view.Urgency += context.PartyOpening.LeadShare * 40f;
+            }
+        }
+
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
         if (faction.IsParty)
         {
@@ -102,7 +117,15 @@ public static class ClaimAgendaSystem
                 InstitutionFeatures.ClaimReformPrefix + claim.type).ToList();
         InstitutionNodeConfig target = reformNodes
             .FirstOrDefault(node => !InstitutionSystem.IsEnacted(culture, node.id));
-        if (target != null)
+        bool reopenPartyBan = claim.type == TemporaryFactionType.开放党禁 &&
+                              PartySystem.IsActive(empire) && PartyBanSystem.IsClosed(empire);
+        if (reopenPartyBan)
+        {
+            view.TechnologyName = LM.Get("institution_lift_party_ban");
+            if (ConstitutionSystem.IsPlayerLocked(empire, ConstitutionSystem.ClausePartySystem))
+                view.Blocker = "agenda_party_ban_constitution_locked";
+        }
+        else if (target != null)
         {
             view.TechnologyName = InstitutionSystem.GetNodeName(target);
             if (!InstitutionSystem.CanStartReform(empire, target, out string reason, false) &&

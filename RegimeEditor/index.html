@@ -351,8 +351,24 @@
         local:!!seed.local,
         collapsed:!!seed.collapsed,
         cityType:seed.cityType||seed.city_type||"",
+        politicalAppointment:seed.politicalAppointment ?? (seed.political_appointment === true ? "true" : seed.political_appointment === false ? "false" : ""),
+        citySuffixKey:seed.citySuffixKey||seed.city_suffix_key||"",
+        capitalCitySuffixKey:seed.capitalCitySuffixKey||seed.capital_city_suffix_key||"",
+        citySuffixesByCulture:normalizeSuffixMap(seed.citySuffixesByCulture ?? seed.city_suffix_keys_by_culture),
+        capitalCitySuffixesByCulture:normalizeSuffixMap(seed.capitalCitySuffixesByCulture ?? seed.capital_city_suffix_keys_by_culture),
         conditionRows:parseConditionRows(seed.conditionRows||seed.condition||[])
       };
+    }
+
+    function normalizeSuffixMap(value){
+      return typeof value==="string" ? value : value && typeof value==="object" ? JSON.stringify(value) : "";
+    }
+    function parseSuffixMap(value){
+      if(!value.trim()) return null;
+      const map=JSON.parse(value);
+      if(!map || Array.isArray(map) || typeof map!=="object" || Object.entries(map).some(([culture,key])=>!culture.trim() || typeof key!=="string" || !key.trim()))
+        throw new Error("文化后缀请填写文化ID与本地化key的JSON对象，例如 {\"Huaxia\":\"city_suffix_county\"}");
+      return Object.keys(map).length ? map : null;
     }
 
     function cloneOffice(scope,id){
@@ -441,7 +457,17 @@
       };
       const conds=(office.conditionRows||[]).map(row=>row.mode==="number"?`${row.key}:${row.operator}|${row.value}`:`${row.key}:${row.value}`).filter(Boolean);
       if(conds.length) out.condition=conds;
+      if((office.scope==="cores" || office.scope==="division") && office.politicalAppointment!=="")
+        out.political_appointment=office.politicalAppointment==="true";
       if(office.scope==="kingdoms" && office.cityType.trim()) out.city_type=office.cityType.trim();
+      if(office.scope==="kingdoms" && office.citySuffixKey.trim()) out.city_suffix_key=office.citySuffixKey.trim();
+      if(office.scope==="kingdoms" && office.capitalCitySuffixKey.trim()) out.capital_city_suffix_key=office.capitalCitySuffixKey.trim();
+      if(office.scope==="kingdoms"){
+        const cityMap=parseSuffixMap(office.citySuffixesByCulture);
+        const capitalMap=parseSuffixMap(office.capitalCitySuffixesByCulture);
+        if(cityMap) out.city_suffix_keys_by_culture=cityMap;
+        if(capitalMap) out.capital_city_suffix_keys_by_culture=capitalMap;
+      }
       return out;
     }
 
@@ -726,6 +752,12 @@
             </select>
           </label>
         </div>
+        ${office.scope==="cores" || office.scope==="division" ? `
+        <label class="field">任命属性<select data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="politicalAppointment">
+          <option value="" ${office.politicalAppointment===""?"selected":""}>默认：政治主官</option>
+          <option value="true" ${office.politicalAppointment==="true"?"selected":""}>政治任命（部长、部门主官）</option>
+          <option value="false" ${office.politicalAppointment==="false"?"selected":""}>常任事务官（副职、执行岗位）</option>
+        </select></label>` : ""}
         ${office.scope==="kingdoms" || office.scope==="cities" ? `
         <div class="grid two">
           <label class="field">类别名（自动拼接政体 key）<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="categoryKeyRaw" value="${esc(office.categoryKeyRaw || office.categoryKey)}" placeholder="${office.scope==="kingdoms"?"如 jimizhou":"如 city"}" /></label>
@@ -746,6 +778,12 @@
               </select>
               <div class="muted">国家类别必须绑定一个城市类别，这会决定该国家下属城市使用哪套城市名称与职位配置。</div>`
             : `<div class="note">还没有创建任何城市类别。请先在“城市职类”里新增至少一个条目并填写类别 key，否则当前国家类别配置不会生效。</div>`}
+        </div>
+        <div class="grid two">
+          <label class="field">普通城市后缀翻译 key（可选）<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="citySuffixKey" value="${esc(office.citySuffixKey)}" placeholder="留空遵循 city_type；县：city_suffix_county" /></label>
+          <label class="field">首府城市后缀翻译 key（可选）<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="capitalCitySuffixKey" value="${esc(office.capitalCitySuffixKey)}" placeholder="留空同普通城市；府：city_suffix_prefecture" /></label>
+          <label class="field">按文化覆盖普通城市后缀（可选 JSON）<textarea data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="citySuffixesByCulture" placeholder='{"Huaxia":"city_suffix_county"}'>${esc(office.citySuffixesByCulture)}</textarea></label>
+          <label class="field">按文化覆盖首府后缀（可选 JSON）<textarea data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="capitalCitySuffixesByCulture" placeholder='{"Huaxia":"city_suffix_prefecture"}'>${esc(office.capitalCitySuffixesByCulture)}</textarea></label>
         </div>`:""}
         <div class="grid three">
           <label class="field">${office.scope==="kingdoms" || office.scope==="cities" ? "简体头衔名" : "简体官职名"}<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="nameCh" value="${esc(office.nameCh)}" placeholder="${office.scope==="kingdoms"?"如 国王 / 国公 / 省长":office.scope==="cities"?"如 市长 / 城主 / 府尹":"可填写官职名"}" /></label>

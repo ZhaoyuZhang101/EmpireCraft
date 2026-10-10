@@ -1653,8 +1653,7 @@ public class CityPatch : GamePatch
     }
     public static bool removeObject(CityManager __instance, City pObject)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pObject)) return true;
-        return true;
+        return !CityTerritoryProtection.ShouldPreventDestruction(pObject);
     }
 
     public static void setKingdom(City __instance, Kingdom pKingdom)
@@ -1663,22 +1662,20 @@ public class CityPatch : GamePatch
         Regime regime = pKingdom.GetRegime();
         if (regime != null)
         {
-            CityType cityType = regime.bureau_config.kingdoms.TryGetValue(pKingdom.GetKingdomType(), out var value)
-                ?regime.bureau_config.kingdoms[pKingdom.GetKingdomType()].city_type
-                : regime.bureau_config.cities.Keys.First();
-            BureauSetting citySetting = regime.bureau_config.cities[cityType];
-            OfficeObject officeObject = __instance.GetOffice();
-            if (officeObject != null)
+            CityType cityType = EmpireCraftKingdomBehCheckKingdomType.CalcCityType(pKingdom);
+            __instance.SetCityType(cityType);
+            if (regime.bureau_config?.cities != null &&
+                regime.bureau_config.cities.TryGetValue(cityType, out BureauSetting citySetting) && citySetting != null)
             {
-                officeObject.InitialOffice(citySetting, isNew:false);
+                OfficeObject officeObject = __instance.GetOffice();
+                if (officeObject != null) officeObject.InitialOffice(citySetting, isNew: false);
+                else
+                {
+                    officeObject = new OfficeObject();
+                    officeObject.InitialOffice(citySetting);
+                    __instance.SetOffice(officeObject);
+                }
                 officeObject.regimeType = regime.type;
-            }
-            else
-            {
-                officeObject = new OfficeObject();
-                officeObject.InitialOffice(citySetting);
-                officeObject.regimeType = regime.type;
-                __instance.SetOffice(officeObject);
             }
         }
 
@@ -1696,6 +1693,7 @@ public class CityPatch : GamePatch
     public static void setKingdom_Postfix(City __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        if (__instance.kingdom?.GetRegime() != null) __instance.RefreshCityDisplayName();
         ZonePlanSystem.InvalidatePlanning(__instance);
         OccupationReadIndex.Invalidate(__instance);
         if (__instance.hasTitle())
@@ -1727,9 +1725,11 @@ public class CityPatch : GamePatch
         return true;
     }
 
-    public static void destroy_city(City __instance)
+    public static bool destroy_city(City __instance)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        // 拦截必须发生在法理、宗教及帝国列表清理之前。
+        if (CityTerritoryProtection.ShouldPreventDestruction(__instance)) return false;
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         foreach (var religion in World.world.religions)
         {
             if (religion.GetCity() == __instance)
@@ -1758,6 +1758,7 @@ public class CityPatch : GamePatch
             __instance.GetTitle().removeCity(__instance);
         }
         EmpireCraft.Scripts.GeneralSystems.CityAssetSettlement.OnCityDestroyed(__instance);
+        return true;
     }
     public static void removeData(City __instance)
     {

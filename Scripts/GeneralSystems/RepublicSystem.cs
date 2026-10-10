@@ -102,6 +102,7 @@ public static class RepublicSystem
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
         foreach (string key in new[] { $"head_of_state_{culture}_{ideology}", $"head_of_state_{ideology}", "head_of_state" })
         {
+            if (!LM.Has(key)) continue;
             string text = LM.Get(key);
             if (!string.IsNullOrWhiteSpace(text) && text != key) return text;
         }

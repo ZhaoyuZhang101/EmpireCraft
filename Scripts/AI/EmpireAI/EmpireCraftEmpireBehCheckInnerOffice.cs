@@ -123,27 +123,31 @@ public class EmpireCraftEmpireBehCheckInnerOffice: GameAIEmpireBase
         var emperor = pEmpire.Emperor;
         // 责任政府下由执政联盟任命的官职(见 ParliamentSystem.AssignMinisters)不再按任期轮换
         bool partyCabinet = GeneralSystems.ParliamentSystem.PartyAppointsMinisters(pEmpire);
-        bool partyDivisions = GeneralSystems.ParliamentSystem.PartyAppointsDivisions(pEmpire);
-        if (partyCabinet && center.CoreOffices.Concat(partyDivisions ? center.Divisions : Enumerable.Empty<long>())
+        if (partyCabinet && center.CoreOffices.Concat(center.Divisions)
+                .Where(id => GeneralSystems.ParliamentSystem.PartyAppointsOffice(pEmpire, id))
                 .Any(id => OfficeManager.Offices.TryGetValue(id, out OfficeObject office) && office.GetActor() == null))
             GeneralSystems.ParliamentSystem.FillVacantMinistries(pEmpire);
-        foreach (var core in partyCabinet ? new List<long>() : center.CoreOffices)
+        foreach (var core in center.CoreOffices)
         {
+            if (GeneralSystems.ParliamentSystem.PartyAppointsOffice(pEmpire, core)) continue;
             if (OfficeManager.Offices.TryGetValue(core, out var value))
             {
                 int onTime = value.GetOnTime();
-                if (onTime > 3 || onTime < 0)
+                if (onTime < 0 || onTime > 3 &&
+                    !GeneralSystems.ParliamentSystem.IsCareerCivilServiceOffice(pEmpire, core))
                 {
                     value.Select(coreKingdom);
                 }
             }
         }
-        foreach (var division in partyDivisions ? new List<long>() : center.Divisions)
+        foreach (var division in center.Divisions)
         {
+            if (GeneralSystems.ParliamentSystem.PartyAppointsOffice(pEmpire, division)) continue;
             if (OfficeManager.Offices.TryGetValue(division, out var value))
             {
                 int onTime = value.GetOnTime();
-                if (onTime > 3 || onTime < 0)
+                if (onTime < 0 || onTime > 3 &&
+                    !GeneralSystems.ParliamentSystem.IsCareerCivilServiceOffice(pEmpire, division))
                 {
                     value.Select(coreKingdom);
                 }

@@ -14,12 +14,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 虚拟族谱(无小人模式)：族谱里的人被并入人口数据时不记为死亡，而是转为"虚拟族人"——
 // 仍算在世，只保留人名、出生地、受封(爵位/封号)；继承、分封、作乱等需要这个人时，
 // 调用 PersonalClanIdentity.Realize() 当场在原来所在的城里落成实体(从该城背景人口里扣一人，总人口不变)。
-// 虚拟族人不会自己变老死去，所以每年按年龄结算：到了预定寿数(60~80 岁随机)就以病逝、遇刺或寿终之一身故，
+// 虚拟族人每年按世界法则结算寿命：真实年龄开启时 60~80 岁，关闭时使用原种族寿命，
 // 写入个人经历，并从所在城的背景人口里减去这一人。
 public static class VirtualGenealogySystem
 {
-    private const int MinDeathAge = 60;
-    private const int MaxDeathAge = 80;
     // 身故方式的概率：病逝、遇刺(其余为寿终)；有爵位或封号的人遇刺的概率加倍
     private const float IllnessChance = 0.4f;
     private const float AssassinationChance = 0.08f;
@@ -63,9 +61,24 @@ public static class VirtualGenealogySystem
     // 并入前调用：族谱里的人转为虚拟族人，并断开与即将移除的单位的联系(之后单位移除不会把他记为死亡)
     public static void Virtualize(Actor actor, City city)
     {
+        TryVirtualize(actor, city);
+    }
+
+    // Cannot remove the entity unless its existing wallet has a durable owner.
+    public static bool TryVirtualize(Actor actor, City city)
+    {
+        if (actor?.data == null || !actor.isAlive() || World.world == null || city?.data == null || city.isRekt()) return false;
         PersonalClanIdentity person = actor?.GetPersonalIdentity();
-        if (person == null || !person.is_alive || World.world == null) return;
+        if (person != null && (!person.is_alive || person.is_virtual || person.actor_id != actor.id)) return false;
         EnsureIndex();
+        if (person == null)
+        {
+            if (actor.money == 0 && actor.data.loot == 0) return true;
+            CityPopulationData population = CityPopulationSystem.Get(city);
+            if (population == null) return false;
+            return WalletReserveTransfers.TryCapture(actor,
+                population.civilian_wallet_reserve ??= new WalletReserve());
+        }
         try
         {
             person.recordAllInfo();
@@ -77,40 +90,117 @@ public static class VirtualGenealogySystem
         if (string.IsNullOrWhiteSpace(person.birthplace))
             person.birthplace = city?.GetCityName() ?? actor.city?.GetCityName() ?? "";
         person.recordedAge = actor.getAge();
+        if (actor.money != 0 || actor.data.loot != 0 || WalletReserveTransfers.HasAssets(person.wallet_reserve))
+            if (!WalletReserveTransfers.TryCapture(actor, person.wallet_reserve ??= new WalletReserve())) return false;
         person.is_virtual = true;
         person.virtual_city_id = city?.data?.id ?? actor.city?.data?.id ?? -1L;
         person.virtual_since = World.world.getCurWorldTime();
-        if (person.virtual_death_age < 0)
-            person.virtual_death_age = UnityEngine.Random.Range(MinDeathAge, MaxDeathAge + 1);
+        RealisticAgeSystem.CaptureNativeLifetime(actor, person);
         actor.RemovePersonalIdentity();
         VirtualIds.Add(person.id);
+        return true;
     }
 
     // 落成实体：在原来所在的城(城没了就找同文化、同物种还有人的城)生成一人，套上族人的名字、性别、文化，
     // 并把族谱身份接回这个单位
     public static Actor Realize(PersonalClanIdentity person)
     {
-        if (person == null || !person.is_alive || !person.is_virtual || World.world == null) return person?._actor;
+        if (person == null || !person.is_alive || World.world == null) return person?._actor;
+        // An interrupted removal can leave the original entity alive. Reattach
+        // it instead of spawning a second entity for the same person.
+        if (person.is_virtual && person._actor?.data != null && person._actor.isAlive())
+            CancelVirtualization(person._actor, person);
+        if (!person.is_virtual)
+        {
+            Actor existing = person._actor;
+            RestoreStoredWallet(existing);
+            return existing;
+        }
         EnsureIndex();
         City city = FindHomeCity(person);
         if (city == null) return null;
         Actor actor = CityPopulationSystem.SpawnPerson(city, person.species, person.culture);
         if (actor?.data == null) return null;
+        if (!string.IsNullOrWhiteSpace(person.given_name)) actor.SetFirstName(person.given_name);
+        if (!string.IsNullOrWhiteSpace(person.surname)) actor.SetFamilyName(person.surname);
         if (!string.IsNullOrWhiteSpace(person.name)) actor.data.name = person.name;
         actor.data.sex = person.sex;
         int age = person.age;
         long previousActorId = person.actor_id;
         actor.SetPersonalIdentity(person);
+        if (!string.IsNullOrWhiteSpace(person.given_name) && !string.IsNullOrWhiteSpace(person.surname))
+        {
+            if (string.IsNullOrWhiteSpace(person.name)) actor.GetModName().SetName(actor);
+            else actor.GetModName().RepairOrder(actor);
+        }
+        if (person.virtual_immortal) actor.addTrait("immortal");
         person.actor_id = actor.id;
         person.is_virtual = false;
         person.recordedAge = age;
         person.virtual_since = -1d;
         SpecificClanManager._actorToPersonLookup[actor.id] = person;
         VirtualIds.Remove(person.id);
+        WalletReserveTransfers.Restore(actor, person.wallet_reserve);
         // 年龄与族谱卡片一致；与有实体的亲人重新接上原版的家庭关系
         SetAge(actor, age);
         RestoreFamilyTies(actor, person, previousActorId);
         return actor;
+    }
+
+    // Reuse the existing census pass in either population mode. A previously full
+    // wallet can receive its remaining owned balance when space becomes available.
+    public static void RestoreStoredWallet(Actor actor)
+    {
+        PersonalClanIdentity person = actor?.GetPersonalIdentity();
+        if (person?.is_alive == true && !person.is_virtual && person.actor_id == actor.id && actor.isAlive())
+            WalletReserveTransfers.Restore(actor, person.wallet_reserve);
+    }
+
+    public static void CancelVirtualization(Actor actor, PersonalClanIdentity person)
+    {
+        if (actor?.data == null || !actor.isAlive() || person == null || !person.is_alive ||
+            person.actor_id != actor.id) return;
+        actor.SetPersonalIdentity(person);
+        person.is_virtual = false;
+        person.virtual_since = -1d;
+        VirtualIds.Remove(person.id);
+        RestoreStoredWallet(actor);
+    }
+
+    // Only the reserve is inherited here. Native money/loot on a dying entity
+    // remains under native combat/removal rules and must not be copied twice.
+    public static void SettleStoredEstate(PersonalClanIdentity person)
+    {
+        if (person == null || !WalletReserveTransfers.HasAssets(person.wallet_reserve)) return;
+        List<(ClanRelation rel, PersonalClanIdentity id)> relations = SpecificClanManager.FindAllRelations(person);
+        PersonalClanIdentity Choose(IEnumerable<PersonalClanIdentity> candidates) => candidates
+            .Where(candidate => candidate != null && candidate.CanHeir(person))
+            .OrderByDescending(candidate => candidate.age >= HeadMinAge)
+            .ThenByDescending(candidate => candidate.age).ThenBy(candidate => candidate.id).FirstOrDefault();
+        PersonalClanIdentity heir = null;
+        foreach (ClanRelation[] priority in HeirPriority)
+        {
+            heir = Choose(relations.Where(pair => priority.Contains(pair.rel)).Select(pair => pair.id));
+            if (heir != null) break;
+        }
+        heir ??= Choose(relations.Select(pair => pair.id));
+        heir ??= Choose(person._specificClan?.SnapshotPeople() ?? Array.Empty<PersonalClanIdentity>());
+        // No eligible heir (or no room in its long account): keep an unclaimed
+        // estate on the deceased identity; pruning protects this record.
+        if (heir == null || !WalletReserveTransfers.TryMove(person.wallet_reserve,
+                heir.wallet_reserve ??= new WalletReserve())) return;
+        if (!heir.is_virtual) RestoreStoredWallet(heir._actor);
+    }
+
+    private static void PreserveDispersedWallet(PersonalClanIdentity person)
+    {
+        if (!WalletReserveTransfers.HasAssets(person?.wallet_reserve)) return;
+        City city = person.virtual_city_id > 0 ? World.world.cities.get(person.virtual_city_id) : null;
+        if (city?.data == null || city.isRekt()) return;
+        CityPopulationData population = CityPopulationSystem.Get(city);
+        if (population == null) return;
+        WalletReserveTransfers.TryMove(person.wallet_reserve,
+            population.civilian_wallet_reserve ??= new WalletReserve());
     }
 
     #region 落成后的年龄与家庭关系(原版字段/方法用反射查找，找不到的部分跳过)
@@ -378,6 +468,7 @@ public static class VirtualGenealogySystem
         foreach (PersonalClanIdentity person in people)
         {
             if (person == null) continue;
+            if (WalletReserveTransfers.HasAssets(person.wallet_reserve)) return true;
             if (!string.IsNullOrEmpty(person.PeeragesLevel) || !string.IsNullOrEmpty(person.officeName) ||
                 !string.IsNullOrEmpty(person.fullOfficeName) || person.ownedTitleNames?.Count > 0) return true;
             // 是在世者的父母或配偶：删了在世者的族谱就断了
@@ -626,6 +717,9 @@ public static class VirtualGenealogySystem
         string date = Date.getDate(World.world.getCurWorldTime());
         foreach (PersonalClanIdentity person in virtuals)
         {
+            // Clan deregistration leaves the people in the background population;
+            // it does not confiscate their money or trigger an estate inheritance.
+            PreserveDispersedWallet(person);
             person.recordedAge = person.age;
             person.is_alive = false;
             person.is_virtual = false;
@@ -656,9 +750,7 @@ public static class VirtualGenealogySystem
             VirtualIds.Remove(id);
             return;
         }
-        if (person.virtual_death_age < 0)
-            person.virtual_death_age = UnityEngine.Random.Range(MinDeathAge, MaxDeathAge + 1);
-        if (person.age >= person.virtual_death_age)
+        if (RealisticAgeSystem.IsVirtualAgeDeathDue(person))
         {
             Die(person);
             return;
@@ -720,11 +812,20 @@ public static class VirtualGenealogySystem
         string[] parts = (generated ?? "").SplitNameParts();
         string given = parts.Length > 0 ? parts[parts.Length - 1] : "";
         if (string.IsNullOrWhiteSpace(given)) given = generated ?? "";
-        return string.IsNullOrWhiteSpace(clan.name) ? given : OverallHelperFunc.JoinNameParts(clan.name, given);
+        child.given_name = given;
+        child.surname = !string.IsNullOrWhiteSpace(parent.surname) ? parent.surname
+            : parent._actor?.GetModName()?.familyName;
+        if (string.IsNullOrWhiteSpace(child.surname)) child.surname = clan.name;
+        return string.IsNullOrWhiteSpace(child.surname) ? given
+            : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(parent.culture ?? "", out var rule) &&
+              rule?.Unit?.is_invert == true
+                ? OverallHelperFunc.JoinNameParts(given, child.surname)
+                : OverallHelperFunc.JoinNameParts(child.surname, given);
     }
 
     private static void Die(PersonalClanIdentity person)
     {
+        SettleStoredEstate(person);
         bool titled = person.ownedTitleNames?.Count > 0 || !string.IsNullOrWhiteSpace(person.officeName);
         float roll = UnityEngine.Random.value;
         float assassination = AssassinationChance * (titled ? 2f : 1f);

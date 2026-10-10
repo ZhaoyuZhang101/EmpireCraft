@@ -532,9 +532,13 @@ public static class PartyBanSystem
         if (lost >= CoreLossCrisis) delta += 15f + lost * 20f;
         int opinion = PublicOpinionSystem.GetLevel(empire);
         delta += opinion == 0 ? -5f : 5f * opinion;
+        PartyOpeningPressure challenge = PartyOpeningRules.Measure(
+            IdeologyPopulationSystem.GetEmpireCounts(empire), IdeologyFamilies.StateIdeology(empire));
+        if (challenge.HasChallenge) delta = Mathf.Max(delta, 12f + challenge.LeadShare * 40f);
         state.party_ban_reopen_pressure = Mathf.Clamp(state.party_ban_reopen_pressure + delta, 0f, 100f);
         if (state.party_ban_reopen_pressure < 100f) return;
-        Open(empire, lost >= CoreLossCrisis ? "party_ban_reopened_core_lost_history" : "party_ban_reopened_core_history");
+        Open(empire, challenge.HasChallenge ? "party_ban_reopened_ideology_history" :
+            lost >= CoreLossCrisis ? "party_ban_reopened_core_lost_history" : "party_ban_reopened_core_history");
     }
 
     #endregion

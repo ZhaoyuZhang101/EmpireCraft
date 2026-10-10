@@ -19,7 +19,7 @@ namespace EmpireCraft.Scripts.UI.Windows;
 //   概况 → 文化、所处时代、研究点、当前研究和进度
 //   材料 → 已发现/未发现的材料，以及怎样发现
 //   树   → 材料一列 + 各分支，连线表示需要什么
-//   详情 → 选中节点的费用、前置、解锁内容(没装对应模组的会标出来)，可设为研究目标
+//   详情 → 费用、前置、当前可用的解锁内容，其他模组/版本的可选内容单独提示
 public class TechWindow : AbstractWideWindow<TechWindow>
 {
     private const float PanelWidth = 440f;
@@ -401,15 +401,18 @@ public class TechWindow : AbstractWideWindow<TechWindow>
                 $"{GetStatusName(status).ColorString(GetStatusHex(status))}\n" +
                 $"{LM.Get($"tech_mat_{id}_desc")}\n{TechnologySystem.DescribeMaterialCondition(material)}\n" +
                 (users.Count > 0 ? string.Format(LM.Get("tech_material_used_by"), string.Join("、", users)) : "");
+            _detailText.RefreshAutoHeight(78f);
             return;
         }
         if (!TechnologySystem.TryGetTech(_selectedId, out TechNodeConfig tech))
         {
             _detailText.text.text = LM.Get("tech_select_hint");
+            _detailText.RefreshAutoHeight(78f);
             return;
         }
         (string title, string body) = BuildTechTooltip(tech, TechnologySystem.GetTechStatus(_culture, tech));
         _detailText.text.text = title + "\n" + body;
+        _detailText.RefreshAutoHeight(78f);
     }
 
     private (string title, string body) BuildTechTooltip(TechNodeConfig tech, TechNodeStatus status)
@@ -459,9 +462,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             TechnologySystem.DescribeFeature(new TechInstitutionLink
                 { feature = requirement.feature, min_value = requirement.min_value })));
         if (requires.Count > 0) lines.Add(LM.Get("tech_requires") + string.Join("  ", requires));
-        var unlocks = TechnologySystem.DescribeUnlocks(tech)
-            .Select(unlock => unlock.present ? unlock.label : (unlock.label + LM.Get("tech_not_installed")).ColorString("#8A8F99"))
-            .ToList();
+        var unlocks = TechnologySystem.DescribeAvailableUnlocks(tech);
         foreach ((TechInstitutionLink link, bool gate, float push) in TechnologySystem.GetInstitutionEffects(tech.id))
         {
             string feature = TechnologySystem.DescribeFeature(link);
@@ -472,7 +473,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         }
         if (tech.research_bonus > 0f)
             unlocks.Add(string.Format(LM.Get("tech_research_bonus"), (tech.research_bonus * 100f).ToString("0")));
-        if (unlocks.Count > 0) lines.Add(LM.Get("tech_unlocks") + string.Join("、", unlocks));
+        if (unlocks.Count > 0) lines.Add(LM.Get("tech_unlocks") + "\n" + string.Join("\n", unlocks));
         return (title, string.Join("\n", lines));
     }
 
@@ -491,8 +492,12 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         string war = TechnologySystem.WarBoxDetected
             ? LM.Get("tech_compat_detected").ColorString("#9EF29E")
             : LM.Get("tech_compat_missing").ColorString("#8A8F99");
-        AddLine(panel, string.Format(LM.Get("tech_compat_line"), modern, box, war), 10f, 6);
-        AddLine(panel, LM.Get("tech_compat_hint").ColorString("#A8B8BE"), 10f, 6);
+        SimpleText providers = AddLine(panel, string.Format(LM.Get("tech_compat_line"), modern, box, war), 10f, 6);
+        providers.UseFixedFontSize(6, HorizontalWrapMode.Wrap);
+        providers.RefreshAutoHeight(10f);
+        SimpleText hint = AddLine(panel, LM.Get("tech_compat_hint").ColorString("#A8B8BE"), 10f, 6);
+        hint.UseFixedFontSize(6, HorizontalWrapMode.Wrap);
+        hint.RefreshAutoHeight(10f);
     }
 
     // ── 小部件 ──

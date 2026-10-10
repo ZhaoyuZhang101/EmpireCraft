@@ -191,7 +191,7 @@ public static class EmpireCraftTooltipLibrary
 				$"{feudalLord.GetKingdomName()} ({fealty.feudal_vassal_level}, {fealty.feudal_vassal_progress}/{FeudalVassalService.ProgressPerLevel})",
 				"#FF5555");
 		}
-		pTooltip.addLineText("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(kingdom.GetMoney()));
+		pTooltip.addLineText("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(kingdom.GetTreasuryBalance()));
         if (CityPopulationSystem.AbstractPopulationEnabled && ExclaveMaintenanceSystem.Status(kingdom) is string exclaveStatus)
             pTooltip.addLineText("exclave_maintenance", exclaveStatus);
 		if (CityPopulationSystem.AbstractPopulationEnabled && !kingdom.wild &&
@@ -372,7 +372,7 @@ public static class EmpireCraftTooltipLibrary
             EmpireCoreManager.GetLegitimateEmpire(core)?.GetEmpireFullName(), "#FF6666");
         AddTooltipLine(pTooltip, modern ? "modern_tooltip_founding_title" : "empire_tooltip_ascension_title",
             GetAscensionTitleName(pEmpire, core), "#FFD34E", true);
-        AddTooltipLine(pTooltip, "label_treasury", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(pEmpire.CurrentMoney),
+        AddTooltipLine(pTooltip, "label_treasury", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(pEmpire.CoreKingdom?.GetTreasuryBalance() ?? 0L),
             pEmpire.CurrentMoney < 0 ? "#FF6666" : "#76E6C2", true);
         AddTooltipLine(pTooltip, pEmpire.LegitimacyLabelKey, pEmpire.Legitimacy.ToString(), "#FFCF55", true);
         // 苛政与街头抗争

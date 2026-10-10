@@ -53,6 +53,7 @@ public static class EmpireCraftStrategicScheduler
         StateSettlementSystem.Tick();
         ExclaveMaintenanceSystem.Tick();
         CityStabilitySystem.Tick();
+        AdministrationReorganizationSystem.Tick();
 
         float realtime = Time.realtimeSinceStartup;
         if (realtime >= _nextCompatibilityRefresh)
@@ -135,6 +136,7 @@ public static class EmpireCraftStrategicScheduler
     {
         StateSettlementSystem.ResetWorldState();
         CityStabilitySystem.ResetWorldState();
+        AdministrationReorganizationSystem.ResetWorldState();
         _boundWorld = world;
         _kingdomCursor = 0;
         _empireCursor = 0;

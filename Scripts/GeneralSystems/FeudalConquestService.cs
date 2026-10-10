@@ -14,7 +14,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 分封制帝国的征服规则(不限文化)：帝国直辖只守着自己的法理，不吞并别人的国家。
 //   · 帝国核心王国攻下某国都城即视为征服：该国称臣加入帝国，此前被帝国占去的、属于该国
 //     法理的城市全部归还；在攻下都城之前可以暂时占着对方的城；
-//   · 归附的国家基本自由：保留外交权和军队，不交税、不向中央输兵，原王室照旧世袭；
+//   · 归附的国家基本自由：保留外交权和军队，居民按低税率纳税、不向中央输兵，原王室照旧世袭；
 //   · 本文化已施行分封类制度(开启"分封"诉求的制度)后，可以直接把该国君位封给皇子，
 //     原国君迁往王畿安置。
 //   · 西方封建制攻下别国都城后，归还对方法理城市并建立直属附庸关系，原王室保留；
@@ -60,6 +60,7 @@ public static class FeudalConquestService
         if (!zhou && !western) return false;
         if (conquered.IsEmpire() || (empire != null && conquered.GetEmpire() == empire) || conquered.capital != city)
             return false;
+        if (conquered.GetEmpire() != null && !RealmDiplomacySystem.CanChooseOverlord(conquered)) return false;
         if (western && (!conquered.hasKing() || !FeudalVassalService.CanBind(captor, conquered))) return false;
         bool rebel = empire != null &&
                      (conquered.HasRebelledAgainst(empire) ||
@@ -105,16 +106,35 @@ public static class FeudalConquestService
             regime.SetAllowDiplomacy(true);
             regime.SetAllowArmy(true);
             regime.SetAllowSupportCenterArmy(false);
-            regime.SetTaxLevel(TaxLevel.None);
+            regime.SetTaxLevel(TaxLevel.Low);
             regime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
         }
 
         string conqueredName = conquered.GetKingdomName();
         Record(empire, conquered, rebel ? "feudal_conquest_rebel_submit_history" : "feudal_conquest_submit_history",
             empire.GetEmpireName(), conqueredName);
-        bool princeInstalled = zhou && HasEnfeoffmentInstitution(empire) && TryInstallPrince(empire, conquered);
+        bool deferPrince = zhou && empire.HasTerritorialWar();
+        if (deferPrince)
+        {
+            empire.data.territorial_enfeoff_pending = true;
+            empire.data.pending_conquest_enfeoff_kingdom_ids ??= new();
+            if (!empire.data.pending_conquest_enfeoff_kingdom_ids.Contains(conquered.id))
+                empire.data.pending_conquest_enfeoff_kingdom_ids.Add(conquered.id);
+        }
+        bool princeInstalled = !deferPrince && zhou && HasEnfeoffmentInstitution(empire) && TryInstallPrince(empire, conquered);
         if (rebel && !princeInstalled) InstallLocalNoble(empire, conquered);
         return true;
+    }
+
+    public static void ProcessPeaceEnfeoff(Empire empire)
+    {
+        var pending = empire?.data?.pending_conquest_enfeoff_kingdom_ids;
+        if (pending == null || pending.Count == 0 || empire.HasTerritorialWar()) return;
+        long id = pending[0];
+        pending.RemoveAt(0);
+        Kingdom member = empire.kingdoms_list.FirstOrDefault(kingdom => kingdom?.id == id);
+        if (AppliesTo(empire) && member != null && !member.isRekt() && member.GetEmpire() == empire &&
+            member != empire.CoreKingdom && HasEnfeoffmentInstitution(empire)) TryInstallPrince(empire, member);
     }
 
     // 叛君被废，扶立一位本地贵族为君：优先贵族阶层，其次本国其他成年人，按威望取最高者

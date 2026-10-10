@@ -553,7 +553,7 @@ public static class CityPopulationSystem
             {
                 City home = DrawKingdomCity(actor.kingdom);
                 if (home == null) continue;
-                FoldIntoPopulation(actor, home);
+                if (!FoldIntoPopulation(actor, home)) continue;
                 folded++;
                 _homelessFolded++;
             }
@@ -716,6 +716,7 @@ public static class CityPopulationSystem
             {
                 Actor actor = city.units[i];
                 if (actor?.data == null || actor.isRekt() || !actor.isAlive() || IsVehicle(actor)) continue;
+                VirtualGenealogySystem.RestoreStoredWallet(actor);
                 SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
                 actor.SetSocialClass(socialClass);
                 var key = (socialClass, CultureService.GetActorCulture(actor) ?? "", actor.asset?.id ?? "",
@@ -1404,8 +1405,7 @@ public static class CityPopulationSystem
             bool notable = IsNotable(actor);
             cache.Set(actor.id, now, notable);
             if (notable) continue;
-            FoldIntoPopulation(actor, city);
-            folded++;
+            if (FoldIntoPopulation(actor, city)) folded++;
         }
         long tFold = Stopwatch.GetTimestamp();
         UpdateLegions(city);
@@ -1460,7 +1460,7 @@ public static class CityPopulationSystem
         InvalidateHouseholdCaches();
     }
 
-    private static void FoldIntoPopulation(Actor actor, City fallback)
+    private static bool FoldIntoPopulation(Actor actor, City fallback)
     {
         SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
         if (socialClass == SocialClass.Army) socialClass = SocialClass.Peasant;
@@ -1475,18 +1475,44 @@ public static class CityPopulationSystem
         City home = Home(extra.legion_home_city_id);
         if (extra.legion_home_city_id >= 0L) socialClass = extra.legion_home_social_class;
         if (socialClass == SocialClass.Army) socialClass = SocialClass.Peasant;
+        var identity = actor.GetPersonalIdentity();
+        int capturedCash = actor.money, capturedLoot = actor.data.loot;
+        float oldLegionSize = extra.legion_size, oldLegionFull = extra.legion_full;
+        long oldLegionHome = extra.legion_home_city_id;
+        // Preserve existing balances before removing the actor or its legion
+        // metadata. Failed capture leaves this entity available for a later pass.
+        if (!VirtualGenealogySystem.TryVirtualize(actor, home)) return false;
         // 在 die 的回调前清空，避免退伍重复扣减或让数据跟随复用的 Actor。
         extra.legion_size = extra.legion_full = 0f;
         extra.legion_population = null;
         extra.legion_home_city_id = -1L;
-        VirtualGenealogySystem.Virtualize(actor, home);
-        actor.die(true, AttackType.Other, false, false);
+        try
+        {
+            actor.die(true, AttackType.Other, false, false);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 并入人物移除异常: {exception.Message}");
+            if (actor.isAlive())
+            {
+                VirtualGenealogySystem.CancelVirtualization(actor, identity);
+                if (identity == null)
+                    WalletReserveTransfers.RollbackCapture(actor, Get(home)?.civilian_wallet_reserve, capturedCash, capturedLoot);
+                extra.legion_size = oldLegionSize;
+                extra.legion_full = oldLegionFull;
+                extra.legion_population = origins;
+                extra.legion_home_city_id = oldLegionHome;
+                return false;
+            }
+            // Removal already happened: finish the population handoff once.
+        }
         AddBackground(home, socialClass, culture, species, ideology, 1f);
-        if (origins == null) return;
+        if (origins == null) return true;
         foreach (LegionPopulationContribution origin in origins)
             if (origin != null && origin.size > 0f)
                 AddBackground(Home(origin.city_id), origin.social_class == SocialClass.Army
                     ? SocialClass.Peasant : origin.social_class, origin.culture, origin.species, origin.ideology, origin.size);
+        return true;
     }
 
     private static bool _careResolved;

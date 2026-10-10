@@ -1,5 +1,13 @@
 {
   "schema_version": 1,
+  "_comment_content_sources": "解锁资源的预期提供者，仅用于来源说明，不代表已安装；已注册资产使用实际 ID；没有核对过的资源保留来源待核对。",
+  "content_sources": [
+    {"id": "EmpireCraft", "buildings": ["ec_*"]},
+    {"id": "base_game", "name_key": "tech_source_base_game", "materials": ["*"]},
+    {"id": "ModernMod", "buildings": ["*_modernmod"]},
+    {"id": "WarBox", "items": ["musket", "pistol", "rifle", "sniperrifle", "shotgunreplace", "smg", "autorifle", "rpg"], "units": ["warbox_*"], "buildings": ["house_human_7", "house_human_8", "garden", "fountain", "university", "gunpowder_mill", "steel_mill", "stock_exchange", "bunker", "artillery_bunker", "light_factory", "light_shipyard", "heavy_factory", "heavy_shipyard", "light_aircraft_factory", "heavy_aircraft_factory"]},
+    {"id": "ModernBox", "items": ["Musket", "Flintlock", "Sniper", "Americanshotgun", "Sluggershotgun", "DesertEagle", "Glock17", "ThompsonM1A1", "SGT44", "Uzi", "MP7", "Minigun", "RPG", "M32", "MGL", "grenadebelt", "Flamethrower", "AK", "AK103", "M16", "FAMAS", "M4A1", "XM8", "HK416", "Malorian", "modernarmor", "modernhelmet", "modernboots", "medicpack", "mininuke", "bigboy", "BudgetMIRV", "DecentMIRV", "MIRV", "MIRVBomb", "STRONGMIRV", "greenblaster", "greenheavyblaster", "vrifle", "grifle", "gauss"]}
+  ],
   "_comment": "文明科技树。材料(materials)在本文化城市的仓库里出现对应资源时自动发现；技术(techs)花研究点研究，需要前置技术和材料；研究完成后解锁对应材质的装备、指定的武器和建筑。解锁表里引用的物品/建筑不存在(没装对应模组)时自动跳过。没被任何技术登记的物品和建筑不受限制。名称走本地化 key：tech_<id> / tech_<id>_desc / tech_mat_<id> / tech_mat_<id>_desc。",
   "research": {
     "base_per_city": 0.2,

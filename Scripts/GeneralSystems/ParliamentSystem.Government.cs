@@ -18,8 +18,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 议席：基础议席(Settings.json 的 parliament_seats) + 人口每 100 人一席，最多 45 席，总数保持奇数；
 //   · 组阁：一党过半单独组阁；否则第一大党(不成再由第二大党)按理念远近拉拢其他政党，凑够过半组成联合政府，
 //     理念相距太远的不入阁；都凑不够就由第一大党组建少数派政府；
-//   · 内阁：按宪法的文官制度条款——混合制下中央部门(六部)的部长按执政联盟各党议席比例分配；
-//     政党分肥制下连下级部门的主官也随党更替；职业文官制下官员政治中立，执政党不任命；
+//   · 内阁：中央部门主官按执政联盟各党议席比例分配；
+//     部门主官始终属于政治任命；职业文官制保护事务官和常任副职，分肥制也轮换这些职位；
 //   · 倒阁：少数派政府、联盟内部分歧、部长丑闻、民怨、国库亏空都会让在野党发起不信任投票；
 //     通过后能凑出新的过半联盟就重新组阁，否则解散议会提前大选；
 //   · 施政议程：执政党每次提出修改一条宪法条款，攒够票数后通过；换届后新政府主张一致就接手，否则废止。
@@ -67,13 +67,31 @@ public static partial class ParliamentSystem
     public static ConstitutionCivilService CivilService(Empire empire) =>
         ConstitutionSystem.GetClauses(empire)?.civil_service ?? ConstitutionCivilService.Mixed;
 
-    // 中央部门(六部)的部长由执政联盟任命：混合制、政党分肥制
+    // 文官制度约束事务岗位，不把部长变成常任文官。
     public static bool PartyAppointsMinisters(Empire empire) =>
-        ControlsMinistries(empire) && CivilService(empire) != ConstitutionCivilService.Professional;
+        ControlsMinistries(empire);
 
-    // 下级部门的主官也由执政联盟任命：政党分肥制
+    // division 配置包含财政部长等部门主官，并非天然就是下级事务岗位。
     public static bool PartyAppointsDivisions(Empire empire) =>
-        ControlsMinistries(empire) && CivilService(empire) == ConstitutionCivilService.Spoils;
+        ControlsMinistries(empire);
+
+    public static bool PartyAppointsOffice(Empire empire, long officeId)
+    {
+        CenterOffice center = empire?.data?.centerOffice;
+        if (!ControlsMinistries(empire) || center == null ||
+            !(center.CoreOffices.Contains(officeId) || center.Divisions.Contains(officeId)) ||
+            !OfficeManager.Offices.TryGetValue(officeId, out OfficeObject office) || office.is_local) return false;
+        return office.political_appointment != false || CivilService(empire) == ConstitutionCivilService.Spoils;
+    }
+
+    public static bool IsCareerCivilServiceOffice(Empire empire, long officeId)
+    {
+        CenterOffice center = empire?.data?.centerOffice;
+        return ControlsMinistries(empire) && center != null &&
+               (center.CoreOffices.Contains(officeId) || center.Divisions.Contains(officeId)) &&
+               OfficeManager.Offices.TryGetValue(officeId, out OfficeObject office) && !office.is_local &&
+               office.political_appointment == false && CivilService(empire) != ConstitutionCivilService.Spoils;
+    }
 
     // 政党分肥制下换了执政党后的两年：官员大换血
     public static bool InSpoilsTurnover(Empire empire)
@@ -276,7 +294,7 @@ public static partial class ParliamentSystem
 
     #region 内阁
 
-    // 由执政联盟任命的官职(混合制：六部；政党分肥制：六部与下级部门)按各党议席比例分配；
+    // 政治主官按执政联盟议席分配；分肥制另纳入配置为常任事务官的职位。
     // 本党已在任的留任，空出来的由该党推举
     // 有官职空缺时立即补任(内阁成员去世、调任后不必等到年度政局审查)
     public static void FillVacantMinistries(Empire empire)
@@ -288,8 +306,8 @@ public static partial class ParliamentSystem
     private static void AssignMinisters(Empire empire, ConstitutionalEconomyState state, bool announce)
     {
         if (!PartyAppointsMinisters(empire) || empire.data?.centerOffice == null) return;
-        IEnumerable<long> appointed = empire.data.centerOffice.CoreOffices;
-        if (PartyAppointsDivisions(empire)) appointed = appointed.Concat(empire.data.centerOffice.Divisions);
+        IEnumerable<long> appointed = empire.data.centerOffice.CoreOffices
+            .Concat(empire.data.centerOffice.Divisions).Where(id => PartyAppointsOffice(empire, id));
         List<OfficeObject> offices = appointed
             .Select(id => OfficeManager.Offices.TryGetValue(id, out OfficeObject office) ? office : null)
             .Where(office => office != null).ToList();
@@ -299,7 +317,7 @@ public static partial class ParliamentSystem
             .Where(item => coalition.Contains(item.faction.GetID())).ToList();
         if (members.Count == 0)
         {
-            // 没有执政联盟(组阁中、过渡期)：空着的官职照常由文官补任，不让副总统、国务卿等长期悬空
+            // 没有执政联盟时先按一般选官规则补空缺，岗位仍属于政治主官。
             foreach (OfficeObject office in offices.Where(office => office.GetActor() == null))
                 office.Select(empire.CoreKingdom);
             return;

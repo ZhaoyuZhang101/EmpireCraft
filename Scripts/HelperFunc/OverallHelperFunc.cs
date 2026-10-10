@@ -32,14 +32,14 @@ namespace EmpireCraft.Scripts.HelperFunc
         {
             // 物种未知(读档途中王国数据还没就绪等)时返回空：调用方按"文化无效"处理、之后再解析。
             // 不能兜底成西方——GetRealmCulture 会把它存成王国文化并扩散到全图，旧存档的华夏会整片变成西方
-            if (string.IsNullOrEmpty(species)) return "";
+            if (string.IsNullOrWhiteSpace(species)) return "";
             if (ConfigData.speciesCulturePair.TryGetValue(species, out var insertCulture))
             {
-                return insertCulture;
+                return insertCulture ?? "";
             }
             else
             {
-                return "Western";
+                return "";
             }
         }
         public static string GetLocal(this string key)

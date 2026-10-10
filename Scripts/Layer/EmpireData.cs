@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts;
+using EmpireCraft.Scripts;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -142,6 +142,11 @@ public class EmpireData : MetaObjectData
     public bool legitimacy_rivalry_recognized { get; set; } = false;
     public bool legitimacy_challenger { get; set; } = false;
     public bool auto_enfeoff_tracking_initialized { get; set; } = false;
+    public bool territorial_enfeoff_pending { get; set; }
+    public bool succession_enfeoff_pending { get; set; }
+    public List<long> pending_conquest_enfeoff_kingdom_ids { get; set; } = new();
+    public bool administrative_reorganization_pending { get; set; }
+    public double last_administrative_reorganization_timestamp { get; set; } = -1d;
     public List<long> auto_enfeoff_observed_title_ids { get; set; } = new List<long>();
     public List<long> auto_enfeoff_observed_city_ids { get; set; } = new List<long>();
     public double last_auto_enfeoff_check_timestamp { get; set; } = -1L;

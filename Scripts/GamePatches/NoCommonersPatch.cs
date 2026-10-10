@@ -106,19 +106,14 @@ public class NoCommonersPatch : GamePatch
         }
     }
 
-    // 原版：城里一个实体单位都没有就变成无主之地。无小人模式下城里往往只有城主一人，
-    // 城主一死城就丢了——其实城里还住着背景人口。这时从背景人口里当场生成一人接任城主，城照常归属本国
+    // 城市存续不依赖补位成功：实体居民全部死亡时，背景人口仍然属于本国。
+    // 开启城市保护时真正的空城也保留归属，等待移民，不凭空增加人口。
     public static bool BeforeTurnCityToNeutral(City __instance)
     {
-        if (!CityPopulationSystem.AbstractPopulationEnabled || __instance?.kingdom == null || __instance.kingdom.wild ||
-            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
-        // 城里永远有人：背景人口不足时先补足保底，再从中生成一人接任城主
-        CityPopulationSystem.EnsureFloor(__instance);
-        if (CityPopulationSystem.GetBackgroundTotal(__instance) < 1f) return true;
-        Actor leader = CityPopulationSystem.SpawnCivilian(__instance);
-        if (leader == null) return true;
-        if (__instance.leader == null || __instance.leader.isRekt() || !__instance.leader.isAlive())
-            __instance.setLeader(leader, true);
+        if (!CityTerritoryProtection.ShouldKeepVirtualOwner(__instance)) return true;
+        // 复用限频补位；生成失败时仍然保留城市，不在原版每帧的空城检查里反复刷人。
+        if (CityPopulationSystem.GetBackgroundTotal(__instance) >= 1f)
+            CityPopulationSystem.EnsureLeader(__instance);
         return false;
     }
 

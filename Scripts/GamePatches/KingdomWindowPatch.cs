@@ -76,12 +76,16 @@ public class KingdomWindowPatch: GamePatch
             }
         }
         
-        __instance.showStatRow("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(metaObject.GetMoney()), "#43FF43", pIconPath: "iconMoney");
+        __instance.showStatRow("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(metaObject.GetTreasuryBalance()), "#43FF43", pIconPath: "iconMoney");
         if (EmpireCraft.Scripts.GeneralSystems.TreasurySystem.Enabled(metaObject))
         {
             var fiscal = EmpireCraft.Scripts.GeneralSystems.TreasurySystem.Report(metaObject);
+            __instance.showStatRow("fiscal_safety_reserve", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                EmpireCraft.Scripts.GeneralSystems.TreasurySystem.SafetyReserve(metaObject)), "#E6A166", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_cash_balance", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                fiscal.cash_balance), fiscal.cash_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_available", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
-                EmpireCraft.Scripts.GeneralSystems.StateSettlementSystem.DiscretionaryFunds(metaObject)), "#43FF43", pIconPath: "iconMoney");
+                EmpireCraft.Scripts.GeneralSystems.StateSettlementSystem.DiscretionaryBalance(metaObject)), "#43FF43", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_flows", EmpireCraft.Scripts.GeneralSystems.TreasurySystem.FlowText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_transfers", EmpireCraft.Scripts.GeneralSystems.TreasurySystem.TransferText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_spending", EmpireCraft.Scripts.GeneralSystems.TreasurySystem.SpendingText(fiscal), "#F3C34A", pIconPath: "iconMoney");

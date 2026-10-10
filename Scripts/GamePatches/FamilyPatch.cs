@@ -60,96 +60,35 @@ public class FamilyPatch : GamePatch
         if (__instance?.data == null) return;
         CulturePatch.EnsureEmpireNaming(pActor1?.culture);
         CulturePatch.EnsureEmpireNaming(pActor2?.culture);
-        Culture culture = null;
-        if (pActor1 != null)
+        // Choose once. Previously the second founder always overwrote the first,
+        // even when the first founder was the paternal/primary lineage.
+        Actor founder = SurnameInheritanceSystem.SelectParent(new[] { pActor1, pActor2 })
+                        ?? (pActor1?.hasCulture() == true ? pActor1 : pActor2);
+        if (founder?.data == null) return;
+        string surname = founder.GetModName()?.familyName;
+        bool cityPrefix = !string.IsNullOrWhiteSpace(surname) && founder.city != null;
+        if (string.IsNullOrWhiteSpace(surname))
         {
-            if (pActor1.GetModName().hasFamilyName(pActor1))
-            {
-                string cityName = pActor1.city.GetCityName();
-                string familyName = pActor1.GetModName().familyName;
-                string familyEnd = LM.Get("Family");
-                __instance.data.name = OverallHelperFunc.JoinNameParts(cityName, familyName, familyEnd);
-                OverallHelperFunc.SetFamilyCityPre(__instance);
-            }
-            else
-            {
-                if ( pActor1.hasCulture())
-                {
-                    culture = pActor1.culture;
-                    __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName()
-                        .UseLocalizedNameSeparator();
-                    OverallHelperFunc.SetFamilyCityPre(__instance, false);
-                    if (!pActor1.GetModName().hasFamilyName(pActor1))
-                    {
-                        pActor1.SetFamilyName(__instance.GetFamilyName());
-                    }
-                    if (pActor1.GetModName().has_whole_name(pActor1))
-                    {
-                        pActor1.GetModName().SetName(pActor1);
-                    }
-                    if (pActor2 != null) 
-                    {
-                        if (!pActor2.hasCulture())
-                        {
-                            pActor2.setCulture(culture);
-                        }
-                        if (!pActor2.GetModName().hasFamilyName(pActor2))
-                        {
-                            pActor2.SetFamilyName(__instance.GetFamilyName());
-                        }
-                        if (pActor2.GetModName().has_whole_name(pActor2))
-                        {
-                            pActor2.GetModName().SetName(pActor2);
-                        }
-                    }
-                }
-            }
+            OnomasticsData names = CulturePatch.GetOnomasticDataSafe(founder.culture, MetaType.Family);
+            if (names == null) return;
+            __instance.data.name = names.generateName().UseLocalizedNameSeparator();
+            __instance.SetFamilyCityPre(false);
+            surname = __instance.GetFamilyName();
         }
-
-        if (pActor2 != null)
+        else
         {
-            if (pActor2.GetModName().hasFamilyName(pActor2))
-            {
-                string cityName = pActor2.city.GetCityName();
-                string familyName = pActor2.GetModName().familyName;
-                string familyEnd = LM.Get("Family");
-                __instance.data.name = OverallHelperFunc.JoinNameParts(cityName, familyName, familyEnd);
-                OverallHelperFunc.SetFamilyCityPre(__instance);
-            }
-            else
-            {
-                if (pActor2.hasCulture())
-                {
-                    culture = pActor2.culture;
-                    __instance.data.name = culture.getOnomasticData(MetaType.Family).generateName()
-                        .UseLocalizedNameSeparator();
-                    OverallHelperFunc.SetFamilyCityPre(__instance, false);
-                    if (!pActor2.GetModName().hasFamilyName(pActor2))
-                    {
-                        
-                        pActor2.SetFamilyName(__instance.GetFamilyName());
-                    }
-                    if (pActor2.GetModName().has_whole_name(pActor2))
-                    {
-                        pActor2.GetModName().SetName(pActor2);
-                    }
-                    if (pActor1 != null)
-                    {
-                        if (!pActor1.hasCulture())
-                        {
-                            pActor1.setCulture(culture);
-                        }
-                        if (!pActor1.GetModName().hasFamilyName(pActor1))
-                        {
-                            pActor1.SetFamilyName(__instance.GetFamilyName());
-                        }
-                        if (pActor1.GetModName().has_whole_name(pActor1))
-                        {
-                            pActor1.GetModName().SetName(pActor1);
-                        }
-                    }
-                }
-            }
+            __instance.data.name = OverallHelperFunc.JoinNameParts(
+                cityPrefix ? founder.city.GetCityName() : "", surname, LM.Get("Family"));
+            __instance.SetFamilyCityPre(cityPrefix);
+        }
+        foreach (Actor actor in new[] { pActor1, pActor2 })
+        {
+            if (actor?.data == null) continue;
+            if (!actor.hasCulture() && founder.culture != null) actor.setCulture(founder.culture);
+            Name name = actor.GetModName();
+            if (name == null) continue;
+            if (!name.hasFamilyName(actor)) actor.SetFamilyName(surname);
+            if (name.has_whole_name(actor)) name.SetName(actor);
         }
     }
 }

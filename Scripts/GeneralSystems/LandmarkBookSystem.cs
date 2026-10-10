@@ -95,10 +95,10 @@ public static class LandmarkBookSystem
     public static string GetTitle(string bookId, string culture)
     {
         string key = $"landmark_book_{bookId}_{culture}";
-        string title = LM.Get(key);
+        string title = LM.Has(key) ? LM.Get(key) : null;
         if (!string.IsNullOrWhiteSpace(title) && title != key) return title;
         key = $"landmark_book_{bookId}";
-        title = LM.Get(key);
+        title = LM.Has(key) ? LM.Get(key) : null;
         return string.IsNullOrWhiteSpace(title) || title == key ? bookId : title;
     }
 

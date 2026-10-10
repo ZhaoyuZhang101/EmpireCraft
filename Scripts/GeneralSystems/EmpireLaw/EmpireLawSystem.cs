@@ -222,6 +222,10 @@ public static class EmpireLawSystem
             return false;
         }
 
+        // Membership is not jurisdiction: local authorities cannot accuse or punish the sovereign.
+        // Central procedures keep their existing rules, including modern constitutional cases.
+        if (actor == empire.Emperor && kingdom != empire.CoreKingdom) return false;
+
         if (!actor.hasKingdom() || !actor.kingdom.IsInEmpire())
         {
             return false;
@@ -680,6 +684,7 @@ public static class EmpireLawSystem
     private static bool CanResolveCrimeRecord(Actor actor, Kingdom kingdom, CrimeRecord record)
     {
         if (actor == null || kingdom == null || record == null) return false;
+        if (!CanEnforceLawInEmpireScope(actor, kingdom)) return false;
 
         LawType lawType = (LawType)record.law_type;
         if (lawType == LawType.过于强大)
@@ -838,6 +843,7 @@ public static class EmpireLawSystem
 
     public static bool ApplyPunishment(LawEnforcementContext context, PunishmentLevel punishment)
     {
+        if (context == null || !CanEnforceLawInEmpireScope(context.Actor, context.Kingdom)) return false;
         switch (punishment)
         {
             case PunishmentLevel.无罪:

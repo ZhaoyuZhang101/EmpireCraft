@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
@@ -265,13 +265,32 @@ namespace EmpireCraft.Scripts.AI
             }
         }
 
-        private static bool CanRunKingdomGetTitlePlot(Actor actor)
+        private static bool CanRunKingdomGetTitlePlot(Actor actor) => CanContinueKingdomGetTitlePlot(actor) &&
+            actor.kingdom.GetWarsCached(false).Count == 0;
+
+        private static bool CanContinueKingdomGetTitlePlot(Actor actor)
         {
-            if (actor == null || !actor.isKing() || !actor.hasKingdom()) return false;
+            if (actor == null || actor.isRekt() || !actor.isAlive() || !actor.isKing() || !actor.hasKingdom()) return false;
             Kingdom kingdom = actor.kingdom;
-            if (kingdom == null || kingdom.isRekt() || !actor.canTakeTitle()) return false;
-            if (kingdom.GetWarsCached(false).Count > 0) return false;
+            if (kingdom == null || kingdom.isRekt() || kingdom.king != actor || !actor.canTakeTitle()) return false;
             return kingdom.CanPursueDeJureTitle();
+        }
+
+        private static Kingdom FindTitleReclamationTarget(Empire empire) => empire?.kingdoms_list.Find(kingdom =>
+            empire.CanReclaimTitlesFrom(kingdom));
+
+        private static Kingdom FindCrimeExposureTarget(Actor actor)
+        {
+            Kingdom source = actor?.kingdom;
+            Empire empire = source?.GetEmpire();
+            if (actor == null || actor.isRekt() || !actor.isAlive() || !actor.isKing() ||
+                source == null || source.isRekt() || source.king != actor || empire == null ||
+                empire.isRekt() || empire.IsArchived() || !actor.HasFaction()) return null;
+            return empire.kingdoms_list?.Find(target => target != null && !target.isRekt() &&
+                target != source && target.GetEmpire() == empire && target.king != null && target.king.isAlive() &&
+                EmpireLawSystem.CanEnforceLawInEmpireScope(target.king, source) &&
+                target.king.GetFaction() != actor.GetFaction() && target.king.renown / 2 < actor.renown &&
+                target.king.GetViolateValue() >= 0);
         }
 
         private static bool CanRunTributaryTitlePetition(Actor actor)
@@ -1055,24 +1074,15 @@ namespace EmpireCraft.Scripts.AI
                 min_renown_actor = 200,
                 progress_needed = 15f,
                 can_be_done_by_king = true,
-                check_is_possible = delegate (Actor pActor)
-                {
-                    Kingdom kingdom = pActor.kingdom;
-                    if (!pActor.isKing()) return false;
-                    if (!kingdom.IsInEmpire()) return false;
-                    Empire empire = kingdom.GetEmpire();
-                    if (empire == null) return false;
-                    if (!pActor.HasFaction()) return false;
-                    return empire.kingdoms_list.Any(k => k != null && !k.isRekt() && k != kingdom && k.king != null &&
-                        k.king.GetFaction() != pActor.GetFaction() && (k.king.renown / 2) < pActor.renown && k.king.GetViolateValue() >= 0);
-                },
+                check_is_possible = actor => FindCrimeExposureTarget(actor) != null,
+                check_can_be_forced = actor => FindCrimeExposureTarget(actor) != null,
+                check_should_continue = actor => FindCrimeExposureTarget(actor) != null,
                 action = delegate (Actor pActor)
                 {
                     Kingdom kingdom = pActor?.kingdom;
                     Empire empire = kingdom?.GetEmpire();
                     if (pActor == null || kingdom == null || empire == null || !pActor.HasFaction()) return false;
-                    Kingdom target = empire.kingdoms_list?.Find(k => k != null && !k.isRekt() && k != kingdom && k.king != null &&
-                        k.king.GetFaction() != pActor.GetFaction() && (k.king.renown / 2) < pActor.renown && k.king.GetViolateValue() >= 0);
+                    Kingdom target = FindCrimeExposureTarget(pActor);
                     if (target == null)
                     {
                         return false;
@@ -1091,8 +1101,11 @@ namespace EmpireCraft.Scripts.AI
                             LawType.玩忽职守,
                             LawType.走私
                         };
-                        var crime = potentialCrimes.FindAll(c=>target.HasLaw(c)).GetRandom();
-                        targetKing.TryTriggerProbabilisticLaw(crime, 1f, _ => { });
+                        var applicableCrimes = potentialCrimes.FindAll(c => target.HasLaw(c));
+                        if (applicableCrimes.Count == 0) return false;
+                        var crime = applicableCrimes.GetRandom();
+                        if (!targetKing.TryTriggerProbabilisticLaw(crime, 1f, _ => { })) return false;
+                        bool crimeConfirmed = false;
                         double rebellingPossibility = 0.2f;
                         if (!target.isOpinionTowardsKingdomGood(empire.CoreKingdom))
                         {
@@ -1141,9 +1154,15 @@ namespace EmpireCraft.Scripts.AI
                                 targetKing.EscapeFromPunishment();
                             }
                             TranslateHelper.LogLawEnforcement(context);
+                            crimeConfirmed = context.AppliedPunishments.Any(p => p != PunishmentLevel.无罪);
                         }
                         TranslateHelper.LogExposeCrime(kingdom, target, crime.ToString());
-                        kingdom.SetMainCrime(crime);
+                        // Attach a confirmed offence to its ruler, not to the accuser; acquittal is not a conviction.
+                        if (crimeConfirmed && target.king == targetKing && target.GetEmpire() == empire)
+                            target.SetMainCrime(crime);
+                        else if (!crimeConfirmed && target.king == targetKing && target.HasMainCrime() &&
+                                 target.GetMainCrime() == crime)
+                            target.RemoveMainCrime();
                     }
                     else
                     {
@@ -1508,26 +1527,28 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsEmpire()) return false;
                     var empire = kingdom.GetEmpire();
                     if (empire==null) return false;
-                    var k = empire.kingdoms_list.Find(k => (k.king?.GetViolateValue() ?? 0) >= 90&&(k.king?.HasTitle()??false));
-                    var crime = k?.GetMainCrime();
-                    if (crime == null) return false;
-                    return true;
+                    var k = FindTitleReclamationTarget(empire);
+                    return k != null;
                 },
+                check_should_continue = pActor => pActor?.isKing() == true && pActor.kingdom.IsEmpire() &&
+                    FindTitleReclamationTarget(pActor.kingdom.GetEmpire()) != null,
                 action = delegate(Actor pActor) 
                 {
                     Kingdom kingdom = pActor.kingdom;
                     if (!kingdom.IsEmpire()) return false;
                     var empire = kingdom.GetEmpire();
                     if (empire==null) return false;
-                    var k = empire.kingdoms_list.Find(k => (k.king?.GetViolateValue() ?? 0) >= 90&&(k.king?.HasTitle()??false));
-                    var crime = k?.GetMainCrime().ToString();
-                    if (crime == null) return false;
-                    var titles = k.king?.GetOwnedTitle();
-                    var kingdomTitles = titles?.Select(t => ModClass.KINGDOM_TITLE_MANAGER.get(t))?.ToList().FindAll(kt=>kt!=null);
+                    var k = FindTitleReclamationTarget(empire);
+                    if (k == null) return false;
+                    var crime = k.GetMainCrime().ToString();
+                    Actor formerHolder = k.king;
+                    var titles = formerHolder.GetOwnedTitle();
+                    var kingdomTitles = titles?.Select(t => ModClass.KINGDOM_TITLE_MANAGER.get(t))?.ToList()
+                        .FindAll(kt => kt != null && !kt.isRekt() && kt.owner == formerHolder);
                     if (kingdomTitles == null || kingdomTitles.Count == 0) return false;
                     string titleText = string.Join(",", kingdomTitles.Select(kt=>kt.name));
                     if (empire.ReclaimTitles(k, kingdomTitles) <= 0) return false;
-                    TranslateHelper.LogEmpireTakeBackTitle(k.king, titleText, crime);
+                    TranslateHelper.LogEmpireTakeBackTitle(formerHolder, titleText, crime);
                     return true;
                 }
             });
@@ -1755,6 +1776,20 @@ namespace EmpireCraft.Scripts.AI
             });
             AssetManager.plots_library.add(new PlotAsset
             {
+                id = "emperor_reorganize_administration",
+                path_icon = "ui/icons/plots/plot_empire_take_back_title",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = AdministrationReorganizationSystem.ShouldPropose,
+                check_can_be_forced = AdministrationReorganizationSystem.CanPropose,
+                check_should_continue = AdministrationReorganizationSystem.CanPropose,
+                action = AdministrationReorganizationSystem.Begin
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
                 id = "kingdom_get_title",
                 path_icon = "ui/icons/plots/plot_kingdom_get_title",
                 group_id = "empirecraft_diplomacy",
@@ -1763,10 +1798,11 @@ namespace EmpireCraft.Scripts.AI
                 progress_needed = 15f,
                 can_be_done_by_king = true,
                 check_is_possible = CanRunKingdomGetTitlePlot,
-                check_should_continue = CanRunKingdomGetTitlePlot,
+                check_can_be_forced = CanRunKingdomGetTitlePlot,
+                check_should_continue = CanContinueKingdomGetTitlePlot,
                 action = delegate(Actor pActor) 
                 {
-                    if (!CanRunKingdomGetTitlePlot(pActor)) return false;
+                    if (!CanContinueKingdomGetTitlePlot(pActor)) return false;
                     Kingdom kingdom = pActor.kingdom;
                     List<KingdomTitle> titles = pActor.takeTitle();
                     foreach(KingdomTitle title in titles)

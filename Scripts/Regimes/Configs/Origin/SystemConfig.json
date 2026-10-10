@@ -85,7 +85,8 @@
           "leader_select_method": "Succession",
           "require_traits": [],
           "condition": [],
-          "city_type": "Origin_city"
+          "city_type": "Origin_city",
+          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county" }
         },
         "Origin_centre": {
           "pre": "",
@@ -106,7 +107,8 @@
           "condition": [
             "empire_center:true"
           ],
-          "city_type": "Origin_city"
+          "city_type": "Origin_city",
+          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county" }
         },
         "Origin_kingdom": {
           "pre": "",
@@ -122,7 +124,8 @@
           "condition": [
             "empire_center:false"
           ],
-          "city_type": "Origin_city"
+          "city_type": "Origin_city",
+          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county" }
         }
       },
       "cities": {

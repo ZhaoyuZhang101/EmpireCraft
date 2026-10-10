@@ -21,10 +21,10 @@ public static class PopulationRuntimeDiagnostics
             _active = true;
             _world = World.world;
             FrameProfiler.Reset();
-            string header = "[EmpireCraft][性能采样启动] 版本 2026-10-07-profile-3；虚拟人口已开启；原版计时补丁 " +
+            string header = "[EmpireCraft][性能采样启动] 版本 2026-10-09-profile-4；虚拟人口已开启；原版计时补丁 " +
                 EmpireCraft.Scripts.GamePatches.NativeWorldOptimizationPatch.Initialized +
                 "；u4_deadCheck 前缀=" + NativeBenchmarkSnapshot.ActorPrefixOwners() +
-                "；记录均值与单次峰值，嵌套标签不要相加；时间戳为 UTC";
+                "；记录均值、单次峰值与帧耗时 P95/P99，嵌套标签不要相加；时间戳为 UTC";
             PerformanceTraceFile.Record(header);
             LogService.LogInfo(header);
         }

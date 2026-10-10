@@ -57,11 +57,18 @@ public class EmpireCraftActorCheckTax: GameAIActorBase
         // 背景人口按生产收入纳税；实体人物使用个人余额口径，各付自己的税。
         if (TreasurySystem.Enabled(city))
         {
-            int tax = (int)(Math.Max(0, pActor.money) * Math.Min(1d, Math.Max(0d, pTaxRate)));
+            TreasuryCategory category = pActor.GetOrCreate().socialClass switch
+            {
+                SocialClass.Peasant or SocialClass.Landlord => TreasuryCategory.LandTax,
+                SocialClass.Labour => TreasuryCategory.IndustrialTax,
+                SocialClass.Merchant => TreasuryCategory.CommercialTax,
+                _ => TreasuryCategory.ResidentTax
+            };
+            int tax = (int)(Math.Max(0, pActor.money) * SectorTaxRules.Rate(pTaxRate, category));
             if (tax > 0)
             {
                 pActor.addMoney(-tax);
-                TreasurySystem.CollectResidentTax(city, tax);
+                TreasurySystem.CollectResidentTax(city, tax, category);
             }
         }
         else if (hadLoot)

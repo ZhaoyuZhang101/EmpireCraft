@@ -8,21 +8,24 @@ public readonly struct CityStabilityInput : IEquatable<CityStabilityInput>
     public readonly int Population, Households, Loyalty, Legitimacy, GovernancePolicy, GarrisonPolicy;
     public readonly float Corruption, Sentiment, Landless, Grievance;
     public readonly bool Famine, ArmyEnabled;
+    public readonly float PeoplePerFiscalUnit;
 
     public CityStabilityInput(int population, int households, int loyalty, int legitimacy,
         float corruption, float sentiment, float landless, float grievance, bool famine,
-        bool armyEnabled, int governancePolicy, int garrisonPolicy)
+        bool armyEnabled, int governancePolicy, int garrisonPolicy, float peoplePerFiscalUnit = 1f)
     {
         Population = population; Households = households; Loyalty = loyalty; Legitimacy = legitimacy;
         Corruption = corruption; Sentiment = sentiment; Landless = landless; Grievance = grievance;
         Famine = famine; ArmyEnabled = armyEnabled; GovernancePolicy = governancePolicy; GarrisonPolicy = garrisonPolicy;
+        PeoplePerFiscalUnit = float.IsNaN(peoplePerFiscalUnit) || float.IsInfinity(peoplePerFiscalUnit)
+            ? 1f : Math.Max(1f, peoplePerFiscalUnit);
     }
 
     public bool Equals(CityStabilityInput other) => Population == other.Population && Households == other.Households &&
         Loyalty == other.Loyalty && Legitimacy == other.Legitimacy && Corruption == other.Corruption &&
         Sentiment == other.Sentiment && Landless == other.Landless && Grievance == other.Grievance &&
         Famine == other.Famine && ArmyEnabled == other.ArmyEnabled && GovernancePolicy == other.GovernancePolicy &&
-        GarrisonPolicy == other.GarrisonPolicy;
+        GarrisonPolicy == other.GarrisonPolicy && PeoplePerFiscalUnit == other.PeoplePerFiscalUnit;
 }
 
 public readonly struct CityStabilityBudget
@@ -48,7 +51,7 @@ public static class CityStabilityMath
             input.ArmyEnabled ? Policy(input.GarrisonPolicy, 1f) : 0f);
         return new CityStabilityBudget(natural, governance, guards,
             CityStabilityRules.GovernanceAnnual(input.Households, natural, input.Corruption, governance),
-            CityStabilityRules.GarrisonAnnual(guards, natural) / 12d);
+            CityStabilityRules.GarrisonAnnual(guards, natural) / input.PeoplePerFiscalUnit / 12d);
     }
 
     public static CityStabilityBudget[] Compute(CityStabilityInput[] inputs)

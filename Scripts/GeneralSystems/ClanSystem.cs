@@ -1126,16 +1126,27 @@ public class PersonalClanIdentity
     // —— 虚拟族谱(无小人模式，见 VirtualGenealogySystem) ——
     // 并入人口数据后没有实体单位、但仍在世的族人：只记人名、出生地、受封(爵位/封号)，需要时再落成实体
     public bool is_virtual { get; set; }
+    // Personal name parts survive virtualisation; familyName below is a household label.
+    public string given_name { get; set; } = "";
+    public string surname { get; set; } = "";
     public string birthplace { get; set; } = "";
     // 落成实体时生成在哪座城(并入时所在的城)
     public long virtual_city_id { get; set; } = -1L;
     // 成为虚拟族人的时间，用来推算年龄
     public double virtual_since { get; set; } = -1d;
-    // 预定的寿数(60~80 随机)，到了就以病逝/遇刺/寿终之一身故
+    // 真实年龄开启时的预定寿数(60~80)，切换法则不会重新抽取
     public int virtual_death_age { get; set; } = -1;
+    // Native lifespan and immortality survive conversion; null is a legacy save.
+    public float? virtual_native_lifespan { get; set; }
+    public bool virtual_immortal { get; set; }
+    // 已存在的个人钱包保管额；落成、继承不作为当期收入，旧档缺省为空。
+    public WalletReserve wallet_reserve { get; set; }
+    // Newtonsoft convention: do not inflate every historical person with an empty account.
+    public bool ShouldSerializewallet_reserve() => wallet_reserve != null &&
+        (wallet_reserve.cash != 0L || wallet_reserve.loot != 0L);
 
     // 需要这个人(继承、分封、作乱……)时调用：虚拟族人当场落成实体，否则返回现有实体
-    public Actor Realize() => is_virtual && is_alive ? VirtualGenealogySystem.Realize(this) : _actor;
+    public Actor Realize() => is_alive ? VirtualGenealogySystem.Realize(this) : _actor;
 
     public void newPersonalClanIdentity(SpecificClan specificClan, Actor a)
     {
@@ -1144,13 +1155,14 @@ public class PersonalClanIdentity
         actor_id = a.getID();
         specific_clan_id = specificClan.id;
         name = a.getName();
+        given_name = a.GetModName()?.firstName ?? "";
+        surname = a.GetModName()?.familyName ?? "";
         birthday = a.getBirthday();
         sex = a.data.sex;
         recordedAge = a.getAge();
         species = a.asset.id;
         is_main = true;
-        culture = CultureService.GetActorCulture(a);
-        if (!CultureService.IsValidCulture(culture)) culture = "Western";
+        culture = CultureService.ResolveRecordedActorCulture(a);
         generation = 0;
     }
 
@@ -1162,8 +1174,9 @@ public class PersonalClanIdentity
     {
         Actor actor = _actor;
         if (actor == null) return;
-        culture = CultureService.GetActorCulture(actor);
-        if (!CultureService.IsValidCulture(culture)) culture = "Western";
+        given_name = actor.GetModName()?.firstName ?? given_name;
+        surname = actor.GetModName()?.familyName ?? surname;
+        culture = CultureService.ResolveRecordedActorCulture(actor, culture);
         recordedAge = actor.getAge();
         OfficeIdentity identity = null;
         if (actor.hasCity())

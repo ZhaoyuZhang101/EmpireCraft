@@ -18,7 +18,13 @@ public static class SimulationFrameBudget
     private static int _depth;
     private static int _sampleFrames, _slowFrames;
     private static double _sampleSeconds, _worstFrame;
+    private const int MaximumFrameSamples = 8192;
+    private static readonly double[] FrameSamples = new double[MaximumFrameSamples];
+    private static readonly double[] SortedSamples = new double[MaximumFrameSamples];
+    private static int _sampleCursor, _storedSamples;
     public static double LastMeasuredFramesPerSecond { get; private set; }
+    public static double LastP95Milliseconds { get; private set; }
+    public static double LastP99Milliseconds { get; private set; }
 
     public static double ResolveMilliseconds(double previousFrameMilliseconds) =>
         previousFrameMilliseconds >= 33d ? 0.5d : previousFrameMilliseconds >= TargetFrameMilliseconds ? 0.75d :
@@ -35,17 +41,28 @@ public static class SimulationFrameBudget
         double seconds = Math.Max(0d, Time.unscaledDeltaTime);
         _sampleSeconds += seconds;
         _sampleFrames++;
+        FrameSamples[_sampleCursor] = seconds * 1000d;
+        _sampleCursor = (_sampleCursor + 1) % MaximumFrameSamples;
+        _storedSamples = Math.Min(MaximumFrameSamples, _storedSamples + 1);
         _worstFrame = Math.Max(_worstFrame, seconds * 1000d);
         if (seconds * 1000d > TargetFrameMilliseconds) _slowFrames++;
         if (_sampleSeconds >= 30d)
         {
             LastMeasuredFramesPerSecond = _sampleFrames / _sampleSeconds;
+            // Bounded, reusable buffers; no allocations or sorting during ordinary frames.
+            Array.Copy(FrameSamples, SortedSamples, _storedSamples);
+            Array.Sort(SortedSamples, 0, _storedSamples);
+            LastP95Milliseconds = SortedSamples[(int)Math.Ceiling(_storedSamples * 0.95d) - 1];
+            LastP99Milliseconds = SortedSamples[(int)Math.Ceiling(_storedSamples * 0.99d) - 1];
             string report = $"[EmpireCraft][帧率] 最近 {_sampleSeconds:0} 秒平均 {LastMeasuredFramesPerSecond:0.0} FPS；" +
+                $"平均帧耗时 {_sampleSeconds * 1000d / _sampleFrames:0.0} ms；" +
+                $"P95 {LastP95Milliseconds:0.0} ms，P99 {LastP99Milliseconds:0.0} ms（最近 {_storedSamples} 帧样本）；" +
                 $"最慢帧 {_worstFrame:0.0} ms；超过 25 ms 的帧 {_slowFrames}/{_sampleFrames}；目标 40 FPS";
             LogService.LogInfo(report);
             EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile.Record(report);
             _sampleSeconds = _worstFrame = 0d;
             _sampleFrames = _slowFrames = 0;
+            _sampleCursor = _storedSamples = 0;
         }
     }
 
@@ -67,6 +84,8 @@ public static class SimulationFrameBudget
         _spent = 0d;
         _sampleSeconds = _worstFrame = LastMeasuredFramesPerSecond = 0d;
         _sampleFrames = _slowFrames = 0;
+        _sampleCursor = _storedSamples = 0;
+        LastP95Milliseconds = LastP99Milliseconds = 0d;
     }
 
     // 只计入模组工作，原版模拟经过的时间不会让后调用的队列永远没机会运行；嵌套也不会重复记账。

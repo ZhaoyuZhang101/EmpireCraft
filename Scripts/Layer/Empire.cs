@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Diagnostics;
 using EmpireCraft.Scripts.Compatibility;
@@ -16,6 +16,7 @@ using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using NCMS;
 using UnityEngine;
 using Random = System.Random;
@@ -1682,6 +1683,7 @@ public class Empire : MetaObject<EmpireData>
         if (data == null || World.world == null || _updatingHonoraryPeerages) return;
         Kingdom coreKingdom = CoreKingdom;
         if (coreKingdom == null || coreKingdom.isRekt()) return;
+        AdministrationReorganizationSystem.Resume(this);
         RepairUnregisteredEmperor();
         Regime regime = coreKingdom.GetRegime();
         CompositeEmpireService.Update(this);
@@ -1703,7 +1705,8 @@ public class Empire : MetaObject<EmpireData>
         else
         {
             // 西方中央集权君主制、神权国家同郡县制一样，直辖的法理要划成辖区/教区
-            if (IsWesternCentralized()) ProcessTerritorialAcquisitionEnfeoff();
+            if (IsWesternCentralized() || regime?.type == RegimeType.ZhouFeudalism ||
+                regime?.type == RegimeType.Feudalism) ProcessTerritorialAcquisitionEnfeoff();
             if (regime != null && data.powerful_minister_id > 0) ClearPowerfulMinister();
         }
         // 现代国家不再运行传统封爵、恩赏爵位或爵位承袭流程。
@@ -2785,12 +2788,25 @@ public class Empire : MetaObject<EmpireData>
             .ToList();
     }
 
+    public bool CanReclaimTitlesFrom(Kingdom sourceKingdom)
+    {
+        return sourceKingdom != null && !sourceKingdom.isRekt() && sourceKingdom.GetEmpire() == this &&
+               sourceKingdom != CoreKingdom && sourceKingdom.king != null && sourceKingdom.king != Emperor &&
+               sourceKingdom.king.isAlive() && sourceKingdom.king.HasTitle() &&
+               sourceKingdom.king.GetViolateValue() >= 90 && sourceKingdom.HasMainCrime() &&
+               CoreKingdom?.HasLaw(sourceKingdom.GetMainCrime()) == true &&
+               Emperor != null && !Emperor.isRekt() && Emperor.isAlive();
+    }
+
     public int ReclaimTitles(Kingdom sourceKingdom, IEnumerable<KingdomTitle> titles)
     {
         if (sourceKingdom == null || sourceKingdom.isRekt() || sourceKingdom.GetEmpire() != this ||
+            sourceKingdom == CoreKingdom || sourceKingdom.king == Emperor ||
             Emperor == null || Emperor.isRekt()) return 0;
+        if (!CanReclaimTitlesFrom(sourceKingdom)) return 0;
         List<KingdomTitle> reclaimedTitles = (titles ?? Enumerable.Empty<KingdomTitle>())
-            .Where(title => title != null && !title.isRekt() && title.data != null)
+            .Where(title => title != null && !title.isRekt() && title.data != null &&
+                title.owner == sourceKingdom.king)
             .Distinct()
             .ToList();
         if (reclaimedTitles.Count == 0) return 0;
@@ -2830,6 +2846,7 @@ public class Empire : MetaObject<EmpireData>
         }
 
         EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(sourceKingdom);
+        sourceKingdom.RemoveMainCrime();
         return reclaimedTitles.Count;
     }
 
@@ -3951,6 +3968,9 @@ public class Empire : MetaObject<EmpireData>
     {
         Kingdom coreKingdom = CoreKingdom;
         if (data == null || coreKingdom == null || coreKingdom.isRekt()) return;
+        if (AdministrationReorganizationSystem.IsRunning(this)) return;
+        if (HasTerritorialWar()) { data.territorial_enfeoff_pending = true; return; }
+        data.territorial_enfeoff_pending = false;
         Regime regime = coreKingdom.GetRegime();
         if (regime == null) return;
 
@@ -3978,7 +3998,10 @@ public class Empire : MetaObject<EmpireData>
         if (data.last_auto_enfeoff_check_timestamp >= 0 &&
             Date.getMonthsSince(data.last_auto_enfeoff_check_timestamp) < 1) return;
         data.last_auto_enfeoff_check_timestamp = now;
+        if (HasTerritorialWar()) { data.territorial_enfeoff_pending = true; return; }
 
+        FeudalConquestService.ProcessPeaceEnfeoff(this);
+        EnfeoffmentHelper.ResumeSuccessionEnfeoff(this);
         HashSet<long> currentCities = CoreKingdom.cities
             .Where(city => city != null && !city.isRekt() && city.kingdom == CoreKingdom)
             .Select(city => city.id).ToHashSet();
@@ -3999,6 +4022,7 @@ public class Empire : MetaObject<EmpireData>
             data.auto_enfeoff_observed_city_ids = currentCities.OrderBy(id => id).ToList();
             data.auto_enfeoff_observed_title_ids = currentCompleteTitles.OrderBy(id => id).ToList();
             data.auto_enfeoff_tracking_initialized = true;
+            if (data.territorial_enfeoff_pending) AutoEnfeoff();
             return;
         }
 
@@ -4007,8 +4031,10 @@ public class Empire : MetaObject<EmpireData>
         data.auto_enfeoff_observed_city_ids = currentCities.OrderBy(id => id).ToList();
         data.auto_enfeoff_observed_title_ids = currentCompleteTitles.OrderBy(id => id).ToList();
         // 郡县制/中央集权/神权国家：核心王国除开国法理外还直辖别的法理时，一律划出行政区(同"普天之下")
-        if (acquiredCity || completedTitle || HoldsExtraDirectTitles()) AutoEnfeoff();
+        if (data.territorial_enfeoff_pending || acquiredCity || completedTitle || HoldsExtraDirectTitles()) AutoEnfeoff();
     }
+
+    public bool HasTerritorialWar() => kingdoms_list.Any(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.hasEnemies());
 
     private bool HoldsExtraDirectTitles()
     {
@@ -4072,7 +4098,7 @@ public class Empire : MetaObject<EmpireData>
         AutoEstablishUntitledExclaveDivisions(regime, createAdministration, protectedCities);
     }
 
-    private HashSet<long> GetProtectedDirectCityIds()
+    public HashSet<long> GetProtectedDirectCityIds()
     {
         var protectedCities = new HashSet<long>();
         City capital = CoreKingdom?.capital;
@@ -4198,7 +4224,7 @@ public class Empire : MetaObject<EmpireData>
             localRegime?.SetAllowDiplomacy(true);
             localRegime?.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
             localRegime?.SetAllowSupportCenterArmy(false);
-            localRegime?.SetTaxLevel(TaxLevel.None);
+            localRegime?.SetTaxLevel(TaxLevel.Low);
             if (title != null)
             {
                 governor.AddOwnedTitle(title);
@@ -4279,10 +4305,23 @@ public class Empire : MetaObject<EmpireData>
         }
     }
 
+    public Kingdom EstablishTerritorialDivision(List<City> region, KingdomTitle title)
+    {
+        if (HasTerritorialWar()) { data.territorial_enfeoff_pending = true; return null; }
+        var regime = CoreKingdom?.GetRegime();
+        if (regime == null) return null;
+        bool administration = RegimeSupportsProvince(regime) || GraceEdictService.IsCommanderyKingdomActive(this) ||
+            IsWesternCentralized() || regime.type == RegimeType.Modern || regime.type == RegimeType.Republic;
+        Kingdom legalHolder = title?.FindRealmTitleHolder();
+        if (!administration && legalHolder != null && legalHolder.GetEmpire() != this) title = null;
+        return CreateTerritorialPartition(region, title, regime, administration);
+    }
+
     // 把一片已收归核心王国的城市设为行政区(郡县)；title 不为空时由该行政区接管这个法理。
     // 政体不支持行政区时返回 null，城市留在核心王国直辖。
     public Kingdom EstablishAdministrativeDivision(List<City> region, KingdomTitle title)
     {
+        if (HasTerritorialWar()) { data.territorial_enfeoff_pending = true; return null; }
         Regime regime = CoreKingdom?.GetRegime();
         // 政体没有行政区类型(比如还是分封制)时不建行政区，城市就留在王畿直辖；
         // 施行了郡国并行的分封制可以设郡

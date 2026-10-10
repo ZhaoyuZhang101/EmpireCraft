@@ -73,6 +73,8 @@ public abstract class TemporaryFaction
     public virtual bool RequireCrimeTarget => false;
     [JsonIgnore]
     public virtual bool RequireRenown => false;
+    // Public reform campaigns keep their own eligibility checks outside the cabinet.
+    public virtual bool CanProceedOutsideGovernment => false;
     [JsonIgnore]
     public string CompletionOutcome { get; protected set; }
     public virtual float RequireRenownMultiplier => 1f;
@@ -296,6 +298,7 @@ public abstract class TemporaryFaction
         }
 
         GetCrimeScopeForCurrentTarget(out Actor actor, out Kingdom kingdom);
+        if (!CanUseCrimeRestrictedTarget(actor, kingdom)) return false;
         return EmpireLawSystem.TryEnforceCrimeForClaim(actor, kingdom) != null;
     }
 
@@ -307,6 +310,7 @@ public abstract class TemporaryFaction
         }
 
         GetCrimeScopeForCurrentTarget(out Actor actor, out Kingdom kingdom);
+        if (!CanUseCrimeRestrictedTarget(actor, kingdom)) return null;
         return EmpireLawSystem.GetResolvableCrimeName(actor, kingdom);
     }
 
@@ -322,7 +326,9 @@ public abstract class TemporaryFaction
             return false;
         }
 
-        return EmpireLawSystem.HasResolvableCrimeRecord(actor, kingdom);
+        if (IsLocallyPushed && actor == GetEmpire()?.Emperor) return false;
+        return EmpireLawSystem.CanEnforceLawInEmpireScope(actor, kingdom) &&
+               EmpireLawSystem.HasResolvableCrimeRecord(actor, kingdom);
     }
 
     private void GetCrimeScopeForCurrentTarget(out Actor actor, out Kingdom kingdom)
@@ -559,7 +565,7 @@ public abstract class TemporaryFaction
                 End();
                 return;
             }
-            if (!IsLocallyPushed && GeneralSystems.ParliamentSystem.HasParliament(GetEmpire()))
+            if (!IsLocallyPushed && !CanProceedOutsideGovernment && GeneralSystems.ParliamentSystem.HasParliament(GetEmpire()))
             {
                 // 责任政府：只有执政一方(联合政府时为整个执政联盟)能继续推动诉求
                 if (GeneralSystems.ParliamentSystem.HasResponsibleGovernment(GetEmpire()) &&
@@ -569,7 +575,7 @@ public abstract class TemporaryFaction
                     return;
                 }
             }
-            else if (!IsLocallyPushed && GetEmpire().CoreKingdom.GetRegime().has_cabinet)
+            else if (!IsLocallyPushed && !CanProceedOutsideGovernment && GetEmpire().CoreKingdom.GetRegime().has_cabinet)
             {
                 if (GetEmpire().CoreKingdom.GetRegime().type != RegimeType.Feudalism)
                 {
@@ -584,7 +590,7 @@ public abstract class TemporaryFaction
             {
                 float progressRate = 1 + ((acceleration < 0 ? 0 : acceleration) / 5);
                 FixedFaction faction = GetFaction();
-                if (faction?.IsParty == true)
+                if (faction?.IsParty == true || CanProceedOutsideGovernment)
                 {
                     ClaimAgendaView agenda = ClaimAgendaSystem.Evaluate(
                         ClaimAgendaSystem.BuildContext(GetEmpire()), faction, this);

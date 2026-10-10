@@ -5,6 +5,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
 using NeoModLoader.api;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
@@ -45,33 +46,65 @@ public class StateSettlementPatch : GamePatch
     private static Dictionary<string, int> Supplies(City city) => city?.data == null ? null :
         city.GetOrCreate().population?.settlement_supplies;
 
+    private static (Dictionary<string, int> supplies, Dictionary<string, int> returns) TemporaryCargo(City city)
+    {
+        var population = city?.data == null ? null : city.GetOrCreate().population;
+        return (population?.settlement_supplies, population?.resource_returns);
+    }
+
+    private static void AddTemporaryAmount(Dictionary<string, int> cargo, string resource, ref int amount)
+    {
+        if (cargo?.TryGetValue(resource, out int stored) != true || stored <= 0) return;
+        // Cap the native int quantity query, not the stored inventory itself.
+        amount = (int)global::System.Math.Min(int.MaxValue, (long)amount + stored);
+    }
+
     public static void ResourceAmount(City __instance, string pResourceID, ref int __result)
     {
-        if (Supplies(__instance)?.TryGetValue(pResourceID, out int amount) == true) __result += amount;
+        var cargo = TemporaryCargo(__instance);
+        AddTemporaryAmount(cargo.supplies, pResourceID, ref __result);
+        AddTemporaryAmount(cargo.returns, pResourceID, ref __result);
     }
 
     public static void TotalFood(City __instance, ref int __result)
     {
-        var supplies = Supplies(__instance);
-        if (supplies == null) return;
-        foreach (var pair in supplies)
-            if (PopulationEconomySystem.IsFood(pair.Key)) __result += pair.Value;
+        var cargo = TemporaryCargo(__instance);
+        AddTemporaryFood(cargo.supplies, ref __result);
+        AddTemporaryFood(cargo.returns, ref __result);
+    }
+
+    private static void AddTemporaryFood(Dictionary<string, int> cargo, ref int amount)
+    {
+        if (cargo == null) return;
+        foreach (var pair in cargo)
+            if (pair.Value > 0 && PopulationEconomySystem.IsFood(pair.Key))
+                amount = (int)global::System.Math.Min(int.MaxValue, (long)amount + pair.Value);
     }
 
     public static void HasFood(City __instance, ref bool __result)
     {
-        if (!__result && Supplies(__instance) != null) __result = __instance.getTotalFood() > 0;
+        if (__result) return;
+        var cargo = TemporaryCargo(__instance);
+        if (cargo.supplies != null || cargo.returns != null)
+            __result = __instance.getTotalFood() > 0;
     }
 
     public static void TakeSupplies(City __instance, string pResourceID, ref int pAmount)
     {
-        var supplies = Supplies(__instance);
-        if (pAmount <= 0 || supplies == null || !supplies.TryGetValue(pResourceID, out int have)) return;
-        int take = global::System.Math.Min(pAmount, have);
-        supplies[pResourceID] = have - take;
-        if (supplies[pResourceID] == 0) supplies.Remove(pResourceID);
-        pAmount -= take;
-        __instance._storage_version++;
+        var cargo = TemporaryCargo(__instance);
+        TakeTemporary(__instance, cargo.returns, pResourceID, ref pAmount);
+        TakeTemporary(__instance, cargo.supplies, pResourceID, ref pAmount);
+    }
+
+    private static void TakeTemporary(City city, Dictionary<string, int> supplies, string resource, ref int amount)
+    {
+        if (amount <= 0 || supplies == null || !supplies.TryGetValue(resource, out int have)) return;
+        if (have <= 0) { supplies.Remove(resource); return; }
+        int take = global::System.Math.Min(amount, have);
+        supplies[resource] = have - take;
+        if (supplies[resource] == 0) supplies.Remove(resource);
+        amount -= take;
+        city._storage_version++;
     }
 
     // 只有国家建城开设过临时库存的城市采用此兜底；旧城市的入库行为保持原样。
@@ -90,18 +123,35 @@ public class StateSettlementPatch : GamePatch
 
     public static void FlushSupplies(City city)
     {
-        var supplies = Supplies(city);
         Building storage = city.getRandomStockpile();
+        var cargo = TemporaryCargo(city);
+        FlushTemporary(city, storage, cargo.supplies);
+        FlushTemporary(city, storage, cargo.returns);
+    }
+
+    private static void FlushTemporary(City city, Building storage, Dictionary<string, int> supplies)
+    {
         if (supplies == null || supplies.Count == 0 || storage == null) return;
         foreach (var pair in new List<KeyValuePair<string, int>>(supplies))
         {
+            if (pair.Value <= 0) { supplies.Remove(pair.Key); continue; }
             int before = storage.getResourcesAmount(pair.Key);
-            storage.addResources(pair.Key, pair.Value);
-            int added = storage.getResourcesAmount(pair.Key) - before;
-            if (added <= 0) continue;
-            supplies[pair.Key] -= added;
-            if (supplies[pair.Key] <= 0) supplies.Remove(pair.Key);
-            city._storage_version++;
+            try { storage.addResources(pair.Key, pair.Value); }
+            catch (global::System.Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][临时库存] 入库异常，保留剩余物资: {exception.Message}");
+            }
+            finally
+            {
+                int added = (int)global::System.Math.Max(0L, global::System.Math.Min(pair.Value,
+                    (long)storage.getResourcesAmount(pair.Key) - before));
+                if (added > 0)
+                {
+                    supplies[pair.Key] -= added;
+                    if (supplies[pair.Key] <= 0) supplies.Remove(pair.Key);
+                    city._storage_version++;
+                }
+            }
         }
     }
 

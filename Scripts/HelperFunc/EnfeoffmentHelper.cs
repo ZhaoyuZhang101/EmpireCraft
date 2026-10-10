@@ -97,6 +97,7 @@ public static class EnfeoffmentHelper
     // 这里只重新做一次城池/政体防御性检查(跟 TempFac_分封.Execute 完全一致)。
     public static bool TryEnfeoffActor(Empire empire, Actor actor, int mandateReward = 10)
     {
+        if (empire == null || empire.HasTerritorialWar()) return false;
         Kingdom coreKingdom = empire?.CoreKingdom;
         Regime empireRegime = coreKingdom?.GetRegime();
         KingdomTitle fief = FindEnfeoffableTitle(empire);
@@ -128,7 +129,7 @@ public static class EnfeoffmentHelper
         {
             kingdomRegime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
             kingdomRegime.SetAllowSupportCenterArmy(false);
-            kingdomRegime.SetTaxLevel(TaxLevel.None);
+            kingdomRegime.SetTaxLevel(TaxLevel.Low);
         }
         KingdomTitle title = city.GetTitle();
         if (title?.title_capital == city)
@@ -166,16 +167,28 @@ public static class EnfeoffmentHelper
     {
         Kingdom coreKingdom = empire?.CoreKingdom;
         if (coreKingdom == null || coreKingdom.isRekt() || empire.Emperor == null) return;
+        empire.data.succession_enfeoff_pending = false;
         bool divisionLaw = coreKingdom.GetSuccessionLaw() == SuccessionLawType.分割继承法;
         bool enfeoffmentEnacted =
             InstitutionSystem.HasFeature(empire, InstitutionFeatures.SiblingEnfeoffment) &&
             !InstitutionSystem.HasFeature(empire, InstitutionFeatures.SiblingEnfeoffmentAbolished);
         if (!divisionLaw && !enfeoffmentEnacted) return;
+        if (empire.HasTerritorialWar())
+        {
+            empire.data.succession_enfeoff_pending = true;
+            return;
+        }
 
         int enfeoffed = EnfeoffAllEligibleSiblings(empire);
         if (enfeoffed > 0) return;
         int compensable = CountCompensableSiblings(empire);
         if (compensable > 0) empire.AddMandate(Math.Min(compensable, 3) * 3);
+    }
+
+    public static void ResumeSuccessionEnfeoff(Empire empire)
+    {
+        if (empire?.data?.succession_enfeoff_pending == true && !empire.HasTerritorialWar())
+            OnEmperorSucceeded(empire);
     }
 
     // 分割继承法专用:一次继承事件里把新君的所有合法兄弟依次分封为附庸国，而不是像

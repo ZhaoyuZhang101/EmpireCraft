@@ -201,7 +201,8 @@ public static class CityStabilitySystem
         var state = city.GetOrCreate().stability;
         return new CityStabilityInput(city.CountLivingPopulation(), households, loyalty, legitimacy, corruption,
             sentiment, landless, grievance, famine, WorldLawLibrary.world_law_civ_army.isEnabled(),
-            state?.governance_policy ?? -1, state?.garrison_policy ?? -1);
+            state?.governance_policy ?? -1, state?.garrison_policy ?? -1,
+            CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.PeoplePerSlot(city) : 1f);
     }
 
     private static string Pressure(CityStabilityInput input)
@@ -287,19 +288,19 @@ public static class CityStabilitySystem
     private static long Available(City city) => Math.Max(0, city.GetMoney()) +
         Payers(city).Sum(kingdom => (long)Math.Max(0, kingdom.GetMoney()));
 
-    private static int Pay(City city, int bill, TreasuryCategory category, bool municipalFirst)
+    private static int Pay(City city, int bill, TreasuryCategory category, bool municipalFirst, bool discretionary = false)
     {
         int remaining = Math.Max(0, bill);
         void Municipality()
         {
-            int paid = Math.Min(remaining, Math.Max(0, city.GetMoney()));
+            int paid = Math.Min(remaining, discretionary ? TreasurySystem.DiscretionaryFunds(city) : Math.Max(0, city.GetMoney()));
             if (paid > 0) city.SubMoney(paid, category);
             remaining -= paid;
         }
         if (municipalFirst) Municipality();
         foreach (Kingdom payer in Payers(city))
         {
-            int paid = Math.Min(remaining, Math.Max(0, payer.GetMoney()));
+            int paid = Math.Min(remaining, discretionary ? StateSettlementSystem.DiscretionaryFunds(payer) : Math.Max(0, payer.GetMoney()));
             if (paid > 0) payer.SubMoney(paid, category);
             remaining -= paid;
             if (remaining == 0) break;
@@ -348,6 +349,18 @@ public static class CityStabilitySystem
 
     private static void UpdatePrepared(City city, CityStabilityData state, CityStabilityInput input, CityStabilityBudget budget)
     {
+        if (state.military_fiscal_units_version < 1)
+        {
+            if (input.PeoplePerFiscalUnit > 1f)
+            {
+                state.garrison_arrears = (long)(state.garrison_arrears / (double)input.PeoplePerFiscalUnit);
+                state.military_arrears = (long)(state.military_arrears / (double)input.PeoplePerFiscalUnit);
+                state.garrison_carry /= input.PeoplePerFiscalUnit;
+                state.military_carry /= input.PeoplePerFiscalUnit;
+                state.arrears = state.governance_arrears + state.garrison_arrears + state.military_arrears;
+            }
+            state.military_fiscal_units_version = 1;
+        }
         state.last_update = World.world.getCurWorldTime();
         state.natural_stability = budget.Natural;
         state.pressure_detail = Pressure(input);
@@ -367,13 +380,13 @@ public static class CityStabilitySystem
         if (guardBudget) { state.withdrawn = false; Recruit(city, Math.Max(0, state.garrison_required - assigned)); }
         Counts(city, out assigned, out int present, refresh: true);
         int maintained = Math.Min(present, state.garrison_required);
-        double garrisonAnnual = CityStabilityRules.GarrisonAnnual(maintained, state.natural_stability);
+        double garrisonAnnual = CityStabilityRules.GarrisonAnnual(maintained, state.natural_stability) / input.PeoplePerFiscalUnit;
         state.garrison_due = CityStabilityRules.Invoice(garrisonAnnual, ref state.garrison_carry);
         state.garrison_paid = Pay(city, state.garrison_due, TreasuryCategory.Garrison, false);
         float guardFunding = Funding(state.garrison_due, state.garrison_paid, guardBudget);
         // 超出本城驻防需求的现有部队另记野战军费，替代旧的“国库增长×比例”账单。
         state.military_due = CityStabilityRules.Invoice(CityStabilityRules.MilitaryAnnual(
-            Math.Max(0, assigned - maintained), city.kingdom.hasEnemies()), ref state.military_carry);
+            Math.Max(0, assigned - maintained), city.kingdom.hasEnemies()) / input.PeoplePerFiscalUnit, ref state.military_carry);
         state.military_paid = Pay(city, state.military_due, TreasuryCategory.Military, false);
         long unpaid = (long)state.governance_due - state.governance_paid + state.garrison_due - state.garrison_paid +
                       state.military_due - state.military_paid;
@@ -387,7 +400,10 @@ public static class CityStabilitySystem
             void Repay(ref long debt, TreasuryCategory category)
             {
                 int quote = (int)Math.Min(int.MaxValue, Math.Min(debt, allowance));
-                int paid = Pay(city, quote, category, category == TreasuryCategory.Governance);
+                // Current services are paid first. Historical arrears use only funds
+                // above the reserve and any live settlement project reservation.
+                int paid = Pay(city, quote, TreasuryRules.ArrearsCategory(category),
+                    category == TreasuryCategory.Governance, discretionary: true);
                 debt -= paid; allowance -= paid;
             }
             Repay(ref state.governance_arrears, TreasuryCategory.Governance);
@@ -460,6 +476,7 @@ public static class CityStabilitySystem
             independent = city.makeOwnKingdom(founder);
             if (independent == null) return;
         }
+        independent.ClearAdministrativeTitle();
         independent.SetKingdomType(KingdomType.default_country_post);
         independent.GetRegime()?.SetAllowDiplomacy(true);
         independent.GetRegime()?.SetAllowArmy(true);

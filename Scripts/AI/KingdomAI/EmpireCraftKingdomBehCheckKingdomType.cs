@@ -360,10 +360,12 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             pKingdom.data.name = armedName.UseLocalizedNameSeparator();
         else
             pKingdom.SetKingdomName(kingdomName);
+        CityType currentCityType = CalcCityType(pKingdom);
         foreach (var city in pKingdom.cities)
         {
-            var cityBack = LM.Get(city.GetCityType().ToString());
-            city.data.name = OverallHelperFunc.JoinNameParts(city.GetCityName(), cityBack);
+            if (city == null || city.isRekt()) continue;
+            city.RefreshCityDisplayName();
+            city.SetCityType(currentCityType);
         }
     }
 
@@ -392,18 +394,17 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             LogService.LogInfo("国家政策为空");
             return CityType.Feudalism_city;
         }
-        KingdomType kingdomType = kingdom.GetKingdomType();
-        if (regime.bureau_config != null && regime.bureau_config.kingdoms != null)
-        {
-            if (regime.bureau_config.kingdoms.TryGetValue(kingdomType, out var setting))
-            {
-                if (setting != null)
-                {
-                    return setting.city_type;
-                }
-            }
-        }
-        return CityType.Feudalism_city;
+        return GetCityNamingSetting(kingdom)?.city_type ?? CityType.Feudalism_city;
+    }
+
+    public static BureauSetting GetCityNamingSetting(Kingdom kingdom)
+    {
+        Regime regime = kingdom?.GetRegime();
+        var settings = regime?.bureau_config?.kingdoms;
+        if (settings == null) return null;
+        if (settings.TryGetValue(kingdom.GetKingdomType(), out var selected) && selected != null) return selected;
+        if (settings.TryGetValue(regime.default_kingdom, out var fallback) && fallback != null) return fallback;
+        return settings.TryGetValue(KingdomType.default_country_post, out var generic) ? generic : null;
     }
     
     //依据制度的不同选项动态调整国家后缀

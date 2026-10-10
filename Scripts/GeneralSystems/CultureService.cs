@@ -75,6 +75,16 @@ public static class CultureService
         return IsValidCulture(culture) ? culture : "";
     }
 
+    // Recording a temporarily detached actor must not manufacture a new culture or
+    // replace a known minority culture with the host city's majority.
+    public static string ResolveRecordedActorCulture(Actor actor, string recordedCulture = "")
+    {
+        string current = GetActorCulture(actor);
+        if (IsValidCulture(current)) return current;
+        if (IsValidCulture(recordedCulture)) return recordedCulture;
+        return GetFounderCulture(actor);
+    }
+
     public static string GetRealmCulture(Kingdom kingdom)
     {
         if (kingdom?.data == null || kingdom.isRekt()) return "";

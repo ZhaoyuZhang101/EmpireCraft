@@ -20,6 +20,8 @@ public static class TreasurySystem
             string source = category.ToString();
             report.income_sources.TryGetValue(source, out long income);
             report.expense_sources.TryGetValue(source, out long expense);
+            report.tax_transfer_sources.TryGetValue(source, out long sharedTax);
+            if (sharedTax > 0) yield return ("fiscal_transfer_source_" + source, MoneyDisplay.Format(sharedTax));
             if (income <= 0 && expense <= 0) continue;
             yield return ("fiscal_source_" + source, string.Format(LM.Get("fiscal_source_format"),
                 MoneyDisplay.Format(income), MoneyDisplay.Format(expense)));
@@ -28,28 +30,20 @@ public static class TreasurySystem
 
     public static TreasuryReport Consolidated(Kingdom authority)
     {
-        var total = new TreasuryReport();
+        if (!Enabled(authority)) return new TreasuryReport();
         var empire = authority?.GetEmpire();
         IEnumerable<Kingdom> realms = empire?.CoreKingdom == authority ? empire.kingdoms_list : new[] { authority };
-        void Add(TreasuryReport report)
+        IEnumerable<TreasuryReport> Accounts()
         {
-            total.months = Math.Max(total.months, report.months);
-            total.income += report.income; total.expense += report.expense;
-            total.operating_balance += report.operating_balance;
-            foreach (var item in report.income_sources)
-            { total.income_sources.TryGetValue(item.Key, out long old); total.income_sources[item.Key] = old + item.Value; }
-            foreach (var item in report.expense_sources)
-            { total.expense_sources.TryGetValue(item.Key, out long old); total.expense_sources[item.Key] = old + item.Value; }
+            var visitedCities = new HashSet<City>();
+            foreach (var realm in realms.Concat(new[] { authority }).Where(Enabled).Distinct())
+            {
+                yield return Report(realm);
+                foreach (var city in realm.cities.Where(Enabled))
+                    if (visitedCities.Add(city)) yield return Report(city);
+            }
         }
-        foreach (var realm in realms.Where(Enabled).Distinct())
-        {
-            Add(Report(realm));
-            foreach (var city in realm.cities.Where(Enabled).Distinct()) Add(Report(city));
-        }
-        // 合并报表抵消境内拨款；对外拨款净额仍影响经常收支和余额。
-        total.income_sources.Remove(nameof(TreasuryCategory.InternalTransfer));
-        total.expense_sources.Remove(nameof(TreasuryCategory.InternalTransfer));
-        return total;
+        return TreasuryRules.Consolidate(Accounts());
     }
 
     // 撤军看实际能支付这座城费用的三个账户，避免每座危机城市都重新汇总整个帝国。
@@ -99,7 +93,18 @@ public static class TreasurySystem
         ? TreasuryRules.Report(city.GetOrCreate().treasury, World.world.getCurWorldTime(), Date.getMonthsSince) : new();
 
     public static long SafetyReserve(Kingdom kingdom) => Enabled(kingdom)
-        ? Math.Max(Math.Max(0, ModClass.SETTLEMENT_RESERVE_GOLD), Report(kingdom).essential_expense * (kingdom.hasEnemies() ? 2 : 1)) : 0;
+        ? Math.Max(Math.Max(0, ModClass.SETTLEMENT_RESERVE_GOLD), TreasuryRules.EssentialExpense(
+            kingdom.GetOrCreate().treasury, World.world.getCurWorldTime(), Date.getMonthsSince) * (kingdom.hasEnemies() ? 2 : 1)) : 0;
+
+    public static long SafetyReserve(City city) => Enabled(city)
+        ? Math.Max(Math.Max(0, ModClass.SETTLEMENT_RESERVE_GOLD / 4), TreasuryRules.EssentialExpense(
+            city.GetOrCreate().treasury, World.world.getCurWorldTime(), Date.getMonthsSince)) : 0;
+
+    public static int DiscretionaryFunds(City city) => city == null || city.isRekt() ? 0
+        : (int)Math.Min(int.MaxValue, DiscretionaryBalance(city));
+
+    public static long DiscretionaryBalance(City city) => city == null || city.isRekt() ? 0L
+        : TreasuryRules.AvailableBalance(city.GetTreasuryBalance(), SafetyReserve(city), 0);
 
     public static bool TrySpend(Kingdom kingdom, int amount, TreasuryCategory category, bool discretionary = true)
     {
@@ -167,7 +172,7 @@ public static class TreasurySystem
     }
 
     // 两种人口模式共用实际税款分成；年度 AI 不再抽取历史余额。
-    public static void CollectResidentTax(City city, int amount)
+    public static void CollectResidentTax(City city, int amount, TreasuryCategory category = TreasuryCategory.ResidentTax)
     {
         if (amount <= 0 || city?.data == null || city.isRekt()) return;
         if (!Enabled(city)) { city.AddMoney(amount); return; }
@@ -184,7 +189,7 @@ public static class TreasurySystem
             data.tax_sharing_relationship = relationship;
             data.tax_city_carry = data.tax_central_carry = data.tax_corruption_carry = 0;
         }
-        city.AddMoney(amount, TreasuryCategory.ResidentTax);
+        city.AddMoney(amount, category);
         // 城市征收环节的漏损只扣本期款项，并明确记为腐败支出。
         bool hasCollector = city.hasLeader() && city.leader.isAlive() && !city.leader.isRekt();
         double leak = hasCollector ? amount * Rate(city.GetCorruptionRate()) + data.tax_corruption_carry / 10000d : 0d;
@@ -202,15 +207,16 @@ public static class TreasurySystem
             ref data.tax_city_carry, ref data.tax_central_carry);
         int paid = share.local + share.central;
         if (paid > 0) city.SubMoney(paid, TreasuryCategory.InternalTransfer);
-        if (share.local > 0) CreditTaxShare(local, share.local);
-        if (share.central > 0) CreditTaxShare(central, share.central);
+        if (share.local > 0) CreditTaxShare(local, share.local, category);
+        if (share.central > 0) CreditTaxShare(central, share.central, category);
     }
 
     private static double Rate(double rate) => double.IsNaN(rate) || double.IsInfinity(rate) ? 0d : Math.Max(0d, Math.Min(1d, rate));
 
-    private static void CreditTaxShare(Kingdom kingdom, int amount)
+    private static void CreditTaxShare(Kingdom kingdom, int amount, TreasuryCategory source)
     {
         kingdom.AddMoney(amount, TreasuryCategory.InternalTransfer);
+        TreasuryRules.AttributeTaxTransfer(kingdom.GetOrCreate().treasury, amount, source);
         if (!kingdom.hasKing() || kingdom.king.isRekt() || !kingdom.king.isAlive()) return;
         var data = kingdom.GetOrCreate();
         double leak = amount * Rate(kingdom.GetCorruptionRate()) + data.tax_corruption_carry / 10000d;

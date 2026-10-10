@@ -68,7 +68,7 @@ public static class LandEconomySystem
     {
         if (actor == null || actor.isRekt() || amount <= 0) return;
         ActorExtension.ActorExtraData data = actor.GetOrCreate();
-        data.economic_income_current_year = Math.Max(0, data.economic_income_current_year + amount);
+        data.economic_income_current_year = IncomeStatisticsMath.Add(data.economic_income_current_year, amount);
     }
 
     public static bool IsLandlord(Actor actor)
@@ -440,33 +440,43 @@ public static class LandEconomySystem
 
     private static void UpdateMerchantHouseholds(Dictionary<string, List<Actor>> households)
     {
-        List<int> incomes = households.Values.Select(members => members.Sum(actor =>
-            Math.Max(0, actor.GetOrCreate().economic_income_current_year))).OrderBy(value => value).ToList();
-        int median = incomes.Count == 0 ? 0 : incomes[incomes.Count / 2];
-        int threshold = Math.Max(MerchantMinimumAnnualIncome, median * 2);
+        // Read each actor's income once; reuse totals for the median and qualification.
+        var totals = new List<(List<Actor> Members, long Income)>(households.Count);
         foreach (List<Actor> members in households.Values)
         {
-            int income = members.Sum(actor => Math.Max(0, actor.GetOrCreate().economic_income_current_year));
+            if (members == null || members.Count == 0) continue;
+            long income = 0;
+            foreach (Actor actor in members)
+                income = IncomeStatisticsMath.Add(income, actor.GetOrCreate().economic_income_current_year);
+            totals.Add((members, income));
+        }
+        List<long> incomes = totals.Select(entry => entry.Income).OrderBy(value => value).ToList();
+        long median = incomes.Count == 0 ? 0 : incomes[incomes.Count / 2];
+        long threshold = IncomeStatisticsMath.MerchantThreshold(median, MerchantMinimumAnnualIncome);
+        foreach (var entry in totals)
+        {
+            List<Actor> members = entry.Members;
+            long income = entry.Income;
             Actor representative = SelectRepresentative(members);
             bool merchant = members.Any(actor => actor.GetOrCreate().is_economic_merchant);
             int highYears = members.Max(actor => actor.GetOrCreate().merchant_high_income_years);
             int lowYears = members.Max(actor => actor.GetOrCreate().merchant_low_income_years);
             if (income >= threshold)
             {
-                highYears++;
+                highYears = Math.Min(MerchantEntryYears - 1, Math.Max(0, highYears)) + 1;
                 lowYears = 0;
                 if (highYears >= MerchantEntryYears) merchant = true;
             }
             else
             {
-                lowYears++;
+                lowYears = Math.Min(MerchantExitYears - 1, Math.Max(0, lowYears)) + 1;
                 highYears = 0;
                 if (lowYears >= MerchantExitYears) merchant = false;
             }
             foreach (Actor actor in members)
             {
                 ActorExtension.ActorExtraData data = actor.GetOrCreate();
-                data.economic_income_previous_year = income;
+                data.economic_income_previous_year = Math.Max(0L, data.economic_income_current_year);
                 data.economic_income_current_year = 0;
                 data.merchant_high_income_years = highYears;
                 data.merchant_low_income_years = lowYears;
@@ -507,8 +517,8 @@ public static class LandEconomySystem
     {
         CityExtension.CityExtraData data = EnsureData(city);
         List<string> sellers = households.Where(pair => GetHouseholdShare(city, pair.Key) > 0f &&
-                                                        pair.Value.Sum(actor => actor.GetOrCreate()
-                                                            .economic_income_previous_year) <= 0 &&
+                                                        !pair.Value.Any(actor => actor.GetOrCreate()
+                                                            .economic_income_previous_year > 0) &&
                                                         !IsPrivilegedHousehold(pair.Value))
             .Select(pair => pair.Key).ToList();
         foreach (KeyValuePair<string, List<Actor>> buyerHousehold in households
@@ -516,7 +526,7 @@ public static class LandEconomySystem
                      .OrderByDescending(pair => SelectRepresentative(pair.Value)?.money ?? 0))
         {
             Actor buyer = SelectRepresentative(buyerHousehold.Value);
-            if (buyer == null || buyer.money < LandPurchasePrice) continue;
+            if (buyer == null || buyer.money <= 0) continue;
             if (sellers.Count == 0)
             {
                 // 无小人模式：实体卖家卖完了，向背景人口里的有地农民买(同一片地，两本账合一)
@@ -527,9 +537,9 @@ public static class LandEconomySystem
             sellers.RemoveAt(0);
             Actor seller = ResolveRepresentative(data, sellerKey);
             float amount = Math.Min(HouseholdBaseShare, GetHouseholdShare(city, sellerKey));
-            if (amount <= 0f) continue;
-            buyer.addMoney(-LandPurchasePrice);
-            seller?.addMoney(LandPurchasePrice);
+            if (amount <= 0f || !IsLivingResident(seller) || sellerKey == buyerHousehold.Key) continue;
+            int price = Mathf.CeilToInt(LandPurchasePrice * (amount / HouseholdBaseShare));
+            if (!ActorMoneyTransfers.TryTransferNonIncome(buyer, seller, price)) continue;
             data.household_land_shares[sellerKey] = Mathf.Max(0f,
                 GetHouseholdShare(city, sellerKey) - amount);
             data.household_land_shares[buyerHousehold.Key] =
@@ -563,14 +573,16 @@ public static class LandEconomySystem
         Mathf.Max(0f, GetPrivateLandCapacity(city) - data.household_land_shares.Values.Where(value => value > 0f).Sum());
 
     // 背景人口的进账按税率交进城市国库(卖地的钱、商人利润)，返回应交的税
-    private static float PayBackgroundTax(City city, CityPopulationData population, float paid)
+    private static float PayBackgroundTax(City city, CityPopulationData population, float paid, TreasuryCategory category)
     {
         if (city.kingdom == null || paid <= 0f) return 0f;
-        float due = paid * Mathf.Clamp01((float)city.kingdom.GetTaxRate());
-        float tax = due + population.tax_carry;
-        int whole = Mathf.FloorToInt(tax);
-        population.tax_carry = tax - whole;
-        if (whole > 0) TreasurySystem.CollectResidentTax(city, whole);
+        float due = paid * (float)SectorTaxRules.Rate(city.kingdom.GetTaxRate(), category);
+        population.sector_tax_carry ??= new();
+        string key = "transaction_" + category;
+        population.sector_tax_carry.TryGetValue(key, out double carry);
+        int whole = SectorTaxRules.Assess(paid, city.kingdom.GetTaxRate(), category, ref carry);
+        population.sector_tax_carry[key] = carry;
+        if (whole > 0) TreasurySystem.CollectResidentTax(city, whole, category);
         if (whole > 0 && CityPopulationSystem.AbstractPopulationEnabled) population.other_background_tax += whole;
         return due;
     }
@@ -578,7 +590,7 @@ public static class LandEconomySystem
     // 卖地的农民拿到钱，交过税存进民间存款
     private static void ReceiveLandSale(City city, CityPopulationData population, float paid)
     {
-        float tax = PayBackgroundTax(city, population, paid);
+        float tax = PayBackgroundTax(city, population, paid, TreasuryCategory.LandTax);
         PopulationEconomySystem.AddSavings(city, population, paid - tax);
     }
 
@@ -678,7 +690,7 @@ public static class LandEconomySystem
             margin = 0f;
         }
         if (margin + rent <= 0f) return;
-        float tax = PayBackgroundTax(city, data, margin);
+        float tax = PayBackgroundTax(city, data, margin, TreasuryCategory.CommercialTax);
         float before = Mathf.Max(0f, data.background_land_fund);
         data.background_land_fund = Mathf.Min(BackgroundLandPrice * 100f,
             before + (margin - tax + rent) * BuyerSavingShare);

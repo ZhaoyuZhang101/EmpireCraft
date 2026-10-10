@@ -332,23 +332,11 @@ public static class MarketSystem
             foreach (ResourceAsset asset in FoodAssets())
             {
                 if (moved >= amount) break;
-                int have = seller.getResourcesAmount(asset.id);
-                int take = Mathf.Min(have, amount - moved);
-                if (take <= 0) continue;
-                seller.takeResource(asset.id, take);
-                int added = buyer.addResourcesToRandomStockpile(asset.id, take);
-                moved += added;
-                if (added < take) seller.addResourcesToRandomStockpile(asset.id, take - added);
+                moved += CityResourceTransferSystem.Move(seller, buyer, asset.id, amount - moved);
             }
             return moved;
         }
-        string id = MaterialId(good);
-        int available = Mathf.Min(amount, seller.getResourcesAmount(id));
-        if (available <= 0) return 0;
-        seller.takeResource(id, available);
-        moved = buyer.addResourcesToRandomStockpile(id, available);
-        if (moved < available) seller.addResourcesToRandomStockpile(id, available - moved);
-        return moved;
+        return CityResourceTransferSystem.Move(seller, buyer, MaterialId(good), amount);
     }
 
     // 商路传播：理念、宗教、(跨国时)语言

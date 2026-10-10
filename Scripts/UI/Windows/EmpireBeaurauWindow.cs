@@ -637,13 +637,9 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         tip.Add($"{LM.Get("office_powers")}: " +
                 (powers.Count == 0 ? LM.Get("label_none") : string.Join(" · ", powers)).ColorString("#65D66E"));
         // 政党政治下标出官员党籍(后宫不标)；不属于任何政党的为"无党派"。
-        // 责任政府下按文官制度：不由执政党任命的官职是职业文官，政治中立，标"职业文官"
+        // 按实际岗位属性显示身份；division 中的部长也是政治任命。
         string rankLine = rank.ColorString("#65D6C4");
-        CenterOffice center = _empire.data.centerOffice;
-        bool careerPost = GeneralSystems.ParliamentSystem.ControlsMinistries(_empire) && o == null &&
-                          (center.CoreOffices.Contains(oid)
-                              ? !GeneralSystems.ParliamentSystem.PartyAppointsMinisters(_empire)
-                              : center.Divisions.Contains(oid) && !GeneralSystems.ParliamentSystem.PartyAppointsDivisions(_empire));
+        bool careerPost = o == null && GeneralSystems.ParliamentSystem.IsCareerCivilServiceOffice(_empire, oid);
         if (!vacant && careerPost && GeneralSystems.PartySystem.IsActive(_empire))
         {
             rankLine += " " + LM.Get("bureau_career_civil_servant").ColorString("#8FA0A8");

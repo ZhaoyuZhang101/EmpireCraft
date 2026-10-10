@@ -68,42 +68,30 @@ public class Name
 
     public void Initialize(Setting setting, string culture)
     {
-        if (setting?.Clan?.sex_post_Male == null) return;
-        if (setting?.Clan?.sex_post_Female == null) return;
-        if (setting.City == null) return;
-        if (setting.Family == null) return;
-        if (setting.Kingdom == null) return;
-        if (setting.Religion == null) return;
-        this.has_sex_post = setting.Clan.has_sex_post;
-        this.use_local_as_family_name = setting.Clan.use_local_as_lastname;
+        if (setting?.Unit == null) return;
+        this.has_sex_post = setting.Clan?.has_sex_post == true;
+        this.use_local_as_family_name = setting.Clan?.use_local_as_lastname == true;
         this.is_invert = setting.Unit.is_invert;
         var language = PlayerConfig.dict["language"].stringVal;
-        switch (language)
-        {
-            case "ch":
-                this.sex_post_Male = setting.Clan.sex_post_Male[0];
-                this.sex_post_Female = setting.Clan.sex_post_Female[0];
-                break;
-            case "en":
-                this.sex_post_Male = setting.Clan.sex_post_Male[1];
-                this.sex_post_Female = setting.Clan.sex_post_Female[1];
-                break;
-            case "cz":
-                this.sex_post_Male = setting.Clan.sex_post_Male[2];
-                this.sex_post_Female = setting.Clan.sex_post_Female[2];
-                break;
-            default:
-                this.sex_post_Male = setting.Clan.sex_post_Male[1];
-                this.sex_post_Female = setting.Clan.sex_post_Female[1];
-                break;
-        }
+        int suffixIndex = language == "ch" ? 0 : language == "cz" ? 2 : 1;
+        this.sex_post_Male = LocalizedSuffix(setting.Clan?.sex_post_Male, suffixIndex);
+        this.sex_post_Female = LocalizedSuffix(setting.Clan?.sex_post_Female, suffixIndex);
         
         this.cultureName = culture;
+    }
+
+    private static string LocalizedSuffix(string[] suffixes, int index)
+    {
+        if (suffixes == null || suffixes.Length == 0) return "";
+        return suffixes[index < suffixes.Length ? index : 0] ?? "";
     }
 
     public void SetName(Actor actor)
     {
         if (actor == null) return;
+        // Serialized Name flags may belong to an earlier culture or template version.
+        // Refresh formatting at naming events, rather than scanning all actors every frame.
+        actor.initializeActorName();
         sex = actor.isSexMale() ? ActorSex.Male : ActorSex.Female;
         if (hasFamilyName(actor))
         {
@@ -164,6 +152,8 @@ public class Name
                 if (identity != null)
                 {
                     identity.name = actor.name;
+                    identity.given_name = firstName ?? "";
+                    identity.surname = familyName ?? "";
                     SpecificClan sc = identity._specificClan;
                     if (sc != null)
                     {
@@ -194,6 +184,23 @@ public class Name
         {
             actor.GetPersonalIdentity()?.BackfillRelatedHistoryRecords();
         }
+    }
+
+    public void RepairOrder(Actor actor)
+    {
+        if (actor?.data == null || !has_whole_name(actor)) return;
+        if (!string.IsNullOrWhiteSpace(actor.GetOrCreate()?.regnal_suffix)) return;
+        actor.initializeActorName();
+        string surname = familyName;
+        string post = actor.isSexMale() ? sex_post_Male : sex_post_Female;
+        if (has_sex_post && !string.IsNullOrEmpty(post) && !surname.Contains(post)) surname += post;
+        string expected = is_invert ? OverallHelperFunc.JoinNameParts(firstName, surname)
+            : OverallHelperFunc.JoinNameParts(surname, firstName);
+        string reversed = is_invert ? OverallHelperFunc.JoinNameParts(surname, firstName)
+            : OverallHelperFunc.JoinNameParts(firstName, surname);
+        string current = actor.data.name.UseLocalizedNameSeparator();
+        // Only correct a recognized composed name; arbitrary player names stay intact.
+        if (current != expected && current == reversed) SetName(actor);
     }
 }
 public class OfficeIdentity
@@ -376,8 +383,8 @@ public static class ActorExtension
         // Used by the yearly ideology pass to react when urbanisation changes an actor's class.
         public string last_ideology_social_class = "";
         // 商人不是职业，而是家庭长期收入形成的经济身份。收入按城市年度结算滚动。
-        public int economic_income_current_year = 0;
-        public int economic_income_previous_year = 0;
+        public long economic_income_current_year = 0;
+        public long economic_income_previous_year = 0;
         public int merchant_high_income_years = 0;
         public int merchant_low_income_years = 0;
         public bool is_economic_merchant = false;
@@ -1092,8 +1099,7 @@ public static class ActorExtension
     {
         var officeIdentity =  a.GetOrCreate().officeIdentity;
         if (officeIdentity == null) return false;
-        officeIdentity.ViolateLevel = Math.Min(100, officeIdentity.ViolateLevel+=value);
-        officeIdentity.ViolateLevel = Math.Max(0, officeIdentity.ViolateLevel+=value);
+        officeIdentity.ViolateLevel = (int)Math.Max(0L, Math.Min(100L, (long)officeIdentity.ViolateLevel + value));
         return true;
     }
 
@@ -1243,8 +1249,8 @@ public static class ActorExtension
     
     public static void initializeActorName(this Actor a)
     {
-        string culture_name = CultureService.GetActorCulture(a);
-        if (!CultureService.IsValidCulture(culture_name)) culture_name = "Western";
+        string culture_name = CultureService.GetFounderCulture(a);
+        if (!CultureService.IsValidCulture(culture_name)) return;
         if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture_name, out Setting setting))
         {
             a.GetModName().Initialize(setting, culture_name);
@@ -1700,6 +1706,7 @@ public static class ActorExtension
         return candidates.Where(title =>
         {
             if (ownedTitles.Contains(title.id)) return false;
+            if (kingdom.IsDeJureTitleHeldBySovereign(title)) return false;
             if (IsLvLingTitleProtected(title, actor, out _)) return false;
             if (kingdom.CanAcquireDeJureTitleWithoutWar(title)) return true;
             Kingdom realmHolder = title.FindRealmTitleHolder();

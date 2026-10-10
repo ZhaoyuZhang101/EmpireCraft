@@ -1,5 +1,6 @@
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GamePatches;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
@@ -133,9 +134,8 @@ public class CultureSpeciesPairWindow : AutoLayoutWindow<CultureSpeciesPairWindo
         foreach (Culture culture in World.world.cultures)
         {
             if (culture.species_id == "") continue;
-            string cultureName = ConfigData.speciesCulturePair.TryGetValue(culture.species_id, out string name)
-                ? name
-                : "Western";
+            string cultureName = OverallHelperFunc.GetCultureFromSpecies(culture.species_id);
+            if (!OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(cultureName)) continue;
             CulturePatch.insertCultureTemplate(culture, cultureName);
         }
     }

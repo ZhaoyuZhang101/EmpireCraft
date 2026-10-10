@@ -1,4 +1,4 @@
-﻿using LayoutGroupExt;
+using LayoutGroupExt;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.services;
@@ -49,8 +49,9 @@ public class SimpleWindowTab : APrefab<SimpleWindowTab>
         }
         _tab.container = window.tabs;
         _tab.container.disableTabs();
-        _tab._tip_button.textOnClick = LM.Get(pName);
-        _tab._tip_button.textOnClickDescription = pName + "_description";
+        _tab._tip_button.textOnClick = pName;
+        _tab._tip_button.textOnClickDescription = LM.Has(pName + "_description") ? pName + "_description" : "";
+        _tab._tip_button.text_description_2 = "";
         transform.SetParent(window.tabs.transform);
         _tab.toggleActive(true);
         Icon = _tab.transform.Find("Icon").GetComponent<Image>();

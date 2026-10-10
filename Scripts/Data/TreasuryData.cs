@@ -5,6 +5,8 @@ namespace EmpireCraft.Scripts.Data;
 // 只保存有界月度汇总，旧档不追补历史收支。
 public sealed class TreasuryData
 {
+    // Runtime-only scalar cache; full UI reports remain independent mutable copies.
+    [global::System.NonSerialized] internal long cached_essential_expense = -1;
     public double started = -1d;
     public List<TreasuryPeriod> periods = new();
 }
@@ -14,4 +16,6 @@ public sealed class TreasuryPeriod
     public double timestamp;
     public Dictionary<string, long> income = new();
     public Dictionary<string, long> expense = new();
+    // 内部转入的来源说明，属于既有转账金额，不能再次累计为财政收入。
+    public Dictionary<string, long> tax_transfer_income = new();
 }

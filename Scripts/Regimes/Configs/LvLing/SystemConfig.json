@@ -401,7 +401,8 @@
           "leader_select_method": "Succession",
           "require_traits": [],
           "condition": [],
-          "city_type": "LvLing_city"
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county"
         },
         "LvLing_centre":{
           "pre": "",
@@ -415,7 +416,8 @@
           "leader_select_method": "Succession",
           "require_traits": [],
           "condition": ["empire_center:true"],
-          "city_type": "LvLing_city"
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county"
         },
         "LvLing_kingdom":{
           "pre": "",
@@ -429,7 +431,8 @@
           "leader_select_method": "Succession",
           "require_traits": [],
           "condition": ["succession:true","empire_center:false"],
-          "city_type": "LvLing_city"
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county"
         },
         "LvLing_jiedushi":{
           "pre": "",
@@ -443,7 +446,9 @@
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"],
           "condition": ["allow_diplomacy:true", "succession:false","empire_center:false","jimi_region:false"],
-          "city_type": "LvLing_city"
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county",
+          "capital_city_suffix_key": "city_suffix_prefecture"
         },
         "LvLing_duhufu":{
           "pre": "",
@@ -457,7 +462,9 @@
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"],
           "condition": ["allow_diplomacy:true", "succession:false","empire_center:false","jimi_region:true"],
-          "city_type": "LvLing_jimizhou"
+          "city_type": "LvLing_jimizhou",
+          "city_suffix_key": "city_suffix_county",
+          "capital_city_suffix_key": "city_suffix_prefecture"
         },
         "LvLing_province":{
           "pre": "",
@@ -471,7 +478,9 @@
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"],
           "condition": ["allow_diplomacy:false", "succession:false","empire_center:false","jimi_region:false"],
-          "city_type": "LvLing_city"
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county",
+          "capital_city_suffix_key": "city_suffix_prefecture"
         },
         "LvLing_jimizhou":{
           "pre": "",
@@ -485,7 +494,8 @@
           "leader_select_method": "Exam",
           "require_traits": [],
           "condition": ["jimi_region:true","empire_center:false"],
-          "city_type": "LvLing_jimizhou"
+          "city_type": "LvLing_jimizhou",
+          "city_suffix_key": "city_suffix_county"
         }
       },
       "cities": {

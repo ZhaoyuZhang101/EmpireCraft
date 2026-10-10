@@ -96,9 +96,18 @@ public class CulturePatch : GamePatch
         EnsureEmpireNaming(__instance);
         
     }
-    private static void clone_culture_name(Culture __instance)
+    private static void clone_culture_name(Culture __instance, Culture pFrom)
     {
         if (__instance?.data == null) return;
+        // Evolution copies the parent's naming data, so it must also copy the EC
+        // binding. Creator species describes ancestry, not the culture being evolved.
+        string inheritedCulture = GetInjectedCultureName(pFrom);
+        if (CultureService.IsValidCulture(inheritedCulture))
+        {
+            NamingTemplateState state = GetNamingTemplateState(__instance);
+            state.empireCraftCulture = inheritedCulture;
+            state.signature = null;
+        }
         if (SyncCultureDisplayName(__instance)) return;
         string kingdomName = ExtractStoredCoreName(__instance.data.creator_kingdom_name);
         string cityName = ExtractStoredCoreName(__instance.data.creator_city_name);

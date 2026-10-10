@@ -11,6 +11,7 @@ public sealed class CityStabilityData
     public int governance_due, governance_paid, garrison_due, garrison_paid, military_due, military_paid;
     public double governance_carry, garrison_carry, military_carry;
     public int unfunded_months;
+    public int military_fiscal_units_version;
     public long arrears;
     public long governance_arrears, garrison_arrears, military_arrears;
     public bool withdrawn;

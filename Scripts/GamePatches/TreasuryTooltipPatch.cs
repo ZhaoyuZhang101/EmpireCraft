@@ -32,28 +32,28 @@ public class TreasuryTooltipPatch : GamePatch
         var line = AccessTools.Method(typeof(Tooltip), nameof(Tooltip.addLineIntText), new[] { typeof(string), typeof(int), typeof(string), typeof(bool) });
         var formattedLine = AccessTools.Method(typeof(TreasuryTooltipPatch), nameof(AddMoneyLine));
         int replaced = 0;
-        for (int i = 0; i + 1 < codes.Count; i++)
+        for (int i = 0; i + 4 < codes.Count; i++)
         {
+            // 原版链为leader.money、颜色、是否翻译、整数行。完整匹配后再同时
+            // 换成字符串读取及字符串行，不能只改一半导致IL栈类型不一致。
             if (codes[i].opcode != OpCodes.Ldfld || !Equals(codes[i].operand, leader) ||
-                !Equals(codes[i + 1].operand, personalMoney)) continue;
+                !Equals(codes[i + 1].operand, personalMoney) || line == null ||
+                !Equals(codes[i + 4].operand, line)) continue;
             codes[i].opcode = OpCodes.Nop;
             codes[i].operand = null;
             codes[i + 1].opcode = OpCodes.Call;
             codes[i + 1].operand = treasury;
+            codes[i + 4].opcode = OpCodes.Call;
+            codes[i + 4].operand = formattedLine;
             replaced++;
         }
         if (replaced == 0) LogService.LogWarning("[EmpireCraft] City tooltip treasury read could not be patched.");
-        foreach (var code in codes)
-            if (line != null && Equals(code.operand, line)) { code.opcode = OpCodes.Call; code.operand = formattedLine; }
         return codes;
     }
 
-    public static void AddMoneyLine(Tooltip tooltip, string key, int value, string color, bool localize)
-    {
-        if (key == "ruler_money") tooltip.addLineText(key, MoneyDisplay.Format(value), color, pLocalize: localize);
-        else tooltip.addLineIntText(key, value, color, localize);
-    }
+    public static void AddMoneyLine(Tooltip tooltip, string key, string value, string color, bool localize)
+        => tooltip.addLineText(key, value, color, pLocalize: localize);
 
-    public static int CityTreasury(City city) => city == null ? 0 :
-        AncientWarfareCompatibility.OwnsObject(city) ? city.leader?.money ?? 0 : city.GetMoney();
+    public static string CityTreasury(City city) => MoneyDisplay.Format(city == null ? 0L :
+        AncientWarfareCompatibility.OwnsObject(city) ? city.leader?.money ?? 0 : city.GetTreasuryBalance());
 }

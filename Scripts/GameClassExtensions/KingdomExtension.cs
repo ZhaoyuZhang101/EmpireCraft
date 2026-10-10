@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using Newtonsoft.Json;
@@ -264,7 +264,7 @@ public static class KingdomExtension
         // Stable EmpireCraft culture key selected from the founder/ruler's current Culture.
         public string realm_culture = "";
         public SpecificClan kingdomSpecificClan;
-        public int Money = 0;
+        public long Money = 0;
         public TreasuryData treasury;
         public int tax_corruption_carry;
         public StateSettlementData settlement;
@@ -373,6 +373,8 @@ public static class KingdomExtension
         public SuccessionLawType SuccessionLaw = SuccessionLawType.嫡长子继承法;
         public string faction_rebel_original_name = "";
         public LawType main_crime = default;
+        public bool main_crime_recorded;
+        public long main_crime_actor_id = -1L;
         public TemporaryPushProgress PushProgress = new TemporaryPushProgress()
         {
             StartedToPushTf = false,
@@ -842,6 +844,8 @@ public static class KingdomExtension
     public static void SetMainCrime(this Kingdom kingdom, LawType type)
     {
         kingdom.GetOrCreate().main_crime = type;
+        kingdom.GetOrCreate().main_crime_recorded = true;
+        kingdom.GetOrCreate().main_crime_actor_id = kingdom.king?.id ?? -1L;
     }
 
     public static void StartMaintainGoodOpinion(this Kingdom kingdom)
@@ -869,11 +873,16 @@ public static class KingdomExtension
     }
     public static bool HasMainCrime(this Kingdom kingdom)
     {
-        return kingdom.GetOrCreate().main_crime != default;
+        var data = kingdom.GetOrCreate();
+        return kingdom.king != null &&
+               (data.main_crime_actor_id < 0 || data.main_crime_actor_id == kingdom.king.id) &&
+               (data.main_crime_recorded || data.main_crime != default);
     }
     public static void RemoveMainCrime(this Kingdom kingdom)
     {
         kingdom.GetOrCreate().main_crime = default;
+        kingdom.GetOrCreate().main_crime_recorded = false;
+        kingdom.GetOrCreate().main_crime_actor_id = -1L;
     }
     public static void EndProgress(this Kingdom k)
     {
@@ -1773,21 +1782,22 @@ public static class KingdomExtension
     public static int GetMoney(this Kingdom k)
     {
         if (k.isRekt()) return 0;
-        return k.GetOrCreate().Money;
+        return TreasuryRules.QuoteBalance(k.GetTreasuryBalance());
     }
+    public static long GetTreasuryBalance(this Kingdom k) => k.isRekt() ? 0L : k.GetOrCreate().Money;
     public static void AddMoney(this Kingdom k, int money)
         => AddMoney(k, money, TreasuryCategory.Other);
     public static void AddMoney(this Kingdom k, int money, TreasuryCategory category)
     {
-        k.GetOrCreate().Money += money;
-        TreasurySystem.Record(k, money, category);
+        long change = TreasuryRules.ChangeBalance(ref k.GetOrCreate().Money, money);
+        TreasurySystem.Record(k, change, category);
     }
     public static void SubMoney(this Kingdom k, int money)
         => SubMoney(k, money, TreasuryCategory.Other);
     public static void SubMoney(this Kingdom k, int money, TreasuryCategory category)
     {
-        k.GetOrCreate().Money -= money; 
-        TreasurySystem.Record(k, -(long)money, category);
+        long change = TreasuryRules.ChangeBalance(ref k.GetOrCreate().Money, -(long)money);
+        TreasurySystem.Record(k, change, category);
     }
     
     public static double GetLastTaxTime(this Kingdom k)
@@ -2368,6 +2378,16 @@ public static class KingdomExtension
         delegated.RefreshAdministrativeDivisionNames();
     }
 
+    public static void ClearAdministrativeTitle(this Kingdom kingdom)
+    {
+        if (kingdom == null) return;
+        var extra = kingdom.GetOrCreate();
+        var previous = ModClass.KINGDOM_TITLE_MANAGER.get(extra.AdministrativeTitle);
+        previous?.EndJurisdiction(kingdom, KingdomTitle.JurisdictionAdministration);
+        extra.AdministrativeTitle = -1L;
+        previous?.RefreshAdministrativeDivisionNames();
+    }
+
     public static void SetAdministrativeTitle(this Kingdom kingdom, KingdomTitle title)
     {
         if (kingdom == null || title == null || title.isRekt()) return;
@@ -2567,6 +2587,7 @@ public static class KingdomExtension
         if (kingdom.HasTakenAlliance()) return false;
         Empire empire = titleEmpire ?? kingdom.GetEmpire();
         if (kingdom.IsDeJureTitleAcquisitionBlocked(empire)) return false;
+        if (empire?.CoreKingdom == kingdom) return true;
         if (kingdom.GetRegime()?.IsAllowDiplomacy() == true) return true;
         if (empire == null || kingdom.GetEmpire() != empire ||
             empire.CoreKingdom?.GetRegime()?.type != RegimeType.LvLing) return false;
@@ -2748,12 +2769,23 @@ public static class KingdomExtension
             title?.data == null || title.isRekt() || title.FindMainTitleKingdom() != null)
             return false;
 
+        // An imperial title with no local main realm is still owned, not vacant.
+        if (kingdom.IsDeJureTitleHeldBySovereign(title)) return false;
+
         bool controlsTitleCapital = title.title_capital != null &&
                                     !title.title_capital.isRekt() &&
                                     title.title_capital.kingdom == kingdom;
         (int controlled, int total) = kingdom.CountOwnedDeJureTitleZones(title);
         return DeJureTitleClaimRules.CanAcquireWithoutWar(controlsTitleCapital,
             controlled, total);
+    }
+
+    public static bool IsDeJureTitleHeldBySovereign(this Kingdom kingdom, KingdomTitle title)
+    {
+        Empire empire = kingdom?.GetEmpire();
+        return empire?.Emperor != null && kingdom != empire.CoreKingdom &&
+               kingdom.king != empire.Emperor && !empire.Emperor.isRekt() && empire.Emperor.isAlive() &&
+               title?.owner == empire.Emperor;
     }
 
     public static (int controlled, int total) CountOwnedDeJureTitleZones(this Kingdom kingdom,

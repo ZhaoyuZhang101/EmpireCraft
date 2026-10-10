@@ -250,6 +250,10 @@ public static class DataManager
         CultureService.MigrateWorldCultureData();
         SpecificClanManager._specificClans = saveData.specificClans;
         SpecificClanManager.RebuildCache();
+        // Run after culture bindings, extra data and genealogy links are restored.
+        foreach (Actor actor in World.world.units)
+            if (actor?.data != null && !AncientWarfareCompatibility.OwnsObject(actor))
+                actor.GetModName()?.RepairOrder(actor);
         try
         {
             int spouseFixes = SpecificClanManager.RepairSpouseRecords();

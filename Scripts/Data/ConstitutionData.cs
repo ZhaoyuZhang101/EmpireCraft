@@ -57,8 +57,8 @@ public enum ConstitutionSpeech { Limited, Free, Strict }
 // 民族政策。Moderate 排第一：旧存档没有这一条时按"一般"读入
 public enum ConstitutionNation { Moderate, Pluralist, Nationalist }
 
-// 文官制度：混合制(部长随执政党，其下事务官考选) / 职业文官制(政治中立，不随换届更替) /
-// 政党分肥制(部长与各部主官都随执政党更替)。见 ParliamentSystem.AssignMinisters
+// 部门主官始终属于政治任命。混合制与职业文官制保留常任事务岗位；
+// 职业文官制增加中立和廉洁收益，政党分肥制连事务岗位也随执政党更替。
 public enum ConstitutionCivilService { Mixed, Professional, Spoils }
 
 // 耕地红线(见 FarmlandSystem)：按生产力(红线比例随农业生产力下降) / 严守红线(固定比例) / 不设红线(规划农田不受保护)。

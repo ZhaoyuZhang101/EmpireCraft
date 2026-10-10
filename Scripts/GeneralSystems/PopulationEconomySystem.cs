@@ -18,8 +18,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   岗位   = 城里每座建成的非民居建筑提供若干岗位 + 每个地块提供若干农田岗位
 //   就业率 = min(1, 岗位 / 劳动力)；没有岗位的人只有一小部分产出
 //   产出   = 农田收割、原版岗位、矿场伐木场、畜牧等真实产出，存进城市仓库
-//   收入   = 产出按市场价折成的钱(自给口粮不算)，交税 = 收入 × 税率(见 PayTaxes)；不再凭空产生金钱
-//   消耗   = 背景人口每人每年吃一份粮食，从城市仓库里扣；扣不够的部分记为缺粮
+//   产值   = 产出按市场价估值(自给口粮不算)，旧生产税按估值结算(见 PayTaxes)
+//   消耗   = 背景人口按经济户每年吃一份粮食，从城市仓库里扣；扣不够的部分记为缺粮
+// 当前是抽象估值财政，不是企业销售/工资的现金闭环；不能再并行叠加新模型所得税。
 //
 // 产出直接存进城市仓库，原版和本模组读仓库的地方(存粮、国库、建造)都能看到；
 // 粮食不够时仓库见底，CityPopulationSystem 的生育死亡模型就会进入饥荒。
@@ -244,8 +245,8 @@ public static class PopulationEconomySystem
     public static bool IsFood(string resource) => AssetManager.resources?.get(resource)?.type == ResType.Food;
 
     // 背景人口纳税：原版和模组的财政是"实体单位交税给城市国库 → 城市交给国家"，无小人模式下纳税的实体几乎没有，
-    // 国库会枯竭。背景人口的收入就是他们的真实产出(按市场价折算，见 Deposit)，按本国税率交进城市国库
-    // (之后照常由城市上交国家)。产出多少，收入就多少，没有凭空的收入
+    // 国库会枯竭。旧模型按生产估值(不是实际销售现金，见 Deposit)生成抽象生产税，
+    // 再由城市上交国家；完整现金财政接入时须替换这个税基，不能同时再征新销售所得税。
     private static void PayTaxes(City city, CityPopulationData data, float years)
     {
         float income = Mathf.Max(0f, data.produced_value);
@@ -253,12 +254,27 @@ public static class PopulationEconomySystem
         data.last_income = years > 0f ? income / years : 0f;
         data.last_tax_income = 0f;
         if (city.kingdom == null || city.kingdom.wild) return;
-        float due = income * Mathf.Clamp01((float)city.kingdom.GetTaxRate());
-        float tax = due + data.tax_carry;
-        int whole = Mathf.FloorToInt(tax);
-        data.tax_carry = tax - whole;
-        if (whole > 0) TreasurySystem.CollectResidentTax(city, whole);
-        data.last_tax_income = years > 0f ? whole / years : 0f;
+        data.produced_sector_values ??= new();
+        data.sector_tax_carry ??= new();
+        double baseRate = city.kingdom.GetTaxRate();
+        float remaining = income, due = 0f;
+        long wholeTotal = 0;
+        foreach (TreasuryCategory category in new[] { TreasuryCategory.LandTax, TreasuryCategory.IndustrialTax, TreasuryCategory.ResidentTax })
+        {
+            string key = category.ToString();
+            data.produced_sector_values.TryGetValue(key, out float value);
+            float basis = category == TreasuryCategory.ResidentTax ? remaining : Mathf.Min(remaining, Mathf.Max(0f, value));
+            remaining -= basis;
+            due += basis * (float)SectorTaxRules.Rate(baseRate, category);
+            data.sector_tax_carry.TryGetValue(key, out double carry);
+            if (category == TreasuryCategory.ResidentTax) { carry += data.tax_carry; data.tax_carry = 0f; }
+            int whole = SectorTaxRules.Assess(basis, baseRate, category, ref carry);
+            data.sector_tax_carry[key] = carry;
+            if (whole > 0) TreasurySystem.CollectResidentTax(city, whole, category);
+            wholeTotal += whole;
+        }
+        data.produced_sector_values.Clear();
+        data.last_tax_income = years > 0f ? wholeTotal / years : 0f;
         // 税后收入进民间存款
         AddSavings(city, data, income - due);
     }
@@ -316,7 +332,12 @@ public static class PopulationEconomySystem
         if (data == null || amount <= 0 || string.IsNullOrEmpty(resource)) return;
         data.public_stock ??= new Dictionary<string, int>();
         data.public_stock.TryGetValue(resource, out int have);
-        data.public_stock[resource] = have + amount;
+        // Ownership cannot exceed physically available inventory. Use long for
+        // intermediate addition so large old counters cannot wrap negative.
+        int owned = (int)Math.Min(Math.Max(0, city.getResourcesAmount(resource)),
+            (long)Math.Max(0, have) + amount);
+        if (owned > 0) data.public_stock[resource] = owned;
+        else data.public_stock.Remove(resource);
     }
 
     // 从公家存货里扣掉 amount(不超过公家有的)，返回扣掉的数量
@@ -325,7 +346,8 @@ public static class PopulationEconomySystem
         CityPopulationData data = CityPopulationSystem.Get(city);
         if (data?.public_stock == null || amount <= 0 || !data.public_stock.TryGetValue(resource, out int have)) return 0;
         // 仓库里实际没这么多(被抢、被烧)，公家存货也跟着少
-        have = Mathf.Min(have, amount + Mathf.Max(0, city.getResourcesAmount(resource)));
+        have = (int)Math.Min(Math.Max(0, have),
+            (long)amount + Math.Max(0, city.getResourcesAmount(resource)));
         int take = Mathf.Min(have, amount);
         if (have - take > 0) data.public_stock[resource] = have - take;
         else data.public_stock.Remove(resource);
@@ -430,29 +452,74 @@ public static class PopulationEconomySystem
         return buildings * JobsPerBuilding + zones * FarmJobsPerZone;
     }
 
-    // 产出攒满整数再存进仓库，零头留到下次
+    // 产出攒满整数再入库；旧生产税只估值实际收到的应税产出。
+    // 仓库满或入库失败的整份产出没有实现，不能产生财政收入。
     public static void Deposit(City city, CityPopulationData data, string resource, float amount, bool income = true)
     {
-        if (amount <= 0f) return;
-        // 产出就是收入：按市场价折成钱，累计到下次结算交税
-        if (income) data.produced_value += amount * UnitValue(city, resource);
+        if (city?.data == null || data == null || string.IsNullOrEmpty(resource) ||
+            amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount)) return;
         data.output_carry ??= new Dictionary<string, float>();
         data.output_carry.TryGetValue(resource, out float carry);
-        carry += amount;
-        int whole = Mathf.FloorToInt(carry);
-        data.output_carry[resource] = carry - whole;
+        if (float.IsNaN(carry) || float.IsInfinity(carry) || carry < 0f) carry = 0f;
+        double total = (double)carry + amount;
+        // 原版库存仍是 int；不可测量的超限请求不修改存货或税基。
+        if (total > int.MaxValue) return;
+        float taxableCarry = 0f;
+        data.output_income_carry?.TryGetValue(resource, out taxableCarry);
+        if (float.IsNaN(taxableCarry) || float.IsInfinity(taxableCarry)) taxableCarry = 0f;
+        double taxableShare = (Math.Max(0d, Math.Min(carry, taxableCarry)) + (income ? amount : 0d)) / total;
+        int whole = (int)Math.Floor(total);
+        float remainder = (float)(total - whole);
+        data.output_carry[resource] = remainder;
+        float pending = (float)(remainder * taxableShare);
+        if (pending > 0f)
+            (data.output_income_carry ??= new Dictionary<string, float>())[resource] = pending;
+        else data.output_income_carry?.Remove(resource);
         if (whole <= 0) return;
+        int before = city.getResourcesAmount(resource);
+        if (before < 0 || before == int.MaxValue) return;
+        int requested = Math.Min(whole, int.MaxValue - before);
         try
         {
-            city.addResourcesToRandomStockpile(resource, whole);
+            // 原版返回仓库余额，不是本次入库数量。
+            city.addResourcesToRandomStockpile(resource, requested);
         }
         catch (Exception exception)
         {
             LogService.LogWarning($"[EmpireCraft][人口经济] 存入 {resource} 失败: {exception.Message}");
         }
+        int delivered = ResourceDelta(before, city.getResourcesAmount(resource), requested);
+        if (delivered <= 0 || taxableShare <= 0d) return;
+        float value = (float)(delivered * taxableShare) * UnitValue(city, resource);
+        data.produced_value += value;
+        var sectors = data.produced_sector_values ??= new();
+        string key = (IsFood(resource) ? TreasuryCategory.LandTax : TreasuryCategory.IndustrialTax).ToString();
+        sectors.TryGetValue(key, out float previous);
+        sectors[key] = previous + value;
     }
 
-    // 从仓库里一份一份扣粮(原版居民吃饭也是这样)；扣不到就记为缺粮
+    private static int ResourceDelta(int before, int after, int requested) =>
+        (int)Math.Max(0L, Math.Min(Math.Max(0, requested), (long)after - before));
+
+    // 消费按实际出库计量；异常发生在扣货之后时也必须结算已消耗的部分。
+    private static int ConsumeStoredResource(City city, string resource, int requested)
+    {
+        if (requested <= 0) return 0;
+        int before = city.getResourcesAmount(resource);
+        if (before <= 0 || before == int.MaxValue) return 0;
+        int take = Math.Min(before, requested);
+        try
+        {
+            using (PrivateUse()) city.takeResource(resource, take);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][人口经济] 扣 {resource} 失败: {exception.Message}");
+        }
+        return ResourceDelta(city.getResourcesAmount(resource), before, take);
+    }
+
+    // 按种类整批扣粮；未实际出库的部分记为缺粮。
     private static float EatFood(City city, CityPopulationData data, float need, out float shortage)
     {
         shortage = 0f;
@@ -462,22 +529,10 @@ public static class PopulationEconomySystem
         if (portions <= 0) return 0f;
         // 按粮食种类整批扣(以前一份一份地反射调用原版吃饭方法，大城一次几百次，结算那一帧会卡)
         int eaten = 0;
-        try
+        foreach (ResourceAsset food in FoodAssets())
         {
-            foreach (ResourceAsset food in FoodAssets())
-            {
-                if (eaten >= portions) break;
-                int have = city.getResourcesAmount(food.id);
-                if (have <= 0) continue;
-                int take = Mathf.Min(have, portions - eaten);
-                city.takeResource(food.id, take);
-                eaten += take;
-            }
-        }
-        catch (Exception exception)
-        {
-            LogService.LogWarning($"[EmpireCraft][人口经济] 扣粮失败: {exception.Message}");
-            return portions;
+            if (eaten >= portions) break;
+            eaten += ConsumeStoredResource(city, food.id, portions - eaten);
         }
         shortage = portions - eaten;
         return eaten;
@@ -491,23 +546,13 @@ public static class PopulationEconomySystem
     {
         // 本次没扣到整份时用量是 0(民间消费按这个算)
         data.last_leather_used = 0f;
+        data.last_leather_shortage = 0f;
         float need = (calculatedNeed ?? households * LeatherPerHouseholdYear * years *
                      (ModernStability.IsModern(city.kingdom) ? 2f : 1f)) + data.leather_need_carry;
         int whole = Mathf.FloorToInt(need);
         data.leather_need_carry = need - whole;
         if (whole <= 0) return;
-        int take = 0;
-        try
-        {
-            take = Mathf.Min(whole, city.getResourcesAmount("leather"));
-            if (take > 0)
-                using (PrivateUse())
-                    city.takeResource("leather", take);
-        }
-        catch (Exception exception)
-        {
-            LogService.LogWarning($"[EmpireCraft][人口经济] 扣皮革失败: {exception.Message}");
-        }
+        int take = ConsumeStoredResource(city, "leather", whole);
         data.last_leather_used = take;
         data.last_leather_shortage = whole - take;
     }

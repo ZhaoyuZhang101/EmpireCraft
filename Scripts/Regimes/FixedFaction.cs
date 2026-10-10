@@ -157,6 +157,12 @@ public static class FactionManager
 
     public static PlayerFactionConfig Config = new PlayerFactionConfig();
 
+    static FactionManager()
+    {
+        foreach (var claims in FactionConfig.Values)
+            if (!claims.Contains(TemporaryFactionType.开放党禁)) claims.Add(TemporaryFactionType.开放党禁);
+    }
+
     public static void init()
     {
         Load();
@@ -433,10 +439,17 @@ public class FixedFaction
     public void FixMissedTemporaryFactions()
     {
         bool catalogChanged = false;
+        // Eligibility follows population pressure and institutional prerequisites.
+        TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
+        if (!TemporaryFactionTypesRecord.Contains(TemporaryFactionType.开放党禁))
+        {
+            TemporaryFactionTypesRecord.Add(TemporaryFactionType.开放党禁);
+            catalogChanged = true;
+        }
         if (ClaimCatalogVersion < CurrentClaimCatalogVersion &&
             Empire?.CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism)
         {
-            catalogChanged = MigrateFeudalClaimCatalog();
+            catalogChanged |= MigrateFeudalClaimCatalog();
         }
         if (catalogChanged || TemporaryFactions == null || TemporaryFactions.Count == 0 || TemporaryFactions.Any(tf => tf == null))
         {

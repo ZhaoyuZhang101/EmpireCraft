@@ -9,6 +9,7 @@ using NeoModLoader.General;
 using NeoModLoader.services;
 using Newtonsoft.Json;
 using UnityEngine;
+using HarmonyLib;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -161,6 +162,7 @@ public sealed class TechIndustryConfig
 
 public sealed class TechTreeConfig
 {
+    public List<TechContentSourceConfig> content_sources = new();
     // "禁止近代化"世界规则打开时，技术最多到哪个时代(tier)；更高时代解锁的武器/载具/建筑一律锁死
     public int premodern_max_tier = 5;
     // 文明等级(制度树的 1~4 级) → 能研究到的最高技术时代(tier)。制度落后，技术也上不去
@@ -197,7 +199,7 @@ public enum TechNodeStatus
 //   3. 研究完成后，本文化的工匠才能打造对应材质/型号的装备，城市才能把建筑升到对应等级。
 //
 // 限制只作用于"被某项技术登记过"的物品和建筑；没登记的(原版特殊武器、别的模组的东西)一律放行。
-// 登记了但当前没装对应模组的物品/建筑(比如没装 ModernBox 时的枪)在加载时就被跳过，不影响别的。
+// 受限清单保留尚未注册的 ID，兼容晚加载的模组；显示可用内容时按当前资产库检查。
 public static class TechnologySystem
 {
     public const string FolderName = "Technology";
@@ -210,8 +212,8 @@ public static class TechnologySystem
 
     // 受限清单：材质 → 解锁它的技术；物品 id → 技术；建筑匹配规则 → 技术
     private static readonly Dictionary<string, string> MaterialGate = new(StringComparer.Ordinal);
-    private static readonly Dictionary<string, string> ItemGate = new(StringComparer.Ordinal);
-    private static readonly Dictionary<string, string> UnitGate = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, string> ItemGate = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, string> UnitGate = new(StringComparer.OrdinalIgnoreCase);
     private static readonly List<(Regex pattern, string tech)> BuildingPatterns = new();
     private static readonly Dictionary<string, string> BuildingGateCache = new(StringComparer.Ordinal);
 
@@ -278,6 +280,7 @@ public static class TechnologySystem
             _config = new TechTreeConfig();
         }
         _config.techs ??= new List<TechNodeConfig>();
+        _config.content_sources ??= new List<TechContentSourceConfig>();
         _config.materials ??= new List<TechMaterialConfig>();
         _config.branches ??= new List<string>();
         _config.eras ??= new List<TechEraConfig>();
@@ -336,8 +339,7 @@ public static class TechnologySystem
             foreach (string unit in tech.unlock_units)
                 if (!UnitGate.ContainsKey(unit)) UnitGate[unit] = tech.id;
             foreach (string pattern in tech.unlock_buildings.Where(p => !string.IsNullOrWhiteSpace(p)))
-                BuildingPatterns.Add((new Regex("^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$",
-                    RegexOptions.CultureInvariant), tech.id));
+                BuildingPatterns.Add((TechnologyContentRules.BuildingPattern(pattern), tech.id));
         }
     }
 
@@ -634,33 +636,78 @@ public static class TechnologySystem
             : string.Format(LM.Get("tech_material_condition_tech"), resources, techs);
     }
 
-    // 技术解锁的东西里，当前游戏里真正存在的(没装对应模组的会被列成"未安装")
-    public static IEnumerable<(string label, bool present)> DescribeUnlocks(TechNodeConfig tech)
+    // 从当前资产库读取，不缓存未找到的资源，以兼容其他模组较晚注册内容。
+    public static IEnumerable<(string label, bool present, string source)> DescribeUnlockDetails(TechNodeConfig tech)
     {
         if (tech.id == SettlementSeaSearch.OceanNavigationTech)
-            yield return (LM.Get("tech_unlock_ocean_settlement"), true);
+            yield return (LM.Get("tech_unlock_ocean_settlement"), true, "EmpireCraft");
         foreach (string material in tech.unlock_materials)
-            yield return (string.Format(LM.Get("tech_unlock_material"), LM.Get($"tech_material_{material}")), true);
+            yield return (string.Format(LM.Get("tech_unlock_material"), LM.Get($"tech_material_{material}")), true,
+                GetContentSource(material, "material"));
+        var seenItems = new HashSet<string>(StringComparer.Ordinal);
         foreach (string item in tech.unlock_items)
         {
-            ItemAsset asset = AssetManager.items.get(item);
-            yield return (asset != null ? asset.getTranslatedName() : item, asset != null);
+            ItemAsset asset = TechnologyContentRules.FindAsset(item,
+                id => AssetManager.items?.get(id), AssetManager.items?.list, asset => asset.id);
+            if (asset != null && !seenItems.Add(asset.id)) continue;
+            yield return (asset != null ? asset.getTranslatedName() : item, asset != null,
+                GetContentSource(asset?.id ?? item, "item"));
         }
+        var seenUnits = new HashSet<string>(StringComparer.Ordinal);
         foreach (string unit in tech.unlock_units)
         {
-            ActorAsset asset = AssetManager.actor_library.get(unit);
+            ActorAsset asset = TechnologyContentRules.FindAsset(unit,
+                id => AssetManager.actor_library?.get(id), AssetManager.actor_library?.list, asset => asset.id);
+            if (asset != null && !seenUnits.Add(asset.id)) continue;
             yield return (asset != null ? string.Format(LM.Get("tech_unlock_unit"), asset.getTranslatedName()) : unit,
-                asset != null);
+                asset != null, GetContentSource(asset?.id ?? unit, "unit"));
         }
+        var seenBuildings = new HashSet<string>(StringComparer.Ordinal);
         foreach (string pattern in tech.unlock_buildings)
         {
-            Regex regex = new("^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$", RegexOptions.CultureInvariant);
-            BuildingAsset sample = AssetManager.buildings.list.FirstOrDefault(asset => regex.IsMatch(asset.id));
+            Regex regex = TechnologyContentRules.BuildingPattern(pattern);
+            BuildingAsset sample = AssetManager.buildings?.list.FirstOrDefault(asset =>
+                asset != null && !string.IsNullOrEmpty(asset.id) && regex.IsMatch(asset.id));
+            if (sample != null && !seenBuildings.Add(sample.id)) continue;
             string label = sample != null
                 ? string.Format(LM.Get("tech_unlock_building"), DescribeBuilding(sample))
                 : pattern;
-            yield return (label, sample != null);
+            yield return (label, sample != null, GetContentSource(sample?.id ?? pattern, "building"));
         }
+    }
+
+    private static string GetContentSource(string id, string kind)
+    {
+        string sourceId = TechnologyContentRules.FindSource(id, kind, Config.content_sources);
+        TechContentSourceConfig source = Config.content_sources.FirstOrDefault(entry => entry?.id == sourceId);
+        return !string.IsNullOrEmpty(source?.name_key) ? LM.Get(source.name_key)
+            : sourceId == "unknown" ? LM.Get("tech_source_unknown") : sourceId;
+    }
+
+    public static IEnumerable<(string label, bool present)> DescribeUnlocks(TechNodeConfig tech)
+    {
+        foreach (var unlock in DescribeUnlockDetails(tech))
+            yield return ($"{unlock.label}【{unlock.source}】", unlock.present);
+    }
+
+    public static List<string> DescribeAvailableUnlocks(TechNodeConfig tech)
+    {
+        var result = new List<string>();
+        var missing = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var unlock in DescribeUnlockDetails(tech))
+        {
+            if (unlock.present) result.Add($"{unlock.label}【{unlock.source}】");
+            else
+            {
+                if (!missing.TryGetValue(unlock.source, out List<string> labels))
+                    missing[unlock.source] = labels = new List<string>();
+                if (!labels.Contains(unlock.label)) labels.Add(unlock.label);
+            }
+        }
+        foreach (var group in missing)
+            result.Add(string.Format(LM.Get("tech_optional_source_unavailable"), group.Key, group.Value.Count,
+                string.Join("、", group.Value)));
+        return result;
     }
 
     private static string DescribeBuilding(BuildingAsset asset)
@@ -766,10 +813,16 @@ public static class TechnologySystem
 
     #endregion
 
-    public static bool ModernModDetected => AssetManager.buildings?.get("6house_human_modernmod") != null;
-    public static bool WarBoxDetected => AssetManager.buildings?.get("heavy_factory") != null &&
-                                         AssetManager.actor_library?.get("warbox_tank") != null;
-    public static bool ModernBoxDetected => AssetManager.items?.get("M16") != null || AssetManager.items?.get("AK") != null;
+    public static bool ModernModDetected => AccessTools.TypeByName("ModernMod.Code.Main") != null ||
+        AssetManager.buildings?.list.Any(asset => asset?.id?.EndsWith("_modernmod",
+            StringComparison.OrdinalIgnoreCase) == true) == true;
+    public static bool WarBoxDetected => AccessTools.TypeByName("WarBox.WarBox") != null ||
+        AssetManager.buildings?.get("heavy_factory") != null ||
+        AssetManager.actor_library?.get("warbox_tank") != null;
+    public static bool ModernBoxDetected => Config.content_sources
+        .Where(source => source?.id == "ModernBox")
+        .SelectMany(source => source.items ?? new List<string>())
+        .Any(id => AssetManager.items?.get(id) != null);
 
     #endregion
 
@@ -1252,6 +1305,7 @@ public static class TechnologySystem
         int subsidy = Config.research.modernize_subsidy;
         foreach (City city in cities ?? CitiesOf(culture))
         {
+            if (city == null || city.isRekt()) continue;
             Kingdom kingdom = city.kingdom;
             if (kingdom == null || kingdom.isRekt()) continue;
             int done = 0;
@@ -1263,19 +1317,47 @@ public static class TechnologySystem
                 int grant = Math.Max(0, Math.Min(subsidy, TreasurySystem.Enabled(kingdom)
                     ? StateSettlementSystem.DiscretionaryFunds(kingdom) : kingdom.GetMoney()));
                 int own = actor.money;
-                if (grant > 0)
+                int debited = 0;
+                int credited = 0;
+                bool weapon = false;
+                bool armor = false;
+                try
                 {
-                    kingdom.SubMoney(grant, TreasuryCategory.Military);
-                    actor.addMoney(grant);
+                    if (grant > 0)
+                    {
+                        kingdom.SubMoney(grant, TreasuryCategory.Military);
+                        debited = grant;
+                        credited = ActorMoneyTransfers.CreditNonIncome(actor, grant);
+                    }
+                    weapon = ItemCrafting.tryToCraftRandomWeapon(actor, city);
+                    armor = ItemCrafting.tryToCraftRandomArmor(actor, city);
                 }
-                bool weapon = ItemCrafting.tryToCraftRandomWeapon(actor, city);
-                bool armor = ItemCrafting.tryToCraftRandomArmor(actor, city);
-                // 先花补贴、再花自己的钱：剩下的钱里超出本人原有部分的退回国库
-                int refund = Math.Max(0, Math.Min(grant, actor.money - own));
-                if (refund > 0)
+                finally
                 {
-                    actor.spendMoney(refund);
-                    kingdom.AddMoney(refund, TreasuryCategory.Military);
+                    // 钱包达到原版上限时，未到账部分也退回；打造失败仍结清预付款。
+                    int returnToTreasury = debited - credited;
+                    try
+                    {
+                        if (actor.data != null)
+                        {
+                            int beforeRefund = actor.money;
+                            int refund = ActorMoneyTransfers.Received(own, beforeRefund, credited);
+                            if (refund > 0)
+                            {
+                                try { actor.spendMoney(refund); }
+                                finally
+                                {
+                                    // 原版扣款后的显示效果可能抛异常，以实际扣回的钱退款。
+                                    returnToTreasury += ActorMoneyTransfers.Received(actor.money, beforeRefund, refund);
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        if (returnToTreasury > 0)
+                            kingdom.AddMoney(returnToTreasury, TreasuryCategory.Military);
+                    }
                 }
                 done++;
                 if (weapon || armor) upgraded++;

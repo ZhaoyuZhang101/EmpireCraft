@@ -57,6 +57,9 @@ public class CityPopulationData
     public double last_economy = -1d;
     // 未满一个整数单位的产出/消耗，留到下次结算累加
     public Dictionary<string, float> output_carry = new Dictionary<string, float>();
+    // 产出零头中尚未入库、尚未计税的数量。自给/救济物资不计入；旧档缺省为空，
+    // 原 output_carry 已在旧模型计过产值，不能迁移后再次计税。
+    public Dictionary<string, float> output_income_carry;
     public float food_need_carry;
     public float construction_carry;
     // 上次结算城市建设(施工)的世界时间
@@ -71,19 +74,30 @@ public class CityPopulationData
     public float last_leather_used;
     public float last_leather_shortage;
     public float leather_need_carry;
-    // 背景人口的收入：上次结算以来真实产出的价值(按市场价折算，见 PopulationEconomySystem.Deposit)与上次结算的年收入
+    // 背景人口生产估值：不是实际销售现金；由旧抽象生产税使用，见 PopulationEconomySystem.Deposit。
     public float produced_value;
+    public Dictionary<string, float> produced_sector_values = new();
+    public Dictionary<string, double> sector_tax_carry = new();
     public float last_income;
     public float farm_jobs;
     public List<PopulationEconomyPeriod> economy_periods;
     // 土地交易等途径实缴的背景税，也要进入同一统计窗口。
     public float other_background_tax;
-    // 民间存款(见 PopulationEconomySystem.Savings)：-1 表示还没建账；上次结算的年消费
+    // 民间混合资产(含存货估值，非真实现金，见 PopulationEconomySystem.Savings)：
+    // -1 表示还没建账；last_consumption为上次结算的年消费。
     public float private_savings = -1f;
+    // 普通实体并入、宗族销户时保管的已存在钱包，不属于混合资产估值或国库。
+    // 按城市汇总，不为普通人口逐人创建账户；消费/迁移接入前不能当额外收入发放。
+    public WalletReserve civilian_wallet_reserve;
+    public bool ShouldSerializecivilian_wallet_reserve() => civilian_wallet_reserve != null &&
+        (civilian_wallet_reserve.cash != 0L || civilian_wallet_reserve.loot != 0L);
     // 公家的建材(资源 id → 数量)：城市国库从市场买进的木石金属，公家用时不用再付给百姓
     public Dictionary<string, int> public_stock = new();
     // 开城物资在没有可用仓库时临时保管，计入可用库存；不会凭空增产。
     public Dictionary<string, int> settlement_supplies;
+    // 未送达的市场货物退回原所有者；不等于新城启动物资，不生成现金或产出。
+    // 仓库暂时无空间时保管，读档及切换人口模式后仍可使用。
+    public Dictionary<string, int> resource_returns;
     // 自发聚落及空城安置可以不足一户，不能用保底人口把迁来的少数居民扩成整户。
     public bool spontaneous_settlement;
     // 空城安置每月至多参与一次；出发地与目的地都记录，帝国/封国调度与读档不能重复迁人。

@@ -586,9 +586,12 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (!TreasurySystem.Enabled(core)) return;
             string color = _empire.getColor().color_text;
             TreasuryReport report = TreasurySystem.Report(core);
+            rows.IShowStatsRow("fiscal_safety_reserve", MoneyDisplay.Format(TreasurySystem.SafetyReserve(core)), "#E6A166");
+            rows.IShowStatsRow("fiscal_cash_balance", MoneyDisplay.Format(report.cash_balance),
+                report.cash_balance < 0 ? "#FF6666" : "#65D66E");
             rows.IShowStatsRow("fiscal_central_account", core.GetKingdomName(), color);
-            rows.IShowStatsRow("label_national_treasury", MoneyDisplay.Format(core.GetMoney()), color, pIconPath: "iconMoney");
-            rows.IShowStatsRow("fiscal_available", MoneyDisplay.Format(StateSettlementSystem.DiscretionaryFunds(core)), color);
+            rows.IShowStatsRow("label_national_treasury", MoneyDisplay.Format(core.GetTreasuryBalance()), color, pIconPath: "iconMoney");
+            rows.IShowStatsRow("fiscal_available", MoneyDisplay.Format(StateSettlementSystem.DiscretionaryBalance(core)), color);
             rows.IShowStatsRow("fiscal_recorded_months", report.months, color);
             rows.IShowStatsRow("fiscal_income", MoneyDisplay.Format(report.income), "#65D66E");
             rows.IShowStatsRow("fiscal_expense", MoneyDisplay.Format(report.expense), "#E9A85B");
@@ -597,6 +600,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             foreach (var item in TreasurySystem.Details(report))
                 rows.IShowStatsRow(item.key, item.value, color, pIconPath: "iconMoney");
             TreasuryReport realm = TreasurySystem.Consolidated(core);
+            rows.IShowStatsRow("fiscal_realm_flows", TreasurySystem.FlowText(realm), color);
+            rows.IShowStatsRow("fiscal_realm_cash_balance", MoneyDisplay.Format(realm.cash_balance),
+                realm.cash_balance < 0 ? "#FF6666" : "#65D66E");
+            rows.IShowStatsRow("fiscal_realm_debt_repayment", MoneyDisplay.Format(realm.debt_repayment), "#E9A85B");
             rows.IShowStatsRow("fiscal_realm_operating_balance", MoneyDisplay.Format(realm.operating_balance),
                 realm.operating_balance < 0 ? "#FF6666" : "#65D66E");
             parent.AddTextIntoVertLayout(LM.Get("fiscal_account_hint"), true, TextAnchor.MiddleCenter);

@@ -44,7 +44,11 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         var empireId = empire.getID();
         for (int i = 0; i < factions.Count; i++)
         {
-            if (factions[i] != null) factions[i].EmpireId = empireId;
+            if (factions[i] != null)
+            {
+                factions[i].EmpireId = empireId;
+                factions[i].FixMissedTemporaryFactions();
+            }
         }
         FixedFaction dominateFaction = regime.GetDominateFaction();
         for (int i = 0; i < factions.Count; i++)
@@ -57,6 +61,7 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
                 var tf = tfs[j];
                 if (tf == null) continue;
                 if (tf.IsLocallyPushed && tf.Active && tf.CheckLocalContinue(tf.GetKingdom())) continue;
+                if (tf.IsStarted() && tf.CanProceedOutsideGovernment && !ff.Ban && tf.CheckContinue()) continue;
                 if (tf.IsStarted()) tf.End();
             }
         }
@@ -82,6 +87,27 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         if (run?.IsStarted() == true) return;
         TemporaryPushProgress.TrySubmitReadyRequests(empire);
         if (empire.RunningTemporaryFaction?.IsStarted() == true) return;
+        ClaimAgendaContext context = ClaimAgendaSystem.BuildContext(empire);
+        if (context?.PartyOpening?.HasChallenge == true)
+        {
+            // Opening party politics is a popular reform campaign, not ordinary
+            // cabinet business. An opposition faction may represent that pressure.
+            var opening = factions.Where(f => f != null && !f.Ban && f.TemporaryFactions != null)
+                .SelectMany(f => f.TemporaryFactions.Select(tf => (faction: f, claim: tf)))
+                .Where(entry => entry.claim?.type == TemporaryFactionType.开放党禁 &&
+                                entry.claim.Active && entry.claim.CountDown <= 0)
+                .Select(entry => (entry.claim, view: ClaimAgendaSystem.Evaluate(context, entry.faction, entry.claim)))
+                .Where(entry => entry.view.CanPropose)
+                .OrderByDescending(entry => entry.view.Score)
+                .Select(entry => entry.claim).FirstOrDefault();
+            if (opening != null && opening.CheckCondition() && opening.CheckTarget())
+            {
+                opening.ShowAsPlot = false;
+                opening.pusherType = MetaType.None;
+                opening.Start();
+                return;
+            }
+        }
         if (dominateFaction == null || dominateFaction.Ban || dominateFaction.TemporaryFactions == null) return;
         if (dominateFaction.GetLeader() == null && regime.type!= RegimeType.Feudalism) return;
         if (ParliamentSystem.HasParliament(pKingdom.GetEmpire()))
@@ -97,7 +123,6 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
                 if (pKingdom.GetEmpire().GetCabinetLeader()?.GetFaction() != dominateFaction) return;
             }
         }
-        ClaimAgendaContext context = ClaimAgendaSystem.BuildContext(empire);
         var agenda = dominateFaction.TemporaryFactions
             .Where(tf => tf != null && tf.Active && tf.CountDown <= 0)
             .Select(tf => (claim: tf, view: ClaimAgendaSystem.Evaluate(context, dominateFaction, tf)))

@@ -10,8 +10,8 @@ public static class RealmDiplomacySystem
     {
         if (kingdom == null || kingdom.isRekt()) return false;
         if (kingdom.IsEmpire()) return true;
-        if (kingdom.IsAdministrativeKingdomType()) return false;
         var empire = kingdom.GetEmpire();
+        if (kingdom.IsAdministrativeKingdomType() || (empire != null && kingdom.GetOrCreate().AdministrativeTitle >= 0)) return false;
         if (empire?.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing) return false;
         return empire == null || kingdom.GetRegime()?.IsAllowDiplomacy() == true;
     }

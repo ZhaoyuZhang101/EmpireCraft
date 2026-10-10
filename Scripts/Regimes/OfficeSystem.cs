@@ -43,7 +43,15 @@ public class BureauSetting
     public List<string> condition;
     public LeaderSelectMethod leader_select_method;
     public List<string> require_traits;
+    // Central offices are department heads by default; false explicitly marks a permanent deputy/administrative post.
+    public bool? political_appointment;
     public CityType city_type;
+    // Optional display suffix overrides; city_type continues to select city offices.
+    public string city_suffix_key;
+    public string capital_city_suffix_key;
+    // Optional culture-specific overrides for shared government templates.
+    public Dictionary<string, string> city_suffix_keys_by_culture;
+    public Dictionary<string, string> capital_city_suffix_keys_by_culture;
 }
 
 public class BureauConfig
@@ -77,6 +85,7 @@ public class OfficeObject
     public long OfficeID { get; set; }
     public double timestamp { get; set; }
     public int officeType { get; set; }
+    public bool? political_appointment { get; set; }
     public long actor_id { get; set; } = -1L;
     public string pre { get; set; } = "";
     public int merit { get; set; }
@@ -190,6 +199,7 @@ public class OfficeObject
     public void InitialOffice(BureauSetting config, Action action = null, bool isNew = true)
     {
         officeType = config.type;
+        political_appointment = config.political_appointment;
         timestamp = World.world.getCurWorldTime();
         pre = config.pre;
         merit = config.merit;

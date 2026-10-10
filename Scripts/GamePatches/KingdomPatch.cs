@@ -31,6 +31,11 @@ public class KingdomPatch : GamePatch
 
     public void Initialize()
     {
+        new Harmony(nameof(RefreshCapitalCityNames)).Patch(
+            AccessTools.Method(typeof(Kingdom), nameof(Kingdom.setCapital), new[] { typeof(City) }),
+            prefix: new HarmonyMethod(GetType(), nameof(RememberCapitalCity)),
+            postfix: new HarmonyMethod(GetType(), nameof(RefreshCapitalCityNames))
+        );
         new Harmony(nameof(RemovePatchData)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.Dispose)),
             prefix: new HarmonyMethod(GetType(), nameof(RemovePatchData))
@@ -72,6 +77,20 @@ public class KingdomPatch : GamePatch
         new Harmony(nameof(getPopulationPeople)).Patch(
             AccessTools.Method(typeof(Kingdom), nameof(Kingdom.getPopulationPeople)),
             prefix: new HarmonyMethod(GetType(), nameof(getPopulationPeople)));
+    }
+
+    public static void RememberCapitalCity(Kingdom __instance, out City __state)
+    {
+        __state = __instance.capital;
+    }
+
+    public static void RefreshCapitalCityNames(Kingdom __instance, City __state)
+    {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance) ||
+            __instance.GetRegime() == null) return;
+        if (__state != null && !__state.isRekt()) __state.RefreshCityDisplayName();
+        if (__instance.capital != null && __instance.capital != __state && !__instance.capital.isRekt())
+            __instance.capital.RefreshCityDisplayName();
     }
 
     public static bool GetMaxCities(Kingdom __instance, ref int __result)

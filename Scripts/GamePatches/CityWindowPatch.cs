@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.UI.Components;
 using EmpireCraft.Scripts.UI.Windows;
 using EmpireCraft.Scripts.Layer;
@@ -54,10 +54,16 @@ public class CityWindowPatch : GamePatch
         __instance.tryToShowActor("founder", metaObject.data.founder_id, metaObject.data.founder_name, pIconPath: "actor_traits/iconStupid");
         __instance.tryShowPastRulers();
         __instance.tryToShowActor("village_statistics_leader", pObject: metaObject.leader, pIconPath: "iconLeaders");
-        __instance.showStatRow("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(metaObject.GetMoney()), "#43FF43", pIconPath: "iconMoney");
+        __instance.showStatRow("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(metaObject.GetTreasuryBalance()), "#43FF43", pIconPath: "iconMoney");
         if (TreasurySystem.Enabled(metaObject))
         {
             var fiscal = TreasurySystem.Report(metaObject);
+            __instance.showStatRow("fiscal_safety_reserve", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                TreasurySystem.SafetyReserve(metaObject)), "#E6A166", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_available", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                TreasurySystem.DiscretionaryBalance(metaObject)), "#43FF43", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_cash_balance", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                fiscal.cash_balance), fiscal.cash_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_flows", TreasurySystem.FlowText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_transfers", TreasurySystem.TransferText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_spending", TreasurySystem.SpendingText(fiscal), "#F3C34A", pIconPath: "iconMoney");

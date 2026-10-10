@@ -68,7 +68,7 @@ public static class CityExtension
         public int MAX_POPULATION = 100;
         public bool MAX_POPULATION_LIMIT = false;
         public double last_tax_timestamp = -1L;
-        public int Money = 0;
+        public long Money = 0;
         public TreasuryData treasury;
         public CityStabilityData stability;
         public string tax_sharing_relationship;
@@ -2037,6 +2037,8 @@ public static class CityExtension
     }
     public static void SetCityType(this City c, CityType type)
     {
+        // Preserve the core name while the previous type still identifies its suffix.
+        if (c?.data != null) c.EnsureCityCoreName();
         c.GetOrCreate().cityType = type;
     }
     public static double GetLastTaxTime(this City k)
@@ -2070,8 +2072,10 @@ public static class CityExtension
     
     public static int GetMoney(this City c)
     {
-        return c.GetOrCreate().Money;
+        return TreasuryRules.QuoteBalance(c.GetTreasuryBalance());
     }
+
+    public static long GetTreasuryBalance(this City c) => c.GetOrCreate().Money;
 
     public static CityValueSnapshot GetCityStrategicValue(this City city)
     {
@@ -2187,16 +2191,16 @@ public static class CityExtension
         => AddMoney(c, money, TreasuryCategory.Other);
     public static void AddMoney(this City c, int money, TreasuryCategory category)
     {
-        c.GetOrCreate().Money += money;
-        TreasurySystem.Record(c, money, category);
+        long change = TreasuryRules.ChangeBalance(ref c.GetOrCreate().Money, money);
+        TreasurySystem.Record(c, change, category);
     }
 
     public static void SubMoney(this City c, int money)
         => SubMoney(c, money, TreasuryCategory.Other);
     public static void SubMoney(this City c, int money, TreasuryCategory category)
     {
-        c.GetOrCreate().Money -= money; 
-        TreasurySystem.Record(c, -(long)money, category);
+        long change = TreasuryRules.ChangeBalance(ref c.GetOrCreate().Money, -(long)money);
+        TreasurySystem.Record(c, change, category);
     }
 
     public static CityType GetCityType(this City c)
@@ -2485,11 +2489,15 @@ public static class CityExtension
         string result = null;
 
         string citySuffix = "";
+        // The saved type belongs to the previous naming pass. Keep it for stripping
+        // the old suffix when a government changes or the capital moves.
         try { citySuffix = LM.Get(city.GetCityType().ToString()); }
         catch { }
         if (nameParts.Length <= 1)
         {
             string strippedName = OverallHelperFunc.StripLocalizedTypeSuffix(fullName, citySuffix);
+            if (string.Equals(strippedName, fullName.Trim(), StringComparison.Ordinal))
+                strippedName = OverallHelperFunc.StripLocalizedTypeSuffix(fullName, LM.Get(city.GetCitySuffixKey()));
             if (!string.Equals(strippedName, fullName.Trim(), StringComparison.Ordinal)) result = strippedName;
         }
 
@@ -2520,11 +2528,15 @@ public static class CityExtension
         {
             if (city.hasKingdom())
             {
-                if (!string.IsNullOrWhiteSpace(citySuffix) &&
-                    result.Length > citySuffix.Length &&
-                    result.EndsWith(citySuffix, StringComparison.Ordinal))
+                string currentSuffix = LM.Get(city.GetCitySuffixKey());
+                string suffixToRemove = !string.IsNullOrWhiteSpace(citySuffix) &&
+                    result.Length > citySuffix.Length && result.EndsWith(citySuffix, StringComparison.Ordinal)
+                    ? citySuffix : currentSuffix;
+                if (!string.IsNullOrWhiteSpace(suffixToRemove) &&
+                    result.Length > suffixToRemove.Length &&
+                    result.EndsWith(suffixToRemove, StringComparison.Ordinal))
                 {
-                    result = result.Substring(0, result.Length - citySuffix.Length);
+                    result = result.Substring(0, result.Length - suffixToRemove.Length);
                 }
             }
         }
@@ -2556,9 +2568,42 @@ public static class CityExtension
         string coreName = city.EnsureCityCoreName();
         if (string.IsNullOrWhiteSpace(coreName)) return city.data.name ?? "";
         string typeName = "";
-        try { typeName = LM.Get(city.GetCityType().ToString()); }
+        try { typeName = LM.Get(city.GetCitySuffixKey()); }
         catch { }
         return OverallHelperFunc.FormatCityFullName(coreName, typeName);
+    }
+
+    public static string GetCitySuffixKey(this City city)
+    {
+        Kingdom kingdom = city?.kingdom;
+        BureauSetting setting = EmpireCraftKingdomBehCheckKingdomType.GetCityNamingSetting(kingdom);
+        if (setting != null)
+        {
+            string culture = setting.city_suffix_keys_by_culture?.Count > 0 ||
+                             setting.capital_city_suffix_keys_by_culture?.Count > 0
+                ? CultureService.GetRealmCulture(kingdom) ?? "" : "";
+            if (kingdom.capital == city)
+            {
+                if (setting.capital_city_suffix_keys_by_culture?.TryGetValue(culture, out string capitalSuffix) == true &&
+                    !string.IsNullOrWhiteSpace(capitalSuffix)) return capitalSuffix;
+                if (!string.IsNullOrWhiteSpace(setting.capital_city_suffix_key)) return setting.capital_city_suffix_key;
+            }
+            if (setting.city_suffix_keys_by_culture?.TryGetValue(culture, out string citySuffix) == true &&
+                !string.IsNullOrWhiteSpace(citySuffix)) return citySuffix;
+            if (!string.IsNullOrWhiteSpace(setting.city_suffix_key)) return setting.city_suffix_key;
+            return setting.city_type.ToString();
+        }
+        return city.GetCityType().ToString();
+    }
+
+    public static void RefreshCityDisplayName(this City city)
+    {
+        if (city?.data == null) return;
+        string coreName = city.EnsureCityCoreName();
+        if (string.IsNullOrWhiteSpace(coreName)) return;
+        city.data.name = OverallHelperFunc.FormatCityFullName(coreName, LM.Get(city.GetCitySuffixKey()));
+        // Generated display names must not be mistaken for a new player-supplied core name.
+        city.GetOrCreate().core_name_source = city.data.name;
     }
 
     public static string GetKingdomNames(this City city)

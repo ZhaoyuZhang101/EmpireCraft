@@ -225,9 +225,12 @@ public static class StateSettlementSystem
 
     // 自动科研和升级只用余款；建城仍按完整报价复核和扣款。
     public static int DiscretionaryFunds(Kingdom kingdom)
+        => (int)Math.Min(int.MaxValue, DiscretionaryBalance(kingdom));
+
+    public static long DiscretionaryBalance(Kingdom kingdom)
     {
         if (kingdom == null || kingdom.isRekt()) return 0;
-        int money = Math.Max(0, kingdom.GetMoney());
+        long money = Math.Max(0L, kingdom.GetTreasuryBalance());
         if (!TreasurySystem.Enabled(kingdom)) return money;
         StateSettlementData state = kingdom.GetOrCreate().settlement;
         long reserve = TreasurySystem.SafetyReserve(kingdom);
@@ -237,7 +240,7 @@ public static class StateSettlementSystem
                 ValidCity(city) && StateSettlementRules.AtZoneLimit(city.zones.Count, ModClass.CITY_MAX_ZONES)))
             projectReserve = Math.Max(projectReserve, StateSettlementRules.AdministrativeCost(
                 kingdom.cities.Count, ModClass.SETTLEMENT_BASE_GOLD, ModClass.SETTLEMENT_PER_CITY_GOLD));
-        return TreasuryRules.Available(money, reserve, projectReserve);
+        return TreasuryRules.AvailableBalance(money, reserve, projectReserve);
     }
 
     private static bool NeedsSettlement(City city, Kingdom payer, StateSettlementData state)
@@ -755,7 +758,7 @@ public static class StateSettlementSystem
         var regime = fief.GetRegime();
         regime?.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
         regime?.SetAllowSupportCenterArmy(false);
-        regime?.SetTaxLevel(TaxLevel.None);
+        regime?.SetTaxLevel(TaxLevel.Low);
         regime?.SetAllowDiplomacy(true);
         regime?.SetAllowArmy(true);
         fief.SetFiedTimestamp(World.world.getCurWorldTime());
