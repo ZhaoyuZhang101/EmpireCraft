@@ -236,6 +236,18 @@ public static class CityStabilitySystem
         return CityStabilityRules.Clamp(state.stability + suppression + state.fear);
     }
 
+    // 本国有城拖欠治理/驻军/军费(国债加息用)
+    public static bool HasArrears(Kingdom kingdom)
+    {
+        if (kingdom?.cities == null) return false;
+        foreach (City city in kingdom.cities)
+        {
+            CityStabilityData state = city?.data == null ? null : city.GetOrCreate().stability;
+            if (state != null && state.owner_id == kingdom.id && state.arrears > 0) return true;
+        }
+        return false;
+    }
+
     public static bool CanRise(City city) => city != null && !city.isRekt() &&
         (!TreasurySystem.Enabled(city) || Effective(city) < CityStabilityRules.RebellionThreshold);
     public static bool ControlsTax(City city)

@@ -84,6 +84,15 @@ public static class MonarchyLegitimacy
             if (institutions.arrears_months >= 6f)
                 items.Add(("mandate_arrears", -Mathf.Min(8, Mathf.RoundToInt(institutions.arrears_months / 3f))));
         }
+        // 国债：债务超过一年经常收入损正统，一年内违约再损
+        Kingdom core = empire.CoreKingdom;
+        long debt = StateDebtSystem.Outstanding(core);
+        if (debt > 0L)
+        {
+            long income = StateDebtSystem.AnnualStableIncome(core);
+            if (income > 0L && debt > income) items.Add(("mandate_state_debt", -Mathf.Min(6, (int)(debt / income) * 2)));
+            if (StateDebtSystem.DefaultedRecently(core)) items.Add(("mandate_debt_default", -5));
+        }
         return items;
     }
 }

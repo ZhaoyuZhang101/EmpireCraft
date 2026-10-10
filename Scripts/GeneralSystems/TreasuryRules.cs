@@ -11,7 +11,8 @@ public enum TreasuryCategory
     Military, Administration, Welfare, Maintenance, Research, Construction, Diplomacy, Corruption, Policy, Gift,
     Garrison, Governance, LandTax, IndustrialTax, CommercialTax,
     GovernanceArrears, GarrisonArrears, MilitaryArrears,
-    PublicEnterprise
+    PublicEnterprise,
+    Borrowing, DebtInterest, DebtPrincipal
 }
 
 public sealed class TreasuryReport
@@ -155,7 +156,8 @@ public static class TreasuryRules
             else report.income += value;
             bool essential = pair.Key == nameof(TreasuryCategory.Military) || pair.Key == nameof(TreasuryCategory.Administration) ||
                 pair.Key == nameof(TreasuryCategory.Welfare) || pair.Key == nameof(TreasuryCategory.Maintenance) ||
-                pair.Key == nameof(TreasuryCategory.Garrison) || pair.Key == nameof(TreasuryCategory.Governance);
+                pair.Key == nameof(TreasuryCategory.Garrison) || pair.Key == nameof(TreasuryCategory.Governance) ||
+                pair.Key == nameof(TreasuryCategory.DebtInterest);
             if (essential) report.essential_expense += expense ? value : -value;
             if (expense && pair.Key == nameof(TreasuryCategory.Maintenance)) report.maintenance_expense += value;
             if (pair.Key == nameof(TreasuryCategory.Military)) report.military += expense ? value : -value;
@@ -172,7 +174,9 @@ public static class TreasuryRules
             // 每个账户的经常收支包含真实央地分成，投资和偶发款项单列。
             if (pair.Key != nameof(TreasuryCategory.Construction) && pair.Key != nameof(TreasuryCategory.Research) &&
                 pair.Key != nameof(TreasuryCategory.RecoveredFunds) &&
-                pair.Key != nameof(TreasuryCategory.Diplomacy) && pair.Key != nameof(TreasuryCategory.Policy) && !repayment)
+                pair.Key != nameof(TreasuryCategory.Diplomacy) && pair.Key != nameof(TreasuryCategory.Policy) && !repayment &&
+                // 借款本金和还本是资金往来，不是经常收支(利息才是)
+                pair.Key != nameof(TreasuryCategory.Borrowing) && pair.Key != nameof(TreasuryCategory.DebtPrincipal))
                 report.operating_balance += expense ? -value : value;
         }
     }

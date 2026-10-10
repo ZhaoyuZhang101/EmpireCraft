@@ -329,6 +329,9 @@ public static class KingdomExtension
         public long last_ruler_identity_id = -1L;
         // 本封国历代国君已用过的谥字(尽量不重复)
         public List<string> posthumous_used = new List<string>();
+        // 国债(见 StateDebtSystem)：各笔借款、最近一次违约时间
+        public List<EmpireCraft.Scripts.Data.StateBond> state_bonds = new List<EmpireCraft.Scripts.Data.StateBond>();
+        public double state_debt_default_at = -1d;
         // 本国士兵数的历史峰值：只有"曾经有过军队、后来打光"的国家才会兵力崩溃、望风归降。
         public int peak_warriors = 0;
         // 共主联盟：城邦共主去世后，入盟城邦跟随盟主城邦(这个 id)的新君主；

@@ -1100,10 +1100,11 @@ public class CityPatch : GamePatch
         CapitalLossNamingSystem.TryYearlyScan,
         WartimeCustodySystem.TryMonthlyScan,
         JimiSystem.TryMonthlyScan,
-        InternalBoundarySystem.TryYearlyScan
+        InternalBoundarySystem.TryYearlyScan,
+        StateDebtSystem.TryMonthlyScan
     };
     private static readonly string[] WorldYearlyScanNames =
-        { "宗族分支", "理念传播", "科技", "制度漂移", "苛政", "核威慑", "文化近代化", "失都改称", "战后分配", "羁縻边防", "行政区划界" };
+        { "宗族分支", "理念传播", "科技", "制度漂移", "苛政", "核威慑", "文化近代化", "失都改称", "战后分配", "羁縻边防", "行政区划界", "国债" };
     private static int _worldScanFrame = -1;
     private const int SurrenderCheckEvery = 10;
     private const int SlowHookCitiesPerFrame = 3;
