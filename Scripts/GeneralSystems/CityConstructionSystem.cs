@@ -166,40 +166,58 @@ public static class CityConstructionSystem
     private const int RoadTilesPerMonth = 20;
     // 诊断计数(每年随人口诊断记一次后清零)：修路规划次数、规划出的路格、铺下的路格、清掉的废墟、因没钱没清的废墟
     public static int StatRoadPlans, StatRoadPlanned, StatRoadBuilt, StatRuinsCleared, StatRuinsNoMoney;
+    // 自己规划失败在哪一步(定位“规划 0 格”)：没有可连的建筑、寻路失败、路太长、路格全被过滤
+    public static int StatRoadNoTarget, StatRoadPathFail, StatRoadTooLong, StatRoadFiltered;
 
     public static string TakeStats()
     {
-        string text = $"修路规划 {StatRoadPlans} 次/规划 {StatRoadPlanned} 格/铺设 {StatRoadBuilt} 格，" +
+        string text = $"修路规划 {StatRoadPlans} 次/规划 {StatRoadPlanned} 格/铺设 {StatRoadBuilt} 格" +
+                      $"(无目标 {StatRoadNoTarget}/寻路失败 {StatRoadPathFail}/过长 {StatRoadTooLong}/全过滤 {StatRoadFiltered})，" +
                       $"清废墟 {StatRuinsCleared} 座/没钱没清 {StatRuinsNoMoney} 座";
         StatRoadPlans = StatRoadPlanned = StatRoadBuilt = StatRuinsCleared = StatRuinsNoMoney = 0;
+        StatRoadNoTarget = StatRoadPathFail = StatRoadTooLong = StatRoadFiltered = 0;
         return text;
     }
     private const int RoadPlansPerMonth = 3;
-    private const int MaxRoadPath = 80;
+    private const int MaxRoadPath = 60;
+    private const int MaxRoadReach = 40;
     private static readonly List<WorldTile> RoadPath = new();
 
-    private static void PlanRoadToCenter(City city, Building building)
+    private static WorldTile Door(Building building) => building.door_tile ?? building.current_tile;
+
+    // 自己规划连路(不依赖原版“20 格以内、路网岛”那几个条件)：从这座建筑门口修到最近一座还没连上同一片路网的建筑
+    private static void PlanRoad(City city, Building building)
     {
-        Building center = city.getBuildingOfType("type_hall", pCountOnlyFinished: true, pRandom: false);
-        if (center == null || center == building) return;
-        WorldTile from = building.door_tile ?? building.current_tile;
-        WorldTile to = center.door_tile ?? center.current_tile;
-        if (from == null || to == null || from == to || from.Type.liquid || !from.isSameIsland(to)) return;
-        // 已经连在同一片路网上就不用修
-        if (from.road_island != null && from.road_island == to.road_island) return;
+        WorldTile from = Door(building);
+        if (from?.Type == null || from.Type.liquid) { StatRoadNoTarget++; return; }
+        Building target = null;
+        int best = MaxRoadReach * MaxRoadReach;
+        foreach (Building other in city.buildings)
+        {
+            if (other == building || other?.asset == null || !other.asset.build_road_to || other.isUnderConstruction()) continue;
+            WorldTile door = Door(other);
+            if (door == null || door.Type == null || door.Type.liquid || !door.isSameIsland(from)) continue;
+            if (from.road_island != null && from.road_island == door.road_island) continue;
+            int dx = door.x - from.x, dy = door.y - from.y, distance = dx * dx + dy * dy;
+            if (distance >= best || distance == 0) continue;
+            best = distance;
+            target = other;
+        }
+        if (target == null) { StatRoadNoTarget++; return; }
+        WorldTile to = Door(target);
         RoadPath.Clear();
         World.world.pathfinding_param.resetParam();
         World.world.pathfinding_param.roads = true;
         World.world.calcPath(from, to, RoadPath);
-        if (RoadPath.Count == 0 || RoadPath.Count > MaxRoadPath) return;
+        if (RoadPath.Count == 0) { StatRoadPathFail++; return; }
+        if (RoadPath.Count > MaxRoadPath) { StatRoadTooLong++; return; }
         var tiles = new List<WorldTile>();
         foreach (WorldTile tile in RoadPath)
         {
-            if (tile?.Type == null || tile.Type.liquid || tile.Type.road || !tile.Type.ground || tile.building != null) continue;
-            // 接上已有路网即可，后面的路已经通了
-            if (tile.road_island != null && tile.road_island == to.road_island) break;
+            if (tile?.Type == null || tile.Type.liquid || tile.Type.road || tile.Type.block || tile.building != null) continue;
             tiles.Add(tile);
         }
+        if (tiles.Count == 0) { StatRoadFiltered++; return; }
         city.addRoads(tiles);
     }
 
@@ -214,9 +232,8 @@ public static class CityConstructionSystem
                 if (building?.asset == null || !building.asset.build_road_to || building.isUnderConstruction()) continue;
                 int before = city.road_tiles_to_build.Count;
                 CityBehBuild.makeRoadsBuildings(city, building);
-                // 原版只连 20 格以内的最近建筑；无小人模式的城建筑稀疏，常常一格都规划不出来，
-                // 这时直接从这座建筑门口修到城市中心(市政厅)
-                if (city.road_tiles_to_build.Count == before) PlanRoadToCenter(city, building);
+                // 原版只连 20 格以内的最近建筑，实测无小人模式下几乎规划不出路；这时自己规划(见 PlanRoad)
+                if (city.road_tiles_to_build.Count == before) PlanRoad(city, building);
                 StatRoadPlans++;
                 StatRoadPlanned += city.road_tiles_to_build.Count - before;
             }
