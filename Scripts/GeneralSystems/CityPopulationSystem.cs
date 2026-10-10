@@ -1096,8 +1096,10 @@ public static class CityPopulationSystem
         float foodPerCapita = households >= 1f ? food / households : ComfortFoodPerCapita;
         float prosperity = Mathf.Clamp01(IdeologyPopulationSystem.CachedEconomy(city).Prosperity);
         float satisfaction = PopulationSettlementRules.FoodSatisfaction(data);
+        // 吃饱率未知(还没扣过整份粮)时：本城有粮食产出就不算饥荒，没有产出才看存粮
         bool famine = households >= 1f && (satisfaction >= 0f
-            ? satisfaction < 0.8f : foodPerCapita < FamineFoodPerCapita);
+            ? satisfaction < 0.8f
+            : foodPerCapita < FamineFoodPerCapita && (data == null || data.last_food_output <= 0f));
         bool war = city.GetOrCreate().OccupiedStatus?.Count > 0;
 
         float foodFactor = Mathf.Clamp(foodPerCapita / ComfortFoodPerCapita, 0f, MaxFoodBirthFactor);

@@ -161,8 +161,17 @@ public static class PopulationEconomySystem
         data.last_jobs = jobs;
         data.last_workforce = workforce;
         data.last_food_output = years > 0f ? food / years : 0f;
-        data.last_food_eaten = years > 0f ? eaten / years : 0f;
-        data.last_food_shortage = years > 0f ? shortage / years : 0f;
+        // 小城每月要吃的不到一份时本期没有整份可扣(eaten、shortage 都是 0)：沿用上次的吃饱记录，
+        // 不清零——否则吃饱率变成“未知”，又按存粮(粮食一入库就被吃掉，常年是 0)误判饥荒，小城只会越来越小
+        // 粮食按整份入库、按整份扣，小城单月会在“吃 1 份”“吃 2 份只有 1 份”之间跳，单看一个月会误判饥荒；
+        // 吃饱记录按月平滑(每月新数据占 30%)，反映最近几个月的实际情况
+        if (eaten + shortage > 0f && years > 0f)
+        {
+            bool first = data.last_food_eaten + data.last_food_shortage <= 0f;
+            float weight = first ? 1f : 1f - Mathf.Pow(0.7f, Mathf.Max(1f, years * 12f));
+            data.last_food_eaten += (eaten / years - data.last_food_eaten) * weight;
+            data.last_food_shortage += (shortage / years - data.last_food_shortage) * weight;
+        }
         PopulationEconomyAccounts.Record(data, years, settledIncome, settledTax, consumption);
     }
 
