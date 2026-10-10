@@ -175,13 +175,14 @@ public static class EmpireCraftWorldLawLibrary
             icon_path = "ui/icons/iconHoused",
             default_state = true
         });
-        // 无小人模式(默认关闭)：普通人口由城市人口数据层承载，只保留名人作为实体单位(见 CityPopulationSystem)
+        // 无小人模式(默认开启)：普通人口由城市人口数据层承载，只保留名人作为实体单位(见 CityPopulationSystem)。
+        // 默认值只用于新世界和不含此法则的旧存档；已存过此法则的存档按存档里的开关读取
         AssetManager.world_laws_library.add(empirecraft_law_no_commoners = new WorldLawAsset()
         {
             id = nameof(empirecraft_law_no_commoners),
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconPopulation",
-            default_state = false
+            default_state = true
         });
         
     }
