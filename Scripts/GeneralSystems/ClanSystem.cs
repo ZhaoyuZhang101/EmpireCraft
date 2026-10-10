@@ -1070,6 +1070,8 @@ public class PersonalClanIdentity
     public string culture = "";
     public string officeName = "";
     public string fullOfficeName = "";
+    // 封国国君身后的谥号(湘文侯)，见 FeudalPosthumousSystem
+    public string posthumous_name = "";
     public string clanName = "";
     public string familyName = "";
     public string factionName = "";

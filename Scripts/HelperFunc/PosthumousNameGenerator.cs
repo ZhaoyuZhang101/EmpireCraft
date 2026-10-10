@@ -137,6 +137,20 @@ namespace EmpireCraft.Scripts.HelperFunc
                 new[] { "孝", "恭", "惠", "顺", "安", "穆", "简", "懿", "成" }, "posthumous_reason_steady");
         }
 
+        // 封国国君的单字谥(见 FeudalPosthumousSystem)：没有帝王那样的在位统计，只看享国年数、享年、
+        // 是否死于非命和封国大小。usedText 为本封国已用过的谥字
+        public static (string shi, string reason) DecideVassal(int years, int age, bool killed, int cities,
+            HashSet<string> usedText)
+        {
+            string Choose(string[] chars) => Pick("rule_shihao_", ShiKeys, chars, usedText);
+            if (age >= 0 && age < 20) return (Choose(new[] { "殇", "冲", "悼" }), "posthumous_reason_young");
+            if (killed) return (Choose(new[] { "烈", "愍", "庄" }), "posthumous_reason_vassal_killed");
+            if (years >= 0 && years < 2) return (Choose(new[] { "悼", "怀" }), "posthumous_reason_short");
+            if (cities >= 6) return (Choose(new[] { "桓", "武", "威" }), "posthumous_reason_vassal_great");
+            if (years >= 30) return (Choose(new[] { "文", "景", "康", "穆", "成" }), "posthumous_reason_prosperous");
+            return (Choose(new[] { "孝", "恭", "惠", "顺", "安", "简", "懿" }), "posthumous_reason_steady");
+        }
+
         // 二世：前一位是同一朝代的开国之君
         private static bool IsSecondOfDynasty(Empire empire, EmpireCraftHistory reign)
         {

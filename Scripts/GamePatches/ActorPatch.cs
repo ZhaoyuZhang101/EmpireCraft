@@ -332,7 +332,11 @@ public class ActorPatch : GamePatch
         if (rulingKingdom != null)
             EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckHeir.PrepareForSuccession(rulingKingdom, __instance.GetPersonalIdentity());
         if (rulingKingdom != null && !rulingKingdom.IsEmpire() && rulingKingdom.IsInEmpire())
+        {
             rulingKingdom.GetOrCreate().last_king_identity_id = __instance.GetPersonalIdentity()?.id ?? -1L;
+            // 封国国君身后定谥(湘文侯)
+            FeudalPosthumousSystem.OnRulerDied(__instance, rulingKingdom, pType);
+        }
         // 共主去世：城邦跟随盟主新君，封建王国按长幼分给子女
         if (rulingKingdom != null) PersonalUnionService.OnRulerDying(__instance);
         rulingKingdom?.SyncRealmTitlesFromRuler(__instance);

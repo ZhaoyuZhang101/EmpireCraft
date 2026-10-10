@@ -327,6 +327,8 @@ public static class KingdomExtension
         public long last_king_identity_id = -1L;
         // 上一任君主的族谱身份(所有王国都记，无小人模式下从虚拟族谱里找继承人用)
         public long last_ruler_identity_id = -1L;
+        // 本封国历代国君已用过的谥字(尽量不重复)
+        public List<string> posthumous_used = new List<string>();
         // 本国士兵数的历史峰值：只有"曾经有过军队、后来打光"的国家才会兵力崩溃、望风归降。
         public int peak_warriors = 0;
         // 共主联盟：城邦共主去世后，入盟城邦跟随盟主城邦(这个 id)的新君主；

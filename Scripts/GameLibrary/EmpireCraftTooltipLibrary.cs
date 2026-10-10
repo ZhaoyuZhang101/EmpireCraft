@@ -871,6 +871,7 @@ public static class EmpireCraftTooltipLibrary
         AddTooltipLine(pTooltip, "empirecraft_actor_titles", GetOwnedTitleNames(actor, identity), "#FFD34E", true);
         AddTooltipLine(pTooltip, "empirecraft_actor_office", GetFullOfficeName(actor, identity), "#76E6C2");
         AddTooltipLine(pTooltip, "empirecraft_actor_peerage", GetPeerageName(actor, identity), "#FFB45C");
+        AddTooltipLine(pTooltip, "empirecraft_actor_posthumous", identity?.posthumous_name, "#E6C27A");
         AddTooltipLine(pTooltip, "empirecraft_actor_faction", actor?.GetFaction()?.Name ?? identity?.factionName, "#E78BFF");
         if (actor != null) AddActorIdeology(pTooltip, actor);
 
