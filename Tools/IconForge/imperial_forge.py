@@ -915,6 +915,9 @@ GODPOWERS = {
     "zone_reserve": (obj_pine, None),
     "plan_policy": (obj_blueprint, None),
     "jimi_policy": (obj_bridle, None),
+    "wealth_layer": (obj_coins, None),
+    "force_vassal": (obj_chain, None),
+    "release_vassal": (obj_broken_chain, None),
 }
 
 

@@ -23,6 +23,7 @@ public static class EmpireCraftMetaTypeLibrary
       AddKingdomTitleMeta();
       AddIdeologyMeta();
       AddNationMeta();
+      AddWealthMeta();
       AddMineralMeta();
       AssetManager.meta_type_library.linkAssets();
     }
@@ -96,6 +97,39 @@ public static class EmpireCraftMetaTypeLibrary
         asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
         EmpireCraft.Scripts.Layer.NationMap.Configure(asset);
         nation = AssetManager.meta_type_library.add(asset);
+    }
+
+    // 财富图层：结构与民族情绪图层一致(见 Layer/WealthMap.cs)
+    public static void AddWealthMeta()
+    {
+        var asset = new MetaTypeAsset
+        {
+            id = "wealth",
+            ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5),
+            window_name = "IdeologyInfoWindow",
+            power_tab_id = "selected_empire",
+            force_zone_when_selected = false,
+            set_icon_for_cancel_button = true,
+            icon_list = "iconReligionList",
+            icon_single_path = "ui/icons/godpowers/wealth_layer",
+            has_dynamic_zones = false,
+            reports = new string[0],
+            map_mode = MetaTypeExtension.Wealth,
+            option_id = "map_Wealth_layer",
+            power_option_zone_id = "Wealth_layer"
+        };
+        asset.window_action_clear = (MetaTypeAction) (() => { });
+        asset.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.get_list = (MetaTypeListAction) (() => Enumerable.Empty<NanoObject>());
+        asset.has_any = (MetaTypeListHasAction) (() => false);
+        asset.get_selected = (MetaSelectedGetter) (() => null);
+        asset.set_selected = (MetaSelectedSetter) (_ => { });
+        asset.get = (MetaGetter) (_ => null);
+        asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
+        asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
+        EmpireCraft.Scripts.Layer.WealthMap.Configure(asset);
+        AssetManager.meta_type_library.add(asset);
     }
 
     public static void AddIdeologyMeta()

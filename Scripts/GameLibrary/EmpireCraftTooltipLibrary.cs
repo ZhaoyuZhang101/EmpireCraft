@@ -124,6 +124,12 @@ public static class EmpireCraftTooltipLibrary
             prefab_id = "tooltips/tooltip_normal",
             callback = EmpireCraft.Scripts.Layer.NationMap.ShowTooltip
         });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = EmpireCraft.Scripts.Layer.WealthMap.TooltipType,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = EmpireCraft.Scripts.Layer.WealthMap.ShowTooltip
+        });
         // 窗口里"理念"一行的提示(见 IdeologyRowPatch)
         AddOrReplace(tl, new TooltipAsset
         {

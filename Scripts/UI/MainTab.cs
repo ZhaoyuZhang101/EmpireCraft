@@ -223,6 +223,13 @@ internal static class MainTab
         AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));
 
+        // 附庸：强制附庸(先点宗主再点目标)与解除附庸
+        VassalPowerButtons.init();
+        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("force_vassal",
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/force_vassal")));
+        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("release_vassal",
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/release_vassal")));
+
         //帝国势力列表
         var empireListButon = PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
             SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_list"));
@@ -273,6 +280,11 @@ internal static class MainTab
         PowerButton nationLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Nation,
                  SpriteTextureLoader.getSprite("ui/icons/iconNationLayer"));
         AddButton(CULTURE_GROUP, nationLayer);
+
+        // 财富图层(红到绿：最穷到最富)
+        PowerButton wealthLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Wealth,
+                 SpriteTextureLoader.getSprite("ui/icons/godpowers/wealth_layer"));
+        AddButton(CULTURE_GROUP, wealthLayer);
 
         // 矿产图层(图标用现成的资源图标)
         PowerButton mineralLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Mineral,

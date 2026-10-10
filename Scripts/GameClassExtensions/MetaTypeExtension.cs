@@ -10,6 +10,8 @@ public static class MetaTypeExtension
     public const MetaType Nation = (MetaType)103;
     // 矿产图层(见 Layer/MineralMap.cs)
     public const MetaType Mineral = (MetaType)104;
+    // 财富图层(见 Layer/WealthMap.cs)
+    public const MetaType Wealth = (MetaType)105;
     
     public static string ToMetaString(this MetaType type)
     {
@@ -25,6 +27,8 @@ public static class MetaTypeExtension
                 return "Nation";
             case (MetaType)104:
                 return "Mineral";
+            case (MetaType)105:
+                return "Wealth";
             default:
                 return type.ToString();
         }
