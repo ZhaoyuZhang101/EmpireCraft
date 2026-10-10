@@ -105,6 +105,7 @@
   "jimi_policy_unavailable": "{0}尚未施行羈縻制度",
   "jimi_policy_not_region": "只能對帝國內的地方政區使用",
   "jimi_frontier_duty": "{0}依羈縻邊防之責，隨{1}出兵",
+  "internal_boundary_fixed": "行政區劃界：{0}與{1}本區不相連，改隸{2}",
   "social_cause_tax": "賦稅過重",
   "social_cause_famine": "多地鬧饑荒",
   "social_cause_landless": "土地兼併、無地者眾",

@@ -103,6 +103,7 @@
   "jimi_policy_unavailable": "{0} has not enacted Jimi Loose Rule",
   "jimi_policy_not_region": "Only regional administrations inside an empire can be planned",
   "jimi_frontier_duty": "{0} sends troops alongside {1} under its frontier duty",
+  "internal_boundary_fixed": "Internal boundaries: {0} was cut off from {1} and now belongs to {2}",
   "social_cause_tax": "crushing taxes",
   "social_cause_famine": "famine in many cities",
   "social_cause_landless": "land concentration and landlessness",
