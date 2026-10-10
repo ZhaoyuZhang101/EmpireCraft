@@ -1114,6 +1114,18 @@ public static class ActorExtension
             return ModClass.EMPIRE_MANAGER.get(GetOrCreate(a).empire_id);
         }
     }
+    public static string HereditaryRealmRank(Actor a)
+    {
+        Kingdom realm = a?.kingdom;
+        if (realm?.data == null || realm.isRekt() || realm.king != a || realm.IsEmpire() || !realm.IsInEmpire() ||
+            realm.IsAdministrativeKingdomType()) return null;
+        // 世袭(含原版默认继承)的才是封国；考选、推举、军功产生的长官不按封国定爵
+        var method = realm.GetRegime()?.GetLeaderSelectMethod();
+        if (method != EmpireCraft.Scripts.Regimes.LeaderSelectMethod.Succession &&
+            method != EmpireCraft.Scripts.Regimes.LeaderSelectMethod.Default) return null;
+        return realm.GetOffice()?.GetName(realm);
+    }
+
     public static bool HasVirtualEnfeoff(this Actor a, Empire empire = null)
     {
         if (a == null || (empire != null && empire.data == null)) return false;
@@ -1837,6 +1849,12 @@ public static class ActorExtension
             return a.GetTitle() + emperorSuffix;
         }
 
+        // 世袭封国的国君：爵位就是封国的等级，以政体给这类封国定的官称为准(周制按宗室与规模定公侯伯子)，
+        // 不再另按功勋等级或虚封爵名(唐制国公)显示，避免"官称湘侯、爵位湘国公"。
+        // 受托管理的道、军等行政区长官没有封国，爵位仍按个人功勋/虚封
+        string realmRank = HereditaryRealmRank(a);
+        if (!string.IsNullOrWhiteSpace(realmRank)) return realmRank;
+
         bool honorary = a.HasHonoraryPeerage();
         string peerageKey = honorary ? data.honorary_peerage_key : data.virtual_enfeoff_peerage_key;
         if (a.HasVirtualEnfeoff() && string.IsNullOrWhiteSpace(peerageKey))
@@ -1862,7 +1880,15 @@ public static class ActorExtension
         {
             prefix = a.GetTitle();
         }
-        if (prefix?.Length == 1 && (suffix == "公" || suffix == "侯")) prefix += "国";
-        return prefix + suffix;
+        return JoinRealmRank(prefix, suffix);
+    }
+
+    // 单字国名接爵称要补“国”：湘国公、湘国侯、湘国伯；王号照旧(湘王)
+    private static readonly HashSet<string> RealmRanks = new() { "公", "侯", "伯", "子", "男" };
+    public static string JoinRealmRank(string prefix, string rank)
+    {
+        prefix ??= "";
+        rank ??= "";
+        return prefix.Length == 1 && RealmRanks.Contains(rank) ? prefix + "国" + rank : prefix + rank;
     }
 }

@@ -125,7 +125,11 @@ public class OfficeObject
                 break;
         }
         string post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType)) ?? "";
-        return flag? post: preX + post;
+        if (flag) return post;
+        // 封国国君的官称：单字国名补“国”(湘国侯)
+        return pNano?.meta_type == MetaType.Kingdom
+            ? EmpireCraft.Scripts.GameClassExtensions.ActorExtension.JoinRealmRank(preX, post)
+            : preX + post;
     }
     public void DetectPower(Empire empire)
     {
