@@ -89,6 +89,20 @@ public static class FeudalVassalService
     public static bool Bind(Kingdom lord, Kingdom subject)
     {
         if (!CanBind(lord, subject) || !subject.hasKing()) return false;
+        return BindCore(lord, subject);
+    }
+
+    // 强制附庸(上帝工具)：无视外交条件、制度与国力门槛，只保留最基本的安全检查
+    public static bool ForceBind(Kingdom lord, Kingdom subject)
+    {
+        if (lord?.data == null || subject?.data == null || lord.isRekt() || subject.isRekt() || lord == subject ||
+            AncientWarfareCompatibility.Owns(lord) || AncientWarfareCompatibility.Owns(subject) ||
+            (subject.king != null && subject.king == lord.king) || IsInChain(lord, subject)) return false;
+        return BindCore(lord, subject);
+    }
+
+    private static bool BindCore(Kingdom lord, Kingdom subject)
+    {
         if (GetOverlord(subject) == lord)
         {
             if (subject.HasTakenAlliance())

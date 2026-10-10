@@ -125,6 +125,16 @@ public static class EmpireCraftQuantumSpriteLibrary
         });
         AssetManager.quantum_sprites.add(new QuantumSpriteAsset
         {
+            id = "vassal_line",
+            id_prefab = "p_mapArrow_line",
+            base_scale = 0.5f,
+            draw_call = DrawVassalLines,
+            render_map = true,
+            render_gameplay = true,
+            color = new Color(1f, 0.75f, 0.3f, 0.9f)
+        });
+        AssetManager.quantum_sprites.add(new QuantumSpriteAsset
+        {
             id = "province_line",
             id_prefab = "p_mapArrow_line",
             base_scale = 0.5f,
@@ -467,6 +477,33 @@ private static void DrawEmpireCraftOccupiedZones(QuantumSpriteAsset pAsset)
 
     }
 
+
+    // 附庸神力的指示线(与 city_line 同一套箭头)：强制附庸已选宗主时画宗主首都到光标；
+    // 两个附庸神力选中期间都画出现有的附庸关系(宗主首都 → 附庸首都)
+    private static void DrawVassalLines(QuantumSpriteAsset pAsset)
+    {
+        if (!InputHelpers.mouseSupported || World.world.isBusyWithUI()) return;
+        bool forcing = World.world.isSelectedPower("force_vassal");
+        if (!forcing && GodPowers.VassalPowerButtons.SelectedLordId > 0)
+            GodPowers.VassalPowerButtons.SelectedLordId = -1L;
+        if (!forcing && !World.world.isSelectedPower("release_vassal")) return;
+        foreach (Kingdom subject in World.world.kingdoms)
+        {
+            if (subject == null || subject.isRekt() || subject.capital == null) continue;
+            Kingdom lord = GeneralSystems.FeudalVassalService.GetOverlord(subject);
+            if (lord == null || lord.isRekt() || lord.capital == null) continue;
+            Color pColor = lord.getColor().getColorMain();
+            QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, lord.capital.getTile().posV,
+                subject.capital.getTile().posV, ref pColor);
+        }
+        Kingdom selected = GodPowers.VassalPowerButtons.SelectedLord();
+        if (forcing && selected?.capital != null)
+        {
+            Color pColor = selected.getColor().getColorMain();
+            QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, selected.capital.getTile().posV,
+                World.world.getMousePos(), ref pColor);
+        }
+    }
 
     private static void DrawProvinceLine(QuantumSpriteAsset pAsset)
     {
