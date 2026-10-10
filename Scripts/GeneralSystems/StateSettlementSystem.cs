@@ -457,7 +457,8 @@ public static class StateSettlementSystem
     private static bool Ready(StateSettlementProject project) => project.started >= 0d &&
         World.world.getCurWorldTime() >= project.started && Date.getMonthsSince(project.started) >=
         (project.spontaneous ? 0 : Math.Max(0, ModClass.SETTLEMENT_PREPARATION_MONTHS)) +
-        (project.overseas ? SettlementSeaSearch.TravelMonths(project.sea_route?.Count ?? 0) : 0);
+        (project.overseas ? SettlementSeaSearch.TravelMonths(project.sea_route?.Count ?? 0,
+            World.world?.cities?.get(project.embarkation_city)) : 0);
 
     private static bool Prepare(Kingdom payer, StateSettlementProject project, City source, TileZone target, out string reason)
     {

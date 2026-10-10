@@ -3091,7 +3091,7 @@
   "tech_printing_desc": "書籍大量印行，知識傳播得更快。",
   "tech_ocean_navigation": "遠洋航海",
   "tech_ocean_navigation_desc": "改進船舶與導航，解鎖超過 64 格實際海上航線的殖民和遷居；近海小島仍只需港口與基礎運輸能力。",
-  "tech_unlock_ocean_settlement": "遠洋殖民與空城遷居（航程隨港口等級提升，最多 192 格）",
+  "tech_unlock_ocean_settlement": "遠洋殖民與空城遷居（航程隨港口等級提升，最多 192 格；工業化後 384 格起、船速三倍，電力或機動化後不限遠近）",
   "tech_gunpowder": "火藥",
   "tech_gunpowder_desc": "硝石、硫磺與木炭按比例混合，一點就炸。",
   "tech_matchlock": "火繩槍",

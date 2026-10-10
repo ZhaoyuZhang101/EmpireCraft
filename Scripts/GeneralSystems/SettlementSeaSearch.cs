@@ -36,7 +36,7 @@ internal sealed class SettlementSeaSearch
             for (SeaNode node = sea; node != null; node = node.parent)
                 project.sea_route.Add(Point(node.tile));
             project.sea_route.Reverse();
-            project.travel_months = TravelMonths(project.sea_route.Count);
+            project.travel_months = TravelMonths(project.sea_route.Count, sea.portCity);
         }
 
         private static Candidate Create(TileZone zone, WorldTile landfall, SeaNode sea) =>
@@ -57,7 +57,14 @@ internal sealed class SettlementSeaSearch
     }
 
     private const int MaxVisitedTiles = 80000;
+    // 近代以后航程很远，海面搜索上限随之放宽(仍按每帧 128 格分帧推进)
+    private const int LongRangeVisitedTiles = 400000;
     internal const int NearSeaRange = 64;
+    // 工业化(蒸汽船)后可跨大洋，电力/机动化后不限远近
+    internal const string IndustrialNavigationTech = "industrialization";
+    private const int IndustrialSeaRange = 384;
+    private const int UnlimitedSeaRange = 100000;
+    private int maxVisited = MaxVisitedTiles;
     internal const string OceanNavigationTech = "ocean_navigation";
     private readonly Queue<SeaNode> seaQueue = new();
     private readonly Queue<Landing> landQueue = new();
@@ -84,6 +91,7 @@ internal sealed class SettlementSeaSearch
             unavailable = "land";
             int range = Range(city, port);
             oceanAvailable |= range > NearSeaRange;
+            if (range > IndustrialSeaRange / 2) maxVisited = LongRangeVisitedTiles;
             foreach (WorldTile tile in port.component_docks.tiles_ocean)
                 if (Navigable(tile) && Visit(tile, range))
                     seaQueue.Enqueue(new SeaNode { tile = tile, portCity = city, range = range });
@@ -118,7 +126,7 @@ internal sealed class SettlementSeaSearch
 
     private bool Visit(WorldTile tile, int remaining)
     {
-        if (seaSeen.TryGetValue(tile, out int previous) ? remaining <= previous : seaSeen.Count >= MaxVisitedTiles)
+        if (seaSeen.TryGetValue(tile, out int previous) ? remaining <= previous : seaSeen.Count >= maxVisited)
             return false;
         seaSeen[tile] = remaining;
         return true;
@@ -168,9 +176,28 @@ internal sealed class SettlementSeaSearch
     // 近海小岛沿用基础运输能力；远洋必须确实完成研究，不能用旧档引导期的 CanUse 放行。
     private static bool HasOceanNavigation(City city) =>
         TechnologySystem.HasTech(TechnologySystem.GetCultureOf(city), OceanNavigationTech);
-    private static int Range(City city, Building port) => HasOceanNavigation(city)
-        ? 96 + Math.Min(3, Math.Max(0, port.asset.upgrade_level)) * 32 : NearSeaRange;
-    internal static int TravelMonths(int routeLength) => Math.Max(1, (routeLength + 31) / 32);
+    // 航程：近海 64 格；远洋航海 96 + 港口等级×32(≤192)；工业化 384 + 港口等级×64；电力或机动化后不限
+    private static int Range(City city, Building port)
+    {
+        string culture = TechnologySystem.GetCultureOf(city);
+        int level = Math.Min(3, Math.Max(0, port.asset.upgrade_level));
+        if (TechnologySystem.HasTech(culture, "electricity") || TechnologySystem.HasTech(culture, "motorization"))
+            return UnlimitedSeaRange;
+        if (TechnologySystem.HasTech(culture, IndustrialNavigationTech)) return IndustrialSeaRange + level * 64;
+        return HasOceanNavigation(city) ? 96 + level * 32 : NearSeaRange;
+    }
+    // 航行月数：帆船每月 32 格，工业化(蒸汽船)96 格，电力/机动化 192 格；不知道出发港时按帆船算
+    internal static int TravelMonths(int routeLength, City port = null)
+    {
+        int speed = 32;
+        string culture = port == null ? null : TechnologySystem.GetCultureOf(port);
+        if (culture != null)
+        {
+            if (TechnologySystem.HasTech(culture, "electricity") || TechnologySystem.HasTech(culture, "motorization")) speed = 192;
+            else if (TechnologySystem.HasTech(culture, IndustrialNavigationTech)) speed = 96;
+        }
+        return Math.Max(1, (routeLength + speed - 1) / speed);
+    }
     internal static int TransportGold(StateSettlementProject project) => project.overseas && !project.spontaneous
         ? 50 + (project.sea_route.Count + 7) / 8 * 5 : 0;
 

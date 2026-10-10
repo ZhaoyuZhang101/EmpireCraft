@@ -214,7 +214,7 @@ internal static class CityResettlementSystem
             }
             if (!target.getTile().isSameIsland(shore) || !target.getTile().reachableFrom(shore))
             { Cancel(payer, state, "resettlement_unreachable"); return; }
-            if (Date.getMonthsSince(plan.journey.started) < SettlementSeaSearch.TravelMonths(plan.journey.sea_route.Count))
+            if (Date.getMonthsSince(plan.journey.started) < SettlementSeaSearch.TravelMonths(plan.journey.sea_route.Count, source))
             { state.status = "resettlement_sailing"; return; }
         }
         else if (!source.getTile().isSameIsland(target.getTile()) || !target.getTile().reachableFrom(source.getTile()) ||

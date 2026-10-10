@@ -3091,7 +3091,7 @@
   "tech_printing_desc": "Mass-printed books spread knowledge far faster.",
   "tech_ocean_navigation": "Ocean Navigation",
   "tech_ocean_navigation_desc": "Improved ships and navigation allow colonization and migration along sea routes longer than 64 tiles. Nearby islands still only need a port and basic transport capability.",
-  "tech_unlock_ocean_settlement": "Ocean colonies and resettlement (port upgrades extend routes up to 192 tiles)",
+  "tech_unlock_ocean_settlement": "Ocean colonies and resettlement (port upgrades extend routes up to 192 tiles; from 384 tiles at triple speed after Industrialization, unlimited after Electricity or Motorization)",
   "tech_gunpowder": "Gunpowder",
   "tech_gunpowder_desc": "Saltpeter, sulfur and charcoal mixed in proportion, explosive at a spark.",
   "tech_matchlock": "Matchlock Firearms",
