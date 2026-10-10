@@ -1264,7 +1264,8 @@ public static class TerritoryLabelRenderer
         // A gap is usable only when it is a tiny, closed neutral pocket. City-owned enclaves always reject it.
         private bool IsSmallNeutralGap(int startX, int startY, HashSet<int> zoneIds)
         {
-            const int maxGapTiles = 20;
+            // 两三个区块大小的无主缺口也允许文字跨过(连通判断同样桥接，见 FindLargestConnectedComponent)
+            const int maxGapTiles = 160;
             int startKey = GetTileKey(startX, startY);
             if (_small_gap_cache.TryGetValue(startKey, out bool cached)) return cached;
 
@@ -1649,29 +1650,49 @@ public static class TerritoryLabelRenderer
         }
     }
 
+    // 国土中间的无主空地(没有任何城市的区块)不该把领土切成两块：连通判断允许跨过最多
+    // MaxNeutralBridgeZones 个无主区块把两侧桥接起来；第三方国家的区块一律不能跨。
+    private const int MaxNeutralBridgeZones = 2;
+
     private static void FindLargestConnectedComponent(List<TileZone> zones, HashSet<int> zoneIds,
         List<TileZone> walk, List<TileZone> largest, HashSet<int> visited, Queue<TileZone> queue)
     {
         largest.Clear();
         visited.Clear();
         queue.Clear();
+        var bridgeQueue = new Queue<(TileZone zone, int gap)>();
+        var bridgeBest = new Dictionary<int, int>();
         for (int i = 0; i < zones.Count; i++)
         {
             TileZone start = zones[i];
             if (!visited.Add(start.id)) continue;
             walk.Clear();
-            queue.Enqueue(start);
-            while (queue.Count > 0)
+            bridgeQueue.Clear();
+            bridgeBest.Clear();
+            bridgeQueue.Enqueue((start, 0));
+            while (bridgeQueue.Count > 0)
             {
-                TileZone zone = queue.Dequeue();
-                walk.Add(zone);
+                (TileZone zone, int gap) = bridgeQueue.Dequeue();
+                bool friendly = zoneIds.Contains(zone.id);
+                if (friendly) walk.Add(zone);
                 TileZone[] neighbours = zone.neighbours;
                 if (neighbours == null) continue;
                 for (int n = 0; n < neighbours.Length; n++)
                 {
                     TileZone neighbour = neighbours[n];
-                    if (neighbour == null || !zoneIds.Contains(neighbour.id) || !visited.Add(neighbour.id)) continue;
-                    queue.Enqueue(neighbour);
+                    if (neighbour == null) continue;
+                    if (zoneIds.Contains(neighbour.id))
+                    {
+                        if (visited.Add(neighbour.id)) bridgeQueue.Enqueue((neighbour, 0));
+                        continue;
+                    }
+                    // 只有无国籍空地可以当桥；别国领土(含中立部落的城)不能跨
+                    if (neighbour.city != null) continue;
+                    int nextGap = (friendly ? 0 : gap) + 1;
+                    if (nextGap > MaxNeutralBridgeZones) continue;
+                    if (bridgeBest.TryGetValue(neighbour.id, out int best) && best <= nextGap) continue;
+                    bridgeBest[neighbour.id] = nextGap;
+                    bridgeQueue.Enqueue((neighbour, nextGap));
                 }
             }
             if (walk.Count <= largest.Count) continue;
