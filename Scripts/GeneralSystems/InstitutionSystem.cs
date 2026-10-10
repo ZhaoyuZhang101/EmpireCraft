@@ -412,8 +412,10 @@ public static class InstitutionSystem
 
     public static string GetPrimaryCulture(Empire empire)
     {
+        // 制度按国家绑定的文化走：征服王朝采用当地制度后，制度树跟随制度文化(而不是统治族群的文化)，
+        // 否则会按统治族群的科技线把政体改回去(如阿拉伯王朝治下的华夏帝国显示哈里发)
         string culture = CompositeEmpireService.IsComposite(empire)
-            ? CompositeEmpireService.GetRulingCulture(empire)
+            ? CompositeEmpireService.GetInstitutionalCulture(empire)
             : CultureService.GetEmpireDefaultCulture(empire);
         return CultureService.IsValidCulture(culture)
             ? culture
@@ -772,7 +774,9 @@ public static class InstitutionSystem
         if (!state.applied_node_ids.Contains(node.id)) state.applied_node_ids.Add(node.id);
         // 节点自己声明了政体形态的（比如郡县官僚 = 律令制、封建化 = 封建制），施行完成就顺势
         // 完成政体变更，不必再额外配一个 change_regime 效果 —— 两处配置也就不会互相矛盾。
-        if (InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType declaredRegime) &&
+        // 只认本文化科技线上的节点；吸收来的外线节点不改政体
+        if (IsSameLine(node.line, culture.GetInstitutionLine()) &&
+            InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType declaredRegime) &&
             empire.CoreKingdom?.GetRegime()?.type != declaredRegime)
         {
             ChangeRegime(empire, declaredRegime);

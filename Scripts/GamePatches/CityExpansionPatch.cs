@@ -30,10 +30,26 @@ public class CityExpansionPatch : GamePatch
             __result = false;
     }
 
-    public static void AfterIsZoneToClaimStillGood(City __instance, ref bool __result)
+    public static void AfterIsZoneToClaimStillGood(City __instance, TileZone pZone, ref bool __result)
     {
         // 到达目标前再次核对，防止多个扩张者和 expansionists 连续领取越过上限。
         AfterCanGrowZones(__instance, ref __result);
+        // 不跨山越水：大半是山地、水面的区块不领
+        if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) && !Passable(pZone)) __result = false;
+    }
+
+    // 区块里至少三成是可住的平地(非山、非水、非障碍)才算能扩张进去
+    public static bool Passable(TileZone zone)
+    {
+        if (zone?.tiles == null) return false;
+        int usable = 0, total = 0;
+        foreach (WorldTile tile in zone.tiles)
+        {
+            if (tile?.Type == null) continue;
+            total++;
+            if (tile.Type.ground && !tile.Type.mountains && !tile.Type.block && !tile.Type.liquid) usable++;
+        }
+        return total == 0 || usable * 10 >= total * 3;
     }
 
     public static bool BeforeGetZoneToClaim(City pCity, bool pDebug, ref TileZone __result)
@@ -56,7 +72,7 @@ public class CityExpansionPatch : GamePatch
         {
             TileZone candidate = connection.zone;
             if (candidate == null || candidate.city != null || candidate.tiles_with_ground == 0 ||
-                !candidate.canBeClaimedByCity(pCity) ||
+                !candidate.canBeClaimedByCity(pCity) || !Passable(candidate) ||
                 (pActor?.subspecies != null && !candidate.checkCanSettleInThisBiomes(pActor.subspecies))) continue;
             bool adjacent = false;
             foreach (TileZone neighbour in candidate.neighbours)
@@ -74,7 +90,7 @@ public class CityExpansionPatch : GamePatch
         // 波搜索可能提早停在第一个空区，再尝试原版完整的边界邻接检查。
         TileZone fallback = __instance.getRandomZone(pCity);
         if (fallback?.city == null && fallback?.centerTile != null &&
-            fallback.centerTile.isSameIsland(origin) &&
+            fallback.centerTile.isSameIsland(origin) && Passable(fallback) &&
             (pActor?.subspecies == null || fallback.checkCanSettleInThisBiomes(pActor.subspecies)))
             __result = fallback;
     }

@@ -164,6 +164,33 @@ public static class CityConstructionSystem
         return text;
     }
     private const int RoadPlansPerMonth = 3;
+    private const int MaxRoadPath = 80;
+    private static readonly List<WorldTile> RoadPath = new();
+
+    private static void PlanRoadToCenter(City city, Building building)
+    {
+        Building center = city.getBuildingOfType("type_hall", pCountOnlyFinished: true, pRandom: false);
+        if (center == null || center == building) return;
+        WorldTile from = building.door_tile ?? building.current_tile;
+        WorldTile to = center.door_tile ?? center.current_tile;
+        if (from == null || to == null || from == to || from.Type.liquid || !from.isSameIsland(to)) return;
+        // 已经连在同一片路网上就不用修
+        if (from.road_island != null && from.road_island == to.road_island) return;
+        RoadPath.Clear();
+        World.world.pathfinding_param.resetParam();
+        World.world.pathfinding_param.roads = true;
+        World.world.calcPath(from, to, RoadPath);
+        if (RoadPath.Count == 0 || RoadPath.Count > MaxRoadPath) return;
+        var tiles = new List<WorldTile>();
+        foreach (WorldTile tile in RoadPath)
+        {
+            if (tile?.Type == null || tile.Type.liquid || tile.Type.road || !tile.Type.ground || tile.building != null) continue;
+            // 接上已有路网即可，后面的路已经通了
+            if (tile.road_island != null && tile.road_island == to.road_island) break;
+            tiles.Add(tile);
+        }
+        city.addRoads(tiles);
+    }
 
     private static void BuildRoads(City city, float rate)
     {
@@ -176,6 +203,9 @@ public static class CityConstructionSystem
                 if (building?.asset == null || !building.asset.build_road_to || building.isUnderConstruction()) continue;
                 int before = city.road_tiles_to_build.Count;
                 CityBehBuild.makeRoadsBuildings(city, building);
+                // 原版只连 20 格以内的最近建筑；无小人模式的城建筑稀疏，常常一格都规划不出来，
+                // 这时直接从这座建筑门口修到城市中心(市政厅)
+                if (city.road_tiles_to_build.Count == before) PlanRoadToCenter(city, building);
                 StatRoadPlans++;
                 StatRoadPlanned += city.road_tiles_to_build.Count - before;
             }
