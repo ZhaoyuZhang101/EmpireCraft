@@ -252,10 +252,10 @@ public static class MineralResourceSystem
             city.takeResource("coal", Mathf.Min(useCoal, coal));
             city.takeResource("common_metals", Mathf.Min(useMetal, metal));
         }
-        // 收入只算炼钢增加的价值
+        // 收入只算炼钢增加的价值(先记成品，再扣原料，工业税基才不会被扣成负数后归零)
+        PopulationEconomySystem.Deposit(city, data, "common_metals", mills * SteelMetalOutPerYear * years * share);
         PopulationEconomySystem.ConsumeInputs(city, data, "coal", Mathf.Min(useCoal, coal));
         PopulationEconomySystem.ConsumeInputs(city, data, "common_metals", Mathf.Min(useMetal, metal));
-        PopulationEconomySystem.Deposit(city, data, "common_metals", mills * SteelMetalOutPerYear * years * share);
     }
 
     public static void Produce(City city, CityPopulationData data, float years)

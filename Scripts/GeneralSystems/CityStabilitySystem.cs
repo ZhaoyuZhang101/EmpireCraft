@@ -166,6 +166,8 @@ public static class CityStabilitySystem
         var extra = city.GetOrCreate();
         var state = extra.stability;
         if (state != null && state.owner_id == city.kingdom.id) return state;
+        // 旧政权的欠款不随城市转给新主人，也不凭空消失
+        if (state != null) CityAssetSettlement.ReturnArrearsToDebtor(city, state);
         GuardCounts.Remove(city);
         RecruitCursors.Remove(city);
         float natural = Natural(city, out string detail);

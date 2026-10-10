@@ -2242,6 +2242,7 @@ public static class CityPopulationSystem
         if (!AbstractPopulationEnabled || from == null || to == null || from == to || share <= 0f) return 0f;
         CityPopulationData data = Get(from);
         if (data?.groups == null) return 0f;
+        float totalBefore = GetBackgroundTotal(from);
         var moves = new List<(PopGroup group, float amount)>();
         foreach (PopGroup group in data.groups)
         {
@@ -2256,6 +2257,7 @@ public static class CityPopulationSystem
             AddBackground(to, group.social_class, group.culture, group.species, group.ideology, removed);
             moved += removed;
         }
+        CityAssetSettlement.MoveSavingsWithMigrants(from, to, moved, totalBefore);
         return moved;
     }
 
@@ -2280,6 +2282,7 @@ public static class CityPopulationSystem
         if (source?.groups == null || destination == null || total <= 0f) return 0f;
         PopulationParallelSystem.Discard(from);
         PopulationParallelSystem.Discard(to);
+        float totalBefore = GetBackgroundTotal(from);
         float share = Mathf.Min(1f, amount / total);
         float moved = 0f;
         foreach (PopGroup group in source.groups)
@@ -2290,6 +2293,7 @@ public static class CityPopulationSystem
             AddBackground(to, group.social_class, group.culture, group.species, group.ideology, removed);
             moved += removed;
         }
+        CityAssetSettlement.MoveSavingsWithMigrants(from, to, moved, totalBefore);
         InvalidateHouseholdCaches();
         return moved;
     }

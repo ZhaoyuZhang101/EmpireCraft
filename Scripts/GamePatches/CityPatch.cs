@@ -1771,6 +1771,7 @@ public class CityPatch : GamePatch
         {
             __instance.GetTitle().removeCity(__instance);
         }
+        EmpireCraft.Scripts.GeneralSystems.CityAssetSettlement.OnCityDestroyed(__instance);
     }
     public static void removeData(City __instance)
     {

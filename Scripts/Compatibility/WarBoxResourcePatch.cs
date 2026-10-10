@@ -207,7 +207,8 @@ public class WarBoxResourcePatch : GamePatch
     public static bool BeforeStartPaidPlot(object[] __args, ref bool __result)
     {
         if (__args == null || __args.Length < 1 || __args[0] is not Actor actor || actor.kingdom == null) return true;
-        if (!TakeKingdomUranium(actor.kingdom, UraniumPerStrike))
+        // 这里只检查够不够；立项成功后才扣(扣料会由城市国库按价付钱，失败再退铀就退不回钱)
+        if (KingdomUranium(actor.kingdom) < UraniumPerStrike)
         {
             if (__args.Length >= 6) __args[5] = "insufficient_uranium";
             WorldTip.showNow(string.Format(LM.Get("nuclear_no_uranium"), UraniumPerStrike), false, "top", 3f);
@@ -222,8 +223,7 @@ public class WarBoxResourcePatch : GamePatch
     {
         if (__args == null || __args.Length < 1 || __args[0] is not Actor actor) return;
         bool paid = Paid.Remove(actor.getID());
-        // 立项失败：铀退回首都
-        if (!__result && paid && actor.kingdom?.capital != null)
-            actor.kingdom.capital.addResourcesToRandomStockpile("uranium", UraniumPerStrike);
+        if (__result && paid && actor.kingdom != null)
+            TakeKingdomUranium(actor.kingdom, UraniumPerStrike);
     }
 }
