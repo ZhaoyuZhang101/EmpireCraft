@@ -230,6 +230,9 @@ public class CityWindowPatch : GamePatch
                     EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.private_savings),
                     EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_consumption)), "#E6D36A",
                 pIconPath: "iconMoney");
+        if (EnterpriseSystem.Cash(data) > 0L)
+            window.showStatRow("city_pop_cash", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(EnterpriseSystem.Cash(data)),
+                "#E6D36A", pIconPath: "iconMoney");
         window.showStatRow("city_pop_tax", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_tax_income), "#43FF43",
             pIconPath: "iconMoney");
         // 民间投资、官营产业、俸饷回流各占一行，值保持简短，避免盖住左边的标题

@@ -262,6 +262,9 @@ public static class PopulationEconomySystem
         double baseRate = city.kingdom.GetTaxRate();
         float remaining = income, due = 0f;
         long wholeTotal = 0;
+        // 税先从民间现金里交(每月最多现金盈余的一半)，不够的部分才按产值估值折算(旧模型)；
+        // 用现金交的部分不再从民间资产估值里扣，总家底变化不变
+        long taxCash = EnterpriseSystem.TaxableCash(city, data), paidFromCash = 0L;
         foreach (TreasuryCategory category in new[] { TreasuryCategory.LandTax, TreasuryCategory.IndustrialTax, TreasuryCategory.ResidentTax })
         {
             string key = category.ToString();
@@ -273,13 +276,18 @@ public static class PopulationEconomySystem
             if (category == TreasuryCategory.ResidentTax) { carry += data.tax_carry; data.tax_carry = 0f; }
             int whole = SectorTaxRules.Assess(basis, baseRate, category, ref carry);
             data.sector_tax_carry[key] = carry;
-            if (whole > 0) TreasurySystem.CollectResidentTax(city, whole, category);
+            if (whole > 0)
+            {
+                long fromCash = EnterpriseSystem.TakeCash(data, Math.Min(whole, taxCash - paidFromCash));
+                paidFromCash += fromCash;
+                TreasurySystem.CollectResidentTax(city, whole, category);
+            }
             wholeTotal += whole;
         }
         data.produced_sector_values.Clear();
         data.last_tax_income = years > 0f ? wholeTotal / years : 0f;
-        // 税后收入进民间存款；超过储备的部分转入民间投资池
-        AddSavings(city, data, income - due);
+        // 税后收入进民间存款(用现金交的税不再从估值里扣)；超过储备的部分转入民间投资池
+        AddSavings(city, data, income - due + paidFromCash);
         EnterpriseSystem.AccrueInvestment(city, data, years);
         EnterpriseSystem.RollPeriod(data, years);
     }
@@ -370,7 +378,12 @@ public static class PopulationEconomySystem
         if (fromPeople <= 0) return;
         float value = fromPeople * UnitValue(city, resource);
         int pay = Mathf.Min(Mathf.CeilToInt(value), Mathf.Max(0, city.GetMoney()));
-        if (pay > 0) city.SubMoney(pay, TreasuryCategory.Construction);
+        if (pay > 0)
+        {
+            city.SubMoney(pay, TreasuryCategory.Construction);
+            // 付给百姓的是真钱：进民间现金，货物的估值从民间资产里转出(见 EnterpriseSystem)
+            EnterpriseSystem.PublicPurchase(city, data, pay);
+        }
         data.public_paid += pay;
         float unpaid = Mathf.Max(0f, value - pay);
         if (unpaid > 0f)
