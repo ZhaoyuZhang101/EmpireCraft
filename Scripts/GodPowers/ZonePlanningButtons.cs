@@ -37,6 +37,17 @@ public static class ZonePlanningButtons
             name = "plan_policy",
             click_action = CyclePolicy
         });
+        // 羁縻规划：点帝国内的地方政区，在 自动 → 羁縻 → 直辖 之间切换
+        AssetManager.powers.add(new GodPower
+        {
+            id = "jimi_policy",
+            name = "jimi_policy",
+            click_action = (tile, power) =>
+            {
+                WorldTip.showNow(JimiSystem.Cycle(tile?.zone?.city?.kingdom), false, "top", 3f);
+                return true;
+            }
+        });
     }
 
     private static bool Toggle(WorldTile pTile, ZoneUse use)

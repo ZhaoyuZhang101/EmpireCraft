@@ -382,6 +382,8 @@ public static class KingdomExtension
         //上一次加入朝贡国的时间
         public double last_taken_alliance_timestamp = -1L;
         public double last_kingdom_status_ts = -1L;
+        // 羁縻规划(见 JimiSystem)：0 自动(按文化/种族) 1 羁縻 2 直辖
+        public int jimi_mode;
         public double last_tf_check_ts = -1L;
         public double last_plots_check_ts = -1L;
         public double last_cabinet_check_ts = -1L;
@@ -1316,6 +1318,8 @@ public static class KingdomExtension
         return false;
     }
 
+    private const int TributarySwitchYears = 20;
+
     public static void JoinTakenAlliance(this Kingdom k, Empire empire, bool pForce = false)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(k) ||
@@ -1341,6 +1345,10 @@ public static class KingdomExtension
         Empire previousEmpire = k.GetTakenAllianceEmpire();
         bool alreadyJoined = previousEmpire == empire && (empire.taken_Kingdoms?.Contains(k) ?? false);
         if (alreadyJoined) return;
+        // 不能随意改投：自愿改换宗主须在原宗主处满二十年(战争迫使不受限)
+        double since = k.GetOrCreate().last_taken_alliance_timestamp;
+        if (!pForce && previousEmpire != null && previousEmpire != empire && since >= 0d &&
+            Date.getYearsSince(since) < TributarySwitchYears) return;
         if (previousEmpire != null && previousEmpire != empire)
         {
             k.RemoveTakenAlliance();
@@ -1354,8 +1362,9 @@ public static class KingdomExtension
         {
             empire.taken_Kingdoms.Add(k);
             // Tributary status is diplomatic, not an annexation. Keeping the native color avoids
-            // scattered imperial-colored enclaves on the normal kingdom map.
+            // scattered imperial-colored enclaves on the normal kingdom map; only the border takes the suzerain's color.
             k.RestoreOriginalKingdomColor();
+            if (empire.CoreKingdom != null) VassalColorService.Apply(k, empire.CoreKingdom);
         }
         empire.RecordHistory(EmpireHistoryType.join_taken_alliance_history, new Dictionary<string, string>
         {

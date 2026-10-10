@@ -442,7 +442,7 @@
           "select_from_local": false,
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"],
-          "condition": ["allow_diplomacy:true", "succession:false","empire_center:false","culture_mismatch:false"],
+          "condition": ["allow_diplomacy:true", "succession:false","empire_center:false","jimi_region:false"],
           "city_type": "LvLing_city"
         },
         "LvLing_duhufu":{
@@ -456,7 +456,7 @@
           "select_from_local": false,
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"],
-          "condition": ["allow_diplomacy:true", "succession:false","empire_center:false","culture_mismatch:true"],
+          "condition": ["allow_diplomacy:true", "succession:false","empire_center:false","jimi_region:true"],
           "city_type": "LvLing_jimizhou"
         },
         "LvLing_province":{
@@ -470,7 +470,7 @@
           "select_from_local": false,
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"],
-          "condition": ["allow_diplomacy:false", "succession:false","empire_center:false"],
+          "condition": ["allow_diplomacy:false", "succession:false","empire_center:false","jimi_region:false"],
           "city_type": "LvLing_city"
         },
         "LvLing_jimizhou":{
@@ -484,7 +484,7 @@
           "select_from_local": true,
           "leader_select_method": "Exam",
           "require_traits": [],
-          "condition": ["another_race:true","empire_center:false"],
+          "condition": ["jimi_region:true","empire_center:false"],
           "city_type": "LvLing_jimizhou"
         }
       },

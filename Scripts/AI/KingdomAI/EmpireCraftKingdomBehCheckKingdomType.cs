@@ -31,6 +31,7 @@ public enum ConditionType
     culture_mismatch,
     empire_institution,
     empire_feature,
+    jimi_region,
     None
 }
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
@@ -208,6 +209,13 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                         ? parsed
                         : float.Epsilon;
                     if (InstitutionSystem.GetFeature(empire, featureParts[0]) < minimum) return false;
+                    break;
+                }
+                case ConditionType.jimi_region:
+                {
+                    // 羁縻地区：施行羁縻制度后，按国家的羁縻规划(自动按文化/种族)判定，见 JimiSystem
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    if (JimiSystem.IsJimiRegion(kingdom, empire) != expect) return false;
                     break;
                 }
                 default:

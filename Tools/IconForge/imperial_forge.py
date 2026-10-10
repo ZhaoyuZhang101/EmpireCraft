@@ -890,6 +890,15 @@ def obj_blueprint(img):
     over(img, shade(ellipse([136, 26, 164, 54]), BRASS, bevel=6, gloss=1.0))
 
 
+def obj_bridle(img):
+    """羁縻：皮革笼头一圈，两只旧铜环，衔铁一横，骨白缰绳垂下(羁为马络头、縻为牛缰)。"""
+    over(img, shade(sub(ellipse([52, 14, 172, 150]), ellipse([76, 38, 148, 126])), LACQ, bevel=10, grain=0.4))
+    over(img, shade(lines([[(52, 132), (172, 132)]], 18), STEEL, bevel=6, gloss=1.0))
+    for x0 in (14, 154):
+        over(img, shade(sub(ellipse([x0, 100, x0 + 64, 164]), ellipse([x0 + 18, 118, x0 + 46, 146])), BRASS, bevel=7, gloss=1.0))
+    over(img, shade(lines([[(204, 160), (214, 196), (190, 220), (220, 246)]], 12), BONE, bevel=4, grain=0.3))
+
+
 GODPOWERS = {
     "empire_layer": (obj_title, "crown"),
     "create_empire": (obj_crown, "plus"),
@@ -905,6 +914,7 @@ GODPOWERS = {
     "zone_military": (obj_tower, None),
     "zone_reserve": (obj_pine, None),
     "plan_policy": (obj_blueprint, None),
+    "jimi_policy": (obj_bridle, None),
 }
 
 

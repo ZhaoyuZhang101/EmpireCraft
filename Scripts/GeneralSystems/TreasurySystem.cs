@@ -121,6 +121,8 @@ public static class TreasurySystem
         int centralPercent;
         if (type == RegimeType.Modern || type == RegimeType.Republic || territory.HasValue)
             centralPercent = territory == ConstitutionTerritory.Federal ? 35 : 60;
+        else if (JimiSystem.IsJimiAdministration(local))
+            centralPercent = JimiSystem.CentralTaxPercent;
         else
         {
             var regime = local.GetRegime();

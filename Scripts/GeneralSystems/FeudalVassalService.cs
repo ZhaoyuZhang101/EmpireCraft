@@ -50,6 +50,18 @@ public static class FeudalVassalService
         return false;
     }
 
+    private const int MaxDepth = 3;
+
+    // 上面还有几层宗主
+    public static int Depth(Kingdom kingdom)
+    {
+        var visited = new HashSet<long>();
+        int depth = 0;
+        for (Kingdom current = GetOverlord(kingdom); current != null && visited.Add(current.id); current = GetOverlord(current))
+            depth++;
+        return depth;
+    }
+
     private static Kingdom GetFeudalRoot(Kingdom kingdom)
     {
         var visited = new HashSet<long>();
@@ -66,6 +78,8 @@ public static class FeudalVassalService
             (subject.IsEmpire() && subject.GetRegime()?.type != RegimeType.Modern) ||
             (subject.king != null && subject.king == lord.king) ||
             (lord.GetOrCreate().feudal_vassal_level >= 3 && GetOverlord(lord) != null) ||
+            // 附庸层级最多三层(宗主 → 附庸 → 陪臣)：陪臣不能再收附庸
+            Depth(lord) >= MaxDepth - 1 ||
             IsInChain(lord, subject)) return false;
         if (IsPostMonarchy(lord)) return true;
         string culture = CultureService.GetRealmCulture(lord);
@@ -80,7 +94,7 @@ public static class FeudalVassalService
             if (subject.HasTakenAlliance())
             {
                 subject.RemoveTakenAlliance();
-                subject.updateColor(lord.getColor());
+                VassalColorService.Apply(subject, lord);
                 SyncColors(subject);
             }
             return true;
@@ -98,7 +112,7 @@ public static class FeudalVassalService
         data.feudal_last_control_timestamp = -1d;
         if (subject.hasAlliance() && lord.hasAlliance() && subject.getAlliance() == lord.getAlliance())
             subject.getAlliance().leave(subject);
-        subject.updateColor(lord.getColor());
+        VassalColorService.Apply(subject, lord);
         SyncColors(subject);
         return true;
     }
@@ -115,8 +129,12 @@ public static class FeudalVassalService
         data.feudal_vassal_level = 0;
         data.feudal_vassal_progress = 0;
         data.feudal_last_control_timestamp = -1d;
-        KingdomColorService.Restore(subject, restoreOriginalColor ? independentColorId : -1, formerColor,
-            useOriginalColor: restoreOriginalColor);
+        VassalColorService.Clear(subject);
+        // 旧版把附庸整个染成宗主色的，独立时要换一个颜色；新版附庸本来就是自己的底色，原样保留
+        bool legacyRecolored = formerOverlord != null && subject.data.color_id == formerOverlord.data.color_id;
+        if (restoreOriginalColor || legacyRecolored)
+            KingdomColorService.Restore(subject, restoreOriginalColor ? independentColorId : -1, formerColor,
+                useOriginalColor: restoreOriginalColor);
         data.feudal_independent_color_id = -1;
         SyncColors(subject);
         Empire ownEmpire = subject.GetEmpire();
@@ -127,7 +145,13 @@ public static class FeudalVassalService
     public static void Sync(Kingdom subject)
     {
         if (subject?.data == null || subject.isRekt()) return;
-        if (subject.GetOrCreate().feudal_overlord_kingdom_id < 0) return;
+        if (subject.GetOrCreate().feudal_overlord_kingdom_id < 0)
+        {
+            Kingdom suzerain = subject.HasTakenAlliance() ? subject.GetTakenAllianceEmpire()?.CoreKingdom : null;
+            if (suzerain != null) VassalColorService.Apply(subject, suzerain);
+            else VassalColorService.Clear(subject);
+            return;
+        }
         Kingdom lord = GetOverlord(subject);
         if (!CanHoldVassals(lord) ||
             !RealmDiplomacySystem.CanChooseOverlord(subject) ||
@@ -142,7 +166,7 @@ public static class FeudalVassalService
             return;
         }
         if (subject.HasTakenAlliance()) subject.RemoveTakenAlliance();
-        if (subject.getColor() != lord.getColor()) subject.updateColor(lord.getColor());
+        VassalColorService.Apply(subject, lord);
         if (subject.GetOrCreate().feudal_vassal_level >= 3 && subject.hasAlliance())
             subject.getAlliance().leave(subject);
     }
@@ -157,7 +181,7 @@ public static class FeudalVassalService
         if (lord == null || !visited.Add(lord.id)) return;
         foreach (Kingdom child in GetDirectVassals(lord).ToList())
         {
-            child.updateColor(lord.getColor());
+            VassalColorService.Apply(child, lord);
             SyncColors(child, visited);
         }
     }

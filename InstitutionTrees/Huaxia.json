@@ -462,6 +462,49 @@
       ]
     },
     {
+      "id": "huaxia_jimi_system",
+      "name_key": "institution_huaxia_jimi_system",
+      "description_key": "institution_huaxia_jimi_system_desc",
+      "branch": "administration",
+      "advancement": 4,
+      "requires": [
+        "huaxia_tributary_system"
+      ],
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 8.0,
+        "minimum_years": 6,
+        "force_radicalism": 12.0
+      },
+      "resistance": {
+        "base_radicalism": 5.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.7,
+          "Army": 0.5
+        },
+        "support_factions": {
+          "尊王": 0.9
+        },
+        "oppose_factions": {
+          "攘夷": 0.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 3
+        }
+      ],
+      "features": {
+        "jimi_system": 1
+      }
+    },
+    {
       "id": "huaxia_land_equalization",
       "name_key": "institution_huaxia_land_equalization",
       "description_key": "institution_huaxia_land_equalization_desc",

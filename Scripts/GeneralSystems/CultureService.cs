@@ -1229,7 +1229,8 @@ public static class CultureService
         if (title?.data == null || title.isRekt()) return false;
         foreach (Kingdom administration in KingdomTitleRelationResolver.FindCurrentAdministrations(title))
         {
-            if (IsProtectorateGeneral(administration)) return true;
+            // 羁縻州同样保留本地习俗，不做法理文化转化
+            if (IsProtectorateGeneral(administration) || JimiSystem.IsJimiAdministration(administration)) return true;
         }
         return false;
     }

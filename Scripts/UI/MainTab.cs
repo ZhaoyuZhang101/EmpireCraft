@@ -173,6 +173,9 @@ internal static class MainTab
         AddButton(TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("plan_policy",
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/plan_policy")));
+        AddButton(TITLE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("jimi_policy",
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/jimi_policy")));
 
         // ---- 帝国核心 ----
         CreateEmpireCoreButton.init();
