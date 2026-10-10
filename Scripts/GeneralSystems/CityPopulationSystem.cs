@@ -1905,6 +1905,30 @@ public static class CityPopulationSystem
         return actor;
     }
 
+    // 城里某阶层的背景人数
+    public static float BackgroundOfClass(City city, SocialClass socialClass)
+    {
+        CityPopulationData data = Get(city);
+        if (data?.groups == null) return 0f;
+        float total = 0f;
+        foreach (PopGroup group in data.groups)
+            if (group.social_class == socialClass) total += group.Background;
+        return total;
+    }
+
+    // 从某阶层的背景人口中生成一人(社会起义推举首领等)，总人口不变
+    public static Actor SpawnCivilianOfClass(City city, SocialClass socialClass)
+    {
+        if (!AbstractPopulationEnabled || city?.data == null || city.isRekt() || city.kingdom == null) return null;
+        PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f &&
+                                                           candidate.social_class == socialClass &&
+                                                           !string.IsNullOrEmpty(candidate.species));
+        if (group == null) return null;
+        Actor actor = SpawnFromGroup(city, group, soldier: false);
+        if (actor != null) RemoveBackground(group, 1f);
+        return actor;
+    }
+
     // 官职空缺且找不到合适人选时(无小人模式)，从官职所在城市(否则本国首都)的人口中生成一人。
     // 王位不在此列：君主空缺走继承制度，不能凭空生成
     public static Actor SpawnForOffice(OfficeObject office, Kingdom kingdom)

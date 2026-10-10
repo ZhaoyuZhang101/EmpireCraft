@@ -65,6 +65,25 @@ public static class MonarchyLegitimacy
         if (dynasty != 0) items.Add(("mandate_dynastic_events", dynasty));
         int strain = DynasticCycleRules.LegitimacyPenalty(DynasticCycleSystem.GetPressure(empire));
         if (strain != 0) items.Add(("mandate_dynastic_strain", strain));
+        // 以下读取年度快照(InstitutionSystem.UpdateSocialUnrest)，不在这里扫描城市
+        var institutions = empire.data.institution_state;
+        if (institutions != null)
+        {
+            // 地方治理：各城平均稳定度，50 为平，最多 +6 / -10
+            if (institutions.avg_city_stability >= 0f)
+            {
+                int local = Mathf.Clamp(Mathf.RoundToInt((institutions.avg_city_stability - 50f) / 5f), -10, 6);
+                if (local != 0) items.Add((local > 0 ? "mandate_local_order" : "mandate_local_disorder", local));
+            }
+            // 社会危机：阶层怨气超过六成开始损及正统，阶层起义进行中再 -5
+            float grievance = institutions.class_grievances?.Values.DefaultIfEmpty(0f).Max() ?? 0f;
+            int social = grievance > 60f ? -Mathf.Min(10, Mathf.RoundToInt((grievance - 60f) / 4f)) : 0;
+            if (institutions.social_rebellion_war_id > 0) social -= 5;
+            if (social != 0) items.Add(("mandate_social_crisis", social));
+            // 欠饷欠俸：累计拖欠超过半年开支
+            if (institutions.arrears_months >= 6f)
+                items.Add(("mandate_arrears", -Mathf.Min(8, Mathf.RoundToInt(institutions.arrears_months / 3f))));
+        }
         return items;
     }
 }

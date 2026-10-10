@@ -71,6 +71,10 @@ public static class HarshRuleSystem
             ModernLegitimacy.Applies(empire) && ConstitutionSystem.GetSpeech(empire) == ConstitutionSpeech.Strict,
             CorruptionSystem.GetRate(empire));
         AddDynasticBurden(empire, items);
+        // 阶层怨气过半后也会上街(现代游行)：最多 +25
+        float grievance = InstitutionSystem.GetClassGrievances(empire).Values.DefaultIfEmpty(0f).Max();
+        int classPressure = Mathf.RoundToInt(Mathf.Clamp((grievance - 50f) * 0.5f, 0f, 25f));
+        if (classPressure > 0) items.Add(("harsh_class", classPressure));
         return items.OrderByDescending(item => item.value).ToList();
     }
 

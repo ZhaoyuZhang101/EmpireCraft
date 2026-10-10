@@ -69,6 +69,14 @@ public sealed class InstitutionEmpireState
     public Dictionary<SocialClass, string> class_grievance_causes = new();
     public double last_social_rebellion_timestamp = -1d;
     public long social_rebellion_war_id = -1L;
+    // 组织动员(0~100)：怨气积累成有组织的行动；镇压只压这个(见 SocialCrisisSystem)
+    public Dictionary<SocialClass, float> class_mobilization = new();
+    // 全境平均镇压力度、怨气最重的阶层还没起事的原因(本地化键后缀)
+    public float social_suppression;
+    // 年度快照：各城平均稳定度(-1 = 还没算过)、拖欠的治理/驻军/军费相当于几个月的开支(正统来源用)
+    public float avg_city_stability = -1f;
+    public float arrears_months;
+    public string social_quiet_reason = "";
     public double last_update_timestamp = -1d;
     public double last_ai_reform_attempt_timestamp = -1d;
     public double last_reform_completed_timestamp = -1d;
@@ -99,6 +107,8 @@ public static class InstitutionStateNormalizer
         state.applied_node_ids ??= new List<string>();
         state.class_grievances ??= new Dictionary<SocialClass, float>();
         state.class_grievance_causes ??= new Dictionary<SocialClass, string>();
+        state.class_mobilization ??= new Dictionary<SocialClass, float>();
+        state.social_quiet_reason ??= "";
         foreach (SocialClass socialClass in global::System.Enum.GetValues(typeof(SocialClass)))
         {
             if (!state.class_grievances.ContainsKey(socialClass)) state.class_grievances[socialClass] = 0f;

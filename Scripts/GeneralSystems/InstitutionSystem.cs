@@ -1184,6 +1184,8 @@ public static class InstitutionSystem
                 return string.Format(LM.Get("institution_social_cause_regression"), oldLevel, newLevel);
         }
         if (cause == "constitution") return LM.Get("constitution_noble_grievance");
+        if (cause.StartsWith("material:", StringComparison.Ordinal))
+            return LM.Get("social_cause_" + cause.Substring("material:".Length));
         InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(cause);
         return node == null
             ? LM.Get("institution_social_cause_general")
@@ -1261,6 +1263,12 @@ public static class InstitutionSystem
         Dictionary<SocialClass, float> classShares = BuildClassShares(empire);
         // 制度适应期：施行越久，反对阶层越习惯，每项制度造成的怨气压力每 40 年减半
         Dictionary<string, float> adaptation = GetOppositionAdaptation(cultureState, enacted);
+        // 生活压力与纾解(重税、饥荒、无地、贫困；轻税、善治)，见 SocialCrisisSystem
+        SocialCrisisSystem.Snapshot living = SocialCrisisSystem.Capture(empire);
+        state.social_suppression = living.Suppression;
+        state.avg_city_stability = living.Stability;
+        state.arrears_months = living.ArrearsMonths;
+        MonarchyLegitimacy.Invalidate(empire);
 
         foreach (SocialClass socialClass in Enum.GetValues(typeof(SocialClass)).Cast<SocialClass>())
         {
@@ -1289,8 +1297,16 @@ public static class InstitutionSystem
                 if (node.politics.support_classes.TryGetValue(socialClass, out float supportWeight))
                     support += supportWeight;
             }
+            SocialCrisisSystem.Material material = SocialCrisisSystem.For(living, socialClass);
             float target = InstitutionRules.Clamp100(opposition * config.opposition_target_multiplier -
-                                                       support * config.support_relief_multiplier);
+                                                       support * config.support_relief_multiplier +
+                                                       material.Pressure - material.Relief);
+            float institutionalPressure = opposition * config.opposition_target_multiplier;
+            if (material.Pressure > institutionalPressure && !string.IsNullOrEmpty(material.Cause))
+            {
+                strongestPressure = float.MaxValue;
+                strongestCause = material.Cause;
+            }
             if (empire.data?.constitutional_economy?.welfare_funded == true &&
                 socialClass is SocialClass.Labour or SocialClass.Peasant)
                 target = InstitutionRules.Clamp100(target -
@@ -1312,16 +1328,34 @@ public static class InstitutionSystem
         if (state.social_rebellion_war_id > 0)
         {
             War activeWar = World.world?.wars?.get(state.social_rebellion_war_id);
-            if (activeWar != null && !activeWar.hasEnded()) return;
+            if (activeWar != null && !activeWar.hasEnded()) { state.social_quiet_reason = "at_war"; return; }
             state.social_rebellion_war_id = -1L;
         }
         if (state.last_social_rebellion_timestamp >= 0 &&
-            Date.getYearsSince(state.last_social_rebellion_timestamp) < config.rebellion_cooldown_years) return;
+            Date.getYearsSince(state.last_social_rebellion_timestamp) < config.rebellion_cooldown_years)
+        {
+            state.social_quiet_reason = "cooldown";
+            return;
+        }
+        // 各阶层组织动员逐年积累/消退；镇压只压动员
+        foreach (SocialClass socialClass in Enum.GetValues(typeof(SocialClass)).Cast<SocialClass>())
+            SocialCrisisSystem.UpdateMobilization(state, socialClass,
+                state.class_grievances.TryGetValue(socialClass, out float classGrievance) ? classGrievance : 0f,
+                empire.Legitimacy, state.social_suppression);
         KeyValuePair<SocialClass, float> mostAngry = state.class_grievances
             .Where(pair => classShares.TryGetValue(pair.Key, out float share) && share >= 0.03f)
             .OrderByDescending(pair => pair.Value).FirstOrDefault();
-        if (mostAngry.Value >= config.rebellion_threshold)
-            TryStartSocialRebellion(empire, mostAngry.Key, mostAngry.Value);
+        state.social_quiet_reason = "";
+        if (mostAngry.Value < config.rebellion_threshold) return;
+        float mobilization = SocialCrisisSystem.GetMobilization(empire, mostAngry.Key);
+        if (mobilization < SocialCrisisSystem.MobilizationThreshold)
+        {
+            state.social_quiet_reason = state.social_suppression >= 10f ? "suppressed" : "mobilizing";
+            return;
+        }
+        if (!TryStartSocialRebellion(empire, mostAngry.Key, mostAngry.Value) && string.IsNullOrEmpty(state.social_quiet_reason))
+            state.social_quiet_reason = "no_city";
+        else if (state.social_rebellion_war_id > 0) state.class_mobilization[mostAngry.Key] = 20f;
     }
 
     private const float OppositionAdaptationHalfLifeYears = 40f;
@@ -1360,7 +1394,11 @@ public static class InstitutionSystem
 
     private static bool TryStartSocialRebellion(Empire empire, SocialClass socialClass, float grievance)
     {
-        if (!ModernStability.PassRebellionGate(empire?.CoreKingdom)) return false;
+        if (!RebellionSystem.CanAttempt(empire?.CoreKingdom))
+        {
+            EnsureEmpireState(empire).social_quiet_reason = "grace";
+            return false;
+        }
         Dictionary<SocialClass, float> shares = BuildClassShares(empire);
         if (!shares.TryGetValue(socialClass, out float empireShare) || empireShare < 0.03f) return false;
         // 分封制帝国在施行分封类制度之前，诸国基本自治，阶层起义只在天子直辖的核心王国里爆发，
@@ -1395,6 +1433,8 @@ public static class InstitutionSystem
                                 RebellionSystem.CanAttempt(actor.city.kingdom) && CityStabilitySystem.CanRise(actor.city) &&
                                 actor.GetOrCreate().socialClass == socialClass)
                 .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+            // 无小人模式里该阶层多半没有实体人物：从虚拟人口里推举
+            leader ??= SocialCrisisSystem.SpawnClassLeader(sourceKingdoms, socialClass);
             splitSeat = leader?.city;
             splitOrigin = splitSeat?.kingdom;
             splitLeader = leader;

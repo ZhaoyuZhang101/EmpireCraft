@@ -502,7 +502,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             .OrderByDescending(pair => pair.Value).ToList();
         if (tensions.Count == 0) return;
         InstitutionSocialUnrestConfig config = InstitutionDefinitionRegistry.Global.social_unrest;
-        const float height = 30f;
+        const float height = 40f;
         var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 1,
             pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(6, 6, 4, 4));
         _content.Add(panel.gameObject);
@@ -522,6 +522,14 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                 InstitutionSystem.GetSocialGrievanceCause(_empire, highest.Key)).ColorString("#D98C8C"),
             true, TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 10));
         cause.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        // 怨气 ≠ 起事：组织动员、镇压与还没爆发的原因
+        string quiet = SocialCrisisSystem.QuietReason(_empire);
+        var mobilization = panel.AddTextIntoVertLayout(
+            string.Format(LM.Get("social_mobilization_line"), SocialCrisisSystem.GetMobilization(_empire, highest.Key),
+                SocialCrisisSystem.MobilizationThreshold, SocialCrisisSystem.GetSuppression(_empire)) +
+            (string.IsNullOrEmpty(quiet) ? "" : "  " + string.Format(LM.Get("social_quiet_line"), quiet)),
+            true, TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 10));
+        mobilization.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
         panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
     }
 
