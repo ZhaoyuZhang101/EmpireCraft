@@ -66,8 +66,8 @@ internal static class MainTab
             nameof(CultureSpeciesPairWindow) + "Title");
         EmpireWindow.CreateWindow(nameof(EmpireWindow),
             nameof(EmpireWindow) + "Title");
-        KingdomTitleWindow.CreateWindow(nameof(KingdomTitleWindow),
-            nameof(KingdomTitleWindow) + "Title");
+        // 法理窗口换宽窗口(标题用 "<窗口id> Title" 约定 key)
+        KingdomTitleWindow.CreateAndInit(nameof(KingdomTitleWindow), new Vector2(480f, 380f));
         // Phase 16 加的 CityNameHistoryWindow 当时漏掉了这一步——每一个自定义
         // AutoLayoutWindow<T> 窗口都得在这里调一次 CreateWindow 完成注册（标题文本、
         // WindowLibrary/WindowToolbar 等原版系统需要用到的 WindowAsset 记录都是这一步
@@ -102,8 +102,7 @@ internal static class MainTab
             nameof(AddFactionWindow) + "Title");
         EmpireHistoryWindow.CreateWindow(nameof(EmpireHistoryWindow),
             "empire_history");
-        EmpireCoreWindow.CreateWindow(nameof(EmpireCoreWindow),
-            "EmpireCoreWindowTitle");
+        EmpireCoreWindow.CreateAndInit(nameof(EmpireCoreWindow), new Vector2(480f, 380f));
         BugReportWindow.CreateWindow(nameof(BugReportWindow),
             "bug_report_window_title");
         TerritoryFontWindow.CreateWindow(nameof(TerritoryFontWindow),

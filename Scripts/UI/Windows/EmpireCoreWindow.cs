@@ -9,6 +9,7 @@ using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.services;
 using NeoModLoader.General.UI.Window;
+using NeoModLoader.api;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
@@ -17,8 +18,10 @@ using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
-    public class EmpireCoreWindow : AutoLayoutWindow<EmpireCoreWindow>
+    // 宽窗口(480×380)：法理头衔网格与历代帝国名录窄窗里挤不下
+    public class EmpireCoreWindow : AbstractWideWindow<EmpireCoreWindow>
     {
+        private AutoVertLayoutGroup _root;
         private readonly Dictionary<string, GameObject> _groups = new Dictionary<string, GameObject>();
         private readonly Dictionary<long, bool> _historyExpandedStates = new Dictionary<long, bool>();
         private TextInput _nameInput;
@@ -27,8 +30,8 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         protected override void Init()
         {
-            layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 95, 3);
+            UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+            _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
             _nameInput = Object.Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
             _nameInput.Setup("", ChangeName);
         }
@@ -50,8 +53,8 @@ namespace EmpireCraft.Scripts.UI.Windows
         public override void OnNormalEnable()
         {
             base.OnNormalEnable();
-            layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 95, 3);
+            UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+            StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
             _core = EmpireCraftMetaTypeLibrary.selected_empireCore;
             Clear();
             if (_core == null) return;
@@ -62,17 +65,18 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void InitialTextInput()
         {
             string text = EmpireCoreManager.GetDisplayName(_core);
-            this.transform.parent.transform.parent.GenerateTextInput(offset: new Vector2(0, 152), default_text: text, input: _nameInput);
+            // 宽窗口(380 高)：改名输入框放在标题栏上方
+            this.transform.parent.transform.parent.GenerateTextInput(offset: new Vector2(0, 218), default_text: text, input: _nameInput);
         }
 
         private AutoVertLayoutGroup CommonInitial(string titleName)
         {
-            var container = this.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
+            var container = _root.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
             SimpleText title = Object.Instantiate(SimpleText.Prefab, null);
             title.Setup(LM.Get(titleName), TextAnchor.MiddleCenter, new Vector2(60, 15));
             title.background.enabled = false;
             container.AddChild(title.gameObject);
-            var content = this.BeginVertGroup(pSpacing: 3);
+            var content = _root.BeginVertGroup(pSpacing: 3);
             container.AddChild(content.gameObject);
             if (!_groups.ContainsKey(titleName)) _groups.Add(titleName, container.gameObject);
             return content;
@@ -80,7 +84,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void ShowOverview()
         {
-            _topPart = this.BeginVertGroup(pSpacing: 5, pAlignment: TextAnchor.UpperCenter);
+            _topPart = _root.BeginVertGroup(pSpacing: 5, pAlignment: TextAnchor.UpperCenter);
 
             var summary = _topPart.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.MiddleCenter);
             summary.AddTextIntoVertLayout(EmpireCoreManager.GetStatusDisplayName(_core).ColorString(pColor: new Color(1f, 0.78f, 0.28f)),
@@ -104,9 +108,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             AddMetricCard(metrics, LM.Get("empire_core_titles_count"), EmpireCoreManager.GetTitles(_core).Count.ToString(), new Color(0.45f, 0.82f, 1f));
             AddMetricCard(metrics, LM.Get("empire_core_cities_count"), EmpireCoreManager.GetCities(_core).Count.ToString(), new Color(0.45f, 0.95f, 0.55f));
             AddMetricCard(metrics, LM.Get("empire_core_current_empires"), empires.Count.ToString(), new Color(1f, 0.72f, 0.32f));
-            _topPart.gameObject.AdjustTopPart(transform.parent.transform, new Vector2(0, 1));
 
-            var parent = this.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
+            var parent = _root.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
             _groups["EmpireCoreWindowContent"] = parent.gameObject;
             AddSectionTitle(parent, LM.Get("empire_core_current_empires"));
 
@@ -125,7 +128,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
 
             AddSectionTitle(parent, LM.Get("all_titles"));
-            var titleGrid = parent.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount,
+            var titleGrid = parent.BeginGridGroup(8, GridLayoutGroup.Constraint.FixedColumnCount,
                 pCellSize: new Vector2(48, 34), pSpacing: new Vector2(2, 2));
             foreach (var title in EmpireCoreManager.GetTitles(_core))
             {

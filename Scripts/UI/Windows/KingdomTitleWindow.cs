@@ -11,6 +11,7 @@ using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window;
+using NeoModLoader.api;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using NeoModLoader.services;
@@ -19,8 +20,11 @@ using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
-    public class KingdomTitleWindow : AutoLayoutWindow<KingdomTitleWindow>
+    // 宽窗口(480×380)：法理概览、文化、名册与城市网格窄窗里挤不下
+    public class KingdomTitleWindow : AbstractWideWindow<KingdomTitleWindow>
     {
+        private AutoVertLayoutGroup _root;
+        private ScrollWindow TabsWindow => GetComponent<ScrollWindow>();
         private static readonly Color SectionColor = new Color(0.7f, 0.9f, 1f);
         private static readonly Color CyanColor = new Color(0.35f, 0.85f, 1f);
         private static readonly Color GreenColor = new Color(0.25f, 0.9f, 0.55f);
@@ -52,15 +56,14 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         protected override void Init()
         {
-            layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 80, 3);
+            UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+            _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
         }
 
         public override void OnNormalEnable()
         {
             base.OnNormalEnable();
-            layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, 80, 3);
+            UIHelper.FixWideWindowScrollArea(BackgroundTransform);
             title = EmpireCraftMetaTypeLibrary.selected_kingdomTitle;
             Clear();
             if (title == null || title.isRekt() || title.data == null) return;
@@ -72,6 +75,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             InitialTabButtons();
             ActivateTab("kingdom_title_overview_tab");
             BuildContent();
+            StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
         }
 
         private void Clear()
@@ -94,8 +98,8 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             BuildIdentityCard();
 
-            _content = this.BeginVertGroup(pSpacing: 4, pAlignment: TextAnchor.UpperCenter);
-            AddChild(_content.gameObject);
+            _content = _root.BeginVertGroup(pSpacing: 4, pAlignment: TextAnchor.UpperCenter);
+            _root.AddChild(_content.gameObject);
 
             switch (_activeTab)
             {
@@ -116,31 +120,31 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void InitialTabButtons()
         {
-            if (ScrollWindowComponent.tabs._tabs.All(tab => tab.name != "kingdom_title_overview_tab"))
+            if (TabsWindow.tabs._tabs.All(tab => tab.name != "kingdom_title_overview_tab"))
             {
                 SimpleWindowTab overviewTab = Instantiate(SimpleWindowTab.Prefab);
-                overviewTab.Setup("kingdom_title_overview_tab", ScrollWindowComponent,
+                overviewTab.Setup("kingdom_title_overview_tab", TabsWindow,
                     action: _ => ShowTab(ContentTab.Overview),
                     sprite: SpriteTextureLoader.getSprite("ui/iconHistory"));
             }
-            if (ScrollWindowComponent.tabs._tabs.All(tab => tab.name != "kingdom_title_culture_tab"))
+            if (TabsWindow.tabs._tabs.All(tab => tab.name != "kingdom_title_culture_tab"))
             {
                 SimpleWindowTab cultureTab = Instantiate(SimpleWindowTab.Prefab);
-                cultureTab.Setup("kingdom_title_culture_tab", ScrollWindowComponent,
+                cultureTab.Setup("kingdom_title_culture_tab", TabsWindow,
                     action: _ => ShowTab(ContentTab.Culture),
                     sprite: SpriteTextureLoader.getSprite("ui/icons/iconOptions"));
             }
-            if (ScrollWindowComponent.tabs._tabs.All(tab => tab.name != "kingdom_title_name_history_tab"))
+            if (TabsWindow.tabs._tabs.All(tab => tab.name != "kingdom_title_name_history_tab"))
             {
                 SimpleWindowTab nameHistoryTab = Instantiate(SimpleWindowTab.Prefab);
-                nameHistoryTab.Setup("kingdom_title_name_history_tab", ScrollWindowComponent,
+                nameHistoryTab.Setup("kingdom_title_name_history_tab", TabsWindow,
                     action: _ => ShowTab(ContentTab.NameHistory),
                     sprite: SpriteTextureLoader.getSprite("ui/icons/iconCulture"));
             }
-            if (ScrollWindowComponent.tabs._tabs.All(tab => tab.name != "kingdom_title_color_tab"))
+            if (TabsWindow.tabs._tabs.All(tab => tab.name != "kingdom_title_color_tab"))
             {
                 SimpleWindowTab colorTab = Instantiate(SimpleWindowTab.Prefab);
-                colorTab.Setup("kingdom_title_color_tab", ScrollWindowComponent,
+                colorTab.Setup("kingdom_title_color_tab", TabsWindow,
                     action: _ => OpenColorWindow(),
                     sprite: SpriteTextureLoader.getSprite("TabColor"));
             }
@@ -183,15 +187,15 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void ActivateTab(string tabName)
         {
-            WindowMetaTab tab = ScrollWindowComponent.tabs._tabs.FirstOrDefault(item => item.name == tabName);
+            WindowMetaTab tab = TabsWindow.tabs._tabs.FirstOrDefault(item => item.name == tabName);
             if (tab == null) return;
-            ScrollWindowComponent.tabs.disableTabs();
-            ScrollWindowComponent.tabs.enableTab(tab);
+            TabsWindow.tabs.disableTabs();
+            TabsWindow.tabs.enableTab(tab);
         }
 
         private void BuildIdentityCard()
         {
-            _topPart = this.BeginVertGroup(pSize: new Vector2(205, 76), pSpacing: 2,
+            _topPart = _root.BeginVertGroup(pSize: new Vector2(205, 76), pSpacing: 2,
                 pAlignment: TextAnchor.MiddleCenter);
             HoverMarqueeText.Attach(_topPart.AddTextIntoVertLayout(
                 (title.data.name ?? LM.Get("label_none")).ColorString(pColor: GoldColor), true,
@@ -281,7 +285,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             card.transform.AddStretchBackground("FactionFrame", new Vector2(200, 64));
 
             AddSectionTitle(LM.Get("kingdom_title_select_culture"));
-            AutoGridLayoutGroup palette = _content.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount,
+            AutoGridLayoutGroup palette = _content.BeginGridGroup(8, GridLayoutGroup.Constraint.FixedColumnCount,
                 pCellSize: new Vector2(48, 16), pSpacing: new Vector2(2, 2));
             foreach (string culture in CultureService.CultureKeys)
             {
@@ -482,7 +486,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (addableCultures.Count > 0)
             {
                 AddSectionTitle(LM.Get("kingdom_title_name_history_add_culture"));
-                AutoGridLayoutGroup addGrid = _content.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount,
+                AutoGridLayoutGroup addGrid = _content.BeginGridGroup(8, GridLayoutGroup.Constraint.FixedColumnCount,
                     pCellSize: new Vector2(48, 16), pSpacing: new Vector2(2, 2));
                 foreach (string culture in addableCultures)
                 {
@@ -614,7 +618,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void BuildCurrentRelations(List<Kingdom> administrations)
         {
             AddSectionTitle(LM.Get("kingdom_title_current_relations"));
-            var grid = _content.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount,
+            var grid = _content.BeginGridGroup(8, GridLayoutGroup.Constraint.FixedColumnCount,
                 pCellSize: new Vector2(100, 62), pSpacing: new Vector2(2, 2));
 
             List<KingdomTitleHolderRelation> holders = ResolveCurrentHolders();
@@ -667,7 +671,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void AddHolderCard(AutoGridLayoutGroup parent, Actor holder, Empire empire, bool unlanded)
         {
-            var card = this.BeginVertGroup(pSize: new Vector2(100, 62), pSpacing: 1,
+            var card = _root.BeginVertGroup(pSize: new Vector2(100, 62), pSpacing: 1,
                 pAlignment: TextAnchor.MiddleCenter);
             string heading = unlanded
                 ? LM.Get("kingdom_title_unlanded_holder")
@@ -707,7 +711,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void AddKingdomCard(AutoGridLayoutGroup parent, string heading, Kingdom kingdom, string status)
         {
-            var card = this.BeginVertGroup(pSize: new Vector2(100, 62), pSpacing: 1,
+            var card = _root.BeginVertGroup(pSize: new Vector2(100, 62), pSpacing: 1,
                 pAlignment: TextAnchor.MiddleCenter);
             card.AddTextIntoVertLayout(heading.ColorString(pColor: CyanColor), true,
                 TextAnchor.MiddleCenter, new Vector2(94, 11));
@@ -819,12 +823,12 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void BuildCityGrid()
         {
             AddSectionTitle(LM.Get("kingdom_title_cities"));
-            var grid = _content.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount,
+            var grid = _content.BeginGridGroup(8, GridLayoutGroup.Constraint.FixedColumnCount,
                 pCellSize: new Vector2(48, 40), pSpacing: new Vector2(2, 2));
             foreach (City city in title.city_list.Where(city => city != null && !city.isRekt())
                          .OrderByDescending(city => city == title.title_capital).ThenBy(city => city.GetCityName()))
             {
-                var card = this.BeginVertGroup(pSize: new Vector2(48, 40), pSpacing: 0,
+                var card = _root.BeginVertGroup(pSize: new Vector2(48, 40), pSpacing: 0,
                     pAlignment: TextAnchor.MiddleCenter);
                 HoverMarqueeText.Attach(card.AddTextIntoVertLayout(city.GetCityName().ColorString(
                         pColor: city == title.title_capital ? GoldColor : SectionColor), true,

@@ -168,6 +168,8 @@
   "release_vassal_done": "{0}脱离宗主，恢复独立",
   "release_vassal_all_done": "{0}解除了 {1} 个附庸",
   "release_vassal_none": "该国没有附庸关系",
+  "KingdomTitleWindow Title": "法理",
+  "EmpireCoreWindow Title": "帝国核心",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",
