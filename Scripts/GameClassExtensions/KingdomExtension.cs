@@ -1640,7 +1640,9 @@ public static class KingdomExtension
 
     public static void SetKingdomName(this Kingdom k, string kindomName)
     {
-        if (!k.IsFactionRebelling() && k.getWars().Count() <= 0 && !k.IsLocalRebelling())
+        // 战争中不改名只针对独立国家(防止叛军/交战方名号乱跳)；帝国内的行政区常被动卷入帝国战争，
+        // 军阀加入政府后若恰在战时，旧名"某系军阀"会因此永远洗不掉(类别已是省、铭牌还是军阀)
+        if (!k.IsFactionRebelling() && !k.IsLocalRebelling() && (k.getWars().Count() <= 0 || k.IsInEmpire()))
         {
             k.RememberInitialRandomKingdomName();
             k.data.name = kindomName.UseLocalizedNameSeparator();
