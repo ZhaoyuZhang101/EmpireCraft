@@ -78,8 +78,8 @@ internal static class MainTab
         // 窗口只有个空壳，内容一直是原版兜底的"未找到/开发中"占位页。
         CityNameHistoryWindow.CreateWindow(nameof(CityNameHistoryWindow),
             nameof(CityNameHistoryWindow) + "Title");
-        EmpireBeaurauWindow.CreateWindow(nameof(EmpireBeaurauWindow),
-            nameof(EmpireBeaurauWindow) + "Title");
+        // 官僚管理换成宽窗口：标题用 "<窗口id> Title"(带空格)约定 key，见下面 InstitutionWindow 的说明
+        EmpireBeaurauWindow.CreateAndInit(nameof(EmpireBeaurauWindow), new Vector2(480f, 380f));
         ChangeUnitWindow.CreateWindow(nameof(ChangeUnitWindow),
             nameof(ChangeUnitWindow) + "Title");
         SpecificClanWindow.CreateWindow(nameof(SpecificClanWindow),

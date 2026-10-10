@@ -30,8 +30,11 @@ using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.api.attributes;
 
 namespace EmpireCraft.Scripts.UI.Windows;
-public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
+// 宽窗口(480×380，沿用 AbstractWideWindow + WideWindowScrollArea)：官职金字塔列数多，窄窗口挤不下
+public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
 {
+    private AutoVertLayoutGroup _root;
+    private ScrollWindow TabsWindow => GetComponent<ScrollWindow>();
     public Empire _empire;
     public string culture = "Huaxia";
     AutoHoriLayoutGroup topSpace;
@@ -56,21 +59,21 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     public ListPool<GameObject> pool = new ListPool<GameObject>();
     protected override void Init()
     {
-        layout.spacing = 3;
-        this.layout.padding = new RectOffset(3, 3, 95, 3);
+        UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+        _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
     }
     private void InitialTabButtons()
     {
-        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_bureau_offices"))
+        if (TabsWindow.tabs._tabs.All(p => p.name != "empire_bureau_offices"))
         {
             var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-            tab.Setup("empire_bureau_offices", ScrollWindowComponent, action: ShowBureauOffices,
+            tab.Setup("empire_bureau_offices", TabsWindow, action: ShowBureauOffices,
                 sprite: SpriteTextureLoader.getSprite("ui/icons/iconOptions"));
         }
-        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_virtual_peerages"))
+        if (TabsWindow.tabs._tabs.All(p => p.name != "empire_virtual_peerages"))
         {
             var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-            tab.Setup("empire_virtual_peerages", ScrollWindowComponent, action: ShowVirtualPeerages,
+            tab.Setup("empire_virtual_peerages", TabsWindow, action: ShowVirtualPeerages,
                 sprite: SpriteTextureLoader.getSprite("ChineseCrown"));
         }
     }
@@ -88,12 +91,11 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         if (_empire?.CoreKingdom?.GetRegime()?.enfeoff_virtual_only != true) return;
         Clear();
-        layout.padding = new RectOffset(3, 3, 95, 3);
         InitialTopPartInfoLvLing();
-        virtualPeeragesSpace = this.BeginVertGroup();
+        virtualPeeragesSpace = _root.BeginVertGroup();
         AddSectionHeader(virtualPeeragesSpace, LM.Get("empire_virtual_peerages"), "ChineseCrown", "ui/icons/iconCrown");
         AddSubHeader(virtualPeeragesSpace, LM.Get("empire_legal_virtual_peerages").ColorString("#5AD9FF"));
-        virtualPeeragesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
+        virtualPeeragesGroup = _root.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         Regime regime = _empire.CoreKingdom.GetRegime();
         EmpireCore core = EmpireCoreManager.Get(_empire);
         List<KingdomTitle> titles = EmpireCoreManager.GetTitles(core)
@@ -124,14 +126,14 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         virtualPeeragesSpace.AddChild(virtualPeeragesGroup.gameObject);
 
         AddSubHeader(virtualPeeragesSpace, LM.Get("empire_honorary_virtual_peerages").ColorString("#FFBF33"));
-        var honoraryGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
+        var honoraryGroup = _root.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         foreach (string peerage in regime.virtual_honorary_peerages ?? new List<string>())
         {
             Actor holder = honoraryHolders.FirstOrDefault(a => a.GetOrCreate().honorary_peerage_key == peerage);
             SetVirtualPeerageView(holder, null, peerage, true, false, ref honoraryGroup);
         }
         virtualPeeragesSpace.AddChild(honoraryGroup.gameObject);
-        AddChild(virtualPeeragesSpace.gameObject);
+        _root.AddChild(virtualPeeragesSpace.gameObject);
     }
 
     private void SetVirtualPeerageView(Actor actor, KingdomTitle title, string peerageKey, bool honorary,
@@ -182,7 +184,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     {
         if (_empire?.CoreKingdom?.data == null) return;
         //总容器
-        topSpace = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
+        topSpace = _root.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
 
         var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
@@ -212,13 +214,12 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
             AddDominantFactionRow(dominateFaction);
         }
         
-        topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
     }
     [Hotfixable]
     private void InitialTopPartInfoFeudalism()
     {
         //总容器
-        topSpace = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
+        topSpace = _root.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
 
         var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
@@ -247,16 +248,14 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
             AddDominantFactionRow(dominate);
         }
         
-        topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 0));
     }
     [Hotfixable]
     private void InitialTopPartInfoNormal()
     {
         // 没有内阁时顶部那块 220x100 的框里只有两行字，空得难看；君主本人已经在下面金字塔的顶端了，
-        // 这里改成正文里一条细的信息条，把原来给顶部框让出的 95 像素也收回来。
+        // 这里改成正文里一条细的信息条。
         topSpace = null;
-        layout.padding = new RectOffset(3, 3, 3, 3);
-        var info = this.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
+        var info = _root.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
         pool.Add(info.gameObject);
         AddSectionHeader(info, $"{LM.Get("empire_bureau_no_cabinet")} · {LM.Get("empire_bureau_direct_rule")}",
             "ui/icons/iconCrown", "ui/icons/iconKingdom");
@@ -270,66 +269,66 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     // (顶部框被 AdjustTopPart 移出了布局，所以这一行就是正文的第一项)。只展示，不改格局。
     private void AddDominantFactionRow(FixedFaction faction)
     {
-        var holder = this.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
+        var holder = _root.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
         pool.Add(holder.gameObject);
         UIHelper.AddFactionCard(faction, _empire.CoreKingdom, parentV: holder);
     }
 
     public void ShowCoreSpace()
     {
-        coreOfficeSpace = this.BeginVertGroup();
+        coreOfficeSpace = _root.BeginVertGroup();
         //中央核心部门
         AddSectionHeader(coreOfficeSpace, LM.Get("CoreOffice"), "ui/icons/iconKingdom");
 
-        coreOfficeGroup = this.BeginGridGroup(2, pCellSize: new Vector2(100, 55));
+        coreOfficeGroup = _root.BeginGridGroup(2, pCellSize: new Vector2(100, 55));
         foreach (var oid in _empire.data.centerOffice.CoreOffices)
         {
             SetOfficeView(oid, ref coreOfficeGroup);
         }
         coreOfficeSpace.AddChild(coreOfficeGroup.gameObject);
 
-        AddChild(coreOfficeSpace.gameObject);
+        _root.AddChild(coreOfficeSpace.gameObject);
     }
 
     public void ShowDivisionSpace()
     {
-        divisionsSpace = this.BeginVertGroup();
+        divisionsSpace = _root.BeginVertGroup();
         //中央二级部门
         AddSectionHeader(divisionsSpace, LM.Get("Divisions"), "ui/icons/iconWorldLaws", "ui/icons/iconKnowledge");
 
-        divisionsGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
+        divisionsGroup = _root.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
         foreach (var o2 in _empire.data.centerOffice.Divisions)
         {
             SetOfficeView(o2, ref divisionsGroup);
         }
         divisionsSpace.AddChild(divisionsGroup.gameObject);
 
-        AddChild(divisionsSpace.gameObject);
+        _root.AddChild(divisionsSpace.gameObject);
     }
 
     public void ShowHaremSpace()
     {
-        haremsSpace = this.BeginVertGroup();
+        haremsSpace = _root.BeginVertGroup();
         //后宫
         AddSectionHeader(haremsSpace, LM.Get("Harems"), "ui/icons/iconFamily", "ui/icons/iconCrown");
 
-        haremsGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
+        haremsGroup = _root.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
         foreach (var o2 in _empire.data.centerOffice.Harems)
         {
             SetOfficeView(o2, ref haremsGroup);
         }
         haremsSpace.AddChild(haremsGroup.gameObject);
 
-        AddChild(haremsSpace.gameObject);
+        _root.AddChild(haremsSpace.gameObject);
     }
 
     public void ShowProvincesSpace()
     {
-        provincesSpace = this.BeginVertGroup();
+        provincesSpace = _root.BeginVertGroup();
         //省级部门
         AddSectionHeader(provincesSpace, LM.Get("province"), "ui/icons/iconCity");
 
-        provincesGroup = this.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
+        provincesGroup = _root.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         foreach (Kingdom kingdom in _empire.kingdoms_hashset)
         {
             SetOfficeView(kingdom.GetOfficeID(), ref provincesGroup, kingdom);
@@ -337,7 +336,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
         provincesSpace.AddChild(provincesGroup.gameObject);
 
-        AddChild(provincesSpace.gameObject);
+        _root.AddChild(provincesSpace.gameObject);
     }
 
     // 议会召开后，不论原政体有没有内阁，这里一律显示议会：总理大臣、议员与议席分布
@@ -353,7 +352,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     {
         if (_empire?.CoreKingdom?.data == null) return;
         GeneralSystems.ParliamentView view = GeneralSystems.ParliamentSystem.GetView(_empire);
-        topSpace = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
+        topSpace = _root.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
         topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
 
         var centerPart = topSpace.BeginVertGroup(pSpacing: -3);
@@ -439,7 +438,6 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
                 TextAnchor.MiddleCenter, new Vector2(78, 10));
         }
 
-        topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset: new Vector2(0, 0));
     }
 
     private static readonly Color[] FallbackPartyColors =
@@ -498,8 +496,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
     private void BuildBureauPage()
     {
-        // 有内阁/议会的顶部框被 AdjustTopPart 钉在窗口上方，正文要让出 95；无内阁的会在自己的方法里收回
-        layout.padding = new RectOffset(3, 3, 95, 3);
+        // 宽窗口：顶部框作为滚动内容的第一项，跟着正文一起滚动
         Regime regime = _empire.CoreKingdom.GetRegime();
         if (GeneralSystems.ParliamentSystem.HasParliament(_empire))
         {
@@ -523,24 +520,23 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
+        UIHelper.FixWideWindowScrollArea(BackgroundTransform);
         InitialTabButtons();
-        layout.spacing = 3;
-        this.layout.padding = new RectOffset(3, 3, 95, 3);
         _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         Clear();
         BuildBureauPage();
+        StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
     }
 
     public override void OnFirstEnable()
     {
         base.OnFirstEnable();
+        UIHelper.FixWideWindowScrollArea(BackgroundTransform);
         InitialTabButtons();
-        this.DORestart();
-        layout.spacing = 3;
-        this.layout.padding = new RectOffset(3, 3, 95, 3);
         _empire = EmpireCraftMetaTypeLibrary.selected_empire;
         Clear();
         BuildBureauPage();
+        StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
     }
 
     public void Clear()
@@ -716,7 +712,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
     private GameObject BuildPersonCard(string title, string badge, Actor actor, List<string> lines,
         UnityAction onChange)
     {
-        var card = this.BeginVertGroup(new Vector2(CardWidth, CardHeight), pSpacing: 1,
+        var card = _root.BeginVertGroup(new Vector2(CardWidth, CardHeight), pSpacing: 1,
             pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(5, 5, 4, 3));
 
         var header = card.BeginHoriGroup(new Vector2(CardWidth - 10f, 10f), TextAnchor.MiddleLeft, 2);
@@ -763,7 +759,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
     private void ShowOfficePyramid()
     {
-        var space = this.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperCenter);
+        var space = _root.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperCenter);
         pool.Add(space.gameObject);
         AddSectionHeader(space, LM.Get("bureau_office_pyramid"), "ui/icons/iconKingdom");
         var header = space.BeginHoriGroup(new Vector2(GraphWidth, 12f), TextAnchor.MiddleCenter, 3);
@@ -888,7 +884,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
         PlaceChild(titleBar.GetComponent<RectTransform>(), new Vector2(0f, NodeHeight / 2f - 10f));
         foreach (Graphic graphic in titleBar.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
 
-        var avatar = this.BeginHoriGroup(new Vector2(30f, 30f), TextAnchor.MiddleCenter, 0);
+        var avatar = _root.BeginHoriGroup(new Vector2(30f, 30f), TextAnchor.MiddleCenter, 0);
         avatar.AddActorViewIntoHoriLayout(actor);
         PlaceChild(avatar.GetComponent<RectTransform>(), new Vector2(0f, 9f), rect);
 
@@ -898,7 +894,7 @@ public class EmpireBeaurauWindow : AutoLayoutWindow<EmpireBeaurauWindow>
 
         if (onChange != null)
         {
-            var buttonHolder = this.BeginHoriGroup(new Vector2(9f, 9f), TextAnchor.MiddleCenter, 0);
+            var buttonHolder = _root.BeginHoriGroup(new Vector2(9f, 9f), TextAnchor.MiddleCenter, 0);
             buttonHolder.AddButtonIntoHoriLayout("change_officer", "", onChange,
                 SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(8f, 8f), showTip: true);
             PlaceChild(buttonHolder.GetComponent<RectTransform>(),
