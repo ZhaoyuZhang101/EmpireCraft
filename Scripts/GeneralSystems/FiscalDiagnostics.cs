@@ -1,0 +1,93 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
+using NeoModLoader.services;
+
+namespace EmpireCraft.Scripts.GeneralSystems;
+
+// 年度验收日志(跟人口诊断同一节律)：
+//   [财政诊断] 全世界国库、经常收支、国债、欠饷、限额拨款的总览 + 最大几国的明细
+//   [事件统计] 本年各系统发生了什么(战后分配、举债、起义……)，由各系统 EventTally.Count 累加
+// 只在每年输出时遍历一次国家和城市，不进存档。
+public static class FiscalDiagnostics
+{
+    // ---- 事件统计 ----
+    private static readonly Dictionary<string, int> Events = new();
+
+    public static void Count(string key, int amount = 1)
+    {
+        if (string.IsNullOrEmpty(key) || amount <= 0) return;
+        Events.TryGetValue(key, out int previous);
+        Events[key] = previous + amount;
+    }
+
+    public static void LogYearly()
+    {
+        try
+        {
+            LogFiscal();
+            LogEvents();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][财政诊断] 输出失败: {exception.Message}");
+        }
+    }
+
+    private static void LogEvents()
+    {
+        if (Events.Count == 0) return;
+        string line = string.Join("，", Events.OrderByDescending(pair => pair.Value)
+            .Select(pair => $"{pair.Key} {pair.Value}"));
+        Events.Clear();
+        LogService.LogInfo($"[EmpireCraft][事件统计] {line}");
+    }
+
+    private static void LogFiscal()
+    {
+        if (World.world?.kingdoms == null) return;
+        int states = 0, deficit = 0, indebted = 0, defaulted = 0, rationed = 0;
+        long treasuries = 0, debt = 0;
+        var biggest = new List<(long balance, string line)>();
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+            if (kingdom == null || kingdom.isRekt() || !TreasurySystem.Enabled(kingdom)) continue;
+            states++;
+            long balance = kingdom.GetTreasuryBalance();
+            treasuries += balance;
+            TreasuryReport report = TreasurySystem.Report(kingdom);
+            long monthly = report == null || report.months <= 0 ? 0L : report.operating_balance / report.months;
+            if (monthly < 0L) deficit++;
+            long bonds = StateDebtSystem.Outstanding(kingdom);
+            debt += bonds;
+            if (bonds > 0L) indebted++;
+            if (StateDebtSystem.DefaultedRecently(kingdom)) defaulted++;
+            double ratio = FiscalBudgetPlanner.NormalRatio(kingdom);
+            if (ratio < 0.999d) rationed++;
+            biggest.Add((balance, $"{kingdom.GetKingdomName()} 库 {HelperFunc.MoneyDisplay.Format(balance)}/" +
+                                  $"月 {(monthly >= 0 ? "+" : "")}{monthly}/债 {HelperFunc.MoneyDisplay.Format(bonds)}" +
+                                  $"{(ratio < 0.999d ? $"/拨付 {ratio:0%}" : "")}"));
+        }
+        if (states == 0) return;
+        long arrears = 0;
+        int arrearsCities = 0;
+        foreach (City city in World.world.cities)
+        {
+            CityStabilityData state = city?.data == null || city.isRekt() ? null : city.GetOrCreate().stability;
+            if (state == null || state.owner_id != (city.kingdom?.id ?? -2L) || state.arrears <= 0) continue;
+            arrears += state.arrears;
+            arrearsCities++;
+        }
+        biggest.Sort((a, b) => b.balance.CompareTo(a.balance));
+        var text = new StringBuilder();
+        text.Append($"[EmpireCraft][财政诊断] {states} 国，国库合计 {HelperFunc.MoneyDisplay.Format(treasuries)}；")
+            .Append($"月度赤字 {deficit} 国，负债 {indebted} 国(共 {HelperFunc.MoneyDisplay.Format(debt)})，")
+            .Append($"违约 {defaulted} 国，限额拨款 {rationed} 国；欠饷 {arrearsCities} 城共 {HelperFunc.MoneyDisplay.Format(arrears)}。");
+        if (biggest.Count > 0)
+            text.Append("最大的国：").Append(string.Join("；", biggest.Take(3).Select(item => item.line)));
+        LogService.LogInfo(text.ToString());
+    }
+}

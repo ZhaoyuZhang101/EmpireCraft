@@ -56,6 +56,7 @@ public static class InternalBoundarySystem
                 Kingdom target = BestNeighbour(city, region, empire, core);
                 if (target == null) continue;
                 city.joinAnotherKingdom(target);
+                FiscalDiagnostics.Count("行政区划界");
                 TranslateHelper.LogEventMessage(string.Format(LM.Get("internal_boundary_fixed"),
                     city.GetCityName(), region.GetKingdomName(), target.GetKingdomName()), core);
                 return;

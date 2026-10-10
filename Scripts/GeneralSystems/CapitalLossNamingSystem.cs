@@ -71,6 +71,7 @@ public static class CapitalLossNamingSystem
         data.capital_loss_previous_prefix = Array.IndexOf(Directions, data.directPre) >= 0 ? "" : data.directPre ?? "";
         data.directPre = DirectionFrom(oldCapital.city_center, core.capital.city_center);
         data.capital_loss_prefix_applied = true;
+        FiscalDiagnostics.Count("失都改称");
         TranslateHelper.LogEventMessage(string.Format(LM.Get("capital_loss_renamed"), before, oldCapital.GetCityName(),
             LostYears, empire.GetEmpireFullName()), core);
     }

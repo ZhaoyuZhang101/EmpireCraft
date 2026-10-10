@@ -100,6 +100,7 @@ public static class WartimeCustodySystem
         Kingdom target = Allocate(city, empire, capturer);
         if (target == null || target == holder) return false;
         city.joinAnotherKingdom(target);
+        FiscalDiagnostics.Count("战后分配");
         TranslateHelper.LogEventMessage(string.Format(LM.Get("wartime_custody_settled"),
             empire.GetEmpireFullName(), city.GetCityName(), target.name), holder);
         return true;

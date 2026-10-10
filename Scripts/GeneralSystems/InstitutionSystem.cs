@@ -1491,6 +1491,7 @@ public static class InstitutionSystem
         empire.RecordHistory(directContent: history, actorId: rebel.king?.id ?? -1L, kingdomId: rebel.id);
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, empire.CoreKingdom);
 
+        FiscalDiagnostics.Count("阶层起义");
         RebellionStartupService.RaiseUprisingMilitia(rebel, grievance / 100f);
         int defected = DefectCoreSoldiers(empire, rebel, socialClass, grievance);
         if (defected > 0)

@@ -207,7 +207,7 @@ public static class EnterpriseSystem
     private static void RegisterPublic(City city, Building building)
     {
         var ids = city.GetOrCreate().public_enterprise_ids ??= new List<long>();
-        if (!ids.Contains(building.data.id)) ids.Add(building.data.id);
+        if (!ids.Contains(building.data.id)) { ids.Add(building.data.id); FiscalDiagnostics.Count("官营开办"); }
     }
 
     // 建成的产业建筑中官营的占比(顺带清掉已经不存在的登记)

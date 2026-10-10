@@ -117,6 +117,7 @@ public static class JimiSystem
                 if (coreAttacks) war.joinAttackers(region);
                 else war.joinDefenders(region);
                 if (!IsMember(war, region)) continue;
+                FiscalDiagnostics.Count("羁縻出兵");
                 TranslateHelper.LogEventMessage(string.Format(LM.Get("jimi_frontier_duty"),
                     region.GetKingdomName(), empire.GetEmpireFullName()), region);
             }

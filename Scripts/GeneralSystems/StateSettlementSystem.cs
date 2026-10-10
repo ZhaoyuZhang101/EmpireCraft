@@ -607,6 +607,7 @@ public static class StateSettlementSystem
                 {
                     city = World.world.cities.buildNewCity(actor, target);
                     project.native_initialized = city != null;
+                    if (city != null) FiscalDiagnostics.Count(project.overseas ? "跨海建城" : "官办建城");
                 }
                 finally
                 {

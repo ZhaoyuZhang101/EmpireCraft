@@ -510,6 +510,7 @@ public static class CityPopulationSystem
             // 全世界内存普查只在调试时主动调用，避免年度分帧结束后再集中扫描一遍所有单位与族谱。
             // 人口诊断只遍历城市，开销小，每年记一次
             LogPopulationDiagnosis();
+            FiscalDiagnostics.LogYearly();
         }
     }
 
