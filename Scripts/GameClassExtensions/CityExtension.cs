@@ -81,6 +81,8 @@ public static class CityExtension
         public long massacre_by_kingdom_id = -1L;
         public int massacre_victims;
         public double massacre_last = -1d;
+        // 战时中央代管(见 WartimeCustodySystem)：打下本城的成员国、原属国、所在战争；-1 = 不在代管中
+        public long custody_capturer_id = -1L, custody_enemy_id = -1L, custody_war_id = -1L;
         public bool massacre_noticed;
         // 播报过屠城的国家 → 播报时间：同一国在同一城 MemoryYears 年内只播报一次(几国轮番烧杀时不会刷屏)
         public Dictionary<long, double> massacre_announced = new Dictionary<long, double>();

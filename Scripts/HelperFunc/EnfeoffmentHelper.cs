@@ -35,7 +35,9 @@ public static class EnfeoffmentHelper
                             !string.Equals(title.data?.name, empireName, StringComparison.Ordinal))
             .Where(title => title.title_capital != null && !title.title_capital.isRekt() &&
                             title.title_capital.kingdom == coreKingdom && title.title_capital != coreKingdom.capital &&
-                            !IsRealmCapital(title.title_capital))
+                            !IsRealmCapital(title.title_capital) &&
+                            // 战时代管的城等战后分配完再说
+                            !EmpireCraft.Scripts.GeneralSystems.WartimeCustodySystem.InCustody(title.title_capital))
             .Where(title => !title.getCities().Any(city => city == coreKingdom.capital ||
                 city?.id == coreKingdom.capital.id))
             .OrderByDescending(title => title.getCities().Count(city => city != null && !city.isRekt() &&
@@ -114,7 +116,8 @@ public static class EnfeoffmentHelper
         foreach (City other in grantedCities)
         {
             if (other == null || other.isRekt() || other == city || other.kingdom != coreKingdom ||
-                other == retainedCapital || IsRealmCapital(other)) continue;
+                other == retainedCapital || IsRealmCapital(other) ||
+                EmpireCraft.Scripts.GeneralSystems.WartimeCustodySystem.InCustody(other)) continue;
             other.joinAnotherKingdom(kingdom);
         }
 
