@@ -21,6 +21,10 @@ public static class CityAssetSettlement
         CityPopulationData destination = CityPopulationSystem.Get(to);
         if (source == null || destination == null) return;
         float share = Mathf.Clamp01(moved / totalBefore);
+        // 并入时保管的实体钱包现金/战利品，迁民带走自己那份
+        if (WalletReserveTransfers.HasAssets(source.civilian_wallet_reserve))
+            WalletReserveTransfers.TryMoveShare(source.civilian_wallet_reserve,
+                destination.civilian_wallet_reserve ??= new WalletReserve(), share);
         float amount = PopulationEconomySystem.Savings(from, source) * share;
         if (amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount)) return;
         PopulationEconomySystem.AddSavings(from, source, -amount);
@@ -85,6 +89,11 @@ public static class CityAssetSettlement
                 extra.population.private_savings = 0f;
                 extra.population.investment_pool = 0f;
             }
+            // 保管的实体钱包现金也随百姓归入首都
+            if (capital != null && capital != city && !capital.isRekt() &&
+                WalletReserveTransfers.HasAssets(extra.population?.civilian_wallet_reserve))
+                WalletReserveTransfers.TryMove(extra.population.civilian_wallet_reserve,
+                    CityPopulationSystem.Get(capital).civilian_wallet_reserve ??= new WalletReserve());
         }
         catch (Exception exception)
         {

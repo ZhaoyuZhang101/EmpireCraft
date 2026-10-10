@@ -1926,8 +1926,14 @@ public static class CityPopulationSystem
         PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f &&
                                                            !string.IsNullOrEmpty(candidate.species));
         if (group == null) return null;
+        float people = GetBackgroundTotal(city);
         Actor actor = SpawnFromGroup(city, group, soldier: false);
-        if (actor != null) RemoveBackground(group, 1f);
+        if (actor != null)
+        {
+            RemoveBackground(group, 1f);
+            // 并入时保管的钱随人回到实体钱包(人均一份)
+            WalletReserveTransfers.GrantPerCapita(actor, Get(city)?.civilian_wallet_reserve, people);
+        }
         return actor;
     }
 
@@ -1950,8 +1956,13 @@ public static class CityPopulationSystem
                                                            candidate.social_class == socialClass &&
                                                            !string.IsNullOrEmpty(candidate.species));
         if (group == null) return null;
+        float people = GetBackgroundTotal(city);
         Actor actor = SpawnFromGroup(city, group, soldier: false);
-        if (actor != null) RemoveBackground(group, 1f);
+        if (actor != null)
+        {
+            RemoveBackground(group, 1f);
+            WalletReserveTransfers.GrantPerCapita(actor, Get(city)?.civilian_wallet_reserve, people);
+        }
         return actor;
     }
 
