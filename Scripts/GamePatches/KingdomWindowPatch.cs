@@ -86,6 +86,10 @@ public class KingdomWindowPatch: GamePatch
                 fiscal.cash_balance), fiscal.cash_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_available", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
                 EmpireCraft.Scripts.GeneralSystems.StateSettlementSystem.DiscretionaryBalance(metaObject)), "#43FF43", pIconPath: "iconMoney");
+            double budgetRatio = EmpireCraft.Scripts.GeneralSystems.FiscalBudgetPlanner.NormalRatio(metaObject);
+            if (budgetRatio < 0.999d)
+                __instance.showStatRow("fiscal_budget_ratio", string.Format(NeoModLoader.General.LM.Get("fiscal_budget_ratio_format"), budgetRatio),
+                    "#E6A166", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_flows", EmpireCraft.Scripts.GeneralSystems.TreasurySystem.FlowText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_transfers", EmpireCraft.Scripts.GeneralSystems.TreasurySystem.TransferText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_spending", EmpireCraft.Scripts.GeneralSystems.TreasurySystem.SpendingText(fiscal), "#F3C34A", pIconPath: "iconMoney");

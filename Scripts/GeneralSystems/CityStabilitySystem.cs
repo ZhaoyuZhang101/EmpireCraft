@@ -66,6 +66,7 @@ public static class CityStabilitySystem
         RecruitCursors.Clear();
         Retirements.Clear(); Retiring.Clear();
         WorkerResults = FallbackResults = 0;
+        FiscalBudgetPlanner.ResetWorldState();
     }
 
     public static void Tick()
@@ -300,7 +301,9 @@ public static class CityStabilitySystem
         if (municipalFirst) Municipality();
         foreach (Kingdom payer in Payers(city))
         {
-            int paid = Math.Min(remaining, discretionary ? StateSettlementSystem.DiscretionaryFunds(payer) : Math.Max(0, payer.GetMoney()));
+            // 日常账单按国库预算统筹拨付(要地足额、一般地方按比例)，见 FiscalBudgetPlanner；还旧欠不在此列
+            int allowed = discretionary ? remaining : FiscalBudgetPlanner.Allowance(city, payer, remaining);
+            int paid = Math.Min(allowed, discretionary ? StateSettlementSystem.DiscretionaryFunds(payer) : Math.Max(0, payer.GetMoney()));
             if (paid > 0) payer.SubMoney(paid, category);
             remaining -= paid;
             if (remaining == 0) break;
