@@ -1532,6 +1532,15 @@ public class PersonalHistoryRecord
     public long related_actor_id { get; set; } = -1L;
     public long related_personal_identity_id { get; set; } = -1L;
     public long owner_personal_identity_id { get; set; } = -1L;
+
+    // 存档时省略仍是初始值的字段(读档按初始值还原)，族谱生平约小三成
+    public bool ShouldSerializetimestamp() => timestamp != -1d;
+    public bool ShouldSerializekingdom_name() => !string.IsNullOrEmpty(kingdom_name);
+    public bool ShouldSerializeempire_id() => empire_id != -1L;
+    public bool ShouldSerializeevent_key() => !string.IsNullOrEmpty(event_key);
+    public bool ShouldSerializerelated_actor_id() => related_actor_id != -1L;
+    public bool ShouldSerializerelated_personal_identity_id() => related_personal_identity_id != -1L;
+    public bool ShouldSerializeowner_personal_identity_id() => owner_personal_identity_id != -1L;
 }
 
 public class CrimeRecord

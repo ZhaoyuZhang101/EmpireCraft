@@ -263,7 +263,16 @@ public static class KingdomExtension
         public int provisional_label_pick = -1;
         // Stable EmpireCraft culture key selected from the founder/ruler's current Culture.
         public string realm_culture = "";
-        public SpecificClan kingdomSpecificClan;
+        // 王族：存档只记宗族 ID，运行时按 ID 取族谱里的那一个(见 GetSpecificClan)。
+        // 以前整个宗族对象(含全部族人与生平)随王国再存一遍，存档里每个王国一份副本、读档后还与族谱脱节
+        public long kingdom_specific_clan_id = -1L;
+        [JsonIgnore] public SpecificClan kingdomSpecificClan;
+        // 旧存档：读进来的整个宗族对象只取 ID
+        [JsonProperty("kingdomSpecificClan")]
+        private SpecificClan LegacyKingdomSpecificClan
+        {
+            set { if (value != null && kingdom_specific_clan_id < 0) kingdom_specific_clan_id = value.id; }
+        }
         public long Money = 0;
         public TreasuryData treasury;
         public int tax_corruption_carry;
@@ -1907,7 +1916,11 @@ public static class KingdomExtension
 
     public static SpecificClan GetSpecificClan(this Kingdom kingdom)
     {
-        return kingdom.GetOrCreate().kingdomSpecificClan;
+        var data = kingdom.GetOrCreate();
+        if (data.kingdom_specific_clan_id < 0) return null;
+        if (data.kingdomSpecificClan == null || data.kingdomSpecificClan.id != data.kingdom_specific_clan_id)
+            data.kingdomSpecificClan = SpecificClanManager.Get(data.kingdom_specific_clan_id);
+        return data.kingdomSpecificClan;
     }
 
     public static void UpdateExamTime(this Kingdom k)
@@ -1946,7 +1959,9 @@ public static class KingdomExtension
     }
     public static void SetSpecificClan(this Kingdom kingdom, SpecificClan sc)
     {
-        kingdom.GetOrCreate().kingdomSpecificClan = sc;
+        var data = kingdom.GetOrCreate();
+        data.kingdomSpecificClan = sc;
+        data.kingdom_specific_clan_id = sc?.id ?? -1L;
     }
     public static Regime GetRegime(this Kingdom k)
     {
