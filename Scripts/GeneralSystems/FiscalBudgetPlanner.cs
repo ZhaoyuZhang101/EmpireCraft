@@ -46,9 +46,12 @@ public static class FiscalBudgetPlanner
             plan.PriorityNeed = plan.NormalNeed = 0L;
             plan.Start = now;
             plan.Balance = Math.Max(0L, payer.GetTreasuryBalance());
-            long left = plan.Balance - plan.LastPriorityNeed;
-            plan.NormalRatio = !hasHistory || plan.LastNormalNeed <= 0L ? 1d
-                : Math.Max(0d, Math.Min(1d, left / (double)plan.LastNormalNeed));
+            // 本月可用 = 月初余额 + 预计月经常收入(滚动账均值)，只按余额会把一般地方拨得过少
+            TreasuryReport report = TreasurySystem.Report(payer);
+            long expected = report == null || report.months <= 0 ? 0L
+                : Math.Max(0L, report.stable_income / report.months);
+            plan.NormalRatio = FiscalBudgetRules.NormalRatio(plan.Balance, expected,
+                plan.LastPriorityNeed, plan.LastNormalNeed, hasHistory);
         }
         return plan;
     }
@@ -73,16 +76,15 @@ public static class FiscalBudgetPlanner
         Plan plan = Get(payer);
         if (IsPriority(city, payer))
         {
-            plan.PriorityNeed = SafeAdd(plan.PriorityNeed, remaining);
+            plan.PriorityNeed = FiscalBudgetRules.SafeAdd(plan.PriorityNeed, remaining);
             return remaining;
         }
-        plan.NormalNeed = SafeAdd(plan.NormalNeed, remaining);
-        return plan.NormalRatio >= 1d ? remaining : (int)Math.Ceiling(remaining * plan.NormalRatio);
+        plan.NormalNeed = FiscalBudgetRules.SafeAdd(plan.NormalNeed, remaining);
+        return FiscalBudgetRules.Allowance(remaining, plan.NormalRatio);
     }
 
     // 界面：一般地方本月的拨付比例(1 = 足额)
     public static double NormalRatio(Kingdom payer) =>
         payer != null && Plans.TryGetValue(payer.id, out Plan plan) ? plan.NormalRatio : 1d;
 
-    private static long SafeAdd(long a, int b) => a > long.MaxValue - b ? long.MaxValue : a + b;
 }

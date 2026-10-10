@@ -21,8 +21,6 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   正统：债务超过年经常收入、或一年内违约过，都损正统(见 MonarchyLegitimacy)。
 public static class StateDebtSystem
 {
-    private const float DebtCapYears = 2f;
-    private const float LendShare = 0.5f;
     private const int CashReservePerHousehold = 2;
     private const int MinimumLoan = 10;
     private static double _lastScan = -1d;
@@ -82,16 +80,9 @@ public static class StateDebtSystem
         }
     }
 
-    private static float RateFor(Kingdom kingdom)
-    {
-        string culture = TechnologySystem.GetCultureOf(kingdom);
-        float rate = 0.04f;
-        if (!TechnologySystem.HasTech(culture, "banking")) rate += 0.03f;
-        int legitimacy = kingdom.GetEmpire()?.Legitimacy ?? 50;
-        rate += 0.04f * (1f - Mathf.Clamp(legitimacy, 0, 100) / 100f);
-        if (CityStabilitySystem.HasArrears(kingdom)) rate += 0.02f;
-        return Mathf.Clamp(rate, 0.03f, 0.12f);
-    }
+    private static float RateFor(Kingdom kingdom) => StateDebtRules.AnnualRate(
+        TechnologySystem.HasTech(TechnologySystem.GetCultureOf(kingdom), "banking"),
+        kingdom.GetEmpire()?.Legitimacy ?? 50, CityStabilitySystem.HasArrears(kingdom));
 
     private static void TryBorrow(Kingdom kingdom)
     {
@@ -101,7 +92,7 @@ public static class StateDebtSystem
         bool rationing = FiscalBudgetPlanner.NormalRatio(kingdom) < 0.999d;
         if (balance >= reserve && !rationing) return;
         long need = Math.Max(reserve - balance, rationing ? Math.Max(1L, reserve / 4) : 0L);
-        long room = (long)(AnnualStableIncome(kingdom) * DebtCapYears) - Outstanding(kingdom);
+        long room = StateDebtRules.BorrowRoom(AnnualStableIncome(kingdom), Outstanding(kingdom));
         long target = Math.Min(need, room);
         if (target < MinimumLoan || kingdom.cities == null) return;
 
@@ -112,9 +103,10 @@ public static class StateDebtSystem
         {
             if (city?.data == null || city.isRekt()) continue;
             CityPopulationData data = CityPopulationSystem.Get(city);
-            long surplus = EnterpriseSystem.Cash(data) - (long)CityPopulationSystem.BackgroundHouseholds(city) * CashReservePerHousehold;
             // 民间投资池也可以买国债(参考维多利亚3)
-            long amount = (long)(Math.Max(0L, surplus) * LendShare) + (long)(Math.Max(0f, data?.investment_pool ?? 0f) * LendShare);
+            long amount = StateDebtRules.Lendable(EnterpriseSystem.Cash(data),
+                (long)CityPopulationSystem.BackgroundHouseholds(city) * CashReservePerHousehold,
+                (long)Math.Max(0f, data?.investment_pool ?? 0f));
             if (amount <= 0L) continue;
             lenders.Add((city, amount));
             lendable += amount;
@@ -140,8 +132,7 @@ public static class StateDebtSystem
             StateBond existing = bonds.Find(bond => bond.city_id == city.data.id);
             if (existing != null)
             {
-                existing.rate = (float)((existing.rate * (double)existing.principal + rate * (double)take) /
-                                        (existing.principal + (double)take));
+                existing.rate = StateDebtRules.MergedRate(existing.principal, existing.rate, take, rate);
                 existing.principal += take;
             }
             else bonds.Add(new StateBond { city_id = city.data.id, principal = take, rate = rate, since = World.world.getCurWorldTime() });
@@ -149,6 +140,7 @@ public static class StateDebtSystem
         }
         if (borrowed <= 0L) return;
         AddKingdomMoney(kingdom, borrowed, TreasuryCategory.Borrowing);
+        FiscalDiagnostics.Count("国家举债");
         TranslateHelper.LogEventMessage(string.Format(LM.Get("state_debt_borrowed"), kingdom.GetKingdomName(),
             MoneyDisplay.Format(borrowed), rate), kingdom);
     }
@@ -170,9 +162,9 @@ public static class StateDebtSystem
                 defaulted = true;
                 continue;
             }
-            double interest = bond.principal * (double)bond.rate / 12d + bond.interest_carry;
-            int due = (int)Math.Min(int.MaxValue, Math.Floor(interest));
-            bond.interest_carry = interest - due;
+            double carry = bond.interest_carry;
+            int due = StateDebtRules.MonthlyInterest(bond.principal, bond.rate, ref carry);
+            bond.interest_carry = carry;
             if (due <= 0) continue;
             int paid = (int)Math.Min(due, Math.Max(0L, kingdom.GetTreasuryBalance()));
             if (paid > 0)
@@ -188,6 +180,7 @@ public static class StateDebtSystem
         }
         if (defaulted)
         {
+            FiscalDiagnostics.Count("国债违约");
             kingdom.GetOrCreate().state_debt_default_at = World.world.getCurWorldTime();
             return;
         }
