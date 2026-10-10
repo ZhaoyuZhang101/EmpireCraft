@@ -127,6 +127,21 @@ namespace EmpireCraft.Scripts.UI.Windows
             //总容器
             var topSpace = this.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter,
                 pSize: new Vector2(196, 68), pPadding: new RectOffset(0, 6, 0, 0));
+            // 一建好就登记：后面任何一项绘制出错，Clear() 也能把它删掉，
+            // 否则每次刷新都会多留一块残缺的顶部栏，越叠越多
+            AddIntoGroup("top_space", topSpace.gameObject);
+            try
+            {
+                DrawTopPartInfo(topSpace);
+            }
+            catch (Exception exception)
+            {
+                NeoModLoader.services.LogService.LogError($"帝国窗口顶部信息绘制失败({_empire?.data?.name}): {exception}");
+            }
+        }
+
+        private void DrawTopPartInfo(AutoHoriLayoutGroup topSpace)
+        {
             topSpace.transform.AddStretchBackground("clanFrame", new Vector2(208, 72));
             
             //左侧信息栏

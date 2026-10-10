@@ -1044,7 +1044,7 @@ public class Empire : MetaObject<EmpireData>
             {
                 if (this.data.year_name != "" || this.data.year_name != null)
                 {
-                    return OverallHelperFunc.JoinNameParts(Emperor.GetModName().firstName,
+                    return OverallHelperFunc.JoinNameParts(Emperor.GetModName()?.firstName ?? Emperor.getName(),
                         GetEmperorYear() + LM.Get("Year"));
                 }
             }
