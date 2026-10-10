@@ -417,7 +417,13 @@ public static class PopulationEconomySystem
     public static void ConsumeInputs(City city, CityPopulationData data, string resource, float amount)
     {
         if (data == null || amount <= 0f) return;
-        data.produced_value -= amount * UnitValue(city, resource);
+        float value = amount * UnitValue(city, resource);
+        data.produced_value -= value;
+        // 加工成品记在工业税基里，原料价值也从工业税基扣，否则工业税按毛产出征收
+        var sectors = data.produced_sector_values ??= new();
+        string key = TreasuryCategory.IndustrialTax.ToString();
+        sectors.TryGetValue(key, out float previous);
+        sectors[key] = Mathf.Max(0f, previous - value);
     }
 
     private static float Get(Dictionary<SocialClass, float> values, SocialClass key) =>
