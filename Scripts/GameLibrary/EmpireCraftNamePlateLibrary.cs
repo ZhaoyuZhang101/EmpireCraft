@@ -1960,7 +1960,9 @@ public static class EmpireCraftNamePlateLibrary
         }
     }
 
-    private static void ApplyReusableNameplateMode(NameplateText nameplateText, NameplateAsset pAsset, NanoObject pMeta)
+    // 按当前铭牌模式设定底板：完整模式显示边框底板，仅旗帜模式隐藏并按原版比例缩放。
+    // 铭牌对象是池化复用的，原版只在模式变化时才设底板，不设就会沿用上一帧别的铭牌留下的状态
+    internal static void ApplyReusableNameplateMode(NameplateText nameplateText, NameplateAsset pAsset, NanoObject pMeta)
     {
         if (nameplateText == null)
         {

@@ -28,8 +28,10 @@ public class NameplateTextPatch:GamePatch
         __instance._text_name.enabled = true;
         __instance._text_name.gameObject.SetActive(true);
         __instance._background_image.transform.localPosition = Vector3.zero;
-        __instance._background_image.transform.localScale = Vector3.one;
         __instance._background_image.type = Image.Type.Sliced;
+        // 原版铭牌对象池化复用，原版 prepare 只在模式变化时才设底板；这里每次按当前模式明确设定，
+        // 否则王国铭牌会沿用上一帧这块铭牌(城市、无底板铭牌)的底板状态，在有边框/无边框之间来回闪
+        EmpireCraftNamePlateLibrary.ApplyReusableNameplateMode(__instance, pAsset, pMeta);
         var outline = __instance._text_name.GetComponent<Outline>();
         if (outline != null)
         {
