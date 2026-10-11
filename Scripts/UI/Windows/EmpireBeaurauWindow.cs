@@ -214,75 +214,110 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
         if (fief.Length == 1 && (peerage == "公" || peerage == "侯")) fief += "国";
         return fief + peerage;
     }
+    // 顶部人物卡(内阁、选帝侯、议会)：占满内容宽，里面左右两栏
+    private (AutoVertLayoutGroup card, AutoVertLayoutGroup left, AutoVertLayoutGroup right, float column)
+        BeginTopCard(string title, string headerValue, params string[] icons)
+    {
+        float inner = _contentWidth - 12f;
+        float column = Mathf.Floor((inner - UIHelper.CardGap) / 2f);
+        var card = _root.BeginCard(_contentWidth, title, "#F3C34A", headerValue, icons);
+        pool.Add(card.gameObject);
+        var columns = card.BeginColumns(inner);
+        return (card, TopColumn(columns, column), TopColumn(columns, column), column);
+    }
+
+    private static AutoVertLayoutGroup TopColumn(AutoHoriLayoutGroup columns, float width)
+    {
+        var column = columns.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperLeft,
+            pPadding: new RectOffset(0, 0, 0, 0));
+        UIHelper.FixPanelWidth(column.transform, width);
+        return column;
+    }
+
+    // 人物行：头像 + 职位 / 姓名 / 补充一行(派系、政府类型)
+    private static void AddPersonCell(AutoVertLayoutGroup parent, float width, Actor actor, string role, string roleHex,
+        string detail)
+    {
+        bool alive = actor?.data != null && !actor.isRekt();
+        var row = parent.BeginHoriGroup(new Vector2(width, 32f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+        row.transform.localPosition = Vector3.zero;
+        row.AddActorViewIntoHoriLayout(alive ? actor : null);
+        float textWidth = width - 34f;
+        var text = row.BeginVertGroup(new Vector2(textWidth, 30f), pSpacing: 0, pAlignment: TextAnchor.MiddleLeft,
+            pPadding: new RectOffset(0, 0, 0, 0));
+        text.transform.localPosition = Vector3.zero;
+        text.AddTextIntoVertLayout(role.ColorString(roleHex), true, TextAnchor.MiddleLeft, new Vector2(textWidth, 9f))
+            .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        text.AddTextIntoVertLayout((alive ? actor.getName() : LM.Get("label_none")).ColorString(alive ? "#F2EEE2" : "#8FA0A8"),
+            true, TextAnchor.MiddleLeft, new Vector2(textWidth, 11f)).UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+        if (string.IsNullOrEmpty(detail)) return;
+        SimpleText detailText = text.AddTextIntoVertLayout(detail, true, TextAnchor.MiddleLeft, new Vector2(textWidth, 9f));
+        detailText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(detailText);
+    }
+
+    private static string FactionDetail(Actor actor)
+    {
+        string name = actor?.data == null || actor.isRekt() ? null : actor.GetFaction()?.Name;
+        return string.IsNullOrWhiteSpace(name) ? LM.Get("label_none").ColorString("#8FA0A8") : name.ColorString(pColor: GoverningColor);
+    }
+
+    private static SimpleText AddColumnLabel(AutoVertLayoutGroup column, float width, string text)
+    {
+        SimpleText label = column.AddTextIntoVertLayout(text.ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
+            new Vector2(width, 10f));
+        label.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        return label;
+    }
+
+    private static bool Serving(Actor actor) => actor?.data != null && !actor.isRekt();
+
+    // 律令制内阁：首辅一人、大臣四人，左右两栏交替排
     [Hotfixable]
     private void InitialTopPartInfoLvLing()
     {
         if (_empire?.CoreKingdom?.data == null) return;
-        //总容器
-        topSpace = _root.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
-        topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
-
-        var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
-        centerPart.AddTextIntoVertLayout("内阁首辅", true, TextAnchor.MiddleCenter);
-        Actor cabinetLeader = _empire.GetCabinetLeader();
-        string leaderFaction = cabinetLeader?.data == null ? null : cabinetLeader.GetFaction()?.Name;
-        centerPart.AddActorViewIntoVertLayout(cabinetLeader,
-            description:string.IsNullOrWhiteSpace(leaderFaction)
-                ? LM.Get("label_none")
-                : leaderFaction.ColorString(pColor:new Color(0.0f, 1, 0.5f)));
-        centerPart.AddTextIntoVertLayout("内阁大臣", true, TextAnchor.MiddleCenter);
-        var cabinetMemberSpace = centerPart.BeginHoriGroup(pSpacing:-5);
-        var members = _empire.GetCabinetMembers() ?? new List<Actor>();
-        for(int i=1; i<5; i++)
-        {
-            int cCount = members.Count;
-            Actor member = i < cCount && members[i]?.data != null && !members[i].isRekt() ? members[i] : null;
-            string factionName = member?.GetFaction()?.Name;
-            cabinetMemberSpace.AddActorViewIntoHoriLayout(member, description: string.IsNullOrWhiteSpace(factionName)
-                ? LM.Get("label_none")
-                : factionName.ColorString(pColor:new Color(0.0f, 1, 0.5f)));
-        }
+        topSpace = null;
+        List<Actor> members = _empire.GetCabinetMembers() ?? new List<Actor>();
+        var persons = new List<Actor> { _empire.GetCabinetLeader() };
+        for (int i = 1; i < 5; i++) persons.Add(i < members.Count && Serving(members[i]) ? members[i] : null);
+        var (_, left, right, column) = BeginTopCard(LM.Get("cabinet_title"),
+            string.Format(LM.Get("cabinet_seat_count"), persons.Count(Serving), persons.Count), "ui/icons/iconKingdom");
+        for (int i = 0; i < persons.Count; i++)
+            AddPersonCell(i % 2 == 0 ? left : right, column, persons[i],
+                LM.Get(i == 0 ? "cabinet_leader" : "cabinet_minister"), i == 0 ? "#FFCC00" : "#59D9FF",
+                FactionDetail(persons[i]));
 
         FixedFaction dominateFaction = _empire.CoreKingdom.GetRegime()?.GetDominateFaction();
         if (dominateFaction != null)
         {
             AddDominantFactionRow(dominateFaction);
         }
-        
     }
+
+    // 封建制选帝侯：左栏教廷三人，右栏世俗四人
     [Hotfixable]
     private void InitialTopPartInfoFeudalism()
     {
-        //总容器
-        topSpace = _root.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
-        topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
+        if (_empire?.CoreKingdom?.data == null) return;
+        topSpace = null;
+        List<Actor> members = _empire.GetCabinetMembers() ?? new List<Actor>();
+        Actor Elector(int index) => index < members.Count && Serving(members[index]) ? members[index] : null;
+        int seated = Enumerable.Range(0, 7).Count(index => Elector(index) != null);
+        var (_, left, right, column) = BeginTopCard(LM.Get("electors_title"),
+            string.Format(LM.Get("cabinet_seat_count"), seated, 7), "ui/icons/iconCrown");
+        AddColumnLabel(left, column, LM.Get("electors_ecclesiastical"));
+        for (int i = 0; i < 3; i++)
+            AddPersonCell(left, column, Elector(i), LM.Get("electors_ecclesiastical"), "#C9A7E8", FactionDetail(Elector(i)));
+        AddColumnLabel(right, column, LM.Get("electors_secular"));
+        for (int i = 3; i < 7; i++)
+            AddPersonCell(right, column, Elector(i), LM.Get("electors_secular"), "#FFCC00", FactionDetail(Elector(i)));
 
-        var centerPart = topSpace.BeginVertGroup(pSpacing:-3);
-        var members = _empire.GetCabinetMembers();
-        centerPart.AddTextIntoVertLayout("教廷选帝侯", true, TextAnchor.MiddleCenter);
-        var cabinetMemberSpace = centerPart.BeginHoriGroup(pSpacing:-5);
-        for (int i=0; i<3; i++ )
-        {
-            int cCount = members.Count;
-            var member = i<cCount ? members[i] : null;
-            cabinetMemberSpace.AddActorViewIntoHoriLayout(member, 
-                description: member?.GetFaction()?.Name?.ColorString(pColor:new Color(0.0f, 1, 0.5f))??"无");
-        }
-        centerPart.AddTextIntoVertLayout("世俗选帝侯", true, TextAnchor.MiddleCenter);
-        var cabinetMemberSpace2 = centerPart.BeginHoriGroup(pSpacing:-5);
-        for(int i=3; i<7; i++)
-        {
-            int cCount = members.Count;
-            var member = i<cCount ? members[i] : null;
-            cabinetMemberSpace2.AddActorViewIntoHoriLayout(member, 
-                description: member?.GetFaction()?.Name?.ColorString(pColor:new Color(0.0f, 1, 0.5f))??"无");
-        }
         var dominate = _empire.CoreKingdom.GetRegime().GetDominateFaction();
         if (dominate != null)
         {
             AddDominantFactionRow(dominate);
         }
-        
     }
     [Hotfixable]
     private void InitialTopPartInfoNormal()
@@ -382,33 +417,33 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
     private static Color GetSeatColor(bool governing, bool constitutionalist) =>
         governing ? GoverningColor : constitutionalist ? ConstitutionalistColor : OppositionColor;
 
+    // 议会卡：左栏总理大臣与议席半圆图，右栏各党议席；下方通栏是施政议程、政治协商与说明
     [Hotfixable]
     private void InitialTopPartInfoParliament()
     {
         if (_empire?.CoreKingdom?.data == null) return;
+        topSpace = null;
         GeneralSystems.ParliamentView view = GeneralSystems.ParliamentSystem.GetView(_empire);
-        topSpace = _root.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
-        topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 100));
+        var (card, left, right, column) = BeginTopCard(LM.Get("parliament_title"),
+            string.Format(LM.Get("parliament_members_title"), view.Term, view.YearsUntilElection), "ui/icons/iconKingdom");
+        float inner = _contentWidth - 12f;
 
-        var centerPart = topSpace.BeginVertGroup(pSpacing: -3);
         // 总理大臣：议会选举产生
         string government = string.IsNullOrWhiteSpace(view.GovernmentType)
             ? LM.Get("prime_minister_vacant")
             : string.Format(LM.Get("prime_minister_status"), LM.Get($"parliament_government_{view.GovernmentType}"),
                 view.GovernmentSeats, view.TotalSeats);
-        centerPart.AddTextIntoVertLayout($"{LM.Get("prime_minister_title")} · {government}", true,
-            TextAnchor.MiddleCenter, new Vector2(110, 10));
+        string party = view.PrimeMinisterFaction == null
+            ? LM.Get("label_none").ColorString("#8FA0A8")
+            : view.PrimeMinisterFaction.Name.ColorString(pColor: GoverningColor);
+        AddPersonCell(left, column, view.PrimeMinister, LM.Get("prime_minister_title"), "#59D9FF",
+            $"{party} · {government.ColorString("#C8C2B4")}");
 
         // 议席图：按理念从左到右排开政党，执政一方加金框，正中为过半线
         List<GeneralSystems.ParliamentFactionView> ordered = view.Factions
             .OrderBy(faction => GeneralSystems.PartySystem.GetPosition(faction.Ideology).x)
             .ThenByDescending(faction => faction.Seats).ToList();
         Dictionary<string, Color> colors = PartyColors(ordered);
-        var chartRow = centerPart.BeginHoriGroup(new Vector2(130, 50), TextAnchor.MiddleCenter, 2);
-        chartRow.AddActorViewIntoHoriLayout(view.PrimeMinister,
-            description: view.PrimeMinisterFaction == null
-                ? LM.Get("label_none")
-                : view.PrimeMinisterFaction.Name.ColorString(pColor: GoverningColor));
         var seats = new List<HemicycleChart.Seat>();
         foreach (GeneralSystems.ParliamentFactionView faction in ordered)
             seats.AddRange(view.Seats.Where(seat => seat.Faction == faction.Faction).Select(seat =>
@@ -417,7 +452,7 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
                     Color = colors[faction.Faction.GetID()], Governing = faction.Governing,
                     Vacant = seat.Representative == null
                 }));
-        GameObject chart = HemicycleChart.Create(chartRow.transform, new Vector2(96, 50), seats);
+        GameObject chart = HemicycleChart.Create(left.transform, new Vector2(column, Mathf.Round(column * 0.5f)), seats);
         UIHelper.AttachTextTooltip(chart, $"parliament_hemicycle_{_empire.id}",
             string.Format(LM.Get("parliament_members_title"), view.Term, view.YearsUntilElection),
             string.Join("\n", ordered.Select(faction => FactionSeatLine(faction, colors, true))) + "\n" +
@@ -426,53 +461,55 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
                 ? "\n" + string.Format(LM.Get("parliament_next_seat_count"), view.NextSeatCount) : "") +
             "\n" + LM.Get("parliament_hemicycle_legend").ColorString("#8FA0A8"));
 
-        // 施政议程
-        centerPart.AddTextIntoVertLayout(AgendaLine(view.Agenda), true, TextAnchor.MiddleCenter,
-            new Vector2(130, 9)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        // 右栏：各党议席、涨跌与得票
+        AddColumnLabel(right, column, LM.Get("parliament_seat_distribution"));
+        foreach (GeneralSystems.ParliamentFactionView faction in view.Factions)
+        {
+            var line = right.BeginHoriGroup(new Vector2(column, 11f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+            UIHelper.AddLayoutIcon(line.transform,
+                SpriteTextureLoader.getSprite(IdeologyTraitIcons.Path(faction.Ideology)), 9f);
+            SimpleText seatLine = line.AddTextIntoHoriLayout(FactionSeatLine(faction, colors, false), true,
+                TextAnchor.MiddleLeft, new Vector2(column - 11f, 11f));
+            seatLine.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            HoverMarqueeText.Attach(seatLine);
+        }
+        if (GeneralSystems.ParliamentSystem.KeepsCabinet(_empire))
+        {
+            int electors = _empire.GetCabinetMembers().Count(actor => actor != null && !actor.isRekt());
+            AddColumnLabel(right, column, string.Format(LM.Get("parliament_electoral_college_note"), electors));
+        }
 
-        // 政治协商：参加的友党与作用
+        // 通栏：施政议程、政治协商、说明
+        card.AddTextIntoVertLayout("", false, TextAnchor.MiddleCenter, new Vector2(inner, 2f));
+        SimpleText agenda = card.AddTextIntoVertLayout(AgendaLine(view.Agenda), true, TextAnchor.MiddleLeft,
+            new Vector2(inner, 10f));
+        agenda.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(agenda);
+
         List<FixedFaction> consultative = GeneralSystems.PartyBanSystem.GetConsultativeParties(_empire);
         if (consultative.Count > 0)
         {
-            SimpleText consultation = centerPart.AddTextIntoVertLayout(
-                string.Format(LM.Get("consultation_line"), string.Join("、", consultative.Select(party => party.Name)))
-                    .ColorString("#7FD8EA"), true, TextAnchor.MiddleCenter, new Vector2(130, 9));
-            consultation.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            SimpleText consultation = card.AddTextIntoVertLayout(
+                string.Format(LM.Get("consultation_line"), string.Join("、", consultative.Select(p => p.Name)))
+                    .ColorString("#7FD8EA"), true, TextAnchor.MiddleLeft, new Vector2(inner, 10f));
+            consultation.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            HoverMarqueeText.Attach(consultation);
             UIHelper.AttachTextTooltip(consultation.gameObject, $"consultation_{_empire.id}",
                 LM.Get("consultation_title"), string.Format(LM.Get("consultation_body"),
-                    string.Join("、", consultative.Select(party =>
-                        $"{party.Name}[{GeneralSystems.PartySystem.GetIdeologyName(party.Ideology)}]")),
+                    string.Join("、", consultative.Select(p =>
+                        $"{p.Name}[{GeneralSystems.PartySystem.GetIdeologyName(p.Ideology)}]")),
                     GeneralSystems.PartyBanSystem.ConsultationLegitimacy,
                     Mathf.RoundToInt(GeneralSystems.PartyBanSystem.ConsultationDissent * 100f)));
         }
 
         // 说明：悬停查看议员与总理如何产生
-        SimpleText hint = centerPart.AddTextIntoVertLayout(LM.Get("parliament_how_hint").ColorString("#8FA0A8"),
-            false, TextAnchor.MiddleCenter, new Vector2(110, 10));
+        SimpleText hint = card.AddTextIntoVertLayout(LM.Get("parliament_how_hint").ColorString("#8FA0A8"), true,
+            TextAnchor.MiddleLeft, new Vector2(inner, 10f));
+        hint.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
         UIHelper.AttachTextTooltip(hint.gameObject, $"parliament_how_{_empire.id}", LM.Get("parliament_title"),
             string.Format(LM.Get("parliament_how_body"), view.TotalSeats, GeneralSystems.ParliamentSystem.TermYears(_empire)) +
             "\n" + LM.Get("parliament_politics_body") +
             (view.ResponsibleGovernment ? "\n" + LM.Get("parliament_responsible_government_body") : ""));
-
-        // 右侧：各党议席、涨跌与得票
-        var seatPart = topSpace.BeginVertGroup(new Vector2(78, 90), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
-        seatPart.AddTextIntoVertLayout(LM.Get("parliament_seat_distribution"), true, TextAnchor.MiddleCenter,
-            new Vector2(78, 10));
-        foreach (GeneralSystems.ParliamentFactionView faction in view.Factions)
-        {
-            var line = seatPart.BeginHoriGroup(new Vector2(78, 9), TextAnchor.MiddleLeft, 1);
-            UIHelper.AddLayoutIcon(line.transform,
-                SpriteTextureLoader.getSprite(IdeologyTraitIcons.Path(faction.Ideology)), 8f);
-            line.AddTextIntoHoriLayout(FactionSeatLine(faction, colors, false), true, TextAnchor.MiddleLeft,
-                new Vector2(69, 9)).UseFixedFontSize(5, HorizontalWrapMode.Overflow);
-        }
-        if (GeneralSystems.ParliamentSystem.KeepsCabinet(_empire))
-        {
-            int electors = _empire.GetCabinetMembers().Count(actor => actor != null && !actor.isRekt());
-            seatPart.AddTextIntoVertLayout(string.Format(LM.Get("parliament_electoral_college_note"), electors), true,
-                TextAnchor.MiddleCenter, new Vector2(78, 10));
-        }
-
     }
 
     private static readonly Color[] FallbackPartyColors =
