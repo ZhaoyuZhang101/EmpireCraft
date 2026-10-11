@@ -1081,7 +1081,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 };
                 foreach (var d in currentHistory.descriptions)
                 {
-                    EmpireHistoryWindow.ListHistoryDescriptions(lasDes, d, parent);
+                    EmpireHistoryWindow.ListHistoryDescriptions(lasDes, d, parent, MainWidth);
                     lasDes = d;
                 }
             }
