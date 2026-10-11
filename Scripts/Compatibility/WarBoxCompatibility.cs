@@ -31,6 +31,27 @@ public static class WarBoxCompatibility
 {
     private static bool _applied;
 
+    // WarBox 的七个外交性格特质原包没带图标(GameResources 里只有酗酒与兵种两张)，特质栏里是一排白块。
+    // 用本模组按同一画风画的图标补上(Tools/IconForge 生成)；WarBox 以后自带了图标就仍用它的
+    private static readonly string[] IconlessTraits =
+    {
+        "warbox_xenophobe", "warbox_cosmopolite", "warbox_peacemaker", "warbox_hoarder",
+        "warbox_generous", "warbox_loyal", "warbox_treacherous"
+    };
+
+    public static void FillMissingTraitIcons()
+    {
+        foreach (string id in IconlessTraits)
+        {
+            ActorTrait trait = AssetManager.traits?.get(id);
+            if (trait == null || SpriteTextureLoader.getSprite(trait.path_icon) != null) continue;
+            string ours = "ui/icons/actor_traits/" + id;
+            if (SpriteTextureLoader.getSprite(ours) == null) continue;
+            trait.path_icon = ours;
+            trait.cached_sprite = null;
+        }
+    }
+
     public static void EnsureApplied(Harmony harmony)
     {
         if (_applied || harmony == null) return;

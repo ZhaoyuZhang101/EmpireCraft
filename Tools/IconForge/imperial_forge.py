@@ -578,6 +578,14 @@ TRAITS = {
     "iconEmpireEliteArmy": lambda i: obj_helmet(i, BRASS, BONE),
     "iconFounderRuler": obj_founder,
     "iconRestorerRuler": obj_sun,
+    # WarBox 外交性格特质：原包没带图标(只有酗酒与兵种两张)，这里按同一画风补上，由 WarBoxCompatibility 挂接
+    "warbox_xenophobe": lambda i: obj_lock(i),
+    "warbox_cosmopolite": obj_envoy,
+    "warbox_peacemaker": obj_whiteflag,
+    "warbox_hoarder": obj_coins,
+    "warbox_generous": lambda i: obj_farmland(i),
+    "warbox_loyal": obj_shield,
+    "warbox_treacherous": obj_broken_chain,
 }
 
 
