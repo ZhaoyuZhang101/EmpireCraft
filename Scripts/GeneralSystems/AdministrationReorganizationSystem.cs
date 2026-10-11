@@ -45,7 +45,7 @@ public static class AdministrationReorganizationSystem
 
     public static bool CanContinue(Empire empire) => empire?.data != null && !empire.isRekt() &&
         !empire.IsArchived() && empire.CoreKingdom != null && !empire.CoreKingdom.isRekt() &&
-        empire.Legitimacy > 80 && !empire.HasTerritorialWar() &&
+        empire.Legitimacy > 80 && !empire.HasTerritorialWar() && !ZhouEraSystem.RoyalReclaimBlocked(empire) &&
         !AncientWarfareCompatibility.Owns(empire.CoreKingdom);
 
     public static bool Begin(Actor actor)

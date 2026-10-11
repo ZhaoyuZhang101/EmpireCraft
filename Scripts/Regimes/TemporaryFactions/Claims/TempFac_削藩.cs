@@ -1,5 +1,6 @@
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -26,7 +27,7 @@ public class TempFac_削藩 : TemporaryFaction
     public override void Execute()
     {
         Kingdom kingdom = GetKingdomTarget();
-        if (kingdom != null && !CheckRebelling(kingdom))
+        if (kingdom != null && !CheckRebelling(kingdom) && !ZhouEraSystem.RoyalReclaimBlocked(GetEmpire()))
         {
             if (!TryEnforceCrimeForCurrentTarget())
             {
@@ -48,6 +49,7 @@ public class TempFac_削藩 : TemporaryFaction
     {
         if (!base.CheckLocalContinue(actor)) return false;
         Empire empire = GetEmpire();
+        if (ZhouEraSystem.RoyalReclaimBlocked(empire)) return false;
         var target = empire.kingdoms_list.ToList().Find(k =>
         {
             if (k == null || k.isRekt() || k == actor || k == empire.CoreKingdom) return false;
@@ -63,7 +65,7 @@ public class TempFac_削藩 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire == null) return false;
+        if (empire == null || ZhouEraSystem.RoyalReclaimBlocked(empire)) return false;
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
             if (kingdom.IsEmpire()) continue;

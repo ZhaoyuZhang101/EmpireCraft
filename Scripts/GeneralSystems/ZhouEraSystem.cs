@@ -44,6 +44,10 @@ public static class ZhouEraSystem
 
     public static int Era(Empire empire) => Applies(empire) ? State(empire).era : -1;
 
+    // 春秋、战国王室衰微：天子不能再从诸侯手里收地。削藩、收回法理、按法理整合与划界、
+    // 战时代管、收复旧都、绝嗣收归都不再发生；诸侯打下的地归自己(尽有其地)，王畿只靠自己的兵守土开疆
+    public static bool RoyalReclaimBlocked(Empire empire) => Applies(empire) && State(empire).era >= Spring;
+
     public static IEnumerable<Kingdom> Vassals(Empire empire) =>
         empire?.kingdoms_list?.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
                                                 kingdom != empire.CoreKingdom && kingdom.hasCities()) ??

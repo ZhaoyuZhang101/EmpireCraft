@@ -2792,6 +2792,8 @@ public class Empire : MetaObject<EmpireData>
 
     public bool CanReclaimTitlesFrom(Kingdom sourceKingdom)
     {
+        // 春秋战国王室衰微，收不回诸侯的法理(见 ZhouEraSystem.RoyalReclaimBlocked)
+        if (ZhouEraSystem.RoyalReclaimBlocked(this)) return false;
         return sourceKingdom != null && !sourceKingdom.isRekt() && sourceKingdom.GetEmpire() == this &&
                sourceKingdom != CoreKingdom && sourceKingdom.king != null && sourceKingdom.king != Emperor &&
                sourceKingdom.king.isAlive() && sourceKingdom.king.HasTitle() &&

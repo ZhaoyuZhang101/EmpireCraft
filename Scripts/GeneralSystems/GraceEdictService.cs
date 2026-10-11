@@ -36,7 +36,8 @@ public static class GraceEdictService
 
         Empire empire = fief.GetEmpire();
         if (fief.IsEmpire() || empire == null || empire.isRekt() || empire.IsArchived() ||
-            empire.CoreKingdom == null || empire.CoreKingdom == fief) return false;
+            empire.CoreKingdom == null || empire.CoreKingdom == fief || ZhouEraSystem.RoyalReclaimBlocked(empire))
+            return false;
         bool graceEdict = InstitutionSystem.HasFeature(empire, InstitutionFeatures.GraceEdict);
         bool commanderyKingdom = IsCommanderyKingdomActive(empire);
         if (!graceEdict && !commanderyKingdom) return false;

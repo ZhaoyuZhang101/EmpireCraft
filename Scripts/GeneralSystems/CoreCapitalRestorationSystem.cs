@@ -62,7 +62,8 @@ public static class CoreCapitalRestorationSystem
 
     private static void Check(Empire empire)
     {
-        if (empire?.data == null || empire.isRekt() || empire.IsArchived()) return;
+        if (empire?.data == null || empire.isRekt() || empire.IsArchived() || ZhouEraSystem.RoyalReclaimBlocked(empire))
+            return;
         Kingdom core = empire.CoreKingdom;
         if (core == null || core.isRekt()) return;
         EmpireCore empireCore = EmpireCoreManager.Get(empire);

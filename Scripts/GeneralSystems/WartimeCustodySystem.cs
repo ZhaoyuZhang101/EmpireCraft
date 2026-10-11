@@ -30,6 +30,7 @@ public static class WartimeCustodySystem
         Empire empire = capturer.GetEmpire();
         Kingdom core = empire?.CoreKingdom;
         if (core == null || core.isRekt() || core == capturer) return null;
+        if (ZhouEraSystem.RoyalReclaimBlocked(empire)) return null;
         if (capturer.IsInSameEmpire(oldKingdom)) return null;
         if (capturer.IsFactionRebelling() || capturer.IsLocalRebelling()) return null;
         if (FeudalVassalService.GetOverlord(capturer) != null) return null;
@@ -118,6 +119,9 @@ public static class WartimeCustodySystem
     private static Kingdom Allocate(City city, Empire empire, Kingdom capturer)
     {
         Kingdom core = empire.CoreKingdom;
+        // 春秋战国：谁打下的归谁
+        if (ZhouEraSystem.RoyalReclaimBlocked(empire) && capturer != core && CanReceive(capturer, empire, core))
+            return capturer;
         // 收复旧都归中央
         City oldCapital = EmpireCoreManager.Get(empire)?.GetCoreCapital();
         if (oldCapital == city) return core;
