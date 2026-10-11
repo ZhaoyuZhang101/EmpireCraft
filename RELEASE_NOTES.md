@@ -1,6 +1,6 @@
 # 更新内容 (Update Features)
 
-2026-10-12 · 0.4.4Beta12
+2026-10-12 · 0.4.5
 
 2026-10-12 军团与战线、春秋战国、朝堂与华夏官制、卷册宽窗口：
 2026-10-12 Corps and fronts, Spring and Autumn and Warring States, court politics and Chinese bureaucracy, scroll-style wide windows:
