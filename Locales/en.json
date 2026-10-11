@@ -650,7 +650,7 @@
   "empire_military": "Armies",
   "empire_military_description": "Corps of every realm in the empire, active fronts and the war journal",
   "empirecraft_law_corps_general_title": "Corps Commander Units",
-  "empirecraft_law_corps_general_description": "In occupation mode each corps is represented on the map by one commander unit that marches with it; turn off to show corps only as counters (fewest units, smoothest)",
+  "empirecraft_law_corps_general_description": "In occupation mode each corps is represented by one commander unit that marches with it. Turn off to keep no military units on the map at all: no commanders, city guards become plain numbers, no city armies are formed (military posts stay vacant) and corps show only as chess counters; governors and other civil officials are unaffected",
   "corps_name": "{0} Corps",
   "corps_name_militia": "{0} Militia",
   "corps_battle_marker": "Battle {0}%",

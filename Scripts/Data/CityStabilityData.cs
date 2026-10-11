@@ -8,6 +8,9 @@ public sealed class CityStabilityData
     public float last_change, suppression, garrison_funding;
     public int governance_policy = -1, garrison_policy = -1;
     public int garrison_required, garrison_actual, garrison_assigned, funded_slots;
+    // 关闭军团统领实体时的治安守兵：只是人数(见 CorpsSystem.NoMilitaryUnits)，兵员来源退回时用
+    public float virtual_garrison;
+    public global::System.Collections.Generic.List<LegionPopulationContribution> virtual_garrison_origins;
     public int governance_due, governance_paid, garrison_due, garrison_paid, military_due, military_paid;
     public double governance_carry, garrison_carry, military_carry;
     public int unfunded_months;

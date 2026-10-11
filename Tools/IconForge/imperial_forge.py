@@ -562,6 +562,83 @@ def make_power_tab(left_half):
     return img
 
 
+# 地图军团兵牌上的棋子：白色剪影 + 1 像素深色描边，游戏里按国色染色(白色变国色、描边仍深)。
+# 中央禁军为后、军区为车、军府为马、义军为兵
+CHESS = {
+    "pawn": [
+        "...........",
+        "....###....",
+        "...#####...",
+        "...#####...",
+        "....###....",
+        "...#####...",
+        "....###....",
+        "....###....",
+        "...#####...",
+        "..#######..",
+        ".#########.",
+        ".#########.",
+    ],
+    "rook": [
+        ".##.###.##.",
+        ".##.###.##.",
+        ".#########.",
+        ".#########.",
+        "..#######..",
+        "...#####...",
+        "...#####...",
+        "...#####...",
+        "...#####...",
+        "..#######..",
+        ".#########.",
+        ".#########.",
+    ],
+    "knight": [
+        ".....##....",
+        "....####...",
+        "...######..",
+        "..########.",
+        ".##.######.",
+        ".#...#####.",
+        ".....#####.",
+        "....######.",
+        "...######..",
+        "..#######..",
+        ".#########.",
+        ".#########.",
+    ],
+    "queen": [
+        "#....#....#",
+        "##..###..##",
+        "###.###.###",
+        ".#########.",
+        "..#######..",
+        "...#####...",
+        "...#####...",
+        "...#####...",
+        "...#####...",
+        "..#######..",
+        ".#########.",
+        ".#########.",
+    ],
+}
+
+
+def make_chess(rows):
+    w, h = len(rows[0]) + 2, len(rows) + 2
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    filled = {(x + 1, y + 1) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch == "#"}
+    for x, y in filled:
+        img.putpixel((x, y), (255, 255, 255, 255))
+    for x in range(w):
+        for y in range(h):
+            if (x, y) in filled:
+                continue
+            if any((x + dx, y + dy) in filled for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                img.putpixel((x, y), (24, 24, 24, 255))
+    return img
+
+
 # ═════════════ 身份特质：小徽章(旧铜环 + 器物) ═════════════
 def obj_branch(img, flower):
     over(img, shade(lines([[(52, 214), (200, 46)]], 12), WOOD, bevel=4, grain=0.3))
@@ -1167,6 +1244,8 @@ def build():
         out[f"GameResources/{name}.png"] = make_tab(obj)
     for name, art in POWER_TABS.items():
         out[f"GameResources/{name}.png"] = make_power_tab(art)
+    for name, rows in CHESS.items():
+        out[f"GameResources/ui/icons/corps/chess_{name}.png"] = make_chess(rows)
     for pid, (obj, badge) in PLOTS.items():
         out[f"GameResources/ui/icons/plots/plot_{pid}.png"] = make_plot(obj, badge)
     for name, obj in TRAITS.items():

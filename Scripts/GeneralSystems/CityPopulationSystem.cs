@@ -1350,6 +1350,12 @@ public static class CityPopulationSystem
             liveIds.Add(actor.id);
             if (ImmediatelyProtected(actor)) continue;
             if (!cache.TryGet(actor.id, now, Date.getMonthsSince, out bool notable)) { unknown = true; continue; }
+            // 不留军人实体：被拉去当兵的名人恢复文职
+            if (notable && CorpsSystem.NoMilitaryUnits && IsSoldier(actor) && !actor.isKing())
+            {
+                actor.removeFromArmy();
+                actor.stopBeingWarrior();
+            }
             if (notable || CorpsSystem.IsGeneral(actor)) continue;
             if (IsSoldier(actor)) soldiers.Add(actor);
             else commoners.Add(actor);
@@ -1380,7 +1386,7 @@ public static class CityPopulationSystem
         var toFold = new List<Actor>();
         // 军制(见 LevyTarget)：太平时不是军镇的城不留兵、军镇只留常备兵额(没有常备军就留一名将领)；
         // 交战(含战备)期间一律不遣散——起义城市临时武装的义军、调防途中的军团都留着
-        int keep = CorpsSystem.Enabled ? CityStabilitySystem.FundedSlots(city) : LevyTarget(city);
+        int keep = CorpsSystem.NoMilitaryUnits ? 0 : CorpsSystem.Enabled ? CityStabilitySystem.FundedSlots(city) : LevyTarget(city);
         if ((!atWar || CorpsSystem.Enabled) && soldiers.Count > Mathf.Max(0, keep))
         {
             // 现任统领优先留下，其次带着部队的人
@@ -1586,8 +1592,8 @@ public static class CityPopulationSystem
         if (!AbstractPopulationEnabled || city?.status == null || city.kingdom == null) return 0;
         // 兵额按军制(见 LevyTarget)，并写回城市状态，免得原版以"超编"为由把新兵解散；
         // 军团模式下实体兵只剩城市守兵(治安)与军团统领，军镇兵额由军团承担(见 CorpsSystem)
-        int slots = CorpsSystem.Enabled
-            ? CityStabilitySystem.FundedSlots(city) + CorpsSystem.GeneralsAt(city)
+        int slots = CorpsSystem.NoMilitaryUnits ? 0
+            : CorpsSystem.Enabled ? CityStabilitySystem.FundedSlots(city) + CorpsSystem.GeneralsAt(city)
             : LevyTarget(city);
         city.status.warrior_slots = slots;
         int need = Mathf.Min(MaxLeviesPerPass, slots - city.status.warriors_current);
@@ -1790,8 +1796,8 @@ public static class CityPopulationSystem
             ReinforceLegion(actor, actor.kingdom ?? city.kingdom);
             levied += LegionAlive(actor) - 1f;
         }
-        // 军团(见 CorpsSystem)的兵员记在驻地城市
-        data.levied = levied + CorpsSystem.LeviedAt(city);
+        // 军团(见 CorpsSystem)的兵员与不留实体时的治安守兵记在驻地城市
+        data.levied = levied + CorpsSystem.LeviedAt(city) + CorpsSystem.VirtualGarrison(city);
     }
 
     // 按人口组生成一个具体的人：物种、文化、理念取自人口组，加入本城与本国；soldier 为 true 时直接成为士兵

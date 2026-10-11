@@ -285,6 +285,13 @@ public static class CityStabilitySystem
             all += people;
             if (actor.current_tile?.zone_city == city) local += people;
         }
+        // 不留军人实体时，守兵只是城里的人数
+        if (CorpsSystem.NoMilitaryUnits)
+        {
+            float virtualGarrison = CorpsSystem.VirtualGarrison(city);
+            all += virtualGarrison;
+            local += virtualGarrison;
+        }
         assigned = (int)Math.Min(int.MaxValue, Math.Floor(all));
         present = (int)Math.Min(int.MaxValue, Math.Floor(local));
         GuardCounts[city] = new GuardCount(assigned, present);
@@ -329,6 +336,11 @@ public static class CityStabilitySystem
     private static void Recruit(City city, int needed)
     {
         if (needed <= 0 || !WorldLawLibrary.world_law_civ_army.isEnabled()) return;
+        if (CorpsSystem.NoMilitaryUnits)
+        {
+            CorpsSystem.RecruitVirtualGarrison(city, needed);
+            return;
+        }
         if (CityPopulationSystem.AbstractPopulationEnabled)
         {
             float pool = CityPopulationSystem.GetBackgroundTotal(city);
@@ -390,7 +402,8 @@ public static class CityStabilitySystem
         state.governance_quality = CityStabilityRules.Clamp(state.governance_quality +
             (governanceFunding >= 0.99f ? 2f * governance : -2f));
         state.garrison_required = budget.Guards;
-        Counts(city, out int assigned, out _);
+        CorpsSystem.SyncVirtualGarrison(city, state);
+        Counts(city, out int assigned, out _, refresh: true);
         double plannedMonthly = budget.GuardMonthly;
         bool guardBudget = state.garrison_required > 0 &&
             Available(city) >= Math.Max(1d, Math.Ceiling(plannedMonthly + state.garrison_carry));

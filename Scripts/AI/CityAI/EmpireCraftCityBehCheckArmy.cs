@@ -25,6 +25,13 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
         }
         if (!pCity.hasKingdom()) return BehResult.Continue;
         if (!WorldLawLibrary.world_law_civ_army.isEnabled()) return BehResult.Continue;
+        // 关闭军团统领实体：不组建原版城市军队，已有的解散、军职空缺
+        if (EmpireCraft.Scripts.GeneralSystems.CorpsSystem.NoMilitaryUnits)
+        {
+            EmpireCraft.Scripts.GeneralSystems.CorpsSystem.DisbandCityArmy(pCity);
+            if (ced != null) ced.last_army_check_ts = World.world.getCurWorldTime();
+            return BehResult.Continue;
+        }
         Regime regime = pCity.kingdom.GetRegime();
         if (regime == null || !regime.IsAllowArmy() &&
             EmpireCraft.Scripts.GeneralSystems.CityStabilitySystem.FundedSlots(pCity) <= 0)

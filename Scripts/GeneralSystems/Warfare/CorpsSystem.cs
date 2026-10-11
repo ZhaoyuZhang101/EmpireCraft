@@ -34,6 +34,10 @@ public static class CorpsSystem
 
     public static bool GeneralUnits => EmpireCraftWorldLawLibrary.empirecraft_law_corps_general?.isEnabled() != false;
 
+    // 关闭「军团统领实体」：地图上不留任何军人实体——没有统领、城里的治安守兵只是人数、不再组建原版城市军队
+    // (羽林大将军、都督、镇将、戍主等军职空缺)；被拉去当兵的名人恢复文职。城主、刺史等地方官不受影响
+    public static bool NoMilitaryUnits => Enabled && !GeneralUnits;
+
     private static readonly List<CorpsData> Empty = new();
 
     public static List<CorpsData> Of(Kingdom kingdom)
@@ -361,7 +365,7 @@ public static class CorpsSystem
         foreach (City city in kingdom.cities.ToList())
         {
             if (city?.units == null || city.isRekt()) continue;
-            int guards = CityStabilitySystem.FundedSlots(city);
+            int guards = NoMilitaryUnits ? 0 : CityStabilitySystem.FundedSlots(city);
             var soldiers = city.units.Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() &&
                                                      actor.city == city && CityPopulationSystem.IsSoldier(actor) &&
                                                      !CityPopulationSystem.IsVehicle(actor) && !IsGeneral(actor) &&
@@ -402,6 +406,73 @@ public static class CorpsSystem
             city_id = origin.city_id, social_class = origin.social_class, culture = origin.culture,
             species = origin.species, ideology = origin.ideology, size = origin.size
         });
+    }
+
+    #endregion
+
+    #region 不留实体时的治安守兵：只是城里的人数(从本城背景人口里抽，撤防还回)
+
+    public static float VirtualGarrison(City city) =>
+        city?.data != null && city.GetOrCreate().stability is CityStabilityData state ? state.virtual_garrison : 0f;
+
+    public static void RecruitVirtualGarrison(City city, int needed)
+    {
+        if (city?.data == null || needed <= 0 || city.GetOrCreate().stability is not CityStabilityData state) return;
+        state.virtual_garrison_origins ??= new List<LegionPopulationContribution>();
+        float taken = 0f;
+        for (int attempt = 0; taken < needed && attempt < 8; attempt++)
+        {
+            PopGroup group = CityPopulationSystem.DrawBackground(city, candidate => candidate.Background >= 1f);
+            if (group == null) break;
+            float contribution = CityPopulationSystem.RemoveBackground(group, needed - taken);
+            if (contribution <= 0f) break;
+            LegionPopulationRules.Add(state.virtual_garrison_origins, city.id, group, contribution);
+            taken += contribution;
+        }
+        state.virtual_garrison += taken;
+        if (taken > 0f) CityPopulationSystem.InvalidateHouseholdCaches();
+    }
+
+    // 守兵超出需要(或重新打开统领实体、改回实体守兵)时退回人口
+    public static void SyncVirtualGarrison(City city, CityStabilityData state)
+    {
+        if (city?.data == null || state == null || state.virtual_garrison <= 0f) return;
+        float keep = NoMilitaryUnits ? Mathf.Max(0, state.garrison_required) : 0f;
+        if (state.virtual_garrison <= keep) return;
+        float release = state.virtual_garrison - keep;
+        float total = LegionPopulationRules.Total(state.virtual_garrison_origins);
+        if (total > 0f)
+        {
+            float ratio = Mathf.Clamp01(release / total);
+            foreach (LegionPopulationContribution origin in state.virtual_garrison_origins)
+            {
+                if (origin == null || origin.size <= 0f) continue;
+                float back = origin.size * ratio;
+                origin.size -= back;
+                CityPopulationSystem.AddBackground(city, origin.social_class == SocialClass.Army ? SocialClass.Peasant
+                    : origin.social_class, origin.culture, origin.species, origin.ideology, back);
+            }
+            state.virtual_garrison_origins.RemoveAll(origin => origin == null || origin.size <= 0.01f);
+        }
+        state.virtual_garrison = keep;
+        CityPopulationSystem.InvalidateHouseholdCaches();
+    }
+
+    // 城市军队解散：军职空缺，统领(多是被拉去带兵的名人)恢复文职
+    public static void DisbandCityArmy(City city)
+    {
+        Army army = city?.army;
+        if (army == null) return;
+        foreach (var office in Regimes.OfficeManager.Offices.Values.Where(office => office?.meta_object == army).ToList())
+            office.RemoveActor();
+        Actor captain = army.getCaptain();
+        foreach (Actor soldier in army.units.ToList())
+        {
+            if (soldier?.data == null || soldier.isRekt()) continue;
+            soldier.removeFromArmy();
+            if (soldier == captain || CityPopulationSystem.IsNotable(soldier)) soldier.stopBeingWarrior();
+        }
+        city.disbandArmy();
     }
 
     #endregion

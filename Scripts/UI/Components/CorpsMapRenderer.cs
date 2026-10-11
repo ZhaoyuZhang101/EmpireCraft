@@ -10,7 +10,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 
 // 军团在地图上的样子(借鉴钢铁雄心)：
 //   · 战线：交战双方控制区相接的地块边，画成金色粗线；
-//   · 兵牌：国色小旗 + 兵力 + 兵力条(绿)与组织度条(青)；进攻红框、防守蓝框、溃退灰；有统领实体时跟在统领头顶；
+//   · 兵牌：国色棋子(中央禁军为后、军区为车、军府为马、义军为兵) + 兵力 + 兵力条(绿)与组织度条(青)；
+//     进攻红框、防守蓝框、溃退灰；有统领实体时跟在统领头顶；
 //     同一地块同一国的几支军合并成一块(标"×N"、兵力相加)，不同国并排；
 //   · 交战标记：正在交战的城，标出本月攻方胜算。
 // 画在地名画布上，按屏幕像素定大小(不随界面缩放放大)，镜头拉远时略缩小。
@@ -48,8 +49,26 @@ public static class CorpsMapRenderer
         public TileZone Zone;
         public Vector3 World;
         public string Task;
-        public int Count;
+        public int Count, Rank;
         public float Strength, Full, Org;
+    }
+
+    // 棋子：义军为兵、军府为马、军区为车、中央禁军为后
+    private static int Rank(CorpsData corps) => corps.militia ? 0 : corps.post switch
+    {
+        (int)CityPopulationSystem.ArmyPost.Central => 3,
+        (int)CityPopulationSystem.ArmyPost.District => 2,
+        (int)CityPopulationSystem.ArmyPost.Prefecture => 1,
+        _ => 0
+    };
+
+    private static readonly string[] PieceNames = { "pawn", "knight", "rook", "queen" };
+    private static readonly Sprite[] Pieces = new Sprite[4];
+
+    private static Sprite Piece(int rank)
+    {
+        rank = Mathf.Clamp(rank, 0, 3);
+        return Pieces[rank] ??= SpriteTextureLoader.getSprite("ui/icons/corps/chess_" + PieceNames[rank]) ?? White;
     }
 
     private static readonly Dictionary<(int zone, long kingdom), CounterGroup> Groups = new();
@@ -140,8 +159,9 @@ public static class CorpsMapRenderer
             Place(counter.Frame.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             counter.Fill = NewImage(go.transform, "Fill", new Color32(29, 32, 24, 235));
             Place(counter.Fill.rectTransform, Vector2.zero, Vector2.one, new Vector2(1f, 1f), new Vector2(-1f, -1f));
-            counter.Flag = NewImage(go.transform, "Flag", Color.white);
-            Place(counter.Flag.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(2f, 2f), new Vector2(10f, -2f));
+            counter.Flag = NewImage(go.transform, "Piece", Color.white);
+            counter.Flag.preserveAspect = true;
+            Place(counter.Flag.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1.5f, 1f), new Vector2(11f, -1f));
             counter.Label = NewText(go.transform, 7);
             Place(counter.Label.rectTransform, new Vector2(0f, 0.3f), new Vector2(1f, 1f), new Vector2(12f, 0f), new Vector2(-1f, 0f));
             counter.Strength = NewImage(go.transform, "Strength", new Color32(101, 214, 110, 255));
@@ -258,6 +278,7 @@ public static class CorpsMapRenderer
                 Groups[key] = group;
             }
             group.Count++;
+            group.Rank = Mathf.Max(group.Rank, Rank(corps));
             group.Strength += corps.strength;
             group.Full += corps.full;
             group.Org += corps.org;
@@ -287,6 +308,7 @@ public static class CorpsMapRenderer
                 "retreat" => FrameRetreat,
                 _ => FrameNormal
             };
+            counter.Flag.sprite = Piece(group.Rank);
             counter.Flag.color = group.Kingdom.getColor()?.getColorMain() ?? Color.gray;
             counter.Label.text = group.Count > 1
                 ? $"{CorpsSystem.ShortStrength(group.Strength)}×{group.Count}"

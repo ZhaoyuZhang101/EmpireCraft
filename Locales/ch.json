@@ -652,7 +652,7 @@
   "empire_military": "軍團",
   "empire_military_description": "查看帝國各國的軍團、正在交戰的戰線與軍團紀事",
   "empirecraft_law_corps_general_title": "軍團統領實體",
-  "empirecraft_law_corps_general_description": "佔領模式下每支軍團在地圖上由一名統領實體代表，跟着軍團開赴前線；關閉後軍團只以兵牌顯示，實體最少、最流暢",
+  "empirecraft_law_corps_general_description": "佔領模式下每支軍團在地圖上由一名統領實體代表，跟着軍團開赴前線。關閉後地圖上不留任何軍人實體：沒有統領，城市治安守兵只是人數，不再組建城市軍隊(羽林大將軍、都督、鎮將、戍主等軍職空缺)，軍團只以棋子兵牌顯示；城主、刺史等地方官不受影響",
   "corps_name": "第{0}軍",
   "corps_name_militia": "{0}義軍",
   "corps_battle_marker": "交戰 {0}%",
