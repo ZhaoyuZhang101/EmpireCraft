@@ -353,6 +353,37 @@ public static class FeudalVassalService
 
     public const int DefectorLoyaltyYears = 10;
 
+    // 封建贡赋：附庸每年向直接宗主上贡(陪臣贡给自己的直接宗主，不越级)。
+    // 贡额按户数(与朝贡贡金 StartToTaken 同口径)，控制等级越高抽得越重：1/2/3 级 → 户数的 1/6、1/4、1/2；
+    // 启用财政时以附庸国库现款为限，付不起就少交(不滚欠账)。国库类目与朝贡同为 Tribute。
+    private static double _lastTributeScan = -1d;
+
+    public static void TryYearlyTribute()
+    {
+        if (World.world?.kingdoms == null || ModClass.IS_CLEAR) return;
+        double now = World.world.getCurWorldTime();
+        if (_lastTributeScan >= 0d && now >= _lastTributeScan && Date.getYearsSince(_lastTributeScan) < 1) return;
+        _lastTributeScan = now;
+        foreach (Kingdom subject in World.world.kingdoms)
+        {
+            if (subject?.data == null || subject.isRekt()) continue;
+            Kingdom lord = GetOverlord(subject);
+            if (lord == null || lord.isRekt() ||
+                AncientWarfareCompatibility.Owns(subject) || AncientWarfareCompatibility.Owns(lord)) continue;
+            int households = CityPopulationSystem.AbstractPopulationEnabled
+                ? CityPopulationSystem.Households(subject) : subject.units?.Count ?? 0;
+            int level = Math.Min(3, Math.Max(1, subject.GetOrCreate().feudal_vassal_level));
+            long tribute = households / (level == 1 ? 6 : level == 2 ? 4 : 2);
+            if (TreasurySystem.Enabled(subject))
+                tribute = Math.Min(tribute, Math.Max(0L, subject.GetTreasuryBalance()));
+            if (tribute <= 0L) continue;
+            int amount = (int)Math.Min(int.MaxValue, tribute);
+            subject.SubMoney(amount, TreasuryCategory.Tribute);
+            lord.AddMoney(amount, TreasuryCategory.Tribute);
+            FiscalDiagnostics.Count("封建贡赋");
+        }
+    }
+
     // 军阀时期易帜归附(WarlordEraSystem)：记下时间，此后若干年内不得闹独立
     public static void MarkDefected(Kingdom subject)
     {
