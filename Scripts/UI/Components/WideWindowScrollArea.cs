@@ -93,6 +93,12 @@ public sealed class WideWindowScrollArea : MonoBehaviour
     // 带文字/按钮/滚动组件的(标题等)一律保留。
     private void HideNarrowDecorations()
     {
+        // 原版滚动渐变按 232 宽的窄滚动区摆在中下方，宽窗口里成了一块黑色半透明遮罩。
+        // ScrollWindow.checkGradient 会反复 SetActive(true)，所以关掉它的图形组件而不是隐藏物体
+        Transform gradient = transform.Find("Scrollgradient");
+        if (gradient != null)
+            foreach (Graphic graphic in gradient.GetComponentsInChildren<Graphic>(true))
+                graphic.enabled = false;
         foreach (Transform child in transform)
         {
             if (child == _scrollView || child.name == "TitleBackground" || child.name == CustomScrollbarName)

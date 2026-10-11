@@ -335,6 +335,16 @@ public static class UIHelper
         return card;
     }
 
+    // 估算一行文字的显示宽度：汉字约一个字号宽，其余字符约 0.6 个字号(去掉富文本标签)
+    public static float EstimateTextWidth(string text, int fontSize)
+    {
+        if (string.IsNullOrEmpty(text)) return 0f;
+        string plain = global::System.Text.RegularExpressions.Regex.Replace(text, "<[^>]+>", "");
+        float width = 0f;
+        foreach (char c in plain) width += c >= 0x2E80 ? fontSize : fontSize * 0.6f;
+        return width;
+    }
+
     // 本地化 key 或现成文本(国名、宪法名这类直接显示)
     public static string LocalizeOrRaw(string text) => !string.IsNullOrEmpty(text) && LM.Has(text) ? LM.Get(text) : text;
 
@@ -370,11 +380,13 @@ public static class UIHelper
         string headerValue, float reserveRight, params string[] icons)
     {
         float inner = width - 12f;
-        var bar = card.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleLeft, 3);
+        var bar = card.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
         Sprite icon = FirstSprite(icons);
         AddLayoutIcon(bar.transform, icon, 11f);
-        float room = inner - reserveRight - (icon != null ? 14f : 0f) - 2f;
-        float valueWidth = string.IsNullOrEmpty(headerValue) ? 0f : room * 0.5f;
+        float room = inner - reserveRight - (icon != null ? 14f : 0f) - 3f * 2f;
+        // 状态值按字数给宽(至少留一半给标题)，长了用悬停滚动
+        float valueWidth = string.IsNullOrEmpty(headerValue) ? 0f
+            : Mathf.Min(room * 0.6f, Mathf.Max(room - EstimateTextWidth(title, 9) - 4f, room * 0.35f));
         var label = bar.AddTextIntoHoriLayout(title.ColorString(titleHex), true, TextAnchor.MiddleLeft,
             new Vector2(room - valueWidth, 13f));
         label.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
@@ -393,7 +405,7 @@ public static class UIHelper
     public static void AddHeroStat(this AutoVertLayoutGroup card, float width, string label, string value, string hex = "#F3C34A")
     {
         float inner = width - 12f;
-        var row = card.BeginHoriGroup(new Vector2(inner, 18f), TextAnchor.MiddleLeft, 4);
+        var row = card.BeginHoriGroup(new Vector2(inner, 18f), TextAnchor.MiddleLeft, 4, new RectOffset(0, 0, 0, 0));
         var l = row.AddTextIntoHoriLayout(label.ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft, new Vector2(inner * 0.42f, 16f));
         l.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         var v = row.AddTextIntoHoriLayout(value.ColorString(hex), true, TextAnchor.MiddleRight, new Vector2(inner * 0.58f - 4f, 16f));
@@ -426,7 +438,7 @@ public static class UIHelper
     public static void AddBarRow(AutoVertLayoutGroup card, float width, string label, string value, float fill, Color color)
     {
         const float labelWidth = 38f, valueWidth = 38f;
-        var row = card.BeginHoriGroup(new Vector2(width, 11f), TextAnchor.MiddleLeft, 3);
+        var row = card.BeginHoriGroup(new Vector2(width, 11f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
         var l = row.AddTextIntoHoriLayout(label, true, TextAnchor.MiddleLeft, new Vector2(labelWidth, 10f));
         l.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
         HoverMarqueeText.Attach(l);

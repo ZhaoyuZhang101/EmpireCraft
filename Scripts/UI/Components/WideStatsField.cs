@@ -16,6 +16,10 @@ public sealed class WideStatsField : MonoBehaviour
     {
         _field = field;
         _rect = transform as RectTransform;
+        // 原版 KeyValueFieldStats 根节点有一个控宽不控高的横排布局；名称/数值挂到行上后会被它重新排位、
+        // 高度按 0 处理，整行只剩底色看不到字。宽行改由下面的锚点自己摆，停掉这个布局
+        HorizontalOrVerticalLayoutGroup rowLayout = GetComponent<HorizontalOrVerticalLayoutGroup>();
+        if (rowLayout != null) rowLayout.enabled = false;
         // 原版预制体把两个文本放在一个仍为 13 高的 Text 容器里。
         // 直接挂在行上，行增高时文本也随之增高，保留文本自身的按钮和提示组件。
         if (field.name_text != null && field.name_text.transform.parent != transform)

@@ -57,6 +57,36 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
     [Header("UI Prefab & 根容器")]
     public GameObject _itemPrefab;
     public ListPool<GameObject> pool = new ListPool<GameObject>();
+    // 内容宽度：独立窗口是全宽；帝国窗口的"官僚"页签把本窗口的内容画进右栏时改成右栏宽度
+    private float _contentWidth = UIHelper.WidePanelWidth;
+    private int GridColumns => Mathf.Max(1, (int)((_contentWidth + 3f) / 103f));
+
+    // 帝国窗口的"官僚"页签：官制不再单独开窗口，直接用本窗口的绘制逻辑画进帝国窗口右栏。
+    // 画出来的东西挂在帝国窗口的页面下，随帝国窗口翻页一起销毁；这里不留引用，免得本窗口 Clear 时碰到已销毁的物体
+    public void RenderInto(AutoVertLayoutGroup root, Empire empire, float width)
+    {
+        if (root == null || empire?.CoreKingdom == null) return;
+        AutoVertLayoutGroup ownRoot = _root;
+        float ownWidth = _contentWidth;
+        Empire ownEmpire = _empire;
+        _root = root;
+        _empire = empire;
+        _contentWidth = width;
+        try
+        {
+            BuildBureauPage();
+            if (_empire.CoreKingdom.GetRegime()?.enfeoff_virtual_only == true) BuildVirtualPeerages();
+        }
+        finally
+        {
+            pool.Clear();
+            topSpace = null;
+            virtualPeeragesSpace = null;
+            _root = ownRoot;
+            _contentWidth = ownWidth;
+            _empire = ownEmpire;
+        }
+    }
     protected override void Init()
     {
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
@@ -92,10 +122,15 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
         if (_empire?.CoreKingdom?.GetRegime()?.enfeoff_virtual_only != true) return;
         Clear();
         InitialTopPartInfoLvLing();
+        BuildVirtualPeerages();
+    }
+
+    private void BuildVirtualPeerages()
+    {
         virtualPeeragesSpace = _root.BeginVertGroup();
         AddSectionHeader(virtualPeeragesSpace, LM.Get("empire_virtual_peerages"), "ChineseCrown", "ui/icons/iconCrown");
         AddSubHeader(virtualPeeragesSpace, LM.Get("empire_legal_virtual_peerages").ColorString("#5AD9FF"));
-        virtualPeeragesGroup = _root.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
+        virtualPeeragesGroup = _root.BeginGridGroup(GridColumns, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         Regime regime = _empire.CoreKingdom.GetRegime();
         EmpireCore core = EmpireCoreManager.Get(_empire);
         List<KingdomTitle> titles = EmpireCoreManager.GetTitles(core)
@@ -126,7 +161,7 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
         virtualPeeragesSpace.AddChild(virtualPeeragesGroup.gameObject);
 
         AddSubHeader(virtualPeeragesSpace, LM.Get("empire_honorary_virtual_peerages").ColorString("#FFBF33"));
-        var honoraryGroup = _root.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
+        var honoraryGroup = _root.BeginGridGroup(GridColumns, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         foreach (string peerage in regime.virtual_honorary_peerages ?? new List<string>())
         {
             Actor holder = honoraryHolders.FirstOrDefault(a => a.GetOrCreate().honorary_peerage_key == peerage);
@@ -744,7 +779,7 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
     // 跟制度科技树同一套 GraphView：可拖拽平移、滚轮缩放。自上而下按品级一层一层往下排——
     // 君主 → 后宫 → 中央部门 → 下级部门 → 行政区，每一层居中，越往下人越多，整体呈金字塔。
     // 一层超过 MaxCardsPerRow 张就折成几行，免得最底下的行政区一行拉得太长。
-    private const float GraphWidth = UIHelper.WidePanelWidth;
+    private float GraphWidth => _contentWidth;
     private const float GraphHeight = 240f;
     private const int MaxCardsPerRow = 6;
     private const float NodeWidth = 72f;
@@ -947,19 +982,19 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
     }
 
     // 分区标题：一条深色细条，左侧图标 + 金色标题(原来是一整块灰底大字)
-    private static void AddSectionHeader(AutoVertLayoutGroup space, string text, params string[] icons)
+    private void AddSectionHeader(AutoVertLayoutGroup space, string text, params string[] icons)
     {
-        var bar = space.BeginHoriGroup(new Vector2(UIHelper.WidePanelWidth, 15f), TextAnchor.MiddleCenter, 3);
-        UIHelper.AddInsetBackground(bar, new Vector2(UIHelper.WidePanelWidth, 15f));
+        var bar = space.BeginHoriGroup(new Vector2(_contentWidth, 15f), TextAnchor.MiddleCenter, 3);
+        UIHelper.AddInsetBackground(bar, new Vector2(_contentWidth, 15f));
         UIHelper.AddLayoutIcon(bar.transform, UIHelper.FirstSprite(icons), 11f);
         var label = bar.AddTextIntoHoriLayout(text.ColorString("#F3C34A"), true, TextAnchor.MiddleLeft,
-            new Vector2(UIHelper.WidePanelWidth - 24f, 13f));
+            new Vector2(_contentWidth - 24f, 13f));
         label.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
     }
 
-    private static void AddSubHeader(AutoVertLayoutGroup space, string text)
+    private void AddSubHeader(AutoVertLayoutGroup space, string text)
     {
-        var label = space.AddTextIntoVertLayout(text, true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth, 11f));
+        var label = space.AddTextIntoVertLayout(text, true, TextAnchor.MiddleCenter, new Vector2(_contentWidth, 11f));
         label.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
     }
 

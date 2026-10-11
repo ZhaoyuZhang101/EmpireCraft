@@ -175,9 +175,12 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             var header = main.BeginHoriGroup(new Vector2(MainWidth, 16f), TextAnchor.MiddleLeft, 4, new RectOffset(2, 2, 0, 0));
             string chipText = string.Join("  ·  ", (chips ?? Array.Empty<string>()).Where(chip => !string.IsNullOrEmpty(chip)));
-            float chipWidth = chipText.Length == 0 ? 0f : MainWidth * 0.55f;
-            var label = header.AddTextIntoHoriLayout(UIHelper.LocalizeOrRaw(title).ColorString("#F3C34A"), true,
-                TextAnchor.MiddleLeft, new Vector2(MainWidth - chipWidth - 8f, 15f));
+            string titleText = UIHelper.LocalizeOrRaw(title);
+            float room = MainWidth - 8f;
+            float titleWidth = Mathf.Clamp(UIHelper.EstimateTextWidth(titleText, 10) + 6f, room * 0.3f, room * 0.75f);
+            float chipWidth = chipText.Length == 0 ? 0f : room - titleWidth;
+            var label = header.AddTextIntoHoriLayout(titleText.ColorString("#F3C34A"), true,
+                TextAnchor.MiddleLeft, new Vector2(chipText.Length == 0 ? room : titleWidth, 15f));
             label.UseFixedFontSize(10, HorizontalWrapMode.Overflow);
             HoverMarqueeText.Attach(label);
             if (chipWidth <= 0f) return;
@@ -217,11 +220,11 @@ namespace EmpireCraft.Scripts.UI.Windows
             string yearText = republic ? RepublicSystem.GetCalendarText(_empire) : _empire.GetYearNameWithTime();
             identity.AddTextIntoVertLayout(yearText.ColorString(pColor: _empire.getColor()._color_text), true,
                 TextAnchor.MiddleLeft, new Vector2(inner, 11f)).UseFixedFontSize(8, HorizontalWrapMode.Overflow);
-            string tenureLine = republic
-                ? string.Format(LM.Get("republic_years_format"), RepublicSystem.GetRepublicYears(_empire))
-                : "format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count ?? 0);
-            identity.AddTextIntoVertLayout(tenureLine.ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
-                new Vector2(inner, 9f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            // 君主国再标历代君主数(共和国的纪年行已经是"共和 N 年"，不重复)
+            if (!republic)
+                identity.AddTextIntoVertLayout("format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count ?? 0)
+                    .ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft, new Vector2(inner, 9f))
+                    .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
 
             // 人物：元首 + 身边要人(共和国是反对党领袖；君主国是储君、权臣或议会总理、皇后)
             var people = rail.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(4, 4, 4, 4));
@@ -262,6 +265,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                 AddPersonRow(people, lover, LM.Get(lover?.isSexFemale() == false ? "empire_lover_B" : "empire_lover_G"), "#FF4D94");
             }
 
+            StartCoroutine(DiagnoseRailPeople(people.transform));
+
             // 关键数据
             var stats = rail.BeginVertGroup(pSpacing: 0, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(3, 3, 4, 4));
             UIHelper.FixPanelWidth(stats.transform, RailWidth);
@@ -295,24 +300,48 @@ namespace EmpireCraft.Scripts.UI.Windows
             StartCoroutine(rows.showRows());
         }
 
-        // 人物行：头像(可点开人物) + 职位 / 姓名；空缺的要人不占行(元首除外)
+        // 人物行：头像(可点开人物) + 职位 / 姓名；空缺的要人不占行(元首除外)。
+        // 头像沿用原版头像组写法(AddActorViewIntoHoriLayout，与旧顶栏相同)，各分组位置归零
         private static void AddPersonRow(AutoVertLayoutGroup people, Actor actor, string role, string roleHex, bool always = false)
         {
             bool alive = actor?.data != null && !actor.isRekt();
             if (!alive && !always) return;
             float inner = RailWidth - 8f;
-            var row = people.BeginHoriGroup(new Vector2(inner, 30f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
-            SimpleButton avatar = UIHelper.CreateAvatarView(alive ? actor.getID() : -1L);
-            row.AddChild(avatar.gameObject);
+            var row = people.BeginHoriGroup(new Vector2(inner, 32f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+            row.transform.localPosition = Vector3.zero;
+            row.AddActorViewIntoHoriLayout(alive ? actor : null);
             var text = row.BeginVertGroup(new Vector2(inner - 34f, 28f), pSpacing: 0, pAlignment: TextAnchor.MiddleLeft,
                 pPadding: new RectOffset(0, 0, 0, 0));
-            var roleLabel = text.AddTextIntoVertLayout(role.ColorString(roleHex), true, TextAnchor.MiddleLeft, new Vector2(inner - 34f, 10f));
-            roleLabel.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-            HoverMarqueeText.Attach(roleLabel);
-            var nameLabel = text.AddTextIntoVertLayout((alive ? actor.getName() : LM.Get("label_none")).ColorString(alive ? "#F2EEE2" : "#8FA0A8"),
-                true, TextAnchor.MiddleLeft, new Vector2(inner - 34f, 12f));
-            nameLabel.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
-            HoverMarqueeText.Attach(nameLabel);
+            text.transform.localPosition = Vector3.zero;
+            text.AddTextIntoVertLayout(role.ColorString(roleHex), true, TextAnchor.MiddleLeft, new Vector2(inner - 34f, 10f))
+                .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            text.AddTextIntoVertLayout((alive ? actor.getName() : LM.Get("label_none")).ColorString(alive ? "#F2EEE2" : "#8FA0A8"),
+                true, TextAnchor.MiddleLeft, new Vector2(inner - 34f, 12f)).UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+        }
+
+        // 档案栏人物卡诊断(每次启动只记一次)：人物行若仍不显示，按日志里的激活/位置/尺寸/缩放定位
+        private static bool _railPeopleDiagnosed;
+        private IEnumerator DiagnoseRailPeople(Transform people)
+        {
+            if (_railPeopleDiagnosed) yield break;
+            _railPeopleDiagnosed = true;
+            yield return CoroutineHelper.wait_for_next_frame;
+            yield return CoroutineHelper.wait_for_next_frame;
+            if (people == null) yield break;
+            var lines = new List<string>();
+            void Walk(Transform node, int depth)
+            {
+                if (node == null || depth > 5) return;
+                RectTransform rect = node as RectTransform;
+                Graphic graphic = node.GetComponent<Graphic>();
+                lines.Add($"{new string(' ', depth * 2)}{node.name} active={node.gameObject.activeInHierarchy} " +
+                          $"local={node.localPosition} size={(rect != null ? rect.rect.size.ToString() : "-")} scale={node.localScale} " +
+                          $"graphic={(graphic != null ? $"{graphic.enabled}/a{graphic.color.a:0.##}" : "-")}");
+                foreach (Transform child in node) Walk(child, depth + 1);
+            }
+            Walk(people, 0);
+            lines.Insert(0, "[EmpireCraft][界面诊断] 档案栏人物卡");
+            NeoModLoader.services.LogService.LogInfo(string.Join(global::System.Environment.NewLine, lines));
         }
 
         private void InitialTextInput()
@@ -1105,10 +1134,21 @@ namespace EmpireCraft.Scripts.UI.Windows
             valueText.UseFixedFontSize(valueFontSize, HorizontalWrapMode.Overflow);
         }
         //显示行政窗口
+        // 官僚页签：官制、议会/内阁、虚拟爵位直接画在右栏里(原来的独立官僚窗口并进来了)
         public void ShowBureau(WindowMetaTab pArg0)
         {
-
-            ScrollWindow.showWindow(nameof(EmpireBeaurauWindow));
+            Clear();
+            if (_empire?.CoreKingdom == null || _empire.CoreKingdom.isRekt()) return;
+            var parent = BeginPage("empire_bureau");
+            try
+            {
+                EmpireBeaurauWindow.Instance?.RenderInto(parent, _empire, MainWidth - 6f);
+            }
+            catch (Exception exception)
+            {
+                NeoModLoader.services.LogService.LogError($"帝国窗口官僚页绘制失败({_empire?.data?.name}): {exception}");
+            }
+            StartCoroutine(RefreshScrollLayout(resetToTop: true));
         }
 
         public IEnumerator ShowKingdoms(AutoVertLayoutGroup parent, int renderGeneration, Empire renderedEmpire)
