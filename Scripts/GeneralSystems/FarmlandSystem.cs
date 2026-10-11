@@ -10,7 +10,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 农田(无小人模式下自动耕作)：
-//   - 耕地：与原版一致，只在本城风车周围半径 9 格内；规划和缺粮都不能扩大这个范围。
+//   - 耕地：只在本城风车周围一定半径内；基础 9 格(与原版一致)，城市每 12 块领土 +1 格、最多 16 格。
 //   - 自动耕作：每月替城市把可耕地开成田、给空田播种麦子、收割长熟的麦子(地图上照样看得到田和庄稼)，
 //     粮食来自实际收割的麦子，每株产量 × 农业生产力；
 //   - 规划农田区：只能划入风车范围内的可耕区；旧规划区超出范围的田地分批退耕。
@@ -28,6 +28,13 @@ public static class FarmlandSystem
     private const int MaxAutoPlannedZones = 6;
     private const int MaxFieldsPerSettle = 8;
     private const int WindmillRangeSquared = 81;
+    // 农田半径随城市规模扩大(无小人模式的自动耕作)：基础 9 格，每 12 块领土 +1 格，最多 16 格。
+    // 大城不再被固定半径卡死粮食上限；普通小人模式沿用原版的 9 格耕作逻辑
+    private static int RangeSquared(City city)
+    {
+        int radius = 9 + global::System.Math.Min(7, (city?.zones?.Count ?? 0) / 12);
+        return radius * radius;
+    }
     private const int MaxRetiredFieldsPerSettle = 64;
     // 一个区块至少有这么多可耕地才值得划为农田
     private const int MinFarmableTilesInZone = 8;
@@ -69,7 +76,7 @@ public static class FarmlandSystem
     {
         if (city == null || tile?.zone?.city != city || windmill == null) return false;
         int dx = tile.x - windmill.x, dy = tile.y - windmill.y;
-        return dx * dx + dy * dy <= WindmillRangeSquared;
+        return dx * dx + dy * dy <= RangeSquared(city);
     }
 
     public static bool HasFarmArea(City city, TileZone zone)
