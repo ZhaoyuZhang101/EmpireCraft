@@ -82,6 +82,24 @@ public class KingdomPatch : GamePatch
     public static void RememberCapitalCity(Kingdom __instance, out City __state)
     {
         __state = __instance.capital;
+        ReportRestoredCapitalTakeover(__instance);
+    }
+
+    // 还于旧都诊断：核心王国已坐镇记录旧都时还有人改它的首都——打出调用栈点名抢夺者。
+    // (限频：每 10 秒最多一条，抓到元凶后随修复一起移除)
+    private static float _capitalTakeoverLogAt;
+    private static void ReportRestoredCapitalTakeover(Kingdom kingdom)
+    {
+        try
+        {
+            if (UnityEngine.Time.unscaledTime < _capitalTakeoverLogAt || kingdom?.capital == null) return;
+            if (!EmpireCraft.Scripts.GeneralSystems.CoreCapitalRestorationSystem.IsAnchored(kingdom)) return;
+            _capitalTakeoverLogAt = UnityEngine.Time.unscaledTime + 10f;
+            NeoModLoader.services.LogService.LogWarning(
+                $"[EmpireCraft][还于旧都诊断] {kingdom.name} 已坐镇记录旧都 {kingdom.capital.name}，仍被调用 setCapital。调用栈:\n" +
+                new System.Diagnostics.StackTrace(2, false));
+        }
+        catch { }
     }
 
     public static void RefreshCapitalCityNames(Kingdom __instance, City __state)
