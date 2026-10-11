@@ -2674,7 +2674,9 @@ public static class KingdomExtension
 
         bool controlsTitleCapital = preferred.title_capital.kingdom == kingdom &&
                                     kingdom.cities.Contains(preferred.title_capital);
-        bool capitalChanged = controlsTitleCapital && kingdom.capital != preferred.title_capital;
+        // 还于旧都后的首都锚定(见 CoreCapitalRestorationSystem.IsAnchored)：主封号照常设置，只是不动首都
+        bool capitalChanged = controlsTitleCapital && kingdom.capital != preferred.title_capital &&
+                              !CoreCapitalRestorationSystem.IsAnchored(kingdom);
         bool titleChanged = storedTitle != preferred || storedTitle?.main_kingdom != kingdom;
         if (!capitalChanged && !titleChanged)
         {

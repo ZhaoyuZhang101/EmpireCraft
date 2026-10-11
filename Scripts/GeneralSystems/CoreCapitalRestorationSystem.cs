@@ -35,6 +35,16 @@ public static class CoreCapitalRestorationSystem
         }
     }
 
+    // 还于旧都后的首都锚定：帝国核心王国坐镇记录的旧都时，封号同步与迁都决议不再把首都
+    // 迁回主封号首府——否则它们和本系统每月互相迁都，世界日志反复刷"还于旧都"
+    public static bool IsAnchored(Kingdom kingdom)
+    {
+        if (kingdom?.capital == null) return false;
+        Empire empire = kingdom.GetEmpire();
+        if (empire == null || empire.CoreKingdom != kingdom) return false;
+        return EmpireCoreManager.Get(empire)?.GetCoreCapital() == kingdom.capital;
+    }
+
     private static void Check(Empire empire)
     {
         if (empire?.data == null || empire.isRekt() || empire.IsArchived()) return;
@@ -60,6 +70,7 @@ public static class CoreCapitalRestorationSystem
             if (capital.kingdom != core) return;
         }
         core.setCapital(capital);
+        if (core.capital != capital) return;
         FiscalDiagnostics.Count("还于旧都");
         EventRecorder.Record(empire, string.Format(LM.Get("empire_return_capital_history"),
             empire.GetEmpireFullName(), capital.GetCityName()), empire.Emperor);

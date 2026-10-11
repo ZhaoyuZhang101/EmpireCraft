@@ -1838,11 +1838,14 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom.capital == null) return false;
                     if (pActor.kingdom.GetMainTitle().title_capital==kingdom.capital) return false;
                     if (!kingdom.cities.Contains(pActor.kingdom.GetMainTitle().title_capital)) return false;
+                    // 还于旧都后的首都锚定：不再迁回封号首府
+                    if (EmpireCraft.Scripts.GeneralSystems.CoreCapitalRestorationSystem.IsAnchored(kingdom)) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
                 {
                     Kingdom kingdom = pActor.kingdom;
+                    if (EmpireCraft.Scripts.GeneralSystems.CoreCapitalRestorationSystem.IsAnchored(kingdom)) return true;
                     kingdom.setCapital(kingdom.GetMainTitle().title_capital);
                     TranslateHelper.LogKingdomChangeCapitalToTitle(kingdom, kingdom.GetMainTitle());
                     var emp = kingdom.GetEmpire();
