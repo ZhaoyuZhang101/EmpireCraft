@@ -99,6 +99,9 @@ public sealed class ConstitutionalEconomyState
     public double restoration_failed_at = -1d;
     public float opinion_support;
     public float opinion_dissent;
+    // 诉求立下的国策(见 ClaimPolicySystem)：移民 -1 驱逐 / 0 常态 / 1 开放；金融 -1 缩减 / 0 常态 / 1 霸权
+    public int migration_policy;
+    public int finance_policy;
     public string opinion_preferred = "";
     public List<IdeologyPressureSource> ideology_pressure = new();
     public string stable_culture = "";

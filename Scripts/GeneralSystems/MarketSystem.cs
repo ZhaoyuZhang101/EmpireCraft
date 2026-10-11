@@ -279,7 +279,9 @@ public static class MarketSystem
                     // 卖方：先卖公家的存货，九成价钱归城市国库
                     int fromPublic = good == Good.Food ? 0 : PopulationEconomySystem.TakePublicStock(seller, MaterialId(good), moved);
                     int publicValue = Mathf.FloorToInt(value * (float)fromPublic / moved);
-                    if (publicValue > 0) seller.AddMoney(Mathf.FloorToInt(publicValue * SellerShare), TreasuryCategory.PublicTrade);
+                    if (publicValue > 0)
+                        seller.AddMoney(Mathf.FloorToInt(publicValue * SellerShare *
+                            ClaimPolicySystem.TradeIncomeFactor(seller.kingdom)), TreasuryCategory.PublicTrade);
                     // 其余是百姓的货，九成价卖掉，家底少一成(商人的利润)；卖粮的钱里租地收成那部分是地主的
                     int privateValue = value - publicValue;
                     int sellerGets = Mathf.FloorToInt(privateValue * SellerShare);

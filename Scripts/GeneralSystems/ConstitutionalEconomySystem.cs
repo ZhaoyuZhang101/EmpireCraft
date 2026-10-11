@@ -231,6 +231,7 @@ public static class ConstitutionalEconomySystem
         ModernTitleCentralization.Update(empire);
         UpdateBudding(empire, state);
         UpdateWelfare(empire, state);
+        ClaimPolicySystem.UpdateYear(empire, state);
 
         if (state.constitutional_reform_active) AdvanceReform(empire, state);
         if (state.constitutional_monarchy && GetParliamentarySupport(empire) < Config.support_threshold &&
