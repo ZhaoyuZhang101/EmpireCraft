@@ -86,6 +86,17 @@ public class KingdomWindowPatch: GamePatch
                 fiscal.cash_balance), fiscal.cash_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_available", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
                 EmpireCraft.Scripts.GeneralSystems.StateSettlementSystem.DiscretionaryBalance(metaObject)), "#43FF43", pIconPath: "iconMoney");
+            Kingdom feudalLord = EmpireCraft.Scripts.GeneralSystems.FeudalVassalService.GetOverlord(metaObject);
+            if (feudalLord != null)
+                __instance.showStatRow("feudal_overlord", string.Format(NeoModLoader.General.LM.Get("feudal_overlord_format"),
+                    feudalLord.GetKingdomName(), metaObject.GetOrCreate().feudal_vassal_level), "#D9B36A", pIconPath: "iconKings");
+            else if (metaObject.HasTakenAlliance())
+                __instance.showStatRow("tribute_overlord",
+                    metaObject.GetTakenAllianceEmpire()?.GetEmpireFullName() ?? "-", "#D9B36A", pIconPath: "iconKings");
+            int directVassals = global::System.Linq.Enumerable.Count(
+                EmpireCraft.Scripts.GeneralSystems.FeudalVassalService.GetDirectVassals(metaObject));
+            if (directVassals > 0)
+                __instance.showStatRow("feudal_vassals", directVassals.ToString(), "#D9B36A", pIconPath: "iconKings");
             var reparations = EmpireCraft.Scripts.GeneralSystems.WarReparationsSystem.Owed(metaObject);
             if (reparations.monthly > 0L)
                 __instance.showStatRow("war_reparations", string.Format(NeoModLoader.General.LM.Get("war_reparations_format"),

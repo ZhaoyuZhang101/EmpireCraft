@@ -80,6 +80,8 @@ public static class FeudalVassalService
             (lord.GetOrCreate().feudal_vassal_level >= 3 && GetOverlord(lord) != null) ||
             // 附庸层级最多三层(宗主 → 附庸 → 陪臣)：陪臣不能再收附庸
             Depth(lord) >= MaxDepth - 1 ||
+            // 和平途径不能抢走别人的附庸(征服与上帝工具除外)：附庸不再被邻国排队挖走
+            GetOverlord(subject) != null && GetOverlord(subject) != lord ||
             IsInChain(lord, subject)) return false;
         if (IsPostMonarchy(lord)) return true;
         string culture = CultureService.GetRealmCulture(lord);

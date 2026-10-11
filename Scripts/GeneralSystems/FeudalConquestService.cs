@@ -92,6 +92,9 @@ public static class FeudalConquestService
         // 西方封建征服先建立直属臣属，不把保留原王室的国家当作共主同盟。
         if (western)
         {
+            // 征服可以夺走别国的附庸：先解除旧从属再收编(和平途径不允许抢)
+            if (FeudalVassalService.GetOverlord(conquered) != null &&
+                FeudalVassalService.GetOverlord(conquered) != captor) FeudalVassalService.Break(conquered);
             if (!FeudalVassalService.Bind(captor, conquered)) return true;
             Record(null, conquered, "feudal_conquest_alliance_history", captor.GetKingdomName(),
                 conquered.GetKingdomName());

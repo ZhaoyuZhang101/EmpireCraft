@@ -2224,6 +2224,8 @@ public class Empire : MetaObject<EmpireData>
         if (pKingdom == null || pKingdom.isRekt()) return false;
         if (AncientWarfareCompatibility.Owns(CoreKingdom) || AncientWarfareCompatibility.Owns(pKingdom)) return false;
         if (!CanAcceptVoluntarySubmission() || pKingdom.HasRebelledAgainst(this)) return false;
+        // 已有封建宗主的国家不能再自愿加入帝国：要么先独立，要么被宗主放还(避免双重从属)
+        if (GeneralSystems.FeudalVassalService.GetOverlord(pKingdom) != null) return false;
         if (!ContainsKingdomCapitalInCore(pKingdom) || !MeetsSubmissionPowerThreshold(pKingdom)) return false;
         if (!pKingdom.isOpinionTowardsKingdomGood(CoreKingdom))
         {

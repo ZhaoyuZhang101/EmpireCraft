@@ -48,16 +48,36 @@ public static class VassalColorService
 
     public static bool IsComposite(ColorAsset color) => color != null && Composites.ContainsValue(color);
 
-    // 宗主若本身也是合成颜色，边框沿用宗主的边框(即最上层宗主的颜色)
+    // 原版不少入口会重置国家颜色缓存(generateColor、读档、改色)，附庸描边会悄悄掉回原色，
+    // 等每月同步才恢复。这里每两秒轻量重申一次(国家只有几十个，挂在世界扫描轮转上)
+    private static float _nextReassert;
+
+    public static void TickReassert()
+    {
+        float now = UnityEngine.Time.unscaledTime;
+        if (now < _nextReassert || World.world?.kingdoms == null) return;
+        _nextReassert = now + 2f;
+        foreach (Kingdom subject in World.world.kingdoms)
+        {
+            if (subject?.data == null || subject.isRekt()) continue;
+            Kingdom lord = FeudalVassalService.GetOverlord(subject);
+            if (lord == null && subject.HasTakenAlliance()) lord = subject.GetTakenAllianceEmpire()?.CoreKingdom;
+            if (lord == null || lord.isRekt()) continue;
+            if (IsComposite(subject._cached_color)) continue;
+            Apply(subject, lord);
+        }
+    }
+
+    // 边框直接用宗主的主色(次色对比常常不明显)；宗主若本身也是合成颜色，主色仍是它自己的底色
     private static ColorAsset Composite(ColorAsset own, ColorAsset lord)
     {
-        string key = own.color_main + "|" + lord.color_main_2;
+        string key = own.color_main + "|" + lord.color_main;
         if (Composites.TryGetValue(key, out ColorAsset cached)) return cached;
         var color = new ColorAsset
         {
             id = "vassal_" + key,
             color_main = own.color_main,
-            color_main_2 = lord.color_main_2,
+            color_main_2 = lord.color_main,
             color_banner = own.color_banner,
             color_text = own.color_text,
             index_id = ColorAsset._create_last_index_id++
