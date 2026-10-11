@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -12,7 +13,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.UI.Components;
 
 // 帝国主页的"天下大势"(周制，见 ZhouEraSystem)：时代、霸主、诸侯数、天命；列国国力与爵位、与周室的关系；
-// 神力按钮(召集会盟、赐胙立霸主、推进时代)；列国纪事
+// 神力按钮(标题条右端召集会盟、推进时代，列国表每行赐胙立霸主)；列国纪事
 public static class ZhouPanel
 {
     private const int MaxRows = 12;
@@ -28,7 +29,27 @@ public static class ZhouPanel
         string headerText = state.eastward_at >= 0d && state.era >= ZhouEraSystem.Spring
             ? string.Format(LM.Get("zhou_header_eastward"), eraName, Date.getYearsSince(state.eastward_at))
             : string.Format(LM.Get("zhou_header"), eraName, years);
-        var card = parent.BeginCard(width, "zhou_title", "#F3C34A", headerText, "ui/icons/iconKingdom");
+        var card = parent.BeginCard(width);
+
+        // 神力按钮放在标题条右端：召集会盟(春秋)、推进时代(统一前)
+        var actions = new List<(string id, string label, Action action)>();
+        if (state.era == ZhouEraSystem.Spring)
+            actions.Add(("zhou_god_conference", LM.Get("zhou_god_conference"),
+                () => ZhouEraSystem.HoldConference(empire, state, null)));
+        if (state.era < ZhouEraSystem.Unified)
+            actions.Add(("zhou_god_advance", LM.Get("zhou_god_advance_" + state.era), () => ZhouEraSystem.GodAdvance(empire)));
+        float ButtonWidth(string label) => Mathf.Max(34f, UIHelper.EstimateTextWidth(label, 7) + 12f);
+        var titleBar = UIHelper.AddCardTitle(card, width, LM.Get("zhou_title"), "#F3C34A", headerText,
+            actions.Sum(entry => ButtonWidth(entry.label) + 3f), "ui/icons/iconKingdom");
+        foreach ((string id, string label, Action action) in actions)
+        {
+            Action run = action;
+            titleBar.AddButtonIntoHoriLayout(id, label, () =>
+            {
+                run();
+                refresh?.Invoke();
+            }, size: new Vector2(ButtonWidth(label), 12f));
+        }
 
         // 指标格高 30，行要一样高，否则压到下面的表头
         var kpis = card.BeginHoriGroup(new Vector2(inner, 30f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
@@ -86,29 +107,12 @@ public static class ZhouPanel
             card.AddTextIntoVertLayout(string.Format(LM.Get("zhou_more"), vassals.Count - MaxRows).ColorString("#8FA0A8"),
                 true, TextAnchor.MiddleLeft, new Vector2(inner, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
 
-        // 规则说明按字数估行数给高，折行多了也不压到下面的按钮
+        // 规则说明按字数估行数给高，折行多了也不溢出卡片
         string rule = LM.Get("zhou_rule_" + state.era);
         int lines = Mathf.Max(1, Mathf.CeilToInt(UIHelper.EstimateTextWidth(rule, 6) / (inner - 6f)));
         card.AddTextIntoVertLayout(rule.ColorString("#7FD8EA"), true, TextAnchor.UpperLeft,
             new Vector2(inner, lines * 8f + 2f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
 
-        // 神力：卡片底部一排，靠右、按字宽定宽，左右各再让出 5(不压四角的角饰)，上面空一道
-        if (state.era < ZhouEraSystem.Unified)
-        {
-            card.AddTextIntoVertLayout("", false, TextAnchor.MiddleCenter, new Vector2(inner, 3f));
-            var buttons = card.BeginHoriGroup(new Vector2(inner - 10f, 14f), TextAnchor.MiddleRight, 4,
-                new RectOffset(0, 0, 0, 0));
-            void Button(string id, string label, Action action) =>
-                buttons.AddButtonIntoHoriLayout(id, label, () =>
-                {
-                    action();
-                    refresh?.Invoke();
-                }, size: new Vector2(Mathf.Max(40f, UIHelper.EstimateTextWidth(label, 7) + 16f), 13f));
-            if (state.era == ZhouEraSystem.Spring)
-                Button("zhou_god_conference", LM.Get("zhou_god_conference"),
-                    () => ZhouEraSystem.HoldConference(empire, state, null));
-            Button("zhou_god_advance", LM.Get("zhou_god_advance_" + state.era), () => ZhouEraSystem.GodAdvance(empire));
-        }
 
         // 列国纪事
         var log = parent.BeginCard(width, "zhou_log_title", "#7FD8EA", null, "ui/icons/iconBook");
