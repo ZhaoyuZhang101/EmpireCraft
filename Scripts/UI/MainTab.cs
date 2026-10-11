@@ -88,12 +88,11 @@ internal static class MainTab
         EmpireSettingWindow.CreateAndInit(nameof(EmpireSettingWindow), new Vector2(480f, 180f));
         MetaColorWindow.CreateWindow(nameof(MetaColorWindow),
             nameof(MetaColorWindow) + "Title");
-        RegimeWindow.CreateWindow(nameof(RegimeWindow),
-            "");
+        // 政体、派系详情改宽窗口(标题用 "<窗口id> Title" 约定 key)
+        RegimeWindow.CreateAndInit(nameof(RegimeWindow), new Vector2(480f, 380f));
         SpecificClanListWindow.CreateWindow(nameof(SpecificClanListWindow),
             nameof(SpecificClanListWindow) + "Title");
-        FactionDetailWindow.CreateWindow(nameof(FactionDetailWindow),
-            "");
+        FactionDetailWindow.CreateAndInit(nameof(FactionDetailWindow), new Vector2(480f, 380f));
         TraitsSelectWindow.CreateWindow(nameof(TraitsSelectWindow),
             nameof(TraitsSelectWindow) + "Title");
         AddFactionMemberWindow.CreateWindow(nameof(AddFactionMemberWindow),

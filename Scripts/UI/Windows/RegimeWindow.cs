@@ -10,6 +10,7 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
+using NeoModLoader.api;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
@@ -23,8 +24,12 @@ using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
-public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
+// 宽窗口(480×380)横屏骨架：左栏国名、政体与自定义命名固定不随滚动，右侧是政体选择、派系格局、地方政治与政体选项
+public class RegimeWindow : AbstractWideWindow<RegimeWindow>
 {
+    private AutoVertLayoutGroup _root;
+    private AutoVertLayoutGroup _rail;
+    private AutoVertLayoutGroup _content;
     private TextInput _regimeInput;
     private TextInput _customCountryNameInput;
     private TextInput _customCountrySuffixInput;
@@ -37,24 +42,23 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     private Dictionary<RegimeType, AdvancedButton> _regimeButtons = new Dictionary<RegimeType, AdvancedButton>();
     protected override void Init()
     {
-        layout.spacing = 3;
-        layout.padding = new RectOffset(3, 3, 3, 3);
-        // 这个窗口跟 KingdomTitleWindow 不一样：它没有一个统一的 _content 包一层再把
-        // 各个板块（军政选择/自定义国名/阵营位/杂项设置）都塞进去居中对齐，而是直接把
-        // InitialRegimeSelection/InitialCustomNaming/InitialSetting 各自建的组当成
-        // layout 自己的直接子节点。这些子组各自的宽度（比如自定义国名卡是 200）通常都
-        // 小于窗口本身的可用宽度，而 VerticalLayoutGroup 的 childAlignment 缺省是
-        // UpperLeft，于是每个板块都贴着窗口左边，看起来整体偏左、不居中。这里显式把
-        // layout 自己的 childAlignment 设成 UpperCenter（参考 UIHelper.cs 里同样的
-        // 用法），让这些顶层子组统一在窗口宽度内居中，不用逐个板块再单独改。
-        layout.childAlignment = TextAnchor.UpperCenter;
-        _regimeInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
+        UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+        _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
+        _rail = UIHelper.CreateWideWindowRail(BackgroundTransform, UIHelper.RailWidth, UIHelper.RailInset);
+        _regimeInput = Instantiate(TextInput.Prefab, this.transform);
+        // 宽窗口脚本挂在窗口根上：输入框挂窗口根并脱离布局、锚点居中(同帝国窗口)
+        var inputElement = _regimeInput.gameObject.GetComponent<LayoutElement>() ?? _regimeInput.gameObject.AddComponent<LayoutElement>();
+        inputElement.ignoreLayout = true;
+        var inputRect = (RectTransform)_regimeInput.transform;
+        inputRect.anchorMin = inputRect.anchorMax = inputRect.pivot = new Vector2(0.5f, 0.5f);
         _regimeInput.Setup("", ChangeKingdomName);
     }
 
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
+        UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+        StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
         InitialTextInput();
         InitialContent();
     }
@@ -62,11 +66,32 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     private void InitialContent()
     {
         Clear();
+        DrawRail();
+        _content = _root.BeginVertGroup(pSpacing: 4, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 6));
+        UIHelper.FixPanelWidth(_content.transform, ContentWidth);
+        _groups.Add(_content.gameObject);
+        _content.AddPageHeader(ContentWidth, "regime_title", _kingdom.GetKingdomName());
         InitialRegimeSelection();
-        InitialCustomNaming();
-        UIHelper.InitialFactionSpace(this.BeginHoriGroup(), _kingdom, _groups);
+        // 派系格局与帝国主页同一套：占比扇形图 + 2×n 派系卡
+        UIHelper.InitialEmpireFactionOverview(_content.BeginHoriGroup(pAlignment: TextAnchor.UpperLeft,
+            pPadding: new RectOffset(0, 0, 0, 0)), _kingdom, ContentWidth);
         InitialLocalPolitics();
         InitialSetting();
+    }
+
+    // 左栏：国名、政体与国家类别 → 自定义命名(国名、后缀)
+    private void DrawRail()
+    {
+        UIHelper.ClearRail(_rail);
+        if (_rail == null) return;
+        var identity = _rail.BeginRailCard("FactionFrame_dominate");
+        identity.AddRailText(_kingdom.GetKingdomFullName().ColorString(_kingdom.getColor().color_text), 10, 26f, wrap: true);
+        identity.AddRailText(CompositeEmpireService.GetRegimeName(_kingdom.GetRegime().type).ColorString("#F3C34A"), 7, 10f);
+        identity.AddRailText(LM.Get(_kingdom.GetKingdomTypeDisplayKey()).ColorString("#8FE7FF"), 7, 10f);
+        Empire empire = _kingdom.GetEmpire();
+        if (empire != null)
+            identity.AddRailText(empire.GetEmpireFullName().ColorString("#8FA0A8"), 6, 9f);
+        InitialCustomNaming();
     }
 
     // 地方政治(见 ProvincialPoliticsSystem)：本省执政党、各党支持率，玩家可花国库资助/打压某党
@@ -77,7 +102,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         List<(FixedFaction party, float share)> shares = ProvincialPoliticsSystem.GetShares(empire, _kingdom);
         if (shares.Count == 0) return;
         float height = 32f + shares.Count * 14f;
-        var panel = this.BeginVertGroup(new Vector2(196, height), pSpacing: 1, pAlignment: TextAnchor.UpperCenter,
+        var panel = _content.BeginVertGroup(new Vector2(ContentWidth, height), pSpacing: 1, pAlignment: TextAnchor.UpperCenter,
             pPadding: new RectOffset(4, 4, 3, 3));
         _groups.Add(panel.gameObject);
 
@@ -87,14 +112,14 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         if (governing != null)
             title += " · " + string.Format(LM.Get("local_politics_governing"), governing.Name)
                 .ColorString(opposition ? "#E9A85B" : "#65D66E");
-        panel.AddTextIntoVertLayout(title, true, TextAnchor.MiddleLeft, new Vector2(188, 11))
+        panel.AddTextIntoVertLayout(title, true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 11))
             .UseFixedFontSize(8, HorizontalWrapMode.Overflow);
         int years = ProvincialPoliticsSystem.YearsUntilLocalElection(empire);
         string status = years < 0 ? LM.Get("local_politics_no_elections")
             : string.Format(LM.Get("local_politics_next_election"), years) +
               (opposition ? "  " + LM.Get("local_politics_resistance") : "");
         SimpleText statusText = panel.AddTextIntoVertLayout(status.ColorString("#A8B8BE"), true, TextAnchor.MiddleLeft,
-            new Vector2(188, 9));
+            new Vector2(ContentWidth - 8f, 9));
         statusText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
         UIHelper.AttachTextTooltip(statusText.gameObject, "local_politics_help", LM.Get("local_politics_title"),
             LM.Get("local_politics_help_body"));
@@ -103,7 +128,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         foreach ((FixedFaction party, float share) in shares)
         {
             FixedFaction target = party;
-            var row = panel.BeginHoriGroup(new Vector2(188, 13), TextAnchor.MiddleLeft, 2);
+            var row = panel.BeginHoriGroup(new Vector2(ContentWidth - 8f, 13), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
             UIHelper.AddLayoutIcon(row.transform,
                 SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(party.Ideology)), 10f);
             string line = party.Name.ColorString(party == governing ? "#F3C34A" : "#E6E0CF") +
@@ -113,7 +138,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
                 line += " " + string.Format(LM.Get("local_politics_influence"),
                         (influence > 0 ? "+" : "") + Mathf.RoundToInt(influence * 100f))
                     .ColorString(influence > 0 ? "#65D66E" : "#E05A4F");
-            row.AddTextIntoHoriLayout(line, true, TextAnchor.MiddleLeft, new Vector2(110, 12))
+            row.AddTextIntoHoriLayout(line, true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 90f, 12))
                 .UseFixedFontSize(7, HorizontalWrapMode.Overflow);
             var fund = row.AddButtonIntoHoriLayout($"local_fund_{party.GetID()}", LM.Get("local_politics_fund"),
                 () => ApplyLocalInfluence(empire, target, 1), size: new Vector2(31, 11));
@@ -125,7 +150,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
             UIHelper.AttachTextTooltip(suppress.gameObject, "local_suppress_tip", LM.Get("local_politics_suppress"),
                 string.Format(LM.Get("local_politics_suppress_tip"), cost));
         }
-        panel.transform.AddStretchBackground("regimeFrame", new Vector2(196, height));
+        panel.transform.AddStretchBackground("regimeFrame", new Vector2(ContentWidth, height));
     }
 
     private void ApplyLocalInfluence(Empire empire, FixedFaction party, int direction)
@@ -142,26 +167,20 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     private void InitialCustomNaming()
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(_kingdom)) return;
-        var namingSpace = this.BeginVertGroup(pSize: new Vector2(200, 63), pSpacing: 2,
-            pAlignment: TextAnchor.MiddleCenter);
-        namingSpace.AddTextIntoVertLayout(LM.Get("kingdom_custom_naming"), true,
-            TextAnchor.MiddleCenter, new Vector2(190, 15));
-
+        var namingSpace = _rail.BeginRailCard();
+        namingSpace.AddRailText(LM.Get("kingdom_custom_naming").ColorString("#7FD8EA"), 8, 12f);
         _refreshingNameInputs = true;
         try
         {
-            AddNamingInputRow(namingSpace, LM.Get("kingdom_custom_name"),
-                _kingdom.GetCustomCountryName(), ChangeCustomCountryName, out _customCountryNameInput);
-            AddNamingInputRow(namingSpace, LM.Get("kingdom_custom_suffix"),
-                _kingdom.GetCustomCountrySuffix(), ChangeCustomCountrySuffix, out _customCountrySuffixInput);
+            _customCountryNameInput = namingSpace.AddRailInput(LM.Get("kingdom_custom_name"),
+                _kingdom.GetCustomCountryName(), ChangeCustomCountryName);
+            _customCountrySuffixInput = namingSpace.AddRailInput(LM.Get("kingdom_custom_suffix"),
+                _kingdom.GetCustomCountrySuffix(), ChangeCustomCountrySuffix);
         }
         finally
         {
             _refreshingNameInputs = false;
         }
-
-        namingSpace.transform.AddStretchBackground("regimeFrame", size: new Vector2(200, 63));
-        _groups.Add(namingSpace.gameObject);
     }
 
     private static void AddNamingInputRow(AutoVertLayoutGroup parent, string label, string value,
@@ -179,7 +198,8 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     }
 
     // ── 政体选项：每行 = 游戏图标 + 选项名 + 带文字的档位按钮（开关类为 开/关）──
-    private const float SettingWidth = 196f;
+    private const float ContentWidth = UIHelper.PageMainWidth;
+    private const float SettingWidth = ContentWidth - 4f;
     private static readonly Color ChoiceOnColor = new Color(0.95f, 0.76f, 0.29f);
     private static readonly Color ChoiceOffColor = new Color(0.72f, 0.72f, 0.72f);
     private static readonly Color ChoiceLockedColor = new Color(0.4f, 0.4f, 0.4f);
@@ -211,7 +231,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         var options = _kingdom.GetRegime().options;
         int rows = options.Keys.Count(key => key.Contains("toggle_") || key.Contains("option_"));
         float height = 6f + rows * 17f;
-        var settingSpace = this.BeginVertGroup(new Vector2(SettingWidth, height), pSpacing: 1,
+        var settingSpace = _content.BeginVertGroup(new Vector2(SettingWidth, height), pSpacing: 1,
             pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(3, 3, 3, 3));
         foreach (var option in options)
         {
@@ -228,7 +248,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         OptionIcons.TryGetValue(key, out string[] icons);
         row.AddButtonIntoHoriLayout(key, "", () => { }, LoadFirstSprite(icons), size: new Vector2(12, 12),
             showTip: true, hideBackground: true);
-        var label = row.AddTextIntoHoriLayout(LM.Get(key), true, TextAnchor.MiddleLeft, new Vector2(52, 14));
+        var label = row.AddTextIntoHoriLayout(LM.Get(key), true, TextAnchor.MiddleLeft, new Vector2(84, 14));
         label.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         return row;
     }
@@ -245,7 +265,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     private void AddChoiceRow(AutoVertLayoutGroup parent, string key, int current, int count)
     {
         var row = BeginSettingRow(parent, key);
-        float width = Math.Max(14f, (SettingWidth - 80f) / Math.Max(1, count) - 2f);
+        float width = Math.Max(14f, (SettingWidth - 112f) / Math.Max(1, count) - 2f);
         var buttons = new List<AdvancedButton>();
         var laws = (SuccessionLawType[])Enum.GetValues(typeof(SuccessionLawType));
         for (int i = 0; i < count; i++)
@@ -362,6 +382,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
 
     private void Clear()
     {
+        UIHelper.ClearRail(_rail);
         foreach (var regimeOption in _regimeButtons)
         {
             Destroy(regimeOption.Value.gameObject);
@@ -383,7 +404,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     }
     // ── 政体选择：列出所有已注册政体（读配置，不写死），图标 + 名称的网格；当前政体高亮，
     //    下方给出当前政体说明与君主立宪状态 ──
-    private const int RegimesPerRow = 5;
+    private const int RegimesPerRow = 7;
 
     // 没有专属按钮图标的政体借用相近的图标，最后退回游戏自带的王国图标
     private static readonly Dictionary<RegimeType, RegimeType> RegimeIconFallback = new()
@@ -411,7 +432,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
             .OrderBy(type => (int)type).ToList();
         int rows = (regimes.Count + RegimesPerRow - 1) / RegimesPerRow;
         float height = 18f + rows * 36f + 30f;
-        var regimeSpace = this.BeginVertGroup(new Vector2(SettingWidth, height), pSpacing: 1,
+        var regimeSpace = _content.BeginVertGroup(new Vector2(SettingWidth, height), pSpacing: 1,
             pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(3, 3, 3, 3));
         var title = regimeSpace.AddTextIntoVertLayout(LM.Get("regime_title"), true, TextAnchor.MiddleCenter,
             new Vector2(SettingWidth - 6f, 13));
@@ -491,7 +512,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         _refreshingNameInputs = true;
         try
         {
-            UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset: new Vector2(0, 152),
+            UIHelper.GenerateTextInput(this.transform, offset: new Vector2(0, 218),
                 default_text: _kingdom.GetKingdomFullName(), input: _regimeInput);
         }
         finally
