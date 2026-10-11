@@ -1332,7 +1332,9 @@ public static class CityPopulationSystem
         bool unknown = false;
         // 分段计时：整段超过 8 ms 时在日志里列出各段耗时，定位月度结算的大头
         long t0 = Stopwatch.GetTimestamp();
-        cache.Warm(city.units.Count, MaxNotableRecomputes, index =>
+        // 积压多时(旧存档刚转成虚拟人口)每次多鉴别一些，否则每月只认出十几人、并入跟不上
+        int recomputes = Mathf.Max(MaxNotableRecomputes, Mathf.Min(MaxBacklogFoldsPerPass, city.units.Count / 3));
+        cache.Warm(city.units.Count, recomputes, index =>
         {
             Actor actor = city.units[index];
             if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != city ||
@@ -1379,7 +1381,7 @@ public static class CityPopulationSystem
         // 军制(见 LevyTarget)：太平时不是军镇的城不留兵、军镇只留常备兵额(没有常备军就留一名将领)；
         // 交战(含战备)期间一律不遣散——起义城市临时武装的义军、调防途中的军团都留着
         int keep = CorpsSystem.Enabled ? CityStabilitySystem.FundedSlots(city) : LevyTarget(city);
-        if (!atWar && soldiers.Count > Mathf.Max(0, keep))
+        if ((!atWar || CorpsSystem.Enabled) && soldiers.Count > Mathf.Max(0, keep))
         {
             // 现任统领优先留下，其次带着部队的人
             soldiers.Sort((left, right) => GeneralRank(right).CompareTo(GeneralRank(left)));
@@ -1400,7 +1402,9 @@ public static class CityPopulationSystem
             for (int i = KeptWorkersPerCity; i < commoners.Count; i++) toFold.Add(commoners[i]);
         }
 
-        if (toFold.Count > MaxFoldsPerPass) toFold.RemoveRange(MaxFoldsPerPass, toFold.Count - MaxFoldsPerPass);
+        // 积压多时(旧存档刚转成虚拟人口、战后遣散)加快并入：每次最多三分之一，上限 60，仍受帧预算约束
+        int foldCap = Mathf.Max(MaxFoldsPerPass, Mathf.Min(MaxBacklogFoldsPerPass, toFold.Count / 3));
+        if (toFold.Count > foldCap) toFold.RemoveRange(foldCap, toFold.Count - foldCap);
         int folded = 0;
         int reviewed = 0;
         foreach (Actor actor in toFold)
@@ -1572,6 +1576,7 @@ public static class CityPopulationSystem
     private const int MaxLeviesPerPass = 3;
     // 每座城每次结算最多并入的人数(移除单位也不便宜)
     private const int MaxFoldsPerPass = 10;
+    private const int MaxBacklogFoldsPerPass = 60;
     private static bool _spawnResolved;
     private static MethodInfo _createWithSubspecies;
 

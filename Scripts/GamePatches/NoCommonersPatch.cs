@@ -372,8 +372,17 @@ public class NoCommonersPatch : GamePatch
 
     public static void AfterIsPlacePrivateForBreeding(Actor __instance, ref bool __result)
     {
-        if (!__result || !CityPopulationSystem.AbstractPopulationEnabled || __instance?.asset == null ||
-            __instance.asset.civ || __instance.hasCity()) return;
+        if (!__result || !CityPopulationSystem.AbstractPopulationEnabled || __instance?.asset == null) return;
+        // 文明种族：只有名人(君主、城主、官员、要紧贵族、派系成员……)以实体生育；普通人的增长由人口数据结算，
+        // 实体普通人迟早并回人口。旧存档(原先不是虚拟人口)背景人口从零算起，原版按"户"判断以为房子空着，
+        // 会让满地实体小人一直繁殖，并入赶不上生育
+        if (__instance.asset.civ)
+        {
+            if (__instance.hasCity() && !CityPopulationSystem.IsNotable(__instance, includeClanHead: false))
+                __result = false;
+            return;
+        }
+        if (__instance.hasCity()) return;
         if (WildCount() >= WildCap) __result = false;
     }
 

@@ -40,6 +40,25 @@ public static class PopulationRuntimeDiagnostics
             groups += population.groups.Count;
             foreach (var group in population.groups) if (group != null) background += group.Background;
         }
+        // 实体单位构成：找出地图上的人都是谁
+        int soldiers = 0, generals = 0, vehicles = 0, rulers = 0, children = 0, adults = 0, wild = 0;
+        foreach (Actor actor in World.world.units)
+        {
+            if (actor?.data == null || actor.isRekt() || !actor.isAlive()) continue;
+            if (CityPopulationSystem.IsVehicle(actor)) vehicles++;
+            else if (actor.asset == null || !actor.asset.civ) wild++;
+            else if (CorpsSystem.IsGeneral(actor)) generals++;
+            else if (CityPopulationSystem.IsSoldier(actor)) soldiers++;
+            else if (actor.isKing() || actor.isCityLeader()) rulers++;
+            else if (!actor.isAdult()) children++;
+            else adults++;
+        }
+        int corps = 0;
+        foreach (var _ in CorpsSystem.All()) corps++;
+        string composition = $"[EmpireCraft][实体构成] 士兵 {soldiers}；军团统领 {generals}；载具 {vehicles}；" +
+                             $"君主城主 {rulers}；孩童 {children}；其余成人 {adults}；野生 {wild}；军团 {corps} 支" +
+                             $"(军团模式{(CorpsSystem.Enabled ? "开" : "关")})";
+        LogService.LogInfo(composition);
         string report = $"[EmpireCraft][虚拟人口负载] 实体单位 {World.world.units.Count}；" +
             $"城市 {World.world.cities.Count}；人口组 {groups}；城内背景人口 {background:0}；" +
             $"建筑 {World.world.buildings.Count}；后台待办 {PopulationMathWorkers.PendingCount}/64；" +
