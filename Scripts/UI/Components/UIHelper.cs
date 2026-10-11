@@ -498,6 +498,31 @@ public static class UIHelper
         PlaceWideWindowBackButton(backgroundTransform);
     }
 
+    // 横屏骨架的固定左栏：滚动区右移让位，左栏挂在窗口背景上，不随正文滚动
+    public static AutoVertLayoutGroup CreateWideWindowRail(Transform backgroundTransform, float width, float inset)
+    {
+        WideWindowScrollArea area = backgroundTransform.GetComponent<WideWindowScrollArea>();
+        area?.SetLeftInset(inset);
+        var railObject = new GameObject("WideWindowRail", typeof(RectTransform), typeof(VerticalLayoutGroup),
+            typeof(ContentSizeFitter));
+        var rect = railObject.GetComponent<RectTransform>();
+        rect.SetParent(backgroundTransform, false);
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(8f, -(WideWindowTopMargin + 3f));
+        rect.localScale = Vector3.one;
+        AutoVertLayoutGroup rail = railObject.AddComponent<AutoVertLayoutGroup>();
+        VerticalLayoutGroup layout = rail.layout;
+        layout.childAlignment = TextAnchor.UpperLeft;
+        layout.childControlHeight = false;
+        layout.childControlWidth = false;
+        layout.childForceExpandHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.spacing = 4f;
+        layout.padding = new RectOffset(0, 0, 0, 0);
+        FixPanelWidth(railObject.transform, width);
+        return rail;
+    }
+
     // 原版返回按钮(empty 窗口预制体的 BackButtonContainer，挂在窗口根上、居中)按 240×320 的窄窗摆在左上角外缘；
     // 宽窗口把整个容器平移同样的相对位置。显示/隐藏、上一窗口图标、点击返回都仍由原版 WindowHistory 负责。
     public static void PlaceWideWindowBackButton(Transform backgroundTransform)
@@ -1059,11 +1084,6 @@ public static class UIHelper
             FixedFaction tileFaction = faction;
             cells.Add(row => AddFactionTile(row, tileFaction, kingdom, tileWidth, Refresh));
         }
-        foreach (PartyIdeology ideology in foundable)
-        {
-            PartyIdeology target = ideology;
-            cells.Add(row => AddFoundPartyTile(row, empire, target, tileWidth, Refresh));
-        }
         if (!partyMode && factions.Count < 3)
             cells.Add(row => row.AddButtonIntoHoriLayout("add_faction", LM.Get("empire_add_faction_slot"),
                 () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"),
@@ -1075,6 +1095,7 @@ public static class UIHelper
             cells[index](row);
             if (index + 1 < cells.Count) cells[index + 1](row);
         }
+        if (foundable.Count > 0) AddFoundPartyStrip(card, inner, empire, foundable, Refresh);
     }
 
     private static void OpenFactionDetail(FixedFaction faction, Kingdom kingdom)
@@ -1177,18 +1198,55 @@ public static class UIHelper
         faction.CardUI = info;
     }
 
-    private static void AddFoundPartyTile(AutoHoriLayoutGroup row, Empire empire, PartyIdeology ideology, float width,
-        Action refresh)
+    // 可组建新党细栏：深色内嵌底，"可组建"小字 + 每个理念一枚现成的理念徽章与理念名；放不下自动换行。
+    // 悬停说明能否组建(及原因)，点击即组建
+    private static void AddFoundPartyStrip(AutoVertLayoutGroup card, float width, Empire empire,
+        List<PartyIdeology> ideologies, Action refresh)
+    {
+        const float rowHeight = 15f, leadWidth = 44f, chipGap = 6f;
+        AutoHoriLayoutGroup row = null;
+        float used = 0f;
+        bool leadAdded = false;
+        foreach (PartyIdeology ideology in ideologies)
+        {
+            string name = PartySystem.GetIdeologyName(ideology);
+            float chipWidth = 14f + EstimateTextWidth(name, 6) + 4f;
+            if (row == null || used + chipWidth > width - 8f)
+            {
+                row = card.BeginHoriGroup(new Vector2(width, rowHeight), TextAnchor.MiddleLeft, chipGap, new RectOffset(4, 4, 0, 0));
+                AddInsetBackground(row, new Vector2(width, rowHeight));
+                used = 8f;
+                if (!leadAdded)
+                {
+                    leadAdded = true;
+                    var lead = row.AddTextIntoHoriLayout(LM.Get("party_found_strip").ColorString("#8FA0A8"), true,
+                        TextAnchor.MiddleLeft, new Vector2(leadWidth, 13f));
+                    lead.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                    used += leadWidth + chipGap;
+                }
+            }
+            AddFoundPartyChip(row, empire, ideology, name, chipWidth, refresh);
+            used += chipWidth + chipGap;
+        }
+    }
+
+    private static void AddFoundPartyChip(AutoHoriLayoutGroup row, Empire empire, PartyIdeology ideology, string name,
+        float width, Action refresh)
     {
         bool can = PartySystem.CanPlayerFound(empire, ideology, out string reason);
-        string label = string.Format(LM.Get("party_found_button"), PartySystem.GetIdeologyName(ideology));
-        var button = row.AddButtonIntoHoriLayout($"party_found_{ideology}", label.ColorString(can ? "#F3C34A" : "#8FA0A8"),
-            () =>
-            {
-                if (PartySystem.PlayerFoundParty(empire, ideology) != null) refresh?.Invoke();
-                else ActionLibrary.showWhisperTip(reason);
-            }, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(width, FactionTileHeight));
-        AttachTextTooltip(button.gameObject, $"party_found_{ideology}", label,
+        var chip = row.BeginHoriGroup(new Vector2(width, 13f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+        AddLayoutIcon(chip.transform, SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)), 12f);
+        chip.AddTextIntoHoriLayout(name.ColorString(can ? "#F3C34A" : "#8FA0A8"), true, TextAnchor.MiddleLeft,
+            new Vector2(width - 14f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        if (!can)
+            foreach (Image icon in chip.GetComponentsInChildren<Image>(true)) icon.color = new Color(1f, 1f, 1f, 0.45f);
+        MakeClickable(chip.gameObject, () =>
+        {
+            if (PartySystem.PlayerFoundParty(empire, ideology) != null) refresh?.Invoke();
+            else ActionLibrary.showWhisperTip(reason);
+        });
+        string label = string.Format(LM.Get("party_found_button"), name);
+        AttachTextTooltip(chip.gameObject, $"party_found_{ideology}", label,
             can ? LM.Get("party_found_tip") : LM.Get(reason));
     }
 

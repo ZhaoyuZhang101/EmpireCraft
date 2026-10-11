@@ -22,6 +22,7 @@ public sealed class WideWindowScrollArea : MonoBehaviour
     private float _topMargin;
     private float _bottomMargin;
     private float _sideMargin;
+    private float _leftInset;
     private bool _initialized;
     private Vector2 _lastSize;
 
@@ -52,6 +53,13 @@ public sealed class WideWindowScrollArea : MonoBehaviour
         ApplyLayout();
     }
 
+    // 左侧让出一条固定栏(不随滚动)：滚动区只占右边
+    public void SetLeftInset(float inset)
+    {
+        _leftInset = Mathf.Max(0f, inset);
+        if (_background != null && _scrollView != null && _viewport != null && _scrollRect != null) ApplyLayout();
+    }
+
     private void LateUpdate()
     {
         if (_background == null || _scrollView == null || _viewport == null || _scrollRect == null) return;
@@ -62,7 +70,7 @@ public sealed class WideWindowScrollArea : MonoBehaviour
         RectTransform barRect = _scrollbar?.transform as RectTransform;
         if (_lastSize != _background.rect.size || _viewport.offsetMin != Vector2.zero ||
             _viewport.offsetMax != new Vector2(-12f, 0f) ||
-            !Mathf.Approximately(_scrollView.rect.width, Mathf.Max(40f, _background.rect.width - _sideMargin * 2f)) ||
+            !Mathf.Approximately(_scrollView.rect.width, Mathf.Max(40f, _background.rect.width - _sideMargin * 2f - _leftInset)) ||
             // 滚动条被早期(宽度未就绪)的一次布局钉在窗口中央：位置不对就立刻归位右缘
             (barRect != null && !Mathf.Approximately(barRect.anchoredPosition.x,
                 _background.rect.width * 0.5f - _sideMargin - 5f)))
@@ -163,7 +171,7 @@ public sealed class WideWindowScrollArea : MonoBehaviour
         float height = _background.rect.height > 0f ? _background.rect.height : _background.sizeDelta.y;
         // 几何尚未布局好(宽高读到 0 或极小)：这一帧不要定位，否则滚动条会被钉在窗口中央
         if (width < 100f || height < 100f) return;
-        float scrollWidth = Mathf.Max(40f, width - _sideMargin * 2f);
+        float scrollWidth = Mathf.Max(40f, width - _sideMargin * 2f - _leftInset);
         float scrollHeight = Mathf.Max(40f, height - _topMargin - _bottomMargin);
         float centerY = (_bottomMargin - _topMargin) * 0.5f;
         _lastSize = _background.rect.size;
@@ -171,7 +179,7 @@ public sealed class WideWindowScrollArea : MonoBehaviour
         _scrollView.anchorMin = _scrollView.anchorMax = new Vector2(0.5f, 0.5f);
         _scrollView.pivot = new Vector2(0.5f, 0.5f);
         _scrollView.sizeDelta = new Vector2(scrollWidth, scrollHeight);
-        _scrollView.anchoredPosition = new Vector2(0f, centerY);
+        _scrollView.anchoredPosition = new Vector2(_leftInset * 0.5f, centerY);
         _scrollView.localScale = Vector3.one;
 
         _viewport.anchorMin = Vector2.zero;
