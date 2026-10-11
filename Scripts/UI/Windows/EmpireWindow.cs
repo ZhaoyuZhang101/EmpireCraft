@@ -303,6 +303,13 @@ namespace EmpireCraft.Scripts.UI.Windows
             int cities = _empire.kingdoms_list.Where(kingdom => kingdom != null && !kingdom.isRekt())
                 .Sum(kingdom => kingdom.cities?.Count ?? 0);
             stateItems.Add((LM.Get("empire_rail_territory"), string.Format(LM.Get("empire_rail_territory_value"), cities, provinces), "#F2EEE2"));
+            Kingdom core = _empire.CoreKingdom;
+            string capital = core.capital?.GetCityName();
+            if (!string.IsNullOrWhiteSpace(capital)) stateItems.Add((LM.Get("empire_rail_capital"), capital, "#F2EEE2"));
+            int wars = core.getWars().Count(war => war != null && war.isAlive() && !war.hasEnded());
+            stateItems.Add((LM.Get("empire_rail_wars"),
+                wars > 0 ? string.Format(LM.Get("empire_rail_wars_value"), wars) : LM.Get("empire_rail_peace"),
+                wars > 0 ? "#FF6666" : "#65D66E"));
             float burden = HarshRuleSystem.GetBurden(_empire);
             if (burden >= 1f)
                 stateItems.Add((LM.Get("label_harsh_rule"), $"{burden:0}", burden >= 60f ? "#FF6666" : burden >= 30f ? "#E9A85B" : "#F2EEE2"));
@@ -315,6 +322,35 @@ namespace EmpireCraft.Scripts.UI.Windows
                 stateItems.Add((LM.Get("label_dynastic_strain"), $"{DynasticCycleSystem.GetPressure(_empire):0}",
                     DynasticCycleSystem.InCrisis(_empire) ? "#FF6666" : "#F2EEE2"));
             }
+            // 以下按重要程度往后排，左栏放不下的自然截掉
+            stateItems.Add((LM.Get("empire_rail_warriors"), ShortCount(_empire.countWarriors()), "#F2EEE2"));
+            if (TreasurySystem.Enabled(core))
+            {
+                long balance = TreasurySystem.Report(core).operating_balance;
+                stateItems.Add((LM.Get("empire_rail_balance"), (balance > 0 ? "+" : "") + MoneyDisplay.Format(balance),
+                    balance < 0 ? "#FF6666" : "#65D66E"));
+            }
+            int tributaries = World.world.kingdoms.list.Count(k => k != null && !k.isRekt() && k.GetTakenAllianceEmpire() == _empire);
+            int vassals = FeudalVassalService.GetDirectVassals(core).Count();
+            if (tributaries + vassals > 0)
+                stateItems.Add((LM.Get("empire_rail_dependencies"),
+                    string.Format(LM.Get("empire_rail_dependencies_value"), tributaries, vassals), "#F2EEE2"));
+            if (republic)
+            {
+                stateItems.Add((LM.Get("empire_rail_ideology"),
+                    PartySystem.GetIdeologyName(IdeologyFamilies.StateIdeology(_empire)), "#C9A7E8"));
+                float autocracy = PartyBanSystem.GetAutocracy(_empire);
+                stateItems.Add((LM.Get("empire_rail_autocracy"), $"{autocracy:0}",
+                    autocracy >= 60f ? "#FF6666" : autocracy >= 30f ? "#E9A85B" : "#F2EEE2"));
+            }
+            if (ParliamentSystem.HasParliament(_empire))
+                stateItems.Add((LM.Get("empire_rail_next_election"),
+                    string.Format(LM.Get("empire_rail_years_later"), ParliamentSystem.GetView(_empire).YearsUntilElection),
+                    "#F2EEE2"));
+            if (GranarySystem.Enabled(core))
+                stateItems.Add((LM.Get("empire_rail_granary"), $"{GranarySystem.Stock(core):0}", "#F2EEE2"));
+            string alliance = core.getAlliance()?.data?.name;
+            if (!string.IsNullOrWhiteSpace(alliance)) stateItems.Add((LM.Get("empire_rail_alliance"), alliance, "#7FD8EA"));
             // 左栏可用高度 = 窗口高 - 上下边距；前三张卡按固定行高估算
             float available = ((RectTransform)BackgroundTransform).sizeDelta.y - (UIHelper.WideWindowTopMargin + 3f) - 10f;
             float used = (9f + nameHeight + 9f + 11f + (republic ? 0f : 9f))
@@ -326,6 +362,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             UIHelper.FixPanelWidth(state.transform, RailWidth);
             UIHelper.AddCardFrame(state.transform);
             UIHelper.AddCardTitle(state, RailWidth + 4f, LM.Get("empire_rail_state"), "#F3C34A", null, 0f, "ui/icons/iconKingdom");
+            // 国势是左栏最后一张卡：底边拉到窗口底，放不满时卡里留空
+            state.gameObject.AddComponent<FillToWindowBottom>().Background = (RectTransform)BackgroundTransform;
             for (int index = 0; index < fit; index++)
                 AddRailRow(state, rowWidth, stateItems[index].label, stateItems[index].value, stateItems[index].hex, index);
         }
