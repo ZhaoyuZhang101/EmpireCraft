@@ -19,6 +19,7 @@ namespace EmpireCraft.Scripts.UI.Windows;
 public class EmpireSettingWindow : AbstractWideWindow<EmpireSettingWindow>
 {
     private Empire _empire;
+    private const float CardWidth = (UIHelper.WidePanelWidth - UIHelper.CardGap) / 2f;
     private AutoVertLayoutGroup _root;
     private SimpleText _calendarLabel;
     [FormerlySerializedAs("year_name_button")] public SimpleButton yearNameButton;
@@ -26,13 +27,13 @@ public class EmpireSettingWindow : AbstractWideWindow<EmpireSettingWindow>
     {
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
         _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
-        var columns = _root.BeginColumns();
+        var columns = _root.BeginColumns(UIHelper.WidePanelWidth);
 
         // 纪年卡：君主制切年号，共和国切纪年方式
-        var calendarCard = columns.BeginColumnCard("empire_setting_calendar", icons: "ui/icons/iconClock");
-        var toggleRow = calendarCard.BeginHoriGroup(new Vector2(UIHelper.CardColumnWidth - 8f, 18f), TextAnchor.MiddleLeft, 4);
+        var calendarCard = columns.BeginColumnCard(CardWidth, "empire_setting_calendar", icons: "ui/icons/iconClock");
+        var toggleRow = calendarCard.BeginHoriGroup(new Vector2(CardWidth - 8f, 18f), TextAnchor.MiddleLeft, 4);
         _calendarLabel = Instantiate(SimpleText.Prefab, null);
-        _calendarLabel.Setup(LM.Get("open_year_name"), TextAnchor.MiddleLeft, new Vector2(UIHelper.CardColumnWidth - 40f, 15f));
+        _calendarLabel.Setup(LM.Get("open_year_name"), TextAnchor.MiddleLeft, new Vector2(CardWidth - 40f, 15f));
         _calendarLabel.background.enabled = false;
         _calendarLabel.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
         yearNameButton = Instantiate(SimpleButton.Prefab, null);
@@ -43,10 +44,10 @@ public class EmpireSettingWindow : AbstractWideWindow<EmpireSettingWindow>
         toggleRow.AddChild(yearNameButton.gameObject);
 
         // 外观卡：颜色与旗帜借原版"自定义王国"窗口编辑核心王国，见 EmpireColorPatch
-        var lookCard = columns.BeginColumnCard("empire_setting_look", icons: "ui/icons/iconColor");
+        var lookCard = columns.BeginColumnCard(CardWidth, "empire_setting_look", icons: "ui/icons/iconColor");
         SimpleButton colorButton = Instantiate(SimpleButton.Prefab, null);
         colorButton.Setup(() => EmpireColorPatch.Open(EmpireCraftMetaTypeLibrary.selected_empire),
-            SpriteTextureLoader.getSprite("TabColor"), LM.Get("empire_change_color"), new Vector2(UIHelper.CardColumnWidth - 12f, 18f));
+            SpriteTextureLoader.getSprite("TabColor"), LM.Get("empire_change_color"), new Vector2(CardWidth - 12f, 18f));
         lookCard.AddChild(colorButton.gameObject);
     }
 
@@ -82,7 +83,7 @@ public class EmpireSettingWindow : AbstractWideWindow<EmpireSettingWindow>
             ? LM.Get(RepublicSystem.GetCalendarMode(_empire) == RepublicSystem.CommonEraCalendar
                 ? "republic_common_era_label" : "republic_era_label")
             : LM.Get("open_year_name");
-        _calendarLabel.Setup(label, TextAnchor.MiddleLeft, new Vector2(UIHelper.CardColumnWidth - 40f, 15f));
+        _calendarLabel.Setup(label, TextAnchor.MiddleLeft, new Vector2(CardWidth - 40f, 15f));
         _calendarLabel.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
         SetToggle(republic
             ? RepublicSystem.GetCalendarMode(_empire) == RepublicSystem.CommonEraCalendar

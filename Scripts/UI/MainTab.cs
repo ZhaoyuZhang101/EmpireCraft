@@ -119,6 +119,30 @@ internal static class MainTab
         IdeologyInfoWindow.CreateAndInit(nameof(IdeologyInfoWindow), new Vector2(480f, 380f));
         TechWindow.CreateAndInit(nameof(TechWindow), new Vector2(480f, 380f));
         CultureBooksWindow.CreateAndInit(nameof(CultureBooksWindow), new Vector2(480f, 380f));
+        SetWindowIcons();
+    }
+
+    // NML 建的窗口默认图标是 neomodloader；原版返回按钮会显示"上一个窗口"的图标，换成贴题的原版图标
+    private static void SetWindowIcons()
+    {
+        var icons = new Dictionary<string, string>
+        {
+            [nameof(EmpireWindow)] = "iconKings",
+            [nameof(EmpireSettingWindow)] = "iconOptions",
+            [nameof(EmpireBeaurauWindow)] = "iconKingdom",
+            [nameof(KingdomTitleWindow)] = "iconWorldLaws",
+            [nameof(EmpireCoreWindow)] = "iconCity",
+            [nameof(EmpireHistoryWindow)] = "iconClock",
+            [nameof(InstitutionWindow)] = "iconKnowledge",
+            [nameof(FactionDetailWindow)] = "iconFamily",
+            [nameof(RegimeWindow)] = "iconBooks",
+        };
+        foreach (KeyValuePair<string, string> pair in icons)
+        {
+            WindowAsset asset = AssetManager.window_library.get(pair.Key);
+            if (asset == null || SpriteTextureLoader.getSprite("ui/Icons/" + pair.Value) == null) continue;
+            asset.icon_path = pair.Value;
+        }
     }
     [Hotfixable]
     private static void _addButtons()

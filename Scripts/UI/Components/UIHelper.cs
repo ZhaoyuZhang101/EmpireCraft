@@ -254,30 +254,33 @@ public static class UIHelper
 
     public const float WidePanelWidth = 440f;
 
-    // 分节标题：与官僚窗口同一套设计语言——全宽深色内嵌条 + 左侧小图标 + 左对齐标题。
+    // 分节标题：与官僚窗口同一套设计语言——深色内嵌条 + 左侧小图标 + 左对齐标题。
     // 图标路径找不到时自动降级为纯文字条，不会出白块
-    public static SimpleText AddSectionHeader(this AutoVertLayoutGroup layout, string text,
+    public static SimpleText AddSectionHeader(this AutoVertLayoutGroup layout, float width, string text,
         string hex = "#F3C34A", bool localize = true, params string[] icons)
     {
         string label = localize ? LM.Get(text) : text;
-        var bar = layout.BeginHoriGroup(new Vector2(WidePanelWidth, 15f), TextAnchor.MiddleCenter, 3);
-        AddInsetBackground(bar, new Vector2(WidePanelWidth, 15f));
+        var bar = layout.BeginHoriGroup(new Vector2(width, 15f), TextAnchor.MiddleCenter, 3);
+        AddInsetBackground(bar, new Vector2(width, 15f));
         Sprite icon = FirstSprite(icons);
         AddLayoutIcon(bar.transform, icon, 11f);
         SimpleText header = bar.AddTextIntoHoriLayout(label.ColorString(hex), true, TextAnchor.MiddleLeft,
-            new Vector2(WidePanelWidth - (icon != null ? 24f : 10f), 13f));
+            new Vector2(width - (icon != null ? 24f : 10f), 13f));
         header.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
         return header;
     }
 
-    // ═══ 宽窗口设计语言「卷册」═══
-    // 卡片是唯一容器：深色内嵌底 + 标题条(图标·金色标题·右侧状态值) + 细分隔线 + 内容。
-    // 页面默认两栏：左右各一张半宽卡(CardColumnWidth)并排对照，重点内容用全宽卡(WidePanelWidth)。
-    // 每张卡可放一个主指标(AddHeroStat)大字号压阵，让页面有视觉重心而不是均匀的清单。
-    public const float CardColumnWidth = 217f;
-    public const int CardGap = 6;
+    // ═══ 宽窗口设计语言「卷册」：横屏应用式布局 ═══
+    // 骨架：左栏(RailWidth)常驻的档案/导航，右栏(PageMainWidth)是当前页内容；右栏内容横向铺开(两栏/三栏/网格)，
+    // 尽量一屏看完，不再像窄窗口那样从上往下堆清单。
+    // 卡片是唯一容器：像素框 + 标题条(图标·金色标题·右侧状态值) + 细分隔线 + 内容；主指标格(AddKpiTile)大字号压阵。
+    public const float RailWidth = 128f;
+    public const float PageGap = 4f;
+    public const float PageMainWidth = WidePanelWidth - RailWidth - PageGap;       // 308
+    public const float CardGap = 4f;
+    public const float PageColumnWidth = (PageMainWidth - CardGap) / 2f;           // 152
 
-    // 定宽、高度随内容(半宽卡/两栏容器用)
+    // 定宽、高度随内容(卡片/栏用)
     public static void FixPanelWidth(Transform panel, float width)
     {
         var rect = panel as RectTransform;
@@ -291,28 +294,36 @@ public static class UIHelper
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
     }
 
-    // 两栏容器：全宽，里面放两张半宽卡
-    public static AutoHoriLayoutGroup BeginColumns(this AutoVertLayoutGroup parent)
+    // 多栏容器：定宽横排，里面放栏卡/指标格
+    public static AutoHoriLayoutGroup BeginColumns(this AutoVertLayoutGroup parent, float width)
     {
-        var columns = parent.BeginHoriGroup(pSpacing: CardGap, pAlignment: TextAnchor.UpperCenter);
-        FixPanelWidth(columns.transform, WidePanelWidth);
+        var columns = parent.BeginHoriGroup(pSpacing: CardGap, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(0, 0, 0, 0));
+        FixPanelWidth(columns.transform, width);
         return columns;
     }
 
-    // 全宽卡
-    public static AutoVertLayoutGroup BeginCard(this AutoVertLayoutGroup parent, string title = null,
+    // 竖排的栏(栏里再放多张卡)
+    public static AutoVertLayoutGroup BeginColumn(this AutoHoriLayoutGroup columns, float width)
+    {
+        var column = columns.BeginVertGroup(pSpacing: CardGap, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 0));
+        FixPanelWidth(column.transform, width);
+        return column;
+    }
+
+    // 卡片(竖排父级里)
+    public static AutoVertLayoutGroup BeginCard(this AutoVertLayoutGroup parent, float width, string title = null,
         string titleHex = "#F3C34A", string headerValue = null, params string[] icons)
     {
         var card = parent.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(6, 6, 5, 6));
-        return SetupCard(card, WidePanelWidth, title, titleHex, headerValue, icons);
+        return SetupCard(card, width, title, titleHex, headerValue, icons);
     }
 
-    // 半宽卡(放在 BeginColumns 里)
-    public static AutoVertLayoutGroup BeginColumnCard(this AutoHoriLayoutGroup columns, string title = null,
+    // 卡片(横排父级里，即多栏中的一栏)
+    public static AutoVertLayoutGroup BeginColumnCard(this AutoHoriLayoutGroup columns, float width, string title = null,
         string titleHex = "#F3C34A", string headerValue = null, params string[] icons)
     {
         var card = columns.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(6, 6, 5, 6));
-        return SetupCard(card, CardColumnWidth, title, titleHex, headerValue, icons);
+        return SetupCard(card, width, title, titleHex, headerValue, icons);
     }
 
     private static AutoVertLayoutGroup SetupCard(AutoVertLayoutGroup card, float width, string title,
@@ -320,9 +331,12 @@ public static class UIHelper
     {
         FixPanelWidth(card.transform, width);
         AddCardFrame(card.transform);
-        if (!string.IsNullOrEmpty(title)) AddCardTitle(card, width, LM.Get(title), titleHex, headerValue, icons);
+        if (!string.IsNullOrEmpty(title)) AddCardTitle(card, width, LocalizeOrRaw(title), titleHex, headerValue, 0f, icons);
         return card;
     }
+
+    // 本地化 key 或现成文本(国名、宪法名这类直接显示)
+    public static string LocalizeOrRaw(string text) => !string.IsNullOrEmpty(text) && LM.Has(text) ? LM.Get(text) : text;
 
     // 卡片像素框：铺满父级的九宫格(自动高的卡片用；定高面板仍用 AddStretchBackground)
     public static void AddCardFrame(Transform panel, string frame = "FactionFrame")
@@ -351,24 +365,28 @@ public static class UIHelper
         rect.SetAsFirstSibling();
     }
 
-    // 卡片标题条：图标 + 标题 + 右侧状态值，下面一条细分隔线
-    public static void AddCardTitle(AutoVertLayoutGroup card, float width, string title, string titleHex,
-        string headerValue, params string[] icons)
+    // 卡片标题条：图标 + 标题 + 右侧状态值，下面一条细分隔线。reserveRight 给调用方在条尾追加小按钮留位置
+    public static AutoHoriLayoutGroup AddCardTitle(AutoVertLayoutGroup card, float width, string title, string titleHex,
+        string headerValue, float reserveRight, params string[] icons)
     {
         float inner = width - 12f;
         var bar = card.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleLeft, 3);
         Sprite icon = FirstSprite(icons);
         AddLayoutIcon(bar.transform, icon, 11f);
-        float valueWidth = string.IsNullOrEmpty(headerValue) ? 0f : inner * 0.45f;
-        float titleWidth = inner - valueWidth - (icon != null ? 14f : 0f) - 2f;
-        var label = bar.AddTextIntoHoriLayout(title.ColorString(titleHex), true, TextAnchor.MiddleLeft, new Vector2(titleWidth, 13f));
+        float room = inner - reserveRight - (icon != null ? 14f : 0f) - 2f;
+        float valueWidth = string.IsNullOrEmpty(headerValue) ? 0f : room * 0.5f;
+        var label = bar.AddTextIntoHoriLayout(title.ColorString(titleHex), true, TextAnchor.MiddleLeft,
+            new Vector2(room - valueWidth, 13f));
         label.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
         if (valueWidth > 0f)
         {
-            var value = bar.AddTextIntoHoriLayout(headerValue.ColorString("#C8C2B4"), true, TextAnchor.MiddleRight, new Vector2(valueWidth, 13f));
+            var value = bar.AddTextIntoHoriLayout(headerValue.ColorString("#C8C2B4"), true, TextAnchor.MiddleRight,
+                new Vector2(valueWidth, 13f));
             value.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            HoverMarqueeText.Attach(value);
         }
         card.AddTextIntoVertLayout("", false, TextAnchor.MiddleCenter, new Vector2(inner, 2f));
+        return bar;
     }
 
     // 主指标：小灰标签 + 大字号数值，一张卡放一个压阵
@@ -377,12 +395,24 @@ public static class UIHelper
         float inner = width - 12f;
         var row = card.BeginHoriGroup(new Vector2(inner, 18f), TextAnchor.MiddleLeft, 4);
         var l = row.AddTextIntoHoriLayout(label.ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft, new Vector2(inner * 0.42f, 16f));
-        l.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+        l.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         var v = row.AddTextIntoHoriLayout(value.ColorString(hex), true, TextAnchor.MiddleRight, new Vector2(inner * 0.58f - 4f, 16f));
         v.UseFixedFontSize(12, HorizontalWrapMode.Overflow);
     }
 
-    // 指标格：上行小灰标签、下行亮色数值；顶栏和卡片里 2×2 并排用
+    // 主指标格：深色内嵌底，上行小灰标签、下行大字号数值；页面顶部一排三格用
+    public static void AddKpiTile(AutoHoriLayoutGroup row, float width, string label, string value, string hex = "#F3C34A")
+    {
+        var tile = row.BeginVertGroup(new Vector2(width, 30f), pSpacing: 0, pAlignment: TextAnchor.MiddleLeft,
+            pPadding: new RectOffset(5, 4, 2, 2));
+        AddInsetBackground(tile, new Vector2(width, 30f));
+        tile.AddTextIntoVertLayout(label.ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft, new Vector2(width - 9f, 9f))
+            .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        tile.AddTextIntoVertLayout(value.ColorString(hex), true, TextAnchor.MiddleLeft, new Vector2(width - 9f, 16f))
+            .UseFixedFontSize(12, HorizontalWrapMode.Overflow);
+    }
+
+    // 指标格：上行小灰标签、下行亮色数值；卡片里一排多格并列用
     public static void AddMetricCell(AutoHoriLayoutGroup row, float width, string label, string value, string hex = "#F2EEE2")
     {
         var cell = row.BeginVertGroup(new Vector2(width, 22f), pSpacing: 0, pAlignment: TextAnchor.MiddleLeft, pPadding: new RectOffset(2, 2, 0, 0));
@@ -390,6 +420,38 @@ public static class UIHelper
         l.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
         var v = cell.AddTextIntoVertLayout(value.ColorString(hex), true, TextAnchor.MiddleLeft, new Vector2(width - 4f, 12f));
         v.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+    }
+
+    // 条形行：标签 | 按比例填充的条 | 数值(收支构成这类对比用)
+    public static void AddBarRow(AutoVertLayoutGroup card, float width, string label, string value, float fill, Color color)
+    {
+        const float labelWidth = 38f, valueWidth = 38f;
+        var row = card.BeginHoriGroup(new Vector2(width, 11f), TextAnchor.MiddleLeft, 3);
+        var l = row.AddTextIntoHoriLayout(label, true, TextAnchor.MiddleLeft, new Vector2(labelWidth, 10f));
+        l.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(l);
+        AddShareBar(row.transform, new Vector2(Mathf.Max(10f, width - labelWidth - valueWidth - 6f), 4f), fill, color);
+        row.AddTextIntoHoriLayout(value, true, TextAnchor.MiddleRight, new Vector2(valueWidth, 10f))
+            .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+    }
+
+    // 让整块区域可点：没有图形就补一张透明图接收指针，挂一个无过渡的按钮。
+    // 里面的小按钮照常各自响应；点在文字/背景上的点击会冒泡到这里。
+    public static void MakeClickable(GameObject target, UnityAction action)
+    {
+        if (target == null || action == null) return;
+        Graphic graphic = target.GetComponent<Graphic>();
+        if (graphic == null)
+        {
+            Image hitArea = target.AddComponent<Image>();
+            hitArea.color = Color.clear;
+            graphic = hitArea;
+        }
+        graphic.raycastTarget = true;
+        Button button = target.GetComponent<Button>() ?? target.AddComponent<Button>();
+        button.transition = Selectable.Transition.None;
+        button.navigation = new Navigation { mode = Navigation.Mode.None };
+        button.onClick.AddListener(action);
     }
 
     // 宽度由窗口确定，高度由子项确定；不能让水平 PreferredSize 又把面板缩回旧窄宽度。
@@ -421,6 +483,20 @@ public static class UIHelper
         WideWindowScrollArea area = backgroundTransform.GetComponent<WideWindowScrollArea>();
         if (area == null) area = backgroundTransform.gameObject.AddComponent<WideWindowScrollArea>();
         area.Configure(topMargin, bottomMargin, sideMargin);
+        PlaceWideWindowBackButton(backgroundTransform);
+    }
+
+    // 原版返回按钮(empty 窗口预制体的 BackButtonContainer，挂在窗口根上、居中)按 240×320 的窄窗摆在左上角外缘；
+    // 宽窗口把整个容器平移同样的相对位置。显示/隐藏、上一窗口图标、点击返回都仍由原版 WindowHistory 负责。
+    public static void PlaceWideWindowBackButton(Transform backgroundTransform)
+    {
+        var background = backgroundTransform as RectTransform;
+        ScrollWindow window = background?.parent?.GetComponent<ScrollWindow>();
+        var container = window?._back_button_container?.transform as RectTransform;
+        if (container == null) return;
+        Vector2 size = background.sizeDelta;
+        if (size.x <= 240f && size.y <= 320f) return;
+        container.anchoredPosition = new Vector2(-(size.x - 240f) / 2f, (size.y - 320f) / 2f);
     }
 
     public static IEnumerator StabilizeWideWindowScrollArea(Transform backgroundTransform,
@@ -864,6 +940,246 @@ public static class UIHelper
         regime.FactionSpace = layout;
     }
 
+    // ═══ 帝国主页：政党/派系格局 = 左侧占比扇形图(扇区摆理念徽章、悬停出详情) + 右侧 2×n 派系卡 ═══
+    // 宿主是一个横排组：派系变动后 RefreshEmpireFactionSpace 认出这个标记，按原宽度整块重建
+    public sealed class FactionOverviewHost : MonoBehaviour
+    {
+        public Kingdom Kingdom;
+        public float Width;
+    }
+
+    private const float FactionTileHeight = 36f;
+    private const float FactionPieSize = 104f;
+
+    public static void InitialEmpireFactionOverview(AutoHoriLayoutGroup host, Kingdom kingdom, float width)
+    {
+        if (host == null || kingdom == null || kingdom.isRekt()) return;
+        host.gameObject.name = "EmpireFactionOverview";
+        FactionOverviewHost marker = host.GetComponent<FactionOverviewHost>() ?? host.gameObject.AddComponent<FactionOverviewHost>();
+        marker.Kingdom = kingdom;
+        marker.Width = width;
+        FixPanelWidth(host.transform, width);
+        Regime regime = kingdom.GetRegime();
+        if (regime == null)
+        {
+            kingdom.LoadRegime();
+            regime = kingdom.GetRegime();
+        }
+        if (regime == null) return;
+        regime.FactionSpace = host;
+
+        List<FixedFaction> factions = regime.GetPlayerFactions()?.Where(faction => faction != null).ToList()
+                                      ?? new List<FixedFaction>();
+        Empire empire = kingdom.GetEmpire();
+        FactionClassSystem.EnsureEmpireProfiles(empire, factions);
+        foreach (FixedFaction faction in factions) faction.Update();
+        void Refresh() => RefreshEmpireFactionSpace(host, kingdom);
+
+        // 开放党禁后：可组建的理念各占一格"组建X党"
+        bool partyMode = empire != null && PartySystem.IsActive(empire);
+        Dictionary<PartyIdeology, int> ideologyCounts = partyMode ? IdeologyPopulationSystem.GetEmpireCounts(empire) : null;
+        int ideologyPopulation = ideologyCounts?.Values.Sum() ?? 0;
+        List<PartyIdeology> foundable = partyMode
+            ? Enum.GetValues(typeof(PartyIdeology)).Cast<PartyIdeology>()
+                .Where(ideology => ideologyPopulation > 0 &&
+                    ideologyCounts.TryGetValue(ideology, out int supporters) &&
+                    supporters >= ideologyPopulation * IdeologyPopulationSystem.PartyFoundingShare).ToList()
+            : new List<PartyIdeology>();
+
+        FixedFaction dominant = regime.GetDominateFaction();
+        string landscapeKey = factions.Any(faction => faction.IsParty) ? "empire_party_landscape" : "empire_faction_landscape";
+        string headerValue = dominant != null ? string.Format(LM.Get("faction_overview_dominant"), dominant.Name) : null;
+        var card = host.BeginColumnCard(width);
+        var titleBar = AddCardTitle(card, width, LM.Get(landscapeKey), "#7FD8EA", headerValue, 26f, "ui/icons/iconPopulation20");
+        titleBar.AddButtonIntoHoriLayout("recover_faction", "", () =>
+        {
+            regime.RecoverFactions();
+            Refresh();
+            bool saved = FactionManager.Save();
+            ActionLibrary.showWhisperTip(saved ? "save_success" : "save_failed");
+        }, SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(11, 11), showTip: true);
+        titleBar.AddButtonIntoHoriLayout("save_faction", "", () =>
+        {
+            FactionManager.Config.PlayerRegimeFactions[regime.type] = regime.GetPlayerFactions()
+                .Select(faction => faction.DeepClone()).ToList();
+            bool saved = FactionManager.Save();
+            ActionLibrary.showWhisperTip(saved ? "save_success" : "save_failed");
+        }, SpriteTextureLoader.getSprite("ui/icons/iconSaveLocal"), size: new Vector2(11, 11), showTip: true);
+
+        float inner = width - 12f;
+        var body = card.BeginHoriGroup(pSpacing: CardGap, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(0, 0, 0, 0));
+        FixPanelWidth(body.transform, inner);
+
+        // 左：占比扇形图
+        string culture = CultureService.GetRealmCulture(kingdom);
+        InstitutionReformState activeReform = empire?.data.institution_state?.active_reform;
+        float total = factions.Sum(faction => Mathf.Max(0, faction.CentralRatio));
+        var slices = new List<FactionPieChart.Slice>();
+        foreach (FixedFaction faction in factions)
+        {
+            (List<InstitutionNodeConfig> supports, List<InstitutionNodeConfig> opposes) =
+                InstitutionSystem.GetFactionInstitutionStance(culture, faction.Type);
+            (string titleKey, string bodyKey) = BuildFactionTooltip(faction, supports, opposes, empire, activeReform, true);
+            PartyIdeology ideology = PartySystem.LeaningOf(faction);
+            FixedFaction target = faction;
+            slices.Add(new FactionPieChart.Slice
+            {
+                Share = total > 0f ? Mathf.Max(0, faction.CentralRatio) / total : 0f,
+                Color = IdeologyColor(ideology),
+                Emblem = SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)),
+                TipTitleKey = titleKey,
+                TipBodyKey = bodyKey,
+                OnClick = () => OpenFactionDetail(target, kingdom)
+            });
+        }
+        var pieColumn = body.BeginVertGroup(new Vector2(FactionPieSize, FactionPieSize), pSpacing: 0,
+            pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
+        FactionPieChart.Create(pieColumn.transform, FactionPieSize, 36f, slices);
+
+        // 右：2×n 派系卡，最后几格是"组建X党"/"添加派系"
+        float gridWidth = inner - FactionPieSize - CardGap;
+        float tileWidth = (gridWidth - CardGap) / 2f;
+        var grid = body.BeginVertGroup(pSpacing: CardGap, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(0, 0, 0, 0));
+        FixPanelWidth(grid.transform, gridWidth);
+        var cells = new List<Action<AutoHoriLayoutGroup>>();
+        foreach (FixedFaction faction in factions)
+        {
+            FixedFaction tileFaction = faction;
+            cells.Add(row => AddFactionTile(row, tileFaction, kingdom, tileWidth, Refresh));
+        }
+        foreach (PartyIdeology ideology in foundable)
+        {
+            PartyIdeology target = ideology;
+            cells.Add(row => AddFoundPartyTile(row, empire, target, tileWidth, Refresh));
+        }
+        if (!partyMode && factions.Count < 3)
+            cells.Add(row => row.AddButtonIntoHoriLayout("add_faction", LM.Get("empire_add_faction_slot"),
+                () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"),
+                size: new Vector2(tileWidth, FactionTileHeight), showTip: true));
+        for (int index = 0; index < cells.Count; index += 2)
+        {
+            var row = grid.BeginHoriGroup(new Vector2(gridWidth, FactionTileHeight), TextAnchor.UpperLeft, CardGap,
+                new RectOffset(0, 0, 0, 0));
+            cells[index](row);
+            if (index + 1 < cells.Count) cells[index + 1](row);
+        }
+    }
+
+    private static void OpenFactionDetail(FixedFaction faction, Kingdom kingdom)
+    {
+        if (faction == null || kingdom == null || kingdom.isRekt()) return;
+        ConfigData.CURRENT_SELECTED_FACTION = faction;
+        SelectedMetas.selected_kingdom = kingdom;
+        ScrollWindow.showWindow(nameof(FactionDetailWindow));
+    }
+
+    // 派系卡(2×n 网格的一格)：理念色条 | 徽章·名称·占比 / 地位·理念 / 支持反对·操作按钮。
+    // 整张卡可点打开派系详情，悬停显示与扇形图相同的派系详情提示
+    private static void AddFactionTile(AutoHoriLayoutGroup row, FixedFaction faction, Kingdom kingdom, float width,
+        Action refresh)
+    {
+        Regime regime = kingdom.GetRegime();
+        Empire empire = kingdom.GetEmpire();
+        bool isDominate = regime.GetDominateFaction() == faction;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        (List<InstitutionNodeConfig> supports, List<InstitutionNodeConfig> opposes) =
+            InstitutionSystem.GetFactionInstitutionStance(culture, faction.Type);
+        InstitutionReformState activeReform = empire?.data.institution_state?.active_reform;
+        PartyIdeology ideology = PartySystem.LeaningOf(faction);
+        Color ideologyColor = IdeologyColor(ideology);
+
+        var tile = row.BeginHoriGroup(new Vector2(width, FactionTileHeight), TextAnchor.MiddleLeft, 2, new RectOffset(3, 3, 2, 2));
+        AddColorBlock(tile.transform, new Vector2(2, FactionTileHeight - 8f), ideologyColor);
+        float inner = width - 10f;
+        var info = tile.BeginVertGroup(new Vector2(inner, FactionTileHeight - 4f), pSpacing: 0, pAlignment: TextAnchor.MiddleLeft,
+            pPadding: new RectOffset(0, 0, 0, 0));
+        // 第一行：理念徽章 + 名称 + 中央占比
+        var top = info.BeginHoriGroup(new Vector2(inner, 11f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+        AddLayoutIcon(top.transform, SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)), 10f);
+        var name = top.AddTextIntoHoriLayout(faction.Name.ColorString(isDominate ? "#FFE9A8" : "#F2EEE2"), true,
+            TextAnchor.MiddleLeft, new Vector2(inner - 38f, 10f));
+        name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(name);
+        top.AddTextIntoHoriLayout($"{faction.CentralRatio}%".ColorString(isDominate ? "#F3C34A" : "#E6E0CF"), true,
+            TextAnchor.MiddleRight, new Vector2(24f, 10f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        // 第二行：地位 · 理念
+        string state = isDominate ? LM.Get("empire_faction_dominant_short").ColorString("#F3C34A")
+            : !kingdom.IsEmpire() ? LM.Get("empire_faction_inactive_short").ColorString("#D98C8C") : "";
+        if (faction.IsParty && empire != null && PartyBanSystem.IsConsultative(empire, faction))
+            state = (string.IsNullOrEmpty(state) ? "" : state + " ") + LM.Get("party_consultative_short").ColorString("#7FD8EA");
+        string ideologyLabel = (faction.IsParty
+                ? PartySystem.GetIdeologyName(ideology)
+                : string.Format(LM.Get("faction_ideology_leaning"), PartySystem.GetIdeologyName(ideology)))
+            .ColorString(pColor: Color.Lerp(ideologyColor, Color.white, 0.35f));
+        var stateLine = info.AddTextIntoVertLayout(string.IsNullOrEmpty(state) ? ideologyLabel : $"{state} · {ideologyLabel}",
+            true, TextAnchor.MiddleLeft, new Vector2(inner, 9f));
+        stateLine.UseFixedFontSize(5, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(stateLine);
+        // 第三行：制度立场 + 锁定 / 提升占比 / 合并 / 移除
+        var bottom = info.BeginHoriGroup(new Vector2(inner, 10f), TextAnchor.MiddleLeft, 1, new RectOffset(0, 0, 0, 0));
+        FixedFaction mergePartner = faction.IsParty ? PartySystem.FindMergePartner(empire, faction) : null;
+        float buttonsWidth = (mergePartner != null ? 4 : 3) * 10f;
+        bottom.AddTextIntoHoriLayout(string.Format(LM.Get("faction_tile_stance"), supports.Count, opposes.Count)
+                .ColorString("#A8B8BE"), true, TextAnchor.MiddleLeft, new Vector2(inner - buttonsWidth - 2f, 9f))
+            .UseFixedFontSize(5, HorizontalWrapMode.Overflow);
+        var lockButton = bottom.transform.AddNormalOptionIntoHori(bottom, "LockFaction", () =>
+        {
+            faction.Force = !faction.Force;
+            if (faction.Force)
+            {
+                foreach (FixedFaction other in regime.GetPlayerFactions().Where(other => other != faction))
+                {
+                    other.Force = false;
+                    other.LockButton?.SetStatus(false);
+                }
+            }
+            faction.LockButton?.SetStatus(faction.Force);
+        }, faction.Force, isOption: true, size: new Vector2(9, 9));
+        faction.LockButton = lockButton;
+        AddFactionRatioUpButton(bottom, faction, kingdom, refresh);
+        if (mergePartner != null)
+        {
+            var mergeButton = bottom.AddButtonIntoHoriLayout("merge_party", "", () =>
+            {
+                if (PartySystem.MergeParties(empire, faction)) refresh?.Invoke();
+            }, SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(9, 9));
+            AttachTextTooltip(mergeButton.gameObject, $"merge_party_{faction.GetID()}", LM.Get("merge_party"),
+                string.Format(LM.Get("merge_party_tip"), faction.Name, mergePartner.Name));
+        }
+        // 政党：× 是"解散政党"(党员各投立场最近的党)；派系：× 是从格局里移除
+        bottom.AddButtonIntoHoriLayout(faction.IsParty ? "dissolve_party" : "remove_faction", "", () =>
+        {
+            if (faction.IsParty)
+            {
+                if (!PartySystem.DissolveParty(empire, faction))
+                    ActionLibrary.showWhisperTip("party_dissolve_last");
+            }
+            else regime.GetPlayerFactions().Remove(faction);
+            refresh?.Invoke();
+        }, SpriteTextureLoader.getSprite("ui/iconDeleteFaction"), size: new Vector2(9, 9), showTip: true);
+
+        tile.transform.AddStretchBackground(isDominate ? "FactionFrame_dominate" : "FactionFrame",
+            new Vector2(width, FactionTileHeight));
+        MakeClickable(tile.gameObject, () => OpenFactionDetail(faction, kingdom));
+        AttachFactionTooltip(tile.gameObject, faction, supports, opposes, empire, activeReform, includeBasicInfo: true);
+        faction.CardUI = info;
+    }
+
+    private static void AddFoundPartyTile(AutoHoriLayoutGroup row, Empire empire, PartyIdeology ideology, float width,
+        Action refresh)
+    {
+        bool can = PartySystem.CanPlayerFound(empire, ideology, out string reason);
+        string label = string.Format(LM.Get("party_found_button"), PartySystem.GetIdeologyName(ideology));
+        var button = row.AddButtonIntoHoriLayout($"party_found_{ideology}", label.ColorString(can ? "#F3C34A" : "#8FA0A8"),
+            () =>
+            {
+                if (PartySystem.PlayerFoundParty(empire, ideology) != null) refresh?.Invoke();
+                else ActionLibrary.showWhisperTip(reason);
+            }, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(width, FactionTileHeight));
+        AttachTextTooltip(button.gameObject, $"party_found_{ideology}", label,
+            can ? LM.Get("party_found_tip") : LM.Get(reason));
+    }
+
     // 三种用法共用这一张横式卡片：
     //   普通(派系格局面板) —— 详情 + 锁定 / 提升占比 / 移除；
     //   readOnly(官署窗口顶部只展示主导派系) —— 只留详情；
@@ -1088,6 +1404,12 @@ public static class UIHelper
     {
         if (layout == null) return;
         layout.transform.ClearChildren();
+        FactionOverviewHost overview = layout.GetComponent<FactionOverviewHost>();
+        if (overview != null)
+        {
+            InitialEmpireFactionOverview(layout, overview.Kingdom ?? kingdom, overview.Width);
+            return;
+        }
         InitialEmpireFactionSpace(layout, kingdom);
     }
     /// <summary>
@@ -1115,6 +1437,23 @@ public static class UIHelper
     private static void AttachFactionTooltip(GameObject target, FixedFaction faction,
         List<InstitutionNodeConfig> supports, List<InstitutionNodeConfig> opposes,
         Empire empire, InstitutionReformState activeReform = null, bool includeBasicInfo = false)
+    {
+        (string titleKey, string bodyKey) = BuildFactionTooltip(faction, supports, opposes, empire, activeReform,
+            includeBasicInfo);
+        if (titleKey == null) return;
+        TipButton tip = target.GetComponent<TipButton>() ?? target.AddComponent<TipButton>();
+        tip.type = "normal";
+        tip.textOnClick = titleKey;
+        tip.textOnClickDescription = bodyKey;
+        tip.text_description_2 = "";
+        tip.hoverAction = tip.showTooltipDefault;
+        tip.enabled = true;
+    }
+
+    // 组派系提示文本并注册到当前语言，返回(标题 key, 正文 key)；没有可显示的内容时返回 (null, null)
+    private static (string titleKey, string bodyKey) BuildFactionTooltip(FixedFaction faction,
+        List<InstitutionNodeConfig> supports, List<InstitutionNodeConfig> opposes,
+        Empire empire, InstitutionReformState activeReform, bool includeBasicInfo)
     {
         // 支持/反对的节点里如果正好有一个是当前正在推进的那个改革，直接标出来进度——
         // 派系卡片跟"眼下到底在发生什么"之前完全脱节，这里把两者接上。
@@ -1180,8 +1519,7 @@ public static class UIHelper
         }
         if (claimLines.Count > 0) lines.Add($"<核心诉求>\n{string.Join("\n", claimLines)}");
 
-        if (lines.Count == 0) return;
-        TipButton tip = target.GetComponent<TipButton>() ?? target.AddComponent<TipButton>();
+        if (lines.Count == 0) return (null, null);
         // faction._id 是个带连字符的 GUID——LM.Get 查不到 key 时会把连字符也当非法字符处理掉
         // (返回一个连字符换成下划线的"猜测版本")，导致这里注册的 key 和查找时用的 key 对不上，
         // tooltip 直接显示原始 key 名。这里自己先把连字符换掉，两头用同一个字符串。
@@ -1193,12 +1531,7 @@ public static class UIHelper
         string bodyKey = $"faction_tip_body_{safeId}_{variant}";
         LM.AddToCurrentLocale(titleKey, faction.Name);
         LM.AddToCurrentLocale(bodyKey, string.Join("\n", lines));
-        tip.type = "normal";
-        tip.textOnClick = titleKey;
-        tip.textOnClickDescription = bodyKey;
-        tip.text_description_2 = "";
-        tip.hoverAction = tip.showTooltipDefault;
-        tip.enabled = true;
+        return (titleKey, bodyKey);
     }
 
     // 按顺序试几个图标名，取第一个存在的——游戏版本之间图标偶尔改名，找不到返回 null，调用方就不画图标。
