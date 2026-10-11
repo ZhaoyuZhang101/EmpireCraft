@@ -30,7 +30,8 @@ public static class ZhouPanel
             : string.Format(LM.Get("zhou_header"), eraName, years);
         var card = parent.BeginCard(width, "zhou_title", "#F3C34A", headerText, "ui/icons/iconKingdom");
 
-        var kpis = card.BeginHoriGroup(new Vector2(inner, 24f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+        // 指标格高 30，行要一样高，否则压到下面的表头
+        var kpis = card.BeginHoriGroup(new Vector2(inner, 30f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
         float kpi = (inner - 9f) / 4f;
         UIHelper.AddKpiTile(kpis, kpi, LM.Get("zhou_kpi_era"), eraName);
         Kingdom hegemon = World.world.kingdoms.get(state.hegemon_id);
@@ -85,24 +86,28 @@ public static class ZhouPanel
             card.AddTextIntoVertLayout(string.Format(LM.Get("zhou_more"), vassals.Count - MaxRows).ColorString("#8FA0A8"),
                 true, TextAnchor.MiddleLeft, new Vector2(inner, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
 
-        card.AddTextIntoVertLayout(LM.Get("zhou_rule_" + state.era).ColorString("#7FD8EA"), true, TextAnchor.UpperLeft,
-            new Vector2(inner, 18f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
+        // 规则说明按字数估行数给高，折行多了也不压到下面的按钮
+        string rule = LM.Get("zhou_rule_" + state.era);
+        int lines = Mathf.Max(1, Mathf.CeilToInt(UIHelper.EstimateTextWidth(rule, 6) / (inner - 6f)));
+        card.AddTextIntoVertLayout(rule.ColorString("#7FD8EA"), true, TextAnchor.UpperLeft,
+            new Vector2(inner, lines * 8f + 2f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
 
-        // 神力
+        // 神力：卡片底部一排，靠右、按字宽定宽，左右各再让出 5(不压四角的角饰)，上面空一道
         if (state.era < ZhouEraSystem.Unified)
         {
-            var buttons = card.BeginHoriGroup(new Vector2(inner, 13f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
-            if (state.era == ZhouEraSystem.Spring)
-                buttons.AddButtonIntoHoriLayout("zhou_god_conference", LM.Get("zhou_god_conference"), () =>
+            card.AddTextIntoVertLayout("", false, TextAnchor.MiddleCenter, new Vector2(inner, 3f));
+            var buttons = card.BeginHoriGroup(new Vector2(inner - 10f, 14f), TextAnchor.MiddleRight, 4,
+                new RectOffset(0, 0, 0, 0));
+            void Button(string id, string label, Action action) =>
+                buttons.AddButtonIntoHoriLayout(id, label, () =>
                 {
-                    ZhouEraSystem.HoldConference(empire, state, null);
+                    action();
                     refresh?.Invoke();
-                }, size: new Vector2(46f, 12f));
-            buttons.AddButtonIntoHoriLayout("zhou_god_advance", LM.Get("zhou_god_advance_" + state.era), () =>
-            {
-                ZhouEraSystem.GodAdvance(empire);
-                refresh?.Invoke();
-            }, size: new Vector2(56f, 12f));
+                }, size: new Vector2(Mathf.Max(40f, UIHelper.EstimateTextWidth(label, 7) + 16f), 13f));
+            if (state.era == ZhouEraSystem.Spring)
+                Button("zhou_god_conference", LM.Get("zhou_god_conference"),
+                    () => ZhouEraSystem.HoldConference(empire, state, null));
+            Button("zhou_god_advance", LM.Get("zhou_god_advance_" + state.era), () => ZhouEraSystem.GodAdvance(empire));
         }
 
         // 列国纪事
