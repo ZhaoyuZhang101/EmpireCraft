@@ -45,7 +45,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         private const float MainWidth = UIHelper.PageMainWidth;
         private const float HalfWidth = UIHelper.PageColumnWidth;
         // 固定左栏：挂在窗口背景上不随滚动，滚动区右移让出 RailInset
-        private const float RailInset = RailWidth + 10f;
+        private const float RailInset = UIHelper.RailInset;
         private AutoVertLayoutGroup _rail;
         private readonly List<(string group, EmpireCraftHistory history)> _lineage = new();
         private int _lineagePage;
@@ -166,8 +166,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void RedrawRail()
         {
             if (_rail == null || _empire?.CoreKingdom == null) return;
-            foreach (Transform child in _rail.transform) child.gameObject.SetActive(false);
-            _rail.transform.ClearChildren();
+            UIHelper.ClearRail(_rail);
             try
             {
                 DrawRail(_rail);
@@ -178,25 +177,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
         }
 
-        // 页头：左侧金色页名，右侧状态摘要(用 · 隔开)
-        private static void AddPageHeader(AutoVertLayoutGroup main, string title, string[] chips)
-        {
-            var header = main.BeginHoriGroup(new Vector2(MainWidth, 16f), TextAnchor.MiddleLeft, 4, new RectOffset(2, 2, 0, 0));
-            string chipText = string.Join("  ·  ", (chips ?? Array.Empty<string>()).Where(chip => !string.IsNullOrEmpty(chip)));
-            string titleText = UIHelper.LocalizeOrRaw(title);
-            float room = MainWidth - 8f;
-            float titleWidth = Mathf.Clamp(UIHelper.EstimateTextWidth(titleText, 10) + 6f, room * 0.3f, room * 0.75f);
-            float chipWidth = chipText.Length == 0 ? 0f : room - titleWidth;
-            var label = header.AddTextIntoHoriLayout(titleText.ColorString("#F3C34A"), true,
-                TextAnchor.MiddleLeft, new Vector2(chipText.Length == 0 ? room : titleWidth, 15f));
-            label.UseFixedFontSize(10, HorizontalWrapMode.Overflow);
-            HoverMarqueeText.Attach(label);
-            if (chipWidth <= 0f) return;
-            var chipLabel = header.AddTextIntoHoriLayout(chipText.ColorString("#C8C2B4"), true, TextAnchor.MiddleRight,
-                new Vector2(chipWidth, 15f));
-            chipLabel.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
-            HoverMarqueeText.Attach(chipLabel);
-        }
+        private static void AddPageHeader(AutoVertLayoutGroup main, string title, string[] chips) =>
+            main.AddPageHeader(MainWidth, title, chips);
 
         // 窗口开着时国号变了也跟着刷新；玩家正在输入时不打断
         private void SyncNameInputText()
@@ -345,22 +327,9 @@ namespace EmpireCraft.Scripts.UI.Windows
                 AddRailRow(state, rowWidth, stateItems[index].label, stateItems[index].value, stateItems[index].hex, index);
         }
 
-        // 左栏紧凑行：标签左、数值右，一行放完(过长时悬停滚动)，隔行垫深色底
-        private const float RailRowHeight = 11f;
-        private static void AddRailRow(AutoVertLayoutGroup card, float width, string label, string value, string hex, int index)
-        {
-            var row = card.BeginHoriGroup(new Vector2(width, RailRowHeight), TextAnchor.MiddleLeft, 2, new RectOffset(2, 2, 0, 0));
-            if (index % 2 == 0) UIHelper.AddInsetBackground(row, new Vector2(width, RailRowHeight));
-            float labelWidth = (width - 6f) * 0.45f;
-            var labelText = row.AddTextIntoHoriLayout(label.ColorString("#B8C6CC"), true, TextAnchor.MiddleLeft,
-                new Vector2(labelWidth, RailRowHeight));
-            labelText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
-            HoverMarqueeText.Attach(labelText);
-            var valueText = row.AddTextIntoHoriLayout(value.ColorString(hex), true, TextAnchor.MiddleRight,
-                new Vector2(width - 6f - labelWidth, RailRowHeight));
-            valueText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
-            HoverMarqueeText.Attach(valueText);
-        }
+        private const float RailRowHeight = UIHelper.RailRowHeight;
+        private static void AddRailRow(AutoVertLayoutGroup card, float width, string label, string value, string hex, int index) =>
+            card.AddRailRow(width, label, value, hex, index);
 
         // 人物行：头像(可点开人物) + 职位 / 姓名；空缺的要人不占行(元首除外)。
         // 头像沿用原版头像组写法(AddActorViewIntoHoriLayout，与旧顶栏相同)，各分组位置归零
@@ -382,15 +351,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             return true;
         }
 
-        // 人口这类大数：万/亿取整(英文 K/M)，窄栏里不折行
-        private static string ShortCount(double value)
-        {
-            bool english = PlayerConfig.dict.TryGetValue("language", out var language) && language.stringVal == "en";
-            double absolute = Math.Abs(value);
-            if (english)
-                return absolute >= 1e6 ? $"{value / 1e6:0.#}M" : absolute >= 1e3 ? $"{value / 1e3:0}K" : $"{value:0}";
-            return absolute >= 1e8 ? $"{value / 1e8:0.#}亿" : absolute >= 1e4 ? $"{value / 1e4:0}万" : $"{value:0}";
-        }
+        private static string ShortCount(double value) => UIHelper.ShortCount(value);
 
         private void InitialTextInput()
         {

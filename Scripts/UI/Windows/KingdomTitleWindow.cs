@@ -24,6 +24,10 @@ namespace EmpireCraft.Scripts.UI.Windows
     public class KingdomTitleWindow : AbstractWideWindow<KingdomTitleWindow>
     {
         private AutoVertLayoutGroup _root;
+        // 横屏骨架：左栏法理档案固定不随滚动，右侧滚动区是当前页签
+        private AutoVertLayoutGroup _rail;
+        private const float ContentWidth = UIHelper.PageMainWidth;
+        private static int GridColumns(float cell) => Mathf.Max(1, (int)((ContentWidth + 2f) / (cell + 2f)));
         private ScrollWindow TabsWindow => GetComponent<ScrollWindow>();
         private static readonly Color SectionColor = new Color(0.7f, 0.9f, 1f);
         private static readonly Color CyanColor = new Color(0.35f, 0.85f, 1f);
@@ -58,6 +62,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             UIHelper.FixWideWindowScrollArea(BackgroundTransform);
             _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
+            _rail = UIHelper.CreateWideWindowRail(BackgroundTransform, UIHelper.RailWidth, UIHelper.RailInset);
         }
 
         public override void OnNormalEnable()
@@ -80,6 +85,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void Clear()
         {
+            UIHelper.ClearRail(_rail);
             if (_topPart != null)
             {
                 Destroy(_topPart.gameObject);
@@ -98,8 +104,14 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             BuildIdentityCard();
 
-            _content = _root.BeginVertGroup(pSpacing: 4, pAlignment: TextAnchor.UpperCenter);
-            _root.AddChild(_content.gameObject);
+            _content = _root.BeginVertGroup(pSpacing: 4, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 6));
+            UIHelper.FixPanelWidth(_content.transform, ContentWidth);
+            _content.AddPageHeader(ContentWidth, _activeTab switch
+            {
+                ContentTab.Culture => "kingdom_title_culture_tab",
+                ContentTab.NameHistory => "kingdom_title_name_history_tab",
+                _ => "kingdom_title_overview_tab"
+            }, title.data.name);
 
             switch (_activeTab)
             {
@@ -111,7 +123,6 @@ namespace EmpireCraft.Scripts.UI.Windows
                     return;
             }
 
-            BuildMetrics();
             List<Kingdom> administrations = FindCurrentAdministrations();
             BuildCurrentRelations(administrations);
             BuildJurisdictionHistory(administrations);
@@ -193,36 +204,46 @@ namespace EmpireCraft.Scripts.UI.Windows
             TabsWindow.tabs.enableTab(tab);
         }
 
+        // 左栏法理档案(固定不随滚动)：名号、都城、两个改名框，下面是规模与归属
         private void BuildIdentityCard()
         {
-            _topPart = _root.BeginVertGroup(pSize: new Vector2(UIHelper.WidePanelWidth, 76), pSpacing: 2,
-                pAlignment: TextAnchor.MiddleCenter);
-            HoverMarqueeText.Attach(_topPart.AddTextIntoVertLayout(
-                (title.data.name ?? LM.Get("label_none")).ColorString(pColor: GoldColor), true,
-                TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 10f, 16)));
-            AddInputRow(_topPart, LM.Get("title_name"), title.data.name, NameChange, out titleNameInput);
-            AddInputRow(_topPart, LM.Get("province_name"), title.data.province_name, ProvinceNameChange,
-                out provinceNameInput);
+            UIHelper.ClearRail(_rail);
+            if (_rail == null) return;
+            var identity = _rail.BeginRailCard("FactionFrame_dominate");
+            _topPart = identity;
+            identity.AddRailText((title.data.name ?? LM.Get("label_none")).ColorString(pColor: GoldColor), 10, 14f);
             string capitalName = title.title_capital?.GetCityName() ?? LM.Get("label_none");
-            _topPart.AddTextIntoVertLayout($"{LM.Get("kingdom_title_capital")}: {capitalName}", true,
-                TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 10f, 10));
-            _topPart.transform.AddStretchBackground("clanFrame", new Vector2(UIHelper.WidePanelWidth, 76));
-            _topPart.gameObject.AdjustTopPart(transform.parent.transform, new Vector2(0, 1));
-            RectTransform topRect = _topPart.GetComponent<RectTransform>();
-            topRect.sizeDelta = new Vector2(UIHelper.WidePanelWidth, 76);
-            LayoutRebuilder.ForceRebuildLayoutImmediate(topRect);
+            identity.AddRailText($"{LM.Get("kingdom_title_capital")}: {capitalName}".ColorString("#C8C2B4"), 7, 10f);
+            titleNameInput = identity.AddRailInput(LM.Get("title_name"), title.data.name, NameChange);
+            provinceNameInput = identity.AddRailInput(LM.Get("province_name"), title.data.province_name, ProvinceNameChange);
+
+            var stats = _rail.BeginRailCard();
+            float rowWidth = UIHelper.RailWidth - 8f;
+            int row = 0;
+            stats.AddRailRow(rowWidth, LM.Get("kingdom_title_cities"), title.city_list.Count.ToString(), "#59D9FF", row++);
+            stats.AddRailRow(rowWidth, LM.Get("i_population"), UIHelper.ShortCount(title.countPopulation()), "#40E68C", row++);
+            stats.AddRailRow(rowWidth, LM.Get("kingdom_title_zones"), title.countZones().ToString(), "#FFC747", row++);
+            string culture = CultureService.GetEffectiveTitleCulture(title);
+            stats.AddRailRow(rowWidth, LM.Get("kingdom_title_effective_culture"),
+                CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : LM.Get("label_none"), "#F2EEE2", row++);
+            Kingdom holderKingdom = title.main_kingdom;
+            stats.AddRailRow(rowWidth, LM.Get("kingdom_title_holder"),
+                holderKingdom != null && !holderKingdom.isRekt() ? holderKingdom.GetKingdomName() : LM.Get("label_none"), "#F2EEE2", row++);
+            Kingdom controller = title.control_kingdom;
+            if (controller != null && !controller.isRekt() && controller != holderKingdom)
+                stats.AddRailRow(rowWidth, LM.Get("kingdom_title_controller"), controller.GetKingdomName(), "#FF8A7A", row++);
         }
 
         private static void AddInputRow(AutoVertLayoutGroup parent, string label, string value,
             UnityEngine.Events.UnityAction<string> action, out TextInput input)
         {
-            var row = parent.BeginHoriGroup(pSize: new Vector2(UIHelper.WidePanelWidth - 4f, 19), pSpacing: 2,
-                pAlignment: TextAnchor.MiddleCenter);
-            var labelText = row.AddTextIntoHoriLayout(label, true, TextAnchor.MiddleRight, new Vector2(100, 15));
+            var row = parent.BeginHoriGroup(pSize: new Vector2(ContentWidth - 4f, 19), pSpacing: 2,
+                pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
+            var labelText = row.AddTextIntoHoriLayout(label, true, TextAnchor.MiddleRight, new Vector2(64, 15));
             labelText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
             input = UnityEngine.Object.Instantiate(TextInput.Prefab, null);
             input.Setup(value ?? "", action);
-            input.SetSize(new Vector2(320, 18));
+            input.SetSize(new Vector2(ContentWidth - 74f, 18));
             row.AddChild(input.gameObject);
         }
 
@@ -261,18 +282,18 @@ namespace EmpireCraft.Scripts.UI.Windows
                 ? LM.Get("kingdom_title_culture_locked")
                 : LM.Get("kingdom_title_culture_unlocked");
 
-            var card = _content.BeginVertGroup(pSize: new Vector2(UIHelper.WidePanelWidth, 64), pSpacing: 1,
+            var card = _content.BeginVertGroup(pSize: new Vector2(ContentWidth, 64), pSpacing: 1,
                 pAlignment: TextAnchor.MiddleCenter);
             card.AddTextIntoVertLayout($"{LM.Get("kingdom_title_effective_culture")}: {displayCulture}", true,
-                TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 10f, 12));
+                TextAnchor.MiddleCenter, new Vector2(ContentWidth - 10f, 12));
             card.AddTextIntoVertLayout($"{source} · {lockState}", true,
-                TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 10f, 10));
+                TextAnchor.MiddleCenter, new Vector2(ContentWidth - 10f, 10));
             string selectedDisplay = CultureService.IsValidCulture(_selectedCulture)
                 ? _selectedCulture.GetCultureTranslate()
                 : LM.Get("label_none");
             card.AddTextIntoVertLayout($"{LM.Get("kingdom_title_selected_culture")}: {selectedDisplay}", true,
-                TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 10f, 10));
-            var actions = card.BeginHoriGroup(pSize: new Vector2(UIHelper.WidePanelWidth - 10f, 16), pSpacing: 3,
+                TextAnchor.MiddleCenter, new Vector2(ContentWidth - 10f, 10));
+            var actions = card.BeginHoriGroup(pSize: new Vector2(ContentWidth - 10f, 16), pSpacing: 3,
                 pAlignment: TextAnchor.MiddleCenter);
             actions.AddButtonIntoHoriLayout("set_title_culture", LM.Get("kingdom_title_set_default_culture"),
                 SetSelectedTitleCulture, SpriteTextureLoader.getSprite("ui/changeOfficer"),
@@ -282,10 +303,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             actions.AddButtonIntoHoriLayout("clear_title_culture_override", LM.Get("kingdom_title_clear_override"),
                 ClearCultureOverride, SpriteTextureLoader.getSprite("ui/changeOfficer"),
                 size: new Vector2(61, 15), showTip: false);
-            card.transform.AddStretchBackground("FactionFrame", new Vector2(UIHelper.WidePanelWidth, 64));
+            card.transform.AddStretchBackground("FactionFrame", new Vector2(ContentWidth, 64));
 
             AddSectionTitle(LM.Get("kingdom_title_select_culture"));
-            AutoGridLayoutGroup palette = _content.BeginGridGroup(8, GridLayoutGroup.Constraint.FixedColumnCount,
+            AutoGridLayoutGroup palette = _content.BeginGridGroup(GridColumns(48), GridLayoutGroup.Constraint.FixedColumnCount,
                 pCellSize: new Vector2(48, 16), pSpacing: new Vector2(2, 2));
             foreach (string culture in CultureService.CultureKeys)
             {
@@ -320,19 +341,19 @@ namespace EmpireCraft.Scripts.UI.Windows
             // 按钮视觉上探出框外，紧接着的下一张卡片又从这个偏矮的位置起画，看起来又挤
             // 又乱、也不对称。这里按元素实际高度重新算一遍，不再是拍脑袋的经验值。
             float cardHeight = 60 + shares.Count * 17;
-            var card = _content.BeginVertGroup(pSize: new Vector2(UIHelper.WidePanelWidth, cardHeight), pSpacing: 1,
+            var card = _content.BeginVertGroup(pSize: new Vector2(ContentWidth, cardHeight), pSpacing: 1,
                 pAlignment: TextAnchor.MiddleCenter);
             HoverMarqueeText.Attach(card.AddTextIntoVertLayout(
                 $"{city.GetCityName()} · {LM.Get("kingdom_title_main_culture")}: {mainDisplay}", true,
-                TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 10f, 12)));
+                TextAnchor.MiddleCenter, new Vector2(ContentWidth - 10f, 12)));
             AddInputRow(card, LM.Get("kingdom_title_city_name"), city.data.name,
                 value => CityNameChange(city, value), out _);
             HoverMarqueeText.Attach(card.AddTextIntoVertLayout(shareText, true,
-                TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 10f, 11)));
+                TextAnchor.MiddleCenter, new Vector2(ContentWidth - 10f, 11)));
             foreach (KeyValuePair<string, float> share in shares.OrderByDescending(pair => pair.Value))
             {
                 string cultureKey = share.Key;
-                var row = card.BeginHoriGroup(pSize: new Vector2(UIHelper.WidePanelWidth - 10f, 16), pSpacing: 2,
+                var row = card.BeginHoriGroup(pSize: new Vector2(ContentWidth - 10f, 16), pSpacing: 2,
                     pAlignment: TextAnchor.MiddleCenter);
                 HoverMarqueeText.Attach(row.AddTextIntoHoriLayout(
                     $"{cultureKey.GetCultureTranslate()} {share.Value:0.#}%", true,
@@ -347,7 +368,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"),
                 size: new Vector2(150, 15), showTip: false);
             card.transform.AddStretchBackground(city == title.title_capital ? "FactionFrame_dominate" : "FactionFrame",
-                new Vector2(UIHelper.WidePanelWidth, cardHeight));
+                new Vector2(ContentWidth, cardHeight));
         }
 
         private void SelectCulture(string culture)
@@ -413,7 +434,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             AddSectionTitle(LM.Get("kingdom_title_name_history"));
             _content.AddTextIntoVertLayout(LM.Get("kingdom_title_name_history_hint"), true,
-                TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 10f, 22));
+                TextAnchor.MiddleCenter, new Vector2(ContentWidth - 10f, 22));
 
             // 头衔/省份现在生效的文化，就算还没被记录进历史，也要在列表里露面——不然
             // 玩家永远看不到"现在这个名字属于哪个文化"，也没法从这里改名。第一次显示
@@ -486,7 +507,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (addableCultures.Count > 0)
             {
                 AddSectionTitle(LM.Get("kingdom_title_name_history_add_culture"));
-                AutoGridLayoutGroup addGrid = _content.BeginGridGroup(8, GridLayoutGroup.Constraint.FixedColumnCount,
+                AutoGridLayoutGroup addGrid = _content.BeginGridGroup(GridColumns(48), GridLayoutGroup.Constraint.FixedColumnCount,
                     pCellSize: new Vector2(48, 16), pSpacing: new Vector2(2, 2));
                 foreach (string culture in addableCultures)
                 {
@@ -508,15 +529,15 @@ namespace EmpireCraft.Scripts.UI.Windows
             float sharePercent)
         {
             const float cardHeight = 20 + 12 + 19 + 19 + 4;
-            var card = _content.BeginVertGroup(pSize: new Vector2(UIHelper.WidePanelWidth, cardHeight), pSpacing: 1,
+            var card = _content.BeginVertGroup(pSize: new Vector2(ContentWidth, cardHeight), pSpacing: 1,
                 pAlignment: TextAnchor.MiddleCenter);
 
-            var header = card.BeginHoriGroup(pSize: new Vector2(UIHelper.WidePanelWidth - 4f, 18), pSpacing: 2,
+            var header = card.BeginHoriGroup(pSize: new Vector2(ContentWidth - 4f, 18), pSpacing: 2,
                 pAlignment: TextAnchor.MiddleCenter);
             string labelText = culture.GetCultureTranslate();
             if (isCurrent) labelText = labelText.ColorString(pColor: GoldColor);
             var label = header.AddTextIntoHoriLayout(labelText, true, TextAnchor.MiddleLeft,
-                new Vector2(UIHelper.WidePanelWidth - 40f, 16));
+                new Vector2(ContentWidth - 40f, 16));
             label.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
             header.AddButtonIntoHoriLayout($"delete_name_history_{culture}", "",
                 () => DeleteNameHistoryForCulture(culture), SpriteTextureLoader.getSprite("ui/iconRemove"),
@@ -528,7 +549,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (!isCurrent)
                 shareLabel += $" · {LM.Get("kingdom_title_not_mainstream_culture").ColorString(pColor: Color.gray)}";
             var shareText = card.AddTextIntoVertLayout(shareLabel, true, TextAnchor.MiddleCenter,
-                new Vector2(UIHelper.WidePanelWidth - 10f, 11));
+                new Vector2(ContentWidth - 10f, 11));
             shareText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
 
             AddInputRow(card, LM.Get("kingdom_title_name_history_title_section"), titleName,
@@ -536,7 +557,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             AddInputRow(card, LM.Get("kingdom_title_name_history_province_section"), provinceName,
                 value => ProvinceHistoryNameChange(culture, value), out _);
 
-            card.transform.AddStretchBackground("FactionFrame", new Vector2(UIHelper.WidePanelWidth, cardHeight));
+            card.transform.AddStretchBackground("FactionFrame", new Vector2(ContentWidth, cardHeight));
         }
 
         private void TitleHistoryNameChange(string culture, string value)
@@ -618,7 +639,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void BuildCurrentRelations(List<Kingdom> administrations)
         {
             AddSectionTitle(LM.Get("kingdom_title_current_relations"));
-            var grid = _content.BeginGridGroup(8, GridLayoutGroup.Constraint.FixedColumnCount,
+            var grid = _content.BeginGridGroup(GridColumns(100), GridLayoutGroup.Constraint.FixedColumnCount,
                 pCellSize: new Vector2(100, 62), pSpacing: new Vector2(2, 2));
 
             List<KingdomTitleHolderRelation> holders = ResolveCurrentHolders();
@@ -786,15 +807,15 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (string.IsNullOrWhiteSpace(kingdomName)) kingdomName = record.kingdom_name;
             if (string.IsNullOrWhiteSpace(kingdomName)) kingdomName = LM.Get("label_none");
 
-            var card = _content.BeginHoriGroup(pSize: new Vector2(UIHelper.WidePanelWidth, 36), pSpacing: 2,
+            var card = _content.BeginHoriGroup(pSize: new Vector2(ContentWidth, 36), pSpacing: 2,
                 pAlignment: TextAnchor.MiddleCenter);
-            var details = card.BeginVertGroup(pSize: new Vector2(UIHelper.WidePanelWidth - 24f, 32), pSpacing: -1,
+            var details = card.BeginVertGroup(pSize: new Vector2(ContentWidth - 24f, 32), pSpacing: -1,
                 pAlignment: TextAnchor.MiddleLeft);
             HoverMarqueeText.Attach(details.AddTextIntoVertLayout(
                 $"{relation} · {kingdomName}".ColorString(pColor: current ? GoldColor : SectionColor), true,
-                TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 28f, 12)));
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 28f, 12)));
             details.AddTextIntoVertLayout(FormatPeriod(record.start_time, record.end_time), true,
-                TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 28f, 10));
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 28f, 10));
             if (liveKingdom != null)
             {
                 Kingdom target = liveKingdom;
@@ -803,27 +824,27 @@ namespace EmpireCraft.Scripts.UI.Windows
                     SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(16, 16), showTip: true);
             }
             card.transform.AddStretchBackground(current ? "FactionFrame_dominate" : "FactionFrame",
-                new Vector2(UIHelper.WidePanelWidth, 36));
+                new Vector2(ContentWidth, 36));
         }
 
         private void AddFounderCard()
         {
-            var card = _content.BeginVertGroup(pSize: new Vector2(UIHelper.WidePanelWidth, 30), pSpacing: -1,
+            var card = _content.BeginVertGroup(pSize: new Vector2(ContentWidth, 30), pSpacing: -1,
                 pAlignment: TextAnchor.MiddleLeft, pPadding: new RectOffset(5, 5, 1, 1));
             HoverMarqueeText.Attach(card.AddTextIntoVertLayout(
                 $"{LM.Get("kingdom_title_history_founder")} · {title.data.founder_kingdom_name}"
-                    .ColorString(pColor: SectionColor), true, TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 12f, 12)));
+                    .ColorString(pColor: SectionColor), true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 12f, 12)));
             string date = title.data.timestamp_established_time > 0
                 ? Date.getDate(title.data.timestamp_established_time)
                 : LM.Get("kingdom_title_unknown_date");
-            card.AddTextIntoVertLayout(date, true, TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
-            card.transform.AddStretchBackground("FactionFrame", new Vector2(UIHelper.WidePanelWidth, 30));
+            card.AddTextIntoVertLayout(date, true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 12f, 10));
+            card.transform.AddStretchBackground("FactionFrame", new Vector2(ContentWidth, 30));
         }
 
         private void BuildCityGrid()
         {
             AddSectionTitle(LM.Get("kingdom_title_cities"));
-            var grid = _content.BeginGridGroup(8, GridLayoutGroup.Constraint.FixedColumnCount,
+            var grid = _content.BeginGridGroup(GridColumns(48), GridLayoutGroup.Constraint.FixedColumnCount,
                 pCellSize: new Vector2(48, 40), pSpacing: new Vector2(2, 2));
             foreach (City city in title.city_list.Where(city => city != null && !city.isRekt())
                          .OrderByDescending(city => city == title.title_capital).ThenBy(city => city.GetCityName()))
@@ -850,8 +871,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void AddSectionTitle(string text)
         {
-            _content.AddTextIntoVertLayout(text.ColorString(pColor: SectionColor), true,
-                TextAnchor.MiddleCenter, new Vector2(150, 13));
+            _content.AddSectionHeader(ContentWidth, text, "#B3E6FF", false);
         }
 
         private static string FormatPeriod(double start, double end)

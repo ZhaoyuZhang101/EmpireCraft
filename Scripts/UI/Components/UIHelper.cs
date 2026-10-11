@@ -498,6 +498,94 @@ public static class UIHelper
         PlaceWideWindowBackButton(backgroundTransform);
     }
 
+    // ── 左栏共用组件(帝国、法理、帝国核心、历史等窗口) ──
+    public const float RailInset = RailWidth + 10f;
+    public const float RailRowHeight = 11f;
+
+    // 左栏卡片：像素框、定宽、高随内容
+    public static AutoVertLayoutGroup BeginRailCard(this AutoVertLayoutGroup rail, string frame = "FactionFrame")
+    {
+        var card = rail.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(4, 4, 4, 4));
+        FixPanelWidth(card.transform, RailWidth);
+        AddCardFrame(card.transform, frame);
+        return card;
+    }
+
+    // 左栏一行文字(标题/说明)
+    public static SimpleText AddRailText(this AutoVertLayoutGroup card, string text, int fontSize, float height,
+        bool wrap = false)
+    {
+        var label = card.AddTextIntoVertLayout(text, true, TextAnchor.MiddleLeft, new Vector2(RailWidth - 8f, height));
+        label.UseFixedFontSize(fontSize, wrap ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow);
+        if (!wrap) HoverMarqueeText.Attach(label);
+        return label;
+    }
+
+    // 左栏紧凑行：标签左、数值右，一行放完(过长时悬停滚动)，隔行垫深色底
+    public static void AddRailRow(this AutoVertLayoutGroup card, float width, string label, string value, string hex, int index)
+    {
+        var row = card.BeginHoriGroup(new Vector2(width, RailRowHeight), TextAnchor.MiddleLeft, 2, new RectOffset(2, 2, 0, 0));
+        if (index % 2 == 0) AddInsetBackground(row, new Vector2(width, RailRowHeight));
+        float labelWidth = (width - 6f) * 0.45f;
+        var labelText = row.AddTextIntoHoriLayout(label.ColorString("#B8C6CC"), true, TextAnchor.MiddleLeft,
+            new Vector2(labelWidth, RailRowHeight));
+        labelText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(labelText);
+        var valueText = row.AddTextIntoHoriLayout(value.ColorString(hex), true, TextAnchor.MiddleRight,
+            new Vector2(width - 6f - labelWidth, RailRowHeight));
+        valueText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(valueText);
+    }
+
+    // 左栏输入框：小字标签 + 整宽输入框
+    public static TextInput AddRailInput(this AutoVertLayoutGroup card, string label, string value, UnityAction<string> action)
+    {
+        card.AddRailText(label.ColorString("#8FA0A8"), 6, 9f);
+        TextInput input = Object.Instantiate(TextInput.Prefab, null);
+        input.Setup(value ?? "", action);
+        input.SetSize(new Vector2(RailWidth - 8f, 15f));
+        card.AddChild(input.gameObject);
+        return input;
+    }
+
+    // 人口这类大数：万/亿取整(英文 K/M)，窄栏里不折行
+    public static string ShortCount(double value)
+    {
+        bool english = PlayerConfig.dict.TryGetValue("language", out var language) && language.stringVal == "en";
+        double absolute = Math.Abs(value);
+        if (english)
+            return absolute >= 1e6 ? $"{value / 1e6:0.#}M" : absolute >= 1e3 ? $"{value / 1e3:0}K" : $"{value:0}";
+        return absolute >= 1e8 ? $"{value / 1e8:0.#}亿" : absolute >= 1e4 ? $"{value / 1e4:0}万" : $"{value:0}";
+    }
+
+    // 页头：左侧金色页名，右侧状态摘要(用 · 隔开)，按字数分配宽度
+    public static void AddPageHeader(this AutoVertLayoutGroup main, float width, string title, params string[] chips)
+    {
+        var header = main.BeginHoriGroup(new Vector2(width, 16f), TextAnchor.MiddleLeft, 4, new RectOffset(2, 2, 0, 0));
+        string chipText = string.Join("  ·  ", (chips ?? Array.Empty<string>()).Where(chip => !string.IsNullOrEmpty(chip)));
+        string titleText = LocalizeOrRaw(title);
+        float room = width - 8f;
+        float titleWidth = Mathf.Clamp(EstimateTextWidth(titleText, 10) + 6f, room * 0.3f, room * 0.75f);
+        float chipWidth = chipText.Length == 0 ? 0f : room - titleWidth;
+        var label = header.AddTextIntoHoriLayout(titleText.ColorString("#F3C34A"), true,
+            TextAnchor.MiddleLeft, new Vector2(chipText.Length == 0 ? room : titleWidth, 15f));
+        label.UseFixedFontSize(10, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(label);
+        if (chipWidth <= 0f) return;
+        var chipLabel = header.AddTextIntoHoriLayout(chipText.ColorString("#C8C2B4"), true, TextAnchor.MiddleRight,
+            new Vector2(chipWidth, 15f));
+        chipLabel.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(chipLabel);
+    }
+
+    // 清空左栏(先隐藏再销毁，避免这一帧旧卡片还参与布局)
+    public static void ClearRail(AutoVertLayoutGroup rail)
+    {
+        if (rail == null) return;
+        foreach (Transform child in rail.transform) child.gameObject.SetActive(false);
+        rail.transform.ClearChildren();
+    }
+
     // 横屏骨架的固定左栏：滚动区右移让位，左栏挂在窗口背景上，不随正文滚动
     public static AutoVertLayoutGroup CreateWideWindowRail(Transform backgroundTransform, float width, float inset)
     {
