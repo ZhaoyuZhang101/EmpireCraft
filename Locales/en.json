@@ -185,6 +185,14 @@
   "empire_no_dependencies": "No dependencies yet",
   "dependency_tribute_value": "~{0}/yr tribute",
   "dependency_vassal_value": "Control {0}/3 · ~{1}/yr",
+  "fiscal_section_treasury": "Central treasury",
+  "fiscal_section_monthly": "Monthly flows",
+  "fiscal_section_realm": "Realm consolidated",
+  "constitution_section_clauses": "Clauses",
+  "constitution_section_state": "State of the nation",
+  "constitution_section_dynamics": "Ideology & line",
+  "constitution_section_amendments": "Amendments",
+  "constitution_section_notes": "Clause notes",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",
@@ -3706,5 +3714,10 @@
   "fiscal_transfer_source_ResidentTax": "Tax transfers: Resident taxes",
   "fiscal_transfer_source_LandTax": "Tax transfers: Land tax",
   "fiscal_transfer_source_IndustrialTax": "Tax transfers: Industrial tax",
-  "fiscal_transfer_source_CommercialTax": "Tax transfers: Commercial tax"
+  "fiscal_transfer_source_CommercialTax": "Tax transfers: Commercial tax",
+  "lineage_previous": "Previous",
+  "lineage_next": "Next",
+  "lineage_page": "Page {0}/{1} · {2} rulers",
+  "history_event_page": "Events {0}/{1} · {2} records",
+  "EmpireHistoryWindow Title": "Ruler Lineage"
 }

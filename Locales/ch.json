@@ -187,6 +187,14 @@
   "empire_no_dependencies": "尚無屬國",
   "dependency_tribute_value": "年貢約 {0}",
   "dependency_vassal_value": "控制等級 {0}/3 · 年貢約 {1}",
+  "fiscal_section_treasury": "中央國庫",
+  "fiscal_section_monthly": "本月收支",
+  "fiscal_section_realm": "全國合併",
+  "constitution_section_clauses": "憲法條款",
+  "constitution_section_state": "國家狀態",
+  "constitution_section_dynamics": "思想與路線",
+  "constitution_section_amendments": "修憲記錄",
+  "constitution_section_notes": "條款說明",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",
@@ -3706,5 +3714,10 @@
   "fiscal_transfer_source_ResidentTax": "其中：居民稅收分成",
   "fiscal_transfer_source_LandTax": "其中：土地稅分成",
   "fiscal_transfer_source_IndustrialTax": "其中：工業稅分成",
-  "fiscal_transfer_source_CommercialTax": "其中：商業稅分成"
+  "fiscal_transfer_source_CommercialTax": "其中：商業稅分成",
+  "lineage_previous": "上一頁",
+  "lineage_next": "下一頁",
+  "lineage_page": "第 {0}/{1} 頁 · 共 {2} 位君主",
+  "history_event_page": "記事第 {0}/{1} 頁 · 共 {2} 條",
+  "EmpireHistoryWindow Title": "君主世系"
 }

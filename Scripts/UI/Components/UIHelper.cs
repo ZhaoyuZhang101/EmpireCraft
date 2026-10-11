@@ -252,6 +252,35 @@ public static class UIHelper
         return root;
     }
 
+    public const float WidePanelWidth = 440f;
+
+    // 分节标题：────  文字  ────。统一各内容页的分组样式，长页一眼能分块
+    public static SimpleText AddSectionHeader(this AutoVertLayoutGroup layout, string text,
+        string hex = "#D9B36A", bool localize = true)
+    {
+        string label = localize ? LM.Get(text) : text;
+        SimpleText header = layout.AddTextIntoVertLayout(
+            $"<color=#6B6353>────</color>  {label.ColorString(hex)}  <color=#6B6353>────</color>",
+            true, TextAnchor.MiddleCenter, new Vector2(WidePanelWidth - 12f, 15f));
+        header.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+        return header;
+    }
+
+    // 宽度由窗口确定，高度由子项确定；不能让水平 PreferredSize 又把面板缩回旧窄宽度。
+    public static void UseWidePanel(Transform panel)
+    {
+        var rect = panel as RectTransform;
+        if (rect == null) return;
+        var parent = panel.parent as RectTransform;
+        var layout = parent?.GetComponent<HorizontalOrVerticalLayoutGroup>();
+        float available = parent != null ? parent.rect.width - (layout?.padding.horizontal ?? 0) : WidePanelWidth;
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,
+            available > 100f ? Mathf.Min(WidePanelWidth, available) : WidePanelWidth);
+        var fitter = panel.GetComponent<ContentSizeFitter>() ?? panel.gameObject.AddComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+    }
+
     // AbstractWideWindow.SetSize 只改 BackgroundTransform(和标题/关闭按钮)的尺寸，里面的
     // Scroll View、Viewport、Content 和滚动条仍保留窄窗口尺寸。宽窗口必须把这三层一起拉伸；
     // Content 上原版的窄背景也要关掉，否则会在宽图中间留下一个黑色小窗口。
@@ -626,21 +655,24 @@ public static class UIHelper
             : new List<PartyIdeology>();
         float bottomHeight = partyMode ? Mathf.CeilToInt(foundable.Count / 2f) * 15f + 4f
             : factions.Count < 3 ? 20f : 0f;
+        float overviewWidth = layout.GetComponentInParent<EmpireCraft.Scripts.UI.Windows.EmpireWindow>() != null
+            ? WidePanelWidth : 196f;
+        float rowWidth = overviewWidth - 8f;
         float panelHeight = 19f + factions.Count * (FactionCardHeight + 2f) + bottomHeight;
         RectTransform overviewRect = layout.GetComponent<RectTransform>();
-        overviewRect.sizeDelta = new Vector2(196, panelHeight);
+        overviewRect.sizeDelta = new Vector2(overviewWidth, panelHeight);
         LayoutElement overviewElement = layout.GetComponent<LayoutElement>() ?? layout.gameObject.AddComponent<LayoutElement>();
-        overviewElement.minWidth = 196f;
-        overviewElement.preferredWidth = 196f;
+        overviewElement.minWidth = overviewWidth;
+        overviewElement.preferredWidth = overviewWidth;
         overviewElement.minHeight = panelHeight;
         overviewElement.preferredHeight = panelHeight;
-        var panel = layout.BeginVertGroup(new Vector2(194, panelHeight), pSpacing: 2,
+        var panel = layout.BeginVertGroup(new Vector2(overviewWidth - 2f, panelHeight), pSpacing: 2,
             pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(3, 3, 2, 2));
-        var header = panel.BeginHoriGroup(new Vector2(188, 13), TextAnchor.MiddleCenter, 2);
+        var header = panel.BeginHoriGroup(new Vector2(rowWidth, 13), TextAnchor.MiddleCenter, 2);
         // 开放党禁后派系已改组为政党
         string landscapeKey = factions.Any(faction => faction.IsParty) ? "empire_party_landscape" : "empire_faction_landscape";
         var title = header.AddTextIntoHoriLayout(LM.Get(landscapeKey).ColorString("#7FD8EA"),
-            true, TextAnchor.MiddleLeft, new Vector2(158, 12));
+            true, TextAnchor.MiddleLeft, new Vector2(rowWidth - 30f, 12));
         title.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
         header.AddButtonIntoHoriLayout("recover_faction", "", () =>
         {
@@ -662,7 +694,7 @@ public static class UIHelper
             try
             {
                 faction.FixMissedTemporaryFactions();
-                AddEmpireFactionRow(panel, faction, kingdom, layout);
+                AddEmpireFactionRow(panel, faction, kingdom, layout, width: rowWidth);
             }
             catch (Exception exception)
             {
@@ -674,7 +706,7 @@ public static class UIHelper
         {
             for (int start = 0; start < foundable.Count; start += 2)
             {
-                var foundRow = panel.BeginHoriGroup(new Vector2(188, 14), TextAnchor.MiddleCenter, 2);
+                var foundRow = panel.BeginHoriGroup(new Vector2(rowWidth, 14), TextAnchor.MiddleCenter, 2);
                 foreach (PartyIdeology ideology in foundable.Skip(start).Take(2))
                 {
                     PartyIdeology target = ideology;
@@ -687,7 +719,7 @@ public static class UIHelper
                             if (PartySystem.PlayerFoundParty(empire, target) != null)
                                 RefreshEmpireFactionSpace(layout, kingdom);
                             else ActionLibrary.showWhisperTip(reason);
-                        }, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(91, 13));
+                        }, SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2((rowWidth - 6f) / 2f, 13));
                     AttachTextTooltip(button.gameObject, $"party_found_{target}",
                         string.Format(LM.Get("party_found_button"), PartySystem.GetIdeologyName(target)),
                         can ? LM.Get("party_found_tip") : LM.Get(reason));
@@ -696,13 +728,13 @@ public static class UIHelper
         }
         else if (factions.Count < 3)
         {
-            var addRow = panel.BeginHoriGroup(new Vector2(188, 18), TextAnchor.MiddleCenter, 2);
+            var addRow = panel.BeginHoriGroup(new Vector2(rowWidth, 18), TextAnchor.MiddleCenter, 2);
             addRow.AddButtonIntoHoriLayout("add_faction", LM.Get("empire_add_faction_slot"),
                 () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"),
-                size: new Vector2(184, 15), showTip: true);
+                size: new Vector2(rowWidth - 4f, 15), showTip: true);
         }
 
-        panel.transform.AddStretchBackground("regimeFrame", new Vector2(194, panelHeight));
+        panel.transform.AddStretchBackground("regimeFrame", new Vector2(overviewWidth - 2f, panelHeight));
         regime.FactionSpace = layout;
     }
 
@@ -714,7 +746,7 @@ public static class UIHelper
     private const float FactionCardHeight = 40f;
 
     private static void AddEmpireFactionRow(AutoVertLayoutGroup panel, FixedFaction faction, Kingdom kingdom,
-        AutoHoriLayoutGroup overview, bool readOnly = false, bool addMode = false, UnityAction onLibraryChanged = null)
+        AutoHoriLayoutGroup overview, bool readOnly = false, bool addMode = false, UnityAction onLibraryChanged = null, float width = 188f)
     {
         faction.Update();
         Regime regime = kingdom.GetRegime();
@@ -728,7 +760,7 @@ public static class UIHelper
         // 卡片：理念色条 | 理念徽章 | 领袖头像 | 名称·理念·中央占比条·阶层与立场 | 按钮
         PartyIdeology ideology = PartySystem.LeaningOf(faction);
         Color ideologyColor = IdeologyColor(ideology);
-        var row = panel.BeginHoriGroup(new Vector2(188, FactionCardHeight), TextAnchor.MiddleLeft, 2,
+        var row = panel.BeginHoriGroup(new Vector2(width, FactionCardHeight), TextAnchor.MiddleLeft, 2,
             new RectOffset(2, 2, 1, 1));
         AddColorBlock(row.transform, new Vector2(3, FactionCardHeight - 4f), ideologyColor);
         var badge = row.BeginVertGroup(new Vector2(15, FactionCardHeight - 4f), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
@@ -738,7 +770,7 @@ public static class UIHelper
 
         // 政党行多一个"合并"按钮，按钮栏加宽一格、信息栏让出来
         bool partyRow = faction.IsParty && !readOnly && !addMode;
-        float infoWidth = partyRow ? 84f : 94f;
+        float infoWidth = width - (partyRow ? 104f : 94f);
         var details = row.BeginVertGroup(new Vector2(infoWidth, FactionCardHeight - 2f), pSpacing: 1,
             pAlignment: TextAnchor.MiddleLeft);
         string state = addMode ? "" : kingdom.IsEmpire()
@@ -848,7 +880,7 @@ public static class UIHelper
         }
 
         row.transform.AddStretchBackground(isDominate ? "FactionFrame_dominate" : "FactionFrame",
-            new Vector2(188, FactionCardHeight));
+            new Vector2(width, FactionCardHeight));
         if (!readOnly && !addMode) faction.CardUI = details;
     }
 
@@ -1141,12 +1173,14 @@ public static class UIHelper
     [Hotfixable]
     public static void AddStretchBackground(this Transform personalGroup, string backAddress, Vector2 size=default, Vector2 offset=default)
     {
-        var bgSprite = SpriteTextureLoader.getSprite($"ui/{backAddress}");
-        var text = bgSprite.texture;
-        var rect = bgSprite.rect;
-        var pivot = new Vector2(0.5f, 0.5f);;
-        float ppu = bgSprite.pixelsPerUnit;
-        var sliced = Sprite.Create(text, rect, pivot, ppu, 0, SpriteMeshType.FullRect, new Vector4(11, 11, 24, 24));
+        if (!CardFrames.TryGetValue(backAddress, out Sprite sliced) || sliced == null)
+        {
+            var bgSprite = SpriteTextureLoader.getSprite($"ui/{backAddress}");
+            if (bgSprite == null) return;
+            sliced = Sprite.Create(bgSprite.texture, bgSprite.rect, new Vector2(0.5f, 0.5f),
+                bgSprite.pixelsPerUnit, 0, SpriteMeshType.FullRect, new Vector4(11, 11, 24, 24));
+            CardFrames[backAddress] = sliced;
+        }
         var back = personalGroup.transform.Find("CardBackground");
         if (back != null)
         {
@@ -1176,6 +1210,7 @@ public static class UIHelper
         img.sprite = sliced;
         img.type   = Image.Type.Sliced;
         img.color  = Color.white;
+        img.raycastTarget = false;
 
         // 3.1 忽略父布局对它的控制
         var le = bgGO.AddComponent<LayoutElement>();
@@ -1184,6 +1219,7 @@ public static class UIHelper
         // 4. 保证在所有其他子物体下方
         bgGO.transform.SetAsFirstSibling();
     }
+    private static readonly Dictionary<string, Sprite> CardFrames = new();
     public static SimpleButton CreateToggleButton(UnityAction action)
     {
         SimpleButton year_name_button = UnityEngine.Object.Instantiate(SimpleButton.Prefab, null);

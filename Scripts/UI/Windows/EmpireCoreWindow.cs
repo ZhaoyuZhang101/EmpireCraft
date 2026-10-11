@@ -24,6 +24,8 @@ namespace EmpireCraft.Scripts.UI.Windows
         private AutoVertLayoutGroup _root;
         private readonly Dictionary<string, GameObject> _groups = new Dictionary<string, GameObject>();
         private readonly Dictionary<long, bool> _historyExpandedStates = new Dictionary<long, bool>();
+        private readonly Dictionary<long, int> _historyPages = new();
+        private const int HistoryPageSize = 12;
         private TextInput _nameInput;
         private EmpireCore _core;
         private AutoVertLayoutGroup _topPart;
@@ -41,11 +43,14 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             foreach (var container in _groups)
             {
+                if (container.Value == null) continue;
+                container.Value.SetActive(false);
                 Destroy(container.Value);
             }
             _groups.Clear();
             if (_topPart != null)
             {
+                _topPart.gameObject.SetActive(false);
                 Destroy(_topPart.gameObject);
                 _topPart = null;
             }
@@ -155,14 +160,14 @@ namespace EmpireCraft.Scripts.UI.Windows
                     _core.GetCoreCapital()?.kingdom);
                 _core.default_culture = culture;
             }
-            var card = parent.BeginVertGroup(pSize: new Vector2(200, 48), pSpacing: 1,
+            var card = parent.BeginVertGroup(pSize: new Vector2(UIHelper.WidePanelWidth, 48), pSpacing: 1,
                 pAlignment: TextAnchor.MiddleCenter);
             string display = CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : LM.Get("label_none");
             card.AddTextIntoVertLayout($"{LM.Get("kingdom_title_effective_culture")}: {display}", true,
-                TextAnchor.MiddleCenter, new Vector2(190, 11));
+                TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 10f, 11));
             TextInput input = Object.Instantiate(TextInput.Prefab, null);
             input.Setup(culture ?? "", value => ChangeCulture(value, input));
-            input.SetSize(new Vector2(190, 18));
+            input.SetSize(new Vector2(UIHelper.WidePanelWidth - 10f, 18));
             card.AddChild(input.gameObject);
             string lockText = _core.culture_locked
                 ? LM.Get("kingdom_title_culture_locked")
@@ -174,8 +179,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                 // 让锁定状态正确级联到帝国旗下所有王国法理。
                 CultureService.SetEmpireCultureLock(_core, !_core.culture_locked);
                 RefreshWindow();
-            }, SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"), size: new Vector2(190, 14), showTip: false);
-            card.transform.AddStretchBackground("FactionFrame", new Vector2(200, 48));
+            }, SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"), size: new Vector2(UIHelper.WidePanelWidth - 10f, 14), showTip: false);
+            card.transform.AddStretchBackground("FactionFrame", new Vector2(UIHelper.WidePanelWidth, 48));
         }
 
         private void ChangeCulture(string value, TextInput input)
@@ -191,10 +196,10 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void AddMetricCard(AutoHoriLayoutGroup parent, string label, string value, Color color)
         {
-            var card = parent.BeginVertGroup(pSize: new Vector2(62, 28), pSpacing: -2, pAlignment: TextAnchor.MiddleCenter);
-            card.AddTextIntoVertLayout(value.ColorString(pColor: color), true, TextAnchor.MiddleCenter, new Vector2(30, 12));
-            card.AddTextIntoVertLayout(label, true, TextAnchor.MiddleCenter, new Vector2(58, 10));
-            card.transform.AddStretchBackground("FactionFrame", new Vector2(62, 28));
+            var card = parent.BeginVertGroup(pSize: new Vector2(140, 28), pSpacing: -2, pAlignment: TextAnchor.MiddleCenter);
+            card.AddTextIntoVertLayout(value.ColorString(pColor: color), true, TextAnchor.MiddleCenter, new Vector2(130, 12));
+            card.AddTextIntoVertLayout(label, true, TextAnchor.MiddleCenter, new Vector2(130, 10));
+            card.transform.AddStretchBackground("FactionFrame", new Vector2(140, 28));
         }
 
         private void AddSectionTitle(AutoVertLayoutGroup parent, string title)
@@ -207,14 +212,14 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             bool composite = CompositeEmpireService.IsComposite(empire);
             float cardHeight = composite ? 72f : 42f;
-            var card = parent.BeginHoriGroup(pSize: new Vector2(200, cardHeight), pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
-            var details = card.BeginVertGroup(pSize: new Vector2(175, cardHeight - 4f), pSpacing: 1, pAlignment: TextAnchor.MiddleLeft);
+            var card = parent.BeginHoriGroup(pSize: new Vector2(UIHelper.WidePanelWidth, cardHeight), pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
+            var details = card.BeginVertGroup(pSize: new Vector2(UIHelper.WidePanelWidth - 25f, cardHeight - 4f), pSpacing: 1, pAlignment: TextAnchor.MiddleLeft);
             HoverMarqueeText.Attach(details.AddTextIntoVertLayout(empire.GetEmpireFullName().ColorString(empire.getColor().color_text), true,
-                TextAnchor.MiddleLeft, new Vector2(170, 12)));
+                TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 32f, 12)));
             HoverMarqueeText.Attach(details.AddTextIntoVertLayout($"{LM.Get("empire_core_royal_surname")}: {empire.EmpireSpecificClan?.name ?? LM.Get("empire_core_none")}",
-                true, TextAnchor.MiddleLeft, new Vector2(170, 10)));
+                true, TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 32f, 10)));
             details.AddTextIntoVertLayout($"{LM.Get("i_population")}: {empire.CountPopulation()}  |  {LM.Get(empire.LegitimacyLabelKey)}: {empire.Legitimacy}",
-                true, TextAnchor.MiddleLeft, new Vector2(140, 10));
+                true, TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 60f, 10));
             if (composite)
             {
                 string ruling = CompositeEmpireService.GetRulingCulture(empire);
@@ -222,18 +227,18 @@ namespace EmpireCraft.Scripts.UI.Windows
                 ruling = CultureService.IsValidCulture(ruling) ? ruling.GetCultureTranslate() : ruling;
                 institution = CultureService.IsValidCulture(institution) ? institution.GetCultureTranslate() : institution;
                 details.AddTextIntoVertLayout($"{LM.Get("composite_empire_ruling_culture")}: {ruling}  |  {LM.Get("composite_empire_institutional_culture")}: {institution}",
-                    true, TextAnchor.MiddleLeft, new Vector2(170, 10));
+                    true, TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 32f, 10));
                 details.AddTextIntoVertLayout($"{LM.Get("composite_empire_military_tradition")}: {CompositeEmpireService.GetMilitaryTraditionName(empire)}  |  {CompositeEmpireService.GetStageName(empire)} {empire.data.composite_integration}%",
-                    true, TextAnchor.MiddleLeft, new Vector2(170, 10));
+                    true, TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 32f, 10));
                 details.AddTextIntoVertLayout($"{LM.Get("composite_empire_dual_legitimacy")}: {empire.data.central_plains_legitimacy}/{empire.data.ruling_tradition_legitimacy}",
-                    true, TextAnchor.MiddleLeft, new Vector2(170, 10));
+                    true, TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 32f, 10));
             }
             card.AddButtonIntoHoriLayout("open_empire", "", () =>
             {
                 EmpireCraftMetaTypeLibrary.selected_empire = empire;
                 ScrollWindow.showWindow(nameof(EmpireWindow));
             }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(16, 16), showTip: true);
-            card.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(200, cardHeight));
+            card.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(UIHelper.WidePanelWidth, cardHeight));
         }
 
         private void AddTitleCard(AutoGridLayoutGroup parent, KingdomTitle title)
@@ -251,7 +256,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void ShowHistoryCards(AutoVertLayoutGroup parent, List<Empire> currentEmpires)
         {
-            foreach (long empireId in _core.empire_history_ids)
+            foreach (long empireId in _core.empire_history_ids.Distinct())
             {
                 var histories = GetHistoriesForEmpire(empireId);
                 if (histories.Count == 0) continue;
@@ -269,23 +274,23 @@ namespace EmpireCraft.Scripts.UI.Windows
                 int duration = histories.Sum(h => GetReignDuration(h, liveEmpire));
                 bool exists = liveEmpire != null && !liveEmpire.isRekt() && !liveEmpire.IsArchived();
                 string stateText = exists ? LM.Get("empire_core_history_exists") : LM.Get("empire_core_history_gone");
-                var historyCard = parent.BeginHoriGroup(pSize: new Vector2(200, 42), pSpacing: 2,
+                var historyCard = parent.BeginHoriGroup(pSize: new Vector2(UIHelper.WidePanelWidth, 42), pSpacing: 2,
                     pAlignment: TextAnchor.MiddleCenter);
-                var historyDetails = historyCard.BeginVertGroup(pSize: new Vector2(175, 38), pSpacing: 1,
+                var historyDetails = historyCard.BeginVertGroup(pSize: new Vector2(UIHelper.WidePanelWidth - 25f, 38), pSpacing: 1,
                     pAlignment: TextAnchor.MiddleLeft);
                 Color empireColor = liveEmpire?.getColor()._color_main ?? new Color(0.68f, 0.88f, 1f);
                 HoverMarqueeText.Attach(historyDetails.AddTextIntoVertLayout(empireName.ColorString(pColor: empireColor), true,
-                    TextAnchor.MiddleLeft, new Vector2(170, 12)));
+                    TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 32f, 12)));
                 HoverMarqueeText.Attach(historyDetails.AddTextIntoVertLayout($"{LM.Get("empire_core_royal_surname")}: {royalSurnames}",
-                    true, TextAnchor.MiddleLeft, new Vector2(170, 10)));
+                    true, TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 32f, 10)));
                 historyDetails.AddTextIntoVertLayout($"{LM.Get("empire_core_history_duration")}: {duration}{LM.Get("Year")}  |  {stateText}", true,
-                    TextAnchor.MiddleLeft, new Vector2(170, 10));
+                    TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 32f, 10));
                 historyCard.AddButtonIntoHoriLayout("empire_core_history_card", "", () =>
                 {
                     _historyExpandedStates[empireId] = !_historyExpandedStates.TryGetValue(empireId, out bool expanded) || !expanded;
                     RefreshWindow();
                 }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(16, 16), showTip: true);
-                historyCard.transform.AddStretchBackground(exists ? "FactionFrame_dominate" : "FactionFrame", new Vector2(200, 42));
+                historyCard.transform.AddStretchBackground(exists ? "FactionFrame_dominate" : "FactionFrame", new Vector2(UIHelper.WidePanelWidth, 42));
 
                 if (!_historyExpandedStates.TryGetValue(empireId, out bool isExpanded) || !isExpanded)
                 {
@@ -293,28 +298,49 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }
 
                 parent.AddTextIntoVertLayout(LM.Get("empire_core_history_emperors"), true, TextAnchor.MiddleCenter, new Vector2(100, 10));
-                foreach (var history in histories)
+                int page = _historyPages.TryGetValue(empireId, out int savedPage) ? savedPage : 0;
+                int pages = global::System.Math.Max(1, (histories.Count + HistoryPageSize - 1) / HistoryPageSize);
+                page = global::System.Math.Max(0, global::System.Math.Min(page, pages - 1));
+                if (pages > 1)
+                {
+                    int currentPage = page;
+                    var navigation = parent.BeginHoriGroup(new Vector2(UIHelper.WidePanelWidth, 18f),
+                        TextAnchor.MiddleCenter, 8f);
+                    navigation.AddButtonIntoHoriLayout("lineage_previous", LM.Get("lineage_previous"), () =>
+                    {
+                        if (currentPage == 0) return;
+                        _historyPages[empireId] = currentPage - 1; RefreshWindow();
+                    }, size: new Vector2(62f, 16f));
+                    navigation.AddTextIntoHoriLayout(string.Format(LM.Get("lineage_page"), page + 1, pages, histories.Count),
+                        true, TextAnchor.MiddleCenter, new Vector2(230f, 16f));
+                    navigation.AddButtonIntoHoriLayout("lineage_next", LM.Get("lineage_next"), () =>
+                    {
+                        if (currentPage + 1 >= pages) return;
+                        _historyPages[empireId] = currentPage + 1; RefreshWindow();
+                    }, size: new Vector2(62f, 16f));
+                }
+                foreach (var history in histories.Skip(page * HistoryPageSize).Take(HistoryPageSize))
                 {
                     if (history == null) continue;
-                    var emperorCard = parent.BeginHoriGroup(pSize: new Vector2(200, 26), pSpacing: 2,
+                    var emperorCard = parent.BeginHoriGroup(pSize: new Vector2(UIHelper.WidePanelWidth, 26), pSpacing: 2,
                         pAlignment: TextAnchor.MiddleCenter);
-                    var emperorDetails = emperorCard.BeginVertGroup(pSize: new Vector2(175, 24), pSpacing: -2,
+                    var emperorDetails = emperorCard.BeginVertGroup(pSize: new Vector2(UIHelper.WidePanelWidth - 25f, 24), pSpacing: -2,
                         pAlignment: TextAnchor.MiddleLeft);
                     string titleText = BuildEmperorTitleText(history);
                     string displayName = string.IsNullOrEmpty(titleText)
                         ? history.emperor
                         : $"{history.emperor}  |  {titleText}";
                     emperorDetails.AddTextIntoVertLayout(displayName.ColorString(pColor: new Color(0.82f, 0.9f, 1f)), true,
-                        TextAnchor.MiddleLeft, new Vector2(170, 11));
+                        TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 32f, 11));
                     string reignText = $"{history.year_name}  ·  {GetReignDuration(history, liveEmpire)}{LM.Get("Year")}";
-                    emperorDetails.AddTextIntoVertLayout(reignText, true, TextAnchor.MiddleLeft, new Vector2(170, 9));
+                    emperorDetails.AddTextIntoVertLayout(reignText, true, TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 32f, 9));
                     emperorCard.AddButtonIntoHoriLayout("open_history", "", () =>
                     {
                         ConfigData.CURRENT_SELECTED_HISTORY = history;
                         EmpireCraftMetaTypeLibrary.selected_empire = liveEmpire ?? currentEmpires.FirstOrDefault();
                         ScrollWindow.showWindow(nameof(EmpireHistoryWindow));
                     }, SpriteTextureLoader.getSprite("ui/iconHistory"), size: new Vector2(14, 14), showTip: true);
-                    emperorCard.transform.AddStretchBackground("clanFrame", new Vector2(200, 26));
+                    emperorCard.transform.AddStretchBackground("clanFrame", new Vector2(UIHelper.WidePanelWidth, 26));
                 }
             }
         }
@@ -328,10 +354,16 @@ namespace EmpireCraft.Scripts.UI.Windows
         private List<EmpireCraftHistory> GetHistoriesForEmpire(long empireId)
         {
             var result = new List<EmpireCraftHistory>();
+            var seen = new HashSet<long>();
             Empire activeEmpire = ModClass.EMPIRE_MANAGER.get(empireId);
             if (activeEmpire != null && !activeEmpire.isRekt() && activeEmpire.data?.history != null)
             {
-                result.AddRange(activeEmpire.data.history.Where(h => h != null));
+                foreach (var history in activeEmpire.data.history)
+                    if (history != null)
+                    {
+                        result.Add(history);
+                        seen.Add(history.id);
+                    }
             }
 
             if (ModClass.ALL_HISTORY_DATA.TryGetValue(empireId, out var archivedHistories) && archivedHistories != null)
@@ -339,7 +371,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 foreach (var history in archivedHistories)
                 {
                     if (history == null) continue;
-                    if (result.All(h => h.id != history.id))
+                    if (seen.Add(history.id))
                     {
                         result.Add(history);
                     }
@@ -347,7 +379,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
 
             if (activeEmpire != null && !activeEmpire.isRekt() && activeEmpire.data?.currentHistory != null &&
-                result.All(h => h.id != activeEmpire.data.currentHistory.id))
+                seen.Add(activeEmpire.data.currentHistory.id))
                 result.Add(activeEmpire.data.currentHistory);
             return result;
         }

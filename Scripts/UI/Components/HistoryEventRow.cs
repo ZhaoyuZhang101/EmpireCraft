@@ -25,7 +25,7 @@ public static class HistoryEventRow
     private const float CardHeight = 28f;
     private const float DateWidth = 38f;
     private const float ItemSpacing = 2f;
-    private const float RightPadding = 4f;
+    private const float RightPadding = 6f;
 
     public static AutoHoriLayoutGroup Add(AutoVertLayoutGroup parent, string date, string content,
         IReadOnlyList<HistoryEventRowMarker> markers = null, string secondaryContent = null)
@@ -39,14 +39,17 @@ public static class HistoryEventRow
             }
         }
 
+        var parentRect = parent.transform as RectTransform;
+        bool wide = parent.GetComponentInParent<WideWindowScrollArea>() != null;
+        float cardWidth = wide ? Mathf.Min(UIHelper.WidePanelWidth, parentRect.rect.width - parent.layout.padding.horizontal) : CardWidth;
         float markerWidth = 0f;
         foreach (HistoryEventRowMarker marker in validMarkers) markerWidth += Mathf.Max(0f, marker.Width);
         int childCount = 2 + validMarkers.Count;
         float contentWidth = Mathf.Max(24f,
-            CardWidth - DateWidth - markerWidth - ItemSpacing * (childCount - 1) - RightPadding);
+            cardWidth - DateWidth - markerWidth - ItemSpacing * (childCount - 1) - RightPadding);
 
         AutoHoriLayoutGroup row = parent.BeginHoriGroup(pSpacing: ItemSpacing,
-            pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(CardWidth, CardHeight));
+            pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(cardWidth, CardHeight));
         SimpleText dateText = row.AddTextIntoHoriLayout(date ?? "", true, TextAnchor.MiddleCenter,
             new Vector2(DateWidth, 22f));
         dateText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
@@ -67,7 +70,7 @@ public static class HistoryEventRow
         }
 
         foreach (HistoryEventRowMarker marker in validMarkers) marker.Build(row);
-        row.transform.AddStretchBackground("clanFrame", new Vector2(CardWidth, CardHeight));
+        row.transform.AddStretchBackground("clanFrame", new Vector2(cardWidth, CardHeight));
         return row;
     }
 

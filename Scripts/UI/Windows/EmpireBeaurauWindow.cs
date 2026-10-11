@@ -1,4 +1,4 @@
-﻿using NeoModLoader.api;
+using NeoModLoader.api;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General;
 using System;
@@ -95,7 +95,7 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
         virtualPeeragesSpace = _root.BeginVertGroup();
         AddSectionHeader(virtualPeeragesSpace, LM.Get("empire_virtual_peerages"), "ChineseCrown", "ui/icons/iconCrown");
         AddSubHeader(virtualPeeragesSpace, LM.Get("empire_legal_virtual_peerages").ColorString("#5AD9FF"));
-        virtualPeeragesGroup = _root.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
+        virtualPeeragesGroup = _root.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         Regime regime = _empire.CoreKingdom.GetRegime();
         EmpireCore core = EmpireCoreManager.Get(_empire);
         List<KingdomTitle> titles = EmpireCoreManager.GetTitles(core)
@@ -126,7 +126,7 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
         virtualPeeragesSpace.AddChild(virtualPeeragesGroup.gameObject);
 
         AddSubHeader(virtualPeeragesSpace, LM.Get("empire_honorary_virtual_peerages").ColorString("#FFBF33"));
-        var honoraryGroup = _root.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
+        var honoraryGroup = _root.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         foreach (string peerage in regime.virtual_honorary_peerages ?? new List<string>())
         {
             Actor holder = honoraryHolders.FirstOrDefault(a => a.GetOrCreate().honorary_peerage_key == peerage);
@@ -280,7 +280,7 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
         //中央核心部门
         AddSectionHeader(coreOfficeSpace, LM.Get("CoreOffice"), "ui/icons/iconKingdom");
 
-        coreOfficeGroup = _root.BeginGridGroup(2, pCellSize: new Vector2(100, 55));
+        coreOfficeGroup = _root.BeginGridGroup(4, pCellSize: new Vector2(100, 55));
         foreach (var oid in _empire.data.centerOffice.CoreOffices)
         {
             SetOfficeView(oid, ref coreOfficeGroup);
@@ -296,7 +296,7 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
         //中央二级部门
         AddSectionHeader(divisionsSpace, LM.Get("Divisions"), "ui/icons/iconWorldLaws", "ui/icons/iconKnowledge");
 
-        divisionsGroup = _root.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
+        divisionsGroup = _root.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
         foreach (var o2 in _empire.data.centerOffice.Divisions)
         {
             SetOfficeView(o2, ref divisionsGroup);
@@ -312,7 +312,7 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
         //后宫
         AddSectionHeader(haremsSpace, LM.Get("Harems"), "ui/icons/iconFamily", "ui/icons/iconCrown");
 
-        haremsGroup = _root.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
+        haremsGroup = _root.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize:new Vector2(100, 55));
         foreach (var o2 in _empire.data.centerOffice.Harems)
         {
             SetOfficeView(o2, ref haremsGroup);
@@ -328,7 +328,7 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
         //省级部门
         AddSectionHeader(provincesSpace, LM.Get("province"), "ui/icons/iconCity");
 
-        provincesGroup = _root.BeginGridGroup(2, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
+        provincesGroup = _root.BeginGridGroup(4, GridLayoutGroup.Constraint.FixedColumnCount, pCellSize: new Vector2(100, 55));
         foreach (Kingdom kingdom in _empire.kingdoms_hashset)
         {
             SetOfficeView(kingdom.GetOfficeID(), ref provincesGroup, kingdom);
@@ -744,8 +744,8 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
     // 跟制度科技树同一套 GraphView：可拖拽平移、滚轮缩放。自上而下按品级一层一层往下排——
     // 君主 → 后宫 → 中央部门 → 下级部门 → 行政区，每一层居中，越往下人越多，整体呈金字塔。
     // 一层超过 MaxCardsPerRow 张就折成几行，免得最底下的行政区一行拉得太长。
-    private const float GraphWidth = 204f;
-    private const float GraphHeight = 300f;
+    private const float GraphWidth = UIHelper.WidePanelWidth;
+    private const float GraphHeight = 240f;
     private const int MaxCardsPerRow = 6;
     private const float NodeWidth = 72f;
     private const float NodeHeight = 80f;
@@ -949,17 +949,17 @@ public class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindow>
     // 分区标题：一条深色细条，左侧图标 + 金色标题(原来是一整块灰底大字)
     private static void AddSectionHeader(AutoVertLayoutGroup space, string text, params string[] icons)
     {
-        var bar = space.BeginHoriGroup(new Vector2(204f, 15f), TextAnchor.MiddleCenter, 3);
-        UIHelper.AddInsetBackground(bar, new Vector2(204f, 15f));
+        var bar = space.BeginHoriGroup(new Vector2(UIHelper.WidePanelWidth, 15f), TextAnchor.MiddleCenter, 3);
+        UIHelper.AddInsetBackground(bar, new Vector2(UIHelper.WidePanelWidth, 15f));
         UIHelper.AddLayoutIcon(bar.transform, UIHelper.FirstSprite(icons), 11f);
         var label = bar.AddTextIntoHoriLayout(text.ColorString("#F3C34A"), true, TextAnchor.MiddleLeft,
-            new Vector2(180f, 13f));
+            new Vector2(UIHelper.WidePanelWidth - 24f, 13f));
         label.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
     }
 
     private static void AddSubHeader(AutoVertLayoutGroup space, string text)
     {
-        var label = space.AddTextIntoVertLayout(text, true, TextAnchor.MiddleCenter, new Vector2(204f, 11f));
+        var label = space.AddTextIntoVertLayout(text, true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth, 11f));
         label.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
     }
 

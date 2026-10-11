@@ -97,7 +97,7 @@ public class KingdomPatch : GamePatch
             _capitalTakeoverLogAt = UnityEngine.Time.unscaledTime + 10f;
             NeoModLoader.services.LogService.LogWarning(
                 $"[EmpireCraft][还于旧都诊断] {kingdom.name} 已坐镇记录旧都 {kingdom.capital.name}，仍被调用 setCapital。调用栈:\n" +
-                new System.Diagnostics.StackTrace(2, false));
+                new global::System.Diagnostics.StackTrace(2, false));
         }
         catch { }
     }

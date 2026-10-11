@@ -22,6 +22,8 @@ public sealed class WideWindowScrollArea : MonoBehaviour
     private float _topMargin;
     private float _bottomMargin;
     private float _sideMargin;
+    private bool _initialized;
+    private Vector2 _lastSize;
 
     public void Configure(float topMargin, float bottomMargin, float sideMargin)
     {
@@ -34,17 +36,33 @@ public sealed class WideWindowScrollArea : MonoBehaviour
         _bottomMargin = bottomMargin;
         _sideMargin = sideMargin;
         if (_background == null || _scrollView == null || _viewport == null || _scrollRect == null) return;
-        EnsureDedicatedScrollbar();
-        HideNarrowDecorations();
+        if (!_initialized)
+        {
+            EnsureDedicatedScrollbar();
+            HideNarrowDecorations();
+            // 使用矩形裁切，不依赖窄窗口预制体的蒙版图片形状。
+            Mask oldMask = _viewport.GetComponent<Mask>();
+            if (oldMask != null) oldMask.enabled = false;
+            Image viewportImage = _viewport.GetComponent<Image>();
+            if (viewportImage != null) viewportImage.color = Color.clear;
+            var clip = _viewport.GetComponent<RectMask2D>() ?? _viewport.gameObject.AddComponent<RectMask2D>();
+            clip.enabled = true;
+            _initialized = true;
+        }
         ApplyLayout();
-        // 只在(重新)配置时回到顶部；LateUpdate 里不能再动 y，否则每帧都把滚动位置清零。
-        if (_content != null) _content.anchoredPosition = Vector2.zero;
     }
 
     private void LateUpdate()
     {
         if (_background == null || _scrollView == null || _viewport == null || _scrollRect == null) return;
-        ApplyLayout();
+        foreach (Scrollbar legacy in _legacyScrollbars)
+            if (legacy != null && legacy.gameObject.activeSelf) legacy.gameObject.SetActive(false);
+        // 不再每帧扫描整个内容的 preferredHeight、重写所有 RectTransform。
+        // 开窗动画改变外框尺寸时才更新，内容高度交给 ContentSizeFitter。
+        if (_lastSize != _background.rect.size || _viewport.offsetMin != Vector2.zero ||
+            _viewport.offsetMax != new Vector2(-12f, 0f) ||
+            !Mathf.Approximately(_scrollView.rect.width, Mathf.Max(40f, _background.rect.width - _sideMargin * 2f)))
+            ApplyLayout();
     }
 
     private void EnsureDedicatedScrollbar()
@@ -136,6 +154,7 @@ public sealed class WideWindowScrollArea : MonoBehaviour
         float scrollWidth = Mathf.Max(40f, width - _sideMargin * 2f);
         float scrollHeight = Mathf.Max(40f, height - _topMargin - _bottomMargin);
         float centerY = (_bottomMargin - _topMargin) * 0.5f;
+        _lastSize = _background.rect.size;
 
         _scrollView.anchorMin = _scrollView.anchorMax = new Vector2(0.5f, 0.5f);
         _scrollView.pivot = new Vector2(0.5f, 0.5f);
@@ -152,7 +171,7 @@ public sealed class WideWindowScrollArea : MonoBehaviour
 
         if (_content != null)
         {
-            float contentHeight = Mathf.Max(_viewport.rect.height, LayoutUtility.GetPreferredHeight(_content));
+            float contentHeight = _content.rect.height;
             _content.anchorMin = new Vector2(0f, 1f);
             _content.anchorMax = new Vector2(1f, 1f);
             _content.pivot = new Vector2(0.5f, 1f);

@@ -100,8 +100,7 @@ internal static class MainTab
             nameof(AddFactionMemberWindow) + "Title");
         AddFactionWindow.CreateWindow(nameof(AddFactionWindow),
             nameof(AddFactionWindow) + "Title");
-        EmpireHistoryWindow.CreateWindow(nameof(EmpireHistoryWindow),
-            "empire_history");
+        EmpireHistoryWindow.CreateAndInit(nameof(EmpireHistoryWindow), new Vector2(480f, 380f));
         EmpireCoreWindow.CreateAndInit(nameof(EmpireCoreWindow), new Vector2(480f, 380f));
         BugReportWindow.CreateWindow(nameof(BugReportWindow),
             "bug_report_window_title");

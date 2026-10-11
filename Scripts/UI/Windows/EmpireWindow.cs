@@ -1,4 +1,4 @@
-﻿using NeoModLoader.General.UI.Window.Layout;
+using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using NeoModLoader.General.UI.Window;
 using NeoModLoader.api;
@@ -39,6 +39,9 @@ namespace EmpireCraft.Scripts.UI.Windows
         private bool _textInputInitialized;
         private readonly Dictionary<string, GameObject> _groups = new Dictionary<string, GameObject>();
         private int _renderGeneration;
+        private const int LineagePageSize = 12;
+        private readonly List<(string group, EmpireCraftHistory history)> _lineage = new();
+        private int _lineagePage;
 
         private Dictionary<string, Text> _infosTrans = new Dictionary<string, Text>();
 
@@ -137,7 +140,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             //总容器
             var topSpace = _root.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter,
-                pSize: new Vector2(196, 68), pPadding: new RectOffset(0, 6, 0, 0));
+                pSize: new Vector2(UIHelper.WidePanelWidth, 78), pPadding: new RectOffset(8, 8, 4, 4));
             // 一建好就登记：后面任何一项绘制出错，Clear() 也能把它删掉，
             // 否则每次刷新都会多留一块残缺的顶部栏，越叠越多
             AddIntoGroup("top_space", topSpace.gameObject);
@@ -153,32 +156,32 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void DrawTopPartInfo(AutoHoriLayoutGroup topSpace)
         {
-            topSpace.transform.AddStretchBackground("clanFrame", new Vector2(208, 72));
-            
+            topSpace.transform.AddStretchBackground("clanFrame", new Vector2(UIHelper.WidePanelWidth, 78));
+
             //左侧信息栏
-            var leftPart = topSpace.BeginVertGroup(new Vector2(50, 56), pSpacing: 0,
-                pAlignment:TextAnchor.MiddleCenter);
+            var leftPart = topSpace.BeginVertGroup(new Vector2(156, 64), pSpacing: 0,
+                pAlignment:TextAnchor.MiddleCenter, pPadding:new RectOffset(0, 0, 0, 0));
             bool republic = RepublicSystem.IsRepublic(_empire);
             if (republic)
             {
                 // 共和国：没有皇室、没有历代皇帝，改为执政党与共和年数
                 FixedFaction governing = ParliamentSystem.GetGoverningFaction(_empire) ??
                                          _empire.CoreKingdom.GetRegime()?.GetDominateFaction();
-                leftPart.AddTextIntoVertLayout($"{LM.Get("republic_ruling_party")}: {(governing?.Name ?? LM.Get("label_none")).ColorString("#C9A7E8")}", size:new Vector2(50, 10));
-                leftPart.AddTextIntoVertLayout(string.Format(LM.Get("republic_years_format"), RepublicSystem.GetRepublicYears(_empire)), size:new Vector2(50, 10));
+                leftPart.AddTextIntoVertLayout($"{LM.Get("republic_ruling_party")}: {(governing?.Name ?? LM.Get("label_none")).ColorString("#C9A7E8")}", size:new Vector2(156, 12));
+                leftPart.AddTextIntoVertLayout(string.Format(LM.Get("republic_years_format"), RepublicSystem.GetRepublicYears(_empire)), size:new Vector2(156, 12));
             }
             else
             {
-                leftPart.AddTextIntoVertLayout($"{LM.Get("empire_clan")}: {(_empire.EmpireSpecificClan?.name??""+ " " + LM.Get("Clan")).ColorString(_empire.EmpireSpecificClan?.color??"#FFFFFF")}", size:new Vector2(50, 10));
-                leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count??0)}", size:new Vector2(50, 10));
+                leftPart.AddTextIntoVertLayout($"{LM.Get("empire_clan")}: {(_empire.EmpireSpecificClan?.name??""+ " " + LM.Get("Clan")).ColorString(_empire.EmpireSpecificClan?.color??"#FFFFFF")}", size:new Vector2(156, 12));
+                leftPart.AddTextIntoVertLayout($"{"format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count??0)}", size:new Vector2(156, 12));
             }
-            leftPart.AddTextIntoVertLayout($"{LM.Get("i_population")}: {_empire.CountPopulation()}/{_empire.countMaxPopulation()}", size:new Vector2(50, 10));
-            leftPart.AddTextIntoVertLayout($"{LM.Get("national_power")}: {_empire.GetNationalPower():0.##}", size:new Vector2(50, 10));
+            leftPart.AddTextIntoVertLayout($"{LM.Get("i_population")}: {_empire.CountPopulation()}/{_empire.countMaxPopulation()}", size:new Vector2(156, 12));
+            leftPart.AddTextIntoVertLayout($"{LM.Get("national_power")}: {_empire.GetNationalPower():0.##}", size:new Vector2(156, 12));
             // 原来放在下面"帝国文化特点"面板里的两条基础信息(当前制度/统治文化)，挪到这里跟
             // 其它基础数据放一起，不用滚到下面才看得到。
             leftPart.AddTextIntoVertLayout(
                 $"{LM.Get("composite_empire_current_system")}: {CompositeEmpireService.GetRegimeName(_empire.CoreKingdom.GetRegime().type)}",
-                size:new Vector2(50, 10));
+                size:new Vector2(156, 12));
 
             // 人物区固定为 hori(继任者, vert(皇帝, 权臣), 皇后)。
             var avatarRow = topSpace.BeginHoriGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleCenter,
@@ -187,7 +190,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (!republic)
                 avatarRow.AddActorViewIntoHoriLayout(_empire.CoreKingdom.GetHeir(),
                     description:LM.Get("empire_heir").ColorString(pColor:new Color(0.8f,0.0f,1f)));
-            
+
             //中央信息栏
             var centerPart = avatarRow.BeginVertGroup(new Vector2(30, 60), pSpacing:0,
                 pAlignment:TextAnchor.MiddleCenter);
@@ -225,7 +228,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }
                 centerPart.AddActorViewIntoVertLayout(powerfulMinister, description:powerfulMinisterDescription);
             }
-            
+
             if (!republic)
             {
                 Actor lover = _empire.Emperor?.lover;
@@ -233,33 +236,46 @@ namespace EmpireCraft.Scripts.UI.Windows
                     description:LM.Get(lover?.isSexFemale() == false ? "empire_lover_B" : "empire_lover_G")
                         .ColorString(pColor:new Color(1f,0.1f,0.5f)));
             }
-            
+
             //右侧信息栏
-            var rightPart = topSpace.BeginVertGroup(new Vector2(50, 46), pSpacing: 0,
-                pAlignment:TextAnchor.MiddleCenter);
+            var rightPart = topSpace.BeginVertGroup(new Vector2(156, 64), pSpacing: 0,
+                pAlignment:TextAnchor.MiddleCenter, pPadding:new RectOffset(0, 0, 0, 0));
             rightPart.AddTextIntoVertLayout($"{LM.Get("official_students_num")}: " +
                                             $"{_empire.GetMembersWithTrait("jingshi").Count.ToString().ColorString("#E16A54")}/" +
                                             $"{_empire.GetMembersWithTrait("gongshi").Count.ToString().ColorString("#CB9DF0")}/" +
-                                            $"{_empire.GetMembersWithTrait("juren").Count.ToString()}".ColorString("#A2D2DF"), size:new Vector2(50, 10));
+                                            $"{_empire.GetMembersWithTrait("juren").Count.ToString()}".ColorString("#A2D2DF"), size:new Vector2(156, 12));
             // 共和国显示其选定的纪年方式。
             string yearText = republic
                 ? RepublicSystem.GetCalendarText(_empire)
                 : _empire.GetYearNameWithTime();
-            rightPart.AddTextIntoVertLayout($"{yearText.ColorString(pColor:_empire.getColor()._color_text)}", size:new Vector2(50, 10));
-            rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.CoreKingdom.getAge()}", size:new Vector2(50, 10));
+            rightPart.AddTextIntoVertLayout($"{yearText.ColorString(pColor:_empire.getColor()._color_text)}", size:new Vector2(156, 12));
+            rightPart.AddTextIntoVertLayout($"{LM.Get("i_age")}: {_empire.CoreKingdom.getAge()}", size:new Vector2(156, 12));
             rightPart.AddTextIntoVertLayout(
                 $"{LM.Get("composite_empire_ruling_culture")}: {GetCultureDisplayName(CultureService.GetRealmCulture(_empire.CoreKingdom))}",
-                size:new Vector2(50, 10));
-            
+                size:new Vector2(156, 12));
+
             RectTransform topRect = topSpace.GetComponent<RectTransform>();
-            topRect.sizeDelta = new Vector2(196, 68);
-            LayoutRebuilder.ForceRebuildLayoutImmediate(topRect);
+            topRect.sizeDelta = new Vector2(UIHelper.WidePanelWidth, 78);
+            foreach (Text label in leftPart.GetComponentsInChildren<Text>())
+                {
+                    label.resizeTextForBestFit = false;
+                    label.fontSize = 8;
+                    label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    label.verticalOverflow = VerticalWrapMode.Truncate;
+                }
+            foreach (Text label in rightPart.GetComponentsInChildren<Text>())
+                {
+                    label.resizeTextForBestFit = false;
+                    label.fontSize = 8;
+                    label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    label.verticalOverflow = VerticalWrapMode.Truncate;
+                }
             _empireNameInput?.transform.SetAsLastSibling();
             // 窗口开着时国号变了也跟着刷新；玩家正在输入时不打断
             if (_empireNameInput != null && !_empireNameInput.input.isFocused &&
                 _empireNameInput.input.text != _empire.GetEmpireFullName())
                 _empireNameInput.input.text = _empire.GetEmpireFullName();
-            
+
             AddIntoGroup("top_space", topSpace.gameObject);
         }
 
@@ -312,7 +328,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             _empireNameInput.transform.SetAsLastSibling();
         }
-        
+
         //显示势力范围
         public IEnumerator ShowKingdomList()
         {
@@ -366,25 +382,25 @@ namespace EmpireCraft.Scripts.UI.Windows
             List<SocialClass> classes = Enum.GetValues(typeof(SocialClass)).Cast<SocialClass>()
                 .Where(socialClass => classShares.TryGetValue(socialClass, out float share) && share * 100f >= 0.5f)
                 .ToList();
-            int rowCount = (classes.Count + 1) / 2;
+            int rowCount = (classes.Count + 2) / 3;
             float panelHeight = 4 + 12 + 10 + rowCount * 21 + (rowCount + 1);
 
-            var panel = parent.BeginVertGroup(new Vector2(196, panelHeight), pSpacing: 1,
+            var panel = parent.BeginVertGroup(new Vector2(UIHelper.WidePanelWidth, panelHeight), pSpacing: 1,
                 pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(3, 3, 2, 2));
             var title = panel.AddTextIntoVertLayout(LM.Get("empire_class_alignment").ColorString("#7FD8EA"), true,
-                TextAnchor.MiddleCenter, new Vector2(190, 12));
+                TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 12));
             title.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
             var hint = panel.AddTextIntoVertLayout(LM.Get("empire_class_alignment_hint").ColorString("#8FA0A8"),
-                true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
             hint.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
 
-            for (int index = 0; index < classes.Count; index += 2)
+            for (int index = 0; index < classes.Count; index += 3)
             {
-                var row = panel.BeginHoriGroup(new Vector2(190, 21), TextAnchor.MiddleCenter, 2);
-                for (int column = 0; column < 2 && index + column < classes.Count; column++)
+                var row = panel.BeginHoriGroup(new Vector2(UIHelper.WidePanelWidth - 12f, 21), TextAnchor.MiddleCenter, 2);
+                for (int column = 0; column < 3 && index + column < classes.Count; column++)
                     AddClassAlignmentCell(row, classes[index + column], classShares, factions);
             }
-            panel.transform.AddStretchBackground("regimeFrame", new Vector2(196, panelHeight));
+            panel.transform.AddStretchBackground("regimeFrame", new Vector2(UIHelper.WidePanelWidth, panelHeight));
         }
 
         private static void AddClassAlignmentCell(AutoHoriLayoutGroup row, SocialClass socialClass,
@@ -402,17 +418,17 @@ namespace EmpireCraft.Scripts.UI.Windows
                 : string.Format(LM.Get("empire_class_alignment_value"), preferred.Name, allegiance);
             string preferenceColor = allegiance >= 50f ? "#65D66E" : "#B8C6CC";
 
-            var cell = row.BeginVertGroup(new Vector2(94, 20), pSpacing: 0,
+            var cell = row.BeginVertGroup(new Vector2(138, 20), pSpacing: 0,
                 pAlignment: TextAnchor.MiddleLeft, pPadding: new RectOffset(3, 2, 0, 0));
             var heading = cell.AddTextIntoVertLayout(
                 $"{socialClass.ToTranslate()}  {population:0}%".ColorString("#F3C34A"), true,
-                TextAnchor.MiddleLeft, new Vector2(89, 9));
+                TextAnchor.MiddleLeft, new Vector2(133, 9));
             heading.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
             var valueLabel = cell.AddTextIntoVertLayout(preference.ColorString(preferenceColor), true,
-                TextAnchor.MiddleLeft, new Vector2(89, 9));
+                TextAnchor.MiddleLeft, new Vector2(133, 9));
             valueLabel.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
             HoverMarqueeText.Attach(valueLabel);
-            cell.transform.AddStretchBackground("FactionFrame", new Vector2(94, 20));
+            cell.transform.AddStretchBackground("FactionFrame", new Vector2(138, 20));
         }
 
         private void AddCompositeEmpireStatus(AutoVertLayoutGroup parent, Empire empire)
@@ -438,7 +454,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                                    !string.IsNullOrWhiteSpace(empire.data.composite_cultural_name);
             float height = composite ? hasCulturalName ? 166f : 154f :
                 adoption?.HasInstitutionalTarget == true ? 104f : 82f;
-            var panel = parent.BeginVertGroup(new Vector2(196, height), pSpacing: 1,
+            var panel = parent.BeginVertGroup(new Vector2(UIHelper.WidePanelWidth, height), pSpacing: 1,
                 pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(3, 3, 2, 2));
 
             string titleState = composite
@@ -449,7 +465,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             panel.AddTextIntoVertLayout(
                 $"{LM.Get("composite_empire_identity_title")} · {titleState}".ColorString(
                     pColor: composite ? new Color(0.25f, 0.9f, 0.8f) : new Color(0.85f, 0.75f, 0.35f)),
-                true, TextAnchor.MiddleCenter, new Vector2(190, 12));
+                true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 12));
 
             if (composite)
             {
@@ -458,34 +474,34 @@ namespace EmpireCraft.Scripts.UI.Windows
                 string externalIdentity = GetCultureDisplayName(empire.data.external_identity_culture);
                 panel.AddTextIntoVertLayout(
                     $"{LM.Get("composite_empire_ruling_culture")}: {ruling.ColorString("#F3C34A")}",
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
                 panel.AddTextIntoVertLayout(
                     $"{LM.Get("composite_empire_court_culture")}: {institution.ColorString("#65D6C4")}",
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
                 panel.AddTextIntoVertLayout(
                     $"{LM.Get("composite_empire_court_system")}: {CompositeEmpireService.GetInstitutionalRegimeName(empire)}",
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
                 if (hasCulturalName)
                 {
                     string nameCulture = GetCultureDisplayName(empire.data.composite_cultural_name_culture);
                     panel.AddTextIntoVertLayout(
                         $"{LM.Get("composite_empire_cultural_name")}: {empire.data.composite_cultural_name.ColorString("#F3C34A")} ({nameCulture})",
-                        true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                        true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
                 }
                 panel.AddTextIntoVertLayout(
                     LM.Get("composite_empire_regional_systems"),
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
                 panel.AddTextIntoVertLayout(CompositeEmpireService.GetRegionalInstitutionSummary(empire),
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 30));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 30));
                 panel.AddTextIntoVertLayout(
                     $"{LM.Get("composite_empire_military_tradition")}: {CompositeEmpireService.GetMilitaryTraditionName(empire).ColorString("#E9A85B")}",
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
                 panel.AddTextIntoVertLayout(
                     $"{LM.Get("composite_empire_external_identity")}: {externalIdentity}  |  {LM.Get("composite_empire_integration")}: {empire.data.composite_integration}%",
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
                 panel.AddTextIntoVertLayout(
                     $"{LM.Get("composite_empire_dual_legitimacy")}: {empire.data.central_plains_legitimacy}/{empire.data.ruling_tradition_legitimacy}",
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
             }
             else if (adoption != null)
             {
@@ -495,13 +511,13 @@ namespace EmpireCraft.Scripts.UI.Windows
                     : LM.Get("label_none");
                 panel.AddTextIntoVertLayout(
                     $"{LM.Get("composite_empire_ruling_culture")}: {ruling.ColorString("#F3C34A")}",
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
                 panel.AddTextIntoVertLayout(
                     $"{LM.Get("composite_empire_current_system")}: {CompositeEmpireService.GetMilitaryTraditionName(empire)}",
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
                 panel.AddTextIntoVertLayout(
                     $"{LM.Get("composite_empire_candidate_culture")}: {institution.ColorString("#65D6C4")}",
-                    true, TextAnchor.MiddleCenter, new Vector2(190, 10));
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 10));
 
                 // 走到这里已经确认过统治文化是游牧传统了(见方法开头的 rulingCultureIsNomadic
                 // 提前返回)，"不是游牧传统"这条分支不会再触发，删掉。
@@ -525,12 +541,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                                       controlled, adoption.TotalTitles, requiredTitles) + "\n" +
                                   string.Format(LM.Get("composite_empire_adoption_mandate_progress"), mandate);
                 }
-                panel.AddTextIntoVertLayout(requirement, true, TextAnchor.MiddleCenter, new Vector2(190, 20));
+                panel.AddTextIntoVertLayout(requirement, true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 20));
 
                 if (adoptionInProgress)
                 {
                     panel.AddTextIntoVertLayout(LM.Get("composite_empire_adoption_plotting").ColorString("#65D6C4"),
-                        true, TextAnchor.MiddleCenter, new Vector2(190, 11));
+                        true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 11));
                 }
                 else if (adoption.IsEligible)
                 {
@@ -540,7 +556,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }
             }
 
-            panel.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(196, height));
+            panel.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(UIHelper.WidePanelWidth, height));
         }
 
         private static string GetCultureDisplayName(string culture)
@@ -565,41 +581,87 @@ namespace EmpireCraft.Scripts.UI.Windows
         //显示君主世系
         public void ShowEmperors(WindowMetaTab pArg0)
         {
+            _lineage.Clear();
+            _lineagePage = 0;
+            // 一次分组，保留朝代首次出现的顺序；不再每个朝代重扫完整历史。
+            var groups = new Dictionary<string, List<EmpireCraftHistory>>();
+            var order = new List<string>();
+            foreach (EmpireCraftHistory history in _empire.data.history)
+            {
+                if (history == null || string.IsNullOrEmpty(history.emperor)) continue;
+                string group = HistoryGroupKey(history) ?? "";
+                if (!groups.TryGetValue(group, out var entries))
+                {
+                    groups[group] = entries = new List<EmpireCraftHistory>();
+                    order.Add(group);
+                }
+                entries.Add(history);
+            }
+            foreach (string group in order)
+                foreach (EmpireCraftHistory history in groups[group]) _lineage.Add((group, history));
+            ShowLineagePage();
+        }
+
+        private void ShowLineagePage()
+        {
             Clear();
             InitialTopPartInfo();
             var parent = CommonInitial("past_emperors");
-            parent.AddComponent<EmpireCraftStatsRow>();
-            EmpireCraftStatsRow statsRow = parent.GetComponent<EmpireCraftStatsRow>();
-            
-            string text = "";
-            // 君主按"姓氏·国号"分朝代；共和国的历任元首不分姓氏，合并成一组
-            var groups = new List<string>();
-            foreach (var h in _empire.data.history)
+            int pages = Math.Max(1, (_lineage.Count + LineagePageSize - 1) / LineagePageSize);
+            _lineagePage = Math.Max(0, Math.Min(pages - 1, _lineagePage));
+            var navigation = parent.BeginHoriGroup(new Vector2(UIHelper.WidePanelWidth - 12f, 18f),
+                TextAnchor.MiddleCenter, 8f);
+            navigation.AddButtonIntoHoriLayout("lineage_previous", LM.Get("lineage_previous"), () =>
             {
-                string g = HistoryGroupKey(h);
-                if (!groups.Contains(g)) groups.Add(g);
-            }
-            foreach (var g in groups)
+                if (_lineagePage > 0) { _lineagePage--; ShowLineagePage(); }
+            }, size: new Vector2(62f, 16f));
+            navigation.AddTextIntoHoriLayout(string.Format(LM.Get("lineage_page"), _lineagePage + 1,
+                pages, _lineage.Count), true, TextAnchor.MiddleCenter, new Vector2(230f, 16f));
+            navigation.AddButtonIntoHoriLayout("lineage_next", LM.Get("lineage_next"), () =>
             {
-                parent.AddTextIntoVertLayout(g == RepublicGroupKey ? RepublicGroupTitle() : g, true, TextAnchor.MiddleCenter);
-                foreach (var h in _empire.data.history)
-                {
-                    if (HistoryGroupKey(h) == g)
-                    {
-                        ListPastEmperor(statsRow, h);
-                    }
-                }
-            }
+                if (_lineagePage + 1 < pages) { _lineagePage++; ShowLineagePage(); }
+            }, size: new Vector2(62f, 16f));
+
             bool republicNow = RepublicSystem.IsRepublic(_empire);
-            text = republicNow
-                ? _empire.GetEmpireFullName() + RepublicSystem.GetHeadOfStateTitle(_empire)
-                : _empire.GetEmpireName() + (_empire.data.has_year_name?_empire.data.year_name:"") + LM.Get("emperor");
-            statsRow.IShowStatsRow(republicNow ? "current_head_of_state" : "current_emperor", _empire.Emperor?.name??"无" , _empire.getColor().color_text, pIconPath: "iconKings", action: () => OpenHistoryWindow(_empire.data.currentHistory));
+            var current = parent.BeginVertGroup(pSpacing: 1, pPadding: new RectOffset(4, 4, 3, 3));
+            UIHelper.UseWidePanel(current.transform);
+            EmpireCraftStatsRow currentRows = current.AddComponent<EmpireCraftStatsRow>();
+            currentRows.WideLayout = true;
+            currentRows.IShowStatsRow(republicNow ? "current_head_of_state" : "current_emperor",
+                _empire.Emperor?.name ?? LM.Get("label_none"), _empire.getColor().color_text,
+                pIconPath: "iconKings", action: () => OpenHistoryWindow(_empire.data.currentHistory));
             if (_empire.Emperor != null)
+                currentRows.IShowStatsRow("title_name", republicNow
+                    ? _empire.GetEmpireFullName() + RepublicSystem.GetHeadOfStateTitle(_empire)
+                    : _empire.GetEmpireName() + (_empire.data.has_year_name ? _empire.data.year_name : "") + LM.Get("emperor"),
+                    _empire.getColor().color_text);
+            StartCoroutine(ShowStatsRowsAndRefresh(currentRows));
+            StartCoroutine(RenderLineagePage(parent, _renderGeneration, _empire));
+        }
+
+        private IEnumerator RenderLineagePage(AutoVertLayoutGroup parent, int generation, Empire empire)
+        {
+            string lastGroup = null;
+            int end = Math.Min(_lineage.Count, (_lineagePage + 1) * LineagePageSize);
+            for (int i = _lineagePage * LineagePageSize; i < end; i++)
             {
-                statsRow.IShowStatsRow("title_name", text, _empire.getColor().color_text);
+                if (!IsCurrentRender(generation, empire, parent)) yield break;
+                var entry = _lineage[i];
+                if (entry.group != lastGroup)
+                {
+                    parent.AddSectionHeader(entry.group == RepublicGroupKey ? RepublicGroupTitle() : entry.group,
+                        "#F3C34A", localize: false);
+                    lastGroup = entry.group;
+                }
+                var card = parent.BeginVertGroup(pSpacing: 1, pPadding: new RectOffset(4, 4, 3, 3));
+                UIHelper.UseWidePanel(card.transform);
+                EmpireCraftStatsRow rows = card.AddComponent<EmpireCraftStatsRow>();
+                rows.WideLayout = true;
+                ListPastEmperor(rows, entry.history);
+                yield return rows.showRows();
+                yield return CoroutineHelper.wait_for_next_frame;
             }
-            StartCoroutine(ShowStatsRowsAndRefresh(statsRow));
+            if (IsCurrentRender(generation, empire, parent)) yield return RefreshScrollLayout(true);
         }
         public void ShowFinance(WindowMetaTab pArg0)
         {
@@ -607,16 +669,21 @@ namespace EmpireCraft.Scripts.UI.Windows
             InitialTopPartInfo();
             var parent = CommonInitial("empire_finance");
             EmpireCraftStatsRow rows = parent.AddComponent<EmpireCraftStatsRow>();
+            rows.WideLayout = true;
             Kingdom core = _empire?.CoreKingdom;
             if (!TreasurySystem.Enabled(core)) return;
             string color = _empire.getColor().color_text;
             TreasuryReport report = TreasurySystem.Report(core);
-            rows.IShowStatsRow("fiscal_safety_reserve", MoneyDisplay.Format(TreasurySystem.SafetyReserve(core)), "#E6A166");
-            rows.IShowStatsRow("fiscal_cash_balance", MoneyDisplay.Format(report.cash_balance),
-                report.cash_balance < 0 ? "#FF6666" : "#65D66E");
+            // 存量：中央国库现状
+            parent.AddSectionHeader("fiscal_section_treasury");
             rows.IShowStatsRow("fiscal_central_account", core.GetKingdomName(), color);
             rows.IShowStatsRow("label_national_treasury", MoneyDisplay.Format(core.GetTreasuryBalance()), color, pIconPath: "iconMoney");
             rows.IShowStatsRow("fiscal_available", MoneyDisplay.Format(StateSettlementSystem.DiscretionaryBalance(core)), color);
+            rows.IShowStatsRow("fiscal_safety_reserve", MoneyDisplay.Format(TreasurySystem.SafetyReserve(core)), "#E6A166");
+            // 流量：中央月度收支
+            parent.AddSectionHeader("fiscal_section_monthly");
+            rows.IShowStatsRow("fiscal_cash_balance", MoneyDisplay.Format(report.cash_balance),
+                report.cash_balance < 0 ? "#FF6666" : "#65D66E");
             rows.IShowStatsRow("fiscal_recorded_months", report.months, color);
             rows.IShowStatsRow("fiscal_income", MoneyDisplay.Format(report.income), "#65D66E");
             rows.IShowStatsRow("fiscal_expense", MoneyDisplay.Format(report.expense), "#E9A85B");
@@ -624,6 +691,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                 report.operating_balance < 0 ? "#FF6666" : "#65D66E");
             foreach (var item in TreasurySystem.Details(report))
                 rows.IShowStatsRow(item.key, item.value, color, pIconPath: "iconMoney");
+            // 全国合并口径：中央与地方合在一起看
+            parent.AddSectionHeader("fiscal_section_realm");
             TreasuryReport realm = TreasurySystem.Consolidated(core);
             rows.IShowStatsRow("fiscal_realm_flows", TreasurySystem.FlowText(realm), color);
             rows.IShowStatsRow("fiscal_realm_cash_balance", MoneyDisplay.Format(realm.cash_balance),
@@ -631,7 +700,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             rows.IShowStatsRow("fiscal_realm_debt_repayment", MoneyDisplay.Format(realm.debt_repayment), "#E9A85B");
             rows.IShowStatsRow("fiscal_realm_operating_balance", MoneyDisplay.Format(realm.operating_balance),
                 realm.operating_balance < 0 ? "#FF6666" : "#65D66E");
-            parent.AddTextIntoVertLayout(LM.Get("fiscal_account_hint"), true, TextAnchor.MiddleCenter);
+            var hint = parent.AddTextIntoVertLayout(LM.Get("fiscal_account_hint"), true,
+                TextAnchor.MiddleLeft, new Vector2(UIHelper.WidePanelWidth - 16f, 26f));
+            hint.UseFixedFontSize(7, HorizontalWrapMode.Wrap);
             StartCoroutine(ShowStatsRowsAndRefresh(rows));
         }
 
@@ -642,13 +713,14 @@ namespace EmpireCraft.Scripts.UI.Windows
             InitialTopPartInfo();
             var parent = CommonInitial("empire_dependencies");
             EmpireCraftStatsRow rows = parent.AddComponent<EmpireCraftStatsRow>();
+            rows.WideLayout = true;
             int total = 0;
             var tributaries = World.world.kingdoms.list
                 .Where(k => k != null && !k.isRekt() && k.GetTakenAllianceEmpire() == _empire)
                 .OrderByDescending(TributeEstimate).ToList();
             if (tributaries.Count > 0)
             {
-                parent.AddTextIntoVertLayout(LM.Get("empire_tributaries").ColorString("#7FD8EA"), true, TextAnchor.MiddleCenter);
+                parent.AddSectionHeader("empire_tributaries", "#7FD8EA");
                 foreach (Kingdom tributary in tributaries)
                 {
                     total++;
@@ -662,7 +734,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 var vassals = FeudalVassalService.GetDirectVassals(core).ToList();
                 if (vassals.Count > 0)
                 {
-                    parent.AddTextIntoVertLayout(LM.Get("empire_feudal_vassals").ColorString("#7FD8EA"), true, TextAnchor.MiddleCenter);
+                    parent.AddSectionHeader("empire_feudal_vassals", "#7FD8EA");
                     foreach (Kingdom vassal in vassals) total += AddVassalRows(rows, vassal, 0);
                 }
             }
@@ -709,6 +781,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             var parent = CommonInitial("empire_constitution");
             parent.AddComponent<EmpireCraftStatsRow>();
             EmpireCraftStatsRow statsRow = parent.GetComponent<EmpireCraftStatsRow>();
+            statsRow.WideLayout = true;
             string color = _empire.getColor().color_text;
             ConstitutionData constitution = ConstitutionSystem.Get(_empire);
             if (constitution == null)
@@ -723,6 +796,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             statsRow.IShowStatsRow("constitution_row_age", age, color);
             parent.AddTextIntoVertLayout(LM.Get(constitution.provisional ? "constitution_hint_provisional" : "constitution_hint"),
                 true, TextAnchor.MiddleCenter);
+            parent.AddSectionHeader("constitution_section_clauses");
             foreach (string row in ConstitutionSystem.EditableRows)
             {
                 string value = ConstitutionSystem.CurrentValue(constitution.clauses, row);
@@ -739,13 +813,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                         }
                         : null);
             }
-            // 意识形态强度三档的利弊说明
-            parent.AddTextIntoVertLayout(LM.Get("constitution_ideology_intensity_hint"), true, TextAnchor.MiddleCenter);
-            parent.AddTextIntoVertLayout(LM.Get("constitution_speech_hint"), true, TextAnchor.MiddleCenter);
-            parent.AddTextIntoVertLayout(LM.Get("constitution_nation_hint"), true, TextAnchor.MiddleCenter);
-            parent.AddTextIntoVertLayout(LM.Get("constitution_civil_service_hint"), true, TextAnchor.MiddleCenter);
-            parent.AddTextIntoVertLayout(LM.Get("constitution_farmland_hint"), true, TextAnchor.MiddleCenter);
-            parent.AddTextIntoVertLayout(LM.Get("constitution_grain_hint"), true, TextAnchor.MiddleCenter);
+            // 各条款的利弊说明统一小字排到页尾(constitution_section_notes)，不打断数据块
+            parent.AddSectionHeader("constitution_section_state");
             if (CityPopulationSystem.AbstractPopulationEnabled && GranarySystem.Enabled(_empire.CoreKingdom))
                 statsRow.IShowStatsRow("granary", $"{GranarySystem.Stock(_empire.CoreKingdom):0}", color);
             float nationalSentiment = NationalSentimentSystem.GetEmpire(_empire);
@@ -759,6 +828,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             ConstitutionalEconomyState dynamics = _empire.data?.constitutional_economy;
             if (dynamics != null)
             {
+                parent.AddSectionHeader("constitution_section_dynamics");
                 float fatigue = dynamics.ideology_fatigue;
                 statsRow.IShowStatsRow("ideology_fatigue", $"{fatigue:0}%",
                     fatigue >= 60f ? "#FF8A7A" : fatigue >= 30f ? "#FFD34E" : "#7EE6A8");
@@ -785,6 +855,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 if (!string.IsNullOrEmpty(dynamics.ideology_line))
                     statsRow.IShowStatsRow("ideology_line", LM.Get($"ideology_line_{dynamics.ideology_line}"), color);
             }
+            parent.AddSectionHeader("constitution_section_amendments");
             List<ConstitutionAmendmentRecord> amendments = constitution.amendments ?? new List<ConstitutionAmendmentRecord>();
             statsRow.IShowStatsRow("constitution_amendments", amendments.Count.ToString(), color);
             foreach (ConstitutionAmendmentRecord record in Enumerable.Reverse(amendments).Take(10))
@@ -801,6 +872,15 @@ namespace EmpireCraft.Scripts.UI.Windows
                     $"{ConstitutionSystem.ValueText(record.clause, record.from)} → {ConstitutionSystem.ValueText(record.clause, record.to)}（{when}·{by}）",
                     "#C8C8C8");
             }
+            // 条款说明：静态参考文字，小字浅色收在页尾
+            parent.AddSectionHeader("constitution_section_notes", "#9A948A");
+            foreach (string hintKey in new[] { "constitution_ideology_intensity_hint", "constitution_speech_hint",
+                "constitution_nation_hint", "constitution_civil_service_hint", "constitution_farmland_hint", "constitution_grain_hint" })
+            {
+                var note = parent.AddTextIntoVertLayout(LM.Get(hintKey).ColorString("#9A948A"),
+                    true, TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 16f, 18f));
+                note.UseFixedFontSize(7, HorizontalWrapMode.Wrap);
+            }
             StartCoroutine(ShowStatsRowsAndRefresh(statsRow));
         }
 
@@ -813,6 +893,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (currentHistory == null) return;
 
             var parent = _root.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
+            UIHelper.UseWidePanel(parent.transform);
             AddIntoGroup("empire_reign_history", parent.gameObject);
             string eraName = string.IsNullOrWhiteSpace(currentHistory.year_name)
                 ? LM.Get("waiting_for_naming")
@@ -853,8 +934,10 @@ namespace EmpireCraft.Scripts.UI.Windows
         private IEnumerator ShowStatsRowsAndRefresh(EmpireCraftStatsRow statsRow)
         {
             if (statsRow == null) yield break;
+            int generation = _renderGeneration;
             yield return statsRow.showRows();
-            yield return RefreshScrollLayout(resetToTop: true);
+            if (generation == _renderGeneration && statsRow != null && statsRow.gameObject.activeInHierarchy)
+                yield return RefreshScrollLayout(resetToTop: true);
         }
 
         private IEnumerator RefreshScrollLayout(bool resetToTop)
@@ -864,7 +947,6 @@ namespace EmpireCraft.Scripts.UI.Windows
             yield return CoroutineHelper.wait_for_next_frame;
             if (ContentTransform == null) yield break;
 
-            Canvas.ForceUpdateCanvases();
             RectTransform contentRect = ContentTransform.GetComponent<RectTransform>();
             if (contentRect != null)
             {
@@ -872,7 +954,6 @@ namespace EmpireCraft.Scripts.UI.Windows
                 float preferredHeight = LayoutUtility.GetPreferredHeight(contentRect);
                 if (preferredHeight > 0f)
                     contentRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, preferredHeight);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
             }
 
             ScrollRect scrollRect = TabsWindow?.scrollRect;
@@ -898,7 +979,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         //显示行政窗口
         public void ShowBureau(WindowMetaTab pArg0)
         {
-            
+
             ScrollWindow.showWindow(nameof(EmpireBeaurauWindow));
         }
 
@@ -979,6 +1060,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             base.OnNormalDisable();
             Clear();
+            _lineage.Clear();
         }
 
         private const string RepublicGroupKey = "\u0001republic";
@@ -1029,7 +1111,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                     : history.empire_full_name;
                 statsRow.IShowStatsRow("past_head_of_state", history.emperor + $"(在任 {history.total_time}{LM.Get("Year")})", _empire.getColor().color_text, pIconPath: "iconKings", action: () => OpenHistoryWindow(history));
                 statsRow.IShowStatsRow("title_name", fullName + OfficeTitle(history), _empire.getColor().color_text);
-                statsRow.IShowStatsRow("empty", "=======================================================================================", "#ffffff");
+
                 return;
             }
             var text1 = history.empire_name + (_empire.data.has_year_name?history.year_name:"") + LM.Get("emperor");
@@ -1046,7 +1128,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 else
                 {
                     text2 = LM.Get("waiting_for_naming");
-                } 
+                }
             }
             statsRow.IShowStatsRow("past_emperor", history.emperor + $"(在位 {history.total_time}{LM.Get("Year")})", _empire.getColor().color_text, pIconPath: "iconKings", action: () => OpenHistoryWindow(history));
             statsRow.IShowStatsRow("title_name", text1, _empire.getColor().color_text);
@@ -1054,13 +1136,13 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 statsRow.IShowStatsRow("post_humous_name", text2, _empire.getColor().color_text);
             }
-            statsRow.IShowStatsRow("empty", "=======================================================================================", "#ffffff");
+
         }
 
         public void OpenHistoryWindow(EmpireCraftHistory history)
         {
             ConfigData.CURRENT_SELECTED_HISTORY = history;
-            ShowPersonalHistory();
+            ScrollWindow.showWindow(nameof(EmpireHistoryWindow));
         }
 
         // 名称框显示与提示框、地图铭牌相同的完整国号；只有玩家真的改了名才生效
@@ -1097,10 +1179,12 @@ namespace EmpireCraft.Scripts.UI.Windows
             // reliably propagate their final preferred height back to the scroll area.
             var content = _root.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter,
                 pPadding: new RectOffset(3, 3, 0, 8));
+            UIHelper.UseWidePanel(content.transform);
             SimpleText title = Instantiate(SimpleText.Prefab, null);
             string empirePersonalHistory = LM.Get(titleName);
-            title.Setup($"{empirePersonalHistory}", TextAnchor.MiddleCenter, new Vector2(40, 15));
+            title.Setup($"{empirePersonalHistory}", TextAnchor.MiddleCenter, new Vector2(UIHelper.WidePanelWidth - 12f, 18f));
             title.background.enabled = false;
+            title.UseFixedFontSize(10, HorizontalWrapMode.Wrap);
             content.AddChild(title.gameObject);
 
             AddIntoGroup(titleName, content.gameObject);
