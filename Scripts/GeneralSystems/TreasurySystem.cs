@@ -11,8 +11,56 @@ using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
+// 某个月的流水(按类别，含央地拨款)；month 是游戏里的月份(1~12)，months_ago = 0 为本月
+public sealed class TreasuryMonth
+{
+    public int month;
+    public int months_ago;
+    public bool has_data;
+    public readonly Dictionary<string, long> inflow = new();
+    public readonly Dictionary<string, long> outflow = new();
+    public long In => inflow.Values.Sum();
+    public long Out => outflow.Values.Sum();
+}
+
 public static class TreasurySystem
 {
+    private const double MonthLength = 5d;
+
+    // 近 12 个月逐月流水，从 11 个月前排到本月；没有记账的月份为空
+    public static List<TreasuryMonth> MonthlyFlows(Kingdom kingdom)
+    {
+        var result = new List<TreasuryMonth>();
+        if (!Enabled(kingdom)) return result;
+        double now = World.world.getCurWorldTime();
+        for (int ago = 11; ago >= 0; ago--)
+            result.Add(new TreasuryMonth { months_ago = ago, month = Date.getMonth(now - ago * MonthLength) });
+        List<TreasuryPeriod> periods = kingdom.GetOrCreate().treasury?.periods;
+        if (periods == null) return result;
+        foreach (TreasuryPeriod period in periods)
+        {
+            if (period == null || period.timestamp > now) continue;
+            int ago = Date.getMonthsSince(period.timestamp);
+            if (ago < 0 || ago > 11) continue;
+            TreasuryMonth slot = result[11 - ago];
+            slot.has_data = true;
+            Merge(slot.inflow, period.income);
+            Merge(slot.outflow, period.expense);
+        }
+        return result;
+    }
+
+    private static void Merge(Dictionary<string, long> into, Dictionary<string, long> amounts)
+    {
+        if (amounts == null) return;
+        foreach (KeyValuePair<string, long> pair in amounts)
+        {
+            if (pair.Value <= 0) continue;
+            into.TryGetValue(pair.Key, out long old);
+            into[pair.Key] = old + pair.Value;
+        }
+    }
+
     public static IEnumerable<(string key, string value)> Details(TreasuryReport report)
     {
         foreach (TreasuryCategory category in Enum.GetValues(typeof(TreasuryCategory)))

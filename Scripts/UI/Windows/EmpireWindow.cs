@@ -829,12 +829,15 @@ namespace EmpireCraft.Scripts.UI.Windows
             UIHelper.AddKpiTile(kpis, kpiWidth, LM.Get("fiscal_realm_operating_balance"), MoneyDisplay.Format(realm.operating_balance),
                 realm.operating_balance < 0 ? "#FF6666" : "#65D66E");
 
+            AddTreasuryChart(parent, TreasurySystem.MonthlyFlows(core));
+
+            // 构成里列了央地拨款，标题的合计也算上它，和下面的条目对得上
             var columns = parent.BeginColumns(MainWidth);
             var incomeCard = columns.BeginColumnCard(HalfWidth, "fiscal_income_breakdown", "#65D66E",
-                MoneyDisplay.Format(report.income), "ui/icons/iconMoney");
+                MoneyDisplay.Format(report.income + report.transfer_in), "ui/icons/iconMoney");
             AddBreakdown(incomeCard, report.income_sources, new Color(0.4f, 0.84f, 0.43f));
             var expenseCard = columns.BeginColumnCard(HalfWidth, "fiscal_expense_breakdown", "#E9A85B",
-                MoneyDisplay.Format(report.expense), "ui/icons/iconMoney");
+                MoneyDisplay.Format(report.expense + report.transfer_out), "ui/icons/iconMoney");
             AddBreakdown(expenseCard, report.expense_sources, new Color(0.91f, 0.66f, 0.36f));
 
             var realmCard = parent.BeginCard(MainWidth, "fiscal_section_realm", "#F3C34A", LM.Get("fiscal_realm_scope"),
@@ -856,6 +859,112 @@ namespace EmpireCraft.Scripts.UI.Windows
                 new Vector2(MainWidth - 4f, 30f));
             hint.UseFixedFontSize(6, HorizontalWrapMode.Wrap);
             StartCoroutine(RefreshScrollLayout(resetToTop: true));
+        }
+
+        // 近 12 个月收支图：流入、流出各取一年合计最大的四类上色，其余并为"其他"；悬停某月看当月明细
+        private static readonly Color[] InflowColors =
+            { new(0.40f, 0.84f, 0.43f), new(0.25f, 0.69f, 0.60f), new(0.62f, 0.88f, 0.94f), new(0.71f, 0.89f, 0.42f) };
+        private static readonly Color[] OutflowColors =
+            { new(0.91f, 0.66f, 0.36f), new(0.88f, 0.35f, 0.31f), new(0.79f, 0.65f, 0.91f), new(0.85f, 0.55f, 0.69f) };
+        private static readonly Color OtherFlow = new(0.55f, 0.58f, 0.52f);
+        private static readonly Color NetLine = new(0.95f, 0.76f, 0.29f);
+
+        private void AddTreasuryChart(AutoVertLayoutGroup parent, List<TreasuryMonth> months)
+        {
+            List<TreasuryMonth> recorded = months.Where(month => month.has_data).ToList();
+            string header = recorded.Count == 0 ? null : string.Format(LM.Get("fiscal_chart_avg"),
+                SignedMoney(recorded.Sum(month => month.In - month.Out) / recorded.Count));
+            var card = parent.BeginCard(MainWidth, "fiscal_chart_title", "#F3C34A", header, "ui/icons/iconMoney");
+            float inner = MainWidth - 12f;
+            if (recorded.Count == 0)
+            {
+                AddCardEmptyNote(card, MainWidth);
+                return;
+            }
+            List<string> TopKeys(Func<TreasuryMonth, Dictionary<string, long>> pick) => months
+                .SelectMany(month => pick(month)).GroupBy(pair => pair.Key)
+                .Select(group => (key: group.Key, total: group.Sum(pair => pair.Value)))
+                .Where(item => item.total > 0).OrderByDescending(item => item.total).Take(4).Select(item => item.key).ToList();
+            List<string> inKeys = TopKeys(month => month.inflow);
+            List<string> outKeys = TopKeys(month => month.outflow);
+            List<(Color, long)> Stack(Dictionary<string, long> flows, List<string> keys, Color[] palette)
+            {
+                var stack = keys.Select((key, index) =>
+                    (palette[index], flows.TryGetValue(key, out long amount) ? amount : 0L)).ToList();
+                long other = flows.Where(pair => !keys.Contains(pair.Key)).Sum(pair => pair.Value);
+                if (other > 0) stack.Add((OtherFlow, other));
+                return stack;
+            }
+            var chartColumns = months.Select(month => new TreasuryChart.Column
+            {
+                Up = Stack(month.inflow, inKeys, InflowColors),
+                Down = Stack(month.outflow, outKeys, OutflowColors),
+                Net = month.In - month.Out,
+                HasData = month.has_data
+            }).ToList();
+            var (_, hitAreas) = TreasuryChart.Create(card.transform, new Vector2(inner, 72f), chartColumns, NetLine);
+            for (int i = 0; i < months.Count && i < hitAreas.Count; i++)
+            {
+                TreasuryMonth month = months[i];
+                string title = MonthLabel(month);
+                string body = !month.has_data ? LM.Get("fiscal_chart_no_record")
+                    : $"{LM.Get("fiscal_chart_in")} {MoneyDisplay.Format(month.In)}".ColorString("#65D66E") + "\n" +
+                      FlowLines(month.inflow) +
+                      $"{LM.Get("fiscal_chart_out")} {MoneyDisplay.Format(month.Out)}".ColorString("#E9A85B") + "\n" +
+                      FlowLines(month.outflow) +
+                      $"{LM.Get("fiscal_chart_net")} {SignedMoney(month.In - month.Out)}"
+                          .ColorString(month.In - month.Out < 0 ? "#FF6666" : "#F3C34A");
+                UIHelper.AttachTextTooltip(hitAreas[i], $"fiscal_month_{i}", title, body);
+            }
+
+            // 月份(本月标金)
+            var labels = card.BeginHoriGroup(new Vector2(inner, 8f), TextAnchor.MiddleLeft, 0, new RectOffset(0, 0, 0, 0));
+            float columnWidth = inner / months.Count;
+            foreach (TreasuryMonth month in months)
+                labels.AddTextIntoHoriLayout(MonthLabel(month).ColorString(month.months_ago == 0 ? "#F3C34A" : "#8FA0A8"), true,
+                    TextAnchor.MiddleCenter, new Vector2(columnWidth, 8f)).UseFixedFontSize(5, HorizontalWrapMode.Overflow);
+
+            // 图例：流入一行、流出一行(末尾标出金线)
+            AddChartLegend(card, inner, LM.Get("fiscal_chart_in"), inKeys, InflowColors,
+                months.Any(month => month.inflow.Keys.Any(key => !inKeys.Contains(key))), null);
+            AddChartLegend(card, inner, LM.Get("fiscal_chart_out"), outKeys, OutflowColors,
+                months.Any(month => month.outflow.Keys.Any(key => !outKeys.Contains(key))), LM.Get("fiscal_chart_net_legend"));
+        }
+
+        private static string MonthLabel(TreasuryMonth month) => month.months_ago == 0
+            ? LM.Get("fiscal_chart_current")
+            : string.Format(LM.Get("fiscal_chart_month"), month.month);
+
+        private static string SignedMoney(long value) => (value > 0 ? "+" : "") + MoneyDisplay.Format(value);
+
+        private static string FlowLines(Dictionary<string, long> flows) => string.Concat(flows
+            .Where(pair => pair.Value > 0).OrderByDescending(pair => pair.Value)
+            .Select(pair => $"  {UIHelper.LocalizeOrRaw("fiscal_source_" + pair.Key)} {MoneyDisplay.Format(pair.Value)}\n"
+                .ColorString("#C8C2B4")));
+
+        private static void AddChartLegend(AutoVertLayoutGroup card, float inner, string title, List<string> keys,
+            Color[] palette, bool other, string netLegend)
+        {
+            var row = card.BeginHoriGroup(new Vector2(inner, 9f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+            row.AddTextIntoHoriLayout(title.ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
+                new Vector2(UIHelper.EstimateTextWidth(title, 6) + 2f, 9f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            var items = keys.Select((key, index) => (palette[index], UIHelper.LocalizeOrRaw("fiscal_source_" + key))).ToList();
+            if (other) items.Add((OtherFlow, LM.Get("fiscal_chart_other")));
+            if (netLegend != null) items.Add((NetLine, netLegend));
+            foreach ((Color color, string name) in items)
+            {
+                var swatch = new GameObject("Swatch", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                    typeof(LayoutElement));
+                swatch.transform.SetParent(row.transform, false);
+                ((RectTransform)swatch.transform).sizeDelta = new Vector2(5f, 5f);
+                swatch.GetComponent<Image>().color = color;
+                swatch.GetComponent<Image>().raycastTarget = false;
+                LayoutElement element = swatch.GetComponent<LayoutElement>();
+                element.preferredWidth = element.minWidth = 5f;
+                element.preferredHeight = element.minHeight = 5f;
+                row.AddTextIntoHoriLayout(name.ColorString("#C8C2B4"), true, TextAnchor.MiddleLeft,
+                    new Vector2(UIHelper.EstimateTextWidth(name, 6) + 2f, 9f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            }
         }
 
         // 收支构成：按金额取前六项画条形，条长相对最大一项
