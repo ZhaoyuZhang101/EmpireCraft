@@ -543,7 +543,15 @@ public static class UIHelper
         card.AddRailText(label.ColorString("#8FA0A8"), 6, 9f);
         TextInput input = Object.Instantiate(TextInput.Prefab, null);
         input.Setup(value ?? "", action);
-        input.SetSize(new Vector2(RailWidth - 8f, 15f));
+        // NML 输入框的文字开了自动适配字号：框太矮时最小字号放不下，整段文字就不画了(看起来输入不进去)。
+        // 给够高度并放低最小字号
+        input.SetSize(new Vector2(RailWidth - 8f, 18f));
+        Text inputText = input.input.textComponent;
+        if (inputText != null)
+        {
+            inputText.resizeTextMinSize = 6;
+            inputText.resizeTextMaxSize = 10;
+        }
         card.AddChild(input.gameObject);
         return input;
     }
