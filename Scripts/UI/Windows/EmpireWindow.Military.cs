@@ -2,12 +2,15 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
@@ -18,6 +21,28 @@ namespace EmpireCraft.Scripts.UI.Windows
         private static readonly Color OrgColor = new Color32(127, 216, 234, 255);
         private static readonly Color OrgLowColor = new Color32(232, 88, 79, 255);
 
+        // 点地图兵牌/交战标记打开军团页时要突出的军与城；窗口关上时清掉
+        private static HashSet<long> _militaryFocusCorps;
+        private static long _militaryFocusCity = -1L;
+
+        // 直接打开某帝国的军团页(地图兵牌、交战标记点击时用)
+        public static void OpenMilitary(Empire empire, IEnumerable<long> focusCorps, long focusCity)
+        {
+            if (empire?.CoreKingdom == null || empire.isRekt()) return;
+            SelectedMetas.selected_kingdom = empire.CoreKingdom;
+            EmpireCraftMetaTypeLibrary.selected_empire = empire;
+            _militaryFocusCorps = focusCorps == null ? null : new HashSet<long>(focusCorps);
+            _militaryFocusCity = focusCity;
+            _pendingTab = "empire_military";
+            ScrollWindow.showWindow(nameof(EmpireWindow));
+        }
+
+        private static void ClearMilitaryFocus()
+        {
+            _militaryFocusCorps = null;
+            _militaryFocusCity = -1L;
+        }
+
         public void ShowMilitary(WindowMetaTab pArg0)
         {
             Clear();
@@ -25,22 +50,45 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (core == null) return;
             if (!CorpsSystem.Enabled)
             {
-                var off = BeginPage("empire_military");
-                off.AddTextIntoVertLayout(LM.Get("corps_disabled_hint").ColorString("#8FA0A8"), true,
-                    TextAnchor.UpperLeft, new Vector2(MainWidth - 4f, 20f)).UseFixedFontSize(7, HorizontalWrapMode.Wrap);
+                AddMilitaryDisabledHint(BeginPage("empire_military"), MainWidth);
                 return;
             }
             var realms = _empire.kingdoms_list.Where(kingdom => kingdom?.data != null && !kingdom.isRekt())
                 .OrderBy(kingdom => kingdom == core ? 0 : 1).ToList();
+            var parent = BeginPage("empire_military", MilitaryChips(realms));
+            BuildMilitaryPage(parent, realms, MainWidth, HalfWidth, _militaryFocusCorps, _militaryFocusCity);
+            StartCoroutine(RefreshScrollLayout(resetToTop: true));
+        }
+
+        internal static string[] MilitaryChips(List<Kingdom> realms)
+        {
+            var all = realms.SelectMany(CorpsSystem.Of).ToList();
+            return new[]
+            {
+                string.Format(LM.Get("corps_chip_count"), all.Count),
+                CorpsSystem.ShortStrength(all.Sum(corps => corps.strength))
+            };
+        }
+
+        internal static void AddMilitaryDisabledHint(AutoVertLayoutGroup page, float width) =>
+            page.AddTextIntoVertLayout(LM.Get("corps_disabled_hint").ColorString("#8FA0A8"), true,
+                TextAnchor.UpperLeft, new Vector2(width - 4f, 20f)).UseFixedFontSize(7, HorizontalWrapMode.Wrap);
+
+        // 军团页内容(帝国窗口与独立王国的军事窗口共用)：主指标 → 各国军团表 → 战线 | 军团纪事 → 规则说明。
+        // focusCorps / focusCity：从地图点进来时要突出的军与交战城，所在国、那几支军、那处交战排到最前
+        internal static void BuildMilitaryPage(AutoVertLayoutGroup parent, List<Kingdom> realms, float mainWidth,
+            float halfWidth, HashSet<long> focusCorps = null, long focusCity = -1L)
+        {
+            if (focusCorps is { Count: > 0 })
+                realms = realms.OrderBy(kingdom => CorpsSystem.Of(kingdom).Any(corps => focusCorps.Contains(corps.id)) ? 0 : 1)
+                    .ToList();
             var all = realms.SelectMany(kingdom => CorpsSystem.Of(kingdom).Select(corps => (kingdom, corps))).ToList();
             float strength = all.Sum(entry => entry.corps.strength);
             var battles = FrontSystem.Battles.Values.Where(battle => realms.Any(kingdom =>
                 kingdom.id == battle.attacker_id || kingdom.id == battle.defender_id)).ToList();
-            var parent = BeginPage("empire_military", string.Format(LM.Get("corps_chip_count"), all.Count),
-                CorpsSystem.ShortStrength(strength));
 
-            var kpis = parent.BeginColumns(MainWidth);
-            float kpiWidth = (MainWidth - 3 * UIHelper.CardGap) / 4f;
+            var kpis = parent.BeginColumns(mainWidth);
+            float kpiWidth = (mainWidth - 3 * UIHelper.CardGap) / 4f;
             UIHelper.AddKpiTile(kpis, kpiWidth, LM.Get("corps_kpi_count"), all.Count.ToString());
             UIHelper.AddKpiTile(kpis, kpiWidth, LM.Get("corps_kpi_strength"), CorpsSystem.ShortStrength(strength), "#65D66E");
             float org = all.Count == 0 ? 0f : all.Average(entry => entry.corps.org);
@@ -49,10 +97,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             UIHelper.AddKpiTile(kpis, kpiWidth, LM.Get("corps_kpi_battles"), battles.Count.ToString(),
                 battles.Count > 0 ? "#E8584F" : "#8FA0A8");
 
-            var table = parent.BeginCard(MainWidth, "corps_table_title", "#F3C34A",
+            var table = parent.BeginCard(mainWidth, "corps_table_title", "#F3C34A",
                 string.Format(LM.Get("corps_table_header"), all.Count(entry => entry.corps.general_id >= 0)),
                 "ui/icons/iconWar");
-            float inner = MainWidth - 12f;
+            float inner = mainWidth - 12f;
             AddCorpsHeader(table, inner);
             foreach (Kingdom kingdom in realms)
             {
@@ -61,24 +109,26 @@ namespace EmpireCraft.Scripts.UI.Windows
                 if (realms.Count > 1)
                     table.AddTextIntoVertLayout(kingdom.GetKingdomName().ColorString("#C8C2B4"), true, TextAnchor.MiddleLeft,
                         new Vector2(inner, 11f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
-                foreach (CorpsData corps in list.OrderBy(corps => corps.militia).ThenBy(corps => corps.serial))
-                    AddCorpsRow(table, inner, corps);
+                foreach (CorpsData corps in list.OrderBy(corps => focusCorps?.Contains(corps.id) == true ? 0 : 1)
+                             .ThenBy(corps => corps.militia).ThenBy(corps => corps.serial))
+                    AddCorpsRow(table, inner, corps, focusCorps?.Contains(corps.id) == true);
             }
             if (all.Count == 0)
                 table.AddTextIntoVertLayout(LM.Get("corps_none").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
                     new Vector2(inner, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
 
-            var columns = parent.BeginColumns(MainWidth);
-            var front = columns.BeginColumnCard(HalfWidth, "corps_front_title", "#E8584F",
+            var columns = parent.BeginColumns(mainWidth);
+            var front = columns.BeginColumnCard(halfWidth, "corps_front_title", "#E8584F",
                 string.Format(LM.Get("corps_front_header"), battles.Count), "ui/icons/iconWar");
-            float half = HalfWidth - 12f;
-            foreach (FrontSystem.BattleView battle in battles.OrderByDescending(battle => battle.attack + battle.defend))
-                AddBattleRow(front, half, battle, realms);
+            float half = halfWidth - 12f;
+            foreach (FrontSystem.BattleView battle in battles.OrderBy(battle => battle.city_id == focusCity ? 0 : 1)
+                         .ThenByDescending(battle => battle.attack + battle.defend))
+                AddBattleRow(front, half, battle, realms, battle.city_id == focusCity);
             if (battles.Count == 0)
                 front.AddTextIntoVertLayout(LM.Get("corps_front_none").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
                     new Vector2(half, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
 
-            var log = columns.BeginColumnCard(HalfWidth, "corps_log_title", "#7FD8EA", null, "ui/icons/iconBook");
+            var log = columns.BeginColumnCard(halfWidth, "corps_log_title", "#7FD8EA", null, "ui/icons/iconBook");
             var entries = realms.SelectMany(FrontSystem.LogOf).OrderByDescending(entry => entry.time).Take(12).ToList();
             foreach ((double time, string text) in entries)
             {
@@ -92,9 +142,26 @@ namespace EmpireCraft.Scripts.UI.Windows
                     new Vector2(half, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
 
             var hint = parent.AddTextIntoVertLayout(LM.Get("corps_rules_hint").ColorString("#8FA0A8"), true,
-                TextAnchor.UpperLeft, new Vector2(MainWidth - 4f, 30f));
+                TextAnchor.UpperLeft, new Vector2(mainWidth - 4f, 30f));
             hint.UseFixedFontSize(6, HorizontalWrapMode.Wrap);
-            StartCoroutine(RefreshScrollLayout(resetToTop: true));
+        }
+
+        // 从地图点进来的那几行垫一层淡金底
+        private static void AddRowHighlight(Transform row)
+        {
+            var go = new GameObject("FocusHighlight", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                typeof(LayoutElement));
+            var rect = go.GetComponent<RectTransform>();
+            rect.SetParent(row, false);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(-2f, 0f);
+            rect.offsetMax = new Vector2(2f, 0f);
+            var image = go.GetComponent<Image>();
+            image.color = new Color32(243, 195, 74, 46);
+            image.raycastTarget = false;
+            go.GetComponent<LayoutElement>().ignoreLayout = true;
+            rect.SetAsFirstSibling();
         }
 
         // 列宽：番号 | 驻地 | 兵力 | 组织度 | 任务
@@ -109,12 +176,14 @@ namespace EmpireCraft.Scripts.UI.Windows
                     new Vector2(width * CorpsColumns[i] - 2f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
         }
 
-        private static void AddCorpsRow(AutoVertLayoutGroup card, float width, CorpsData corps)
+        private static void AddCorpsRow(AutoVertLayoutGroup card, float width, CorpsData corps, bool focus = false)
         {
             var row = card.BeginHoriGroup(new Vector2(width, 12f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+            if (focus) AddRowHighlight(row.transform);
             float W(int i) => width * CorpsColumns[i] - 2f;
             Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
             string name = CorpsSystem.Name(corps);
+            if (focus) name = name.ColorString("#F3C34A");
             if (general?.data != null && !general.isRekt()) name += $" · {general.getName()}".ColorString("#C8C2B4");
             var nameText = row.AddTextIntoHoriLayout(name, true, TextAnchor.MiddleLeft, new Vector2(W(0), 12f));
             nameText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
@@ -152,7 +221,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
 
         private static void AddBattleRow(AutoVertLayoutGroup card, float width, FrontSystem.BattleView battle,
-            List<Kingdom> realms)
+            List<Kingdom> realms, bool focus = false)
         {
             City city = World.world.cities.get(battle.city_id);
             if (city?.data == null || city.isRekt()) return;
@@ -161,8 +230,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             bool ours = realms.Any(kingdom => kingdom.id == battle.attacker_id);
             string title = $"{city.GetCityName()}  {(attacker?.GetKingdomName() ?? "?").ColorString("#FFB3A8")} → " +
                            $"{(defender?.GetKingdomName() ?? "?").ColorString("#A8CCFF")}";
-            card.AddTextIntoVertLayout(title, true, TextAnchor.MiddleLeft, new Vector2(width, 10f))
-                .UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            var titleText = card.AddTextIntoVertLayout(title, true, TextAnchor.MiddleLeft, new Vector2(width, 10f));
+            titleText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            if (focus) AddRowHighlight(titleText.transform);
             var row = card.BeginHoriGroup(new Vector2(width, 10f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
             UIHelper.AddShareBar(row.transform, new Vector2(width * 0.4f, 5f), battle.ratio,
                 ours ? StrengthColor : OrgLowColor);

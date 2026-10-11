@@ -1380,9 +1380,14 @@ namespace EmpireCraft.Scripts.UI.Windows
             SyncEmpireNameInput(forceValueSync: true);
             InitialTabButtons();
         }
+        // 打开窗口时直接切到的页签(只用一次)，如地图兵牌点进来的军团页
+        private static string _pendingTab;
+
         public override void OnNormalEnable()
         {
             base.OnNormalEnable();
+            string pendingTab = _pendingTab;
+            _pendingTab = null;
             UIHelper.FixWideWindowScrollArea(BackgroundTransform);
             StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
             _empire = EmpireCraftMetaTypeLibrary.selected_empire;
@@ -1394,12 +1399,23 @@ namespace EmpireCraft.Scripts.UI.Windows
             // 国号可能在窗口关闭期间变了(军阀时期改称中央、临时政府等)，每次打开都按当前完整国号刷新
             SyncEmpireNameInput(forceValueSync: true);
             InitialTabButtons();
-            StartCoroutine(ShowKingdomList());
+            StartCoroutine(pendingTab == null ? ShowKingdomList() : OpenTabNextFrame(pendingTab));
+        }
+
+        // 等页签按钮自己的初始动作做完，再按页签按钮的方式切过去(页签高亮一起换)
+        private IEnumerator OpenTabNextFrame(string tabName)
+        {
+            Clear();
+            yield return CoroutineHelper.wait_for_next_frame;
+            WindowMetaTab tab = TabsWindow.tabs._tabs.FirstOrDefault(item => item.name == tabName);
+            if (tab != null) tab.doAction();
+            else yield return ShowKingdomList();
         }
 
         public override void OnNormalDisable()
         {
             base.OnNormalDisable();
+            ClearMilitaryFocus();
             Clear();
             _lineage.Clear();
         }

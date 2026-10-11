@@ -4,6 +4,8 @@ using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.UI.Windows;
 using NeoModLoader.General;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -18,7 +20,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //     军府为马、义军为兵)，右边兵力与兵力条(绿)、组织度条(青)；有统领实体时跟在统领头顶；
 //     同一地块同一国的几支军合并成一块(标"×N"、兵力相加)，不同国并排；
 //   · 交战标记：正在交战的城，朱漆框绛红底，两侧是攻守双方国色，中间是本月攻方胜算；
-//   · 鼠标悬停兵牌或交战标记：放大、换金边、置顶，并显示详情提示。
+//   · 鼠标悬停兵牌或交战标记：放大、换金边、置顶，并显示详情提示；
+//     点击打开军事页(属于帝国的国家开帝国窗口的军团页，独立王国开本国军事窗口)，点进来的那几支军、那处交战高亮。
 // 画在地名画布上，按屏幕像素定大小(不随界面缩放放大)，镜头拉远时略缩小。
 public static class CorpsMapRenderer
 {
@@ -481,8 +484,10 @@ public static class CorpsMapRenderer
     }
 
     private static bool CanHover() =>
-        InputHelpers.mouseSupported && !ScrollWindow.isWindowActive() && !ScrollWindow.isAnimationActive() &&
-        !Input.GetMouseButton(0) && !Input.GetMouseButton(1) && !Input.GetMouseButton(2);
+        InputHelpers.mouseSupported && !ScrollWindow.isWindowActive() && !ScrollWindow.isAnimationActive();
+
+    // 按住鼠标(点击、拖地图)时不换悬停对象，只看还在不在原来那块上：松开那一帧还能认出点的是谁
+    private static bool MouseHeld => Input.GetMouseButton(0) || Input.GetMouseButton(1) || Input.GetMouseButton(2);
 
     // 鼠标压在界面面板上(地名画布以外的 UI)时不算悬停
     private static bool PointerOverPanels()
@@ -504,6 +509,7 @@ public static class CorpsMapRenderer
         long a = -1L, b = -1L;
         if (CanHover())
         {
+            bool held = MouseHeld;
             Vector2 mouse = Input.mousePosition;
             // 兵牌优先；后画的在上面。已悬停的那块按放大后的范围算，免得边缘来回闪
             for (int pass = HoverCounter; pass <= HoverMarker && kind == HoverNone; pass++)
@@ -512,7 +518,9 @@ public static class CorpsMapRenderer
                 {
                     Hit hit = Hits[i];
                     if (hit.Kind != pass) continue;
-                    float grow = hit.Kind == _hoverKind && hit.A == _hoverA && hit.B == _hoverB ? HoverScale : 1f;
+                    bool current = hit.Kind == _hoverKind && hit.A == _hoverA && hit.B == _hoverB;
+                    if (held && !current) continue;
+                    float grow = current ? HoverScale : 1f;
                     if (Mathf.Abs(mouse.x - hit.Center.x) > hit.Half.x * grow ||
                         Mathf.Abs(mouse.y - hit.Center.y) > hit.Half.y * grow) continue;
                     kind = hit.Kind;
@@ -553,7 +561,7 @@ public static class CorpsMapRenderer
         root.SetAsLastSibling();
 
         float now = Time.unscaledTime;
-        if (now - _tipAt < TooltipRefresh) return;
+        if (MouseHeld || now - _tipAt < TooltipRefresh) return;
         _tipAt = now;
         if (kind == HoverCounter)
             Tooltip.show(CounterTipOwner, CounterTooltip, new TooltipData
@@ -565,6 +573,39 @@ public static class CorpsMapRenderer
             {
                 city = World.world.cities.get(a), tooltip_scale = 0.7f, is_sim_tooltip = true, sound_allowed = false
             });
+    }
+
+    // 点击(原版"点一下查看"的时机，见 CorpsPatch)：打开悬停的兵牌或交战所属国的军事页
+    public static bool TryClick()
+    {
+        Kingdom kingdom;
+        List<long> corps = null;
+        long city = -1L;
+        if (_hoverKind == HoverCounter)
+        {
+            kingdom = World.world.kingdoms.get(_hoverB);
+            if (kingdom?.data == null || kingdom.isRekt()) return false;
+            corps = CorpsSystem.Of(kingdom).Where(entry => entry.zone_id == _hoverA && ShowsCorps(kingdom, entry))
+                .Select(entry => entry.id).ToList();
+        }
+        else if (_hoverKind == HoverMarker && FrontSystem.Battles.TryGetValue(_hoverA, out var battle))
+        {
+            Kingdom attacker = World.world.kingdoms.get(battle.attacker_id);
+            Kingdom defender = World.world.kingdoms.get(battle.defender_id);
+            bool attackerAlive = attacker?.data != null && !attacker.isRekt();
+            bool defenderAlive = defender?.data != null && !defender.isRekt();
+            // 攻方优先；攻方不在帝国里而守方在，就开守方帝国的军团页
+            kingdom = attackerAlive && (attacker.GetEmpire() != null || !defenderAlive || defender.GetEmpire() == null)
+                ? attacker : defenderAlive ? defender : null;
+            if (kingdom == null) return false;
+            city = battle.city_id;
+        }
+        else return false;
+        ClearHover();
+        Empire empire = kingdom.GetEmpire();
+        if (empire?.CoreKingdom != null && !empire.isRekt()) EmpireWindow.OpenMilitary(empire, corps, city);
+        else KingdomMilitaryWindow.Open(kingdom, corps, city);
+        return true;
     }
 
     #endregion
@@ -633,6 +674,7 @@ public static class CorpsMapRenderer
             if (corps.entrench > 0.01f)
                 tooltip.addLineText(LM.Get("corps_tip_entrench"), $"+{Mathf.RoundToInt(corps.entrench * 100f)}%",
                     "#A8CCFF", pPercent: false, pLocalize: false);
+            tooltip.addBottomDescription(LM.Get("corps_tip_click"));
             return;
         }
 
@@ -647,8 +689,9 @@ public static class CorpsMapRenderer
                            LM.Get("corps_task_" + corps.task);
             tooltip.addLineText(name, value, TaskHex(corps.task), pPercent: false, pLocalize: false, pLimitValue: 40);
         }
-        if (list.Count > shown)
-            tooltip.addBottomDescription(string.Format(LM.Get("corps_tip_more"), list.Count - shown));
+        tooltip.addBottomDescription((list.Count > shown
+            ? string.Format(LM.Get("corps_tip_more"), list.Count - shown) + "\n"
+            : "") + LM.Get("corps_tip_click"));
     }
 
     // 交战：攻守双方、攻方胜算、兵力对比、参战军数、已占地块
@@ -679,7 +722,7 @@ public static class CorpsMapRenderer
         int occupied = city.zones?.Count(zone => FrontSystem.Hostile(city.kingdom, FrontSystem.Controller(zone))) ?? 0;
         tooltip.addLineText(LM.Get("corps_tip_occupied"), $"{occupied}/{city.zones?.Count ?? 0}", "#C8C2B4",
             pPercent: false, pLocalize: false);
-        tooltip.addBottomDescription(LM.Get("corps_tip_battle_hint"));
+        tooltip.addBottomDescription(LM.Get("corps_tip_battle_hint") + "\n" + LM.Get("corps_tip_click"));
     }
 
     #endregion
