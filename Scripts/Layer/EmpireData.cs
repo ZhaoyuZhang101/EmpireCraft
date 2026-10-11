@@ -29,6 +29,8 @@ public class EmpireData : MetaObjectData
     public List<long> CabinetMembers { get; set; } = new List<long>();
     // 朝堂博弈(见 CourtSystem)
     public CourtState court = new();
+    // 周制的天下大势：西周、春秋、战国(见 ZhouEraSystem)
+    public ZhouEraState zhou = new();
     public long Religion { get; set; } = -1L;
     public EmpireHeirLawType heir_type { get; set; }
     public int max_province_city_num { get; set; } = 3;

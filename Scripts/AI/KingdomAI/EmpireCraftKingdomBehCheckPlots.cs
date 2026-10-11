@@ -242,7 +242,9 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
             !war.isAlive() ||
             war.hasEnded() ||
             war.GetEmpireWarType() == EmpireWarType.劫掠 ||
-            IsWarMember(war, joiningKingdom))
+            IsWarMember(war, joiningKingdom) ||
+            // 春秋战国：周室诸侯之间的征伐不拉天子与别的诸侯下场(犯天子的勤王见 ZhouEraSystem)
+            ZhouEraSystem.IsInternalWar(war))
         {
             return false;
         }

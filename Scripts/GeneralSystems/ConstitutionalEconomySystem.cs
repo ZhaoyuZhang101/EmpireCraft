@@ -207,6 +207,8 @@ public static class ConstitutionalEconomySystem
         ProvincialPoliticsSystem.Update(empire);
         // 党禁开关与选举制度(按帝国动态调整)；军阀时期(含帝国核心国号)
         PartyBanSystem.Update(empire);
+        // 周制：春秋战国(每月结算一次，见 ZhouEraSystem)
+        ZhouEraSystem.Update(empire);
         WarlordEraSystem.UpdateWorld();
         NationalSentimentSystem.UpdateWorld();
         if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;

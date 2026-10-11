@@ -172,6 +172,9 @@ public static class CityPopulationSystem
             int max = post == ArmyPost.District && doctrine.Regional ? 10 : 12;
             return Math.Max(guards, Mathf.Clamp(Mathf.CeilToInt(households * StandingLegionsPerHousehold), 2, max));
         }
+        // 战国变法：战时兵额 +25%(见 ZhouEraSystem)
+        float reform = ZhouEraSystem.LevyFactor(city.kingdom);
+        if (reform > 1f) households = Mathf.CeilToInt(households * reform);
         switch (post)
         {
             case ArmyPost.Central:

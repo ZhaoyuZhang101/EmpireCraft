@@ -66,7 +66,13 @@ public static class DynastyNaming
     {
         string key = $"{regime}_officiallevel_{officeType}";
         if (regime == RegimeType.ZhouFeudalism)
+        {
+            // 春秋僭越、战国相王：诸侯国君改称王
+            if (officeType is >= 5 and <= 8 && meta is Kingdom realm && ZhouEraSystem.IsKing(realm) &&
+                realm.GetKingdomType() != KingdomType.ZhouFeudalism_jun)
+                return "ZhouFeudalism_officiallevel_wang";
             return officeType == 9 && meta is City && LM.Has(key + "_zhou") ? key + "_zhou" : key;
+        }
         if (regime != RegimeType.LvLing || officeType < 6 || officeType > 12) return key;
         City city = meta as City;
         Kingdom kingdom = meta switch

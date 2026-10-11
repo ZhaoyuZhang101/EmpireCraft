@@ -457,6 +457,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                     pPadding: new RectOffset(0, 0, 0, 0)), renderedEmpire.CoreKingdom, MainWidth);
                 // 朝局：当前奏议、各派形势、朝局纪事(没有议会的帝国)
                 CourtPanel.Render(parent, renderedEmpire, MainWidth, () => StartCoroutine(ShowKingdomList()));
+                // 周制：天下大势(春秋战国)
+                ZhouPanel.Render(parent, renderedEmpire, MainWidth, () => StartCoroutine(ShowKingdomList()));
                 AddClassAlignmentOverview(parent, renderedEmpire);
             }
             catch (Exception exception)

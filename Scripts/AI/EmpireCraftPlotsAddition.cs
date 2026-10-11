@@ -2567,8 +2567,9 @@ namespace EmpireCraft.Scripts.AI
         private static bool CanStartModWar(Actor actor, PlotAsset sharedWarPlot)
         {
             Kingdom kingdom = actor?.kingdom;
+            // 春秋战国：周室诸侯也可以自己开战(见 ZhouEraSystem)
             if (kingdom == null || kingdom.king != actor ||
-                !CanInitiateNormalWar(kingdom.IsEmpire(), kingdom.IsInEmpire()) ||
+                !CanInitiateNormalWar(kingdom.IsEmpire(), kingdom.IsInEmpire()) && !ZhouEraSystem.VassalMayWage(kingdom) ||
                 !IsWarNeededForPlot(kingdom)) return false;
             Regime regime = kingdom.GetRegime();
             if (regime == null || !regime.IsAllowDiplomacy()) return false;
@@ -2590,7 +2591,8 @@ namespace EmpireCraft.Scripts.AI
         private static bool TryStartModWar(Actor actor, PlotAsset asset, bool forced)
         {
             if (actor?.kingdom == null ||
-                !CanInitiateNormalWar(actor.kingdom.IsEmpire(), actor.kingdom.IsInEmpire())) return false;
+                !CanInitiateNormalWar(actor.kingdom.IsEmpire(), actor.kingdom.IsInEmpire()) &&
+                !ZhouEraSystem.VassalMayWage(actor.kingdom)) return false;
             Kingdom target = GetWarTarget(actor?.kingdom);
             if (target == null || World.world?.plots == null) return false;
             Plot plot = World.world.plots.newPlot(actor, asset, forced);
@@ -2656,6 +2658,9 @@ namespace EmpireCraft.Scripts.AI
             if (lastWarEnded >= 0 &&
                 Date.getYearsSince(lastWarEnded) < SimGlobals.m.minimum_years_between_wars)
                 return false;
+            // 春秋战国：周室诸侯之间可以互相征伐(春秋不得攻王畿)
+            bool zhouValid = ZhouEraSystem.IsValidVassalWarTarget(initiator, target, out bool zhouHandled);
+            if (zhouHandled) return zhouValid;
             if (initiator.IsEmpire()) return IsValidImperialWarTarget(initiator, target);
             Empire empire = initiator.IsInEmpire() ? initiator.GetEmpire() : null;
             if (empire != null && (target.GetGivenAllianceEmpire() == empire ||
