@@ -78,6 +78,8 @@ public static partial class WarBoxCompatibility
         TryPatch(harmony, "WarBox.Content.DiplomacyEvents", "ChronicleRaw", nameof(BeforeChronicleRaw));
         // 总参谋部：帝国中央与行政区共用一个帝国总参谋部，左栏按帝国分组(见 WarBoxGeneralStaff.cs)
         ApplyGeneralStaffPatches(harmony);
+        // 战略矿产接入火药厂、载具与核打击
+        WarBoxResourcePatch.EnsureApplied();
     }
 
     private static void TryPatch(Harmony harmony, string typeName, string methodName, string prefix,

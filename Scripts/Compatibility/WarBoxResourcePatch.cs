@@ -24,8 +24,18 @@ public class WarBoxResourcePatch : GamePatch
 
     public const int UraniumPerStrike = 10;
 
+    private static bool _applied;
+
+    // WarBox 的程序集比本模组晚加载，这时还找不到它的类型：
+    // 等进了世界由 WarBoxCompatibility.EnsureApplied(确认装了 WarBox 后)调 EnsureApplied
     public void Initialize()
     {
+    }
+
+    public static void EnsureApplied()
+    {
+        if (_applied) return;
+        _applied = true;
         var harmony = new Harmony(nameof(WarBoxResourcePatch));
         TryPatch(harmony, "WarBox.Content.Patch_GunpowderMill", "Prefix", nameof(BeforeGunpowderMill), null);
         TryPatch(harmony, "WarBox.Content.VehicleLimits", "CanProduce", null, nameof(AfterCanProduce));
