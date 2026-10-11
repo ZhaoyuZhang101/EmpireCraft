@@ -84,8 +84,8 @@ internal static class MainTab
             nameof(ChangeUnitWindow) + "Title");
         SpecificClanWindow.CreateWindow(nameof(SpecificClanWindow),
             nameof(SpecificClanWindow) + "Title");
-        EmpireSettingWindow.CreateWindow(nameof(EmpireSettingWindow),
-            nameof(EmpireSettingWindow) + "Title");
+        // 设置窗口换宽窗口(标题用 "<窗口id> Title" 约定 key)，内容只有两张卡，窗口矮一些
+        EmpireSettingWindow.CreateAndInit(nameof(EmpireSettingWindow), new Vector2(480f, 180f));
         MetaColorWindow.CreateWindow(nameof(MetaColorWindow),
             nameof(MetaColorWindow) + "Title");
         RegimeWindow.CreateWindow(nameof(RegimeWindow),

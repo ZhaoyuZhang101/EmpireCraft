@@ -270,6 +270,128 @@ public static class UIHelper
         return header;
     }
 
+    // ═══ 宽窗口设计语言「卷册」═══
+    // 卡片是唯一容器：深色内嵌底 + 标题条(图标·金色标题·右侧状态值) + 细分隔线 + 内容。
+    // 页面默认两栏：左右各一张半宽卡(CardColumnWidth)并排对照，重点内容用全宽卡(WidePanelWidth)。
+    // 每张卡可放一个主指标(AddHeroStat)大字号压阵，让页面有视觉重心而不是均匀的清单。
+    public const float CardColumnWidth = 217f;
+    public const int CardGap = 6;
+
+    // 定宽、高度随内容(半宽卡/两栏容器用)
+    public static void FixPanelWidth(Transform panel, float width)
+    {
+        var rect = panel as RectTransform;
+        if (rect == null) return;
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+        LayoutElement element = panel.GetComponent<LayoutElement>() ?? panel.gameObject.AddComponent<LayoutElement>();
+        element.minWidth = width;
+        element.preferredWidth = width;
+        var fitter = panel.GetComponent<ContentSizeFitter>() ?? panel.gameObject.AddComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+    }
+
+    // 两栏容器：全宽，里面放两张半宽卡
+    public static AutoHoriLayoutGroup BeginColumns(this AutoVertLayoutGroup parent)
+    {
+        var columns = parent.BeginHoriGroup(pSpacing: CardGap, pAlignment: TextAnchor.UpperCenter);
+        FixPanelWidth(columns.transform, WidePanelWidth);
+        return columns;
+    }
+
+    // 全宽卡
+    public static AutoVertLayoutGroup BeginCard(this AutoVertLayoutGroup parent, string title = null,
+        string titleHex = "#F3C34A", string headerValue = null, params string[] icons)
+    {
+        var card = parent.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(6, 6, 5, 6));
+        return SetupCard(card, WidePanelWidth, title, titleHex, headerValue, icons);
+    }
+
+    // 半宽卡(放在 BeginColumns 里)
+    public static AutoVertLayoutGroup BeginColumnCard(this AutoHoriLayoutGroup columns, string title = null,
+        string titleHex = "#F3C34A", string headerValue = null, params string[] icons)
+    {
+        var card = columns.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(6, 6, 5, 6));
+        return SetupCard(card, CardColumnWidth, title, titleHex, headerValue, icons);
+    }
+
+    private static AutoVertLayoutGroup SetupCard(AutoVertLayoutGroup card, float width, string title,
+        string titleHex, string headerValue, string[] icons)
+    {
+        FixPanelWidth(card.transform, width);
+        AddCardFrame(card.transform);
+        if (!string.IsNullOrEmpty(title)) AddCardTitle(card, width, LM.Get(title), titleHex, headerValue, icons);
+        return card;
+    }
+
+    // 卡片像素框：铺满父级的九宫格(自动高的卡片用；定高面板仍用 AddStretchBackground)
+    public static void AddCardFrame(Transform panel, string frame = "FactionFrame")
+    {
+        if (!CardFrames.TryGetValue(frame, out Sprite sliced) || sliced == null)
+        {
+            var source = SpriteTextureLoader.getSprite($"ui/{frame}");
+            if (source == null) return;
+            sliced = Sprite.Create(source.texture, source.rect, new Vector2(0.5f, 0.5f),
+                source.pixelsPerUnit, 0, SpriteMeshType.FullRect, new Vector4(11, 11, 24, 24));
+            CardFrames[frame] = sliced;
+        }
+        var frameObject = new GameObject("CardFrame", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+            typeof(LayoutElement));
+        var rect = frameObject.GetComponent<RectTransform>();
+        rect.SetParent(panel, false);
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        Image image = frameObject.GetComponent<Image>();
+        image.sprite = sliced;
+        image.type = Image.Type.Sliced;
+        image.raycastTarget = false;
+        frameObject.GetComponent<LayoutElement>().ignoreLayout = true;
+        rect.SetAsFirstSibling();
+    }
+
+    // 卡片标题条：图标 + 标题 + 右侧状态值，下面一条细分隔线
+    public static void AddCardTitle(AutoVertLayoutGroup card, float width, string title, string titleHex,
+        string headerValue, params string[] icons)
+    {
+        float inner = width - 12f;
+        var bar = card.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleLeft, 3);
+        Sprite icon = FirstSprite(icons);
+        AddLayoutIcon(bar.transform, icon, 11f);
+        float valueWidth = string.IsNullOrEmpty(headerValue) ? 0f : inner * 0.45f;
+        float titleWidth = inner - valueWidth - (icon != null ? 14f : 0f) - 2f;
+        var label = bar.AddTextIntoHoriLayout(title.ColorString(titleHex), true, TextAnchor.MiddleLeft, new Vector2(titleWidth, 13f));
+        label.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+        if (valueWidth > 0f)
+        {
+            var value = bar.AddTextIntoHoriLayout(headerValue.ColorString("#C8C2B4"), true, TextAnchor.MiddleRight, new Vector2(valueWidth, 13f));
+            value.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        }
+        card.AddTextIntoVertLayout("", false, TextAnchor.MiddleCenter, new Vector2(inner, 2f));
+    }
+
+    // 主指标：小灰标签 + 大字号数值，一张卡放一个压阵
+    public static void AddHeroStat(this AutoVertLayoutGroup card, float width, string label, string value, string hex = "#F3C34A")
+    {
+        float inner = width - 12f;
+        var row = card.BeginHoriGroup(new Vector2(inner, 18f), TextAnchor.MiddleLeft, 4);
+        var l = row.AddTextIntoHoriLayout(label.ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft, new Vector2(inner * 0.42f, 16f));
+        l.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+        var v = row.AddTextIntoHoriLayout(value.ColorString(hex), true, TextAnchor.MiddleRight, new Vector2(inner * 0.58f - 4f, 16f));
+        v.UseFixedFontSize(12, HorizontalWrapMode.Overflow);
+    }
+
+    // 指标格：上行小灰标签、下行亮色数值；顶栏和卡片里 2×2 并排用
+    public static void AddMetricCell(AutoHoriLayoutGroup row, float width, string label, string value, string hex = "#F2EEE2")
+    {
+        var cell = row.BeginVertGroup(new Vector2(width, 22f), pSpacing: 0, pAlignment: TextAnchor.MiddleLeft, pPadding: new RectOffset(2, 2, 0, 0));
+        var l = cell.AddTextIntoVertLayout(label.ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft, new Vector2(width - 4f, 9f));
+        l.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        var v = cell.AddTextIntoVertLayout(value.ColorString(hex), true, TextAnchor.MiddleLeft, new Vector2(width - 4f, 12f));
+        v.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+    }
+
     // 宽度由窗口确定，高度由子项确定；不能让水平 PreferredSize 又把面板缩回旧窄宽度。
     public static void UseWidePanel(Transform panel)
     {
