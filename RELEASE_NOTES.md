@@ -1,7 +1,9 @@
 # 更新内容 (Update Features)
 
-2026-10-12 军团与战线、春秋战国、朝堂与华夏官制、卷册宽窗口（本地候选，尚未发布）
-2026-10-12 Corps and fronts, Spring and Autumn and Warring States, court politics and Chinese bureaucracy, scroll-style wide windows (local candidate, not yet released)
+2026-10-12 · 0.4.4Beta12
+
+2026-10-12 军团与战线、春秋战国、朝堂与华夏官制、卷册宽窗口：
+2026-10-12 Corps and fronts, Spring and Autumn and Warring States, court politics and Chinese bureaucracy, scroll-style wide windows:
 
 - **军团与战线（借鉴钢铁雄心）**：无小人模式开启「帝国占领模式」时，征召兵不再一团一个实体兵：各军镇按兵额每八个旧制军团合编一支军，兵力只是数字（从各城人口征召、退伍还回、阵亡扣减）。战线每月结算：各国按上月敌军攻势分兵守城，其余集中进攻一到三段战线；攻方兵力×组织度×火力胜过守方（守方 ×1.25 再加堑壕，无军驻守时由团练抵抗）就沿战线连片占领地块，占满全城即陷落；组织度归零的军溃退回驻地休整。军团每秒行军两块地块，统领阵亡全军动摇。原版计兵数把军团折算进去，战争 AI、投降与叛乱判定照常；起义、革命的义军临时编军，仗打完就地解散。
   **Corps and fronts (inspired by Hearts of Iron)**: With No Commoners Mode and EmpireCraft Occupation Mode on, levies are no longer one entity per unit. Each military post forms corps worth eight legacy legions, and strength is only a number (drafted from city populations, returned on demobilization, deducted on death). Fronts resolve monthly: each realm garrisons its cities against last month's enemy pressure and concentrates the rest on one to three front sectors. If attacker strength × organization × firepower beats the defender (×1.25 plus entrenchment, or local militia when no corps holds the city), the attacker takes contiguous tiles along the front, and the city falls once every tile is taken; corps at zero organization rout home to recover. Corps march two tiles per second, and a commander's death shakes the whole corps. Vanilla soldier counts include corps, so war AI, surrender and rebellion checks still work; rebel and revolutionary militias form temporary corps that disband when the war ends.
@@ -58,7 +60,7 @@
 Verification: every change builds; corps and fronts, counter interaction, the Spring and Autumn and Warring States simulation and the frame-rate changes still need testing on real saves.
 
 
-2026-10-11 宽窗口与君主世系修整（本地候选，尚未发布）：
+2026-10-11 宽窗口与君主世系修整：
 
 - **宽窗口内容布局**：帝国顶部、财政、宪制、属国、派系与阶层面板采用宽排版；财政标签与金额分栏、长文本换行。法理与核心名录卡片加宽，官署卡片改四列，官职图拓宽；保留现有窗口分类、头像尺寸和像素框架。
 - **君主世系加载**：世系与详情每页展示 12 位君主，分帧创建；记事每页 30 条，完整历史仍可翻页查看。历史分组和去重减少重复扫描，头像身份只遍历一次所需人口库，翻页不重复全库查找；切换、关闭时取消过期界面绘制。
@@ -68,7 +70,7 @@ Verification: every change builds; corps and fronts, counter interaction, the Sp
 验证：编译与资源加载、键值行布局回归检查；实际存档的开窗耗时与视觉效果仍待游戏内验证。
 
 
-2026-10-11 整体更新计划续作（本地候选，尚未发布）：
+2026-10-11 整体更新计划续作：
 
 - **资产随人、随债务人走**：虚拟人口迁移(自然迁徙、焦土逃难、国家移民与安置)按迁出比例带走民间存款，土地、厂房和国库留在原城。城市易主时旧政权的治理、驻军和军费欠款交还旧政权首都继续偿还，旧政权已亡记为违约；城市被毁时国库余额交回本国，欠款交给首都，民间存款随逃难百姓归入首都。
 - **炼钢与核打击记账**：钢铁厂原料价值从工业税基扣除，工业税不再按毛产出征收。核打击立项成功后才扣铀，失败不再出现“铀退回、钱没退”。
@@ -113,19 +115,19 @@ Verification: every change builds; corps and fronts, counter interaction, the Sp
 
 验证：编译通过，0错误。真实存档、游戏界面与帧率未实测。
 
-2026-10-10 财政第一阶段（本地候选，尚未发布）：
+2026-10-10 财政第一阶段：
 
 - **国库余额防溢出**：城市和国家实际现金改用64位整数，保留旧存档字段。原有AI、建造和科研的一次报价继续使用整数接口，完整余额及可用资金单独读取；大额收入不再绕回负数，预留资金按真实余额扣除。
 - **历史欠款单独记账**：治理、驻军及野战军欠款偿还分别列示，仍扣除实际现金，但不再推高日常维护费用、安全储备或经常性赤字。只重新分类今后的偿还，不猜测旧账用途。
 - **完善财政汇总**：补齐帝国汇总的军费、必要支出、历史还款及现金净变动；匹配划拨抵消后保留净转入或净转出。财政页增加境内实收实付、现金净变动和历史欠款偿还，城市及国家提示显示完整国库金额。
 - **沿用原有结构**：现金、账本、地方稳定和建城仍在现有系统中处理，两种人口模式共用。增加通用系统财政文件索引；完整企业工资、利润、投资与新税基尚未接管运行经济。
 
-2026-10-10 补充修复（本地候选，尚未发布）：
+2026-10-10 补充修复：
 
 - **姓名顺序遗漏入口**：读档后及虚拟族人恢复实体时，按当前人物文化校正已知姓与名的顺序；年度年龄更新也校正识别出的反序姓名。保留手动改名与西方王号，不重新生成姓或名。
 - **真实年龄开关**：接入实际自然死亡入口，开启时智慧种族使用60至80岁的固定个人寿数，关闭时恢复原版自然死亡判断。虚拟族谱同步读取开关，保存原有寿命与不朽状态；尊重原版老死法则，不再把年龄风险累加到刑罚风险或添加死亡标记。旧虚拟族谱缺少寿命记录时按物种补读；普通匿名虚拟人口仍按原人口模型结算。
 
-2026-10-09 · 0.4.4Beta12 候选（本地修改，尚未发布）
+2026-10-09 科技兼容、姓氏与财政保护：
 
 1. **科技兼容与来源提示**：分别识别 ModernMod、WarBox 和 ModernBox，逐项显示枪械、建筑与单位的提供模组。缺失的具体型号按来源提示，不再因为某个型号缺失就把整个模组显示为“未安装”。兼容唯一的大小写别名、重复引用和资源晚注册，科技详情允许换行。
 2. **修复后代串姓**：家庭创建和加入家庭不再覆盖已经确定的个人姓，普通父系、入赘和母系沿用相应继承规则。虚拟族谱保存个人姓与名，生成后代和恢复实体时使用个人姓名；旧档缺字段保留回退，不批量改写已有错姓。
@@ -152,7 +154,7 @@ Verification: every change builds; corps and fronts, counter interaction, the Sp
 
 验证：编译通过；两种人口模式各完成和平、战争、资金不足三类24个月离线财政回放。科技、姓氏、财政账本、军费、分封、行政区、附庸、保城、存档与性能队列的相关回归通过。
 
-待验证：428年实际存档的财政平衡、真实游戏的UI布局、大地图实测帧率与月度停顿。离线预算查询基准不是整场游戏的提帧结果；候选版本尚未上传。
+待验证：428年实际存档的财政平衡、真实游戏的UI布局、大地图实测帧率与月度停顿。离线预算查询基准不是整场游戏的提帧结果。
 
 ---
 
