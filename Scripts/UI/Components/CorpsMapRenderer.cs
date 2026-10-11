@@ -11,12 +11,14 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 军团在地图上的样子(借鉴钢铁雄心)：
 //   · 战线：交战双方控制区相接的地块边，画成金色粗线；
 //   · 兵牌：国色小旗 + 兵力 + 兵力条(绿)与组织度条(青)；进攻红框、防守蓝框、溃退灰；有统领实体时跟在统领头顶；
+//     同一地块同一国的几支军合并成一块(标"×N"、兵力相加)，不同国并排；
 //   · 交战标记：正在交战的城，标出本月攻方胜算。
-// 画在地名画布上(屏幕坐标)，大小不随缩放变化。
+// 画在地名画布上，按屏幕像素定大小(不随界面缩放放大)，镜头拉远时略缩小。
 public static class CorpsMapRenderer
 {
-    private const float CounterWidth = 58f, CounterHeight = 20f;
-    private const float LineWidth = 3f;
+    // 以屏幕像素计
+    private const float CounterWidth = 42f, CounterHeight = 13f;
+    private const float LineWidth = 2.5f;
 
     private sealed class Counter
     {
@@ -39,6 +41,18 @@ public static class CorpsMapRenderer
     private static readonly List<Image> Lines = new();
     private static readonly List<Marker> Markers = new();
     private static readonly Dictionary<int, int> StackCounts = new();
+
+    private sealed class CounterGroup
+    {
+        public Kingdom Kingdom;
+        public TileZone Zone;
+        public Vector3 World;
+        public string Task;
+        public int Count;
+        public float Strength, Full, Org;
+    }
+
+    private static readonly Dictionary<(int zone, long kingdom), CounterGroup> Groups = new();
 
     private static readonly Color FrameAttack = new Color32(232, 88, 79, 255);
     private static readonly Color FrameDefend = new Color32(127, 168, 232, 255);
@@ -125,11 +139,11 @@ public static class CorpsMapRenderer
             counter.Frame = NewImage(go.transform, "Frame", FrameNormal);
             Place(counter.Frame.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             counter.Fill = NewImage(go.transform, "Fill", new Color32(29, 32, 24, 235));
-            Place(counter.Fill.rectTransform, Vector2.zero, Vector2.one, new Vector2(1.5f, 1.5f), new Vector2(-1.5f, -1.5f));
+            Place(counter.Fill.rectTransform, Vector2.zero, Vector2.one, new Vector2(1f, 1f), new Vector2(-1f, -1f));
             counter.Flag = NewImage(go.transform, "Flag", Color.white);
-            Place(counter.Flag.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(2.5f, 2.5f), new Vector2(14.5f, -2.5f));
-            counter.Label = NewText(go.transform, 9);
-            Place(counter.Label.rectTransform, new Vector2(0f, 0.45f), new Vector2(1f, 1f), new Vector2(17f, 0f), new Vector2(-1f, 0f));
+            Place(counter.Flag.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(2f, 2f), new Vector2(10f, -2f));
+            counter.Label = NewText(go.transform, 7);
+            Place(counter.Label.rectTransform, new Vector2(0f, 0.3f), new Vector2(1f, 1f), new Vector2(12f, 0f), new Vector2(-1f, 0f));
             counter.Strength = NewImage(go.transform, "Strength", new Color32(101, 214, 110, 255));
             counter.Org = NewImage(go.transform, "Org", new Color32(127, 216, 234, 255));
             Counters.Add(counter);
@@ -144,12 +158,12 @@ public static class CorpsMapRenderer
             var go = new GameObject("CorpsBattle", typeof(RectTransform));
             go.transform.SetParent(_root, false);
             var marker = new Marker { Root = go.GetComponent<RectTransform>() };
-            marker.Root.sizeDelta = new Vector2(62f, 14f);
+            marker.Root.sizeDelta = new Vector2(42f, 10f);
             marker.Frame = NewImage(go.transform, "Frame", FrameAttack);
             Place(marker.Frame.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             Image fill = NewImage(go.transform, "Fill", new Color32(43, 26, 20, 240));
-            Place(fill.rectTransform, Vector2.zero, Vector2.one, new Vector2(1.5f, 1.5f), new Vector2(-1.5f, -1.5f));
-            marker.Label = NewText(go.transform, 8);
+            Place(fill.rectTransform, Vector2.zero, Vector2.one, new Vector2(1f, 1f), new Vector2(-1f, -1f));
+            marker.Label = NewText(go.transform, 6);
             marker.Label.alignment = TextAnchor.MiddleCenter;
             marker.Label.color = new Color32(255, 214, 200, 255);
             Place(marker.Label.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -222,47 +236,70 @@ public static class CorpsMapRenderer
             Vector2 delta = p2 - p1;
             RectTransform rect = line.rectTransform;
             rect.position = (p1 + p2) * 0.5f;
-            rect.sizeDelta = new Vector2(delta.magnitude / scale + LineWidth, LineWidth);
+            rect.sizeDelta = new Vector2((delta.magnitude + LineWidth) / scale, LineWidth / scale);
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
         }
 
-        // 兵牌(同一地块的军上下错开)
-        StackCounts.Clear();
+        // 以屏幕像素定大小：抵消画布缩放，镜头拉远时缩到七成
+        float zoom = Mathf.Clamp(40f / Mathf.Max(1f, camera.orthographicSize), 0.7f, 1.15f);
+        Vector3 pixelScale = Vector3.one * (zoom / scale);
+
+        // 兵牌：同一地块同一国的军合并成一块，不同国并排
+        Groups.Clear();
         foreach ((Kingdom kingdom, CorpsData corps) in CorpsSystem.All())
         {
             if (corps.task == "reserve" && !CorpsSystem.IsAtWar(kingdom)) continue;
             TileZone zone = CorpsSystem.Zone(corps);
             if (zone?.centerTile == null) continue;
-            Vector3 world = zone.centerTile.posV;
+            var key = (zone.id, kingdom.id);
+            if (!Groups.TryGetValue(key, out CounterGroup group))
+            {
+                group = new CounterGroup { Kingdom = kingdom, Zone = zone, World = zone.centerTile.posV, Task = corps.task };
+                Groups[key] = group;
+            }
+            group.Count++;
+            group.Strength += corps.strength;
+            group.Full += corps.full;
+            group.Org += corps.org;
+            // 进攻优先显示，其次防守
+            if (corps.task == "attack" || corps.task == "defend" && group.Task != "attack") group.Task = corps.task;
             Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
-            if (general?.data != null && !general.isRekt() && general.isAlive() && general.current_tile?.zone != null &&
-                CorpsSystem.ZoneDistance(general.current_tile.zone, zone) <= 2f)
-                world = (Vector3)general.current_position + new Vector3(0f, 3f);
-            StackCounts.TryGetValue(zone.id, out int stack);
-            StackCounts[zone.id] = stack + 1;
-            Vector3 screen = camera.WorldToScreenPoint(world);
+            if (group.Count == 1 && general?.data != null && !general.isRekt() && general.isAlive() &&
+                general.current_tile?.zone != null && CorpsSystem.ZoneDistance(general.current_tile.zone, zone) <= 2f)
+                group.World = (Vector3)general.current_position + new Vector3(0f, 3f);
+        }
+        StackCounts.Clear();
+        foreach (CounterGroup group in Groups.Values)
+        {
+            StackCounts.TryGetValue(group.Zone.id, out int index);
+            StackCounts[group.Zone.id] = index + 1;
+            Vector3 screen = camera.WorldToScreenPoint(group.World);
             if (!OnScreen(screen, 60f)) continue;
             Counter counter = GetCounter(counterCount++);
             counter.Root.gameObject.SetActive(true);
-            counter.Root.position = screen + new Vector3(0f, stack * (CounterHeight + 2f) * scale);
-            counter.Frame.color = corps.task switch
+            counter.Root.localScale = pixelScale;
+            // 同一地块的第二国、第三国往右错开
+            counter.Root.position = screen + new Vector3(index * (CounterWidth + 2f) * zoom, 0f);
+            counter.Frame.color = group.Task switch
             {
                 "attack" => FrameAttack,
                 "defend" => FrameDefend,
                 "retreat" => FrameRetreat,
                 _ => FrameNormal
             };
-            counter.Flag.color = kingdom.getColor()?.getColorMain() ?? Color.gray;
-            counter.Label.text = CorpsSystem.ShortStrength(corps.strength);
-            float strength = corps.full <= 0f ? 0f : Mathf.Clamp01(corps.strength / corps.full);
-            float org = Mathf.Clamp01(corps.org / 100f);
-            Place(counter.Strength.rectTransform, Vector2.zero, Vector2.zero, new Vector2(17f, 6f),
-                new Vector2(17f + 38f * strength, 8f));
-            Place(counter.Org.rectTransform, Vector2.zero, Vector2.zero, new Vector2(17f, 2.5f),
-                new Vector2(17f + 38f * org, 4.5f));
+            counter.Flag.color = group.Kingdom.getColor()?.getColorMain() ?? Color.gray;
+            counter.Label.text = group.Count > 1
+                ? $"{CorpsSystem.ShortStrength(group.Strength)}×{group.Count}"
+                : CorpsSystem.ShortStrength(group.Strength);
+            float strength = group.Full <= 0f ? 0f : Mathf.Clamp01(group.Strength / group.Full);
+            float org = Mathf.Clamp01(group.Org / group.Count / 100f);
+            Place(counter.Strength.rectTransform, Vector2.zero, Vector2.zero, new Vector2(12f, 3.5f),
+                new Vector2(12f + 27f * strength, 5f));
+            Place(counter.Org.rectTransform, Vector2.zero, Vector2.zero, new Vector2(12f, 1.5f),
+                new Vector2(12f + 27f * org, 3f));
         }
 
-        // 交战标记
+        // 交战标记(画在交战地块下方，不压住兵牌)
         foreach (FrontSystem.BattleView battle in FrontSystem.Battles.Values)
         {
             TileZone zone = CorpsSystem.ZoneById(battle.zone_id);
@@ -271,7 +308,8 @@ public static class CorpsMapRenderer
             if (!OnScreen(screen, 60f)) continue;
             Marker marker = GetMarker(markerCount++);
             marker.Root.gameObject.SetActive(true);
-            marker.Root.position = screen - new Vector3(0f, (CounterHeight + 2f) * scale);
+            marker.Root.localScale = pixelScale;
+            marker.Root.position = screen - new Vector3(0f, (CounterHeight + 2f) * zoom);
             marker.Label.text = string.Format(LM.Get("corps_battle_marker"), Mathf.RoundToInt(battle.ratio * 100f));
         }
     }
