@@ -152,7 +152,8 @@ public class EmpireCraftActorCheckWarriorMove : GameAIActorBase
         // Warrior 生育已经彻底移到 EmpireCraftActorCheckWarrior
         // 并由 ArmyManager.update 独立驱动，不再依赖这个军事 Behaviour
         // 在和平时期是否会被 AI 调度。
-        if (!EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode.isEnabled())
+        if (!EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode.isEnabled() ||
+            EmpireCraft.Scripts.GeneralSystems.CorpsSystem.Enabled)
         {
             ClearActorMoveState(pActor);
             return BehResult.Continue;

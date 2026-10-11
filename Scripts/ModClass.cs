@@ -122,6 +122,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
             }
         }
         _backgroundCursor = (_backgroundCursor + 1) % 6;
+        using (FrameProfiler.Measure("后台·军团战线")) EmpireCraft.Scripts.GeneralSystems.CorpsSystem.Update();
         using (FrameProfiler.Measure("后台·规划覆盖层")) EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.TickOverlay();
     }
 

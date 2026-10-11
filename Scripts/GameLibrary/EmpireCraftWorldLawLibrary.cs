@@ -19,6 +19,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_allow_harem;
     public static WorldLawAsset empirecraft_law_allow_skeleton;
     public static WorldLawAsset empirecraft_law_switch_occupy_mode;
+    public static WorldLawAsset empirecraft_law_corps_general;
     public static WorldLawAsset empirecraft_law_allow_social;
     public static WorldLawAsset empirecraft_law_fixed_de_jure_culture;
     public static WorldLawAsset empirecraft_law_ban_vanilla_alliance;
@@ -118,6 +119,14 @@ public static class EmpireCraftWorldLawLibrary
         AssetManager.world_laws_library.add(empirecraft_law_switch_occupy_mode = new WorldLawAsset()
         {
             id = nameof(empirecraft_law_switch_occupy_mode),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconWar",
+            default_state = true
+        });
+        //军团统领实体(占领模式下的军团在地图上由一名统领代表；关闭则只有兵牌)
+        AssetManager.world_laws_library.add(empirecraft_law_corps_general = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_corps_general),
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconWar",
             default_state = true

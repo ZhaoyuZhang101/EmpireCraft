@@ -295,7 +295,7 @@ public static class CityPopulationSystem
 
     public static void MarchToFront(City city)
     {
-        if (!AbstractPopulationEnabled || city?.army == null || !OnWarFooting(city)) return;
+        if (!AbstractPopulationEnabled || CorpsSystem.Enabled || city?.army == null || !OnWarFooting(city)) return;
         Actor captain = city.army.getCaptain();
         if (captain == null || captain.isRekt() || !captain.isAlive() || captain.current_tile == null) return;
         WorldTile front = FrontTile(city.kingdom);
@@ -312,7 +312,7 @@ public static class CityPopulationSystem
     }
 
     // 本王国各城背景人口之和(兵源池)
-    private static float KingdomBackground(Kingdom kingdom)
+    public static float KingdomBackground(Kingdom kingdom)
     {
         float total = 0f;
         if (kingdom?.cities == null) return total;
@@ -322,7 +322,7 @@ public static class CityPopulationSystem
     }
 
     // 按背景人口加权抽一座本国城市(兵源从哪座城出、退伍回哪座城)
-    private static City DrawKingdomCity(Kingdom kingdom)
+    public static City DrawKingdomCity(Kingdom kingdom)
     {
         if (kingdom?.cities == null) return null;
         float total = 0f;
@@ -1270,7 +1270,7 @@ public static class CityPopulationSystem
     }
 
     private static bool ImmediatelyProtected(Actor actor) => actor.isKing() || actor.isCityLeader() ||
-        actor.isFavorite() || actor.isCameraFollowingUnit() || actor.plot != null;
+        actor.isFavorite() || actor.isCameraFollowingUnit() || actor.plot != null || CorpsSystem.IsGeneral(actor);
 
     // 要紧的贵族：君主、继承人、君主的配偶与子女、有封地或爵位的人。其余宗室并入虚拟族谱，需要时再落成
     private static bool IsImportantNoble(Actor actor)
@@ -1348,7 +1348,7 @@ public static class CityPopulationSystem
             liveIds.Add(actor.id);
             if (ImmediatelyProtected(actor)) continue;
             if (!cache.TryGet(actor.id, now, Date.getMonthsSince, out bool notable)) { unknown = true; continue; }
-            if (notable) continue;
+            if (notable || CorpsSystem.IsGeneral(actor)) continue;
             if (IsSoldier(actor)) soldiers.Add(actor);
             else commoners.Add(actor);
         }
@@ -1378,7 +1378,7 @@ public static class CityPopulationSystem
         var toFold = new List<Actor>();
         // 军制(见 LevyTarget)：太平时不是军镇的城不留兵、军镇只留常备兵额(没有常备军就留一名将领)；
         // 交战(含战备)期间一律不遣散——起义城市临时武装的义军、调防途中的军团都留着
-        int keep = LevyTarget(city);
+        int keep = CorpsSystem.Enabled ? CityStabilitySystem.FundedSlots(city) : LevyTarget(city);
         if (!atWar && soldiers.Count > Mathf.Max(0, keep))
         {
             // 现任统领优先留下，其次带着部队的人
@@ -1465,6 +1465,10 @@ public static class CityPopulationSystem
         UpdateLegions(home);
         InvalidateHouseholdCaches();
     }
+
+    // 实体并回人口(军团统领卸任、旧制征召兵并入军团时用)
+    public static bool DisbandIntoPopulation(Actor actor, City fallback) =>
+        actor?.data != null && !actor.isRekt() && actor.isAlive() && fallback != null && FoldIntoPopulation(actor, fallback);
 
     private static bool FoldIntoPopulation(Actor actor, City fallback)
     {
@@ -1575,8 +1579,11 @@ public static class CityPopulationSystem
     public static int RaiseLevies(City city)
     {
         if (!AbstractPopulationEnabled || city?.status == null || city.kingdom == null) return 0;
-        // 兵额按军制(见 LevyTarget)，并写回城市状态，免得原版以"超编"为由把新兵解散
-        int slots = LevyTarget(city);
+        // 兵额按军制(见 LevyTarget)，并写回城市状态，免得原版以"超编"为由把新兵解散；
+        // 军团模式下实体兵只剩城市守兵(治安)与军团统领，军镇兵额由军团承担(见 CorpsSystem)
+        int slots = CorpsSystem.Enabled
+            ? CityStabilitySystem.FundedSlots(city) + CorpsSystem.GeneralsAt(city)
+            : LevyTarget(city);
         city.status.warrior_slots = slots;
         int need = Mathf.Min(MaxLeviesPerPass, slots - city.status.warriors_current);
         if (need <= 0) return 0;
@@ -1623,8 +1630,11 @@ public static class CityPopulationSystem
 
     // 义军(无小人模式)：起义、革命时从本城背景人口里当场武装 count 个兵，每个兵代表一支义军，
     // 一共动员背景人口的 share。返回实际征到的人数(兵)
-    public static int RaiseMilitia(City city, int count, float share)
+    // garrison：城市治安守兵(CityStabilitySystem 招募)，始终是城里的实体
+    public static int RaiseMilitia(City city, int count, float share, bool garrison = false)
     {
+        // 军团模式：起义、革命的义军编成一支军，不再一兵一个实体
+        if (CorpsSystem.Enabled && !garrison) return CorpsSystem.RaiseMilitia(city, count, share);
         if (!AbstractPopulationEnabled || city?.data == null || city.isRekt() || city.kingdom == null || count <= 0)
             return 0;
         float background = GetBackgroundTotal(city);
@@ -1775,7 +1785,8 @@ public static class CityPopulationSystem
             ReinforceLegion(actor, actor.kingdom ?? city.kingdom);
             levied += LegionAlive(actor) - 1f;
         }
-        data.levied = levied;
+        // 军团(见 CorpsSystem)的兵员记在驻地城市
+        data.levied = levied + CorpsSystem.LeviedAt(city);
     }
 
     // 按人口组生成一个具体的人：物种、文化、理念取自人口组，加入本城与本国；soldier 为 true 时直接成为士兵

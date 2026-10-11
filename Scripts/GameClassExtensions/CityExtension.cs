@@ -666,7 +666,9 @@ public static class CityExtension
 
         return true;
     }
-    public static bool AddOccupiedTileZone(this City city, Kingdom occupier, TileZone tileZone, Actor capturer = null)
+    // landing：登陆(与敌国不接壤时的第一块滩头，见 FrontSystem)，不要求与己方控制区相连
+    public static bool AddOccupiedTileZone(this City city, Kingdom occupier, TileZone tileZone, Actor capturer = null,
+        bool landing = false)
     {
         var occupierId = occupier?.id??-1L;
         if (city == null || occupier == null || tileZone == null)
@@ -679,7 +681,7 @@ public static class CityExtension
             return false;
         }
 
-        if (!city.CanOccupyZoneFromFriendlyEdge(occupier, tileZone))
+        if (!landing && !city.CanOccupyZoneFromFriendlyEdge(occupier, tileZone))
         {
             return false;
         }

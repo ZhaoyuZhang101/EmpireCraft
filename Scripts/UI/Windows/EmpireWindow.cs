@@ -27,7 +27,7 @@ using NeoModLoader.api.attributes;
 namespace EmpireCraft.Scripts.UI.Windows
 {
     // 宽窗口(480×380)：帝国窗口是内容最多的窗口，窄窗里财政、派系、行政区都要排长队
-    public class EmpireWindow : AbstractWideWindow<EmpireWindow>
+    public partial class EmpireWindow : AbstractWideWindow<EmpireWindow>
     {
         private AutoVertLayoutGroup _root;
         private ScrollWindow TabsWindow => GetComponent<ScrollWindow>();
@@ -115,6 +115,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                 var settingWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
                 settingWindowTab.Setup("empire_setting", this.TabsWindow, action:OpenEmpireSettingWindow,
                     sprite: SpriteTextureLoader.getSprite("TabSetting"));
+            }
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_military"))
+            {
+                var militaryTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                militaryTab.Setup("empire_military", this.TabsWindow, action: ShowMilitary,
+                    sprite: SpriteTextureLoader.getSprite("TabMilitary"));
             }
             if (TabsWindow.tabs._tabs.All(p => p.name != "empire_constitution"))
             {

@@ -496,7 +496,23 @@ def emblem_slips():
     return m
 
 
+def obj_military(img):
+    """军团：两柄交叉的戟，前有铜钉圆盾(黑漆盾面、朱红菱纹)。"""
+    for x0, y0, x1, y1 in ((44, 232, 208, 34), (212, 232, 48, 34)):
+        over(img, shade(lines([[(x0, y0), (x1, y1)]], 10), WOOD, bevel=4, grain=0.3))
+    for cx, cy, d in ((208, 34, 1), (48, 34, -1)):
+        over(img, shade(poly([(cx, cy - 26), (cx + 12 * d, cy + 6), (cx - 6 * d, cy + 12)]), STEEL, bevel=4, gloss=0.9))
+        over(img, shade(poly([(cx - 4 * d, cy + 8), (cx - 34 * d, cy - 4), (cx - 28 * d, cy + 20)]), STEEL, bevel=4,
+                        gloss=0.9))
+    over(img, shade(ellipse([60, 68, 196, 204]), BRASS, bevel=10, gloss=0.9))
+    over(img, shade(ellipse([76, 84, 180, 188]), LACQ, bevel=10, gloss=0.7, grain=0.15))
+    over(img, shade(poly([(128, 100), (162, 136), (128, 172), (94, 136)]), RED, bevel=6))
+    for x, y in ((128, 76), (128, 196), (68, 136), (188, 136)):
+        over(img, shade(ellipse([x - 7, y - 7, x + 7, y + 7]), BRASS, bevel=3, gloss=0.9))
+
+
 TABS = {
+    "TabMilitary": obj_military,
     "TabDynasty": obj_tablet,
     "TabDependencies": obj_banners,
     "TabBureau": obj_palace,

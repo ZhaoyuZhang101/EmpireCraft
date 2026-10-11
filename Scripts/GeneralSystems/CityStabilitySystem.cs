@@ -335,7 +335,7 @@ public static class CityStabilitySystem
             if (pool < 1f) return;
             int people = Math.Min(needed, Math.Max(1, (int)(pool * 0.02f)));
             int units = Math.Min(2, Math.Max(1, Mathf.CeilToInt(people / CityPopulationSystem.PeoplePerLegion)));
-            CityPopulationSystem.RaiseMilitia(city, units, people / pool);
+            CityPopulationSystem.RaiseMilitia(city, units, people / pool, garrison: true);
             return;
         }
         if (city.units == null || city.units.Count == 0) return;

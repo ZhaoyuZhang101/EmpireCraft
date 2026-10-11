@@ -236,6 +236,9 @@ public static class KingdomExtension
         public double TimestampEmpire = -1L;
         public double TimestampBeFeifed = -1L;
         public long HeirID = -1L;
+        // 军团(见 CorpsSystem)与番号计数
+        public List<EmpireCraft.Scripts.Data.CorpsData> corps;
+        public int corps_serial;
         // 钦定储君(见册立储君)：仍在世、可继位、还是先君子嗣时越过继承法次序
         public long designated_heir_id = -1L;
         public int Level = 2;

@@ -1,0 +1,541 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
+using NeoModLoader.General;
+using NeoModLoader.services;
+using UnityEngine;
+
+namespace EmpireCraft.Scripts.GeneralSystems;
+
+// 战线(借鉴钢铁雄心)：每月结算一次。
+//   ① 战线段：一座敌城里，与己方控制的地块相邻的敌控地块(己方城市被敌军占去的地块同理，可收复)；
+//      与敌国完全不接壤(隔海、隔荒野)时，挑离本国首都最近的敌城，从其外缘地块登陆；
+//   ② 分派：各国先按上月敌军的攻势分兵守城，余下的军集中攻打一两段；组织度太低的军回乡休整；
+//   ③ 交战：攻方(兵力×组织度×火力) 对 守方(兵力×组织度×火力×(1.25+堑壕)，无军驻守时由团练抵抗)，
+//      双方按战况伤亡、掉组织度；攻方占优就沿战线连片占领 1~4 块地块(沿用地块占领模式，满城即陷落)，
+//      守方占优就夺回一块；守军还在时城中最后一块地不会丢；组织度归零的军溃退。
+// 军团须开到战线附近(两块地块以内)才参战。
+public static class FrontSystem
+{
+    private const int ArriveDistance = 2;
+    private const float DefenderBonus = 1.25f;
+    private const float CasualtyRate = 0.16f;
+    private const float RetreatOrg = 10f;
+    private const float ReadyOrg = 25f;
+    private const int MaxOffensives = 3;
+
+    public sealed class BattleView
+    {
+        public long city_id;
+        public int zone_id = -1;
+        public float ratio;
+        public float attack, defend;
+        public long attacker_id = -1L, defender_id = -1L;
+        public int taken;
+        public double time;
+    }
+
+    public static readonly Dictionary<long, BattleView> Battles = new();
+    private static readonly HashSet<long> Engaged = new();
+    private static readonly Dictionary<long, List<(double time, string text)>> Logs = new();
+
+    public static bool EngagedLastMonth(CorpsData corps) => corps != null && Engaged.Contains(corps.id);
+
+    public static void ResetWorldState()
+    {
+        Battles.Clear();
+        Engaged.Clear();
+        Logs.Clear();
+        _contested.Clear();
+        _contestedAt = -1;
+    }
+
+    #region 敌我
+
+    public static Kingdom Realm(Kingdom kingdom) =>
+        kingdom?.GetEmpire()?.CoreKingdom is Kingdom core && core.data != null && !core.isRekt() ? core : kingdom;
+
+    public static bool Hostile(Kingdom a, Kingdom b)
+    {
+        if (a?.data == null || b?.data == null || a == b || a.isRekt() || b.isRekt()) return false;
+        if (a.isInWarWith(b)) return true;
+        Kingdom ra = Realm(a), rb = Realm(b);
+        if (ra == rb) return false;
+        return ra.isInWarWith(rb) || ra.isInWarWith(b) || a.isInWarWith(rb);
+    }
+
+    public static bool Friendly(Kingdom a, Kingdom b) =>
+        a?.data != null && b?.data != null && (a == b || !Hostile(a, b) && (Realm(a) == Realm(b) || a.isInWarOnSameSide(b)));
+
+    // 占领记在谁名下：本国与城主正式交战就是本国，否则(帝国藩属替宗主作战)记在宗主名下
+    public static Kingdom Belligerent(Kingdom side, Kingdom owner)
+    {
+        if (side == null || owner == null || side.isInWarWith(owner)) return side;
+        Kingdom realm = Realm(side);
+        return realm != null && realm != side && (realm.isInWarWith(owner) || realm.isInWarWith(Realm(owner))) ? realm : side;
+    }
+
+    public static Kingdom Controller(TileZone zone)
+    {
+        City city = zone?.city;
+        if (city?.data == null || city.isRekt()) return null;
+        return city.GetTileZoneOccupier(zone) ?? city.kingdom;
+    }
+
+    #endregion
+
+    #region 战线段
+
+    private sealed class Sector
+    {
+        public City City;
+        public readonly List<TileZone> Targets = new();
+        public bool Landing;
+    }
+
+    // 敌城里可以下手的地块：敌控、且与己方控制的地块相邻
+    private static List<TileZone> TargetZones(Kingdom side, City city)
+    {
+        var result = new List<TileZone>();
+        if (city?.zones == null) return result;
+        foreach (TileZone zone in city.zones)
+        {
+            if (zone == null || !Hostile(side, Controller(zone))) continue;
+            foreach (TileZone neighbour in zone.neighbours ?? Array.Empty<TileZone>())
+            {
+                if (neighbour == null || neighbour.world_edge) continue;
+                Kingdom controller = Controller(neighbour);
+                if (controller == null || !Friendly(side, controller)) continue;
+                result.Add(zone);
+                break;
+            }
+        }
+        return result;
+    }
+
+    // 登陆点：敌城外缘(邻接无主地块或海)的地块
+    private static List<TileZone> LandingZones(City city)
+    {
+        var result = new List<TileZone>();
+        if (city?.zones == null) return result;
+        foreach (TileZone zone in city.zones)
+        {
+            if (zone == null) continue;
+            if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour => neighbour != null && !neighbour.world_edge &&
+                                                                              neighbour.city == null))
+                result.Add(zone);
+        }
+        return result;
+    }
+
+    private static List<Kingdom> _atWar = new();
+
+    private static List<Sector> Sectors(Kingdom side)
+    {
+        var sectors = new Dictionary<City, Sector>();
+        void Collect(City city)
+        {
+            if (city?.data == null || city.isRekt() || sectors.ContainsKey(city)) return;
+            List<TileZone> targets = TargetZones(side, city);
+            if (targets.Count == 0) return;
+            var sector = new Sector { City = city };
+            sector.Targets.AddRange(targets);
+            sectors[city] = sector;
+        }
+        var hostiles = _atWar.Where(other => Hostile(side, other)).ToList();
+        foreach (Kingdom hostile in hostiles)
+            foreach (City city in hostile.cities ?? new List<City>())
+                Collect(city);
+        // 己方(含盟友)被敌军占去地块的城：收复
+        foreach (Kingdom friend in _atWar.Where(other => Friendly(side, other)))
+            foreach (City city in friend.cities ?? new List<City>())
+                if (city?.GetOrCreate().OccupiedStatus?.Count > 0) Collect(city);
+        if (sectors.Count > 0 || hostiles.Count == 0) return sectors.Values.ToList();
+        // 与敌国不接壤：从离本国首都最近的敌城登陆
+        WorldTile origin = side.capital?.getTile();
+        City nearest = origin == null ? null : hostiles.SelectMany(hostile => hostile.cities ?? new List<City>())
+            .Where(city => city?.data != null && !city.isRekt() && city.getTile() != null)
+            .OrderBy(city => Toolbox.SquaredDistTile(city.getTile(), origin)).FirstOrDefault();
+        List<TileZone> landing = LandingZones(nearest);
+        if (landing.Count == 0) return new List<Sector>();
+        var beachhead = new Sector { City = nearest, Landing = true };
+        beachhead.Targets.AddRange(landing);
+        return new List<Sector> { beachhead };
+    }
+
+    #endregion
+
+    #region 月度结算
+
+    // 上月各城的守军(按有效兵力)：选进攻段时估算难度用
+    private static readonly Dictionary<long, float> DefenseByCity = new();
+
+    public static void MonthTick(double now)
+    {
+        _atWar = World.world.kingdoms.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
+                                                       (kingdom.hasEnemies() || Realm(kingdom).hasEnemies())).ToList();
+        DefenseByCity.Clear();
+        foreach ((Kingdom owner, CorpsData corps) in CorpsSystem.All())
+        {
+            if (corps.sector_city_id < 0 || corps.task is not ("defend" or "attack")) continue;
+            City city = World.world.cities.get(corps.sector_city_id);
+            if (city?.kingdom == null || !Friendly(owner, city.kingdom)) continue;
+            DefenseByCity.TryGetValue(city.id, out float value);
+            DefenseByCity[city.id] = value + Effective(corps);
+        }
+        // 上月各城受到的攻势(哪国、多少兵力)：守方只按敌军的攻势分兵
+        var pressure = new Dictionary<long, List<(Kingdom attacker, float strength)>>();
+        foreach ((Kingdom attacker, CorpsData corps) in CorpsSystem.All())
+            if (corps.task == "attack" && corps.sector_city_id >= 0)
+            {
+                if (!pressure.TryGetValue(corps.sector_city_id, out var list))
+                    pressure[corps.sector_city_id] = list = new List<(Kingdom, float)>();
+                list.Add((attacker, corps.strength));
+            }
+        var landingSectors = new Dictionary<long, bool>();
+        foreach (Kingdom kingdom in World.world.kingdoms.ToList())
+        {
+            List<CorpsData> list = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.GetOrCreate().corps;
+            if (list == null || list.Count == 0) continue;
+            Assign(kingdom, list, pressure, landingSectors);
+        }
+        Engaged.Clear();
+        Resolve(now, landingSectors);
+        foreach (long id in Battles.Where(pair => Date.getMonthsSince(pair.Value.time) > 1).Select(pair => pair.Key).ToList())
+            Battles.Remove(id);
+    }
+
+    private static void Assign(Kingdom kingdom, List<CorpsData> list,
+        Dictionary<long, List<(Kingdom attacker, float strength)>> pressure, Dictionary<long, bool> landingSectors)
+    {
+        bool war = _atWar.Contains(kingdom);
+        foreach (CorpsData corps in list)
+        {
+            if (corps.org <= RetreatOrg && corps.task != "retreat") Retreat(kingdom, corps);
+        }
+        var ready = list.Where(corps => corps.task != "retreat" && corps.org >= ReadyOrg && corps.strength >= 1f).ToList();
+        if (!war)
+        {
+            // 战备：开往朝向目标国的边境；太平：回驻地
+            TileZone border = CityPopulationSystem.IsMobilizing(kingdom) ? CityPopulationSystem.FrontTile(kingdom)?.zone : null;
+            foreach (CorpsData corps in list)
+            {
+                corps.sector_city_id = -1L;
+                if (corps.task == "retreat") { corps.target_zone_id = HomeZone(corps); continue; }
+                corps.task = border != null ? "march" : "reserve";
+                corps.target_zone_id = border?.id ?? HomeZone(corps);
+            }
+            return;
+        }
+        List<Sector> sectors = Sectors(kingdom);
+        foreach (Sector sector in sectors.Where(sector => sector.Landing)) landingSectors[sector.City.id] = true;
+        var assigned = new HashSet<CorpsData>();
+        // ① 守城：本国受攻的城按攻势分兵(就近)
+        float Threat(City city) => pressure.TryGetValue(city.id, out var entries)
+            ? entries.Where(entry => Hostile(kingdom, entry.attacker)).Sum(entry => entry.strength) : 0f;
+        var threatened = (kingdom.cities ?? new List<City>())
+            .Where(city => city?.data != null && !city.isRekt() && Threat(city) > 0f)
+            .OrderByDescending(Threat).ToList();
+        foreach (City city in threatened)
+        {
+            float need = Threat(city) * 0.9f, have = 0f;
+            TileZone anchor = DefenseZone(kingdom, city);
+            foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps))
+                         .OrderBy(corps => corps.task == "defend" && corps.sector_city_id == city.id ? -1f
+                             : CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), anchor)).ToList())
+            {
+                if (have >= need) break;
+                if (corps.task != "defend" || corps.sector_city_id != city.id) corps.entrench = 0f;
+                corps.task = "defend";
+                corps.sector_city_id = city.id;
+                corps.target_zone_id = anchor?.id ?? HomeZone(corps);
+                assigned.Add(corps);
+                have += corps.strength;
+            }
+        }
+        // ② 进攻：集中在少数几段
+        var attackOn = new Dictionary<Sector, float>();
+        foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps)).OrderByDescending(corps => corps.strength))
+        {
+            if (sectors.Count == 0) break;
+            Sector keep = corps.task == "attack" ? sectors.FirstOrDefault(sector => sector.City.id == corps.sector_city_id) : null;
+            Sector choice = keep ?? sectors
+                .Where(sector => attackOn.ContainsKey(sector) || attackOn.Count < MaxOffensives)
+                .OrderByDescending(sector => Score(kingdom, corps, sector, attackOn)).FirstOrDefault();
+            if (choice == null) break;
+            attackOn.TryGetValue(choice, out float strength);
+            attackOn[choice] = strength + corps.strength;
+            corps.task = "attack";
+            corps.sector_city_id = choice.City.id;
+            TileZone current = CorpsSystem.Zone(corps);
+            TileZone target = choice.Targets.OrderBy(zone => CorpsSystem.ZoneDistance(zone, current)).First();
+            corps.target_zone_id = target.id;
+            corps.entrench = 0f;
+            assigned.Add(corps);
+        }
+        // ③ 其余：预备(回驻地休整)
+        foreach (CorpsData corps in list.Where(corps => !assigned.Contains(corps) && corps.task != "retreat"))
+        {
+            corps.task = "reserve";
+            corps.sector_city_id = -1L;
+            corps.target_zone_id = HomeZone(corps);
+        }
+    }
+
+    private static float Score(Kingdom kingdom, CorpsData corps, Sector sector, Dictionary<Sector, float> attackOn)
+    {
+        attackOn.TryGetValue(sector, out float committed);
+        DefenseByCity.TryGetValue(sector.City.id, out float garrison);
+        float defense = garrison * DefenderBonus + Militia(sector.City, kingdom);
+        float distance = sector.Targets.Count == 0 ? 50f
+            : sector.Targets.Min(zone => CorpsSystem.ZoneDistance(zone, CorpsSystem.Zone(corps)));
+        float odds = (committed + corps.strength) / (defense + 1f);
+        float capital = sector.City.isCapitalCity() ? 0.3f : 0f;
+        float concentrate = committed > 0f ? 0.4f : 0f;
+        float recapture = Friendly(kingdom, sector.City.kingdom) ? 0.6f : 0f;
+        return Mathf.Min(odds, 3f) + capital + concentrate + recapture - distance * 0.03f;
+    }
+
+    private static int HomeZone(CorpsData corps) => CorpsSystem.Home(corps)?.getTile()?.zone?.id ?? corps.zone_id;
+
+    // 守城的落脚地块：本城与敌控地块相邻的地块，没有就城中心
+    private static TileZone DefenseZone(Kingdom kingdom, City city)
+    {
+        if (city?.zones != null)
+            foreach (TileZone zone in city.zones)
+            {
+                if (zone == null || !Friendly(kingdom, Controller(zone))) continue;
+                if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour => Hostile(kingdom, Controller(neighbour))))
+                    return zone;
+            }
+        return city?.getTile()?.zone;
+    }
+
+    private static void Retreat(Kingdom kingdom, CorpsData corps)
+    {
+        corps.task = "retreat";
+        corps.sector_city_id = -1L;
+        corps.target_zone_id = HomeZone(corps);
+        Log(kingdom, string.Format(LM.Get("corps_log_routed"), CorpsSystem.Name(corps)));
+    }
+
+    // 军团该往哪块地走
+    public static TileZone TargetZone(CorpsData corps) => CorpsSystem.ZoneById(corps.target_zone_id);
+
+    private static bool Arrived(CorpsData corps)
+    {
+        TileZone zone = CorpsSystem.Zone(corps), target = TargetZone(corps);
+        return zone != null && target != null && CorpsSystem.ZoneDistance(zone, target) <= ArriveDistance;
+    }
+
+    private static float Effective(CorpsData corps) => corps.strength * (0.25f + 0.75f * Mathf.Clamp01(corps.org / 100f));
+
+    // 火力：WarBox 的坦克、装甲车、飞机等载具每辆 +4%，最多 +60%
+    private static readonly Dictionary<long, float> FirepowerCache = new();
+
+    private static float Firepower(Kingdom kingdom)
+    {
+        if (kingdom == null) return 1f;
+        if (FirepowerCache.TryGetValue(kingdom.id, out float value)) return value;
+        int vehicles = kingdom.units?.Count(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() &&
+                                                     CityPopulationSystem.IsVehicle(actor)) ?? 0;
+        value = 1f + Mathf.Min(0.6f, vehicles * 0.04f);
+        FirepowerCache[kingdom.id] = value;
+        return value;
+    }
+
+    // 团练：没有军驻守时，本城百姓的抵抗(人口的 2%，组织涣散只算六成)；民心归附时不抵抗
+    private static float Militia(City city, Kingdom attacker)
+    {
+        if (city?.kingdom == null || attacker == null || Friendly(attacker, city.kingdom)) return 0f;
+        if (LandEconomySystem.WouldSurrenderTo(city, attacker, out _)) return 0f;
+        return CityPopulationSystem.GetBackgroundTotal(city) * 0.02f * 0.6f;
+    }
+
+    private static void Resolve(double now, Dictionary<long, bool> landingSectors)
+    {
+        FirepowerCache.Clear();
+        var bySector = new Dictionary<long, List<(Kingdom kingdom, CorpsData corps)>>();
+        foreach ((Kingdom kingdom, CorpsData corps) in CorpsSystem.All())
+        {
+            if (corps.sector_city_id < 0 || corps.task is not ("attack" or "defend") || !Arrived(corps)) continue;
+            if (!bySector.TryGetValue(corps.sector_city_id, out var group))
+                bySector[corps.sector_city_id] = group = new List<(Kingdom, CorpsData)>();
+            group.Add((kingdom, corps));
+        }
+        foreach (var pair in bySector)
+        {
+            City city = World.world.cities.get(pair.Key);
+            if (city?.data == null || city.isRekt() || city.kingdom == null) continue;
+            try { ResolveCity(city, pair.Value, now, landingSectors.ContainsKey(city.id)); }
+            catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][战线] {city.data.name} 结算失败: {exception.Message}"); }
+        }
+    }
+
+    private static void ResolveCity(City city, List<(Kingdom kingdom, CorpsData corps)> group, double now, bool landing)
+    {
+        Kingdom owner = city.kingdom;
+        var attackers = group.Where(entry => entry.corps.task == "attack" && Hostile(entry.kingdom, owner)).ToList();
+        var holders = group.Where(entry => Friendly(entry.kingdom, owner)).ToList();
+        if (attackers.Count == 0)
+        {
+            // 收复：本城被敌军占去的地块，没有敌军来争就逐块夺回
+            var retakers = holders.Where(entry => entry.corps.task == "attack").ToList();
+            if (retakers.Count == 0) return;
+            Kingdom lead = retakers.OrderByDescending(entry => entry.corps.strength).First().kingdom;
+            int retaken = Retake(city, lead, 2);
+            foreach (var entry in retakers) Engaged.Add(entry.corps.id);
+            if (retaken > 0) Record(city, lead, owner, 1f, retakers.Sum(entry => entry.corps.strength), 0f, retaken, now);
+            return;
+        }
+        Kingdom attacker = attackers.GroupBy(entry => entry.kingdom)
+            .OrderByDescending(entries => entries.Sum(entry => entry.corps.strength)).First().Key;
+        float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom));
+        float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
+                                            (DefenderBonus + entry.corps.entrench));
+        float militia = holders.Count == 0 ? Militia(city, attacker) : 0f;
+        defend += militia;
+        float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);
+        // 伤亡与组织度
+        float attackStrength = attackers.Sum(entry => entry.corps.strength);
+        float holdStrength = holders.Sum(entry => entry.corps.strength);
+        foreach (var entry in attackers)
+        {
+            CorpsSystem.Casualties(entry.corps, entry.corps.strength * CasualtyRate * (1f - ratio) * (defend > 0f ? 1f : 0.2f));
+            entry.corps.org = Mathf.Max(0f, entry.corps.org - (8f + 20f * (1f - ratio)));
+            Engaged.Add(entry.corps.id);
+        }
+        foreach (var entry in holders)
+        {
+            CorpsSystem.Casualties(entry.corps, entry.corps.strength * CasualtyRate * ratio);
+            entry.corps.org = Mathf.Max(0f, entry.corps.org - (6f + 20f * ratio));
+            Engaged.Add(entry.corps.id);
+        }
+        bool standing = holders.Any(entry => entry.corps.org > RetreatOrg && entry.corps.strength >= 1f);
+        int taken = 0;
+        if (ratio >= 0.55f)
+        {
+            int zones = ratio >= 0.9f ? 4 : ratio >= 0.75f ? 3 : ratio >= 0.65f ? 2 : 1;
+            taken = Advance(city, attacker, zones, standing, landing);
+            if (city.kingdom != owner)
+            {
+                Log(attacker, string.Format(LM.Get("corps_log_city_taken"), city.GetCityName(), attacker.GetKingdomName()));
+                Log(owner, string.Format(LM.Get("corps_log_city_lost"), city.GetCityName(), attacker.GetKingdomName()));
+            }
+        }
+        else if (ratio <= 0.4f && standing)
+        {
+            Kingdom lead = holders.OrderByDescending(entry => entry.corps.strength).First().kingdom;
+            Retake(city, lead, 1);
+        }
+        Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now);
+    }
+
+    // 攻方沿战线占领地块；守军还在时留下城中最后一块
+    private static int Advance(City city, Kingdom attacker, int count, bool defended, bool landing)
+    {
+        Kingdom owner = city.kingdom;
+        int taken = 0;
+        for (int i = 0; i < count && city.kingdom == owner; i++)
+        {
+            List<TileZone> targets = TargetZones(attacker, city);
+            if (targets.Count == 0 && landing) targets = LandingZones(city).Where(zone => Hostile(attacker, Controller(zone))).ToList();
+            if (targets.Count == 0) break;
+            int remaining = city.zones.Count(zone => zone != null && !Friendly(attacker, Controller(zone)));
+            if (defended && remaining <= 1) break;
+            TileZone center = city.getTile()?.zone;
+            TileZone zone = targets.OrderBy(candidate => candidate == center ? 1 : 0)
+                .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
+                    .Count(neighbour => Friendly(attacker, Controller(neighbour)))).First();
+            Kingdom occupier = Belligerent(attacker, owner);
+            Kingdom current = city.GetTileZoneOccupier(zone);
+            if (current != null && current != owner) city.RemoveOccupiedTileZone(current, zone);
+            bool ok = city.AddOccupiedTileZone(occupier, zone, landing: true);
+            if (!ok) break;
+            taken++;
+        }
+        return taken;
+    }
+
+    // 守方(或收复的一方)夺回本城被敌军占去、与己方相连的地块
+    private static int Retake(City city, Kingdom side, int count)
+    {
+        int retaken = 0;
+        for (int i = 0; i < count; i++)
+        {
+            TileZone zone = city.zones?.FirstOrDefault(candidate => candidate != null &&
+                city.GetTileZoneOccupier(candidate) is Kingdom occupier && Hostile(side, occupier) &&
+                (candidate.neighbours ?? Array.Empty<TileZone>()).Any(neighbour => Friendly(side, Controller(neighbour))));
+            if (zone == null) break;
+            if (!city.RemoveOccupiedTileZone(city.GetTileZoneOccupier(zone), zone)) break;
+            retaken++;
+        }
+        return retaken;
+    }
+
+    private static void Record(City city, Kingdom attacker, Kingdom defender, float ratio, float attack, float defend,
+        int taken, double now)
+    {
+        TileZone marker = TargetZones(attacker, city).FirstOrDefault() ?? city.getTile()?.zone;
+        Battles[city.id] = new BattleView
+        {
+            city_id = city.id, zone_id = marker?.id ?? -1, ratio = ratio, attack = attack, defend = defend,
+            attacker_id = attacker?.id ?? -1L, defender_id = defender?.id ?? -1L, taken = taken, time = now
+        };
+    }
+
+    #endregion
+
+    #region 纪事
+
+    public static void Log(Kingdom kingdom, string text)
+    {
+        if (kingdom == null || string.IsNullOrEmpty(text) || World.world == null) return;
+        if (!Logs.TryGetValue(kingdom.id, out var list)) Logs[kingdom.id] = list = new List<(double, string)>();
+        list.Insert(0, (World.world.getCurWorldTime(), text));
+        if (list.Count > 24) list.RemoveRange(24, list.Count - 24);
+    }
+
+    public static IReadOnlyList<(double time, string text)> LogOf(Kingdom kingdom) =>
+        kingdom != null && Logs.TryGetValue(kingdom.id, out var list) ? list : Array.Empty<(double, string)>();
+
+    #endregion
+
+    #region 地图：交战地块边界
+
+    private static readonly List<(TileZone a, TileZone b)> _contested = new();
+    private static int _contestedAt = -1;
+
+    // 交战双方控制区相接的地块边(画战线用)，每秒最多重算一次
+    public static IReadOnlyList<(TileZone a, TileZone b)> ContestedEdges()
+    {
+        int second = Mathf.FloorToInt(Time.unscaledTime);
+        if (_contestedAt == second) return _contested;
+        _contestedAt = second;
+        _contested.Clear();
+        if (!CorpsSystem.Enabled || World.world?.cities == null) return _contested;
+        foreach (City city in World.world.cities)
+        {
+            if (city?.data == null || city.isRekt() || city.zones == null || city.kingdom == null) continue;
+            if (!city.kingdom.hasEnemies() && !Realm(city.kingdom).hasEnemies()) continue;
+            foreach (TileZone zone in city.zones)
+            {
+                Kingdom controller = Controller(zone);
+                if (controller == null) continue;
+                // 交战的两块地都属于参战国的城，只看右、上两个方向，每条边记一次
+                foreach (TileZone neighbour in new[] { zone.zone_right, zone.zone_up })
+                {
+                    if (neighbour == null) continue;
+                    Kingdom other = Controller(neighbour);
+                    if (other != null && Hostile(controller, other)) _contested.Add((zone, neighbour));
+                }
+            }
+        }
+        return _contested;
+    }
+
+    #endregion
+}
