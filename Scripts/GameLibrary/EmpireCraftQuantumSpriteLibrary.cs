@@ -515,10 +515,12 @@ private static void DrawEmpireCraftOccupiedZones(QuantumSpriteAsset pAsset)
         }
     }
 
-    // 悬停有商路的港口城时画出它的海上商路(与城市悬停提示同时出现)，交战禁运画红
+    // 城市图层里悬停有商路的港口城时画出它的海上商路，交战禁运画红。
+    // 只在城市图层画：那里的悬停提示写着"海上商路：与某城贸易"，线才有出处；王国、帝国等图层不画
     private static void DrawTradeRouteLine(QuantumSpriteAsset pAsset)
     {
         if (!InputHelpers.mouseSupported || World.world.isBusyWithUI()) return;
+        if (World.world.getCachedMapMetaAsset()?.map_mode != MetaType.City) return;
         City city = World.world.getMouseTilePosCachedFrame()?.zone_city;
         if (city == null || city.isRekt()) return;
         City partner = World.world.cities.get(GeneralSystems.TradeRouteSystem.PartnerOf(city));
