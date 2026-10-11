@@ -12,7 +12,8 @@ public enum TreasuryCategory
     Garrison, Governance, LandTax, IndustrialTax, CommercialTax,
     GovernanceArrears, GarrisonArrears, MilitaryArrears,
     PublicEnterprise,
-    Borrowing, DebtInterest, DebtPrincipal
+    Borrowing, DebtInterest, DebtPrincipal,
+    Reparations
 }
 
 public sealed class TreasuryReport

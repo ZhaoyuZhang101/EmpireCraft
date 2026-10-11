@@ -338,6 +338,8 @@ public static class KingdomExtension
         public long last_ruler_identity_id = -1L;
         // 本封国历代国君已用过的谥字(尽量不重复)
         public List<string> posthumous_used = new List<string>();
+        // 战争赔款(见 WarReparationsSystem)：败方按月付给胜方
+        public List<EmpireCraft.Scripts.Data.WarReparation> war_reparations = new List<EmpireCraft.Scripts.Data.WarReparation>();
         // 国债(见 StateDebtSystem)：各笔借款、最近一次违约时间
         public List<EmpireCraft.Scripts.Data.StateBond> state_bonds = new List<EmpireCraft.Scripts.Data.StateBond>();
         public double state_debt_default_at = -1d;

@@ -203,6 +203,8 @@ public class WarPatch: GamePatch
             CaptureWarRoyalHouses(pWar);
             RememberDefeatedWarHouses(pWar, pWinner);
             RecordWarEnded(pWar, pWinner);
+            // 和约赔款(见 WarReparationsSystem)
+            EmpireCraft.Scripts.GeneralSystems.WarReparationsSystem.OnWarEnded(pWar, pWinner);
             ReignRecordSystem.OnWarEnded(pWar, pWinner);
             WorldWarSystem.Resolve(pWar, pWinner);
             World.world.game_stats.data.peacesMade++;

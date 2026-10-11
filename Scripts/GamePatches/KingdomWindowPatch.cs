@@ -86,6 +86,11 @@ public class KingdomWindowPatch: GamePatch
                 fiscal.cash_balance), fiscal.cash_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_available", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
                 EmpireCraft.Scripts.GeneralSystems.StateSettlementSystem.DiscretionaryBalance(metaObject)), "#43FF43", pIconPath: "iconMoney");
+            var reparations = EmpireCraft.Scripts.GeneralSystems.WarReparationsSystem.Owed(metaObject);
+            if (reparations.monthly > 0L)
+                __instance.showStatRow("war_reparations", string.Format(NeoModLoader.General.LM.Get("war_reparations_format"),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(reparations.monthly), reparations.monthsLeft),
+                    "#E66B66", pIconPath: "iconMoney");
             long stateDebt = EmpireCraft.Scripts.GeneralSystems.StateDebtSystem.Outstanding(metaObject);
             if (stateDebt > 0L)
                 __instance.showStatRow("state_debt", string.Format(NeoModLoader.General.LM.Get("state_debt_format"),
