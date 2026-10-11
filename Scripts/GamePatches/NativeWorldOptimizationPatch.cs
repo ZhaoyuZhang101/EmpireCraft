@@ -22,7 +22,8 @@ public class NativeWorldOptimizationPatch : GamePatch
         internal float Last = float.NegativeInfinity;
     }
     private static ConditionalWeakTable<MapBox, MiniMapRefresh> Refreshes = new();
-    private const float MiniMapInterval = 0.05f;
+    // 小地图每秒最多刷新 5 次(大地图上每次重画小地图都不便宜)
+    private const float MiniMapInterval = 0.2f;
     public static long DeferredMiniMaps { get; private set; }
     public static long SkippedEdgeUploads { get; private set; }
     public static long ZoneChecks { get; private set; }
