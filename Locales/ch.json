@@ -229,6 +229,7 @@
   "faction_leader": "領袖",
   "faction_rail_class_power": "階層力量",
   "faction_required_traits": "所需特質",
+  "internal_boundary_dejure": "行政區劃界：{0}屬{1}法理，由{2}改隸{3}",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

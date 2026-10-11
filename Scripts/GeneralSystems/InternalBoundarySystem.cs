@@ -8,13 +8,15 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 国内行政区飞地的内部划界修正(与国家海外飞地的维护、放弃分开，见 ExclaveMaintenanceSystem)：
-//   行政区(受托管理的道、军、省等，不含世袭封国)有城市和本区首府不连成一片、
-//   却被帝国其它成员包住时，划给与它边界最长的那个成员(中央或其它行政区)。
-//   只调整帝国内部归属，不丢国家领土；首都、王畿等受保护的直辖城、战时代管的城不动。
-//   每个帝国每年最多改划一座城，和平时才做。
+// 国内行政区按王国法理划界(与国家海外飞地的维护、放弃分开，见 ExclaveMaintenanceSystem)：
+//   每座城有自己所属的王国法理；帝国里管这片法理的成员(持有该法理的行政区，或王畿/都城法理所在的中央)
+//   才是它该归的行政区。城落在别的行政区或中央名下时，改隶管它法理的那个成员。
+//   本区法理里的城(哪怕不连成一片)不动；没有法理的城、帝国里还没有成员管的法理也不动，
+//   留待"按法理整合行政区"决议整体重划。首都、王畿等受保护的直辖城、战时代管的城不动。
+//   和平时才做，每个帝国每年最多改隶两座城，免得版图一夜大变。
 public static class InternalBoundarySystem
 {
+    private const int MovesPerYear = 2;
     private static double _lastScan = -1d;
 
     public static void TryYearlyScan()
@@ -36,75 +38,59 @@ public static class InternalBoundarySystem
         }
     }
 
+    // 行政区自己的法理：持有的主法理，或受托管理的法理
+    private static KingdomTitle RegionTitle(Kingdom kingdom) =>
+        kingdom.GetMainTitle() ?? kingdom.GetAdministrativeTitle();
+
+    private static bool Usable(KingdomTitle title) => title != null && !title.isRekt();
+
     private static void FixOne(Empire empire)
     {
         if (empire?.data == null || empire.isRekt() || empire.IsArchived() || empire.HasTerritorialWar() ||
             AdministrationReorganizationSystem.IsRunning(empire)) return;
         Kingdom core = empire.CoreKingdom;
         if (core == null || core.isRekt() || core.hasEnemies()) return;
-        HashSet<long> protectedCities = null;
-        foreach (Kingdom region in empire.kingdoms_list.ToArray())
+
+        // 法理 → 帝国里管它的成员
+        var holders = new Dictionary<KingdomTitle, Kingdom>();
+        foreach (Kingdom member in empire.kingdoms_list.ToArray())
         {
-            if (region == null || region == core || region.isRekt() || region.capital == null ||
-                !region.IsAdministrativeKingdomType() || region.cities == null || region.cities.Count < 2) continue;
-            HashSet<City> connected = Connected(region);
-            foreach (City city in region.cities.ToArray())
+            if (member == null || member == core || member.isRekt() || !member.IsAdministrativeKingdomType() ||
+                member.IsFactionRebelling() || member.IsLocalRebelling()) continue;
+            KingdomTitle own = RegionTitle(member);
+            if (Usable(own) && !holders.ContainsKey(own)) holders[own] = member;
+        }
+        // 王畿(中央主法理)与都城所在法理归中央直辖
+        KingdomTitle coreMain = core.GetMainTitle();
+        KingdomTitle coreCapital = core.capital?.GetTitle();
+        if (Usable(coreMain)) holders[coreMain] = core;
+        if (Usable(coreCapital)) holders[coreCapital] = core;
+
+        HashSet<long> protectedCities = empire.GetProtectedDirectCityIds();
+        int moves = 0;
+        foreach (Kingdom source in empire.kingdoms_list.ToArray())
+        {
+            if (source == null || source.isRekt() || source.cities == null) continue;
+            if (source != core && !source.IsAdministrativeKingdomType()) continue;
+            KingdomTitle own = source == core ? null : RegionTitle(source);
+            foreach (City city in source.cities.ToArray())
             {
-                if (city == null || city.isRekt() || connected.Contains(city) || WartimeCustodySystem.InCustody(city)) continue;
-                protectedCities ??= empire.GetProtectedDirectCityIds();
-                if (protectedCities.Contains(city.id)) continue;
-                Kingdom target = BestNeighbour(city, region, empire, core);
-                if (target == null) continue;
+                if (city == null || city.isRekt() || city == source.capital || city == core.capital ||
+                    protectedCities.Contains(city.id) || WartimeCustodySystem.InCustody(city)) continue;
+                KingdomTitle title = city.GetTitle();
+                // 没有法理、或本就在本区法理里(含不连片的飞地)：法理归属没错，不动
+                if (!Usable(title) || title == own) continue;
+                // 中央名下的王畿/都城法理城也不动
+                if (source == core && (title == coreMain || title == coreCapital)) continue;
+                // 帝国里还没有成员管这片法理：留待按法理整合行政区时整体重划
+                if (!holders.TryGetValue(title, out Kingdom target) || target == source) continue;
                 city.joinAnotherKingdom(target);
+                if (city.kingdom != target) continue;
                 FiscalDiagnostics.Count("行政区划界");
-                TranslateHelper.LogEventMessage(string.Format(LM.Get("internal_boundary_fixed"),
-                    city.GetCityName(), region.GetKingdomName(), target.GetKingdomName()), core);
-                return;
+                TranslateHelper.LogEventMessage(string.Format(LM.Get("internal_boundary_dejure"),
+                    city.GetCityName(), title.data.name, source.GetKingdomName(), target.GetKingdomName()), core);
+                if (++moves >= MovesPerYear) return;
             }
         }
-    }
-
-    // 与首府连成一片的城市(按原版相邻城市，陆上相接)
-    private static HashSet<City> Connected(Kingdom region)
-    {
-        var result = new HashSet<City> { region.capital };
-        var queue = new Queue<City>();
-        queue.Enqueue(region.capital);
-        while (queue.Count > 0)
-        {
-            City current = queue.Dequeue();
-            foreach (City next in current.neighbours_cities)
-                if (next != null && next.kingdom == region && result.Add(next)) queue.Enqueue(next);
-        }
-        return result;
-    }
-
-    // 与这座城边界最长、且能接收的帝国成员；本城完全被外国包围(没有成员接壤)则不动
-    private static Kingdom BestNeighbour(City city, Kingdom region, Empire empire, Kingdom core)
-    {
-        var lengths = new Dictionary<Kingdom, int>();
-        if (city.zones == null) return null;
-        foreach (TileZone zone in city.zones)
-        {
-            if (zone?.neighbours == null || zone.city != city) continue;
-            foreach (TileZone neighbour in zone.neighbours)
-            {
-                Kingdom other = neighbour?.city?.kingdom;
-                if (other == null || other == region || !EmpireMembershipService.BelongsTo(empire, other)) continue;
-                if (other != core && !other.IsAdministrativeKingdomType()) continue;
-                if (other.IsFactionRebelling() || other.IsLocalRebelling()) continue;
-                lengths.TryGetValue(other, out int count);
-                lengths[other] = count + 1;
-            }
-        }
-        Kingdom best = null;
-        int bestLength = 0;
-        foreach (KeyValuePair<Kingdom, int> pair in lengths)
-            if (pair.Value > bestLength || pair.Value == bestLength && pair.Key == core)
-            {
-                best = pair.Key;
-                bestLength = pair.Value;
-            }
-        return best;
     }
 }
