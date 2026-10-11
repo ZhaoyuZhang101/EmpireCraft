@@ -1233,6 +1233,24 @@ public static class CityPopulationSystem
     // 正在谋划的人、玩家收藏或镜头跟随的人
     public static bool IsNotable(Actor actor) => IsNotable(actor, includeClanHead: true);
 
+    // 诊断：这个实体为什么被当作名人留在地图上(与 IsNotable 同一套判断)
+    public static string NotableReason(Actor actor)
+    {
+        if (actor?.data == null || actor.isRekt()) return "无效";
+        if (actor.isKing() || actor.isCityLeader()) return "君主城主";
+        if (actor.isFavorite() || actor.isCameraFollowingUnit()) return "收藏";
+        if (actor.plot != null) return "谋划";
+        SocialClass socialClass = EmpireCaftActorJudgeClass.JudgeClass(actor);
+        if (socialClass == SocialClass.Officer) return "官员";
+        if (socialClass == SocialClass.Landlord) return "地主";
+        if (socialClass == SocialClass.Noble && IsImportantNoble(actor)) return "要紧贵族";
+        if (actor.GetFaction() != null) return "派系成员";
+        if (actor.hasTrait("gongshi") || actor.hasTrait("jingshi")) return "进士贡士";
+        if (actor.hasTrait("juren") && IsKeptJuren(actor)) return "举人";
+        if (VirtualGenealogySystem.IsClanHead(actor)) return "族长";
+        return "普通(待并入)";
+    }
+
     public static bool IsNotable(Actor actor, bool includeClanHead)
     {
         if (actor?.data == null || actor.isRekt()) return true;
@@ -2053,6 +2071,7 @@ public static class CityPopulationSystem
     // 优先用带亚种参数的 createNewUnit 重载，给新兵用本城的主要亚种(否则原版可能为每个新兵新建亚种)
     private static Actor CreateUnit(string species, WorldTile tile, City city)
     {
+        EntitySpawnStats.RecordCaller();
         ResolveSpawn();
         Subspecies subspecies = null;
         try

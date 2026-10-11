@@ -103,6 +103,50 @@ public static class VirtualGenealogySystem
 
     // 落成实体：在原来所在的城(城没了就找同文化、同物种还有人的城)生成一人，套上族人的名字、性别、文化，
     // 并把族谱身份接回这个单位
+    // 试着落成：按顺序落成候选人，第一个合格的留下。原是虚拟族人、落成后又不合格的当场并回人口——
+    // 以前"挑一个成年皇子""挑一个声望够的子女"会把前面不合格的(多是孩子)全部落成并一直留在地图上，
+    // 皇族子女又算要紧贵族不会被并入，每查一次就多一批实体。最多试 maxRealized 个虚拟族人
+    public static Actor RealizeFirst(IEnumerable<PersonalClanIdentity> candidates, Func<Actor, bool> accept,
+        int maxRealized = 6)
+    {
+        if (candidates == null) return null;
+        int realized = 0;
+        foreach (PersonalClanIdentity person in candidates)
+        {
+            if (person == null || !person.is_alive) continue;
+            bool wasVirtual = person.is_virtual;
+            if (wasVirtual && realized >= maxRealized) continue;
+            Actor actor = person.Realize();
+            if (wasVirtual) realized++;
+            if (actor != null && (accept == null || accept(actor))) return actor;
+            if (wasVirtual) Unrealize(actor);
+        }
+        return null;
+    }
+
+    // 落成所有合格者；原是虚拟族人又不合格的当场并回人口
+    public static List<Actor> RealizeAll(IEnumerable<PersonalClanIdentity> candidates, Func<Actor, bool> accept)
+    {
+        var result = new List<Actor>();
+        if (candidates == null) return result;
+        foreach (PersonalClanIdentity person in candidates)
+        {
+            if (person == null || !person.is_alive) continue;
+            bool wasVirtual = person.is_virtual;
+            Actor actor = person.Realize();
+            if (actor != null && (accept == null || accept(actor))) result.Add(actor);
+            else if (wasVirtual) Unrealize(actor);
+        }
+        return result;
+    }
+
+    private static void Unrealize(Actor actor)
+    {
+        if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.isKing() || actor.isCityLeader()) return;
+        City home = actor.city;
+        if (home != null) CityPopulationSystem.DisbandIntoPopulation(actor, home);
+    }
+
     public static Actor Realize(PersonalClanIdentity person)
     {
         if (person == null || !person.is_alive || World.world == null) return person?._actor;

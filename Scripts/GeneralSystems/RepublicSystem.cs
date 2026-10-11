@@ -1012,9 +1012,9 @@ public static class RepublicSystem
         TransitionRegime(empire, previous);
         empire.data.has_year_name = empire.CoreKingdom.GetRegime()?.HasEraName() == true;
         // 原皇族有能继承的在世者就迎回，否则由执政的保守党领袖登基
-        Actor monarch = SpecificClanManager.Get(state.deposed_royal_clan_id)?.all_valid_members
-                            .Select(identity => identity.Realize())
-                            .FirstOrDefault(actor => actor != null && !actor.isRekt() && actor.isAdult())
+        Actor monarch = VirtualGenealogySystem.RealizeFirst(SpecificClanManager.Get(state.deposed_royal_clan_id)
+                                ?.all_valid_members.OrderByDescending(identity => identity.age),
+                            actor => !actor.isRekt() && actor.isAdult())
                         ?? party.GetLeader();
         if (monarch != null)
         {

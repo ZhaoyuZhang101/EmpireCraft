@@ -1,3 +1,4 @@
+using System.Linq;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Diagnostics;
 using NeoModLoader.services;
@@ -42,6 +43,7 @@ public static class PopulationRuntimeDiagnostics
         }
         // 实体单位构成：找出地图上的人都是谁
         int soldiers = 0, generals = 0, vehicles = 0, rulers = 0, children = 0, adults = 0, wild = 0;
+        var reasons = new global::System.Collections.Generic.Dictionary<string, int>();
         foreach (Actor actor in World.world.units)
         {
             if (actor?.data == null || actor.isRekt() || !actor.isAlive()) continue;
@@ -50,14 +52,23 @@ public static class PopulationRuntimeDiagnostics
             else if (CorpsSystem.IsGeneral(actor)) generals++;
             else if (CityPopulationSystem.IsSoldier(actor)) soldiers++;
             else if (actor.isKing() || actor.isCityLeader()) rulers++;
-            else if (!actor.isAdult()) children++;
-            else adults++;
+            else
+            {
+                if (!actor.isAdult()) children++;
+                else adults++;
+                // 其余实体为什么留在地图上(孩童与成人一并统计)
+                string reason = CityPopulationSystem.NotableReason(actor);
+                reasons.TryGetValue(reason, out int count);
+                reasons[reason] = count + 1;
+            }
         }
         int corps = 0;
         foreach (var _ in CorpsSystem.All()) corps++;
+        string why = string.Join("、", reasons.OrderByDescending(pair => pair.Value).Select(pair => $"{pair.Key} {pair.Value}"));
         string composition = $"[EmpireCraft][实体构成] 士兵 {soldiers}；军团统领 {generals}；载具 {vehicles}；" +
                              $"君主城主 {rulers}；孩童 {children}；其余成人 {adults}；野生 {wild}；军团 {corps} 支" +
-                             $"(军团模式{(CorpsSystem.Enabled ? "开" : "关")})";
+                             $"(军团模式{(CorpsSystem.Enabled ? "开" : "关")})；孩童与其余成人按留存原因：{why}；" +
+                             $"近 30 秒新生成实体 {EntitySpawnStats.Flush()}";
         LogService.LogInfo(composition);
         string report = $"[EmpireCraft][虚拟人口负载] 实体单位 {World.world.units.Count}；" +
             $"城市 {World.world.cities.Count}；人口组 {groups}；城内背景人口 {background:0}；" +

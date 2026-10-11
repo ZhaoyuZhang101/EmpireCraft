@@ -45,14 +45,11 @@ public static class GraceEdictService
 
         PersonalClanIdentity lastKing = SpecificClanManager.getPerson(lastKingIdentityId);
         if (lastKing == null) return false;
-        List<Actor> sons = SpecificClanManager.getChildren(lastKing)
-            .Select(item => item.Item2)
-            .Where(identity => identity != null && identity.CanHeir())
-            .OrderBy(identity => identity.rank)
-            .Select(identity => identity.Realize())
-            .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && !actor.isKing() &&
-                            actor.kingdom?.GetEmpire() == empire)
-            .ToList();
+        List<Actor> sons = VirtualGenealogySystem.RealizeAll(SpecificClanManager.getChildren(lastKing)
+                .Select(item => item.Item2)
+                .Where(identity => identity != null && identity.CanHeir())
+                .OrderBy(identity => identity.rank),
+            actor => !actor.isRekt() && actor.isAlive() && !actor.isKing() && actor.kingdom?.GetEmpire() == empire);
 
         if (sons.Count == 0)
         {
@@ -171,14 +168,14 @@ public static class GraceEdictService
         bool IsAvailable(Actor actor) => actor != null && actor != king && !actor.isRekt() && actor.isAlive() &&
                                          actor.isAdult() && !actor.isKing() && actor.kingdom?.GetEmpire() == empire;
         PersonalClanIdentity identity = king.GetPersonalIdentity();
-        IEnumerable<Actor> Relatives(IEnumerable<(ClanRelation, PersonalClanIdentity)> list) => list
-            .Select(item => item.Item2).Where(person => person != null && person.CanHeir())
-            .OrderBy(person => person.rank).Select(person => person.Realize());
+        Actor Relative(IEnumerable<(ClanRelation, PersonalClanIdentity)> list) => VirtualGenealogySystem.RealizeFirst(
+            list.Select(item => item.Item2).Where(person => person != null && person.CanHeir())
+                .OrderBy(person => person.rank), IsAvailable);
         if (identity != null)
         {
-            Actor child = Relatives(SpecificClanManager.getChildren(identity)).FirstOrDefault(IsAvailable);
+            Actor child = Relative(SpecificClanManager.getChildren(identity));
             if (child != null) return child;
-            Actor sibling = Relatives(SpecificClanManager.GetSiblingsWithRelation(identity)).FirstOrDefault(IsAvailable);
+            Actor sibling = Relative(SpecificClanManager.GetSiblingsWithRelation(identity));
             if (sibling != null) return sibling;
         }
         return king.GetSpecificClan()?.AllAliveMembers?.Where(IsAvailable)

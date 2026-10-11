@@ -113,13 +113,12 @@ public static class PersonalUnionService
                 SuccessionLawType.分割继承法);
             Actor qualifiedChild = null;
             if (!partitionUnlocked && ruler.GetPersonalIdentity() is PersonalClanIdentity cityIdentity)
-                qualifiedChild = SpecificClanManager.getChildren(cityIdentity)
-                    .Select(item => item.Item2)
-                    .Where(person => person != null && person.is_alive)
-                    .OrderBy(person => person.rank)
-                    .Select(person => person.Realize())
-                    .FirstOrDefault(child => child != null && !child.isRekt() && child.isAlive() &&
-                                             child.isUnitFitToRule() && (child.data?.renown ?? 0) >= 500);
+                qualifiedChild = VirtualGenealogySystem.RealizeFirst(SpecificClanManager.getChildren(cityIdentity)
+                        .Select(item => item.Item2)
+                        .Where(person => person != null && person.is_alive)
+                        .OrderBy(person => person.rank),
+                    child => !child.isRekt() && child.isAlive() && child.isUnitFitToRule() &&
+                             (child.data?.renown ?? 0) >= 500);
 
             if (!partitionUnlocked && qualifiedChild == null)
                 DissolveCityStateUnion(cityRealms);
@@ -140,13 +139,11 @@ public static class PersonalUnionService
         if (feudalRealms.Count < 2) return;
         PersonalClanIdentity identity = ruler.GetPersonalIdentity();
         if (identity == null) return;
-        List<Actor> children = SpecificClanManager.getChildren(identity)
-            .Select(item => item.Item2)
-            .Where(person => person != null && person.is_alive)
-            .OrderBy(person => person.rank)
-            .Select(person => person.Realize())
-            .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.isUnitFitToRule())
-            .ToList();
+        List<Actor> children = VirtualGenealogySystem.RealizeAll(SpecificClanManager.getChildren(identity)
+                .Select(item => item.Item2)
+                .Where(person => person != null && person.is_alive)
+                .OrderBy(person => person.rank),
+            actor => !actor.isRekt() && actor.isAlive() && actor.isUnitFitToRule());
         if (children.Count == 0) return;
         for (int i = 0; i < feudalRealms.Count; i++)
             feudalRealms[i].GetOrCreate().union_partition_heir_id = (i < children.Count ? children[i] : children[0]).id;
