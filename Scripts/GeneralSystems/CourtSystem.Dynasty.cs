@@ -27,6 +27,7 @@ public static partial class CourtSystem
     public const string ChancellorOffice = "chengxiang_all";
     public const string CommandantOffice = "taiwei_all";
     public const string CensorOffice = "yushidafu_all";
+    public const string CensorateOffice = "duchayuan_all";
 
     private const string ExaminationNode = "huaxia_examination_officialdom";
     private const string ThreeDepartmentsNode = "huaxia_three_departments";
@@ -125,11 +126,31 @@ public static partial class CourtSystem
         Office("shaofu_all", 34, 7, 6, OfficerPowerType.建设)
     };
 
-    // 律令制核心国在秦汉阶段改用三公九卿；其他情况返回 null(用政体配置)
+    // 明制：洪武废中书省、罢丞相，六部直属天子；都察院、通政使司、大理寺与六部合称大九卿，票拟归内阁
+    private static List<BureauSetting> MingCores() => new()
+    {
+        Office(CensorateOffice, 35, 5, 4, OfficerPowerType.审核, OfficerPowerType.司法),
+        Office("tongzhengsi_all", 36, 6, 5, OfficerPowerType.拟定),
+        Office("dalisi_all", 37, 6, 5, OfficerPowerType.司法)
+    };
+
+    // 律令制核心国在秦汉阶段改用三公九卿、明代改用大九卿；其他情况返回 null(用政体配置)
     public static BureauConfig GetBureauOverride(Kingdom kingdom, BureauConfig fallback)
     {
         Empire empire = kingdom?.GetEmpire();
-        if (empire == null || empire.CoreKingdom != kingdom || Stage(empire) != HuaxiaCourtStage.Han) return null;
+        if (empire == null || empire.CoreKingdom != kingdom) return null;
+        HuaxiaCourtStage stage = Stage(empire);
+        if (stage == HuaxiaCourtStage.Ming)
+            return new BureauConfig
+            {
+                cores = MingCores(),
+                division = fallback?.division,
+                harems = fallback?.harems,
+                kingdoms = fallback?.kingdoms,
+                cities = fallback?.cities,
+                armies = fallback?.armies
+            };
+        if (stage != HuaxiaCourtStage.Han) return null;
         return new BureauConfig
         {
             cores = HanCores(),
@@ -149,12 +170,21 @@ public static partial class CourtSystem
         RepairInstitutionChain(empire);
         HuaxiaCourtStage stage = Stage(empire);
         if (stage == HuaxiaCourtStage.None) return;
-        string wanted = stage == HuaxiaCourtStage.Han ? "han" : "tang";
+        string wanted = stage switch
+        {
+            HuaxiaCourtStage.Han => "han",
+            HuaxiaCourtStage.Ming => "ming",
+            _ => "tang"
+        };
         CourtState state = State(empire);
         if (state.bureau_stage == wanted) return;
         state.bureau_stage = wanted;
-        bool matches = wanted == "han" ? CentralOffice(empire, ChancellorOffice) != null
-            : CentralOffice(empire, ZhongshuOffice) != null;
+        bool matches = wanted switch
+        {
+            "han" => CentralOffice(empire, ChancellorOffice) != null,
+            "ming" => CentralOffice(empire, CensorateOffice) != null,
+            _ => CentralOffice(empire, ZhongshuOffice) != null
+        };
         if (matches) return;
         empire.data.centerOffice ??= new CenterOffice();
         empire.data.centerOffice.Init(core);

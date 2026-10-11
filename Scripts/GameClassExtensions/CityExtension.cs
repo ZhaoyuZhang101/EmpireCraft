@@ -2577,6 +2577,9 @@ public static class CityExtension
 
     public static string GetCitySuffixKey(this City city)
     {
+        // 华夏朝代演进：周制称邑，郡县称郡(见 DynastyNaming)
+        string dynasty = EmpireCraft.Scripts.GeneralSystems.DynastyNaming.CitySuffixKey(city);
+        if (dynasty != null) return dynasty;
         Kingdom kingdom = city?.kingdom;
         BureauSetting setting = EmpireCraftKingdomBehCheckKingdomType.GetCityNamingSetting(kingdom);
         if (setting != null)

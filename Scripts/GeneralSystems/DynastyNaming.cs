@@ -1,0 +1,115 @@
+using System.Collections.Generic;
+using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
+using NeoModLoader.General;
+using UnityEngine;
+
+namespace EmpireCraft.Scripts.GeneralSystems;
+
+// 华夏朝代演进下的行政区划与地方官称谓(阶段见 CourtSystem.Stage)，依历代实制：
+//   周制：京畿就是本国，写本国国名；城称"邑"，长官邑宰；
+//   郡县(秦汉魏晋)：京畿为"司州"；地方行政区为"州"，长官刺史；城称"郡"，长官太守；
+//           军府长官都督(都督诸州军事)，都护府长官都护；羁縻地为"属国"，长官属国都尉；
+//           禁军与镇戍：羽林中郎将、都尉、校尉、障尉；
+//   三省六部(隋唐)：京畿为"京畿道"；地方为"道"，长官观察使；城称"县"，长官县令，府城府尹；
+//           军府节度使、都护府都护、羁縻州刺史；禁军与镇戍沿用羽林大将军、都督、镇将、戍主；
+//   内阁(明)：京畿为"直隶省"；地方为"省"(承宣布政使司)，长官布政使；城称"县"，长官知县，府城知府；
+//           军府长官总兵(镇守总兵官)，都护府改为"都司"、长官都指挥使；羁縻地为"宣慰司"，长官宣慰使；
+//           禁军与镇戍：京营提督、都指挥使、参将、守备。
+// 只改称谓(国名后缀、城名后缀、官名、地图标签)，不改国家类别与官职本身。
+public static class DynastyNaming
+{
+    // 名称每帧都可能要用，阶段按帝国缓存两秒
+    private static readonly Dictionary<long, (float until, HuaxiaCourtStage stage)> Cache = new();
+
+    public static HuaxiaCourtStage StageOf(Empire empire)
+    {
+        if (empire == null || empire.isRekt()) return HuaxiaCourtStage.None;
+        float now = Time.unscaledTime;
+        if (Cache.TryGetValue(empire.id, out var hit) && hit.until > now) return hit.stage;
+        HuaxiaCourtStage stage = CourtSystem.Stage(empire);
+        Cache[empire.id] = (now + 2f, stage);
+        return stage;
+    }
+
+    public static HuaxiaCourtStage StageOf(Kingdom kingdom) =>
+        kingdom?.data == null || !kingdom.IsInEmpire() ? HuaxiaCourtStage.None : StageOf(kingdom.GetEmpire());
+
+    // 国家类别后缀的文本键：律令制的直隶(京畿)与行政区按阶段改称
+    public static string KingdomTypeKey(Kingdom kingdom, KingdomType type)
+    {
+        string key = type switch
+        {
+            KingdomType.LvLing_centre => "dynasty_capital",
+            KingdomType.LvLing_province => "dynasty_province",
+            KingdomType.LvLing_jimizhou => "dynasty_jimi",
+            KingdomType.LvLing_duhufu => "dynasty_duhufu",
+            _ => null
+        };
+        if (key == null) return type.ToString();
+        string stage = StageSuffix(StageOf(kingdom));
+        return stage != null && LM.Has($"{key}_{stage}") ? $"{key}_{stage}" : type.ToString();
+    }
+
+    private static string StageSuffix(HuaxiaCourtStage stage) => stage switch
+    {
+        HuaxiaCourtStage.Zhou => "zhou",
+        HuaxiaCourtStage.Han => "han",
+        HuaxiaCourtStage.Tang => "tang",
+        HuaxiaCourtStage.Ming => "ming",
+        _ => null
+    };
+
+    // 官名(品级)的文本键：地方官、军府、禁军镇戍按阶段改称；没有对应的历代称谓时用政体原名
+    public static string RankKey(RegimeType regime, int officeType, NanoObject meta)
+    {
+        string key = $"{regime}_officiallevel_{officeType}";
+        if (regime == RegimeType.ZhouFeudalism)
+            return officeType == 9 && meta is City && LM.Has(key + "_zhou") ? key + "_zhou" : key;
+        if (regime != RegimeType.LvLing || officeType < 6 || officeType > 12) return key;
+        City city = meta as City;
+        Kingdom kingdom = meta switch
+        {
+            Kingdom realm => realm,
+            City town => town.kingdom,
+            Army army => army.getKingdom(),
+            _ => null
+        };
+        string stage = StageSuffix(StageOf(kingdom));
+        if (stage == null) return key;
+        KingdomType realmType = kingdom?.GetKingdomType() ?? KingdomType.default_country_post;
+        string variant = officeType switch
+        {
+            6 when realmType == KingdomType.LvLing_duhufu => $"{key}_duhufu_{stage}",
+            8 when city == null && realmType == KingdomType.LvLing_jimizhou => $"{key}_jimi_{stage}",
+            8 when city != null && realmType == KingdomType.LvLing_jimizhou => null,
+            8 when city != null && city.kingdom?.capital == city && city.GetCitySuffixKey() == "city_suffix_prefecture" =>
+                $"{key}_fu_{stage}",
+            _ => $"{key}_{stage}"
+        };
+        return variant != null && LM.Has(variant) ? variant : key;
+    }
+
+    // 城名后缀的文本键；不按朝代改称时返回 null
+    public static string CitySuffixKey(City city)
+    {
+        Kingdom kingdom = city?.kingdom;
+        Regime regime = kingdom?.GetRegime();
+        if (regime == null) return null;
+        if (regime.type == RegimeType.ZhouFeudalism) return "city_suffix_yi";
+        if (regime.type == RegimeType.LvLing && kingdom.GetKingdomType() != KingdomType.LvLing_jimizhou &&
+            StageOf(kingdom) == HuaxiaCourtStage.Han) return "city_suffix_commandery";
+        return null;
+    }
+
+    // 帝国展开时京畿那一块的地图标签：郡县以后写司州/京畿道/直隶省；周制返回空串(写本国国名)；
+    // 没有朝代演进的返回 null(照旧写首都城名)
+    public static string CapitalRegionLabel(Kingdom core)
+    {
+        HuaxiaCourtStage stage = StageOf(core);
+        if (stage == HuaxiaCourtStage.Zhou) return "";
+        string key = StageSuffix(stage) is string suffix ? "dynasty_capital_" + suffix : null;
+        return key != null && LM.Has(key) ? LM.Get(key) : null;
+    }
+}

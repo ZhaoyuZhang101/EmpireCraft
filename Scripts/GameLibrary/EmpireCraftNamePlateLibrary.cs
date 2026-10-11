@@ -1164,9 +1164,13 @@ public static class EmpireCraftNamePlateLibrary
                     ? kingdom.capital
                     : null;
                 bool showDirectSeat = directSeat != null && !directSeat.isRekt();
+                // 华夏朝代演进：周制写本国国名，郡县以后写司州/京畿道/直隶省(见 DynastyNaming)
+                string seatLabel = showDirectSeat ? DynastyNaming.CapitalRegionLabel(kingdom) : null;
+                if (showDirectSeat && seatLabel == null) seatLabel = directSeat.GetCityName();
+                else if (showDirectSeat && seatLabel.Length == 0) seatLabel = GetTerritoryKingdomName(kingdom);
                 TerritoryLabelRenderer.SubmitCities(
                     $"political-kingdom:{kingdom.id}",
-                    showDirectSeat ? directSeat.GetCityName() : GetTerritoryKingdomName(kingdom),
+                    showDirectSeat ? seatLabel : GetTerritoryKingdomName(kingdom),
                     kingdom.cities,
                     GetTerritoryKingdomStyle(kingdom),
                     kingdom == hoveredKingdom || belongsToHoveredEmpire,

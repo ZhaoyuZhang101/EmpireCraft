@@ -26,7 +26,7 @@ public static class FeudalPosthumousSystem
             if (string.IsNullOrEmpty(ActorExtension.HereditaryRealmRank(ruler))) return;
             OfficeObject office = realm.GetOffice();
             if (office == null || office.regimeType != RegimeType.ZhouFeudalism && office.regimeType != RegimeType.LvLing) return;
-            string rank = LM.Get(string.Join("_", office.regimeType, "officiallevel", office.officeType));
+            string rank = LM.Get(DynastyNaming.RankKey(office.regimeType, office.officeType, realm));
             string realmName = realm.GetKingdomName();
             if (string.IsNullOrWhiteSpace(rank) || string.IsNullOrWhiteSpace(realmName)) return;
 

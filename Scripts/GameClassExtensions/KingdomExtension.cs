@@ -1878,7 +1878,7 @@ public static class KingdomExtension
         // 华夏王朝的旧都失陷期间，暂驻的都城称"行在"(如南宋临安)：核心王国的直隶类别改称行在
         if (EmpireCraft.Scripts.GeneralSystems.CapitalLossNamingSystem.IsTemporaryCapital(kingdom))
             return LM.Get("kingdom_type_xingzai");
-        return LM.Get(kingdom.GetKingdomType().ToString());
+        return LM.Get(EmpireCraft.Scripts.GeneralSystems.DynastyNaming.KingdomTypeKey(kingdom, kingdom.GetKingdomType()));
     }
 
     // 界面上显示的国家类别(文本键)。现代政体的默认类别是"直辖市(首都)"，那是政府核心国的类别；
@@ -1887,7 +1887,7 @@ public static class KingdomExtension
     {
         if (EmpireCraft.Scripts.GeneralSystems.WarlordEraSystem.TryGetNonGovernmentKingdomName(kingdom, out _))
             return "kingdom_type_armed_force";
-        return kingdom.GetKingdomType().ToString();
+        return EmpireCraft.Scripts.GeneralSystems.DynastyNaming.KingdomTypeKey(kingdom, kingdom.GetKingdomType());
     }
 
     public static void SetKingdomType(this Kingdom k, KingdomType type)
