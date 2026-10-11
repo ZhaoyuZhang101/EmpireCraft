@@ -220,6 +220,8 @@ public static partial class CourtSystem
                 if (claim == null || !claim.Active || claim.CountDown > 0 || claim.IsStarted() ||
                     CourtIssues.IsDirectAction(claim.type) || claim.CanProceedOutsideGovernment) continue;
                 if (data.cooldowns.TryGetValue(claim.type.ToString(), out double until) && now < until) continue;
+                // 国库出不起施行经费的不上奏
+                if (!claim.CanAffordBudget()) continue;
                 float stance = CourtIssues.Stance(faction, claim.type);
                 if (stance < CourtIssues.SupportThreshold) continue;
                 ClaimAgendaView view = ClaimAgendaSystem.Evaluate(context, faction, claim);
@@ -232,6 +234,7 @@ public static partial class CourtSystem
         foreach ((FixedFaction faction, TemporaryFaction claim, float _) in candidates.OrderByDescending(item => item.score))
         {
             if (!claim.CheckCondition() || !claim.CheckTarget()) continue;
+            if (CourtIssues.Stance(faction, claim) < CourtIssues.SupportThreshold) continue;
             CourtFactionState data = FactionState(empire, faction);
             data.capital -= ProposalCost;
             state.memorial = new CourtMemorial
@@ -262,7 +265,7 @@ public static partial class CourtSystem
             }
             FixedFaction setterFaction = setter?.GetFaction();
             if (setterFaction != null && setterFaction != proposer && setterFaction.GetID() != data.ally &&
-                CourtIssues.StanceLevel(setterFaction, claim.type) < 0)
+                CourtIssues.StanceLevel(setterFaction, claim) < 0)
             {
                 // 议程官反对：花资本疏通，半数能过
                 if (data.capital >= LobbyCost && Random.value < 0.5f)
@@ -295,7 +298,7 @@ public static partial class CourtSystem
         foreach (FixedFaction faction in factions)
         {
             CourtFactionState data = FactionState(empire, faction);
-            int stance = faction == proposer ? 1 : CourtIssues.StanceLevel(faction, claim.type);
+            int stance = faction == proposer ? 1 : CourtIssues.StanceLevel(faction, claim);
             if (faction != proposer && faction.GetID() == proposerData.ally && stance == 0) stance = 1;
             if (faction != proposer && IsBoycotting(data)) stance = -1;
             memorial.stances[faction.GetID()] = stance;
@@ -339,7 +342,7 @@ public static partial class CourtSystem
             FixedFaction reviewerFaction = reviewer?.GetFaction();
             CourtFactionState proposerState = FactionState(empire, proposer);
             if (reviewerFaction != null && reviewerFaction != proposer && reviewerFaction.GetID() != proposerState.ally &&
-                CourtIssues.StanceLevel(reviewerFaction, claim.type) < 0 && Random.value < 0.6f)
+                CourtIssues.StanceLevel(reviewerFaction, claim) < 0 && Random.value < 0.6f)
             {
                 memorial.decision = "";
                 memorial.stage = 2;
@@ -358,6 +361,24 @@ public static partial class CourtSystem
                     return;
                 }
                 claim.pusherType = MetaType.None;
+                // 准奏了但国库拿不出施行经费：先留中待国库充裕，再拿不出就作罢
+                if (!claim.CanAffordBudget())
+                {
+                    if (!memorial.shelved_once)
+                    {
+                        memorial.decision = "approve";
+                        memorial.shelved_once = true;
+                        memorial.stage = 3;
+                        memorial.stage_time = now;
+                        Log(state, "court_log_no_funds", IssueName(claim.type), claim.Budget);
+                    }
+                    else
+                    {
+                        FactionState(empire, proposer).cooldowns[memorial.claim] = now + 12 * 5d;
+                        Close(empire, state, "court_log_no_funds_dropped", IssueName(claim.type));
+                    }
+                    return;
+                }
                 claim.Start();
                 if (!claim.IsStarted())
                 {
@@ -396,7 +417,7 @@ public static partial class CourtSystem
         if (claim == null || proposer == null) return false;
         if (memorial.stances.Count == 0)
             foreach (FixedFaction faction in Factions(empire))
-                memorial.stances[faction.GetID()] = faction == proposer ? 1 : CourtIssues.StanceLevel(faction, claim.type);
+                memorial.stances[faction.GetID()] = faction == proposer ? 1 : CourtIssues.StanceLevel(faction, claim);
         if (decision == "shelve")
         {
             memorial.shelved_once = true;
@@ -475,9 +496,10 @@ public static partial class CourtSystem
             TemporaryFactionType.恢复世袭皇权 or TemporaryFactionType.颁布帝国治安令;
         if (emperor.hasTrait("ambitious")) stance += expansion ? 1f : appeasement ? -1f : 0f;
         if (emperor.hasTrait("greedy")) stance += issue == TemporaryFactionType.提高赋税 ? 1f :
-            issue == TemporaryFactionType.降低赋税 ? -1f : 0f;
+            issue is TemporaryFactionType.降低赋税 ? -1f : issue == TemporaryFactionType.赈济灾荒 ? -0.5f : 0f;
         if (emperor.hasTrait("content")) stance += appeasement ? 0.5f : expansion ? -0.5f : 0f;
-        if (emperor.hasTrait("paranoid")) stance += devolution ? -1f : centralise ? 0.5f : 0f;
+        if (emperor.hasTrait("paranoid")) stance += devolution ? -1f : centralise ? 0.5f :
+            issue == TemporaryFactionType.整顿吏治 ? 0.5f : 0f;
         stance += devolution ? -0.5f : centralise ? 0.5f : 0f;
         return Mathf.Clamp(stance, -1.5f, 1.5f);
     }
@@ -513,7 +535,11 @@ public static partial class CourtSystem
             foreach (KeyValuePair<string, int> pair in memorial.stances.Where(pair => pair.Value < 0))
                 if (state.factions.TryGetValue(pair.Key, out CourtFactionState opposed))
                     opposed.grievance = Mathf.Min(100f, opposed.grievance + 6f);
-            Close(empire, state, "court_log_completed", IssueName(claim.type), proposer.Name);
+            string outcome = claim.CompletionOutcome ?? ClaimTuning.Outcome(claim.type);
+            if (string.IsNullOrWhiteSpace(outcome))
+                Close(empire, state, "court_log_completed", IssueName(claim.type), proposer.Name);
+            else
+                Close(empire, state, "court_log_completed_outcome", IssueName(claim.type), proposer.Name, outcome);
         }
         else
         {

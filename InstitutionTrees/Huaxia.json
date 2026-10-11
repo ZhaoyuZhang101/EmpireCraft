@@ -811,7 +811,8 @@
         }
       ],
       "features": {
-        "three_departments": 1
+        "three_departments": 1,
+        "claim_reform:推行三省六部": 1
       }
     },
     {
@@ -917,7 +918,8 @@
         }
       ],
       "features": {
-        "grand_secretariat": 1
+        "grand_secretariat": 1,
+        "claim_reform:设立内阁": 1
       }
     },
     {

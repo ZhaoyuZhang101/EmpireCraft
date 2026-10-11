@@ -145,7 +145,7 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         for (int i = 0; i < agenda.Count; i++)
         {
             var tf = agenda[i].claim;
-            if (tf.CheckCondition() && tf.CheckTarget())
+            if (tf.CanAffordBudget() && tf.CheckCondition() && tf.CheckTarget())
             {
                 tf.pusherType = MetaType.None;
                 tf.Start();

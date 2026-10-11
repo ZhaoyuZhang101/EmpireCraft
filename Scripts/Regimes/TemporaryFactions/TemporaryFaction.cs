@@ -34,7 +34,11 @@ public abstract class TemporaryFaction
     public bool Hide = false;
     public bool Active = true;
     public int CountDown = 0;
-    public virtual int Budget => 0;
+    // 施行经费(见 ClaimTuning)：朝廷推动的由国库出，地方推动的由该地出
+    public virtual int Budget => ClaimTuning.Cost(GetEmpire(), type, IsLocallyPushed ? GetKingdom() : null);
+    // 本轮经费是否已付、付了多少(没推进就作罢的退回)
+    public bool BudgetPaid;
+    public int PaidBudget;
     public List<long>  kingdoms = new List<long>();
     public string factionID = "";
     public bool ShowAsPlot = false;
@@ -113,6 +117,8 @@ public abstract class TemporaryFaction
         TargetType = other.TargetType;
         progress = other.progress;
         progressMax = other.progressMax;
+        BudgetPaid = other.BudgetPaid;
+        PaidBudget = other.PaidBudget;
         StartedState = other.StartedState;
         timestamp = other.timestamp;
         countDownTimestamp = other.countDownTimestamp;
@@ -121,6 +127,7 @@ public abstract class TemporaryFaction
     {
         factionID = faction.GetID();
         EmpireID    = faction.EmpireId;
+        progressMax = ClaimTuning.Duration(type);
         if (timestamp < 0) timestamp = World.world.getCurWorldTime();
         kingdoms ??= new List<long>();
         if (countDownTimestamp < 0) countDownTimestamp = World.world.getCurWorldTime();
@@ -492,7 +499,13 @@ public abstract class TemporaryFaction
         if (CountDown <= 0)
         {
             bool shouldLogPreparing = !started;
-            if (!started) ExecutedThisRun = false;
+            if (!started)
+            {
+                progressMax = ClaimTuning.Duration(type);
+                // 经费不够不施行
+                if (!TryPayBudget()) return;
+                ExecutedThisRun = false;
+            }
             started = true;
             CompletionOutcome = null;
             timestamp = World.world.getCurWorldTime();
@@ -537,8 +550,13 @@ public abstract class TemporaryFaction
         if (started)
         {
             LastRunCompleted = ExecutedThisRun;
+            // 一个月都没推进就作罢的(谋划没起头、目标当场消失)，经费退回
+            if (BudgetPaid && !ExecutedThisRun && progress <= 0f && PaidBudget > 0)
+                Payer()?.AddMoney(PaidBudget, TreasuryCategory.Policy);
             ExecutedThisRun = false;
         }
+        BudgetPaid = false;
+        PaidBudget = 0;
         TargetID = -1L;
         TargetType = MetaType.None;
         kingdoms ??= new List<long>();
@@ -557,10 +575,36 @@ public abstract class TemporaryFaction
         }
     }
 
+    // 旧写法：施行完再付钱。开始时已付过就不再扣
     public void FinishedAction()
     {
-        GetEmpire()?.CoreKingdom?.SubMoney(Budget, TreasuryCategory.Policy);
+        TryPayBudget();
     }
+
+    private Kingdom Payer() => IsLocallyPushed ? GetKingdom() : GetEmpire()?.CoreKingdom;
+
+    public bool CanAffordBudget()
+    {
+        if (BudgetPaid) return true;
+        int cost = Budget;
+        if (cost <= 0) return true;
+        Kingdom payer = Payer();
+        return payer != null && !payer.isRekt() && payer.GetMoney() >= cost;
+    }
+
+    public bool TryPayBudget()
+    {
+        if (BudgetPaid) return true;
+        if (!CanAffordBudget()) return false;
+        int cost = Budget;
+        if (cost > 0) Payer().SubMoney(cost, TreasuryCategory.Policy);
+        BudgetPaid = true;
+        PaidBudget = Math.Max(0, cost);
+        return true;
+    }
+
+    // 针对具体目标的诉求(如册立储君)：各派因目标而起的额外立场，加在议题立场上
+    public virtual float TargetStance(FixedFaction faction) => 0f;
 
     public void JoinKingdom(Kingdom kingdom)
     {

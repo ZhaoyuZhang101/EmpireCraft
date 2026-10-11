@@ -86,6 +86,9 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         SuccessionLawType law = kingdom.GetSuccessionLaw();
         if (law == SuccessionLawType.强者继承法)
             return CheckStrongestHeir(kingdom, parent, !allowFallback);
+        Actor designated = DesignatedHeir(kingdom, parent);
+        if (designated != null)
+            return (designated, LM.Get("designated_heir_relation").ColorString(pColor: new Color(0.9f, 0.3f, 0.2f)));
         EmpireHeirLawType start = KingdomExtension.ResolveHeirLawStart(law);
         // 兄终弟及仍在交接时按兄弟顺序继承，在位时不预立旁系。
         if (!allowFallback && start == EmpireHeirLawType.siblings) return (null, "");
@@ -147,6 +150,31 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     private static bool IsEligibleRelative(PersonalClanIdentity person, PersonalClanIdentity parent, bool allowFemale) =>
         person != null && person.id != parent?.id && person.is_alive && !person.is_concubine &&
         person._specificClan != null && (person.CanHeir(parent) || allowFemale && person.sex == ActorSex.Female);
+
+    // 钦定的储君：在世、可继位、仍是先君子嗣(新君即位后自然失效)
+    private static Actor DesignatedHeir(Kingdom kingdom, PersonalClanIdentity parent)
+    {
+        var data = kingdom.GetOrCreate();
+        if (data.designated_heir_id < 0) return null;
+        Actor actor = World.world.units.get(data.designated_heir_id);
+        actor?.CheckSpecificClan(false);
+        PersonalClanIdentity identity = actor?.GetPersonalIdentity();
+        bool valid = identity != null && actor != kingdom.king && IsFitCandidate(actor, parent) &&
+                     ChildrenOf(parent).Any(child => child.id == identity.id) &&
+                     (!kingdom.IsEmpire() || !ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire()) ||
+                      ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor));
+        if (!valid) data.designated_heir_id = -1L;
+        return valid ? actor : null;
+    }
+
+    // 册立储君的候选：先君(在位皇帝)在世、可继位的子嗣
+    public static List<Actor> HeirCandidates(Kingdom kingdom)
+    {
+        PersonalClanIdentity parent = PredecessorOf(kingdom);
+        if (parent == null) return new List<Actor>();
+        return ChildrenOf(parent).Select(person => person._actor)
+            .Where(actor => IsFitCandidate(actor, parent) && actor != kingdom.king).Distinct().ToList();
+    }
 
     private static bool IsFitCandidate(Actor actor, PersonalClanIdentity parent) =>
         actor != null && actor != parent?._actor && !actor.isRekt() && actor.isAlive() && actor.isUnitFitToRule();

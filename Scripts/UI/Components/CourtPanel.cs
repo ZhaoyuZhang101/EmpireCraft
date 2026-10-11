@@ -46,6 +46,10 @@ public static class CourtPanel
             : string.Format(LM.Get("court_memorial_title"), CourtSystem.IssueName(memorial.claim));
         string header = memorial == null ? LM.Get("court_no_memorial")
             : string.Format(LM.Get("court_memorial_header"), proposer?.Name ?? "", LM.Get("court_status_" + memorial.stage));
+        // 施行经费(见 ClaimTuning)：准奏施行时从国库支出
+        var memorialClaim = memorial == null ? null : CourtSystem.FindClaim(empire, memorial);
+        int cost = memorialClaim == null ? 0 : memorialClaim.BudgetPaid ? memorialClaim.PaidBudget : memorialClaim.Budget;
+        if (cost > 0) header += " · " + string.Format(LM.Get("court_memorial_cost"), cost);
         var card = parent.BeginCard(width, title, "#F3C34A", header, "ui/icons/iconKingdom");
 
         // 五步进度

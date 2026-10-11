@@ -186,6 +186,11 @@ public static class ClaimAgendaSystem
             TemporaryFactionType.推行普选 => PartySystem.HasUniversalSuffrage(empire) ? 0f : 15f +
                 Mathf.Max(0f, (Share(SocialClass.Labour) + Share(SocialClass.Peasant) - 0.40f) * 100f),
             TemporaryFactionType.开放党禁 => PartySystem.IsActive(empire) ? 0f : 15f,
+            // 饥荒人命关天；腐败越重越该整顿；皇帝年纪越大，立储越急
+            TemporaryFactionType.赈济灾荒 => 20f + Grievance(SocialClass.Peasant) * 0.2f,
+            TemporaryFactionType.整顿吏治 => (float)(empire.CoreKingdom?.GetCorruptionRate() ?? 0d) * 60f,
+            TemporaryFactionType.册立储君 => empire.Emperor == null ? 0f
+                : Mathf.Clamp((empire.Emperor.getAge() - 30) * 0.5f, 0f, 20f),
             _ => 0f
         };
     }

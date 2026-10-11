@@ -34,6 +34,13 @@ public class TempFac_提供岁币 : TemporaryFaction
             Empire empire = GetEmpire();
             kingdom.JoinGivenAlliance(empire);
             kingdom.EndWarWith(empire.CoreKingdom);
+            // 准奏时从国库支出的经费就是岁币，交给对方
+            if (PaidBudget > 0)
+            {
+                kingdom.AddMoney(PaidBudget, TreasuryCategory.Tribute);
+                CompletionOutcome = string.Format(LM.Get("claim_outcome_提供岁币_paid"), PaidBudget,
+                    kingdom.GetKingdomFullName());
+            }
             EventRecorder.Record(empire, string.Format(LM.Get("tribute_peace_history"), empire.GetEmpireFullName(),
                 kingdom.GetKingdomFullName()));
         }

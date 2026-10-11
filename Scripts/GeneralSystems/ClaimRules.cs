@@ -51,7 +51,7 @@ public static class ClaimRules
     private static readonly HashSet<TemporaryFactionType> SelfReforming = new()
     {
         TemporaryFactionType.开放党禁, TemporaryFactionType.推行普选, TemporaryFactionType.开科取士,
-        TemporaryFactionType.转天朝制度
+        TemporaryFactionType.转天朝制度, TemporaryFactionType.推行三省六部, TemporaryFactionType.设立内阁
     };
 
     private static Dictionary<string, Rule> Rules

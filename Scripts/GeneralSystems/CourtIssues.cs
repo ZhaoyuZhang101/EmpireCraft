@@ -17,7 +17,8 @@ public static class CourtIssues
     public static readonly TemporaryFactionType[] PublicIssues =
     {
         TemporaryFactionType.提高赋税, TemporaryFactionType.降低赋税, TemporaryFactionType.对外扩张,
-        TemporaryFactionType.提供岁币, TemporaryFactionType.开科取士
+        TemporaryFactionType.提供岁币, TemporaryFactionType.开科取士, TemporaryFactionType.册立储君,
+        TemporaryFactionType.整顿吏治, TemporaryFactionType.赈济灾荒
     };
 
     private static readonly (TemporaryFactionType a, TemporaryFactionType b)[] Opposites =
@@ -36,7 +37,25 @@ public static class CourtIssues
         (TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.颁布金玺诏书),
         (TemporaryFactionType.转世袭, TemporaryFactionType.强者继承法),
         (TemporaryFactionType.宗教同化, TemporaryFactionType.宗教融入),
-        (TemporaryFactionType.文化同化, TemporaryFactionType.文化转化)
+        (TemporaryFactionType.文化同化, TemporaryFactionType.文化转化),
+        (TemporaryFactionType.文化同化, TemporaryFactionType.制度融入),
+        (TemporaryFactionType.设置行政区, TemporaryFactionType.分封),
+        (TemporaryFactionType.设置行政区, TemporaryFactionType.确认诸侯特权),
+        (TemporaryFactionType.转天朝制度, TemporaryFactionType.转周制),
+        (TemporaryFactionType.推行三省六部, TemporaryFactionType.转周制),
+        (TemporaryFactionType.建立共和, TemporaryFactionType.复辟帝制),
+        (TemporaryFactionType.渴望共和, TemporaryFactionType.神授君权),
+        (TemporaryFactionType.宗教同化, TemporaryFactionType.自由信仰),
+        (TemporaryFactionType.加强神权, TemporaryFactionType.自由信仰),
+        (TemporaryFactionType.削藩, TemporaryFactionType.允许诸侯自由开战),
+        (TemporaryFactionType.颁布帝国治安令, TemporaryFactionType.确认诸侯特权),
+        (TemporaryFactionType.颁布帝国治安令, TemporaryFactionType.允许诸侯自由开战),
+        (TemporaryFactionType.争夺主教叙任权, TemporaryFactionType.划地给教廷),
+        (TemporaryFactionType.输出革命, TemporaryFactionType.禁党),
+        (TemporaryFactionType.开放党禁, TemporaryFactionType.禁党),
+        (TemporaryFactionType.土地改革, TemporaryFactionType.分封),
+        (TemporaryFactionType.劫掠, TemporaryFactionType.制度融入),
+        (TemporaryFactionType.提高赋税, TemporaryFactionType.赈济灾荒)
     };
 
     public const float SupportThreshold = 5f;
@@ -84,4 +103,11 @@ public static class CourtIssues
 
     public static int StanceLevel(FixedFaction faction, TemporaryFactionType issue) =>
         StanceLevel(Stance(faction, issue));
+
+    // 带目标的立场：议题立场 ＋ 诉求针对的具体目标引起的立场(如册立储君立的是哪一派的皇子)
+    public static float Stance(FixedFaction faction, TemporaryFaction claim) =>
+        claim == null ? 0f : Math.Max(-30f, Math.Min(30f, Stance(faction, claim.type) + claim.TargetStance(faction)));
+
+    public static int StanceLevel(FixedFaction faction, TemporaryFaction claim) =>
+        StanceLevel(Stance(faction, claim));
 }

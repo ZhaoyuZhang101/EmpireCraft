@@ -38,14 +38,15 @@ public static class FactionManager
             {
                 FactionType.血脉,
                 new List<TemporaryFactionType>
-                    { TemporaryFactionType.转世袭, TemporaryFactionType.宗教同化, TemporaryFactionType.索取皇位 }
+                    { TemporaryFactionType.转世袭, TemporaryFactionType.神授君权, TemporaryFactionType.索取皇位 }
             },
             {
                 FactionType.尊王,
                 new List<TemporaryFactionType>
                 {
                     TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘,
-                    TemporaryFactionType.转天朝制度, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一
+                    TemporaryFactionType.转天朝制度, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一,
+                    TemporaryFactionType.复辟帝制
                 }
             },
             {
@@ -77,8 +78,7 @@ public static class FactionManager
                 new List<TemporaryFactionType>
                 {
                     TemporaryFactionType.对外扩张, TemporaryFactionType.文化同化, TemporaryFactionType.转军府,
-                    TemporaryFactionType.谋求统一, TemporaryFactionType.迫使朝贡, TemporaryFactionType.转周制,
-                    TemporaryFactionType.索取皇位
+                    TemporaryFactionType.谋求统一, TemporaryFactionType.迫使朝贡, TemporaryFactionType.索取皇位
                 }
             },
             {
@@ -87,6 +87,7 @@ public static class FactionManager
                 {
                     TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池,
                     TemporaryFactionType.削藩, TemporaryFactionType.设置行政区, TemporaryFactionType.开科取士,
+                    TemporaryFactionType.推行三省六部, TemporaryFactionType.设立内阁,
                     TemporaryFactionType.索取皇位, TemporaryFactionType.开放党禁
                 }
             },
@@ -110,7 +111,7 @@ public static class FactionManager
                 new List<TemporaryFactionType>
                 {
                     TemporaryFactionType.开放移民, TemporaryFactionType.降低赋税, TemporaryFactionType.提高福利,
-                    TemporaryFactionType.拓展金融霸权, TemporaryFactionType.开放党禁
+                    TemporaryFactionType.拓展金融霸权, TemporaryFactionType.推行普选, TemporaryFactionType.开放党禁
                 }
             },
             {
@@ -139,9 +140,8 @@ public static class FactionManager
                 FactionType.融入,
                 new List<TemporaryFactionType>
                 {
-                    TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.劫掠,
-                    TemporaryFactionType.游牧扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位,
-                    TemporaryFactionType.谋求统一, TemporaryFactionType.文化转化
+                    TemporaryFactionType.宗教融入, TemporaryFactionType.制度融入, TemporaryFactionType.文化转化,
+                    TemporaryFactionType.分封, TemporaryFactionType.谋求统一, TemporaryFactionType.索取皇位
                 }
             },
             {
@@ -149,8 +149,7 @@ public static class FactionManager
                 new List<TemporaryFactionType>
                 {
                     TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠,
-                    TemporaryFactionType.对外扩张, TemporaryFactionType.分封, TemporaryFactionType.索取皇位,
-                    TemporaryFactionType.谋求统一
+                    TemporaryFactionType.游牧扩张, TemporaryFactionType.对外扩张, TemporaryFactionType.索取皇位
                 }
             }
         };
@@ -291,7 +290,8 @@ public enum FactionType
 }
 public class FixedFaction
 {
-    public const int CurrentClaimCatalogVersion = 1;
+    // 2：派系诉求重新分配(血脉、攘夷、绥靖、尊王、民主、融入、同化)
+    public const int CurrentClaimCatalogVersion = 2;
     public string _id;
     public bool only_king;
     //特质需求（拥有该特质的人会更加倾向于加入此派系）
@@ -454,10 +454,12 @@ public class FixedFaction
                 TemporaryFactionTypesRecord.Add(issue);
                 catalogChanged = true;
             }
-        if (ClaimCatalogVersion < CurrentClaimCatalogVersion &&
-            Empire?.CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism)
+        if (ClaimCatalogVersion < CurrentClaimCatalogVersion && Empire?.CoreKingdom != null)
         {
-            catalogChanged |= MigrateFeudalClaimCatalog();
+            if (ClaimCatalogVersion < 2 && !IsParty) catalogChanged |= MigrateClaimCatalogV2();
+            if (Empire.CoreKingdom.GetRegime()?.type == RegimeType.Feudalism)
+                catalogChanged |= MigrateFeudalClaimCatalog();
+            ClaimCatalogVersion = CurrentClaimCatalogVersion;
         }
         if (catalogChanged || TemporaryFactions == null || TemporaryFactions.Count == 0 || TemporaryFactions.Any(tf => tf == null))
         {
@@ -475,6 +477,39 @@ public class FixedFaction
                 tf.SetEmpire(Empire); // ← 始终把 EmpireId 等运行时信息灌进去
             }
         }
+    }
+
+    // 版本 2：诉求重新分配后，旧存档里的派系照新清单增删(只动这次调整过的诉求，制度解锁等别处加的不动)
+    private bool MigrateClaimCatalogV2()
+    {
+        TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
+        (TemporaryFactionType[] remove, TemporaryFactionType[] add) = Type switch
+        {
+            FactionType.血脉 => (new[] { TemporaryFactionType.宗教同化 }, new[] { TemporaryFactionType.神授君权 }),
+            FactionType.攘夷 => (new[] { TemporaryFactionType.转周制 }, Array.Empty<TemporaryFactionType>()),
+            FactionType.绥靖 => (Array.Empty<TemporaryFactionType>(),
+                new[] { TemporaryFactionType.推行三省六部, TemporaryFactionType.设立内阁 }),
+            FactionType.尊王 => (Array.Empty<TemporaryFactionType>(), new[] { TemporaryFactionType.复辟帝制 }),
+            FactionType.民主 => (Array.Empty<TemporaryFactionType>(), new[] { TemporaryFactionType.推行普选 }),
+            FactionType.融入 => (new[] { TemporaryFactionType.劫掠, TemporaryFactionType.游牧扩张 },
+                Array.Empty<TemporaryFactionType>()),
+            FactionType.同化 => (new[] { TemporaryFactionType.分封, TemporaryFactionType.谋求统一 },
+                new[] { TemporaryFactionType.游牧扩张 }),
+            _ => (Array.Empty<TemporaryFactionType>(), Array.Empty<TemporaryFactionType>())
+        };
+        bool changed = false;
+        foreach (TemporaryFactionType claim in remove)
+        {
+            if (TemporaryFactions?.Any(tf => tf != null && tf.type == claim && tf.IsStarted()) == true) continue;
+            changed |= TemporaryFactionTypesRecord.Remove(claim);
+        }
+        foreach (TemporaryFactionType claim in add)
+        {
+            if (TemporaryFactionTypesRecord.Contains(claim)) continue;
+            TemporaryFactionTypesRecord.Add(claim);
+            changed = true;
+        }
+        return changed;
     }
 
     public bool MigrateFeudalClaimCatalog()
