@@ -75,6 +75,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                     sprite: SpriteTextureLoader.getSprite("SplitAllUnderHeaven"));
             }
 
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_dependencies"))
+            {
+                var dependenciesTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                dependenciesTab.Setup("empire_dependencies", this.TabsWindow, action: ShowDependencies,
+                    sprite: SpriteTextureLoader.getSprite("TabDependencies"));
+            }
             if (TabsWindow.tabs._tabs.All(p => p.name != "past_emperors"))
             {
                 var pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
@@ -626,6 +632,72 @@ namespace EmpireCraft.Scripts.UI.Windows
             parent.AddTextIntoVertLayout(LM.Get("fiscal_account_hint"), true, TextAnchor.MiddleCenter);
             StartCoroutine(ShowStatsRowsAndRefresh(rows));
         }
+
+        // 属国页签：朝贡国与核心王国的封建附庸(陪臣缩进一层)，显示控制等级与年贡，点行打开对应国家窗口
+        public void ShowDependencies(WindowMetaTab pArg0)
+        {
+            Clear();
+            InitialTopPartInfo();
+            var parent = CommonInitial("empire_dependencies");
+            EmpireCraftStatsRow rows = parent.AddComponent<EmpireCraftStatsRow>();
+            int total = 0;
+            var tributaries = World.world.kingdoms.list
+                .Where(k => k != null && !k.isRekt() && k.GetTakenAllianceEmpire() == _empire)
+                .OrderByDescending(TributeEstimate).ToList();
+            if (tributaries.Count > 0)
+            {
+                parent.AddTextIntoVertLayout(LM.Get("empire_tributaries").ColorString("#7FD8EA"), true, TextAnchor.MiddleCenter);
+                foreach (Kingdom tributary in tributaries)
+                {
+                    total++;
+                    AddDependencyRow(rows, tributary, string.Format(LM.Get("dependency_tribute_value"),
+                        MoneyDisplay.Format(TributeEstimate(tributary))));
+                }
+            }
+            Kingdom core = _empire?.CoreKingdom;
+            if (core != null && !core.isRekt())
+            {
+                var vassals = FeudalVassalService.GetDirectVassals(core).ToList();
+                if (vassals.Count > 0)
+                {
+                    parent.AddTextIntoVertLayout(LM.Get("empire_feudal_vassals").ColorString("#7FD8EA"), true, TextAnchor.MiddleCenter);
+                    foreach (Kingdom vassal in vassals) total += AddVassalRows(rows, vassal, 0);
+                }
+            }
+            if (total == 0)
+                parent.AddTextIntoVertLayout(LM.Get("empire_no_dependencies").ColorString("#8FA0A8"), true, TextAnchor.MiddleCenter);
+            StartCoroutine(ShowStatsRowsAndRefresh(rows));
+        }
+
+        // 封建附庸一行(陪臣缩进)，接着递归它自己的附庸；层级上限与 FeudalVassalService 的三层一致
+        private int AddVassalRows(EmpireCraftStatsRow rows, Kingdom vassal, int depth)
+        {
+            if (vassal == null || vassal.isRekt() || depth > 2) return 0;
+            string value = string.Format(LM.Get("dependency_vassal_value"),
+                Math.Min(3, Math.Max(1, vassal.GetOrCreate().feudal_vassal_level)),
+                MoneyDisplay.Format(FeudalVassalService.YearlyTribute(vassal)));
+            AddDependencyRow(rows, vassal, value,
+                (depth > 0 ? new string('　', depth) + "└" : "") + vassal.GetKingdomName());
+            int count = 1;
+            foreach (Kingdom sub in FeudalVassalService.GetDirectVassals(vassal))
+                count += AddVassalRows(rows, sub, depth + 1);
+            return count;
+        }
+
+        private void AddDependencyRow(EmpireCraftStatsRow rows, Kingdom kingdom, string value, string name = null)
+        {
+            rows.IShowStatsRow(name ?? kingdom.GetKingdomName(), value, kingdom.getColor().color_text,
+                pIconPath: "iconKings", action: () =>
+                {
+                    if (kingdom == null || kingdom.isRekt()) return;
+                    SelectedMetas.selected_kingdom = kingdom;
+                    ScrollWindow.showWindow("kingdom");
+                });
+        }
+
+        // 朝贡年贡估计(与 StartToTaken 同口径：户数的一半；财政下实缴受国库限制，这里是名义值)
+        private static long TributeEstimate(Kingdom k) =>
+            (CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.Households(k) : k.units?.Count ?? 0) / 2;
 
         //显示宪法：条款可点击修改(见 ConstitutionSystem.CycleByPlayer)，手定的条款不再随制度自动变化
         public void ShowConstitution(WindowMetaTab pArg0)

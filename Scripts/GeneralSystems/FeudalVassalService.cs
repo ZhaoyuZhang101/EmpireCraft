@@ -358,6 +358,16 @@ public static class FeudalVassalService
     // 启用财政时以附庸国库现款为限，付不起就少交(不滚欠账)。国库类目与朝贡同为 Tribute。
     private static double _lastTributeScan = -1d;
 
+    // 名义年贡(不含国库上限)：户数按控制等级抽成，1/2/3 级 → 1/6、1/4、1/2
+    public static long YearlyTribute(Kingdom subject)
+    {
+        if (subject?.data == null) return 0L;
+        int households = CityPopulationSystem.AbstractPopulationEnabled
+            ? CityPopulationSystem.Households(subject) : subject.units?.Count ?? 0;
+        int level = Math.Min(3, Math.Max(1, subject.GetOrCreate().feudal_vassal_level));
+        return households / (level == 1 ? 6 : level == 2 ? 4 : 2);
+    }
+
     public static void TryYearlyTribute()
     {
         if (World.world?.kingdoms == null || ModClass.IS_CLEAR) return;
@@ -370,10 +380,7 @@ public static class FeudalVassalService
             Kingdom lord = GetOverlord(subject);
             if (lord == null || lord.isRekt() ||
                 AncientWarfareCompatibility.Owns(subject) || AncientWarfareCompatibility.Owns(lord)) continue;
-            int households = CityPopulationSystem.AbstractPopulationEnabled
-                ? CityPopulationSystem.Households(subject) : subject.units?.Count ?? 0;
-            int level = Math.Min(3, Math.Max(1, subject.GetOrCreate().feudal_vassal_level));
-            long tribute = households / (level == 1 ? 6 : level == 2 ? 4 : 2);
+            long tribute = YearlyTribute(subject);
             if (TreasurySystem.Enabled(subject))
                 tribute = Math.Min(tribute, Math.Max(0L, subject.GetTreasuryBalance()));
             if (tribute <= 0L) continue;

@@ -498,6 +498,7 @@ def emblem_slips():
 
 TABS = {
     "TabDynasty": obj_tablet,
+    "TabDependencies": obj_banners,
     "TabBureau": obj_palace,
     "TabSetting": obj_token,
     "TabConstitution": obj_book,
