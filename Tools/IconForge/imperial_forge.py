@@ -318,6 +318,18 @@ def obj_banners(img):
         over(img, shade(ellipse([pole_x - 10, 14, pole_x + 10, 32]), BRASS, bevel=4))
 
 
+def obj_ding(img):
+    """鼎：青铜三足双耳鼎(天子赐胙、霸主之器)。"""
+    for x0 in (60, 168):
+        over(img, shade(sub(rrect([x0, 36, x0 + 28, 98], 6), rrect([x0 + 8, 46, x0 + 20, 92], 3)), BRASS, bevel=5))
+    over(img, shade(union(rrect([46, 88, 210, 110], 6), ellipse([50, 78, 206, 196])), BRASS, bevel=12, gloss=0.8))
+    over(img, shade(rrect([62, 118, 194, 134], 4), LACQ, bevel=4))
+    for x in (92, 120, 148):
+        over(img, shade(ellipse([x, 120, x + 16, 132]), RED, bevel=2))
+    for x in (74, 122, 170):
+        over(img, shade(rrect([x, 172, x + 12, 238], 4), BRASS, bevel=4, gloss=0.6))
+
+
 def obj_whiteflag(img):
     over(img, shade(rrect([58, 24, 72, 236], 5), WOOD, bevel=5, grain=0.3))
     over(img, shade(poly([(72, 34), (210, 46), (192, 90), (214, 132), (72, 124)]), BONE, bevel=10, gloss=0.6,
@@ -1035,6 +1047,9 @@ def obj_bridle(img):
 
 
 GODPOWERS = {
+    "zhou_conference": (obj_banners, "plus"),
+    "zhou_bestow": (obj_ding, "up"),
+    "zhou_advance": (obj_calendar, "arrow"),
     "empire_layer": (obj_title, "crown"),
     "create_empire": (obj_crown, "plus"),
     "empire_form": (obj_crown, "up"),

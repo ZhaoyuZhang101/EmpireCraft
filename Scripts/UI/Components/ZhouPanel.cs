@@ -24,8 +24,11 @@ public static class ZhouPanel
         float inner = width - 12f;
         int years = state.era_since < 0d ? 0 : Date.getYearsSince(state.era_since);
         string eraName = LM.Get("zhou_era_" + state.era);
-        var card = parent.BeginCard(width, "zhou_title", "#F3C34A",
-            string.Format(LM.Get("zhou_header"), eraName, years), "ui/icons/iconKingdom");
+        // 东迁过的写"东迁后 N 年"
+        string headerText = state.eastward_at >= 0d && state.era >= ZhouEraSystem.Spring
+            ? string.Format(LM.Get("zhou_header_eastward"), eraName, Date.getYearsSince(state.eastward_at))
+            : string.Format(LM.Get("zhou_header"), eraName, years);
+        var card = parent.BeginCard(width, "zhou_title", "#F3C34A", headerText, "ui/icons/iconKingdom");
 
         var kpis = card.BeginHoriGroup(new Vector2(inner, 24f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
         float kpi = (inner - 9f) / 4f;
@@ -132,6 +135,10 @@ public static class ZhouPanel
         if (state.reforms.Contains(vassal.id)) tags.Add(LM.Get("zhou_tag_reform").ColorString("#65D66E"));
         if (state.coalition_target == vassal.id) tags.Add(LM.Get("zhou_tag_dominant").ColorString("#E8584F"));
         else if (state.coalition.Contains(vassal.id)) tags.Add(LM.Get("zhou_tag_coalition").ColorString("#7FA8E8"));
+        else if (state.horizontal.Contains(vassal.id)) tags.Add(LM.Get("zhou_tag_horizontal").ColorString("#C8C2B4"));
+        if (state.era == ZhouEraSystem.Spring && state.defiant.Contains(vassal.id))
+            tags.Add(LM.Get("zhou_tag_defiant").ColorString("#E9A85B"));
+        if (ZhouEraSystem.MinistersRising(vassal)) tags.Add(LM.Get("zhou_tag_ministers").ColorString("#8FA0A8"));
         foreach (War war in vassal.getWars().Take(2))
         {
             if (war == null || war.hasEnded()) continue;

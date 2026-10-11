@@ -17,9 +17,14 @@ public sealed class ZhouEraState
     // 称王的诸侯(春秋僭越、战国相王)、推行变法的诸侯
     public List<long> kings = new();
     public List<long> reforms = new();
-    // 合纵所抗之国与合纵各国
+    // 合纵所抗之国与合纵各国；连横依附所抗之国的弱国
     public long coalition_target = -1L;
     public List<long> coalition = new();
+    public List<long> horizontal = new();
+    // 今年没向霸主纳贡的诸侯(不朝)
+    public List<long> defiant = new();
+    // 东迁的时间(-1 = 未东迁)
+    public double eastward_at = -1d;
     // 春秋开始时的诸侯数、已灭之国数、是否发生过权臣瓜分大国
     public int vassals_at_spring;
     public int annexed;

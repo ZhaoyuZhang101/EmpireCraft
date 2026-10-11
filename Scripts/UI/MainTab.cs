@@ -251,6 +251,15 @@ internal static class MainTab
         AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("release_vassal",
             SpriteTextureLoader.getSprite("ui/icons/godpowers/release_vassal")));
 
+        // 春秋战国(周制)：召集会盟、赐胙立霸主、推进时代
+        ZhouEraPowers.init();
+        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_conference",
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/zhou_conference")));
+        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_bestow",
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/zhou_bestow")));
+        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_advance",
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/zhou_advance")));
+
         //帝国势力列表
         var empireListButon = PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
             SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_list"));

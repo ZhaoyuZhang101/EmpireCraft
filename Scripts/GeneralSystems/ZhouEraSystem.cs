@@ -19,11 +19,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     · 诸侯互相征伐兼并，打下都城即灭其国、并入自己，仍是周室诸侯；
 //     · 尊王：诸侯不得攻王畿，敢犯天子者霸主与诸侯共讨；
 //     · 攘夷：夷狄(他族、他文化之国)攻打任一诸侯，天子与霸主出兵来援(诸侯军团随之同上战线)；
-//     · 霸主会盟：最强且尊王的诸侯受天子赐胙为霸主，诸侯每年纳贡，霸主可令交战诸侯罢兵；
+//     · 霸主会盟：最强且尊王的诸侯受天子赐胙为霸主，诸侯每年以赋税一成纳贡，霸主可令交战诸侯罢兵、讨伐不朝之国与僭王；
 //     · 卿大夫专权：大国可能被权臣瓜分(三家分晋)或篡位(田氏代齐)；子爵的夷狄大国可能僭越称王；
-//   战国(发生权臣瓜分、诸侯并到七国以下且已灭三国以上、或天命 < 30)：
+//   战国(发生权臣瓜分、诸侯兼并到七国以下、或天命 < 30)：
 //     · 大国相继称王，霸主与会盟废止，可以攻王畿、灭周；
-//     · 变法：大国推行变法，战时兵额 +25%；合纵：最强一国独大时，其余诸侯合纵，它攻打合纵之国则各国来援；
+//     · 变法：大国推行变法，战时兵额 +25%、赋税每年多收一成，旧贵族怨望；
+//     · 合纵连横：最强一国独大时，其余诸侯合纵，它攻打合纵之国则各国来援；弱小之国可能连横依附于它，彼此不攻；
 //   统一：攻下王畿者取周而代之(接续为新王朝)；天子(或代周者)直辖天下三分之二以上的城即称皇帝，改行郡县律令制。
 public static class ZhouEraSystem
 {
@@ -77,6 +78,17 @@ public static class ZhouEraSystem
         return empire != null && Applies(empire) && State(empire).era >= Spring && defender?.GetEmpire() == empire;
     }
 
+    // 卿族坐大：春秋时六城以上(可能被三分)、或四城以上而国君年幼年老的大国
+    public static bool MinistersRising(Kingdom kingdom)
+    {
+        Empire empire = kingdom?.GetEmpire();
+        if (!Applies(empire) || State(empire).era != Spring || kingdom == empire.CoreKingdom) return false;
+        int cities = kingdom.cities?.Count ?? 0;
+        Actor ruler = kingdom.king;
+        bool weakRuler = ruler == null || !ruler.isAdult() || ruler.getAge() > 60;
+        return cities >= 6 || cities >= 4 && weakRuler;
+    }
+
     // 战国变法：战时兵额 +25%
     public static float LevyFactor(Kingdom kingdom) => IsReformed(kingdom) ? 1.25f : 1f;
 
@@ -102,9 +114,11 @@ public static class ZhouEraSystem
         if (target == empire.CoreKingdom && State(empire).era < Warring) return false;
         if (!initiator.IsNeighbourWith(target)) return false;
         if (initiator.hasAlliance() && initiator.getAlliance() == target.getAlliance()) return false;
-        // 合纵之国不互攻
+        // 合纵之国不互攻；连横之国与所依附之国不互攻
         ZhouEraState state = State(empire);
         if (state.coalition.Contains(initiator.id) && state.coalition.Contains(target.id)) return false;
+        if (state.horizontal.Contains(initiator.id) && target.id == state.coalition_target ||
+            state.horizontal.Contains(target.id) && initiator.id == state.coalition_target) return false;
         bool hostile = (World.world?.diplomacy?.getOpinion(initiator, target)?.total ?? 0) < 0;
         return hostile || Power(initiator) >= Power(target) * 1.3f;
     }
@@ -302,8 +316,7 @@ public static class ZhouEraSystem
             case Spring:
                 SpringYear(empire, state);
                 int vassals = Vassals(empire).Count();
-                if (state.partitioned || empire.Mandate < 30 ||
-                    vassals <= 7 && state.annexed >= 3 && vassals < state.vassals_at_spring)
+                if (state.partitioned || empire.Mandate < 30 || vassals <= 7 && state.annexed >= 1)
                     EnterWarring(empire, state);
                 break;
             case Warring:
@@ -321,11 +334,16 @@ public static class ZhouEraSystem
         if (old == null || old.isRekt() || old.kingdom == core || core.capital == null) return false;
         Log(empire, string.Format(LM.Get("zhou_log_eastward"), old.GetCityName(), core.capital.GetCityName()));
         state.royal_capital_id = core.capital.id;
+        state.eastward_at = World.world.getCurWorldTime();
         return true;
     }
 
-    private static bool WeakRoyalty(Empire empire) =>
-        empire.Mandate < 60 || Vassals(empire).Any(vassal => Power(vassal) > Power(empire.CoreKingdom));
+    // 王畿兵力不及最强诸侯(只比兵力)，或天命低于 60
+    private static bool WeakRoyalty(Empire empire)
+    {
+        int royal = empire.CoreKingdom.countTotalWarriors();
+        return empire.Mandate < 60 || Vassals(empire).Any(vassal => vassal.countTotalWarriors() > royal);
+    }
 
     public static void EnterSpring(Empire empire, ZhouEraState state)
     {
@@ -376,9 +394,10 @@ public static class ZhouEraSystem
         hegemon = World.world.kingdoms.get(state.hegemon_id);
         if (hegemon != null)
         {
-            CollectTribute(empire, hegemon);
+            CollectTribute(empire, state, hegemon);
             Arbitrate(empire, state, hegemon);
             PunishUsurper(empire, state, hegemon);
+            PunishDefiant(empire, state, hegemon);
         }
         foreach (Kingdom vassal in Vassals(empire).ToList())
         {
@@ -411,18 +430,55 @@ public static class ZhouEraSystem
         return hegemon;
     }
 
-    // 纳贡：诸侯每年把国库的 3% 献给霸主
-    private static void CollectTribute(Empire empire, Kingdom hegemon)
+    // 一年的赋税收入(按国库账目折算；没有账目时按国库的十分之一估)
+    private static int YearlyRevenue(Kingdom kingdom)
+    {
+        TreasuryReport report = TreasurySystem.Report(kingdom);
+        if (report != null && report.months > 0 && report.income > 0)
+            return (int)Math.Min(int.MaxValue, report.income * 12L / report.months);
+        return Mathf.Max(0, kingdom.GetMoney()) / 10;
+    }
+
+    // 纳贡：诸侯每年以赋税一成献给霸主；国库交不出、或与霸主交恶不肯交的，记为不朝
+    private static void CollectTribute(Empire empire, ZhouEraState state, Kingdom hegemon)
     {
         int total = 0;
-        foreach (Kingdom vassal in Vassals(empire).Where(vassal => vassal != hegemon && !vassal.isInWarWith(hegemon)))
+        state.defiant.Clear();
+        foreach (Kingdom vassal in Vassals(empire).Where(vassal => vassal != hegemon))
         {
-            int tribute = Mathf.FloorToInt(Mathf.Max(0, vassal.GetMoney()) * 0.03f);
+            if (vassal.isInWarWith(hegemon) || state.kings.Contains(vassal.id) ||
+                (World.world.diplomacy?.getOpinion(vassal, hegemon)?.total ?? 0) < -20)
+            {
+                state.defiant.Add(vassal.id);
+                continue;
+            }
+            int tribute = YearlyRevenue(vassal) / 10;
             if (tribute <= 0) continue;
+            if (vassal.GetMoney() < tribute)
+            {
+                state.defiant.Add(vassal.id);
+                continue;
+            }
             vassal.SubMoney(tribute, TreasuryCategory.Tribute);
             total += tribute;
         }
         if (total > 0) hegemon.AddMoney(total, TreasuryCategory.Tribute);
+    }
+
+    // 讨不庭：霸主讨伐接壤的不朝之国(比它弱的才动手)
+    private static void PunishDefiant(Empire empire, ZhouEraState state, Kingdom hegemon)
+    {
+        foreach (long id in state.defiant.ToList())
+        {
+            Kingdom defiant = World.world.kingdoms.get(id);
+            if (defiant == null || defiant.isRekt() || defiant == hegemon || hegemon.isInWarWith(defiant) ||
+                !hegemon.IsNeighbourWith(defiant) || Power(defiant) * 1.2f > Power(hegemon) || Random.value > 0.3f)
+                continue;
+            War war = World.world.diplomacy.startWar(hegemon, defiant, WarTypeLibrary.normal);
+            if (war == null) continue;
+            Log(empire, string.Format(LM.Get("zhou_log_punish_defiant"), hegemon.GetKingdomName(), defiant.GetKingdomName()));
+            return;
+        }
     }
 
     // 霸主调停：诸侯互攻，霸主令其罢兵(存亡继绝：弱小的一方被打时更可能出面)
@@ -567,7 +623,15 @@ public static class ZhouEraSystem
             {
                 state.reforms.Add(vassal.id);
                 empire.AddMandate(-1);
+                // 旧贵族怨望
+                ClaimPolicySystem.AddGrievance(empire, SocialClass.Noble, 5f);
                 Log(empire, string.Format(LM.Get("zhou_log_reform"), vassal.GetKingdomName()));
+            }
+            // 变法之国赋税每年多收一成
+            if (state.reforms.Contains(vassal.id))
+            {
+                int bonus = YearlyRevenue(vassal) / 10;
+                if (bonus > 0) vassal.AddMoney(bonus, TreasuryCategory.ResidentTax);
             }
         }
         UpdateCoalition(empire, state);
@@ -585,12 +649,27 @@ public static class ZhouEraSystem
             if (state.coalition_target >= 0) Log(empire, LM.Get("zhou_log_coalition_ends"));
             state.coalition_target = -1L;
             state.coalition.Clear();
+            state.horizontal.Clear();
             return;
         }
-        var members = realms.Where(kingdom => kingdom != strongest && Power(kingdom) >= 0.1f * Power(strongest))
+        bool formed = state.coalition_target != strongest.id;
+        if (formed) state.horizontal.Clear();
+        state.horizontal.RemoveAll(id => World.world.kingdoms.get(id)?.GetEmpire() != empire);
+        // 连横：与独大之国接壤、国力不到它一成半的弱国，每年有一成可能依附于它(不入合纵，彼此不攻)
+        foreach (Kingdom weak in realms.Where(kingdom => kingdom != strongest && kingdom != empire.CoreKingdom &&
+                                                         !state.horizontal.Contains(kingdom.id) &&
+                                                         Power(kingdom) < 0.15f * Power(strongest) &&
+                                                         kingdom.IsNeighbourWith(strongest) &&
+                                                         !kingdom.isInWarWith(strongest)).ToList())
+        {
+            if (Random.value > 0.1f) continue;
+            state.horizontal.Add(weak.id);
+            Log(empire, string.Format(LM.Get("zhou_log_horizontal"), weak.GetKingdomName(), strongest.GetKingdomName()));
+        }
+        var members = realms.Where(kingdom => kingdom != strongest && !state.horizontal.Contains(kingdom.id) &&
+                                              Power(kingdom) >= 0.1f * Power(strongest))
             .Select(kingdom => kingdom.id).ToList();
         if (members.Count < 2) return;
-        bool formed = state.coalition_target != strongest.id;
         state.coalition_target = strongest.id;
         state.coalition = members;
         if (formed)
