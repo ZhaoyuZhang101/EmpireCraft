@@ -1108,6 +1108,19 @@ public static class UIHelper
         element.preferredHeight = element.minHeight = size;
     }
 
+    // 竖向布局版内嵌底(顶栏左右信息块用)，同横向版：铺满、不参与布局、不挡点击。
+    public static void AddInsetBackground(AutoVertLayoutGroup group, Vector2 size)
+    {
+        SimpleText background = group.AddTextIntoVertLayout("", false, TextAnchor.MiddleLeft, size,
+            ignorePosition: true);
+        RectTransform rect = background.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        background.transform.SetAsFirstSibling();
+    }
+
     // 给布局组垫一块铺满的深色内嵌底(SimpleText 自带的 windowInnerSliced)，不参与布局、不挡点击。
     public static void AddInsetBackground(AutoHoriLayoutGroup group, Vector2 size)
     {

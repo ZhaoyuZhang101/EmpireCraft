@@ -166,7 +166,8 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             //左侧信息栏
             var leftPart = topSpace.BeginVertGroup(new Vector2(156, 64), pSpacing: 0,
-                pAlignment:TextAnchor.MiddleCenter, pPadding:new RectOffset(0, 0, 0, 0));
+                pAlignment:TextAnchor.MiddleCenter, pPadding:new RectOffset(5, 5, 3, 3));
+            UIHelper.AddInsetBackground(leftPart, new Vector2(156, 64));
             bool republic = RepublicSystem.IsRepublic(_empire);
             if (republic)
             {
@@ -187,7 +188,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             // 其它基础数据放一起，不用滚到下面才看得到。
             leftPart.AddTextIntoVertLayout(
                 $"{LM.Get("composite_empire_current_system").ColorString("#8FA0A8")}: {CompositeEmpireService.GetRegimeName(_empire.CoreKingdom.GetRegime().type)}",
-                size:new Vector2(156, 12));
+                true, size:new Vector2(156, 12));
 
             // 人物区固定为 hori(继任者, vert(皇帝, 权臣), 皇后)。
             var avatarRow = topSpace.BeginHoriGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleCenter,
@@ -245,7 +246,8 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             //右侧信息栏
             var rightPart = topSpace.BeginVertGroup(new Vector2(156, 64), pSpacing: 0,
-                pAlignment:TextAnchor.MiddleCenter, pPadding:new RectOffset(0, 0, 0, 0));
+                pAlignment:TextAnchor.MiddleCenter, pPadding:new RectOffset(5, 5, 3, 3));
+            UIHelper.AddInsetBackground(rightPart, new Vector2(156, 64));
             rightPart.AddTextIntoVertLayout($"{LM.Get("official_students_num").ColorString("#8FA0A8")}: " +
                                             $"{_empire.GetMembersWithTrait("jingshi").Count.ToString().ColorString("#E16A54")}/" +
                                             $"{_empire.GetMembersWithTrait("gongshi").Count.ToString().ColorString("#CB9DF0")}/" +
@@ -258,7 +260,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             rightPart.AddTextIntoVertLayout($"{LM.Get("i_age").ColorString("#8FA0A8")}: {_empire.CoreKingdom.getAge()}", true, size:new Vector2(156, 12));
             rightPart.AddTextIntoVertLayout(
                 $"{LM.Get("composite_empire_ruling_culture").ColorString("#8FA0A8")}: {GetCultureDisplayName(CultureService.GetRealmCulture(_empire.CoreKingdom))}",
-                size:new Vector2(156, 12));
+                true, size:new Vector2(156, 12));
 
             RectTransform topRect = topSpace.GetComponent<RectTransform>();
             topRect.sizeDelta = new Vector2(UIHelper.WidePanelWidth, 78);
@@ -1192,6 +1194,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             title.background.enabled = false;
             title.UseFixedFontSize(10, HorizontalWrapMode.Wrap);
             content.AddChild(title.gameObject);
+            // 页标题下一条细暗线，把标题和正文分开(与分节标题的内嵌条同一视觉家族)
+            content.AddTextIntoVertLayout("", false, TextAnchor.MiddleCenter,
+                new Vector2(UIHelper.WidePanelWidth - 12f, 3f));
 
             AddIntoGroup(titleName, content.gameObject);
             return content;

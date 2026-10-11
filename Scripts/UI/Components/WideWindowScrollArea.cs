@@ -59,9 +59,13 @@ public sealed class WideWindowScrollArea : MonoBehaviour
             if (legacy != null && legacy.gameObject.activeSelf) legacy.gameObject.SetActive(false);
         // 不再每帧扫描整个内容的 preferredHeight、重写所有 RectTransform。
         // 开窗动画改变外框尺寸时才更新，内容高度交给 ContentSizeFitter。
+        RectTransform barRect = _scrollbar?.transform as RectTransform;
         if (_lastSize != _background.rect.size || _viewport.offsetMin != Vector2.zero ||
             _viewport.offsetMax != new Vector2(-12f, 0f) ||
-            !Mathf.Approximately(_scrollView.rect.width, Mathf.Max(40f, _background.rect.width - _sideMargin * 2f)))
+            !Mathf.Approximately(_scrollView.rect.width, Mathf.Max(40f, _background.rect.width - _sideMargin * 2f)) ||
+            // 滚动条被早期(宽度未就绪)的一次布局钉在窗口中央：位置不对就立刻归位右缘
+            (barRect != null && !Mathf.Approximately(barRect.anchoredPosition.x,
+                _background.rect.width * 0.5f - _sideMargin - 5f)))
             ApplyLayout();
     }
 
@@ -151,6 +155,8 @@ public sealed class WideWindowScrollArea : MonoBehaviour
             if (legacy != null && legacy.gameObject.activeSelf) legacy.gameObject.SetActive(false);
         float width = _background.rect.width > 0f ? _background.rect.width : _background.sizeDelta.x;
         float height = _background.rect.height > 0f ? _background.rect.height : _background.sizeDelta.y;
+        // 几何尚未布局好(宽高读到 0 或极小)：这一帧不要定位，否则滚动条会被钉在窗口中央
+        if (width < 100f || height < 100f) return;
         float scrollWidth = Mathf.Max(40f, width - _sideMargin * 2f);
         float scrollHeight = Mathf.Max(40f, height - _topMargin - _bottomMargin);
         float centerY = (_bottomMargin - _topMargin) * 0.5f;
