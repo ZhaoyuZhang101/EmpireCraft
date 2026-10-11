@@ -167,7 +167,6 @@ public static partial class CourtSystem
     {
         Kingdom core = empire?.CoreKingdom;
         if (core?.GetRegime()?.type != RegimeType.LvLing) return;
-        RepairInstitutionChain(empire);
         HuaxiaCourtStage stage = Stage(empire);
         if (stage == HuaxiaCourtStage.None) return;
         string wanted = stage switch
@@ -191,16 +190,6 @@ public static partial class CourtSystem
         Log(state, "court_log_bureau_" + wanted);
         empire.RecordHistory(directContent: string.Format(LM.Get("court_history_bureau_" + wanted), empire.GetEmpireName()),
             kingdomId: core.id);
-    }
-
-    // 旧档修复：科举取士如今以三省六部制为前置，已施行科举的文化补记三省六部制(只补状态，不重放效果)
-    private static void RepairInstitutionChain(Empire empire)
-    {
-        string culture = InstitutionSystem.GetPrimaryCulture(empire);
-        if (string.IsNullOrEmpty(culture) || !InstitutionSystem.IsEnacted(culture, ExaminationNode) ||
-            InstitutionSystem.IsEnacted(culture, ThreeDepartmentsNode) ||
-            InstitutionDefinitionRegistry.Get(ThreeDepartmentsNode) == null) return;
-        InstitutionSystem.ForceEnactNode(culture, ThreeDepartmentsNode);
     }
 
     #endregion

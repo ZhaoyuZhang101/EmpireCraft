@@ -37,12 +37,20 @@ public sealed class TemporaryFactionConverter : JsonConverter
             return null; // 老存档完全没有类型信息：跳过这一项（或返回某个默认实现）
         }
 
-        var className = "TempFac_" + typeEnum;
+        // 国家层面的谋划(国_xxx)类名是 KingdomMind_xxx，其余诉求是 TempFac_xxx(与 TemporaryFaction.ResolveType 对应)
+        string enumName = typeEnum.ToString();
+        var className = enumName.StartsWith("国_", StringComparison.Ordinal)
+            ? "KingdomMind_" + enumName.Substring("国_".Length)
+            : "TempFac_" + enumName;
         var t = SafeTypeDiscovery.GetConcreteDerivedTypes(typeof(TemporaryFaction),
                 AppDomain.CurrentDomain.GetAssemblies(), message => LogService.LogWarning(message))
             .FirstOrDefault(x => x.Name == className);
+        // 找不到类型(已删除的旧诉求)只跳过这一条，不让整份配置读不进来
         if (t == null)
-            throw new JsonSerializationException($"TemporaryFaction 反序列化失败：未找到类型 {className}");
+        {
+            LogService.LogWarning($"TemporaryFaction 反序列化：未找到类型 {className}，已跳过");
+            return null;
+        }
 
         var inst = Activator.CreateInstance(t);
         serializer.Populate(jo.CreateReader(), inst);

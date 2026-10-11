@@ -238,7 +238,16 @@ public static class FactionManager
                 if (File.Exists(path))
                 {
                     string text = File.ReadAllText(path);
-                    Config = JsonConvert.DeserializeObject<PlayerFactionConfig>(text);
+                    Config = JsonConvert.DeserializeObject<PlayerFactionConfig>(text) ?? new PlayerFactionConfig();
+                    // 读不出类型而跳过的诉求是空值，清掉免得后面克隆时出错
+                    Config.StoredTemporaryFaction ??= new Dictionary<TemporaryFactionType, TemporaryFaction>();
+                    foreach (TemporaryFactionType key in Config.StoredTemporaryFaction
+                                 .Where(pair => pair.Value == null).Select(pair => pair.Key).ToList())
+                        Config.StoredTemporaryFaction.Remove(key);
+                    foreach (FixedFaction saved in (Config.PlayerFactions ?? new List<FixedFaction>())
+                             .Concat(Config.PlayerRegimeFactions?.Values.SelectMany(list => list ?? new List<FixedFaction>()) ??
+                                     Enumerable.Empty<FixedFaction>()))
+                        saved?.TemporaryFactions?.RemoveAll(claim => claim == null);
                     if (Config?.PlayerRegimeFactions != null &&
                         Config.PlayerRegimeFactions.TryGetValue(RegimeType.Feudalism, out List<FixedFaction> factions))
                     {

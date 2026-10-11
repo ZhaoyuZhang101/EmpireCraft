@@ -823,8 +823,7 @@
       "advancement": 6,
       "requires": [
         "huaxia_prefecture_county_bureaucracy",
-        "huaxia_recommendation",
-        "huaxia_three_departments"
+        "huaxia_recommendation"
       ],
       "research": {
         "mandate_required": 70
