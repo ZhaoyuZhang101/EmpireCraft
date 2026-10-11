@@ -543,11 +543,17 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         claimSpace.AddTextIntoVertLayout(agendaTitle, size: new Vector2(ContentWidth, 18), hideBackground:true,
             anchor: TextAnchor.MiddleCenter);
         ClaimAgendaContext context = ClaimAgendaSystem.BuildContext(_faction?.Empire ?? _kingdom?.GetEmpire());
-        foreach (var entry in _faction.TemporaryFactions.Where(tf => tf != null)
-                     .Select(tf => (claim: tf, view: ClaimAgendaSystem.Evaluate(context, _faction, tf)))
-                     .OrderByDescending(entry => entry.view.Score))
+        var entries = _faction.TemporaryFactions.Where(tf => tf != null)
+            .Select(tf => (claim: tf, view: ClaimAgendaSystem.Evaluate(context, _faction, tf)))
+            .OrderByDescending(entry => entry.view.Score).ToList();
+        // 议题分两组：本派独有的议题，与各派都能上奏的公共议题(赋税、战和、取士)
+        foreach ((string key, bool isPublic) in new[] { ("court_unique_issues", false), ("court_public_issues", true) })
         {
-            ShowClaim(entry.claim, entry.view, claimSpace, context);
+            var group = entries.Where(entry => CourtIssues.IsPublic(entry.claim.type) == isPublic).ToList();
+            if (group.Count == 0) continue;
+            claimSpace.AddTextIntoVertLayout(LM.Get(key).ColorString("#F3C34A"), size: new Vector2(ContentWidth, 14),
+                hideBackground: true, anchor: TextAnchor.MiddleLeft);
+            foreach (var entry in group) ShowClaim(entry.claim, entry.view, claimSpace, context);
         }
         var addSpace = claimSpace.BeginHoriGroup(new Vector2(ContentWidth, 30), TextAnchor.MiddleCenter);
         addSpace.AddButtonIntoHoriLayout("add_tfaction", "", () =>
@@ -634,6 +640,11 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_support_line"), agenda.Support,
                 agenda.Opposition), true,
             TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 14));
+        if (!_faction.IsParty)
+            card.AddTextIntoVertLayout(string.Format(LM.Get("court_stance_line"),
+                    CourtPanel.StanceMark(CourtIssues.StanceLevel(_faction, pFaction.type)),
+                    CourtIssues.Stance(_faction, pFaction.type).ToString("0")), true,
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 14));
         string technology = string.IsNullOrEmpty(agenda.TechnologyName) ? LM.Get("agenda_no_technology") :
             agenda.TechnologyName;
         if (_faction.IsParty)

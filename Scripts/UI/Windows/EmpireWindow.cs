@@ -449,6 +449,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 UIHelper.InitialEmpireFactionOverview(parent.BeginHoriGroup(pAlignment: TextAnchor.UpperLeft,
                     pPadding: new RectOffset(0, 0, 0, 0)), renderedEmpire.CoreKingdom, MainWidth);
+                // 朝局：当前奏议、各派形势、朝局纪事(没有议会的帝国)
+                CourtPanel.Render(parent, renderedEmpire, MainWidth, () => StartCoroutine(ShowKingdomList()));
                 AddClassAlignmentOverview(parent, renderedEmpire);
             }
             catch (Exception exception)

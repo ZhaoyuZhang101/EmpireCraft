@@ -272,53 +272,7 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
 
     private static bool Serving(Actor actor) => actor?.data != null && !actor.isRekt();
 
-    // 律令制内阁：首辅一人、大臣四人，左右两栏交替排
-    [Hotfixable]
-    private void InitialTopPartInfoLvLing()
-    {
-        if (_empire?.CoreKingdom?.data == null) return;
-        topSpace = null;
-        List<Actor> members = _empire.GetCabinetMembers() ?? new List<Actor>();
-        var persons = new List<Actor> { _empire.GetCabinetLeader() };
-        for (int i = 1; i < 5; i++) persons.Add(i < members.Count && Serving(members[i]) ? members[i] : null);
-        var (_, left, right, column) = BeginTopCard(LM.Get("cabinet_title"),
-            string.Format(LM.Get("cabinet_seat_count"), persons.Count(Serving), persons.Count), "ui/icons/iconKingdom");
-        for (int i = 0; i < persons.Count; i++)
-            AddPersonCell(i % 2 == 0 ? left : right, column, persons[i],
-                LM.Get(i == 0 ? "cabinet_leader" : "cabinet_minister"), i == 0 ? "#FFCC00" : "#59D9FF",
-                FactionDetail(persons[i]));
-
-        FixedFaction dominateFaction = _empire.CoreKingdom.GetRegime()?.GetDominateFaction();
-        if (dominateFaction != null)
-        {
-            AddDominantFactionRow(dominateFaction);
-        }
-    }
-
-    // 封建制选帝侯：左栏教廷三人，右栏世俗四人
-    [Hotfixable]
-    private void InitialTopPartInfoFeudalism()
-    {
-        if (_empire?.CoreKingdom?.data == null) return;
-        topSpace = null;
-        List<Actor> members = _empire.GetCabinetMembers() ?? new List<Actor>();
-        Actor Elector(int index) => index < members.Count && Serving(members[index]) ? members[index] : null;
-        int seated = Enumerable.Range(0, 7).Count(index => Elector(index) != null);
-        var (_, left, right, column) = BeginTopCard(LM.Get("electors_title"),
-            string.Format(LM.Get("cabinet_seat_count"), seated, 7), "ui/icons/iconCrown");
-        AddColumnLabel(left, column, LM.Get("electors_ecclesiastical"));
-        for (int i = 0; i < 3; i++)
-            AddPersonCell(left, column, Elector(i), LM.Get("electors_ecclesiastical"), "#C9A7E8", FactionDetail(Elector(i)));
-        AddColumnLabel(right, column, LM.Get("electors_secular"));
-        for (int i = 3; i < 7; i++)
-            AddPersonCell(right, column, Elector(i), LM.Get("electors_secular"), "#FFCC00", FactionDetail(Elector(i)));
-
-        var dominate = _empire.CoreKingdom.GetRegime().GetDominateFaction();
-        if (dominate != null)
-        {
-            AddDominantFactionRow(dominate);
-        }
-    }
+    // 内阁卡与选帝侯卡见 EmpireBeaurauWindow.Council.cs
     [Hotfixable]
     private void InitialTopPartInfoNormal()
     {
