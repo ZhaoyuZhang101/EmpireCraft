@@ -496,8 +496,16 @@ public static class CorpsSystem
 
     #region 统领实体与行军
 
+    private static int _vehicleSweep;
+
     private static void SecondTick()
     {
+        // 每 5 秒把载具实体收进账面(不留实体时)
+        if (++_vehicleSweep >= 5)
+        {
+            _vehicleSweep = 0;
+            Compatibility.WarBoxCompatibility.SweepVehicles();
+        }
         bool generals = GeneralUnits;
         foreach ((Kingdom kingdom, CorpsData corps) in All().ToList())
         {

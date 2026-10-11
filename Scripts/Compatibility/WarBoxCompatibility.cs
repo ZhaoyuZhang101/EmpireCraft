@@ -59,6 +59,8 @@ public static partial class WarBoxCompatibility
         if (AccessTools.TypeByName("WarBox.Content.DiplomacyRelations") == null) return; // 没装 WarBox
 
         TryPatch(harmony, "WarBox.Content.DiplomacyRelations", "Set", nameof(BeforeSetRelation));
+        // 关闭军团统领实体时，工厂不再造实体载具，改为城里的账面数(见 WarBoxVehicles)
+        TryPatch(harmony, "WarBox.Content.Patch_CityUpdate", "Prefix", nameof(BeforeFactory));
         // 同一帝国/宗主附庸的军队在彼此境内不算"外国军队越境"
         TryPatch(harmony, "WarBox.Content.DiplomacyEvents", "Record", nameof(BeforeDiplomacyEventRecord));
         TryPatch(harmony, "WarBox.Content.DiplomacyEvents", "Chronicle", nameof(BeforeDiplomacyEventChronicle));

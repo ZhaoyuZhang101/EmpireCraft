@@ -340,8 +340,9 @@ public static class FrontSystem
     {
         if (kingdom == null) return 1f;
         if (FirepowerCache.TryGetValue(kingdom.id, out float value)) return value;
-        int vehicles = kingdom.units?.Count(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() &&
-                                                     CityPopulationSystem.IsVehicle(actor)) ?? 0;
+        int vehicles = (kingdom.units?.Count(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() &&
+                                                      CityPopulationSystem.IsVehicle(actor)) ?? 0) +
+                       Compatibility.WarBoxCompatibility.VirtualVehicles(kingdom);
         value = 1f + Mathf.Min(0.6f, vehicles * 0.04f);
         FirepowerCache[kingdom.id] = value;
         return value;
@@ -402,6 +403,12 @@ public static class FrontSystem
         // 伤亡与组织度
         float attackStrength = attackers.Sum(entry => entry.corps.strength);
         float holdStrength = holders.Sum(entry => entry.corps.strength);
+        // 账面载具按本月伤亡比例折损
+        float attackLoss = CasualtyRate * (1f - ratio) * (defend > 0f ? 1f : 0.2f), holdLoss = CasualtyRate * ratio;
+        foreach (Kingdom side in attackers.Select(entry => entry.kingdom).Distinct())
+            Compatibility.WarBoxCompatibility.LoseVehicles(side, attackLoss);
+        foreach (Kingdom side in holders.Select(entry => entry.kingdom).Distinct())
+            Compatibility.WarBoxCompatibility.LoseVehicles(side, holdLoss);
         foreach (var entry in attackers)
         {
             CorpsSystem.Casualties(entry.corps, entry.corps.strength * CasualtyRate * (1f - ratio) * (defend > 0f ? 1f : 0.2f));

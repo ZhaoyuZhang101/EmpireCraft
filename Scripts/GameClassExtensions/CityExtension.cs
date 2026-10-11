@@ -61,6 +61,8 @@ public static class CityExtension
     private const float KingDeathWholeKingdomSurrenderChance = 0.5f;
     public class CityExtraData: ExtraDataBase
     {
+        // 关闭军团统领实体时，WarBox 载具只记在城里的账面上(见 WarBoxVehicles)
+        public int virtual_vehicles;
         public string kingdom_names = "";
         public long title_id = -1L;
         public long empire_core_id = -1L;
