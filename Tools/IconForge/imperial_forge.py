@@ -513,6 +513,39 @@ def make_tab(obj):
     return pixelize(img)
 
 
+# 能力栏(godpower 栏)顶上的标签按钮：同原版，26×16 纯白剪影，左半边画好后镜像成对称图形
+POWER_TABS = {
+    # 文化与规划：摊开的书
+    "TabCulturePlanning": [
+        ".............",
+        ".............",
+        ".###.........",
+        ".######......",
+        ".#########...",
+        ".###########.",
+        ".##.....####.",
+        ".###########.",
+        ".##.....####.",
+        ".###########.",
+        ".##.....####.",
+        ".###########.",
+        "....########.",
+        ".......#####.",
+        "..........##.",
+        ".............",
+    ],
+}
+
+
+def make_power_tab(left_half):
+    img = Image.new("RGBA", (26, 16), (0, 0, 0, 0))
+    for y, row in enumerate(left_half):
+        for x, ch in enumerate(row + row[::-1]):
+            if ch == "#":
+                img.putpixel((x, y), (255, 255, 255, 255))
+    return img
+
+
 # ═════════════ 身份特质：小徽章(旧铜环 + 器物) ═════════════
 def obj_branch(img, flower):
     over(img, shade(lines([[(52, 214), (200, 46)]], 12), WOOD, bevel=4, grain=0.3))
@@ -1116,6 +1149,8 @@ def build():
     out = {}
     for name, obj in TABS.items():
         out[f"GameResources/{name}.png"] = make_tab(obj)
+    for name, art in POWER_TABS.items():
+        out[f"GameResources/{name}.png"] = make_power_tab(art)
     for pid, (obj, badge) in PLOTS.items():
         out[f"GameResources/ui/icons/plots/plot_{pid}.png"] = make_plot(obj, badge)
     for name, obj in TRAITS.items():

@@ -18,16 +18,20 @@ namespace EmpireCraft.Scripts.UI;
 internal static class MainTab
 {
     public const string KINGDOM_TITLE_GROUP = "kingdom_title_group";
-    // 标签页按类别分组(同原版标签页，组与组之间有分隔线)：法理 | 帝国核心 | 帝国 | 文化与理念 | 理念种子 | 显示与工具
+    // 两个标签页，各按类别分组(同原版标签页，组与组之间有分隔线)：
+    //   帝国：法理与行政区 | 帝国核心 | 帝国 | 显示与工具
+    //   文化与规划：文化理念等图层 | 城市规划 | 理念种子
     public const string TITLE_GROUP = "title_group";
     public const string EMPIRE_CORE_GROUP = "empire_core_group";
     public const string EMPIRE_GROUP = "empire_layer_group";
     public const string CULTURE_GROUP = "culture_ideology_group";
+    public const string PLANNING_GROUP = "city_planning_group";
     public const string IDEOLOGY_SEED_GROUP = "ideology_seed_group";
     public const string DISPLAY_GROUP = "display_tool_group";
     public const string EMPIRE_FUNCTIONS = "empire_function_group";
     public const string PROVINCE_GROUP = "province_group";
     public static PowersTab tab;
+    public static PowersTab cultureTab;
 
     public static void Init()
     {
@@ -42,9 +46,16 @@ internal static class MainTab
             TITLE_GROUP,
             EMPIRE_CORE_GROUP,
             EMPIRE_GROUP,
-            CULTURE_GROUP,
-            IDEOLOGY_SEED_GROUP,
             DISPLAY_GROUP,
+        });
+        cultureTab = TabManager.CreateTab("EmpireCultureTab", "empire_culture_tab_name",
+            "empire_culture_tab_description",
+            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TabCulturePlanning.png"));
+        cultureTab.SetLayout(new List<string>()
+        {
+            CULTURE_GROUP,
+            PLANNING_GROUP,
+            IDEOLOGY_SEED_GROUP,
         });
         // Add buttons to the tab.
         // 向标签页添加按钮.
@@ -53,9 +64,11 @@ internal static class MainTab
         // Update the layout of the tab.
         // 更新标签页的布局.
         tab.UpdateLayout();
+        cultureTab.UpdateLayout();
         // 当前加载器版本的 UpdateLayout 把所有按钮排成一整列，不分组也不画分隔线：
         // 在它排好的基础上按组重新排，组与组之间留空并画分隔线(同原版标签页)
-        ApplyGroupedLayout();
+        ApplyGroupedLayout(tab);
+        ApplyGroupedLayout(cultureTab);
     }
 
     private static void _createWindows()
@@ -146,7 +159,7 @@ internal static class MainTab
     [Hotfixable]
     private static void _addButtons()
     {
-        // ---- 法理：图层与法理、省份的增删 ----
+        // ---- 法理与行政区：图层与法理、省份的增删，羁縻规划 ----
         PowerButton pb0 = FixFunctions.CreateLayerButton(MetaTypeExtension.KingdomTitle,
                  SpriteTextureLoader.getSprite("ui/icons/iconToolTitleLayer.png"));
         AddButton(TITLE_GROUP, pb0);
@@ -181,19 +194,6 @@ internal static class MainTab
             PowerButtonCreator.CreateGodPowerButton("remove_province",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceRemove.png")));
 
-        // 规划农田区(耕地红线)
-        FarmPlanningButton.init();
-        AddButton(TITLE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("farm_planning",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/farm_planning")));
-        // 城市规划(工业区、居住区、商业区、军事区、保护区)与规划决议
-        ZonePlanningButtons.init();
-        foreach ((string id, _) in ZonePlanningButtons.Powers)
-            AddButton(TITLE_GROUP,
-                PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
-        AddButton(TITLE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("plan_policy",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/plan_policy")));
         AddButton(TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("jimi_policy",
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/jimi_policy")));
@@ -325,6 +325,19 @@ internal static class MainTab
         });
         cultureConfigButton._button.OnHoverOut(Tooltip.hideTooltip);
 
+        // ---- 城市规划：农田红线、五类功能区与规划决议 ----
+        FarmPlanningButton.init();
+        AddButton(PLANNING_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("farm_planning",
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/farm_planning")));
+        ZonePlanningButtons.init();
+        foreach ((string id, _) in ZonePlanningButtons.Powers)
+            AddButton(PLANNING_GROUP,
+                PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
+        AddButton(PLANNING_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("plan_policy",
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/plan_policy")));
+
         // ---- 理念种子 ----
         IdeologyTraitIcons.Register();
         IdeologySeedPower.Init();
@@ -425,24 +438,25 @@ internal static class MainTab
 
     private static void AddButton(string group, PowerButton button)
     {
-        tab.AddPowerButton(group, button);
+        bool cultureSide = group is CULTURE_GROUP or PLANNING_GROUP or IDEOLOGY_SEED_GROUP;
+        (cultureSide ? cultureTab : tab).AddPowerButton(group, button);
         if (button != null) _buttonsInOrder.Add(new KeyValuePair<string, PowerButton>(group, button));
     }
 
     // 原版 PowersTab.sortButtons 按子物体顺序排版(子物体数量变化时重排)，会覆盖任何手动坐标；
     // 但它认得名字以 "_line" 开头的子物体：遇到就收尾当前列、画一条分隔线再继续。
     // 所以这里按组调整子物体顺序，并在组与组之间插入一条 "_line" 分隔线，交给原版排版
-    private static void ApplyGroupedLayout()
+    private static void ApplyGroupedLayout(PowersTab target)
     {
         try
         {
-            Transform parent = tab.transform;
+            Transform parent = target.transform;
             int index = int.MaxValue;
             foreach (var pair in _buttonsInOrder)
                 if (pair.Value != null && pair.Value.transform.parent == parent)
                     index = Mathf.Min(index, pair.Value.transform.GetSiblingIndex());
             if (index == int.MaxValue) return;
-            GameObject template = FindVanillaLine();
+            GameObject template = FindVanillaLine(target);
             string current = null;
             int lineCount = 0;
             foreach (var pair in _buttonsInOrder)
@@ -459,16 +473,16 @@ internal static class MainTab
         }
         catch (Exception exception)
         {
-            LogService.LogWarning($"[EmpireCraft] 标签页分组排版失败: {exception.Message}");
+            LogService.LogWarning($"[EmpireCraft] 标签页 {target?.name} 分组排版失败: {exception.Message}");
         }
     }
 
     // 从原版标签页里找一条现成的分隔线做模板，外观与原版一致
-    private static GameObject FindVanillaLine()
+    private static GameObject FindVanillaLine(PowersTab target)
     {
         foreach (PowersTab other in Resources.FindObjectsOfTypeAll<PowersTab>())
         {
-            if (other == null || other == tab) continue;
+            if (other == null || other == tab || other == cultureTab || other == target) continue;
             foreach (Transform child in other.transform)
                 if (child.name.StartsWith("_line")) return child.gameObject;
         }
