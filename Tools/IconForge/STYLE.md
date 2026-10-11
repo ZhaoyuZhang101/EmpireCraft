@@ -25,6 +25,7 @@
 | 法理 / 行政区 / 帝国核心工具 | 器物 + 角标(法理图卷、朱红官印、玉玺) | `TOOLS` | 覆盖原 `ui/icons/iconTool*.png` |
 | 民族情绪图层 | 由冷到热的色带旗(黑铁 → 枪灰 → 旧铜 → 暗红 → 血红) | `TOOLS` | `ui/icons/iconNationLayer.png` |
 | 理念徽章 | 保留原设计，在原图上调色(降饱和、冷色再去色、金色转旧铜、纯黑描边) | `regrade_badge` | 母版在 `Tools/IconForge/source/` |
+| 卷册卡片框(九宫格 36×36) | 深橄榄底；普通=橄榄青铜边+金回纹角(中心朱红)，高亮=金边，选中=朱漆边，宗族=缠枝纹角 | `frame_forge.py`(单独脚本) | `GameResources/ui/FactionFrame*.png`、`regimeFrame.png`、`clanFrame.png` |
 | 世界提示 | 直接复用上面的图标，`path_icon` 指过去 | —— | —— |
 
 **角标含义**：骨白 = 增加 / 转移 / 允许 / 互换；血红 = 取消 / 销毁 / 揭发 / 停止；旧铜 = 提升 / 新立；枪灰双剑 = 战争；红印 = 涉及法理；小冕 = 帝国。
