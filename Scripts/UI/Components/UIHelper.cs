@@ -1492,7 +1492,7 @@ public static class UIHelper
         if (!readOnly && !addMode) faction.CardUI = details;
     }
 
-    private static Color IdeologyColor(PartyIdeology ideology)
+    public static Color IdeologyColor(PartyIdeology ideology)
     {
         ColorAsset asset = EmpireCraft.Scripts.GameLibrary.EmpireCraftNamePlateLibrary.GetIdeologyColorAsset(ideology);
         Color color = asset?.getColorBanner() ?? new Color(0.5f, 0.85f, 0.92f);

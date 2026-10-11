@@ -51,8 +51,11 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
                 break;
             case RegimeType.Arabic:
                 break;
-            case RegimeType.YouMu:
             case RegimeType.ClassicalRepublic:
+                // 施行「元老院」后维护元老名单(执政官出缺时按派系投票)
+                SenateSystem.Maintain(empire);
+                break;
+            case RegimeType.YouMu:
             case RegimeType.Modern:
             case RegimeType.Origin:
                 break;
