@@ -143,6 +143,19 @@ public class SaveManagerPatch : GamePatch
                 ModClass.IS_CLEAR = false;
             }
         }, "LOADING EMPIRE MOD DATA", false, 0.001f);
+        // 科技首扫(补齐旧档科技、给兼容模组挂补丁)读档后第一次跑要两三秒；
+        // 放进加载流程一起等，而不是进游戏后第一个年度轮转突然卡一大帧
+        SmoothLoader.add(delegate
+        {
+            try
+            {
+                EmpireCraft.Scripts.GeneralSystems.TechnologySystem.TryYearlyScan();
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError("读档科技首扫失败: " + ex.ToString());
+            }
+        }, "LOADING EMPIRE TECH STATE", false, 0.001f);
     }
 
     // 存档(含自动存档)写完之后清缓存：只清可按需重建的派生缓存、剔除已消亡对象的残留，
