@@ -1656,7 +1656,20 @@ public class CityPatch : GamePatch
     }
     public static bool removeObject(CityManager __instance, City pObject)
     {
-        return !CityTerritoryProtection.ShouldPreventDestruction(pObject);
+        if (CityTerritoryProtection.ShouldPreventDestruction(pObject))
+        {
+            FiscalDiagnostics.Count("保城拦截");
+            return false;
+        }
+        // 保城开关开着、活城却仍被移除时记下原因(领土被蚕食光等)，便于追查"开关没生效"的路径；
+        // 换地图时旧城先被标记死亡，不会触发这条
+        if (EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy?.isEnabled() == true &&
+            pObject?.data != null && pObject.isAlive() && !ModClass.IS_CLEAR &&
+            !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pObject))
+            NeoModLoader.services.LogService.LogWarning(
+                $"[EmpireCraft][保城] 城市 {pObject.data.name} 仍被移除：领土 {pObject.zones?.Count ?? -1} 块，" +
+                $"背景人口 {EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.GetBackgroundTotal(pObject):0}");
+        return true;
     }
 
     public static void setKingdom(City __instance, Kingdom pKingdom)
@@ -1731,7 +1744,11 @@ public class CityPatch : GamePatch
     public static bool destroy_city(City __instance)
     {
         // 拦截必须发生在法理、宗教及帝国列表清理之前。
-        if (CityTerritoryProtection.ShouldPreventDestruction(__instance)) return false;
+        if (CityTerritoryProtection.ShouldPreventDestruction(__instance))
+        {
+            FiscalDiagnostics.Count("保城拦截");
+            return false;
+        }
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         foreach (var religion in World.world.religions)
         {
