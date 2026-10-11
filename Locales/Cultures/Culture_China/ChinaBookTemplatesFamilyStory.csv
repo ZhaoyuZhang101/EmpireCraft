@@ -4,7 +4,7 @@ book_template_china_family_story_2,$city$$word$,$word$ of $city$,$city$$word$
 book_template_china_family_story_3,$clan$$word$,$word$ of the $clan$,$clan$$word$
 book_template_china_family_story_4,$author$$word$,$author$'s $word$,$author$$word$
 book_template_china_family_story_5,新$word$,New $word$,新$word$
-book_template_china_family_story_6,续$word$,"$word$, Continued",續$word$
+book_template_china_family_story_6,续$word$,$word$ Continued,續$word$
 book_template_china_family_story_7,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
 book_template_china_family_story_8,$dynasty$$word$,$word$ of $dynasty$,$dynasty$$word$
 book_template_china_family_story_9,$clan$家训,Family Instructions of the $clan$,$clan$家訓
