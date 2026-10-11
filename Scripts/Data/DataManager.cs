@@ -433,16 +433,17 @@ public static class DataManager
         saveData.switch_simple_nameplate = ModClass.SIMPLE_NAMEPLATE_SWITCH;
         saveData.switch_empire_show_alliance = ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH;
         double collectMs = saveTimer.Elapsed.TotalMilliseconds;
-        string json = JsonConvert.SerializeObject(saveData, Formatting.None);
+        // 流式序列化直接写盘：不再先攒出一个几 MB 的 JSON 大字符串(大对象堆分配 + 复制各一次)
+        using (var writer = new StreamWriter(savePath, false, new global::System.Text.UTF8Encoding(false)))
+            JsonSerializer.CreateDefault().Serialize(writer, saveData);
         double serializeMs = saveTimer.Elapsed.TotalMilliseconds - collectMs;
         // 序列化完再清掉内存里的派系副本：政体已在内存中的王国不需要它，留着反而会在之后重建政体时被误用
         foreach (KingdomExtraData extra in saveData.kingdomExtraData)
             if (extra?.regime != null) extra.saved_factions = null;
         LogService.LogInfo($"Save Data: actors={saveData.actorsExtraData.Count}, wars={saveData.warExtraData.Count}, kingdoms={saveData.kingdomExtraData.Count}, cities={saveData.cityExtraData.Count}, religions={saveData.religionExtraData.Count}");
-        File.WriteAllText(savePath, json);
         double totalMs = saveTimer.Elapsed.TotalMilliseconds;
-        LogService.LogInfo($"[EmpireCraft][存档] 收集 {collectMs:0} ms / 序列化 {serializeMs:0} ms / 写盘 {totalMs - collectMs - serializeMs:0} ms，" +
-                           $"共 {totalMs:0} ms，{json.Length / 1048576d:0.0} M 字符");
+        LogService.LogInfo($"[EmpireCraft][存档] 收集 {collectMs:0} ms / 序列化写盘 {serializeMs:0} ms，" +
+                           $"共 {totalMs:0} ms，文件 {new FileInfo(savePath).Length / 1048576d:0.0} MB");
         LogService.LogInfo("Save Finished");
     }
 

@@ -159,8 +159,7 @@ public class SaveManagerPatch : GamePatch
     }
 
     // 存档(含自动存档)写完之后清缓存：只清可按需重建的派生缓存、剔除已消亡对象的残留，
-    // 不动征兵/调兵队列和单位行军状态这类进行中的运行状态，存档内容也不受影响。
-    // 存档本来就会停顿一下，顺带做一次完整 GC 把清出来的内存真正还回去
+    // 不动征兵/调兵队列和单位行军状态这类进行中的运行状态，存档内容也不受影响
     public static void ClearCachesAfterSave()
     {
         try
@@ -169,7 +168,8 @@ public class SaveManagerPatch : GamePatch
             EmpireCraftActorCheckWarriorMoveAdvanced.ClearRuntimeState();
             IdeologyPopulationSystem.ClearCaches();
             CityPatch.PruneDeadCityCaches();
-            GC.Collect();
+            // 不再显式做阻塞式完整 GC：它每次自动存档都固定添几百毫秒停顿；
+            // 清掉引用后由运行时自行回收即可
         }
         catch (Exception exception)
         {
