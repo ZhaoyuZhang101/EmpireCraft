@@ -25,6 +25,21 @@ public partial class EmpireBeaurauWindow
     {
         if (_empire?.CoreKingdom?.data == null) return;
         topSpace = null;
+        switch (CourtSystem.Stage(_empire))
+        {
+            case HuaxiaCourtStage.Han:
+                InitialTopPartInfoCentralCourt("han_court_title", "han_court_header", "han_court_ministers",
+                    new[] { ("han_duty_chancellor", "#FFCC00"), ("han_duty_commandant", "#E9A85B"),
+                        ("han_duty_censor", "#59D9FF") }, "han_court_process", "han_court_body", "han_court_unlock");
+                return;
+            case HuaxiaCourtStage.Tang:
+                InitialTopPartInfoCentralCourt("three_departments_title", "three_departments_header",
+                    "three_departments_ministries",
+                    new[] { ("three_departments_duty_zhongshu", "#FFCC00"), ("three_departments_duty_shangshu", "#59D9FF"),
+                        ("three_departments_duty_menxia", "#E9A85B") },
+                    "three_departments_process", "three_departments_body", "three_departments_unlock");
+                return;
+        }
         List<Actor> members = _empire.GetCabinetMembers() ?? new List<Actor>();
         int size = Mathf.Max(members.Count, CourtSystem.CabinetSize(_empire));
         var (card, left, right, column) = BeginTopCard(LM.Get("cabinet_title"),
@@ -116,6 +131,59 @@ public partial class EmpireBeaurauWindow
         if (!string.IsNullOrEmpty(factions))
             AddFooterLine(card, inner, string.Format(LM.Get("senate_factions"), factions).ColorString("#8FA0A8"), 6);
         AddStrategyLine(card, inner);
+    }
+
+    // 周室：三公(太师、太傅、太保)与卿士，天子临朝、诸臣直陈
+    [Hotfixable]
+    private void InitialTopPartInfoZhou()
+    {
+        if (_empire?.CoreKingdom?.data == null) return;
+        topSpace = null;
+        InitialTopPartInfoCentralCourt("zhou_court_title", "zhou_court_header", "zhou_court_ministers",
+            new[] { ("zhou_duty_shi", "#FFCC00"), ("zhou_duty_fu", "#E9A85B"), ("zhou_duty_bao", "#59D9FF") },
+            "zhou_court_process", "zhou_court_body", "zhou_court_unlock");
+    }
+
+    // 周、汉、唐共用的中央朝廷卡：左栏三位核心长官(按中央核心官职顺序)，右栏各部/卿
+    private void InitialTopPartInfoCentralCourt(string titleKey, string headerKey, string ministersKey,
+        (string duty, string hex)[] cores, string processKey, string bodyKey, string unlockKey)
+    {
+        var (card, left, right, column) = BeginTopCard(LM.Get(titleKey), LM.Get(headerKey), "ui/icons/iconKingdom");
+        float inner = _contentWidth - 12f;
+        List<OfficeObject> coreOffices = CourtSystem.CoreOfficeObjects(_empire);
+        for (int i = 0; i < coreOffices.Count && i < cores.Length; i++)
+        {
+            OfficeObject office = coreOffices[i];
+            Actor holder = office.GetActor();
+            if (holder?.data == null || holder.isRekt()) holder = null;
+            string rank = office.GetName(null);
+            AddPersonCell(left, column, holder, string.IsNullOrWhiteSpace(rank) ? LM.Get(cores[i].duty) : rank, cores[i].hex,
+                JoinDetail(FactionTag(holder), LM.Get(cores[i].duty).ColorString("#C8C2B4")));
+        }
+        AddColumnLabel(right, column, LM.Get(ministersKey));
+        foreach (OfficeObject office in CourtSystem.DivisionOfficeObjects(_empire)) AddOfficeRow(right, column, office);
+
+        AddFooterSpacer(card, inner);
+        SimpleText process = AddFooterLine(card, inner, LM.Get(processKey).ColorString("#7FD8EA"));
+        UIHelper.AttachTextTooltip(process.gameObject, $"{titleKey}_{_empire.id}", LM.Get(titleKey), LM.Get(bodyKey));
+        AddFooterLine(card, inner, LM.Get(unlockKey).ColorString("#8FA0A8"), 6);
+        AddStrategyLine(card, inner);
+    }
+
+    // 部/卿一行：色条 | 官职名(金) 长官 · 派系
+    private void AddOfficeRow(AutoVertLayoutGroup column, float width, OfficeObject office)
+    {
+        Actor holder = office.GetActor();
+        if (holder?.data == null || holder.isRekt()) holder = null;
+        var row = column.BeginHoriGroup(new Vector2(width, 12f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+        AddColorStrip(row, holder == null ? new Color(0.2f, 0.22f, 0.19f) : FactionColor(holder.GetFaction()));
+        string name = office.GetOfficeName(null);
+        string text = name.ColorString("#F3C34A") + " " +
+                      (holder == null ? LM.Get("cabinet_vacant").ColorString("#8FA0A8")
+                          : holder.getName() + " · " + FactionTag(holder));
+        SimpleText label = row.AddTextIntoHoriLayout(text, true, TextAnchor.MiddleLeft, new Vector2(width - 6f, 12f));
+        label.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(label);
     }
 
     // 选帝侯一行：色条 | 头衔(首席标金) 姓名 · 所领之国 · 派系

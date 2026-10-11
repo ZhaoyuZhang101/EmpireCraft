@@ -55,7 +55,7 @@ public static class CourtPanel
         for (int i = 0; i < 5; i++)
         {
             string hex = current < 0 ? "#5C6153" : i < current ? "#65D66E" : i == current ? "#F3C34A" : "#5C6153";
-            string text = $"{i + 1}. {LM.Get(CourtSystem.StageKeys[i])}";
+            string text = $"{i + 1}. {LM.Get(CourtSystem.StageKey(empire, i))}";
             SimpleText step = steps.AddTextIntoHoriLayout(text.ColorString(hex), false, TextAnchor.MiddleCenter,
                 new Vector2(stepWidth, 11f));
             step.UseFixedFontSize(6, HorizontalWrapMode.Overflow);

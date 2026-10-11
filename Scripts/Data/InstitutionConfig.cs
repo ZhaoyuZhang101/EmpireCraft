@@ -225,6 +225,9 @@ public sealed class InstitutionNodeConfig
 // 代码里会查询的制度特性。新增一个系统级效果时在这里登记 key，并在节点 json 的 features 里声明。
 public static class InstitutionFeatures
 {
+    // 华夏朝廷演进(见 CourtSystem.Dynasty)：三省六部制施行前律令制设三公九卿；内阁制施行后改设内阁
+    public const string ThreeDepartments = "three_departments";
+    public const string GrandSecretariat = "grand_secretariat";
     // 立宪所需的制度基础（具体需要哪几项由 constitution.required_features 决定）
     public const string ConstitutionBasisAdministration = "constitution_basis_administration";
     public const string ConstitutionBasisFiscal = "constitution_basis_fiscal";

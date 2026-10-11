@@ -13,7 +13,7 @@ using Random = UnityEngine.Random;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-public enum CourtCouncilKind { None, Cabinet, Electors, Senate }
+public enum CourtCouncilKind { None, Cabinet, Electors, Senate, ThreeDepartments, Han, Zhou }
 
 // 朝堂博弈：没有议会的帝国，派系诉求不再由最大派系直接推行，而是走奏议五步——
 //   ① 上奏：派系花政治资本，把自己支持的一条议题递上去(独特议题只能本派上奏，公共议题谁都能上)；
@@ -32,9 +32,6 @@ public static partial class CourtSystem
     private const int LogSize = 8;
     private const int StageMonths = 1;
     private const int ShelveMonths = 6;
-
-    public static readonly string[] StageKeys =
-        { "court_stage_propose", "court_stage_draft", "court_stage_debate", "court_stage_assent", "court_stage_execute" };
 
     #region 查询
 
@@ -79,15 +76,33 @@ public static partial class CourtSystem
         {
             RegimeType.Feudalism => CourtCouncilKind.Electors,
             RegimeType.ClassicalRepublic => CityStateService.HasSenate(empire) ? CourtCouncilKind.Senate : CourtCouncilKind.None,
-            _ => regime.has_cabinet ? CourtCouncilKind.Cabinet : CourtCouncilKind.None
+            _ => Stage(empire) switch
+            {
+                HuaxiaCourtStage.Zhou => CourtCouncilKind.Zhou,
+                HuaxiaCourtStage.Han => CourtCouncilKind.Han,
+                HuaxiaCourtStage.Tang => CourtCouncilKind.ThreeDepartments,
+                HuaxiaCourtStage.Ming => CourtCouncilKind.Cabinet,
+                _ => regime.has_cabinet ? CourtCouncilKind.Cabinet : CourtCouncilKind.None
+            }
         };
     }
 
-    public static List<Actor> Council(Empire empire) =>
-        CouncilKind(empire) == CourtCouncilKind.None ? new List<Actor>() : empire.GetCabinetMembers();
+    // 议事会：内阁 / 选帝侯 / 元老；周、汉、唐是中央各官职的长官
+    public static List<Actor> Council(Empire empire) => CouncilKind(empire) switch
+    {
+        CourtCouncilKind.None => new List<Actor>(),
+        CourtCouncilKind.Zhou or CourtCouncilKind.Han or CourtCouncilKind.ThreeDepartments => CentralHolders(empire),
+        _ => empire.GetCabinetMembers()
+    };
 
-    // 议程官：首辅 / 首席选帝侯 / 首席元老
-    public static Actor AgendaSetter(Empire empire) => Council(empire).FirstOrDefault();
+    // 议程官：首辅 / 中书令 / 丞相 / 首席选帝侯 / 首席元老；周天子临朝，诸臣直陈，没有议程官
+    public static Actor AgendaSetter(Empire empire) => CouncilKind(empire) switch
+    {
+        CourtCouncilKind.Zhou => null,
+        CourtCouncilKind.Han => DepartmentHead(empire, ChancellorOffice),
+        CourtCouncilKind.ThreeDepartments => DepartmentHead(empire, ZhongshuOffice),
+        _ => Council(empire).FirstOrDefault()
+    };
 
     public static bool IsBoycotting(CourtFactionState state) => state != null && state.grievance >= 60f;
 
@@ -151,6 +166,7 @@ public static partial class CourtSystem
         CourtState state = State(empire);
         if (state == null || World.world == null) return;
         double now = World.world.getCurWorldTime();
+        EnsureBureau(empire);
         YearlyIfDue(empire, state, now);
         state.last_month = now;
         CourtMemorial memorial = state.memorial;
@@ -233,8 +249,8 @@ public static partial class CourtSystem
     {
         CourtFactionState data = FactionState(empire, proposer);
         List<Actor> council = Council(empire);
-        Actor setter = council.FirstOrDefault();
-        if (council.Count > 0)
+        Actor setter = AgendaSetter(empire);
+        if (council.Count > 0 && CouncilKind(empire) != CourtCouncilKind.Zhou)
         {
             // 不在议事会又没有盟友坐席：走言路，未必上达
             bool seated = council.Any(actor => actor.GetFaction() == proposer ||
@@ -314,6 +330,25 @@ public static partial class CourtSystem
                 : !memorial.shelved_once && Random.value < 0.35f ? "shelve" : "reject";
         }
         string who = decider?.getName() ?? LM.Get("court_decider_" + role);
+        // 三省六部：皇帝画敕后门下省审核，门下侍中所属派系反对时可能封驳，奏议退回重议(只封驳一次；神力直批不受封驳)
+        if (decision == "approve" && godDecision == null && !memorial.reviewed &&
+            CouncilKind(empire) == CourtCouncilKind.ThreeDepartments)
+        {
+            memorial.reviewed = true;
+            Actor reviewer = DepartmentHead(empire, MenxiaOffice);
+            FixedFaction reviewerFaction = reviewer?.GetFaction();
+            CourtFactionState proposerState = FactionState(empire, proposer);
+            if (reviewerFaction != null && reviewerFaction != proposer && reviewerFaction.GetID() != proposerState.ally &&
+                CourtIssues.StanceLevel(reviewerFaction, claim.type) < 0 && Random.value < 0.6f)
+            {
+                memorial.decision = "";
+                memorial.stage = 2;
+                memorial.stage_time = now;
+                proposerState.grievance = Mathf.Min(100f, proposerState.grievance + 3f);
+                Log(state, "court_log_fengbo", reviewer.getName(), IssueName(claim.type));
+                return;
+            }
+        }
         switch (decision)
         {
             case "approve":
@@ -404,6 +439,13 @@ public static partial class CourtSystem
         float authority = Mathf.Clamp01(empire.Legitimacy / 100f);
         float chance = 0.1f + (0.75f - 0.35f * authority) * support + (data.favor - 50f) / 150f +
                        EmperorStance(empire.Emperor, issue) * 0.2f;
+        // 秦汉相权：丞相所属派系的立场牵制皇帝的制可
+        if (CouncilKind(empire) == CourtCouncilKind.Han)
+        {
+            FixedFaction chancellorFaction = DepartmentHead(empire, ChancellorOffice)?.GetFaction();
+            if (chancellorFaction == proposer) chance += 0.15f;
+            else if (chancellorFaction != null) chance += CourtIssues.StanceLevel(chancellorFaction, issue) * 0.15f;
+        }
         switch (state.strategy)
         {
             case "balance" when state.strategy_target == proposer.GetID():

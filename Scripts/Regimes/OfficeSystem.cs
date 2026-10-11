@@ -403,7 +403,9 @@ public class CenterOffice
         CoreOffices.Clear();
         Regime pRegime = pKingdom.GetRegime();
         // 共和国的核心国：中央机构按执政理念成套(见 RepublicSystem / IdeologyBureaus.json)
-        BureauConfig bureau = RepublicSystem.GetBureauOverride(pKingdom, pRegime.bureau_config) ?? pRegime.bureau_config;
+        // 华夏律令制在秦汉阶段设三公九卿(见 CourtSystem.Dynasty)
+        BureauConfig bureau = RepublicSystem.GetBureauOverride(pKingdom, pRegime.bureau_config) ??
+                              CourtSystem.GetBureauOverride(pKingdom, pRegime.bureau_config) ?? pRegime.bureau_config;
         foreach (var core in bureau.cores)
         {
 

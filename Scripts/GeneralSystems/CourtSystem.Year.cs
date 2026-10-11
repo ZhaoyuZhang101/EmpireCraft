@@ -211,6 +211,9 @@ public static partial class CourtSystem
         bool evidence = crime >= 0d && Date.getYearsSince(crime) < 5;
         float chance = 0.3f + (float)target.actor.CalcCorruptionValue() * 0.4f + (evidence ? 0.2f : 0f) +
                        (data.favor - rivalData.favor) / 200f;
+        // 秦汉：御史大夫监察百官，他所属的派系弹劾更容易成
+        if (CouncilKind(empire) == CourtCouncilKind.Han && DepartmentHead(empire, CensorOffice)?.GetFaction() == faction)
+            chance += 0.2f;
         data.capital -= ImpeachCost;
         string name = target.actor.getName();
         if (Random.value < Mathf.Clamp(chance, 0.05f, 0.9f))
@@ -312,6 +315,13 @@ public static partial class CourtSystem
     public static void MaintainCabinet(Empire empire)
     {
         if (empire?.CoreKingdom?.GetRegime() == null) return;
+        EnsureBureau(empire);
+        // 周、汉、唐的朝廷不设内阁(内阁制施行前)：旧档里已有的阁臣出阁
+        if (CouncilKind(empire) != CourtCouncilKind.Cabinet)
+        {
+            foreach (Actor actor in empire.GetCabinetMembers().ToList()) empire.RemoveCabinetMember(actor);
+            return;
+        }
         int size = CabinetSize(empire);
         List<Actor> members = empire.GetCabinetMembers();
         foreach (Actor actor in members.Where(actor => !actor.HasOfficeIdentity()).ToList())

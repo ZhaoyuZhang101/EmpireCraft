@@ -414,6 +414,9 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
             case RegimeType.ClassicalRepublic:
                 InitialTopPartInfoSenate();
                 break;
+            case RegimeType.ZhouFeudalism:
+                InitialTopPartInfoZhou();
+                break;
             default:
                 InitialTopPartInfoNormal();
                 break;

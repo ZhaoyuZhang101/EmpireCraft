@@ -661,7 +661,9 @@
     },
     {
       "id": "huaxia_military_garrison",
-      "features": {"army_prefecture": 1},
+      "features": {
+        "army_prefecture": 1
+      },
       "name_key": "institution_huaxia_military_garrison",
       "description_key": "institution_huaxia_military_garrison_desc",
       "branch": "military",
@@ -759,9 +761,57 @@
         }
       ],
       "regime": "LvLing",
-      "features": { "state_granary": 1,
+      "features": {
+        "state_granary": 1,
         "vassal_authority": 100,
         "claim_reform:转天朝制度": 1
+      }
+    },
+    {
+      "id": "huaxia_three_departments",
+      "name_key": "institution_huaxia_three_departments",
+      "description_key": "institution_huaxia_three_departments_desc",
+      "branch": "administration",
+      "advancement": 6,
+      "requires": [
+        "huaxia_prefecture_county_bureaucracy"
+      ],
+      "research": {
+        "mandate_required": 65
+      },
+      "reform": {
+        "base_progress_per_year": 6.5,
+        "minimum_years": 10,
+        "force_radicalism": 18.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 12.0,
+        "rebellion_threshold": 78.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.0
+        },
+        "oppose_classes": {
+          "Noble": 0.6
+        },
+        "support_factions": {
+          "尊王": 1.0,
+          "绥靖": 0.5
+        },
+        "oppose_factions": {
+          "诸侯": 0.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 2
+        }
+      ],
+      "features": {
+        "three_departments": 1
       }
     },
     {
@@ -772,7 +822,8 @@
       "advancement": 6,
       "requires": [
         "huaxia_prefecture_county_bureaucracy",
-        "huaxia_recommendation"
+        "huaxia_recommendation",
+        "huaxia_three_departments"
       ],
       "research": {
         "mandate_required": 70
@@ -822,8 +873,58 @@
       ]
     },
     {
+      "id": "huaxia_grand_secretariat",
+      "name_key": "institution_huaxia_grand_secretariat",
+      "description_key": "institution_huaxia_grand_secretariat_desc",
+      "branch": "administration",
+      "advancement": 7,
+      "requires": [
+        "huaxia_three_departments",
+        "huaxia_examination_officialdom"
+      ],
+      "research": {
+        "mandate_required": 70
+      },
+      "reform": {
+        "base_progress_per_year": 6.0,
+        "minimum_years": 10,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.0
+        },
+        "oppose_classes": {
+          "Noble": 0.5
+        },
+        "support_factions": {
+          "尊王": 1.0,
+          "绥靖": 0.6
+        },
+        "oppose_factions": {
+          "诸侯": 0.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 2
+        }
+      ],
+      "features": {
+        "grand_secretariat": 1
+      }
+    },
+    {
       "id": "huaxia_warlord_succession",
-      "features": {"army_regional": 1},
+      "features": {
+        "army_regional": 1
+      },
       "name_key": "institution_huaxia_warlord_succession",
       "description_key": "institution_huaxia_warlord_succession_desc",
       "branch": "military",
@@ -1046,7 +1147,9 @@
     },
     {
       "id": "huaxia_recruited_army",
-      "features": {"army_standing": 1},
+      "features": {
+        "army_standing": 1
+      },
       "name_key": "institution_huaxia_recruited_army",
       "description_key": "institution_huaxia_recruited_army_desc",
       "branch": "military",

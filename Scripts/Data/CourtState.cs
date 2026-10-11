@@ -12,6 +12,8 @@ public sealed class CourtState
     public string strategy = "";
     public string strategy_target = "";
     public double last_month = -1d;
+    // 律令制中央官制所处阶段(han 三公九卿 / tang 三省六部)，变了就重建中央机构
+    public string bureau_stage = "";
     public double last_year = -1d;
 }
 
@@ -47,6 +49,8 @@ public sealed class CourtMemorial
     public string decider = "";
     public string decision = "";
     public bool shelved_once;
+    // 三省六部：门下省是否已审核过(封驳只有一次)
+    public bool reviewed;
     public bool drafted_by_ally;
 }
 
