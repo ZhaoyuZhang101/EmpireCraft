@@ -9,6 +9,12 @@
   · regimeFrame           ：选中框/强调面板，朱漆边配金色回纹角；
   · clanFrame             ：宗族与谱系卡，橄榄边，四角缠枝纹(金茎、朱红小花、玉色叶)。
 
+地图兵牌与交战标记用小号框(18×18，九宫格边距四边各 6，见 CorpsMapRenderer)：
+  · CorpsFrame_olive / lacquer / azure / ash ：兵牌，边色分别表示驻守、进攻(朱漆)、防守(石青)、溃退(铁灰)；
+  · CorpsFrame_gold                          ：鼠标悬停的兵牌，金边；
+  · CorpsBattle / CorpsBattle_gold           ：交战标记，朱漆边、绛红底；悬停时金边。
+  四角是小号金色角铁，内角一点朱红。
+
 python Tools/IconForge/frame_forge.py --preview   # 另存 4 倍放大与卡片效果图 frame_preview.png
 """
 import os
@@ -32,6 +38,11 @@ GOLD_DARK = (58, 40, 14, 255)
 CINNABAR = (196, 58, 44, 255)
 BONE = (232, 220, 192, 255)
 JADE = (94, 138, 90, 255)
+AZURE = ((122, 166, 222, 255), (78, 118, 176, 255), (42, 68, 112, 255))
+ASH = ((156, 152, 140, 255), (116, 112, 104, 255), (72, 70, 64, 255))
+BATTLE_FILL = (58, 26, 21, 246)
+COUNTER_SIZE = 18
+COUNTER_BORDER = 6
 
 # 缠枝纹(左上角，10×10)：h 金受光 l 金背光 r 朱红花瓣 b 花心 j 玉色叶；其余不动
 VINE = [
@@ -120,6 +131,45 @@ def corner(px, flip_x, flip_y):
         put(x, y, GOLD_DARK if (x, y) not in ((4, 5), (5, 4)) else INNER)
 
 
+def counter(edge, fill=FILL):
+    """兵牌小框：1 像素描边、2 像素边(上左受光)、1 像素内暗线，四角 5 像素金角铁。"""
+    size = COUNTER_SIZE
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    px = img.load()
+    n = size - 1
+    for y in range(size):
+        for x in range(size):
+            d = min(x, y, n - x, n - y)
+            if d == 0:
+                px[x, y] = OUTLINE
+            elif d == 1:
+                px[x, y] = edge[0] if y == d or x == d else edge[2]
+            elif d == 2:
+                px[x, y] = edge[1]
+            elif d == 3:
+                px[x, y] = INNER
+            else:
+                px[x, y] = fill
+    hi, mid, lo = GOLD
+    for flip_x in (False, True):
+        for flip_y in (False, True):
+            def put(x, y, color):
+                px[n - x if flip_x else x, n - y if flip_y else y] = color
+            for i in range(1, 6):
+                put(i, 1, hi)
+                put(1, i, hi)
+                put(i, 2, mid)
+                put(2, i, mid)
+            put(5, 1, mid)
+            put(1, 5, mid)
+            put(5, 2, lo)
+            put(2, 5, lo)
+            put(3, 3, CINNABAR)
+            put(4, 3, GOLD_DARK)
+            put(3, 4, GOLD_DARK)
+    return img
+
+
 def nine_slice(img, w, h, border=BORDER):
     """按游戏里的九宫格边距拉伸，预览实际效果(最近邻)。"""
     left, bottom, right, top = border
@@ -142,6 +192,13 @@ def build():
         "GameResources/ui/FactionFrame_dominate.png": frame(GOLD_EDGE),
         "GameResources/ui/regimeFrame.png": frame(LACQUER),
         "GameResources/ui/clanFrame.png": frame(OLIVE, "vine"),
+        "GameResources/ui/CorpsFrame_olive.png": counter(OLIVE),
+        "GameResources/ui/CorpsFrame_lacquer.png": counter(LACQUER),
+        "GameResources/ui/CorpsFrame_azure.png": counter(AZURE),
+        "GameResources/ui/CorpsFrame_ash.png": counter(ASH),
+        "GameResources/ui/CorpsFrame_gold.png": counter(GOLD_EDGE),
+        "GameResources/ui/CorpsBattle.png": counter(LACQUER, BATTLE_FILL),
+        "GameResources/ui/CorpsBattle_gold.png": counter(GOLD_EDGE, BATTLE_FILL),
     }
 
 

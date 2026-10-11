@@ -130,6 +130,19 @@ public static class EmpireCraftTooltipLibrary
             prefab_id = "tooltips/tooltip_normal",
             callback = EmpireCraft.Scripts.Layer.WealthMap.ShowTooltip
         });
+        // 地图兵牌与交战标记的悬停详情(见 CorpsMapRenderer)
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = UI.Components.CorpsMapRenderer.CounterTooltip,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = UI.Components.CorpsMapRenderer.ShowCounterTooltip
+        });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = UI.Components.CorpsMapRenderer.BattleTooltip,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = UI.Components.CorpsMapRenderer.ShowBattleTooltip
+        });
         // 窗口里"理念"一行的提示(见 IdeologyRowPatch)
         AddOrReplace(tl, new TooltipAsset
         {
