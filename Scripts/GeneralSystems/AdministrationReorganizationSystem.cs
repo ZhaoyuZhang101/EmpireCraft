@@ -4,6 +4,7 @@ using EmpireCraft.Scripts.Compatibility;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using NeoModLoader.General;
@@ -130,8 +131,13 @@ public static class AdministrationReorganizationSystem
         // Revalidate capital/title changes while the work is spread over frames.
         // Keep saved title-list protections even if old city/title pointers disagree.
         City capital = empire.CoreKingdom.capital;
-        bool protectedCity = work.Protected.Contains(city.id) || city == capital || region.Title == empire.CoreKingdom.GetMainTitle() ||
-                             region.Title == capital?.GetTitle();
+        // 现代政体：直辖市只留首都一城，王畿/开国法理等原直辖区照法理划成正常行政区；
+        // 古代照旧：王畿、开国法理和现首都法理归核心直辖
+        bool modern = empire.CoreKingdom.GetRegime()?.type == RegimeType.Modern;
+        bool protectedCity = modern
+            ? city == capital
+            : work.Protected.Contains(city.id) || city == capital || region.Title == empire.CoreKingdom.GetMainTitle() ||
+              region.Title == capital?.GetTitle();
         if (protectedCity) region.Target = empire.CoreKingdom;
         else
         {

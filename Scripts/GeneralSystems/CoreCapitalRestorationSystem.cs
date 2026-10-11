@@ -1,6 +1,7 @@
 using System;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.General;
 using NeoModLoader.services;
 
@@ -45,6 +46,20 @@ public static class CoreCapitalRestorationSystem
         return EmpireCoreManager.Get(empire)?.GetCoreCapital() == kingdom.capital;
     }
 
+    // 迁都后行政区随都城走：
+    //   古代：王畿(核心主封号)切到新都所在法理，旧王畿在随后的重组里按法理划出去成为正常行政区("换直隶省")；
+    //   现代：不动主封号，重组时直辖市只留首都一城(见 AdministrationReorganizationSystem 的现代分支)。
+    //   两种政体都排一次自动行政区重组；正统不足或战时由 Empire.update 的 Resume 在条件恢复后继续。
+    private static void AlignAdministration(Empire empire, Kingdom core, City capital)
+    {
+        bool modern = core.GetRegime()?.type == RegimeType.Modern;
+        KingdomTitle newHomeTitle = capital.GetTitle();
+        if (!modern && newHomeTitle != null && !newHomeTitle.isRekt() && core.GetMainTitle() != newHomeTitle)
+            core.SetMainTitle(newHomeTitle);
+        empire.data.administrative_reorganization_pending = true;
+        AdministrationReorganizationSystem.Resume(empire);
+    }
+
     private static void Check(Empire empire)
     {
         if (empire?.data == null || empire.isRekt() || empire.IsArchived()) return;
@@ -71,6 +86,7 @@ public static class CoreCapitalRestorationSystem
         }
         core.setCapital(capital);
         if (core.capital != capital) return;
+        AlignAdministration(empire, core, capital);
         FiscalDiagnostics.Count("还于旧都");
         EventRecorder.Record(empire, string.Format(LM.Get("empire_return_capital_history"),
             empire.GetEmpireFullName(), capital.GetCityName()), empire.Emperor);
