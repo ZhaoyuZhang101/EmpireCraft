@@ -230,7 +230,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (AddPersonRow(people, _empire.Emperor, rulerRole, "#FFCC00", true)) peopleRows++;
             if (republic)
             {
-                if (AddPersonRow(people, RepublicSystem.GetOppositionLeader(_empire), LM.Get("republic_opposition_leader"), "#59D9FF")) peopleRows++;
+                // 一党领导、统一战线、民主集中制没有反对党(其他党派参加政治协商)
+                bool congress = RepublicSystem.IsOneParty(_empire) || PartyBanSystem.UsesDemocraticCentralism(_empire);
+                if (!congress && AddPersonRow(people, RepublicSystem.GetOppositionLeader(_empire),
+                        LM.Get("republic_opposition_leader"), "#59D9FF")) peopleRows++;
             }
             else
             {

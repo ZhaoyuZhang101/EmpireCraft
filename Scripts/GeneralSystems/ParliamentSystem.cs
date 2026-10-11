@@ -16,6 +16,8 @@ public sealed class ParliamentSeatView
     public Actor Representative;
     public bool Constitutionalist;
     public bool Governing;
+    // 普选后的选区(行政区所在国 id)；-1 = 全国统一分配
+    public long District = -1L;
 }
 
 public sealed class ParliamentFactionView
@@ -178,7 +180,8 @@ public static partial class ParliamentSystem
                 Faction = faction,
                 Representative = IsValidMember(empire, actor) ? actor : null,
                 Constitutionalist = faction != null && ConstitutionalEconomySystem.IsConstitutionalist(faction, budding),
-                Governing = governing.Contains(seat.faction_id)
+                Governing = governing.Contains(seat.faction_id),
+                District = seat.district_kingdom_id
             });
         }
         foreach (IGrouping<string, ParliamentSeat> group in state.parliament_seats.GroupBy(seat => seat.faction_id))
