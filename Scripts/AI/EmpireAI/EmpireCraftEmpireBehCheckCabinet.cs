@@ -40,7 +40,8 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         else switch (regime.type)
         {
             case RegimeType.LvLing:
-                SetCabinetForLvLing(empire);
+                if (CourtSystem.Applies(empire)) CourtSystem.MaintainCabinet(empire);
+                else SetCabinetForLvLing(empire);
                 break;
             case RegimeType.Feudalism:
                 SetCabinetForFeudalism(empire);
@@ -71,7 +72,8 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         }
         else if (regime.has_cabinet)
         {
-            empire.Additions.cabinet_acc = IsCabinetControlEmpire(pKingdom) ? 30 : 0;
+            // 朝堂模式下施行速度由 CourtSystem.ProgressMultiplier 按阁臣支持度算
+            empire.Additions.cabinet_acc = CourtSystem.Applies(empire) ? 0 : IsCabinetControlEmpire(pKingdom) ? 30 : 0;
         }
         return base.execute(pKingdom);
     }

@@ -483,6 +483,7 @@ public static class DataManager
     {
         if (data == null) return;
         data.CabinetMembers ??= new List<long>();
+        data.court ??= new CourtState();
         data.PreviousYearsMoney ??= new List<int>();
         data.history ??= new List<EmpireCraftHistory>();
         data.given_Kingdoms ??= new List<long>();

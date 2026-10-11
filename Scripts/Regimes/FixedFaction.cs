@@ -446,6 +446,14 @@ public class FixedFaction
             TemporaryFactionTypesRecord.Add(TemporaryFactionType.开放党禁);
             catalogChanged = true;
         }
+        // 公共议题(赋税、战和、取士)：每个派系都能上奏，见 CourtIssues
+        if (!IsParty)
+            foreach (TemporaryFactionType issue in GeneralSystems.CourtIssues.PublicIssues)
+            {
+                if (TemporaryFactionTypesRecord.Contains(issue)) continue;
+                TemporaryFactionTypesRecord.Add(issue);
+                catalogChanged = true;
+            }
         if (ClaimCatalogVersion < CurrentClaimCatalogVersion &&
             Empire?.CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism)
         {

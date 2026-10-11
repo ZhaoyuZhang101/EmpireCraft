@@ -629,7 +629,7 @@ namespace EmpireCraft.Scripts.AI
                     Empire runEmpire = run.GetEmpire();
                     var pushTarget = ClaimRules.FindPushTarget(runEmpire, run.type);
                     string runFaction = run.factionID;
-                    run.Execute();
+                    run.RunExecute();
                     ClaimRules.AfterExecute(runEmpire, run.type, pushTarget, runFaction);
                     return true;
                 }

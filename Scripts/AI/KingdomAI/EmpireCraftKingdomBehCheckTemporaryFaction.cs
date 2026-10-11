@@ -51,10 +51,11 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
             }
         }
         FixedFaction dominateFaction = regime.GetDominateFaction();
+        bool court = CourtSystem.Applies(empire);
         for (int i = 0; i < factions.Count; i++)
         {
             var ff = factions[i];
-            if (ff?.TemporaryFactions == null || ff == dominateFaction) continue;
+            if (ff?.TemporaryFactions == null || (!court && ff == dominateFaction)) continue;
             var tfs = ff.TemporaryFactions;
             for (int j = 0; j < tfs.Count; j++)
             {
@@ -62,6 +63,9 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
                 if (tf == null) continue;
                 if (tf.IsLocallyPushed && tf.Active && tf.CheckLocalContinue(tf.GetKingdom())) continue;
                 if (tf.IsStarted() && tf.CanProceedOutsideGovernment && !ff.Ban && tf.CheckContinue()) continue;
+                // 朝堂模式：皇帝准奏的奏议、挑战皇权的直接行动照常进行；其余未经朝议开跑的一律叫停
+                if (court && tf.IsStarted() && (CourtSystem.IsMemorialClaim(empire, tf) ||
+                                                CourtIssues.IsDirectAction(tf.type) && ff == dominateFaction)) continue;
                 if (tf.IsStarted()) tf.End();
             }
         }
@@ -84,6 +88,8 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
                 return;
             }
         }
+        // 朝堂模式：奏议的上奏、票拟、廷议、批红、施行与年度博弈都在这里推进
+        if (court) CourtSystem.Tick(empire);
         if (run?.IsStarted() == true) return;
         TemporaryPushProgress.TrySubmitReadyRequests(empire);
         if (empire.RunningTemporaryFaction?.IsStarted() == true) return;
@@ -107,6 +113,12 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
                 opening.Start();
                 return;
             }
+        }
+        if (court)
+        {
+            // 挑战皇权的诉求(索取皇位)不经朝议，仍由最大派系直接发动
+            TryStartDirectAction(empire, dominateFaction);
+            return;
         }
         if (dominateFaction == null || dominateFaction.Ban || dominateFaction.TemporaryFactions == null) return;
         if (dominateFaction.GetLeader() == null && regime.type!= RegimeType.Feudalism) return;
@@ -141,5 +153,22 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
             }
         }
         return;
+    }
+
+    private static void TryStartDirectAction(Empire empire, FixedFaction dominateFaction)
+    {
+        if (empire.RunningTemporaryFaction?.IsStarted() == true || CourtSystem.State(empire)?.memorial != null) return;
+        if (dominateFaction?.TemporaryFactions == null || dominateFaction.Ban) return;
+        if (dominateFaction.GetLeader() == null && empire.CoreKingdom.GetRegime()?.type != RegimeType.Feudalism) return;
+        ClaimAgendaContext context = ClaimAgendaSystem.BuildContext(empire);
+        foreach (var tf in dominateFaction.TemporaryFactions)
+        {
+            if (tf == null || !tf.Active || tf.CountDown > 0 || !CourtIssues.IsDirectAction(tf.type)) continue;
+            if (!ClaimAgendaSystem.Evaluate(context, dominateFaction, tf).CanPropose) continue;
+            if (!tf.CheckCondition() || !tf.CheckTarget()) continue;
+            tf.pusherType = MetaType.None;
+            tf.Start();
+            return;
+        }
     }
 }

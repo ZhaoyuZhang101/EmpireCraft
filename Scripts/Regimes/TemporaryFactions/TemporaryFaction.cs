@@ -77,6 +77,16 @@ public abstract class TemporaryFaction
     public virtual bool CanProceedOutsideGovernment => false;
     [JsonIgnore]
     public string CompletionOutcome { get; protected set; }
+    // 本轮是否真的执行了(进度满或谋划完成)；End 时记入 LastRunCompleted，朝堂据此结算奏议
+    [Newtonsoft.Json.JsonIgnore] public bool ExecutedThisRun;
+    [Newtonsoft.Json.JsonIgnore] public bool LastRunCompleted;
+
+    // 执行诉求的统一入口(进度推满、谋划完成都走这里)
+    public void RunExecute()
+    {
+        ExecutedThisRun = true;
+        Execute();
+    }
     public virtual float RequireRenownMultiplier => 1f;
 
     public bool OwnEnoughRenown(Kingdom target)
@@ -482,6 +492,7 @@ public abstract class TemporaryFaction
         if (CountDown <= 0)
         {
             bool shouldLogPreparing = !started;
+            if (!started) ExecutedThisRun = false;
             started = true;
             CompletionOutcome = null;
             timestamp = World.world.getCurWorldTime();
@@ -523,6 +534,11 @@ public abstract class TemporaryFaction
 
     public void End()
     {
+        if (started)
+        {
+            LastRunCompleted = ExecutedThisRun;
+            ExecutedThisRun = false;
+        }
         TargetID = -1L;
         TargetType = MetaType.None;
         kingdoms ??= new List<long>();
@@ -575,7 +591,9 @@ public abstract class TemporaryFaction
                     return;
                 }
             }
-            else if (!IsLocallyPushed && !CanProceedOutsideGovernment && GetEmpire().CoreKingdom.GetRegime().has_cabinet)
+            // 朝堂博弈下奏议已经由皇帝准奏，不再要求首辅同派
+            else if (!IsLocallyPushed && !CanProceedOutsideGovernment && GetEmpire().CoreKingdom.GetRegime().has_cabinet &&
+                     !GeneralSystems.CourtSystem.Applies(GetEmpire()))
             {
                 if (GetEmpire().CoreKingdom.GetRegime().type != RegimeType.Feudalism)
                 {
@@ -601,8 +619,9 @@ public abstract class TemporaryFaction
                     }
                     progressRate *= agenda.ProgressMultiplier;
                 }
+                if (!IsLocallyPushed) progressRate *= GeneralSystems.CourtSystem.ProgressMultiplier(GetEmpire(), this);
                 progress += progressRate;
-                if (progress >= progressMax) Execute();
+                if (progress >= progressMax) RunExecute();
             }
         }
         else
