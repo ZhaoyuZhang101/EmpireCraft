@@ -1063,10 +1063,8 @@ public static class UIHelper
         }
         else if (factions.Count < 3)
         {
-            var addRow = panel.BeginHoriGroup(new Vector2(rowWidth, 18), TextAnchor.MiddleCenter, 2);
-            addRow.AddButtonIntoHoriLayout("add_faction", LM.Get("empire_add_faction_slot"),
-                () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"),
-                size: new Vector2(rowWidth - 4f, 15), showTip: true);
+            var addRow = panel.BeginHoriGroup(new Vector2(rowWidth, 16), TextAnchor.MiddleCenter, 2);
+            AddFactionSlot(addRow, kingdom, new Vector2(rowWidth - 4f, 14f));
         }
 
         panel.transform.AddStretchBackground("regimeFrame", new Vector2(overviewWidth - 2f, panelHeight));
@@ -1181,9 +1179,7 @@ public static class UIHelper
             cells.Add(row => AddFactionTile(row, tileFaction, kingdom, tileWidth, Refresh));
         }
         if (!partyMode && factions.Count < 3)
-            cells.Add(row => row.AddButtonIntoHoriLayout("add_faction", LM.Get("empire_add_faction_slot"),
-                () => OpenSelectionWindow(kingdom), SpriteTextureLoader.getSprite("ui/setOfficer"),
-                size: new Vector2(tileWidth, FactionTileHeight), showTip: true));
+            cells.Add(row => AddFactionSlot(row, kingdom, new Vector2(tileWidth, FactionTileHeight)));
         for (int index = 0; index < cells.Count; index += 2)
         {
             var row = grid.BeginHoriGroup(new Vector2(gridWidth, FactionTileHeight), TextAnchor.UpperLeft, CardGap,
@@ -1192,6 +1188,19 @@ public static class UIHelper
             if (index + 1 < cells.Count) cells[index + 1](row);
         }
         if (foundable.Count > 0) AddFoundPartyStrip(card, inner, empire, foundable, Refresh);
+    }
+
+    // 空席：派系不满三个时，空出的那一格画成深色内嵌格，中间一枚小加号和"增设派系"小字，整格可点
+    private static void AddFactionSlot(AutoHoriLayoutGroup row, Kingdom kingdom, Vector2 size)
+    {
+        string label = LM.Get("empire_add_faction_slot");
+        var slot = row.BeginHoriGroup(size, TextAnchor.MiddleCenter, 3, new RectOffset(0, 0, 0, 0));
+        AddInsetBackground(slot, size);
+        AddLayoutIcon(slot.transform, SpriteTextureLoader.getSprite("ui/setOfficer"), 9f);
+        slot.AddTextIntoHoriLayout(label.ColorString("#A8B8BE"), true, TextAnchor.MiddleLeft,
+            new Vector2(EstimateTextWidth(label, 6) + 4f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        MakeClickable(slot.gameObject, () => OpenSelectionWindow(kingdom));
+        AttachTextTooltip(slot.gameObject, "add_faction_slot", LM.Get("add_faction"), LM.Get("add_faction_description"));
     }
 
     private static void OpenFactionDetail(FixedFaction faction, Kingdom kingdom)
