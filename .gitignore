@@ -423,3 +423,7 @@ EmpireCraft.debug.log
 /[Tt]ask/
 /Verification/
 /Verification/
+
+# 游戏运行时写的性能日志
+EmpireCraft.performance.log
+EmpireCraft.performance.log.previous
