@@ -31,7 +31,9 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 {
     // 换成真宽窗口(AbstractWideWindow)之后不用再迁就窄边框比例，直接给够宽度让树状图
     // 一次能看到更多节点，少一些"拖拽平移"才能看全的情况。
-    private const float PanelWidth = 440f;
+    // 横屏骨架：左栏(文化/科技线/政体/文明等级)固定不随滚动，右侧滚动区按右栏宽度排
+    private const float PanelWidth = UIHelper.PageMainWidth;
+    private AutoVertLayoutGroup _rail;
     private const float GraphHeight = 220f;
     private static readonly Vector2 WindowSize = new(480f, 380f);
 
@@ -50,6 +52,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     {
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
         _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 2f, new RectOffset(3, 3, 3, 3));
+        _rail = UIHelper.CreateWideWindowRail(BackgroundTransform, UIHelper.RailWidth, UIHelper.RailInset);
     }
 
     public override void OnNormalEnable()
@@ -71,6 +74,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
     private void Clear()
     {
+        UIHelper.ClearRail(_rail);
         foreach (GameObject item in _content)
             if (item != null) Destroy(item);
         _content.Clear();
@@ -121,29 +125,23 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     // 最后一行小字点出"制度属于文化"。原来三行都是自动放大的大字，头重脚轻，把下面的内容挤到很后面。
     private void AddStatusPanel()
     {
+        UIHelper.ClearRail(_rail);
+        if (_rail == null) return;
         InstitutionCultureRanking ranking = InstitutionSystem.GetCultureRanking(_culture);
-        const float height = 50f;
-        var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 2,
-            pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(6, 6, 4, 4));
-        _content.Add(panel.gameObject);
-
-        var tags = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 12), TextAnchor.MiddleCenter, 6);
-        AddTag(tags, Icon("ui/icons/iconCulture"), _culture.GetCultureTranslate(), "#F3C34A");
-        AddTag(tags, Icon("ui/icons/culture_traits/iconTech", "ui/icons/iconKnowledge"),
-            LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(ranking.Line)) + LM.Get("institution_line_label"),
-            "#7FD8EA");
-        AddTag(tags, Icon("ui/icons/iconCrown", "ui/icons/iconKingdom"),
-            CompositeEmpireService.GetRegimeName(_empire.CoreKingdom.GetRegime().type), "#E6E0CF");
-
-        var levelRow = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 11), TextAnchor.MiddleCenter, 4);
+        var identity = _rail.BeginRailCard("FactionFrame_dominate");
+        identity.AddRailText(_culture.GetCultureTranslate().ColorString("#F3C34A"), 10, 14f);
+        identity.AddRailText((LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(ranking.Line)) +
+                              LM.Get("institution_line_label")).ColorString("#7FD8EA"), 7, 10f);
+        identity.AddRailText(CompositeEmpireService.GetRegimeName(_empire.CoreKingdom.GetRegime().type)
+            .ColorString("#E6E0CF"), 7, 10f);
         (string levelText, float levelProgress) = BuildLevelLine(ranking);
-        AddLabel(levelRow, levelText, 190f, 7, TextAnchor.MiddleRight);
-        AddProgressBar(levelRow.transform, new Vector2(120f, 5f), levelProgress, new Color(0.95f, 0.76f, 0.29f));
-
-        var tagline = panel.AddTextIntoVertLayout(LM.Get("institution_tagline").ColorString("#9FB0B6"), true,
-            TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 9));
-        tagline.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-        panel.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(PanelWidth, height));
+        identity.AddRailText(levelText, 6, 20f, wrap: true);
+        var barRow = identity.BeginHoriGroup(new Vector2(UIHelper.RailWidth - 8f, 7f), TextAnchor.MiddleCenter, 0,
+            new RectOffset(0, 0, 0, 0));
+        AddProgressBar(barRow.transform, new Vector2(UIHelper.RailWidth - 12f, 5f), levelProgress,
+            new Color(0.95f, 0.76f, 0.29f));
+        var note = _rail.BeginRailCard();
+        note.AddRailText(LM.Get("institution_tagline").ColorString("#9FB0B6"), 6, 30f, wrap: true);
     }
 
     // 文明等级这一行的关键是把"综合先进度"这个数字变得有意义：标出离下一级还差多少，
@@ -172,6 +170,9 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     // 两张卡片等高，高度取两边内容里更高的那个。
     private const float CardGap = 4f;
     private static float CardWidth => (PanelWidth - CardGap) / 2f;
+    // 右栏的半宽卡放不下一行两个数据小块：窄时一行一个
+    private static bool StackChips => CardWidth < 200f;
+    private static int ChipRows(int pairedRows, int chips) => StackChips ? chips : pairedRows;
     private const float CardHeaderHeight = 12f;
     private const float CardLineHeight = 11f;
     private const float ChipHeight = 12f;
@@ -206,12 +207,12 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         bool showForceBudding = !isRepublic && !constitution.budding && !constitution.constitutional;
         bool showForceConstitution = !isRepublic && ConstitutionalEconomySystem.CanForceConstitution(_empire);
         int reformLines = reform != null ? 2 : 1; // 改革中：名称行 + 进度条行
-        float reformHeight = CardHeaderHeight + reformLines * CardLineHeight + 3 * ChipHeight;
-        float constitutionHeight = CardHeaderHeight + 4 * ChipHeight + constitutionNotes.Count * CardLineHeight +
+        float reformHeight = CardHeaderHeight + reformLines * CardLineHeight + ChipRows(3, 5) * ChipHeight;
+        float constitutionHeight = CardHeaderHeight + ChipRows(4, 7) * ChipHeight + constitutionNotes.Count * CardLineHeight +
                                    (showStartButton ? 14f : 0f) + (showForceBudding ? 14f : 0f) +
                                    (showForceConstitution ? 14f : 0f);
-        int reformItems = 1 + reformLines + 3;
-        int constitutionItems = 1 + 4 + constitutionNotes.Count + (showStartButton ? 1 : 0) +
+        int reformItems = 1 + reformLines + ChipRows(3, 5);
+        int constitutionItems = 1 + ChipRows(4, 7) + constitutionNotes.Count + (showStartButton ? 1 : 0) +
                                 (showForceBudding ? 1 : 0) + (showForceConstitution ? 1 : 0);
         float height = Mathf.Max(reformHeight + reformItems * CardSpacing,
             constitutionHeight + constitutionItems * CardSpacing) + 10f;
@@ -661,6 +662,17 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     private static void AddChipRow(AutoVertLayoutGroup card, (Sprite icon, string label, string value) left,
         (Sprite icon, string label, string value) right)
     {
+        if (StackChips)
+        {
+            foreach (var chip in new[] { left, right })
+            {
+                if (chip.label == null) continue;
+                var single = card.BeginHoriGroup(new Vector2(CardWidth - 12f, ChipHeight), TextAnchor.MiddleLeft, 0,
+                    new RectOffset(0, 0, 0, 0));
+                AddChip(single, chip, CardWidth - 14f);
+            }
+            return;
+        }
         // 两边各留几像素，别让右侧那块的数字压到卡片边框上
         float chipWidth = (CardWidth - 12f - 3f) / 2f - 4f;
         var row = card.BeginHoriGroup(new Vector2(CardWidth - 12f, ChipHeight), TextAnchor.MiddleLeft, 3);
@@ -756,10 +768,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                 governingIdeology.HasValue ? PartySystem.GetIdeologyName(governingIdeology.Value) : LM.Get("label_none")),
             true, TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
         var header = section.BeginHoriGroup(new Vector2(PanelWidth, 13), TextAnchor.MiddleCenter, 2);
-        header.AddButtonIntoHoriLayout("window_back", LM.Get("window_back"),
-            () => ScrollWindow.showWindow(nameof(EmpireWindow)), size: new Vector2(34, 11));
         header.AddTextIntoHoriLayout(LM.Get("institution_graph_hint").ColorString("#B8C6CC"), true,
-            TextAnchor.MiddleLeft, new Vector2(PanelWidth - 78f, 11));
+            TextAnchor.MiddleLeft, new Vector2(PanelWidth - 42f, 11));
         header.AddButtonIntoHoriLayout("institution_graph_reset", LM.Get("institution_graph_reset"),
             () => _graph?.ResetView(), size: new Vector2(34, 11));
         _graph = InstitutionGraphView.Create(section.transform, new Vector2(PanelWidth, GraphHeight));
