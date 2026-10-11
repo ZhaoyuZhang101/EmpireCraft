@@ -1159,20 +1159,30 @@ public static class EmpireCraftNamePlateLibrary
                 bool belongsToHoveredAlliance = hoveredAlliance != null && kingdom.getAlliance() == hoveredAlliance;
                 if (showAlliances && !kingdom.IsInEmpire() && kingdom.hasAlliance() && !belongsToHoveredAlliance) continue;
                 belongsToHoveredEmpire |= belongsToHoveredAlliance;
+                // 展开的帝国里，中央直辖的那块写首都城名并带都城星标，不再重复一遍国号
+                City directSeat = belongsToHoveredEmpire && hoveredEmpire?.CoreKingdom == kingdom
+                    ? kingdom.capital
+                    : null;
+                bool showDirectSeat = directSeat != null && !directSeat.isRekt();
                 TerritoryLabelRenderer.SubmitCities(
                     $"political-kingdom:{kingdom.id}",
-                    GetTerritoryKingdomName(kingdom),
+                    showDirectSeat ? directSeat.GetCityName() : GetTerritoryKingdomName(kingdom),
                     kingdom.cities,
                     GetTerritoryKingdomStyle(kingdom),
                     kingdom == hoveredKingdom || belongsToHoveredEmpire,
                     // The faded empire caption is only contextual while hovered;
                     // its member administrative labels must render above it.
                     belongsToHoveredEmpire,
+                    icon: showDirectSeat ? DirectSeatIcon : null,
                     sealFont: UseSealName(kingdom));
             }
         }
         TerritoryLabelRenderer.EndFrame();
     }
+
+    private static Sprite _direct_seat_icon;
+    private static Sprite DirectSeatIcon =>
+        _direct_seat_icon ??= SpriteTextureLoader.getSprite("ui/Icons/iconCapital");
 
     private static void RenderSimplifiedKingdomLayer()
     {
