@@ -17,8 +17,9 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 画在地名画布上，按屏幕像素定大小(不随界面缩放放大)，镜头拉远时略缩小。
 public static class CorpsMapRenderer
 {
-    // 以屏幕像素计
+    // 以屏幕像素计(再乘 BaseScale)
     private const float CounterWidth = 42f, CounterHeight = 13f;
+    private const float BaseScale = 1.7f;
     private const float LineWidth = 2.5f;
 
     private sealed class Counter
@@ -260,8 +261,8 @@ public static class CorpsMapRenderer
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
         }
 
-        // 以屏幕像素定大小：抵消画布缩放，镜头拉远时缩到七成
-        float zoom = Mathf.Clamp(40f / Mathf.Max(1f, camera.orthographicSize), 0.7f, 1.15f);
+        // 以屏幕像素定大小：抵消画布缩放，基准放大 1.7 倍(兵牌约 70×22 像素)，镜头拉远时最多缩到八成五
+        float zoom = BaseScale * Mathf.Clamp(40f / Mathf.Max(1f, camera.orthographicSize), 0.85f, 1.15f);
         Vector3 pixelScale = Vector3.one * (zoom / scale);
 
         // 兵牌：同一地块同一国的军合并成一块，不同国并排
