@@ -240,6 +240,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         FeudalVassalService.Sync(pKingdom);
         InstitutionSystem.TryAdvanceFeudalTransition(pKingdom);
         SyncKingdomStatus(pKingdom);
+        // 周制诸侯各用各的颜色(帝国仍是天子的颜色)
+        KingdomColorService.EnsureDistinctInZhou(pKingdom);
         SyncOffice(pKingdom);
         if (ked != null) ked.last_kingdom_status_ts = World.world.getCurWorldTime();
         return BehResult.Continue;

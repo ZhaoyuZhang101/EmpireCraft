@@ -1,5 +1,6 @@
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
 using NeoModLoader.api;
 
@@ -45,6 +46,8 @@ public class EmpireColorPatch : GamePatch
         foreach (Kingdom member in empire.kingdoms_list)
         {
             if (member == null || member.isRekt() || member == empire.CoreKingdom) continue;
+            // 周制诸侯各用各的颜色，不随天子改色
+            if (KingdomColorService.KeepsOwnColor(member)) continue;
             if (member.getColor() == old) member.updateColor(next);
         }
         World.world.zone_calculator.dirtyAndClear();
