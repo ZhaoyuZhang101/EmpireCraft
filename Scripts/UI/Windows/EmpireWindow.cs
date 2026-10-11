@@ -46,7 +46,9 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             UIHelper.FixWideWindowScrollArea(BackgroundTransform);
             _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
-            _empireNameInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
+            // 宽窗口脚本挂在窗口根上：输入框挂窗口根，随窗口显示/隐藏。
+            // 旧写法 parent.parent 在宽窗口层级里是常驻 Canvas 根，启动时编辑按钮会挂在屏幕中央
+            _empireNameInput = Instantiate(TextInput.Prefab, this.transform);
             _empireNameInput.Setup("", name_change);
         }
         public void Clear()
@@ -283,7 +285,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void InitialTextInput()
         {
             string text = _empire.GetEmpireFullName();
-            this.transform.parent.transform.parent.GenerateTextInput(offset:new Vector2(0, 218), default_text:text, input:_empireNameInput);
+            this.transform.GenerateTextInput(offset:new Vector2(0, 218), default_text:text, input:_empireNameInput);
         }
 
         // Initialize the text input once. Re-opening the same empire must not overwrite

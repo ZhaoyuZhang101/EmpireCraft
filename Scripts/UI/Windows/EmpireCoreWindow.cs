@@ -32,7 +32,8 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             UIHelper.FixWideWindowScrollArea(BackgroundTransform);
             _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
-            _nameInput = Object.Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
+            // 宽窗口脚本挂在窗口根上：输入框挂窗口根，随窗口显示/隐藏(同 EmpireWindow 的修复)
+            _nameInput = Object.Instantiate(TextInput.Prefab, this.transform);
             _nameInput.Setup("", ChangeName);
         }
 
@@ -66,7 +67,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             string text = EmpireCoreManager.GetDisplayName(_core);
             // 宽窗口(380 高)：改名输入框放在标题栏上方
-            this.transform.parent.transform.parent.GenerateTextInput(offset: new Vector2(0, 218), default_text: text, input: _nameInput);
+            this.transform.GenerateTextInput(offset: new Vector2(0, 218), default_text: text, input: _nameInput);
         }
 
         private AutoVertLayoutGroup CommonInitial(string titleName)
