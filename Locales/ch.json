@@ -173,6 +173,7 @@
   "war_reparations": "戰爭賠款",
   "war_reparations_format": "每月 {0}，還剩 {1} 個月",
   "war_reparations_signed": "{0}向{1}求和：即時賠付 {2}，並在此後 {4} 個月每月再付 {3}",
+  "EmpireWindow Title": "帝國",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

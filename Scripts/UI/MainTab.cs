@@ -64,8 +64,8 @@ internal static class MainTab
             nameof(EmpireListWindow) + "Title");
         CultureSpeciesPairWindow.CreateWindow(nameof(CultureSpeciesPairWindow),
             nameof(CultureSpeciesPairWindow) + "Title");
-        EmpireWindow.CreateWindow(nameof(EmpireWindow),
-            nameof(EmpireWindow) + "Title");
+        // 帝国窗口换宽窗口(标题用 "<窗口id> Title" 约定 key)
+        EmpireWindow.CreateAndInit(nameof(EmpireWindow), new Vector2(480f, 380f));
         // 法理窗口换宽窗口(标题用 "<窗口id> Title" 约定 key)
         KingdomTitleWindow.CreateAndInit(nameof(KingdomTitleWindow), new Vector2(480f, 380f));
         // Phase 16 加的 CityNameHistoryWindow 当时漏掉了这一步——每一个自定义

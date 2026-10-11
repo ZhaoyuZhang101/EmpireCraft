@@ -1,6 +1,7 @@
 ﻿using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using NeoModLoader.General.UI.Window;
+using NeoModLoader.api;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,11 +26,13 @@ using NeoModLoader.api.attributes;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
-    public class EmpireWindow : AutoLayoutWindow<EmpireWindow>
+    // 宽窗口(480×380)：帝国窗口是内容最多的窗口，窄窗里财政、派系、行政区都要排长队
+    public class EmpireWindow : AbstractWideWindow<EmpireWindow>
     {
+        private AutoVertLayoutGroup _root;
+        private ScrollWindow TabsWindow => GetComponent<ScrollWindow>();
         // The ruler card is 68 units high with a 72-unit frame. Keep the scroll content just
         // below it; a larger shared padding creates a conspicuous hole on short tabs.
-        private const int ContentTopPadding = 76;
         private TextInput _empireNameInput;
         private Empire _empire;
         private Empire _textInputEmpire;
@@ -41,8 +44,8 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         protected override void Init()
         {
-            layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, ContentTopPadding, 3);
+            UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+            _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
             _empireNameInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
             _empireNameInput.Setup("", name_change);
         }
@@ -59,45 +62,45 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
         private void InitialTabButtons()
         {
-            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_finance"))
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_finance"))
             {
                 var financeTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                financeTab.Setup("empire_finance", ScrollWindowComponent, action: ShowFinance,
+                financeTab.Setup("empire_finance", TabsWindow, action: ShowFinance,
                     sprite: SpriteTextureLoader.getSprite("ui/icons/iconMoney"));
             }
-            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_controlled_kingdoms"))
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_controlled_kingdoms"))
             {
                 var kingdomsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                kingdomsWindowTab.Setup("empire_controlled_kingdoms", this.ScrollWindowComponent, action:ShowKingdomListHelp,
+                kingdomsWindowTab.Setup("empire_controlled_kingdoms", this.TabsWindow, action:ShowKingdomListHelp,
                     sprite: SpriteTextureLoader.getSprite("SplitAllUnderHeaven"));
             }
 
-            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "past_emperors"))
+            if (TabsWindow.tabs._tabs.All(p => p.name != "past_emperors"))
             {
                 var pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                pastEmperorsWindowTab.Setup("past_emperors", this.ScrollWindowComponent, action:ShowEmperors, sprite:SpriteTextureLoader.getSprite("TabDynasty"));
+                pastEmperorsWindowTab.Setup("past_emperors", this.TabsWindow, action:ShowEmperors, sprite:SpriteTextureLoader.getSprite("TabDynasty"));
             }
-            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_bureau"))
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_bureau"))
             {
                 var bureauWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                bureauWindowTab.Setup("empire_bureau", this.ScrollWindowComponent, action:ShowBureau, sprite:SpriteTextureLoader.getSprite("TabBureau"));
+                bureauWindowTab.Setup("empire_bureau", this.TabsWindow, action:ShowBureau, sprite:SpriteTextureLoader.getSprite("TabBureau"));
             }
-            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_setting"))
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_setting"))
             {
                 var settingWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                settingWindowTab.Setup("empire_setting", this.ScrollWindowComponent, action:OpenEmpireSettingWindow,
+                settingWindowTab.Setup("empire_setting", this.TabsWindow, action:OpenEmpireSettingWindow,
                     sprite: SpriteTextureLoader.getSprite("TabSetting"));
             }
-            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_constitution"))
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_constitution"))
             {
                 var constitutionTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                constitutionTab.Setup("empire_constitution", this.ScrollWindowComponent, action: ShowConstitution,
+                constitutionTab.Setup("empire_constitution", this.TabsWindow, action: ShowConstitution,
                     sprite: SpriteTextureLoader.getSprite("TabConstitution"));
             }
-            if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "empire_institutions"))
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_institutions"))
             {
                 var institutionTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                institutionTab.Setup("empire_institutions", this.ScrollWindowComponent,
+                institutionTab.Setup("empire_institutions", this.TabsWindow,
                     action: OpenInstitutionWindow, sprite: SpriteTextureLoader.getSprite("TabInstitutions"));
             }
         }
@@ -125,7 +128,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void InitialTopPartInfo()
         {
             //总容器
-            var topSpace = this.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter,
+            var topSpace = _root.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter,
                 pSize: new Vector2(196, 68), pPadding: new RectOffset(0, 6, 0, 0));
             // 一建好就登记：后面任何一项绘制出错，Clear() 也能把它删掉，
             // 否则每次刷新都会多留一块残缺的顶部栏，越叠越多
@@ -240,7 +243,6 @@ namespace EmpireCraft.Scripts.UI.Windows
                 $"{LM.Get("composite_empire_ruling_culture")}: {GetCultureDisplayName(CultureService.GetRealmCulture(_empire.CoreKingdom))}",
                 size:new Vector2(50, 10));
             
-            topSpace.gameObject.AdjustTopPart(transform.parent.transform, offset:new Vector2(0, 1));
             RectTransform topRect = topSpace.GetComponent<RectTransform>();
             topRect.sizeDelta = new Vector2(196, 68);
             LayoutRebuilder.ForceRebuildLayoutImmediate(topRect);
@@ -275,7 +277,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void InitialTextInput()
         {
             string text = _empire.GetEmpireFullName();
-            this.transform.parent.transform.parent.GenerateTextInput(offset:new Vector2(0, 152), default_text:text, input:_empireNameInput);
+            this.transform.parent.transform.parent.GenerateTextInput(offset:new Vector2(0, 218), default_text:text, input:_empireNameInput);
         }
 
         // Initialize the text input once. Re-opening the same empire must not overwrite
@@ -736,7 +738,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             var currentHistory = ConfigData.CURRENT_SELECTED_HISTORY;
             if (currentHistory == null) return;
 
-            var parent = this.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
+            var parent = _root.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter);
             AddIntoGroup("empire_reign_history", parent.gameObject);
             string eraName = string.IsNullOrWhiteSpace(currentHistory.year_name)
                 ? LM.Get("waiting_for_naming")
@@ -799,7 +801,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
             }
 
-            ScrollRect scrollRect = ScrollWindowComponent?.scrollRect;
+            ScrollRect scrollRect = TabsWindow?.scrollRect;
             if (scrollRect == null) yield break;
             scrollRect.vertical = true;
             scrollRect.StopMovement();
@@ -872,9 +874,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         public override void OnFirstEnable()
         {
             base.OnFirstEnable();
-            this.DORestart();
-            layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, ContentTopPadding, 3);
+            UIHelper.FixWideWindowScrollArea(BackgroundTransform);
             _empire = EmpireCraftMetaTypeLibrary.selected_empire;
             if (_empire == null || _empire.isRekt())
             {
@@ -887,8 +887,8 @@ namespace EmpireCraft.Scripts.UI.Windows
         public override void OnNormalEnable()
         {
             base.OnNormalEnable();
-            layout.spacing = 3;
-            layout.padding = new RectOffset(3, 3, ContentTopPadding, 3);
+            UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+            StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
             _empire = EmpireCraftMetaTypeLibrary.selected_empire;
             if (_empire == null || _empire.isRekt())
             {
@@ -1021,7 +1021,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             // Keep one auto-sized group directly under the ScrollRect content. The old nested
             // group was created under the root and then reparented, so delayed stats rows did not
             // reliably propagate their final preferred height back to the scroll area.
-            var content = this.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter,
+            var content = _root.BeginVertGroup(pSpacing: 3, pAlignment: TextAnchor.UpperCenter,
                 pPadding: new RectOffset(3, 3, 0, 8));
             SimpleText title = Instantiate(SimpleText.Prefab, null);
             string empirePersonalHistory = LM.Get(titleName);
