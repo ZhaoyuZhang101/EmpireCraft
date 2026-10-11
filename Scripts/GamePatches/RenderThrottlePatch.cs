@@ -45,17 +45,22 @@ public class RenderThrottlePatch : GamePatch
             prefix: new HarmonyMethod(typeof(RenderThrottlePatch), nameof(BeforeMapLayers))));
         Try(() => harmony.Patch(AccessTools.Method(typeof(MapBox), "updateBuildings"),
             prefix: new HarmonyMethod(typeof(RenderThrottlePatch), nameof(BeforeBuildings)) { priority = Priority.First }));
+        // 只给非泛型类自己声明的方法计时：泛型基类(SimSystemManager<,>)的方法拿不到原方法句柄，清空世界时会报错
         foreach ((Type type, string name) in new[]
                  {
                      (typeof(CityManager), "beginChecksBuildings"), (typeof(KingdomManager), "beginChecksBuildings"),
                      (typeof(WildKingdomsManager), "beginChecksBuildings"), (typeof(BuildingZonesSystem), "update"),
                      (typeof(SimObjectsZones), "update"), (typeof(ActorManager), "prepareForMetaChecks"),
-                     (typeof(ActorManager), "checkContainer"), (typeof(MapBox), "checkObjectsToDestroy"),
+                     (typeof(MapBox), "checkObjectsToDestroy"),
                      (typeof(MapBox), "checkEventUnitsDestroy"), (typeof(MapBox), "checkEventBuildingsDestroy")
                  })
-            Try(() => harmony.Patch(AccessTools.Method(type, name),
+        {
+            MethodInfo method = AccessTools.DeclaredMethod(type, name);
+            if (method == null || method.DeclaringType == null || method.DeclaringType.IsGenericType) continue;
+            Try(() => harmony.Patch(method,
                 prefix: new HarmonyMethod(typeof(RenderThrottlePatch), nameof(BeforeStep)),
                 postfix: new HarmonyMethod(typeof(RenderThrottlePatch), nameof(AfterStep))));
+        }
         Try(() => harmony.Patch(AccessTools.Method(typeof(QuantumSpriteManager), "updateSystems"),
             prefix: new HarmonyMethod(typeof(RenderThrottlePatch), nameof(WrapQuantumSprites))));
     }
