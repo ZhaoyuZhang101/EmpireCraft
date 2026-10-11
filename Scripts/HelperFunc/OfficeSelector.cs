@@ -138,8 +138,15 @@ public static class OfficeSelector
             return null;
         }
 
-        Empire empire = pKingdom.GetEmpire();
-        if (empire == null) return null;
+        return RankElectiveCandidates(pKingdom).Select(item => item.candidate).FirstOrDefault();
+    }
+
+    // 选举制首领(封建选帝、古典共和元老院)的推举次序：同派系的选帝侯/元老票数 → 偏好人选 → 威望 → 兵力。
+    // 候选人是帝国各成员国(不含中央)的君主。帝国窗口的元老院示意图也按这个次序画
+    public static List<(Actor candidate, int votes)> RankElectiveCandidates(Kingdom pKingdom)
+    {
+        Empire empire = pKingdom?.GetEmpire();
+        if (empire == null) return new List<(Actor, int)>();
         List<Actor> electors = empire.GetCabinetMembers()
             .Where(elector => elector != null && !elector.isRekt())
             .ToList();
@@ -150,11 +157,25 @@ public static class OfficeSelector
             .Where(candidate => candidate != null && !candidate.isRekt() && candidate.isAdult() &&
                                 candidate.isUnitFitToRule() && candidate.CanServeOffice(pKingdom) &&
                                 !candidate.IsSkeleton())
-            .OrderByDescending(candidate => electors.Count(elector => elector.GetFaction() == candidate.GetFaction()))
-            .ThenByDescending(candidate => IsPreferredOfficeCandidate(candidate, pKingdom))
-            .ThenByDescending(candidate => candidate.renown)
-            .ThenByDescending(candidate => candidate.kingdom?.countTotalWarriors() ?? 0)
-            .FirstOrDefault();
+            .Select(candidate => (candidate, votes: electors.Count(elector => elector.GetFaction() == candidate.GetFaction())))
+            .OrderByDescending(item => item.votes)
+            .ThenByDescending(item => IsPreferredOfficeCandidate(item.candidate, pKingdom))
+            .ThenByDescending(item => item.candidate.renown)
+            .ThenByDescending(item => item.candidate.kingdom?.countTotalWarriors() ?? 0)
+            .ToList();
+    }
+
+    // 没有元老院的古典共和：偏好人选优先，其次兵力最强的成员国君主(同 TryGetStrongerLeader)
+    public static List<Actor> RankStrongestCandidates(Kingdom pKingdom)
+    {
+        Empire empire = pKingdom?.GetEmpire();
+        if (empire == null) return new List<Actor>();
+        return empire.kingdoms_list
+            .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.hasKing() &&
+                              kingdom.king.CanServeOffice(pKingdom))
+            .OrderByDescending(kingdom => IsPreferredOfficeCandidate(kingdom.king, pKingdom))
+            .ThenByDescending(kingdom => kingdom.countTotalWarriors())
+            .Select(kingdom => kingdom.king).ToList();
     }
 
     private static Actor TryGetStrongerLeader(OfficeObject pOffice, Kingdom pKingdom)

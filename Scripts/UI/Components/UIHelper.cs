@@ -1516,7 +1516,7 @@ public static class UIHelper
     }
 
     // 占比条：深色底 + 按比例填充的颜色
-    private static void AddShareBar(Transform parent, Vector2 size, float fill, Color color)
+    public static void AddShareBar(Transform parent, Vector2 size, float fill, Color color)
     {
         var track = new GameObject("ShareBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
             typeof(LayoutElement));

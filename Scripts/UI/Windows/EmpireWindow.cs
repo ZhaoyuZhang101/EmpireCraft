@@ -224,7 +224,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             UIHelper.AddCardFrame(people.transform);
             string rulerRole = republic
                 ? RepublicSystem.GetHeadOfStateTitle(_empire)
-                : LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B");
+                : _empire.CoreKingdom.GetRegime()?.type == RegimeType.ClassicalRepublic
+                    ? LM.Get("ClassicalRepublic_officiallevel_0")
+                    : LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B");
             if (_empire.data.is_been_controlled) rulerRole += " · " + LM.Get("powerful_minister_status_puppet");
             int peopleRows = 0;
             if (AddPersonRow(people, _empire.Emperor, rulerRole, "#FFCC00", true)) peopleRows++;

@@ -457,6 +457,9 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
             case RegimeType.LvLing:
                 InitialTopPartInfoLvLing();
                 break;
+            case RegimeType.ClassicalRepublic:
+                InitialTopPartInfoSenate();
+                break;
             default:
                 InitialTopPartInfoNormal();
                 break;
