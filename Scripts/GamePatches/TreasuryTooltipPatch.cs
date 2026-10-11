@@ -19,7 +19,8 @@ public class TreasuryTooltipPatch : GamePatch
     {
         new Harmony(nameof(TreasuryTooltipPatch)).Patch(
             AccessTools.Method(typeof(TooltipLibrary), "showCity", new[] { typeof(string), typeof(Tooltip), typeof(TooltipData) }),
-            transpiler: new HarmonyMethod(GetType(), nameof(CityMoney)));
+            transpiler: new HarmonyMethod(GetType(), nameof(CityMoney)),
+            postfix: new HarmonyMethod(GetType(), nameof(TradeRouteLine)));
     }
 
     // 城市、家园、首都提示共用这条原版入口。仅替换资金读取，保留原版其它提示内容。
@@ -49,6 +50,14 @@ public class TreasuryTooltipPatch : GamePatch
         }
         if (replaced == 0) LogService.LogWarning("[EmpireCraft] City tooltip treasury read could not be patched.");
         return codes;
+    }
+
+    // 海上商路行：有商路的港口城显示贸易伙伴与月贸易利得，交战中显示禁运(按位置取参，不依赖原版参数名)
+    public static void TradeRouteLine(Tooltip __1, TooltipData __2)
+    {
+        if (__2.city?.data == null) return;
+        string status = EmpireCraft.Scripts.GeneralSystems.TradeRouteSystem.Describe(__2.city);
+        if (status != null) __1.addLineText("city_trade_route", status, "#6CC7E7");
     }
 
     public static void AddMoneyLine(Tooltip tooltip, string key, string value, string color, bool localize)

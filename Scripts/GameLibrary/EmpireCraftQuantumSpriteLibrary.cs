@@ -145,6 +145,16 @@ public static class EmpireCraftQuantumSpriteLibrary
         });
         AssetManager.quantum_sprites.add(new QuantumSpriteAsset
         {
+            id = "trade_route_line",
+            id_prefab = "p_mapArrow_line",
+            base_scale = 0.5f,
+            draw_call = DrawTradeRouteLine,
+            render_map = true,
+            render_gameplay = true,
+            color = new Color(0.4f, 0.8f, 1f, 0.9f)
+        });
+        AssetManager.quantum_sprites.add(new QuantumSpriteAsset
+        {
             id = "capturing_zones",
             id_prefab = "p_mapZone_lines",
             base_scale = 1f,
@@ -503,6 +513,19 @@ private static void DrawEmpireCraftOccupiedZones(QuantumSpriteAsset pAsset)
             QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, selected.capital.getTile().posV,
                 World.world.getMousePos(), ref pColor);
         }
+    }
+
+    // 悬停有商路的港口城时画出它的海上商路(与城市悬停提示同时出现)，交战禁运画红
+    private static void DrawTradeRouteLine(QuantumSpriteAsset pAsset)
+    {
+        if (!InputHelpers.mouseSupported || World.world.isBusyWithUI()) return;
+        City city = World.world.getMouseTilePosCachedFrame()?.zone_city;
+        if (city == null || city.isRekt()) return;
+        City partner = World.world.cities.get(GeneralSystems.TradeRouteSystem.PartnerOf(city));
+        if (partner?.data == null || partner.isRekt()) return;
+        bool embargo = city.kingdom != null && partner.kingdom != null && city.kingdom.isInWarWith(partner.kingdom);
+        Color pColor = embargo ? new Color(1f, 0.3f, 0.25f, 0.9f) : new Color(0.4f, 0.8f, 1f, 0.9f);
+        QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, city.getTile().posV, partner.getTile().posV, ref pColor);
     }
 
     private static void DrawProvinceLine(QuantumSpriteAsset pAsset)

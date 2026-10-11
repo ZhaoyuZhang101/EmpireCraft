@@ -27,6 +27,19 @@ public static class TradeRouteSystem
     public static long PartnerOf(City city) =>
         city?.data != null && Routes.TryGetValue(city.data.id, out long partner) ? partner : -1L;
 
+    private static float TradeValue(City a, City b) =>
+        BaseTrade + WealthTrade * (CityConstructionSystem.Wealth(a) + CityConstructionSystem.Wealth(b)) * 0.5f;
+
+    // 城市悬停提示：有商路时给一行"伙伴城市（+N/月）"，交战中标注禁运
+    public static string Describe(City city)
+    {
+        City partner = World.world?.cities?.get(PartnerOf(city));
+        if (partner?.data == null || partner.isRekt() || city?.kingdom == null || partner.kingdom == null) return null;
+        if (city.kingdom.isInWarWith(partner.kingdom))
+            return string.Format(LM.Get("trade_route_embargo"), partner.GetCityName());
+        return string.Format(LM.Get("trade_route_status"), partner.GetCityName(), (long)TradeValue(city, partner));
+    }
+
     public static void TryMonthlyScan()
     {
         if (World.world?.cities == null || ModClass.IS_CLEAR || !CityPopulationSystem.AbstractPopulationEnabled) return;
@@ -88,9 +101,7 @@ public static class TradeRouteSystem
             if (!Tradeable(city) || !Tradeable(partner) || city.kingdom == partner.kingdom) continue;
             // 交战禁运
             if (city.kingdom.isInWarWith(partner.kingdom)) continue;
-            float wealth = (CityConstructionSystem.Wealth(city) + CityConstructionSystem.Wealth(partner)) * 0.5f;
-            float trade = BaseTrade + WealthTrade * wealth;
-            Earn(city, trade);
+            Earn(city, TradeValue(city, partner));
         }
     }
 
