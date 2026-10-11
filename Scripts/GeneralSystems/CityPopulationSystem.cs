@@ -1168,7 +1168,10 @@ public static class CityPopulationSystem
             {
                 PopulationParallelSystem.Discard(city);
                 _foldCity = null;
-                LogService.LogWarning($"[EmpireCraft] 无小人模式并入普通人失败({city.data?.name}): {exception.Message}");
+                string where = string.Join(" <- ", (exception.StackTrace ?? "").Split('\n')
+                    .Select(line => line.Trim()).Where(line => line.Length > 0).Take(3));
+                LogService.LogWarning(
+                    $"[EmpireCraft] 无小人模式并入普通人失败({city.data?.name}，步骤 {_foldPhase - 1}): {exception.Message} @ {where}");
             }
         }
     }
