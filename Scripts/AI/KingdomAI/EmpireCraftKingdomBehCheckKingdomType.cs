@@ -309,7 +309,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             officeObject.regimeType = regime.type;
             officeObject.meta_object = pKingdom;
             officeObject.is_local = true;
-            if (officeObject.leader_select_method != LeaderSelectMethod.Default)
+            if (officeObject.leader_select_method != LeaderSelectMethod.Default &&
+                !IsHereditaryGarrison(pKingdom, regime))
             {
                 regime.SetLeaderSelectMethod(officeObject.leader_select_method);
             }
@@ -412,6 +413,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
     {
         var regime = kingdom.GetRegime();
         if (regime == null) return KingdomType.LvLing_kingdom;
+        // 军府(节度使、都护府)世袭之后仍是藩镇：照旧称"某某军"，不因父死子继改成封国
+        if (IsHereditaryGarrison(kingdom, regime)) return kingdom.GetKingdomType();
         // A hereditary landed title is a vassal kingdom, never an administrative
         // circuit or military governorship left over from an earlier configuration.
         if (regime.type == RegimeType.LvLing && !kingdom.IsEmpire() && kingdom.HasMainTitle() &&
@@ -437,6 +440,16 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         }
         return  regime.default_kingdom;
     }
+    // 已是军府、节度使改为世袭(仍有外交与兵权)的藩镇
+    public static bool IsHereditaryGarrison(Kingdom kingdom, Regime regime)
+    {
+        if (kingdom == null || regime == null || regime.type != RegimeType.LvLing || kingdom.IsEmpire() ||
+            !kingdom.IsInEmpire() || regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession ||
+            !regime.IsAllowDiplomacy()) return false;
+        KingdomType current = kingdom.GetKingdomType();
+        return current == KingdomType.LvLing_jiedushi || current == KingdomType.LvLing_duhufu;
+    }
+
     private static int GetOption(Regime regime, ConditionType key)
     {
         if (regime?.options == null) return 0;
